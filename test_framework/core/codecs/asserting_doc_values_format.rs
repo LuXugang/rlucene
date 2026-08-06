@@ -19,6 +19,7 @@ use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
+use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -369,7 +370,8 @@ where
   DVP: DocValuesProducer,
 {
   in_: Arc<DVP>,
-  field_infos: Arc<FieldInfos>,
+  asserting: bool,
+  field_infos: Option<Arc<FieldInfos>>,
   max_doc: i32,
   merging: bool,
   creation_thread: ThreadId,
@@ -382,9 +384,21 @@ where
   fn new(in_: DVP, field_infos: Arc<FieldInfos>, max_doc: i32, merging: bool) -> Self {
     Self {
       in_: Arc::new(in_),
-      field_infos,
+      asserting: true,
+      field_infos: Some(field_infos),
       max_doc,
       merging,
+      creation_thread: std::thread::current().id(),
+    }
+  }
+
+  pub(crate) fn new_default(in_: DVP) -> Self {
+    Self {
+      in_: Arc::new(in_),
+      asserting: false,
+      field_infos: None,
+      max_doc: 0,
+      merging: false,
       creation_thread: std::thread::current().id(),
     }
   }
@@ -396,7 +410,11 @@ where
 {
   fn close(&self) -> Result<()> {
     self.in_.close()?;
-    self.in_.close()
+    if self.asserting {
+      self.in_.close()
+    } else {
+      Ok(())
+    }
   }
 }
 
@@ -407,116 +425,165 @@ where
   type NumericDocValues = AssertingNumericDocValues<DVP::NumericDocValues>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    assert_eq!(
-      self
-        .field_infos
-        .field_info_by_name(&field.name)?
-        .expect("field must exist")
-        .number,
-      field.number
-    );
-    if self.merging {
-      assert_thread("DocValuesProducer", self.creation_thread);
+    if self.asserting {
+      assert_eq!(
+        self
+          .field_infos
+          .as_ref()
+          .expect("field infos must exist when assertions are enabled")
+          .field_info_by_name(&field.name)?
+          .expect("field must exist")
+          .number,
+        field.number
+      );
+      if self.merging {
+        assert_thread("DocValuesProducer", self.creation_thread);
+      }
+      assert_eq!(field.get_doc_values_type(), &DocValuesType::Numeric);
+      Ok(AssertingNumericDocValues::new(
+        self.in_.get_numeric(field)?,
+        self.max_doc,
+      ))
+    } else {
+      Ok(AssertingNumericDocValues::new_default(
+        self.in_.get_numeric(field)?,
+        self.max_doc,
+      ))
     }
-    assert_eq!(field.get_doc_values_type(), &DocValuesType::Numeric);
-    Ok(AssertingNumericDocValues::new(
-      self.in_.get_numeric(field)?,
-      self.max_doc,
-    ))
   }
 
   type BinaryDocValues = AssertingBinaryDocValues<DVP::BinaryDocValues>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    assert_eq!(
-      self
-        .field_infos
-        .field_info_by_name(&field.name)?
-        .expect("field must exist")
-        .number,
-      field.number
-    );
-    if self.merging {
-      assert_thread("DocValuesProducer", self.creation_thread);
+    if self.asserting {
+      assert_eq!(
+        self
+          .field_infos
+          .as_ref()
+          .expect("field infos must exist when assertions are enabled")
+          .field_info_by_name(&field.name)?
+          .expect("field must exist")
+          .number,
+        field.number
+      );
+      if self.merging {
+        assert_thread("DocValuesProducer", self.creation_thread);
+      }
+      assert_eq!(field.get_doc_values_type(), &DocValuesType::Binary);
+      Ok(AssertingBinaryDocValues::new(
+        self.in_.get_binary(field)?,
+        self.max_doc,
+      ))
+    } else {
+      Ok(AssertingBinaryDocValues::new_default(
+        self.in_.get_binary(field)?,
+        self.max_doc,
+      ))
     }
-    assert_eq!(field.get_doc_values_type(), &DocValuesType::Binary);
-    Ok(AssertingBinaryDocValues::new(
-      self.in_.get_binary(field)?,
-      self.max_doc,
-    ))
   }
 
   type SortedDocValues = AssertingSortedDocValues<DVP::SortedDocValues>;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-    assert_eq!(
-      self
-        .field_infos
-        .field_info_by_name(&field.name)?
-        .expect("field must exist")
-        .number,
-      field.number
-    );
-    if self.merging {
-      assert_thread("DocValuesProducer", self.creation_thread);
+    if self.asserting {
+      assert_eq!(
+        self
+          .field_infos
+          .as_ref()
+          .expect("field infos must exist when assertions are enabled")
+          .field_info_by_name(&field.name)?
+          .expect("field must exist")
+          .number,
+        field.number
+      );
+      if self.merging {
+        assert_thread("DocValuesProducer", self.creation_thread);
+      }
+      assert_eq!(field.get_doc_values_type(), &DocValuesType::Sorted);
+      AssertingSortedDocValues::new(self.in_.get_sorted(field)?, self.max_doc)
+    } else {
+      AssertingSortedDocValues::new_default(self.in_.get_sorted(field)?, self.max_doc)
     }
-    assert_eq!(field.get_doc_values_type(), &DocValuesType::Sorted);
-    AssertingSortedDocValues::new(self.in_.get_sorted(field)?, self.max_doc)
   }
 
   type SortedNumericDocValues = AssertingSortedNumericDocValues<DVP::SortedNumericDocValues>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-    assert_eq!(
-      self
-        .field_infos
-        .field_info_by_name(&field.name)?
-        .expect("field must exist")
-        .number,
-      field.number
-    );
-    if self.merging {
-      assert_thread("DocValuesProducer", self.creation_thread);
+    if self.asserting {
+      assert_eq!(
+        self
+          .field_infos
+          .as_ref()
+          .expect("field infos must exist when assertions are enabled")
+          .field_info_by_name(&field.name)?
+          .expect("field must exist")
+          .number,
+        field.number
+      );
+      if self.merging {
+        assert_thread("DocValuesProducer", self.creation_thread);
+      }
+      assert_eq!(field.get_doc_values_type(), &DocValuesType::SortedNumeric);
+      AssertingSortedNumericDocValues::create(self.in_.get_sorted_numeric(field)?, self.max_doc)
+    } else {
+      Ok(AssertingSortedNumericDocValues::create_default(
+        self.in_.get_sorted_numeric(field)?,
+      ))
     }
-    assert_eq!(field.get_doc_values_type(), &DocValuesType::SortedNumeric);
-    AssertingSortedNumericDocValues::create(self.in_.get_sorted_numeric(field)?, self.max_doc)
   }
 
   type SortedSetDocValues = AssertingSortedSetDocValues<DVP::SortedSetDocValues>;
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-    assert_eq!(
-      self
-        .field_infos
-        .field_info_by_name(&field.name)?
-        .expect("field must exist")
-        .number,
-      field.number
-    );
-    if self.merging {
-      assert_thread("DocValuesProducer", self.creation_thread);
+    if self.asserting {
+      assert_eq!(
+        self
+          .field_infos
+          .as_ref()
+          .expect("field infos must exist when assertions are enabled")
+          .field_info_by_name(&field.name)?
+          .expect("field must exist")
+          .number,
+        field.number
+      );
+      if self.merging {
+        assert_thread("DocValuesProducer", self.creation_thread);
+      }
+      assert_eq!(field.get_doc_values_type(), &DocValuesType::SortedSet);
+      AssertingSortedSetDocValues::create(self.in_.get_sorted_set(field)?, self.max_doc)
+    } else {
+      Ok(AssertingSortedSetDocValues::create_default(
+        self.in_.get_sorted_set(field)?,
+      ))
     }
-    assert_eq!(field.get_doc_values_type(), &DocValuesType::SortedSet);
-    AssertingSortedSetDocValues::create(self.in_.get_sorted_set(field)?, self.max_doc)
   }
 
-  type DocValuesSkipper = AssertingDocValuesSkipper<DVP::DocValuesSkipper>;
+  type DocValuesSkipper =
+    DocValuesSkipperEnum2<DVP::DocValuesSkipper, AssertingDocValuesSkipper<DVP::DocValuesSkipper>>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-    assert_eq!(
-      self
-        .field_infos
-        .field_info_by_name(&field.name)?
-        .expect("field must exist")
-        .number,
-      field.number
-    );
-    assert!(field.doc_values_skip_index_type() != &DocValuesSkipIndexType::None);
-    let skipper = self
-      .in_
-      .get_skipper(field)?
-      .expect("doc-values skipper must not be None");
-    Ok(Some(AssertingDocValuesSkipper::new(skipper)))
+    if self.asserting {
+      assert_eq!(
+        self
+          .field_infos
+          .as_ref()
+          .expect("field infos must exist when assertions are enabled")
+          .field_info_by_name(&field.name)?
+          .expect("field must exist")
+          .number,
+        field.number
+      );
+      assert!(field.doc_values_skip_index_type() != &DocValuesSkipIndexType::None);
+      let skipper = self
+        .in_
+        .get_skipper(field)?
+        .expect("doc-values skipper must not be None");
+      Ok(Some(DocValuesSkipperEnum2::B(
+        AssertingDocValuesSkipper::new(skipper),
+      )))
+    } else {
+      Ok(self.in_.get_skipper(field)?.map(DocValuesSkipperEnum2::A))
+    }
   }
 
   fn check_integrity(&self) -> Result<()> {
@@ -527,12 +594,14 @@ where
   where
     Self: Sized,
   {
-    let in_ = match self.in_.get_merge_instance()? {
-      Some(in_) => in_,
-      None => self.in_.clone(),
+    let in_ = match (self.in_.get_merge_instance()?, self.asserting) {
+      (Some(in_), _) => in_,
+      (None, true) => self.in_.clone(),
+      (None, false) => return Ok(None),
     };
     Ok(Some(Self {
       in_,
+      asserting: self.asserting,
       field_infos: self.field_infos.clone(),
       max_doc: self.max_doc,
       merging: true,

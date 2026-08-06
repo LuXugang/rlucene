@@ -51,7 +51,7 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::HasIdentity;
@@ -1123,6 +1123,7 @@ pub struct AssertingNumericDocValues<DV>
 where
   DV: NumericDocValues,
 {
+  asserting: bool,
   creation_thread: ThreadId,
   in_: DV,
   max_doc: i32,
@@ -1138,6 +1139,18 @@ where
     // Should start unpositioned.
     assert_eq!(-1, in_.doc_id());
     Self {
+      asserting: true,
+      creation_thread: std::thread::current().id(),
+      in_,
+      max_doc,
+      last_doc_id: -1,
+      exists: false,
+    }
+  }
+
+  pub(crate) fn new_default(in_: DV, max_doc: i32) -> Self {
+    Self {
+      asserting: false,
       creation_thread: std::thread::current().id(),
       in_,
       max_doc,
@@ -1152,37 +1165,51 @@ where
   DV: NumericDocValues,
 {
   fn doc_id(&self) -> i32 {
-    assert_thread("Numeric doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+    }
     self.in_.doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    assert_thread("Numeric doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+    }
     let doc_id = self.in_.next_doc()?;
-    assert!(doc_id > self.last_doc_id);
-    assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
-    assert_eq!(doc_id, self.in_.doc_id());
+    if self.asserting {
+      assert!(doc_id > self.last_doc_id);
+      assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+      assert_eq!(doc_id, self.in_.doc_id());
+    }
     self.last_doc_id = doc_id;
     self.exists = doc_id != NO_MORE_DOCS;
     Ok(doc_id)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    assert_thread("Numeric doc values", self.creation_thread);
-    assert!(target >= 0);
-    assert!(target > self.in_.doc_id());
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+      assert!(target >= 0);
+      assert!(target > self.in_.doc_id());
+    }
     let doc_id = self.in_.advance(target)?;
-    assert!(doc_id >= target);
-    assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+    if self.asserting {
+      assert!(doc_id >= target);
+      assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+    }
     self.last_doc_id = doc_id;
     self.exists = doc_id != NO_MORE_DOCS;
     Ok(doc_id)
   }
 
   fn cost(&self) -> Result<i64> {
-    assert_thread("Numeric doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+    }
     let cost = self.in_.cost()?;
-    assert!(cost >= 0);
+    if self.asserting {
+      assert!(cost >= 0);
+    }
     Ok(cost)
   }
 }
@@ -1192,12 +1219,16 @@ where
   DV: NumericDocValues,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    assert_thread("Numeric doc values", self.creation_thread);
-    assert!(target >= 0);
-    assert!(target >= self.in_.doc_id());
-    assert!(target < self.max_doc);
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+      assert!(target >= 0);
+      assert!(target >= self.in_.doc_id());
+      assert!(target < self.max_doc);
+    }
     self.exists = self.in_.advance_exact(target)?;
-    assert_eq!(target, self.in_.doc_id());
+    if self.asserting {
+      assert_eq!(target, self.in_.doc_id());
+    }
     self.last_doc_id = target;
     Ok(self.exists)
   }
@@ -1208,8 +1239,10 @@ where
   DV: NumericDocValues,
 {
   fn long_value(&mut self) -> Result<i64> {
-    assert_thread("Numeric doc values", self.creation_thread);
-    assert!(self.exists);
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+      assert!(self.exists);
+    }
     self.in_.long_value()
   }
 }
@@ -1219,6 +1252,7 @@ pub struct AssertingBinaryDocValues<DV>
 where
   DV: BinaryDocValues,
 {
+  asserting: bool,
   creation_thread: ThreadId,
   in_: DV,
   max_doc: i32,
@@ -1234,6 +1268,18 @@ where
     // Should start unpositioned.
     assert_eq!(-1, in_.doc_id());
     Self {
+      asserting: true,
+      creation_thread: std::thread::current().id(),
+      in_,
+      max_doc,
+      last_doc_id: -1,
+      exists: false,
+    }
+  }
+
+  pub(crate) fn new_default(in_: DV, max_doc: i32) -> Self {
+    Self {
+      asserting: false,
       creation_thread: std::thread::current().id(),
       in_,
       max_doc,
@@ -1248,37 +1294,51 @@ where
   DV: BinaryDocValues,
 {
   fn doc_id(&self) -> i32 {
-    assert_thread("Binary doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Binary doc values", self.creation_thread);
+    }
     self.in_.doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    assert_thread("Binary doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Binary doc values", self.creation_thread);
+    }
     let doc_id = self.in_.next_doc()?;
-    assert!(doc_id > self.last_doc_id);
-    assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
-    assert_eq!(doc_id, self.in_.doc_id());
+    if self.asserting {
+      assert!(doc_id > self.last_doc_id);
+      assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+      assert_eq!(doc_id, self.in_.doc_id());
+    }
     self.last_doc_id = doc_id;
     self.exists = doc_id != NO_MORE_DOCS;
     Ok(doc_id)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    assert_thread("Binary doc values", self.creation_thread);
-    assert!(target >= 0);
-    assert!(target > self.in_.doc_id());
+    if self.asserting {
+      assert_thread("Binary doc values", self.creation_thread);
+      assert!(target >= 0);
+      assert!(target > self.in_.doc_id());
+    }
     let doc_id = self.in_.advance(target)?;
-    assert!(doc_id >= target);
-    assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+    if self.asserting {
+      assert!(doc_id >= target);
+      assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+    }
     self.last_doc_id = doc_id;
     self.exists = doc_id != NO_MORE_DOCS;
     Ok(doc_id)
   }
 
   fn cost(&self) -> Result<i64> {
-    assert_thread("Binary doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Binary doc values", self.creation_thread);
+    }
     let cost = self.in_.cost()?;
-    assert!(cost >= 0);
+    if self.asserting {
+      assert!(cost >= 0);
+    }
     Ok(cost)
   }
 }
@@ -1288,12 +1348,16 @@ where
   DV: BinaryDocValues,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    assert_thread("Numeric doc values", self.creation_thread);
-    assert!(target >= 0);
-    assert!(target >= self.in_.doc_id());
-    assert!(target < self.max_doc);
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+      assert!(target >= 0);
+      assert!(target >= self.in_.doc_id());
+      assert!(target < self.max_doc);
+    }
     self.exists = self.in_.advance_exact(target)?;
-    assert_eq!(target, self.in_.doc_id());
+    if self.asserting {
+      assert_eq!(target, self.in_.doc_id());
+    }
     self.last_doc_id = target;
     Ok(self.exists)
   }
@@ -1304,8 +1368,10 @@ where
   DV: BinaryDocValues,
 {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    assert_thread("Binary doc values", self.creation_thread);
-    assert!(self.exists);
+    if self.asserting {
+      assert_thread("Binary doc values", self.creation_thread);
+      assert!(self.exists);
+    }
     self.in_.binary_value()
   }
 }
@@ -1315,6 +1381,7 @@ pub struct AssertingSortedDocValues<DV>
 where
   DV: SortedDocValues,
 {
+  asserting: bool,
   creation_thread: ThreadId,
   in_: DV,
   max_doc: i32,
@@ -1331,10 +1398,23 @@ where
     let value_count = in_.get_value_count()?;
     assert!(value_count >= 0 && value_count <= max_doc);
     Ok(Self {
+      asserting: true,
       creation_thread: std::thread::current().id(),
       in_,
       max_doc,
       value_count,
+      last_doc_id: -1,
+      exists: false,
+    })
+  }
+
+  pub(crate) fn new_default(in_: DV, max_doc: i32) -> Result<Self> {
+    Ok(Self {
+      asserting: false,
+      creation_thread: std::thread::current().id(),
+      in_,
+      max_doc,
+      value_count: 0,
       last_doc_id: -1,
       exists: false,
     })
@@ -1346,37 +1426,51 @@ where
   DV: SortedDocValues,
 {
   fn doc_id(&self) -> i32 {
-    assert_thread("Sorted doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+    }
     self.in_.doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    assert_thread("Sorted doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+    }
     let doc_id = self.in_.next_doc()?;
-    assert!(doc_id > self.last_doc_id);
-    assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
-    assert_eq!(doc_id, self.in_.doc_id());
+    if self.asserting {
+      assert!(doc_id > self.last_doc_id);
+      assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+      assert_eq!(doc_id, self.in_.doc_id());
+    }
     self.last_doc_id = doc_id;
     self.exists = doc_id != NO_MORE_DOCS;
     Ok(doc_id)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    assert_thread("Sorted doc values", self.creation_thread);
-    assert!(target >= 0);
-    assert!(target > self.in_.doc_id());
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+      assert!(target >= 0);
+      assert!(target > self.in_.doc_id());
+    }
     let doc_id = self.in_.advance(target)?;
-    assert!(doc_id >= target);
-    assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+    if self.asserting {
+      assert!(doc_id >= target);
+      assert!(doc_id == NO_MORE_DOCS || doc_id < self.max_doc);
+    }
     self.last_doc_id = doc_id;
     self.exists = doc_id != NO_MORE_DOCS;
     Ok(doc_id)
   }
 
   fn cost(&self) -> Result<i64> {
-    assert_thread("Sorted doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+    }
     let cost = self.in_.cost()?;
-    assert!(cost >= 0);
+    if self.asserting {
+      assert!(cost >= 0);
+    }
     Ok(cost)
   }
 }
@@ -1386,12 +1480,16 @@ where
   DV: SortedDocValues,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    assert_thread("Numeric doc values", self.creation_thread);
-    assert!(target >= 0);
-    assert!(target >= self.in_.doc_id());
-    assert!(target < self.max_doc);
+    if self.asserting {
+      assert_thread("Numeric doc values", self.creation_thread);
+      assert!(target >= 0);
+      assert!(target >= self.in_.doc_id());
+      assert!(target < self.max_doc);
+    }
     self.exists = self.in_.advance_exact(target)?;
-    assert_eq!(target, self.in_.doc_id());
+    if self.asserting {
+      assert_eq!(target, self.in_.doc_id());
+    }
     self.last_doc_id = target;
     Ok(self.exists)
   }
@@ -1402,44 +1500,64 @@ where
   DV: SortedDocValues,
 {
   fn ord_value(&mut self) -> Result<i32> {
-    assert_thread("Sorted doc values", self.creation_thread);
-    assert!(self.exists);
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+      assert!(self.exists);
+    }
     let ord = self.in_.ord_value()?;
-    assert!(ord >= -1 && ord < self.value_count);
+    if self.asserting {
+      assert!(ord >= -1 && ord < self.value_count);
+    }
     Ok(ord)
   }
 
   fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    assert_thread("Sorted doc values", self.creation_thread);
-    assert!(ord >= 0 && ord < self.value_count);
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+      assert!(ord >= 0 && ord < self.value_count);
+    }
     let result = self.in_.lookup_ord(ord)?;
-    assert!(result.is_valid()?);
+    if self.asserting {
+      assert!(result.is_valid()?);
+    }
     Ok(result)
   }
 
   fn get_value_count(&self) -> Result<i32> {
-    assert_thread("Sorted doc values", self.creation_thread);
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+    }
     let value_count = self.in_.get_value_count()?;
-    assert_eq!(self.value_count, value_count); // Should not change.
+    if self.asserting {
+      assert_eq!(self.value_count, value_count); // Should not change.
+    }
     Ok(value_count)
   }
 
   fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
-    assert_thread("Sorted doc values", self.creation_thread);
-    assert!(key.is_valid()?);
+    if self.asserting {
+      assert_thread("Sorted doc values", self.creation_thread);
+      assert!(key.is_valid()?);
+    }
     let result = self.in_.lookup_term(key)?;
-    assert!(result < self.value_count);
-    assert!(key.is_valid()?);
+    if self.asserting {
+      assert!(result < self.value_count);
+      assert!(key.is_valid()?);
+    }
     Ok(result)
   }
 
   type TermsEnum<'a>
-    = SortedDocValuesTermsEnum<&'a mut Self>
+    = TermsEnumEnum2<DV::TermsEnum<'a>, SortedDocValuesTermsEnum<&'a mut Self>>
   where
     Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    self.default_terms_enum()
+    if self.asserting {
+      Ok(TermsEnumEnum2::B(self.default_terms_enum()?))
+    } else {
+      Ok(TermsEnumEnum2::A(self.in_.terms_enum()?))
+    }
   }
 }
 
@@ -1448,6 +1566,7 @@ pub enum AssertingSortedNumericDocValues<DV>
 where
   DV: SortedNumericDocValues,
 {
+  Default(DV),
   Multi {
     creation_thread: ThreadId,
     in_: DV,
@@ -1485,6 +1604,10 @@ where
       )?))
     }
   }
+
+  pub(crate) fn create_default(in_: DV) -> Self {
+    Self::Default(in_)
+  }
 }
 
 impl<DV> DocIdSetIterator for AssertingSortedNumericDocValues<DV>
@@ -1493,6 +1616,7 @@ where
 {
   fn doc_id(&self) -> i32 {
     match self {
+      Self::Default(in_) => in_.doc_id(),
       Self::Multi { in_, .. } => in_.doc_id(),
       Self::Single(in_) => in_.doc_id(),
     }
@@ -1500,6 +1624,7 @@ where
 
   fn next_doc(&mut self) -> Result<i32> {
     match self {
+      Self::Default(in_) => in_.next_doc(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1524,6 +1649,7 @@ where
 
   fn advance(&mut self, target: i32) -> Result<i32> {
     match self {
+      Self::Default(in_) => in_.advance(target),
       Self::Multi {
         creation_thread,
         in_,
@@ -1550,6 +1676,7 @@ where
 
   fn cost(&self) -> Result<i64> {
     match self {
+      Self::Default(in_) => in_.cost(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1571,6 +1698,7 @@ where
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
+      Self::Default(in_) => in_.advance_exact(target),
       Self::Multi {
         creation_thread,
         in_,
@@ -1600,6 +1728,7 @@ where
 {
   fn next_value(&mut self) -> Result<i64> {
     match self {
+      Self::Default(in_) => in_.next_value(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1624,6 +1753,7 @@ where
 
   fn doc_value_count(&mut self) -> Result<i32> {
     match self {
+      Self::Default(in_) => in_.doc_value_count(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1641,13 +1771,21 @@ where
   }
 
   fn is_single_valued(&self) -> bool {
-    matches!(self, Self::Single(_))
+    match self {
+      Self::Default(in_) => in_.is_single_valued(),
+      Self::Multi { .. } => false,
+      Self::Single(_) => true,
+    }
   }
 
   type NumericDocValues = AssertingNumericDocValues<DV::NumericDocValues>;
 
   fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
     match self {
+      Self::Default(in_) => Ok(AssertingNumericDocValues::new_default(
+        in_.get_numeric_doc_values()?,
+        i32::MAX,
+      )),
       Self::Multi { .. } => Err(LuceneError::unsupported_operation(
         "sorted numeric doc values are not single-valued",
       )),
@@ -1661,6 +1799,7 @@ pub enum AssertingSortedSetDocValues<DV>
 where
   DV: SortedSetDocValues,
 {
+  Default(DV),
   Multi {
     creation_thread: ThreadId,
     in_: DV,
@@ -1702,6 +1841,10 @@ where
       )?))
     }
   }
+
+  pub(crate) fn create_default(in_: DV) -> Self {
+    Self::Default(in_)
+  }
 }
 
 impl<DV> DocIdSetIterator for AssertingSortedSetDocValues<DV>
@@ -1710,6 +1853,7 @@ where
 {
   fn doc_id(&self) -> i32 {
     match self {
+      Self::Default(in_) => in_.doc_id(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1724,6 +1868,7 @@ where
 
   fn next_doc(&mut self) -> Result<i32> {
     match self {
+      Self::Default(in_) => in_.next_doc(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1749,6 +1894,7 @@ where
 
   fn advance(&mut self, target: i32) -> Result<i32> {
     match self {
+      Self::Default(in_) => in_.advance(target),
       Self::Multi {
         creation_thread,
         in_,
@@ -1776,6 +1922,7 @@ where
 
   fn cost(&self) -> Result<i64> {
     match self {
+      Self::Default(in_) => in_.cost(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1797,6 +1944,7 @@ where
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
+      Self::Default(in_) => in_.advance_exact(target),
       Self::Multi {
         creation_thread,
         in_,
@@ -1827,6 +1975,7 @@ where
 {
   fn next_ord(&mut self) -> Result<i64> {
     match self {
+      Self::Default(in_) => in_.next_ord(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1849,6 +1998,7 @@ where
 
   fn doc_value_count(&mut self) -> Result<i32> {
     match self {
+      Self::Default(in_) => in_.doc_value_count(),
       Self::Multi { in_, .. } => in_.doc_value_count(),
       Self::Single(in_) => in_.doc_value_count(),
     }
@@ -1856,6 +2006,7 @@ where
 
   fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
+      Self::Default(in_) => in_.lookup_ord(ord),
       Self::Multi {
         creation_thread,
         in_,
@@ -1874,6 +2025,7 @@ where
 
   fn get_value_count(&self) -> Result<i64> {
     match self {
+      Self::Default(in_) => in_.get_value_count(),
       Self::Multi {
         creation_thread,
         in_,
@@ -1891,6 +2043,7 @@ where
 
   fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
     match self {
+      Self::Default(in_) => in_.lookup_term(key),
       Self::Multi {
         creation_thread,
         in_,
@@ -1909,22 +2062,32 @@ where
   }
 
   type TermsEnum<'a>
-    = SortedSetDocValuesTermsEnum<&'a mut Self>
+    = TermsEnumEnum2<DV::TermsEnum<'a>, SortedSetDocValuesTermsEnum<&'a mut Self>>
   where
     Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    self.default_terms_enum()
+    match self {
+      Self::Default(in_) => Ok(TermsEnumEnum2::A(in_.terms_enum()?)),
+      Self::Multi { .. } | Self::Single(_) => Ok(TermsEnumEnum2::B(self.default_terms_enum()?)),
+    }
   }
 
   fn is_single_valued(&self) -> bool {
-    matches!(self, Self::Single(_))
+    match self {
+      Self::Default(in_) => in_.is_single_valued(),
+      Self::Multi { .. } => false,
+      Self::Single(_) => true,
+    }
   }
 
   type SortedDocValues = AssertingSortedDocValues<DV::SortedDocValues>;
 
   fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
     match self {
+      Self::Default(in_) => {
+        AssertingSortedDocValues::new_default(in_.get_sorted_doc_values()?, i32::MAX)
+      },
       Self::Multi { .. } => Err(LuceneError::unsupported_operation(
         "sorted set doc values are not single-valued",
       )),

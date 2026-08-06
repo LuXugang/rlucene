@@ -19,7 +19,6 @@ use crate::codec::memory::direct_postings_format::DirectPostingsFormat;
 use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
-use crate::core::codecs::doc_values_producer::DocValuesProducerEnum2;
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
@@ -50,7 +49,9 @@ use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::test_framework::core::codecs::asserting_doc_values_format::AssertingDocValuesFormat;
+use crate::test_framework::core::codecs::asserting_doc_values_format::{
+  AssertingDocValuesFormat, AssertingDocValuesProducer,
+};
 use crate::test_framework::core::codecs::asserting_knn_vectors_format::AssertingKnnVectorsFormat;
 use crate::test_framework::core::codecs::asserting_live_docs_format::AssertingLiveDocsFormat;
 use crate::test_framework::core::codecs::asserting_norms_format::AssertingNormsFormat;
@@ -397,10 +398,8 @@ pub type AssertingCodecDocValuesConsumer<O> = DocValuesConsumerEnum2<
   <MergeRecordingDocValueFormatWrapper as DocValuesFormat>::DocValuesConsumer<O>,
 >;
 
-pub type AssertingCodecDocValuesProducer<I> = DocValuesProducerEnum2<
-  <DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
-  <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
->;
+pub type AssertingCodecDocValuesProducer<I> =
+  AssertingDocValuesProducer<<DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>>;
 
 impl DocValuesFormat for AssertingCodecDocValuesFormat {
   fn get_name(&self) -> &str {
@@ -447,15 +446,13 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
     D2: Directory,
   {
     match self {
-      Self::Default(format) => format
-        .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::A),
-      Self::Asserting(format) => format
-        .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::B),
-      Self::MergeRecording(format) => format
-        .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::A),
+      Self::Default(format) => Ok(AssertingDocValuesProducer::new_default(
+        format.fields_producer(state, segment_info)?,
+      )),
+      Self::Asserting(format) => format.fields_producer(state, segment_info),
+      Self::MergeRecording(format) => Ok(AssertingDocValuesProducer::new_default(
+        format.fields_producer(state, segment_info)?,
+      )),
     }
   }
 
