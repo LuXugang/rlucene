@@ -19,6 +19,7 @@ use crate::core::codecs::Codec;
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::core::codecs::compression::compression_mode::{CompressionMode, CompressionModeEnum};
+use crate::core::codecs::lucene90::deflate_with_preset_dict_compression_mode::DeflateWithPresetDictCompressionMode;
 use crate::core::codecs::lucene90::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::direct_monotonic_writer::{MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT};
@@ -49,9 +50,7 @@ impl CompressingCodec {
   where
     R: Rng + ?Sized,
   {
-    // DeflateWithPresetDictCompressionMode has not been migrated. Only select formats whose Java
-    // compression behavior Rust can currently reproduce.
-    match random.random_range(0..5) {
+    match random.random_range(0..6) {
       0 => Self::new(
         "FastCompressingStoredFieldsData",
         "FastCompressingStoredFields",
@@ -87,6 +86,15 @@ impl CompressingCodec {
       )
       .map(Into::into),
       4 => Self::new(
+        "DeflateWithPresetCompressingStoredFieldsData",
+        "DeflateWithPresetCompressingStoredFields",
+        CompressionModeEnum::DeflateDict(DeflateWithPresetDictCompressionMode),
+        chunk_size,
+        max_docs_per_chunk,
+        with_segment_suffix,
+        block_shift,
+      ),
+      5 => Self::new(
         "LZ4WithPresetCompressingStoredFieldsData",
         "DeflateWithPresetCompressingStoredFields",
         CompressionModeEnum::LZ4Dict(LZ4WithPresetDictCompressionMode),
@@ -206,6 +214,15 @@ impl CompressingCodec {
       "DummyCompressingStoredFieldsData" => {
         DummyCompressingCodec::default_instance().map(Into::into)
       },
+      "DeflateWithPresetCompressingStoredFieldsData" => Self::new(
+        "DeflateWithPresetCompressingStoredFieldsData",
+        "DeflateWithPresetCompressingStoredFields",
+        CompressionModeEnum::DeflateDict(DeflateWithPresetDictCompressionMode),
+        1 << 18,
+        512,
+        false,
+        10,
+      ),
       "LZ4WithPresetCompressingStoredFieldsData" => Self::new(
         "LZ4WithPresetCompressingStoredFieldsData",
         "DeflateWithPresetCompressingStoredFields",

@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
-use crate::core::codecs::compression::compression_mode::{
-  CompressionModeEnum, DeflateCompressionMode,
-};
+use crate::core::codecs::compression::compression_mode::CompressionModeEnum;
+use crate::core::codecs::lucene90::deflate_with_preset_dict_compression_mode::DeflateWithPresetDictCompressionMode;
 use crate::core::codecs::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
 use crate::core::codecs::stored_fields_format::StoredFieldsFormat;
 
@@ -203,7 +202,7 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
 }
 /// Compression mode for [`Mode::BestCompression`].
 static BEST_COMPRESSION_MODE: CompressionModeEnum =
-  CompressionModeEnum::Deflate(DeflateCompressionMode);
+  CompressionModeEnum::DeflateDict(DeflateWithPresetDictCompressionMode);
 /// Compression mode for [`Mode::BestSpeed`].
 static BEST_SPEED_MODE: CompressionModeEnum =
   CompressionModeEnum::LZ4Dict(LZ4WithPresetDictCompressionMode);

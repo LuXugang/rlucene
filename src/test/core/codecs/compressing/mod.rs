@@ -16,6 +16,7 @@
  */
 
 mod abstract_test_compression_mod;
+mod test_deflate_with_preset_dict_compression_mode;
 mod test_fast_compression_mode;
 mod test_fast_decompression_mode;
 mod test_high_compression_mode;

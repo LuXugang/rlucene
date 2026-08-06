@@ -16,6 +16,7 @@
  */
 pub mod block_tree;
 pub mod compressing;
+pub mod deflate_with_preset_dict_compression_mode;
 pub mod doc_values_enum;
 pub mod dov_values_inner_enum;
 mod fields_index;

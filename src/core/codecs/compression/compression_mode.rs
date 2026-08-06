@@ -23,6 +23,10 @@ use flate2::write::DeflateEncoder;
 
 use crate::core::codecs::compression::compressor::Compressor;
 use crate::core::codecs::compression::decompressor::Decompressor;
+use crate::core::codecs::lucene90::deflate_with_preset_dict_compression_mode::{
+  DeflateWithPresetDictCompressionMode, DeflateWithPresetDictCompressor,
+  DeflateWithPresetDictDecompressor,
+};
 use crate::core::codecs::lz4_with_preset_dict_compression_mode::{
   LZ4WithPresetDictCompressionMode, LZ4WithPresetDictCompressor, LZ4WithPresetDictDecompressor,
 };
@@ -158,6 +162,7 @@ pub enum CompressionModeEnum {
   Fast(LZ4FastCompressionMode),
   High(LZ4HighCompressionMode),
   Deflate(DeflateCompressionMode),
+  DeflateDict(DeflateWithPresetDictCompressionMode),
   LZ4Dict(LZ4WithPresetDictCompressionMode),
   Impl(NoCompression),
   #[cfg(test)]
@@ -170,6 +175,7 @@ impl Display for CompressionModeEnum {
       CompressionModeEnum::Fast(mode) => write!(f, "{mode}"),
       CompressionModeEnum::High(mode) => write!(f, "{mode}"),
       CompressionModeEnum::Deflate(mode) => write!(f, "{mode}"),
+      CompressionModeEnum::DeflateDict(mode) => write!(f, "{mode}"),
       CompressionModeEnum::LZ4Dict(mode) => write!(f, "{mode}"),
       CompressionModeEnum::Impl(mode) => write!(f, "{mode}"),
       #[cfg(test)]
@@ -184,6 +190,7 @@ impl CompressionModeBase for CompressionModeEnum {
       CompressionModeEnum::Fast(mode) => mode.new_compressor(),
       CompressionModeEnum::High(mode) => mode.new_compressor(),
       CompressionModeEnum::Deflate(mode) => mode.new_compressor(),
+      CompressionModeEnum::DeflateDict(mode) => mode.new_compressor(),
       CompressionModeEnum::LZ4Dict(mode) => mode.new_compressor(),
       CompressionModeEnum::Impl(mode) => mode.new_compressor(),
       #[cfg(test)]
@@ -196,6 +203,7 @@ impl CompressionModeBase for CompressionModeEnum {
       CompressionModeEnum::Fast(mode) => mode.new_decompressor(),
       CompressionModeEnum::High(mode) => mode.new_decompressor(),
       CompressionModeEnum::Deflate(mode) => mode.new_decompressor(),
+      CompressionModeEnum::DeflateDict(mode) => mode.new_decompressor(),
       CompressionModeEnum::LZ4Dict(mode) => mode.new_decompressor(),
       CompressionModeEnum::Impl(mode) => mode.new_decompressor(),
       #[cfg(test)]
@@ -209,6 +217,7 @@ impl Clone for CompressionModeEnum {
       CompressionModeEnum::Fast(mode) => CompressionModeEnum::Fast(mode.clone()),
       CompressionModeEnum::High(mode) => CompressionModeEnum::High(mode.clone()),
       CompressionModeEnum::Deflate(mode) => CompressionModeEnum::Deflate(mode.clone()),
+      CompressionModeEnum::DeflateDict(mode) => CompressionModeEnum::DeflateDict(mode.clone()),
       CompressionModeEnum::LZ4Dict(mode) => CompressionModeEnum::LZ4Dict(mode.clone()),
       CompressionModeEnum::Impl(mode) => CompressionModeEnum::Impl(mode.clone()),
       #[cfg(test)]
@@ -222,6 +231,7 @@ impl PartialEq for CompressionModeEnum {
       (Self::Fast(_), Self::Fast(_))
       | (Self::High(_), Self::High(_))
       | (Self::Deflate(_), Self::Deflate(_))
+      | (Self::DeflateDict(_), Self::DeflateDict(_))
       | (Self::LZ4Dict(_), Self::LZ4Dict(_))
       | (Self::Impl(_), Self::Impl(_)) => true,
       #[cfg(test)]
@@ -272,6 +282,7 @@ impl Decompressor for LZ4Decompressor {
 pub enum DecompressorEnum {
   LZ4(LZ4Decompressor),
   Deflate(DeflateDecompressor),
+  DeflateDict(DeflateWithPresetDictDecompressor),
   LZ4Dict(LZ4WithPresetDictDecompressor),
   Impl1(DecompressorImpl),
   #[cfg(test)]
@@ -283,6 +294,9 @@ impl Clone for DecompressorEnum {
     match self {
       DecompressorEnum::LZ4(decompressor) => DecompressorEnum::LZ4(decompressor.clone()),
       DecompressorEnum::Deflate(decompressor) => DecompressorEnum::Deflate(decompressor.clone()),
+      DecompressorEnum::DeflateDict(decompressor) => {
+        DecompressorEnum::DeflateDict(decompressor.clone())
+      },
       DecompressorEnum::LZ4Dict(decompressor) => DecompressorEnum::LZ4Dict(decompressor.clone()),
       DecompressorEnum::Impl1(decompressor) => DecompressorEnum::Impl1(decompressor.clone()),
       #[cfg(test)]
@@ -305,6 +319,9 @@ impl Decompressor for DecompressorEnum {
         decompressor.decompress(input, original_length, offset, length, bytes)
       },
       DecompressorEnum::Deflate(decompressor) => {
+        decompressor.decompress(input, original_length, offset, length, bytes)
+      },
+      DecompressorEnum::DeflateDict(decompressor) => {
         decompressor.decompress(input, original_length, offset, length, bytes)
       },
       DecompressorEnum::LZ4Dict(decompressor) => {
@@ -471,6 +488,7 @@ pub enum CompressorEnum {
   LZ4Fast(LZ4FastCompressor),
   LZ4High(LZ4HighCompressor),
   Deflate(DeflateCompressor),
+  DeflateDict(DeflateWithPresetDictCompressor),
   LZ4Dict(LZ4WithPresetDictCompressor),
   Impl1(CompressorImpl),
   #[cfg(test)]
@@ -483,6 +501,7 @@ impl Closeable for CompressorEnum {
       CompressorEnum::LZ4Fast(compressor) => compressor.close(),
       CompressorEnum::LZ4High(compressor) => compressor.close(),
       CompressorEnum::Deflate(compressor) => compressor.close(),
+      CompressorEnum::DeflateDict(compressor) => compressor.close(),
       CompressorEnum::LZ4Dict(compressor) => compressor.close(),
       CompressorEnum::Impl1(compressor) => compressor.close(),
       #[cfg(test)]
@@ -501,6 +520,7 @@ impl Compressor for CompressorEnum {
       CompressorEnum::LZ4Fast(compressor) => compressor.compress(buffers_input, out),
       CompressorEnum::LZ4High(compressor) => compressor.compress(buffers_input, out),
       CompressorEnum::Deflate(compressor) => compressor.compress(buffers_input, out),
+      CompressorEnum::DeflateDict(compressor) => compressor.compress(buffers_input, out),
       CompressorEnum::LZ4Dict(compressor) => compressor.compress(buffers_input, out),
       CompressorEnum::Impl1(compressor) => compressor.compress(buffers_input, out),
       #[cfg(test)]
