@@ -133,9 +133,13 @@ impl FieldBase for TextField {
   where
     T: Into<String>,
   {
-    self.has_stored_value = true;
     self.parent_field.set_string_value(value)?;
+    self.has_stored_value = true;
     Ok(())
+  }
+
+  fn set_reader_value(&mut self, value: ReaderEnum) -> Result<()> {
+    self.parent_field.set_reader_value(value)
   }
 }
 impl IndexableField for TextField {

@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
+use crate::core::analysis::reader::StringReader;
+use crate::core::analysis::token_stream::TokenStream;
 use crate::core::document::document::Document;
 use crate::core::document::field::{Field, FieldBase, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::document::fields::FieldTokenStreamEnum;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
+use crate::core::document::string_field::TYPE_STORED as STRING_TYPE_STORED;
 use crate::core::document::text_field::TextField;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
@@ -37,6 +41,7 @@ use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 
 #[allow(dead_code)] // for quick search
@@ -417,8 +422,19 @@ fn test_field_set_value() -> Result<()> {
 }
 
 #[test]
-fn test_invalid_fields() {
-  // TODO : MockTokenizer not implement
+fn test_invalid_fields() -> Result<()> {
+  let random = random();
+  let mut tokenizer = MockTokenizer::new(random);
+  tokenizer.set_reader(StringReader::new("").into())?;
+  assert!(matches!(
+    Field::from_token_stream(
+      "foo",
+      FieldTokenStreamEnum::custom(tokenizer),
+      STRING_TYPE_STORED.clone(),
+    ),
+    Err(LuceneError::IllegalArgument(_))
+  ));
+  Ok(())
 }
 
 #[test]

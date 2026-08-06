@@ -17,6 +17,9 @@
 mod test_doc_values_long_hash_set;
 mod test_field;
 
+mod base_lat_lon_doc_value_test_case;
+mod base_lat_lon_point_test_case;
+mod base_lat_lon_spatial_test_case;
 mod base_shape_encoding_test_case;
 pub(crate) mod base_spatial_test_case;
 mod test_binary_document;
@@ -29,9 +32,13 @@ mod test_inet_address_point;
 mod test_int_range;
 mod test_keyword_field;
 mod test_lat_lon_doc_values_field;
+mod test_lat_lon_doc_values_multi_point_point_queries;
+mod test_lat_lon_doc_values_point_point_queries;
+mod test_lat_lon_multi_point_point_queries;
 mod test_lat_lon_point;
 mod test_lat_lon_point_distance_feature_query;
 mod test_lat_lon_point_distance_sort;
+mod test_lat_lon_point_point_queries;
 mod test_lat_lon_shape_encoding;
 mod test_long_range;
 mod test_many_knn_docs;

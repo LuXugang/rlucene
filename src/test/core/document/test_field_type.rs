@@ -24,10 +24,11 @@ use rand::RngExt;
 use crate::core::document::field_type::FieldType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 #[allow(dead_code)] // for quick search
 struct TestFieldType;
@@ -90,13 +91,26 @@ fn test_points_to_string() -> Result<()> {
 
 #[test]
 fn test_attribute_map_frozen() -> Result<()> {
-  // FieldType::put_attribute does not need to be implemented, so neither does this test.
+  let mut ft = FieldType::new();
+  ft.put_attribute("dummy", "d")?;
+  ft.freeze();
+  assert!(matches!(
+    ft.put_attribute("dummy", "a"),
+    Err(LuceneError::IllegalState(_))
+  ));
   Ok(())
 }
 
 #[test]
 fn test_attribute_map_not_frozen() -> Result<()> {
-  // FieldType::put_attribute does not need to be implemented, so neither does this test.
+  let mut ft = FieldType::new();
+  ft.put_attribute("dummy", "d")?;
+  ft.put_attribute("dummy", "a")?;
+  let attributes = ft
+    .get_attributes()
+    .expect("put_attribute must create the attribute map");
+  assert_eq!(attributes.len(), 1);
+  assert_eq!(attributes.get("dummy").map(String::as_str), Some("a"));
   Ok(())
 }
 

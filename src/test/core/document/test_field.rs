@@ -69,7 +69,6 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::analysis::canned_token_stream::CannedTokenStream;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
-use std::sync::Arc;
 use std::vec;
 #[allow(dead_code)] // for quick search
 struct TestField;
@@ -1362,7 +1361,7 @@ fn test_text_field_string() -> Result<()> {
     ));
     assert!(matches!(
       try_set_reader_value(&mut field),
-      Err(LuceneError::NotImplemented(_))
+      Err(LuceneError::IllegalArgument(_))
     ));
     assert!(matches!(
       try_set_short_value(&mut field),
@@ -1392,7 +1391,55 @@ fn test_text_field_string() -> Result<()> {
 
 #[test]
 fn test_text_field_reader() -> Result<()> {
-  // TODO
+  let mut field = TextField::from_reader("foo", "bar")?;
+
+  assert!(matches!(
+    try_set_byte_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  assert!(matches!(
+    try_set_bytes_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  assert!(matches!(
+    try_set_bytes_ref_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  assert!(matches!(
+    try_set_double_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  assert!(matches!(
+    try_set_int_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  assert!(matches!(
+    try_set_float_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  assert!(matches!(
+    try_set_long_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  let mut reader = ReusableStringReader::new();
+  reader.set_value("foobar");
+  field.set_reader_value(ReaderEnum::ReusedString(reader))?;
+  assert!(matches!(
+    try_set_short_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+  assert!(matches!(
+    try_set_string_value(&mut field),
+    Err(LuceneError::IllegalArgument(_))
+  ));
+  assert!(matches!(
+    try_set_token_stream_value(&mut field),
+    Err(LuceneError::NotImplemented(_))
+  ));
+
+  assert!(field.take_reader_value()?.is_some());
+  assert!(field.stored_value().is_none());
+
   Ok(())
 }
 
@@ -1862,7 +1909,7 @@ where
   let mut reader = ReusableStringReader::new();
   reader.set_value("BOO!");
   let read = ReaderEnum::ReusedString(reader);
-  f.set_reader_value(Arc::from(read))
+  f.set_reader_value(read)
 }
 
 fn try_set_short_value<F>(f: &mut F) -> Result<()>

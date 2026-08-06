@@ -37,7 +37,6 @@ use crate::{either_token_stream, impl_from_for_enum};
 use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug, Display};
-use std::sync::Arc;
 
 /// Expert: directly creates a field for a document. Most users should use one
 /// of the convenience implementations:
@@ -732,7 +731,7 @@ pub trait FieldBase {
       "set_string_value not implement",
     ))
   }
-  fn set_reader_value(&mut self, _value: Arc<ReaderEnum>) -> Result<()> {
+  fn set_reader_value(&mut self, _value: ReaderEnum) -> Result<()> {
     Err(LuceneError::not_implemented(
       "set_reader_value not implement",
     ))

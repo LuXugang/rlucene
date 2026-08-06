@@ -59,6 +59,7 @@ pub(crate) mod lat_lon_point_distance_feature_query;
 pub(crate) mod lat_lon_point_distance_query;
 pub(crate) mod lat_lon_point_query;
 pub(crate) mod lat_lon_point_sort_field;
+pub mod lat_lon_shape;
 pub mod long_field;
 pub mod long_point;
 pub mod long_range;
