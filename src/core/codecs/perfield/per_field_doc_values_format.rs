@@ -459,6 +459,42 @@ impl<DVP> FieldsReader<DVP>
 where
   DVP: DocValuesProducer,
 {
+  #[cfg(test)]
+  pub(crate) fn map_producers<T, F>(self, mut mapper: F) -> Result<FieldsReader<T>>
+  where
+    T: DocValuesProducer,
+    F: FnMut(DVP) -> T,
+  {
+    let field_formats: HashMap<i32, *const DVP> = self
+      .fields
+      .into_iter()
+      .map(|(field_number, producer)| (field_number, Arc::as_ptr(&producer)))
+      .collect();
+    let mut old_to_new = HashMap::with_capacity(self.formats.len());
+    let mut formats = HashMap::with_capacity(self.formats.len());
+    for (segment_suffix, producer) in self.formats {
+      let old_ptr = Arc::as_ptr(&producer);
+      let producer = Arc::try_unwrap(producer).map_err(|_| {
+        LuceneError::illegal_state(format!(
+          "doc values producer for segment suffix {segment_suffix} is still shared"
+        ))
+      })?;
+      let producer = Arc::new(mapper(producer));
+      old_to_new.insert(old_ptr, Arc::clone(&producer));
+      formats.insert(segment_suffix, producer);
+    }
+    let mut fields = HashMap::with_capacity(field_formats.len());
+    for (field_number, old_ptr) in field_formats {
+      let producer = old_to_new.get(&old_ptr).ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field number: {field_number}"
+        ))
+      })?;
+      fields.insert(field_number, Arc::clone(producer));
+    }
+    Ok(FieldsReader { fields, formats })
+  }
+
   // Clone for merge.
   fn from_other(other: &Self) -> Result<Self> {
     let mut fields = HashMap::with_capacity(other.fields.len());

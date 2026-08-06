@@ -24,8 +24,6 @@ use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 #[cfg(test)]
-use crate::core::codecs::doc_values_producer::DocValuesProducerEnum2;
-#[cfg(test)]
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 #[cfg(test)]
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
@@ -106,6 +104,8 @@ use crate::core::{
 };
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
+#[cfg(test)]
+use crate::test_framework::core::codecs::asserting_doc_values_format::AssertingDocValuesProducer;
 #[cfg(test)]
 use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 #[cfg(test)]
@@ -618,10 +618,8 @@ pub type CodecDocValuesConsumer<O> = DocValuesConsumerEnum2<
 pub type CodecDocValuesProducer<I> =
   <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>;
 #[cfg(test)]
-pub type CodecDocValuesProducer<I> = DocValuesProducerEnum2<
-  <Lucene101CodecDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
-  <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
->;
+pub type CodecDocValuesProducer<I> =
+  <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>;
 
 pub type CodecNumericDocValues<I> =
   <CodecDocValuesProducer<I> as DocValuesProducer>::NumericDocValues;
@@ -759,25 +757,21 @@ impl DocValuesFormat for CodecDocValuesFormat {
         {
           format
             .fields_producer(state, segment_info)
-            .map(DocValuesProducerEnum2::A)
+            .and_then(|reader| reader.map_producers(AssertingDocValuesProducer::new_default))
         }
       },
       #[cfg(test)]
-      Self::Asserting(format) => format
-        .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::B),
+      Self::Asserting(format) => format.fields_producer(state, segment_info),
       #[cfg(test)]
       Self::MergePerField(format) => format
         .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::A),
+        .and_then(|reader| reader.map_producers(AssertingDocValuesProducer::new_default)),
       #[cfg(test)]
       Self::CrankyLucene101(format) => format
         .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::A),
+        .and_then(|reader| reader.map_producers(AssertingDocValuesProducer::new_default)),
       #[cfg(test)]
-      Self::CrankyAsserting(format) => format
-        .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::B),
+      Self::CrankyAsserting(format) => format.fields_producer(state, segment_info),
     }
   }
 
