@@ -288,11 +288,8 @@ pub type AssertingCodecDocValuesConsumer<O> = DocValuesConsumerEnum2<
 >;
 
 pub type AssertingCodecDocValuesProducer<I> = DocValuesProducerEnum2<
-  DocValuesProducerEnum2<
-    <DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
-    <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
-  >,
-  <MergeRecordingDocValueFormatWrapper as DocValuesFormat>::DocValuesProducer<I>,
+  <DefaultDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
+  <AssertingDocValuesFormat as DocValuesFormat>::DocValuesProducer<I>,
 >;
 
 impl DocValuesFormat for AssertingCodecDocValuesFormat {
@@ -342,13 +339,13 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
     match self {
       Self::Default(format) => format
         .fields_producer(state, segment_info)
-        .map(|producer| DocValuesProducerEnum2::A(DocValuesProducerEnum2::A(producer))),
+        .map(DocValuesProducerEnum2::A),
       Self::Asserting(format) => format
         .fields_producer(state, segment_info)
-        .map(|producer| DocValuesProducerEnum2::A(DocValuesProducerEnum2::B(producer))),
+        .map(DocValuesProducerEnum2::B),
       Self::MergeRecording(format) => format
         .fields_producer(state, segment_info)
-        .map(DocValuesProducerEnum2::B),
+        .map(DocValuesProducerEnum2::A),
     }
   }
 
