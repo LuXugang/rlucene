@@ -300,6 +300,7 @@ where
 {
   in_: T,
   creation_thread: ThreadId,
+  asserting: bool,
 }
 
 impl<T> AssertingTerms<T>
@@ -310,6 +311,15 @@ where
     Self {
       in_,
       creation_thread: std::thread::current().id(),
+      asserting: true,
+    }
+  }
+
+  pub(crate) fn new_default(in_: T) -> Self {
+    Self {
+      in_,
+      creation_thread: std::thread::current().id(),
+      asserting: false,
     }
   }
 }
@@ -321,6 +331,9 @@ where
   type TermsEnum = AssertingTermsEnum<T::TermsEnum>;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
+    if !self.asserting {
+      return self.in_.iterator().map(AssertingTermsEnum::new_default);
+    }
     assert_thread("Terms", self.creation_thread);
     Ok(AssertingTermsEnum::new(
       self.in_.iterator()?,
@@ -335,6 +348,12 @@ where
     compiled: &CompiledAutomaton,
     start_term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Self::IntersectIter> {
+    if !self.asserting {
+      return self
+        .in_
+        .intersect(compiled, start_term)
+        .map(AssertingTermsEnum::new_default);
+    }
     assert_thread("Terms", self.creation_thread);
     let terms_enum = self.in_.intersect(compiled, start_term)?;
     if let Some(start_term) = start_term {
@@ -348,6 +367,9 @@ where
   }
 
   fn get_sum_total_term_freq(&self) -> Result<i64> {
+    if !self.asserting {
+      return self.in_.get_sum_total_term_freq();
+    }
     assert_thread("Terms", self.creation_thread);
     let sum_total_term_freq = self.in_.get_sum_total_term_freq()?;
     if !self.has_freqs() {
@@ -358,6 +380,9 @@ where
   }
 
   fn get_sum_doc_freq(&self) -> Result<i64> {
+    if !self.asserting {
+      return self.in_.get_sum_doc_freq();
+    }
     assert_thread("Terms", self.creation_thread);
     let sum_doc_freq = self.in_.get_sum_doc_freq()?;
     assert!(sum_doc_freq >= self.get_doc_count()? as i64);
@@ -365,6 +390,9 @@ where
   }
 
   fn get_doc_count(&self) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.get_doc_count();
+    }
     assert_thread("Terms", self.creation_thread);
     let doc_count = self.in_.get_doc_count()?;
     assert!(doc_count > 0);
@@ -388,6 +416,9 @@ where
   }
 
   fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if !self.asserting {
+      return self.in_.get_min();
+    }
     assert_thread("Terms", self.creation_thread);
     let value = self.in_.get_min()?;
     if let Some(term) = value.as_ref() {
@@ -397,6 +428,9 @@ where
   }
 
   fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if !self.asserting {
+      return self.in_.get_max();
+    }
     assert_thread("Terms", self.creation_thread);
     let value = self.in_.get_max()?;
     if let Some(term) = value.as_ref() {
@@ -426,6 +460,7 @@ where
   creation_thread: ThreadId,
   state: AssertingTermsEnumState,
   has_freqs: bool,
+  asserting: bool,
 }
 
 impl<TE> AssertingTermsEnum<TE>
@@ -438,6 +473,17 @@ where
       creation_thread: std::thread::current().id(),
       state: AssertingTermsEnumState::Initial,
       has_freqs,
+      asserting: true,
+    }
+  }
+
+  fn new_default(in_: TE) -> Self {
+    Self {
+      in_,
+      creation_thread: std::thread::current().id(),
+      state: AssertingTermsEnumState::Initial,
+      has_freqs: false,
+      asserting: false,
     }
   }
 
@@ -454,6 +500,9 @@ where
   // TODO: we should separately track if we are "at the end"?
   // Someone should not call next() after it returns `None`!
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if !self.asserting {
+      return self.in_.next();
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert!(
       self.state == AssertingTermsEnumState::Initial
@@ -497,6 +546,9 @@ where
   }
 
   fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
+    if !self.asserting {
+      return self.in_.seek_exact(text);
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -514,6 +566,9 @@ where
   }
 
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    if !self.asserting {
+      return self.in_.prepare_seek_exact(text);
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -529,6 +584,9 @@ where
   }
 
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    if !self.asserting {
+      return self.in_.get_prepare_seek_exact_status(target);
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -545,6 +603,9 @@ where
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    if !self.asserting {
+      return self.in_.seek_ceil(term);
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -562,6 +623,9 @@ where
   }
 
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    if !self.asserting {
+      return self.in_.seek_exact_with_ord(ord);
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -578,6 +642,9 @@ where
     term: &BytesRef<Vec<u8>>,
     state: &TermStateEnum,
   ) -> Result<()> {
+    if !self.asserting {
+      return self.in_.seek_exact_with_state(term, state);
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -591,6 +658,9 @@ where
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    if !self.asserting {
+      return self.in_.term();
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -603,6 +673,9 @@ where
   }
 
   fn ord(&self) -> Result<i64> {
+    if !self.asserting {
+      return self.in_.ord();
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -613,6 +686,9 @@ where
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.doc_freq();
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -625,6 +701,9 @@ where
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
+    if !self.asserting {
+      return self.in_.total_term_freq();
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -647,6 +726,12 @@ where
     reuse: Option<Self::PostingsEnum>,
     flags: i32,
   ) -> Result<Self::PostingsEnum> {
+    if !self.asserting {
+      let reuse = reuse.map(AssertingPostingsEnum::unwrap);
+      return Ok(AssertingPostingsEnum::new_default(
+        self.in_.postings_with_flags(reuse, flags)?,
+      ));
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -674,6 +759,9 @@ where
   type ImpactsEnum = AssertingImpactsEnum<TE::ImpactsEnum>;
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    if !self.asserting {
+      return Ok(AssertingImpactsEnum::new_default(self.in_.impacts(flags)?));
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -689,6 +777,9 @@ where
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
+    if !self.asserting {
+      return self.in_.term_state();
+    }
     assert_thread("Terms enums", self.creation_thread);
     assert_eq!(
       self.state,
@@ -717,6 +808,7 @@ where
   position_count: i32,
   position_max: i32,
   doc: i32,
+  asserting: bool,
 }
 
 impl<PE> AssertingPostingsEnum<PE>
@@ -725,6 +817,19 @@ where
 {
   pub fn new(in_: PE) -> Self {
     Self::with_creation_thread(in_, std::thread::current().id())
+  }
+
+  fn new_default(in_: PE) -> Self {
+    let doc = in_.doc_id();
+    Self {
+      in_,
+      creation_thread: std::thread::current().id(),
+      state: DocsEnumState::Start,
+      position_count: 0,
+      position_max: 0,
+      doc,
+      asserting: false,
+    }
   }
 
   fn with_creation_thread(in_: PE, creation_thread: ThreadId) -> Self {
@@ -736,6 +841,7 @@ where
       position_count: 0,
       position_max: 0,
       doc,
+      asserting: true,
     }
   }
 
@@ -756,6 +862,9 @@ where
   PE: PostingsEnum,
 {
   fn doc_id(&self) -> i32 {
+    if !self.asserting {
+      return self.in_.doc_id();
+    }
     assert_thread("Docs enums", self.creation_thread);
     assert_eq!(
       self.doc,
@@ -766,6 +875,9 @@ where
   }
 
   fn next_doc(&mut self) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.next_doc();
+    }
     assert_thread("Docs enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -793,6 +905,9 @@ where
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.advance(target);
+    }
     assert_thread("Docs enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -832,6 +947,9 @@ where
   PE: PostingsEnum,
 {
   fn freq(&mut self) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.freq();
+    }
     assert_thread("Docs enums", self.creation_thread);
     assert_ne!(
       self.state,
@@ -849,6 +967,9 @@ where
   }
 
   fn next_position(&mut self) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.next_position();
+    }
     assert_ne!(
       self.state,
       DocsEnumState::Start,
@@ -873,6 +994,9 @@ where
   }
 
   fn start_offset(&self) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.start_offset();
+    }
     assert_ne!(
       self.state,
       DocsEnumState::Start,
@@ -891,6 +1015,9 @@ where
   }
 
   fn end_offset(&self) -> Result<i32> {
+    if !self.asserting {
+      return self.in_.end_offset();
+    }
     assert_ne!(
       self.state,
       DocsEnumState::Start,
@@ -909,6 +1036,9 @@ where
   }
 
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    if !self.asserting {
+      return self.in_.get_payload();
+    }
     assert_ne!(
       self.state,
       DocsEnumState::Start,
@@ -936,7 +1066,8 @@ where
 {
   asserting_postings: AssertingPostingsEnum<IE>,
   last_shallow_target: i32,
-  valid_for: Arc<AtomicI32>,
+  valid_for: Option<Arc<AtomicI32>>,
+  asserting: bool,
 }
 
 impl<IE> AssertingImpactsEnum<IE>
@@ -948,18 +1079,32 @@ where
     Self {
       asserting_postings: AssertingPostingsEnum::new(impacts),
       last_shallow_target: -1,
-      valid_for: Arc::new(AtomicI32::new(doc_id.max(-1))),
+      valid_for: Some(Arc::new(AtomicI32::new(doc_id.max(-1)))),
+      asserting: true,
+    }
+  }
+
+  fn new_default(impacts: IE) -> Self {
+    Self {
+      asserting_postings: AssertingPostingsEnum::new_default(impacts),
+      last_shallow_target: -1,
+      valid_for: None,
+      asserting: false,
     }
   }
 
   fn update_valid_for(&self) {
-    self.valid_for.store(
-      self
-        .asserting_postings
-        .doc_id()
-        .max(self.last_shallow_target),
-      Ordering::Relaxed,
-    );
+    self
+      .valid_for
+      .as_ref()
+      .expect("asserting impacts enum must track validity")
+      .store(
+        self
+          .asserting_postings
+          .doc_id()
+          .max(self.last_shallow_target),
+        Ordering::Relaxed,
+      );
   }
 }
 
@@ -968,6 +1113,9 @@ where
   IE: ImpactsEnum,
 {
   fn advance_shallow(&mut self, target: i32) -> Result<()> {
+    if !self.asserting {
+      return self.asserting_postings.in_.advance_shallow(target);
+    }
     assert!(
       target >= self.last_shallow_target,
       "called on decreasing targets: target = {target} < last target = {}",
@@ -989,6 +1137,13 @@ where
     Self: 'a;
 
   fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
+    if !self.asserting {
+      return self
+        .asserting_postings
+        .in_
+        .get_impacts()
+        .map(AssertingImpacts::new_default);
+    }
     assert!(
       self.doc_id() >= 0 || self.last_shallow_target >= 0,
       "Cannot get impacts until the iterator is positioned or advanceShallow has been called"
@@ -998,7 +1153,12 @@ where
     IndexPackageAccessImpl.check_impacts(&impacts, valid_for)?;
     Ok(AssertingImpacts::new(
       impacts,
-      self.valid_for.clone(),
+      Arc::clone(
+        self
+          .valid_for
+          .as_ref()
+          .expect("asserting impacts enum must track validity"),
+      ),
       valid_for,
     ))
   }
@@ -1013,6 +1173,9 @@ where
   }
 
   fn next_doc(&mut self) -> Result<i32> {
+    if !self.asserting {
+      return self.asserting_postings.next_doc();
+    }
     assert!(
       self.doc_id() + 1 >= self.last_shallow_target,
       "target = {} < last shallow target = {}",
@@ -1025,6 +1188,9 @@ where
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
+    if !self.asserting {
+      return self.asserting_postings.advance(target);
+    }
     assert!(
       target >= self.last_shallow_target,
       "target = {target} < last shallow target = {}",
@@ -1072,8 +1238,9 @@ where
   I: Impacts,
 {
   in_: I,
-  current_valid_for: Arc<AtomicI32>,
+  current_valid_for: Option<Arc<AtomicI32>>,
   valid_for: i32,
+  asserting: bool,
 }
 
 impl<I> AssertingImpacts<I>
@@ -1083,15 +1250,29 @@ where
   fn new(in_: I, current_valid_for: Arc<AtomicI32>, valid_for: i32) -> Self {
     Self {
       in_,
-      current_valid_for,
+      current_valid_for: Some(current_valid_for),
       valid_for,
+      asserting: true,
+    }
+  }
+
+  fn new_default(in_: I) -> Self {
+    Self {
+      in_,
+      current_valid_for: None,
+      valid_for: -1,
+      asserting: false,
     }
   }
 
   fn assert_still_valid(&self) {
     assert_eq!(
       self.valid_for,
-      self.current_valid_for.load(Ordering::Relaxed),
+      self
+        .current_valid_for
+        .as_ref()
+        .expect("asserting impacts must track validity")
+        .load(Ordering::Relaxed),
       "Cannot reuse impacts after advancing the iterator"
     );
   }
@@ -1102,17 +1283,23 @@ where
   I: Impacts,
 {
   fn num_levels(&self) -> i32 {
-    self.assert_still_valid();
+    if self.asserting {
+      self.assert_still_valid();
+    }
     self.in_.num_levels()
   }
 
   fn get_doc_id_upto(&self, level: i32) -> i32 {
-    self.assert_still_valid();
+    if self.asserting {
+      self.assert_still_valid();
+    }
     self.in_.get_doc_id_upto(level)
   }
 
   fn get_impacts(&self, level: i32) -> Result<Vec<crate::core::index::impact::Impact>> {
-    self.assert_still_valid();
+    if self.asserting {
+      self.assert_still_valid();
+    }
     // Rust's Vec always provides random access.
     self.in_.get_impacts(level)
   }

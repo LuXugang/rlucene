@@ -27,8 +27,6 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 #[cfg(test)]
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
-#[cfg(test)]
-use crate::core::codecs::fields_producer::FieldsProducerEnum2;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 #[cfg(test)]
 use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
@@ -103,7 +101,9 @@ use crate::core::{
   index::byte_vector_values::ByteVectorValues, index::float_vector_values::FloatVectorValues,
 };
 #[cfg(test)]
-use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
+use crate::test_framework::core::codecs::asserting_codec::{
+  AssertingCodec, AssertingCodecFieldsProducer,
+};
 #[cfg(test)]
 use crate::test_framework::core::codecs::asserting_doc_values_format::AssertingDocValuesProducer;
 #[cfg(test)]
@@ -422,10 +422,8 @@ pub type CodecFieldsConsumer<O> = FieldsConsumerEnum2<
 pub type CodecFieldsProducer<I> =
   <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsProducer<I>;
 #[cfg(test)]
-pub type BaseCodecFieldsProducer<I> = FieldsProducerEnum2<
-  <Lucene101CodecPostingsFormat as PostingsFormat>::FieldsProducer<I>,
-  <AssertingPostingsFormat as PostingsFormat>::FieldsProducer<I>,
->;
+pub type BaseCodecFieldsProducer<I> =
+  <AssertingPostingsFormat as PostingsFormat>::FieldsProducer<I>;
 #[cfg(test)]
 pub type CodecFieldsProducer<I> = BaseCodecFieldsProducer<I>;
 
@@ -478,19 +476,15 @@ impl CodecPostingsFormat {
     match self {
       Self::Lucene101(format) => format
         .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::A),
-      Self::Asserting(format) => format
-        .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::B),
+        .and_then(|reader| reader.map_producers(AssertingCodecFieldsProducer::default)),
+      Self::Asserting(format) => format.fields_producer(state, segment_info),
       Self::MergePerField(format) => format
         .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::A),
+        .and_then(|reader| reader.map_producers(AssertingCodecFieldsProducer::default)),
       Self::CrankyLucene101(format) => format
         .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::A),
-      Self::CrankyAsserting(format) => format
-        .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::B),
+        .and_then(|reader| reader.map_producers(AssertingCodecFieldsProducer::default)),
+      Self::CrankyAsserting(format) => format.fields_producer(state, segment_info),
       Self::InvertedWrite(_) => Err(LuceneError::illegal_state(
         "InvertedWritePostingsFormat cannot wrap itself",
       )),

@@ -172,7 +172,7 @@ impl<I> AssertingCodecFieldsProducer<I>
 where
   I: IndexInput,
 {
-  fn default(in_: DefaultAssertingCodecFieldsProducer<I>) -> Self {
+  pub(crate) fn default(in_: DefaultAssertingCodecFieldsProducer<I>) -> Self {
     Self {
       in_: FieldsProducerEnum2::A(in_),
       hook: AssertingCodecFieldsProducerHook::Default,
@@ -220,24 +220,21 @@ where
     self.in_.iterator()
   }
 
-  type Terms = TermsEnum2<
-    <AssertingCodecFieldsProducerInner<I> as Fields>::Terms,
-    AssertingTerms<<DefaultAssertingCodecFieldsProducer<I> as Fields>::Terms>,
-  >;
+  type Terms = AssertingTerms<<AssertingCodecFieldsProducerInner<I> as Fields>::Terms>;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match (&self.hook, &self.in_) {
       (AssertingCodecFieldsProducerHook::Asserting, FieldsProducerEnum2::A(in_)) => Ok(
         in_
           .terms(field)?
-          .map(AssertingTerms::new)
-          .map(TermsEnum2::B),
+          .map(TermsEnum2::A)
+          .map(AssertingTerms::new),
       ),
       (AssertingCodecFieldsProducerHook::Asserting, FieldsProducerEnum2::B(_)) => {
         unreachable!("asserting hook must wrap the default postings producer")
       },
       (AssertingCodecFieldsProducerHook::Default, _) => {
-        Ok(self.in_.terms(field)?.map(TermsEnum2::A))
+        Ok(self.in_.terms(field)?.map(AssertingTerms::new_default))
       },
     }
   }

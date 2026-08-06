@@ -427,6 +427,45 @@ impl<FP> FieldsReader<FP>
 where
   FP: FieldsProducer,
 {
+  #[cfg(test)]
+  pub(crate) fn map_producers<T, F>(self, mut mapper: F) -> Result<FieldsReader<T>>
+  where
+    T: FieldsProducer,
+    F: FnMut(FP) -> T,
+  {
+    let field_formats: HashMap<String, *const FP> = self
+      .fields
+      .into_iter()
+      .map(|(field, producer)| (field, Arc::as_ptr(&producer)))
+      .collect();
+    let mut old_to_new = HashMap::with_capacity(self.formats.len());
+    let mut formats = HashMap::with_capacity(self.formats.len());
+    for (segment_suffix, producer) in self.formats {
+      let old_ptr = Arc::as_ptr(&producer);
+      let producer = Arc::try_unwrap(producer).map_err(|_| {
+        LuceneError::illegal_state(format!(
+          "postings producer for segment suffix {segment_suffix} is still shared"
+        ))
+      })?;
+      let producer = Arc::new(mapper(producer));
+      old_to_new.insert(old_ptr, Arc::clone(&producer));
+      formats.insert(segment_suffix, producer);
+    }
+    let mut fields = HashMap::with_capacity(field_formats.len());
+    for (field, old_ptr) in field_formats {
+      let producer = old_to_new.get(&old_ptr).ok_or_else(|| {
+        LuceneError::illegal_state(format!("missing postings producer for field: {field}"))
+      })?;
+      fields.insert(field, Arc::clone(producer));
+    }
+    Ok(FieldsReader {
+      fields,
+      field_names: self.field_names,
+      formats,
+      segment: self.segment,
+    })
+  }
+
   // Clone for merge.
   fn from_other(other: &Self) -> Result<Self> {
     let mut fields = HashMap::with_capacity(other.fields.len());
