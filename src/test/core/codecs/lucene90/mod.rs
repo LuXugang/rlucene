@@ -23,6 +23,7 @@ mod test_lucene90_doc_values_format_variable_skip_interval;
 
 mod lucene90_live_docs_format;
 mod test_lucene90_compound_format;
+mod test_lucene90_field_infos_format;
 pub mod test_lucene90_norms_format;
 mod test_lucene90_norms_format_merge_instance;
 mod test_lucene90_points_format;

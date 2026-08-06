@@ -57,7 +57,10 @@ where
 {
   let mut random = random();
   let test = TestLucene94FieldInfosFormat;
-  f(&test, &mut random)
+  let codec_guard = test.set_up()?;
+  let result = f(&test, &mut random);
+  test.tear_down(codec_guard);
+  result
 }
 
 #[test]

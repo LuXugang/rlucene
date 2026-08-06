@@ -25,6 +25,7 @@ use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::point_values::{IntersectVisitor, PointValues, Relation};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::codecs::lucene90::test_lucene90_points_format::TestLucene90PointsFormatCodec;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_points_format_test_case::BasePointsFormatTestCase;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -38,17 +39,44 @@ use rand::prelude::StdRng;
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90PointsFormat {
+  codec: Codecs,
   max_points_in_leaf_node: usize,
 }
 
 impl TestLucene90PointsFormat {
-  fn new<R>(_random: &mut R) -> Self
+  fn new<R>(random: &mut R) -> Self
   where
     R: Rng + ?Sized,
   {
-    let max_points_in_leaf_node = BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE;
-    TestLucene90PointsFormat {
-      max_points_in_leaf_node,
+    // standard issue
+    let default_codec = TestUtil::get_default_codec();
+    if random.random_bool(0.5) {
+      // randomize parameters
+      let max_points_in_leaf_node = TestUtil::next_int(random, 50, 500) as usize;
+      let max_mb_sort_in_heap = 3.0 + (3.0 * random.random::<f64>());
+      if cfg!(feature = "test_log_verbose") {
+        println!(
+          "TEST: using Lucene60PointsFormat with maxPointsInLeafNode={max_points_in_leaf_node} \
+           and maxMBSortInHeap={max_mb_sort_in_heap}"
+        );
+      }
+
+      // sneaky impersonation!
+      Self {
+        codec: TestLucene90PointsFormatCodec::new(
+          default_codec,
+          max_points_in_leaf_node,
+          max_mb_sort_in_heap,
+        )
+        .into(),
+        max_points_in_leaf_node,
+      }
+    } else {
+      // standard issue
+      Self {
+        codec: default_codec.into(),
+        max_points_in_leaf_node: BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
+      }
     }
   }
 
@@ -448,7 +476,7 @@ impl BaseIndexFileFormatTestCase for TestLucene90PointsFormat {
   type Defaults = crate::test_framework::core::index::base_points_format_test_case::BasePointsFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
-    Ok(TestUtil::get_default_codec().into())
+    Ok(self.codec.clone())
   }
 }
 
@@ -460,7 +488,10 @@ where
 {
   let mut random = random();
   let case = TestLucene90PointsFormat::new(&mut random);
-  f(&case, &mut random)
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 mod base_index_file_format_test_case_test {

@@ -14,7 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod test_per_field_doc_values_format;
-pub(crate) mod test_per_field_knn_vectors_format;
-mod test_per_field_postings_format;
-mod test_per_field_postings_format2;
+use crate::core::util::error::lucene_error::Result;
+
+// WARNING: This test does *not* use the shared Lucene test case support, so that the Java version
+// can prevent static class initialization when it is spawned as a subprocess.
+#[allow(dead_code)] // for quick search
+struct TestCodecLoadingDeadlock;
+
+#[test]
+fn test_deadlock() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}

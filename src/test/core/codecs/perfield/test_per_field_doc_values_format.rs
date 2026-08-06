@@ -49,24 +49,39 @@ use crate::test_framework::core::codecs::perfield::test_per_field_doc_values_for
 use crate::test_framework::core::index::base_doc_values_format_test_case::BaseDocValuesFormatTestCase;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCase;
+use crate::test_framework::core::index::random_codec::RandomCodec;
 use crate::test_framework::core::util::lucene_test_case::{
   new_bytes_ref_from_string, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, new_text_field, random,
+  new_searcher_with_reader, new_text_field, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use rand::RngExt;
 use rand::prelude::StdRng;
 use std::collections::{HashMap, HashSet};
 
 /// Basic tests of PerFieldDocValuesFormat.
 #[allow(dead_code)] // for quick search
-struct TestPerFieldDocValuesFormat;
+struct TestPerFieldDocValuesFormat {
+  codec: RandomCodec,
+}
+
+impl TestPerFieldDocValuesFormat {
+  fn new<R>(random: &mut R) -> Self
+  where
+    R: rand::Rng + ?Sized,
+  {
+    let mut codec_random = random_from_seed(random.random());
+    Self {
+      codec: RandomCodec::with_avoid_codecs(&mut codec_random, &HashSet::new()),
+    }
+  }
+}
 
 impl BaseIndexFileFormatTestCase for TestPerFieldDocValuesFormat {
   type Defaults = crate::test_framework::core::index::legacy_base_doc_values_format_test_case::LegacyBaseDocValuesFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
-    // TODO IMPORTANT: Use the Java test's per-test RandomCodec once RandomCodec is implemented.
-    Ok(TestUtil::get_default_codec().into())
+    Ok(self.codec.clone().into())
   }
 }
 
@@ -255,8 +270,11 @@ where
   F: FnOnce(&TestPerFieldDocValuesFormat, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestPerFieldDocValuesFormat;
-  f(&case, &mut random)
+  let case = TestPerFieldDocValuesFormat::new(&mut random);
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 mod base_doc_values_format_test_case_tests {

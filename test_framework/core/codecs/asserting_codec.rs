@@ -64,6 +64,10 @@ use crate::test_framework::core::codecs::perfield::test_per_field_knn_vectors_fo
   MergeUsesNewFormatAssertingCodec, TwoFieldsTwoFormatsAssertingCodec,
   WriteRecordingKnnVectorsFormat,
 };
+use crate::test_framework::core::codecs::perfield::test_per_field_postings_format::{
+  MergeCalledOnTwoFormatsPostingsAssertingCodec, MergeRecordingPostingsFormatWrapper,
+  MockAssertingCodec, SameCodecDifferentInstanceAssertingCodec,
+};
 use crate::test_framework::core::index::test_add_indexes::CustomPerFieldAssertingCodec;
 use crate::test_framework::core::util::test_util::{
   DefaultCodec, DefaultDocValuesFormat, DefaultPostingsFormat, TestUtil,
@@ -85,6 +89,7 @@ pub enum AssertingCodecPostingsFormat {
   Default(Arc<DefaultPostingsFormat>),
   Asserting(Arc<AssertingPostingsFormat>),
   Direct(Arc<DirectPostingsFormat>),
+  MergeRecording(Arc<MergeRecordingPostingsFormatWrapper>),
 }
 
 impl From<DefaultPostingsFormat> for AssertingCodecPostingsFormat {
@@ -105,6 +110,12 @@ impl From<DirectPostingsFormat> for AssertingCodecPostingsFormat {
   }
 }
 
+impl From<MergeRecordingPostingsFormatWrapper> for AssertingCodecPostingsFormat {
+  fn from(format: MergeRecordingPostingsFormatWrapper) -> Self {
+    Self::MergeRecording(Arc::new(format))
+  }
+}
+
 impl Display for AssertingCodecPostingsFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "PostingsFormat(name={})", self.get_name())
@@ -117,6 +128,7 @@ impl HasIdentity for AssertingCodecPostingsFormat {
       Self::Default(format) => format.identity(),
       Self::Asserting(format) => format.identity(),
       Self::Direct(format) => format.identity(),
+      Self::MergeRecording(format) => format.identity(),
     }
   }
 }
@@ -126,7 +138,10 @@ pub type AssertingCodecFieldsConsumer<O> = FieldsConsumerEnum2<
     <DefaultPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
     <AssertingPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
   >,
-  <DirectPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+  FieldsConsumerEnum2<
+    <DirectPostingsFormat as PostingsFormat>::FieldsConsumer<O>,
+    <MergeRecordingPostingsFormatWrapper as PostingsFormat>::FieldsConsumer<O>,
+  >,
 >;
 
 pub type AssertingCodecFieldsProducer<I> = FieldsProducerEnum2<
@@ -134,7 +149,10 @@ pub type AssertingCodecFieldsProducer<I> = FieldsProducerEnum2<
     <DefaultPostingsFormat as PostingsFormat>::FieldsProducer<I>,
     <AssertingPostingsFormat as PostingsFormat>::FieldsProducer<I>,
   >,
-  <DirectPostingsFormat as PostingsFormat>::FieldsProducer<I>,
+  FieldsProducerEnum2<
+    <DirectPostingsFormat as PostingsFormat>::FieldsProducer<I>,
+    <MergeRecordingPostingsFormatWrapper as PostingsFormat>::FieldsProducer<I>,
+  >,
 >;
 
 impl PostingsFormat for AssertingCodecPostingsFormat {
@@ -143,6 +161,7 @@ impl PostingsFormat for AssertingCodecPostingsFormat {
       Self::Default(format) => format.get_name(),
       Self::Asserting(format) => format.get_name(),
       Self::Direct(format) => format.get_name(),
+      Self::MergeRecording(format) => format.get_name(),
     }
   }
 
@@ -166,7 +185,10 @@ impl PostingsFormat for AssertingCodecPostingsFormat {
         .map(|consumer| FieldsConsumerEnum2::A(FieldsConsumerEnum2::B(consumer))),
       Self::Direct(format) => format
         .fields_consumer(state, segment_info)
-        .map(FieldsConsumerEnum2::B),
+        .map(|consumer| FieldsConsumerEnum2::B(FieldsConsumerEnum2::A(consumer))),
+      Self::MergeRecording(format) => format
+        .fields_consumer(state, segment_info)
+        .map(|consumer| FieldsConsumerEnum2::B(FieldsConsumerEnum2::B(consumer))),
     }
   }
 
@@ -190,7 +212,10 @@ impl PostingsFormat for AssertingCodecPostingsFormat {
         .map(|producer| FieldsProducerEnum2::A(FieldsProducerEnum2::B(producer))),
       Self::Direct(format) => format
         .fields_producer(state, segment_info)
-        .map(FieldsProducerEnum2::B),
+        .map(|producer| FieldsProducerEnum2::B(FieldsProducerEnum2::A(producer))),
+      Self::MergeRecording(format) => format
+        .fields_producer(state, segment_info)
+        .map(|producer| FieldsProducerEnum2::B(FieldsProducerEnum2::B(producer))),
     }
   }
 
@@ -707,6 +732,9 @@ pub(crate) enum AssertingCodecHook {
   TwoFieldsTwoFormatsDocValues(TwoFieldsTwoFormatsDocValuesAssertingCodec),
   MergeCalledOnTwoFormats(MergeCalledOnTwoFormatsAssertingCodec),
   DocValuesMergeWithIndexedFields(DocValuesMergeWithIndexedFieldsAssertingCodec),
+  MockPostings(MockAssertingCodec),
+  SameCodecDifferentInstance(SameCodecDifferentInstanceAssertingCodec),
+  MergeCalledOnTwoFormatsPostings(MergeCalledOnTwoFormatsPostingsAssertingCodec),
 }
 
 impl Default for AssertingCodecHook {
@@ -729,6 +757,9 @@ impl AssertingCodecBase for AssertingCodecHook {
       Self::TwoFieldsTwoFormatsDocValues(hook) => hook.get_postings_format_for_field(field),
       Self::MergeCalledOnTwoFormats(hook) => hook.get_postings_format_for_field(field),
       Self::DocValuesMergeWithIndexedFields(hook) => hook.get_postings_format_for_field(field),
+      Self::MockPostings(hook) => hook.get_postings_format_for_field(field),
+      Self::SameCodecDifferentInstance(hook) => hook.get_postings_format_for_field(field),
+      Self::MergeCalledOnTwoFormatsPostings(hook) => hook.get_postings_format_for_field(field),
     }
   }
 
@@ -745,6 +776,9 @@ impl AssertingCodecBase for AssertingCodecHook {
       Self::TwoFieldsTwoFormatsDocValues(hook) => hook.get_doc_values_format_for_field(field),
       Self::MergeCalledOnTwoFormats(hook) => hook.get_doc_values_format_for_field(field),
       Self::DocValuesMergeWithIndexedFields(hook) => hook.get_doc_values_format_for_field(field),
+      Self::MockPostings(hook) => hook.get_doc_values_format_for_field(field),
+      Self::SameCodecDifferentInstance(hook) => hook.get_doc_values_format_for_field(field),
+      Self::MergeCalledOnTwoFormatsPostings(hook) => hook.get_doc_values_format_for_field(field),
     }
   }
 
@@ -764,6 +798,9 @@ impl AssertingCodecBase for AssertingCodecHook {
       Self::TwoFieldsTwoFormatsDocValues(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::MergeCalledOnTwoFormats(hook) => hook.get_knn_vectors_format_for_field(field),
       Self::DocValuesMergeWithIndexedFields(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::MockPostings(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::SameCodecDifferentInstance(hook) => hook.get_knn_vectors_format_for_field(field),
+      Self::MergeCalledOnTwoFormatsPostings(hook) => hook.get_knn_vectors_format_for_field(field),
     }
   }
 }

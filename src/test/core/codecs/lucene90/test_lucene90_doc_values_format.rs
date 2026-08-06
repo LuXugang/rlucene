@@ -87,7 +87,10 @@ where
 {
   let mut random = random();
   let case = TestLucene90DocValuesFormat;
-  f(&case, &mut random)
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 mod lucene90_doc_values_format_tests {

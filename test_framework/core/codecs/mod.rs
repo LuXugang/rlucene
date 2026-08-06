@@ -25,4 +25,6 @@ pub mod asserting_stored_fields_format;
 pub mod asserting_term_vectors_format;
 pub mod compressing;
 pub mod cranky;
+pub(crate) mod lucene90;
 pub(crate) mod perfield;
+pub mod test_minimal_codec;

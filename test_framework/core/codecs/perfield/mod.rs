@@ -16,3 +16,4 @@
  */
 pub(crate) mod test_per_field_doc_values_format;
 pub(crate) mod test_per_field_knn_vectors_format;
+pub(crate) mod test_per_field_postings_format;

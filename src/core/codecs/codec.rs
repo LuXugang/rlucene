@@ -44,6 +44,10 @@ use crate::test_framework::core::codecs::compressing::dummy::dummy_compressing_c
 #[cfg(test)]
 use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 #[cfg(test)]
+use crate::test_framework::core::codecs::lucene90::test_lucene90_points_format::TestLucene90PointsFormatCodec;
+#[cfg(test)]
+use crate::test_framework::core::codecs::test_minimal_codec::{MinimalCodec, MinimalCompoundCodec};
+#[cfg(test)]
 use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::base_postings_format_test_case::InvertedWriteCodec;
@@ -113,6 +117,8 @@ pub trait Codec: Display {
 pub enum Codecs {
   Lucene101(Lucene101Codec),
   #[cfg(test)]
+  TestLucene90Points(TestLucene90PointsFormatCodec),
+  #[cfg(test)]
   Asserting(AssertingCodec),
   #[cfg(test)]
   AssertingNeedsIndexSort(AssertingNeedsIndexSortCodec),
@@ -130,6 +136,10 @@ pub enum Codecs {
   CrankyAsserting(CrankyCodec<AssertingCodec>),
   #[cfg(test)]
   InvertedWrite(InvertedWriteCodec),
+  #[cfg(test)]
+  Minimal(MinimalCodec),
+  #[cfg(test)]
+  MinimalCompound(MinimalCompoundCodec),
 }
 
 impl Default for Codecs {
@@ -151,6 +161,13 @@ thread_local! {
 impl From<Lucene101Codec> for Codecs {
   fn from(codec: Lucene101Codec) -> Self {
     Self::Lucene101(codec)
+  }
+}
+
+#[cfg(test)]
+impl From<TestLucene90PointsFormatCodec> for Codecs {
+  fn from(codec: TestLucene90PointsFormatCodec) -> Self {
+    Self::TestLucene90Points(codec)
   }
 }
 
@@ -224,10 +241,26 @@ impl From<InvertedWriteCodec> for Codecs {
   }
 }
 
+#[cfg(test)]
+impl From<MinimalCodec> for Codecs {
+  fn from(codec: MinimalCodec) -> Self {
+    Self::Minimal(codec)
+  }
+}
+
+#[cfg(test)]
+impl From<MinimalCompoundCodec> for Codecs {
+  fn from(codec: MinimalCompoundCodec) -> Self {
+    Self::MinimalCompound(codec)
+  }
+}
+
 impl Display for Codecs {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::Lucene101(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::Asserting(codec) => Display::fmt(codec, f),
       #[cfg(test)]
@@ -246,6 +279,10 @@ impl Display for Codecs {
       Self::CrankyAsserting(codec) => Display::fmt(codec, f),
       #[cfg(test)]
       Self::InvertedWrite(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::Minimal(codec) => Display::fmt(codec, f),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => Display::fmt(codec, f),
     }
   }
 }
@@ -276,6 +313,8 @@ impl Codec for Codecs {
     match self {
       Self::Lucene101(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
       #[cfg(test)]
+      Self::TestLucene90Points(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
+      #[cfg(test)]
       Self::Asserting(codec) => CodecPostingsFormat::Asserting(codec.postings_format()),
       #[cfg(test)]
       Self::AssertingNeedsIndexSort(codec) => {
@@ -295,12 +334,18 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => CodecPostingsFormat::CrankyAsserting(codec.postings_format()),
       #[cfg(test)]
       Self::InvertedWrite(codec) => CodecPostingsFormat::InvertedWrite(codec.postings_format()),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecPostingsFormat::Lucene101(codec.postings_format()),
     }
   }
 
   fn doc_values_format(&self) -> Self::DocValuesFormat {
     match self {
       Self::Lucene101(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecDocValuesFormat::Asserting(codec.doc_values_format()),
       #[cfg(test)]
@@ -325,12 +370,20 @@ impl Codec for Codecs {
       },
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.doc_values_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecDocValuesFormat::Lucene101(codec.doc_values_format()),
     }
   }
 
   fn stored_fields_format(&self) -> Self::StoredFieldsFormat {
     match self {
       Self::Lucene101(codec) => CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format()),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => {
+        CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format())
+      },
       #[cfg(test)]
       Self::Asserting(codec) => CodecStoredFieldsFormat::Asserting(codec.stored_fields_format()),
       #[cfg(test)]
@@ -359,12 +412,22 @@ impl Codec for Codecs {
       },
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.stored_fields_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => {
+        CodecStoredFieldsFormat::Lucene90(codec.stored_fields_format())
+      },
     }
   }
 
   fn term_vectors_format(&self) -> Self::TermVectorsFormat {
     match self {
       Self::Lucene101(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => {
+        CodecTermVectorsFormat::Lucene90(codec.term_vectors_format())
+      },
       #[cfg(test)]
       Self::Asserting(codec) => CodecTermVectorsFormat::Asserting(codec.term_vectors_format()),
       #[cfg(test)]
@@ -389,6 +452,10 @@ impl Codec for Codecs {
       },
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.term_vectors_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecTermVectorsFormat::Lucene90(codec.term_vectors_format()),
     }
   }
 
@@ -403,6 +470,10 @@ impl Codec for Codecs {
         {
           CodecFieldInfosFormat::Lucene101(codec.field_infos_format())
         }
+      },
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => {
+        CodecFieldInfosFormat::Lucene101(codec.field_infos_format())
       },
       #[cfg(test)]
       Self::Asserting(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
@@ -424,6 +495,10 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => CodecFieldInfosFormat::Cranky(codec.field_infos_format()),
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.field_infos_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecFieldInfosFormat::Lucene101(codec.field_infos_format()),
     }
   }
 
@@ -438,6 +513,10 @@ impl Codec for Codecs {
         {
           CodecSegmentInfoFormat::Lucene101(codec.segment_info_format())
         }
+      },
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => {
+        CodecSegmentInfoFormat::Lucene101(codec.segment_info_format())
       },
       #[cfg(test)]
       Self::Asserting(codec) => CodecSegmentInfoFormat::Lucene101(codec.segment_info_format()),
@@ -459,12 +538,20 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => CodecSegmentInfoFormat::Cranky(codec.segment_info_format()),
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.segment_info_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecSegmentInfoFormat::Lucene101(codec.segment_info_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => {
+        CodecSegmentInfoFormat::Lucene101(codec.segment_info_format())
+      },
     }
   }
 
   fn norms_format(&self) -> Self::NormsFormat {
     match self {
       Self::Lucene101(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecNormsFormat::Asserting(codec.norms_format()),
       #[cfg(test)]
@@ -483,12 +570,18 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => CodecNormsFormat::CrankyAsserting(codec.norms_format()),
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.norms_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecNormsFormat::Lucene90(codec.norms_format()),
     }
   }
 
   fn live_docs_format(&self) -> Self::LiveDocsFormat {
     match self {
       Self::Lucene101(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecLiveDocsFormat::Asserting(codec.live_docs_format()),
       #[cfg(test)]
@@ -513,6 +606,10 @@ impl Codec for Codecs {
       },
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.live_docs_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecLiveDocsFormat::Lucene90(codec.live_docs_format()),
     }
   }
 
@@ -528,6 +625,8 @@ impl Codec for Codecs {
           CodecCompoundFormat::Lucene101(codec.compound_format())
         }
       },
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
       #[cfg(test)]
@@ -548,12 +647,18 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => CodecCompoundFormat::Cranky(codec.compound_format()),
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.compound_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecCompoundFormat::Lucene101(codec.compound_format()),
     }
   }
 
   fn points_format(&self) -> Self::PointsFormat {
     match self {
       Self::Lucene101(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => CodecPointsFormat::TestLucene90(codec.points_format()),
       #[cfg(test)]
       Self::Asserting(codec) => CodecPointsFormat::Asserting(codec.points_format()),
       #[cfg(test)]
@@ -574,12 +679,20 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => CodecPointsFormat::CrankyAsserting(codec.points_format()),
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.points_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => CodecPointsFormat::Lucene90(codec.points_format()),
     }
   }
 
   fn knn_vectors_format(&self) -> Result<Self::KnnVectorsFormat> {
     match self {
       Self::Lucene101(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => codec
         .knn_vectors_format()
         .map(CodecKnnVectorsFormat::Lucene101),
       #[cfg(test)]
@@ -616,12 +729,22 @@ impl Codec for Codecs {
         .map(CodecKnnVectorsFormat::Asserting),
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.knn_vectors_format(),
+      #[cfg(test)]
+      Self::Minimal(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => codec
+        .knn_vectors_format()
+        .map(CodecKnnVectorsFormat::Lucene101),
     }
   }
 
   fn get_name(&self) -> &str {
     match self {
       Self::Lucene101(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::TestLucene90Points(codec) => codec.get_name(),
       #[cfg(test)]
       Self::Asserting(codec) => codec.get_name(),
       #[cfg(test)]
@@ -640,6 +763,10 @@ impl Codec for Codecs {
       Self::CrankyAsserting(codec) => codec.get_name(),
       #[cfg(test)]
       Self::InvertedWrite(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::Minimal(codec) => codec.get_name(),
+      #[cfg(test)]
+      Self::MinimalCompound(codec) => codec.get_name(),
     }
   }
 }
@@ -682,11 +809,14 @@ pub fn for_name(name: &str) -> Result<Codecs> {
     #[cfg(test)]
     "Asserting" => Ok(Codecs::Asserting(AssertingCodec::new())),
     #[cfg(test)]
+    "MinimalCodec" => Ok(MinimalCodec::new().into()),
+    #[cfg(test)]
+    "MinimalCompoundCodec" => Ok(MinimalCompoundCodec::new().into()),
+    #[cfg(test)]
     "FastCompressingStoredFieldsData"
     | "FastDecompressionCompressingStoredFieldsData"
     | "HighCompressionCompressingStoredFieldsData"
     | "DummyCompressingStoredFieldsData"
-    | "DeflateWithPresetCompressingStoredFieldsData"
     | "LZ4WithPresetCompressingStoredFieldsData" => {
       CompressingCodec::for_name(name).map(Codecs::Compressing)
     },

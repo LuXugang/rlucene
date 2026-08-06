@@ -47,7 +47,10 @@ where
 {
   let mut random = random();
   let case = TestLucene90NormsFormatMergeInstance;
-  f(&case, &mut random)
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 mod base_norms_format_test_case_test {

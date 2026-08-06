@@ -52,7 +52,10 @@ where
   let case = TestLucene99HnswScalarQuantizedVectorsFormat {
     base_knn_vectors_format_test_case_state: BaseKnnVectorsFormatTestCaseState::new(&mut random),
   };
-  f(&case, &mut random)
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 mod base_knn_vectors_format_test_case_test {

@@ -283,7 +283,10 @@ where
   let case = TestLucene90DocValuesFormatVariableSkipInterval {
     skip_index_interval_size: random.random_range(4..16),
   };
-  f(&case, &mut random)
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 mod lucene90_doc_values_format_variable_skip_interval_tests {

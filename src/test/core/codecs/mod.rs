@@ -22,6 +22,8 @@ pub(crate) mod lucene90;
 pub(crate) mod lucene94;
 pub(crate) mod lucene99;
 pub(crate) mod perfield;
+mod test_codec_loading_deadlock;
 pub(crate) mod test_codec_util;
 
-mod test_competitive_impact_accumulator;
+mod test_competitive_freq_norm_accumulator;
+mod test_minimal_codec;

@@ -109,6 +109,8 @@ use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
 #[cfg(test)]
 use crate::test_framework::core::codecs::cranky::cranky_codec::CrankyCodec;
 #[cfg(test)]
+use crate::test_framework::core::codecs::lucene90::test_lucene90_points_format::TestLucene90PointsFormatPointsFormat;
+#[cfg(test)]
 use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec;
 #[cfg(test)]
 use crate::test_framework::core::index::base_postings_format_test_case::{
@@ -253,6 +255,8 @@ pub enum CodecLiveDocsFormat {
 
 pub enum CodecPointsFormat {
   Lucene90(Lucene90PointsFormat),
+  #[cfg(test)]
+  TestLucene90(TestLucene90PointsFormatPointsFormat),
   #[cfg(test)]
   Asserting(AssertingPointsFormat),
   #[cfg(test)]
@@ -1340,6 +1344,10 @@ impl PointsFormat for CodecPointsFormat {
         }
       },
       #[cfg(test)]
+      Self::TestLucene90(format) => format
+        .fields_writer(state, info)
+        .map(CodecPointsWriter::Lucene90),
+      #[cfg(test)]
       Self::Asserting(format) => format
         .fields_writer(state, info)
         .map(CodecPointsWriter::Asserting),
@@ -1386,6 +1394,10 @@ impl PointsFormat for CodecPointsFormat {
             .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::A(reader)))
         }
       },
+      #[cfg(test)]
+      Self::TestLucene90(format) => format
+        .fields_reader(state, info)
+        .map(|reader| PointsReaderEnum2::A(PointsReaderEnum2::A(reader))),
       #[cfg(test)]
       Self::Asserting(format) => format
         .fields_reader(state, info)

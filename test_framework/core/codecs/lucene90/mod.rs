@@ -14,7 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod test_per_field_doc_values_format;
-pub(crate) mod test_per_field_knn_vectors_format;
-mod test_per_field_postings_format;
-mod test_per_field_postings_format2;
+pub(crate) mod test_lucene90_points_format;

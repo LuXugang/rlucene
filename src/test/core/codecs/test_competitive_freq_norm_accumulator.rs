@@ -17,7 +17,7 @@
 use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::core::index::impact::Impact;
 #[allow(dead_code)] // for quick search
-struct TestCompetitiveImpactAccumulator;
+struct TestCompetitiveFreqNormAccumulator;
 #[test]
 fn test_basics() {
   let mut acc = CompetitiveImpactAccumulator::new();
@@ -92,7 +92,7 @@ fn test_extreme_norms() {
 }
 
 #[test]
-fn test_copy_and_merge() {
+fn test_copy() {
   let mut acc = CompetitiveImpactAccumulator::new();
   let mut copied_acc = CompetitiveImpactAccumulator::new();
   let mut merged_acc = CompetitiveImpactAccumulator::new();

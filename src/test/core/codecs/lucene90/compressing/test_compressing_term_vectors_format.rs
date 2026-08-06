@@ -30,6 +30,7 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term_vectors::TermVectors;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
@@ -37,23 +38,43 @@ use crate::test_framework::core::index::base_index_file_format_test_case::BaseIn
 use crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCase;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  get_only_leaf_reader, new_directory_shared, new_field, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, random,
+  get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, random,
 };
-use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
 use std::collections::HashMap;
 
-pub struct TestCompressingTermVectorsFormat;
+pub struct TestCompressingTermVectorsFormat {
+  codec: Codecs,
+}
+
+impl TestCompressingTermVectorsFormat {
+  fn new<R>(random: &mut R) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+  {
+    let codec = if is_night_mode() {
+      CompressingCodec::random_instance(random)?
+    } else {
+      CompressingCodec::reasonable_instance(random)?
+    };
+    Ok(Self {
+      codec: codec.into(),
+    })
+  }
+}
 
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestCompressingTermVectorsFormat, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestCompressingTermVectorsFormat;
-  f(&case, &mut random)
+  let case = TestCompressingTermVectorsFormat::new(&mut random)?;
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 mod base_term_vectors_format_test_case_tests {
   use crate::core::util::error::lucene_error::Result;
@@ -139,8 +160,7 @@ impl BaseIndexFileFormatTestCase for TestCompressingTermVectorsFormat {
   type Defaults = crate::test_framework::core::index::base_term_vectors_format_test_case::BaseTermVectorsFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
-    // TODO IMPORTANT: CompressingCodec has not been migrated yet.
-    Ok(TestUtil::get_default_codec().into())
+    Ok(self.codec.clone())
   }
 }
 
@@ -148,113 +168,116 @@ impl BaseTermVectorsFormatTestCase for TestCompressingTermVectorsFormat {}
 
 #[test]
 fn test_no_ords() -> Result<()> {
-  let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
-  let iw = RandomIndexWriter::new(&mut random, dir)?;
+  run_case(|_case, random| {
+    let dir = new_directory_shared(&mut *random)?;
+    let iw = RandomIndexWriter::new(&mut *random, dir.clone())?;
 
-  let mut doc = Document::new();
-  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
-  ft.set_store_term_vectors(true)?;
-  doc.add(new_field(
-    &mut random,
-    "foo",
-    "this is a test",
-    &ft,
-    &mut HashMap::new(),
-  )?);
-  iw.add_document(&mut random, doc)?;
+    let mut doc = Document::new();
+    let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+    ft.set_store_term_vectors(true)?;
+    doc.add(new_field(
+      &mut *random,
+      "foo",
+      "this is a test",
+      &ft,
+      &mut HashMap::new(),
+    )?);
+    iw.add_document(&mut *random, doc)?;
 
-  let ir = get_only_leaf_reader(&iw.get_reader(&mut random)?)?;
-  let mut term_vectors = CodecReader::term_vectors(&ir)?;
-  let terms = term_vectors.get_field_terms(0, "foo")?;
-  assert!(terms.is_some());
+    let ir = get_only_leaf_reader(&iw.get_reader(&mut *random)?)?;
+    let mut term_vectors = CodecReader::term_vectors(&ir)?;
+    let terms = term_vectors.get_field_terms(0, "foo")?;
+    assert!(terms.is_some());
 
-  let terms = terms.unwrap();
-  let mut terms_enum = terms.iterator()?;
-  assert_eq!(
-    SeekStatus::Found,
-    terms_enum.seek_ceil(&BytesRef::from_string("this"))?
-  );
+    let terms = terms.unwrap();
+    let mut terms_enum = terms.iterator()?;
+    assert_eq!(
+      SeekStatus::Found,
+      terms_enum.seek_ceil(&BytesRef::from_string("this"))?
+    );
 
-  let err = terms_enum.ord();
-  assert!(matches!(err, Err(LuceneError::UnsupportedOperation(_))));
+    let err = terms_enum.ord();
+    assert!(matches!(err, Err(LuceneError::UnsupportedOperation(_))));
 
-  let err = terms_enum.seek_exact_with_ord(0);
-  assert!(matches!(err, Err(LuceneError::UnsupportedOperation(_))));
+    let err = terms_enum.seek_exact_with_ord(0);
+    assert!(matches!(err, Err(LuceneError::UnsupportedOperation(_))));
 
-  iw.close(&mut random)?;
-  Ok(())
+    ir.close()?;
+    iw.close(&mut *random)?;
+    dir.close()
+  })
 }
 #[test]
 fn test_chunk_cleanup() -> Result<()> {
-  let mut random = random();
-  let dir = new_directory_shared(&mut random)?;
-  let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  iwc.set_merge_policy(NoMergePolicy::default());
+  run_case(|_case, random| {
+    let dir = new_directory_shared(&mut *random)?;
+    let analyzer = MockAnalyzer::new(&mut *random);
+    let mut iwc = new_index_writer_config_with_analyzer(&mut *random, analyzer)?;
+    iwc.set_merge_policy(NoMergePolicy::default());
 
-  // We have to enforce certain things like maxDocsPerChunk to cause dirty chunks to be created by
-  // this test.
-  iwc.set_codec(CompressingCodec::random_instance_with_parameters(
-    &mut random,
-    4 * 1024,
-    4,
-    false,
-    8,
-  )?);
-  let iw = IndexWriter::new(dir, iwc)?;
-  let mut ir = directory_reader::open_from_writer(&iw)?;
-  for _ in 0..5 {
+    // We have to enforce certain things like maxDocsPerChunk to cause dirty chunks to be created by
+    // this test.
+    iwc.set_codec(CompressingCodec::random_instance_with_parameters(
+      &mut *random,
+      4 * 1024,
+      4,
+      false,
+      8,
+    )?);
+    let iw = IndexWriter::new(dir.clone(), iwc)?;
+    let mut ir = directory_reader::open_from_writer(&iw)?;
+    for _ in 0..5 {
+      let mut doc = Document::new();
+      let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
+      ft.set_store_term_vectors(true)?;
+      doc.add(Field::new("text", "not very long at all", ft));
+      iw.add_document(doc)?;
+      // Force flush.
+      let ir2 = directory_reader::open_if_changed(&ir)?.expect("reader should change");
+      ir.close()?;
+      ir = ir2;
+      // Examine dirty counts.
+      for leaf in ir.get_sequential_sub_readers() {
+        let reader = leaf
+          .get_term_vectors_reader()?
+          .expect("term vectors reader should exist");
+        let TermVectorsReaderEnum2::A(reader) = reader else {
+          panic!("compressing codec should use Lucene90 term vectors");
+        };
+        assert!(reader.get_num_dirty_docs()? > 0);
+        assert_eq!(1, reader.get_num_dirty_chunks()?);
+      }
+    }
+    iw.get_config_mut()
+      .set_merge_policy(new_log_merge_policy(&mut *random)?);
+    iw.force_merge(1)?;
+    // Add one more doc and merge again.
     let mut doc = Document::new();
     let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
     ft.set_store_term_vectors(true)?;
     doc.add(Field::new("text", "not very long at all", ft));
     iw.add_document(doc)?;
-    // Force flush.
+    iw.force_merge(1)?;
     let ir2 = directory_reader::open_if_changed(&ir)?.expect("reader should change");
     ir.close()?;
     ir = ir2;
-    // Examine dirty counts.
-    for leaf in ir.get_sequential_sub_readers() {
-      let reader = leaf
-        .get_term_vectors_reader()?
-        .expect("term vectors reader should exist");
-      let TermVectorsReaderEnum2::A(reader) = reader else {
-        panic!("compressing codec should use Lucene90 term vectors");
-      };
-      assert!(reader.get_num_dirty_docs()? > 0);
-      assert_eq!(1, reader.get_num_dirty_chunks()?);
-    }
-  }
-  iw.get_config_mut()
-    .set_merge_policy(new_log_merge_policy(&mut random)?);
-  iw.force_merge(1)?;
-  // Add one more doc and merge again.
-  let mut doc = Document::new();
-  let mut ft = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
-  ft.set_store_term_vectors(true)?;
-  doc.add(Field::new("text", "not very long at all", ft));
-  iw.add_document(doc)?;
-  iw.force_merge(1)?;
-  let ir2 = directory_reader::open_if_changed(&ir)?.expect("reader should change");
-  ir.close()?;
-  ir = ir2;
-  let leaf = ir
-    .get_sequential_sub_readers()
-    .first()
-    .expect("reader should have one leaf");
-  assert_eq!(1, ir.get_sequential_sub_readers().len());
-  let reader = leaf
-    .get_term_vectors_reader()?
-    .expect("term vectors reader should exist");
-  let TermVectorsReaderEnum2::A(reader) = reader else {
-    panic!("compressing codec should use Lucene90 term vectors");
-  };
-  // At most 2: the 5 chunks from 5 doc segment will be collapsed into a single chunk.
-  assert!(reader.get_num_dirty_chunks()? <= 2);
-  ir.close()?;
-  iw.close()?;
-  Ok(())
+    let leaf = ir
+      .get_sequential_sub_readers()
+      .first()
+      .expect("reader should have one leaf");
+    assert_eq!(1, ir.get_sequential_sub_readers().len());
+    let reader = leaf
+      .get_term_vectors_reader()?
+      .expect("term vectors reader should exist");
+    let TermVectorsReaderEnum2::A(reader) = reader else {
+      panic!("compressing codec should use Lucene90 term vectors");
+    };
+    // At most 2: the 5 chunks from 5 doc segment will be collapsed into a single chunk.
+    assert!(reader.get_num_dirty_chunks()? <= 2);
+    ir.close()?;
+    iw.close()?;
+    dir.close()
+  })
 }
 
 mod base_index_file_format_test_case_test {

@@ -178,7 +178,10 @@ where
 {
   let mut random = random();
   let case = TestLucene90CompoundFormat;
-  f(&case, &mut random)
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 impl TestLucene90CompoundFormat {

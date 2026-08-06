@@ -20,7 +20,7 @@ use crate::core::codecs::compressing::lucene90_compressing_stored_fields_format:
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat;
 use crate::core::codecs::compression::compression_mode::{CompressionMode, CompressionModeEnum};
 use crate::core::codecs::lucene90::lz4_with_preset_dict_compression_mode::LZ4WithPresetDictCompressionMode;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::direct_monotonic_writer::{MAX_BLOCK_SHIFT, MIN_BLOCK_SHIFT};
 use crate::test_framework::core::codecs::compressing::dummy::dummy_compressing_codec::DummyCompressingCodec;
 use crate::test_framework::core::util::test_util::{DefaultCodec, TestUtil};
@@ -49,7 +49,9 @@ impl CompressingCodec {
   where
     R: Rng + ?Sized,
   {
-    match random.random_range(0..6) {
+    // DeflateWithPresetDictCompressionMode has not been migrated. Only select formats whose Java
+    // compression behavior Rust can currently reproduce.
+    match random.random_range(0..5) {
       0 => Self::new(
         "FastCompressingStoredFieldsData",
         "FastCompressingStoredFields",
@@ -84,18 +86,7 @@ impl CompressingCodec {
         block_shift,
       )
       .map(Into::into),
-      // Rust Lucene does not yet expose DeflateWithPresetDictCompressionMode. Keep consuming the
-      // same random branch while using the closest supported DEFLATE mode.
       4 => Self::new(
-        "DeflateWithPresetCompressingStoredFieldsData",
-        "DeflateWithPresetCompressingStoredFields",
-        CompressionMode::high_compression(),
-        chunk_size,
-        max_docs_per_chunk,
-        with_segment_suffix,
-        block_shift,
-      ),
-      5 => Self::new(
         "LZ4WithPresetCompressingStoredFieldsData",
         "DeflateWithPresetCompressingStoredFields",
         CompressionModeEnum::LZ4Dict(LZ4WithPresetDictCompressionMode),
@@ -215,15 +206,6 @@ impl CompressingCodec {
       "DummyCompressingStoredFieldsData" => {
         DummyCompressingCodec::default_instance().map(Into::into)
       },
-      "DeflateWithPresetCompressingStoredFieldsData" => Self::new(
-        "DeflateWithPresetCompressingStoredFieldsData",
-        "DeflateWithPresetCompressingStoredFields",
-        CompressionMode::high_compression(),
-        1 << 18,
-        512,
-        false,
-        10,
-      ),
       "LZ4WithPresetCompressingStoredFieldsData" => Self::new(
         "LZ4WithPresetCompressingStoredFieldsData",
         "DeflateWithPresetCompressingStoredFields",
@@ -233,7 +215,9 @@ impl CompressingCodec {
         false,
         10,
       ),
-      _ => unreachable!("unknown compressing codec name: {name}"),
+      _ => Err(LuceneError::illegal_argument(format!(
+        "unknown compressing codec name: {name}"
+      ))),
     }
   }
 }

@@ -16,28 +16,50 @@
  */
 use crate::core::codecs::Codecs;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCase;
-use crate::test_framework::core::util::lucene_test_case::random;
-use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
 use rand::Rng;
 use rand::prelude::StdRng;
 
 #[allow(dead_code)] // for quick search
-pub struct TestCompressingStoredFieldsFormat;
+pub struct TestCompressingStoredFieldsFormat {
+  codec: Codecs,
+}
+
+impl TestCompressingStoredFieldsFormat {
+  fn new<R>(random: &mut R) -> Result<Self>
+  where
+    R: Rng + ?Sized,
+  {
+    let codec = if is_night_mode() {
+      CompressingCodec::random_instance(random)?
+    } else {
+      CompressingCodec::reasonable_instance(random)?
+    };
+    Ok(Self {
+      codec: codec.into(),
+    })
+  }
+}
+
 fn run_case<F>(f: F) -> Result<()>
 where
   F: FnOnce(&TestCompressingStoredFieldsFormat, &mut StdRng) -> Result<()>,
 {
   let mut random = random();
-  let case = TestCompressingStoredFieldsFormat;
-  f(&case, &mut random)
+  let case = TestCompressingStoredFieldsFormat::new(&mut random)?;
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 impl BaseIndexFileFormatTestCase for TestCompressingStoredFieldsFormat {
   type Defaults = crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
-    Ok(TestUtil::get_default_codec().into())
+    Ok(self.codec.clone())
   }
 }
 
@@ -142,6 +164,7 @@ mod compression_numeric_encoding_tests {
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
+  use crate::core::util::close::CloseableRef;
   use crate::core::util::error::lucene_error::Result;
   use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
   use crate::test_framework::core::codecs::compressing::compressing_codec::CompressingCodec;
@@ -351,7 +374,7 @@ mod compression_numeric_encoding_tests {
       false,
       8,
     )?);
-    let iw = IndexWriter::new(dir, iwc)?;
+    let iw = IndexWriter::new(dir.clone(), iwc)?;
     let mut ir = directory_reader::open_from_writer(&iw)?;
     for _ in 0..5 {
       let mut doc = Document::new();
@@ -400,7 +423,7 @@ mod compression_numeric_encoding_tests {
     assert!(reader.get_num_dirty_chunks()? <= 2);
     ir.close()?;
     iw.close()?;
-    Ok(())
+    dir.close()
   }
 }
 

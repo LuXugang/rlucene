@@ -75,9 +75,9 @@ impl CodecUtil {
   /// - [`header_length`](CodecUtil::header_length)
   pub fn write_header(out: &mut impl DataOutput, codec: &str, version: i32) -> Result<()> {
     let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(codec);
-    if bytes.length != codec.len() || bytes.length >= 128 {
+    if bytes.length != codec.encode_utf16().count() || bytes.length >= 128 {
       return Err(LuceneError::illegal_argument(format!(
-        "codec must be simple ASCII, less than 128 characters in length got {codec}"
+        "codec must be simple ASCII, less than 128 characters in length [got {codec}]"
       )));
     }
     Self::write_be_int(out, CodecUtil::CODEC_MAGIC)?;
@@ -132,9 +132,9 @@ impl CodecUtil {
     Self::write_header(out, codec, version)?;
     out.write_bytes_range(id, 0, StringHelper::ID_LENGTH)?;
     let suffix_bytes: BytesRef<Vec<u8>> = BytesRef::from_string(suffix);
-    if !suffix.is_ascii() || suffix_bytes.length >= 256 {
+    if suffix_bytes.length != suffix.encode_utf16().count() || suffix_bytes.length >= 256 {
       return Err(LuceneError::illegal_argument(format!(
-        "suffix must be simple ASCII, less than 256 characters in length got {suffix}"
+        "suffix must be simple ASCII, less than 256 characters in length [got {suffix}]"
       )));
     }
     out.write_byte(suffix_bytes.length as u8)?;

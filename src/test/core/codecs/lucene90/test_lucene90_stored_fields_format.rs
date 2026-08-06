@@ -61,7 +61,10 @@ where
 {
   let mut random = random();
   let case = TestLucene90StoredFieldsFormat;
-  f(&case, &mut random)
+  let codec_guard = case.set_up()?;
+  let result = f(&case, &mut random);
+  case.tear_down(codec_guard);
+  result
 }
 
 impl BaseStoredFieldsFormatTestCase for TestLucene90StoredFieldsFormat {}

@@ -49,6 +49,7 @@ pub mod mock_random_merge_policy;
 pub(crate) mod mock_random_wrapped_reader;
 pub mod own_cache_key_multi_reader;
 pub mod per_thread_pk_lookup;
+pub mod random_codec;
 pub mod random_index_writer;
 pub mod random_postings_tester;
 pub mod suppressing_concurrent_merge_scheduler;
