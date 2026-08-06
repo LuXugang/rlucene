@@ -427,8 +427,7 @@ pub type BaseCodecFieldsProducer<I> = FieldsProducerEnum2<
   <AssertingPostingsFormat as PostingsFormat>::FieldsProducer<I>,
 >;
 #[cfg(test)]
-pub type CodecFieldsProducer<I> =
-  FieldsProducerEnum2<BaseCodecFieldsProducer<I>, BaseCodecFieldsProducer<I>>;
+pub type CodecFieldsProducer<I> = BaseCodecFieldsProducer<I>;
 
 #[cfg(test)]
 impl CodecPostingsFormat {
@@ -584,12 +583,8 @@ impl PostingsFormat for CodecPostingsFormat {
     #[cfg(test)]
     {
       match self {
-        Self::InvertedWrite(format) => format
-          .fields_producer(state, segment_info)
-          .map(FieldsProducerEnum2::B),
-        _ => self
-          .base_fields_producer(state, segment_info)
-          .map(FieldsProducerEnum2::A),
+        Self::InvertedWrite(format) => format.fields_producer(state, segment_info),
+        _ => self.base_fields_producer(state, segment_info),
       }
     }
   }
