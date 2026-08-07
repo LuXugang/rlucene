@@ -34,6 +34,100 @@ use crate::core::util::error::{
   UnsupportedOperationError,
 };
 
+/// A panic payload that preserves the failures Java would attach to an
+/// `Error` with `Throwable.addSuppressed`.
+pub(crate) struct PanicWithSuppressed {
+  primary: Box<dyn Any + Send>,
+  suppressed: Vec<SuppressedFailure>,
+}
+
+pub(crate) enum SuppressedFailure {
+  Panic(Box<dyn Any + Send>),
+  Exception(LuceneError),
+  ExceptionWithSuppressed(ExceptionWithSuppressed),
+}
+
+pub(crate) struct ExceptionWithSuppressed {
+  primary: LuceneError,
+  suppressed: Vec<LuceneError>,
+}
+
+impl PanicWithSuppressed {
+  pub(crate) fn new(
+    primary: Box<dyn Any + Send>,
+    suppressed_panics: Vec<Box<dyn Any + Send>>,
+    suppressed_exceptions: Vec<LuceneError>,
+  ) -> Self {
+    let mut exceptions = suppressed_exceptions.into_iter();
+    let mut suppressed = suppressed_panics
+      .into_iter()
+      .map(SuppressedFailure::Panic)
+      .collect::<Vec<_>>();
+    if let Some(primary) = exceptions.next() {
+      suppressed.push(SuppressedFailure::ExceptionWithSuppressed(
+        ExceptionWithSuppressed {
+          primary,
+          suppressed: exceptions.collect(),
+        },
+      ));
+    }
+    Self {
+      primary,
+      suppressed,
+    }
+  }
+
+  pub(crate) fn with_suppressed(
+    primary: Box<dyn Any + Send>,
+    suppressed: Vec<SuppressedFailure>,
+  ) -> Self {
+    Self {
+      primary,
+      suppressed,
+    }
+  }
+
+  pub(crate) fn primary(&self) -> &(dyn Any + Send) {
+    self.primary.as_ref()
+  }
+}
+
+impl fmt::Debug for PanicWithSuppressed {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    formatter
+      .debug_struct("PanicWithSuppressed")
+      .field(
+        "primary",
+        &LuceneError::panic_payload_message(self.primary.as_ref()),
+      )
+      .field("suppressed", &self.suppressed)
+      .finish()
+  }
+}
+
+impl fmt::Debug for SuppressedFailure {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::Panic(payload) => formatter
+        .debug_tuple("Panic")
+        .field(&LuceneError::panic_payload_message(payload.as_ref()))
+        .finish(),
+      Self::Exception(error) => formatter.debug_tuple("Exception").field(error).finish(),
+      Self::ExceptionWithSuppressed(error) => error.fmt(formatter),
+    }
+  }
+}
+
+impl fmt::Debug for ExceptionWithSuppressed {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    formatter
+      .debug_struct("ExceptionWithSuppressed")
+      .field("primary", &self.primary)
+      .field("suppressed", &self.suppressed)
+      .finish()
+  }
+}
+
 #[derive(Debug, Error)]
 pub enum LuceneError {
   #[error("{0}")]
@@ -327,6 +421,8 @@ impl LuceneError {
       (*message).to_string()
     } else if let Some(message) = payload.downcast_ref::<String>() {
       message.clone()
+    } else if let Some(panic) = payload.downcast_ref::<PanicWithSuppressed>() {
+      LuceneError::panic_payload_message(panic.primary())
     } else if let Some(error) = payload.downcast_ref::<LuceneError>() {
       error.to_string()
     } else {

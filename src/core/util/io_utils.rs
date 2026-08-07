@@ -21,42 +21,75 @@ use std::path::{Path, PathBuf};
 
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{
+  LuceneError, PanicWithSuppressed, Result, SuppressedFailure,
+};
+
+enum CloseFailure {
+  Panic(Box<dyn std::any::Any + Send>),
+  Exception(LuceneError),
+}
+
+impl CloseFailure {
+  fn into_suppressed(self) -> SuppressedFailure {
+    match self {
+      Self::Panic(payload) => SuppressedFailure::Panic(payload),
+      Self::Exception(error) => SuppressedFailure::Exception(error),
+    }
+  }
+
+  fn into_exception(self) -> LuceneError {
+    match self {
+      Self::Panic(payload) => {
+        LuceneError::tragedy_from_panic("panic while closing", payload.as_ref())
+      },
+      Self::Exception(error) => error,
+    }
+  }
+}
 
 macro_rules! record_close_result {
-  ($result:expr, $errors:ident, $first_panic:ident) => {
+  ($result:expr, $failures:ident) => {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $result)) {
       Ok(Ok(())) => {},
-      Ok(Err(e)) => {
-        $errors.push(e);
-      },
-      Err(payload) if $errors.is_empty() && $first_panic.is_none() => {
-        $first_panic = Some(payload);
-      },
-      Err(payload) => $errors.push(LuceneError::tragedy_from_panic(
-        "panic while closing",
-        payload.as_ref(),
-      )),
+      Ok(Err(error)) => $failures.push(CloseFailure::Exception(error)),
+      Err(payload) => $failures.push(CloseFailure::Panic(payload)),
     }
   };
 }
 
 macro_rules! finish_close_result {
-  ($errors:ident, $first_panic:ident) => {{
-    if let Some(payload) = $first_panic {
-      std::panic::resume_unwind(payload);
-    }
-
-    let mut error = None;
-    for mut current in $errors.into_iter().rev() {
-      if let Some(error) = error {
-        current.add_suppressed(error);
-      }
-      error = Some(current);
-    }
-
-    match error {
-      Some(error) => Err(error),
+  ($failures:ident) => {{
+    let mut failures = $failures.into_iter();
+    match failures.next() {
+      Some(CloseFailure::Panic(primary)) => {
+        let suppressed = failures
+          .map(CloseFailure::into_suppressed)
+          .collect::<Vec<_>>();
+        if suppressed.is_empty() {
+          std::panic::resume_unwind(primary);
+        }
+        std::panic::resume_unwind(Box::new(PanicWithSuppressed::with_suppressed(
+          primary, suppressed,
+        )));
+      },
+      Some(CloseFailure::Exception(primary)) => {
+        let mut errors = failures
+          .map(CloseFailure::into_exception)
+          .collect::<Vec<_>>();
+        let mut error = None;
+        while let Some(mut current) = errors.pop() {
+          if let Some(error) = error {
+            current.add_suppressed(error);
+          }
+          error = Some(current);
+        }
+        let mut primary = primary;
+        if let Some(error) = error {
+          primary.add_suppressed(error);
+        }
+        Err(primary)
+      },
       None => Ok(()),
     }
   }};
@@ -73,14 +106,13 @@ macro_rules! impl_closeable_ref_tuple {
       $($T: CloseableRef + ?Sized + 'a),+
     {
       fn close_refs(self) -> Result<()> {
-        let mut errors = Vec::new();
-        let mut first_panic = None;
+        let mut failures = Vec::new();
         $(
           if let Some(object) = self.$index {
-            record_close_result!(object.close(), errors, first_panic);
+            record_close_result!(object.close(), failures);
           }
         )+
-        finish_close_result!(errors, first_panic)
+        finish_close_result!(failures)
       }
     }
   };
@@ -106,10 +138,16 @@ impl_closeable_ref_tuple!(
 pub struct IOUtils;
 pub(crate) struct CloseWhileHandlingException {
   first_panic: Option<Box<dyn std::any::Any + Send>>,
+  suppressed_panics: Vec<Box<dyn std::any::Any + Send>>,
+  suppressed_exceptions: Vec<LuceneError>,
 }
 impl CloseWhileHandlingException {
   pub(crate) fn new() -> Self {
-    Self { first_panic: None }
+    Self {
+      first_panic: None,
+      suppressed_panics: Vec::new(),
+      suppressed_exceptions: Vec::new(),
+    }
   }
 
   pub(crate) fn close<F>(&mut self, close: F)
@@ -119,18 +157,25 @@ impl CloseWhileHandlingException {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(close)) {
       Ok(Ok(())) => {},
       // Java's catch (Throwable) branch suppresses non-Error exceptions.
-      Ok(Err(_)) => {},
+      Ok(Err(error)) => self.suppressed_exceptions.push(error),
       // A Rust panic maps to Java Error: remember the first one and keep closing.
       Err(payload) if self.first_panic.is_none() => {
         self.first_panic = Some(payload);
       },
-      Err(_) => {},
+      Err(payload) => self.suppressed_panics.push(payload),
     }
   }
 
   pub(crate) fn finish(self) {
-    if let Some(payload) = self.first_panic {
-      std::panic::resume_unwind(payload);
+    if let Some(primary) = self.first_panic {
+      if self.suppressed_panics.is_empty() && self.suppressed_exceptions.is_empty() {
+        std::panic::resume_unwind(primary);
+      }
+      std::panic::resume_unwind(Box::new(PanicWithSuppressed::new(
+        primary,
+        self.suppressed_panics,
+        self.suppressed_exceptions,
+      )));
     }
   }
 }
@@ -273,12 +318,11 @@ impl IOUtils {
     I: IntoIterator,
     F: FnMut(I::Item) -> Result<()>,
   {
-    let mut errors = Vec::new();
-    let mut first_panic = None;
+    let mut failures = Vec::new();
     for object in objects {
-      record_close_result!(close(object), errors, first_panic);
+      record_close_result!(close(object), failures);
     }
-    finish_close_result!(errors, first_panic)
+    finish_close_result!(failures)
   }
 
   /// Closes the given object by shared reference.
@@ -335,7 +379,8 @@ impl IOUtils {
   ///
   /// `None` resources are ignored. Returned errors are suppressed. Even if a
   /// panic is raised, all given resources are closed before the first panic is
-  /// resumed.
+  /// resumed with subsequent panics and returned errors retained as suppressed
+  /// failures.
   pub(crate) fn close_while_handling_exception<T>(resources: T)
   where
     T: CloseWhileHandlingResource,
