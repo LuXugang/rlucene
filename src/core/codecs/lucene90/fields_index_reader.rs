@@ -81,6 +81,7 @@ where
       &context.with_read_advice_self(ReadAdvice::RandomPreload)?,
     )?;
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::check_index_header(
         &mut index_input,
@@ -90,18 +91,16 @@ where
         id,
         suffix,
       )?;
-      CodecUtil::retrieve_checksum(&mut index_input).map(|_| ())
+      CodecUtil::retrieve_checksum(&mut index_input)?;
+      success = true;
+      Ok(())
     }));
-    if !matches!(result, Ok(Ok(()))) {
-      let close_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| index_input.close()));
-      IOUtils::finally_caught_result(result, close_result)?;
-      return Err(
-        crate::core::util::error::lucene_error::LuceneError::illegal_state(
-          "fields index reader initialization entered failure handling after success",
-        ),
-      );
-    }
+    let close_result = if success {
+      Ok(Ok(()))
+    } else {
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| index_input.close()))
+    };
+    IOUtils::finally_caught_result(result, close_result)?;
 
     let docs_slice =
       index_input.random_access_slice(docs_start_pointer, docs_end_pointer - docs_start_pointer)?;

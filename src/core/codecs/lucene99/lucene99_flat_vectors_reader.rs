@@ -167,6 +167,7 @@ where
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
     let mut input = state.directory.open_input(&file_name, context)?;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let version_vector_data = CodecUtil::check_index_header(
         &mut input,
@@ -185,21 +186,14 @@ where
       }
 
       CodecUtil::retrieve_checksum(&mut input)?;
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => Ok(input),
-      result => {
-        IOUtils::close_while_handling_exception(&input);
-        match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "flat vector data validation entered failure handling after success",
-          )),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_exception(&input);
     }
+    unwrap_caught_result!(result)?;
+    Ok(input)
   }
   fn read_fields(
     meta: &mut impl ChecksumIndexInput,

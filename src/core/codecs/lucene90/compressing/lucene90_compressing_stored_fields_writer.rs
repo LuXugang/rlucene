@@ -110,6 +110,7 @@ where
     let mut meta_stream = None;
     let mut fields_stream = None;
     let mut index_writer = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let dir = directory
         .as_ref()
@@ -164,25 +165,18 @@ where
       meta_stream
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("metadata output is missing"))?
-        .write_vint(chunk_size)
+        .write_vint(chunk_size)?;
+      success = true;
+      Ok(())
     }));
-    match result {
-      Ok(Ok(())) => {},
-      result => {
-        IOUtils::close_while_handling_exception((
-          meta_stream.as_mut(),
-          fields_stream.as_mut(),
-          index_writer.as_mut(),
-        ));
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "stored fields writer initialization entered failure handling after success",
-          )),
-        };
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((
+        meta_stream.as_mut(),
+        fields_stream.as_mut(),
+        index_writer.as_mut(),
+      ));
     }
+    unwrap_caught_result!(result)?;
     let meta_stream =
       meta_stream.ok_or_else(|| LuceneError::illegal_state("metadata output is missing"))?;
     let fields_stream =

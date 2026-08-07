@@ -93,6 +93,7 @@ where
     );
     let mut meta_out = None;
     let mut index_out = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::write_index_header(
         data_out
@@ -142,26 +143,19 @@ where
         Lucene90PointsFormat::VERSION_CURRENT,
         segment_info.get_id(),
         &write_state.segment_suffix,
-      )
+      )?;
+      success = true;
+      Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      result => {
-        IOUtils::close_while_handling_exception((
-          meta_out.as_mut(),
-          index_out.as_mut(),
-          data_out.as_mut(),
-        ));
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "points construction entered failure handling after success",
-          )),
-        };
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((
+        meta_out.as_mut(),
+        index_out.as_mut(),
+        data_out.as_mut(),
+      ));
     }
+    unwrap_caught_result!(result)?;
     let (data_out, meta_out, index_out) = match (data_out, meta_out, index_out) {
       (Some(data_out), Some(meta_out), Some(index_out)) => (data_out, meta_out, index_out),
       (mut data_out, mut meta_out, mut index_out) => {

@@ -122,6 +122,7 @@ where
     let mut fields_stream = None;
     let mut fields_index_reader = None;
     let mut reader = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       fields_stream = Some(dir.open_input(
         &fields_stream_fn,
@@ -235,51 +236,47 @@ where
       });
       CodecUtil::check_footer(meta)?;
       meta.close()?;
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => reader
-        .take()
-        .ok_or_else(|| LuceneError::illegal_state("stored fields reader is missing")),
-      result => {
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          match result {
-            Ok(Err(error)) => match meta_in.as_mut() {
-              Some(meta) => Err(CodecUtil::check_footer_with_error(meta, error)),
-              None => Err(error),
-            },
-            Err(payload) => {
-              if let Some(meta) = meta_in.as_mut() {
-                let error = LuceneError::tragedy_from_panic(
-                  "panic while constructing stored fields reader",
-                  payload.as_ref(),
-                );
-                if let error @ LuceneError::CorruptIndex(_) =
-                  CodecUtil::check_footer_with_error(meta, error)
-                {
-                  return Err(error);
-                }
-              }
-              std::panic::resume_unwind(payload)
-            },
-            Ok(Ok(())) => unreachable!(),
-          }
-        }));
-        IOUtils::close_while_handling_exception((
-          reader.as_ref(),
-          fields_index_reader.as_ref(),
-          fields_stream.as_ref(),
-          meta_in.as_ref(),
-        ));
+    let result = if success {
+      result
+    } else {
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         match result {
-          Ok(Err(error)) => Err(error),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "stored fields reader construction failed without an error",
-          )),
-          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Err(error)) => match meta_in.as_mut() {
+            Some(meta) => Err(CodecUtil::check_footer_with_error(meta, error)),
+            None => Err(error),
+          },
+          Err(payload) => {
+            if let Some(meta) = meta_in.as_mut() {
+              let error = LuceneError::tragedy_from_panic(
+                "panic while constructing stored fields reader",
+                payload.as_ref(),
+              );
+              if let error @ LuceneError::CorruptIndex(_) =
+                CodecUtil::check_footer_with_error(meta, error)
+              {
+                return Err(error);
+              }
+            }
+            std::panic::resume_unwind(payload)
+          },
+          Ok(Ok(())) => unreachable!(),
         }
-      },
-    }
+      }));
+      IOUtils::close_while_handling_exception((
+        reader.as_ref(),
+        fields_index_reader.as_ref(),
+        fields_stream.as_ref(),
+        meta_in.as_ref(),
+      ));
+      result
+    };
+    unwrap_caught_result!(result)?;
+    reader
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("stored fields reader is missing"))
   }
 
   fn with_reader(
@@ -668,10 +665,13 @@ where
   /// Reset this block so that it stores state for the block that contains the
   /// given doc id.
   fn reset(&mut self, doc_id: i32, num_docs: i32) -> Result<()> {
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      self.do_reset(doc_id, num_docs)
+    let mut success = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      self.do_reset(doc_id, num_docs)?;
+      success = true;
+      Ok(())
     }));
-    if !matches!(&result, Ok(Ok(()))) {
+    if !success {
       // if the read failed, set chunkDocs to 0 so that it does not
       // contain any docs anymore and is not reused. This should help
       // get consistent errors when trying to get several
@@ -679,10 +679,7 @@ where
       // force the header to be decoded again
       self.chunk_docs = 0;
     }
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   fn do_reset(&mut self, doc_id: i32, num_docs: i32) -> Result<()> {

@@ -618,6 +618,7 @@ where
         // otherwise the deletes frozen by 'B' are not applied to 'A' and we
         // might miss to deletes documents in 'A'.
         let mut has_ticket = None;
+        let mut success = false;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           debug_assert!(self.assert_ticket_queue_modification(&flushing_dwpt.state.delete_queue));
           let ticket = {
@@ -631,6 +632,7 @@ where
               let flushing_docs_in_ram = flushing_dwpt.state.get_num_docs_in_ram();
               {
                 let mut dwpt = flushing_dwpt.dwpt.lock();
+                let mut dwpt_success = false;
                 let result =
                   std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
                     let v = dwpt.flush(&self.flush_notifications, writer)?;
@@ -639,18 +641,18 @@ where
                         self
                           .ticket_queue
                           .add_segment(has_ticket.as_ref().unwrap(), new_segment)?;
+                        dwpt_success = true;
                         Ok(())
                       },
                       None => Err(LuceneError::illegal_state("flush_segment returned None")),
                     }
                   }));
-                let success = matches!(&result, Ok(Ok(())));
                 self.subtract_flushed_num_docs(flushing_docs_in_ram);
                 if !dwpt.pending_files_to_delete().is_empty() {
                   let files = dwpt.pending_files_to_delete().clone();
                   self.flush_notifications.delete_unused_files(files)?;
                 }
-                if !success {
+                if !dwpt_success {
                   let dir = dwpt.segment_info.dir.clone();
                   self.flush_notifications.flush_failed(std::mem::replace(
                     &mut dwpt.segment_info,
@@ -661,19 +663,17 @@ where
               }
             },
             None => Err(LuceneError::illegal_state("ticket returned None")),
-          }
+          }?;
+          success = true;
+          Ok(())
         }));
-        let success = matches!(&result, Ok(Ok(())));
         if !success && let Some(ticket_idx) = has_ticket {
           // In the case of a failure make sure we are making progress and
           // apply all the deletes since the segment flush failed since the flush
           // The ticket could hold global deletes; see `FlushTicket::can_publish`.
           self.ticket_queue.mark_ticket_failed(ticket_idx)?;
         }
-        match result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(result)?;
         //Now we are done and try to flush the ticket queue if the head of the
         // queue has already finished the flush.
         if self.ticket_queue.get_ticket_count() as usize

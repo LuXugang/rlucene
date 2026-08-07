@@ -1094,6 +1094,7 @@ impl ConcurrentMergeScheduler {
 
       let merge_stat = merge.stat.clone();
 
+      let mut success = false;
       let setup_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           let new_merge_thread = self.get_merge_thread(inner, merge_source.clone(), merge)?;
@@ -1102,16 +1103,14 @@ impl ConcurrentMergeScheduler {
           self.update_io_throttle(inner, &merge_thread_state)?;
           new_merge_thread.start(self.clone())?;
           self.update_merge_threads(inner)?;
+          success = true;
           Ok(())
         }));
 
-      if !matches!(&setup_result, Ok(Ok(()))) {
+      if !success {
         merge_source.on_merge_finished(&merge_stat, None);
       }
-      match setup_result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(setup_result)?;
     }
 
     Ok(())

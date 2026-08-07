@@ -291,6 +291,7 @@ where
   IndexReaderContextType<Arc<IR>>: Sync + 'static,
 {
   let reader_to_check = reader.clone();
+  let mut success = false;
   let searcher_result = catch_unwind(AssertUnwindSafe(|| -> Result<_> {
     let searcher = searcher_factory.new_searcher(reader, previous_reader)?;
     if !Arc::ptr_eq(searcher.get_index_reader(), &reader_to_check) {
@@ -300,9 +301,9 @@ where
         reader_to_check
       )));
     }
+    success = true;
     Ok(searcher)
   }));
-  let success = matches!(&searcher_result, Ok(Ok(_)));
   if !success {
     reader_to_check.dec_ref()?;
   }

@@ -100,7 +100,8 @@ where
     let mut quantized_vector_data = None;
     let mut footer_attempted = false;
     let mut meta_close_attempted = false;
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    let mut success = false;
+    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       meta = Some(state.directory.open_checksum_input(&meta_file_name)?);
       let mut body_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -138,6 +139,7 @@ where
             &state.context.with_read_advice_self(ReadAdvice::Random)?,
             segment_info,
           )?);
+          success = true;
           Ok(())
         }));
       let footer_error = if let Err(payload) = &body_result
@@ -166,45 +168,36 @@ where
       IOUtils::use_or_suppress_caught_result(body_result, close_result)
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      mut result => {
-        let footer_error = if let Err(payload) = &result
-          && !footer_attempted
-          && let Some(meta) = meta.as_mut()
-        {
-          let error = LuceneError::tragedy_from_panic(
-            "panic while reading scalar quantized metadata",
-            payload.as_ref(),
-          );
-          Some(CodecUtil::check_footer_with_error(meta, error))
-        } else {
-          None
-        };
-        if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-          result = Ok(Err(error));
-        }
-        if meta_close_attempted {
-          IOUtils::close_while_handling_exception((
-            quantized_vector_data.as_ref(),
-            &raw_vectors_reader,
-          ));
-        } else {
-          IOUtils::close_while_handling_exception((
-            meta.as_ref(),
-            quantized_vector_data.as_ref(),
-            &raw_vectors_reader,
-          ));
-        }
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "scalar quantized reader construction entered failure handling after success",
-          )),
-        };
-      },
+    if !success {
+      let footer_error = if let Err(payload) = &result
+        && !footer_attempted
+        && let Some(meta) = meta.as_mut()
+      {
+        let error = LuceneError::tragedy_from_panic(
+          "panic while reading scalar quantized metadata",
+          payload.as_ref(),
+        );
+        Some(CodecUtil::check_footer_with_error(meta, error))
+      } else {
+        None
+      };
+      if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
+        result = Ok(Err(error));
+      }
+      if meta_close_attempted {
+        IOUtils::close_while_handling_exception((
+          quantized_vector_data.as_ref(),
+          &raw_vectors_reader,
+        ));
+      } else {
+        IOUtils::close_while_handling_exception((
+          meta.as_ref(),
+          quantized_vector_data.as_ref(),
+          &raw_vectors_reader,
+        ));
+      }
     }
+    unwrap_caught_result!(result)?;
 
     Ok(Self {
       fields,
@@ -304,6 +297,7 @@ where
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
     let mut input = state.directory.open_input(&file_name, context)?;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let version_vector_data = CodecUtil::check_index_header(
         &mut input,
@@ -320,21 +314,14 @@ where
         )));
       }
       CodecUtil::retrieve_checksum(&mut input)?;
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => Ok(input),
-      result => {
-        IOUtils::close_while_handling_exception(&input);
-        match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "scalar quantized vector data validation entered failure handling after success",
-          )),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_exception(&input);
     }
+    unwrap_caught_result!(result)?;
+    Ok(input)
   }
 
   fn read_field<T>(input: &mut T, version_meta: i32, info: &FieldInfo) -> Result<FieldEntry>

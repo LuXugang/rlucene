@@ -605,6 +605,7 @@ where
 
     let data_start_fp = data_out.get_file_pointer()?;
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let mut parent_splits = vec![0i32; self.config.num_index_dims];
       self.build(
@@ -636,25 +637,19 @@ where
           .is_empty(),
         "Temp directory should be empty"
       );
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => {},
-      result => {
-        let created_files = self
-          .temp_dir
-          .get_created_files()
-          .lock()
-          .created_filenames
-          .clone();
-        IOUtils::delete_files_ignoring_exceptions(&self.temp_dir, &created_files);
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
-        };
-      },
+    if !success {
+      let created_files = self
+        .temp_dir
+        .get_created_files()
+        .lock()
+        .created_filenames
+        .clone();
+      IOUtils::delete_files_ignoring_exceptions(&self.temp_dir, &created_files);
     }
+    unwrap_caught_result!(result)?;
 
     self
       .scratch_bytes_ref1

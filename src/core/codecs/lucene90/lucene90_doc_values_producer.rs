@@ -174,6 +174,7 @@ where
       &data_name,
       &state.context.with_read_advice_self(ReadAdvice::Normal)?,
     )?);
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Self> {
       let data_ref = data
         .as_mut()
@@ -199,6 +200,12 @@ where
       // forms of corruption such as file truncation.
       CodecUtil::retrieve_checksum(data_ref)?;
 
+      let data = Arc::new(
+        data
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("doc values data input is missing"))?,
+      );
+      success = true;
       Ok(Self {
         numerics,
         binaries,
@@ -206,26 +213,16 @@ where
         sorted_sets,
         sorted_numerics,
         skippers,
-        data: Arc::new(
-          data
-            .take()
-            .ok_or_else(|| LuceneError::illegal_state("doc values data input is missing"))?,
-        ),
+        data,
         max_doc,
         version,
         merging: false,
       })
     }));
-    match result {
-      Ok(result @ Ok(_)) => result,
-      result => {
-        IOUtils::close_while_handling_exception(data.as_ref());
-        match result {
-          Ok(result) => result,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_exception(data.as_ref());
     }
+    unwrap_caught_result!(result)
   }
   #[allow(clippy::too_many_arguments)]
   fn with_merging(

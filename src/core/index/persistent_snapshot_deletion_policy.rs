@@ -141,17 +141,15 @@ where
     let op_lock = self.base.lock();
     let index_commit = self.base.snapshot_with_lock(Some(&op_lock))?;
     let mut success = false;
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.persist(&op_lock)));
-    if matches!(&result, Ok(Ok(()))) {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      self.persist(&op_lock)?;
       success = true;
-    }
+      Ok(())
+    }));
     if !success {
       let _ = self.base.release_with_lock(&index_commit, Some(&op_lock));
     }
-    match result {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)?;
     Ok(index_commit)
   }
 
@@ -161,10 +159,11 @@ where
     let op_lock = self.base.lock();
     self.base.release_with_lock(commit, Some(&op_lock))?;
     let mut success = false;
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.persist(&op_lock)));
-    if matches!(&result, Ok(Ok(()))) {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      self.persist(&op_lock)?;
       success = true;
-    }
+      Ok(())
+    }));
     if !success {
       self.base.inc_ref_with_lock(commit, Some(&op_lock));
     }

@@ -892,21 +892,18 @@ where
           .ok_or_else(|| LuceneError::illegal_state("Failed to generate destination file name."))?;
       directory.rename(&src, &dest)?;
 
-      let sync_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| directory.sync_metadata()));
-      if matches!(&sync_result, Ok(Ok(()))) {
+      let sync_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        directory.sync_metadata()?;
         success_rename_and_sync = true;
-      }
+        Ok(())
+      }));
       if !success_rename_and_sync {
         // at this point we already created the file but missed to sync directory let's also
         // remove the
         // renamed file
         IOUtils::delete_files_ignoring_exceptions(directory, std::iter::once(&dest));
       }
-      match sync_result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(sync_result)?;
       Ok(dest)
     }));
 

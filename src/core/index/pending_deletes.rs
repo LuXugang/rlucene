@@ -318,6 +318,7 @@ impl PendingDeletesBase for PendingDeletes {
     // We can write directly to the actual name (vs to a
     // .tmp & renaming it) because the file is not live
     // until segments file is written:
+    let mut success = false;
     let write_res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let codec = info.info.get_codec()?;
       codec.live_docs_format().write_live_docs(
@@ -327,10 +328,11 @@ impl PendingDeletesBase for PendingDeletes {
         self.pending_delete_count,
         &IOContext::default_io_context()?,
       )?;
+      success = true;
       Ok(())
     }));
 
-    if !matches!(&write_res, Ok(Ok(()))) {
+    if !success {
       // Advance only the nextWriteDelGen so that a 2nd
       // attempt to write will write to a new file
       info.advance_next_write_del_gen();
@@ -340,10 +342,7 @@ impl PendingDeletesBase for PendingDeletes {
         &tracking_dir.get_created_files().lock().created_filenames,
       );
     }
-    match write_res {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(write_res)?;
     // If we hit an exc in the line above (eg disk full)
     // then info's delGen remains pointing to the previous
     // (successfully written) del docs:

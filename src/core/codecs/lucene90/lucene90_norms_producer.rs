@@ -132,6 +132,7 @@ where
     )?);
 
     // Check header again in the data file
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Self> {
       let data_ref = data
         .as_mut()
@@ -157,28 +158,24 @@ where
       // forms of corruption such as file truncation.
       CodecUtil::retrieve_checksum(data_ref)?;
 
+      let data = data
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("norms data input is missing"))?;
+      success = true;
       Ok(Self {
         norms,
         max_doc,
-        data: data
-          .take()
-          .ok_or_else(|| LuceneError::illegal_state("norms data input is missing"))?,
+        data,
         merging: false,
         disi_inputs: HashMap::new().into(),
         disi_jump_tables: HashMap::new().into(),
         data_inputs: HashMap::new().into(),
       })
     }));
-    match result {
-      Ok(result @ Ok(_)) => result,
-      result => {
-        IOUtils::close_while_handling_exception(data.as_ref());
-        match result {
-          Ok(result) => result,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_exception(data.as_ref());
     }
+    unwrap_caught_result!(result)
   }
   fn read_fields(
     meta: &mut impl IndexInput,

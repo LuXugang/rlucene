@@ -69,6 +69,7 @@ where
       dir.create_temp_output(name, &format!("{codec_name}-doc_ids"), &io_context)?;
 
     let mut file_pointers_out = None;
+    let mut success = false;
     let init_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::write_header(
         &mut docs_out,
@@ -85,29 +86,26 @@ where
         &format!("{codec_name}FilePointers"),
         fields_index_writer_const::VERSION_CURRENT,
       )?;
+      success = true;
       Ok(())
     }));
 
-    match init_result {
-      Ok(Ok(())) => {},
-      result => {
-        let has_file_pointers_out = file_pointers_out.is_some();
-        let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          Self::close_temp_outputs(
-            &dir,
-            &mut docs_out,
-            file_pointers_out.as_mut(),
-            false,
-            true,
-            has_file_pointers_out,
-          )
-        }));
-        IOUtils::finally_caught_result(result, cleanup_result)?;
-        return Err(LuceneError::illegal_state(
-          "fields index writer initialization entered failure handling after success",
-        ));
-      },
-    }
+    let cleanup_result = if success {
+      Ok(Ok(()))
+    } else {
+      let has_file_pointers_out = file_pointers_out.is_some();
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        Self::close_temp_outputs(
+          &dir,
+          &mut docs_out,
+          file_pointers_out.as_mut(),
+          false,
+          true,
+          has_file_pointers_out,
+        )
+      }))
+    };
+    IOUtils::finally_caught_result(init_result, cleanup_result)?;
 
     let file_pointers_out = file_pointers_out
       .ok_or_else(|| LuceneError::illegal_state("file_pointers_out must be initialized"))?;

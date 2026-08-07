@@ -82,6 +82,7 @@ where
       .unwrap_or_else(|| CodecUtil::index_header_length(Lucene90CompoundFormat::DATA_CODEC, ""))
       + CodecUtil::footer_length();
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::check_index_header(
         &mut handle,
@@ -105,19 +106,13 @@ where
           "length should be {expected_length} bytes, but is {length} instead (resource={handle})"
         )));
       }
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => {},
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_exception(&handle);
-        return Err(error);
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception(&handle);
-        std::panic::resume_unwind(payload);
-      },
+    if !success {
+      IOUtils::close_while_handling_exception(&handle);
     }
+    unwrap_caught_result!(result)?;
     let dir_fmt = directory.to_string();
     Ok(Self {
       segment_name,

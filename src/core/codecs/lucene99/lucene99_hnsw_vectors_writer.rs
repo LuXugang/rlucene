@@ -111,6 +111,7 @@ where
     );
     let mut meta = None;
     let mut vector_index = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       meta = Some(
         state
@@ -141,26 +142,18 @@ where
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
+      success = true;
       Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      result => {
-        IOUtils::close_while_handling_exception((
-          meta.as_mut(),
-          vector_index.as_mut(),
-          &mut flat_vector_writer,
-        ));
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "HNSW writer construction entered failure handling after success",
-          )),
-        };
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((
+        meta.as_mut(),
+        vector_index.as_mut(),
+        &mut flat_vector_writer,
+      ));
     }
+    unwrap_caught_result!(result)?;
     let (meta, vector_index) = match (meta, vector_index) {
       (Some(meta), Some(vector_index)) => (meta, vector_index),
       (mut meta, mut vector_index) => {

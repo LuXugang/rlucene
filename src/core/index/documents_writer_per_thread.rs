@@ -836,6 +836,7 @@ where
         new_segment.size_in_bytes()?,
       ))?;
 
+      let mut success = false;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         if index_writer_config.get_use_compound_file() {
           let original_files = new_segment.info.files()?.clone();
@@ -922,9 +923,10 @@ where
           new_segment.advance_del_gen();
         }
 
+        success = true;
         Ok(())
       }));
-      if !matches!(&result, Ok(Ok(()))) && self.info_stream.is_enabled("DWPT") {
+      if !success && self.info_stream.is_enabled("DWPT") {
         self.info_stream.message(
           "DWPT",
           &format!(

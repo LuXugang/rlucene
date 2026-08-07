@@ -182,6 +182,7 @@ where
 
     let mut meta = None;
     let mut quantized_vector_data = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       meta = Some(
         state
@@ -211,26 +212,18 @@ where
         segment_info.get_id(),
         &state.segment_suffix,
       )?;
+      success = true;
       Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      result => {
-        IOUtils::close_while_handling_exception((
-          meta.as_mut(),
-          quantized_vector_data.as_mut(),
-          &mut raw_vector_delegate,
-        ));
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "scalar quantized writer construction entered failure handling after success",
-          )),
-        };
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((
+        meta.as_mut(),
+        quantized_vector_data.as_mut(),
+        &mut raw_vector_delegate,
+      ));
     }
+    unwrap_caught_result!(result)?;
     let (meta, quantized_vector_data) = match (meta, quantized_vector_data) {
       (Some(meta), Some(quantized_vector_data)) => (meta, quantized_vector_data),
       (mut meta, mut quantized_vector_data) => {
@@ -395,6 +388,7 @@ where
     )?;
     let temp_quantized_vector_name = temp_quantized_vector_data.get_name().to_string();
     let mut quantization_data_input = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
       || -> Result<
         <Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'_, D2::IndexInput, D2>,
@@ -442,6 +436,7 @@ where
           &docs_with_field,
           self.version,
         )?;
+        success = true;
 
         let vector_values_input = quantization_data_input_ref.try_clone()?;
         let random_vector_scorer_supplier =
@@ -472,26 +467,17 @@ where
       },
     ));
 
-    match result {
-      Ok(Ok(supplier)) => Ok(supplier),
-      result => {
-        IOUtils::close_while_handling_exception((
-          &mut temp_quantized_vector_data,
-          quantization_data_input.as_ref(),
-        ));
-        IOUtils::delete_files_ignoring_exceptions(
-          segment_write_state.directory,
-          std::iter::once(&temp_quantized_vector_name),
-        );
-        match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => Err(LuceneError::illegal_state(
-            "scalar quantized merge entered failure handling after success",
-          )),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((
+        &mut temp_quantized_vector_data,
+        quantization_data_input.as_ref(),
+      ));
+      IOUtils::delete_files_ignoring_exceptions(
+        segment_write_state.directory,
+        std::iter::once(&temp_quantized_vector_name),
+      );
     }
+    unwrap_caught_result!(result)
   }
 }
 

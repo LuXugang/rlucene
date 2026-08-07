@@ -93,6 +93,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, data_extension);
     let mut data = None;
     let mut meta = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i32> {
       data = Some(state.directory.create_output(&data_name, state.context)?);
       CodecUtil::write_index_header(
@@ -121,36 +122,29 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         &state.segment_suffix,
       )?;
 
-      segment_info.max_doc()
+      let max_doc = segment_info.max_doc()?;
+      success = true;
+      Ok(max_doc)
     }));
 
-    let max_doc = match result {
-      Ok(Ok(max_doc)) => max_doc,
-      result => {
-        let close_result =
-          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-            if let Some(meta) = meta.as_mut() {
-              meta.write_int(-1)?;
-              CodecUtil::write_footer(meta)?;
-            }
-            if let Some(data) = data.as_mut() {
-              CodecUtil::write_footer(data)?;
-            }
-            Ok(())
-          }));
-        IOUtils::close_while_handling_exception((data.as_mut(), meta.as_mut()));
-        if let Err(payload) = close_result {
-          std::panic::resume_unwind(payload);
-        }
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => Err(LuceneError::illegal_state(
-            "doc values construction entered failure handling after success",
-          )),
-        };
-      },
-    };
+    if !success {
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          if let Some(meta) = meta.as_mut() {
+            meta.write_int(-1)?;
+            CodecUtil::write_footer(meta)?;
+          }
+          if let Some(data) = data.as_mut() {
+            CodecUtil::write_footer(data)?;
+          }
+          Ok(())
+        }));
+      IOUtils::close_while_handling_exception((data.as_mut(), meta.as_mut()));
+      if let Err(payload) = close_result {
+        std::panic::resume_unwind(payload);
+      }
+    }
+    let max_doc = unwrap_caught_result!(result)?;
     let (data, meta) = match (data, meta) {
       (Some(data), Some(meta)) => (data, meta),
       (mut data, mut meta) => {

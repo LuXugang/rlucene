@@ -937,20 +937,18 @@ where
     true,
   )?;
 
+  let mut success = false;
   let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
     inner.pending_deletes.on_new_reader(&new_reader, info)?;
     reader.dec_ref()?;
+    success = true;
     Ok(())
   }));
 
-  if !matches!(&res, Ok(Ok(()))) {
+  if !success {
     new_reader.dec_ref()?;
-    return match res {
-      Ok(Err(error)) => Err(error),
-      Err(payload) => std::panic::resume_unwind(payload),
-      Ok(Ok(())) => unreachable!(),
-    };
   }
+  unwrap_caught_result!(res)?;
   Ok(new_reader)
 }
 fn swap_new_reader_with_latest_live_docs<D>(

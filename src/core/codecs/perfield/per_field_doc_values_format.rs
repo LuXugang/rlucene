@@ -535,6 +535,7 @@ where
     let mut fields = HashMap::new();
     let mut formats: HashMap<String, Arc<DVP>> = HashMap::new();
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       // Read field name -> format name.
       for field_info in read_state.field_infos.iter() {
@@ -570,26 +571,14 @@ where
         })?;
         fields.insert(field_info.number, Arc::clone(producer));
       }
+      success = true;
       Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_error(formats.values(), |format| format.close())?;
-        return Err(error);
-      },
-      Err(error) => {
-        let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close_while_handling_error(formats.values(), |format| format.close())
-        }));
-        match close_result {
-          Ok(Ok(())) => std::panic::resume_unwind(error),
-          Ok(Err(close_error)) => return Err(close_error),
-          Err(close_error) => std::panic::resume_unwind(close_error),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_error(formats.values(), |format| format.close())?;
     }
+    unwrap_caught_result!(result)?;
 
     Ok(Self { fields, formats })
   }

@@ -148,6 +148,7 @@ where
     let mut offset_length_buffer = Vec::new();
     let mut payload_bytes = Vec::new();
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<_> {
       meta_out = Some(state.directory.create_output(&meta_file, state.context)?);
       doc_out = Some(state.directory.create_output(&doc_file, state.context)?);
@@ -220,30 +221,19 @@ where
         }
       }
 
+      success = true;
       Ok((for_delta_util, pfor_util))
     }));
 
-    let (for_delta_util, pfor_util) = match result {
-      Ok(Ok(utils)) => utils,
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_exception((
-          meta_out.as_mut(),
-          doc_out.as_mut(),
-          pos_out.as_mut(),
-          pay_out.as_mut(),
-        ));
-        return Err(error);
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception((
-          meta_out.as_mut(),
-          doc_out.as_mut(),
-          pos_out.as_mut(),
-          pay_out.as_mut(),
-        ));
-        std::panic::resume_unwind(payload);
-      },
-    };
+    if !success {
+      IOUtils::close_while_handling_exception((
+        meta_out.as_mut(),
+        doc_out.as_mut(),
+        pos_out.as_mut(),
+        pay_out.as_mut(),
+      ));
+    }
+    let (for_delta_util, pfor_util) = unwrap_caught_result!(result)?;
 
     let doc_delta_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];
     let freq_buffer = vec![0; Lucene101PostingsFormat::BLOCK_SIZE];

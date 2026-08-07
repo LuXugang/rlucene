@@ -293,7 +293,7 @@ where
 
   let mut new_readers: Vec<Option<DefaultLeafReader<D>>> =
     (0..infos.size()).map(|_| None).collect();
-  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
     for i in (0..infos.size()).rev() {
       let commit_info = infos
         .info(i)
@@ -408,31 +408,29 @@ where
       };
       new_readers[i] = Some(new_reader);
     }
-    Ok(())
+
+    let readers = new_readers
+      .iter()
+      .map(|reader| {
+        reader
+          .clone()
+          .ok_or_else(|| LuceneError::illegal_state("segment reader is missing"))
+      })
+      .collect::<Result<Vec<_>>>()?;
+    let reader =
+      StandardDirectoryReader::new(directory, readers, None, infos, leaf_sorter, false, false)?;
+    new_readers.clear();
+    Ok::<_, LuceneError>(reader)
   }));
-
-  if !matches!(&result, Ok(Ok(()))) {
-    dec_ref_while_handling_exception(new_readers);
-    return match result {
-      Ok(Err(error)) => Err(error),
-      Err(payload) => std::panic::resume_unwind(payload),
-      Ok(Ok(())) => unreachable!(),
-    };
-  }
-
-  let readers = new_readers
-    .into_iter()
-    .map(|reader| reader.ok_or_else(|| LuceneError::illegal_state("segment reader is missing")))
-    .collect::<Result<Vec<_>>>()?;
-  StandardDirectoryReader::new(directory, readers, None, infos, leaf_sorter, false, false)
+  dec_ref_while_handling_exception(&new_readers);
+  unwrap_caught_result!(result)
 }
 
-fn dec_ref_while_handling_exception<D, I>(readers: I)
+fn dec_ref_while_handling_exception<D>(readers: &[Option<DefaultLeafReader<D>>])
 where
   D: Directory,
-  I: IntoIterator<Item = Option<DefaultLeafReader<D>>>,
 {
-  for reader in readers.into_iter().flatten() {
+  for reader in readers.iter().flatten() {
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reader.dec_ref()));
   }
 }

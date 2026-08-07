@@ -308,6 +308,7 @@ where
     };
     let mut meta_out = None;
     let mut index_out = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::write_index_header(
         &mut terms_out,
@@ -353,30 +354,20 @@ where
           .ok_or_else(|| LuceneError::illegal_state("terms metadata output is missing"))?,
         state,
         segment_info,
-      )
+      )?;
+      success = true;
+      Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_exception((
-          meta_out.as_mut(),
-          &mut terms_out,
-          index_out.as_mut(),
-          &mut postings_writer,
-        ));
-        return Err(error);
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception((
-          meta_out.as_mut(),
-          &mut terms_out,
-          index_out.as_mut(),
-          &mut postings_writer,
-        ));
-        std::panic::resume_unwind(payload);
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((
+        meta_out.as_mut(),
+        &mut terms_out,
+        index_out.as_mut(),
+        &mut postings_writer,
+      ));
     }
+    unwrap_caught_result!(result)?;
     let (meta_out, index_out) = match (meta_out, index_out) {
       (Some(meta_out), Some(index_out)) => (meta_out, index_out),
       (mut meta_out, mut index_out) => {

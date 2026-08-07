@@ -130,6 +130,7 @@ where
     let mut meta_stream = None;
     let mut vectors_stream = None;
     let mut index_writer = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<_> {
       let dir = directory
         .as_ref()
@@ -197,33 +198,30 @@ where
         .ok_or_else(|| LuceneError::illegal_state("metadata output is missing"))?
         .write_vint(chunk_size)?;
 
+      let writer = AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE, BlockPackedWriter)?;
+      let positions_buf = vec![0; 1024];
+      let start_offsets_buf = vec![0; 1024];
+      let lengths_buf = vec![0; 1024];
+      let payload_lengths_buf = vec![0; 1024];
+      success = true;
       Ok((
-        AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE, BlockPackedWriter)?,
-        vec![0; 1024],
-        vec![0; 1024],
-        vec![0; 1024],
-        vec![0; 1024],
+        writer,
+        positions_buf,
+        start_offsets_buf,
+        lengths_buf,
+        payload_lengths_buf,
       ))
     }));
-    let (writer, positions_buf, start_offsets_buf, lengths_buf, payload_lengths_buf) = match result
-    {
-      Ok(Ok(values)) => values,
-      result => {
-        IOUtils::close_while_handling_error(0..4, |operation| match operation {
-          0 => meta_stream.as_mut().map_or(Ok(()), Closeable::close),
-          1 => vectors_stream.as_mut().map_or(Ok(()), Closeable::close),
-          2 | 3 => index_writer.as_mut().map_or(Ok(()), Closeable::close),
-          _ => unreachable!(),
-        })?;
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => Err(LuceneError::illegal_state(
-            "term vectors writer initialization entered failure handling after success",
-          )),
-        };
-      },
-    };
+    if !success {
+      IOUtils::close_while_handling_error(0..4, |operation| match operation {
+        0 => meta_stream.as_mut().map_or(Ok(()), Closeable::close),
+        1 => vectors_stream.as_mut().map_or(Ok(()), Closeable::close),
+        2 | 3 => index_writer.as_mut().map_or(Ok(()), Closeable::close),
+        _ => unreachable!(),
+      })?;
+    }
+    let (writer, positions_buf, start_offsets_buf, lengths_buf, payload_lengths_buf) =
+      unwrap_caught_result!(result)?;
     let meta_stream =
       meta_stream.ok_or_else(|| LuceneError::illegal_state("metadata output is missing"))?;
     let vectors_stream =

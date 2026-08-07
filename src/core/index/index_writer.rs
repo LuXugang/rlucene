@@ -304,6 +304,7 @@ where
     // we wrap with a sleeper and this might take some time.
     let write_lock = d.obtain_lock(WRITE_LOCK_NAME)?;
     let mut directory_for_cleanup = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       let directory_orig = d.clone();
       let directory = Arc::new(LockValidatingDirectoryWrapper::new(d.clone(), write_lock));
@@ -603,9 +604,9 @@ where
         .base
         .merge_scheduler
         .initialize(info_stream.clone(), iw.directory.as_ref())?;
+      success = true;
       Ok(iw)
     }));
-    let success = matches!(&result, Ok(Ok(_)));
     if !success && info_stream.is_enabled("IW") {
       info_stream.message("IW", "init: hit exception on init; releasing write lock")?;
     }
@@ -3309,20 +3310,16 @@ where
   {
     let mut locks = Vec::with_capacity(dirs.len());
     for dir in dirs {
+      let mut success = false;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         locks.push(dir.obtain_lock(WRITE_LOCK_NAME)?);
+        success = true;
         Ok(())
       }));
-      match result {
-        Ok(Ok(())) => {},
-        result => {
-          IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
-          unwrap_caught_result!(result)?;
-          return Err(LuceneError::illegal_state(
-            "write lock acquisition entered failure handling after success",
-          ));
-        },
+      if !success {
+        IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
       }
+      unwrap_caught_result!(result)?;
     }
     Ok(locks)
   }
@@ -3376,6 +3373,7 @@ where
       self.test_reserve_docs(total_max_doc)?;
 
       let mut infos: Vec<SegmentCommitInfo<D>> = Vec::new();
+      let mut success = false;
       let copy_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         for sis in &commits {
           for info in sis.iter() {
@@ -3427,44 +3425,34 @@ where
             infos.push(self.copy_segment_as_is(info, &new_seg_name, &context)?);
           }
         }
+        success = true;
         Ok(())
       }));
 
-      if !matches!(&copy_result, Ok(Ok(()))) {
+      if !success {
         for sipc in &infos {
           self.delete_new_files(sipc.files()?.iter(), None)?;
         }
-        match copy_result {
-          Ok(Err(error)) => return Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
-        }
       }
+      unwrap_caught_result!(copy_result)?;
 
       let seq_no = {
         let mut inner = self.inner.lock();
+        success = false;
         let publish_result =
           std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
             self.ensure_open()?;
             self.reserve_docs(total_max_doc)?;
             let seq_no = self.doc_writer.get_next_sequence_number();
+            success = true;
             Ok(seq_no)
           }));
-        let seq_no = match publish_result {
-          Ok(Ok(seq_no)) => seq_no,
-          Ok(Err(error)) => {
-            for sipc in &infos {
-              self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
-            }
-            return Err(error);
-          },
-          Err(payload) => {
-            for sipc in &infos {
-              self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
-            }
-            std::panic::resume_unwind(payload)
-          },
-        };
+        if !success {
+          for sipc in &infos {
+            self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
+          }
+        }
+        let seq_no = unwrap_caught_result!(publish_result)?;
         inner.segment_infos.add_all(infos)?;
         self.checkpoint(&mut inner)?;
         seq_no
@@ -3695,21 +3683,20 @@ where
         let seq_no = {
           let mut inner = self.inner.lock();
           if !infos.is_empty() {
+            let mut register_segment_success = false;
             let register_segment_result =
               std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
                 self.ensure_open()?;
                 self.reserve_docs(total_docs)?;
+                register_segment_success = true;
                 Ok(())
               }));
-            if !matches!(&register_segment_result, Ok(Ok(()))) {
+            if !register_segment_success {
               for sipc in &infos {
                 self.delete_new_files(sipc.files()?.iter(), Some(&inner))?;
               }
             }
-            match register_segment_result {
-              Ok(result) => result?,
-              Err(payload) => std::panic::resume_unwind(payload),
-            }
+            unwrap_caught_result!(register_segment_result)?;
             inner.segment_infos.add_all(infos)?;
             self.checkpoint(&mut inner)?;
           }
@@ -4020,6 +4007,7 @@ where
     #[cfg(debug_assertions)]
     {
       let mut copied_files = HashSet::new();
+      let mut success = false;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         for file in info.files()? {
           let new_filename = named_for_this_segment(seg_name, file.clone());
@@ -4028,15 +4016,13 @@ where
             .copy_from(info.info.dir.as_ref(), &file, &new_filename, context)?;
           copied_files.insert(new_filename);
         }
+        success = true;
         Ok(())
       }));
-      if !matches!(&result, Ok(Ok(()))) {
+      if !success {
         self.delete_new_files(copied_files.iter(), None)?;
       }
-      match result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(result)?;
       debug_assert_eq!(
         copied_files,
         new_info_per_commit.files()?,
@@ -4151,6 +4137,7 @@ where
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           let _guard = self.full_flush_lock.lock();
           let mut flush_success = false;
+          let mut success = false;
           let body_res =
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
               seq_no = self.doc_writer.flush_all_threads(self, &self.config)?;
@@ -4218,9 +4205,10 @@ where
                   )?;
                 }
               }
+              success = true;
               Ok(())
             }));
-          if !matches!(&body_res, Ok(Ok(()))) && self.info_stream.is_enabled("IW") {
+          if !success && self.info_stream.is_enabled("IW") {
             self
               .info_stream
               .message("IW", "hit exception during prepareCommit")?;
@@ -5309,6 +5297,7 @@ where
     debug_assert!(sci.info.max_doc()? != 0 || drop_segment);
 
     if let Some(merged_updates) = merged_updates {
+      let mut success = false;
       let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         if drop_segment {
           merged_updates.drop_changes();
@@ -5317,19 +5306,16 @@ where
         // segment is not yet live (only below do we commit it
         // to the segment_infos):
         self.release_with_assert(&merged_updates, false, &mut inner, merge.info.as_mut())?;
+        success = true;
         Ok(())
       }));
 
-      if !matches!(&res, Ok(Ok(()))) {
+      if !success {
         merged_updates.drop_changes();
         let info_id = merge.info.as_ref().unwrap().info.get_id_key();
         self.reader_pool.drop(info_id, &mut inner.segment_infos)?;
-        return match res {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => unreachable!(),
-        };
       }
+      unwrap_caught_result!(res)?;
     }
 
     // Must do this after reader_pool.release, in case an
@@ -5667,11 +5653,13 @@ where
       .buffered_updates_stream
       .wait_apply_for_merge(&merge.stat.segments, self)?;
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       self.merge_init_(merge)?;
+      success = true;
       Ok(())
     }));
-    if !matches!(&result, Ok(Ok(()))) {
+    if !success {
       if self.info_stream.is_enabled("IW") {
         self
           .info_stream
@@ -6038,6 +6026,7 @@ where
         // This call can take a long time -- 10s of seconds
         // or more.  We do it without syncing on this:
         let mut files_to_sync_list = Vec::new();
+        let mut success = false;
         let sync_res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           files_to_sync_list = {
             let pending_commit = commit_lock.pending_commit.borrow();
@@ -6049,20 +6038,18 @@ where
               .collect()
           };
           self.directory.sync(&files_to_sync_list)?;
+          success = true;
           Ok(())
         }));
 
-        if !matches!(&sync_res, Ok(Ok(()))) {
+        if !success {
           pending_commit_set = false;
           debug_assert!(commit_lock.pending_commit.borrow().is_some());
           let mut pending_commit = commit_lock.pending_commit.borrow_mut().take().unwrap();
           pending_commit.rollback_commit(self.directory.as_ref());
           to_sync = Some(pending_commit);
         }
-        match sync_res {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(sync_res)?;
 
         if self.info_stream.is_enabled("IW") {
           self
@@ -8638,20 +8625,19 @@ where
     }
   }
   // Now merge all added files
+  let mut success = false;
   let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
     let codec = info.get_codec()?.clone();
     codec.compound_format().write(directory, info, context)?;
+    success = true;
     Ok(())
   }));
   let filename = std::mem::take(&mut directory.get_created_files().lock().created_filenames);
-  if !matches!(&write_result, Ok(Ok(()))) {
+  if !success {
     delete_files.accept(filename)?;
-    return match write_result {
-      Ok(Err(error)) => Err(error),
-      Err(payload) => std::panic::resume_unwind(payload),
-      Ok(Ok(())) => unreachable!(),
-    };
+    return unwrap_caught_result!(write_result);
   }
+  unwrap_caught_result!(write_result)?;
   // Replace all previous files with the CFS/CFE files:
   info.set_files(filename)?;
 

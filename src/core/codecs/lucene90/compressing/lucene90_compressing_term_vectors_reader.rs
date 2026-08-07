@@ -125,6 +125,7 @@ where
     let mut vectors_stream = None;
     let mut fields_index_reader = None;
     let mut reader = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let vectors_stream_fn =
         IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_EXTENSION);
@@ -235,52 +236,48 @@ where
       });
       CodecUtil::check_footer(meta)?;
       meta.close()?;
+      success = true;
       Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => reader
-        .take()
-        .ok_or_else(|| LuceneError::illegal_state("term vectors reader is missing")),
-      result => {
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          match result {
-            Ok(Err(error)) => match meta_in.as_mut() {
-              Some(meta) => Err(CodecUtil::check_footer_with_error(meta, error)),
-              None => Err(error),
-            },
-            Err(payload) => {
-              if let Some(meta) = meta_in.as_mut() {
-                let error = LuceneError::tragedy_from_panic(
-                  "panic while constructing term vectors reader",
-                  payload.as_ref(),
-                );
-                if let error @ LuceneError::CorruptIndex(_) =
-                  CodecUtil::check_footer_with_error(meta, error)
-                {
-                  return Err(error);
-                }
-              }
-              std::panic::resume_unwind(payload)
-            },
-            Ok(Ok(())) => unreachable!(),
-          }
-        }));
-        IOUtils::close_while_handling_exception((
-          reader.as_ref(),
-          fields_index_reader.as_ref(),
-          vectors_stream.as_ref(),
-          meta_in.as_ref(),
-        ));
+    let result = if success {
+      result
+    } else {
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         match result {
-          Ok(Err(error)) => Err(error),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "term vectors reader construction failed without an error",
-          )),
-          Err(payload) => std::panic::resume_unwind(payload),
+          Ok(Err(error)) => match meta_in.as_mut() {
+            Some(meta) => Err(CodecUtil::check_footer_with_error(meta, error)),
+            None => Err(error),
+          },
+          Err(payload) => {
+            if let Some(meta) = meta_in.as_mut() {
+              let error = LuceneError::tragedy_from_panic(
+                "panic while constructing term vectors reader",
+                payload.as_ref(),
+              );
+              if let error @ LuceneError::CorruptIndex(_) =
+                CodecUtil::check_footer_with_error(meta, error)
+              {
+                return Err(error);
+              }
+            }
+            std::panic::resume_unwind(payload)
+          },
+          Ok(Ok(())) => unreachable!(),
         }
-      },
-    }
+      }));
+      IOUtils::close_while_handling_exception((
+        reader.as_ref(),
+        fields_index_reader.as_ref(),
+        vectors_stream.as_ref(),
+        meta_in.as_ref(),
+      ));
+      result
+    };
+    unwrap_caught_result!(result)?;
+    reader
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("term vectors reader is missing"))
   }
 
   pub fn with_reader(reader: &Lucene90CompressingTermVectorsReader<I>) -> Result<Self> {

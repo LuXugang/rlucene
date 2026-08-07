@@ -56,7 +56,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 /// IndexReader implementation over a single segment.
@@ -123,6 +123,7 @@ where
       index_base,
       reader_cache_helper,
     };
+    let mut success = false;
     let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let si = &segment_reader.si;
       let (hard_live_docs, live_docs) = if si.has_deletions() {
@@ -157,19 +158,14 @@ where
         segment_reader.live_docs.as_ref()
       )?);
 
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => Ok(segment_reader),
-      Ok(Err(e)) => {
-        segment_reader.do_close()?;
-        Err(e)
-      },
-      Err(payload) => {
-        segment_reader.do_close()?;
-        resume_unwind(payload)
-      },
+    if !success {
+      segment_reader.do_close()?;
     }
+    unwrap_caught_result!(result)?;
+    Ok(segment_reader)
   }
   /// Create new SegmentReader sharing core from a previous SegmentReader and using the provided liveDocs,
   /// and recording whether those liveDocs were carried in ram (isNRT=true).
@@ -226,6 +222,7 @@ where
       index_base,
       reader_cache_helper,
     };
+    let mut success = false;
     let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let si = &segment_reader.si;
       let field_infos = Self::init_field_infos(si, core.core_field_infos.clone())?;
@@ -236,19 +233,14 @@ where
         &seg_doc_values,
         &core,
       )?;
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => Ok(segment_reader),
-      Ok(Err(e)) => {
-        segment_reader.do_close()?;
-        Err(e)
-      },
-      Err(payload) => {
-        segment_reader.do_close()?;
-        resume_unwind(payload)
-      },
+    if !success {
+      segment_reader.do_close()?;
     }
+    unwrap_caught_result!(result)?;
+    Ok(segment_reader)
   }
   fn assert_live_docs(
     is_nrt: bool,

@@ -98,6 +98,7 @@ where
 
     let mut meta = None;
     let mut vector_data = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       meta = Some(
         state
@@ -127,22 +128,15 @@ where
         VERSION_CURRENT,
         segment_info.get_id(),
         &state.segment_suffix,
-      )
+      )?;
+      success = true;
+      Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      result => {
-        IOUtils::close_while_handling_exception((meta.as_mut(), vector_data.as_mut()));
-        return match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(())) => Err(LuceneError::illegal_state(
-            "flat vectors construction entered failure handling after success",
-          )),
-        };
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((meta.as_mut(), vector_data.as_mut()));
     }
+    unwrap_caught_result!(result)?;
     let (meta, vector_data) = match (meta, vector_data) {
       (Some(meta), Some(vector_data)) => (meta, vector_data),
       (mut meta, mut vector_data) => {
@@ -551,6 +545,7 @@ where
     )?;
     let temp_vector_name = temp_vector_data.get_name().to_string();
     let mut vector_data_input = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
       || -> Result<Self::CloseableRandomVectorScorerSupplier<'_, D2::IndexInput, D2>> {
         let docs_with_field = match field_info.get_vector_encoding() {
@@ -593,6 +588,7 @@ where
           vector_data_length as i64,
           &docs_with_field,
         )?;
+        success = true;
 
         let vector_values_input = vector_data_input_ref.try_clone()?;
         let random_vector_scorer_supplier = match field_info.get_vector_encoding() {
@@ -634,26 +630,14 @@ where
       },
     ));
 
-    match result {
-      Ok(Ok(supplier)) => Ok(supplier),
-      result => {
-        IOUtils::close_while_handling_exception((
-          &mut temp_vector_data,
-          vector_data_input.as_ref(),
-        ));
-        IOUtils::delete_files_ignoring_exceptions(
-          segment_write_state.directory,
-          std::iter::once(&temp_vector_name),
-        );
-        match result {
-          Ok(Err(error)) => Err(error),
-          Err(payload) => std::panic::resume_unwind(payload),
-          Ok(Ok(_)) => Err(LuceneError::illegal_state(
-            "flat vector merge entered failure handling after success",
-          )),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((vector_data_input.as_ref(), &mut temp_vector_data));
+      IOUtils::delete_files_ignoring_exceptions(
+        segment_write_state.directory,
+        std::iter::once(&temp_vector_name),
+      );
     }
+    unwrap_caught_result!(result)
   }
 }
 

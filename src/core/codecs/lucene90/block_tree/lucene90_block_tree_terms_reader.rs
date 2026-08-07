@@ -112,6 +112,7 @@ where
     let mut terms_reader = None;
     let mut shared_index_in = None;
     let mut reader = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let terms_name =
         IndexFileNames::segment_file_name(&segment, &state.segment_suffix, TERMS_EXTENSION);
@@ -338,31 +339,23 @@ where
         field_list,
         field_infos: Arc::clone(&state.field_infos),
       });
+      success = true;
       Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => reader
-        .take()
-        .ok_or_else(|| LuceneError::illegal_state("block tree terms reader is missing")),
-      result => {
-        IOUtils::close_while_handling_exception((
-          shared_index_in.as_ref(),
-          terms_reader.as_ref(),
-          index_in.as_ref(),
-          terms_in.as_ref(),
-          postings_reader.as_ref(),
-        ));
-        match result {
-          Ok(result) => result.and_then(|()| {
-            Err(LuceneError::illegal_state(
-              "block tree terms reader construction failed without an error",
-            ))
-          }),
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-      },
+    if !success {
+      IOUtils::close_while_handling_exception((
+        shared_index_in.as_ref(),
+        terms_reader.as_ref(),
+        index_in.as_ref(),
+        terms_in.as_ref(),
+        postings_reader.as_ref(),
+      ));
     }
+    unwrap_caught_result!(result)?;
+    reader
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("block tree terms reader is missing"))
   }
 }
 impl<I, PR> Fields for Lucene90BlockTreeTermsReader<I, PR>

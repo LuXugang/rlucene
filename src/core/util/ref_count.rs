@@ -43,16 +43,19 @@ where
     let rc = self.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
 
     if rc == 0 {
-      let release_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(release));
-      if !matches!(&release_result, Ok(Ok(()))) {
+      let mut success = false;
+      let release_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          release()?;
+          success = true;
+          Ok(())
+        }));
+      if !success {
         // Put reference back on failure
         self.ref_count.fetch_add(1, Ordering::SeqCst);
       }
-      match release_result {
-        Ok(Ok(())) => Ok(true),
-        Ok(Err(error)) => Err(error),
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(release_result)?;
+      Ok(true)
     } else if rc < 0 {
       Err(LuceneError::illegal_state(format!(
         "too many decRef calls: refCount is {} after decrement",

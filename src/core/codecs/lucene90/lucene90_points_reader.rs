@@ -143,6 +143,7 @@ where
         LuceneError::illegal_state("points data input is missing")
       })?));
     let mut shared_index_in = None;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Self> {
       let mut meta_in = read_state.directory.open_checksum_input(&meta_file_name)?;
 
@@ -223,7 +224,7 @@ where
         )?;
         readers.insert(value.0, Arc::new(value.1));
       }
-      Ok(Self {
+      let reader = Self {
         index_in: shared_index_in
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?
@@ -231,28 +232,24 @@ where
         data_in: data_in.clone(),
         readers: RwLock::new(readers),
         field_infos: read_state.field_infos.clone(),
-      })
+      };
+      success = true;
+      Ok(reader)
     }));
-    match result {
-      Ok(result @ Ok(_)) => result,
-      result => {
-        IOUtils::close_while_handling_error(0..2, |operation| match operation {
-          0 => match shared_index_in.as_ref() {
+    if !success {
+      IOUtils::close_while_handling_error(0..2, |operation| match operation {
+        0 => match shared_index_in.as_ref() {
+          Some(input) => input.close(),
+          None => match index_in.as_ref() {
             Some(input) => input.close(),
-            None => match index_in.as_ref() {
-              Some(input) => input.close(),
-              None => Ok(()),
-            },
+            None => Ok(()),
           },
-          1 => data_in.lock().close(),
-          _ => unreachable!(),
-        })?;
-        match result {
-          Ok(result) => result,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-      },
+        },
+        1 => data_in.lock().close(),
+        _ => unreachable!(),
+      })?;
     }
+    unwrap_caught_result!(result)
   }
 }
 
