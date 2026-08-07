@@ -110,11 +110,11 @@ where
     match result {
       Ok(Ok(())) => {},
       Ok(Err(error)) => {
-        IOUtils::close_resources_while_handling_error(&handle)?;
+        IOUtils::close_while_handling_exception(&handle);
         return Err(error);
       },
       Err(payload) => {
-        IOUtils::close_resources_while_handling_error(&handle)?;
+        IOUtils::close_while_handling_exception(&handle);
         std::panic::resume_unwind(payload);
       },
     }

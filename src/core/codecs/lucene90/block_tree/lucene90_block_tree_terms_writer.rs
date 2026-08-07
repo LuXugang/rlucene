@@ -291,18 +291,18 @@ where
     match setup_result {
       Ok(Ok(())) => {},
       Ok(Err(error)) => {
-        IOUtils::close_resources_while_handling_error((terms_out.as_mut(), &mut postings_writer))?;
+        IOUtils::close_while_handling_exception((terms_out.as_mut(), &mut postings_writer));
         return Err(error);
       },
       Err(payload) => {
-        IOUtils::close_resources_while_handling_error((terms_out.as_mut(), &mut postings_writer))?;
+        IOUtils::close_while_handling_exception((terms_out.as_mut(), &mut postings_writer));
         std::panic::resume_unwind(payload);
       },
     }
     let mut terms_out = match terms_out {
       Some(terms_out) => terms_out,
       None => {
-        IOUtils::close_resources_while_handling_error(&mut postings_writer)?;
+        IOUtils::close_while_handling_exception(&mut postings_writer);
         return Err(LuceneError::illegal_state("terms output is missing"));
       },
     };
@@ -359,33 +359,33 @@ where
     match result {
       Ok(Ok(())) => {},
       Ok(Err(error)) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           &mut terms_out,
           index_out.as_mut(),
           &mut postings_writer,
-        ))?;
+        ));
         return Err(error);
       },
       Err(payload) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           &mut terms_out,
           index_out.as_mut(),
           &mut postings_writer,
-        ))?;
+        ));
         std::panic::resume_unwind(payload);
       },
     }
     let (meta_out, index_out) = match (meta_out, index_out) {
       (Some(meta_out), Some(index_out)) => (meta_out, index_out),
       (mut meta_out, mut index_out) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           &mut terms_out,
           index_out.as_mut(),
           &mut postings_writer,
-        ))?;
+        ));
         return Err(LuceneError::illegal_state(
           "terms outputs are missing after successful construction",
         ));
@@ -532,21 +532,21 @@ where
         _ => unreachable!(),
       }),
       Ok(Err(error)) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           &mut self.meta_out,
           &mut self.terms_out,
           &mut self.index_out,
           &mut self.postings_writer,
-        ))?;
+        ));
         Err(error)
       },
       Err(payload) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           &mut self.meta_out,
           &mut self.terms_out,
           &mut self.index_out,
           &mut self.postings_writer,
-        ))?;
+        ));
         std::panic::resume_unwind(payload)
       },
     }

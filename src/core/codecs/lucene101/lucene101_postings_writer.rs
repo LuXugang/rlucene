@@ -226,21 +226,21 @@ where
     let (for_delta_util, pfor_util) = match result {
       Ok(Ok(utils)) => utils,
       Ok(Err(error)) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           doc_out.as_mut(),
           pos_out.as_mut(),
           pay_out.as_mut(),
-        ))?;
+        ));
         return Err(error);
       },
       Err(payload) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           doc_out.as_mut(),
           pos_out.as_mut(),
           pay_out.as_mut(),
-        ))?;
+        ));
         std::panic::resume_unwind(payload);
       },
     };
@@ -250,12 +250,12 @@ where
     let (meta_out, doc_out) = match (meta_out, doc_out) {
       (Some(meta_out), Some(doc_out)) => (meta_out, doc_out),
       (mut meta_out, mut doc_out) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           doc_out.as_mut(),
           pos_out.as_mut(),
           pay_out.as_mut(),
-        ))?;
+        ));
         return Err(LuceneError::illegal_state(
           "postings outputs are missing after successful construction",
         ));
@@ -578,24 +578,24 @@ where
         Ok(())
       },
       Ok(Err(error)) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           &mut self.meta_out,
           &mut self.doc_out,
           self.pos_out.as_mut(),
           self.pay_out.as_mut(),
-        ))?;
+        ));
         self.pos_out = None;
         self.pay_out = None;
         self.closed = true;
         Err(error)
       },
       Err(payload) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           &mut self.meta_out,
           &mut self.doc_out,
           self.pos_out.as_mut(),
           self.pay_out.as_mut(),
-        ))?;
+        ));
         self.pos_out = None;
         self.pay_out = None;
         self.closed = true;

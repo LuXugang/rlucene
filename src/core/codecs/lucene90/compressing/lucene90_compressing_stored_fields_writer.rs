@@ -169,11 +169,11 @@ where
     match result {
       Ok(Ok(())) => {},
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_stream.as_mut(),
           fields_stream.as_mut(),
           index_writer.as_mut(),
-        ))?;
+        ));
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),

@@ -610,7 +610,7 @@ where
       info_stream.message("IW", msg)?;
     }
     if !success && let Some(directory) = directory_for_cleanup.as_ref() {
-      IOUtils::close_resources_while_handling_error(&directory.write_lock)?;
+      IOUtils::close_while_handling_exception(&directory.write_lock);
     }
     match result {
       Ok(result) => result.map(Self::into_arc),

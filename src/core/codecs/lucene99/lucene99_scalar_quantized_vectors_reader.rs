@@ -185,16 +185,16 @@ where
           result = Ok(Err(error));
         }
         if meta_close_attempted {
-          IOUtils::close_resources_while_handling_error((
+          IOUtils::close_while_handling_exception((
             quantized_vector_data.as_ref(),
             &raw_vectors_reader,
-          ))?;
+          ));
         } else {
-          IOUtils::close_resources_while_handling_error((
+          IOUtils::close_while_handling_exception((
             meta.as_ref(),
             quantized_vector_data.as_ref(),
             &raw_vectors_reader,
-          ))?;
+          ));
         }
         return match result {
           Ok(Err(error)) => Err(error),
@@ -325,7 +325,7 @@ where
     match result {
       Ok(Ok(())) => Ok(input),
       result => {
-        IOUtils::close_resources_while_handling_error(&input)?;
+        IOUtils::close_while_handling_exception(&input);
         match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),

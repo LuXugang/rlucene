@@ -110,7 +110,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
             }
             Ok(())
           }));
-        IOUtils::close_resources_while_handling_error((data.as_mut(), meta.as_mut()))?;
+        IOUtils::close_while_handling_exception((data.as_mut(), meta.as_mut()));
         if let Err(payload) = close_result {
           std::panic::resume_unwind(payload);
         }
@@ -126,7 +126,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
     let (data, meta) = match (data, meta) {
       (Some(data), Some(meta)) => (data, meta),
       (mut data, mut meta) => {
-        IOUtils::close_resources_while_handling_error((data.as_mut(), meta.as_mut()))?;
+        IOUtils::close_while_handling_exception((data.as_mut(), meta.as_mut()));
         return Err(LuceneError::illegal_state(
           "norms outputs are missing after successful construction",
         ));
@@ -151,11 +151,11 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
       match result {
         Ok(Ok(())) => IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?,
         Ok(Err(error)) => {
-          IOUtils::close_resources_while_handling_error((&mut self.data, &mut self.meta))?;
+          IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
           return Err(error);
         },
         Err(payload) => {
-          IOUtils::close_resources_while_handling_error((&mut self.data, &mut self.meta))?;
+          IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
           std::panic::resume_unwind(payload);
         },
       }

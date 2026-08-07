@@ -346,13 +346,13 @@ where
         .take()
         .ok_or_else(|| LuceneError::illegal_state("block tree terms reader is missing")),
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           shared_index_in.as_ref(),
           terms_reader.as_ref(),
           index_in.as_ref(),
           terms_in.as_ref(),
           postings_reader.as_ref(),
-        ))?;
+        ));
         match result {
           Ok(result) => result.and_then(|()| {
             Err(LuceneError::illegal_state(

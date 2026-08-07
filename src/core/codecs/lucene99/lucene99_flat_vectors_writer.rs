@@ -133,7 +133,7 @@ where
     match result {
       Ok(Ok(())) => {},
       result => {
-        IOUtils::close_resources_while_handling_error((meta.as_mut(), vector_data.as_mut()))?;
+        IOUtils::close_while_handling_exception((meta.as_mut(), vector_data.as_mut()));
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
@@ -146,7 +146,7 @@ where
     let (meta, vector_data) = match (meta, vector_data) {
       (Some(meta), Some(vector_data)) => (meta, vector_data),
       (mut meta, mut vector_data) => {
-        IOUtils::close_resources_while_handling_error((meta.as_mut(), vector_data.as_mut()))?;
+        IOUtils::close_while_handling_exception((meta.as_mut(), vector_data.as_mut()));
         return Err(LuceneError::illegal_state(
           "flat vector outputs are missing after successful construction",
         ));
@@ -637,10 +637,10 @@ where
     match result {
       Ok(Ok(supplier)) => Ok(supplier),
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           &mut temp_vector_data,
           vector_data_input.as_ref(),
-        ))?;
+        ));
         IOUtils::delete_files_ignoring_exceptions(
           segment_write_state.directory,
           std::iter::once(&temp_vector_name),

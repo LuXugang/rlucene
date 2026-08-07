@@ -558,13 +558,13 @@ where
       },
       Ok(Err(err)) => {
         if let Some(mut w) = points_writer {
-          IOUtils::close_resources_while_handling_error(&mut w)?;
+          IOUtils::close_while_handling_exception(&mut w);
         }
         return Err(err);
       },
       Err(payload) => {
         if let Some(mut w) = points_writer {
-          IOUtils::close_resources_while_handling_error(&mut w)?;
+          IOUtils::close_while_handling_exception(&mut w);
         }
         std::panic::resume_unwind(payload)
       },
@@ -651,13 +651,13 @@ where
       },
       Ok(Err(err)) => {
         if let Some(mut consumer) = dv_consumer {
-          IOUtils::close_resources_while_handling_error(&mut consumer)?;
+          IOUtils::close_while_handling_exception(&mut consumer);
         }
         return Err(err);
       },
       Err(payload) => {
         if let Some(mut consumer) = dv_consumer {
-          IOUtils::close_resources_while_handling_error(&mut consumer)?;
+          IOUtils::close_while_handling_exception(&mut consumer);
         }
         std::panic::resume_unwind(payload)
       },
@@ -717,11 +717,11 @@ where
     match body_result {
       Ok(Ok(())) => norms_consumer.close()?,
       Ok(Err(err)) => {
-        IOUtils::close_resources_while_handling_error(&mut norms_consumer)?;
+        IOUtils::close_while_handling_exception(&mut norms_consumer);
         return Err(err);
       },
       Err(payload) => {
-        IOUtils::close_resources_while_handling_error(&mut norms_consumer)?;
+        IOUtils::close_while_handling_exception(&mut norms_consumer);
         std::panic::resume_unwind(payload)
       },
     }

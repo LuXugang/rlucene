@@ -353,7 +353,7 @@ where
     if success {
       IOUtils::delete_files(&first, &to_delete)?;
     } else {
-      IOUtils::close_resources_while_handling_error(&mut out)?;
+      IOUtils::close_while_handling_exception(&mut out);
       IOUtils::delete_files_ignoring_exceptions(&first, &to_delete);
     }
 

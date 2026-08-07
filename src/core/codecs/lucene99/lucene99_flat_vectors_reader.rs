@@ -190,7 +190,7 @@ where
     match result {
       Ok(Ok(())) => Ok(input),
       result => {
-        IOUtils::close_resources_while_handling_error(&input)?;
+        IOUtils::close_while_handling_exception(&input);
         match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),

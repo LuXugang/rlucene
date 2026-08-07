@@ -172,16 +172,13 @@ where
           result = Ok(Err(error));
         }
         if meta_close_attempted {
-          IOUtils::close_resources_while_handling_error((
-            &flat_vectors_reader,
-            vector_index.as_ref(),
-          ))?;
+          IOUtils::close_while_handling_exception((&flat_vectors_reader, vector_index.as_ref()));
         } else {
-          IOUtils::close_resources_while_handling_error((
+          IOUtils::close_while_handling_exception((
             meta.as_ref(),
             &flat_vectors_reader,
             vector_index.as_ref(),
-          ))?;
+          ));
         }
         return match result {
           Ok(Err(error)) => Err(error),
@@ -195,7 +192,7 @@ where
     let vector_index = match vector_index {
       Some(vector_index) => vector_index,
       None => {
-        IOUtils::close_resources_while_handling_error(&flat_vectors_reader)?;
+        IOUtils::close_while_handling_exception(&flat_vectors_reader);
         return Err(LuceneError::illegal_state(
           "HNSW vector index is missing after successful construction",
         ));
@@ -249,7 +246,7 @@ where
     match result {
       Ok(Ok(())) => Ok(input),
       result => {
-        IOUtils::close_resources_while_handling_error(&input)?;
+        IOUtils::close_while_handling_exception(&input);
         match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),

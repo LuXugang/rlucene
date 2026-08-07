@@ -217,11 +217,11 @@ where
     match result {
       Ok(Ok(())) => {},
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta.as_mut(),
           quantized_vector_data.as_mut(),
           &mut raw_vector_delegate,
-        ))?;
+        ));
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
@@ -234,11 +234,11 @@ where
     let (meta, quantized_vector_data) = match (meta, quantized_vector_data) {
       (Some(meta), Some(quantized_vector_data)) => (meta, quantized_vector_data),
       (mut meta, mut quantized_vector_data) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta.as_mut(),
           quantized_vector_data.as_mut(),
           &mut raw_vector_delegate,
-        ))?;
+        ));
         return Err(LuceneError::illegal_state(
           "scalar quantized outputs are missing after successful construction",
         ));
@@ -475,10 +475,10 @@ where
     match result {
       Ok(Ok(supplier)) => Ok(supplier),
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           &mut temp_quantized_vector_data,
           quantization_data_input.as_ref(),
-        ))?;
+        ));
         IOUtils::delete_files_ignoring_exceptions(
           segment_write_state.directory,
           std::iter::once(&temp_quantized_vector_name),

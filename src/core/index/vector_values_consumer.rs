@@ -115,7 +115,7 @@ where
   }
   pub(crate) fn abort(&mut self) {
     if let Some(writer) = self.writer.as_mut() {
-      let _ = IOUtils::close_resources_while_handling_error(writer);
+      IOUtils::close_while_handling_exception(writer);
     }
   }
   pub(crate) fn get_accountable(&self) -> &Self {

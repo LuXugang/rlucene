@@ -265,12 +265,12 @@ where
             Ok(Ok(())) => unreachable!(),
           }
         }));
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           reader.as_ref(),
           fields_index_reader.as_ref(),
           fields_stream.as_ref(),
           meta_in.as_ref(),
-        ))?;
+        ));
         match result {
           Ok(Err(error)) => Err(error),
           Ok(Ok(())) => Err(LuceneError::illegal_state(

@@ -104,10 +104,10 @@ impl_closeable_ref_tuple!(
 );
 
 pub struct IOUtils;
-pub(crate) struct CloseWhileHandlingError {
+pub(crate) struct CloseWhileHandlingException {
   first_panic: Option<Box<dyn std::any::Any + Send>>,
 }
-impl CloseWhileHandlingError {
+impl CloseWhileHandlingException {
   pub(crate) fn new() -> Self {
     Self { first_panic: None }
   }
@@ -117,7 +117,10 @@ impl CloseWhileHandlingError {
     F: FnOnce() -> Result<()>,
   {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(close)) {
-      Ok(_) => {},
+      Ok(Ok(())) => {},
+      // Java's catch (Throwable) branch suppresses non-Error exceptions.
+      Ok(Err(_)) => {},
+      // A Rust panic maps to Java Error: remember the first one and keep closing.
       Err(payload) if self.first_panic.is_none() => {
         self.first_panic = Some(payload);
       },
@@ -125,23 +128,22 @@ impl CloseWhileHandlingError {
     }
   }
 
-  pub(crate) fn finish(self) -> Result<()> {
+  pub(crate) fn finish(self) {
     if let Some(payload) = self.first_panic {
       std::panic::resume_unwind(payload);
     }
-    Ok(())
   }
 }
 
 pub(crate) trait CloseWhileHandlingResource {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingError);
+  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException);
 }
 
 impl<T> CloseWhileHandlingResource for &mut T
 where
   T: Closeable + ?Sized,
 {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingError) {
+  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
     error.close(|| self.close());
   }
 }
@@ -150,7 +152,7 @@ impl<T> CloseWhileHandlingResource for &T
 where
   T: CloseableRef + ?Sized,
 {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingError) {
+  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
     error.close(|| self.close());
   }
 }
@@ -159,7 +161,7 @@ impl<T> CloseWhileHandlingResource for Option<T>
 where
   T: CloseWhileHandlingResource,
 {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingError) {
+  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
     if let Some(resource) = self {
       resource.close_while_handling_error(error);
     }
@@ -172,7 +174,7 @@ macro_rules! impl_close_while_handling_resource_tuple {
     where
       $($T: CloseWhileHandlingResource),+
     {
-      fn close_while_handling_error(self, error: &mut CloseWhileHandlingError) {
+      fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
         $(self.$index.close_while_handling_error(error);)+
       }
     }
@@ -320,23 +322,25 @@ impl IOUtils {
     I: IntoIterator,
     F: FnMut(I::Item) -> Result<()>,
   {
-    let mut error = CloseWhileHandlingError::new();
+    let mut error = CloseWhileHandlingException::new();
     for object in objects {
       error.close(|| close(object));
     }
-    error.finish()
+    error.finish();
+    Ok(())
   }
 
-  /// Closes one or more resources of different concrete types, suppressing all
-  /// returned errors.
+  /// Closes one or more resources of different concrete types while handling
+  /// an exception, equivalent to Java's `IOUtils.closeWhileHandlingException`.
   ///
-  /// `None` resources are ignored. Even if a panic is raised, all given
-  /// resources are closed before the first panic is resumed.
-  pub(crate) fn close_resources_while_handling_error<T>(resources: T) -> Result<()>
+  /// `None` resources are ignored. Returned errors are suppressed. Even if a
+  /// panic is raised, all given resources are closed before the first panic is
+  /// resumed.
+  pub(crate) fn close_while_handling_exception<T>(resources: T)
   where
     T: CloseWhileHandlingResource,
   {
-    let mut error = CloseWhileHandlingError::new();
+    let mut error = CloseWhileHandlingException::new();
     resources.close_while_handling_error(&mut error);
     error.finish()
   }

@@ -148,11 +148,11 @@ where
     match result {
       Ok(Ok(())) => {},
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           index_out.as_mut(),
           data_out.as_mut(),
-        ))?;
+        ));
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
@@ -165,11 +165,11 @@ where
     let (data_out, meta_out, index_out) = match (data_out, meta_out, index_out) {
       (Some(data_out), Some(meta_out), Some(index_out)) => (data_out, meta_out, index_out),
       (mut data_out, mut meta_out, mut index_out) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta_out.as_mut(),
           index_out.as_mut(),
           data_out.as_mut(),
-        ))?;
+        ));
         return Err(LuceneError::illegal_state(
           "points outputs are missing after successful construction",
         ));

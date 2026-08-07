@@ -147,11 +147,11 @@ where
     match result {
       Ok(Ok(())) => {},
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta.as_mut(),
           vector_index.as_mut(),
           &mut flat_vector_writer,
-        ))?;
+        ));
         return match result {
           Ok(Err(error)) => Err(error),
           Err(payload) => std::panic::resume_unwind(payload),
@@ -164,11 +164,11 @@ where
     let (meta, vector_index) = match (meta, vector_index) {
       (Some(meta), Some(vector_index)) => (meta, vector_index),
       (mut meta, mut vector_index) => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           meta.as_mut(),
           vector_index.as_mut(),
           &mut flat_vector_writer,
-        ))?;
+        ));
         return Err(LuceneError::illegal_state(
           "HNSW writer outputs are missing after successful construction",
         ));

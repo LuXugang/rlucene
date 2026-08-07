@@ -624,7 +624,7 @@ where
       self.pending_commit = true;
     } else {
       // We hit an error above; try to close the file but suppress any non-tragic error.
-      IOUtils::close_resources_while_handling_error(segn_output.as_mut())?;
+      IOUtils::close_while_handling_exception(segn_output.as_mut());
       // Try not to leave a truncated segments_N file in the index.
       IOUtils::delete_files_ignoring_exceptions(directory, std::iter::once(&segment_file_name));
     }

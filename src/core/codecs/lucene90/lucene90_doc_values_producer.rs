@@ -219,7 +219,7 @@ where
     match result {
       Ok(result @ Ok(_)) => result,
       result => {
-        IOUtils::close_resources_while_handling_error(data.as_ref())?;
+        IOUtils::close_while_handling_exception(data.as_ref());
         match result {
           Ok(result) => result,
           Err(payload) => std::panic::resume_unwind(payload),

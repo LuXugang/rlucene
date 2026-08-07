@@ -286,7 +286,8 @@ impl StoredFieldsConsumerDefaults {
   where
     TW: StoredFieldsWriter,
   {
-    IOUtils::close_resources_while_handling_error(writer.as_mut())
+    IOUtils::close_while_handling_exception(writer.as_mut());
+    Ok(())
   }
 }
 

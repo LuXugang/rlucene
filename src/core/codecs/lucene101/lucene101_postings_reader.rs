@@ -156,7 +156,7 @@ where
             Ok(Ok(())) => unreachable!(),
           }
         }));
-        IOUtils::close_resources_while_handling_error(meta_in_opt.as_ref())?;
+        IOUtils::close_while_handling_exception(meta_in_opt.as_ref());
         match result {
           Ok(result) => result?,
           Err(payload) => std::panic::resume_unwind(payload),
@@ -255,11 +255,11 @@ where
     match result {
       Ok(result @ Ok(_)) => result,
       result => {
-        IOUtils::close_resources_while_handling_error((
+        IOUtils::close_while_handling_exception((
           doc_in_opt.as_ref(),
           pos_in_opt.as_ref(),
           pay_in_opt.as_ref(),
-        ))?;
+        ));
         match result {
           Ok(result) => result,
           Err(payload) => std::panic::resume_unwind(payload),
