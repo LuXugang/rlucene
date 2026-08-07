@@ -18,18 +18,26 @@ use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::collections::HashSet;
 
 use crate::core::index::index_reader::Identity;
+use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum5;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::bit_doc_id_set::BitDocIdSet;
 use crate::core::util::bit_set::BitSet;
+use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
+use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::roaring_doc_id_set::{Builder as RoaringDocIdSetBuilder, RoaringDocIdSet};
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::test::core::util::id_set_common;
 use crate::test::core::util::id_set_common::clear_range;
 use rand::Rng;
 use rand::RngExt;
+use std::sync::Arc;
 
 pub fn random_set<R>(random: &mut R, num_bits: usize, percent_set: f32) -> bit_set::BitSet
 where
@@ -60,8 +68,13 @@ where
   set
 }
 pub trait BaseBitSetTestCase {
-  fn copy_of(&self, bs: &RustUtilBitSet, length: usize)
-  -> (impl BitSet, Option<SparseFixedBitSet>);
+  type TestBitSet: BitSet;
+
+  fn copy_of(
+    &self,
+    bs: &RustUtilBitSet,
+    length: usize,
+  ) -> (Self::TestBitSet, Option<SparseFixedBitSet>);
   fn assert_equals(
     &self,
     set1: &RustUtilBitSet,
@@ -222,40 +235,152 @@ pub trait BaseBitSetTestCase {
     }
   }
 
-  fn test_or_sparse<R>(&mut self, random: &mut R)
+  fn test_or_sparse<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     self.test_or_impl(random, 0.001)
   }
-  fn test_or_dense<R>(&mut self, random: &mut R)
+  fn test_or_dense<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     self.test_or_impl(random, 0.5)
   }
-  fn test_or_random<R>(&mut self, random: &mut R)
+  fn test_or_random<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     let random_float: f32 = random.random();
     self.test_or_impl(random, random_float)
   }
-  fn test_or_impl<R>(&self, _random: &mut R, _load: f32)
+  fn random_copy<R>(
+    &self,
+    random: &mut R,
+    set: &RustUtilBitSet,
+    num_bits: usize,
+  ) -> Result<RandomCopyDocIdSet<Self::TestBitSet>>
   where
     R: Rng + ?Sized,
   {
-    // let num_bits = 1 + random.random_range(0..100000);
-    // let set1 = RustUtilBitSet::new(random_set(random, num_bits, 0f32),
-    // num_bits); let (mut set2, sfbs) = self.copy_of(&set1,
-    // num_bits);
-    //
-    // let iteration = random.random_range(10..1000);
-    // for iter in 0..iteration {
-    //     let bitset = RustUtilBitSet::new(random_set(random, num_bits,
-    // 0f32), num_bits);     // let other_set =
-    // random_copy(random,bitset,num_bits);     todo!()
-    // }
+    match random.random_range(0..5) {
+      0 => Ok(RandomCopyDocIdSet::RustUtil(BitDocIdSet::with_cost(
+        Some(Arc::new(set.clone())),
+        set.cardinality() as i64,
+      )?)),
+      1 => {
+        let (copy, _) = self.copy_of(set, num_bits);
+        Ok(RandomCopyDocIdSet::Test(BitDocIdSet::with_cost(
+          Some(Arc::new(copy)),
+          set.cardinality() as i64,
+        )?))
+      },
+      2 => {
+        let mut builder = RoaringDocIdSetBuilder::new(num_bits);
+        let mut doc = set.next_set_bit(0);
+        while doc != NO_MORE_DOCS as usize {
+          builder.add(doc as i32)?;
+          doc = if doc + 1 >= num_bits {
+            NO_MORE_DOCS as usize
+          } else {
+            set.next_set_bit(doc + 1)
+          };
+        }
+        Ok(RandomCopyDocIdSet::Roaring(builder.build()))
+      },
+      3 => {
+        let mut bit_set = FixedBitSet::new(num_bits);
+        let mut iterator = BitSetIterator::new(set.clone(), 0)?;
+        BitSet::or(&mut bit_set, &mut iterator)?;
+        Ok(RandomCopyDocIdSet::Fixed(BitDocIdSet::new(Some(
+          Arc::new(bit_set),
+        ))?))
+      },
+      4 => {
+        let mut bit_set = SparseFixedBitSet::new(num_bits)?;
+        let mut iterator = BitSetIterator::new(set.clone(), 0)?;
+        bit_set.or(&mut iterator)?;
+        Ok(RandomCopyDocIdSet::Sparse(BitDocIdSet::new(Some(
+          Arc::new(bit_set),
+        ))?))
+      },
+      _ => unreachable!(),
+    }
+  }
+
+  fn test_or_impl<R>(&self, random: &mut R, load: f32) -> Result<()>
+  where
+    R: Rng + ?Sized,
+  {
+    let num_bits = 1 + random.random_range(0..100000);
+    let set1 = RustUtilBitSet::new(random_set(random, num_bits, 0.0), num_bits);
+    let mut expected = set1.clone();
+    let (mut actual, sfbs) = self.copy_of(&set1, num_bits);
+
+    let iterations = at_least(random, 10);
+    for _ in 0..iterations {
+      let bit_set = RustUtilBitSet::new(random_set(random, num_bits, load), num_bits);
+      let other_set = self.random_copy(random, &bit_set, num_bits)?;
+      expected.or(&mut other_set.iterator()?)?;
+      actual.or(&mut other_set.iterator()?)?;
+      self.assert_equals(&expected, &actual, num_bits, sfbs.as_ref());
+    }
+    Ok(())
+  }
+}
+
+pub enum RandomCopyDocIdSet<T>
+where
+  T: BitSet,
+{
+  RustUtil(BitDocIdSet<Arc<RustUtilBitSet>>),
+  Test(BitDocIdSet<Arc<T>>),
+  Roaring(RoaringDocIdSet),
+  Fixed(BitDocIdSet<Arc<FixedBitSet>>),
+  Sparse(BitDocIdSet<Arc<SparseFixedBitSet>>),
+}
+
+impl<T> Accountable for RandomCopyDocIdSet<T>
+where
+  T: BitSet,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::RustUtil(set) => set.ram_bytes_used(),
+      Self::Test(set) => set.ram_bytes_used(),
+      Self::Roaring(set) => set.ram_bytes_used(),
+      Self::Fixed(set) => set.ram_bytes_used(),
+      Self::Sparse(set) => set.ram_bytes_used(),
+    }
+  }
+}
+
+impl<T> DocIdSet for RandomCopyDocIdSet<T>
+where
+  T: BitSet,
+{
+  type DocIdSetIterator = DocIdSetIteratorEnum5<
+    BitSetIterator<Arc<RustUtilBitSet>>,
+    BitSetIterator<Arc<T>>,
+    crate::core::util::roaring_doc_id_set::Iterator,
+    BitSetIterator<Arc<FixedBitSet>>,
+    BitSetIterator<Arc<SparseFixedBitSet>>,
+  >;
+
+  fn iterator(&self) -> Result<Self::DocIdSetIterator> {
+    match self {
+      Self::RustUtil(set) => Ok(DocIdSetIteratorEnum5::A(set.iterator()?)),
+      Self::Test(set) => Ok(DocIdSetIteratorEnum5::B(set.iterator()?)),
+      Self::Roaring(set) => Ok(DocIdSetIteratorEnum5::C(set.iterator()?)),
+      Self::Fixed(set) => Ok(DocIdSetIteratorEnum5::D(set.iterator()?)),
+      Self::Sparse(set) => Ok(DocIdSetIteratorEnum5::E(set.iterator()?)),
+    }
+  }
+
+  type Bits = DummyBits;
+
+  fn bits(&self) -> Option<Self::Bits> {
+    None
   }
 }
 
@@ -280,13 +405,6 @@ pub trait BaseBitSetTestCaseSupperImpl {
   }
 }
 
-//TODO
-fn random_copy<R>(_random: &mut R, _set: impl BitSet, _num_bits: usize)
-where
-  R: Rng + ?Sized,
-{
-  todo!()
-}
 pub struct RustUtilBitSet {
   bitset: bit_set::BitSet,
   num_bits: usize,
@@ -358,10 +476,12 @@ impl Accountable for RustUtilBitSet {
 impl BitSet for RustUtilBitSet {
   fn clear(&mut self) {
     self.bitset.make_empty();
+    self.index_hash_set.clear();
   }
 
   fn set(&mut self, i: usize) {
     self.bitset.insert(i);
+    self.index_hash_set.insert(i);
   }
 
   fn get_and_set(&mut self, i: usize) -> bool {
@@ -372,6 +492,7 @@ impl BitSet for RustUtilBitSet {
 
   fn clear_with_index(&mut self, i: usize) {
     self.bitset.remove(i);
+    self.index_hash_set.remove(&i);
   }
 
   fn clear_range(&mut self, start_index: usize, end_index: usize) {
@@ -379,6 +500,9 @@ impl BitSet for RustUtilBitSet {
       return;
     }
     clear_range(&mut self.bitset, start_index, end_index);
+    self
+      .index_hash_set
+      .retain(|index| *index < start_index || *index >= end_index);
   }
 
   fn cardinality(&self) -> usize {
@@ -410,11 +534,11 @@ impl BitSet for RustUtilBitSet {
     NO_MORE_DOCS as usize
   }
 
-  fn or<T>(&mut self, _iter: &mut T) -> Result<()>
+  fn or<T>(&mut self, iter: &mut T) -> Result<()>
   where
     T: DocIdSetIterator,
   {
-    todo!()
+    self.default_or(iter)
   }
 }
 #[test]

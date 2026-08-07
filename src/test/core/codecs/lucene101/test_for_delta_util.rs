@@ -19,7 +19,9 @@ use rand::RngExt;
 
 use crate::core::codecs::lucene101::for_delta_util::ForDeltaUtil;
 use crate::core::codecs::lucene101::for_util::ForUtil;
-use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
+use crate::core::internal::vectorization::vectorization_provider::{
+  DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
+};
 use crate::core::store::directory::Directory;
 use crate::core::store::{ByteBuffersDirectory, IOContext, IndexInput, IndexOutput};
 use crate::core::util::error::lucene_error::Result;
@@ -62,8 +64,7 @@ fn test_encode_decode() -> Result<()> {
   // decode
   {
     let input = d.open_input("test.bin", &IOContext::read_once_io_context()?)?;
-    // TODO: VECTORIZATION_PROVIDER not implement
-    let mut pdu = PostingDecodingUtil::new(input);
+    let mut pdu = DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(input);
     let mut for_delta_util = ForDeltaUtil::new();
 
     for i in 0..iterations {

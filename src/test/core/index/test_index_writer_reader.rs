@@ -50,6 +50,7 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::asserting_directory_reader::AssertingDirectoryReader;
 use crate::test_framework::core::index::doc_helper::{DocHelper, STRING_TYPE_STORED_WITH_TVS};
 use crate::test_framework::core::index::test_index_writer_reader::{count, create_index_no_close};
 use crate::test_framework::core::store::mock_directory_wrapper::{
@@ -1468,10 +1469,11 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
 
   // Test3: test that FilterDirectoryReader sorts leaves according
   // to leafSorter of its wrapped reader
-  // TODO: AssertingDirectoryReader is not implemented, so Test3 currently exercises the leaf
-  // sorter without Java's FilterDirectoryReader wrapper layer.
   {
-    let reader = directory_reader::open_with_sorter(dir.clone(), leaf_sorter.clone())?;
+    let reader = AssertingDirectoryReader::new(directory_reader::open_with_sorter(
+      dir.clone(),
+      leaf_sorter.clone(),
+    )?)?;
     assert_leaves_sorted(&reader, &point_sorter)?;
 
     let first_value: i64 = if asc_sort { 0 } else { 100 };
@@ -1522,21 +1524,18 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
 /// according to the provided leafSorter.
 ///
 /// [Java reference: TestIndexWriterReader.assertLeavesSorted]
-fn assert_leaves_sorted<D>(
-  reader: &StandardDirectoryReader<D>,
-  sorter: &PointValueLeafSorter,
-) -> Result<()>
+fn assert_leaves_sorted<DR>(reader: &DR, sorter: &PointValueLeafSorter) -> Result<()>
 where
-  D: Directory,
+  DR: DirectoryReader,
 {
   let context = reader.get_context()?;
   let leaves = context.leaves()?;
-  let lrs: Vec<_> = leaves.iter().map(|l| Arc::clone(l.reader())).collect();
+  let lrs: Vec<_> = leaves.iter().map(|l| l.reader()).collect();
   let mut expected = lrs.clone();
   expected.sort_by(|a, b| sorter.compare(a, b).unwrap().cmp(&0));
   for (i, lr) in lrs.iter().enumerate() {
     assert!(
-      Arc::ptr_eq(lr, &expected[i]),
+      std::ptr::eq(*lr, expected[i]),
       "leaf readers not sorted at index {}",
       i
     );
@@ -1552,9 +1551,9 @@ pub struct PointValueLeafSorter {
 }
 
 impl PointValueLeafSorter {
-  fn sort_key<D>(&self, reader: &DefaultLeafReader<D>) -> Result<i64>
+  fn sort_key<LR>(&self, reader: &LR) -> Result<i64>
   where
-    D: Directory,
+    LR: LeafReader,
   {
     let result = (|| -> Result<i64> {
       let Some(points) = reader.get_point_values(&self.field_name)? else {
@@ -1575,13 +1574,13 @@ impl PointValueLeafSorter {
   }
 }
 
-impl<D> Comparator<DefaultLeafReader<D>> for PointValueLeafSorter
+impl<LR> Comparator<LR> for PointValueLeafSorter
 where
-  D: Directory,
+  LR: LeafReader,
 {
   const TYPE: &'static str = "PointValueLeafSorter";
 
-  fn compare(&self, a: &DefaultLeafReader<D>, b: &DefaultLeafReader<D>) -> Result<i32> {
+  fn compare(&self, a: &LR, b: &LR) -> Result<i32> {
     let ord = self.sort_key(a)?.cmp(&self.sort_key(b)?);
     let ord = if self.asc_sort { ord } else { ord.reverse() };
 

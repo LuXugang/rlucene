@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 
 #[allow(dead_code)] // for quick search
@@ -65,14 +66,19 @@ fn test_invalid_bytes_per_dim() {
 #[test]
 fn test_invalid_max_points_per_leaf_node() {
   {
-    // TODO:
-    // let result = BKDConfig::new(1, 1, 8, ArrayUtil::MAX_ARRAY_LENGTH
-    // + 1); assert!(result.is_err());
-    // if let Err(err) = result {
-    //     let err_msg = format!("{:?}", err);
-    //     assert!(
-    //         err_msg.contains("max_points_in_leaf_node must be <=
-    // ArrayUtil::MAX_ARRAY_LENGTH")     );
-    // }
+    let result = BKDConfig::new(1, 1, 8, 0);
+    assert!(result.is_err());
+    if let Err(err) = result {
+      let err_msg = format!("{:?}", err);
+      assert!(err_msg.contains("max_points_in_leaf_node must be > 0"));
+    }
+  }
+  {
+    let result = BKDConfig::new(1, 1, 8, ArrayUtil::MAX_ARRAY_LENGTH + 1);
+    assert!(result.is_err());
+    if let Err(err) = result {
+      let err_msg = format!("{:?}", err);
+      assert!(err_msg.contains("max_points_in_leaf_node must be <= ArrayUtil::MAX_ARRAY_LENGTH"));
+    }
   }
 }

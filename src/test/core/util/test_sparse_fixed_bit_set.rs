@@ -41,11 +41,13 @@ where
 }
 
 impl BaseBitSetTestCase for TestSparseFixedBitSet {
+  type TestBitSet = SparseFixedBitSet;
+
   fn copy_of(
     &self,
     bs: &RustUtilBitSet,
     length: usize,
-  ) -> (impl BitSet, Option<SparseFixedBitSet>) {
+  ) -> (Self::TestBitSet, Option<SparseFixedBitSet>) {
     let mut set = SparseFixedBitSet::new(length).unwrap();
     let mut set1 = SparseFixedBitSet::new(length).unwrap();
     let mut doc = bs.next_set_bit(0);
@@ -226,26 +228,17 @@ mod base_doc_id_set_test_case_util {
 
   #[test]
   fn test_or_sparse() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_or_sparse(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_or_sparse(random))
   }
 
   #[test]
   fn test_or_dense() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_or_dense(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_or_dense(random))
   }
 
   #[test]
   fn test_or_random() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_or_random(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_or_random(random))
   }
 }
 

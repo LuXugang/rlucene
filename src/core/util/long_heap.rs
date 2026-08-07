@@ -45,13 +45,10 @@ impl LongHeap {
   /// Returns `Err` if `max_size` is invalid to prevent confusing
   /// out-of-memory errors.
   pub fn new(max_size: usize) -> Result<Self> {
-    // TODO
-    // if max_size < 1 || max_size >= ArrayUtil::MAX_ARRAY_LENGTH {
-    if max_size < 1 {
+    if !(1..ArrayUtil::MAX_ARRAY_LENGTH).contains(&max_size) {
       return Err(LuceneError::illegal_argument(format!(
-        "max_size must be > 0 and < {}; got: {}",
-        ArrayUtil::MAX_ARRAY_LENGTH - 1,
-        max_size
+        "max_size must be > 0 and < {}; got: {max_size}",
+        ArrayUtil::MAX_ARRAY_LENGTH
       )));
     }
     // We add +1 because index 0 is unused.

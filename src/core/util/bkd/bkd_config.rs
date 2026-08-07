@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
@@ -83,14 +84,18 @@ impl BKDConfig {
         "num_index_dims cannot exceed num_dims (got: {num_dims} vs {num_index_dims})"
       )));
     }
-    //TODO: Implement ArrayUtil::MAX_ARRAY_LENGTH
-    // if max_points_in_leaf_node > ArrayUtil::MAX_ARRAY_LENGTH {
-    //     return Err(LuceneError::illegal_argument(format!(
-    //         "max_points_in_leaf_node must be <= MAX_ARRAY_LENGTH (= {});
-    // got {}",         ArrayUtil::MAX_ARRAY_LENGTH,
-    //         max_points_in_leaf_node
-    //     )));
-    // }
+    if max_points_in_leaf_node == 0 {
+      return Err(LuceneError::illegal_argument(format!(
+        "max_points_in_leaf_node must be > 0; got {max_points_in_leaf_node}"
+      )));
+    }
+    if max_points_in_leaf_node > ArrayUtil::MAX_ARRAY_LENGTH {
+      return Err(LuceneError::illegal_argument(format!(
+        "max_points_in_leaf_node must be <= ArrayUtil::MAX_ARRAY_LENGTH (= {}); got {}",
+        ArrayUtil::MAX_ARRAY_LENGTH,
+        max_points_in_leaf_node
+      )));
+    }
     Ok(Self {
       num_dims,
       num_index_dims,

@@ -20,6 +20,7 @@ use crate::test_framework::core::util::lucene_test_case::random;
 use rand::Rng;
 use rand::RngExt;
 
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_heap::LongHeap;
 #[allow(dead_code)] // for quick search
@@ -151,11 +152,10 @@ fn test_invalid() -> Result<()> {
     LongHeap::new(0),
     Err(LuceneError::IllegalArgument(_))
   ));
-  // TODO: see ArrayUtil::MAX_ARRAY_LENGTH
-  // assert!(matches!(
-  //     LongHeap::new(ArrayUtil::MAX_ARRAY_LENGTH as i32),
-  //     Err(LuceneError::IllegalArgument(_))
-  // ));
+  assert!(matches!(
+    LongHeap::new(ArrayUtil::MAX_ARRAY_LENGTH),
+    Err(LuceneError::IllegalArgument(_))
+  ));
   Ok(())
 }
 
