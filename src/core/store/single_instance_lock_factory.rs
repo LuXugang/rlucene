@@ -116,10 +116,7 @@ impl CloseableRef for SingleInstanceLock {
       Ok(())
     }));
     self.closed.store(true, Ordering::SeqCst);
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 }
 

@@ -193,10 +193,7 @@ where
       .cloned()
       .collect();
     IOUtils::delete_files_ignoring_exceptions(&self.tmp_directory, &file_names);
-    match abort_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(abort_result)
   }
 }
 

@@ -33,7 +33,7 @@ use parking_lot::Mutex;
 use std::collections::{BTreeSet, HashSet};
 use std::fmt::{Display, Formatter};
 use std::io::ErrorKind;
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 
@@ -357,10 +357,7 @@ where
       IOUtils::delete_files_ignoring_exceptions(&first, &to_delete);
     }
 
-    match body_result {
-      Ok(result) => result?,
-      Err(payload) => resume_unwind(payload),
-    }
+    unwrap_caught_result!(body_result)?;
     Ok(out)
   }
 

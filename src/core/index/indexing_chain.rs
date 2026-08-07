@@ -515,6 +515,7 @@ where
     D1: Directory,
   {
     let mut points_writer = None;
+    let mut success = false;
     debug_assert!(self.field_hash.len() <= i32::MAX as usize);
 
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -548,28 +549,17 @@ where
       if let Some(w) = points_writer.as_mut() {
         w.finish()?;
       }
+      success = true;
       Ok(())
     }));
-    match body_result {
-      Ok(Ok(())) => {
-        if let Some(mut w) = points_writer {
-          w.close()?;
-        }
-      },
-      Ok(Err(err)) => {
-        if let Some(mut w) = points_writer {
-          IOUtils::close_while_handling_exception(&mut w);
-        }
-        return Err(err);
-      },
-      Err(payload) => {
-        if let Some(mut w) = points_writer {
-          IOUtils::close_while_handling_exception(&mut w);
-        }
-        std::panic::resume_unwind(payload)
-      },
+    if success {
+      if let Some(w) = points_writer.as_mut() {
+        w.close()?;
+      }
+    } else {
+      IOUtils::close_while_handling_exception(points_writer.as_mut());
     }
-    Ok(())
+    unwrap_caught_result!(body_result)
   }
   // Finishes all doc values writers.
   pub(crate) fn finish_doc_values_writer(&mut self) -> Result<()> {
@@ -601,6 +591,7 @@ where
     D1: Directory,
   {
     let mut dv_consumer = None;
+    let mut success = false;
 
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       // iterate hash buckets
@@ -639,29 +630,19 @@ where
           per_field_index = per_field.next;
         }
       }
+      success = true;
       Ok(())
     }));
 
     let has_dv_consumer = dv_consumer.is_some();
-    match body_result {
-      Ok(Ok(())) => {
-        if let Some(mut consumer) = dv_consumer {
-          consumer.close()?;
-        }
-      },
-      Ok(Err(err)) => {
-        if let Some(mut consumer) = dv_consumer {
-          IOUtils::close_while_handling_exception(&mut consumer);
-        }
-        return Err(err);
-      },
-      Err(payload) => {
-        if let Some(mut consumer) = dv_consumer {
-          IOUtils::close_while_handling_exception(&mut consumer);
-        }
-        std::panic::resume_unwind(payload)
-      },
+    if success {
+      if let Some(consumer) = dv_consumer.as_mut() {
+        consumer.close()?;
+      }
+    } else {
+      IOUtils::close_while_handling_exception(dv_consumer.as_mut());
     }
+    unwrap_caught_result!(body_result)?;
 
     if !state.field_infos.has_doc_values() {
       if has_dv_consumer {
@@ -697,6 +678,7 @@ where
       let norm_format = index_writer_config.get_codec().norms_format();
       norm_format.norms_consumer(state, segment_info)?
     };
+    let mut success = false;
 
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let max_doc = segment_info.max_doc()?;
@@ -712,20 +694,15 @@ where
           norms.flush(sort_map, &mut norms_consumer, segment_info)?;
         }
       }
+      success = true;
       Ok(())
     }));
-    match body_result {
-      Ok(Ok(())) => norms_consumer.close()?,
-      Ok(Err(err)) => {
-        IOUtils::close_while_handling_exception(&mut norms_consumer);
-        return Err(err);
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception(&mut norms_consumer);
-        std::panic::resume_unwind(payload)
-      },
+    if success {
+      norms_consumer.close()?;
+    } else {
+      IOUtils::close_while_handling_exception(&mut norms_consumer);
     }
-    Ok(())
+    unwrap_caught_result!(body_result)
   }
 
   pub(crate) fn abort(&mut self) -> Result<()> {
@@ -949,10 +926,7 @@ where
         )
       )?;
     }
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn oversize_doc_fields(&mut self) -> Result<()> {
     let required = self.doc_fields.len() + 1;

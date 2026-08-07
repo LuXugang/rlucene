@@ -274,12 +274,8 @@ impl StoredFieldsConsumerDefaults {
     let finish_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       writer.finish(info.max_doc()?, directory)
     }));
-    let close_result = writer.close();
-    close_result?;
-    match finish_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    writer.close()?;
+    unwrap_caught_result!(finish_result)
   }
 
   pub(crate) fn abort<TW>(writer: &mut Option<TW>) -> Result<()>

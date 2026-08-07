@@ -534,6 +534,7 @@ where
       return Ok(());
     }
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       CodecUtil::write_footer(&mut self.doc_out)?;
       if let Some(ref mut po) = self.pos_out {
@@ -560,48 +561,30 @@ where
         }
       }
       CodecUtil::write_footer(&mut self.meta_out)?;
+      success = true;
       Ok(())
     }));
-    match result {
-      Ok(Ok(())) => {
-        let mut outputs = vec![&mut self.meta_out, &mut self.doc_out];
-        if let Some(ref mut pos_out) = self.pos_out {
-          outputs.push(pos_out);
-        }
-        if let Some(ref mut pay_out) = self.pay_out {
-          outputs.push(pay_out);
-        }
-        IOUtils::close(outputs, Closeable::close)?;
-        self.pos_out = None;
-        self.pay_out = None;
-        self.closed = true;
-        Ok(())
-      },
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_exception((
-          &mut self.meta_out,
-          &mut self.doc_out,
-          self.pos_out.as_mut(),
-          self.pay_out.as_mut(),
-        ));
-        self.pos_out = None;
-        self.pay_out = None;
-        self.closed = true;
-        Err(error)
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception((
-          &mut self.meta_out,
-          &mut self.doc_out,
-          self.pos_out.as_mut(),
-          self.pay_out.as_mut(),
-        ));
-        self.pos_out = None;
-        self.pay_out = None;
-        self.closed = true;
-        std::panic::resume_unwind(payload)
-      },
+    if success {
+      let mut outputs = vec![&mut self.meta_out, &mut self.doc_out];
+      if let Some(ref mut pos_out) = self.pos_out {
+        outputs.push(pos_out);
+      }
+      if let Some(ref mut pay_out) = self.pay_out {
+        outputs.push(pay_out);
+      }
+      IOUtils::close(outputs, Closeable::close)?;
+    } else {
+      IOUtils::close_while_handling_exception((
+        &mut self.meta_out,
+        &mut self.doc_out,
+        self.pos_out.as_mut(),
+        self.pay_out.as_mut(),
+      ));
     }
+    self.pos_out = None;
+    self.pay_out = None;
+    self.closed = true;
+    unwrap_caught_result!(result)
   }
 }
 impl<O> PushPostingsWriterBaseAbstract for Lucene101PostingsWriter<O>

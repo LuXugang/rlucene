@@ -2303,10 +2303,7 @@ where
     IOUtils::apply_to_all(&merge_readers, |merge_reader| {
       reader_consumer(inner, merge_reader)
     })?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   #[cfg(test)]
@@ -2478,10 +2475,7 @@ impl OneMergeDefaults {
       Ok(())
     }));
     *merge_readers = readers;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 }
 

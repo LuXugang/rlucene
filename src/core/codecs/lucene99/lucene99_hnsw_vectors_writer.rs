@@ -653,6 +653,7 @@ where
       merge_state,
       segment_write_state,
     )?;
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let vector_index_offset = self.vector_index.get_file_pointer()?;
 
@@ -708,26 +709,17 @@ where
         scorer_supplier.total_vector_count()?,
         graph.as_mut(),
         &vector_index_node_offsets,
-      )
+      )?;
+      success = true;
+      Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => scorer_supplier.close(),
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_error(
-          std::iter::once(&mut scorer_supplier),
-          Closeable::close,
-        )?;
-        Err(error)
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_error(
-          std::iter::once(&mut scorer_supplier),
-          Closeable::close,
-        )?;
-        std::panic::resume_unwind(payload)
-      },
+    if success {
+      scorer_supplier.close()?;
+    } else {
+      IOUtils::close_while_handling_exception(&mut scorer_supplier);
     }
+    unwrap_caught_result!(result)
   }
 
   fn finish(&mut self) -> Result<()> {

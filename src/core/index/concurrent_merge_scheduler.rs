@@ -1288,10 +1288,7 @@ impl ConcurrentMergeScheduler {
     // In case we had stalled indexing, we can now wake up
     // and possibly unstall:
     self.changed.notify_all();
-    match merge_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(merge_result)
   }
 }
 

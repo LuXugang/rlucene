@@ -168,10 +168,7 @@ where
     if !success {
       self.base.inc_ref_with_lock(commit, Some(&op_lock));
     }
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   /// Deletes a snapshotted commit by generation. Once this method returns, the snapshot information

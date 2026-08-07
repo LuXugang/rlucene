@@ -327,10 +327,7 @@ where
         && self.assert_memory(&mut inner, config)
     );
 
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn checkout<L>(
     &self,
@@ -407,10 +404,7 @@ where
       Ok(result) => result?,
       Err(payload) => std::panic::resume_unwind(payload),
     };
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn update_stall_state<L>(&self, inner: &mut Inner<D>, config: &L) -> Result<bool>
   where
@@ -514,10 +508,7 @@ where
     };
     debug_assert!(checked_out.is_some());
 
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   /// To be called only by the owner of this object's monitor lock
   fn checkout_and_block(
@@ -568,10 +559,7 @@ where
       },
     ));
     self.update_stall_state(inner, config)?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn add_flushing_dwpt(&self, per_thread: Arc<DwptWrapper<D>>, inner: &mut Inner<D>) {
     debug_assert!(
@@ -622,10 +610,7 @@ where
             }
           }));
           next.unlock();
-          return match result {
-            Ok(result) => result,
-            Err(payload) => std::panic::resume_unwind(payload),
-          };
+          return unwrap_caught_result!(result);
         }
       }
     }
@@ -752,10 +737,7 @@ where
         documents_writer.reset_delete_queue(guard, size.try_convert()?)
       }));
       self.per_thread_pool.unlock_new_writers();
-      match result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(result)
     }?;
 
     let mut full_flush_buffer = Vec::new();
@@ -879,10 +861,7 @@ where
     inner.full_flush_mark_done = false;
     inner.full_flush = false;
     self.update_stall_state(&mut inner, config)?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   pub(crate) fn assert_blocked_flushes(
     &self,
@@ -912,10 +891,7 @@ where
     inner.full_flush_mark_done = false;
     inner.full_flush = false;
 
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   pub(crate) fn abort_pending_flushes<FN, L>(
@@ -984,10 +960,7 @@ where
 
     self.update_stall_state(inner, config)?;
 
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   /// Returns `true` if a full flush is currently running
@@ -1081,19 +1054,13 @@ where
             self.checkout(&mut inner, &per_thread, mark_pending, config)
           }));
           self.update_stall_state(&mut inner, config)?;
-          match result {
-            Ok(result) => result,
-            Err(payload) => std::panic::resume_unwind(payload),
-          }
+          unwrap_caught_result!(result)
         } else {
           Ok(None)
         }
       }));
       largest_non_pending_writer.unlock();
-      return match result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      };
+      return unwrap_caught_result!(result);
     }
     Ok(None)
   }

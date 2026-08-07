@@ -213,112 +213,67 @@ where
   D: Directory + 'static,
   IO: IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>,
 {
-  let (segment_infos, dir, readers) = {
-    let infos = match infos {
-      Some(infos) => infos,
-      None => &inner.segment_infos,
-    }
-    .try_clone()?;
-    // IndexWriter synchronizes externally before calling
-    // us, which ensures infos will not change; so there's
-    // no need to process segments in reverse order
-    let num_segments = infos.size();
-    let mut readers = Vec::with_capacity(num_segments);
-    let dir = writer.get_directory();
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      let mut segment_infos = infos.try_clone()?;
-      let mut infos_upto = 0;
-      for i in 0..num_segments {
-        // NOTE: important that we use infos not
-        // segmentInfos here, so that we pass the unpruned entry from the
-        // IndexWriter snapshot. Rust's clone preserves the segment identity
-        // that the reader pool uses for lookup:
-        let info = match infos.info(i) {
-          Some(info) => info,
-          None => {
-            return Err(LuceneError::illegal_argument(
-              "SegmentInfoPerCommit at index {} is None".to_string(),
-            ));
-          },
-        };
-        debug_assert!(info.info.dir.is_same_identity(&dir));
-        let reader = reader_function.apply(info, inner)?;
-        if reader.num_docs()? > 0
-          || writer
-            .get_config()
-            .get_merge_policy()
-            .keep_fully_deleted_segment(|| Ok(reader.clone()))?
-        {
-          // Steal the ref
-          readers.push(reader);
-          infos_upto += 1;
-        } else {
-          reader.dec_ref()?;
-          segment_infos.remove(infos_upto);
-        }
-      }
-      Ok(segment_infos)
-    }));
-    match result {
-      Ok(Ok(segment_infos)) => (segment_infos, dir, readers),
-      Ok(Err(mut error)) => {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::apply_to_all(&readers, IndexReader::dec_ref)
-        })) {
-          Ok(Err(close_error)) => error.add_suppressed(close_error),
-          Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
-            "panic while closing segment readers",
-            payload.as_ref(),
-          )),
-          Ok(Ok(())) => {},
-        }
-        return Err(error);
-      },
-      Err(payload) => {
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::apply_to_all(&readers, IndexReader::dec_ref)
-        }));
-        std::panic::resume_unwind(payload)
-      },
-    }
-  };
-  // Clone pointer should be cheap
-  let readers_backup = readers.clone();
+  let infos = match infos {
+    Some(infos) => infos,
+    None => &inner.segment_infos,
+  }
+  .try_clone()?;
+  // IndexWriter synchronizes externally before calling
+  // us, which ensures infos will not change; so there's
+  // no need to process segments in reverse order
+  let num_segments = infos.size();
+  let mut readers = Vec::with_capacity(num_segments);
+  let dir = writer.get_directory();
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let mut segment_infos = infos.try_clone()?;
+    let mut infos_upto = 0;
+    for i in 0..num_segments {
+      // NOTE: important that we use infos not
+      // segmentInfos here, so that we pass the unpruned entry from the
+      // IndexWriter snapshot. Rust's clone preserves the segment identity
+      // that the reader pool uses for lookup:
+      let info = match infos.info(i) {
+        Some(info) => info,
+        None => {
+          return Err(LuceneError::illegal_argument(
+            "SegmentInfoPerCommit at index {} is None".to_string(),
+          ));
+        },
+      };
+      debug_assert!(info.info.dir.is_same_identity(&dir));
+      let reader = reader_function.apply(info, inner)?;
+      if reader.num_docs()? > 0
+        || writer
+          .get_config()
+          .get_merge_policy()
+          .keep_fully_deleted_segment(|| Ok(reader.clone()))?
+      {
+        // Steal the ref
+        readers.push(reader);
+        infos_upto += 1;
+      } else {
+        reader.dec_ref()?;
+        segment_infos.remove(infos_upto);
+      }
+    }
     let leaf_sorter = writer.get_config().get_leaf_sorter().cloned();
     writer.inc_ref_deleter(&segment_infos, Some(inner))?;
-    StandardDirectoryReader::new(
+    let reader = StandardDirectoryReader::new(
       dir,
-      readers,
+      readers.clone(),
       Some(writer.clone()),
       segment_infos,
       leaf_sorter,
       apply_all_deletes,
       write_all_deletes,
-    )
+    )?;
+    readers.clear();
+    Ok(reader)
   }));
-  match result {
-    Ok(Ok(reader)) => Ok(reader),
-    Ok(Err(mut error)) => {
-      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        IOUtils::apply_to_all(&readers_backup, IndexReader::dec_ref)
-      })) {
-        Ok(Err(close_error)) => error.add_suppressed(close_error),
-        Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
-          "panic while closing segment readers",
-          payload.as_ref(),
-        )),
-        Ok(Ok(())) => {},
-      }
-      Err(error)
-    },
-    Err(payload) => {
-      let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        IOUtils::apply_to_all(&readers_backup, IndexReader::dec_ref)
-      }));
-      std::panic::resume_unwind(payload)
-    },
-  }
+  let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    IOUtils::apply_to_all(&readers, IndexReader::dec_ref)
+  }));
+  IOUtils::use_or_suppress_caught_result(result, close_result)
 }
 pub(crate) fn open_with_leaf_sorter<D>(
   directory: Arc<D>,
@@ -811,7 +766,7 @@ where
         .collect::<Result<Vec<_>>>()?;
       // This may return `LuceneError::CorruptIndex` if there are too many documents, so
       // it must remain inside this guarded result so readers are closed in that case:
-      StandardDirectoryReader::new(
+      let reader = StandardDirectoryReader::new(
         self.directory.clone(),
         opened_readers,
         None,
@@ -819,19 +774,12 @@ where
         self.leaf_sorter.clone(),
         false,
         false,
-      )
+      )?;
+      readers.clear();
+      Ok(reader)
     }));
-    match result {
-      Ok(Ok(reader)) => Ok(reader),
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_error(readers.iter().flatten(), IndexReader::dec_ref)?;
-        Err(error)
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_error(readers.iter().flatten(), IndexReader::dec_ref)?;
-        std::panic::resume_unwind(payload)
-      },
-    }
+    IOUtils::close_while_handling_error(readers.iter().flatten(), IndexReader::dec_ref)?;
+    unwrap_caught_result!(result)
   }
 }
 

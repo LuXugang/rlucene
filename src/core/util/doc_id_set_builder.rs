@@ -170,10 +170,7 @@ impl DocIdSetBuilder {
     }));
     self.buffer.clear();
     self.bit_set = None;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn no_dups(&self) -> bool {
     for i in 1..self.buffer.len() {

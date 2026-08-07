@@ -963,22 +963,20 @@ where
     }
     self.closed = true;
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       self.meta.write_int(-1)?; // write EOF marker
       CodecUtil::write_footer(&mut self.meta)?;
-      CodecUtil::write_footer(&mut self.data)
+      CodecUtil::write_footer(&mut self.data)?;
+      success = true;
+      Ok(())
     }));
-    match result {
-      Ok(Ok(())) => IOUtils::close([&mut self.data, &mut self.meta], Closeable::close),
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
-        Err(error)
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
-        std::panic::resume_unwind(payload)
-      },
+    if success {
+      IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?;
+    } else {
+      IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
     }
+    unwrap_caught_result!(result)
   }
 }
 impl<O> DocValuesConsumer for Lucene90DocValuesConsumer<O>

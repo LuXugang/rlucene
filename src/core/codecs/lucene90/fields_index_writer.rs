@@ -363,10 +363,7 @@ where
     self.file_pointers_out_pending_delete = false;
     self.temp_outputs_closed = true;
 
-    match cleanup_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(cleanup_result)
   }
 }
 

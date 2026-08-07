@@ -500,10 +500,7 @@ where
     };
 
     doc_values_result?;
-    match core_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(core_result)
   }
 
   fn notify_reader_closed_listeners(&self) -> Result<()> {

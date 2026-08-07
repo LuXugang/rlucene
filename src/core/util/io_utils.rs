@@ -485,7 +485,18 @@ impl IOUtils {
           )),
         },
       },
-      Err(payload) => std::panic::resume_unwind(payload),
+      Err(payload) => match close_result {
+        Ok(Ok(())) => std::panic::resume_unwind(payload),
+        Ok(Err(error)) => std::panic::resume_unwind(Box::new(
+          PanicWithSuppressed::with_suppressed(payload, vec![SuppressedFailure::Exception(error)]),
+        )),
+        Err(close_payload) => {
+          std::panic::resume_unwind(Box::new(PanicWithSuppressed::with_suppressed(
+            payload,
+            vec![SuppressedFailure::Panic(close_payload)],
+          )))
+        },
+      },
     }
   }
 
@@ -498,10 +509,7 @@ impl IOUtils {
     finally_result: std::thread::Result<Result<()>>,
   ) -> Result<T> {
     match finally_result {
-      Ok(Ok(())) => match result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      },
+      Ok(Ok(())) => unwrap_caught_result!(result),
       Ok(Err(error)) => Err(error),
       Err(payload) => std::panic::resume_unwind(payload),
     }

@@ -337,10 +337,7 @@ where
       Ok(())
     }));
     self.flush_control.do_on_abort(&per_thread, config)?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   /// returns the maximum sequence number for all previously completed operations
   pub(crate) fn get_max_completed_sequence_number(&self) -> i64 {
@@ -469,10 +466,7 @@ where
         .message("DW", &format!("done abort success={success}"))?;
     }
 
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn pre_update(&self, writer: &IndexWriter<D>) -> Result<bool> {
     self.ensure_open()?;
@@ -663,10 +657,7 @@ where
                     SegmentInfo::dummy(dir),
                   ))?
                 }
-                match result {
-                  Ok(result) => result,
-                  Err(payload) => std::panic::resume_unwind(payload),
-                }
+                unwrap_caught_result!(result)
               }
             },
             None => Err(LuceneError::illegal_state("ticket returned None")),
@@ -905,10 +896,7 @@ where
     // flush
     self.apply_all_deletes()?;
 
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   /// Returns the number of bytes currently being flushed

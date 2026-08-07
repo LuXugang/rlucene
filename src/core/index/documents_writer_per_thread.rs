@@ -183,18 +183,12 @@ where
       let indexing_chain_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.indexing_chain.abort()));
       self.pending_updates.clear();
-      match indexing_chain_result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(indexing_chain_result)
     }));
     if self.info_stream.is_enabled("DWPT") {
       self.info_stream.message("DWPT", "done abort")?;
     }
-    match abort_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(abort_result)
   }
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new<L>(
@@ -431,16 +425,10 @@ where
         let to_delete = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
         self.delete_last_docs(to_delete)?;
       }
-      match result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(result)
     }));
     self.maybe_abort("updateDocuments", flush_notifications, writer)?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   fn finish_documents(&mut self, delete_node: Option<Arc<Node>>, doc_id_upto: i32) -> Result<i64> {
@@ -799,10 +787,7 @@ where
         let err = v.clone();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.abort()));
         flush_notifications.on_tragic_event(err, location, writer)?;
-        match result {
-          Ok(result) => result,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(result)
       },
       _ => Ok(()),
     }
@@ -948,10 +933,7 @@ where
           ),
         )?;
       }
-      match result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(result)
     })();
     res
   }

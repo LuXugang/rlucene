@@ -350,10 +350,7 @@ impl BKDRadixSelector {
           debug_assert!(false, "PointValueEnum must be Offline");
         },
       }
-      match body_result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(body_result)
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reader.close()));
     let common_prefix_position = IOUtils::use_or_suppress_caught_result(result, close_result)?;
@@ -569,10 +566,7 @@ impl BKDRadixSelector {
           debug_assert!(false, "PointValueEnum must be Offline");
         },
       }
-      match body_result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(body_result)
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reader.close()));
     IOUtils::use_or_suppress_caught_result(result, close_result)?;

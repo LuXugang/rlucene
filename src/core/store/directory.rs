@@ -275,10 +275,7 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
     if !success {
       IOUtils::delete_files_ignoring_exceptions(self, &[dest.to_string()]);
     }
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   fn as_erased_directory(&self) -> Option<&dyn ErasedDirectory> {

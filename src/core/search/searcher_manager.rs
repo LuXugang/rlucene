@@ -30,7 +30,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::marker::PhantomData;
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 type ManagedSearcher<DR> = IndexSearcher<CompositeReaderContext<Arc<DR>>>;
@@ -245,10 +245,7 @@ where
       searcher.get_index_reader().is_current()
     }));
     self.release(searcher)?;
-    match current_result {
-      Ok(result) => result,
-      Err(payload) => resume_unwind(payload),
-    }
+    unwrap_caught_result!(current_result)
   }
 
   pub fn acquire(&self) -> Result<Arc<ManagedSearcher<DR>>> {
@@ -309,10 +306,7 @@ where
   if !success {
     reader_to_check.dec_ref()?;
   }
-  match searcher_result {
-    Ok(result) => result,
-    Err(payload) => resume_unwind(payload),
-  }
+  unwrap_caught_result!(searcher_result)
 }
 
 impl<DR> Closeable for SearcherManager<DR>

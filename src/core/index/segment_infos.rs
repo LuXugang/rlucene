@@ -405,10 +405,7 @@ where
         },
       }
     } else {
-      match read_result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(read_result)
     }
   }
   pub fn parse_segment_infos(
@@ -628,10 +625,7 @@ where
       // Try not to leave a truncated segments_N file in the index.
       IOUtils::delete_files_ignoring_exceptions(directory, std::iter::once(&segment_file_name));
     }
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   /// Write the current `SegmentInfos` to the provided `IndexOutput`.

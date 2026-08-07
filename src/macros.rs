@@ -20,3 +20,12 @@ macro_rules! dummy_unreachable {
     unreachable!("Dummy implementation: this method should never be called in real usage")
   };
 }
+
+macro_rules! unwrap_caught_result {
+  ($result:expr) => {{
+    match $result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
+  }};
+}

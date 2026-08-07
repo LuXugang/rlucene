@@ -414,10 +414,7 @@ where
       })
     }));
     debug_assert!(inner.reader_map.is_empty());
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   /// Commit live docs changes for the  readers for the provided infos.
   pub(crate) fn commit(

@@ -157,10 +157,7 @@ where
           }
         }));
         IOUtils::close_while_handling_exception(meta_in_opt.as_ref());
-        match result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(result)?;
       },
     }
     // NOTE: these data files are too costly to verify checksum against all
@@ -252,20 +249,12 @@ where
         vectorization_provider: DefaultVectorizationProvider,
       })
     }));
-    match result {
-      Ok(result @ Ok(_)) => result,
-      result => {
-        IOUtils::close_while_handling_exception((
-          doc_in_opt.as_ref(),
-          pos_in_opt.as_ref(),
-          pay_in_opt.as_ref(),
-        ));
-        match result {
-          Ok(result) => result,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-      },
-    }
+    IOUtils::close_while_handling_exception((
+      doc_in_opt.as_ref(),
+      pos_in_opt.as_ref(),
+      pay_in_opt.as_ref(),
+    ));
+    unwrap_caught_result!(result)
   }
 }
 

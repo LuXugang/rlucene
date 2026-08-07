@@ -508,6 +508,7 @@ where
     }
     self.closed = true;
 
+    let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       self.meta_out.write_vint(self.fields.len() as i32)?;
       for field_meta in &self.fields {
@@ -521,35 +522,27 @@ where
       self
         .meta_out
         .write_long(self.terms_out.get_file_pointer()? as i64)?;
-      CodecUtil::write_footer(&mut self.meta_out)
+      CodecUtil::write_footer(&mut self.meta_out)?;
+      success = true;
+      Ok(())
     }));
-    match result {
-      Ok(Ok(())) => IOUtils::close(0..4, |operation| match operation {
+    if success {
+      IOUtils::close(0..4, |operation| match operation {
         0 => self.meta_out.close(),
         1 => self.terms_out.close(),
         2 => self.index_out.close(),
         3 => self.postings_writer.close(),
         _ => unreachable!(),
-      }),
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_exception((
-          &mut self.meta_out,
-          &mut self.terms_out,
-          &mut self.index_out,
-          &mut self.postings_writer,
-        ));
-        Err(error)
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception((
-          &mut self.meta_out,
-          &mut self.terms_out,
-          &mut self.index_out,
-          &mut self.postings_writer,
-        ));
-        std::panic::resume_unwind(payload)
-      },
+      })?;
+    } else {
+      IOUtils::close_while_handling_exception((
+        &mut self.meta_out,
+        &mut self.terms_out,
+        &mut self.index_out,
+        &mut self.postings_writer,
+      ));
     }
+    unwrap_caught_result!(result)
   }
 }
 impl<O, PW> Drop for Lucene90BlockTreeTermsWriter<O, PW>

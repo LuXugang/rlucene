@@ -78,10 +78,7 @@ where
     if !success {
       self.dec_tickets();
     }
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn inc_tickets(&self) {
     // incrementAndGet

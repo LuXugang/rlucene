@@ -36,8 +36,9 @@ use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::counter::{Counter, new_counter};
-use crate::core::util::error::lucene_error::LuceneError;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{
+  LuceneError, PanicWithSuppressed, Result, SuppressedFailure,
+};
 use crate::core::util::long_supplier::LongSupplier;
 #[cfg(test)]
 use crate::test_framework::core::index::test_tragic_index_writer_deadlock::TragicIndexWriter;
@@ -606,16 +607,12 @@ where
     }));
     let success = matches!(&result, Ok(Ok(_)));
     if !success && info_stream.is_enabled("IW") {
-      let msg = "init: hit exception on init; releasing write lock";
-      info_stream.message("IW", msg)?;
+      info_stream.message("IW", "init: hit exception on init; releasing write lock")?;
     }
     if !success && let Some(directory) = directory_for_cleanup.as_ref() {
       IOUtils::close_while_handling_exception(&directory.write_lock);
     }
-    match result {
-      Ok(result) => result.map(Self::into_arc),
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result).map(Self::into_arc)
   }
 
   pub(crate) fn get_index_major_version_created(&self) -> i32 {
@@ -1053,10 +1050,7 @@ where
       }
       self.maybe_close_on_tragic_event(None)?;
     }
-    match res {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(res)
   }
   /// Expert: Atomically updates documents matching the provided `term` with the given
   /// DocValues fields and adds a block of documents with sequentially assigned document IDs,
@@ -1218,10 +1212,7 @@ where
       let dec = -(max_doc as i64);
       self.adjust_pending_num_docs(dec);
     }
-    match res {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(res)
   }
   /// Expert: Updates a document by first updating the document(s) containing the given `term`
   /// with the provided DocValues fields, and then adding a new document.
@@ -2652,7 +2643,7 @@ where
       self.info_stream.message("IW", "rollback")?;
     }
 
-    let result = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       {
         let mut inner = self.inner.lock();
         // must be synced otherwise register merge might return an error if merges
@@ -2754,17 +2745,11 @@ where
         _ => unreachable!(),
       })?;
       Ok(())
-    })) {
-      Ok(result) => result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "panic while rolling back",
-        payload.as_ref(),
-      )),
-    };
+    }));
 
-    let mut result = match result {
-      Ok(()) => Ok(()),
-      Err(mut error) => {
+    match result {
+      Ok(Ok(())) => Ok(()),
+      Ok(Err(mut error)) => {
         let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
           IOUtils::close_while_handling_error(0..2, |operation| match operation {
             0 => self.config.get_merge_scheduler().close(),
@@ -2809,18 +2794,80 @@ where
             payload.as_ref(),
           ));
         }
+        if error.is_tragedy_error() {
+          let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.tragic_event(error.clone(), "rollbackInternal", Some(commit_lock))
+          }));
+          match tragic_result {
+            Ok(Ok(())) => {},
+            Ok(Err(tragic_error)) => error.add_suppressed(tragic_error),
+            Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
+              "panic while handling tragic rollback event",
+              payload.as_ref(),
+            )),
+          }
+        }
         Err(error)
       },
-    };
+      Err(payload) => {
+        let mut suppressed = Vec::new();
+        let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          IOUtils::close_while_handling_error(0..2, |operation| match operation {
+            0 => self.config.get_merge_scheduler().close(),
+            1 => {
+              let mut inner = self.inner.lock();
 
-    if let Err(error) = &mut result
-      && error.is_tragedy_error()
-      && let Err(tragic_error) =
-        self.tragic_event(error.clone(), "rollbackInternal", Some(commit_lock))
-    {
-      error.add_suppressed(tragic_error);
+              let pending_commit = commit_lock.pending_commit.borrow_mut().take();
+              if let Some(mut pending_commit) = pending_commit {
+                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+                  pending_commit.rollback_commit(self.directory.as_ref());
+                  inner.deleter.dec_ref_from_segment(&pending_commit)?;
+                  Ok(())
+                })) {
+                  Ok(Ok(())) => {},
+                  Ok(Err(error)) => suppressed.push(SuppressedFailure::Exception(error)),
+                  Err(payload) => suppressed.push(SuppressedFailure::Panic(payload)),
+                }
+              }
+
+              IOUtils::close_while_handling_error(0..4, |operation| match operation {
+                0 => self.reader_pool.close(&mut inner.segment_infos),
+                1 => inner.deleter.close(),
+                2 => IOUtils::close_one_ref(self.writer_lock()),
+                3 => {
+                  self.closed.store(true, Ordering::SeqCst);
+                  self.closing.store(false, Ordering::SeqCst);
+                  self.pausing.notify_all();
+                  Ok(())
+                },
+                _ => unreachable!(),
+              })
+            },
+            _ => unreachable!(),
+          })
+        }));
+        if let Err(payload) = cleanup_result {
+          suppressed.push(SuppressedFailure::Panic(payload));
+        }
+
+        let tragedy = LuceneError::tragedy_from_panic("panic while rolling back", payload.as_ref());
+        let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          self.tragic_event(tragedy, "rollbackInternal", Some(commit_lock))
+        }));
+        match tragic_result {
+          Ok(Ok(())) => {},
+          Ok(Err(error)) => suppressed.push(SuppressedFailure::Exception(error)),
+          Err(payload) => suppressed.push(SuppressedFailure::Panic(payload)),
+        }
+
+        if suppressed.is_empty() {
+          std::panic::resume_unwind(payload);
+        }
+        std::panic::resume_unwind(Box::new(PanicWithSuppressed::with_suppressed(
+          payload, suppressed,
+        )))
+      },
     }
-    result
   }
   fn writer_lock(&self) -> &D::Lock {
     &self.directory.write_lock
@@ -2928,10 +2975,7 @@ where
               .info_stream
               .message("IW", "hit exception during deleteAll")?;
           }
-          match operation_result {
-            Ok(result) => result,
-            Err(payload) => std::panic::resume_unwind(payload),
-          }
+          unwrap_caught_result!(operation_result)
         }));
       let close_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| finalizer.close()));
@@ -3229,10 +3273,7 @@ where
       s.do_after_flush()?
     }
 
-    match res {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(res)
   }
   fn reset_merge_exceptions(&self, inner: &mut MutexGuard<'_, Inner<D>>) {
     inner.merge_exceptions.clear();
@@ -3274,13 +3315,12 @@ where
       }));
       match result {
         Ok(Ok(())) => {},
-        Ok(Err(error)) => {
+        result => {
           IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
-          return Err(error);
-        },
-        Err(payload) => {
-          IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
-          std::panic::resume_unwind(payload)
+          unwrap_caught_result!(result)?;
+          return Err(LuceneError::illegal_state(
+            "write lock acquisition entered failure handling after success",
+          ));
         },
       }
     }
@@ -4051,10 +4091,7 @@ where
     }));
 
     self.maybe_close_on_tragic_event(None)?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   fn prepare_commit_internal(&self, commit_lock: Option<&CommitInner<D>>) -> Result<i64>
@@ -4195,10 +4232,7 @@ where
           if let Some(ref s) = self.hooks {
             s.do_after_flush()?
           }
-          match body_res {
-            Ok(result) => result,
-            Err(payload) => std::panic::resume_unwind(payload),
-          }
+          unwrap_caught_result!(body_res)
         }));
 
       match flush_result {
@@ -4361,10 +4395,7 @@ where
             self.abort_one_merge(merge, inner)
           }));
           self.merge_finish(&merge.stat, Some(inner));
-          match abort_result {
-            Ok(result) => result,
-            Err(payload) => std::panic::resume_unwind(payload),
-          }
+          unwrap_caught_result!(abort_result)
         })?;
       }
       match init_result {
@@ -4927,10 +4958,7 @@ where
       }
       self.maybe_close_on_tragic_event(None)?;
     }
-    match res {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(res)
   }
 
   fn apply_all_deletes_and_updates(&self) -> Result<()>
@@ -5651,10 +5679,7 @@ where
       }
       self.merge_finish(&merge.stat, None);
     }
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   fn merge_init_(&self, merge: &mut OneMergeSR<D>) -> Result<()> {
@@ -6105,10 +6130,7 @@ where
           },
         }
       }
-      match res {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(res)
     }));
     match result {
       Ok(result) => match result {
@@ -6167,10 +6189,7 @@ where
       self.on_tragic_event(tragedy, location)
     }));
     self.maybe_close_on_tragic_event(commit_lock)?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 
   fn maybe_close_on_tragic_event(&self, commit_lock: Option<&CommitInner<D>>) -> Result<()>
@@ -7432,10 +7451,7 @@ where
       }));
       let close_result = reader.close();
       close_result?;
-      match dec_ref_result {
-        Ok(result) => result,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(dec_ref_result)
     })
   }
 
@@ -8101,10 +8117,7 @@ where
         })
     }));
     self.writer.release(rld.as_ref(), inner)?;
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 }
 
@@ -8738,10 +8751,7 @@ impl EventQueue {
       self.process_events_internal(writer)
     }));
     self.permits.release();
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
   fn process_events_internal<D>(&self, writer: &IndexWriter<D>) -> Result<()>
   where
@@ -8783,10 +8793,7 @@ impl EventQueue {
     }));
     self.permits.release_all();
     drop(_guard);
-    match result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)
   }
 }
 

@@ -143,22 +143,20 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
   pub fn close(&mut self) -> Result<()> {
     if !self.closed {
       self.closed = true;
+      let mut success = false;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         self.meta.write_int(-1)?;
         CodecUtil::write_footer(&mut self.meta)?;
-        CodecUtil::write_footer(&mut self.data)
+        CodecUtil::write_footer(&mut self.data)?;
+        success = true;
+        Ok(())
       }));
-      match result {
-        Ok(Ok(())) => IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?,
-        Ok(Err(error)) => {
-          IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
-          return Err(error);
-        },
-        Err(payload) => {
-          IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
-          std::panic::resume_unwind(payload);
-        },
+      if success {
+        IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?;
+      } else {
+        IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
       }
+      unwrap_caught_result!(result)?;
     }
     Ok(())
   }
