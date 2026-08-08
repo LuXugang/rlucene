@@ -598,11 +598,18 @@ impl Accountable for Automaton {
 /// creates the [`Automaton`]. Use this when you cannot create the automaton
 /// directly because it's too restrictive to have to add all transitions leaving
 /// each state at once.
+#[derive(Clone)]
 pub struct Builder {
   next_state: i32,
   is_accept: BitSet,
   transitions: Vec<i32>,
   next_transition: i32,
+}
+
+impl Accountable for Builder {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    Ok(size_of_vec(&self.transitions).saturating_add((self.is_accept.capacity() / 8) as i64))
+  }
 }
 impl Default for Builder {
   fn default() -> Self {

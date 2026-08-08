@@ -78,6 +78,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::impl_from_for_enum;
+use crate::sandbox::search::term_automaton_query::TermAutomatonQuery;
 #[cfg(test)]
 use crate::test_framework::core::search::asserting_query::AssertingQuery;
 #[cfg(test)]
@@ -201,6 +202,7 @@ macro_rules! dispatch_query {
       Query::SortedSetDocValuesRange($inner) => $body,
       Query::Synonym($inner) => $body,
       Query::Term($inner) => $body,
+      Query::TermAutomaton($inner) => $body,
       Query::XYDocValuesPointInGeometry($inner) => $body,
       Query::XYPointInGeometry($inner) => $body,
       #[cfg(test)]
@@ -276,6 +278,7 @@ impl_from_for_enum!(
     SortedSetDocValuesRangeQuery => SortedSetDocValuesRange,
     SynonymQuery => Synonym,
     TermQuery => Term,
+    TermAutomatonQuery => TermAutomaton,
     XYDocValuesPointInGeometryQuery => XYDocValuesPointInGeometry,
     XYPointInGeometryQuery => XYPointInGeometry,
 );
@@ -334,6 +337,7 @@ impl_into_box_query!(
   SortedSetDocValuesRangeQuery,
   SynonymQuery,
   TermQuery,
+  TermAutomatonQuery,
   XYDocValuesPointInGeometryQuery,
   XYPointInGeometryQuery,
 );
@@ -401,6 +405,7 @@ pub enum Query {
   SortedSetDocValuesRange(SortedSetDocValuesRangeQuery),
   Synonym(SynonymQuery),
   Term(TermQuery),
+  TermAutomaton(TermAutomatonQuery),
   XYDocValuesPointInGeometry(XYDocValuesPointInGeometryQuery),
   XYPointInGeometry(XYPointInGeometryQuery),
   #[cfg(test)]
@@ -527,6 +532,7 @@ define_query_ref!(
   SortedSetDocValuesRange => SortedSetDocValuesRangeQuery,
   Synonym => SynonymQuery,
   Term => TermQuery,
+  TermAutomaton => TermAutomatonQuery,
   XYDocValuesPointInGeometry => XYDocValuesPointInGeometryQuery,
   XYPointInGeometry => XYPointInGeometryQuery,
   Automaton => AutomatonQuery,
@@ -633,6 +639,7 @@ impl Query {
             SortedSetDocValuesRange,
             Synonym,
             Term,
+            TermAutomaton,
             XYDocValuesPointInGeometry,
             XYPointInGeometry,
         ];

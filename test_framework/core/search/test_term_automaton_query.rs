@@ -14,7 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod test_large_num_hits_top_docs_collector;
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::search::query::Query;
+use crate::core::util::error::lucene_error::Result;
+use crate::sandbox::search::term_automaton_query::{TermAutomatonQuery, TermAutomatonQueryBase};
 
-mod test_lat_lon_bounding_box_queries;
-mod test_term_automaton_query;
+#[allow(dead_code)] // for quick search
+struct TestTermAutomatonQuery;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct CustomTermAutomatonQuery;
+
+impl TermAutomatonQueryBase for CustomTermAutomatonQuery {
+  fn rewrite<IRC>(&self, query: TermAutomatonQuery, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  where
+    IRC: IndexReaderContext,
+  {
+    Ok(query.into())
+  }
+}

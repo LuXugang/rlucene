@@ -51,3 +51,4 @@ pub(crate) mod test_custom_searcher_sort;
 pub(crate) mod test_index_searcher;
 pub mod test_lru_query_cache;
 pub mod test_searcher_manager;
+pub mod test_term_automaton_query;

@@ -15,3 +15,6 @@
  * limitations under the License.
  */
 pub mod large_num_hits_top_docs_collector;
+pub mod term_automaton_query;
+mod term_automaton_scorer;
+pub mod token_stream_to_term_automaton_query;
