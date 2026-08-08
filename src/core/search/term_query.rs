@@ -366,52 +366,57 @@ where
     doc: i32,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Explanation> {
-    let scorer_opt = self.build_term_scorer(context)?;
-    if let Some(mut scorer) = scorer_opt {
-      let new_doc = scorer.iterator_mut().advance(doc)?;
-      if new_doc == doc {
-        let freq = match &mut scorer {
-          ScorerEnum2::A(ts) => ts.freq()?,
-          ScorerEnum2::B(_) => {
-            return Err(LuceneError::illegal_state("should TermScorer here"));
-          },
-        };
+    let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
+      v
+    } else {
+      return Err(LuceneError::illegal_state(""));
+    };
+    let mut terms_enum = self.get_terms_enum(context)?;
+    let mut scorer = Self::build_term_scorer(
+      context,
+      terms_enum.as_mut(),
+      parent_query.term.as_ref(),
+      self.sim_scorer.clone(),
+      self.score_mode,
+      false,
+    )?;
+    let new_doc = scorer.iterator_mut().advance(doc)?;
+    if new_doc == doc {
+      let freq = match &mut scorer {
+        ScorerEnum2::A(ts) => ts.freq()?,
+        ScorerEnum2::B(_) => {
+          return Err(LuceneError::illegal_state("should TermScorer here"));
+        },
+      };
 
-        let mut norm: i64 = 1;
-        let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-          v
-        } else {
-          return Err(LuceneError::illegal_state(""));
-        };
-
-        if let Some(mut norms) = context.reader().get_norm_values(&parent_query.term.field)?
-          && norms.advance_exact(doc)?
-        {
-          norm = norms.long_value()?;
-        }
-
-        let freq_explanation = Explanation::match_no_details(
-          freq,
-          "freq, occurrences of term within document".to_string(),
-        );
-
-        let score_explanation = self
-          .sim_scorer
-          .as_ref()
-          .unwrap()
-          .explain(freq_explanation, norm)?;
-
-        return Ok(Explanation::match_(
-          score_explanation.value.clone(),
-          format!(
-            "weight({:?} in {}) [{}], result of:",
-            <Self as Weight<IRC>>::get_query(self),
-            doc,
-            self.similarity,
-          ),
-          vec![score_explanation],
-        ));
+      let mut norm: i64 = 1;
+      if let Some(mut norms) = context.reader().get_norm_values(&parent_query.term.field)?
+        && norms.advance_exact(doc)?
+      {
+        norm = norms.long_value()?;
       }
+
+      let freq_explanation = Explanation::match_no_details(
+        freq,
+        "freq, occurrences of term within document".to_string(),
+      );
+
+      let score_explanation = self
+        .sim_scorer
+        .as_ref()
+        .unwrap()
+        .explain(freq_explanation, norm)?;
+
+      return Ok(Explanation::match_(
+        score_explanation.value.clone(),
+        format!(
+          "weight({:?} in {}) [{}], result of:",
+          <Self as Weight<IRC>>::get_query(self),
+          doc,
+          self.similarity,
+        ),
+        vec![score_explanation],
+      ));
     }
 
     Ok(Explanation::no_match_no_details(
@@ -481,36 +486,37 @@ where
 
 impl TermWeight {
   fn build_term_scorer<LR>(
-    &self,
     context: &LeafReaderContext<LR>,
-  ) -> Result<Option<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>>
+    terms_enum: Option<&mut LRTermsEnum<LR>>,
+    term: &Term,
+    sim_scorer: Option<Arc<TermQuerySimScorer>>,
+    score_mode: ScoreMode,
+    top_level_scoring_clause: bool,
+  ) -> Result<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>
   where
     LR: LeafReader,
   {
-    match self.get_terms_enum(context)? {
-      Some(mut terms_enum) => {
-        let norms = if self.score_mode.needs_scores() {
-          let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
-            v
-          } else {
-            return Err(LuceneError::illegal_state(""));
-          };
-          context.reader().get_norm_values(&parent_query.term.field)?
+    match terms_enum {
+      Some(terms_enum) => {
+        let norms = if score_mode.needs_scores() {
+          context.reader().get_norm_values(term.field())?
         } else {
           None
         };
+        let sim_scorer = sim_scorer
+          .ok_or_else(|| LuceneError::illegal_state("TermQuery similarity scorer is missing"))?;
 
-        if self.score_mode == ScoreMode::TopScores {
+        if score_mode == ScoreMode::TopScores {
           let v =
             TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::from_impacts(
               terms_enum.impacts(FREQS as i32)?,
-              self.sim_scorer.as_ref().unwrap().clone(),
+              sim_scorer,
               norms,
-              false,
+              top_level_scoring_clause,
             ));
-          Ok(Some(v))
+          Ok(v)
         } else {
-          let flags = if self.score_mode.needs_scores() {
+          let flags = if score_mode.needs_scores() {
             FREQS
           } else {
             NONE
@@ -518,17 +524,17 @@ impl TermWeight {
           let v =
             TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::from_postings(
               terms_enum.postings_with_flags(None, flags as i32)?,
-              self.sim_scorer.as_ref().unwrap().clone(),
+              sim_scorer,
               norms,
             ));
-          Ok(Some(v))
+          Ok(v)
         }
       },
       None => {
         let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
-          ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
+          ConstantScoreScorer::from_disi(0.0, score_mode, EmptyDISI::default()),
         );
-        Ok(Some(v))
+        Ok(v)
       },
     }
   }
@@ -605,52 +611,16 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
-    match self.get_terms_enum(context)? {
-      Some(_) => {
-        debug_assert!(self.terms_enum.is_some());
-        let norms = if self.score_mode.needs_scores() {
-          context.reader().get_norm_values(&self.term.field)?
-        } else {
-          None
-        };
-
-        if self.score_mode == ScoreMode::TopScores {
-          let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
-            TermScorer::from_impacts(
-              self.terms_enum.as_mut().unwrap().impacts(FREQS as i32)?,
-              self.sim_scorer.clone(),
-              norms,
-              self.top_level_scoring_clause,
-            ),
-          );
-          Ok(Box::new(v))
-        } else {
-          let flags = if self.score_mode.needs_scores() {
-            FREQS
-          } else {
-            NONE
-          };
-          let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::A(
-            TermScorer::from_postings(
-              self
-                .terms_enum
-                .as_mut()
-                .unwrap()
-                .postings_with_flags(None, flags as i32)?,
-              self.sim_scorer.clone(),
-              norms,
-            ),
-          );
-          Ok(Box::new(v))
-        }
-      },
-      None => {
-        let v = TermScorerEnum::<IRCLeafReader<IRC>, EmptyDISI, DummyTwoPhaseIterator>::B(
-          ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::default()),
-        );
-        Ok(Box::new(v))
-      },
-    }
+    self.get_terms_enum(context)?;
+    let scorer = TermWeight::build_term_scorer(
+      context,
+      self.terms_enum.as_mut(),
+      self.term.as_ref(),
+      Some(self.sim_scorer.clone()),
+      self.score_mode,
+      self.top_level_scoring_clause,
+    )?;
+    Ok(Box::new(scorer))
   }
 
   fn bulk_scorer(
@@ -678,6 +648,11 @@ where
         Err(err.into())
       },
     }
+  }
+
+  fn set_top_level_scoring_clause(&mut self) -> Result<()> {
+    self.top_level_scoring_clause = true;
+    Ok(())
   }
 }
 
