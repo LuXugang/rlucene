@@ -160,19 +160,11 @@ where
         let swap_result = catch_unwind(AssertUnwindSafe(|| {
           self.swap_reference(Some(new_reference.clone()))
         }));
-        match swap_result {
-          Ok(Ok(())) => {
-            refreshed = true;
-          },
-          Ok(Err(error)) => {
-            self.release(new_reference)?;
-            return Err(error);
-          },
-          Err(payload) => {
-            self.release(new_reference)?;
-            resume_unwind(payload);
-          },
+        if !matches!(&swap_result, Ok(Ok(()))) {
+          self.release(new_reference)?;
         }
+        unwrap_caught_result!(swap_result)?;
+        refreshed = true;
       }
       Ok(())
     }));

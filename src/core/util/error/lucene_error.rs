@@ -90,6 +90,106 @@ impl PanicWithSuppressed {
   pub(crate) fn primary(&self) -> &(dyn Any + Send) {
     self.primary.as_ref()
   }
+
+  fn add_suppressed_to_payload(payload: &mut Box<dyn Any + Send>, suppressed: SuppressedFailure) {
+    if let Some(panic) = payload.downcast_mut::<PanicWithSuppressed>() {
+      panic.suppressed.push(suppressed);
+    } else {
+      let primary = std::mem::replace(payload, Box::new(()));
+      *payload = Box::new(PanicWithSuppressed::with_suppressed(
+        primary,
+        vec![suppressed],
+      ));
+    }
+  }
+}
+
+impl SuppressedFailure {
+  fn as_exception(&self, panic_message: &str) -> LuceneError {
+    match self {
+      Self::Panic(payload) => LuceneError::tragedy_from_panic(panic_message, payload.as_ref()),
+      Self::Exception(error) => error.clone(),
+      Self::ExceptionWithSuppressed(error) => {
+        let mut primary = error.primary.clone();
+        for suppressed in &error.suppressed {
+          primary.add_suppressed(suppressed.clone());
+        }
+        primary
+      },
+    }
+  }
+
+  fn into_exception(self, panic_message: &str) -> LuceneError {
+    match self {
+      Self::Panic(payload) => match payload.downcast::<PanicWithSuppressed>() {
+        Ok(panic) => {
+          let PanicWithSuppressed {
+            primary,
+            suppressed,
+          } = *panic;
+          let mut primary = LuceneError::tragedy_from_panic(panic_message, primary.as_ref());
+          for suppressed in suppressed {
+            primary.add_suppressed(suppressed.into_exception(panic_message));
+          }
+          primary
+        },
+        Err(payload) => LuceneError::tragedy_from_panic(panic_message, payload.as_ref()),
+      },
+      Self::Exception(error) => error,
+      Self::ExceptionWithSuppressed(error) => {
+        let mut primary = error.primary;
+        for suppressed in error.suppressed {
+          primary.add_suppressed(suppressed);
+        }
+        primary
+      },
+    }
+  }
+}
+
+pub(crate) trait CaughtResultExt {
+  fn caught_failure(&self, panic_message: &str) -> Option<LuceneError>;
+
+  fn caught_panic(&self, panic_message: &str) -> Option<LuceneError>;
+
+  fn add_suppressed(&mut self, suppressed: std::thread::Result<Result<()>>, panic_message: &str);
+}
+
+impl<T> CaughtResultExt for std::thread::Result<Result<T>> {
+  fn caught_failure(&self, panic_message: &str) -> Option<LuceneError> {
+    match self {
+      Ok(Ok(_)) => None,
+      Ok(Err(error)) => Some(error.clone()),
+      Err(payload) => Some(LuceneError::tragedy_from_panic(
+        panic_message,
+        payload.as_ref(),
+      )),
+    }
+  }
+
+  fn caught_panic(&self, panic_message: &str) -> Option<LuceneError> {
+    match self {
+      Err(payload) => Some(LuceneError::tragedy_from_panic(
+        panic_message,
+        payload.as_ref(),
+      )),
+      Ok(_) => None,
+    }
+  }
+
+  fn add_suppressed(&mut self, suppressed: std::thread::Result<Result<()>>, panic_message: &str) {
+    let suppressed = match suppressed {
+      Ok(Ok(())) => return,
+      Ok(Err(error)) => SuppressedFailure::Exception(error),
+      Err(payload) => SuppressedFailure::Panic(payload),
+    };
+
+    match self {
+      Ok(Ok(_)) => unreachable!("cannot add a suppressed failure to a successful result"),
+      Ok(Err(error)) => error.add_suppressed(suppressed.into_exception(panic_message)),
+      Err(payload) => PanicWithSuppressed::add_suppressed_to_payload(payload, suppressed),
+    }
+  }
 }
 
 impl fmt::Debug for PanicWithSuppressed {
@@ -388,7 +488,10 @@ macro_rules! error_ctor {
         | LuceneError::ParseIntError { suppressed, .. }
         | LuceneError::Utf8Error { suppressed, .. }
         | LuceneError::VersionError { suppressed, .. } => {
-          *suppressed = Some(Box::new(source));
+          match suppressed.as_mut() {
+            Some(suppressed) => suppressed.add_suppressed(source),
+            None => *suppressed = Some(Box::new(source)),
+          }
         },
       }
     }
@@ -431,6 +534,13 @@ impl LuceneError {
   }
 
   pub fn tragedy_from_panic(prefix: &str, payload: &(dyn Any + Send)) -> Self {
+    if let Some(panic) = payload.downcast_ref::<PanicWithSuppressed>() {
+      let mut primary = LuceneError::tragedy_from_panic(prefix, panic.primary());
+      for suppressed in &panic.suppressed {
+        primary.add_suppressed(suppressed.as_exception(prefix));
+      }
+      return primary;
+    }
     LuceneError::tragedy(format!(
       "{prefix}: {}",
       LuceneError::panic_payload_message(payload)
@@ -449,10 +559,6 @@ impl LuceneError {
 
   pub fn io(err: std::io::Error) -> Self {
     Self::io_with_path("", err)
-  }
-
-  pub fn is_tragedy_error(&self) -> bool {
-    matches!(self, LuceneError::Tragedy(_))
   }
 
   /// Returns whether this error corresponds to a Java `IOException` subtype.

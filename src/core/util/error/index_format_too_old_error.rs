@@ -120,7 +120,10 @@ impl IndexFormatTooOldError {
   }
 
   pub fn add_suppressed(&mut self, source: LuceneError) {
-    self.source = Some(Box::new(source));
+    match self.source.as_mut() {
+      Some(suppressed) => suppressed.add_suppressed(source),
+      None => self.source = Some(Box::new(source)),
+    }
   }
 
   pub fn get_suppressed(&self) -> Option<&LuceneError> {

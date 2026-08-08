@@ -25,7 +25,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::bkd::bkd_reader::BKDReader;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
@@ -71,16 +71,19 @@ where
       Lucene90PointsFormat::DATA_EXTENSION,
     );
 
-    let mut index_in = Some(
-      read_state.directory.open_input(
-        &index_file_name,
-        &read_state
-          .context
-          .with_read_advice_self(ReadAdvice::RandomPreload)?,
-      )?,
-    );
+    let mut index_in = None;
+    let mut shared_index_in = None;
     let mut data_in = None;
-    let setup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    let mut success = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Self> {
+      index_in = Some(
+        read_state.directory.open_input(
+          &index_file_name,
+          &read_state
+            .context
+            .with_read_advice_self(ReadAdvice::RandomPreload)?,
+        )?,
+      );
       let index_in_ref = index_in
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?;
@@ -94,114 +97,99 @@ where
       )?;
       CodecUtil::retrieve_checksum(index_in_ref)?;
       // Points read whole ranges of bytes at once, so pass ReadAdvice.NORMAL to perform readahead.
-      data_in = Some(
+      data_in = Some(Arc::new(Mutex::new(
         read_state.directory.open_input(
           &data_file_name,
           &read_state
             .context
             .with_read_advice_self(ReadAdvice::Normal)?,
         )?,
-      );
+      )));
       let data_in_ref = data_in
-        .as_mut()
+        .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("points data input is missing"))?;
-      CodecUtil::check_index_header(
-        data_in_ref,
-        Lucene90PointsFormat::DATA_CODEC_NAME,
-        Lucene90PointsFormat::VERSION_START,
-        Lucene90PointsFormat::VERSION_CURRENT,
-        segment_info.get_id(),
-        suffix,
-      )?;
-      CodecUtil::retrieve_checksum(data_in_ref).map(|_| ())
-    }));
-    if !matches!(setup_result, Ok(Ok(()))) {
-      IOUtils::close_while_handling_error(0..2, |operation| match operation {
-        0 => match index_in.as_ref() {
-          Some(input) => input.close(),
-          None => Ok(()),
-        },
-        1 => match data_in.as_ref() {
-          Some(input) => input.close(),
-          None => Ok(()),
-        },
-        _ => unreachable!(),
-      })?;
-      return match setup_result {
-        Ok(Err(error)) => Err(error),
-        Err(payload) => std::panic::resume_unwind(payload),
-        Ok(Ok(())) => unreachable!(),
-      };
-    }
-
-    let mut index_length: i64 = -1;
-    let mut data_length: i64 = -1;
-    let mut tmp_readers = HashMap::new();
-
-    let data_in =
-      Arc::new(Mutex::new(data_in.take().ok_or_else(|| {
-        LuceneError::illegal_state("points data input is missing")
-      })?));
-    let mut shared_index_in = None;
-    let mut success = false;
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Self> {
-      let mut meta_in = read_state.directory.open_checksum_input(&meta_file_name)?;
-
-      let mut footer_attempted = false;
-      let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-        let result: Result<()> = (|| {
-          CodecUtil::check_index_header(
-            &mut meta_in,
-            Lucene90PointsFormat::META_CODEC_NAME,
-            Lucene90PointsFormat::VERSION_START,
-            Lucene90PointsFormat::VERSION_CURRENT,
-            segment_info.get_id(),
-            suffix,
-          )?;
-
-          loop {
-            let field_number = meta_in.read_int()?;
-            if field_number == -1 {
-              break;
-            } else if field_number < 0 {
-              return Err(LuceneError::corrupt_index(format!(
-                "Illegal field number: {field_number}"
-              )));
-            }
-            let reader = BKDReader::new(
-              &mut meta_in,
-              index_in
-                .as_mut()
-                .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?,
-              data_in.clone(),
-            )?;
-            tmp_readers.insert(field_number, reader);
-          }
-
-          index_length = meta_in.read_long()?;
-          data_length = meta_in.read_long()?;
-          Ok(())
-        })();
-        footer_attempted = true;
-        match result {
-          Ok(()) => CodecUtil::check_footer(&mut meta_in).map(|_| ()),
-          Err(error) => Err(CodecUtil::check_footer_with_error(&mut meta_in, error)),
-        }
-      }));
-      let footer_error = if let Err(payload) = &result
-        && !footer_attempted
       {
-        let error =
-          LuceneError::tragedy_from_panic("panic while reading points metadata", payload.as_ref());
-        Some(CodecUtil::check_footer_with_error(&mut meta_in, error))
-      } else {
-        None
-      };
-      if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-        result = Ok(Err(error));
+        let mut data_in_ref = data_in_ref.lock();
+        CodecUtil::check_index_header(
+          &mut *data_in_ref,
+          Lucene90PointsFormat::DATA_CODEC_NAME,
+          Lucene90PointsFormat::VERSION_START,
+          Lucene90PointsFormat::VERSION_CURRENT,
+          segment_info.get_id(),
+          suffix,
+        )?;
+        CodecUtil::retrieve_checksum(&mut *data_in_ref)?;
       }
+
+      let mut index_length: i64 = -1;
+      let mut data_length: i64 = -1;
+      let mut tmp_readers = HashMap::new();
+      let mut meta_in = read_state.directory.open_checksum_input(&meta_file_name)?;
+      let metadata_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          let read_result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+              CodecUtil::check_index_header(
+                &mut meta_in,
+                Lucene90PointsFormat::META_CODEC_NAME,
+                Lucene90PointsFormat::VERSION_START,
+                Lucene90PointsFormat::VERSION_CURRENT,
+                segment_info.get_id(),
+                suffix,
+              )?;
+
+              loop {
+                let field_number = meta_in.read_int()?;
+                if field_number == -1 {
+                  break;
+                } else if field_number < 0 {
+                  return Err(LuceneError::corrupt_index(format!(
+                    "Illegal field number: {field_number}"
+                  )));
+                }
+                let reader = BKDReader::new(
+                  &mut meta_in,
+                  index_in
+                    .as_mut()
+                    .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?,
+                  data_in
+                    .as_ref()
+                    .ok_or_else(|| LuceneError::illegal_state("points data input is missing"))?
+                    .clone(),
+                )?;
+                tmp_readers.insert(field_number, reader);
+              }
+
+              index_length = meta_in.read_long()?;
+              data_length = meta_in.read_long()?;
+              Ok(())
+            }));
+          match read_result {
+            Ok(Ok(())) => CodecUtil::check_footer(&mut meta_in).map(|_| ()),
+            Ok(Err(error)) => Err(CodecUtil::check_footer_with_error(&mut meta_in, error)),
+            Err(payload) => {
+              let prior_error = LuceneError::tragedy_from_panic(
+                "panic while reading points metadata",
+                payload.as_ref(),
+              );
+              let footer_error = CodecUtil::check_footer_with_error(&mut meta_in, prior_error);
+              if matches!(&footer_error, LuceneError::CorruptIndex(_)) {
+                Err(footer_error)
+              } else {
+                let mut prior_result: std::thread::Result<Result<()>> = Err(payload);
+                if let Some(suppressed) = footer_error.get_suppressed()? {
+                  prior_result.add_suppressed(
+                    Ok(Err(suppressed.clone())),
+                    "panic while checking points metadata footer",
+                  );
+                }
+                unwrap_caught_result!(prior_result)
+              }
+            },
+          }
+        }));
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| meta_in.close()));
-      IOUtils::use_or_suppress_caught_result(result, close_result)?;
+      IOUtils::use_or_suppress_caught_result(metadata_result, close_result)?;
 
       CodecUtil::retrieve_checksum_with_expected(
         index_in
@@ -209,7 +197,13 @@ where
           .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?,
         index_length as usize,
       )?;
-      CodecUtil::retrieve_checksum_with_expected(&mut *data_in.lock(), data_length as usize)?;
+      CodecUtil::retrieve_checksum_with_expected(
+        &mut *data_in
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("points data input is missing"))?
+          .lock(),
+        data_length as usize,
+      )?;
       shared_index_in =
         Some(Arc::new(index_in.take().ok_or_else(|| {
           LuceneError::illegal_state("points index input is missing")
@@ -229,7 +223,10 @@ where
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?
           .clone(),
-        data_in: data_in.clone(),
+        data_in: data_in
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("points data input is missing"))?
+          .clone(),
         readers: RwLock::new(readers),
         field_infos: read_state.field_infos.clone(),
       };
@@ -237,17 +234,15 @@ where
       Ok(reader)
     }));
     if !success {
-      IOUtils::close_while_handling_error(0..2, |operation| match operation {
-        0 => match shared_index_in.as_ref() {
-          Some(input) => input.close(),
-          None => match index_in.as_ref() {
-            Some(input) => input.close(),
-            None => Ok(()),
-          },
-        },
-        1 => data_in.lock().close(),
-        _ => unreachable!(),
-      })?;
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let index_in = shared_index_in.as_deref().or(index_in.as_ref());
+        let data_in = data_in.as_ref().map(|input| input.lock());
+        let data_in = data_in.as_deref();
+        IOUtils::close_refs_tuple((index_in, data_in))
+      }));
+      if let Err(payload) = close_result {
+        std::panic::resume_unwind(payload);
+      }
     }
     unwrap_caught_result!(result)
   }

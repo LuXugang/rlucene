@@ -42,7 +42,10 @@ macro_rules! message_error {
         &mut self,
         source: $crate::core::util::error::lucene_error::LuceneError,
       ) {
-        self.source = Some(Box::new(source));
+        match self.source.as_mut() {
+          Some(suppressed) => suppressed.add_suppressed(source),
+          None => self.source = Some(Box::new(source)),
+        }
       }
 
       pub fn get_suppressed(

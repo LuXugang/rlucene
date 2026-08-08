@@ -237,7 +237,7 @@ where
   /// min.
   pub fn new<D1, D2>(
     state: &SegmentWriteState<D1>,
-    postings_writer: PW,
+    postings_writer: &mut Option<PW>,
     min_items_in_block: i32,
     max_items_in_block: i32,
     segment_info: &SegmentInfo<D2>,
@@ -258,7 +258,7 @@ where
   /// Creates a writer with an explicit version for backward-compatibility tests.
   pub fn with_version<D1, D2>(
     state: &SegmentWriteState<D1>,
-    mut postings_writer: PW,
+    postings_writer: &mut Option<PW>,
     min_items_in_block: i32,
     max_items_in_block: i32,
     version: i32,
@@ -268,44 +268,19 @@ where
     D1: Directory<IndexOutput = O>,
     D2: Directory,
   {
-    let mut max_doc = 0;
-    let field_infos = Arc::clone(&state.field_infos);
-    let mut terms_out = None;
-    let setup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      Self::validate_settings(min_items_in_block, max_items_in_block)?;
-      if !(VERSION_START..=VERSION_CURRENT).contains(&version) {
-        return Err(LuceneError::illegal_argument(format!(
-          "Expected version in range [{}, {}], but got {}",
-          VERSION_START, VERSION_CURRENT, version
-        )));
-      }
-      max_doc = segment_info.max_doc()?;
-      let terms_name = IndexFileNames::segment_file_name(
-        &segment_info.name,
-        &state.segment_suffix,
-        TERMS_EXTENSION,
-      );
-      terms_out = Some(state.directory.create_output(&terms_name, state.context)?);
-      Ok(())
-    }));
-    match setup_result {
-      Ok(Ok(())) => {},
-      Ok(Err(error)) => {
-        IOUtils::close_while_handling_exception((terms_out.as_mut(), &mut postings_writer));
-        return Err(error);
-      },
-      Err(payload) => {
-        IOUtils::close_while_handling_exception((terms_out.as_mut(), &mut postings_writer));
-        std::panic::resume_unwind(payload);
-      },
+    Self::validate_settings(min_items_in_block, max_items_in_block)?;
+    if !(VERSION_START..=VERSION_CURRENT).contains(&version) {
+      return Err(LuceneError::illegal_argument(format!(
+        "Expected version in range [{}, {}], but got {}",
+        VERSION_START, VERSION_CURRENT, version
+      )));
     }
-    let mut terms_out = match terms_out {
-      Some(terms_out) => terms_out,
-      None => {
-        IOUtils::close_while_handling_exception(&mut postings_writer);
-        return Err(LuceneError::illegal_state("terms output is missing"));
-      },
-    };
+
+    let max_doc = segment_info.max_doc()?;
+    let field_infos = Arc::clone(&state.field_infos);
+    let terms_name =
+      IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, TERMS_EXTENSION);
+    let mut terms_out = state.directory.create_output(&terms_name, state.context)?;
     let mut meta_out = None;
     let mut index_out = None;
     let mut success = false;
@@ -348,13 +323,16 @@ where
         &state.segment_suffix,
       )?;
 
-      postings_writer.init(
-        meta_out
-          .as_mut()
-          .ok_or_else(|| LuceneError::illegal_state("terms metadata output is missing"))?,
-        state,
-        segment_info,
-      )?;
+      postings_writer
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("postings writer is missing"))?
+        .init(
+          meta_out
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("terms metadata output is missing"))?,
+          state,
+          segment_info,
+        )?;
       success = true;
       Ok(())
     }));
@@ -364,24 +342,18 @@ where
         meta_out.as_mut(),
         &mut terms_out,
         index_out.as_mut(),
-        &mut postings_writer,
       ));
     }
     unwrap_caught_result!(result)?;
-    let (meta_out, index_out) = match (meta_out, index_out) {
-      (Some(meta_out), Some(index_out)) => (meta_out, index_out),
-      (mut meta_out, mut index_out) => {
-        IOUtils::close_while_handling_exception((
-          meta_out.as_mut(),
-          &mut terms_out,
-          index_out.as_mut(),
-          &mut postings_writer,
-        ));
-        return Err(LuceneError::illegal_state(
-          "terms outputs are missing after successful construction",
-        ));
-      },
-    };
+    let meta_out = meta_out.ok_or_else(|| {
+      LuceneError::illegal_state("terms metadata output is missing after successful construction")
+    })?;
+    let index_out = index_out.ok_or_else(|| {
+      LuceneError::illegal_state("terms index output is missing after successful construction")
+    })?;
+    let postings_writer = postings_writer.take().ok_or_else(|| {
+      LuceneError::illegal_state("postings writer is missing after successful construction")
+    })?;
 
     Ok(Self {
       meta_out,

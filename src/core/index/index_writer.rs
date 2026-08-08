@@ -36,9 +36,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::counter::{Counter, new_counter};
-use crate::core::util::error::lucene_error::{
-  LuceneError, PanicWithSuppressed, Result, SuppressedFailure,
-};
+use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use crate::core::util::long_supplier::LongSupplier;
 #[cfg(test)]
 use crate::test_framework::core::index::test_tragic_index_writer_deadlock::TragicIndexWriter;
@@ -689,7 +687,7 @@ where
       ));
     }
     if self.should_close(true) {
-      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         if self.info_stream.is_enabled("IW") {
           self.info_stream.message("IW", "now flush at close")?;
         }
@@ -698,31 +696,18 @@ where
         self.commit_internal(self.config.get_merge_policy())?;
         Ok(())
       }));
-      match result {
-        Ok(Ok(())) => {
-          // if we got that far lets rollback and close
-          self.rollback_internal(None)?;
-        },
-        Ok(Err(mut error)) => {
-          match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.rollback_internal(None)
-          })) {
-            Ok(Ok(())) => {},
-            Ok(Err(rollback_error)) => error.add_suppressed(rollback_error),
-            Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
-              "panic while rolling back after shutdown failure",
-              payload.as_ref(),
-            )),
-          }
-          return Err(error);
-        },
-        Err(payload) => {
-          let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.rollback_internal(None)
-          }));
-          std::panic::resume_unwind(payload);
-        },
+      if !matches!(&result, Ok(Ok(()))) {
+        let rollback_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          self.rollback_internal(None)
+        }));
+        result.add_suppressed(
+          rollback_result,
+          "panic while rolling back after shutdown failure",
+        );
+        return unwrap_caught_result!(result);
       }
+      // if we got that far lets rollback and close
+      self.rollback_internal(None)?;
     }
     Ok(())
   }
@@ -804,14 +789,7 @@ where
     }));
 
     match res {
-      Ok(result) => {
-        if let Err(error) = &result
-          && error.is_tragedy_error()
-        {
-          self.tragic_event(error.clone(), "deleteDocuments(Term..)", None)?;
-        }
-        result
-      },
+      Ok(result) => result,
       Err(payload) => {
         let tragedy = LuceneError::tragedy_from_panic(
           "panic while deleting documents by term",
@@ -851,14 +829,7 @@ where
     }));
 
     match res {
-      Ok(result) => {
-        if let Err(error) = &result
-          && error.is_tragedy_error()
-        {
-          self.tragic_event(error.clone(), "deleteDocuments(Query..)", None)?;
-        }
-        result
-      },
+      Ok(result) => result,
       Err(payload) => {
         let tragedy = LuceneError::tragedy_from_panic(
           "panic while deleting documents by query",
@@ -1027,12 +998,7 @@ where
             success = true;
             Ok(seq_no)
           },
-          Err(error) => {
-            if error.is_tragedy_error() {
-              self.tragic_event(error.clone(), "updateDocuments", None)?;
-            }
-            Err(error)
-          },
+          Err(error) => Err(error),
         },
         Err(payload) => {
           let tragedy =
@@ -1318,14 +1284,7 @@ where
     }));
 
     match res {
-      Ok(result) => {
-        if let Err(error) = &result
-          && error.is_tragedy_error()
-        {
-          self.tragic_event(error.clone(), "updateNumericDocValue", None)?;
-        }
-        result
-      },
+      Ok(result) => result,
       Err(payload) => {
         let tragedy = LuceneError::tragedy_from_panic(
           "panic while updating numeric doc values",
@@ -1394,14 +1353,7 @@ where
     }));
 
     match res {
-      Ok(result) => {
-        if let Err(error) = &result
-          && error.is_tragedy_error()
-        {
-          self.tragic_event(error.clone(), "updateBinaryDocValue", None)?;
-        }
-        result
-      },
+      Ok(result) => result,
       Err(payload) => {
         let tragedy = LuceneError::tragedy_from_panic(
           "panic while updating binary doc values",
@@ -1446,14 +1398,7 @@ where
     }));
 
     match res {
-      Ok(result) => {
-        if let Err(error) = &result
-          && error.is_tragedy_error()
-        {
-          self.tragic_event(error.clone(), "updateDocValues", None)?;
-        }
-        result
-      },
+      Ok(result) => result,
       Err(payload) => {
         let tragedy =
           LuceneError::tragedy_from_panic("panic while updating doc values", payload.as_ref());
@@ -2644,7 +2589,14 @@ where
       self.info_stream.message("IW", "rollback")?;
     }
 
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    let cleanup_and_notify = || -> Result<()> {
+      self.closed.store(true, Ordering::SeqCst);
+      self.closing.store(false, Ordering::SeqCst);
+      self.pausing.notify_all();
+      Ok(())
+    };
+
+    let mut throwable = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       {
         let mut inner = self.inner.lock();
         // must be synced otherwise register merge might return an error if merges
@@ -2675,12 +2627,18 @@ where
 
       let mut inner = self.inner.lock();
 
-      let pending_commit = commit_lock.pending_commit.borrow_mut().take();
-      if let Some(mut pending_commit) = pending_commit {
-        pending_commit.rollback_commit(self.directory.as_ref());
-        let dec_res = inner.deleter.dec_ref_from_segment(&pending_commit);
+      let mut pending_commit = commit_lock.pending_commit.borrow_mut();
+      if pending_commit.is_some() {
+        let dec_result = {
+          let pending_commit = pending_commit.as_mut().unwrap();
+          pending_commit.rollback_commit(self.directory.as_ref());
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            inner.deleter.dec_ref_from_segment(pending_commit)
+          }))
+        };
+        *pending_commit = None;
         self.pausing.notify_all();
-        dec_res?;
+        unwrap_caught_result!(dec_result)?;
       }
 
       let total_max_doc = inner.segment_infos.total_max_doc()?;
@@ -2738,137 +2696,57 @@ where
 
       IOUtils::close(0..2, |operation| match operation {
         0 => IOUtils::close_one_ref(self.writer_lock()),
-        1 => {
-          self.closing.store(false, Ordering::SeqCst);
-          self.pausing.notify_all();
-          Ok(())
-        },
+        1 => cleanup_and_notify(),
         _ => unreachable!(),
       })?;
       Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => Ok(()),
-      Ok(Err(mut error)) => {
-        let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close_while_handling_error(0..2, |operation| match operation {
-            0 => self.config.get_merge_scheduler().close(),
-            1 => {
-              let mut inner = self.inner.lock();
-
-              let pending_commit = commit_lock.pending_commit.borrow_mut().take();
-              if let Some(mut pending_commit) = pending_commit {
-                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-                  pending_commit.rollback_commit(self.directory.as_ref());
-                  inner.deleter.dec_ref_from_segment(&pending_commit)?;
-                  Ok(())
-                })) {
-                  Ok(Ok(())) => {},
-                  Ok(Err(e)) => error.add_suppressed(e),
-                  Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
-                    "panic while rolling back pending commit",
-                    payload.as_ref(),
-                  )),
-                }
-              }
-
-              IOUtils::close_while_handling_error(0..4, |operation| match operation {
-                0 => self.reader_pool.close(&mut inner.segment_infos),
-                1 => inner.deleter.close(),
-                2 => IOUtils::close_one_ref(self.writer_lock()),
-                3 => {
-                  self.closed.store(true, Ordering::SeqCst);
-                  self.closing.store(false, Ordering::SeqCst);
-                  self.pausing.notify_all();
-                  Ok(())
-                },
-                _ => unreachable!(),
-              })
-            },
-            _ => unreachable!(),
-          })
-        }));
-        if let Err(payload) = cleanup_result {
-          error.add_suppressed(LuceneError::tragedy_from_panic(
-            "panic while cleaning up rollback",
-            payload.as_ref(),
-          ));
-        }
-        if error.is_tragedy_error() {
-          let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.tragic_event(error.clone(), "rollbackInternal", Some(commit_lock))
-          }));
-          match tragic_result {
-            Ok(Ok(())) => {},
-            Ok(Err(tragic_error)) => error.add_suppressed(tragic_error),
-            Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
-              "panic while handling tragic rollback event",
-              payload.as_ref(),
-            )),
-          }
-        }
-        Err(error)
-      },
-      Err(payload) => {
-        let mut suppressed = Vec::new();
-        let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close_while_handling_error(0..2, |operation| match operation {
-            0 => self.config.get_merge_scheduler().close(),
-            1 => {
-              let mut inner = self.inner.lock();
-
-              let pending_commit = commit_lock.pending_commit.borrow_mut().take();
-              if let Some(mut pending_commit) = pending_commit {
-                match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-                  pending_commit.rollback_commit(self.directory.as_ref());
-                  inner.deleter.dec_ref_from_segment(&pending_commit)?;
-                  Ok(())
-                })) {
-                  Ok(Ok(())) => {},
-                  Ok(Err(error)) => suppressed.push(SuppressedFailure::Exception(error)),
-                  Err(payload) => suppressed.push(SuppressedFailure::Panic(payload)),
-                }
-              }
-
-              IOUtils::close_while_handling_error(0..4, |operation| match operation {
-                0 => self.reader_pool.close(&mut inner.segment_infos),
-                1 => inner.deleter.close(),
-                2 => IOUtils::close_one_ref(self.writer_lock()),
-                3 => {
-                  self.closed.store(true, Ordering::SeqCst);
-                  self.closing.store(false, Ordering::SeqCst);
-                  self.pausing.notify_all();
-                  Ok(())
-                },
-                _ => unreachable!(),
-              })
-            },
-            _ => unreachable!(),
-          })
-        }));
-        if let Err(payload) = cleanup_result {
-          suppressed.push(SuppressedFailure::Panic(payload));
-        }
-
-        let tragedy = LuceneError::tragedy_from_panic("panic while rolling back", payload.as_ref());
-        let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          self.tragic_event(tragedy, "rollbackInternal", Some(commit_lock))
-        }));
-        match tragic_result {
-          Ok(Ok(())) => {},
-          Ok(Err(error)) => suppressed.push(SuppressedFailure::Exception(error)),
-          Err(payload) => suppressed.push(SuppressedFailure::Panic(payload)),
-        }
-
-        if suppressed.is_empty() {
-          std::panic::resume_unwind(payload);
-        }
-        std::panic::resume_unwind(Box::new(PanicWithSuppressed::with_suppressed(
-          payload, suppressed,
-        )))
-      },
+    if matches!(&throwable, Ok(Ok(()))) {
+      return Ok(());
     }
+
+    let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      IOUtils::close_while_handling_error(0..2, |operation| match operation {
+        0 => self.config.get_merge_scheduler().close(),
+        1 => {
+          let mut inner = self.inner.lock();
+
+          let mut pending_commit = commit_lock.pending_commit.borrow_mut();
+          if pending_commit.is_some() {
+            let pending_result =
+              std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+                let pending_commit = pending_commit.as_mut().unwrap();
+                pending_commit.rollback_commit(self.directory.as_ref());
+                inner.deleter.dec_ref_from_segment(pending_commit)?;
+                Ok(())
+              }));
+            *pending_commit = None;
+            throwable.add_suppressed(pending_result, "panic while rolling back pending commit");
+          }
+
+          IOUtils::close_while_handling_error(0..4, |operation| match operation {
+            0 => self.reader_pool.close(&mut inner.segment_infos),
+            1 => inner.deleter.close(),
+            2 => IOUtils::close_one_ref(self.writer_lock()),
+            3 => cleanup_and_notify(),
+            _ => unreachable!(),
+          })
+        },
+        _ => unreachable!(),
+      })
+    }));
+    throwable.add_suppressed(cleanup_result, "panic while cleaning up rollback");
+
+    if let Err(payload) = &throwable {
+      let tragedy = LuceneError::tragedy_from_panic("panic while rolling back", payload.as_ref());
+      let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        self.tragic_event(tragedy, "rollbackInternal", Some(commit_lock))
+      }));
+      throwable.add_suppressed(tragic_result, "panic while handling tragic rollback event");
+    }
+
+    unwrap_caught_result!(throwable)
   }
   fn writer_lock(&self) -> &D::Lock {
     &self.directory.write_lock
@@ -2984,14 +2862,7 @@ where
     }));
 
     match result {
-      Ok(result) => {
-        if let Err(error) = &result
-          && error.is_tragedy_error()
-        {
-          self.tragic_event(error.clone(), "deleteAll", None)?;
-        }
-        result
-      },
+      Ok(result) => result,
       Err(payload) => {
         let tragedy =
           LuceneError::tragedy_from_panic("panic while deleting all documents", payload.as_ref());
@@ -3723,26 +3594,12 @@ where
         ))
       }
     }));
-    match res {
-      Ok(Ok(seq_no)) => {
-        self.maybe_merge()?;
-        Ok(seq_no)
-      },
-      Ok(Err(err)) => {
-        if err.is_tragedy_error() {
-          self.tragic_event(err.clone(), "addIndexes(CodecReader...)", None)?;
-        }
-        Err(err)
-      },
-      Err(payload) => {
-        let tragedy = LuceneError::tragedy_from_panic(
-          "panic while adding indexes from codec readers",
-          payload.as_ref(),
-        );
-        self.tragic_event(tragedy, "addIndexes(CodecReader...)", None)?;
-        std::panic::resume_unwind(payload)
-      },
+    if let Some(tragedy) = res.caught_panic("panic while adding indexes from codec readers") {
+      self.tragic_event(tragedy, "addIndexes(CodecReader...)", None)?;
     }
+    let seq_no = unwrap_caught_result!(res)?;
+    self.maybe_merge()?;
+    Ok(seq_no)
   }
 
   /// Runs a single merge operation for [`IndexWriter::add_indexes(CodecReader...)`].
@@ -4059,14 +3916,7 @@ where
           }
         }));
       match body_result {
-        Ok(result) => {
-          if let Err(error) = &result
-            && error.is_tragedy_error()
-          {
-            self.tragic_event(error.clone(), "flushNextBuffer", None)?;
-          }
-          result
-        },
+        Ok(result) => result,
         Err(payload) => {
           let tragedy =
             LuceneError::tragedy_from_panic("panic while flushing the next DWPT", payload.as_ref());
@@ -4224,14 +4074,7 @@ where
         }));
 
       match flush_result {
-        Ok(result) => {
-          if let Err(error) = &result
-            && error.is_tragedy_error()
-          {
-            self.tragic_event(error.clone(), "prepareCommit", Some(commit_lock))?;
-          }
-          result
-        },
+        Ok(result) => result,
         Err(payload) => {
           let tragedy =
             LuceneError::tragedy_from_panic("panic while preparing commit", payload.as_ref());
@@ -4280,7 +4123,7 @@ where
     let to_commit = to_commit.ok_or_else(|| LuceneError::illegal_state("toCommit is none"))?;
     *commit_lock.files_to_commit.borrow_mut() =
       Some(to_commit.lock().files(false)?.into_iter().collect());
-    let ret = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
+    let mut ret = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
       if any_changes {
         self.maybe_merge.store(true, Ordering::SeqCst);
       }
@@ -4292,31 +4135,21 @@ where
         Ok(seq_no)
       }
     }));
-    match ret {
-      Ok(Ok(v)) => Ok(v),
-      Ok(Err(mut error)) => {
+    if !matches!(&ret, Ok(Ok(_))) {
+      let dec_ref_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mut inner = self.inner.lock();
-        match commit_lock.files_to_commit.borrow_mut().take() {
-          Some(files_to_commit) => {
-            if let Err(e) = inner.deleter.dec_ref(files_to_commit.iter()) {
-              error.add_suppressed(e);
-            }
-
-            Err(error)
-          },
-          None => Err(error),
+        let files_to_commit = commit_lock.files_to_commit.borrow_mut().take();
+        match files_to_commit {
+          Some(files_to_commit) => inner.deleter.dec_ref(files_to_commit.iter()),
+          None => Ok(()),
         }
-      },
-      Err(payload) => {
-        let mut inner = self.inner.lock();
-        if let Some(files_to_commit) = commit_lock.files_to_commit.borrow_mut().take() {
-          let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            inner.deleter.dec_ref(files_to_commit.iter())
-          }));
-        }
-        std::panic::resume_unwind(payload)
-      },
+      }));
+      ret.add_suppressed(
+        dec_ref_result,
+        "panic while releasing files after prepare commit failure",
+      );
     }
+    unwrap_caught_result!(ret)
   }
 
   fn prepare_point_in_time_merge(
@@ -4767,34 +4600,18 @@ where
       Ok(())
     }));
 
-    match try_res {
-      Ok(Ok(())) => {},
-      Ok(Err(error)) => {
-        if self.info_stream.is_enabled("IW") {
-          self.info_stream.message(
-            "IW",
-            &format!("hit exception during finishCommit: {}", error),
-          )?;
-        }
-        if commit_completed {
-          self.tragic_event(error.clone(), "finishCommit", Some(commit_lock))?;
-        }
-        return Err(error);
-      },
-      Err(payload) => {
-        if self.info_stream.is_enabled("IW") {
-          self
-            .info_stream
-            .message("IW", "hit panic during finishCommit")?;
-        }
-        if commit_completed {
-          let tragedy =
-            LuceneError::tragedy_from_panic("panic while finishing commit", payload.as_ref());
-          self.tragic_event(tragedy, "finishCommit", Some(commit_lock))?;
-        }
-        std::panic::resume_unwind(payload);
-      },
+    if let Some(failure) = try_res.caught_failure("panic while finishing commit") {
+      if self.info_stream.is_enabled("IW") {
+        self.info_stream.message(
+          "IW",
+          &format!("hit exception during finishCommit: {}", failure),
+        )?;
+      }
+      if commit_completed {
+        self.tragic_event(failure, "finishCommit", Some(commit_lock))?;
+      }
     }
+    unwrap_caught_result!(try_res)?;
 
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
@@ -4868,7 +4685,7 @@ where
     self.test_point("startDoFlush")?;
 
     let mut success = false;
-    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<bool> {
+    let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<bool> {
       if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
@@ -4921,22 +4738,17 @@ where
       Ok(any_changes)
     }));
 
-    let res = match res {
-      Ok(result) => {
-        if let Err(error) = &result
-          && error.is_tragedy_error()
-        {
-          self.tragic_event(error.clone(), "doFlush", None)?;
-        }
-        Ok(result)
-      },
-      Err(payload) => {
-        let tragedy =
-          LuceneError::tragedy_from_panic("panic while flushing IndexWriter", payload.as_ref());
-        self.tragic_event(tragedy, "doFlush", None)?;
-        Err(payload)
-      },
-    };
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<bool> {
+      match body_result {
+        Ok(result) => result,
+        Err(payload) => {
+          let tragedy =
+            LuceneError::tragedy_from_panic("panic while flushing IndexWriter", payload.as_ref());
+          self.tragic_event(tragedy, "doFlush", None)?;
+          std::panic::resume_unwind(payload)
+        },
+      }
+    }));
 
     if !success {
       if self.info_stream.is_enabled("IW") {
@@ -5445,83 +5257,60 @@ where
     let merge_policy = self.config.get_merge_policy();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       let inner_result =
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          self.merge_init(merge)?;
-          // The merge's SegmentCommitInfo has moved to `IndexWriter::inner::segment_infos`.
-          self.merge_middle(merge, merge_policy)?;
-          self.merge_success(merge)?;
-          success = true;
-          Ok(())
-        })) {
-          Ok(result) => result,
-          Err(payload) => Err(LuceneError::tragedy_from_panic(
-            "panic while merging",
-            payload.as_ref(),
-          )),
-        };
-      let inner_result = match inner_result {
-        Ok(()) => Ok(()),
-        Err(e) => self.handle_merge_exception(e, merge, None),
-      };
-
-      {
-        let mut inner = self.inner.lock();
-        // Readers are already closed in commitMerge if we didn't hit
-        // an exc:
-        let close_result = if !success {
-          Some(std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-            || self.close_merge_readers(merge, true, false, Some(&mut inner)),
-          )))
-        } else {
-          None
-        };
-        // Important that merge_finish runs before any close failure is propagated, else we hang
-        // waiting for our merge thread to be removed from running_merges.
-        self.merge_finish(&merge.stat, Some(&mut inner));
-        if let Some(close_result) = close_result {
-          let close_result = match close_result {
-            Ok(result) => result,
-            Err(payload) => Err(LuceneError::tragedy_from_panic(
-              "panic while closing merge readers",
-              payload.as_ref(),
-            )),
-          };
-          close_result?;
-        }
-
-        if !success {
-          if self.info_stream.is_enabled("IW") {
-            self
-              .info_stream
-              .message("IW", "hit exception during merge")?;
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          let merge_result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+              self.merge_init(merge)?;
+              // The merge's SegmentCommitInfo has moved to `IndexWriter::inner::segment_infos`.
+              self.merge_middle(merge, merge_policy)?;
+              self.merge_success(merge)?;
+              success = true;
+              Ok(())
+            }));
+          match merge_result.caught_failure("panic while merging") {
+            None => Ok(()),
+            Some(failure) => match self.handle_merge_exception(failure, merge, None) {
+              Ok(()) => Ok(()),
+              Err(_) => unwrap_caught_result!(merge_result),
+            },
           }
-        } else if !merge.is_aborted()
-          && (merge.stat.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS
-            || (!self.closed.load(SeqCst) && !self.closing.load(SeqCst)))
-        {
-          self.update_pending_merges(
-            merge_policy,
-            MergeTrigger::MergeFinished,
-            merge.stat.max_num_segments(),
-            Some(&mut inner),
-          )?;
-        }
-      }
-      inner_result
+        }));
+
+      let finally_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          let mut inner = self.inner.lock();
+          // Readers are already closed in commitMerge if we didn't hit
+          // an exc:
+          if !success {
+            self.close_merge_readers(merge, true, false, Some(&mut inner))?;
+          }
+          self.merge_finish(&merge.stat, Some(&mut inner));
+
+          if !success {
+            if self.info_stream.is_enabled("IW") {
+              self
+                .info_stream
+                .message("IW", "hit exception during merge")?;
+            }
+          } else if !merge.is_aborted()
+            && (merge.stat.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS
+              || (!self.closed.load(SeqCst) && !self.closing.load(SeqCst)))
+          {
+            self.update_pending_merges(
+              merge_policy,
+              MergeTrigger::MergeFinished,
+              merge.stat.max_num_segments(),
+              Some(&mut inner),
+            )?;
+          }
+          Ok(())
+        }));
+      IOUtils::finally_caught_result(inner_result, finally_result)
     }));
-    match result {
-      Ok(Ok(())) => Ok(()),
-      Ok(Err(error)) => {
-        self.tragic_event(error.clone(), "merge", None)?;
-        Err(error)
-      },
-      Err(payload) => {
-        let tragedy =
-          LuceneError::tragedy_from_panic("panic while finalizing merge", payload.as_ref());
-        self.tragic_event(tragedy, "merge", None)?;
-        std::panic::resume_unwind(payload)
-      },
+    if let Some(failure) = result.caught_failure("panic while finalizing merge") {
+      self.tragic_event(failure, "merge", None)?;
     }
+    unwrap_caught_result!(result)
   }
   fn merge_success(&self, _merge: &OneMergeSR<D>) -> Result<()> {
     #[cfg(test)]
@@ -5991,7 +5780,7 @@ where
 
       let mut pending_commit_set = false;
 
-      let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let mut res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         self.test_point("midStartCommit2")?;
 
         {
@@ -6061,41 +5850,29 @@ where
         Ok(())
       }));
 
-      let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-        match res {
-          Ok(Ok(())) => Ok(()),
-          Ok(Err(mut error)) => {
-            if !pending_commit_set {
-              let mut inner = self.inner.lock();
-              if self.info_stream.is_enabled("IW") {
-                self
-                  .info_stream
-                  .message("IW", "hit exception committing segments file")?;
-              }
-              let files = commit_lock.files_to_commit.borrow_mut().take().unwrap();
-              if let Err(dec_ref_error) = inner.deleter.dec_ref(files.iter()) {
-                error.add_suppressed(dec_ref_error);
-              }
-            }
-            Err(error)
-          },
-          Err(payload) => {
-            if !pending_commit_set {
-              let mut inner = self.inner.lock();
-              if self.info_stream.is_enabled("IW") {
-                self
-                  .info_stream
-                  .message("IW", "hit exception committing segments file")?;
-              }
-              let files = commit_lock.files_to_commit.borrow_mut().take().unwrap();
-              let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                inner.deleter.dec_ref(files.iter())
-              }));
-            }
-            std::panic::resume_unwind(payload)
-          },
+      if !matches!(&res, Ok(Ok(()))) && !pending_commit_set {
+        let mut inner = self.inner.lock();
+        let message_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          if self.info_stream.is_enabled("IW") {
+            self
+              .info_stream
+              .message("IW", "hit exception committing segments file")?;
+          }
+          Ok(())
+        }));
+        if matches!(&message_result, Ok(Ok(()))) {
+          let files = commit_lock.files_to_commit.borrow_mut().take().unwrap();
+          let dec_ref_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            inner.deleter.dec_ref(files.iter())
+          }));
+          res.add_suppressed(
+            dec_ref_result,
+            "panic while releasing files after start commit failure",
+          );
+        } else {
+          res = message_result;
         }
-      }));
+      }
 
       {
         let mut inner = self.inner.lock();
@@ -6120,14 +5897,9 @@ where
       unwrap_caught_result!(res)
     }));
     match result {
-      Ok(result) => match result {
-        Ok(()) => {},
-        Err(error) => {
-          if error.is_tragedy_error() {
-            self.tragic_event(error.clone(), "startCommit", Some(commit_lock))?;
-          }
-          return Err(error);
-        },
+      Ok(result) => {
+        result?;
+        self.test_point("finishStartCommit")
       },
       Err(payload) => {
         let tragedy =
@@ -6136,9 +5908,6 @@ where
         std::panic::resume_unwind(payload);
       },
     }
-
-    self.test_point("finishStartCommit")?;
-    Ok(())
   }
 
   /// This method should be called on a tragic event, such as when a downstream writer component hits
@@ -7029,7 +6798,7 @@ where
       ));
     }
 
-    let _t_start = Instant::now();
+    let t_start = Instant::now();
 
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "flush at getReader")?;
@@ -7058,140 +6827,160 @@ where
     let stop_collecting_merged_readers = Arc::new(AtomicBool::new(false));
     let merged_readers = Arc::new(Mutex::new(HashMap::new()));
     let opened_read_only_clones = Arc::new(Mutex::new(HashMap::new()));
+    let mut reader_factory = IOFunctionImpl::new(
+      Arc::downgrade(self),
+      Arc::clone(&opened_read_only_clones),
+      max_full_flush_merge_wait_millis,
+    );
+    let mut on_get_reader_merge_resources = None;
     let mut opening_segment_infos: Option<Arc<Mutex<SegmentInfos<D>>>> = None;
     let mut reader: Option<StandardDirectoryReader<D>> = None;
-    let result1 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      /*
-      This is the essential part of the getReader method. We need to take care of the following things:
-       - flush all currently in-memory DWPTs to disk
-       - apply all deletes & updates to new and to the existing DWPTs
-       - prevent flushes and applying deletes of concurrently indexing DWPTs to be applied
-       - open an SDR on the updated SIS
+    let mut success2 = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+      || -> Result<StandardDirectoryReader<D>> {
+        let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+          || -> Result<StandardDirectoryReader<D>> {
+            /*
+            This is the essential part of the getReader method. We need to take care of the following things:
+             - flush all currently in-memory DWPTs to disk
+             - apply all deletes & updates to new and to the existing DWPTs
+             - prevent flushes and applying deletes of concurrently indexing DWPTs to be applied
+             - open an SDR on the updated SIS
 
-      In order to prevent concurrent flushes, we call DocumentsWriter#flushAllThreads that swaps out the deleteQueue
-      (this enforces a happened before relationship between this and the subsequent full flush) and informs the
-      FlushControl (#markForFullFlush()) that it should prevent any new DWPTs from flushing until we are done
-      (DocumentsWriter#finishFullFlush(boolean)). All this is guarded by the fullFlushLock to prevent multiple
-      full flushes from happening concurrently. Once the DocWriter has initiated a full flush, we can sequentially flush
-      and apply deletes & updates to the written segments without worrying about concurrently indexing DWPTs. The important
-      aspect is that it all happens between DocumentsWriter#flushAllThread() and DocumentsWriter#finishFullFlush(boolean)
-      since once the flush is marked as done deletes start to be applied to the segments on disk without guarantees that
-      the corresponding added documents (in the update case) are flushed and visible when opening an SDR.
-      */
+            In order to prevent concurrent flushes, we call DocumentsWriter#flushAllThreads that swaps out the deleteQueue
+            (this enforces a happened before relationship between this and the subsequent full flush) and informs the
+            FlushControl (#markForFullFlush()) that it should prevent any new DWPTs from flushing until we are done
+            (DocumentsWriter#finishFullFlush(boolean)). All this is guarded by the fullFlushLock to prevent multiple
+            full flushes from happening concurrently. Once the DocWriter has initiated a full flush, we can sequentially flush
+            and apply deletes & updates to the written segments without worrying about concurrently indexing DWPTs. The important
+            aspect is that it all happens between DocumentsWriter#flushAllThread() and DocumentsWriter#finishFullFlush(boolean)
+            since once the flush is marked as done deletes start to be applied to the segments on disk without guarantees that
+            the corresponding added documents (in the update case) are flushed and visible when opening an SDR.
+            */
 
-      let mut success = false;
-      let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-        || -> Result<StandardDirectoryReader<D>> {
-          let _full_flush_lock = self.full_flush_lock.lock();
-          let result2 = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-            any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
-            if !any_changes {
-              self.flush_count.fetch_add(1, Ordering::SeqCst);
-            }
-            self.publish_flushed_segments(true)?;
-            self.process_events(false)?;
-            if apply_all_deletes {
-              self.apply_all_deletes_and_updates()?;
-            }
             {
-              let mut inner = self.inner.lock();
-              // NOTE: we cannot carry doc values updates in memory yet, so we always must write them
-              // through to disk and re-open each
-              // SegmentReader:
+              let _full_flush_lock = self.full_flush_lock.lock();
+              let mut success = false;
+              let flush_result =
+                std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+                  any_changes = self.doc_writer.flush_all_threads(self, &self.config)? < 0;
+                  if !any_changes {
+                    self.flush_count.fetch_add(1, Ordering::SeqCst);
+                  }
+                  self.publish_flushed_segments(true)?;
+                  self.process_events(false)?;
+                  if apply_all_deletes {
+                    self.apply_all_deletes_and_updates()?;
+                  }
+                  {
+                    let mut inner = self.inner.lock();
+                    // NOTE: we cannot carry doc values updates in memory yet, so we always must write them
+                    // through to disk and re-open each
+                    // SegmentReader:
 
-              // TODO: we could instead just clone SIS and pull/incref readers in sync'd block, and
-              // then do this w/o IW's lock?
-              // Must do this sync's on IW to prevent a merge from completing at the last second and
-              // failing to write its DV updates:
-              self.write_reader_pool(write_all_deletes, &mut inner)?;
-              // Prevent segmentInfos from changing while opening the
-              // reader; in theory we could instead do similar retry logic,
-              // just like we do when loading segments_N
-              reader = Some({
-                let mut opened_read_only_clones = opened_read_only_clones.lock();
-                let mut reader_factory = IOFunctionImpl::new(
-                  self,
-                  &mut opened_read_only_clones,
-                  max_full_flush_merge_wait_millis,
-                );
-                open_with_reader_function(
-                  self,
-                  &mut reader_factory,
-                  None,
-                  &mut inner,
-                  apply_all_deletes,
-                  write_all_deletes,
-                )?
-              });
+                    // TODO: we could instead just clone SIS and pull/incref readers in sync'd block, and
+                    // then do this w/o IW's lock?
+                    // Must do this sync's on IW to prevent a merge from completing at the last second and
+                    // failing to write its DV updates:
+                    self.write_reader_pool(write_all_deletes, &mut inner)?;
+                    // Prevent segmentInfos from changing while opening the
+                    // reader; in theory we could instead do similar retry logic,
+                    // just like we do when loading segments_N
+                    reader = Some(open_with_reader_function(
+                      self,
+                      &mut reader_factory,
+                      None,
+                      &mut inner,
+                      apply_all_deletes,
+                      write_all_deletes,
+                    )?);
 
-              if max_full_flush_merge_wait_millis > 0 {
-                // we take the SIS from the reader which has already pruned away fully deleted readers
-                // this makes pulling the readers below after the merge simpler since we can be safe
-                // that
-                // they are not closed. Every segment has a corresponding SR in the SDR we opened if
-                // we use
-                // this SIS
-                // we need to do this rather complicated management of SRs and infos since we can't
-                // wait for merges
-                // while we hold the fullFlushLock since the merge might hit a tragic event and that
-                // must not be reported
-                // while holding that lock. Merging outside of the lock ie. after calling
-                // docWriter.finishFullFlush(boolean) would
-                // yield wrong results because deletes might sneak in during the merge
-                let r = reader
-                  .as_ref()
-                  .ok_or_else(|| LuceneError::illegal_state("near-real-time reader is missing"))?;
-                let opening_segment_infos_for_merge =
-                  Arc::new(Mutex::new(r.get_segment_infos().try_clone()?));
-                opening_segment_infos = Some(opening_segment_infos_for_merge.clone());
-                let writer = self.self_ref.get().cloned().ok_or_else(|| {
-                LuceneError::illegal_state(
-                  "point-in-time getReader merges require IndexWriter to be constructed as Arc<IndexWriter>",
-                )
-              })?;
-                on_get_reader_merges = self.prepare_point_in_time_merge(
-                  opening_segment_infos_for_merge,
-                  stop_collecting_merged_readers.clone(),
-                  MergeTrigger::GetReader,
-                  PointInTimeMergeFinished::GetReader(Arc::new(
-                    PointInTimeGetReaderMergeFinished::new(
-                      writer,
-                      merged_readers.clone(),
-                      opened_read_only_clones.clone(),
-                      stop_collecting_merged_readers.clone(),
-                      max_full_flush_merge_wait_millis,
-                    ),
-                  )),
-                  &mut inner,
-                )?;
+                    if self.info_stream.is_enabled("IW") {
+                      let reader = reader.as_ref().ok_or_else(|| {
+                        LuceneError::illegal_state("near-real-time reader is missing")
+                      })?;
+                      self.info_stream.message(
+                        "IW",
+                        &format!(
+                          "return reader version={} reader={}",
+                          reader.get_version()?,
+                          reader
+                        ),
+                      )?;
+                    }
+
+                    if max_full_flush_merge_wait_millis > 0 {
+                      // we take the SIS from the reader which has already pruned away fully deleted readers
+                      // this makes pulling the readers below after the merge simpler since we can be safe
+                      // that
+                      // they are not closed. Every segment has a corresponding SR in the SDR we opened if
+                      // we use
+                      // this SIS
+                      // we need to do this rather complicated management of SRs and infos since we can't
+                      // wait for merges
+                      // while we hold the fullFlushLock since the merge might hit a tragic event and that
+                      // must not be reported
+                      // while holding that lock. Merging outside of the lock ie. after calling
+                      // docWriter.finishFullFlush(boolean) would
+                      // yield wrong results because deletes might sneak in during the merge
+                      let r = reader.as_ref().ok_or_else(|| {
+                        LuceneError::illegal_state("near-real-time reader is missing")
+                      })?;
+                      let opening_segment_infos_for_merge =
+                        Arc::new(Mutex::new(r.get_segment_infos().try_clone()?));
+                      opening_segment_infos = Some(opening_segment_infos_for_merge.clone());
+                      on_get_reader_merges = self.prepare_point_in_time_merge(
+                        opening_segment_infos_for_merge,
+                        stop_collecting_merged_readers.clone(),
+                        MergeTrigger::GetReader,
+                        PointInTimeMergeFinished::GetReader(Arc::new(
+                          PointInTimeGetReaderMergeFinished::new(
+                            reader_factory.clone(),
+                            merged_readers.clone(),
+                            stop_collecting_merged_readers.clone(),
+                          ),
+                        )),
+                        &mut inner,
+                      )?;
+                      let writer = Arc::clone(self);
+                      let stop_collecting_merged_readers =
+                        Arc::clone(&stop_collecting_merged_readers);
+                      let merged_readers = Arc::clone(&merged_readers);
+                      on_get_reader_merge_resources = Some(move || {
+                        let mut inner = writer.inner.lock();
+                        stop_collecting_merged_readers.store(true, Ordering::SeqCst);
+                        let merged_readers = merged_readers.lock();
+                        IOUtils::close(merged_readers.values(), |reader| {
+                          let dec_ref_result =
+                            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                              reader
+                                .get_segment_info()
+                                .files()
+                                .and_then(|files| inner.deleter.dec_ref(files.iter()))
+                            }));
+                          reader.close()?;
+                          unwrap_caught_result!(dec_ref_result)
+                        })
+                      });
+                    }
+                  };
+                  success = true;
+                  Ok(())
+                }));
+              self.doc_writer.finish_full_flush(success, &self.config)?;
+              if success {
+                self.process_events(false)?;
+                if let Some(ref s) = self.hooks {
+                  s.do_after_flush()?
+                }
+              } else if self.info_stream.is_enabled("IW") {
+                self
+                  .info_stream
+                  .message("IW", "hit exception during NRT reader")?;
               }
-            };
-            success = true;
-            Ok(())
-          }));
-          self.doc_writer.finish_full_flush(success, &self.config)?;
-          if success {
-            self.process_events(false)?;
-            if let Some(ref s) = self.hooks {
-              s.do_after_flush()?
+              unwrap_caught_result!(flush_result)?;
             }
-          } else if self.info_stream.is_enabled("IW") {
-            self
-              .info_stream
-              .message("IW", "hit exception during NRT reader")?;
-          }
-          match result2 {
-            Ok(result) => result?,
-            Err(payload) => std::panic::resume_unwind(payload),
-          }
-          reader
-            .take()
-            .ok_or_else(|| LuceneError::illegal_state("near-real-time reader is missing"))
-        },
-      ));
-      match res {
-        Ok(Ok(mut r)) => {
-          let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+
             if let Some(ref on_get_reader_merges) = on_get_reader_merges {
               let opening_segment_infos = opening_segment_infos.as_ref().ok_or_else(|| {
                 LuceneError::illegal_state("point-in-time getReader SegmentInfos is none")
@@ -7206,7 +6995,9 @@ where
                 on_get_reader_merges,
                 max_full_flush_merge_wait_millis,
               )? {
-                let old_reader = std::mem::replace(&mut r, merged_reader);
+                let old_reader = reader
+                  .replace(merged_reader)
+                  .ok_or_else(|| LuceneError::illegal_state("near-real-time reader is missing"))?;
                 old_reader.close()?;
               }
             }
@@ -7219,126 +7010,52 @@ where
                 UNBOUNDED_MAX_MERGE_SEGMENTS,
               )?;
             }
-            Ok(())
-          }));
-          match result {
-            Ok(Ok(())) => Ok(r),
-            Ok(Err(error)) => {
-              reader = Some(r);
-              Err(error)
-            },
-            Err(payload) => {
-              reader = Some(r);
-              std::panic::resume_unwind(payload)
-            },
-          }
-        },
-        Ok(Err(error)) => Err(error),
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
-    }));
 
-    match result1 {
-      Ok(Ok(v)) => {
-        if on_get_reader_merges.is_some() {
-          self.close_get_reader_merge_resources(
-            stop_collecting_merged_readers,
-            merged_readers,
-            None,
-          )?;
+            if self.info_stream.is_enabled("IW") {
+              self.info_stream.message(
+                "IW",
+                &format!("getReader took {} ms", t_start.elapsed().as_millis()),
+              )?;
+            }
+            let reader = reader
+              .take()
+              .ok_or_else(|| LuceneError::illegal_state("near-real-time reader is missing"))?;
+            success2 = true;
+            Ok(reader)
+          },
+        ));
+        match body_result {
+          Ok(result) => result,
+          Err(payload) => {
+            let tragedy =
+              LuceneError::tragedy_from_panic("panic while opening NRT reader", payload.as_ref());
+            self.tragic_event(tragedy, "getReader", None)?;
+            std::panic::resume_unwind(payload)
+          },
         }
-        Ok(v)
       },
-      Ok(Err(e)) => {
-        let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          if e.is_tragedy_error() {
-            self.tragic_event(e.clone(), "get_reader", None)
-          } else {
-            Ok(())
-          }
-        }));
-        let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close_while_handling_error(0..2, |operation| match operation {
-            0 => match reader.take() {
-              Some(reader) => reader.close(),
-              None => Ok(()),
-            },
-            1 => {
-              if on_get_reader_merges.is_some() {
-                self.close_get_reader_merge_resources(
-                  Arc::clone(&stop_collecting_merged_readers),
-                  Arc::clone(&merged_readers),
-                  None,
-                )
-              } else {
-                Ok(())
-              }
-            },
-            _ => unreachable!(),
-          })
-        }));
-        let maybe_close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          self.maybe_close_on_tragic_event(None)
-        }));
-        match maybe_close_result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-        match cleanup_result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-        match tragic_result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
-        Err(e)
-      },
-      Err(payload) => {
-        let tragedy =
-          LuceneError::tragedy_from_panic("panic while opening NRT reader", payload.as_ref());
-        let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          self.tragic_event(tragedy, "get_reader", None)
-        }));
+    ));
 
-        let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close_while_handling_error(0..2, |operation| match operation {
-            0 => match reader.take() {
-              Some(reader) => reader.close(),
-              None => Ok(()),
-            },
-            1 => {
-              if on_get_reader_merges.is_some() {
-                self.close_get_reader_merge_resources(
-                  Arc::clone(&stop_collecting_merged_readers),
-                  Arc::clone(&merged_readers),
-                  None,
-                )
-              } else {
-                Ok(())
-              }
-            },
-            _ => unreachable!(),
-          })
-        }));
-        let maybe_close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          self.maybe_close_on_tragic_event(None)
-        }));
-        match maybe_close_result {
-          Ok(result) => result?,
-          Err(maybe_close_payload) => std::panic::resume_unwind(maybe_close_payload),
-        }
-        match cleanup_result {
-          Ok(result) => result?,
-          Err(cleanup_payload) => std::panic::resume_unwind(cleanup_payload),
-        }
-        match tragic_result {
-          Ok(result) => result?,
-          Err(tragic_payload) => std::panic::resume_unwind(tragic_payload),
-        }
-        std::panic::resume_unwind(payload)
-      },
+    if !success2 {
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        IOUtils::close_while_handling_error(0..2, |operation| match operation {
+          0 => match reader.take() {
+            Some(reader) => reader.close(),
+            None => Ok(()),
+          },
+          1 => match on_get_reader_merge_resources.as_mut() {
+            Some(resource) => resource(),
+            None => Ok(()),
+          },
+          _ => unreachable!(),
+        })
+      }));
+      self.maybe_close_on_tragic_event(None)?;
+      unwrap_caught_result!(close_result)?;
+    } else if let Some(resource) = on_get_reader_merge_resources.as_mut() {
+      resource()?;
     }
+    unwrap_caught_result!(result)
   }
   #[allow(clippy::too_many_arguments)]
   fn finish_get_reader_merge(
@@ -7415,31 +7132,6 @@ where
       Ok(result) => result.map(Some),
       Err(payload) => std::panic::resume_unwind(payload),
     }
-  }
-
-  fn close_get_reader_merge_resources(
-    &self,
-    stop_collecting_merged_readers: Arc<AtomicBool>,
-    merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
-    inner: Option<&mut Inner<D>>,
-  ) -> Result<()> {
-    let inner = match inner {
-      Some(inner) => inner,
-      None => &mut *self.inner.lock(),
-    };
-    stop_collecting_merged_readers.store(true, Ordering::SeqCst);
-    let merged_readers = merged_readers.lock();
-    IOUtils::close(merged_readers.values(), |reader| {
-      let dec_ref_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        reader
-          .get_segment_info()
-          .files()
-          .and_then(|files| inner.deleter.dec_ref(files.iter()))
-      }));
-      let close_result = reader.close();
-      close_result?;
-      unwrap_caught_result!(dec_ref_result)
-    })
   }
 
   /// Counts soft-deleted and hard-deleted documents in the given reader.
@@ -8013,7 +7705,7 @@ where
 {
   inner: &'a mut Inner<D>,
   merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
-  reader_factory: &'a mut IOFunctionImpl<'a, D>,
+  reader_factory: &'a mut IOFunctionImpl<D>,
   stop_collecting_merged_readers: &'a AtomicBool,
 }
 impl<'a, D> IOConsumerImpl<'a, D>
@@ -8023,7 +7715,7 @@ where
   pub(crate) fn new(
     inner: &'a mut Inner<D>,
     merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
-    reader_factory: &'a mut IOFunctionImpl<'a, D>,
+    reader_factory: &'a mut IOFunctionImpl<D>,
     stop_collecting_merged_readers: &'a AtomicBool,
   ) -> Self {
     Self {
@@ -8053,21 +7745,33 @@ where
   }
 }
 
-pub(crate) struct IOFunctionImpl<'a, D>
+pub(crate) struct IOFunctionImpl<D>
 where
   D: Directory,
 {
-  writer: &'a IndexWriter<D>,
-  opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
+  writer: Weak<IndexWriter<D>>,
+  opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
   max_full_flush_merge_wait_millis: i64,
 }
-impl<'a, D> IOFunctionImpl<'a, D>
+impl<D> Clone for IOFunctionImpl<D>
+where
+  D: Directory,
+{
+  fn clone(&self) -> Self {
+    Self {
+      writer: self.writer.clone(),
+      opened_read_only_clones: self.opened_read_only_clones.clone(),
+      max_full_flush_merge_wait_millis: self.max_full_flush_merge_wait_millis,
+    }
+  }
+}
+impl<D> IOFunctionImpl<D>
 where
   D: Directory,
 {
   pub(crate) fn new(
-    writer: &'a IndexWriter<D>,
-    opened_read_only_clones: &'a mut HashMap<String, DefaultLeafReader<D>>,
+    writer: Weak<IndexWriter<D>>,
+    opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
     max_full_flush_merge_wait_millis: i64,
   ) -> Self {
     Self {
@@ -8077,8 +7781,7 @@ where
     }
   }
 }
-impl<'a, D> IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>>
-  for IOFunctionImpl<'a, D>
+impl<D> IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>> for IOFunctionImpl<D>
 where
   D: Directory,
 {
@@ -8087,8 +7790,11 @@ where
     sci: &SegmentCommitInfo<D>,
     inner: &mut Inner<D>,
   ) -> Result<DefaultLeafReader<D>> {
-    let rld = self
+    let writer = self
       .writer
+      .upgrade()
+      .ok_or_else(|| LuceneError::illegal_state("point-in-time getReader writer is gone"))?;
+    let rld = writer
       .get_pooled_instance(sci, true)?
       .ok_or_else(|| LuceneError::illegal_state("should always be able to get pooled instance"))?;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -8099,11 +7805,12 @@ where
           if self.max_full_flush_merge_wait_millis > 0 {
             self
               .opened_read_only_clones
+              .lock()
               .insert(sci.info.name.clone(), segment_reader.clone());
           }
         })
     }));
-    self.writer.release(rld.as_ref(), inner)?;
+    writer.release(rld.as_ref(), inner)?;
     unwrap_caught_result!(result)
   }
 }
@@ -8868,28 +8575,21 @@ where
     // we call tryApply here since we don't want to block if a refresh or a flush is already
     // applying the
     // packet. The flush will retry this packet anyway to ensure all of them are applied
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       writer.try_apply(&self.packet)
-    })) {
-      Ok(Ok(_)) => {
-        writer.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
-        Ok(())
-      },
-      Ok(Err(mut e)) => {
-        if let Err(err) = writer.on_tragic_event(e.clone(), "applyUpdatesPacket") {
-          e.add_suppressed(err);
-        }
-        Err(e)
-      },
-      Err(e) => {
-        let mut tragedy =
-          LuceneError::tragedy_from_panic("panic while applying updates packet", e.as_ref());
-        if let Err(err) = writer.on_tragic_event(tragedy.clone(), "applyUpdatesPacket") {
-          tragedy.add_suppressed(err);
-        }
-        Err(tragedy)
-      },
+    }));
+    if let Some(tragedy) = result.caught_failure("panic while applying updates packet") {
+      let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        writer.on_tragic_event(tragedy, "applyUpdatesPacket")
+      }));
+      result.add_suppressed(
+        tragic_result,
+        "panic while handling tragic apply updates packet event",
+      );
     }
+    unwrap_caught_result!(result)?;
+    writer.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
+    Ok(())
   }
 }
 
@@ -9287,11 +8987,9 @@ pub(crate) struct PointInTimeGetReaderMergeFinished<D>
 where
   D: Directory,
 {
-  writer: Weak<IndexWriter<D>>,
+  reader_factory: IOFunctionImpl<D>,
   merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
-  opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
   stop_collecting_merged_readers: Arc<AtomicBool>,
-  max_full_flush_merge_wait_millis: i64,
 }
 
 impl<D> Clone for PointInTimeMergeFinished<D>
@@ -9312,11 +9010,9 @@ where
 {
   fn clone(&self) -> Self {
     Self {
-      writer: self.writer.clone(),
+      reader_factory: self.reader_factory.clone(),
       merged_readers: self.merged_readers.clone(),
-      opened_read_only_clones: self.opened_read_only_clones.clone(),
       stop_collecting_merged_readers: self.stop_collecting_merged_readers.clone(),
-      max_full_flush_merge_wait_millis: self.max_full_flush_merge_wait_millis,
     }
   }
 }
@@ -9326,18 +9022,14 @@ where
   D: Directory,
 {
   pub(crate) fn new(
-    writer: Weak<IndexWriter<D>>,
+    reader_factory: IOFunctionImpl<D>,
     merged_readers: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
-    opened_read_only_clones: Arc<Mutex<HashMap<String, DefaultLeafReader<D>>>>,
     stop_collecting_merged_readers: Arc<AtomicBool>,
-    max_full_flush_merge_wait_millis: i64,
   ) -> Self {
     Self {
-      writer,
+      reader_factory,
       merged_readers,
-      opened_read_only_clones,
       stop_collecting_merged_readers,
-      max_full_flush_merge_wait_millis,
     }
   }
 
@@ -9346,16 +9038,7 @@ where
       !self.stop_collecting_merged_readers.load(Ordering::SeqCst),
       "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
     );
-    let writer = self
-      .writer
-      .upgrade()
-      .ok_or_else(|| LuceneError::illegal_state("point-in-time getReader writer is gone"))?;
-    let mut opened_read_only_clones = self.opened_read_only_clones.lock();
-    let mut reader_factory = IOFunctionImpl::new(
-      writer.as_ref(),
-      &mut opened_read_only_clones,
-      self.max_full_flush_merge_wait_millis,
-    );
+    let mut reader_factory = self.reader_factory.clone();
     let apply = reader_factory.apply(sci, inner)?;
     self
       .merged_readers

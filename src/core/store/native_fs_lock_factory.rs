@@ -145,6 +145,7 @@ impl FSLockFactory for NativeFSLockFactory {
         close_lock: Mutex::new(()),
       }),
       Ok(Err(error)) => {
+        drop(file);
         lock_held.remove(&real_path_str);
         if error.kind() == ErrorKind::WouldBlock {
           Err(LuceneError::lock_obtain_failed(format!(
@@ -155,6 +156,7 @@ impl FSLockFactory for NativeFSLockFactory {
         }
       },
       Err(payload) => {
+        drop(file);
         lock_held.remove(&real_path_str);
         std::panic::resume_unwind(payload)
       },

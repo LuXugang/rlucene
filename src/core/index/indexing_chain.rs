@@ -110,7 +110,7 @@ use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::core::util::int_block_pool::{
   AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE, IntBlockPool,
@@ -131,20 +131,12 @@ use std::vec;
 
 macro_rules! catch_aborting_exception {
   ($has_hit_aborting_exception:expr, $aborting_exception:expr, $panic_message:expr, $operation:expr) => {{
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $operation)) {
-      Ok(Ok(value)) => Ok(value),
-      Ok(Err(err)) => {
-        *$has_hit_aborting_exception = true;
-        let _ = $aborting_exception.set(err.clone());
-        Err(err)
-      },
-      Err(e) => {
-        let tragedy = LuceneError::tragedy_from_panic($panic_message, e.as_ref());
-        *$has_hit_aborting_exception = true;
-        let _ = $aborting_exception.set(tragedy.clone());
-        Err(tragedy)
-      },
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $operation));
+    if let Some(failure) = result.caught_failure($panic_message) {
+      *$has_hit_aborting_exception = true;
+      let _ = $aborting_exception.set(failure);
     }
+    unwrap_caught_result!(result)
   }};
 }
 
@@ -711,30 +703,12 @@ where
       self.vector_values_consumer.abort();
       Ok(())
     }));
-    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      let reset_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        self.context.freq_prox_term_int_pool.reset(false, false);
-        self.context.byte_pool.reset(false, false);
-      }));
-      let next_abort_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          let reset_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.context.term_vectors_int_pool.reset(false, false);
-          }));
-          self.terms_hash.abort()?;
-          match reset_result {
-            Ok(()) => Ok(()),
-            Err(payload) => std::panic::resume_unwind(payload),
-          }
-        }));
-      match next_abort_result {
-        Ok(Ok(())) => match reset_result {
-          Ok(()) => Ok(()),
-          Err(payload) => std::panic::resume_unwind(payload),
-        },
-        Ok(Err(error)) => Err(error),
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.terms_hash.abort(
+        &mut self.context.freq_prox_term_int_pool,
+        &mut self.context.byte_pool,
+        &mut self.context.term_vectors_int_pool,
+      )
     }));
     self.field_hash.fill(-1);
     IOUtils::use_or_suppress_caught_result(result, close_result)

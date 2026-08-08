@@ -20,7 +20,7 @@ use crate::core::index::index_writer::{IndexWriter, IndexWriterDir};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use crate::core::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use std::cmp::Ordering;
@@ -313,8 +313,7 @@ where
 
     // First decref all files that had been referred to by
     // the now-deleted commits:
-    let mut errors = Vec::new();
-    let mut first_panic = None;
+    let mut first_failure: Option<std::thread::Result<Result<()>>> = None;
     for commit in removed {
       if self.info_stream.is_enabled("IFD") {
         self.info_stream.message(
@@ -325,22 +324,16 @@ where
           ),
         )?;
       }
-      match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      let failure = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         self.dec_ref(commit.files.iter())
-      })) {
-        Ok(Ok(())) => {},
-        Ok(Err(error)) if first_panic.is_none() => {
-          errors.push(error);
-        },
-        Ok(Err(_)) => {},
-        Err(payload) if !errors.is_empty() => {
-          errors.push(LuceneError::tragedy_from_panic(
-            "panic while decrementing file references",
-            payload.as_ref(),
-          ));
-        },
-        Err(payload) if first_panic.is_none() => first_panic = Some(payload),
-        Err(_) => {},
+      }));
+      if !matches!(&failure, Ok(Ok(()))) {
+        match first_failure.as_mut() {
+          Some(first_failure) => {
+            first_failure.add_suppressed(failure, "panic while decrementing file references")
+          },
+          None => first_failure = Some(failure),
+        }
       }
     }
     self.commits_to_delete.store(false, SeqCst);
@@ -348,20 +341,10 @@ where
     // Now compact commits to remove deleted ones (preserving the sort):
     self.commits.retain(|commit| !commit.is_deleted());
 
-    if let Some(payload) = first_panic {
-      std::panic::resume_unwind(payload);
+    if let Some(first_failure) = first_failure {
+      unwrap_caught_result!(first_failure)?;
     }
-    let mut first_error = None;
-    for mut error in errors.into_iter().rev() {
-      if let Some(suppressed) = first_error {
-        error.add_suppressed(suppressed);
-      }
-      first_error = Some(error);
-    }
-    match first_error {
-      Some(error) => Err(error),
-      None => Ok(()),
-    }
+    Ok(())
   }
 
   /// Writer calls this when it has hit an error and had to roll back, to tell us that there may now be unreferenced files in the filesystem.

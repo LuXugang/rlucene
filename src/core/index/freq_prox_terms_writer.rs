@@ -127,8 +127,21 @@ where
     Ok(())
   }
 
-  pub(crate) fn abort(&mut self) -> Result<()> {
-    self.next_terms_hash.abort()
+  pub(crate) fn abort(
+    &mut self,
+    int_pool: &mut IntBlockPool,
+    byte_pool: &mut ByteBlockPool,
+    next_int_pool: &mut IntBlockPool,
+  ) -> Result<()> {
+    let reset_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      int_pool.reset(false, false);
+      byte_pool.reset(false, false);
+      Ok(())
+    }));
+    let next_abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      self.next_terms_hash.abort(next_int_pool)
+    }));
+    IOUtils::finally_caught_result(reset_result, next_abort_result)
   }
 
   #[allow(clippy::too_many_arguments)]

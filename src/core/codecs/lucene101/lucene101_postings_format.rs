@@ -37,6 +37,7 @@ use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 /// Lucene 10.1 postings format, which encodes postings in packed integer blocks for fast decode.
 ///
 /// Basic idea:
@@ -348,15 +349,23 @@ impl PostingsFormat for Lucene101PostingsFormat {
     D1: Directory,
     D2: Directory,
   {
-    let postings_writer =
-      PushPostingsWriterBase::new(Lucene101PostingsWriter::new(state, segment_info)?);
-    Lucene90BlockTreeTermsWriter::new(
+    let mut postings_writer = Some(PushPostingsWriterBase::new(Lucene101PostingsWriter::new(
       state,
-      postings_writer,
-      self.min_term_block_size,
-      self.max_term_block_size,
       segment_info,
-    )
+    )?));
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      Lucene90BlockTreeTermsWriter::new(
+        state,
+        &mut postings_writer,
+        self.min_term_block_size,
+        self.max_term_block_size,
+        segment_info,
+      )
+    }));
+    if !matches!(&result, Ok(Ok(_))) {
+      IOUtils::close_while_handling_exception(postings_writer.as_mut());
+    }
+    unwrap_caught_result!(result)
   }
 
   type FieldsProducer<I: IndexInput> = Lucene90BlockTreeTermsReader<I, Lucene101PostingsReader<I>>;

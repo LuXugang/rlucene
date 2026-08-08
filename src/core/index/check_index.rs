@@ -4821,30 +4821,42 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     writeln!(std::io::stdout(), "\nOpening index @ {index_path}\n")?;
 
     let path = PathBuf::from(&index_path);
-    let directory_result = match dir_impl.as_deref() {
-      None => FSDirectories::open(path),
-      Some("NIOFSDirectory") => FSDirectories::with_lock_factory(
-        path,
-        LockFactoryEnum::Native(NativeFSLockFactory::new()),
-        FSDirectoryBaseEnum::NIO(NIOFSDirectory),
-      ),
-      Some("MMapDirectory") => FSDirectories::with_lock_factory(
-        path,
-        LockFactoryEnum::Native(NativeFSLockFactory::new()),
-        FSDirectoryBaseEnum::MMap(MMapDirectory::default()),
-      ),
-      Some(dir_impl) => Err(LuceneError::illegal_argument(format!(
-        "unknown FSDirectory implementation: {dir_impl}"
-      ))),
-    };
+    let directory_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match dir_impl.as_deref() {
+        None => FSDirectories::open(path),
+        Some("NIOFSDirectory") => FSDirectories::with_lock_factory(
+          path,
+          LockFactoryEnum::Native(NativeFSLockFactory::new()),
+          FSDirectoryBaseEnum::NIO(NIOFSDirectory),
+        ),
+        Some("MMapDirectory") => FSDirectories::with_lock_factory(
+          path,
+          LockFactoryEnum::Native(NativeFSLockFactory::new()),
+          FSDirectoryBaseEnum::MMap(MMapDirectory::default()),
+        ),
+        Some(dir_impl) => Err(LuceneError::illegal_argument(format!(
+          "unknown FSDirectory implementation: {dir_impl}"
+        ))),
+      }));
     let directory = match directory_result {
-      Ok(directory) => Arc::new(directory),
-      Err(error) => {
+      Ok(Ok(directory)) => Arc::new(directory),
+      result => {
         writeln!(
           std::io::stdout(),
           "ERROR: could not open directory \"{index_path}\"; exiting"
         )?;
-        writeln!(std::io::stdout(), "{error:?}")?;
+        match result {
+          Ok(Err(error)) => writeln!(std::io::stdout(), "{error:?}")?,
+          Err(payload) => writeln!(
+            std::io::stdout(),
+            "{:?}",
+            LuceneError::tragedy_from_panic(
+              "panic while opening index directory",
+              payload.as_ref(),
+            )
+          )?,
+          Ok(Ok(_)) => unreachable!(),
+        }
         return Ok(1);
       },
     };
@@ -4852,24 +4864,13 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     let checker_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       CheckIndex::new(Arc::clone(&directory))
     }));
-    let mut checker: CheckIndex<_, _, Stdout> = match checker_result {
-      Ok(Ok(checker)) => checker,
-      Ok(Err(error)) => {
-        let close_result =
-          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| directory.close()));
-        return match close_result {
-          Ok(close_result) => IOUtils::use_or_suppress_result(Err(error), close_result),
-          Err(payload) => Err(IOUtils::use_or_suppress(
-            Some(error),
-            LuceneError::tragedy_from_panic("panic while closing directory", payload.as_ref()),
-          )),
-        };
-      },
-      Err(payload) => {
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| directory.close()));
-        std::panic::resume_unwind(payload)
-      },
-    };
+    if !matches!(&checker_result, Ok(Ok(_))) {
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| directory.close()));
+      IOUtils::use_or_suppress_caught_result(checker_result, close_result)?;
+      unreachable!("failed CheckIndex construction unexpectedly returned a value");
+    }
+    let mut checker: CheckIndex<_, _, Stdout> = unwrap_caught_result!(checker_result)?;
     let mut options = Options {
       do_exorcise,
       verbose,

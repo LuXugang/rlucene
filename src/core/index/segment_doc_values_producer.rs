@@ -27,7 +27,7 @@ use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::store::directory::Directory;
 use crate::core::util::IdentityArc;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -63,7 +63,7 @@ where
 
     let mut base_producer = None;
 
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       for fi in all_infos {
         if *fi.get_doc_values_type() == DocValuesType::None {
           continue;
@@ -97,28 +97,16 @@ where
       Ok(())
     }));
 
-    match result {
-      Ok(Ok(())) => {},
-      Ok(Err(mut error)) => {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          seg_doc_values.dec_ref(&dv_gens)
-        })) {
-          Ok(Ok(())) => {},
-          Ok(Err(dec_error)) => error.add_suppressed(dec_error),
-          Err(payload) => error.add_suppressed(LuceneError::tragedy_from_panic(
-            "panic while releasing doc values producers after initialization failure",
-            payload.as_ref(),
-          )),
-        }
-        return Err(error);
-      },
-      Err(payload) => {
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          seg_doc_values.dec_ref(&dv_gens)
-        }));
-        std::panic::resume_unwind(payload);
-      },
+    if !matches!(&result, Ok(Ok(()))) {
+      let dec_ref_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        seg_doc_values.dec_ref(&dv_gens)
+      }));
+      result.add_suppressed(
+        dec_ref_result,
+        "panic while releasing doc values producers after initialization failure",
+      );
     }
+    unwrap_caught_result!(result)?;
 
     Ok(Self {
       dv_producers_by_field,

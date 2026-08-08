@@ -36,7 +36,7 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use crate::core::util::output_enum::OutputEnum;
 use crate::core::util::{
   HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, TryIntoInt, Version,
@@ -398,10 +398,21 @@ where
         },
         Ok(Err(error)) => Err(CodecUtil::check_footer_with_error(input, error)),
         Err(payload) => {
-          let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            CodecUtil::check_footer(input)
-          }));
-          std::panic::resume_unwind(payload)
+          let prior_error =
+            LuceneError::tragedy_from_panic("panic while reading segment infos", payload.as_ref());
+          let footer_error = CodecUtil::check_footer_with_error(input, prior_error);
+          if matches!(&footer_error, LuceneError::CorruptIndex(_)) {
+            Err(footer_error)
+          } else {
+            let mut prior_result: std::thread::Result<Result<Self>> = Err(payload);
+            if let Some(suppressed) = footer_error.get_suppressed()? {
+              prior_result.add_suppressed(
+                Ok(Err(suppressed.clone())),
+                "panic while checking segment infos footer",
+              );
+            }
+            unwrap_caught_result!(prior_result)
+          }
         },
       }
     } else {
@@ -911,15 +922,10 @@ where
       // deletes pending_segments_N:
       self.rollback_commit(directory);
     }
-    match result {
-      Ok(Ok(dest)) => {
-        self.pending_commit = false;
-        self.last_generation = self.generation;
-        Ok(dest)
-      },
-      Ok(Err(error)) => Err(error),
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    let dest = unwrap_caught_result!(result)?;
+    self.pending_commit = false;
+    self.last_generation = self.generation;
+    Ok(dest)
   }
   /// Writes and syncs to the Directory, taking care to remove the segment
   /// file on error.

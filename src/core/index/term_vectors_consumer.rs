@@ -331,8 +331,18 @@ where
     )
   }
 
-  pub(crate) fn abort(&mut self) -> Result<()> {
-    self.hook.abort()
+  pub(crate) fn abort(&mut self, int_pool: &mut IntBlockPool) -> Result<()> {
+    let reset_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      int_pool.reset(false, false);
+      Ok(())
+    }));
+    let finally_result =
+      std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        self.hook.abort()?;
+        int_pool.reset(false, false);
+        Ok(())
+      }));
+    IOUtils::finally_caught_result(reset_result, finally_result)
   }
 }
 
