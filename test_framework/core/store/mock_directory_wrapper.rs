@@ -993,11 +993,12 @@ where
   pub fn maybe_throw_deterministic_exception(&self) -> Result<()> {
     let mut failures = self.state.failures.lock();
     for failure in failures.iter_mut() {
-      if let Err(error) = failure.eval(self) {
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| failure.eval(self)));
+      if !matches!(&result, Ok(Ok(()))) {
         if cfg!(feature = "test_log_verbose") {
           eprintln!("MockDirectoryWrapper: throw exc");
         }
-        return Err(error);
+        return IOUtils::rethrow_always(result);
       }
     }
     Ok(())

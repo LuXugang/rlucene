@@ -23,7 +23,7 @@ use crate::core::index::index_writer::IndexWriterHooks;
 use crate::core::index::merge_policy::{MergeStat, OneMerge};
 use crate::core::index::merge_scheduler::MergeSource;
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, Result};
 use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 
 #[allow(dead_code)] // for quick search
@@ -64,7 +64,7 @@ impl ConcurrentMergeSchedulerBase for StalledMergesConcurrentMergeScheduler {
   fn handle_merge_exception(
     &self,
     _scheduler: &ConcurrentMergeScheduler,
-    _error: LuceneError,
+    _result: CaughtResult,
   ) -> Result<()> {
     Ok(())
   }

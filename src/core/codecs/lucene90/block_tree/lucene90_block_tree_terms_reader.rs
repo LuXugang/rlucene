@@ -156,133 +156,117 @@ where
       let mut index_length = -1i64;
       let mut terms_length = -1i64;
       let mut meta_in = state.directory.open_checksum_input(&meta_name)?;
-      let mut footer_attempted = false;
-      let mut meta_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          let result: Result<()> = (|| {
-            CodecUtil::check_index_header(
-              &mut meta_in,
-              TERMS_META_CODEC_NAME,
-              version,
-              version,
-              segment_info.get_id(),
-              &state.segment_suffix,
-            )?;
-            postings_reader
-              .as_mut()
-              .ok_or_else(|| LuceneError::illegal_state("postings reader is missing"))?
-              .init(&mut meta_in, state, segment_info)?;
+      let meta_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          CodecUtil::check_index_header(
+            &mut meta_in,
+            TERMS_META_CODEC_NAME,
+            version,
+            version,
+            segment_info.get_id(),
+            &state.segment_suffix,
+          )?;
+          postings_reader
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("postings reader is missing"))?
+            .init(&mut meta_in, state, segment_info)?;
 
-            let num_fields = meta_in.read_vint()?;
-            if num_fields < 0 {
+          let num_fields = meta_in.read_vint()?;
+          if num_fields < 0 {
+            return Err(LuceneError::corrupt_index(format!(
+              "invalid numFields: {num_fields}"
+            )));
+          }
+
+          for _ in 0..num_fields {
+            let field = meta_in.read_vint()?;
+            let num_terms = meta_in.read_vlong()?;
+            if num_terms <= 0 {
               return Err(LuceneError::corrupt_index(format!(
-                "invalid numFields: {num_fields}"
+                "Illegal numTerms for field number: {field}"
               )));
             }
 
-            for _ in 0..num_fields {
-              let field = meta_in.read_vint()?;
-              let num_terms = meta_in.read_vlong()?;
-              if num_terms <= 0 {
-                return Err(LuceneError::corrupt_index(format!(
-                  "Illegal numTerms for field number: {field}"
-                )));
-              }
+            let root_code = read_bytes_ref(&mut meta_in)?;
+            let field_info = state
+              .field_infos
+              .field_info_by_number(field)?
+              .ok_or_else(|| {
+                LuceneError::corrupt_index(format!("invalid field number: {field}"))
+              })?;
 
-              let root_code = read_bytes_ref(&mut meta_in)?;
-              let field_info = state
-                .field_infos
-                .field_info_by_number(field)?
-                .ok_or_else(|| {
-                  LuceneError::corrupt_index(format!("invalid field number: {field}"))
-                })?;
+            let sum_total_term_freq = meta_in.read_vlong()?;
+            // when frequencies are omitted, sumDocFreq=sumTotalTermFreq and only one value
+            // is written.
+            let sum_doc_freq = if *field_info.get_index_options() == IndexOptions::Docs {
+              sum_total_term_freq
+            } else {
+              meta_in.read_vlong()?
+            };
 
-              let sum_total_term_freq = meta_in.read_vlong()?;
-              // when frequencies are omitted, sumDocFreq=sumTotalTermFreq and only one value
-              // is written.
-              let sum_doc_freq = if *field_info.get_index_options() == IndexOptions::Docs {
-                sum_total_term_freq
-              } else {
-                meta_in.read_vlong()?
-              };
+            let doc_count = meta_in.read_vint()?;
+            let min_term = Arc::new(read_bytes_ref(&mut meta_in)?);
+            let mut max_term = Arc::new(read_bytes_ref(&mut meta_in)?);
 
-              let doc_count = meta_in.read_vint()?;
-              let min_term = Arc::new(read_bytes_ref(&mut meta_in)?);
-              let mut max_term = Arc::new(read_bytes_ref(&mut meta_in)?);
-
-              if num_terms == 1 {
-                debug_assert_eq!(max_term, min_term);
-                max_term = min_term.clone();
-              }
-
-              let max_doc = segment_info.max_doc()?;
-              if doc_count < 0 || doc_count > max_doc {
-                return Err(LuceneError::corrupt_index(format!(
-                  "invalid docCount: {doc_count} maxDoc: {max_doc}"
-                )));
-              }
-
-              if sum_doc_freq < doc_count as i64 {
-                return Err(LuceneError::corrupt_index(format!(
-                  "invalid sumDocFreq: {sum_doc_freq} docCount: {doc_count}"
-                )));
-              }
-
-              if sum_total_term_freq < sum_doc_freq {
-                return Err(LuceneError::corrupt_index(format!(
-                  "invalid sumTotalTermFreq: {sum_total_term_freq} sumDocFreq: {sum_doc_freq}"
-                )));
-              }
-
-              let index_start_fp = meta_in.read_vlong()?;
-              let field_reader = FieldReader::new(
-                field_info.clone(),
-                num_terms,
-                root_code,
-                sum_total_term_freq,
-                sum_doc_freq,
-                doc_count,
-                index_start_fp,
-                &mut meta_in,
-                min_term,
-                max_term,
-              )?;
-
-              if field_map
-                .insert(field_info.get_field_number(), field_reader)
-                .is_some()
-              {
-                return Err(LuceneError::corrupt_index(format!(
-                  "duplicate field: {}",
-                  field_info.name
-                )));
-              }
+            if num_terms == 1 {
+              debug_assert_eq!(max_term, min_term);
+              max_term = min_term.clone();
             }
 
-            index_length = meta_in.read_long()?;
-            terms_length = meta_in.read_long()?;
-            Ok(())
-          })();
-          footer_attempted = true;
-          match result {
-            Ok(()) => CodecUtil::check_footer(&mut meta_in).map(|_| ()),
-            Err(error) => Err(CodecUtil::check_footer_with_error(&mut meta_in, error)),
+            let max_doc = segment_info.max_doc()?;
+            if doc_count < 0 || doc_count > max_doc {
+              return Err(LuceneError::corrupt_index(format!(
+                "invalid docCount: {doc_count} maxDoc: {max_doc}"
+              )));
+            }
+
+            if sum_doc_freq < doc_count as i64 {
+              return Err(LuceneError::corrupt_index(format!(
+                "invalid sumDocFreq: {sum_doc_freq} docCount: {doc_count}"
+              )));
+            }
+
+            if sum_total_term_freq < sum_doc_freq {
+              return Err(LuceneError::corrupt_index(format!(
+                "invalid sumTotalTermFreq: {sum_total_term_freq} sumDocFreq: {sum_doc_freq}"
+              )));
+            }
+
+            let index_start_fp = meta_in.read_vlong()?;
+            let field_reader = FieldReader::new(
+              field_info.clone(),
+              num_terms,
+              root_code,
+              sum_total_term_freq,
+              sum_doc_freq,
+              doc_count,
+              index_start_fp,
+              &mut meta_in,
+              min_term,
+              max_term,
+            )?;
+
+            if field_map
+              .insert(field_info.get_field_number(), field_reader)
+              .is_some()
+            {
+              return Err(LuceneError::corrupt_index(format!(
+                "duplicate field: {}",
+                field_info.name
+              )));
+            }
           }
+
+          index_length = meta_in.read_long()?;
+          terms_length = meta_in.read_long()?;
+          Ok(())
         }));
-      let footer_error = if let Err(payload) = &meta_result
-        && !footer_attempted
-      {
-        let error = LuceneError::tragedy_from_panic(
-          "panic while reading block tree metadata",
-          payload.as_ref(),
-        );
-        Some(CodecUtil::check_footer_with_error(&mut meta_in, error))
-      } else {
-        None
-      };
-      if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-        meta_result = Ok(Err(error));
-      }
+        let prior_result = match result {
+          Ok(Ok(())) => None,
+          result => Some(result),
+        };
+        CodecUtil::check_footer_with_error(&mut meta_in, prior_result)
+      }));
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| meta_in.close()));
       IOUtils::use_or_suppress_caught_result(meta_result, close_result)?;
 
@@ -414,10 +398,7 @@ where
 
     // Clear so refs to terms index are releasable even if the caller hangs onto us.
     self.field_map.write().clear();
-    match close_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(close_result)
   }
 }
 

@@ -30,8 +30,8 @@ use crate::core::search::query::Query;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{CaughtResult, LuceneError};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::supplier::Supplier;
@@ -423,10 +423,7 @@ where
           self.abort_documents_writer_per_thread(per_thread.clone(), config)
         }));
         per_thread.unlock();
-        match result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(result)?;
       }
 
       self
@@ -533,16 +530,11 @@ where
       if dwpt_wrapper.state.is_aborted() {
         self.flush_control.do_on_abort(&dwpt_wrapper, config)?;
       }
-      match res {
-        Ok(result) => {
-          seq_no = result?;
-          flushing_dwpt_opt = {
-            let dw = &dwpt_wrapper.dwpt.lock();
-            self.flush_control.do_after_document(dw, config)?
-          };
-        },
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      seq_no = unwrap_caught_result!(res)?;
+      flushing_dwpt_opt = {
+        let dw = &dwpt_wrapper.dwpt.lock();
+        self.flush_control.do_after_document(dw, config)?
+      };
       Ok(())
     }));
 
@@ -565,10 +557,7 @@ where
     };
 
     release_result?;
-    match result {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)?;
     if self.post_update(flushing_dwpt_opt, has_events, writer)? {
       seq_no = -seq_no;
     }
@@ -691,10 +680,7 @@ where
       self
         .flush_control
         .do_after_flush(None, flushing_dwpt, config)?;
-      match res {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(res)?;
       let v = self.flush_control.next_pending_flush(None, config)?;
 
       match v {
@@ -863,10 +849,7 @@ where
     // all DWPT have been processed and this queue has been fully flushed to the
     // ticket-queue
     flushing_delete_queue.close()?;
-    match result {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)?;
     Ok(if anything_flushed { -seq_no } else { seq_no })
   }
   pub(crate) fn finish_full_flush<L>(&self, success: bool, config: &L) -> Result<()>
@@ -998,7 +981,7 @@ pub(crate) trait FlushNotifications {
   /// a tragic / unrecoverable event.
   fn on_tragic_event<D>(
     &self,
-    event: LuceneError,
+    event: &CaughtResult,
     message: &str,
     writer: &IndexWriter<D>,
   ) -> Result<()>

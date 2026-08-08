@@ -414,7 +414,10 @@ where
       })
     }));
     debug_assert!(inner.reader_map.is_empty());
-    unwrap_caught_result!(result)
+    match result {
+      Ok(Ok(())) => Ok(()),
+      result => IOUtils::rethrow_always(result),
+    }
   }
   /// Commit live docs changes for the  readers for the provided infos.
   pub(crate) fn commit(

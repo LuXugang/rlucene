@@ -98,14 +98,13 @@ where
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
     let mut meta = None;
     let mut quantized_vector_data = None;
-    let mut footer_attempted = false;
     let mut meta_close_attempted = false;
     let mut success = false;
-    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       meta = Some(state.directory.open_checksum_input(&meta_file_name)?);
-      let mut body_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          let read_result = (|| -> Result<()> {
+      let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        let prior_result =
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
             let meta = meta.as_mut().ok_or_else(|| {
               LuceneError::illegal_state("scalar quantized metadata input is missing")
             })?;
@@ -118,48 +117,30 @@ where
               &state.segment_suffix,
             )?;
             Self::read_fields(meta, version_meta, state.field_infos.as_ref(), &mut fields)
-          })();
+          }));
 
-          let meta = meta.as_mut().ok_or_else(|| {
-            LuceneError::illegal_state("scalar quantized metadata input is missing")
-          })?;
-          footer_attempted = true;
-          match read_result {
-            Ok(()) => CodecUtil::check_footer(meta).map(|_| ())?,
-            Err(error) => return Err(CodecUtil::check_footer_with_error(meta, error)),
-          }
-
-          quantized_vector_data = Some(Self::open_data_input(
-            state,
-            version_meta,
-            VECTOR_DATA_EXTENSION,
-            VECTOR_DATA_CODEC_NAME,
-            // Quantized vectors are accessed randomly from their node ID stored in the HNSW
-            // graph.
-            &state.context.with_read_advice_self(ReadAdvice::Random)?,
-            segment_info,
-          )?);
-          success = true;
-          Ok(())
-        }));
-      let footer_error = if let Err(payload) = &body_result
-        && !footer_attempted
-      {
-        footer_attempted = true;
         let meta = meta.as_mut().ok_or_else(|| {
           LuceneError::illegal_state("scalar quantized metadata input is missing")
         })?;
-        let error = LuceneError::tragedy_from_panic(
-          "panic while reading scalar quantized metadata",
-          payload.as_ref(),
-        );
-        Some(CodecUtil::check_footer_with_error(meta, error))
-      } else {
-        None
-      };
-      if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-        body_result = Ok(Err(error));
-      }
+        let prior_result = match prior_result {
+          Ok(Ok(())) => None,
+          prior_result => Some(prior_result),
+        };
+        CodecUtil::check_footer_with_error(meta, prior_result)?;
+
+        quantized_vector_data = Some(Self::open_data_input(
+          state,
+          version_meta,
+          VECTOR_DATA_EXTENSION,
+          VECTOR_DATA_CODEC_NAME,
+          // Quantized vectors are accessed randomly from their node ID stored in the HNSW
+          // graph.
+          &state.context.with_read_advice_self(ReadAdvice::Random)?,
+          segment_info,
+        )?);
+        success = true;
+        Ok(())
+      }));
       let meta = meta
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("scalar quantized metadata input is missing"))?;
@@ -169,21 +150,6 @@ where
     }));
 
     if !success {
-      let footer_error = if let Err(payload) = &result
-        && !footer_attempted
-        && let Some(meta) = meta.as_mut()
-      {
-        let error = LuceneError::tragedy_from_panic(
-          "panic while reading scalar quantized metadata",
-          payload.as_ref(),
-        );
-        Some(CodecUtil::check_footer_with_error(meta, error))
-      } else {
-        None
-      };
-      if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-        result = Ok(Err(error));
-      }
       if meta_close_attempted {
         IOUtils::close_while_handling_exception((
           quantized_vector_data.as_ref(),

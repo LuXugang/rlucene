@@ -112,9 +112,7 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
           Ok(())
         }));
       IOUtils::close_while_handling_exception((data.as_mut(), meta.as_mut()));
-      if let Err(payload) = close_result {
-        std::panic::resume_unwind(payload);
-      }
+      resume_caught_panic!(close_result);
     }
     let max_doc = unwrap_caught_result!(result)?;
     let (data, meta) = match (data, meta) {

@@ -86,38 +86,26 @@ where
     let mut norms = HashMap::new();
     let mut input = state.directory.open_checksum_input(&meta_name)?;
 
-    let mut footer_attempted = false;
-    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      let result = (|| -> Result<()> {
-        version = CodecUtil::check_index_header(
-          &mut input,
-          meta_codec,
-          Lucene90NormsFormat::VERSION_START,
-          Lucene90NormsFormat::VERSION_CURRENT,
-          segment_info.get_id(),
-          &state.segment_suffix,
-        )?;
-        norms = Self::read_fields(&mut input, &state.field_infos)?;
-        Ok(())
-      })();
-      footer_attempted = true;
-      match result {
-        Ok(()) => CodecUtil::check_footer(&mut input).map(|_| ()),
-        Err(error) => Err(CodecUtil::check_footer_with_error(&mut input, error)),
-      }
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let prior_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          version = CodecUtil::check_index_header(
+            &mut input,
+            meta_codec,
+            Lucene90NormsFormat::VERSION_START,
+            Lucene90NormsFormat::VERSION_CURRENT,
+            segment_info.get_id(),
+            &state.segment_suffix,
+          )?;
+          norms = Self::read_fields(&mut input, &state.field_infos)?;
+          Ok(())
+        }));
+      let prior_result = match prior_result {
+        Ok(Ok(())) => None,
+        prior_result => Some(prior_result),
+      };
+      CodecUtil::check_footer_with_error(&mut input, prior_result)
     }));
-    let footer_error = if let Err(payload) = &result
-      && !footer_attempted
-    {
-      let error =
-        LuceneError::tragedy_from_panic("panic while reading norms metadata", payload.as_ref());
-      Some(CodecUtil::check_footer_with_error(&mut input, error))
-    } else {
-      None
-    };
-    if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-      result = Ok(Err(error));
-    }
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()));
     IOUtils::use_or_suppress_caught_result(result, close_result)?;
 

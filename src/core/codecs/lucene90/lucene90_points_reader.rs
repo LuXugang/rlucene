@@ -25,7 +25,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::bkd::bkd_reader::BKDReader;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
@@ -164,29 +164,11 @@ where
               data_length = meta_in.read_long()?;
               Ok(())
             }));
-          match read_result {
-            Ok(Ok(())) => CodecUtil::check_footer(&mut meta_in).map(|_| ()),
-            Ok(Err(error)) => Err(CodecUtil::check_footer_with_error(&mut meta_in, error)),
-            Err(payload) => {
-              let prior_error = LuceneError::tragedy_from_panic(
-                "panic while reading points metadata",
-                payload.as_ref(),
-              );
-              let footer_error = CodecUtil::check_footer_with_error(&mut meta_in, prior_error);
-              if matches!(&footer_error, LuceneError::CorruptIndex(_)) {
-                Err(footer_error)
-              } else {
-                let mut prior_result: std::thread::Result<Result<()>> = Err(payload);
-                if let Some(suppressed) = footer_error.get_suppressed()? {
-                  prior_result.add_suppressed(
-                    Ok(Err(suppressed.clone())),
-                    "panic while checking points metadata footer",
-                  );
-                }
-                unwrap_caught_result!(prior_result)
-              }
-            },
-          }
+          let prior_result = match read_result {
+            Ok(Ok(())) => None,
+            read_result => Some(read_result),
+          };
+          CodecUtil::check_footer_with_error(&mut meta_in, prior_result)
         }));
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| meta_in.close()));
       IOUtils::use_or_suppress_caught_result(metadata_result, close_result)?;
@@ -234,15 +216,10 @@ where
       Ok(reader)
     }));
     if !success {
-      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let index_in = shared_index_in.as_deref().or(index_in.as_ref());
-        let data_in = data_in.as_ref().map(|input| input.lock());
-        let data_in = data_in.as_deref();
-        IOUtils::close_refs_tuple((index_in, data_in))
-      }));
-      if let Err(payload) = close_result {
-        std::panic::resume_unwind(payload);
-      }
+      let index_in = shared_index_in.as_deref().or(index_in.as_ref());
+      let data_in = data_in.as_ref().map(|input| input.lock());
+      let data_in = data_in.as_deref();
+      IOUtils::close_while_handling_exception((index_in, data_in));
     }
     unwrap_caught_result!(result)
   }
@@ -253,19 +230,13 @@ where
   I: IndexInput,
 {
   fn close(&self) -> Result<()> {
-    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    {
       let data_in = self.data_in.lock();
-      IOUtils::close_refs([self.index_in.as_ref(), &*data_in])
-    }));
-    match close_result {
-      Ok(result) => {
-        result?;
-        // Free up heap:
-        self.readers.write().clear();
-        Ok(())
-      },
-      Err(payload) => std::panic::resume_unwind(payload),
+      IOUtils::close_refs([self.index_in.as_ref(), &*data_in])?;
     }
+    // Free up heap:
+    self.readers.write().clear();
+    Ok(())
   }
 }
 

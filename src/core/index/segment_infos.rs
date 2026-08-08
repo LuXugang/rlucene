@@ -36,7 +36,7 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IO_CONTEXT_DEFAULT, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::output_enum::OutputEnum;
 use crate::core::util::{
   HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, TryIntoInt, Version,
@@ -393,30 +393,18 @@ where
     if format >= VERSION_74 {
       match read_result {
         Ok(Ok(infos)) => {
-          CodecUtil::check_footer(input)?;
+          CodecUtil::check_footer_with_error::<()>(input, None)?;
           Ok(infos)
         },
-        Ok(Err(error)) => Err(CodecUtil::check_footer_with_error(input, error)),
-        Err(payload) => {
-          let prior_error =
-            LuceneError::tragedy_from_panic("panic while reading segment infos", payload.as_ref());
-          let footer_error = CodecUtil::check_footer_with_error(input, prior_error);
-          if matches!(&footer_error, LuceneError::CorruptIndex(_)) {
-            Err(footer_error)
-          } else {
-            let mut prior_result: std::thread::Result<Result<Self>> = Err(payload);
-            if let Some(suppressed) = footer_error.get_suppressed()? {
-              prior_result.add_suppressed(
-                Ok(Err(suppressed.clone())),
-                "panic while checking segment infos footer",
-              );
-            }
-            unwrap_caught_result!(prior_result)
-          }
+        read_result => {
+          CodecUtil::check_footer_with_error(input, Some(read_result))?;
+          Err(LuceneError::illegal_state(
+            "footer check returned after a prior segment infos read failure",
+          ))
         },
       }
     } else {
-      unwrap_caught_result!(read_result)
+      IOUtils::rethrow_always(read_result)
     }
   }
   pub fn parse_segment_infos(

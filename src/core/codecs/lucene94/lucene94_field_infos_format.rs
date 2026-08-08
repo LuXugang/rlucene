@@ -253,135 +253,124 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
     let mut input = directory.open_checksum_input(&file_name)?;
-
-    // Wrap the main logic in a closure so we can capture errors for footer
-    // checking.
-    let mut footer_attempted = false;
-    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+    let mut infos = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
       || -> Result<FieldInfos> {
-        let result = (|| {
-          // Check the codec header and determine the file format.
-          let format = CodecUtil::check_index_header(
-            &mut input,
-            Self::CODEC_NAME,
-            Self::FORMAT_START,
-            Self::FORMAT_CURRENT,
-            segment_info.get_id(),
-            segment_suffix,
-          )?;
-
-          let size = input.read_vint()?;
-          let mut infos = Vec::with_capacity(size as usize);
-
-          for _ in 0..size {
-            let name = input.read_string()?;
-            let field_number = input.read_vint()?;
-            if field_number < 0 {
-              return Err(LuceneError::corrupt_index(format!(
-                "invalid field number for field: {name}, fieldNumber={field_number} (resource={input})"
-              )));
-            }
-            let bits = input.read_byte()?;
-            let store_term_vector = (bits & Self::STORE_TERMVECTOR) != 0;
-            let omit_norms = (bits & Self::OMIT_NORMS) != 0;
-            let store_payloads = (bits & Self::STORE_PAYLOADS) != 0;
-            let is_soft_deletes_field = (bits & Self::SOFT_DELETES_FIELD) != 0;
-            let is_parent_field = if format >= Self::FORMAT_PARENT_FIELD {
-              (bits & Self::PARENT_FIELD_FIELD) != 0
-            } else {
-              false
-            };
-
-            if (bits & 0xC0) != 0 {
-              return Err(LuceneError::corrupt_index(format!(
-                "unused bits are set \"{bits:b}\""
-              )));
-            }
-            if format < Self::FORMAT_PARENT_FIELD && (bits & 0xF0) != 0 {
-              return Err(LuceneError::corrupt_index(format!(
-                "parent field bit is set but shouldn't \"{bits:b}\""
-              )));
-            }
-            if format < Self::FORMAT_DOCVALUE_SKIPPER && (bits & Self::DOCVALUES_SKIPPER) != 0 {
-              return Err(LuceneError::corrupt_index(format!(
-                "doc values skipper bit is set but shouldn't \"{bits:b}\""
-              )));
-            }
-
-            let index_options_ord = input.read_byte()?;
-            let doc_values_type_ord = input.read_byte()?;
-            let index_options = Self::get_index_options(&input, index_options_ord)?;
-            let doc_values_type = Self::get_doc_values_type(&input, doc_values_type_ord)?;
-            let doc_values_skip_index = if format >= Self::FORMAT_DOCVALUE_SKIPPER {
-              let doc_values_skip_index_type_ord = input.read_byte()?;
-              Self::get_doc_values_skip_index_type(&input, doc_values_skip_index_type_ord)?
-            } else {
-              DocValuesSkipIndexType::None
-            };
-            let dv_gen = input.read_long()?;
-            let attributes = input.read_map_of_strings()?;
-            let point_data_dimension_count = input.read_vint()?.try_convert()?;
-            let (point_index_dimension_count, point_num_bytes) = if point_data_dimension_count != 0
-            {
-              (
-                input.read_vint()?.try_convert()?,
-                input.read_vint()?.try_convert()?,
-              )
-            } else {
-              (point_data_dimension_count, 0)
-            };
-            let vector_dimension = input.read_vint()?;
-            let vector_encoding_ord = input.read_byte()?;
-            let vector_dist_func_ord = input.read_byte()?;
-            let vector_encoding = Self::get_vector_encoding(&input, vector_encoding_ord)?;
-            let vector_dist_func = Self::get_dist_func(&input, vector_dist_func_ord)?;
-            let field_info = FieldInfo::new(
-              name,
-              field_number,
-              store_term_vector,
-              omit_norms,
-              store_payloads,
-              index_options,
-              doc_values_type,
-              doc_values_skip_index,
-              dv_gen,
-              attributes,
-              point_data_dimension_count,
-              point_index_dimension_count,
-              point_num_bytes,
-              vector_dimension,
-              vector_encoding,
-              vector_dist_func,
-              is_soft_deletes_field,
-              is_parent_field,
+        let prior_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+          || -> Result<()> {
+            // Check the codec header and determine the file format.
+            let format = CodecUtil::check_index_header(
+              &mut input,
+              Self::CODEC_NAME,
+              Self::FORMAT_START,
+              Self::FORMAT_CURRENT,
+              segment_info.get_id(),
+              segment_suffix,
             )?;
-            field_info.check_consistency()?;
-            infos.push(Arc::new(field_info));
-          }
-          Ok(infos)
-        })();
-        footer_attempted = true;
-        match result {
-          Ok(infos) => {
-            CodecUtil::check_footer(&mut input)?;
-            FieldInfos::new(infos)
+
+            let size = input.read_vint()?;
+            let mut field_infos = Vec::with_capacity(size as usize);
+
+            for _ in 0..size {
+              let name = input.read_string()?;
+              let field_number = input.read_vint()?;
+              if field_number < 0 {
+                return Err(LuceneError::corrupt_index(format!(
+                  "invalid field number for field: {name}, fieldNumber={field_number} (resource={input})"
+                )));
+              }
+              let bits = input.read_byte()?;
+              let store_term_vector = (bits & Self::STORE_TERMVECTOR) != 0;
+              let omit_norms = (bits & Self::OMIT_NORMS) != 0;
+              let store_payloads = (bits & Self::STORE_PAYLOADS) != 0;
+              let is_soft_deletes_field = (bits & Self::SOFT_DELETES_FIELD) != 0;
+              let is_parent_field = if format >= Self::FORMAT_PARENT_FIELD {
+                (bits & Self::PARENT_FIELD_FIELD) != 0
+              } else {
+                false
+              };
+
+              if (bits & 0xC0) != 0 {
+                return Err(LuceneError::corrupt_index(format!(
+                  "unused bits are set \"{bits:b}\""
+                )));
+              }
+              if format < Self::FORMAT_PARENT_FIELD && (bits & 0xF0) != 0 {
+                return Err(LuceneError::corrupt_index(format!(
+                  "parent field bit is set but shouldn't \"{bits:b}\""
+                )));
+              }
+              if format < Self::FORMAT_DOCVALUE_SKIPPER && (bits & Self::DOCVALUES_SKIPPER) != 0 {
+                return Err(LuceneError::corrupt_index(format!(
+                  "doc values skipper bit is set but shouldn't \"{bits:b}\""
+                )));
+              }
+
+              let index_options_ord = input.read_byte()?;
+              let doc_values_type_ord = input.read_byte()?;
+              let index_options = Self::get_index_options(&input, index_options_ord)?;
+              let doc_values_type = Self::get_doc_values_type(&input, doc_values_type_ord)?;
+              let doc_values_skip_index = if format >= Self::FORMAT_DOCVALUE_SKIPPER {
+                let doc_values_skip_index_type_ord = input.read_byte()?;
+                Self::get_doc_values_skip_index_type(&input, doc_values_skip_index_type_ord)?
+              } else {
+                DocValuesSkipIndexType::None
+              };
+              let dv_gen = input.read_long()?;
+              let attributes = input.read_map_of_strings()?;
+              let point_data_dimension_count = input.read_vint()?.try_convert()?;
+              let (point_index_dimension_count, point_num_bytes) =
+                if point_data_dimension_count != 0 {
+                  (
+                    input.read_vint()?.try_convert()?,
+                    input.read_vint()?.try_convert()?,
+                  )
+                } else {
+                  (point_data_dimension_count, 0)
+                };
+              let vector_dimension = input.read_vint()?;
+              let vector_encoding_ord = input.read_byte()?;
+              let vector_dist_func_ord = input.read_byte()?;
+              let vector_encoding = Self::get_vector_encoding(&input, vector_encoding_ord)?;
+              let vector_dist_func = Self::get_dist_func(&input, vector_dist_func_ord)?;
+              let field_info = FieldInfo::new(
+                name,
+                field_number,
+                store_term_vector,
+                omit_norms,
+                store_payloads,
+                index_options,
+                doc_values_type,
+                doc_values_skip_index,
+                dv_gen,
+                attributes,
+                point_data_dimension_count,
+                point_index_dimension_count,
+                point_num_bytes,
+                vector_dimension,
+                vector_encoding,
+                vector_dist_func,
+                is_soft_deletes_field,
+                is_parent_field,
+              )?;
+              field_info.check_consistency()?;
+              field_infos.push(Arc::new(field_info));
+            }
+            infos = Some(field_infos);
+            Ok(())
           },
-          Err(error) => Err(CodecUtil::check_footer_with_error(&mut input, error)),
-        }
+        ));
+        let prior_result = match prior_result {
+          Ok(Ok(())) => None,
+          prior_result => Some(prior_result),
+        };
+        CodecUtil::check_footer_with_error(&mut input, prior_result)?;
+        let infos = infos.take().ok_or_else(|| {
+          LuceneError::illegal_state("field infos are missing after successful construction")
+        })?;
+        FieldInfos::new(infos)
       },
     ));
-    let footer_error = if let Err(payload) = &result
-      && !footer_attempted
-    {
-      let error =
-        LuceneError::tragedy_from_panic("panic while reading field infos", payload.as_ref());
-      Some(CodecUtil::check_footer_with_error(&mut input, error))
-    } else {
-      None
-    };
-    if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-      result = Ok(Err(error));
-    }
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()));
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }

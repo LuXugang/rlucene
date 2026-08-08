@@ -263,43 +263,35 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
   {
     let file_name = IndexFileNames::segment_file_name(segment, "", SI_EXTENSION);
     let mut input = dir.open_checksum_input(&file_name)?;
-
-    let mut footer_attempted = false;
-    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
       || -> Result<SegmentInfo<D>> {
-        let result = (|| -> Result<SegmentInfo<D>> {
-          CodecUtil::check_index_header(
-            &mut input,
-            Lucene99SegmentInfoFormat::CODEC_NAME,
-            Lucene99SegmentInfoFormat::VERSION_START,
-            Lucene99SegmentInfoFormat::VERSION_CURRENT,
-            segment_id,
-            "",
-          )?;
-          Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
-        })();
-        footer_attempted = true;
-        match result {
-          Ok(segment_info) => {
-            CodecUtil::check_footer(&mut input)?;
+        let prior_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
+          || -> Result<SegmentInfo<D>> {
+            CodecUtil::check_index_header(
+              &mut input,
+              Lucene99SegmentInfoFormat::CODEC_NAME,
+              Lucene99SegmentInfoFormat::VERSION_START,
+              Lucene99SegmentInfoFormat::VERSION_CURRENT,
+              segment_id,
+              "",
+            )?;
+            Self::parse_segment_info(dir.clone(), &mut input, segment, segment_id)
+          },
+        ));
+        match prior_result {
+          Ok(Ok(segment_info)) => {
+            CodecUtil::check_footer_with_error::<()>(&mut input, None)?;
             Ok(segment_info)
           },
-          Err(error) => Err(CodecUtil::check_footer_with_error(&mut input, error)),
+          prior_result => {
+            CodecUtil::check_footer_with_error(&mut input, Some(prior_result))?;
+            Err(LuceneError::illegal_state(
+              "footer check returned after a prior segment info read failure",
+            ))
+          },
         }
       },
     ));
-    let footer_error = if let Err(payload) = &result
-      && !footer_attempted
-    {
-      let error =
-        LuceneError::tragedy_from_panic("panic while reading segment info", payload.as_ref());
-      Some(CodecUtil::check_footer_with_error(&mut input, error))
-    } else {
-      None
-    };
-    if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-      result = Ok(Err(error));
-    }
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()));
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }

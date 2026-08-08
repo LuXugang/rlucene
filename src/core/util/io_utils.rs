@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{
-  LuceneError, PanicWithSuppressed, Result, SuppressedFailure,
+  CaughtResult, LuceneError, PanicWithSuppressed, Result, SuppressedFailure,
 };
 
 enum CloseFailure {
@@ -390,6 +390,20 @@ impl IOUtils {
     error.finish()
   }
 
+  /// Rethrows a previously caught failure.
+  ///
+  /// This method never returns a successful value. A returned error is
+  /// propagated as a [`Result::Err`], while a panic is resumed with its
+  /// original payload. Passing a successful caught result is a programming
+  /// error.
+  pub fn rethrow_always<T, R>(result: CaughtResult<T>) -> Result<R> {
+    match result {
+      Ok(Err(error)) => Err(error),
+      Err(payload) => std::panic::resume_unwind(payload),
+      Ok(Ok(_)) => panic!("rethrow argument must contain a failure"),
+    }
+  }
+
   /// Ensure that any writes to the given file are written to the storage
   /// device.
   ///
@@ -471,8 +485,8 @@ impl IOUtils {
   /// try-with-resources suppression semantics.
   #[inline]
   pub fn use_or_suppress_caught_result<T>(
-    result: std::thread::Result<Result<T>>,
-    close_result: std::thread::Result<Result<()>>,
+    result: CaughtResult<T>,
+    close_result: CaughtResult,
   ) -> Result<T> {
     match result {
       Ok(result) => match close_result {
@@ -505,8 +519,8 @@ impl IOUtils {
   /// overrides the body result or panic.
   #[inline]
   pub fn finally_caught_result<T>(
-    result: std::thread::Result<Result<T>>,
-    finally_result: std::thread::Result<Result<()>>,
+    result: CaughtResult<T>,
+    finally_result: CaughtResult,
   ) -> Result<T> {
     match finally_result {
       Ok(Ok(())) => unwrap_caught_result!(result),

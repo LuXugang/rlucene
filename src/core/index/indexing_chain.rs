@@ -110,7 +110,7 @@ use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT};
 use crate::core::util::int_block_pool::{
   AllocatorI32, AllocatorIntEnum, INT_BLOCK_SIZE, IntBlockPool,
@@ -132,7 +132,7 @@ use std::vec;
 macro_rules! catch_aborting_exception {
   ($has_hit_aborting_exception:expr, $aborting_exception:expr, $panic_message:expr, $operation:expr) => {{
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| $operation));
-    if let Some(failure) = result.caught_failure($panic_message) {
+    if let Some(failure) = result.clone_caught_failure($panic_message) {
       *$has_hit_aborting_exception = true;
       let _ = $aborting_exception.set(failure);
     }
@@ -175,8 +175,8 @@ where
 {
   fn on_aborting_exception(
     &mut self,
-    aborting_exception: &OnceLock<LuceneError>,
-    throwable: LuceneError,
+    aborting_exception: &OnceLock<CaughtResult>,
+    throwable: CaughtResult,
   ) {
     self.has_hit_aborting_exception = true;
     let _ = aborting_exception.set(throwable);
@@ -745,7 +745,7 @@ where
     &mut self,
     doc_id: i32,
     info: &mut SegmentInfo<D1>,
-    aborting_exception: &OnceLock<LuceneError>,
+    aborting_exception: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
     D1: Directory,
@@ -761,7 +761,7 @@ where
   ///  Calls StoredFieldsWriter.finishDocument, aborting the segment if it hits any error .
   pub(crate) fn finish_stored_fields(
     &mut self,
-    aborting_exception: &OnceLock<LuceneError>,
+    aborting_exception: &OnceLock<CaughtResult>,
   ) -> Result<()> {
     catch_aborting_exception!(
       &mut self.has_hit_aborting_exception,
@@ -777,7 +777,7 @@ where
     info: &mut SegmentInfo<D1>,
     field_infos: &mut Builder,
     index_writer_config: &impl LiveIndexWriterConfig,
-    aborting_exception_consumer: &OnceLock<LuceneError>,
+    aborting_exception_consumer: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
     DF: IntoIterator<Item = Fields>,
@@ -913,7 +913,7 @@ where
     field_infos: &mut Builder,
     index_writer_config: &impl LiveIndexWriterConfig,
     segment_info: &SegmentInfo<D1>,
-    aborting_exception: &OnceLock<LuceneError>,
+    aborting_exception: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
     D1: Directory,
@@ -1029,7 +1029,7 @@ where
     field: &mut impl IndexableField,
     per_field_index: usize,
     index_writer_config: &impl LiveIndexWriterConfig,
-    aborting_exception: &OnceLock<LuceneError>,
+    aborting_exception: &OnceLock<CaughtResult>,
   ) -> Result<bool> {
     let pf = &mut self.per_fields[per_field_index];
     let mut indexed_field = false;
@@ -1451,8 +1451,8 @@ pub(crate) struct PerField {
 impl PerField {
   fn on_aborting_exception(
     has_hit_aborting_exception: &mut bool,
-    aborting_exception: &OnceLock<LuceneError>,
-    throwable: LuceneError,
+    aborting_exception: &OnceLock<CaughtResult>,
+    throwable: CaughtResult,
   ) {
     *has_hit_aborting_exception = true;
     let _ = aborting_exception.set(throwable);
@@ -1574,7 +1574,7 @@ impl PerField {
     info_stream: &InfoStreamEnum,
     context: &mut IndexContext,
     has_hit_aborting_exception: &mut bool,
-    aborting_exception: &OnceLock<LuceneError>,
+    aborting_exception: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
     A: Analyzer,
@@ -1598,7 +1598,7 @@ impl PerField {
 
     match field.invertable_type() {
       InvertableType::BINARY => {
-        self.invert_term(doc_id, field, first, context, aborting_exception)?;
+        self.invert_term(doc_id, field, first, context)?;
       },
       InvertableType::TokenStream => {
         self.invert_token_stream(
@@ -1626,7 +1626,7 @@ impl PerField {
     info_stream: &InfoStreamEnum,
     context: &mut IndexContext,
     has_hit_aborting_exception: &mut bool,
-    aborting_exception: &OnceLock<LuceneError>,
+    aborting_exception: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
     A: Analyzer,
@@ -1711,7 +1711,7 @@ impl PerField {
             // internal state of the terms hash is now
             // corrupt and should not be flushed to a
             // new segment:
-            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let add_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
               terms_hash_per_field.add_with_bytes_ref(
                 // use attribute_source's bytes_ref
                 None,
@@ -1720,45 +1720,37 @@ impl PerField {
                 attribute_source,
                 context,
               )
-            })) {
+            }));
+            match add_result {
               Ok(Ok(())) => {},
-              Ok(Err(e)) => match e {
-                LuceneError::MaxBytesLengthExceeded(e) => {
-                  let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
-                    LuceneError::illegal_state("BytesRef is None in attribute_source")
-                  })?;
-                  let mut prefix = [0u8; 30];
-                  let len = 30.min(bytes_ref.length);
-                  prefix[..len]
-                    .copy_from_slice(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len]);
-                  let mut ia = LuceneError::illegal_argument(format!(
-                    "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
-                    self.field_info.as_ref().unwrap().name,
-                    MAX_TERM_LENGTH,
-                    prefix,
-                    e
-                  ));
-                  ia.add_suppressed(e.into());
-                  return Err(ia);
-                },
-                other => {
-                  Self::on_aborting_exception(
-                    has_hit_aborting_exception,
-                    aborting_exception,
-                    other.clone(),
-                  );
-                  return Err(other);
-                },
+              Ok(Err(LuceneError::MaxBytesLengthExceeded(e))) => {
+                let bytes_ref = attribute_source.get_bytes_ref()?.ok_or_else(|| {
+                  LuceneError::illegal_state("BytesRef is None in attribute_source")
+                })?;
+                let mut prefix = [0u8; 30];
+                let len = 30.min(bytes_ref.length);
+                prefix[..len]
+                  .copy_from_slice(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len]);
+                let mut ia = LuceneError::illegal_argument(format!(
+                  "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
+                  self.field_info.as_ref().unwrap().name,
+                  MAX_TERM_LENGTH,
+                  prefix,
+                  e
+                ));
+                ia.add_suppressed(e.into());
+                return Err(ia);
               },
-              Err(e) => {
-                let tragedy =
-                  LuceneError::tragedy_from_panic("panic while adding term", e.as_ref());
+              add_result => {
+                let failure = add_result
+                  .clone_caught_failure("panic while adding term")
+                  .ok_or_else(|| LuceneError::illegal_state("term add result must have failed"))?;
                 Self::on_aborting_exception(
                   has_hit_aborting_exception,
                   aborting_exception,
-                  tragedy.clone(),
+                  failure,
                 );
-                return Err(tragedy);
+                return unwrap_caught_result!(add_result);
               },
             }
           }
@@ -1783,10 +1775,7 @@ impl PerField {
         &format!("exception in invert_token_stream for {}", field_name),
       )?;
     }
-    match result {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)?;
 
     if analyzed {
       let invert_state = self.invert_state.as_mut().unwrap();
@@ -1803,7 +1792,6 @@ impl PerField {
     field: &F,
     first: bool,
     context: &mut IndexContext,
-    aborting_exception: &OnceLock<LuceneError>,
   ) -> Result<()>
   where
     F: IndexableField,
@@ -1843,41 +1831,28 @@ impl PerField {
       },
     }
     let mut attribute_source = EmptyAttributeSource;
-    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      terms_hash_per_field.add_with_bytes_ref(
-        Some(binary_value.as_ref()),
-        doc_id,
-        state,
-        &mut attribute_source,
-        context,
-      )
-    })) {
-      Ok(Ok(())) => {},
-      Ok(Err(e)) => match e {
-        LuceneError::MaxBytesLengthExceeded(e) => {
-          let mut prefix = [0u8; 30];
+    match terms_hash_per_field.add_with_bytes_ref(
+      Some(binary_value.as_ref()),
+      doc_id,
+      state,
+      &mut attribute_source,
+      context,
+    ) {
+      Ok(()) => {},
+      Err(LuceneError::MaxBytesLengthExceeded(e)) => {
+        let mut prefix = [0u8; 30];
+        prefix.copy_from_slice(&binary_value.bytes[binary_value.offset..binary_value.offset + 30]);
+        let msg = format!(
+          "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
+          self.field_info.as_ref().unwrap().name,
+          MAX_TERM_LENGTH,
           prefix
-            .copy_from_slice(&binary_value.bytes[binary_value.offset..binary_value.offset + 30]);
-          let msg = format!(
-            "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
-            self.field_info.as_ref().unwrap().name,
-            MAX_TERM_LENGTH,
-            prefix
-          );
-          let mut ia = LuceneError::illegal_argument(msg);
-          ia.add_suppressed(e.into());
-          return Err(ia);
-        },
-        other => {
-          let _ = aborting_exception.set(other.clone());
-          return Err(other);
-        },
+        );
+        let mut ia = LuceneError::illegal_argument(msg);
+        ia.add_suppressed(e.into());
+        return Err(ia);
       },
-      Err(e) => {
-        let tragedy = LuceneError::tragedy_from_panic("panic while adding binary term", e.as_ref());
-        let _ = aborting_exception.set(tragedy.clone());
-        return Err(tragedy);
-      },
+      Err(error) => return Err(error),
     }
     Ok(())
   }

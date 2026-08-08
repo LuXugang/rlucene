@@ -396,10 +396,7 @@ impl TermVectorsConsumerDefaults {
         .ok_or_else(|| LuceneError::illegal_state("writer not initialized"))?
         .close();
       close_result?;
-      match finish_result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(finish_result)?;
     }
 
     Ok(())

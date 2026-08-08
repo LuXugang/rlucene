@@ -664,10 +664,7 @@ where
         reader.close()?;
       }
 
-      match result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(result)?;
       success = true;
       Ok(())
     }));
@@ -680,10 +677,7 @@ where
         &tracking_dir.get_created_files().lock().created_filenames,
       );
     }
-    match result {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)?;
     // Prune the now-written DV updates:
     let mut bytes_freed: i64 = 0;
     let mut empty_fields = Vec::new();

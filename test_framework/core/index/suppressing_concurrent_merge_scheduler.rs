@@ -17,7 +17,7 @@
 use crate::core::index::concurrent_merge_scheduler::{
   ConcurrentMergeScheduler, ConcurrentMergeSchedulerBase, ConcurrentMergeSchedulerDefaults,
 };
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 
 /** A `ConcurrentMergeScheduler` hook that ignores expected merge exceptions. */
 #[derive(Clone)]
@@ -62,12 +62,15 @@ impl ConcurrentMergeSchedulerBase for SuppressingConcurrentMergeScheduler {
   fn handle_merge_exception(
     &self,
     scheduler: &ConcurrentMergeScheduler,
-    error: LuceneError,
+    result: CaughtResult,
   ) -> Result<()> {
+    let error = result
+      .caught_failure("panic in merge thread")
+      .ok_or_else(|| LuceneError::illegal_argument("merge result must contain a failure"))?;
     if self.is_ok(&error) {
       Ok(())
     } else {
-      ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, error)
+      ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, result)
     }
   }
 }

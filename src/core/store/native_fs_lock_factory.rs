@@ -247,10 +247,7 @@ impl CloseableRef for NativeFSLock {
       let real_path_str = self.path.to_string_lossy().to_string();
       let locks = get_lock_held();
       locks.lock().remove(&real_path_str);
-      match result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(result)?;
     }
     Ok(())
   }

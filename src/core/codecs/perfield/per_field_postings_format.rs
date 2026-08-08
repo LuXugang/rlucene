@@ -342,10 +342,7 @@ where
         },
       }
 
-      match write_result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(write_result)?;
     }
     Ok(())
   }
@@ -392,10 +389,7 @@ where
         },
       }
 
-      match merge_result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(merge_result)?;
     }
     Ok(())
   }

@@ -17,7 +17,7 @@
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::{ReentrantMutex, RwLock};
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 const REFERENCE_MANAGER_IS_CLOSED_MSG: &str = "this ReferenceManager is closed";
@@ -175,10 +175,7 @@ where
     })();
     finally_result?;
 
-    match refresh_result {
-      Ok(result) => result?,
-      Err(payload) => resume_unwind(payload),
-    }
+    unwrap_caught_result!(refresh_result)?;
     self.base.after_maybe_refresh()
   }
 

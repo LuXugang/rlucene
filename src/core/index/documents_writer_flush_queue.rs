@@ -162,10 +162,7 @@ where
           self.dec_tickets();
           debug_assert!(polled == id);
         }
-        match result {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(result)?;
       } else {
         break;
       }

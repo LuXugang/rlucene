@@ -109,7 +109,8 @@ fn test_check_footer_valid() -> Result<()> {
 
   let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(input_data, "temp"));
   let mine = LuceneError::illegal_argument("fake exception");
-  let result = CodecUtil::check_footer_with_error(&mut input, mine);
+  let result =
+    CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   assert!(matches!(result, LuceneError::IllegalArgument(_)));
   assert!(result.to_string().contains("fake exception"));
   match result.get_suppressed()? {
@@ -136,7 +137,8 @@ fn test_check_footer_valid_at_footer() -> Result<()> {
   let read_data = input.read_string()?;
   assert_eq!(read_data, "this is the data");
   let mine = LuceneError::illegal_argument("fake exception");
-  let result = CodecUtil::check_footer_with_error(&mut input, mine);
+  let result =
+    CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   let err_message = result.to_string();
   assert!(err_message.contains("fake exception"));
   match result.get_suppressed()? {
@@ -167,7 +169,8 @@ fn test_check_footer_valid_past_footer() -> Result<()> {
   input.read_byte()?;
 
   let mine = LuceneError::illegal_argument("fake exception");
-  let result = CodecUtil::check_footer_with_error(&mut input, mine);
+  let result =
+    CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   let err_message = result.to_string();
   assert!(err_message.contains("checksum status indeterminate"));
   match result.get_suppressed()? {
@@ -195,7 +198,8 @@ fn test_check_footer_invalid() -> Result<()> {
   let read_data = input.read_string()?;
   assert_eq!(read_data, "this is the data");
   let mine = LuceneError::illegal_argument("fake exception");
-  let result = CodecUtil::check_footer_with_error(&mut input, mine);
+  let result =
+    CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   assert!(result.source().is_some());
   let err_message = result.to_string();
   assert!(err_message.contains("checksum failed"));

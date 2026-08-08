@@ -150,12 +150,14 @@ impl SuppressedFailure {
 pub(crate) trait CaughtResultExt {
   fn caught_failure(&self, panic_message: &str) -> Option<LuceneError>;
 
+  fn clone_caught_failure(&self, panic_message: &str) -> Option<CaughtResult>;
+
   fn caught_panic(&self, panic_message: &str) -> Option<LuceneError>;
 
-  fn add_suppressed(&mut self, suppressed: std::thread::Result<Result<()>>, panic_message: &str);
+  fn add_suppressed<T>(&mut self, suppressed: CaughtResult<T>, panic_message: &str);
 }
 
-impl<T> CaughtResultExt for std::thread::Result<Result<T>> {
+impl<T> CaughtResultExt for CaughtResult<T> {
   fn caught_failure(&self, panic_message: &str) -> Option<LuceneError> {
     match self {
       Ok(Ok(_)) => None,
@@ -164,6 +166,17 @@ impl<T> CaughtResultExt for std::thread::Result<Result<T>> {
         panic_message,
         payload.as_ref(),
       )),
+    }
+  }
+
+  fn clone_caught_failure(&self, panic_message: &str) -> Option<CaughtResult> {
+    match self {
+      Ok(Ok(_)) => None,
+      Ok(Err(error)) => Some(Ok(Err(error.clone()))),
+      Err(payload) => Some(Err(Box::new(LuceneError::tragedy_from_panic(
+        panic_message,
+        payload.as_ref(),
+      )))),
     }
   }
 
@@ -177,9 +190,9 @@ impl<T> CaughtResultExt for std::thread::Result<Result<T>> {
     }
   }
 
-  fn add_suppressed(&mut self, suppressed: std::thread::Result<Result<()>>, panic_message: &str) {
+  fn add_suppressed<U>(&mut self, suppressed: CaughtResult<U>, panic_message: &str) {
     let suppressed = match suppressed {
-      Ok(Ok(())) => return,
+      Ok(Ok(_)) => return,
       Ok(Err(error)) => SuppressedFailure::Exception(error),
       Err(payload) => SuppressedFailure::Panic(payload),
     };
@@ -717,3 +730,5 @@ impl LuceneError {
 }
 
 pub type Result<T> = core::result::Result<T, LuceneError>;
+
+pub type CaughtResult<T = ()> = std::thread::Result<Result<T>>;

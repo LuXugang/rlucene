@@ -108,49 +108,31 @@ where
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
 
     let mut meta = state.directory.open_checksum_input(&meta_file_name)?;
+    let mut version_meta = -1;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      let prior_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          version_meta = CodecUtil::check_index_header(
+            &mut meta,
+            META_CODEC_NAME,
+            VERSION_START,
+            VERSION_CURRENT,
+            segment_info.get_id(),
+            &state.segment_suffix,
+          )?;
 
-    let mut footer_attempted = false;
-    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i32> {
-      let result = (|| {
-        let version_meta = CodecUtil::check_index_header(
-          &mut meta,
-          META_CODEC_NAME,
-          VERSION_START,
-          VERSION_CURRENT,
-          segment_info.get_id(),
-          &state.segment_suffix,
-        )?;
-
-        Self::read_fields(&mut meta, &state.field_infos, fields)?;
-        Ok(version_meta)
-      })();
-      footer_attempted = true;
-      match result {
-        Ok(version_meta) => {
-          CodecUtil::check_footer(&mut meta)?;
-          Ok(version_meta)
-        },
-        Err(error) => Err(CodecUtil::check_footer_with_error(&mut meta, error)),
-      }
+          Self::read_fields(&mut meta, &state.field_infos, fields)?;
+          Ok(())
+        }));
+      let prior_result = match prior_result {
+        Ok(Ok(())) => None,
+        prior_result => Some(prior_result),
+      };
+      CodecUtil::check_footer_with_error(&mut meta, prior_result)
     }));
-
-    let footer_error = if let Err(payload) = &result
-      && !footer_attempted
-    {
-      let error = LuceneError::tragedy_from_panic(
-        "panic while reading flat vector metadata",
-        payload.as_ref(),
-      );
-      Some(CodecUtil::check_footer_with_error(&mut meta, error))
-    } else {
-      None
-    };
-    if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-      result = Ok(Err(error));
-    }
-
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| meta.close()));
-    IOUtils::use_or_suppress_caught_result(result, close_result)
+    IOUtils::use_or_suppress_caught_result(result, close_result)?;
+    Ok(version_meta)
   }
   fn open_data_input<D1, D2>(
     state: &SegmentReadState<D1>,

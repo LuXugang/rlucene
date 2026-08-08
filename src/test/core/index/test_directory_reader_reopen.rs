@@ -54,7 +54,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper,
@@ -505,7 +505,7 @@ impl<'scope> ReaderThread<'scope> {
     self.task.stop();
   }
 
-  fn join(self) -> std::thread::Result<Result<()>> {
+  fn join(self) -> CaughtResult {
     self.handle.join()
   }
 }

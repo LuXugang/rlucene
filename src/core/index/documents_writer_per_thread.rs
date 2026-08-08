@@ -48,7 +48,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
@@ -79,7 +79,7 @@ where
   num_deleted_doc_ids: i32,
   index_major_version_created: i32,
   files_to_delete: HashSet<String>,
-  aborting_exception: OnceLock<LuceneError>,
+  aborting_exception: OnceLock<CaughtResult>,
   pub(crate) state: Arc<State>,
   parent_field: Option<String>,
 }
@@ -158,11 +158,12 @@ impl<D> DocumentsWriterPerThread<D>
 where
   D: Directory,
 {
-  fn on_aborting_exception(&mut self, throwable: LuceneError) {
+  fn on_aborting_exception(&mut self, throwable: CaughtResult) {
     debug_assert!(
       self.aborting_exception.get().is_none(),
       "aborting exception has already been set"
     );
+    debug_assert!(!matches!(&throwable, Ok(Ok(()))));
     let _ = self.aborting_exception.set(throwable);
   }
   pub(crate) fn is_aborted(&self) -> bool {
@@ -402,10 +403,7 @@ where
             }
           }));
         num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-        match process_result {
-          Ok(process_result) => process_result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(process_result)?;
       }
 
       let num_docs = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
@@ -751,8 +749,10 @@ where
     ));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
       || -> Result<Option<FlushedSegment<D>>> {
-        if let Some(failure) = body_result.caught_failure("panic while flushing documents") {
-          self.on_aborting_exception(failure);
+        if let Some(throwable) =
+          body_result.clone_caught_failure("panic while handling an aborting flush exception")
+        {
+          self.on_aborting_exception(throwable);
         }
         unwrap_caught_result!(body_result)
       },
@@ -776,16 +776,19 @@ where
   where
     FN: FlushNotifications,
   {
-    match self.aborting_exception.get() {
-      Some(v) if !self.state.aborted.load(Ordering::SeqCst) => {
-        // if we are not already aborted, we can abort
-        let err = v.clone();
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.abort()));
-        flush_notifications.on_tragic_event(err, location, writer)?;
-        unwrap_caught_result!(result)
-      },
-      _ => Ok(()),
+    if self.aborting_exception.get().is_none() || self.state.aborted.load(Ordering::SeqCst) {
+      return Ok(());
     }
+    // if we are not already aborted, we can abort
+    let event = self
+      .aborting_exception
+      .get()
+      .ok_or_else(|| LuceneError::illegal_state("aborting exception must be present"))?
+      .clone_caught_failure("panic from an aborting exception")
+      .ok_or_else(|| LuceneError::illegal_state("aborting exception must contain a failure"))?;
+    let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.abort()));
+    flush_notifications.on_tragic_event(&event, location, writer)?;
+    unwrap_caught_result!(abort_result)
   }
   pub(crate) fn pending_files_to_delete(&self) -> &HashSet<String> {
     &self.files_to_delete

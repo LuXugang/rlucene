@@ -234,7 +234,7 @@ where
         prefetched_block_id_cache_index: 0,
         closed: AtomicBool::new(false),
       });
-      CodecUtil::check_footer(meta)?;
+      CodecUtil::check_footer_with_error::<()>(meta, None)?;
       meta.close()?;
       success = true;
       Ok(())
@@ -243,26 +243,12 @@ where
       result
     } else {
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-        match result {
-          Ok(Err(error)) => match meta_in.as_mut() {
-            Some(meta) => Err(CodecUtil::check_footer_with_error(meta, error)),
-            None => Err(error),
+        match meta_in.as_mut() {
+          Some(meta) => {
+            CodecUtil::check_footer_with_error(meta, Some(result))?;
+            panic!("unreachable");
           },
-          Err(payload) => {
-            if let Some(meta) = meta_in.as_mut() {
-              let error = LuceneError::tragedy_from_panic(
-                "panic while constructing stored fields reader",
-                payload.as_ref(),
-              );
-              if let error @ LuceneError::CorruptIndex(_) =
-                CodecUtil::check_footer_with_error(meta, error)
-              {
-                return Err(error);
-              }
-            }
-            std::panic::resume_unwind(payload)
-          },
-          Ok(Ok(())) => unreachable!(),
+          None => IOUtils::rethrow_always(result),
         }
       }));
       IOUtils::close_while_handling_exception((

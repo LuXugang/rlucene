@@ -400,10 +400,7 @@ where
     }));
     self.pausing.notify_all();
 
-    match stall_result {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    };
+    unwrap_caught_result!(stall_result)?;
     unwrap_caught_result!(result)
   }
   fn update_stall_state<L>(&self, inner: &mut Inner<D>, config: &L) -> Result<bool>
@@ -693,9 +690,7 @@ where
           }
         }));
         per_thread.unlock();
-        if let Err(payload) = result {
-          std::panic::resume_unwind(payload);
-        }
+        resume_caught_panic!(result);
       }
     }
   }
@@ -770,10 +765,7 @@ where
         Ok(())
       }));
       dwpt.unlock();
-      match result {
-        Ok(result) => result?,
-        Err(payload) => std::panic::resume_unwind(payload),
-      }
+      unwrap_caught_result!(result)?;
     }
 
     {
@@ -924,10 +916,7 @@ where
           }));
 
         self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config)?;
-        match abort_result {
-          Ok(_) => {},
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        resume_caught_panic!(abort_result);
       }
 
       let blocked_flushes = std::mem::take(&mut inner.blocked_flushes);
@@ -946,10 +935,7 @@ where
             Ok(())
           }));
         self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config)?;
-        match abort_result {
-          Ok(_) => {},
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        resume_caught_panic!(abort_result);
       }
 
       Ok(())

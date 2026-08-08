@@ -217,10 +217,7 @@ where
     if !success {
       IOUtils::delete_files_ignoring_exceptions(self.dir.as_ref(), std::iter::once(&file_name));
     }
-    match result {
-      Ok(result) => result?,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(result)?;
 
     self.dir.sync(std::slice::from_ref(&file_name))?;
 

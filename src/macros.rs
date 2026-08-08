@@ -29,3 +29,11 @@ macro_rules! unwrap_caught_result {
     }
   }};
 }
+
+macro_rules! resume_caught_panic {
+  ($result:expr) => {{
+    if let Err(payload) = $result {
+      std::panic::resume_unwind(payload);
+    }
+  }};
+}

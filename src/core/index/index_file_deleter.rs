@@ -20,7 +20,8 @@ use crate::core::index::index_writer::{IndexWriter, IndexWriterDir};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
-use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
+use crate::core::util::IOUtils;
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use std::cmp::Ordering;
@@ -313,7 +314,7 @@ where
 
     // First decref all files that had been referred to by
     // the now-deleted commits:
-    let mut first_failure: Option<std::thread::Result<Result<()>>> = None;
+    let mut first_failure: Option<CaughtResult> = None;
     for commit in removed {
       if self.info_stream.is_enabled("IFD") {
         self.info_stream.message(
@@ -342,7 +343,7 @@ where
     self.commits.retain(|commit| !commit.is_deleted());
 
     if let Some(first_failure) = first_failure {
-      unwrap_caught_result!(first_failure)?;
+      return IOUtils::rethrow_always(first_failure);
     }
     Ok(())
   }

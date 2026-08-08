@@ -39,7 +39,7 @@ use crate::core::util::bkd::point_reader::PointReader;
 use crate::core::util::bkd::point_value::PointValue;
 use crate::core::util::bkd::point_writer::{PointWriter, PointWriterEnum};
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -1282,11 +1282,11 @@ where
   /// Called on error, to check whether the checksum is also corrupt in
   /// this source, and add that information (checksum matched or didn't)
   /// as a suppressed error.
-  fn verify_checksum(
+  fn verify_checksum<T, R>(
     &self,
-    prior_exception: LuceneError,
+    prior_result: CaughtResult<T>,
     writer: &PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
-  ) -> Result<()> {
+  ) -> Result<R> {
     if let PointWriterEnum::Offline(writer) = writer {
       // We are reading from a temp file; go verify the checksum:
       if self
@@ -1298,16 +1298,16 @@ where
       {
         let mut input = self.temp_dir.open_checksum_input(&writer.name)?;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          Err(CodecUtil::check_footer_with_error(
-            &mut input,
-            prior_exception,
-          ))
+          CodecUtil::check_footer_with_error(&mut input, Some(prior_result))
         }));
         let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()));
-        return IOUtils::use_or_suppress_caught_result(result, close_result);
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          IOUtils::use_or_suppress_caught_result(result, close_result)
+        }));
+        return IOUtils::rethrow_always(result);
       }
     }
-    Err(prior_exception)
+    IOUtils::rethrow_always(prior_result)
   }
   /// Pick the next dimension to split.
   ///
@@ -1411,19 +1411,8 @@ where
       IOUtils::use_or_suppress_caught_result(body_result, close_result)
     }));
     source.take_data(reader.remove_points());
-    match result {
-      Ok(Ok(())) => {},
-      Ok(Err(error)) => return Err(self.verify_checksum(error, source).unwrap_err()),
-      Err(payload) => {
-        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          let error = LuceneError::tragedy_from_panic(
-            "panic while switching BKD points to heap",
-            payload.as_ref(),
-          );
-          self.verify_checksum(error, source)
-        }));
-        std::panic::resume_unwind(payload)
-      },
+    if !matches!(&result, Ok(Ok(()))) {
+      return self.verify_checksum(result, source);
     }
 
     Ok(PointWriterEnum::Heap(writer))

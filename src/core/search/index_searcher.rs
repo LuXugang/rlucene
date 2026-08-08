@@ -55,8 +55,8 @@ use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQuery
 use crate::core::search::weight::Weight;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{HasIdentity, TryIntoInt};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::{HasIdentity, IOUtils, TryIntoInt};
 #[cfg(test)]
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 #[cfg(test)]
@@ -607,7 +607,8 @@ where
     let mut ordered_collectors = std::iter::repeat_with(|| None)
       .take(leaf_slices.len())
       .collect::<Vec<Option<CM::C>>>();
-    let mut first_error = None;
+    #[allow(clippy::type_complexity)]
+    let mut first_failure: Option<CaughtResult<Vec<(usize, CM::C)>>> = None;
 
     let weight = weight.as_ref();
     std::thread::scope(|scope| {
@@ -637,22 +638,18 @@ where
               ordered_collectors[i] = Some(collector);
             }
           },
-          Ok(Err(e)) => {
-            if first_error.is_none() {
-              first_error = Some(e);
-            }
-          },
-          Err(_) => {
-            if first_error.is_none() {
-              first_error = Some(LuceneError::illegal_state("search thread panicked"));
-            }
+          failure => match first_failure.as_mut() {
+            Some(first_failure) => {
+              first_failure.add_suppressed(failure, "panic while executing a search task")
+            },
+            None => first_failure = Some(failure),
           },
         }
       }
     });
 
-    if let Some(e) = first_error {
-      return Err(e);
+    if let Some(first_failure) = first_failure {
+      return IOUtils::rethrow_always(first_failure);
     }
 
     collector_manager.reduce(

@@ -121,7 +121,7 @@ where
         } else {
           (-1, -1)
         };
-        CodecUtil::check_footer(meta_in)?;
+        CodecUtil::check_footer_with_error::<()>(meta_in, None)?;
       }
       Ok(())
     }));
@@ -134,26 +134,9 @@ where
       },
       result => {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          match result {
-            Ok(Err(error)) => match meta_in_opt.as_mut() {
-              Some(meta_in) => Err(CodecUtil::check_footer_with_error(meta_in, error)),
-              None => Err(error),
-            },
-            Err(payload) => {
-              if let Some(meta_in) = meta_in_opt.as_mut() {
-                let error = LuceneError::tragedy_from_panic(
-                  "panic while reading postings metadata",
-                  payload.as_ref(),
-                );
-                if let error @ LuceneError::CorruptIndex(_) =
-                  CodecUtil::check_footer_with_error(meta_in, error)
-                {
-                  return Err(error);
-                }
-              }
-              std::panic::resume_unwind(payload)
-            },
-            Ok(Ok(())) => unreachable!(),
+          match meta_in_opt.as_mut() {
+            Some(meta_in) => CodecUtil::check_footer_with_error(meta_in, Some(result)),
+            None => unwrap_caught_result!(result),
           }
         }));
         IOUtils::close_while_handling_exception(meta_in_opt.as_ref());

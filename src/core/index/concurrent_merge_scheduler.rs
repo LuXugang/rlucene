@@ -34,7 +34,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::rate_limited_directory::RateLimitedDirectory;
 use crate::core::store::rate_limiter::RateLimiter;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_stream};
 #[cfg(test)]
 use crate::test_framework::core::index::suppressing_concurrent_merge_scheduler::SuppressingConcurrentMergeScheduler;
@@ -247,9 +247,9 @@ pub(crate) trait ConcurrentMergeSchedulerBase {
   fn handle_merge_exception(
     &self,
     scheduler: &ConcurrentMergeScheduler,
-    exc: LuceneError,
+    result: CaughtResult,
   ) -> Result<()> {
-    ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, exc)
+    ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, result)
   }
 
   fn target_mb_per_sec_changed(&self, scheduler: &ConcurrentMergeScheduler) {
@@ -562,38 +562,38 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   fn handle_merge_exception(
     &self,
     scheduler: &ConcurrentMergeScheduler,
-    exc: LuceneError,
+    result: CaughtResult,
   ) -> Result<()> {
     match self {
-      Self::Default => ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, exc),
+      Self::Default => ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::MaxMergeCount(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::MaxMergeCount(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::Tracking(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::Tracking(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::LiveMaxMergeCount(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::LiveMaxMergeCount(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::MaybeStallCalled(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::MaybeStallCalled(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::HangDuringRollback(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::HangDuringRollback(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::NoStallMergeThreads(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::NoStallMergeThreads(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::MergeThreadMessages(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::MergeThreadMessages(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::CloseWhileMergeIsRunning(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::CloseWhileMergeIsRunning(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::Suppressing(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::Suppressing(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::TestIndexFileDeleter(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::TestIndexFileDeleter(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::MergeDvUpdateFileOnGetReader(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::MergeDvUpdateFileOnCommit(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::StalledMerges(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::StalledMerges(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
-      Self::LuceneTestCaseAlwaysProceed(hook) => hook.handle_merge_exception(scheduler, exc),
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.handle_merge_exception(scheduler, result),
     }
   }
 
@@ -1411,24 +1411,17 @@ where
 
     let merge_aborted = merge_stat.is_aborted();
 
-    let merge_result = match merge_result {
-      Ok(result) => result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "panic in merge thread",
-        payload.as_ref(),
-      )),
-    };
-    if let Err(exc) = merge_result {
+    if !matches!(&merge_result, Ok(Ok(()))) {
       let mut inner = merge_scheduler.inner.lock();
       ConcurrentMergeScheduler::remove_merge_thread(&mut inner);
       merge_scheduler.update_merge_threads(&mut inner)?;
       merge_scheduler.changed.notify_all();
       drop(inner);
-      if matches!(exc, LuceneError::MergeAborted(_)) || merge_aborted {
+      if matches!(&merge_result, Ok(Err(LuceneError::MergeAborted(_)))) || merge_aborted {
         // OK to ignore.
         Ok(())
       } else if !merge_scheduler.inner.lock().suppress_exceptions {
-        merge_scheduler.handle_merge_exception(exc)
+        merge_scheduler.handle_merge_exception(merge_result)
       } else {
         Ok(())
       }
@@ -1480,8 +1473,8 @@ where
 
 impl ConcurrentMergeScheduler {
   /** Called when an exception is hit in a background merge thread. */
-  fn handle_merge_exception(&self, exc: LuceneError) -> Result<()> {
-    self.hook.handle_merge_exception(self, exc)
+  fn handle_merge_exception(&self, result: CaughtResult) -> Result<()> {
+    self.hook.handle_merge_exception(self, result)
   }
 
   /** Used for testing */
@@ -1498,10 +1491,14 @@ impl ConcurrentMergeScheduler {
 impl ConcurrentMergeSchedulerDefaults {
   pub(crate) fn handle_merge_exception(
     _scheduler: &ConcurrentMergeScheduler,
-    exc: LuceneError,
+    result: CaughtResult,
   ) -> Result<()> {
-    let mut merge_error = crate::core::util::error::MergeError::new(format!("merge failed: {exc}"));
-    merge_error.add_suppressed(exc);
+    let failure = result
+      .caught_failure("panic in merge thread")
+      .ok_or_else(|| LuceneError::illegal_argument("merge result must contain a failure"))?;
+    let mut merge_error =
+      crate::core::util::error::MergeError::new(format!("merge failed: {failure}"));
+    merge_error.add_suppressed(failure);
     Err(LuceneError::Merge(merge_error))
   }
 }

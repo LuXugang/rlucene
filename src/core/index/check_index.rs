@@ -92,8 +92,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::LuceneError;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{CaughtResult, LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::iterator::IteratorExt;
 use crate::core::util::long_bit_set::LongBitSet;
@@ -636,8 +635,10 @@ where
         SegmentInfos::read_commit_with_file_min_version(Arc::clone(&self.dir), &file_name, 0)
       }));
       let read_result = match read_result {
+        result @ (Ok(Err(_)) | Err(_)) if self.fail_fast => {
+          return IOUtils::rethrow_always(result);
+        },
         Ok(read_result) => read_result,
-        Err(payload) if self.fail_fast => panic::resume_unwind(payload),
         Err(payload) => Err(LuceneError::tragedy_from_panic(
           &format!("could not read commit point from segments file {file_name}"),
           payload.as_ref(),
@@ -650,9 +651,6 @@ where
           }
         },
         Err(error) => {
-          if self.fail_fast {
-            return Err(error);
-          }
           let commit_kind = if is_last_commit {
             "latest commit point"
           } else {
@@ -869,7 +867,7 @@ where
               }
 
               let mut output = Vec::new();
-              let segment_result = match panic::catch_unwind(AssertUnwindSafe(|| {
+              let segment_result = panic::catch_unwind(AssertUnwindSafe(|| {
                 (|| -> Result<SegmentInfoStatus> {
                   Self::msg(
                     Some(&mut output),
@@ -890,14 +888,8 @@ where
                     Some(&mut output),
                   )
                 })()
-              })) {
-                Ok(segment_result) => segment_result,
-                Err(payload) => Err(LuceneError::tragedy_from_panic(
-                  &format!("Segment {} check failed", info.info.name),
-                  payload.as_ref(),
-                )),
-              };
-              if fail_fast && segment_result.is_err() {
+              }));
+              if fail_fast && !matches!(&segment_result, Ok(Ok(_))) {
                 cancelled.store(true, AtomicOrdering::Relaxed);
               }
               if sender.send((index, output, segment_result)).is_err() {
@@ -908,7 +900,7 @@ where
         }
         drop(sender);
 
-        let mut segment_results: Vec<Option<(Vec<u8>, Result<SegmentInfoStatus>)>> =
+        let mut segment_results: Vec<Option<(Vec<u8>, CaughtResult<SegmentInfoStatus>)>> =
           (0..segment_commit_infos.len()).map(|_| None).collect();
         let mut index = 0;
         while index < segment_commit_infos.len() {
@@ -939,11 +931,23 @@ where
           // print segment results in order
           Self::msg_bytes(self.info_stream.as_mut(), &output)?;
           let segment_info_status = match segment_result {
-            Ok(segment_info_status) => segment_info_status,
-            Err(error) => {
+            Ok(Ok(segment_info_status)) => segment_info_status,
+            result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+              return IOUtils::rethrow_always(result);
+            },
+            Ok(Err(error)) => {
               let mut check_index_error =
                 LuceneError::corrupt_index(format!("Segment {} check failed.", info.info.name));
               check_index_error.add_suppressed(error);
+              return Err(check_index_error);
+            },
+            Err(payload) => {
+              let mut check_index_error =
+                LuceneError::corrupt_index(format!("Segment {} check failed.", info.info.name));
+              check_index_error.add_suppressed(LuceneError::tragedy_from_panic(
+                &format!("Segment {} check failed", info.info.name),
+                payload.as_ref(),
+              ));
               return Err(check_index_error);
             },
           };
@@ -953,10 +957,8 @@ where
 
         for handle in handles {
           if let Err(payload) = handle.join() {
-            return Err(LuceneError::tragedy_from_panic(
-              "CheckIndex segment worker failed",
-              payload.as_ref(),
-            ));
+            let result: CaughtResult = Err(payload);
+            return IOUtils::rethrow_always(result);
           }
         }
         Ok(())
@@ -1405,8 +1407,10 @@ where
 
     let result = panic::catch_unwind(AssertUnwindSafe(|| -> Result<SegmentInfoStatus> {
       let body_result = match body_result {
+        result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+          return IOUtils::rethrow_always(result);
+        },
         Ok(body_result) => body_result,
-        Err(payload) if fail_fast => panic::resume_unwind(payload),
         Err(payload) => Err(LuceneError::tragedy_from_panic(
           "CheckIndex segment check failed",
           payload.as_ref(),
@@ -1415,7 +1419,6 @@ where
 
       match body_result {
         Ok(()) => Ok(segment_status),
-        Err(error) if fail_fast => Err(error),
         Err(error) => {
           let error_debug = format!("{error:?}");
           segment_status.error = Some(error);
@@ -1532,17 +1535,16 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     }));
 
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex index sort test failed",
         payload.as_ref(),
       )),
     };
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -1614,8 +1616,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex live docs test failed",
         payload.as_ref(),
@@ -1623,9 +1627,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     };
 
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -1670,8 +1671,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex field infos test failed",
         payload.as_ref(),
@@ -1679,9 +1682,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     };
 
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -1746,8 +1746,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     }));
 
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex field norms test failed",
         payload.as_ref(),
@@ -1755,9 +1757,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     };
 
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{}]", error))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -2886,8 +2885,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     }));
 
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex postings test failed",
         payload.as_ref(),
@@ -2896,7 +2897,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
     match check_result {
       Ok(status) => Ok(status),
-      Err(error) if fail_fast => Err(error),
       Err(error) => {
         Self::msg(info_stream.as_deref_mut(), &format!("ERROR: {error}"))?;
         if let Some(info_stream) = info_stream {
@@ -3010,8 +3010,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex points test failed",
         payload.as_ref(),
@@ -3019,9 +3021,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     };
 
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR: {error}"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -3109,17 +3108,16 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     }));
 
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex vectors test failed",
         payload.as_ref(),
       )),
     };
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR: {error}"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -3676,8 +3674,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     }));
 
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex stored fields test failed",
         payload.as_ref(),
@@ -3685,9 +3685,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     };
 
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -3755,8 +3752,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     }));
 
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex docvalues test failed",
         payload.as_ref(),
@@ -3764,9 +3763,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     };
 
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -4662,8 +4658,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     }));
 
     let check_result = match check_result {
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+        return IOUtils::rethrow_always(result);
+      },
       Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
       Err(payload) => Err(LuceneError::tragedy_from_panic(
         "CheckIndex term vectors test failed",
         payload.as_ref(),
@@ -4671,9 +4669,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     };
 
     if let Err(error) = check_result {
-      if fail_fast {
-        return Err(error);
-      }
       Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
@@ -5129,7 +5124,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     if let Some(info_stream) = info_stream.as_deref_mut() {
       write!(info_stream, "    test: check soft deletes.....")?;
     }
-    let check_result = panic::catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+    let check_result = (|| -> Result<()> {
       let mut soft_deleted_docs = get_doc_values_doc_id_set_iterator(soft_deletes_field, reader)?;
       let live_docs = reader.get_live_docs()?;
       let soft_deletes = count_soft_deletes(soft_deleted_docs.as_mut(), live_docs.as_ref())?;
@@ -5140,15 +5135,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         )));
       }
       Ok(())
-    }));
-    let check_result = match check_result {
-      Ok(check_result) => check_result,
-      Err(payload) if fail_fast => panic::resume_unwind(payload),
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex soft deletes test failed",
-        payload.as_ref(),
-      )),
-    };
+    })();
     if let Err(error) = check_result {
       if fail_fast {
         return Err(error);

@@ -219,20 +219,11 @@ where
               }
               Ok(())
             }));
-          match body_result {
-            Ok(Ok(())) => CodecUtil::check_footer(&mut docs_in).map(|_| ()),
-            Ok(Err(error)) => Err(CodecUtil::check_footer_with_error(&mut docs_in, error)),
-            Err(payload) => {
-              let error = LuceneError::tragedy_from_panic(
-                "panic while reading stored fields docs index",
-                payload.as_ref(),
-              );
-              match CodecUtil::check_footer_with_error(&mut docs_in, error) {
-                error @ LuceneError::CorruptIndex(_) => Err(error),
-                _ => std::panic::resume_unwind(payload),
-              }
-            },
-          }
+          let prior_result = match body_result {
+            Ok(Ok(())) => None,
+            body_result => Some(body_result),
+          };
+          CodecUtil::check_footer_with_error(&mut docs_in, prior_result)
         }));
         let close_result =
           std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| docs_in.close()));
@@ -273,23 +264,11 @@ where
               file_pointers.finish()?;
               Ok(())
             }));
-          match body_result {
-            Ok(Ok(())) => CodecUtil::check_footer(&mut file_pointers_in).map(|_| ()),
-            Ok(Err(error)) => Err(CodecUtil::check_footer_with_error(
-              &mut file_pointers_in,
-              error,
-            )),
-            Err(payload) => {
-              let error = LuceneError::tragedy_from_panic(
-                "panic while reading stored fields file pointers",
-                payload.as_ref(),
-              );
-              match CodecUtil::check_footer_with_error(&mut file_pointers_in, error) {
-                error @ LuceneError::CorruptIndex(_) => Err(error),
-                _ => std::panic::resume_unwind(payload),
-              }
-            },
-          }
+          let prior_result = match body_result {
+            Ok(Ok(())) => None,
+            body_result => Some(body_result),
+          };
+          CodecUtil::check_footer_with_error(&mut file_pointers_in, prior_result)
         }));
         let close_result =
           std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| file_pointers_in.close()));

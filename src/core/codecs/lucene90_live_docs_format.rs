@@ -122,50 +122,40 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     debug_assert!(name.is_some());
     let name_str = name.as_ref().unwrap();
     let mut input = directory.open_checksum_input(name_str)?;
-    let mut footer_attempted = false;
-    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      let result = (|| {
-        CodecUtil::check_index_header(
-          &mut input,
-          Lucene90LiveDocsFormat::CODEC_NAME,
-          Lucene90LiveDocsFormat::VERSION_START,
-          Lucene90LiveDocsFormat::VERSION_CURRENT,
-          info.info.get_id(),
-          &BigInt::from(gen_).to_str_radix(36).to_string(),
-        )?;
+    let mut bits = None;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      let prior_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          CodecUtil::check_index_header(
+            &mut input,
+            Lucene90LiveDocsFormat::CODEC_NAME,
+            Lucene90LiveDocsFormat::VERSION_START,
+            Lucene90LiveDocsFormat::VERSION_CURRENT,
+            info.info.get_id(),
+            &BigInt::from(gen_).to_str_radix(36).to_string(),
+          )?;
 
-        let fbs = Self::read_fixed_bit_set(&mut input, length)?;
+          let fbs = Self::read_fixed_bit_set(&mut input, length)?;
 
-        if fbs.length() - fbs.cardinality() != info.get_del_count().try_convert()? {
-          return Err(LuceneError::corrupt_index(format!(
-            "bits.deleted={} info.delcount={}",
-            fbs.length() - fbs.cardinality(),
-            info.get_del_count()
-          )));
-        }
-        Ok(fbs.to_read_only_bits())
-      })();
-      footer_attempted = true;
-      match result {
-        Ok(value) => {
-          CodecUtil::check_footer(&mut input)?;
-          Ok(value)
-        },
-        Err(error) => Err(CodecUtil::check_footer_with_error(&mut input, error)),
-      }
+          if fbs.length() - fbs.cardinality() != info.get_del_count().try_convert()? {
+            return Err(LuceneError::corrupt_index(format!(
+              "bits.deleted={} info.delcount={}",
+              fbs.length() - fbs.cardinality(),
+              info.get_del_count()
+            )));
+          }
+          bits = Some(fbs.to_read_only_bits());
+          Ok(())
+        }));
+      let prior_result = match prior_result {
+        Ok(Ok(())) => None,
+        prior_result => Some(prior_result),
+      };
+      CodecUtil::check_footer_with_error(&mut input, prior_result)?;
+      bits.take().ok_or_else(|| {
+        LuceneError::illegal_state("live docs are missing after successful construction")
+      })
     }));
-    let footer_error = if let Err(payload) = &result
-      && !footer_attempted
-    {
-      let error =
-        LuceneError::tragedy_from_panic("panic while reading live docs", payload.as_ref());
-      Some(CodecUtil::check_footer_with_error(&mut input, error))
-    } else {
-      None
-    };
-    if let Some(error @ LuceneError::CorruptIndex(_)) = footer_error {
-      result = Ok(Err(error));
-    }
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| input.close()));
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }

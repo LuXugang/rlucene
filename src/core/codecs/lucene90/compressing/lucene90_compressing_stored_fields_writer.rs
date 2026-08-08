@@ -524,10 +524,7 @@ where
       })
     }));
     self.closed = true;
-    match close_result {
-      Ok(result) => result,
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(close_result)
   }
 }
 

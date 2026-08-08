@@ -22,8 +22,8 @@ use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{DataInput, IndexOutput};
-use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{StringHelper, TryIntoInt};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::{IOUtils, StringHelper, TryIntoInt};
 
 /// Utility struct for reading and writing versioned headers.
 ///
@@ -508,27 +508,37 @@ impl CodecUtil {
   /// [`write_footer`](CodecUtil::write_footer), optionally handling
   /// an unexpected error that has already occurred.
   ///
-  /// When a `prior_exception` is provided, this method will add a suppressed
-  /// error indicating whether the checksum for the stream passes,
-  /// fails, or cannot be computed, and return it. Otherwise, it behaves
-  /// the same as [`check_footer`](CodecUtil::check_footer).
+  /// When a failed `prior_result` is provided, this method adds a suppressed
+  /// error indicating whether the checksum for the stream passes, fails, or
+  /// cannot be computed, then returns the original error or resumes the
+  /// original panic. Otherwise, it behaves like
+  /// [`check_footer`](CodecUtil::check_footer).
   ///
   /// # Parameters
   /// - `input`: The input stream to validate.
-  /// - `prior_exception`: An optional previously occurred error to
-  ///   handle.
+  /// - `prior_result`: An optional caught result containing a previously
+  ///   occurred error or panic.
   ///
   /// # Errors
   /// - `IoError`: If the footer is invalid, the checksum does not match, or
   ///   the input is not properly positioned before the footer at the end of
   ///   the stream.
-  /// - `prior_error`: If a prior error is provided and returned after
-  ///   adding supplemental information.
-  pub fn check_footer_with_error(
+  /// - `prior_result`: If a prior failure is provided, it is propagated after
+  ///   adding supplemental information unless footer corruption replaces it.
+  pub fn check_footer_with_error<T>(
     checksum_in: &mut impl ChecksumIndexInput,
-    mut prior_error: LuceneError,
-  ) -> LuceneError {
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+    prior_result: Option<CaughtResult<T>>,
+  ) -> Result<()> {
+    let Some(mut prior_result) = prior_result else {
+      return Self::check_footer(checksum_in).map(|_| ());
+    };
+    if matches!(&prior_result, Ok(Ok(_))) {
+      return Err(LuceneError::illegal_argument(
+        "prior result must contain an error or panic",
+      ));
+    }
+
+    let footer_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       // If we have evidence of corruption, then we return the corruption as
       // the main error and the prior error gets suppressed.
       // Otherwise, we return the prior error with a suppressed
@@ -537,9 +547,9 @@ impl CodecUtil {
       if remaining < Self::footer_length() {
         // corruption caused us to read into the checksum footer already: we
         // can't proceed
-        return Err(LuceneError::corrupt_index(format!(
-          "checksum status indeterminate: remaining={remaining}, ; please run check index for more details: {checksum_in} "
-        )));
+        Err(LuceneError::corrupt_index(format!(
+          "checksum status indeterminate: remaining={remaining}; please run checkindex for more details: {checksum_in}"
+        )))
       } else {
         // otherwise, skip any unread bytes.
         DataInput::skip_bytes(
@@ -548,40 +558,44 @@ impl CodecUtil {
         )?;
         // now check the footer
         let checksum = Self::check_footer(checksum_in)?;
-        if !matches!(prior_error, LuceneError::IndexFormatTooOld(_)) {
-          let suppressed = LuceneError::corrupt_index(format!(
-            "checksum passed ({checksum}). possibly transient resource issue, or a Lucene bug"
-          ));
-          prior_error.add_suppressed(suppressed);
+        if !matches!(&prior_result, Ok(Err(LuceneError::IndexFormatTooOld(_)))) {
+          // If the index format is too old and no corruption, do not add a
+          // checksums-matching message since this may tend to unnecessarily
+          // alarm people who see "Lucene bug" in their logs.
+          prior_result.add_suppressed::<()>(
+              Ok(Err(LuceneError::corrupt_index(format!(
+                "checksum passed ({checksum:x}). possibly transient resource issue, or a Lucene bug: {checksum_in}"
+              )))),
+              "panic while recording a successful footer check",
+            );
         }
+        Ok(())
       }
-      Ok(())
     }));
-    match result {
-      Ok(Ok(())) => prior_error,
-      Ok(Err(mut t)) => {
-        if matches!(t, LuceneError::CorruptIndex(_)) {
-          t.add_suppressed(prior_error);
-          t
-        } else {
-          let suppressed = LuceneError::corrupt_index(format!(
-            "checksum status indeterminate: unexpected exception: {}",
-            checksum_in,
-          ));
-          prior_error.add_suppressed(suppressed);
-          prior_error
+    match footer_result {
+      Ok(Ok(())) => IOUtils::rethrow_always(prior_result),
+      Ok(Err(mut error)) if matches!(&error, LuceneError::CorruptIndex(_)) => {
+        if let Some(prior_error) =
+          prior_result.caught_failure("panic before checking the codec footer")
+        {
+          error.add_suppressed(prior_error);
         }
+        Err(error)
       },
-      Err(payload) => {
+      footer_result => {
         let mut suppressed = LuceneError::corrupt_index(format!(
           "checksum status indeterminate: unexpected exception: {checksum_in}"
         ));
-        suppressed.add_suppressed(LuceneError::tragedy_from_panic(
-          "panic while checking footer",
-          payload.as_ref(),
-        ));
-        prior_error.add_suppressed(suppressed);
-        prior_error
+        if let Some(footer_error) =
+          footer_result.caught_failure("panic while checking the codec footer")
+        {
+          suppressed.add_suppressed(footer_error);
+        }
+        prior_result.add_suppressed::<()>(
+          Ok(Err(suppressed)),
+          "panic while recording an indeterminate footer check",
+        );
+        IOUtils::rethrow_always(prior_result)
       },
     }
   }
