@@ -154,6 +154,7 @@ fn test_ace_with_threads() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust slices cannot be null read destinations"]
 fn test_null_params_index_input() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
@@ -174,6 +175,7 @@ fn test_with_normal() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: confined Java MemorySegment access has no Rust mmap equivalent"]
 fn test_confined() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

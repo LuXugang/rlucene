@@ -21,8 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 struct TestFilterWeight;
 
 #[test]
+#[ignore = "Java-only: method override declarations are inspected through Java reflection"]
 fn test_declared_methods_overridden() -> Result<()> {
-  // Java verifies method overrides with reflection. Rust trait implementations are checked
-  // statically and do not expose the corresponding runtime reflection API.
   test_not_required_in_rust_lucene!();
 }

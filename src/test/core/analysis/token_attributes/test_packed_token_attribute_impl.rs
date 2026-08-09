@@ -52,10 +52,12 @@ fn test_copy_to() -> Result<()> {
   Ok(())
 }
 #[test]
+#[ignore = "Java-only: Rust token attributes use static enum/trait dispatch, not AttributeFactory class lookup"]
 fn test_packed_token_attribute_factory() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 #[test]
+#[ignore = "Java-only: AttributeImpl reflection is replaced by statically dispatched Rust traits"]
 fn test_attribute_reflection() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

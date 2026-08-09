@@ -429,7 +429,8 @@ fn test_match_all_must_not() -> Result<()> {
   Ok(())
 }
 
-// TODO IMPORTANT  栈溢出 测试未通过
+#[test]
+#[ignore = "known bug: deeply nested SHOULD-clause rewrite currently overflows the Rust stack"]
 fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
   let mut random = random();
 
@@ -488,7 +489,8 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
 
   Ok(())
 }
-// TODO IMPORTANT  栈溢出 测试未通过
+#[test]
+#[ignore = "known bug: deeply nested BooleanQuery rewrite currently overflows the Rust stack"]
 fn test_deeply_nested_boolean_rewrite() -> Result<()> {
   let mut random = random();
 

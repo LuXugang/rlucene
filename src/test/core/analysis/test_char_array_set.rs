@@ -143,10 +143,9 @@ fn test_supplementary_chars() {
   }
 }
 #[test]
+#[ignore = "Java-only: Rust strings cannot contain isolated UTF-16 surrogate code units"]
 fn test_single_high_surrogate() -> Result<()> {
-  // TODO: Rust strings contain Unicode scalar values and cannot represent the isolated UTF-16 high
-  // surrogates exercised by this Java test.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]
@@ -286,17 +285,16 @@ fn test_copy_char_array_set() {
 
 /// Tests copying a JDK `Set` source.
 #[test]
+#[ignore = "Java-only: Rust has no JDK Set implementation or Java collection-copy overload"]
 fn test_copy_jdk_set() -> Result<()> {
-  // TODO: CharArraySet has no generic collection-copy API corresponding to Java's copy(Set).
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 /// Tests the special case of copying `CharArraySet::EMPTY_SET`.
 #[test]
+#[ignore = "Java-only: Rust exposes an owned empty value instead of Java's shared EMPTY_SET singleton"]
 fn test_copy_empty_set() -> Result<()> {
-  // TODO: Rust's CharArraySet::empty_set returns an owned value and has no shared EMPTY_SET
-  // singleton whose identity can be checked.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 /// Smoke-tests the static empty set.
@@ -316,9 +314,9 @@ fn test_empty_set() {
 
 /// Tests null handling.
 #[test]
+#[ignore = "Java-only: Rust references cannot represent Java null arguments"]
 fn test_contains_with_null() -> Result<()> {
-  // TODO: Rust references cannot be null, so the Java null-overload behavior cannot be exercised.
-  Ok(())
+  test_not_required_in_rust_lucene!();
 }
 
 #[test]

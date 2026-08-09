@@ -24,11 +24,13 @@ use std::hash::{Hash, Hasher};
 struct TestXYLine;
 
 #[test]
+#[ignore = "Java-only: Rust coordinate vectors cannot be null"]
 fn test_line_null_xs() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust coordinate vectors cannot be null"]
 fn test_polygon_null_ys() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

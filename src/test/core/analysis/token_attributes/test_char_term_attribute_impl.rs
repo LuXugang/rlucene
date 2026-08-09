@@ -45,7 +45,8 @@ fn test_resize() -> Result<()> {
   Ok(())
 }
 #[test]
-fn test_set_length_oob() -> Result<()> {
+#[ignore = "Java-only: Rust uses usize for lengths, so a negative length cannot be supplied"]
+fn test_set_length() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 #[test]
@@ -141,6 +142,7 @@ fn test_copy_to() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: AttributeImpl reflection is replaced by statically dispatched Rust traits"]
 fn test_attribute_reflection() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
@@ -174,11 +176,85 @@ fn test_char_sequence_interface() -> Result<()> {
 }
 #[test]
 fn test_appendable_interface() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let mut t = CharTermAttributeImpl::new().unwrap();
+  let formatted = format!("{}", 1234);
+  t.append_str(Some(&formatted))?;
+  assert_eq!("1234", t.to_string());
+  let formatted = format!("{}", 5678);
+  t.append_str(Some(&formatted))?;
+  assert_eq!("12345678", t.to_string());
+  t.append_char('9')?;
+  assert_eq!("123456789", t.to_string());
+  t.append_str(Some("0"))?;
+  assert_eq!("1234567890", t.to_string());
+  t.append_range(Some("0123456789"), 1, 3)?;
+  assert_eq!("123456789012", t.to_string());
+  t.append_range(Some("0123456789"), 3, 5)?;
+  assert_eq!("12345678901234", t.to_string());
+  let sequence = t.to_string();
+  t.append_str(Some(&sequence))?;
+  assert_eq!("1234567890123412345678901234", t.to_string());
+  t.append_range(Some("0123456789"), 5, 7)?;
+  assert_eq!("123456789012341234567890123456", t.to_string());
+  let sequence = t.to_string();
+  t.append_str(Some(&sequence))?;
+  assert_eq!(
+    "123456789012341234567890123456123456789012341234567890123456",
+    t.to_string()
+  );
+  // Very weird, to test whether a subslice is handled correctly. :)
+  let buf = "34567";
+  assert_eq!("34567", buf);
+  t.set_empty().append_range(Some(buf), 1, 2)?;
+  assert_eq!("4", t.to_string());
+  let mut t2 = CharTermAttributeImpl::new().unwrap();
+  t2.append_str(Some("test"))?;
+  t.append_term_attribute(Some(&mut t2))?;
+  assert_eq!("4test", t.to_string());
+  let t2_sequence = t2.to_string();
+  t.append_range(Some(&t2_sequence), 1, 2)?;
+  assert_eq!("4teste", t.to_string());
+
+  assert!(matches!(
+    t.append_range(Some(&t2_sequence), 1, 5),
+    Err(LuceneError::ArrayIndexOutOfBounds(_))
+  ));
+
+  assert!(matches!(
+    t.append_range(Some(&t2_sequence), 1, 0),
+    Err(LuceneError::ArrayIndexOutOfBounds(_))
+  ));
+
+  t.append_str(None)?;
+  assert_eq!("4testenull", t.to_string());
+  Ok(())
 }
 #[test]
 fn test_appendable_interface_with_longsequences() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let mut t = CharTermAttributeImpl::new().unwrap();
+  let sequence = "01234567890123456789012345678901234567890123456789";
+  t.append_str(Some(sequence))?;
+  t.append_range(Some(sequence), 3, 50)?;
+  assert_eq!(
+    "0123456789012345678901234567890123456789012345678934567890123456789012345678901234567890123456789",
+    t.to_string()
+  );
+  let sequence = String::from("01234567890123456789");
+  t.set_empty().append_range(Some(&sequence), 5, 17)?;
+  assert_eq!("567890123456", t.to_string());
+  let sequence = t.to_string();
+  t.append_str(Some(&sequence))?;
+  assert_eq!("567890123456567890123456", t.to_string());
+  // Very weird, to test whether a subslice is handled correctly. :)
+  let buf = "345678901234567";
+  assert_eq!("345678901234567", buf);
+  t.set_empty().append_range(Some(buf), 1, 14)?;
+  assert_eq!("4567890123456", t.to_string());
+
+  let long_test_string = String::from("012345678901234567890123456789");
+  t.append_str(Some(&long_test_string))?;
+  assert_eq!("4567890123456012345678901234567890123456789", t.to_string());
+  Ok(())
 }
 #[test]
 fn test_non_char_sequence_append() -> Result<()> {

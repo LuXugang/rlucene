@@ -195,6 +195,7 @@ fn test_clear_document() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Document::get_fields returns an immutable Rust slice by type"]
 fn test_get_fields_immutable() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

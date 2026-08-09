@@ -287,7 +287,7 @@ fn test_equals() -> Result<()> {
   assert_ne!(a1, a5);
 
   // Java also checks a1.equals(null), but a Rust Query cannot be null.
-  test_not_required_in_rust_lucene!();
+  Ok(())
 }
 #[test]
 fn test_rewrite_single_term() -> Result<()> {

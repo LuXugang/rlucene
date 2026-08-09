@@ -34,6 +34,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::LATEST;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper::{DocHelper, TEXT_FIELD_2_KEY};
@@ -58,6 +59,13 @@ where
   DocHelper::setup_doc(&mut document);
   let info = DocHelper::write_doc(random, dir.clone(), document.clone())?;
   Ok((dir, document, info))
+}
+#[test]
+fn test() -> Result<()> {
+  let mut random = random();
+  let (dir, _test_doc, _info) = set_up(&mut random)?;
+  dir.close()?;
+  Ok(())
 }
 #[test]
 fn test_term_docs() -> Result<()> {

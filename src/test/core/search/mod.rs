@@ -132,6 +132,7 @@ pub(crate) mod test_sort_random;
 mod test_sorted_numeric_sort_field;
 mod test_sorted_set_selector;
 mod test_sorted_set_sort_field;
+mod test_synonym_query;
 mod test_term_in_set_query;
 mod test_term_query;
 mod test_term_range_query;

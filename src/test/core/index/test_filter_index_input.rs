@@ -24,8 +24,8 @@ fn test_raw_filter_index_input_read() -> Result<()> {
 }
 
 #[test]
+#[ignore = ""]
 fn test_overrides() -> Result<()> {
-  // Java uses reflection to verify that every public method is overridden.
   test_not_required_in_rust_lucene!();
 }
 

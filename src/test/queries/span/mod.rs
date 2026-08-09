@@ -16,3 +16,4 @@
  */
 
 mod test_basics;
+mod test_filter_spans;

@@ -136,10 +136,12 @@ fn test_illegal_bits_per_block_range() {
   assert!(o.is_err());
 }
 #[test]
+#[ignore = "Java-only: Rust allocator callbacks cannot be null references"]
 fn test_null_allocator() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 #[test]
+#[ignore = "Java-only: Rust recycler callbacks cannot be null references"]
 fn test_null_recycler() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
@@ -175,6 +177,7 @@ fn test_sanity() -> Result<()> {
   Ok(())
 }
 #[test]
+#[ignore = "Java-only: Rust has no java.nio.ByteBuffer position/limit write overload"]
 fn test_write_byte_buffer() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
@@ -260,10 +263,12 @@ fn test_copy_bytes_on_direct_byte_buffer() -> Result<()> {
   Ok(())
 }
 #[test]
+#[ignore = "Java-only: Rust exposes immutable buffer borrows through the type system"]
 fn test_to_buffer_list_returns_read_only_buffers() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 #[test]
+#[ignore = "Java-only: Rust exposes writable buffer borrows through a distinct mutable API"]
 fn test_to_writeable_buffer_list_returns_original_buffers() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

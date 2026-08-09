@@ -112,6 +112,17 @@ impl SynonymQuery {
   pub fn get_field(&self) -> &str {
     &self.field
   }
+
+  /// Merge impacts for multiple synonyms.
+  pub(crate) fn merge_impacts<IE>(
+    impacts_enums: Vec<IE>,
+    boosts: Vec<f32>,
+  ) -> SynonymImpactsSource<IE>
+  where
+    IE: ImpactsEnum,
+  {
+    SynonymImpactsSource::new(impacts_enums, boosts)
+  }
 }
 
 impl PartialEq for SynonymQuery {
@@ -648,7 +659,7 @@ impl Impacts for OwnedImpacts {
   }
 }
 
-struct SynonymImpactsSource<IE>
+pub(crate) struct SynonymImpactsSource<IE>
 where
   IE: ImpactsEnum,
 {
@@ -771,7 +782,7 @@ where
 
 impl<IE> ImpactsEnum for SynonymImpactsSource<IE> where IE: ImpactsEnum {}
 
-struct SynonymImpacts {
+pub(crate) struct SynonymImpacts {
   impacts: Vec<OwnedImpacts>,
   doc_ids: Vec<i32>,
   boosts: Vec<f32>,
@@ -1460,37 +1471,28 @@ where
     let norms = context.reader().get_norm_values(&self.query.field)?;
 
     if iterators.len() == 1 {
-      todo!()
-      // let iterator = iterators.pop().unwrap();
-      // let impact = impacts.into_iter().next().unwrap();
-      // let boost = term_boosts.pop().unwrap();
-      // return if self.score_mode == ScoreMode::CompleteNoScores {
-      //   let scorer = if self.score_mode == ScoreMode::TopScores {
-      //     TermScorer::from_impacts(impact, sim_weight.clone(), norms, false)
-      //   } else {
-      //     TermScorer::from_postings(iterator, sim_weight.clone(), norms)
-      //   };
-      //   let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::C(scorer);
-      //   Ok(Box::new(scorer))
-      // } else if boost == 1.0 {
-      //   let scorer = if self.score_mode == ScoreMode::TopScores {
-      //     TermScorer::from_impacts(impact, sim_weight.clone(), norms, false)
-      //   } else {
-      //     TermScorer::from_postings(iterator, sim_weight.clone(), norms)
-      //   };
-      //   let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::C(scorer);
-      //   Ok(Box::new(scorer))
-      // } else {
-      //   let scorer = if self.score_mode == ScoreMode::TopScores {
-      //     TermScorer::from_impacts(impact, sim_weight.clone(), None, false)
-      //   } else {
-      //     TermScorer::from_postings(iterator, sim_weight.clone(), None)
-      //   };
-      //   let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::B(
-      //     FreqBoostTermScorer::new(boost, scorer, sim_weight.clone(), norms)?,
-      //   );
-      //   Ok(Box::new(scorer))
-      // };
+      let iterator = iterators.into_iter().next().unwrap();
+      let impact = impacts.into_iter().next().unwrap();
+      let boost = term_boosts.into_iter().next().unwrap();
+      return if self.score_mode == ScoreMode::CompleteNoScores || boost == 1.0 {
+        let scorer = if self.score_mode == ScoreMode::TopScores {
+          TermScorer::from_impacts(impact, sim_weight.clone(), norms, false)
+        } else {
+          TermScorer::from_postings(iterator, sim_weight.clone(), norms)
+        };
+        let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::C(scorer);
+        Ok(Box::new(scorer))
+      } else {
+        let scorer = if self.score_mode == ScoreMode::TopScores {
+          TermScorer::from_impacts(impact, sim_weight.clone(), None, false)
+        } else {
+          TermScorer::from_postings(iterator, sim_weight.clone(), None)
+        };
+        let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::B(
+          FreqBoostTermScorer::new(boost, scorer, sim_weight.clone(), norms)?,
+        );
+        Ok(Box::new(scorer))
+      };
     }
 
     // We use termscorers + disjunction as an implementation detail.
@@ -1514,7 +1516,7 @@ where
     // Even though it is called approximation, it is accurate since none of
     // the sub iterators are two-phase iterators.
     let iterator = DisjunctionDISIApproximation::new(queue, wrappers);
-    let impacts_source = SynonymImpactsSource::new(impacts, term_boosts);
+    let impacts_source = SynonymQuery::merge_impacts(impacts, term_boosts);
     let max_score_cache = MaxScoreCache::new(impacts_source, sim_weight.clone());
     let impacts_disi = ImpactsDISI::new(iterator, max_score_cache, true);
 

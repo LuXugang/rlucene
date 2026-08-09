@@ -66,6 +66,7 @@ pub(crate) mod test_index_writer_force_merge;
 pub mod test_index_writer_merge_policy;
 pub mod test_index_writer_merging;
 pub mod test_index_writer_reader;
+pub(crate) mod test_one_merge_wrapping_merge_policy;
 pub mod test_pending_soft_deletes;
 pub mod test_segment_reader;
 pub(crate) mod test_segment_to_thread_mapping;

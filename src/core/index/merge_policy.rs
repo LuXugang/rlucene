@@ -71,6 +71,8 @@ use crate::test_framework::core::index::test_index_writer_merge_policy::{
   ForceMergeDvUpdateMergePolicy, ForceMergeDvUpdateOneMerge, SetDiagnosticsMergePolicy,
   SetMergePolicyDiagnosticsOneMerge,
 };
+#[cfg(test)]
+use crate::test_framework::core::index::test_one_merge_wrapping_merge_policy::PredeterminedMergePolicy;
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -472,6 +474,8 @@ where
   LogBytesSize(LogMergePolicy<LogByteSizeMergePolicy>),
   #[cfg(test)]
   Alcoholic(LogMergePolicy<AlcoholicMergePolicy>),
+  #[cfg(test)]
+  Predetermined(PredeterminedMergePolicy<D>),
   OneMergeWrapping(OneMergeWrappingMergePolicy<D>),
   SoftDeletesRetention(SoftDeletesRetentionMergePolicy<D>),
   Upgrade(UpgradeIndexMergePolicy<D>),
@@ -514,6 +518,8 @@ where
       Self::LogBytesSize(mp) => Self::LogBytesSize(mp.clone()),
       #[cfg(test)]
       Self::Alcoholic(mp) => Self::Alcoholic(mp.clone()),
+      #[cfg(test)]
+      Self::Predetermined(mp) => Self::Predetermined(mp.clone()),
       Self::OneMergeWrapping(mp) => Self::OneMergeWrapping(mp.clone()),
       Self::SoftDeletesRetention(mp) => Self::SoftDeletesRetention(mp.clone()),
       Self::Upgrade(mp) => Self::Upgrade(mp.clone()),
@@ -670,6 +676,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => write!(f, "{}", mp),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => write!(f, "{}", mp),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => write!(f, "{}", mp),
       MergePolicyEnum::OneMergeWrapping(mp) => write!(f, "{}", mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => write!(f, "{}", mp),
       MergePolicyEnum::Upgrade(mp) => write!(f, "{}", mp),
@@ -714,6 +722,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::get_base(mp),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => MergePolicy::<D>::get_base(mp),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::get_base(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::get_base(mp),
@@ -753,6 +763,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::get_base_mut(mp),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => MergePolicy::<D>::get_base_mut(mp),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::get_base_mut(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::get_base_mut(mp),
@@ -807,6 +819,10 @@ where
       },
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => {
+        mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => {
         mp.find_merges(merge_trigger, segment_infos, inner, merge_context)
       },
       MergePolicyEnum::OneMergeWrapping(mp) => {
@@ -883,6 +899,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.find_merges_readers(readers),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.find_merges_readers(readers),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.find_merges_readers(readers),
       MergePolicyEnum::Upgrade(mp) => mp.find_merges_readers(readers),
@@ -956,6 +974,14 @@ where
       ),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.find_forced_merges(
+        segment_infos,
+        max_segment_count,
+        segments_to_merge,
+        inner,
+        merge_context,
+      ),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.find_forced_merges(
         segment_infos,
         max_segment_count,
         segments_to_merge,
@@ -1113,6 +1139,10 @@ where
       MergePolicyEnum::Alcoholic(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => {
+        mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
+      },
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.find_forced_deletes_merges(segment_infos, inner, merge_context)
       },
@@ -1203,6 +1233,10 @@ where
       MergePolicyEnum::Alcoholic(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => {
+        mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
+      },
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.find_full_flush_merges(merge_trigger, segment_infos, inner, merge_context)
       },
@@ -1282,6 +1316,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.use_compound_file(infos, merged_info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.use_compound_file(infos, merged_info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.use_compound_file(infos, merged_info, merge_context)
       },
@@ -1342,6 +1378,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.size(info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.size(info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.size(info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.size(info, merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.size(info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.size(info, merge_context),
@@ -1381,6 +1419,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::OneMergeWrapping(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::SoftDeletesRetention(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
       MergePolicyEnum::Upgrade(mp) => MergePolicy::<D>::max_full_flush_merge_size(mp),
@@ -1432,6 +1472,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.has_merged(infos, info, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.has_merged(infos, info, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.has_merged(infos, info, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.has_merged(infos, info, merge_context),
@@ -1474,6 +1516,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.keep_fully_deleted_segment(reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.keep_fully_deleted_segment(reader_supplier),
       MergePolicyEnum::Upgrade(mp) => mp.keep_fully_deleted_segment(reader_supplier),
@@ -1527,6 +1571,10 @@ where
       },
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.num_deletes_to_merge(info, del_count, reader_supplier),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => {
+        mp.num_deletes_to_merge(info, del_count, reader_supplier)
+      },
       MergePolicyEnum::OneMergeWrapping(mp) => {
         mp.num_deletes_to_merge(info, del_count, reader_supplier)
       },
@@ -1589,6 +1637,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.seg_string(merge_context, infos),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.seg_string(merge_context, infos),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.seg_string(merge_context, infos),
       MergePolicyEnum::Upgrade(mp) => mp.seg_string(merge_context, infos),
@@ -1631,6 +1681,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.message(message, merge_context),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.message(message, merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.message(message, merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.message(message, merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.message(message, merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.message(message, merge_context),
@@ -1673,6 +1725,8 @@ where
       MergePolicyEnum::LogBytesSize(mp) => mp.verbose(merge_context),
       #[cfg(test)]
       MergePolicyEnum::Alcoholic(mp) => mp.verbose(merge_context),
+      #[cfg(test)]
+      MergePolicyEnum::Predetermined(mp) => mp.verbose(merge_context),
       MergePolicyEnum::OneMergeWrapping(mp) => mp.verbose(merge_context),
       MergePolicyEnum::SoftDeletesRetention(mp) => mp.verbose(merge_context),
       MergePolicyEnum::Upgrade(mp) => mp.verbose(merge_context),

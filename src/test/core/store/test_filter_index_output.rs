@@ -25,6 +25,7 @@ fn test_randomized_writes() -> Result<()> {
 }
 
 #[test]
+#[ignore = ""]
 fn test_overrides() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

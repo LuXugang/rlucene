@@ -60,6 +60,7 @@ fn assert_copy_is_equal(att: &BytesTermAttributeImpl) -> Result<BytesTermAttribu
 }
 
 #[test]
+#[ignore = "Java-only: reflection over directly declared interfaces has no Rust equivalent"]
 fn test_lucene9856() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

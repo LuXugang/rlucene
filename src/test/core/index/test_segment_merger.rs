@@ -42,6 +42,7 @@ use crate::core::store::merge_info::MergeInfo;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::InfoStreamEnum;
@@ -59,6 +60,12 @@ use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
 struct TestSegmentMerger;
+
+#[test]
+#[ignore = ""]
+fn test() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}
 
 #[test]
 fn test_merge() -> Result<()> {

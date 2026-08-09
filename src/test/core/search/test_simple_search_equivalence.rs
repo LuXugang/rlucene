@@ -20,7 +20,6 @@ use crate::core::search::boost_query::BoostQuery;
 use crate::core::search::disjunction_max_query::DisjunctionMaxQuery;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::{Builder as PhraseQueryBuilder, PhraseQuery};
-use crate::core::search::synonym_query::Builder as SynonymQueryBuilder;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::asserting_query::AssertingQuery;
@@ -324,21 +323,7 @@ fn test_boolean_boost_propagation() -> Result<()> {
 #[test]
 #[ignore = "SynonymQuery has a known bug"]
 fn test_boolean_or_vs_synonym() -> Result<()> {
-  // TODO IMPORTANT SynonymQuery未实现
-  // let mut random = random();
-  // let case = TestSimpleSearchEquivalence::new(&mut random);
-  //
-  // let t1 = case.random_term(&mut random);
-  // let t2 = case.random_term(&mut random);
-  // assert_eq!(t1.field(), t2.field());
-  //
-  // let mut q1 = SynonymQueryBuilder::new(t1.field());
-  // q1.add_term(t1.clone())?.add_term(t2.clone())?;
-  //
-  // let mut q2 = BooleanQueryBuilder::new();
-  // q2.add(TermQuery::new(t1), Occur::Should)?;
-  // q2.add(TermQuery::new(t2), Occur::Should)?;
-  //
-  // case.assert_same_set(&mut random, &q1.build().into(), &q2.build().into())
-  Ok(())
+  // TODO IMPORTANT: SynonymQuery currently has a known bug, so this equivalence test cannot be
+  // converted yet.
+  test_not_required_in_rust_lucene!();
 }

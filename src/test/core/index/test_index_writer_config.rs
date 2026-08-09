@@ -92,20 +92,20 @@ fn test_defaults() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: setter bridge methods and return types are inspected through reflection"]
 fn test_setters_chaining() -> Result<()> {
-  // Java uses reflection to inspect synthetic and overridden setter return types.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust transfers IndexWriterConfig ownership into IndexWriter"]
 fn test_reuse() -> Result<()> {
-  // Rust transfers ownership of IndexWriterConfig into IndexWriter, so reuse cannot compile.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: subclass getter declarations are inspected through reflection"]
 fn test_override_getters() -> Result<()> {
-  // Java uses reflection to verify getter overrides on a subclass.
   test_not_required_in_rust_lucene!();
 }
 
@@ -122,8 +122,8 @@ fn test_constants() {
 }
 
 #[test]
+#[ignore = "Java-only: private Java fields are enumerated through reflection"]
 fn test_to_string() -> Result<()> {
-  // Java reflects over private fields and checks that their names occur in toString().
   test_not_required_in_rust_lucene!();
 }
 

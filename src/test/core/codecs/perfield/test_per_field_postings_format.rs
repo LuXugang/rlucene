@@ -121,9 +121,8 @@ mod base_postings_format_test_case_tests {
   }
 
   #[test]
+  #[ignore = "MockRandom postings randomizes content on the fly"]
   fn test_postings_enum_reuse() -> Result<()> {
-    // The Java test explicitly skips this method because MockRandom postings randomizes content on
-    // the fly.
     test_not_required_in_rust_lucene!();
   }
 
@@ -219,9 +218,8 @@ mod base_index_file_format_test_case_test {
   use super::*;
 
   #[test]
+  #[ignore = "MockRandom postings randomizes content on the fly"]
   fn test_merge_stability() -> Result<()> {
-    // The Java test explicitly skips this method because MockRandom postings randomizes content on
-    // the fly.
     test_not_required_in_rust_lucene!();
   }
 

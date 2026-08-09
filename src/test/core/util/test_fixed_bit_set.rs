@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::util::HasIdentity;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
@@ -35,6 +37,27 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::rc::Rc;
 
 pub struct TestFixedBitSet;
+
+struct CopyBits {
+  bits: FixedBitSet,
+  id: Identity,
+}
+
+impl HasIdentity for CopyBits {
+  fn identity(&self) -> &Identity {
+    &self.id
+  }
+}
+
+impl Bits for CopyBits {
+  fn get(&self, index: usize) -> Result<bool> {
+    self.bits.get(index)
+  }
+
+  fn length(&self) -> usize {
+    self.bits.length()
+  }
+}
 fn run_case<F>(f: F) -> crate::core::util::error::lucene_error::Result<()>
 where
   F: FnOnce(&mut TestFixedBitSet, &mut StdRng) -> Result<()>,
@@ -751,7 +774,29 @@ fn test_and_not_count() -> Result<()> {
 
 #[test]
 fn test_copy_of() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let mut random = random();
+  let num_bits = random.random_range(1000..=2000);
+  let count = random.random_range(0..num_bits);
+  let bits = make_int_array(&mut random, count, 0, num_bits - 1);
+  let mut fixed_bit_set = FixedBitSet::new(num_bits);
+  for bit in bits {
+    fixed_bit_set.set(bit);
+  }
+
+  let mutable_copy = fixed_bit_set.copy_of()?;
+  assert_eq!(fixed_bit_set, mutable_copy);
+
+  let read_only = fixed_bit_set.clone().to_read_only_bits();
+  let mutable_copy = read_only.copy_of()?;
+  assert_eq!(fixed_bit_set, mutable_copy);
+
+  let bits_to_copy = CopyBits {
+    bits: fixed_bit_set.clone(),
+    id: Identity::new(),
+  };
+  let mutable_copy = bits_to_copy.copy_of()?;
+  assert_eq!(fixed_bit_set, mutable_copy);
+  Ok(())
 }
 
 #[test]

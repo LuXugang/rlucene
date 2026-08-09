@@ -909,6 +909,29 @@ fn test_paged_mutable() -> Result<()> {
   Ok(())
 }
 
+// memory hole
+#[test]
+#[ignore = "memory hole"]
+fn test_paged_growable_writer_overflow() -> Result<()> {
+  let mut random = random();
+  let size = TestUtil::next_long(&mut random, 2 * i32::MAX as i64, 3 * i32::MAX as i64);
+  let page_size = 1 << TestUtil::next_int(&mut random, 16, 30);
+  let sub_reader = PagedGrowableWriter::with_fill_page(1, random.random::<f32>());
+  let mut writer = AbstractPagedMutable::new(size.try_convert()?, page_size, sub_reader)?;
+  let index = TestUtil::next_long(&mut random, i32::MAX as i64, size - 1);
+  writer.set(index.try_convert()?, 2);
+  assert_eq!(2, writer.get(index.try_convert()?)?);
+  for _ in 0..1_000_000 {
+    let idx = TestUtil::next_long(&mut random, 0, size);
+    if idx == index {
+      assert_eq!(2, writer.get(idx.try_convert()?)?);
+    } else {
+      assert_eq!(0, writer.get(idx.try_convert()?)?);
+    }
+  }
+  Ok(())
+}
+
 #[test]
 fn test_encode_decode() -> Result<()> {
   let mut random = random();

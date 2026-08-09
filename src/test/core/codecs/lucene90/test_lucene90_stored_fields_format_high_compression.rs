@@ -115,6 +115,7 @@ fn test_mixed_compressions() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust codec constructors cannot receive null enum options"]
 fn test_invalid_options() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

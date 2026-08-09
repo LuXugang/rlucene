@@ -20,6 +20,8 @@ use crate::core::analysis::char_filter::CharFilter;
 use crate::test_framework::core::analysis::char_filter::{CharFilter1, CharFilter2};
 #[cfg(test)]
 use crate::test_framework::core::analysis::mock_char_filter::MockCharFilter;
+#[cfg(test)]
+use crate::test_framework::core::analysis::standard::test_standard_analyzer::SpoonFeedMaxCharsReaderWrapper;
 
 use crate::core::analysis::reusable_string_reader::ReusableStringReader;
 use crate::core::analysis::tokenizer::IllegalStateReader;
@@ -55,6 +57,8 @@ pub enum ReaderEnum {
   CharFilter2(CharFilter2),
   #[cfg(test)]
   MockCharFilter(MockCharFilter),
+  #[cfg(test)]
+  SpoonFeedMaxCharsReaderWrapper(SpoonFeedMaxCharsReaderWrapper),
 }
 // for std::mem::take
 impl Default for ReaderEnum {
@@ -88,6 +92,8 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter2(r) => r.read(),
       #[cfg(test)]
       ReaderEnum::MockCharFilter(r) => r.read(),
+      #[cfg(test)]
+      ReaderEnum::SpoonFeedMaxCharsReaderWrapper(r) => r.read(),
     }
   }
 
@@ -102,6 +108,8 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter2(r) => r.read_buf(cbuf),
       #[cfg(test)]
       ReaderEnum::MockCharFilter(r) => r.read_buf(cbuf),
+      #[cfg(test)]
+      ReaderEnum::SpoonFeedMaxCharsReaderWrapper(r) => r.read_buf(cbuf),
     }
   }
 
@@ -116,6 +124,8 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter2(r) => r.read_range(buf, off, len),
       #[cfg(test)]
       ReaderEnum::MockCharFilter(r) => r.read_range(buf, off, len),
+      #[cfg(test)]
+      ReaderEnum::SpoonFeedMaxCharsReaderWrapper(r) => r.read_range(buf, off, len),
     }
   }
 
@@ -130,6 +140,8 @@ impl Reader for ReaderEnum {
       ReaderEnum::CharFilter2(r) => CharFilter::close(r),
       #[cfg(test)]
       ReaderEnum::MockCharFilter(r) => CharFilter::close(r),
+      #[cfg(test)]
+      ReaderEnum::SpoonFeedMaxCharsReaderWrapper(r) => r.close(),
     }
   }
 }

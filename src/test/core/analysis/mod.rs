@@ -23,5 +23,7 @@ pub(crate) mod token_attributes;
 mod test_char_array_map;
 mod test_char_array_set;
 pub(crate) mod test_char_filter;
+mod test_mock_analyzer;
+mod test_mock_char_filter;
 mod test_reusable_string_reader;
 mod test_stop_filter;

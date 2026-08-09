@@ -291,6 +291,7 @@ fn test_too_large() {
   );
 }
 #[test]
+#[ignore = "Java-only: Rust represents bit-set lengths as usize, so a negative length cannot be supplied"]
 fn test_negative_num_bits() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

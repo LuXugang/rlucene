@@ -73,8 +73,9 @@ mod base_geo_point_test_case_tests {
   }
 
   #[test]
+  #[ignore = "Java-only: Rust query field parameters are non-null string references"]
   fn test_box_null() -> Result<()> {
-    run_case(|case, _random| case.test_box_null())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]
@@ -88,8 +89,9 @@ mod base_geo_point_test_case_tests {
   }
 
   #[test]
+  #[ignore = "Java-only: Rust query field parameters are non-null string references"]
   fn test_distance_null() -> Result<()> {
-    run_case(|case, _random| case.test_distance_null())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]
@@ -133,8 +135,9 @@ mod base_geo_point_test_case_tests {
   }
 
   #[test]
+  #[ignore = "Java-only: Rust query field parameters are non-null string references"]
   fn test_polygon_null_field() -> Result<()> {
-    run_case(|case, _random| case.test_polygon_null_field())
+    test_not_required_in_rust_lucene!();
   }
 
   #[test]

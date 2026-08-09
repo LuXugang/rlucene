@@ -54,8 +54,9 @@ mod base_xy_point_test_case_tests {
     run_case(|case, random| case.test_box_basics(random))
   }
   #[test]
+  #[ignore = "Java-only: Rust query field parameters are non-null string references"]
   fn test_box_null() -> Result<()> {
-    run_case(|case, _random| case.test_box_null())
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_box_invalid_coordinates() -> Result<()> {
@@ -66,8 +67,9 @@ mod base_xy_point_test_case_tests {
     run_case(|case, _random| case.test_distance_basics(_random))
   }
   #[test]
+  #[ignore = "Java-only: Rust query field parameters are non-null string references"]
   fn test_distance_null() -> Result<()> {
-    run_case(|case, _random| case.test_distance_null())
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_distance_illegal() -> Result<()> {
@@ -102,8 +104,9 @@ mod base_xy_point_test_case_tests {
     run_case(|case, random| case.test_multi_polygon_basics(random))
   }
   #[test]
+  #[ignore = "Java-only: Rust query field parameters are non-null string references"]
   fn test_polygon_null_field() -> Result<()> {
-    run_case(|case, _random| case.test_polygon_null_field())
+    test_not_required_in_rust_lucene!();
   }
   #[test]
   fn test_same_point_many_times() -> Result<()> {

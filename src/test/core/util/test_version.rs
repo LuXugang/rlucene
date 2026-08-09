@@ -203,6 +203,7 @@ fn check_parse_error(input: &str) {
   );
 }
 #[test]
+#[ignore = "Java-only: Deprecated annotations on static fields are inspected through Java reflection"]
 fn test_deprecations() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

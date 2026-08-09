@@ -92,6 +92,7 @@ fn test_collection() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust collector-manager slices cannot contain null references"]
 fn test_null_collector_managers() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

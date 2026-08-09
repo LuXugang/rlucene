@@ -27,4 +27,5 @@ pub mod mock_payload_analyzer;
 pub mod mock_token_filter;
 pub mod mock_tokenizer;
 pub mod mock_variable_length_payload_filter;
+pub mod standard;
 pub mod token;

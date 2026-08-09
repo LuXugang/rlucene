@@ -894,10 +894,12 @@ fn test_random_phrases() -> Result<()> {
   Ok(())
 }
 #[test]
+#[ignore = "Java-only: Rust represents phrase slop as usize, so a negative slop cannot be supplied"]
 fn test_negative_slop() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 #[test]
+#[ignore = "Java-only: Rust represents phrase positions as usize, so a negative position cannot be supplied"]
 fn test_negative_position() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
@@ -1337,6 +1339,7 @@ fn test_random_top_docs() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust Term values and references cannot be null"]
 fn test_null_term() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

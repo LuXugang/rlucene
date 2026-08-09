@@ -65,7 +65,7 @@ impl<T: TimSorterBase> TimSorter<T> {
       delegate,
     }
   }
-  fn min_run(&self, length: usize) -> usize {
+  pub(crate) fn min_run(length: usize) -> usize {
     debug_assert!(length >= MIN_RUN);
     let mut n = length;
     let mut r = 0;
@@ -162,7 +162,7 @@ impl<T: TimSorterBase> TimSorter<T> {
     self.min_run = if length <= THRESHOLD {
       length
     } else {
-      self.min_run(length)
+      Self::min_run(length)
     };
   }
 

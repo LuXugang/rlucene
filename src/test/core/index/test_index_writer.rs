@@ -632,8 +632,8 @@ fn test_bad_segment() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust's standard thread API has no thread-priority equivalent"]
 fn test_max_thread_priority() -> Result<()> {
-  // Rust's standard thread API has no Java Thread priority equivalent.
   test_not_required_in_rust_lucene!();
 }
 
@@ -1049,8 +1049,8 @@ fn test_deadlock() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust threads have no interrupt flag or InterruptedException semantics"]
 fn test_thread_interrupt_deadlock() -> Result<()> {
-  // Rust threads do not expose Java's interrupt flag and InterruptedException semantics.
   test_not_required_in_rust_lucene!();
 }
 
@@ -2424,20 +2424,20 @@ fn test_get_commit_data_from_old_snapshot() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust IndexWriterConfig requires a concrete analyzer"]
 fn test_null_analyzer() -> Result<()> {
-  // IndexWriterConfig requires a concrete analyzer and cannot represent Java null.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust IndexWriter::add_document requires a concrete Document"]
 fn test_null_document() -> Result<()> {
-  // IndexWriter::add_document requires a concrete Document and cannot represent Java null.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust document iterators cannot yield Java null Documents"]
 fn test_null_documents() -> Result<()> {
-  // Rust's document collection cannot contain Java null elements.
   test_not_required_in_rust_lucene!();
 }
 

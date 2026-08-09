@@ -29,6 +29,7 @@ struct TestRateLimiter;
 
 // LUCENE-6075
 #[test]
+#[ignore = "Java-only: Rust threads have no interrupt flag or InterruptedException semantics"]
 fn test_overflow_int() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

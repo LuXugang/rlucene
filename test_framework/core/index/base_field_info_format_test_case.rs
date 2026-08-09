@@ -119,7 +119,8 @@ pub trait BaseFieldInfoFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    test_not_required_in_rust_lucene!();
+    // The concrete Rust entry is ignored because attributes are exposed as an immutable borrow.
+    Ok(())
   }
 
   /// Test field infos write that hits exception immediately on open. make sure we get our exception

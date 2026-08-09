@@ -2352,50 +2352,38 @@ fn test_update_docs_non_aborting_exception() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust stored string fields cannot contain null"]
 fn test_null_stored_field() -> Result<()> {
-  // TODO: This Java test passes a null String to StoredField and checks that the per-document
-  // IllegalArgumentException is non-tragic. Rust's StoredField::from_string accepts a non-null
-  // Into<String>; FieldDataEnum has no null string value, so the invalid state is rejected by the
-  // type system and cannot be sent through IndexWriter. Convert only if the field API gains an
-  // explicit nullable test-only input that reaches the same validation boundary.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust stored string setters cannot accept null"]
 fn test_null_stored_field_reuse() -> Result<()> {
-  // TODO: Java reuses a valid StoredField and calls setStringValue(null). Rust's
-  // set_string_value accepts a non-null Into<String>, so the invalid reused-field state cannot be
-  // represented. A fabricated unrelated error would not test the Java behavior.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust stored byte fields cannot contain null arrays"]
 fn test_null_stored_bytes_field() -> Result<()> {
-  // TODO: Java constructs StoredField with a null byte[] and expects a non-tragic
-  // NullPointerException. Rust requires an owned Vec<u8>/BytesRef value and has no null binary
-  // FieldDataEnum variant, so this input is unrepresentable at the IndexWriter boundary.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust stored byte-field setters cannot accept null arrays"]
 fn test_null_stored_bytes_field_reuse() -> Result<()> {
-  // TODO: Java calls setBytesValue(null byte[]) on a reused StoredField. Rust's binary setter
-  // requires a concrete BytesRef and cannot retain a null value for IndexWriter to validate.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust stored BytesRef fields cannot contain null"]
 fn test_null_stored_bytes_ref_field() -> Result<()> {
-  // TODO: Java constructs StoredField with a null BytesRef and verifies that the document-level
-  // IllegalArgumentException does not become tragic. Rust requires a concrete BytesRef and cannot
-  // represent this invalid field value.
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust stored BytesRef setters cannot accept null"]
 fn test_null_stored_bytes_ref_field_reuse() -> Result<()> {
-  // TODO: Java reuses StoredField and calls setBytesValue(null BytesRef). Rust's setter accepts a
-  // concrete BytesRef only, so the null reuse state cannot be exercised without changing the API.
   test_not_required_in_rust_lucene!();
 }
 

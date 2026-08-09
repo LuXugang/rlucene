@@ -237,7 +237,8 @@ pub trait BaseGeoPointTestCase {
 
   /// Null field name not allowed.
   fn test_box_null(&self) -> Result<()> {
-    test_not_required_in_rust_lucene!();
+    // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
+    Ok(())
   }
 
   /// Box should not accept invalid lat/lon.
@@ -287,7 +288,8 @@ pub trait BaseGeoPointTestCase {
 
   /// Null field name not allowed.
   fn test_distance_null(&self) -> Result<()> {
-    test_not_required_in_rust_lucene!();
+    // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
+    Ok(())
   }
 
   /// Distance query should not accept invalid lat/lon as origin.
@@ -482,7 +484,8 @@ pub trait BaseGeoPointTestCase {
 
   /// Null field name not allowed.
   fn test_polygon_null_field(&self) -> Result<()> {
-    test_not_required_in_rust_lucene!();
+    // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
+    Ok(())
   }
 
   fn test_same_point_many_times<R>(&self, random: &mut R) -> Result<()>

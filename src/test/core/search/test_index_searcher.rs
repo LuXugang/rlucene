@@ -356,6 +356,7 @@ fn test_slices_offloaded_to_the_executor() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust constructor types cannot represent a null Executor with a separate non-null TaskExecutor"]
 fn test_null_executor_non_null_task_executor() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

@@ -1089,15 +1089,8 @@ fn test_random() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Rust Query cache keys cannot expose mutable Hash/Eq state (Java test is @AwaitsFix)"]
 fn test_detect_mutated_queries() -> Result<()> {
-  // Java Lucene uses this test to verify that a Query whose hashCode changes after entering
-  // LRUQueryCache is detected during eviction. In rlucene, production Query implementations must
-  // not expose interior-mutable state that participates in Hash/Eq after being used as cache keys
-  // (test-only helper maps explicitly opt into clippy::mutable_key_type when they need it).
-  //
-  // Do not keep a test-only mutable Query fixture for this scenario: if a future production Query
-  // violates the Hash/Eq stability invariant, the defensive eviction check in LRUQueryCache will
-  // still fail fast with ConcurrentModification.
   test_not_required_in_rust_lucene!();
 }
 

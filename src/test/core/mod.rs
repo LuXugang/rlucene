@@ -20,10 +20,15 @@ pub(crate) mod document;
 pub(crate) mod geo;
 pub(crate) mod index;
 pub(crate) mod internal;
+pub(crate) mod mockfile;
 pub(crate) mod search;
 pub(crate) mod store;
 pub(crate) mod util;
 
+mod test_assertions;
 mod test_demo;
+mod test_merge_scheduler_external;
+mod test_module_resource_loader;
+mod test_runtime_dependencies_sane;
 mod test_search;
 mod test_search_for_duplicates;

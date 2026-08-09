@@ -36,6 +36,8 @@ use crate::test_framework::core::index::test_index_writer::{
 };
 #[cfg(test)]
 use crate::test_framework::core::index::test_index_writer_merge_policy::ForceMergeDvUpdateOneMergeUnaryOperator;
+#[cfg(test)]
+use crate::test_framework::core::index::test_one_merge_wrapping_merge_policy::WrappedOneMergeUnaryOperator;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 /// A wrapping merge policy that wraps the `OneMerge` objects returned by the
@@ -112,6 +114,8 @@ where
   ForceMergeDvUpdate(ForceMergeDvUpdateOneMergeUnaryOperator),
   #[cfg(test)]
   SoftUpdatesConcurrently(SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>),
+  #[cfg(test)]
+  Wrapped(WrappedOneMergeUnaryOperator),
 }
 
 impl<D> Clone for OneMergeUnaryOperator<D>
@@ -133,6 +137,8 @@ where
       Self::ForceMergeDvUpdate(operator) => Self::ForceMergeDvUpdate(operator.clone()),
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(operator) => Self::SoftUpdatesConcurrently(operator.clone()),
+      #[cfg(test)]
+      Self::Wrapped(operator) => Self::Wrapped(operator.clone()),
     }
   }
 }
@@ -163,6 +169,8 @@ where
       Self::ForceMergeDvUpdate(operator) => operator.apply(merge),
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(operator) => operator.apply(merge),
+      #[cfg(test)]
+      Self::Wrapped(operator) => operator.apply(merge),
     }
   }
 }
@@ -248,6 +256,16 @@ where
 {
   fn from(value: SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>) -> Self {
     Self::SoftUpdatesConcurrently(value)
+  }
+}
+
+#[cfg(test)]
+impl<D> From<WrappedOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  fn from(value: WrappedOneMergeUnaryOperator) -> Self {
+    Self::Wrapped(value)
   }
 }
 

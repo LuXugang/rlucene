@@ -22,6 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 struct TestCodecLoadingDeadlock;
 
 #[test]
+#[ignore = "Java-only: the test forks a fresh JVM to stress static class initialization and SPI loading"]
 fn test_deadlock() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

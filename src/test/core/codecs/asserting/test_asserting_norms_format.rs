@@ -184,8 +184,10 @@ mod base_norms_format_test_case_tests {
   }
 
   #[test]
+  #[ignore = "MockRandom postings randomizes content on the fly"]
   fn test_merge_stability() -> Result<()> {
-    run_case(|case, _random| BaseNormsFormatTestCase::test_merge_stability(case))
+    // The corresponding Java override skips this inherited test.
+    Ok(())
   }
 
   #[test]

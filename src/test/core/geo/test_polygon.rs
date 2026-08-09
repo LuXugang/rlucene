@@ -20,11 +20,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 struct TestPolygon;
 
 #[test]
+#[ignore = "Java-only: Rust coordinate vectors cannot be null"]
 fn test_polygon_null_poly_lats() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Rust coordinate vectors cannot be null"]
 fn test_polygon_null_poly_lons() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

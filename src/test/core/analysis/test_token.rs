@@ -90,3 +90,15 @@ fn test_copy_to() -> Result<()> {
 
   Ok(())
 }
+
+#[test]
+#[ignore = "Java-only: Rust token attributes use static composition instead of runtime AttributeFactory interface lookup"]
+fn test_token_attribute_factory() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}
+
+#[test]
+#[ignore = "Java-only: Rust token attributes do not expose Java AttributeReflector class-name reflection"]
+fn test_attribute_reflection() -> Result<()> {
+  test_not_required_in_rust_lucene!();
+}

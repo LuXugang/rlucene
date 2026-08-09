@@ -1785,6 +1785,7 @@ fn test_query_visitor() -> Result<()> {
   Ok(())
 }
 #[test]
+#[ignore = "Java-only: BooleanQuery clause accessors return immutable Rust slices by type"]
 fn test_clause_sets_immutability() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::reader::{ReaderEnum, StringReader};
 use crate::core::analysis::standard::standard_analyzer::{
   DEFAULT_MAX_TOKEN_LENGTH, StandardAnalyzer,
 };
@@ -25,6 +26,7 @@ use crate::test_framework::core::analysis::base_token_stream_test_case::{
   assert_analyzes_to6, assert_analyzes_to7, assert_analyzes_to9, assert_token_stream_contents12,
   check_one_term,
 };
+use crate::test_framework::core::analysis::standard::test_standard_analyzer::SpoonFeedMaxCharsReaderWrapper;
 use crate::test_framework::core::util::lucene_test_case::random;
 use crate::test_framework::core::util::test_util::TestUtil;
 
@@ -911,7 +913,36 @@ fn test_max_token_length_non_default() -> Result<()> {
 
 #[test]
 fn test_split_surrogate_pair_with_spoon_feed_reader() -> Result<()> {
-  // TODO: The Java spoon-feed Reader has not been migrated, and Rust String cannot split a UTF-16
-  // surrogate pair between Reader calls.
-  Ok(())
+  let text = "12345678\u{10300}"; // U+10300 = 𐌀 (OLD ITALIC LETTER A)
+
+  // Collect tokens with normal reader
+  let analyzer = StandardAnalyzer::new();
+  let mut ts = analyzer.token_stream("dummy", ReaderEnum::from(text))?;
+  let mut tokens = Vec::new();
+  ts.reset()?;
+  while ts.increment_token()? {
+    tokens.push(ts.get_attribute_source().to_string());
+  }
+  ts.end()?;
+  ts.close()?;
+  drop(ts);
+
+  // Tokens from a spoon-feed reader should be the same as from a normal reader.
+  // Rust Reader values are Unicode scalar values rather than UTF-16 code units, so limiting the
+  // first read to 8 chars puts U+10300 at the next read boundary without splitting the scalar.
+  let reader = SpoonFeedMaxCharsReaderWrapper::new(8, StringReader::new(text).into());
+  let mut token_stream =
+    analyzer.token_stream("dummy", ReaderEnum::SpoonFeedMaxCharsReaderWrapper(reader))?;
+  token_stream.reset()?;
+  let mut token_num = 0;
+  while token_stream.increment_token()? {
+    assert_eq!(
+      token_stream.get_attribute_source().to_string(),
+      tokens[token_num],
+      "token #{token_num} mismatch"
+    );
+    token_num += 1;
+  }
+  token_stream.end()?;
+  token_stream.close()
 }
