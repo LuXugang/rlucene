@@ -48,7 +48,6 @@ use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::IndexReaderContext;
-#[cfg(feature = "nightly")]
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
 use crate::core::index::index_writer::{
@@ -3490,9 +3489,8 @@ fn test_leftover_temp_files() -> Result<()> {
   Ok(())
 }
 
-#[cfg(feature = "nightly")]
 #[test]
-#[ignore = "nightly"]
+#[ignore = "requires running tests with biggish heap"]
 fn test_massive_field() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

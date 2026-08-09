@@ -492,9 +492,8 @@ fn test_secondary_block_change() -> Result<()> {
 
   Ok(())
 }
-#[cfg(feature = "nightly")]
 #[test]
-#[ignore = "nightly"]
+#[ignore = "See LUCENE-4488"]
 fn test_int_overflow() -> Result<()> {
   // TODO:
   Ok(())

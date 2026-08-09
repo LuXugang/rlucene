@@ -22,7 +22,6 @@ use crate::test_framework::core::util::lucene_test_case::{
 use rand::RngExt;
 
 use crate::core::index::BytesRef;
-#[cfg(feature = "nightly")]
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
@@ -198,9 +197,8 @@ fn test_data_input_output_2() -> Result<()> {
 
   Ok(())
 }
-#[cfg(feature = "nightly")]
 #[test]
-#[ignore = "nightly"] // memory hole
+#[ignore = "memory hole"]
 fn test_overflow() -> Result<()> {
   let mut random = random();
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("testOverflow")?)?;

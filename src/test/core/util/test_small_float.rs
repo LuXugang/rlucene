@@ -214,9 +214,8 @@ fn test_byte4() -> Result<()> {
   Ok(())
 }
 
-#[cfg(feature = "nightly")]
 #[test]
-#[ignore = "nightly"]
+#[ignore = "One-time test."]
 fn test_all_floats() -> Result<()> {
   let mut i = i32::MIN;
   loop {
