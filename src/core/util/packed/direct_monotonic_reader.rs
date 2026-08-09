@@ -127,7 +127,7 @@ where
     for i in 0..meta.num_blocks {
       let bpv = meta.bpvs[i];
       if bpv == 0 {
-        readers.push(DirectPackedEnum::P(Zeroes));
+        readers.push(DirectPackedEnum::Zeroes(Zeroes));
       } else if merging
                 && i < meta.num_blocks - 1// we only know the number of values for the last block
                 && meta.block_shift >= DirectReader::MERGE_BUFFER_SHIFT as i32

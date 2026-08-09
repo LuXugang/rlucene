@@ -1496,7 +1496,7 @@ where
       );
 
       self.values = if bits_per_value == 0 {
-        Some(DirectPackedEnum::P(Zeroes))
+        Some(DirectPackedEnum::Zeroes(Zeroes))
       } else {
         Some(get_direct_reader_instance(
           self.merging,

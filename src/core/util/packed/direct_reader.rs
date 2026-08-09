@@ -17,7 +17,7 @@
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::long_values::{LongValues, LongValuesEnum16, Zeroes};
+use crate::core::util::long_values::{LongValues, Zeroes};
 
 /// Retrieves an instance previously written by `DirectWriter`.
 ///
@@ -48,20 +48,20 @@ impl DirectReader {
     R: RandomAccessInput,
   {
     let v = match bits_per_value {
-      1 => DirectPackedEnum::A(DirectPackedReader1::new(slice, offset)),
-      2 => DirectPackedEnum::B(DirectPackedReader2::new(slice, offset)),
-      4 => DirectPackedEnum::C(DirectPackedReader4::new(slice, offset)),
-      8 => DirectPackedEnum::D(DirectPackedReader8::new(slice, offset)),
-      12 => DirectPackedEnum::E(DirectPackedReader12::new(slice, offset)),
-      16 => DirectPackedEnum::F(DirectPackedReader16::new(slice, offset)),
-      20 => DirectPackedEnum::G(DirectPackedReader20::new(slice, offset)),
-      24 => DirectPackedEnum::H(DirectPackedReader24::new(slice, offset)),
-      28 => DirectPackedEnum::I(DirectPackedReader28::new(slice, offset)),
-      32 => DirectPackedEnum::J(DirectPackedReader32::new(slice, offset)),
-      40 => DirectPackedEnum::K(DirectPackedReader40::new(slice, offset)),
-      48 => DirectPackedEnum::L(DirectPackedReader48::new(slice, offset)),
-      56 => DirectPackedEnum::M(DirectPackedReader56::new(slice, offset)),
-      64 => DirectPackedEnum::N(DirectPackedReader64::new(slice, offset)),
+      1 => DirectPackedEnum::Direct1(DirectPackedReader1::new(slice, offset)),
+      2 => DirectPackedEnum::Direct2(DirectPackedReader2::new(slice, offset)),
+      4 => DirectPackedEnum::Direct4(DirectPackedReader4::new(slice, offset)),
+      8 => DirectPackedEnum::Direct8(DirectPackedReader8::new(slice, offset)),
+      12 => DirectPackedEnum::Direct12(DirectPackedReader12::new(slice, offset)),
+      16 => DirectPackedEnum::Direct16(DirectPackedReader16::new(slice, offset)),
+      20 => DirectPackedEnum::Direct20(DirectPackedReader20::new(slice, offset)),
+      24 => DirectPackedEnum::Direct24(DirectPackedReader24::new(slice, offset)),
+      28 => DirectPackedEnum::Direct28(DirectPackedReader28::new(slice, offset)),
+      32 => DirectPackedEnum::Direct32(DirectPackedReader32::new(slice, offset)),
+      40 => DirectPackedEnum::Direct40(DirectPackedReader40::new(slice, offset)),
+      48 => DirectPackedEnum::Direct48(DirectPackedReader48::new(slice, offset)),
+      56 => DirectPackedEnum::Direct56(DirectPackedReader56::new(slice, offset)),
+      64 => DirectPackedEnum::Direct64(DirectPackedReader64::new(slice, offset)),
       _ => {
         return Err(LuceneError::illegal_state(format!(
           "unsupported bits_per_value: {}",
@@ -94,7 +94,7 @@ impl DirectReader {
   where
     R: RandomAccessInput,
   {
-    DirectPackedEnum::O(LongValuesImpl::new(
+    DirectPackedEnum::Merge(LongValuesImpl::new(
       slice,
       bits_per_value,
       num_values,
@@ -841,24 +841,74 @@ where
   }
 }
 
-pub(crate) type DirectPackedEnum<R> = LongValuesEnum16<
-  DirectPackedReader1<R>,
-  DirectPackedReader2<R>,
-  DirectPackedReader4<R>,
-  DirectPackedReader8<R>,
-  DirectPackedReader12<R>,
-  DirectPackedReader16<R>,
-  DirectPackedReader20<R>,
-  DirectPackedReader24<R>,
-  DirectPackedReader28<R>,
-  DirectPackedReader32<R>,
-  DirectPackedReader40<R>,
-  DirectPackedReader48<R>,
-  DirectPackedReader56<R>,
-  DirectPackedReader64<R>,
-  LongValuesImpl<R>,
-  Zeroes,
->;
+pub enum DirectPackedEnum<R>
+where
+  R: RandomAccessInput,
+{
+  Direct1(DirectPackedReader1<R>),
+  Direct2(DirectPackedReader2<R>),
+  Direct4(DirectPackedReader4<R>),
+  Direct8(DirectPackedReader8<R>),
+  Direct12(DirectPackedReader12<R>),
+  Direct16(DirectPackedReader16<R>),
+  Direct20(DirectPackedReader20<R>),
+  Direct24(DirectPackedReader24<R>),
+  Direct28(DirectPackedReader28<R>),
+  Direct32(DirectPackedReader32<R>),
+  Direct40(DirectPackedReader40<R>),
+  Direct48(DirectPackedReader48<R>),
+  Direct56(DirectPackedReader56<R>),
+  Direct64(DirectPackedReader64<R>),
+  Merge(LongValuesImpl<R>),
+  Zeroes(Zeroes),
+}
+
+impl<R> LongValues for DirectPackedEnum<R>
+where
+  R: RandomAccessInput,
+{
+  fn get_mut(&mut self, index: usize) -> Result<i64> {
+    match self {
+      Self::Direct1(reader) => reader.get_mut(index),
+      Self::Direct2(reader) => reader.get_mut(index),
+      Self::Direct4(reader) => reader.get_mut(index),
+      Self::Direct8(reader) => reader.get_mut(index),
+      Self::Direct12(reader) => reader.get_mut(index),
+      Self::Direct16(reader) => reader.get_mut(index),
+      Self::Direct20(reader) => reader.get_mut(index),
+      Self::Direct24(reader) => reader.get_mut(index),
+      Self::Direct28(reader) => reader.get_mut(index),
+      Self::Direct32(reader) => reader.get_mut(index),
+      Self::Direct40(reader) => reader.get_mut(index),
+      Self::Direct48(reader) => reader.get_mut(index),
+      Self::Direct56(reader) => reader.get_mut(index),
+      Self::Direct64(reader) => reader.get_mut(index),
+      Self::Merge(reader) => reader.get_mut(index),
+      Self::Zeroes(reader) => reader.get_mut(index),
+    }
+  }
+
+  fn get(&self, index: usize) -> Result<i64> {
+    match self {
+      Self::Direct1(reader) => reader.get(index),
+      Self::Direct2(reader) => reader.get(index),
+      Self::Direct4(reader) => reader.get(index),
+      Self::Direct8(reader) => reader.get(index),
+      Self::Direct12(reader) => reader.get(index),
+      Self::Direct16(reader) => reader.get(index),
+      Self::Direct20(reader) => reader.get(index),
+      Self::Direct24(reader) => reader.get(index),
+      Self::Direct28(reader) => reader.get(index),
+      Self::Direct32(reader) => reader.get(index),
+      Self::Direct40(reader) => reader.get(index),
+      Self::Direct48(reader) => reader.get(index),
+      Self::Direct56(reader) => reader.get(index),
+      Self::Direct64(reader) => reader.get(index),
+      Self::Merge(reader) => reader.get(index),
+      Self::Zeroes(reader) => reader.get(index),
+    }
+  }
+}
 
 pub trait FromSlice<R>
 where
@@ -872,22 +922,22 @@ where
 {
   fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
     match self {
-      DirectPackedEnum::A(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::B(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::C(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::D(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::E(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::F(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::G(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::H(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::I(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::J(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::K(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::L(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::M(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::N(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::O(reader) => reader.read_from_slice(index, slice),
-      DirectPackedEnum::P(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct1(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct2(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct4(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct8(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct12(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct16(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct20(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct24(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct28(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct32(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct40(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct48(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct56(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Direct64(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Merge(reader) => reader.read_from_slice(index, slice),
+      DirectPackedEnum::Zeroes(reader) => reader.read_from_slice(index, slice),
     }
   }
 }
