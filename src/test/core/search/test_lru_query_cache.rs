@@ -2212,12 +2212,14 @@ fn test_skip_caching_for_term_query() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
+  let mut docs = Vec::new();
   for (name, hobby) in [("tom", "movie"), ("alice", "book"), ("alice", "movie")] {
     let mut doc = Document::new();
     doc.add(StringField::from_string("name", name, Store::Yes)?);
     doc.add(StringField::from_string("hobby", hobby, Store::Yes)?);
-    w.add_document(&mut random, doc)?;
+    docs.push(doc);
   }
+  w.add_documents(&mut random, docs)?;
   let reader = w.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   struct NonTermPolicy;
