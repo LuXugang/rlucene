@@ -132,6 +132,7 @@ impl FSLockFactory for NativeFSLockFactory {
         "Lock held by this virtual machine: {real_path_str}"
       )));
     }
+    drop(lock_held);
     let result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| file.try_lock_exclusive()));
     match result {
@@ -146,7 +147,7 @@ impl FSLockFactory for NativeFSLockFactory {
       }),
       Ok(Err(error)) => {
         drop(file);
-        lock_held.remove(&real_path_str);
+        clear_lock_held(&real_path)?;
         if error.kind() == ErrorKind::WouldBlock {
           Err(LuceneError::lock_obtain_failed(format!(
             "Lock held by another program: {real_path_str}"
@@ -157,7 +158,7 @@ impl FSLockFactory for NativeFSLockFactory {
       },
       Err(payload) => {
         drop(file);
-        lock_held.remove(&real_path_str);
+        clear_lock_held(&real_path)?;
         std::panic::resume_unwind(payload)
       },
     }
@@ -178,6 +179,16 @@ fn get_lock_held() -> Arc<Mutex<HashSet<String>>> {
   LOCK_HELD
     .get_or_init(|| Arc::new(Mutex::new(HashSet::new())))
     .clone()
+}
+
+fn clear_lock_held(path: &Path) -> Result<()> {
+  let path = path.to_string_lossy().to_string();
+  if !get_lock_held().lock().remove(&path) {
+    return Err(LuceneError::already_closed(format!(
+      "Lock path was cleared but never marked as held: {path}"
+    )));
+  }
+  Ok(())
 }
 
 pub struct NativeFSLock {
@@ -244,9 +255,7 @@ impl CloseableRef for NativeFSLock {
         Ok(())
       }));
       self.closed.store(true, Ordering::SeqCst);
-      let real_path_str = self.path.to_string_lossy().to_string();
-      let locks = get_lock_held();
-      locks.lock().remove(&real_path_str);
+      clear_lock_held(&self.path)?;
       unwrap_caught_result!(result)?;
     }
     Ok(())

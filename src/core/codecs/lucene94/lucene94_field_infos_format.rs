@@ -334,7 +334,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
               let vector_encoding = Self::get_vector_encoding(&input, vector_encoding_ord)?;
               let vector_dist_func = Self::get_dist_func(&input, vector_dist_func_ord)?;
               let field_info = FieldInfo::new(
-                name,
+                name.clone(),
                 field_number,
                 store_term_vector,
                 omit_norms,
@@ -352,8 +352,22 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
                 vector_dist_func,
                 is_soft_deletes_field,
                 is_parent_field,
-              )?;
-              field_info.check_consistency()?;
+              )
+              .and_then(|field_info| {
+                field_info.check_consistency()?;
+                Ok(field_info)
+              });
+              let field_info = match field_info {
+                Ok(field_info) => field_info,
+                Err(error @ LuceneError::IllegalState(_)) => {
+                  let mut corrupt = LuceneError::corrupt_index(format!(
+                    "invalid fieldinfo for field: {name}, fieldNumber={field_number} (resource={input})"
+                  ));
+                  corrupt.add_suppressed(error);
+                  return Err(corrupt);
+                },
+                Err(error) => return Err(error),
+              };
               field_infos.push(Arc::new(field_info));
             }
             infos = Some(field_infos);

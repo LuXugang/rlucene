@@ -25,7 +25,7 @@ use crate::core::store::fs_lock_factory::FSLockFactory;
 use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use parking_lot::Mutex;
 
 /// Implements [`LockFactory`] using `Files::create_file`.
@@ -152,21 +152,28 @@ impl CloseableRef for SimpleFSLock {
     }
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      self.ensure_valid().map_err(|e| {
+      if let Some(cause) =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.ensure_valid()))
+          .caught_failure("panic while validating a lock before release")
+      {
         let mut error = LuceneError::lock_release_failed(
           "Lock file cannot be safely removed. Manual intervention is recommended.",
         );
-        error.add_suppressed(e);
-        error
-      })?;
+        error.add_suppressed(cause);
+        return Err(error);
+      }
 
-      fs::remove_file(&self.path).map_err(|e| {
+      if let Some(cause) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        fs::remove_file(&self.path).map_err(LuceneError::from)
+      }))
+      .caught_failure("panic while removing a lock file")
+      {
         let mut error = LuceneError::lock_release_failed(
           "Unable to remove lock file. Manual intervention is recommended",
         );
-        error.add_suppressed(e.into());
-        error
-      })?;
+        error.add_suppressed(cause);
+        return Err(error);
+      }
       Ok(())
     }));
 

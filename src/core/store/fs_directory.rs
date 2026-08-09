@@ -199,7 +199,7 @@ where
           Err(LuceneError::io_with_path(file_name, e))
         }
       },
-      Err(e) => {
+      Err(_e) => {
         // On windows, a file delete can fail because there's still an
         // open file handle against it.  We record this
         // in pendingDeletes and try again later.
@@ -212,12 +212,8 @@ where
         // TODO: can/should we do if (Constants.WINDOWS) here, else
         // return the exc? but what about a Linux box
         // with a CIFS mount?
-        if cfg!(windows) {
-          pending_deletes.insert(name.to_string());
-          Ok(())
-        } else {
-          Err(LuceneError::io_with_path(file_name, e))
-        }
+        pending_deletes.insert(name.to_string());
+        Ok(())
       },
     }
   }

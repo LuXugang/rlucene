@@ -145,13 +145,13 @@ impl PostingsFormat for DirectPostingsFormat {
   {
     let postings = Lucene101PostingsFormat::new().fields_producer(state, segment_info)?;
     if state.context.get_context() != &Context::Merge {
-      let load_result = (|| {
+      let load_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         postings.check_integrity()?;
         DirectFields::new(state, &postings, self.min_skip_count, self.low_freq_cutoff)
-      })();
+      }));
       let close_result = postings.close();
       close_result?;
-      load_result.map(FieldsProducerEnum2::B)
+      unwrap_caught_result!(load_result).map(FieldsProducerEnum2::B)
     } else {
       // Don't load postings for merge:
       Ok(FieldsProducerEnum2::A(postings))
