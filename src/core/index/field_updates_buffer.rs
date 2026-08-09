@@ -311,7 +311,7 @@ impl FieldUpdatesBuffer {
       self.has_single_value() && self.has_values.is_none() && self.fields.len() == 1;
     if sorted_terms {
       self.term_sort_state = Arc::new(self.term_values.sort(NaturalOrder, true)?);
-      debug_assert!(self.assert_term_and_doc_in_order());
+      debug_assert!(self.assert_term_and_doc_in_order()?);
       self
         .bytes_used
         .add_and_get(self.term_sort_state.ram_bytes_used()?);
@@ -319,7 +319,7 @@ impl FieldUpdatesBuffer {
 
     Ok(())
   }
-  fn assert_term_and_doc_in_order(&mut self) -> bool {
+  fn assert_term_and_doc_in_order(&mut self) -> Result<bool> {
     // it's used for debug_assert! , so we roughly copy data
     let mut iterator = self
       .term_values
@@ -346,12 +346,14 @@ impl FieldUpdatesBuffer {
       }
       Ok(())
     })();
-    debug_assert!(
-      result.is_ok(),
-      "assert_term_and_doc_in_order failed: {:?}",
-      result.err()
-    );
-    true
+    match result {
+      Ok(()) => Ok(true),
+      Err(error) if error.is_io_error() => {
+        debug_assert!(false, "assert_term_and_doc_in_order failed: {error:?}");
+        Ok(true)
+      },
+      Err(error) => Err(error),
+    }
   }
   pub(crate) fn iterator(&self) -> Result<BufferedUpdateIterator<'_>> {
     if !self.finished {

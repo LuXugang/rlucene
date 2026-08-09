@@ -575,10 +575,14 @@ where
       } else {
         reader.dec_ref()
       };
-      if let Err(error) = result
-        && first_error.is_none()
-      {
-        first_error = Some(error);
+      match result {
+        Err(error) if error.is_io_error() => {
+          if first_error.is_none() {
+            first_error = Some(error);
+          }
+        },
+        Err(error) => return Err(error),
+        Ok(()) => {},
       }
     }
     match first_error {

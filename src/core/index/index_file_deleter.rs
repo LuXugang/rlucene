@@ -189,11 +189,15 @@ where
       // try now to explicitly open this commit point:
       let sis = SegmentInfos::read_commit(directory_orig.clone(), &file);
       let sis = sis.map_err(|e| {
-        let mut error = LuceneError::corrupt_index(format!(
-          "unable to read current segments_N file (resource={file})"
-        ));
-        error.add_suppressed(e);
-        error
+        if e.is_io_error() {
+          let mut error = LuceneError::corrupt_index(format!(
+            "unable to read current segments_N file (resource={file})"
+          ));
+          error.add_suppressed(e);
+          error
+        } else {
+          e
+        }
       })?;
       if index_file_deleter.info_stream.is_enabled("IFD") {
         index_file_deleter.info_stream.message(

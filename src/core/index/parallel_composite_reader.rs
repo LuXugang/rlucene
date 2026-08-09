@@ -287,20 +287,28 @@ where
       } else {
         reader.dec_ref()
       };
-      if let Err(error) = result
-        && first_error.is_none()
-      {
-        first_error = Some(error);
+      match result {
+        Err(error) if error.is_io_error() => {
+          if first_error.is_none() {
+            first_error = Some(error);
+          }
+        },
+        Err(error) => return Err(error),
+        Ok(()) => {},
       }
     }
 
     // Finally close our own synthetic readers. Their doClose() implementation
     // is intentionally empty, so they never touch the real leaf readers.
     for reader in self.base_composite_reader_base.get_sequential_sub_readers() {
-      if let Err(error) = reader.close()
-        && first_error.is_none()
-      {
-        first_error = Some(error);
+      match reader.close() {
+        Err(error) if error.is_io_error() => {
+          if first_error.is_none() {
+            first_error = Some(error);
+          }
+        },
+        Err(error) => return Err(error),
+        Ok(()) => {},
       }
     }
 

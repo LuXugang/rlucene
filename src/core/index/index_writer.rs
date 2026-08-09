@@ -441,12 +441,16 @@ where
         })?;
         let mut last_commit =
           SegmentInfos::read_commit(directory_orig.clone(), &segments_file_name).map_err(|e| {
-            let mut error = LuceneError::illegal_argument(format!(
-              "the provided reader is stale: its prior commit file \"{}\" is missing from index",
-              segments_file_name
-            ));
-            error.add_suppressed(e);
-            error
+            if e.is_io_error() {
+              let mut error = LuceneError::illegal_argument(format!(
+                "the provided reader is stale: its prior commit file \"{}\" is missing from index",
+                segments_file_name
+              ));
+              error.add_suppressed(e);
+              error
+            } else {
+              e
+            }
           })?;
         if let Some(writer) = &reader.writer {
           // The old writer better be closed (we have the write lock now!):

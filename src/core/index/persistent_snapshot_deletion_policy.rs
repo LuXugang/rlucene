@@ -294,10 +294,14 @@ where
                 }
                 Ok(())
               })();
-              if let Err(error) = result
-                && io_error.is_none()
-              {
-                io_error = Some(error);
+              match result {
+                Err(error) if error.is_io_error() => {
+                  if io_error.is_none() {
+                    io_error = Some(error);
+                  }
+                },
+                Err(error) => return Err(error),
+                Ok(()) => {},
               }
               Ok(())
             }));

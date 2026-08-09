@@ -171,10 +171,14 @@ where
         Ok(())
       })();
 
-      if let Err(e) = result
-        && first_err.is_none()
-      {
-        first_err = Some(e);
+      match result {
+        Err(error) if error.is_io_error() => {
+          if first_err.is_none() {
+            first_err = Some(error);
+          }
+        },
+        Err(error) => return Err(error),
+        Ok(()) => {},
       }
     }
     if let Some(e) = first_err {

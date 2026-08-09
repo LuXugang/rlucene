@@ -1237,7 +1237,7 @@ pub trait FindSegmentsFile {
             }
             return Ok(result);
           },
-          Err(err) => {
+          Err(err) if err.is_io_error() => {
             let error_message = err.to_string();
             if exc.is_none() {
               exc = Some(err);
@@ -1251,6 +1251,7 @@ pub trait FindSegmentsFile {
               .unwrap_or_default();
             }
           },
+          Err(err) => return Err(err),
         }
       } else {
         return Err(exc.unwrap_or_else(|| {

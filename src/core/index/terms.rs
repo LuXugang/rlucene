@@ -21,7 +21,7 @@ use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, Term
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -127,9 +127,16 @@ pub trait Terms {
     match size.cmp(&0) {
       std::cmp::Ordering::Equal => return Ok(None),
       std::cmp::Ordering::Greater => {
-        let mut iterator = self.iterator()?;
-        iterator.seek_exact_with_ord(size - 1)?;
-        return Ok(Some(Cow::Owned(iterator.term()?.into_owned())));
+        let seek_result = (|| -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+          let mut iterator = self.iterator()?;
+          iterator.seek_exact_with_ord(size - 1)?;
+          Ok(Cow::Owned(iterator.term()?.into_owned()))
+        })();
+        match seek_result {
+          Ok(term) => return Ok(Some(term)),
+          Err(LuceneError::UnsupportedOperation(_)) => {},
+          Err(error) => return Err(error),
+        }
       },
       std::cmp::Ordering::Less => {},
     }

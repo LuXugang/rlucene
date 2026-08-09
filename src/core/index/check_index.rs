@@ -802,35 +802,57 @@ where
       }
     } else {
       // checks segments concurrently
-      let mut segment_commit_infos = Vec::with_capacity(last_commit.size());
-      for info in last_commit.iter() {
-        let size_in_bytes = match info.size_in_bytes() {
-          Ok(size_in_bytes) => Some(size_in_bytes),
-          Err(error) => {
-            Self::msg(
-              self.info_stream.as_mut(),
-              "ERROR: IOException occurred when comparing SegmentCommitInfo file sizes",
-            )?;
-            Self::msg(self.info_stream.as_mut(), &format!("{error:?}"))?;
-            None
-          },
-        };
-        segment_commit_infos.push((size_in_bytes, info));
-      }
+      let mut segment_commit_infos = last_commit.iter().iter().collect::<Vec<_>>();
 
       // sort segmentCommitInfos by segment size, as smaller segment tends to finish faster, and
       // hence its output can be printed out faster
-      segment_commit_infos.sort_by(|(size1, _), (size2, _)| match (size1, size2) {
-        (Some(size1), Some(size2)) => size1.cmp(size2),
-        (None, None) => std::cmp::Ordering::Equal,
-        (None, Some(_)) => std::cmp::Ordering::Less,
-        (Some(_), None) => std::cmp::Ordering::Greater,
+      let mut sort_error = None;
+      segment_commit_infos.sort_by(|info1, info2| {
+        if sort_error.is_some() {
+          return std::cmp::Ordering::Equal;
+        }
+        let size1 = match info1.size_in_bytes() {
+          Ok(size) => size,
+          Err(error) if error.is_io_error() => {
+            sort_error = Self::msg(
+              self.info_stream.as_mut(),
+              "ERROR: IOException occurred when comparing SegmentCommitInfo file sizes",
+            )
+            .err()
+            .or_else(|| Self::msg(self.info_stream.as_mut(), &format!("{error:?}")).err());
+            return std::cmp::Ordering::Equal;
+          },
+          Err(error) => {
+            sort_error = Some(error);
+            return std::cmp::Ordering::Equal;
+          },
+        };
+        let size2 = match info2.size_in_bytes() {
+          Ok(size) => size,
+          Err(error) if error.is_io_error() => {
+            sort_error = Self::msg(
+              self.info_stream.as_mut(),
+              "ERROR: IOException occurred when comparing SegmentCommitInfo file sizes",
+            )
+            .err()
+            .or_else(|| Self::msg(self.info_stream.as_mut(), &format!("{error:?}")).err());
+            return std::cmp::Ordering::Equal;
+          },
+          Err(error) => {
+            sort_error = Some(error);
+            return std::cmp::Ordering::Equal;
+          },
+        };
+        size1.cmp(&size2)
       });
+      if let Some(error) = sort_error {
+        return Err(error);
+      }
 
       let mut jobs = Vec::new();
       // start larger segments earlier
       for index in (0..segment_commit_infos.len()).rev() {
-        let info = segment_commit_infos[index].1;
+        let info = segment_commit_infos[index];
         Self::update_max_segment_name(&mut result, info)?;
         if only_segments.is_some_and(|segments| !segments.contains(&info.info.name)) {
           continue;
@@ -904,7 +926,7 @@ where
           (0..segment_commit_infos.len()).map(|_| None).collect();
         let mut index = 0;
         while index < segment_commit_infos.len() {
-          let info = segment_commit_infos[index].1;
+          let info = segment_commit_infos[index];
           if only_segments.is_some_and(|segments| !segments.contains(&info.info.name)) {
             index += 1;
             continue;

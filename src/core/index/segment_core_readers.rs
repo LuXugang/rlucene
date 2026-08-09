@@ -155,6 +155,28 @@ where
       success = true;
       Ok((segment, core_field_infos))
     }));
+    let result = match result {
+      Ok(Err(error)) => std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let is_unexpected_file_read_error = match &error {
+          LuceneError::Eof(_) | LuceneError::NoSuchFile(_) => true,
+          LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => matches!(
+            source.kind(),
+            std::io::ErrorKind::NotFound | std::io::ErrorKind::UnexpectedEof
+          ),
+          _ => false,
+        };
+        if is_unexpected_file_read_error {
+          let mut corrupt = LuceneError::corrupt_index(format!(
+            "Problem reading index from {dir} (resource={dir})"
+          ));
+          corrupt.add_suppressed(error);
+          Err(corrupt)
+        } else {
+          Err(error)
+        }
+      })),
+      result => result,
+    };
 
     if !success {
       IOUtils::close_refs_tuple((

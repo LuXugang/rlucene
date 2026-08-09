@@ -1279,7 +1279,12 @@ impl ConcurrentMergeScheduler {
     let merge_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       match self.merge_locked(&mut inner, merge_source, MergeTrigger::MergeFinished) {
         Ok(()) | Err(LuceneError::AlreadyClosed(_)) => Ok(()),
-        Err(err) => Err(LuceneError::unchecked_io_error(err.to_string())),
+        Err(err) if err.is_io_error() => {
+          let mut unchecked = LuceneError::unchecked_io_error(err.to_string());
+          unchecked.add_suppressed(err);
+          Err(unchecked)
+        },
+        Err(err) => Err(err),
       }
     }));
     Self::remove_merge_thread(&mut inner);
@@ -1373,7 +1378,6 @@ where
       merge_source,
       merge,
     } = self;
-    let merge_stat = merge.stat.clone();
 
     state.set_owner_to_current_thread();
     let previous =
@@ -1409,15 +1413,13 @@ where
       *slot.borrow_mut() = previous;
     });
 
-    let merge_aborted = merge_stat.is_aborted();
-
     if !matches!(&merge_result, Ok(Ok(()))) {
       let mut inner = merge_scheduler.inner.lock();
       ConcurrentMergeScheduler::remove_merge_thread(&mut inner);
       merge_scheduler.update_merge_threads(&mut inner)?;
       merge_scheduler.changed.notify_all();
       drop(inner);
-      if matches!(&merge_result, Ok(Err(LuceneError::MergeAborted(_)))) || merge_aborted {
+      if matches!(&merge_result, Ok(Err(LuceneError::MergeAborted(_)))) {
         // OK to ignore.
         Ok(())
       } else if !merge_scheduler.inner.lock().suppress_exceptions {

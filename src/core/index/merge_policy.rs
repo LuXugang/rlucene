@@ -2874,17 +2874,21 @@ impl OneMergeProgress {
     let deadline = start + Duration::from_nanos(pause_nanos);
 
     let mut lock = self.pause_lock.lock();
-    while !self.aborted.load(Ordering::SeqCst) && condition() {
-      let now = Instant::now();
-      if now >= deadline {
-        break;
+    let pause_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      while !self.aborted.load(Ordering::SeqCst) && condition() {
+        let now = Instant::now();
+        if now >= deadline {
+          break;
+        }
+        let timeout = deadline - now;
+        self.pausing.wait_for(&mut lock, timeout);
       }
-      let timeout = deadline - now;
-      self.pausing.wait_for(&mut lock, timeout);
-    }
+    }));
+    drop(lock);
 
     let elapsed = start.elapsed().as_nanos().min(u64::MAX as u128) as u64;
     self.add_pause_time(reason, elapsed);
+    resume_caught_panic!(pause_result);
   }
 
   fn add_pause_time(&self, reason: PauseReason, nanos: u64) {
