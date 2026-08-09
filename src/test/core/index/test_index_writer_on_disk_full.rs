@@ -349,13 +349,12 @@ fn test_add_index_on_disk_full() -> Result<()> {
               done = true;
             }
           },
-          Err(
-            error @ (LuceneError::IllegalState(_)
-            | LuceneError::AlreadyClosed(_)
-            | LuceneError::Io { .. }
-            | LuceneError::IoWithPath { .. }
-            | LuceneError::Merge(_)),
-          ) => {
+          Err(error)
+            if matches!(
+              &error,
+              LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_) | LuceneError::Merge(_)
+            ) || error.is_io_error() =>
+          {
             success = false;
             let is_merge_exception = matches!(error, LuceneError::Merge(_));
             if x == 1 && !is_merge_exception {
