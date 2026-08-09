@@ -38,8 +38,7 @@ use crate::core::index::upgrade_index_merge_policy::UpgradeIndexMergePolicy;
 use crate::core::store::directory::Directory;
 use crate::core::store::merge_info::MergeInfo;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::LuceneError;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
 use crate::sandbox::index::merge_on_flush_merge_policy::MergeOnFlushMergePolicy;
@@ -1804,7 +1803,6 @@ where
   pub(crate) total_max_doc: i32,
   #[cfg(test)]
   pub(crate) segments: Vec<SegmentDocAndID>,
-  error: Mutex<Option<LuceneError>>,
   pub(crate) stat: MergeStat,
   pub info: Option<SegmentCommitInfo<D>>,
 }
@@ -1905,6 +1903,7 @@ struct MergeStatState {
   max_num_segments: i32,
   info_id: Option<String>,
   name: Option<String>,
+  error: Option<CaughtResult>,
   #[cfg(test)]
   max_doc: Option<i32>,
 }
@@ -1915,6 +1914,7 @@ impl MergeStatState {
       max_num_segments: -1,
       info_id: None,
       name: None,
+      error: None,
       #[cfg(test)]
       max_doc: None,
     }
@@ -1972,6 +1972,23 @@ impl MergeStat {
 
   pub(crate) fn has_completed_successfully(&self) -> Option<bool> {
     self.completion.completed_successfully()
+  }
+
+  pub(crate) fn has_exception(&self) -> bool {
+    self.state.lock().error.is_some()
+  }
+
+  pub(crate) fn set_exception(&self, error: CaughtResult) {
+    self.state.lock().error = Some(error);
+  }
+
+  pub(crate) fn get_exception(&self) -> Option<CaughtResult> {
+    self
+      .state
+      .lock()
+      .error
+      .as_ref()
+      .and_then(|error| error.clone_caught_failure("panic while retrieving a merge exception"))
   }
 
   pub(crate) fn max_num_segments(&self) -> i32 {
@@ -2061,7 +2078,6 @@ where
       total_max_doc,
       #[cfg(test)]
       segments: original_segments,
-      error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
         register_done: Arc::new(AtomicBool::new(false)),
@@ -2098,7 +2114,6 @@ where
       estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
       total_merge_bytes: AtomicI64::new(0),
       merge_start_ns: Arc::new(Mutex::new(Instant::now())),
-      error: Mutex::new(None),
       stat,
       info: None,
     };
@@ -2131,7 +2146,6 @@ where
       total_max_doc: total_docs,
       #[cfg(test)]
       segments: Vec::new(),
-      error: Mutex::new(None),
       stat: MergeStat {
         id: Identity::new(),
         register_done: Arc::new(AtomicBool::new(false)),
@@ -2149,15 +2163,13 @@ where
     self.stat.set_merge_thread()
   }
   /// Record that an error occurred while executing this merge.
-  pub fn set_exception(&self, error: LuceneError) {
-    let mut guard = self.error.lock();
-    *guard = Some(error);
+  pub fn set_exception(&self, error: CaughtResult) {
+    self.stat.set_exception(error);
   }
 
   /// Retrieve previous error set by `set_exception`.
-  pub fn get_exception(&self) -> Option<LuceneError> {
-    let mut guard = self.error.lock();
-    guard.take()
+  pub fn get_exception(&self) -> Option<CaughtResult> {
+    self.stat.get_exception()
   }
 
   /// Returns the total size in bytes of this merge. Note that this does not indicate the size of

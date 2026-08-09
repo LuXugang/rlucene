@@ -21,7 +21,7 @@ use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushCont
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
 use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
-use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer::{IndexWriter, IntoFallibleIterator};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::index::segment_info::SegmentInfo;
@@ -505,8 +505,8 @@ where
     writer: &IndexWriter<D>,
   ) -> Result<i64>
   where
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator<Item = DF>,
+    DF: IntoFallibleIterator<Item = Fields>,
   {
     let has_events = self.pre_update(writer)?;
 

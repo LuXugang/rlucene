@@ -29,8 +29,8 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 
 use crate::core::index::index_writer::{
-  IndexWriter, IndexWriterDir, SOURCE_FLUSH, create_compound_file, get_actual_max_docs,
-  set_diagnostics,
+  IndexWriter, IndexWriterDir, IntoFallibleIterator, SOURCE_FLUSH, create_compound_file,
+  get_actual_max_docs, set_diagnostics,
 };
 use crate::core::index::indexing_chain::{IndexingChain, ReservedField};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -52,6 +52,7 @@ use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, Luce
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{LATEST, LUCENE_10_0_0, StringHelper, TryIntoInt};
 use parking_lot::{Condvar, Mutex};
@@ -314,116 +315,103 @@ where
     writer: &IndexWriter<D>,
   ) -> Result<i64>
   where
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator<Item = DF>,
+    DF: IntoFallibleIterator<Item = Fields>,
     FN: FlushNotifications,
   {
-    self.test_point("DocumentsWriterPerThread addDocuments start")?;
-    debug_assert!(
-      self.aborting_exception.get().is_none(),
-      "DWPT has hit aborting exception but is still indexing"
-    );
-
-    if self.info_stream.is_enabled("DWPT") {
-      self.info_stream.message(
-        "DWPT",
-        &format!(
-          "{} update delTerm={} docID={} seg={} ",
-          thread::current().name().unwrap_or(""),
-          match delete_node {
-            Some(ref node) => node.to_string(),
-            None => "none".to_string(),
-          },
-          self.state.num_docs_in_ram.load(SeqCst),
-          self.segment_info.name
-        ),
-      )?;
-    }
-
-    let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
-    let mut all_docs_indexed = false;
-    let index_writer_config = writer.get_config();
-    let docs_iter = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| docs.into_iter()))
-      .map_err(|payload| {
-        LuceneError::illegal_state(LuceneError::panic_payload_message(payload.as_ref()))
-      });
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
-      let mut docs_iter = docs_iter?.peekable();
-      loop {
-        let doc = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| docs_iter.next()))
-          .map_err(|payload| {
-            LuceneError::illegal_state(LuceneError::panic_payload_message(payload.as_ref()))
-          })?;
-        let Some(doc) = doc else {
-          break;
-        };
-        let has_next_doc =
-          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| docs_iter.peek().is_some()))
-            .map_err(|payload| {
-              LuceneError::illegal_state(LuceneError::panic_payload_message(payload.as_ref()))
-            })?;
-        if self.parent_field.is_none()
-          && self.segment_info.index_sort.is_some()
-          && has_next_doc
-          && self.index_major_version_created >= LUCENE_10_0_0.major
-        {
-          return Err(LuceneError::illegal_argument(
-            "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
-          ));
+      self.test_point("DocumentsWriterPerThread addDocuments start")?;
+      debug_assert!(
+        self.aborting_exception.get().is_none(),
+        "DWPT has hit aborting exception but is still indexing"
+      );
+
+      if self.info_stream.is_enabled("DWPT") {
+        self.info_stream.message(
+          "DWPT",
+          &format!(
+            "{} update delTerm={} docID={} seg={} ",
+            thread::current().name().unwrap_or(""),
+            match delete_node {
+              Some(ref node) => node.to_string(),
+              None => "none".to_string(),
+            },
+            self.state.num_docs_in_ram.load(SeqCst),
+            self.segment_info.name
+          ),
+        )?;
+      }
+
+      let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
+      let mut all_docs_indexed = false;
+      let index_writer_config = writer.get_config();
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
+        let mut docs_iter = docs.into_fallible_iter();
+        let mut next_doc = docs_iter.next().transpose()?;
+        while let Some(doc) = next_doc {
+          next_doc = docs_iter.next().transpose()?;
+          let has_next_doc = next_doc.is_some();
+          if self.parent_field.is_none()
+            && self.segment_info.index_sort.is_some()
+            && has_next_doc
+            && self.index_major_version_created >= LUCENE_10_0_0.major
+          {
+            return Err(LuceneError::illegal_argument(
+              "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
+            ));
+          }
+
+          self.reserve_one_doc()?;
+          let doc_id = self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
+          let process_result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+              let mut doc_fields = Vec::new();
+              let mut fields = doc.into_fallible_iter();
+              while let Some(field) = fields.next().transpose()? {
+                doc_fields.push(field);
+              }
+              if let Some(parent) = &self.parent_field
+                && !has_next_doc
+              {
+                doc_fields.insert(
+                  0,
+                  ReservedField::new(NumericDocValuesField::new(parent, -1)).into(),
+                );
+              }
+              self.indexing_chain.process_document(
+                doc_id,
+                doc_fields,
+                &mut self.segment_info,
+                &mut self.field_infos,
+                index_writer_config,
+                &self.aborting_exception,
+              )
+            }));
+          num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
+          unwrap_caught_result!(process_result)?;
         }
 
-        self.reserve_one_doc()?;
-        let doc_id = self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-        let process_result =
-          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-            match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-              doc.into_iter().collect::<Vec<Fields>>()
-            })) {
-              Ok(mut doc_fields) => {
-                if let Some(parent) = &self.parent_field
-                  && !has_next_doc
-                {
-                  doc_fields.insert(
-                    0,
-                    ReservedField::new(NumericDocValuesField::new(parent, -1)).into(),
-                  );
-                }
-                self.indexing_chain.process_document(
-                  doc_id,
-                  doc_fields,
-                  &mut self.segment_info,
-                  &mut self.field_infos,
-                  index_writer_config,
-                  &self.aborting_exception,
-                )
-              },
-              Err(payload) => Err(LuceneError::illegal_state(
-                LuceneError::panic_payload_message(payload.as_ref()),
-              )),
-            }
-          }));
-        num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
-        unwrap_caught_result!(process_result)?;
-      }
+        let num_docs = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
+        if num_docs > 1 {
+          self.segment_info.set_has_blocks();
+        }
 
-      let num_docs = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
-      if num_docs > 1 {
-        self.segment_info.set_has_blocks();
-      }
+        all_docs_indexed = true;
+        let written = self.finish_documents(delete_node, docs_in_ram_before)?;
+        Ok(written)
+      }));
 
-      all_docs_indexed = true;
-      let written = self.finish_documents(delete_node, docs_in_ram_before)?;
-      Ok(written)
-    }));
-
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
-      if !all_docs_indexed && !self.state.aborted.load(Ordering::SeqCst) {
-        // the iterator threw an error that is not aborting
-        // go and mark all docs from this block as deleted
-        let to_delete = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
-        self.delete_last_docs(to_delete)?;
-      }
-      unwrap_caught_result!(result)
+      let finally_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          if !all_docs_indexed && !self.state.aborted.load(Ordering::SeqCst) {
+            // the iterator threw an error that is not aborting
+            // go and mark all docs from this block as deleted
+            let to_delete = self.state.num_docs_in_ram.load(SeqCst) - docs_in_ram_before;
+            self.delete_last_docs(to_delete)?;
+          }
+          Ok(())
+        }));
+      IOUtils::finally_caught_result(result, finally_result)
     }));
     self.maybe_abort("updateDocuments", flush_notifications, writer)?;
     unwrap_caught_result!(result)

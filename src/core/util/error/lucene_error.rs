@@ -147,6 +147,8 @@ impl SuppressedFailure {
   }
 }
 
+pub(crate) struct CaughtResultDisplay<'a, R: ?Sized>(&'a R);
+
 pub(crate) trait CaughtResultExt {
   fn caught_failure(&self, panic_message: &str) -> Option<LuceneError>;
 
@@ -155,6 +157,24 @@ pub(crate) trait CaughtResultExt {
   fn caught_panic(&self, panic_message: &str) -> Option<LuceneError>;
 
   fn add_suppressed<T>(&mut self, suppressed: CaughtResult<T>, panic_message: &str);
+
+  fn fmt_caught_result(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result;
+
+  fn display(&self) -> CaughtResultDisplay<'_, Self>
+  where
+    Self: Sized,
+  {
+    CaughtResultDisplay(self)
+  }
+}
+
+impl<R> fmt::Display for CaughtResultDisplay<'_, R>
+where
+  R: CaughtResultExt + ?Sized,
+{
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    self.0.fmt_caught_result(formatter)
+  }
 }
 
 impl<T> CaughtResultExt for CaughtResult<T> {
@@ -201,6 +221,14 @@ impl<T> CaughtResultExt for CaughtResult<T> {
       Ok(Ok(_)) => unreachable!("cannot add a suppressed failure to a successful result"),
       Ok(Err(error)) => error.add_suppressed(suppressed.into_exception(panic_message)),
       Err(payload) => PanicWithSuppressed::add_suppressed_to_payload(payload, suppressed),
+    }
+  }
+
+  fn fmt_caught_result(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Ok(Ok(_)) => formatter.write_str("Ok"),
+      Ok(Err(error)) => fmt::Display::fmt(error, formatter),
+      Err(payload) => formatter.write_str(&LuceneError::panic_payload_message(payload.as_ref())),
     }
   }
 }

@@ -44,6 +44,39 @@ use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
 use std::cell::{Cell, RefCell};
 use std::marker::PhantomData;
 use std::sync::{Arc, OnceLock, Weak};
+
+pub trait IntoFallibleIterator {
+  type Item;
+  type IntoIter: Iterator<Item = Result<Self::Item>>;
+
+  fn into_fallible_iter(self) -> Self::IntoIter;
+}
+
+pub struct InfallibleIterator<I>(I);
+
+impl<I> Iterator for InfallibleIterator<I>
+where
+  I: Iterator,
+{
+  type Item = Result<I::Item>;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    self.0.next().map(Ok)
+  }
+}
+
+impl<T> IntoFallibleIterator for T
+where
+  T: IntoIterator,
+{
+  type Item = T::Item;
+  type IntoIter = InfallibleIterator<T::IntoIter>;
+
+  fn into_fallible_iter(self) -> Self::IntoIter {
+    InfallibleIterator(self.into_iter())
+  }
+}
+
 /// An `IndexWriter` creates and maintains an index.
 ///
 /// The [`OpenMode`] option on [`IndexWriterConfig::set_open_mode`] determines whether a new index
@@ -194,7 +227,7 @@ where
   pub(crate) commit_user_data: Option<HashMap<String, String>>,
   pending_merges: VecDeque<OneMergeSR<D>>,
   running_merges: HashSet<MergeStat>,
-  merge_exceptions: Vec<(MergeStat, LuceneError)>,
+  merge_exceptions: Vec<MergeStat>,
   merge_gen: i64,
   // used by forceMerge to note those needing merging
   segments_to_merge: HashMap<String, Option<bool>>,
@@ -788,13 +821,10 @@ where
       Ok(seq)
     }));
 
-    match res {
-      Ok(result) => result,
-      res @ Err(_) => {
-        self.tragic_event(&res, "deleteDocuments(Term..)", None)?;
-        unwrap_caught_result!(res)
-      },
+    if res.is_err() {
+      self.tragic_event(&res, "deleteDocuments(Term..)", None)?;
     }
+    unwrap_caught_result!(res)
   }
   /// Deletes the document(s) matching any of the provided queries.
   /// All given deletes are applied and flushed atomically at the same time.
@@ -824,13 +854,10 @@ where
       Ok(seq)
     }));
 
-    match res {
-      Ok(result) => result,
-      res @ Err(_) => {
-        self.tragic_event(&res, "deleteDocuments(Query..)", None)?;
-        unwrap_caught_result!(res)
-      },
+    if res.is_err() {
+      self.tragic_event(&res, "deleteDocuments(Query..)", None)?;
     }
+    unwrap_caught_result!(res)
   }
 
   /// Adds a document to this index.
@@ -859,7 +886,7 @@ where
   /// - Returns an I/O error if a low-level I/O operation fails.
   pub fn add_document<DF>(&self, doc: DF) -> Result<i64>
   where
-    DF: IntoIterator<Item = Fields>,
+    DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     self.update_document_with_term(None, doc)
@@ -894,8 +921,8 @@ where
   /// - Returns an `io::Error` if there is a low-level I/O error.
   pub fn add_documents<DI, DF>(&self, docs: DI) -> Result<i64>
   where
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator<Item = DF>,
+    DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     self.update_documents(None, docs)
@@ -915,7 +942,7 @@ where
   pub fn update_document_with_term<T, DF>(&self, del_term: T, docs: DF) -> Result<i64>
   where
     T: Into<Option<Term>>,
-    DF: IntoIterator<Item = Fields>,
+    DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     let del_node = del_term
@@ -944,8 +971,8 @@ where
   pub fn update_documents_with_term<T, DI, DF>(&self, del_term: T, docs: DI) -> Result<i64>
   where
     T: Into<Option<Term>>,
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator<Item = DF>,
+    DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     let del_node = del_term
@@ -959,8 +986,8 @@ where
   pub fn update_documents_with_query<T, DI, DF>(&self, del_query: T, docs: DI) -> Result<i64>
   where
     T: Into<Option<Query>>,
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator<Item = DF>,
+    DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     let del_node = del_query
@@ -972,8 +999,8 @@ where
 
   fn update_documents<DI, DF>(&self, del_node: Option<Arc<Node>>, docs: DI) -> Result<i64>
   where
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoFallibleIterator<Item = DF>,
+    DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     self.do_ensure_open(true)?;
@@ -984,19 +1011,12 @@ where
           let seq0 = self.doc_writer.update_documents(docs, del_node, self)?;
           self.maybe_process_events(seq0)
         }));
-      match body_result {
-        Ok(result) => match result {
-          Ok(seq_no) => {
-            success = true;
-            Ok(seq_no)
-          },
-          Err(error) => Err(error),
-        },
-        body_result @ Err(_) => {
-          self.tragic_event(&body_result, "updateDocuments", None)?;
-          unwrap_caught_result!(body_result)
-        },
+      if body_result.is_err() {
+        self.tragic_event(&body_result, "updateDocuments", None)?;
       }
+      let seq_no = unwrap_caught_result!(body_result)?;
+      success = true;
+      Ok(seq_no)
     }));
 
     if !success {
@@ -1039,7 +1059,7 @@ where
   ) -> Result<i64>
   where
     T: Into<Arc<Term>>,
-    DF: IntoIterator<Item = Vec<Fields>>,
+    DF: IntoFallibleIterator<Item = Vec<Fields>>,
     D: 'static,
   {
     if soft_deletes.is_empty() {
@@ -1201,7 +1221,7 @@ where
   ) -> Result<i64>
   where
     T: Into<Arc<Term>>,
-    DF: IntoIterator<Item = Fields>,
+    DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     if soft_deletes.is_empty() {
@@ -1273,13 +1293,10 @@ where
       self.maybe_process_events(seq)
     }));
 
-    match res {
-      Ok(result) => result,
-      res @ Err(_) => {
-        self.tragic_event(&res, "updateNumericDocValue", None)?;
-        unwrap_caught_result!(res)
-      },
+    if res.is_err() {
+      self.tragic_event(&res, "updateNumericDocValue", None)?;
     }
+    unwrap_caught_result!(res)
   }
 
   /// Updates a document's [`BinaryDocValues`](crate::core::index::binary_doc_values::BinaryDocValues) for the given `field` to the specified `value`.
@@ -1338,13 +1355,10 @@ where
       self.maybe_process_events(seq)
     }));
 
-    match res {
-      Ok(result) => result,
-      res @ Err(_) => {
-        self.tragic_event(&res, "updateBinaryDocValue", None)?;
-        unwrap_caught_result!(res)
-      },
+    if res.is_err() {
+      self.tragic_event(&res, "updateBinaryDocValue", None)?;
     }
+    unwrap_caught_result!(res)
   }
 
   /// Updates documents' DocValues fields to the given values.
@@ -1379,13 +1393,10 @@ where
       self.maybe_process_events(seq)
     }));
 
-    match res {
-      Ok(result) => result,
-      res @ Err(_) => {
-        self.tragic_event(&res, "updateDocValues", None)?;
-        unwrap_caught_result!(res)
-      },
+    if res.is_err() {
+      self.tragic_event(&res, "updateDocValues", None)?;
     }
+    unwrap_caught_result!(res)
   }
 
   fn build_doc_values_update<T>(
@@ -1825,8 +1836,7 @@ where
       }
       if use_compound_file {
         success = false;
-        let sci = merge.info.as_mut().unwrap();
-        let files_to_remove = sci.files()?;
+        let files_to_remove = merge.info.as_ref().unwrap().files()?;
 
         // NOTE: Creation of the CFS file must be performed with the original
         // directory rather than with the merging directory, so that it is not
@@ -1836,6 +1846,7 @@ where
         // We'll need a mutable view of SegmentInfo to pass into create_compound_file.
         // Keep this in a tight scope.
         let cfs_res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          let sci = merge.info.as_mut().unwrap();
           let segment_info = Arc::get_mut(&mut sci.info)
             .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
 
@@ -1852,36 +1863,46 @@ where
           success = true;
           Ok(())
         }));
-        if !success {
-          if self.info_stream.is_enabled("IW") {
-            self
-              .info_stream
-              .message("IW", "hit exception creating compound file during merge")?;
-          }
-          // Safe: these files must exist
-          let files = sci.files()?;
-          self.delete_new_files(files.iter(), None)?;
-        }
-        match cfs_res {
-          Ok(Ok(())) => {},
+        let mut cfs_aborted = false;
+        let catch_result = match cfs_res {
+          Ok(Ok(())) => Ok(Ok(())),
           cfs_res => {
-            let mut inner = self.inner.lock();
-            if merge.is_aborted() {
-              // This can happen if rollback is called while we were building
-              // our CFS -- fall through to logic below to remove the non-CFS
-              // merged files:
-              if self.info_stream.is_enabled("IW") {
-                self.info_stream.message(
-                  "IW",
-                  "hit merge abort exception creating compound file during merge",
-                )?;
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+              let mut inner = self.inner.lock();
+              if merge.is_aborted() {
+                // This can happen if rollback is called while we were building
+                // our CFS -- fall through to logic below to remove the non-CFS
+                // merged files:
+                if self.info_stream.is_enabled("IW") {
+                  self.info_stream.message(
+                    "IW",
+                    "hit merge abort exception creating compound file during merge",
+                  )?;
+                }
+                cfs_aborted = true;
+                Ok(())
+              } else {
+                self.handle_merge_exception(cfs_res, merge, Some(&mut inner))
               }
-              return Ok(0);
-            }
-            return self
-              .handle_merge_exception(cfs_res, merge, Some(&mut inner))
-              .map(|()| 0);
+            }))
           },
+        };
+        let finally_result = (|| -> Result<()> {
+          if !success {
+            if self.info_stream.is_enabled("IW") {
+              self
+                .info_stream
+                .message("IW", "hit exception creating compound file during merge")?;
+            }
+            // Safe: these files must exist
+            let files = merge.info.as_ref().unwrap().files()?;
+            self.delete_new_files(files.iter(), None)?;
+          }
+          Ok(())
+        })();
+        IOUtils::finally_caught_result(catch_result, Ok(finally_result))?;
+        if cfs_aborted {
+          return Ok(0);
         }
 
         // So that, if we hit exc in deleteNewFiles (next) or in commitMerge (later),
@@ -1942,10 +1963,7 @@ where
           let files = sci.files()?;
           self.delete_new_files(files.iter(), None)?;
         }
-        match write_res {
-          Ok(result) => result?,
-          Err(payload) => std::panic::resume_unwind(payload),
-        }
+        unwrap_caught_result!(write_res)?;
       }
 
       let merged_segment_warmer = self.config.get_merged_segment_warmer();
@@ -1981,13 +1999,7 @@ where
           }
         };
 
-        match finally_result {
-          Ok(()) => match warm_result {
-            Ok(result) => result?,
-            Err(payload) => std::panic::resume_unwind(payload),
-          },
-          Err(error) => return Err(error),
-        }
+        IOUtils::finally_caught_result(warm_result, Ok(finally_result))?;
       }
 
       if !self.commit_merge(merge, &doc_maps)? {
@@ -2001,33 +2013,20 @@ where
     if !success {
       self.close_merge_readers(merge, true, false, None)?;
     }
-    match res {
-      Ok(result) => {
-        result?;
-      },
-      Err(payload) => std::panic::resume_unwind(payload),
-    }
+    unwrap_caught_result!(res)?;
     Ok(max_doc)
   }
-  fn add_merge_exception<CR>(
-    &self,
-    merge: &OneMerge<D, CR>,
-    error: LuceneError,
-    inner: Option<&mut Inner<D>>,
-  ) where
+  fn add_merge_exception<CR>(&self, merge: &OneMerge<D, CR>, inner: Option<&mut Inner<D>>)
+  where
     CR: CodecReader,
   {
     let inner = match inner {
       Some(inner) => inner,
       None => &mut *self.inner.lock(),
     };
-    if !inner
-      .merge_exceptions
-      .iter()
-      .any(|(merge_stat, _)| merge_stat == &merge.stat)
-      && inner.merge_gen == merge.stat.merge_gen
-    {
-      inner.merge_exceptions.push((merge.stat.clone(), error));
+    debug_assert!(merge.stat.has_exception());
+    if !inner.merge_exceptions.contains(&merge.stat) && inner.merge_gen == merge.stat.merge_gen {
+      inner.merge_exceptions.push(merge.stat.clone());
     }
   }
 
@@ -2291,13 +2290,18 @@ where
         if !inner.merge_exceptions.is_empty() {
           // Forward any exceptions in background merge
           // threads to the current thread:
-          for (merge, exception) in &inner.merge_exceptions {
+          for merge in &inner.merge_exceptions {
             if merge.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS {
               let mut error = LuceneError::from(std::io::Error::other(format!(
                 "background merge hit exception: {}",
                 Self::segment_ids_to_string(&merge.segments)
               )));
-              error.add_suppressed(exception.clone());
+              if let Some(exception) = merge
+                .get_exception()
+                .and_then(|result| result.caught_failure("panic from a background merge"))
+              {
+                error.add_suppressed(exception);
+              }
               return Err(error);
             }
           }
@@ -2819,13 +2823,10 @@ where
       IOUtils::use_or_suppress_caught_result(body_result, close_result)
     }));
 
-    match result {
-      Ok(result) => result,
-      result @ Err(_) => {
-        self.tragic_event(&result, "deleteAll", None)?;
-        unwrap_caught_result!(result)
-      },
+    if result.is_err() {
+      self.tragic_event(&result, "deleteAll", None)?;
     }
+    unwrap_caught_result!(result)
   }
   /// Aborts running merges. Be careful when using this method: when you abort a long-running merge,
   /// you lose a lot of work that must later be redone.
@@ -3162,9 +3163,9 @@ where
     self.no_dup_dirs(dirs)?;
 
     let locks = self.acquire_write_locks(dirs)?;
+    let index_sort = self.config.get_index_sort();
+    let mut success_top = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
-      let index_sort = self.config.get_index_sort();
-
       if self.info_stream.is_enabled("IW") {
         self
           .info_stream
@@ -3281,28 +3282,24 @@ where
         self.checkpoint(&mut inner)?;
         seq_no
       };
+      success_top = true;
       Ok(seq_no)
     }));
 
-    match result {
-      Ok(Ok(seq_no)) => {
-        IOUtils::close_refs(&locks)?;
-        self.maybe_merge()?;
-        Ok(seq_no)
-      },
-      Ok(Err(err)) => {
-        IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
-        Err(err)
-      },
-      result @ Err(_) => {
-        let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          self.tragic_event(&result, "addIndexes(Directory...)", None)
-        }));
-        IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
-        unwrap_caught_result!(tragic_result)?;
-        unwrap_caught_result!(result)
-      },
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
+      if result.is_err() {
+        self.tragic_event(&result, "addIndexes(Directory...)", None)?;
+      }
+      unwrap_caught_result!(result)
+    }));
+    if success_top {
+      IOUtils::close_refs(&locks)?;
+    } else {
+      IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
     }
+    let seq_no = unwrap_caught_result!(result)?;
+    self.maybe_merge()?;
+    Ok(seq_no)
   }
 
   pub(crate) fn validate_merge_reader<CR>(&self, leaf: &CR) -> Result<()>
@@ -3528,8 +3525,7 @@ where
           if merge.is_aborted() {
             return Err(LuceneError::merge_abort("merge was aborted."));
           }
-          if let Some(t) = merge.get_exception() {
-            let result: CaughtResult = Ok(Err(t));
+          if let Some(result) = merge.get_exception() {
             return IOUtils::rethrow_always(result);
           }
         }
@@ -3856,13 +3852,10 @@ where
             Ok(false)
           }
         }));
-      match body_result {
-        Ok(result) => result,
-        body_result @ Err(_) => {
-          self.tragic_event(&body_result, "flushNextBuffer", None)?;
-          unwrap_caught_result!(body_result)
-        },
+      if body_result.is_err() {
+        self.tragic_event(&body_result, "flushNextBuffer", None)?;
       }
+      unwrap_caught_result!(body_result)
     }));
 
     self.maybe_close_on_tragic_event(None)?;
@@ -4012,13 +4005,10 @@ where
           unwrap_caught_result!(body_res)
         }));
 
-      match flush_result {
-        Ok(result) => result,
-        flush_result @ Err(_) => {
-          self.tragic_event(&flush_result, "prepareCommit", Some(commit_lock))?;
-          unwrap_caught_result!(flush_result)
-        },
+      if flush_result.is_err() {
+        self.tragic_event(&flush_result, "prepareCommit", Some(commit_lock))?;
       }
+      unwrap_caught_result!(flush_result)
     }));
     self.maybe_close_on_tragic_event(Some(commit_lock))?;
     unwrap_caught_result!(tragic_res)?;
@@ -4669,13 +4659,10 @@ where
     }));
 
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<bool> {
-      match body_result {
-        Ok(result) => result,
-        body_result @ Err(_) => {
-          self.tragic_event(&body_result, "doFlush", None)?;
-          unwrap_caught_result!(body_result)
-        },
+      if body_result.is_err() {
+        self.tragic_event(&body_result, "doFlush", None)?;
       }
+      unwrap_caught_result!(body_result)
     }));
 
     if !success {
@@ -5139,16 +5126,18 @@ where
   where
     CR: CodecReader,
   {
-    let failure = result
-      .caught_failure("panic while handling a merge exception")
-      .ok_or_else(|| LuceneError::illegal_argument("merge result must contain a failure"))?;
+    if matches!(&result, Ok(Ok(()))) {
+      return Err(LuceneError::illegal_argument(
+        "merge result must contain a failure",
+      ));
+    }
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
         "IW",
         &format!(
           "handleMergeException: merge={} exc={}",
           Self::segment_ids_to_string(&merge.stat.segments),
-          failure
+          result.display()
         ),
       )?;
     }
@@ -5156,10 +5145,13 @@ where
     // Set the exception on the merge, so if
     // forceMerge is waiting on us it sees the root
     // cause exception:
-    merge.set_exception(failure.clone());
-    self.add_merge_exception(merge, failure.clone(), inner);
+    merge.set_exception(result);
+    self.add_merge_exception(merge, inner);
+    let result = merge
+      .get_exception()
+      .ok_or_else(|| LuceneError::illegal_state("merge exception must be present"))?;
 
-    if matches!(failure, LuceneError::MergeAborted(_)) {
+    if matches!(&result, Ok(Err(LuceneError::MergeAborted(_)))) {
       // We can ignore this exception (it happens when
       // deleteAll or rollback is called), unless the
       // merge involves segments from external directories,
@@ -5824,16 +5816,11 @@ where
       }
       unwrap_caught_result!(res)
     }));
-    match result {
-      Ok(result) => {
-        result?;
-        self.test_point("finishStartCommit")
-      },
-      result @ Err(_) => {
-        self.tragic_event(&result, "startCommit", Some(commit_lock))?;
-        unwrap_caught_result!(result)
-      },
+    if result.is_err() {
+      self.tragic_event(&result, "startCommit", Some(commit_lock))?;
     }
+    unwrap_caught_result!(result)?;
+    self.test_point("finishStartCommit")
   }
 
   /// This method should be called on a tragic event, such as when a downstream writer component hits
@@ -6947,13 +6934,10 @@ where
             Ok(reader)
           },
         ));
-        match body_result {
-          Ok(result) => result,
-          body_result @ Err(_) => {
-            self.tragic_event(&body_result, "getReader", None)?;
-            unwrap_caught_result!(body_result)
-          },
+        if body_result.is_err() {
+          self.tragic_event(&body_result, "getReader", None)?;
         }
+        unwrap_caught_result!(body_result)
       },
     ));
 

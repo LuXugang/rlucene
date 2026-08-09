@@ -53,7 +53,7 @@ use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
 use crate::core::index::index_writer::{
   EventEnum, EventImplTest, EventQueue, IndexCommitWrapper, IndexWriter, IndexWriterHooks,
-  IndexWriterHooksEnum, WRITE_LOCK_NAME, read_field_infos,
+  IndexWriterHooksEnum, IntoFallibleIterator, WRITE_LOCK_NAME, read_field_infos,
 };
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
@@ -2601,20 +2601,20 @@ struct FailingDocumentsIterable;
 
 struct FailingDocumentsIterator;
 
-impl IntoIterator for FailingDocumentsIterable {
+impl IntoFallibleIterator for FailingDocumentsIterable {
   type Item = Document;
   type IntoIter = FailingDocumentsIterator;
 
-  fn into_iter(self) -> Self::IntoIter {
+  fn into_fallible_iter(self) -> Self::IntoIter {
     FailingDocumentsIterator
   }
 }
 
 impl Iterator for FailingDocumentsIterator {
-  type Item = Document;
+  type Item = Result<Document>;
 
   fn next(&mut self) -> Option<Self::Item> {
-    std::panic::resume_unwind(Box::new("boom".to_string()))
+    Some(Err(LuceneError::illegal_state("boom")))
   }
 }
 
@@ -2641,11 +2641,11 @@ struct RandomFailingIterator<T> {
   count: usize,
 }
 
-impl<T> IntoIterator for RandomFailingIterable<T> {
+impl<T> IntoFallibleIterator for RandomFailingIterable<T> {
   type Item = T;
   type IntoIter = RandomFailingIterator<T>;
 
-  fn into_iter(self) -> Self::IntoIter {
+  fn into_fallible_iter(self) -> Self::IntoIter {
     RandomFailingIterator {
       iterator: self.list.into_iter(),
       fail_on: self.fail_on,
@@ -2655,17 +2655,17 @@ impl<T> IntoIterator for RandomFailingIterable<T> {
 }
 
 impl<T> Iterator for RandomFailingIterator<T> {
-  type Item = T;
+  type Item = Result<T>;
 
   fn next(&mut self) -> Option<Self::Item> {
     if self.iterator.len() == 0 {
       return None;
     }
     if self.count == self.fail_on {
-      std::panic::resume_unwind(Box::new("boom".to_string()));
+      return Some(Err(LuceneError::illegal_state("boom")));
     }
     self.count += 1;
-    self.iterator.next()
+    self.iterator.next().map(Ok)
   }
 }
 
