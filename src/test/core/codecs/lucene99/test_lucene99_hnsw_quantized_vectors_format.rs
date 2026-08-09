@@ -24,7 +24,7 @@ use crate::core::codecs::lucene99::lucene99_hnsw_vectors_reader::SIMILARITY_FUNC
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_writer::{
   FloatVectorWrapper, build_scalar_quantizer,
 };
-use crate::core::codecs::{Codecs, KnnVectorsFormats};
+use crate::core::codecs::{Codecs, KnnVectorsFormats, KnnVectorsFormatsReader};
 use crate::core::document::document::Document;
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::core::index::byte_vector_values::ByteVectorValues;
@@ -350,7 +350,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
         _ => panic!("field reader is not a source KNN format reader"),
       };
       let quantized_reader = match source_reader {
-        KnnVectorsReaderEnum2::B(KnnVectorsReaderEnum2::A(reader)) => reader,
+        KnnVectorsFormatsReader::Lucene99HnswScalarQuantized(reader) => reader,
         _ => panic!("reader is not Lucene99HnswVectorsReader"),
       };
       assert!(quantized_reader.get_quantization_state("f")?.is_some());

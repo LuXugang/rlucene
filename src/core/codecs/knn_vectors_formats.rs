@@ -17,8 +17,18 @@
 use crate::codec::bitvectors::hnsw_bit_vectors_format::{
   HnswBitVectorsFormat, NAME as HNSW_BIT_VECTORS_FORMAT_NAME,
 };
+#[cfg(test)]
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+#[cfg(test)]
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
+#[cfg(test)]
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
+#[cfg(not(test))]
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum2;
+#[cfg(test)]
+use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
+#[cfg(not(test))]
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriterEnum2;
 use crate::core::codecs::lucene99::lucene99_hnsw_scalar_quantized_vectors_format::{
   Lucene99HnswScalarQuantizedVectorsFormat,
@@ -28,14 +38,38 @@ use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVec
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vectors_format::{
   Lucene99ScalarQuantizedVectorsFormat, NAME as LUCENE99_SCALAR_QUANTIZED_VECTORS_FORMAT_NAME,
 };
+#[cfg(test)]
+use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
+#[cfg(test)]
+use crate::core::index::codec_reader::CodecReader;
+#[cfg(test)]
+use crate::core::index::field_info::FieldInfo;
+#[cfg(test)]
+use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::index::index_reader::Identity;
+#[cfg(test)]
+use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
+#[cfg(test)]
+use crate::core::index::sorter::DocMap;
+#[cfg(test)]
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
+#[cfg(test)]
+use crate::core::util::accountable::Accountable;
+#[cfg(test)]
+use crate::core::util::bits::Bits;
+#[cfg(test)]
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
+#[cfg(test)]
+use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -104,6 +138,7 @@ type Lucene99HnswScalarQuantizedVectorsWriter<O> =
   <Lucene99HnswScalarQuantizedVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>;
 type HnswBitVectorsWriter<O> = <HnswBitVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>;
 
+#[cfg(not(test))]
 pub type KnnVectorsFormatsWriter<O> = KnnVectorsWriterEnum2<
   KnnVectorsWriterEnum2<Lucene99HnswVectorsWriter<O>, Lucene99ScalarQuantizedVectorsWriter<O>>,
   KnnVectorsWriterEnum2<Lucene99HnswScalarQuantizedVectorsWriter<O>, HnswBitVectorsWriter<O>>,
@@ -117,10 +152,383 @@ type Lucene99HnswScalarQuantizedVectorsReader<I> =
   <Lucene99HnswScalarQuantizedVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>;
 type HnswBitVectorsReader<I> = <HnswBitVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>;
 
+#[cfg(not(test))]
 pub type KnnVectorsFormatsReader<I> = KnnVectorsReaderEnum2<
   KnnVectorsReaderEnum2<Lucene99HnswVectorsReader<I>, Lucene99ScalarQuantizedVectorsReader<I>>,
   KnnVectorsReaderEnum2<Lucene99HnswScalarQuantizedVectorsReader<I>, HnswBitVectorsReader<I>>,
 >;
+
+#[cfg(test)]
+pub enum KnnVectorsFormatsWriter<O: IndexOutput> {
+  Lucene99Hnsw(Lucene99HnswVectorsWriter<O>),
+  Lucene99ScalarQuantized(Lucene99ScalarQuantizedVectorsWriter<O>),
+  Lucene99HnswScalarQuantized(Lucene99HnswScalarQuantizedVectorsWriter<O>),
+  HnswBit(HnswBitVectorsWriter<O>),
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> Closeable for KnnVectorsFormatsWriter<O> {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::Lucene99Hnsw(writer) => writer.close(),
+      Self::Lucene99ScalarQuantized(writer) => writer.close(),
+      Self::Lucene99HnswScalarQuantized(writer) => writer.close(),
+      Self::HnswBit(writer) => writer.close(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> Accountable for KnnVectorsFormatsWriter<O> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::Lucene99Hnsw(writer) => writer.ram_bytes_used(),
+      Self::Lucene99ScalarQuantized(writer) => writer.ram_bytes_used(),
+      Self::Lucene99HnswScalarQuantized(writer) => writer.ram_bytes_used(),
+      Self::HnswBit(writer) => writer.ram_bytes_used(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> KnnVectorsWriter<O> for KnnVectorsFormatsWriter<O> {
+  fn add_field<D1, D2>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<usize>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    match self {
+      Self::Lucene99Hnsw(writer) => writer.add_field(write_state, segment_info, field_info),
+      Self::Lucene99ScalarQuantized(writer) => {
+        writer.add_field(write_state, segment_info, field_info)
+      },
+      Self::Lucene99HnswScalarQuantized(writer) => {
+        writer.add_field(write_state, segment_info, field_info)
+      },
+      Self::HnswBit(writer) => writer.add_field(write_state, segment_info, field_info),
+    }
+  }
+
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    match self {
+      Self::Lucene99Hnsw(writer) => writer.flush(max_doc, sort_map),
+      Self::Lucene99ScalarQuantized(writer) => writer.flush(max_doc, sort_map),
+      Self::Lucene99HnswScalarQuantized(writer) => writer.flush(max_doc, sort_map),
+      Self::HnswBit(writer) => writer.flush(max_doc, sort_map),
+    }
+  }
+
+  fn merge_one_field<D1, D2, CR>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory<IndexOutput = O>,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene99Hnsw(writer) => {
+        writer.merge_one_field(field_info, merge_state, segment_write_state)
+      },
+      Self::Lucene99ScalarQuantized(writer) => {
+        writer.merge_one_field(field_info, merge_state, segment_write_state)
+      },
+      Self::Lucene99HnswScalarQuantized(writer) => {
+        writer.merge_one_field(field_info, merge_state, segment_write_state)
+      },
+      Self::HnswBit(writer) => writer.merge_one_field(field_info, merge_state, segment_write_state),
+    }
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    match self {
+      Self::Lucene99Hnsw(writer) => writer.finish(),
+      Self::Lucene99ScalarQuantized(writer) => writer.finish(),
+      Self::Lucene99HnswScalarQuantized(writer) => writer.finish(),
+      Self::HnswBit(writer) => writer.finish(),
+    }
+  }
+
+  fn merge<D1, D2, CR>(
+    &mut self,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<i32>
+  where
+    D1: Directory,
+    D2: Directory<IndexOutput = O>,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene99Hnsw(writer) => writer.merge(merge_state, segment_write_state),
+      Self::Lucene99ScalarQuantized(writer) => writer.merge(merge_state, segment_write_state),
+      Self::Lucene99HnswScalarQuantized(writer) => writer.merge(merge_state, segment_write_state),
+      Self::HnswBit(writer) => writer.merge(merge_state, segment_write_state),
+    }
+  }
+
+  fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene99Hnsw(writer) => writer.finish_merge(merge_state),
+      Self::Lucene99ScalarQuantized(writer) => writer.finish_merge(merge_state),
+      Self::Lucene99HnswScalarQuantized(writer) => writer.finish_merge(merge_state),
+      Self::HnswBit(writer) => writer.finish_merge(merge_state),
+    }
+  }
+
+  fn add_value(
+    &mut self,
+    doc_id: i32,
+    vector_value: &VectorValueEnum,
+    field_vectors_writers_idx: usize,
+  ) -> Result<()> {
+    match self {
+      Self::Lucene99Hnsw(writer) => {
+        writer.add_value(doc_id, vector_value, field_vectors_writers_idx)
+      },
+      Self::Lucene99ScalarQuantized(writer) => {
+        writer.add_value(doc_id, vector_value, field_vectors_writers_idx)
+      },
+      Self::Lucene99HnswScalarQuantized(writer) => {
+        writer.add_value(doc_id, vector_value, field_vectors_writers_idx)
+      },
+      Self::HnswBit(writer) => writer.add_value(doc_id, vector_value, field_vectors_writers_idx),
+    }
+  }
+}
+
+#[cfg(test)]
+pub enum KnnVectorsFormatsReader<I: IndexInput> {
+  Lucene99Hnsw(Lucene99HnswVectorsReader<I>),
+  Lucene99ScalarQuantized(Lucene99ScalarQuantizedVectorsReader<I>),
+  Lucene99HnswScalarQuantized(Lucene99HnswScalarQuantizedVectorsReader<I>),
+  HnswBit(HnswBitVectorsReader<I>),
+}
+
+#[cfg(test)]
+impl<I: IndexInput> CloseableRef for KnnVectorsFormatsReader<I> {
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.close(),
+      Self::Lucene99ScalarQuantized(reader) => reader.close(),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.close(),
+      Self::HnswBit(reader) => reader.close(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<I: IndexInput> HnswGraphProvider for KnnVectorsFormatsReader<I> {
+  type HnswGraph = HnswGraphEnum2<
+    HnswGraphEnum2<
+      <Lucene99HnswVectorsReader<I> as HnswGraphProvider>::HnswGraph,
+      <Lucene99ScalarQuantizedVectorsReader<I> as HnswGraphProvider>::HnswGraph,
+    >,
+    HnswGraphEnum2<
+      <Lucene99HnswScalarQuantizedVectorsReader<I> as HnswGraphProvider>::HnswGraph,
+      <HnswBitVectorsReader<I> as HnswGraphProvider>::HnswGraph,
+    >,
+  >;
+
+  fn is_hnsw_graph_provider(&self, field: &str) -> bool {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.is_hnsw_graph_provider(field),
+      Self::Lucene99ScalarQuantized(reader) => reader.is_hnsw_graph_provider(field),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.is_hnsw_graph_provider(field),
+      Self::HnswBit(reader) => reader.is_hnsw_graph_provider(field),
+    }
+  }
+
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader
+        .get_graph(field)
+        .map(|graph| HnswGraphEnum2::A(HnswGraphEnum2::A(graph))),
+      Self::Lucene99ScalarQuantized(reader) => reader
+        .get_graph(field)
+        .map(|graph| HnswGraphEnum2::A(HnswGraphEnum2::B(graph))),
+      Self::Lucene99HnswScalarQuantized(reader) => reader
+        .get_graph(field)
+        .map(|graph| HnswGraphEnum2::B(HnswGraphEnum2::A(graph))),
+      Self::HnswBit(reader) => reader
+        .get_graph(field)
+        .map(|graph| HnswGraphEnum2::B(HnswGraphEnum2::B(graph))),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<I: IndexInput> KnnVectorsReader for KnnVectorsFormatsReader<I> {
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.check_integrity(),
+      Self::Lucene99ScalarQuantized(reader) => reader.check_integrity(),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.check_integrity(),
+      Self::HnswBit(reader) => reader.check_integrity(),
+    }
+  }
+
+  type FloatVectorValues = FloatVectorValuesEnum2<
+    FloatVectorValuesEnum2<
+      <Lucene99HnswVectorsReader<I> as KnnVectorsReader>::FloatVectorValues,
+      <Lucene99ScalarQuantizedVectorsReader<I> as KnnVectorsReader>::FloatVectorValues,
+    >,
+    FloatVectorValuesEnum2<
+      <Lucene99HnswScalarQuantizedVectorsReader<I> as KnnVectorsReader>::FloatVectorValues,
+      <HnswBitVectorsReader<I> as KnnVectorsReader>::FloatVectorValues,
+    >,
+  >;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader
+        .get_float_vector_values(field)
+        .map(|values| FloatVectorValuesEnum2::A(FloatVectorValuesEnum2::A(values))),
+      Self::Lucene99ScalarQuantized(reader) => reader
+        .get_float_vector_values(field)
+        .map(|values| FloatVectorValuesEnum2::A(FloatVectorValuesEnum2::B(values))),
+      Self::Lucene99HnswScalarQuantized(reader) => reader
+        .get_float_vector_values(field)
+        .map(|values| FloatVectorValuesEnum2::B(FloatVectorValuesEnum2::A(values))),
+      Self::HnswBit(reader) => reader
+        .get_float_vector_values(field)
+        .map(|values| FloatVectorValuesEnum2::B(FloatVectorValuesEnum2::B(values))),
+    }
+  }
+
+  type ByteVectorValues = ByteVectorValuesEnum2<
+    ByteVectorValuesEnum2<
+      <Lucene99HnswVectorsReader<I> as KnnVectorsReader>::ByteVectorValues,
+      <Lucene99ScalarQuantizedVectorsReader<I> as KnnVectorsReader>::ByteVectorValues,
+    >,
+    ByteVectorValuesEnum2<
+      <Lucene99HnswScalarQuantizedVectorsReader<I> as KnnVectorsReader>::ByteVectorValues,
+      <HnswBitVectorsReader<I> as KnnVectorsReader>::ByteVectorValues,
+    >,
+  >;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader
+        .get_byte_vector_values(field)
+        .map(|values| ByteVectorValuesEnum2::A(ByteVectorValuesEnum2::A(values))),
+      Self::Lucene99ScalarQuantized(reader) => reader
+        .get_byte_vector_values(field)
+        .map(|values| ByteVectorValuesEnum2::A(ByteVectorValuesEnum2::B(values))),
+      Self::Lucene99HnswScalarQuantized(reader) => reader
+        .get_byte_vector_values(field)
+        .map(|values| ByteVectorValuesEnum2::B(ByteVectorValuesEnum2::A(values))),
+      Self::HnswBit(reader) => reader
+        .get_byte_vector_values(field)
+        .map(|values| ByteVectorValuesEnum2::B(ByteVectorValuesEnum2::B(values))),
+    }
+  }
+
+  fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.get_quantization_state(field),
+      Self::Lucene99ScalarQuantized(reader) => reader.get_quantization_state(field),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.get_quantization_state(field),
+      Self::HnswBit(reader) => reader.get_quantization_state(field),
+    }
+  }
+
+  fn is_flat_vectors_reader(&self, field: &str) -> bool {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.is_flat_vectors_reader(field),
+      Self::Lucene99ScalarQuantized(reader) => reader.is_flat_vectors_reader(field),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.is_flat_vectors_reader(field),
+      Self::HnswBit(reader) => reader.is_flat_vectors_reader(field),
+    }
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+      Self::Lucene99ScalarQuantized(reader) => {
+        reader.search_f32(field, target, knn_collector, accept_docs)
+      },
+      Self::Lucene99HnswScalarQuantized(reader) => {
+        reader.search_f32(field, target, knn_collector, accept_docs)
+      },
+      Self::HnswBit(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+      Self::Lucene99ScalarQuantized(reader) => {
+        reader.search_u8(field, target, knn_collector, accept_docs)
+      },
+      Self::Lucene99HnswScalarQuantized(reader) => {
+        reader.search_u8(field, target, knn_collector, accept_docs)
+      },
+      Self::HnswBit(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(Self::Lucene99Hnsw)),
+      Self::Lucene99ScalarQuantized(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(Self::Lucene99ScalarQuantized)),
+      Self::Lucene99HnswScalarQuantized(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(Self::Lucene99HnswScalarQuantized)),
+      Self::HnswBit(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(Self::HnswBit)),
+    }
+  }
+
+  fn finish_merge(&self) -> Result<()> {
+    match self {
+      Self::Lucene99Hnsw(reader) => reader.finish_merge(),
+      Self::Lucene99ScalarQuantized(reader) => reader.finish_merge(),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.finish_merge(),
+      Self::HnswBit(reader) => reader.finish_merge(),
+    }
+  }
+}
 
 impl KnnVectorsFormat for KnnVectorsFormats {
   fn get_name(&self) -> &str {
@@ -145,20 +553,52 @@ impl KnnVectorsFormat for KnnVectorsFormats {
   {
     match self {
       Self::Lucene99Hnsw(format) => {
-        KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
-          .map(|writer| KnnVectorsWriterEnum2::A(KnnVectorsWriterEnum2::A(writer)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(|writer| KnnVectorsWriterEnum2::A(KnnVectorsWriterEnum2::A(writer)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsWriter::Lucene99Hnsw)
+        }
       },
       Self::Lucene99ScalarQuantized(format) => {
-        KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
-          .map(|writer| KnnVectorsWriterEnum2::A(KnnVectorsWriterEnum2::B(writer)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(|writer| KnnVectorsWriterEnum2::A(KnnVectorsWriterEnum2::B(writer)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsWriter::Lucene99ScalarQuantized)
+        }
       },
       Self::Lucene99HnswScalarQuantized(format) => {
-        KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
-          .map(|writer| KnnVectorsWriterEnum2::B(KnnVectorsWriterEnum2::A(writer)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(|writer| KnnVectorsWriterEnum2::B(KnnVectorsWriterEnum2::A(writer)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsWriter::Lucene99HnswScalarQuantized)
+        }
       },
       Self::HnswBit(format) => {
-        KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
-          .map(|writer| KnnVectorsWriterEnum2::B(KnnVectorsWriterEnum2::B(writer)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(|writer| KnnVectorsWriterEnum2::B(KnnVectorsWriterEnum2::B(writer)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_writer(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsWriter::HnswBit)
+        }
       },
     }
   }
@@ -176,20 +616,52 @@ impl KnnVectorsFormat for KnnVectorsFormats {
   {
     match self {
       Self::Lucene99Hnsw(format) => {
-        KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
-          .map(|reader| KnnVectorsReaderEnum2::A(KnnVectorsReaderEnum2::A(reader)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(|reader| KnnVectorsReaderEnum2::A(KnnVectorsReaderEnum2::A(reader)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsReader::Lucene99Hnsw)
+        }
       },
       Self::Lucene99ScalarQuantized(format) => {
-        KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
-          .map(|reader| KnnVectorsReaderEnum2::A(KnnVectorsReaderEnum2::B(reader)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(|reader| KnnVectorsReaderEnum2::A(KnnVectorsReaderEnum2::B(reader)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsReader::Lucene99ScalarQuantized)
+        }
       },
       Self::Lucene99HnswScalarQuantized(format) => {
-        KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
-          .map(|reader| KnnVectorsReaderEnum2::B(KnnVectorsReaderEnum2::A(reader)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(|reader| KnnVectorsReaderEnum2::B(KnnVectorsReaderEnum2::A(reader)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsReader::Lucene99HnswScalarQuantized)
+        }
       },
       Self::HnswBit(format) => {
-        KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
-          .map(|reader| KnnVectorsReaderEnum2::B(KnnVectorsReaderEnum2::B(reader)))
+        #[cfg(not(test))]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(|reader| KnnVectorsReaderEnum2::B(KnnVectorsReaderEnum2::B(reader)))
+        }
+        #[cfg(test)]
+        {
+          KnnVectorsFormat::fields_reader(format.as_ref(), state, segment_info)
+            .map(KnnVectorsFormatsReader::HnswBit)
+        }
       },
     }
   }

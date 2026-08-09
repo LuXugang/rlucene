@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::KnnVectorsFormatsReader;
 use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum2;
@@ -218,7 +219,7 @@ fn vector_scoring_test(bits: i32, compress: bool) -> Result<()> {
         _ => panic!("field reader is not a source KNN format reader"),
       };
       let quantized_reader = match source_reader {
-        KnnVectorsReaderEnum2::B(KnnVectorsReaderEnum2::A(reader)) => reader,
+        KnnVectorsFormatsReader::Lucene99HnswScalarQuantized(reader) => reader,
         _ => panic!("reader is not Lucene99HnswVectorsReader"),
       };
       let quantized_values = quantized_reader.get_quantized_vector_values("field")?;

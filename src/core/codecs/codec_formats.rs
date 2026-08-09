@@ -27,11 +27,13 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::field_infos_format::FieldInfosFormat;
 #[cfg(test)]
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
+#[cfg(test)]
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 #[cfg(test)]
 use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
 #[cfg(test)]
-use crate::core::codecs::knn_vectors_writer::KnnVectorsWriterEnum2;
+use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::live_docs_format::LiveDocsFormat;
 #[cfg(test)]
 use crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat;
@@ -85,11 +87,15 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
+#[cfg(test)]
+use crate::core::index::sorter::DocMap;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
 #[cfg(test)]
 use crate::core::util::StringHelper;
+#[cfg(test)]
+use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 #[cfg(test)]
 use crate::core::util::bits::BitsEnum2;
@@ -1409,10 +1415,122 @@ impl PointsFormat for CodecPointsFormat {
 pub type CodecKnnVectorsWriter<O> =
   <Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>;
 #[cfg(test)]
-pub type CodecKnnVectorsWriter<O> = KnnVectorsWriterEnum2<
-  <Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>,
-  <AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>,
->;
+pub enum CodecKnnVectorsWriter<O: IndexOutput> {
+  Lucene101(<Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>),
+  Asserting(<AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsWriter<O>),
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> Closeable for CodecKnnVectorsWriter<O> {
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::Lucene101(inner) => inner.close(),
+      Self::Asserting(inner) => inner.close(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> Accountable for CodecKnnVectorsWriter<O> {
+  fn ram_bytes_used(&self) -> Result<i64> {
+    match self {
+      Self::Lucene101(inner) => inner.ram_bytes_used(),
+      Self::Asserting(inner) => inner.ram_bytes_used(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<O: IndexOutput> KnnVectorsWriter<O> for CodecKnnVectorsWriter<O> {
+  fn add_field<D1, D2>(
+    &mut self,
+    write_state: &SegmentWriteState<D1>,
+    segment_info: &SegmentInfo<D2>,
+    field_info: Arc<FieldInfo>,
+  ) -> Result<usize>
+  where
+    D1: Directory<IndexOutput = O>,
+    D2: Directory,
+  {
+    match self {
+      Self::Lucene101(inner) => inner.add_field(write_state, segment_info, field_info),
+      Self::Asserting(inner) => inner.add_field(write_state, segment_info, field_info),
+    }
+  }
+
+  fn flush<DM>(&mut self, max_doc: i32, sort_map: Option<&DM>) -> Result<()>
+  where
+    DM: DocMap,
+  {
+    match self {
+      Self::Lucene101(inner) => inner.flush(max_doc, sort_map),
+      Self::Asserting(inner) => inner.flush(max_doc, sort_map),
+    }
+  }
+
+  fn merge_one_field<D1, D2, CR>(
+    &mut self,
+    field_info: &Arc<FieldInfo>,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<()>
+  where
+    D1: Directory,
+    D2: Directory<IndexOutput = O>,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene101(inner) => inner.merge_one_field(field_info, merge_state, segment_write_state),
+      Self::Asserting(inner) => inner.merge_one_field(field_info, merge_state, segment_write_state),
+    }
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    match self {
+      Self::Lucene101(inner) => inner.finish(),
+      Self::Asserting(inner) => inner.finish(),
+    }
+  }
+
+  fn merge<D1, D2, CR>(
+    &mut self,
+    merge_state: &MergeState<'_, D1, CR>,
+    segment_write_state: &SegmentWriteState<&D2>,
+  ) -> Result<i32>
+  where
+    D1: Directory,
+    D2: Directory<IndexOutput = O>,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene101(inner) => inner.merge(merge_state, segment_write_state),
+      Self::Asserting(inner) => inner.merge(merge_state, segment_write_state),
+    }
+  }
+
+  fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Lucene101(inner) => inner.finish_merge(merge_state),
+      Self::Asserting(inner) => inner.finish_merge(merge_state),
+    }
+  }
+
+  fn add_value(
+    &mut self,
+    doc_id: i32,
+    vector_value: &VectorValueEnum,
+    field_vectors_writers_idx: usize,
+  ) -> Result<()> {
+    match self {
+      Self::Lucene101(inner) => inner.add_value(doc_id, vector_value, field_vectors_writers_idx),
+      Self::Asserting(inner) => inner.add_value(doc_id, vector_value, field_vectors_writers_idx),
+    }
+  }
+}
 
 #[cfg(not(test))]
 pub type CodecKnnVectorsReader<I> =
@@ -1805,13 +1923,13 @@ impl KnnVectorsFormat for CodecKnnVectorsFormat {
         {
           format
             .fields_writer(state, segment_info)
-            .map(KnnVectorsWriterEnum2::A)
+            .map(CodecKnnVectorsWriter::Lucene101)
         }
       },
       #[cfg(test)]
       Self::Asserting(format) => format
         .fields_writer(state, segment_info)
-        .map(KnnVectorsWriterEnum2::B),
+        .map(CodecKnnVectorsWriter::Asserting),
     }
   }
 
