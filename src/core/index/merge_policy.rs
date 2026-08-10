@@ -18,7 +18,6 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::dummy::dummy_doc_map_sorter::DummyDocMap;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_writer::{Inner, PointInTimeOneMerge};
-use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_doc_merge_policy::LogDocMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
@@ -37,7 +36,6 @@ use crate::core::index::tiered_merge_policy::{
 use crate::core::index::upgrade_index_merge_policy::UpgradeIndexMergePolicy;
 use crate::core::store::directory::Directory;
 use crate::core::store::merge_info::MergeInfo;
-use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
@@ -1851,7 +1849,7 @@ where
   pub estimated_merge_bytes: Arc<AtomicI64>,
   /// Sum of sizeInBytes of all SegmentInfos; set by IW.mergeInit
   pub(crate) total_merge_bytes: AtomicI64,
-  merge_readers: Vec<MergeReader<CR, CR::Bits>>,
+  merge_readers: Vec<MergeReader<CR>>,
   pub(crate) merge_start_ns: Arc<Mutex<Instant>>,
   /// Total number of documents in segments to be merged, not accounting for deletions.
   pub(crate) total_max_doc: i32,
@@ -2266,7 +2264,7 @@ where
     }
     Ok(())
   }
-  pub fn get_merge_reader(&self) -> &[MergeReader<CR, CR::Bits>] {
+  pub fn get_merge_reader(&self) -> &[MergeReader<CR>] {
     self.merge_readers.as_slice()
   }
 
@@ -2338,7 +2336,7 @@ where
 
   pub fn init_merge_readers<F>(&mut self, reader_factory: F) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+    F: FnMut(&String) -> Result<MergeReader<CR>>,
   {
     <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::init_merge_readers::<F>(
       &self.hook,
@@ -2356,7 +2354,7 @@ where
     mut reader_consumer: F,
   ) -> Result<()>
   where
-    F: FnMut(&mut Inner<D>, &MergeReader<CR, CR::Bits>) -> Result<()>,
+    F: FnMut(&mut Inner<D>, &MergeReader<CR>) -> Result<()>,
   {
     if !self.stat.complete(success) {
       return Err(LuceneError::illegal_state("merge has already finished"));
@@ -2380,7 +2378,7 @@ where
     reader_consumer: F,
   ) -> Result<()>
   where
-    F: FnMut(&MergeReader<CR, CR::Bits>) -> Result<()>,
+    F: FnMut(&MergeReader<CR>) -> Result<()>,
   {
     match self.hook {
       OneMergeHook::Default => {},
@@ -2523,13 +2521,13 @@ impl OneMergeDefaults {
   }
 
   pub(crate) fn init_merge_readers<CR, F>(
-    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
+    merge_readers: &mut Vec<MergeReader<CR>>,
     stat: &MergeStat,
     mut reader_factory: F,
   ) -> Result<()>
   where
     CR: CodecReader,
-    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+    F: FnMut(&String) -> Result<MergeReader<CR>>,
   {
     debug_assert!(merge_readers.is_empty());
     debug_assert!(!stat.has_finished(), "merge is already done");
@@ -2703,12 +2701,12 @@ where
 
   fn init_merge_readers<F>(
     &self,
-    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
+    merge_readers: &mut Vec<MergeReader<CR>>,
     stat: &MergeStat,
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+    F: FnMut(&String) -> Result<MergeReader<CR>>,
   {
     match self {
       Self::Default => OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory),
@@ -2781,12 +2779,12 @@ where
 
   fn init_merge_readers<F>(
     &self,
-    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
+    merge_readers: &mut Vec<MergeReader<CR>>,
     stat: &MergeStat,
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>;
+    F: FnMut(&String) -> Result<MergeReader<CR>>;
 }
 pub type DefaultMergeSpecification<D> = MergeSpecification<D, DefaultLeafReader<D>>;
 pub struct MergeSpecification<D, CR>
@@ -3010,22 +3008,19 @@ where
   fn get_merging_segments(&self, inner: Option<&Inner<D>>) -> HashSet<String>;
 }
 
-pub type MergeReaderSR<D> =
-  MergeReader<DefaultLeafReader<D>, <DefaultLeafReader<D> as LeafReader>::Bits>;
-pub struct MergeReader<CR, B>
+pub type MergeReaderSR<D> = MergeReader<DefaultLeafReader<D>>;
+pub struct MergeReader<CR>
 where
   CR: CodecReader,
-  B: Bits,
 {
   pub(crate) reader: CR,
-  pub(crate) hard_live_docs: Option<B>,
+  pub(crate) hard_live_docs: Option<CR::Bits>,
 }
-impl<CR, B> MergeReader<CR, B>
+impl<CR> MergeReader<CR>
 where
   CR: CodecReader,
-  B: Bits,
 {
-  pub(crate) fn new(codec_reader: CR, hard_live_docs: Option<B>) -> Self {
+  pub(crate) fn new(codec_reader: CR, hard_live_docs: Option<CR::Bits>) -> Self {
     Self {
       reader: codec_reader,
       hard_live_docs,

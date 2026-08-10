@@ -9138,12 +9138,12 @@ where
 
   fn init_merge_readers<F>(
     &self,
-    merge_readers: &mut Vec<MergeReader<CR, CR::Bits>>,
+    merge_readers: &mut Vec<MergeReader<CR>>,
     stat: &MergeStat,
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<MergeReader<CR, CR::Bits>>,
+    F: FnMut(&String) -> Result<MergeReader<CR>>,
   {
     if self
       .only_once

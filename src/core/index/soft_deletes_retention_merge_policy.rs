@@ -485,12 +485,12 @@ where
 
   fn init_merge_readers<F>(
     &self,
-    merge_readers: &mut Vec<crate::core::index::merge_policy::MergeReader<CR, CR::Bits>>,
+    merge_readers: &mut Vec<crate::core::index::merge_policy::MergeReader<CR>>,
     stat: &MergeStat,
     reader_factory: F,
   ) -> Result<()>
   where
-    F: FnMut(&String) -> Result<crate::core::index::merge_policy::MergeReader<CR, CR::Bits>>,
+    F: FnMut(&String) -> Result<crate::core::index::merge_policy::MergeReader<CR>>,
   {
     OneMergeDefaults::init_merge_readers(merge_readers, stat, reader_factory)
   }
