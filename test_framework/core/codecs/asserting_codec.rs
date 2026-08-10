@@ -21,10 +21,11 @@ use crate::core::codecs::doc_values_consumer::DocValuesConsumerEnum2;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::fields_consumer::FieldsConsumerEnum2;
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
-use crate::core::codecs::knn_vectors_formats::KnnVectorsFormats;
-use crate::core::codecs::knn_vectors_reader::KnnVectorsReaderEnum2;
+use crate::core::codecs::knn_vectors_formats::{KnnVectorsFormats, KnnVectorsFormatsReader};
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::lucene99::lucene99_hnsw_scalar_quantized_vectors_format::Lucene99HnswScalarQuantizedVectorsFormat;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
@@ -49,13 +50,16 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::terms::TermsEnum2;
+use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::bits::Bits;
 use crate::core::util::close::Closeable;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::test_framework::core::codecs::asserting_doc_values_format::{
   AssertingDocValuesFormat, AssertingDocValuesProducer,
 };
@@ -681,10 +685,130 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for AssertingCodecKnnVectorsWriter<O> {
   }
 }
 
-pub type AssertingCodecKnnVectorsReader<I> = KnnVectorsReaderEnum2<
-  <AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>,
-  <KnnVectorsFormats as KnnVectorsFormat>::KnnVectorsReader<I>,
->;
+pub enum AssertingCodecKnnVectorsReader<I: IndexInput> {
+  Asserting(<AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I>),
+  Source(<KnnVectorsFormats as KnnVectorsFormat>::KnnVectorsReader<I>),
+}
+
+impl<I: IndexInput> CloseableRef for AssertingCodecKnnVectorsReader<I> {
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Asserting(reader) => reader.close(),
+      Self::Source(reader) => reader.close(),
+    }
+  }
+}
+
+impl<I: IndexInput> HnswGraphProvider for AssertingCodecKnnVectorsReader<I> {
+  type HnswGraph = <KnnVectorsFormatsReader<I> as HnswGraphProvider>::HnswGraph;
+
+  fn is_hnsw_graph_provider(&self, field: &str) -> bool {
+    match self {
+      Self::Asserting(reader) => reader.is_hnsw_graph_provider(field),
+      Self::Source(reader) => reader.is_hnsw_graph_provider(field),
+    }
+  }
+
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
+    match self {
+      Self::Asserting(reader) => reader.get_graph(field),
+      Self::Source(reader) => reader.get_graph(field),
+    }
+  }
+}
+
+impl<I: IndexInput> KnnVectorsReader for AssertingCodecKnnVectorsReader<I> {
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::Asserting(reader) => reader.check_integrity(),
+      Self::Source(reader) => reader.check_integrity(),
+    }
+  }
+
+  type FloatVectorValues = <KnnVectorsFormatsReader<I> as KnnVectorsReader>::FloatVectorValues;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    match self {
+      Self::Asserting(reader) => reader.get_float_vector_values(field),
+      Self::Source(reader) => reader.get_float_vector_values(field),
+    }
+  }
+
+  type ByteVectorValues = <KnnVectorsFormatsReader<I> as KnnVectorsReader>::ByteVectorValues;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    match self {
+      Self::Asserting(reader) => reader.get_byte_vector_values(field),
+      Self::Source(reader) => reader.get_byte_vector_values(field),
+    }
+  }
+
+  fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
+    match self {
+      Self::Asserting(reader) => reader.get_quantization_state(field),
+      Self::Source(reader) => reader.get_quantization_state(field),
+    }
+  }
+
+  fn is_flat_vectors_reader(&self, field: &str) -> bool {
+    match self {
+      Self::Asserting(reader) => reader.is_flat_vectors_reader(field),
+      Self::Source(reader) => reader.is_flat_vectors_reader(field),
+    }
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::Asserting(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+      Self::Source(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::Asserting(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+      Self::Source(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self {
+      Self::Asserting(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(Self::Asserting)),
+      Self::Source(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(Self::Source)),
+    }
+  }
+
+  fn finish_merge(&self) -> Result<()> {
+    match self {
+      Self::Asserting(reader) => reader.finish_merge(),
+      Self::Source(reader) => reader.finish_merge(),
+    }
+  }
+}
 
 impl KnnVectorsFormat for AssertingCodecKnnVectorsFormat {
   fn get_name(&self) -> &str {
@@ -737,16 +861,16 @@ impl KnnVectorsFormat for AssertingCodecKnnVectorsFormat {
     match self {
       Self::Asserting(format) => format
         .fields_reader(state, segment_info)
-        .map(KnnVectorsReaderEnum2::A),
+        .map(AssertingCodecKnnVectorsReader::Asserting),
       Self::Source(format) => format
         .fields_reader(state, segment_info)
-        .map(KnnVectorsReaderEnum2::B),
+        .map(AssertingCodecKnnVectorsReader::Source),
       Self::WriteRecording(format) => format
         .fields_reader(state, segment_info)
-        .map(KnnVectorsReaderEnum2::B),
+        .map(AssertingCodecKnnVectorsReader::Source),
       Self::MaxDims32(format) => format
         .fields_reader(state, segment_info)
-        .map(KnnVectorsReaderEnum2::B),
+        .map(AssertingCodecKnnVectorsReader::Source),
     }
   }
 

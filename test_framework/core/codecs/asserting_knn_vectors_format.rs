@@ -17,6 +17,7 @@
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::{DEFAULT_MAX_DIMENSIONS, KnnVectorsFormat};
+use crate::core::codecs::knn_vectors_formats::KnnVectorsFormatsReader;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
@@ -95,8 +96,7 @@ impl KnnVectorsFormat for AssertingKnnVectorsFormat {
     ))
   }
 
-  type KnnVectorsReader<T: IndexInput> =
-    AssertingKnnVectorsReader<<Lucene99HnswVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<T>>;
+  type KnnVectorsReader<T: IndexInput> = AssertingKnnVectorsReader<KnnVectorsFormatsReader<T>>;
 
   fn fields_reader<D1, D2>(
     &self,
@@ -108,7 +108,7 @@ impl KnnVectorsFormat for AssertingKnnVectorsFormat {
     D2: Directory,
   {
     Ok(AssertingKnnVectorsReader::new(
-      self.delegate.fields_reader(state, segment_info)?,
+      KnnVectorsFormatsReader::Lucene99Hnsw(self.delegate.fields_reader(state, segment_info)?),
       state.field_infos.clone(),
     ))
   }

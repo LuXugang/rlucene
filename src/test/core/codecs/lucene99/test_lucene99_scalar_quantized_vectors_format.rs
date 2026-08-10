@@ -42,6 +42,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsReader;
 use crate::core::util::vector_util::VectorUtil;
+use crate::test_framework::core::codecs::asserting_codec::AssertingCodecKnnVectorsReader;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_knn_vectors_format_test_case::{
   BaseKnnVectorsFormatTestCase, BaseKnnVectorsFormatTestCaseState,
@@ -199,7 +200,7 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
         .get_field_reader("f")?
         .expect("field reader should exist");
       let source_reader = match field_reader.as_ref() {
-        KnnVectorsReaderEnum2::B(source_reader) => source_reader,
+        AssertingCodecKnnVectorsReader::Source(source_reader) => source_reader,
         _ => panic!("field reader is not a source KNN format reader"),
       };
       let quantized_reader = match source_reader {

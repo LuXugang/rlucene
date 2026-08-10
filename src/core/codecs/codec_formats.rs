@@ -80,7 +80,7 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::Identity;
 #[cfg(test)]
-use crate::core::index::knn_vector_values::KnnVectorValues;
+use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 #[cfg(test)]
 use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
@@ -89,6 +89,10 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 #[cfg(test)]
 use crate::core::index::sorter::DocMap;
+#[cfg(test)]
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+#[cfg(test)]
+use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, IndexOutput};
 use crate::core::util::HasIdentity;
@@ -102,6 +106,10 @@ use crate::core::util::bits::BitsEnum2;
 #[cfg(test)]
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(test)]
+use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
+#[cfg(test)]
+use crate::core::util::hnsw::neighbor_array::NeighborArray;
 #[cfg(test)]
 use crate::core::{
   index::byte_vector_values::ByteVectorValues, index::float_vector_values::FloatVectorValues,
@@ -1546,6 +1554,143 @@ type CodecFloatVectorValuesInner<I> =
   <CodecKnnVectorsReaderInner<I> as KnnVectorsReader>::FloatVectorValues;
 
 #[cfg(test)]
+type CodecFloatDocIndexIteratorInner<I> =
+  <CodecFloatVectorValuesInner<I> as KnnVectorValues>::DocIndexIterator;
+
+#[cfg(test)]
+pub struct CodecFloatDocIndexIterator<I>(CodecFloatDocIndexIteratorInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I: IndexInput> DocIdSetIterator for CodecFloatDocIndexIterator<I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
+  }
+}
+
+#[cfg(test)]
+impl<I: IndexInput> DocIndexIterator for CodecFloatDocIndexIterator<I> {
+  fn index(&self) -> Result<i32> {
+    self.0.index()
+  }
+}
+
+#[cfg(test)]
+type CodecFloatVectorScorerInner<I> =
+  <CodecFloatVectorValuesInner<I> as FloatVectorValues>::VectorScorer;
+
+#[cfg(test)]
+type CodecFloatVectorScorerIteratorRefInner<'a, I> =
+  <CodecFloatVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorRef<'a>;
+
+#[cfg(test)]
+pub struct CodecFloatVectorScorerIteratorRef<'a, I>(CodecFloatVectorScorerIteratorRefInner<'a, I>)
+where
+  I: IndexInput + 'a;
+
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorRef<'a, I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
+  }
+}
+
+#[cfg(test)]
+type CodecFloatVectorScorerIteratorMutInner<'a, I> =
+  <CodecFloatVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorMut<'a>;
+
+#[cfg(test)]
+pub struct CodecFloatVectorScorerIteratorMut<'a, I>(CodecFloatVectorScorerIteratorMutInner<'a, I>)
+where
+  I: IndexInput + 'a;
+
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorMut<'a, I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
+  }
+}
+
+#[cfg(test)]
+pub struct CodecFloatVectorScorer<I>(CodecFloatVectorScorerInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I: IndexInput> VectorScorer for CodecFloatVectorScorer<I> {
+  fn score(&self) -> Result<f32> {
+    self.0.score()
+  }
+
+  type DocIdSetIteratorRef<'a>
+    = CodecFloatVectorScorerIteratorRef<'a, I>
+  where
+    Self: 'a;
+
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+    CodecFloatVectorScorerIteratorRef(self.0.iterator())
+  }
+
+  type DocIdSetIteratorMut<'a>
+    = CodecFloatVectorScorerIteratorMut<'a, I>
+  where
+    Self: 'a;
+
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    CodecFloatVectorScorerIteratorMut(self.0.iterator_mut())
+  }
+}
+
+#[cfg(test)]
 pub struct CodecFloatVectorValues<I>(CodecFloatVectorValuesInner<I>)
 where
   I: IndexInput;
@@ -1594,10 +1739,10 @@ where
     self.0.get_accept_ords(accept_docs)
   }
 
-  type DocIndexIterator = <CodecFloatVectorValuesInner<I> as KnnVectorValues>::DocIndexIterator;
+  type DocIndexIterator = CodecFloatDocIndexIterator<I>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    self.0.iterator()
+    self.0.iterator().map(CodecFloatDocIndexIterator)
   }
 }
 
@@ -1620,10 +1765,13 @@ where
     self.0.float_copy()
   }
 
-  type VectorScorer = <CodecFloatVectorValuesInner<I> as FloatVectorValues>::VectorScorer;
+  type VectorScorer = CodecFloatVectorScorer<I>;
 
   fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
-    self.0.scorer(target)
+    self
+      .0
+      .scorer(target)
+      .map(|scorer| scorer.map(CodecFloatVectorScorer))
   }
 
   fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
@@ -1650,6 +1798,143 @@ where
 #[cfg(test)]
 type CodecByteVectorValuesInner<I> =
   <CodecKnnVectorsReaderInner<I> as KnnVectorsReader>::ByteVectorValues;
+
+#[cfg(test)]
+type CodecByteDocIndexIteratorInner<I> =
+  <CodecByteVectorValuesInner<I> as KnnVectorValues>::DocIndexIterator;
+
+#[cfg(test)]
+pub struct CodecByteDocIndexIterator<I>(CodecByteDocIndexIteratorInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I: IndexInput> DocIdSetIterator for CodecByteDocIndexIterator<I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
+  }
+}
+
+#[cfg(test)]
+impl<I: IndexInput> DocIndexIterator for CodecByteDocIndexIterator<I> {
+  fn index(&self) -> Result<i32> {
+    self.0.index()
+  }
+}
+
+#[cfg(test)]
+type CodecByteVectorScorerInner<I> =
+  <CodecByteVectorValuesInner<I> as ByteVectorValues>::VectorScorer;
+
+#[cfg(test)]
+type CodecByteVectorScorerIteratorRefInner<'a, I> =
+  <CodecByteVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorRef<'a>;
+
+#[cfg(test)]
+pub struct CodecByteVectorScorerIteratorRef<'a, I>(CodecByteVectorScorerIteratorRefInner<'a, I>)
+where
+  I: IndexInput + 'a;
+
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorRef<'a, I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
+  }
+}
+
+#[cfg(test)]
+type CodecByteVectorScorerIteratorMutInner<'a, I> =
+  <CodecByteVectorScorerInner<I> as VectorScorer>::DocIdSetIteratorMut<'a>;
+
+#[cfg(test)]
+pub struct CodecByteVectorScorerIteratorMut<'a, I>(CodecByteVectorScorerIteratorMutInner<'a, I>)
+where
+  I: IndexInput + 'a;
+
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorMut<'a, I> {
+  fn doc_id(&self) -> i32 {
+    self.0.doc_id()
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    self.0.next_doc()
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    self.0.advance(target)
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    self.0.slow_advance(target)
+  }
+
+  fn cost(&self) -> Result<i64> {
+    self.0.cost()
+  }
+}
+
+#[cfg(test)]
+pub struct CodecByteVectorScorer<I>(CodecByteVectorScorerInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I: IndexInput> VectorScorer for CodecByteVectorScorer<I> {
+  fn score(&self) -> Result<f32> {
+    self.0.score()
+  }
+
+  type DocIdSetIteratorRef<'a>
+    = CodecByteVectorScorerIteratorRef<'a, I>
+  where
+    Self: 'a;
+
+  fn iterator(&self) -> Self::DocIdSetIteratorRef<'_> {
+    CodecByteVectorScorerIteratorRef(self.0.iterator())
+  }
+
+  type DocIdSetIteratorMut<'a>
+    = CodecByteVectorScorerIteratorMut<'a, I>
+  where
+    Self: 'a;
+
+  fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
+    CodecByteVectorScorerIteratorMut(self.0.iterator_mut())
+  }
+}
 
 #[cfg(test)]
 pub struct CodecByteVectorValues<I>(CodecByteVectorValuesInner<I>)
@@ -1700,10 +1985,10 @@ where
     self.0.get_accept_ords(accept_docs)
   }
 
-  type DocIndexIterator = <CodecByteVectorValuesInner<I> as KnnVectorValues>::DocIndexIterator;
+  type DocIndexIterator = CodecByteDocIndexIterator<I>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
-    self.0.iterator()
+    self.0.iterator().map(CodecByteDocIndexIterator)
   }
 }
 
@@ -1726,10 +2011,13 @@ where
     self.0.byte_copy()
   }
 
-  type VectorScorer = <CodecByteVectorValuesInner<I> as ByteVectorValues>::VectorScorer;
+  type VectorScorer = CodecByteVectorScorer<I>;
 
   fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
-    self.0.scorer(target)
+    self
+      .0
+      .scorer(target)
+      .map(|scorer| scorer.map(CodecByteVectorScorer))
   }
 
   fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
@@ -1750,6 +2038,90 @@ where
 
   fn get_vectors_capacity(&self) -> Result<usize> {
     self.0.get_vectors_capacity()
+  }
+}
+
+#[cfg(test)]
+type CodecHnswGraphInner<I> = <CodecKnnVectorsReaderInner<I> as crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider>::HnswGraph;
+
+#[cfg(test)]
+type CodecHnswGraphNodesIteratorInner<I> = <CodecHnswGraphInner<I> as HnswGraph>::NodeIterator;
+
+#[cfg(test)]
+pub struct CodecHnswGraphNodesIterator<I>(CodecHnswGraphNodesIteratorInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I: IndexInput> Iterator for CodecHnswGraphNodesIterator<I> {
+  type Item = usize;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    self.0.next()
+  }
+}
+
+#[cfg(test)]
+impl<I: IndexInput> NodesIterator for CodecHnswGraphNodesIterator<I> {
+  fn size(&self) -> usize {
+    self.0.size()
+  }
+
+  fn consume(&mut self, dest: &mut [usize]) -> Result<usize> {
+    self.0.consume(dest)
+  }
+
+  fn has_next(&self) -> bool {
+    self.0.has_next()
+  }
+}
+
+#[cfg(test)]
+pub struct CodecHnswGraph<I>(CodecHnswGraphInner<I>)
+where
+  I: IndexInput;
+
+#[cfg(test)]
+impl<I: IndexInput> HnswGraph for CodecHnswGraph<I> {
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    self.0.seek(level, target)
+  }
+
+  fn size(&self) -> usize {
+    self.0.size()
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    self.0.max_node_id()
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    self.0.next_neighbor()
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    self.0.num_levels()
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    self.0.entry_node()
+  }
+
+  type NodeIterator = CodecHnswGraphNodesIterator<I>;
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    self
+      .0
+      .get_nodes_on_level(level)
+      .map(CodecHnswGraphNodesIterator)
+  }
+
+  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    self.0.get_neighbors_mut(level, node)
+  }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+    self.0.get_neighbors(level, node)
   }
 }
 
@@ -1784,14 +2156,14 @@ impl<I> crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider
 where
   I: IndexInput,
 {
-  type HnswGraph = <CodecKnnVectorsReaderInner<I> as crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider>::HnswGraph;
+  type HnswGraph = CodecHnswGraph<I>;
 
   fn is_hnsw_graph_provider(&self, field: &str) -> bool {
     self.0.is_hnsw_graph_provider(field)
   }
 
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
-    self.0.get_graph(field)
+    self.0.get_graph(field).map(CodecHnswGraph)
   }
 }
 

@@ -56,6 +56,7 @@ use crate::core::util::quantization::quantized_vectors_reader::QuantizedVectorsR
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
+use crate::test_framework::core::codecs::asserting_codec::AssertingCodecKnnVectorsReader;
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_text_field, random,
 };
@@ -215,7 +216,7 @@ fn vector_scoring_test(bits: i32, compress: bool) -> Result<()> {
         .get_field_reader("field")?
         .expect("field reader should exist");
       let source_reader = match field_reader.as_ref() {
-        KnnVectorsReaderEnum2::B(source_reader) => source_reader,
+        AssertingCodecKnnVectorsReader::Source(source_reader) => source_reader,
         _ => panic!("field reader is not a source KNN format reader"),
       };
       let quantized_reader = match source_reader {
