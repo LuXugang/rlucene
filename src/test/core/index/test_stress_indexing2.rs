@@ -44,9 +44,11 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor_cfs, new_maybe_virus_checking_directory, random,
@@ -88,9 +90,10 @@ fn test_random_iw_reader() -> Result<()> {
   )?;
   let reader = directory_reader::open_with_writer_deletes(&dw.writer, true, false)?;
   dw.writer.commit()?;
-  verify_equals(&mut r, &reader, dir, "id")?;
+  verify_equals(&mut r, &reader, dir.clone(), "id")?;
   reader.close()?;
-  dw.writer.close()
+  dw.writer.close()?;
+  dir.close()
 }
 
 #[test]
@@ -115,7 +118,9 @@ fn test_random() -> Result<()> {
   )?;
   index_serial(&mut r, &docs, dir2.clone())?;
 
-  verify_equals_dirs(&mut r, dir1, dir2, "id")
+  verify_equals_dirs(&mut r, dir1.clone(), dir2.clone(), "id")?;
+  dir1.close()?;
+  dir2.close()
 }
 
 #[test]
@@ -150,7 +155,9 @@ fn test_multi_config() -> Result<()> {
       seed,
     )?;
     index_serial(&mut r, &docs, dir2.clone())?;
-    verify_equals_dirs(&mut r, dir1, dir2, "id")?;
+    verify_equals_dirs(&mut r, dir1.clone(), dir2.clone(), "id")?;
+    dir1.close()?;
+    dir2.close()?;
   }
   Ok(())
 }
@@ -186,7 +193,7 @@ where
     false,
     merge_factor,
   )?);
-  let w = IndexWriter::new(dir.clone(), config)?;
+  let w = RandomIndexWriter::mock_index_writer(dir.clone(), config, &mut *random)?;
   w.commit()?;
 
   let thread_results = thread::scope(|scope| {
@@ -246,7 +253,7 @@ where
     false,
     merge_factor,
   )?);
-  let w = IndexWriter::new(dir.clone(), config)?;
+  let w = RandomIndexWriter::mock_index_writer(dir.clone(), config, &mut *random)?;
 
   let thread_results = thread::scope(|scope| {
     let mut handles = Vec::new();
