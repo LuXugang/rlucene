@@ -35,14 +35,14 @@ use std::time::Duration;
 static NEXT_HANDLE_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// An IndexInput wrapper that tracks whether the input has been closed.
-pub(crate) struct MockIndexInputWrapper<D, I>
+pub(crate) struct MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   dir: MockDirectoryWrapper<D>,
   pub(crate) name: String,
-  in_: I,
+  in_: D::IndexInput,
   closed: Arc<AtomicBool>,
 
   // The closed state of the original input, or None if this is the original.
@@ -53,15 +53,15 @@ where
   pub(crate) handle_id: usize,
 }
 
-impl<D, I> MockIndexInputWrapper<D, I>
+impl<D> MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   pub(crate) fn new(
     dir: MockDirectoryWrapper<D>,
     name: impl Into<String>,
-    delegate: I,
+    delegate: D::IndexInput,
     parent: Option<Arc<AtomicBool>>,
     read_advice: ReadAdvice,
     confined: bool,
@@ -111,20 +111,20 @@ where
   }
 }
 
-impl<D, I> Display for MockIndexInputWrapper<D, I>
+impl<D> Display for MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "MockIndexInputWrapper({})", self.in_)
   }
 }
 
-impl<D, I> TryClone for MockIndexInputWrapper<D, I>
+impl<D> TryClone for MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn try_clone(&self) -> Result<Self> {
     self.ensure_open()?;
@@ -147,10 +147,10 @@ where
   }
 }
 
-impl<D, I> CloseableRef for MockIndexInputWrapper<D, I>
+impl<D> CloseableRef for MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn close(&self) -> Result<()> {
     if self.closed.swap(true, Ordering::SeqCst) {
@@ -180,10 +180,10 @@ where
   }
 }
 
-impl<D, I> Drop for MockIndexInputWrapper<D, I>
+impl<D> Drop for MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn drop(&mut self) {
     if !self.closed.load(Ordering::SeqCst) {
@@ -192,10 +192,10 @@ where
   }
 }
 
-impl<D, I> DataInput for MockIndexInputWrapper<D, I>
+impl<D> DataInput for MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn read_byte(&mut self) -> Result<u8> {
     self.ensure_open()?;
@@ -324,12 +324,12 @@ where
   }
 }
 
-impl<D, I> IndexInput for MockIndexInputWrapper<D, I>
+impl<D> IndexInput for MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
-  type IndexInput = MockIndexInputWrapper<D, I::IndexInput>;
+  type IndexInput = MockIndexInputWrapper<D>;
 
   fn get_file_pointer(&self) -> Result<usize> {
     self.ensure_open()?;
@@ -410,7 +410,7 @@ where
     ))
   }
 
-  type RandomAccessSlice = I::RandomAccessSlice;
+  type RandomAccessSlice = <D::IndexInput as IndexInput>::RandomAccessSlice;
 
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
     self.ensure_open()?;
@@ -438,10 +438,10 @@ where
   }
 }
 
-impl<D, I> RandomAccessInput for MockIndexInputWrapper<D, I>
+impl<D> RandomAccessInput for MockIndexInputWrapper<D>
 where
   D: Directory,
-  I: IndexInput + RandomAccessInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput> + RandomAccessInput,
 {
   fn length(&self) -> Result<usize> {
     self.ensure_open()?;
@@ -492,20 +492,20 @@ where
   }
 }
 
-pub(crate) enum MockDirectoryIndexInput<D, I>
+pub(crate) enum MockDirectoryIndexInput<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
-  Mock(MockIndexInputWrapper<D, I>),
-  SlowClosing(MockIndexInputWrapper<D, I>),
-  SlowOpening(MockIndexInputWrapper<D, I>),
+  Mock(MockIndexInputWrapper<D>),
+  SlowClosing(MockIndexInputWrapper<D>),
+  SlowOpening(MockIndexInputWrapper<D>),
 }
 
-impl<D, I> Display for MockDirectoryIndexInput<D, I>
+impl<D> Display for MockDirectoryIndexInput<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
@@ -514,10 +514,10 @@ where
   }
 }
 
-impl<D, I> CloseableRef for MockDirectoryIndexInput<D, I>
+impl<D> CloseableRef for MockDirectoryIndexInput<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn close(&self) -> Result<()> {
     match self {
@@ -530,10 +530,10 @@ where
   }
 }
 
-impl<D, I> TryClone for MockDirectoryIndexInput<D, I>
+impl<D> TryClone for MockDirectoryIndexInput<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn try_clone(&self) -> Result<Self> {
     match self {
@@ -544,10 +544,10 @@ where
   }
 }
 
-impl<D, I> DataInput for MockDirectoryIndexInput<D, I>
+impl<D> DataInput for MockDirectoryIndexInput<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn read_byte(&mut self) -> Result<u8> {
     match self {
@@ -696,12 +696,12 @@ where
   }
 }
 
-impl<D, I> IndexInput for MockDirectoryIndexInput<D, I>
+impl<D> IndexInput for MockDirectoryIndexInput<D>
 where
   D: Directory,
-  I: IndexInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
-  type IndexInput = MockDirectoryIndexInput<D, I::IndexInput>;
+  type IndexInput = MockDirectoryIndexInput<D>;
 
   fn get_file_pointer(&self) -> Result<usize> {
     match self {
@@ -760,7 +760,7 @@ where
     }
   }
 
-  type RandomAccessSlice = I::RandomAccessSlice;
+  type RandomAccessSlice = <D::IndexInput as IndexInput>::RandomAccessSlice;
 
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
     match self {
@@ -795,10 +795,10 @@ where
   }
 }
 
-impl<D, I> RandomAccessInput for MockDirectoryIndexInput<D, I>
+impl<D> RandomAccessInput for MockDirectoryIndexInput<D>
 where
   D: Directory,
-  I: IndexInput + RandomAccessInput,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput> + RandomAccessInput,
 {
   fn length(&self) -> Result<usize> {
     match self {

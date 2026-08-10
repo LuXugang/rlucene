@@ -1174,6 +1174,7 @@ where
 impl<D> Directory for MockDirectoryWrapper<D>
 where
   D: Directory,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn sync(&self, names: &[String]) -> Result<()> {
     self.maybe_yield();
@@ -1396,7 +1397,7 @@ where
     Ok(self.maybe_throttle(&name, io))
   }
 
-  type IndexInput = MockDirectoryIndexInput<D, D::IndexInput>;
+  type IndexInput = MockDirectoryIndexInput<D>;
 
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
     self.maybe_throw_deterministic_exception()?;
