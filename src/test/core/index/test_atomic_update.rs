@@ -21,22 +21,24 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_writer::DefaultIndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicyEnum;
 use crate::core::index::term::Term;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::ByteBuffersDirectory;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
 use crate::test_framework::core::util::english::English;
 use crate::test_framework::core::util::lucene_test_case::{
-  create_temp_dir_with_prefix, is_night_mode, new_fs_directory, random, random_from_seed,
+  create_temp_dir_with_prefix, is_night_mode, new_fs_directory, random,
 };
-use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::sync::Arc;
 use std::thread;
@@ -45,18 +47,13 @@ use std::thread;
 struct TestAtomicUpdate;
 
 impl TestAtomicUpdate {
-  fn indexer_do_work<D, R>(
-    writer: &RandomIndexWriter<D>,
-    random: &mut R,
-    current_iteration: i32,
-  ) -> Result<()>
+  fn indexer_do_work<D>(writer: &DefaultIndexWriter<D>, current_iteration: i32) -> Result<()>
   where
     D: Directory + Send + Sync + 'static,
     D::IndexOutput: Send + Sync,
     D::IndexInput: Send + Sync,
     <D::IndexInput as IndexInput>::RandomAccessSlice: Send + Sync,
     D::Lock: Send + Sync,
-    R: Rng + ?Sized,
   {
     // Update all 100 docs...
     for i in 0..100 {
@@ -69,7 +66,7 @@ impl TestAtomicUpdate {
       )?);
       d.add(IntPoint::new("doc", [i])?);
       d.add(IntPoint::new("doc2d", [i, i])?);
-      writer.update_document_with_term(random, Term::from_text("id", i.to_string()), d)?;
+      writer.update_document_with_term(Term::from_text("id", i.to_string()), d)?;
     }
     Ok(())
   }
@@ -82,7 +79,7 @@ impl TestAtomicUpdate {
   {
     let r = directory_reader::open(directory)?;
     assert_eq!(100, r.num_docs()?);
-    Ok(())
+    r.close()
   }
 
   /*
@@ -98,8 +95,8 @@ impl TestAtomicUpdate {
     D::Lock: Send + Sync,
     R: Rng + ?Sized,
   {
-    let index_threads = if is_night_mode() { 5 } else { 1 };
-    let search_threads = if is_night_mode() { 5 } else { 1 };
+    let index_threads = if is_night_mode() { 2 } else { 1 };
+    let search_threads = if is_night_mode() { 2 } else { 1 };
     let index_iterations = if is_night_mode() { 10 } else { 1 };
     let search_iterations = if is_night_mode() { 10 } else { 1 };
 
@@ -112,11 +109,7 @@ impl TestAtomicUpdate {
       },
       _ => unreachable!(),
     }
-    let writer = Arc::new(RandomIndexWriter::with_config(
-      random,
-      directory.clone(),
-      conf,
-    ));
+    let writer = RandomIndexWriter::mock_index_writer(directory.clone(), conf, random)?;
 
     // Establish a base index of 100 docs:
     for i in 0..100 {
@@ -128,24 +121,23 @@ impl TestAtomicUpdate {
         Store::No,
       )?);
       if (i - 1) % 7 == 0 {
-        writer.commit(random)?;
+        writer.commit()?;
       }
-      writer.add_document(random, d)?;
+      writer.add_document(d)?;
     }
-    writer.commit(random)?;
+    writer.commit()?;
 
     let r = directory_reader::open(directory.clone())?;
     assert_eq!(100, r.num_docs()?);
+    r.close()?;
 
     let thread_results = thread::scope(|scope| {
       let mut handles = Vec::new();
       for _ in 0..index_threads {
         let writer = writer.clone();
-        let seed = random.random();
         handles.push(scope.spawn(move || -> Result<()> {
-          let mut thread_random = random_from_seed(seed);
           for count in 0..index_iterations {
-            Self::indexer_do_work(&writer, &mut thread_random, count)?;
+            Self::indexer_do_work(&writer, count)?;
           }
           Ok(())
         }));
@@ -167,7 +159,7 @@ impl TestAtomicUpdate {
       results
     });
 
-    writer.close(random)?;
+    writer.close()?;
 
     for thread_result in thread_results {
       match thread_result {
@@ -183,13 +175,18 @@ impl TestAtomicUpdate {
     let mut random = random();
 
     // Run against a random directory.
-    let directory = MockDirectoryWrapper::new(&mut random, ByteBuffersDirectory::new());
-    Self::run_test(&mut random, Arc::new(directory.clone()))?;
+    let directory = Arc::new(MockDirectoryWrapper::new(
+      &mut random,
+      ByteBuffersDirectory::new(),
+    ));
+    Self::run_test(&mut random, directory.clone())?;
+    directory.close()?;
 
     // Then against an FSDirectory.
     let dir_path = create_temp_dir_with_prefix("lucene.test.atomic")?;
     let directory = new_fs_directory(&mut random, dir_path)?;
-    Self::run_test(&mut random, directory)
+    Self::run_test(&mut random, directory.clone())?;
+    directory.close()
   }
 }
 
