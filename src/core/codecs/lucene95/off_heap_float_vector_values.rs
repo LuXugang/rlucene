@@ -864,11 +864,7 @@ where
     }
   }
 
-  type VectorScorer = VectorScorerEnum<
-    I,
-    <F as FlatVectorsScorer>::RandomVectorScorerF32<DenseOffHeapVectorValues<I::IndexInput, F>>,
-    <F as FlatVectorsScorer>::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
-  >;
+  type VectorScorer = VectorScorerEnum<I, F>;
 
   fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
     match self {
@@ -1034,47 +1030,50 @@ where
   }
 }
 
-pub enum VectorScorerEnum<I, R1, R2>
+pub enum VectorScorerEnum<I, F>
 where
-  I: IndexInput,
-  R1: RandomVectorScorer,
-  R2: RandomVectorScorer,
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
 {
   Dense {
     iterator: DenseDocIndexIterator,
-    random_vector_scorer: R1,
+    random_vector_scorer: F::RandomVectorScorerF32<DenseOffHeapVectorValues<I::IndexInput, F>>,
   },
   Sparse {
     iterator: DocIndexIteratorImpl<I>,
-    random_vector_scorer: R2,
+    random_vector_scorer: F::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
   },
 }
 
-impl<I, R1, R2> VectorScorerEnum<I, R1, R2>
+impl<I, F> VectorScorerEnum<I, F>
 where
-  I: IndexInput,
-  R1: RandomVectorScorer,
-  R2: RandomVectorScorer,
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
 {
-  fn new_dense(iterator: DenseDocIndexIterator, random_vector_scorer: R1) -> Self {
+  fn new_dense(
+    iterator: DenseDocIndexIterator,
+    random_vector_scorer: F::RandomVectorScorerF32<DenseOffHeapVectorValues<I::IndexInput, F>>,
+  ) -> Self {
     Self::Dense {
       iterator,
       random_vector_scorer,
     }
   }
 
-  fn new_sparse(iterator: DocIndexIteratorImpl<I>, random_vector_scorer: R2) -> Self {
+  fn new_sparse(
+    iterator: DocIndexIteratorImpl<I>,
+    random_vector_scorer: F::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
+  ) -> Self {
     Self::Sparse {
       iterator,
       random_vector_scorer,
     }
   }
 }
-impl<I, R1, R2> VectorScorer for VectorScorerEnum<I, R1, R2>
+impl<I, F> VectorScorer for VectorScorerEnum<I, F>
 where
-  I: IndexInput,
-  R1: RandomVectorScorer,
-  R2: RandomVectorScorer,
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
 {
   fn score(&self) -> Result<f32> {
     match self {
