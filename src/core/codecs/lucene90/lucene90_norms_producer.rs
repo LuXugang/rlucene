@@ -317,11 +317,7 @@ impl<I> Lucene90NormsProducer<I>
 where
   I: IndexInput,
 {
-  fn get_disi_input(
-    &self,
-    field: &FieldInfo,
-    entry: &NormsEntry,
-  ) -> Result<SliceEnum<I::IndexInput, I::RandomAccessSlice>> {
+  fn get_disi_input(&self, field: &FieldInfo, entry: &NormsEntry) -> Result<SliceEnum<I>> {
     if self.merging {
       if let Some(existing) = {
         let map = self.disi_inputs.lock();
@@ -358,13 +354,12 @@ where
     }
   }
 }
-pub enum SliceEnum<I, R>
+pub enum SliceEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  Shared(IndexInputImpl<I, R>),
-  Owned(I),
+  Shared(IndexInputImpl<I>),
+  Owned(I::IndexInput),
 }
 impl<I> Display for Lucene90NormsProducer<I>
 where

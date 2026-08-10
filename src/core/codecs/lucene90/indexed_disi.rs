@@ -700,22 +700,20 @@ pub struct Shared;
 
 /// Wraps a shared input with an independent file pointer so reads from multiple iterators can be
 /// interleaved.
-pub struct IndexInputImpl<I, R>
+pub struct IndexInputImpl<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  input: Arc<Mutex<I>>,
+  input: Arc<Mutex<I::IndexInput>>,
   offset: usize,
-  random_access_slice: PhantomData<R>,
+  random_access_slice: PhantomData<I::RandomAccessSlice>,
 }
 
-impl<I, R> IndexInputImpl<I, R>
+impl<I> IndexInputImpl<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  pub fn new(input: Arc<Mutex<I>>) -> Self {
+  pub fn new(input: Arc<Mutex<I::IndexInput>>) -> Self {
     Self {
       input,
       offset: 0,
@@ -724,17 +722,11 @@ where
   }
 }
 
-impl<I, R> crate::core::util::close::CloseableRef for IndexInputImpl<I, R>
-where
-  I: IndexInput,
-  R: RandomAccessInput,
-{
-}
+impl<I> crate::core::util::close::CloseableRef for IndexInputImpl<I> where I: IndexInput {}
 
-impl<I, R> DataInput for IndexInputImpl<I, R>
+impl<I> DataInput for IndexInputImpl<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn read_byte(&mut self) -> Result<u8> {
     Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
@@ -763,20 +755,18 @@ where
   }
 }
 
-impl<I, R> std::fmt::Display for IndexInputImpl<I, R>
+impl<I> std::fmt::Display for IndexInputImpl<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "docs")
   }
 }
 
-impl<I, R> crate::core::util::clone::TryClone for IndexInputImpl<I, R>
+impl<I> crate::core::util::clone::TryClone for IndexInputImpl<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn try_clone(&self) -> Result<Self> {
     Ok(Self {
@@ -787,10 +777,9 @@ where
   }
 }
 
-impl<I, R> IndexInput for IndexInputImpl<I, R>
+impl<I> IndexInput for IndexInputImpl<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   type IndexInput = Self;
 
@@ -807,7 +796,7 @@ where
     self.input.lock().length()
   }
 
-  type RandomAccessSlice = Arc<Mutex<R>>;
+  type RandomAccessSlice = Arc<Mutex<I::RandomAccessSlice>>;
 
   fn random_access_slice(&self, _offset: usize, _length: usize) -> Result<Self::RandomAccessSlice> {
     Err(LuceneError::unsupported_operation("Unused by IndexedDISI"))
@@ -1292,7 +1281,7 @@ where
   I: IndexInput,
 {
   Owned(IndexedDISI<I, Owned>),
-  Shared(IndexedDISI<IndexInputImpl<I::IndexInput, I::RandomAccessSlice>, Owned>),
+  Shared(IndexedDISI<IndexInputImpl<I>, Owned>),
 }
 impl<I> IndexedDISIEnum<I>
 where
