@@ -2478,7 +2478,7 @@ where
   type PointTree = AssertingPointTree<PV::PointTree>;
   type MutablePointTree = AssertingMutablePointTree<PV::MutablePointTree>;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     assert_thread("Points", self.creation_thread);
     let point_tree = self.in_.get_point_tree()?;
     let num_data_dims = self.in_.get_num_dimensions()?;

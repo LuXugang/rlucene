@@ -232,7 +232,7 @@ where
   type PointTree = BKDPointTree<I>;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     let slice = match self.index_in {
       Some(ref index_in) => index_in.slice(
         "packedIndex",

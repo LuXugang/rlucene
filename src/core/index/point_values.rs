@@ -54,7 +54,7 @@ pub trait PointValues {
   fn get_doc_count(&self) -> Result<i32>;
   type PointTree: PointTree;
   type MutablePointTree: MutablePointTree;
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>>;
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>>;
 
   /// Finds all documents and points matching the provided visitor.
   /// This method does not enforce live documents, so it's up to the caller
@@ -498,19 +498,17 @@ pub const MAX_NUM_BYTES: usize = 16;
 pub const MAX_DIMENSIONS: usize = BKDConfig::MAX_DIMS;
 pub const MAX_INDEX_DIMENSIONS: usize = BKDConfig::MAX_INDEX_DIMS;
 
-pub enum PointTreeEnum<MPT, PT>
+pub enum PointTreeEnum<PV>
 where
-  MPT: MutablePointTree,
-  PT: PointTree,
+  PV: PointValues + ?Sized,
 {
-  Mutable(MPT),
-  Other(PT),
+  Mutable(PV::MutablePointTree),
+  Other(PV::PointTree),
 }
 
-impl<MPT, PT> TryClone for PointTreeEnum<MPT, PT>
+impl<PV> TryClone for PointTreeEnum<PV>
 where
-  MPT: MutablePointTree,
-  PT: PointTree,
+  PV: PointValues + ?Sized,
 {
   fn try_clone(&self) -> Result<Self>
   where
@@ -523,10 +521,9 @@ where
   }
 }
 
-impl<MPT, PT> PointTree for PointTreeEnum<MPT, PT>
+impl<PV> PointTree for PointTreeEnum<PV>
 where
-  MPT: MutablePointTree,
-  PT: PointTree,
+  PV: PointValues + ?Sized,
 {
   fn move_to_child(&mut self) -> Result<bool> {
     match self {
@@ -743,7 +740,7 @@ where
   type PointTree = PointTreeEnum2<A::PointTree, B::PointTree>;
   type MutablePointTree = MutablePointTreeEnum2<A::MutablePointTree, B::MutablePointTree>;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     match self {
       PointValuesEnum2::A(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(MutablePointTreeEnum2::A(tree))),
@@ -792,8 +789,11 @@ where
   type PointTree = T::PointTree;
   type MutablePointTree = T::MutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
-    (**self).get_point_tree()
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+    match (**self).get_point_tree()? {
+      PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(tree)),
+      PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(tree)),
+    }
   }
 
   fn intersect(&self, visitor: &mut impl IntersectVisitor) -> Result<()> {

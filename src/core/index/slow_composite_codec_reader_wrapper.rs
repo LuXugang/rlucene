@@ -1917,7 +1917,7 @@ where
   type PointTree = PointTreeImpl<PV>;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     Ok(PointTreeEnum::Other(PointTreeImpl::new(
       self.values.clone(),
     )))

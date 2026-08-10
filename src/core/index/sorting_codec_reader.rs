@@ -1284,13 +1284,10 @@ where
     self.in_.get_doc_count()
   }
 
-  type PointTree = SortingPointTree<
-    PointTreeEnum<<PV as PointValues>::MutablePointTree, <PV as PointValues>::PointTree>,
-    DM,
-  >;
+  type PointTree = SortingPointTree<PointTreeEnum<PV>, DM>;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     let tree = self.in_.get_point_tree()?;
     Ok(PointTreeEnum::Other(SortingPointTree::new(
       tree,

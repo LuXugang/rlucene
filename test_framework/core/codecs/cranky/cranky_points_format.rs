@@ -271,10 +271,10 @@ where
     self.delegate.get_doc_count()
   }
 
-  type PointTree = CrankyPointTree<PointTreeEnum<PV::MutablePointTree, PV::PointTree>>;
+  type PointTree = CrankyPointTree<PointTreeEnum<PV>>;
   type MutablePointTree = PV::MutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     Ok(PointTreeEnum::Other(CrankyPointTree::Cranky {
       delegate: self.delegate.get_point_tree()?,
       random: Arc::clone(&self.random),

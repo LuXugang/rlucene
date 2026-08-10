@@ -109,12 +109,7 @@ where
   pub(crate) doc_values: N,
   point_values: Option<LR::PointValues>,
   // lazily constructed to avoid performance overhead when this is not used
-  point_tree: Option<
-    PointTreeEnum<
-      <LR::PointValues as PointValues>::MutablePointTree,
-      <LR::PointValues as PointValues>::PointTree,
-    >,
-  >,
+  point_tree: Option<PointTreeEnum<LR::PointValues>>,
   // if skipping functionality should be enabled on this segment
   enable_skipping: bool,
   max_doc: i32,

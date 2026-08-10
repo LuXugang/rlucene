@@ -2446,8 +2446,7 @@ where
   S: PointValues,
   CR: CodecReader,
 {
-  point_tree:
-    Option<PointTreeEnum<<S as PointValues>::MutablePointTree, <S as PointValues>::PointTree>>,
+  point_tree: Option<PointTreeEnum<S>>,
   packed_bytes_length: usize,
   doc_map: Option<Rc<DocMapEnum<CR>>>,
   merge_intersects_visitor: MergeIntersectsVisitor,

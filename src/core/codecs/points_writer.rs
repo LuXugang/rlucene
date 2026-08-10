@@ -322,7 +322,7 @@ where
   type PointTree = PointTreeImpl<P, DM>;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     Ok(PointTreeEnum::Other(PointTreeImpl::new(
       self.final_max_point_count,
       self.doc_map.clone(),
