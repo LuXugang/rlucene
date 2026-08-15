@@ -111,7 +111,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let segment = &si.name;
     let num_docs = si.max_doc()?;
@@ -842,10 +841,7 @@ type DataInputs<'a, I> = DataInputEnum3<
 >;
 /// A serialized document. You need to decode its input to get an actual
 /// `Document`.
-pub struct SerializedDocument<'a, I>
-where
-  I: IndexInput,
-{
+pub struct SerializedDocument<'a, I> {
   /// The serialized data input.
   pub(crate) input: DataInputs<'a, I>,
 
@@ -856,10 +852,7 @@ where
   pub(crate) num_stored_fields: i32,
 }
 
-impl<'a, I> SerializedDocument<'a, I>
-where
-  I: IndexInput,
-{
+impl<'a, I> SerializedDocument<'a, I> {
   fn new(input: DataInputs<'a, I>, length: i32, num_stored_fields: i32) -> Self {
     SerializedDocument {
       input,
@@ -869,10 +862,7 @@ where
   }
 }
 
-pub struct DataInputImpl<'a, I>
-where
-  I: IndexInput,
-{
+pub struct DataInputImpl<'a, I> {
   decompressed: i32,
   length: i32,
   decompressor: &'a mut DecompressorEnum,
@@ -880,10 +870,7 @@ where
   fields_stream: &'a mut I,
   bytes: BytesRef<Vec<u8>>,
 }
-impl<'a, I> DataInputImpl<'a, I>
-where
-  I: IndexInput,
-{
+impl<'a, I> DataInputImpl<'a, I> {
   fn new(
     decompressor: &'a mut DecompressorEnum,
     chunk_size: i32,
@@ -901,6 +888,12 @@ where
       bytes,
     }
   }
+}
+
+impl<I> DataInputImpl<'_, I>
+where
+  I: DataInput,
+{
   fn fill_buffer(&mut self) -> Result<()> {
     debug_assert!(self.decompressed <= self.length);
 
@@ -921,20 +914,17 @@ where
   }
 }
 
-impl<I> Display for DataInputImpl<'_, I>
-where
-  I: IndexInput,
-{
+impl<I> Display for DataInputImpl<'_, I> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "DataInputImpl in Lucene90CompressingStoredFieldsReader")
   }
 }
 
-impl<I> crate::core::util::close::Closeable for DataInputImpl<'_, I> where I: IndexInput {}
+impl<I> crate::core::util::close::Closeable for DataInputImpl<'_, I> {}
 
 impl<I> DataInput for DataInputImpl<'_, I>
 where
-  I: IndexInput,
+  I: DataInput,
 {
   fn read_byte(&mut self) -> Result<u8> {
     if self.bytes.length == 0 {

@@ -327,16 +327,10 @@ where
 }
 
 /// Just wraps a Scorer and performs top scoring using it.
-pub struct DefaultBulkScorer<S>
-where
-  S: Scorer,
-{
+pub struct DefaultBulkScorer<S> {
   scorer: S,
 }
-impl<S> DefaultBulkScorer<S>
-where
-  S: Scorer,
-{
+impl<S> DefaultBulkScorer<S> {
   pub fn new(scorer: S) -> Self {
     Self { scorer }
   }
@@ -392,16 +386,10 @@ where
     Default
   }
 }
-pub struct DefaultScorerSupplier<S>
-where
-  S: Scorer,
-{
+pub struct DefaultScorerSupplier<S> {
   scorer: Option<S>,
 }
-impl<S> DefaultScorerSupplier<S>
-where
-  S: Scorer,
-{
+impl<S> DefaultScorerSupplier<S> {
   pub fn new(scorer: S) -> Self {
     Self {
       scorer: Some(scorer),

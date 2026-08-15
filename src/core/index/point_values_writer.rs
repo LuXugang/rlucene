@@ -121,7 +121,6 @@ impl PointValuesWriter {
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     DM: DocMap + Clone,
     PW: PointsWriter,
   {
@@ -143,10 +142,7 @@ impl PointValuesWriter {
     writer.write_field(&self.field_info, &mut reader, state, segment_info)
   }
 }
-struct PointsReaderImpl<DM>
-where
-  DM: DocMap + Clone,
-{
+struct PointsReaderImpl<DM> {
   values: RefCell<
     MutablePointTreeEnum2<
       MutablePointTreeImpl,
@@ -156,12 +152,9 @@ where
   field_info: Arc<FieldInfo>,
 }
 
-impl<DM> CloseableRef for PointsReaderImpl<DM> where DM: DocMap + Clone {}
+impl<DM> CloseableRef for PointsReaderImpl<DM> {}
 
-impl<DM> PointsReaderImpl<DM>
-where
-  DM: DocMap + Clone,
-{
+impl<DM> PointsReaderImpl<DM> {
   pub(crate) fn new(
     values: MutablePointTreeEnum2<
       MutablePointTreeImpl,
@@ -195,10 +188,7 @@ where
   }
 }
 
-struct PointValuesImpl<DM>
-where
-  DM: DocMap + Clone,
-{
+struct PointValuesImpl<DM> {
   values: RefCell<
     MutablePointTreeEnum2<
       MutablePointTreeImpl,
@@ -221,10 +211,7 @@ where
   }
 }
 
-impl<DM> PointValuesImpl<DM>
-where
-  DM: DocMap + Clone,
-{
+impl<DM> PointValuesImpl<DM> {
   pub(crate) fn new(
     values: MutablePointTreeEnum2<
       MutablePointTreeImpl,
@@ -286,19 +273,11 @@ where
   }
 }
 
-pub(crate) struct MutableSortingPointValues<M, DM>
-where
-  M: MutablePointTree,
-  DM: DocMap + Clone,
-{
+pub(crate) struct MutableSortingPointValues<M, DM> {
   input: M,
   doc_map: DM,
 }
-impl<M, DM> MutableSortingPointValues<M, DM>
-where
-  M: MutablePointTree,
-  DM: DocMap + Clone,
-{
+impl<M, DM> MutableSortingPointValues<M, DM> {
   pub(crate) fn new(input: M, doc_map: DM) -> Self {
     Self { input, doc_map }
   }
@@ -369,19 +348,11 @@ where
   }
 }
 
-struct IntersectVisitorImpl<'a, IV, DM>
-where
-  IV: IntersectVisitor,
-  DM: DocMap,
-{
+struct IntersectVisitorImpl<'a, IV, DM> {
   visitor: &'a mut IV,
   doc_map: DM,
 }
-impl<'a, IV, DM> IntersectVisitorImpl<'a, IV, DM>
-where
-  IV: IntersectVisitor,
-  DM: DocMap,
-{
+impl<'a, IV, DM> IntersectVisitorImpl<'a, IV, DM> {
   pub(crate) fn new(visitor: &'a mut IV, doc_map: DM) -> Self {
     Self { visitor, doc_map }
   }

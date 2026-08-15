@@ -618,20 +618,14 @@ pub(crate) fn relate(
     Ok(Relation::CellInsideQuery)
   }
 }
-pub struct ScorerSupplierImpl1<PV>
-where
-  PV: PointValues,
-{
+pub struct ScorerSupplierImpl1<PV> {
   score: f32,
   score_mode: ScoreMode,
   values: PV,
   visitor: IntersectVisitorImpl1,
   cost: i64,
 }
-impl<PV> ScorerSupplierImpl1<PV>
-where
-  PV: PointValues,
-{
+impl<PV> ScorerSupplierImpl1<PV> {
   pub fn new(
     score: f32,
     score_mode: ScoreMode,

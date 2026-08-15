@@ -470,18 +470,12 @@ fn compute_shift(a: i64, b: i64) -> i32 {
   unreachable!()
 }
 /// A predicate that checks whether a given point is within a component2D geometry.
-pub struct Component2DPredicate<C>
-where
-  C: Component2D,
-{
+pub struct Component2DPredicate<C> {
   base: Grid,
   tree: C,
 }
 
-impl<C> Component2DPredicate<C>
-where
-  C: Component2D,
-{
+impl<C> Component2DPredicate<C> {
   #[allow(clippy::too_many_arguments)]
   fn new(
     lat_shift: i32,
@@ -506,7 +500,12 @@ where
       tree,
     })
   }
+}
 
+impl<C> Component2DPredicate<C>
+where
+  C: Component2D,
+{
   /// Check whether the given point is within the considered polygon. NOTE: this operates directly
   /// on the encoded representation of points.
   pub fn test(&self, lat: i32, lon: i32) -> bool {

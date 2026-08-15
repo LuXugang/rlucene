@@ -23,7 +23,7 @@ use crate::core::util::close::{Closeable, CloseableWrite};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 /// A [`DataOutput`] wrapping a plain [`OutputStream`](Write).
-pub struct OutputStreamDataOutput<W: CloseableWrite> {
+pub struct OutputStreamDataOutput<W: Write> {
   pub os: Option<BufWriter<W>>,
 }
 impl<W: CloseableWrite> OutputStreamDataOutput<W> {

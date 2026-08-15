@@ -422,19 +422,13 @@ where
   }
 }
 
-pub struct FloatVectorScorer<FV>
-where
-  FV: FloatVectorValues,
-{
+pub struct FloatVectorScorer<FV> {
   values: FV,
   query: Vec<f32>,
   similarity_function: VectorSimilarityFunction,
 }
 
-impl<FV> FloatVectorScorer<FV>
-where
-  FV: FloatVectorValues,
-{
+impl<FV> FloatVectorScorer<FV> {
   pub(crate) fn new(
     values: FV,
     query: Vec<f32>,
@@ -481,18 +475,12 @@ where
     Ok(self.values.get_accept_ords(accept_docs))
   }
 }
-pub struct ByteVectorScorer<BV>
-where
-  BV: ByteVectorValues,
-{
+pub struct ByteVectorScorer<BV> {
   values: BV,
   query: Vec<u8>,
   similarity_function: VectorSimilarityFunction,
 }
-impl<BV> ByteVectorScorer<BV>
-where
-  BV: ByteVectorValues,
-{
+impl<BV> ByteVectorScorer<BV> {
   pub(crate) fn new(
     values: BV,
     query: Vec<u8>,

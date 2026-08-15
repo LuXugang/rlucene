@@ -163,20 +163,14 @@ impl MultiSorter {
     Ok(Some(doc_maps))
   }
 }
-pub(crate) struct LeafAndDocId<B>
-where
-  B: Bits,
-{
+pub(crate) struct LeafAndDocId<B> {
   reader_index: usize,
   live_docs: Option<B>,
   max_doc: i32,
   values_as_comparable_longs: Vec<i64>,
   doc_id: i32,
 }
-impl<B> LeafAndDocId<B>
-where
-  B: Bits,
-{
+impl<B> LeafAndDocId<B> {
   fn new(reader_index: usize, live_docs: Option<B>, max_doc: i32, num_comparables: usize) -> Self {
     Self {
       reader_index,
@@ -223,19 +217,11 @@ where
   }
 }
 
-pub struct ComparableProviderImpl<B, CP>
-where
-  B: BitSet,
-  CP: ComparableProvider,
-{
+pub struct ComparableProviderImpl<B, CP> {
   parents: B,
   provider: CP,
 }
-impl<B, CP> ComparableProviderImpl<B, CP>
-where
-  B: BitSet,
-  CP: ComparableProvider,
-{
+impl<B, CP> ComparableProviderImpl<B, CP> {
   fn new(parents: B, provider: CP) -> Self {
     ComparableProviderImpl { parents, provider }
   }

@@ -183,11 +183,7 @@ pub trait TopDocsCollector: Collector {
   }
 }
 
-pub struct TopDocsCollectorBase<T, C>
-where
-  T: ScoreDocLike,
-  C: Compare<T>,
-{
+pub struct TopDocsCollectorBase<T, C> {
   /// The total number of documents that the collector encountered.
   pub(crate) total_hits: usize,
   /// The priority queue which holds the top documents.
@@ -198,11 +194,7 @@ where
   /// Whether totalHits is exact or a lower bound.
   pub(crate) total_hits_relation: Relation,
 }
-impl<T, C> TopDocsCollectorBase<T, C>
-where
-  T: ScoreDocLike,
-  C: Compare<T>,
-{
+impl<T, C> TopDocsCollectorBase<T, C> {
   pub fn new(pq: PriorityQueue<T, C>) -> Self {
     Self {
       total_hits: 0,

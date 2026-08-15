@@ -25,10 +25,7 @@ use crate::core::util::math_util::MathUtil;
 ///
 /// Implementors must provide the `read_skip_data(&mut self, level: i32, input:
 /// &mut I)` method to define the actual format of the skip data.
-pub struct MultiLevelSkipListReader<I>
-where
-  I: IndexInput,
-{
+pub struct MultiLevelSkipListReader<I> {
   /// the maximum number of skip levels possible for this index
   pub(crate) max_number_of_skip_levels: i32,
 

@@ -33,10 +33,7 @@ pub type RefreshListenerArc = Arc<dyn RefreshListener>;
 /// [`release`](Self::release)d.
 ///
 /// @lucene.experimental
-pub struct ReferenceManager<G, B>
-where
-  B: ReferenceManagerBase<G>,
-{
+pub struct ReferenceManager<G, B> {
   current: RwLock<Option<Arc<G>>>,
   reference_lock: ReentrantMutex<()>,
   refresh_lock: ReentrantMutex<()>,
@@ -44,10 +41,7 @@ where
   base: B,
 }
 
-impl<G, B> ReferenceManager<G, B>
-where
-  B: ReferenceManagerBase<G>,
-{
+impl<G, B> ReferenceManager<G, B> {
   pub(crate) fn new(current: G, base: B) -> Self {
     Self {
       current: RwLock::new(Some(Arc::new(current))),
@@ -57,7 +51,12 @@ where
       base,
     }
   }
+}
 
+impl<G, B> ReferenceManager<G, B>
+where
+  B: ReferenceManagerBase<G>,
+{
   fn ensure_open(&self) -> Result<()> {
     if self.current.read().is_none() {
       return Err(LuceneError::already_closed(

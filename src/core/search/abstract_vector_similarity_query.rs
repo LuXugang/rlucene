@@ -211,9 +211,7 @@ impl KnnCollectorManager for VectorSimilarityCollectorManager {
 
 struct AbstractVectorSimilarityQueryWeight<Q, IRC, QT>
 where
-  Q: AbstractVectorSimilarityQuery,
   IRC: IndexReaderContext,
-  QT: QueryTimeout,
 {
   parent_query: Arc<Query>,
   query: Q,
@@ -394,10 +392,7 @@ where
   }
 }
 
-struct VectorSimilarityScorerSupplier<I>
-where
-  I: DocIdSetIterator + CachedScoreHelper,
-{
+struct VectorSimilarityScorerSupplier<I> {
   iterator: Option<I>,
 }
 
@@ -481,17 +476,11 @@ where
   }
 }
 
-pub struct ScorerImpl<I>
-where
-  I: DocIdSetIterator + CachedScoreHelper,
-{
+pub struct ScorerImpl<I> {
   iterator: I,
 }
 
-impl<I> ScorerImpl<I>
-where
-  I: DocIdSetIterator + CachedScoreHelper,
-{
+impl<I> ScorerImpl<I> {
   fn new(iterator: I) -> Self {
     Self { iterator }
   }
@@ -506,7 +495,7 @@ where
   }
 }
 
-impl<I> FixedScore for ScorerImpl<I> where I: DocIdSetIterator + CachedScoreHelper {}
+impl<I> FixedScore for ScorerImpl<I> {}
 
 impl<I> Scorer for ScorerImpl<I>
 where
@@ -605,11 +594,7 @@ pub trait CachedScoreHelper {
   fn cached_score(&self) -> f32;
 }
 
-struct FilteredDocIdSetIteratorImpl1<V, B>
-where
-  V: VectorScorer,
-  B: BitSet,
-{
+struct FilteredDocIdSetIteratorImpl1<V, B> {
   boost: f32,
   threshold: f32,
   cached_score: f32,

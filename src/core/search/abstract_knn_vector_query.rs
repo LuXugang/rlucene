@@ -492,19 +492,11 @@ where
   Ok(starts)
 }
 
-pub struct FilteredDocIdSetIteratorImpl<'a, B, D>
-where
-  B: Bits,
-  D: DocIdSetIterator,
-{
+pub struct FilteredDocIdSetIteratorImpl<'a, B, D> {
   live_docs: Option<&'a B>,
   base: FilteredDocIdSetIteratorBase<D>,
 }
-impl<'a, B, D> FilteredDocIdSetIteratorImpl<'a, B, D>
-where
-  B: Bits,
-  D: DocIdSetIterator,
-{
+impl<'a, B, D> FilteredDocIdSetIteratorImpl<'a, B, D> {
   pub(crate) fn new(
     live_docs: Option<&'a B>,
     iterator: D,
@@ -889,11 +881,7 @@ impl Scorer for ScorerImpl {
   }
 }
 // TODO IMPORTANT 应该优化为 BitSetConjunctionDISI
-pub enum ConjunctionDISIEnum<T, V>
-where
-  T: BitSet,
-  V: VectorScorer,
-{
+pub enum ConjunctionDISIEnum<T, V> {
   Bit(BitSetIterator<T>),
   VectorScorer(VectorScorerDisi<V>),
 }

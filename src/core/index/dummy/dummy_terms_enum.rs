@@ -115,10 +115,7 @@ impl TermsEnum for DummyTermsEnum {
   }
 }
 
-pub struct DummyTermsEnum2<T>
-where
-  T: Terms,
-{
+pub struct DummyTermsEnum2<T> {
   terms: T,
 }
 impl<T> BytesRefIterator for DummyTermsEnum2<T>

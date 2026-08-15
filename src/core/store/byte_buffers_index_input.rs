@@ -31,15 +31,12 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<&'a [u8]>;
 pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
 
-pub struct ByteBuffersIndexInput<B: ByteBuffersDataInputBlock> {
+pub struct ByteBuffersIndexInput<B> {
   in_: ByteBuffersDataInput<B>,
   resource_description: String,
   closed: AtomicBool,
 }
-impl<B> ByteBuffersIndexInput<B>
-where
-  B: ByteBuffersDataInputBlock,
-{
+impl<B> ByteBuffersIndexInput<B> {
   pub fn new(data_input: ByteBuffersDataInput<B>, resource_description: &str) -> Self {
     Self {
       in_: data_input,
@@ -57,10 +54,7 @@ where
   }
 }
 
-impl<B> crate::core::util::close::CloseableRef for ByteBuffersIndexInput<B>
-where
-  B: ByteBuffersDataInputBlock,
-{
+impl<B> crate::core::util::close::CloseableRef for ByteBuffersIndexInput<B> {
   fn close(&self) -> Result<()> {
     self.closed.store(true, Ordering::Relaxed);
     Ok(())
@@ -216,10 +210,7 @@ where
   }
 }
 
-impl<B> Display for ByteBuffersIndexInput<B>
-where
-  B: ByteBuffersDataInputBlock,
-{
+impl<B> Display for ByteBuffersIndexInput<B> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.resource_description)
   }

@@ -63,7 +63,7 @@ impl ByteBuffersDataInputBlock for Arc<Vec<u8>> {
 
 /// A [`DataInput`] implementing [`RandomAccessInput`]
 /// and reading data from a list of [`Cursor<Vec<u8>>`](Cursor).
-pub struct ByteBuffersDataInput<B: ByteBuffersDataInputBlock> {
+pub struct ByteBuffersDataInput<B> {
   blocks: Vec<Cursor<B>>,
   block_mask: usize,
   block_bits: usize,
@@ -212,6 +212,9 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
     }
     Ok(())
   }
+}
+
+impl<B> ByteBuffersDataInput<B> {
   pub fn position(&self) -> Result<usize> {
     self.pos.checked_sub(self.offset).ok_or_else(|| {
       LuceneError::illegal_state(format!(
@@ -284,10 +287,7 @@ where
   }
 }
 
-impl<B> Display for ByteBuffersDataInput<B>
-where
-  B: ByteBuffersDataInputBlock,
-{
+impl<B> Display for ByteBuffersDataInput<B> {
   fn fmt(&self, f: &mut Formatter) -> fmt::Result {
     let blocks_len = self.blocks.len();
     let offset_str = if self.offset == 0 {
@@ -311,10 +311,7 @@ where
   }
 }
 
-impl<B> crate::core::util::close::Closeable for ByteBuffersDataInput<B> where
-  B: ByteBuffersDataInputBlock
-{
-}
+impl<B> crate::core::util::close::Closeable for ByteBuffersDataInput<B> {}
 
 impl<B> DataInput for ByteBuffersDataInput<B>
 where

@@ -376,10 +376,7 @@ impl MultiDocValues {
   }
 }
 /// Implements SortedDocValues over n subs, using an OrdinalMap
-pub struct MultiSortedDocValues<S>
-where
-  S: SortedDocValues,
-{
+pub struct MultiSortedDocValues<S> {
   /// docbase for each leaf: parallel with `values`
   pub doc_starts: Arc<Vec<usize>>,
   /// leaf values
@@ -394,10 +391,7 @@ where
   doc_id: i32,
 }
 
-impl<S> MultiSortedDocValues<S>
-where
-  S: SortedDocValues,
-{
+impl<S> MultiSortedDocValues<S> {
   pub fn new<T, O>(doc_starts: T, values: Vec<S>, mapping: O, total_cost: i64) -> Self
   where
     T: Into<Arc<Vec<usize>>>,
@@ -580,10 +574,7 @@ where
 }
 
 /// Implements SortedSetDocValues over N subs, using an OrdinalMap.
-pub struct MultiSortedSetDocValues<T>
-where
-  T: SortedSetDocValues,
-{
+pub struct MultiSortedSetDocValues<T> {
   /// docbase for each leaf: parallel with `values`
   pub doc_starts: Arc<Vec<usize>>,
 
@@ -600,10 +591,7 @@ where
   doc_id: i32,
 }
 
-impl<T> MultiSortedSetDocValues<T>
-where
-  T: SortedSetDocValues,
-{
+impl<T> MultiSortedSetDocValues<T> {
   pub fn new<V, R>(values: Vec<T>, doc_starts: R, mapping: V, total_cost: i64) -> Self
   where
     V: Into<Arc<OrdinalMap>>,

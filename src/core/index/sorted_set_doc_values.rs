@@ -206,7 +206,7 @@ where
 
 impl<S> DocIdSetIterator for Rc<RefCell<S>>
 where
-  S: SortedSetDocValues,
+  S: DocIdSetIterator,
 {
   fn doc_id(&self) -> i32 {
     self.borrow().doc_id()
@@ -231,7 +231,7 @@ where
 
 impl<S> DocValuesIterator for Rc<RefCell<S>>
 where
-  S: SortedSetDocValues,
+  S: DocValuesIterator,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.borrow_mut().advance_exact(target)

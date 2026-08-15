@@ -33,10 +33,7 @@ use std::rc::Rc;
 /// Some collectors may need to use the score in multiple places, but they only have a
 /// `Scorer`(crate::core::search::scorer::Scorer) reference and could otherwise end up computing the score of the same
 /// document more than once.
-pub struct ScoreCachingWrappingScorer<S>
-where
-  S: Scorable,
-{
+pub struct ScoreCachingWrappingScorer<S> {
   cache: ScoreCachingWrappingScorerCache,
   in_: S,
 }
@@ -61,10 +58,7 @@ impl ScoreCachingWrappingScorerCache {
 }
 
 /// Creates a new instance by wrapping the given scorer.
-impl<S> ScoreCachingWrappingScorer<S>
-where
-  S: Scorable,
-{
+impl<S> ScoreCachingWrappingScorer<S> {
   fn new_with_cache(in_: S, cache: ScoreCachingWrappingScorerCache) -> Self {
     Self { cache, in_ }
   }
@@ -100,19 +94,12 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for ScoreCachingWrappingScorer<S> where S: Scorable
-{}
-pub struct ScoreCachingWrappingLeafCollector<LC>
-where
-  LC: LeafCollector,
-{
+impl<S> crate::core::search::scorable::FixedScore for ScoreCachingWrappingScorer<S> {}
+pub struct ScoreCachingWrappingLeafCollector<LC> {
   inner: LC,
   cache: ScoreCachingWrappingScorerCache,
 }
-impl<LC> ScoreCachingWrappingLeafCollector<LC>
-where
-  LC: LeafCollector,
-{
+impl<LC> ScoreCachingWrappingLeafCollector<LC> {
   pub(crate) fn new(base: LC) -> Self {
     Self {
       inner: base,
@@ -123,7 +110,7 @@ where
 
 impl<LC> Display for ScoreCachingWrappingLeafCollector<LC>
 where
-  LC: LeafCollector,
+  LC: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     self.inner.fmt(f)

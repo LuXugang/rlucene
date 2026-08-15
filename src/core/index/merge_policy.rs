@@ -426,10 +426,7 @@ where
 }
 
 /// Asserts that the `delCount` for this [`SegmentCommitInfo`] is valid.
-pub(crate) fn assert_del_count<D>(del_count: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
-where
-  D: Directory,
-{
+pub(crate) fn assert_del_count<D>(del_count: i32, info: &SegmentCommitInfo<D>) -> Result<bool> {
   debug_assert!(del_count >= 0, "delCount must be positive: {}", del_count);
   debug_assert!(
     del_count <= info.info.max_doc()?,
@@ -2501,9 +2498,7 @@ impl OneMergeDefaults {
     stat: &MergeStat,
     merge_info: &mut Option<SegmentCommitInfo<D>>,
     info: SegmentCommitInfo<D>,
-  ) where
-    D: Directory,
-  {
+  ) {
     stat.set_merge_info(info.info.get_id_key().to_string(), info.info.name.clone());
     *merge_info = Some(info);
   }

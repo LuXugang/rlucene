@@ -107,7 +107,7 @@ pub trait QueryVisitor {
 /// The visitor returned by Java's default `getSubVisitor` behavior.
 pub enum DefaultQueryVisitor<'a, V>
 where
-  V: QueryVisitor + ?Sized,
+  V: ?Sized,
 {
   Visitor(&'a mut V),
   Empty,

@@ -383,10 +383,7 @@ where {
   }
 }
 
-pub struct ScorerSupplierImpl<D>
-where
-  D: DocIdSetIterator,
-{
+pub struct ScorerSupplierImpl<D> {
   disi: Option<IteratorAndCountDisi<D>>,
   score_mode: ScoreMode,
   cost: i64,
@@ -702,20 +699,14 @@ impl<'a> IntersectVisitor for IntersectVisitorImpl<'a> {
     Ok(Relation::CellCrossesQuery)
   }
 }
-pub struct BoundedDocIdSetIterator<D>
-where
-  D: DocIdSetIterator,
-{
+pub struct BoundedDocIdSetIterator<D> {
   first_doc: i32,
   last_doc: i32,
   delegate: D,
   doc_id: i32,
 }
 
-impl<D> BoundedDocIdSetIterator<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> BoundedDocIdSetIterator<D> {
   fn new(first_doc: i32, last_doc: i32, delegate: D) -> Self {
     Self {
       first_doc,
@@ -1192,18 +1183,12 @@ fn get_sort_field_type(sort_field: &SortFieldEnum) -> SortFieldType {
   }
 }
 
-struct IteratorAndCount<D>
-where
-  D: DocIdSetIterator,
-{
+struct IteratorAndCount<D> {
   it: IteratorAndCountDisi<D>,
   count: i32,
 }
 
-impl<D> IteratorAndCount<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> IteratorAndCount<D> {
   fn new(it: IteratorAndCountDisi<D>, count: i32) -> Self {
     Self { it, count }
   }
@@ -1232,10 +1217,7 @@ where
 pub type IteratorAndCountDisi<D> =
   DocIdSetIteratorEnum4<EmptyDISI, AllDISI, RangeDISI, BoundedDocIdSetIterator<D>>;
 // for std::mem::take
-impl<D> Default for IteratorAndCountDisi<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> Default for IteratorAndCountDisi<D> {
   fn default() -> Self {
     DocIdSetIteratorEnum4::A(EmptyDISI::default())
   }

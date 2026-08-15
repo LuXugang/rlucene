@@ -27,16 +27,10 @@ use std::borrow::Cow;
 
 /// [`ImpactsEnum`] that doesn't index impacts but implements the API in a legal way.
 /// This is typically used for short postings that do not need skipping.
-pub struct SlowImpactsEnum<P>
-where
-  P: PostingsEnum,
-{
+pub struct SlowImpactsEnum<P> {
   pub(crate) delegate: P,
 }
-impl<P> SlowImpactsEnum<P>
-where
-  P: PostingsEnum,
-{
+impl<P> SlowImpactsEnum<P> {
   pub fn new(delegate: P) -> Self {
     SlowImpactsEnum { delegate }
   }

@@ -83,10 +83,7 @@ where
   }
 }
 
-pub struct WithDefaultDoubleValues<T>
-where
-  T: DoubleValues,
-{
+pub struct WithDefaultDoubleValues<T> {
   in_: T,
   missing_value: f64,
   has_value: bool,

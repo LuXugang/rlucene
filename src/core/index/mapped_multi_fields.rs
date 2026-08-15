@@ -38,7 +38,6 @@ use std::borrow::Cow;
 pub struct MappedMultiFields<'a, F, DM>
 where
   F: Fields,
-  DM: DocMap,
 {
   merge_state_meta: MergeStateMeta<DM>,
   inner: &'a MultiFields<F>,
@@ -47,7 +46,6 @@ where
 impl<'a, F, DM> MappedMultiFields<'a, F, DM>
 where
   F: Fields,
-  DM: DocMap,
 {
   pub fn new(merge_state_meta: MergeStateMeta<DM>, multi_fields: &'a MultiFields<F>) -> Self {
     MappedMultiFields {
@@ -89,20 +87,12 @@ where
   }
 }
 
-pub struct MappedMultiTerms<T, DM>
-where
-  T: Terms,
-  DM: DocMap,
-{
+pub struct MappedMultiTerms<T, DM> {
   merge_state: MergeStateMeta<DM>,
   field: String,
   inner: MultiFieldsTerms<T>,
 }
-impl<T, DM> MappedMultiTerms<T, DM>
-where
-  T: Terms,
-  DM: DocMap,
-{
+impl<T, DM> MappedMultiTerms<T, DM> {
   pub fn new(
     field: String,
     merge_state: MergeStateMeta<DM>,
@@ -194,20 +184,12 @@ where
   }
 }
 
-pub struct MappedMultiTermsEnum<TE, DM>
-where
-  TE: TermsEnum,
-  DM: DocMap,
-{
+pub struct MappedMultiTermsEnum<TE, DM> {
   field: String,
   merge_state_meta: MergeStateMeta<DM>,
   in_: MultiTermsEnum<TE>,
 }
-impl<TE, DM> MappedMultiTermsEnum<TE, DM>
-where
-  TE: TermsEnum,
-  DM: DocMap,
-{
+impl<TE, DM> MappedMultiTermsEnum<TE, DM> {
   pub fn new(
     field: String,
     merge_state: MergeStateMeta<DM>,

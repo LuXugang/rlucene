@@ -23,7 +23,6 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
@@ -67,7 +66,6 @@ pub trait NormsConsumer: Closeable {
   /// (e.g. bulk-byte copying).
   fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     for producer in merge_state.norms_producers.iter().flatten() {
@@ -93,7 +91,6 @@ pub trait NormsConsumer: Closeable {
     merge_state: &MergeState<D, CR>,
   ) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     let mut norms_producer = NormsProducerMerge {
@@ -114,8 +111,8 @@ pub enum NormsConsumerEnum2<A, B> {
 
 impl<A, B> Closeable for NormsConsumerEnum2<A, B>
 where
-  A: NormsConsumer,
-  B: NormsConsumer,
+  A: Closeable,
+  B: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     match self {
@@ -143,7 +140,6 @@ where
 
   fn merge<D, CR>(&mut self, merge_state: &MergeState<D, CR>) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     match self {
@@ -158,7 +154,6 @@ where
     merge_state: &MergeState<D, CR>,
   ) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     match self {
@@ -170,23 +165,16 @@ where
 
 struct NormsProducerMerge<'a, D, CR>
 where
-  D: Directory,
   CR: CodecReader,
 {
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MergeState<'a, D, CR>,
 }
 
-impl<D, CR> CloseableRef for NormsProducerMerge<'_, D, CR>
-where
-  D: Directory,
-  CR: CodecReader,
-{
-}
+impl<D, CR> CloseableRef for NormsProducerMerge<'_, D, CR> where CR: CodecReader {}
 
 impl<D, CR> NormsProducer for NormsProducerMerge<'_, D, CR>
 where
-  D: Directory,
   CR: CodecReader,
 {
   type NumericDocValues = NumericDocValuesMerge<
@@ -233,11 +221,7 @@ where
   }
 }
 
-pub struct NumericDocValuesMerge<N, DM>
-where
-  N: NumericDocValues,
-  DM: DocMap,
-{
+pub struct NumericDocValuesMerge<N, DM> {
   doc_id: i32,
   current: Option<usize>,
   doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, DM>>,
@@ -302,19 +286,14 @@ where
   }
 }
 /// Tracks state of one numeric sub-reader that we are merging.
-struct NumericDocValuesSub<N, DM>
-where
-  N: NumericDocValues,
-  DM: DocMap,
-{
+struct NumericDocValuesSub<N, DM> {
   values: N,
   doc_map: Rc<DM>,
 }
 
 impl<N, DM> NumericDocValuesSub<N, DM>
 where
-  N: NumericDocValues,
-  DM: DocMap,
+  N: DocIdSetIterator,
 {
   fn new(doc_map: Rc<DM>, values: N) -> Self {
     debug_assert!(values.doc_id() == -1);

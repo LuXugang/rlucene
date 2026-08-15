@@ -138,21 +138,20 @@ where
     (**self).match_cost()
   }
 }
-pub struct TwoPhaseIteratorAsDocIdSetIterator<TPI>
-where
-  TPI: TwoPhaseIterator,
-{
+pub struct TwoPhaseIteratorAsDocIdSetIterator<TPI> {
   pub(crate) two_phase_iterator: TPI,
+}
+
+impl<TPI> TwoPhaseIteratorAsDocIdSetIterator<TPI> {
+  pub fn new(two_phase_iterator: TPI) -> Self {
+    Self { two_phase_iterator }
+  }
 }
 
 impl<TPI> TwoPhaseIteratorAsDocIdSetIterator<TPI>
 where
   TPI: TwoPhaseIterator,
 {
-  pub fn new(two_phase_iterator: TPI) -> Self {
-    Self { two_phase_iterator }
-  }
-
   fn do_next(&mut self, mut doc: i32) -> Result<i32> {
     loop {
       if doc == NO_MORE_DOCS {

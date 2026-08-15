@@ -152,7 +152,6 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
   ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let value = segment_info.get_attribute(Self::MODE_KEY);
     let mode_name = value.ok_or_else(|| {
@@ -180,7 +179,6 @@ impl StoredFieldsFormat for Lucene90StoredFieldsFormat {
   ) -> Result<Self::StoredFieldsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let previous =
       segment_info.put_attribute(Self::MODE_KEY.to_string(), self.mode.name().to_string());

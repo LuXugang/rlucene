@@ -303,10 +303,7 @@ impl FieldInfosFormat for CodecFieldInfosFormat {
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     io_context: &IOContext,
-  ) -> Result<FieldInfos>
-  where
-    D: Directory,
-  {
+  ) -> Result<FieldInfos> {
     match self {
       Self::Lucene101(format) => format.read(directory, segment_info, segment_suffix, io_context),
       Self::Cranky(format) => format.read(directory, segment_info, segment_suffix, io_context),
@@ -320,10 +317,7 @@ impl FieldInfosFormat for CodecFieldInfosFormat {
     segment_suffix: &str,
     infos: &FieldInfos,
     io_context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     match self {
       Self::Lucene101(format) => {
         format.write(directory, segment_info, segment_suffix, infos, io_context)
@@ -364,10 +358,7 @@ impl SegmentInfoFormat for CodecSegmentInfoFormat {
     directory: &impl Directory,
     info: &mut SegmentInfo<D>,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     match self {
       Self::Lucene101(format) => format.write(directory, info, context),
       Self::Cranky(format) => format.write(directory, info, context),
@@ -398,10 +389,7 @@ impl CompoundFormat for CodecCompoundFormat {
     }
   }
 
-  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()> {
     match self {
       Self::Lucene101(format) => format.write(dir, si, context),
       Self::Cranky(format) => format.write(dir, si, context),
@@ -450,7 +438,6 @@ impl CodecPostingsFormat {
   ) -> Result<BaseCodecFieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene101(format) => format.fields_consumer(state, segment_info).map(|consumer| {
@@ -485,7 +472,6 @@ impl CodecPostingsFormat {
   ) -> Result<BaseCodecFieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene101(format) => format
@@ -550,7 +536,6 @@ impl PostingsFormat for CodecPostingsFormat {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     #[cfg(not(test))]
     {
@@ -580,7 +565,6 @@ impl PostingsFormat for CodecPostingsFormat {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     #[cfg(not(test))]
     {
@@ -698,7 +682,6 @@ impl DocValuesFormat for CodecDocValuesFormat {
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene101(format) => {
@@ -753,7 +736,6 @@ impl DocValuesFormat for CodecDocValuesFormat {
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene101(format) => {
@@ -826,7 +808,6 @@ impl StoredFieldsFormat for CodecStoredFieldsFormat {
   ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -870,7 +851,6 @@ impl StoredFieldsFormat for CodecStoredFieldsFormat {
   ) -> Result<Self::StoredFieldsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -941,7 +921,6 @@ impl TermVectorsFormat for CodecTermVectorsFormat {
   ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -985,7 +964,6 @@ impl TermVectorsFormat for CodecTermVectorsFormat {
   ) -> Result<Self::TermVectorsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -1054,7 +1032,6 @@ impl NormsFormat for CodecNormsFormat {
   ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -1093,7 +1070,6 @@ impl NormsFormat for CodecNormsFormat {
   ) -> Result<Self::NormsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -1140,10 +1116,7 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
     dir: &impl Directory,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits>
-  where
-    D: Directory,
-  {
+  ) -> Result<Self::Bits> {
     match self {
       Self::Lucene90(format) => {
         #[cfg(not(test))]
@@ -1171,10 +1144,7 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     match self {
       Self::Lucene90(format) => format.write_live_docs(bits, dir, info, new_del_count, context),
       #[cfg(test)]
@@ -1190,10 +1160,7 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
     }
   }
 
-  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()> {
     match self {
       Self::Lucene90(format) => format.files(info, files),
       #[cfg(test)]
@@ -1242,7 +1209,6 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
   where
     PR: PointsReader,
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(inner) => inner.write_field(field_info, values, dir, segment_info),
@@ -1272,7 +1238,6 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
     dir: &D2,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
@@ -1287,7 +1252,6 @@ impl<O: IndexOutput> PointsWriter for CodecPointsWriter<O> {
 
   fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
@@ -1325,7 +1289,6 @@ impl PointsFormat for CodecPointsFormat {
   ) -> Result<Self::PointsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -1376,7 +1339,6 @@ impl PointsFormat for CodecPointsFormat {
   ) -> Result<Self::PointsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene90(format) => {
@@ -1458,7 +1420,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for CodecKnnVectorsWriter<O> {
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     match self {
       Self::Lucene101(inner) => inner.add_field(write_state, segment_info, field_info),
@@ -1483,7 +1444,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for CodecKnnVectorsWriter<O> {
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -1506,7 +1466,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for CodecKnnVectorsWriter<O> {
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<i32>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -1518,7 +1477,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for CodecKnnVectorsWriter<O> {
 
   fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     match self {
@@ -2283,7 +2241,6 @@ impl KnnVectorsFormat for CodecKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene101(format) => {
@@ -2314,7 +2271,6 @@ impl KnnVectorsFormat for CodecKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Lucene101(format) => {

@@ -150,22 +150,21 @@ where
   }
 }
 /// Wraps a SortedNumericDocValues and returns the last value (max)
-pub struct MaxValue<S>
-where
-  S: SortedNumericDocValues,
-{
+pub struct MaxValue<S> {
   inner: S,
   value: i64,
+}
+
+impl<S> MaxValue<S> {
+  pub fn new(inner: S) -> Self {
+    MaxValue { inner, value: 0 }
+  }
 }
 
 impl<S> MaxValue<S>
 where
   S: SortedNumericDocValues,
 {
-  pub fn new(inner: S) -> Self {
-    MaxValue { inner, value: 0 }
-  }
-
   fn set_value(&mut self) -> Result<()> {
     let count = self.inner.doc_value_count()?;
     for _ in 0..count {
@@ -227,16 +226,10 @@ where
   }
 }
 
-pub struct FilterNumericDocValuesImpl1<N>
-where
-  N: NumericDocValues,
-{
+pub struct FilterNumericDocValuesImpl1<N> {
   inner: N,
 }
-impl<N> FilterNumericDocValuesImpl1<N>
-where
-  N: NumericDocValues,
-{
+impl<N> FilterNumericDocValuesImpl1<N> {
   pub fn new(inner: N) -> Self {
     FilterNumericDocValuesImpl1 { inner }
   }
@@ -285,16 +278,10 @@ where
     Ok(NumericUtils::sortable_float_bits(v) as i64)
   }
 }
-pub struct FilterNumericDocValuesImpl2<N>
-where
-  N: NumericDocValues,
-{
+pub struct FilterNumericDocValuesImpl2<N> {
   inner: N,
 }
-impl<N> FilterNumericDocValuesImpl2<N>
-where
-  N: NumericDocValues,
-{
+impl<N> FilterNumericDocValuesImpl2<N> {
   pub fn new(inner: N) -> Self {
     FilterNumericDocValuesImpl2 { inner }
   }

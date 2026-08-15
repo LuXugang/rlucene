@@ -53,8 +53,8 @@ macro_rules! either_points_reader {
 
         impl<$A, $B> CloseableRef for $name<$A, $B>
         where
-            $A: PointsReader,
-            $B: PointsReader,
+            $A: CloseableRef,
+            $B: CloseableRef,
         {
             fn close(&self) -> Result<()> {
                 match self {

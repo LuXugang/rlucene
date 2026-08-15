@@ -229,7 +229,6 @@ impl PostingsFormat for BlockingOnMergePostingsFormat {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(BlockingOnMergeFieldsConsumer {
       in_: self.postings_format.fields_consumer(state, segment_info)?,
@@ -246,7 +245,6 @@ impl PostingsFormat for BlockingOnMergePostingsFormat {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.postings_format.fields_producer(state, segment_info)
   }
@@ -290,7 +288,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {
@@ -306,7 +303,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     N: NormsProducer,
     MS: MergeStateAccess,
   {
@@ -359,7 +355,6 @@ impl DocValuesFormat for BlockingOnMergeDocValuesFormat {
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(BlockingOnMergeDocValuesConsumer {
       in_: self
@@ -379,7 +374,6 @@ impl DocValuesFormat for BlockingOnMergeDocValuesFormat {
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.doc_values_format.fields_producer(state, segment_info)
   }
@@ -425,7 +419,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -442,7 +435,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -459,7 +451,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -476,7 +467,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -493,7 +483,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -509,7 +498,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     self.barrier.wait();

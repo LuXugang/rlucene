@@ -51,7 +51,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let suffix = &read_state.segment_suffix;
 

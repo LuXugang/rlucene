@@ -34,10 +34,7 @@ use std::rc::Rc;
 
 /// Exposes [`TermsEnum`] API, merged from [`TermsEnum`] API of sub-segments. This does a
 /// merge sort, by term text, of the sub-readers.
-pub struct MultiTermsEnum<TE>
-where
-  TE: TermsEnum,
-{
+pub struct MultiTermsEnum<TE> {
   queue: TermMergeQueue<TE>,
   /// All subs (one per sub-reader), stored as indices
   subs: Vec<usize>,
@@ -495,10 +492,7 @@ where
     Ok(BaseTermsEnumTermStateImpl.into())
   }
 }
-struct TopTermsEnumWithSliceCmp<'a, TE>
-where
-  TE: TermsEnum,
-{
+struct TopTermsEnumWithSliceCmp<'a, TE> {
   terms_enums: &'a [TermsEnumWithSlice<TE>],
 }
 impl<'a, TE> TopTermsEnumWithSliceCmp<'a, TE>
@@ -524,10 +518,7 @@ where
 
 pub type MultiTermsEnumType<TE> = TermsEnumEnum2<MultiTermsEnum<TE>, EmptyTermsEnum>;
 
-struct TermsEnumWithSlice<TE>
-where
-  TE: TermsEnum,
-{
+struct TermsEnumWithSlice<TE> {
   base: TermsEnumIndex<TE>,
   sub_slice: Rc<ReaderSlice>,
 }
@@ -545,10 +536,7 @@ where
   }
 }
 
-struct TermMergeQueue<TE>
-where
-  TE: TermsEnum,
-{
+struct TermMergeQueue<TE> {
   stack: Vec<i32>,
   q: PriorityQueue<usize, TermMergeQueueCmp<TE>>,
 }
@@ -612,10 +600,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("get_heap_array() returned None"))
   }
 }
-struct TermMergeQueueCmp<TE>
-where
-  TE: TermsEnum,
-{
+struct TermMergeQueueCmp<TE> {
   all_terms_enum_with_slice: Vec<TermsEnumWithSlice<TE>>,
 }
 impl<TE> TermMergeQueueCmp<TE>

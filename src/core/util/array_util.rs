@@ -438,18 +438,12 @@ impl ArrayUtil {
   }
 }
 
-struct IntroSelectorImpl<'a, T, C>
-where
-  C: Comparator<T>,
-{
+struct IntroSelectorImpl<'a, T, C> {
   pivot: usize,
   arr: &'a mut [T],
   comparator: &'a C,
 }
-impl<'a, T, C> IntroSelectorImpl<'a, T, C>
-where
-  C: Comparator<T>,
-{
+impl<'a, T, C> IntroSelectorImpl<'a, T, C> {
   fn new(arr: &'a mut [T], comparator: &'a C) -> IntroSelectorImpl<'a, T, C> {
     IntroSelectorImpl {
       pivot: 0,

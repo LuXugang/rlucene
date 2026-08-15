@@ -70,17 +70,11 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// - OrdToDoc was encoded by `DirectMonotonicWriter`, note
 ///   that only in sparse case
 #[derive(Debug)]
-pub struct Lucene99FlatVectorsFormat<F>
-where
-  F: FlatVectorsScorer,
-{
+pub struct Lucene99FlatVectorsFormat<F> {
   vectors_scorer: F,
   identity: Identity,
 }
-impl<F> Lucene99FlatVectorsFormat<F>
-where
-  F: FlatVectorsScorer + Clone,
-{
+impl<F> Lucene99FlatVectorsFormat<F> {
   pub fn new(vectors_scorer: F) -> Self {
     Self {
       vectors_scorer,
@@ -91,7 +85,7 @@ where
 
 impl<F> Display for Lucene99FlatVectorsFormat<F>
 where
-  F: Clone + FlatVectorsScorer,
+  F: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -102,10 +96,7 @@ where
   }
 }
 
-impl<F> HasIdentity for Lucene99FlatVectorsFormat<F>
-where
-  F: FlatVectorsScorer,
-{
+impl<F> HasIdentity for Lucene99FlatVectorsFormat<F> {
   fn identity(&self) -> &Identity {
     &self.identity
   }
@@ -128,7 +119,6 @@ where
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     FlatVectorsFormat::fields_writer(self, state, segment_info)
   }
@@ -142,7 +132,6 @@ where
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     FlatVectorsFormat::fields_reader(self, state, segment_info)
   }
@@ -171,7 +160,6 @@ where
   ) -> Result<Self::FlatVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene99FlatVectorsWriter::new(state, self.vectors_scorer.clone(), segment_info)
   }
@@ -185,7 +173,6 @@ where
   ) -> Result<Self::FlatVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene99FlatVectorsReader::new(state, self.vectors_scorer.clone(), segment_info)
   }

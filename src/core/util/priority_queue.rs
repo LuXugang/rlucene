@@ -32,10 +32,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// # Note
 /// This is an internal API.
-pub struct PriorityQueue<T, C>
-where
-  C: Compare<T>,
-{
+pub struct PriorityQueue<T, C> {
   size: usize,
   max_size: usize,
   heap: Vec<Option<T>>,
@@ -71,10 +68,7 @@ where
   }
 }
 
-impl<T, C> PriorityQueue<T, C>
-where
-  C: Compare<T>,
-{
+impl<T, C> PriorityQueue<T, C> {
   pub fn heap(&self) -> &Vec<Option<T>> {
     &self.heap
   }
@@ -122,7 +116,6 @@ where
   ) -> Result<PriorityQueue<T, C>>
   where
     F: Fn() -> Option<T>,
-    C: Compare<T>,
   {
     let heap_size = if 0 == max_size {
       // We allocate 1 extra to avoid if statement in top()
@@ -165,10 +158,52 @@ where
   }
 
   // construct
-  pub fn new(max_size: usize, compare: C) -> Result<PriorityQueue<T, C>> {
+  pub fn new(max_size: usize, compare: C) -> Result<PriorityQueue<T, C>>
+  where
+    C: Compare<T>,
+  {
     Self::with_sentinel_object(max_size, || None, compare)
   }
 
+  /// Returns the least element of the PriorityQueue in constant time.
+  pub fn top_mut(&mut self) -> Option<&mut T> {
+    // We don't need to check size here: if maxSize is 0,
+    // then heap is length 2 array with both entries None.
+    // If size is 0 then heap[1] is already None.
+    self.heap[1].as_mut()
+  }
+  pub fn top(&self) -> Option<&T> {
+    self.heap[1].as_ref()
+  }
+  pub fn take_top(&mut self) -> Option<T> {
+    self.heap[1].take()
+  }
+
+  /// Returns the number of elements currently stored in the PriorityQueue.
+  pub fn size(&self) -> usize {
+    self.size
+  }
+
+  /// Removes all entries from the PriorityQueue.
+  pub fn clear(&mut self) {
+    for i in 1..=self.size {
+      self.heap[i] = None;
+    }
+    self.size = 0;
+  }
+
+  pub fn iter_ref(&'_ self) -> PriorityQueueIterator<'_, T, C> {
+    PriorityQueueIterator::new(self)
+  }
+  pub fn iter(self) -> PriorityQueueIntoIterator<T, C> {
+    PriorityQueueIntoIterator::new(self)
+  }
+}
+
+impl<T, C> PriorityQueue<T, C>
+where
+  C: Compare<T>,
+{
   /// Adds all elements of the collection into the queue. This method should
   /// be preferred over calling [`add`](Self::add) in a loop if all
   /// elements are known in advance, as it builds the queue faster.
@@ -243,20 +278,6 @@ where
     }
   }
 
-  /// Returns the least element of the PriorityQueue in constant time.
-  pub fn top_mut(&mut self) -> Option<&mut T> {
-    // We don't need to check size here: if maxSize is 0,
-    // then heap is length 2 array with both entries None.
-    // If size is 0 then heap[1] is already None.
-    self.heap[1].as_mut()
-  }
-  pub fn top(&self) -> Option<&T> {
-    self.heap[1].as_ref()
-  }
-  pub fn take_top(&mut self) -> Option<T> {
-    self.heap[1].take()
-  }
-
   /// Removes and returns the least element of the PriorityQueue in log(size)
   /// time.
   pub fn pop(&mut self) -> Result<Option<T>> {
@@ -305,19 +326,6 @@ where
   pub fn update_top_with_new_top(&mut self, new_top: T) -> Result<&mut T> {
     self.heap[1] = Some(new_top);
     self.update_top()
-  }
-
-  /// Returns the number of elements currently stored in the PriorityQueue.
-  pub fn size(&self) -> usize {
-    self.size
-  }
-
-  /// Removes all entries from the PriorityQueue.
-  pub fn clear(&mut self) {
-    for i in 1..=self.size {
-      self.heap[i] = None;
-    }
-    self.size = 0;
   }
 
   pub fn up_heap(&mut self, orig_pos: usize) -> Result<bool> {
@@ -391,35 +399,19 @@ where
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))
   }
-
-  pub fn iter_ref(&'_ self) -> PriorityQueueIterator<'_, T, C> {
-    PriorityQueueIterator::new(self)
-  }
-  pub fn iter(self) -> PriorityQueueIntoIterator<T, C> {
-    PriorityQueueIntoIterator::new(self)
-  }
 }
-pub struct PriorityQueueIntoIterator<T, C>
-where
-  C: Compare<T>,
-{
+pub struct PriorityQueueIntoIterator<T, C> {
   pq: PriorityQueue<T, C>,
   index: usize,
 }
 
-impl<T, C> PriorityQueueIntoIterator<T, C>
-where
-  C: Compare<T>,
-{
+impl<T, C> PriorityQueueIntoIterator<T, C> {
   fn new(pq: PriorityQueue<T, C>) -> Self {
     Self { pq, index: 0 }
   }
 }
 
-impl<T, C> Iterator for PriorityQueueIntoIterator<T, C>
-where
-  C: Compare<T>,
-{
+impl<T, C> Iterator for PriorityQueueIntoIterator<T, C> {
   type Item = T;
 
   fn next(&mut self) -> Option<Self::Item> {
@@ -436,25 +428,16 @@ where
 /// Each call can start iterating over the elements in the priority queue from
 /// the beginning. The access order is not sorted; if a sorted order is
 /// required, you can directly use [`pop`](PriorityQueue::pop).
-pub struct PriorityQueueIterator<'a, T, C>
-where
-  C: Compare<T>,
-{
+pub struct PriorityQueueIterator<'a, T, C> {
   pq: &'a PriorityQueue<T, C>,
   index: usize,
 }
-impl<'a, T, C> PriorityQueueIterator<'a, T, C>
-where
-  C: Compare<T>,
-{
+impl<'a, T, C> PriorityQueueIterator<'a, T, C> {
   fn new(pq: &'a PriorityQueue<T, C>) -> Self {
     Self { pq, index: 0 }
   }
 }
-impl<'a, T, C> Iterator for PriorityQueueIterator<'a, T, C>
-where
-  C: Compare<T>,
-{
+impl<'a, T, C> Iterator for PriorityQueueIterator<'a, T, C> {
   type Item = &'a T;
 
   fn next(&mut self) -> Option<Self::Item> {

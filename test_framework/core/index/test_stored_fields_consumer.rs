@@ -62,10 +62,7 @@ where
     directory: &Self::Directory,
     codec: &Codecs,
     info: &mut SegmentInfo<D1>,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     StoredFieldsConsumerDefaults::init_stored_fields_writer(
       &mut self.writer,
       directory,
@@ -95,7 +92,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     StoredFieldsConsumerDefaults::flush(&mut self.writer, state.directory, info)
   }

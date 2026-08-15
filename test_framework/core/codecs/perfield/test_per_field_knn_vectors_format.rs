@@ -93,7 +93,6 @@ impl KnnVectorsFormat for WriteRecordingKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(WriteRecordingKnnVectorsWriter {
       delegate: self.delegate.fields_writer(state, segment_info)?,
@@ -110,7 +109,6 @@ impl KnnVectorsFormat for WriteRecordingKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.delegate.fields_reader(state, segment_info)
   }
@@ -148,7 +146,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     self.fields_written.lock().insert(field_info.name.clone());
     self
@@ -170,7 +167,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -254,7 +250,6 @@ impl KnnVectorsFormat for KnnVectorsFormatMaxDims32 {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.delegate.fields_writer(state, segment_info)
   }
@@ -268,7 +263,6 @@ impl KnnVectorsFormat for KnnVectorsFormatMaxDims32 {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.delegate.fields_reader(state, segment_info)
   }

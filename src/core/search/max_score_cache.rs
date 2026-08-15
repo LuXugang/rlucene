@@ -25,11 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 /// on the same data.
 ///
 /// @lucene.internal
-pub struct MaxScoreCache<IS, SS>
-where
-  IS: ImpactsSource,
-  SS: SimScorer,
-{
+pub struct MaxScoreCache<IS, SS> {
   pub(crate) impacts_source: IS,
   pub(crate) scorer: SS,
   global_max_score: f32,
@@ -39,7 +35,6 @@ where
 
 impl<IS, SS> MaxScoreCache<IS, SS>
 where
-  IS: ImpactsSource,
   SS: SimScorer,
 {
   pub fn new(impacts_source: IS, scorer: SS) -> Self {
@@ -53,6 +48,13 @@ where
       max_score_cache_upto: Vec::new(),
     }
   }
+}
+
+impl<IS, SS> MaxScoreCache<IS, SS>
+where
+  IS: ImpactsSource,
+  SS: SimScorer,
+{
   /// Implement the contract of [`Scorer::advance_shallow`](ImpactsSource::advance_shallow) based on the wrapped [`ImpactsSource`].
   ///
   /// See also [`Scorer::advance_shallow`].

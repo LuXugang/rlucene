@@ -86,10 +86,7 @@ impl Lucene90CompoundFormat {
     data: &mut impl IndexOutput,
     directory: &impl Directory,
     si: &SegmentInfo<D>,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     let mut pq;
     {
       // write number of files
@@ -159,10 +156,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
     Lucene90CompoundReader::new(dir, si)
   }
 
-  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()> {
     let data_file =
       IndexFileNames::segment_file_name(&si.name, "", Lucene90CompoundFormat::DATA_EXTENSION);
     let entries_file =

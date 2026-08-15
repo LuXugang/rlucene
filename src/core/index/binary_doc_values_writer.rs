@@ -145,7 +145,6 @@ impl DocValuesWriter for BinaryDocValuesWriter {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = DC::IndexOutput>,
-    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -270,22 +269,14 @@ impl DocValuesProducer for DocValuesProducerImpl {
 }
 
 // iterates over the values we have in ram
-pub(crate) struct BufferedBinaryDocValues<D, DI>
-where
-  D: DocIdSetIterator,
-  DI: DataInput,
-{
+pub(crate) struct BufferedBinaryDocValues<D, DI> {
   value: BytesRefBuilder<Vec<u8>>,
   lengths_iterator: PackedLongValuesIterator,
   docs_with_field: D,
   bytes_iter: DI,
 }
 
-impl<D, DI> BufferedBinaryDocValues<D, DI>
-where
-  D: DocIdSetIterator,
-  DI: DataInput,
-{
+impl<D, DI> BufferedBinaryDocValues<D, DI> {
   pub(crate) fn new(
     lengths: &PackedLongValues,
     max_length: usize,

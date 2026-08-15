@@ -31,7 +31,7 @@ use crate::core::util::io_utils::IOUtils;
 /// [`OutputStream`](Write).
 pub struct OutputStreamIndexOutput<W>
 where
-  W: CloseableWrite,
+  W: Write,
 {
   os: Option<XBufferedOutputStream<W>>,
   bytes_written: usize,
@@ -114,10 +114,7 @@ where
   }
 }
 
-impl<W: Write> Display for OutputStreamIndexOutput<W>
-where
-  W: CloseableWrite,
-{
+impl<W: Write> Display for OutputStreamIndexOutput<W> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.resource_description)
   }
@@ -161,7 +158,7 @@ where
   }
 }
 
-pub struct XBufferedOutputStream<W: CloseableWrite> {
+pub struct XBufferedOutputStream<W: Write> {
   inner: BufWriter<W>,
   hasher: Hasher,
   checksum: u32,

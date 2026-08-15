@@ -85,7 +85,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
@@ -312,11 +311,7 @@ where
     Ok(())
   }
 }
-impl<O, F> Accountable for Lucene99FlatVectorsWriter<O, F>
-where
-  F: FlatVectorsScorer,
-  O: IndexOutput,
-{
+impl<O, F> Accountable for Lucene99FlatVectorsWriter<O, F> {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut size = size_of_vec(&self.fields);
     for field in &self.fields {
@@ -328,8 +323,7 @@ where
 
 impl<O, F> Closeable for Lucene99FlatVectorsWriter<O, F>
 where
-  F: FlatVectorsScorer,
-  O: IndexOutput,
+  O: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     IOUtils::close([&mut self.meta, &mut self.vector_data], Closeable::close)
@@ -349,7 +343,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let field_idx = self.fields.len();
     self
@@ -381,7 +374,6 @@ where
     _segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
     Self: Sized,
@@ -533,7 +525,6 @@ where
     segment_write_state: &SegmentWriteState<&'a D2>,
   ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
   {

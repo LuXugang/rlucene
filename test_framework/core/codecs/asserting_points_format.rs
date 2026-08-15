@@ -79,7 +79,6 @@ where
   ) -> Result<Self::PointsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingPointsWriter::new(
       state,
@@ -96,7 +95,6 @@ where
   ) -> Result<Self::PointsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingPointsReader::new(
       info.max_doc()?,
@@ -221,7 +219,6 @@ where
   where
     PR: PointsReader,
     D1: Directory,
-    D2: Directory,
   {
     if field_info.get_point_dimension_count() == 0 {
       return Err(LuceneError::illegal_argument(format!(
@@ -234,7 +231,6 @@ where
 
   fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {

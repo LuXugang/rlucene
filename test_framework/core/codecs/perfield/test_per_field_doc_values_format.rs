@@ -98,7 +98,6 @@ impl DocValuesFormat for MergeRecordingDocValueFormatWrapper {
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(MergeRecordingDocValuesConsumer {
       consumer: self.delegate.fields_consumer(state, segment_info)?,
@@ -116,7 +115,6 @@ impl DocValuesFormat for MergeRecordingDocValueFormatWrapper {
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.delegate.fields_producer(state, segment_info)
   }
@@ -160,7 +158,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -177,7 +174,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -194,7 +190,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -211,7 +206,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -228,7 +222,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self
@@ -244,7 +237,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     {

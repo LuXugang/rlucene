@@ -42,8 +42,7 @@ pub trait KnnVectorsFormat: Display + HasIdentity {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
   type KnnVectorsReader<T: IndexInput>: KnnVectorsReader;
   /// Returns a [`KnnVectorsReader`] to write the vectors to the index.
   fn fields_reader<D1, D2>(
@@ -52,8 +51,7 @@ pub trait KnnVectorsFormat: Display + HasIdentity {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
   /// Returns the maximum number of vector dimensions supported by this codec for the given field
   /// name
   ///

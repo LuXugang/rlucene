@@ -103,7 +103,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let segment = segment_info.name.clone();
     let mut postings_reader = Some(postings_reader);

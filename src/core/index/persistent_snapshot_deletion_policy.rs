@@ -47,10 +47,7 @@ use crate::core::util::io_utils::IOUtils;
 /// [`IndexCommit::get_generation`].
 ///
 /// # Experimental
-pub struct PersistentSnapshotDeletionPolicy<D>
-where
-  D: Directory,
-{
+pub struct PersistentSnapshotDeletionPolicy<D> {
   /// Wrapped in-memory snapshot deletion policy.
   pub base: SnapshotDeletionPolicy<D>,
   next_write_gen: Arc<Mutex<i64>>,
@@ -62,10 +59,7 @@ const VERSION_START: i32 = 0;
 const VERSION_CURRENT: i32 = VERSION_START;
 const CODEC_NAME: &str = "snapshots";
 
-impl<D> Clone for PersistentSnapshotDeletionPolicy<D>
-where
-  D: Directory,
-{
+impl<D> Clone for PersistentSnapshotDeletionPolicy<D> {
   fn clone(&self) -> Self {
     Self {
       base: self.base.clone(),
@@ -353,10 +347,7 @@ where
   }
 }
 
-impl<D> Display for PersistentSnapshotDeletionPolicy<D>
-where
-  D: Directory,
-{
+impl<D> Display for PersistentSnapshotDeletionPolicy<D> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }

@@ -293,7 +293,6 @@ impl PostingsFormat for AssertingCodecPostingsFormat {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Default(format) => format
@@ -320,7 +319,6 @@ impl PostingsFormat for AssertingCodecPostingsFormat {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Default(format) => format
@@ -427,7 +425,6 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Default(format) => format
@@ -451,7 +448,6 @@ impl DocValuesFormat for AssertingCodecDocValuesFormat {
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Default(format) => Ok(AssertingDocValuesProducer::new_default(
@@ -592,7 +588,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for AssertingCodecKnnVectorsWriter<O> {
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     match self {
       Self::Asserting(inner) => inner.add_field(write_state, segment_info, field_info),
@@ -619,7 +614,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for AssertingCodecKnnVectorsWriter<O> {
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -646,7 +640,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for AssertingCodecKnnVectorsWriter<O> {
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<i32>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -659,7 +652,6 @@ impl<O: IndexOutput> KnnVectorsWriter<O> for AssertingCodecKnnVectorsWriter<O> {
 
   fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     match self {
@@ -829,7 +821,6 @@ impl KnnVectorsFormat for AssertingCodecKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Asserting(format) => format
@@ -856,7 +847,6 @@ impl KnnVectorsFormat for AssertingCodecKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::Asserting(format) => format

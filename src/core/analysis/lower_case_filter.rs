@@ -22,16 +22,10 @@ use crate::core::util::attribute_source::{AttributeSource, Attributes};
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
 /// Normalizes token text to lower case.
-pub struct LowerCaseFilter<TS>
-where
-  TS: TokenStream,
-{
+pub struct LowerCaseFilter<TS> {
   pub(crate) token_filter_base: TokenFilterBase<TS>,
 }
-impl<TS> LowerCaseFilter<TS>
-where
-  TS: TokenStream,
-{
+impl<TS> LowerCaseFilter<TS> {
   /// Create a new `LowerCaseFilter` that normalizes token text to lower case.
   ///
   /// # Parameters

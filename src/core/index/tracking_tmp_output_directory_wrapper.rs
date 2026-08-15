@@ -25,10 +25,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-pub(crate) struct TrackingTmpOutputDirectoryWrapper<D>
-where
-  D: Directory,
-{
+pub(crate) struct TrackingTmpOutputDirectoryWrapper<D> {
   pub(crate) inner: Arc<Mutex<Inner>>,
   in_: D,
   id: Identity,
@@ -36,10 +33,7 @@ where
 pub(crate) struct Inner {
   pub(crate) file_names: HashMap<String, String>,
 }
-impl<D> TrackingTmpOutputDirectoryWrapper<D>
-where
-  D: Directory,
-{
+impl<D> TrackingTmpOutputDirectoryWrapper<D> {
   pub(crate) fn new(input: D) -> Self {
     let inner = Arc::new(Mutex::new(Inner {
       file_names: HashMap::new(),
@@ -57,7 +51,7 @@ where
 
 impl<D> Clone for TrackingTmpOutputDirectoryWrapper<D>
 where
-  D: Directory + Clone,
+  D: Clone,
 {
   fn clone(&self) -> Self {
     Self {
@@ -70,7 +64,7 @@ where
 
 impl<D> Display for TrackingTmpOutputDirectoryWrapper<D>
 where
-  D: Directory,
+  D: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}({})", std::any::type_name::<Self>(), self.in_)
@@ -79,17 +73,14 @@ where
 
 impl<D> CloseableRef for TrackingTmpOutputDirectoryWrapper<D>
 where
-  D: Directory,
+  D: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
 
-impl<D> HasIdentity for TrackingTmpOutputDirectoryWrapper<D>
-where
-  D: Directory,
-{
+impl<D> HasIdentity for TrackingTmpOutputDirectoryWrapper<D> {
   fn identity(&self) -> &Identity {
     &self.id
   }

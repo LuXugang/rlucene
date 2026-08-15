@@ -70,10 +70,7 @@ type CacheDirectory = ByteBuffersDirectory<SingleInstanceLockFactory>;
 /// cached bytes falls below the limit.
 ///
 /// @lucene.experimental
-pub struct NRTCachingDirectory<D>
-where
-  D: Directory,
-{
+pub struct NRTCachingDirectory<D> {
   closed: AtomicBool,
 
   /// Current total size of files in the cache is maintained separately for
@@ -93,10 +90,7 @@ where
   id: Identity,
 }
 
-impl<D> NRTCachingDirectory<D>
-where
-  D: Directory,
-{
+impl<D> NRTCachingDirectory<D> {
   /// We will cache a newly created output if 1) it is a flush or a merge and
   /// the estimated size of the merged segment is at most `max_merge_size_mb`,
   /// and 2) the total cached bytes is at most `max_cached_mb`.
@@ -142,13 +136,20 @@ where
   pub fn list_cached_files(&self) -> Result<Vec<String>> {
     self.cache_directory.list_all()
   }
+}
 
+impl<D> NRTCachingDirectory<D>
+where
+  D: Directory,
+{
   /// An implementation hook can customize this logic. Returns `true` if this
   /// file should be written to the RAM-based cache first.
   pub(crate) fn do_cache_write(&self, name: &str, context: &IOContext) -> bool {
     self.hook.do_cache_write(self, name, context)
   }
+}
 
+impl<D> NRTCachingDirectory<D> {
   /// Returns true if the file exists (can be opened), false if it cannot be
   /// opened, and returns an error if there is an unexpected failure.
   pub(crate) fn slow_file_exists<T>(directory: &T, file_name: &str) -> Result<bool>
@@ -170,7 +171,12 @@ where
   fn is_cached_file(&self, file_name: &str) -> Result<bool> {
     self.cache_directory.file_exists(file_name)
   }
+}
 
+impl<D> NRTCachingDirectory<D>
+where
+  D: Directory,
+{
   fn un_cache(&self, file_name: &str) -> Result<()> {
     // Must synchronize here because other methods use an
     // if (cache.fileNameExists(name)) { ... } else { ... } sequence.
@@ -198,7 +204,7 @@ where
 
 impl<D> Display for NRTCachingDirectory<D>
 where
-  D: Directory,
+  D: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -211,10 +217,7 @@ where
   }
 }
 
-impl<D> HasIdentity for NRTCachingDirectory<D>
-where
-  D: Directory,
-{
+impl<D> HasIdentity for NRTCachingDirectory<D> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -406,10 +409,7 @@ where
   }
 }
 
-impl<D> Accountable for NRTCachingDirectory<D>
-where
-  D: Directory,
-{
+impl<D> Accountable for NRTCachingDirectory<D> {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(self.cache_size.load(Ordering::SeqCst))
   }

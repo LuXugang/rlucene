@@ -63,7 +63,6 @@ impl StoredFieldsFormat for AssertingStoredFieldsFormat {
   ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingStoredFieldsReader::new(
       self
@@ -86,7 +85,6 @@ impl StoredFieldsFormat for AssertingStoredFieldsFormat {
   ) -> Result<Self::StoredFieldsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingStoredFieldsWriter::new(self.in_.fields_writer(
       directory,

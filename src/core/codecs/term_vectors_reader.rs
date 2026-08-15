@@ -56,8 +56,8 @@ macro_rules! either_term_vectors_reader {
 
         impl<$T1, $( $T ),+> CloseableRef for $name<$T1, $( $T ),+>
         where
-            $T1: TermVectorsReader,
-            $( $T: TermVectorsReader ),+
+            $T1: CloseableRef,
+            $( $T: CloseableRef ),+
         {
             fn close(&self) -> Result<()> {
                 match self {
@@ -69,8 +69,8 @@ macro_rules! either_term_vectors_reader {
 
         impl<$T1, $( $T ),+> TermVectors for $name<$T1, $( $T ),+>
         where
-            $T1: TermVectorsReader,
-            $( $T: TermVectorsReader + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
+            $T1: TermVectors,
+            $( $T: TermVectors + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
         {
             type Fields = $fe<
                 <$T1 as TermVectors>::Fields,
@@ -126,8 +126,8 @@ macro_rules! either_term_vectors_reader {
 
         impl<$T1, $( $T ),+> TryClone for $name<$T1, $( $T ),+>
         where
-            $T1: TermVectorsReader,
-            $( $T: TermVectorsReader ),+
+            $T1: TryClone,
+            $( $T: TryClone ),+
         {
             fn try_clone(&self) -> Result<Self>
             where

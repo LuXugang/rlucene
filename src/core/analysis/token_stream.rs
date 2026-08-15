@@ -76,7 +76,7 @@ macro_rules! either_token_stream {
 
         impl<$( $T ),+> Closeable for $name<$( $T ),+>
         where
-            $( $T: TokenStream ),+
+            $( $T: Closeable ),+
         {
             #[inline]
             fn close(&mut self) -> Result<()> {

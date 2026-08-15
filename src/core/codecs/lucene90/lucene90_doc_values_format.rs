@@ -239,7 +239,6 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90DocValuesConsumer::new(
       state,
@@ -261,7 +260,6 @@ impl DocValuesFormat for Lucene90DocValuesFormat {
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90DocValuesProducer::new(
       state,

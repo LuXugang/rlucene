@@ -195,16 +195,13 @@ macro_rules! define_nodes_iterator_enum {
         $enum_name:ident,
         [$($V:ident),+ $(,)?]
     ) => {
-        pub enum $enum_name<$($V),+>
-        where
-            $($V: NodesIterator,)+
-        {
+        pub enum $enum_name<$($V),+> {
             $($V($V)),+
         }
 
         impl<$($V),+> Iterator for $enum_name<$($V),+>
         where
-            $($V: NodesIterator,)+
+            $($V: Iterator<Item = usize>,)+
         {
             type Item = usize;
 
@@ -245,10 +242,7 @@ macro_rules! define_hnsw_graph_enum {
         $nodes_iterator_enum:ident,
         [$($V:ident),+ $(,)?]
     ) => {
-        pub enum $enum_name<$($V),+>
-        where
-            $($V: HnswGraph,)+
-        {
+        pub enum $enum_name<$($V),+> {
             $($V($V)),+
         }
 

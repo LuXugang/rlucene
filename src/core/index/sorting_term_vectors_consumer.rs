@@ -227,7 +227,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     if self.writer.is_none() {
       return Ok(());
@@ -293,10 +292,7 @@ where
     last_doc_id: &mut i32,
     info: &SegmentInfo<D1>,
     bytes_used: i64,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     if self.writer.is_none() {
       let context = IOContext::with_flush(FlushInfo::new(*last_doc_id, bytes_used))?;
       self.writer = Option::from(self.tmp_term_vectors_format.vectors_writer(

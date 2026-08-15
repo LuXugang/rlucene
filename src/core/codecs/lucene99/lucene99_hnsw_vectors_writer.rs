@@ -99,7 +99,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
@@ -594,7 +593,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let flat_field_vectors_writer =
       FlatVectorsWriter::flat_add_field(&mut self.flat_vector_writer, field_info.clone())?;
@@ -637,7 +635,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -776,10 +773,7 @@ where
     info_stream,
   )
 }
-pub struct FieldWriter<S>
-where
-  S: RandomVectorScorerSupplier,
-{
+pub struct FieldWriter<S> {
   field_info: Arc<FieldInfo>,
   pub(crate) hnsw_graph_builder: DefaultHnswGraphBuilder<S>,
   last_doc_id: i32,

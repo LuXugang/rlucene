@@ -92,7 +92,6 @@ impl DocValuesFormat for AssertingDocValuesFormat {
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingDocValuesConsumer::new(
       self.in_.fields_consumer(state, segment_info)?,
@@ -110,7 +109,6 @@ impl DocValuesFormat for AssertingDocValuesFormat {
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     assert!(state.field_infos.has_doc_values());
     Ok(AssertingDocValuesProducer::new(
@@ -169,7 +167,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_numeric(field)?;
@@ -198,7 +195,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_binary(field)?;
@@ -227,7 +223,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_sorted(field)?;
@@ -275,7 +270,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_sorted_numeric(field)?;
@@ -310,7 +304,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let mut values = values_producer.get_sorted_set(field)?;

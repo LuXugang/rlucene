@@ -137,8 +137,8 @@ where
 
 impl<A, B> HasIdentity for BitsEnum2<A, B>
 where
-  A: Bits,
-  B: Bits,
+  A: HasIdentity,
+  B: HasIdentity,
 {
   fn identity(&self) -> &Identity {
     match self {

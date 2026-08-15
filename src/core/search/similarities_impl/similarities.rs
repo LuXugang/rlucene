@@ -394,7 +394,7 @@ macro_rules! either_similarity {
 
         impl<$( $T ),+> Display for $name<$( $T ),+>
         where
-            $( $T: Similarity ),+
+            $( $T: Display ),+
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {

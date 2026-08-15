@@ -838,10 +838,7 @@ where
   open_with_leaf_sorter(directory, infos, old_readers, sub_readers_sorter)
 }
 
-pub struct ReaderCommit<D>
-where
-  D: Directory,
-{
+pub struct ReaderCommit<D> {
   segments_file_name: String,
   files: Vec<String>,
   dir: Arc<D>,
@@ -850,10 +847,7 @@ where
   segment_count: usize,
 }
 
-impl<D> Clone for ReaderCommit<D>
-where
-  D: Directory,
-{
+impl<D> Clone for ReaderCommit<D> {
   fn clone(&self) -> Self {
     Self {
       segments_file_name: self.segments_file_name.clone(),
@@ -866,10 +860,7 @@ where
   }
 }
 
-impl<D> ReaderCommit<D>
-where
-  D: Directory,
-{
+impl<D> ReaderCommit<D> {
   pub(crate) fn new(infos: &SegmentInfos<D>, dir: Arc<D>) -> Result<Self> {
     let segments_file_name = infos
       .get_segments_file_name()
@@ -892,10 +883,7 @@ where
   }
 }
 
-impl<D> Display for ReaderCommit<D>
-where
-  D: Directory,
-{
+impl<D> Display for ReaderCommit<D> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,

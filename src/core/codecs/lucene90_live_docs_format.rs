@@ -108,10 +108,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     directory: &impl Directory,
     info: &SegmentCommitInfo<D>,
     _context: &IOContext,
-  ) -> Result<Self::Bits>
-  where
-    D: Directory,
-  {
+  ) -> Result<Self::Bits> {
     let gen_ = info.get_del_gen();
     let name = IndexFileNames::file_name_from_generation(
       &info.info.name,
@@ -167,10 +164,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     let gen_ = info.get_next_del_gen();
     let name = IndexFileNames::file_name_from_generation(
       &info.info.name,
@@ -211,10 +205,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     Ok(())
   }
 
-  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()> {
     if info.has_deletions() {
       let file_name = IndexFileNames::file_name_from_generation(
         &info.info.name,

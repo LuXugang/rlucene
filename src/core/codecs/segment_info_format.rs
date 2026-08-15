@@ -61,7 +61,5 @@ pub trait SegmentInfoFormat {
     directory: &impl Directory,
     info: &mut SegmentInfo<D>,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory;
+  ) -> Result<()>;
 }

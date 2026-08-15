@@ -154,19 +154,13 @@ impl RewriteMethod for ConstantScoreBooleanRewrite {
   }
 }
 
-struct ParallelArraysTermCollector<F>
-where
-  F: FnMut(usize) -> Result<()>,
-{
+struct ParallelArraysTermCollector<F> {
   terms: BytesRefHash<TermFreqBoostByteStart>,
   block_pool: ByteBlockPool,
   ord: usize,
   check_max_clause_count: F,
 }
-impl<F> ParallelArraysTermCollector<F>
-where
-  F: FnMut(usize) -> Result<()>,
-{
+impl<F> ParallelArraysTermCollector<F> {
   fn new(check_max_clause_count: F) -> Result<Self> {
     let allocator = DirectAllocatorByte::new();
     let block_pool = ByteBlockPool::new(allocator);

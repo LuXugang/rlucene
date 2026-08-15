@@ -20,10 +20,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
 
 #[derive(Default)]
-pub struct ComponentTree<T>
-where
-  T: Component2D,
-{
+pub struct ComponentTree<T> {
   /// minimum Y of this geometry's bounding box area
   min_y: f64,
 

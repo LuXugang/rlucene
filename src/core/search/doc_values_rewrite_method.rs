@@ -430,18 +430,12 @@ where
   }
 }
 
-pub struct SingletonTermSetTwoPhaseIterator<S>
-where
-  S: SortedDocValues,
-{
+pub struct SingletonTermSetTwoPhaseIterator<S> {
   singleton: S,
   term_set: LongBitSet,
 }
 
-impl<S> SingletonTermSetTwoPhaseIterator<S>
-where
-  S: SortedDocValues,
-{
+impl<S> SingletonTermSetTwoPhaseIterator<S> {
   fn new(singleton: S, term_set: LongBitSet) -> Self {
     Self {
       singleton,
@@ -471,19 +465,13 @@ where
   }
 }
 
-pub struct SortedSetTermSetTwoPhaseIterator<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct SortedSetTermSetTwoPhaseIterator<S> {
   values: S,
   term_set: LongBitSet,
   max_ord: i64,
 }
 
-impl<S> SortedSetTermSetTwoPhaseIterator<S>
-where
-  S: SortedSetDocValues,
-{
+impl<S> SortedSetTermSetTwoPhaseIterator<S> {
   fn new(values: S, term_set: LongBitSet, max_ord: i64) -> Self {
     Self {
       values,
@@ -522,17 +510,11 @@ where
   }
 }
 
-pub struct DocValuesTerms<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct DocValuesTerms<S> {
   values: Rc<RefCell<S>>,
 }
 
-impl<S> DocValuesTerms<S>
-where
-  S: SortedSetDocValues,
-{
+impl<S> DocValuesTerms<S> {
   fn new(values: S) -> Self {
     Self {
       values: Rc::new(RefCell::new(values)),
@@ -540,10 +522,7 @@ where
   }
 }
 
-impl<S> Clone for DocValuesTerms<S>
-where
-  S: SortedSetDocValues,
-{
+impl<S> Clone for DocValuesTerms<S> {
   fn clone(&self) -> Self {
     Self {
       values: self.values.clone(),

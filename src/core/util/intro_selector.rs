@@ -34,23 +34,23 @@ use crate::core::util::selector::Selector;
 ///
 /// # Internal
 /// This method is intended for internal use in the library.
-pub struct IntroSelector<T>
-where
-  T: IntroSelectorBase,
-{
+pub struct IntroSelector<T> {
   random: Option<ThreadRng>,
   sub_selector: T,
 }
-impl<T> IntroSelector<T>
-where
-  T: IntroSelectorBase,
-{
+impl<T> IntroSelector<T> {
   pub fn new(sub_selector: T) -> IntroSelector<T> {
     IntroSelector {
       random: None,
       sub_selector,
     }
   }
+}
+
+impl<T> IntroSelector<T>
+where
+  T: IntroSelectorBase,
+{
   pub fn select(
     &mut self,
     mut from: usize,

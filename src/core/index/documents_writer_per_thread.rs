@@ -1014,10 +1014,7 @@ where
   }
 }
 
-pub(crate) struct FlushedSegment<D>
-where
-  D: Directory,
-{
+pub(crate) struct FlushedSegment<D> {
   // wrap with Option for easier move
   pub(crate) segment_info: Option<SegmentCommitInfo<D>>,
   pub(crate) field_infos: Arc<FieldInfos>,
@@ -1059,16 +1056,10 @@ where
   }
 }
 
-pub struct IOConsumerImpl<'a, FN>
-where
-  FN: FlushNotifications,
-{
+pub struct IOConsumerImpl<'a, FN> {
   flush_notifications: &'a FN,
 }
-impl<'a, FN> IOConsumerImpl<'a, FN>
-where
-  FN: FlushNotifications,
-{
+impl<'a, FN> IOConsumerImpl<'a, FN> {
   pub(crate) fn new(flush_notifications: &'a FN) -> Self {
     IOConsumerImpl {
       flush_notifications,

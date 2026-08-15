@@ -118,7 +118,7 @@ use std::time::{Duration, Instant};
 ///
 /// This API is experimental. Make a complete backup of the index before using it to exorcise
 /// corrupted documents.
-pub struct CheckIndex<D: Directory, L: Lock = <D as Directory>::Lock, W: Write = std::io::Sink> {
+pub struct CheckIndex<D: Directory, L = <D as Directory>::Lock, W = std::io::Sink> {
   dir: Arc<D>,
   write_lock: L,
   info_stream: Option<W>,
@@ -131,7 +131,7 @@ pub struct CheckIndex<D: Directory, L: Lock = <D as Directory>::Lock, W: Write =
 
 /// Details the health and status of the index returned by
 /// [`CheckIndex::check_index`].
-pub struct Status<D: Directory> {
+pub struct Status<D> {
   /// True if no problems were found with the index.
   pub clean: bool,
 
@@ -180,7 +180,7 @@ pub struct Status<D: Directory> {
   pub user_data: Option<HashMap<String, String>>,
 }
 
-impl<D: Directory> Default for Status<D> {
+impl<D> Default for Status<D> {
   fn default() -> Self {
     Self {
       clean: false,
@@ -4783,7 +4783,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 }
 
 /// Run-time configuration options for CheckIndex commands.
-pub struct Options<W: Write = Sink> {
+pub struct Options<W = Sink> {
   do_exorcise: bool,
   verbose: bool,
   level: i32,

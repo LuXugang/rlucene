@@ -184,7 +184,6 @@ impl KnnVectorsFormat for Lucene99HnswVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let flat_writer = FLAT_VECTORS_FORMAT.fields_writer(state, segment_info)?;
     Lucene99HnswVectorsWriter::new(
@@ -207,7 +206,6 @@ impl KnnVectorsFormat for Lucene99HnswVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let flat_reader = FLAT_VECTORS_FORMAT.fields_reader(state, segment_info)?;
     Lucene99HnswVectorsReader::new(state, flat_reader, segment_info)

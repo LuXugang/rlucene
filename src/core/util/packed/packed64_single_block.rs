@@ -24,10 +24,7 @@ use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::{Decoder, Encoder, Format, Mutable, PackedInts, Reader};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 
-pub(crate) struct Packed64SingleBlock<T>
-where
-  T: Packed64SingleBlockBase,
-{
+pub(crate) struct Packed64SingleBlock<T> {
   blocks: Vec<u64>,
   value_count: i32,
   bits_per_value: i32,

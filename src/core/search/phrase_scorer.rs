@@ -32,12 +32,7 @@ use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use std::any::Any;
 pub type Disi<IE, SS, N> = TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<IE, SS, N>>;
-pub struct PhraseScorer<IE, SS, N>
-where
-  IE: ImpactsEnum,
-  SS: SimScorer,
-  N: NumericDocValues,
-{
+pub struct PhraseScorer<IE, SS, N> {
   pub(crate) disi: Disi<IE, SS, N>,
 }
 impl<IE, SS, N> PhraseScorer<IE, SS, N>
@@ -109,13 +104,7 @@ where
   }
 }
 
-impl<IE, SS, N> crate::core::search::scorable::FixedScore for PhraseScorer<IE, SS, N>
-where
-  IE: ImpactsEnum + 'static,
-  SS: SimScorer + 'static,
-  N: NumericDocValues + 'static,
-{
-}
+impl<IE, SS, N> crate::core::search::scorable::FixedScore for PhraseScorer<IE, SS, N> {}
 
 impl<IE, SS, N> Scorer for PhraseScorer<IE, SS, N>
 where
@@ -194,12 +183,7 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl<IE, SS, N>
-where
-  IE: ImpactsEnum,
-  SS: SimScorer,
-  N: NumericDocValues,
-{
+pub struct TwoPhaseIteratorImpl<IE, SS, N> {
   pub(crate) matcher: PhraseMatcherEnum<IE, SS>,
   sim_scorer: SS,
   norms: Option<N>,

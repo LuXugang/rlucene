@@ -25,10 +25,7 @@ use crate::core::util::packed::bulk_operation_packed_enum::BulkOperationPackedEn
 use crate::core::util::packed::format_behavior::FormatBehavior;
 use crate::core::util::packed::{Decoder, Format, ReaderIterator};
 
-pub struct PackedReaderIterator<'a, D>
-where
-  D: DataInput,
-{
+pub struct PackedReaderIterator<'a, D> {
   packed_ints_version: i32,
   format: Format,
   bulk_operation: &'static BulkOperationPackedEnum,

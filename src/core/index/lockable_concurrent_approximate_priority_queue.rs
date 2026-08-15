@@ -20,17 +20,11 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::atomic::{AtomicI32, Ordering};
 
 /// A `ConcurrentApproximatePriorityQueue` of [`Lock`] objects.
-pub(crate) struct LockableConcurrentApproximatePriorityQueue<T>
-where
-  T: Clone + Lock + IdentityId,
-{
+pub(crate) struct LockableConcurrentApproximatePriorityQueue<T> {
   queue: ConcurrentApproximatePriorityQueue<T>,
   add_and_unlock_counter: AtomicI32,
 }
-impl<T> LockableConcurrentApproximatePriorityQueue<T>
-where
-  T: Clone + Lock + IdentityId,
-{
+impl<T> LockableConcurrentApproximatePriorityQueue<T> {
   pub(crate) fn with_concurrency(concurrency: usize) -> Result<Self> {
     Ok(Self {
       queue: ConcurrentApproximatePriorityQueue::with_concurrency(concurrency)?,
@@ -44,6 +38,12 @@ where
       add_and_unlock_counter: AtomicI32::new(0),
     })
   }
+}
+
+impl<T> LockableConcurrentApproximatePriorityQueue<T>
+where
+  T: Clone + Lock + IdentityId,
+{
   /// Lock an entry, and poll it from the queue, in that order. If no entry can be found and locked, None is returned.
   pub(crate) fn lock_and_poll(&self) -> Option<T> {
     loop {

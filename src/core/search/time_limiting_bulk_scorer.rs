@@ -26,19 +26,11 @@ pub(crate) const INTERVAL: i32 = 100;
 /// return a [`TimeLimitingBulkError`](crate::core::util::error::TimeExceededError).
 ///
 /// See also `ExitableDirectoryReader`.
-pub struct TimeLimitingBulkScorer<'a, BS, QT>
-where
-  BS: BulkScorer,
-  QT: QueryTimeout,
-{
+pub struct TimeLimitingBulkScorer<'a, BS, QT> {
   in_: BS,
   query_timeout: &'a QT,
 }
-impl<'a, BS, QT> TimeLimitingBulkScorer<'a, BS, QT>
-where
-  BS: BulkScorer,
-  QT: QueryTimeout,
-{
+impl<'a, BS, QT> TimeLimitingBulkScorer<'a, BS, QT> {
   /// Create a [`TimeLimitingBulkScorer`] wrapper over another [`BulkScorer`] with a specified timeout.
   ///
   /// # Arguments

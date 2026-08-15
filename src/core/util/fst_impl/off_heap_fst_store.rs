@@ -22,18 +22,12 @@ use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAcce
 use std::sync::Arc;
 /// Provides off heap storage of finite state machine (FST), using underlying
 /// index input instead of  byte store on heap
-pub struct OffHeapFSTStore<I>
-where
-  I: IndexInput,
-{
+pub struct OffHeapFSTStore<I> {
   input: Arc<I>,
   offset: usize,
   num_bytes: usize,
 }
-impl<I> OffHeapFSTStore<I>
-where
-  I: IndexInput,
-{
+impl<I> OffHeapFSTStore<I> {
   pub fn new(input: Arc<I>, offset: usize, num_bytes: usize) -> Self {
     Self {
       input,

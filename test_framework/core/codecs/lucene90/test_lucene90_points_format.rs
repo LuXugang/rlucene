@@ -136,7 +136,6 @@ impl PointsFormat for TestLucene90PointsFormatPointsFormat {
   ) -> Result<Self::PointsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90PointsWriter::new(
       state,
@@ -155,7 +154,6 @@ impl PointsFormat for TestLucene90PointsFormatPointsFormat {
   ) -> Result<Self::PointsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90PointsReader::new(state, info)
   }

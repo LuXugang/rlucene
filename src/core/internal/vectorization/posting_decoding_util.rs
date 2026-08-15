@@ -18,7 +18,7 @@
 use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 /// Utility struct to decode postings.
-pub struct PostingDecodingUtil<I: IndexInput> {
+pub struct PostingDecodingUtil<I> {
   /// The wrapped [`IndexInput`].
   pub input: I,
 }

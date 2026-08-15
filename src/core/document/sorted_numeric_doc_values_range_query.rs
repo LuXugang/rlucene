@@ -370,17 +370,11 @@ where
   }
 }
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, RangeDISI>;
-pub struct TwoPhaseIterator3<N>
-where
-  N: NumericDocValues,
-{
+pub struct TwoPhaseIterator3<N> {
   singleton: N,
   query: SortedNumericDocValuesRangeQuery,
 }
-impl<N> TwoPhaseIterator3<N>
-where
-  N: NumericDocValues,
-{
+impl<N> TwoPhaseIterator3<N> {
   pub fn new(singleton: N, query: SortedNumericDocValuesRangeQuery) -> Self {
     TwoPhaseIterator3 { singleton, query }
   }
@@ -406,18 +400,12 @@ where
     2f32
   }
 }
-pub struct TwoPhaseIterator4<S>
-where
-  S: SortedNumericDocValues,
-{
+pub struct TwoPhaseIterator4<S> {
   value: S,
   query: SortedNumericDocValuesRangeQuery,
 }
 
-impl<S> TwoPhaseIterator4<S>
-where
-  S: SortedNumericDocValues,
-{
+impl<S> TwoPhaseIterator4<S> {
   pub fn new(value: S, query: SortedNumericDocValuesRangeQuery) -> Self {
     TwoPhaseIterator4 { value, query }
   }

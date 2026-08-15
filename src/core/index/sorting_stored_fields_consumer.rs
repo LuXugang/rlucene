@@ -86,10 +86,7 @@ where
     _directory: &Self::Directory,
     _codec: &Codecs,
     info: &mut SegmentInfo<D1>,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     if self.writer.is_none() {
       self.writer = Some(self.stored_fields_format.fields_writer(
         self.tmp_directory.clone(),
@@ -118,7 +115,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     StoredFieldsConsumerDefaults::flush(&mut self.writer, &self.tmp_directory, info)?;
 
@@ -198,16 +194,10 @@ where
 }
 
 /// A visitor that copies every field it sees in the provided [`StoredFieldsWriter`]
-pub(crate) struct CopyVisitor<'a, S>
-where
-  S: StoredFieldsWriter,
-{
+pub(crate) struct CopyVisitor<'a, S> {
   pub(crate) writer: &'a mut S,
 }
-impl<'a, S> CopyVisitor<'a, S>
-where
-  S: StoredFieldsWriter,
-{
+impl<'a, S> CopyVisitor<'a, S> {
   pub fn new(writer: &'a mut S) -> Self {
     Self { writer }
   }

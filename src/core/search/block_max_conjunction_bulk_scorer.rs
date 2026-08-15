@@ -32,10 +32,7 @@ use crate::core::util::math_util::MathUtil;
 /// able to skip evaluating more clauses if the total score would be under the minimum competitive
 /// score anyway. This generally works well because computing a score is cheaper than decoding a
 /// block of postings.
-pub struct BlockMaxConjunctionBulkScorer<S>
-where
-  S: Scorer,
-{
+pub struct BlockMaxConjunctionBulkScorer<S> {
   scorable: DocAndScore,
   sum_of_other_clauses: Vec<f64>,
   max_doc: i32,

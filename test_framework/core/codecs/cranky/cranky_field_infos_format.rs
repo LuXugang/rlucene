@@ -47,10 +47,7 @@ where
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     io_context: &IOContext,
-  ) -> Result<FieldInfos>
-  where
-    D: Directory,
-  {
+  ) -> Result<FieldInfos> {
     self
       .delegate
       .read(directory, segment_info, segment_suffix, io_context)
@@ -63,10 +60,7 @@ where
     segment_suffix: &str,
     infos: &FieldInfos,
     io_context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake IOException from FieldInfosFormat.getFieldInfosWriter()",

@@ -58,7 +58,6 @@ impl NormsFormat for AssertingNormsFormat {
   ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingNormsConsumer::new(
       self.in_.norms_consumer(state, segment_info)?,
@@ -76,7 +75,6 @@ impl NormsFormat for AssertingNormsFormat {
   ) -> Result<Self::NormsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     assert!(state.field_infos.has_norms());
     Ok(AssertingNormsProducer::new(

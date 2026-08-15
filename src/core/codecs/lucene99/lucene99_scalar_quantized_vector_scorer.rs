@@ -33,23 +33,22 @@ use std::fmt::{Display, Formatter};
 /// Optimized scalar quantized implementation of [`FlatVectorsScorer`] for quantized vectors
 /// stored in the Lucene99 format.
 #[derive(Clone, Debug)]
-pub struct Lucene99ScalarQuantizedVectorScorer<F>
-where
-  F: FlatVectorsScorer,
-{
+pub struct Lucene99ScalarQuantizedVectorScorer<F> {
   non_quantized_delegate: F,
+}
+
+impl<F> Lucene99ScalarQuantizedVectorScorer<F> {
+  pub fn new(flat_vectors_scorer: F) -> Self {
+    Self {
+      non_quantized_delegate: flat_vectors_scorer,
+    }
+  }
 }
 
 impl<F> Lucene99ScalarQuantizedVectorScorer<F>
 where
   F: FlatVectorsScorer,
 {
-  pub fn new(flat_vectors_scorer: F) -> Self {
-    Self {
-      non_quantized_delegate: flat_vectors_scorer,
-    }
-  }
-
   pub(crate) fn get_random_vector_scorer_supplier<V>(
     &self,
     similarity_function: VectorSimilarityFunction,
@@ -155,7 +154,7 @@ where
 
 impl<F> Display for Lucene99ScalarQuantizedVectorScorer<F>
 where
-  F: FlatVectorsScorer,
+  F: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -323,10 +322,7 @@ where
   ))
 }
 
-pub enum ScalarQuantizedRandomVectorScorerEnum<V>
-where
-  V: QuantizedByteVectorValues,
-{
+pub enum ScalarQuantizedRandomVectorScorerEnum<V> {
   Euclidean(Euclidean<V>),
   DotProduct(DotProduct<V>),
   CompressedInt4DotProduct(CompressedInt4DotProduct<V>),
@@ -383,19 +379,13 @@ where
   }
 }
 
-pub struct Euclidean<V>
-where
-  V: QuantizedByteVectorValues,
-{
+pub struct Euclidean<V> {
   values: V,
   const_multiplier: f32,
   target_bytes: Vec<u8>,
 }
 
-impl<V> Euclidean<V>
-where
-  V: QuantizedByteVectorValues,
-{
+impl<V> Euclidean<V> {
   fn new(values: V, const_multiplier: f32, target_bytes: Vec<u8>) -> Self {
     Self {
       values,
@@ -440,10 +430,7 @@ where
 }
 
 /// Calculates dot product on quantized vectors, applying the appropriate corrections
-pub struct DotProduct<V>
-where
-  V: QuantizedByteVectorValues,
-{
+pub struct DotProduct<V> {
   values: V,
   const_multiplier: f32,
   target_bytes: Vec<u8>,
@@ -451,10 +438,7 @@ where
   score_adjustment_function: ScoreAdjustmentFunction,
 }
 
-impl<V> DotProduct<V>
-where
-  V: QuantizedByteVectorValues,
-{
+impl<V> DotProduct<V> {
   fn new(
     values: V,
     const_multiplier: f32,
@@ -508,10 +492,7 @@ where
   }
 }
 
-pub struct CompressedInt4DotProduct<V>
-where
-  V: QuantizedByteVectorValues,
-{
+pub struct CompressedInt4DotProduct<V> {
   values: V,
   const_multiplier: f32,
   target_bytes: Vec<u8>,
@@ -519,10 +500,7 @@ where
   score_adjustment_function: ScoreAdjustmentFunction,
 }
 
-impl<V> CompressedInt4DotProduct<V>
-where
-  V: QuantizedByteVectorValues,
-{
+impl<V> CompressedInt4DotProduct<V> {
   fn new(
     values: V,
     const_multiplier: f32,
@@ -584,10 +562,7 @@ where
   }
 }
 
-pub struct Int4DotProduct<V>
-where
-  V: QuantizedByteVectorValues,
-{
+pub struct Int4DotProduct<V> {
   values: V,
   const_multiplier: f32,
   target_bytes: Vec<u8>,
@@ -595,10 +570,7 @@ where
   score_adjustment_function: ScoreAdjustmentFunction,
 }
 
-impl<V> Int4DotProduct<V>
-where
-  V: QuantizedByteVectorValues,
-{
+impl<V> Int4DotProduct<V> {
   fn new(
     values: V,
     const_multiplier: f32,
@@ -668,10 +640,7 @@ impl ScoreAdjustmentFunction {
   }
 }
 
-pub struct ScalarQuantizedRandomVectorScorerSupplier<V>
-where
-  V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>,
-{
+pub struct ScalarQuantizedRandomVectorScorerSupplier<V> {
   vector_similarity_function: VectorSimilarityFunction,
   values: V,
   values1: V,
@@ -735,10 +704,7 @@ where
   }
 }
 
-impl<V> Display for ScalarQuantizedRandomVectorScorerSupplier<V>
-where
-  V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>,
-{
+impl<V> Display for ScalarQuantizedRandomVectorScorerSupplier<V> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,

@@ -40,19 +40,15 @@ pub trait CompoundDirectory: Directory {
   fn check_integrity(&self) -> Result<()>;
 }
 
-pub enum CompoundDirectoryEnum<'a, A, B>
-where
-  A: Directory,
-  B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
-{
+pub enum CompoundDirectoryEnum<'a, A, B> {
   A(&'a A),
   B(&'a B),
 }
 
 impl<A, B> Display for CompoundDirectoryEnum<'_, A, B>
 where
-  A: Directory,
-  B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
+  A: Display,
+  B: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
@@ -64,8 +60,8 @@ where
 
 impl<A, B> CloseableRef for CompoundDirectoryEnum<'_, A, B>
 where
-  A: Directory,
-  B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
+  A: CloseableRef,
+  B: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     match self {
@@ -77,8 +73,8 @@ where
 
 impl<A, B> HasIdentity for CompoundDirectoryEnum<'_, A, B>
 where
-  A: Directory,
-  B: Directory<IndexInput = A::IndexInput, IndexOutput = A::IndexOutput, Lock = A::Lock>,
+  A: HasIdentity,
+  B: HasIdentity,
 {
   fn identity(&self) -> &Identity {
     match self {

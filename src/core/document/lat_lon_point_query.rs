@@ -123,10 +123,7 @@ impl SpatialQueryBase for LatLonPointSpatial {
     ))
   }
 }
-pub struct SpatialVisitorImpl<C>
-where
-  C: Component2D,
-{
+pub struct SpatialVisitorImpl<C> {
   query_component2d: C,
   component2d_predicate: Component2DPredicate<C>,
   min_lat: i32,
@@ -134,10 +131,7 @@ where
   min_lon: i32,
   max_lon: i32,
 }
-impl<C> SpatialVisitorImpl<C>
-where
-  C: Component2D,
-{
+impl<C> SpatialVisitorImpl<C> {
   pub fn new(
     query_component2d: C,
     component2d_predicate: Component2DPredicate<C>,

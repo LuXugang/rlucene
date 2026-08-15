@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
 /// A binary representation of a range that wraps a BinaryDocValues field
-pub struct BinaryRangeDocValues<T: BinaryDocValues> {
+pub struct BinaryRangeDocValues<T> {
   in_: T,
   packed_value: Vec<u8>,
   num_dims: usize,

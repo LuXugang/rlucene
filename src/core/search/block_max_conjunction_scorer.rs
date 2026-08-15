@@ -29,10 +29,7 @@ pub type BlockMaxConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
 >;
 /// Scorer for conjunctions that checks the maximum scores of each clause
 /// in order to potentially skip over blocks that cannot have competitive matches.
-pub struct BlockMaxConjunctionScorer<S>
-where
-  S: Scorer,
-{
+pub struct BlockMaxConjunctionScorer<S> {
   disi: BlockMaxConjunctionScorerDisi<S>,
   two_phase_state: TwoPhaseState,
 }
@@ -115,10 +112,7 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for BlockMaxConjunctionScorer<S> where
-  S: Scorer + 'static
-{
-}
+impl<S> crate::core::search::scorable::FixedScore for BlockMaxConjunctionScorer<S> {}
 
 impl<S> Scorer for BlockMaxConjunctionScorer<S>
 where
@@ -243,10 +237,7 @@ where
   }
 }
 
-pub struct DocIdSetIteratorImpl<S>
-where
-  S: Scorer,
-{
+pub struct DocIdSetIteratorImpl<S> {
   // lead scorer is always the first one
   scorers: Vec<S>,
   upto: i32,
@@ -383,18 +374,12 @@ where
     self.scorers[0].cost()
   }
 }
-pub struct TwoPhaseIteratorImpl<S>
-where
-  S: Scorer,
-{
+pub struct TwoPhaseIteratorImpl<S> {
   approx: DocIdSetIteratorImpl<S>,
   match_cost: f32,
   has_tpi_idx: Vec<(usize, f32)>,
 }
-impl<S> TwoPhaseIteratorImpl<S>
-where
-  S: Scorer,
-{
+impl<S> TwoPhaseIteratorImpl<S> {
   fn new(approx: DocIdSetIteratorImpl<S>, has_tpi_idx: Vec<(usize, f32)>) -> Self {
     let match_cost: f32 = has_tpi_idx.iter().map(|&(_, cost)| cost).sum();
     Self {

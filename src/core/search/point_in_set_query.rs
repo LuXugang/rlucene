@@ -381,10 +381,7 @@ where
   }
 }
 
-pub struct MergePointScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+pub struct MergePointScorerSupplier<PV> {
   score: f32,
   score_mode: ScoreMode,
   values: PV,
@@ -395,10 +392,7 @@ where
   cost: i64,
 }
 
-impl<PV> MergePointScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+impl<PV> MergePointScorerSupplier<PV> {
   pub fn new(
     score: f32,
     score_mode: ScoreMode,
@@ -476,10 +470,7 @@ where
   }
 }
 
-pub struct SinglePointScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+pub struct SinglePointScorerSupplier<PV> {
   score: f32,
   score_mode: ScoreMode,
   values: PV,
@@ -491,10 +482,7 @@ where
   cost: i64,
 }
 
-impl<PV> SinglePointScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+impl<PV> SinglePointScorerSupplier<PV> {
   #[allow(clippy::too_many_arguments)]
   pub fn new(
     score: f32,

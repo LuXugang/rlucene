@@ -56,10 +56,7 @@ use std::sync::atomic::{AtomicI32, Ordering};
 ///
 /// *Lucene internal API*
 pub trait BaseCompositeReader: CompositeReader {}
-pub struct BaseCompositeReaderBase<R>
-where
-  R: IndexReader,
-{
+pub struct BaseCompositeReaderBase<R> {
   pub(crate) sub_reader: Arc<[R]>,
   starts: Arc<[usize]>,
   max_doc: i32,

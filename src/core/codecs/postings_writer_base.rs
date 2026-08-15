@@ -49,8 +49,7 @@ pub trait PostingsWriterBase: Closeable {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   /// Write all postings for one term; use the provided [`TermsEnum`] to pull
   /// a [`PostingsEnum`]. This

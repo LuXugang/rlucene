@@ -17,17 +17,11 @@
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::atomic::{AtomicI32, Ordering};
 /// Manages reference counting for a given object.
-pub struct RefCount<T>
-where
-  T: Clone,
-{
+pub struct RefCount<T> {
   ref_count: AtomicI32,
   pub(crate) object: T,
 }
-impl<T> RefCount<T>
-where
-  T: Clone,
-{
+impl<T> RefCount<T> {
   pub fn new(object: T) -> Self {
     Self {
       ref_count: AtomicI32::new(1),

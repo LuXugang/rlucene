@@ -29,18 +29,12 @@ pub(crate) const MAX_CONCURRENCY: usize = 256;
 /// of ordering for better concurrency by maintaining multiple sub
 /// [`ApproximatePriorityQueue`]s that are locked independently. The number of
 /// subs is computed dynamically based on hardware concurrency.
-pub struct ConcurrentApproximatePriorityQueue<T>
-where
-  T: IdentityId,
-{
+pub struct ConcurrentApproximatePriorityQueue<T> {
   concurrency: usize,
   pub(crate) queues: Vec<Mutex<ApproximatePriorityQueue<T>>>,
 }
 
-impl<T> ConcurrentApproximatePriorityQueue<T>
-where
-  T: IdentityId,
-{
+impl<T> ConcurrentApproximatePriorityQueue<T> {
   fn get_concurrency() -> usize {
     let core_count = std::thread::available_parallelism()
       .map(|n| n.get())
@@ -81,7 +75,12 @@ where
     thread_id.hash(&mut hasher);
     (hasher.finish() as usize) & 0xFFFF
   }
+}
 
+impl<T> ConcurrentApproximatePriorityQueue<T>
+where
+  T: IdentityId,
+{
   pub(crate) fn add(&self, entry: T, weight: i64) {
     let thread_hash = Self::thread_hash();
     for i in 0..self.concurrency {

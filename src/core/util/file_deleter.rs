@@ -29,7 +29,6 @@ use std::sync::Arc;
 pub struct FileDeleter<D, M>
 where
   D: Directory,
-  M: Messenger,
 {
   ref_counts: HashMap<String, RefCount>,
   directory: Arc<IndexWriterDir<D>>,
@@ -39,7 +38,6 @@ where
 impl<D, M> FileDeleter<D, M>
 where
   D: Directory,
-  M: Messenger,
 {
   pub(crate) fn new(directory: Arc<IndexWriterDir<D>>, messenger: Option<M>) -> FileDeleter<D, M> {
     FileDeleter {
@@ -48,6 +46,13 @@ where
       messenger,
     }
   }
+}
+
+impl<D, M> FileDeleter<D, M>
+where
+  D: Directory,
+  M: Messenger,
+{
   pub fn inc_ref<I, S>(&mut self, file_names: I) -> Result<()>
   where
     I: IntoIterator<Item = S>,

@@ -36,10 +36,7 @@ use crate::core::util::{IOUtils, TryIntoInt};
 use std::sync::Arc;
 
 /// Writes dimensional values
-pub struct Lucene90PointsWriter<O>
-where
-  O: IndexOutput,
-{
+pub struct Lucene90PointsWriter<O> {
   data_out: O,
   meta_out: O,
   index_out: O,
@@ -60,7 +57,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     Self::new(
       write_state,
@@ -77,7 +73,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     debug_assert!(write_state.field_infos.has_point_values());
 
@@ -207,7 +202,6 @@ where
   where
     PR: PointsReader,
     D1: Directory,
-    D2: Directory,
   {
     let mut values = reader
       .get_values(&field_info.name)?

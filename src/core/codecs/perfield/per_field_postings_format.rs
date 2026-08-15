@@ -74,18 +74,12 @@ pub trait PerFieldPostingsFormatBase {
 /// `_1.prx` would instead look like `_1_Lucene40_0.prx`.
 ///
 /// # Experimental
-pub struct PerFieldPostingsFormat<B>
-where
-  B: PerFieldPostingsFormatBase,
-{
+pub struct PerFieldPostingsFormat<B> {
   base: Arc<B>,
   identity: Identity,
 }
 
-impl<B> Clone for PerFieldPostingsFormat<B>
-where
-  B: PerFieldPostingsFormatBase,
-{
+impl<B> Clone for PerFieldPostingsFormat<B> {
   fn clone(&self) -> Self {
     Self {
       base: Arc::clone(&self.base),
@@ -94,10 +88,7 @@ where
   }
 }
 
-impl<B> PerFieldPostingsFormat<B>
-where
-  B: PerFieldPostingsFormatBase,
-{
+impl<B> PerFieldPostingsFormat<B> {
   /// Sole constructor.
   pub fn new(base: B) -> Self {
     Self {
@@ -107,10 +98,7 @@ where
   }
 }
 
-impl<B> HasIdentity for PerFieldPostingsFormat<B>
-where
-  B: PerFieldPostingsFormatBase,
-{
+impl<B> HasIdentity for PerFieldPostingsFormat<B> {
   fn identity(&self) -> &Identity {
     &self.identity
   }
@@ -120,10 +108,7 @@ where
 ///
 /// `state` is the custom segment-write state for this group of fields, with a
 /// segment suffix unique to this postings format.
-struct FieldsGroup<'a, D>
-where
-  D: Directory,
-{
+struct FieldsGroup<'a, D> {
   fields: Vec<String>,
   suffix: i32,
   state: SegmentWriteState<'a, D>,
@@ -131,19 +116,13 @@ where
 
 type FieldsGroupMapping<'a, 'b, F, D> = HashMap<Identity, (&'b F, FieldsGroup<'a, D>)>;
 
-struct FieldsGroupBuilder<'a, D>
-where
-  D: Directory,
-{
+struct FieldsGroupBuilder<'a, D> {
   fields: HashSet<String>,
   suffix: i32,
   state: SegmentWriteState<'a, D>,
 }
 
-impl<'a, D> FieldsGroupBuilder<'a, D>
-where
-  D: Directory,
-{
+impl<'a, D> FieldsGroupBuilder<'a, D> {
   fn new(suffix: i32, state: SegmentWriteState<'a, D>) -> Self {
     Self {
       fields: HashSet::new(),
@@ -188,10 +167,7 @@ fn get_full_segment_suffix(
   }
 }
 
-pub struct FieldsWriter<B>
-where
-  B: PerFieldPostingsFormatBase,
-{
+pub struct FieldsWriter<B> {
   base: Arc<B>,
   /// First delegate close error; later close errors are suppressed into it.
   /// It is returned by [`Closeable::close`] so one close failure does not prevent
@@ -199,17 +175,19 @@ where
   close_error: Option<LuceneError>,
 }
 
-impl<B> FieldsWriter<B>
-where
-  B: PerFieldPostingsFormatBase,
-{
+impl<B> FieldsWriter<B> {
   fn new(base: Arc<B>) -> Self {
     Self {
       base,
       close_error: None,
     }
   }
+}
 
+impl<B> FieldsWriter<B>
+where
+  B: PerFieldPostingsFormatBase,
+{
   fn build_fields_group_mapping<'a, 'b, 'c, D1, I>(
     base: &'b B,
     write_state: &SegmentWriteState<'a, D1>,
@@ -311,7 +289,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {
@@ -356,7 +333,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     N: NormsProducer,
     MS: MergeStateAccess,
   {
@@ -407,10 +383,7 @@ where
   }
 }
 
-pub struct FieldsReader<FP>
-where
-  FP: FieldsProducer,
-{
+pub struct FieldsReader<FP> {
   fields: HashMap<String, Arc<FP>>,
   field_names: Vec<String>,
   formats: HashMap<String, Arc<FP>>,
@@ -498,7 +471,6 @@ where
   where
     PF: PostingsFormat<FieldsProducer<D1::IndexInput> = FP>,
     D1: Directory,
-    D2: Directory,
   {
     let mut fields = HashMap::new();
     let mut formats: HashMap<String, Arc<FP>> = HashMap::new();
@@ -552,10 +524,7 @@ where
   }
 }
 
-impl<FP> Display for FieldsReader<FP>
-where
-  FP: FieldsProducer,
-{
+impl<FP> Display for FieldsReader<FP> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -595,7 +564,7 @@ where
 
 impl<FP> CloseableRef for FieldsReader<FP>
 where
-  FP: FieldsProducer,
+  FP: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close(self.formats.values(), |format| format.close())
@@ -621,18 +590,12 @@ where
   }
 }
 
-struct FilterFields<'a, F>
-where
-  F: Fields,
-{
+struct FilterFields<'a, F> {
   in_: &'a F,
   fields: &'a Vec<String>,
 }
 
-impl<'a, F> FilterFields<'a, F>
-where
-  F: Fields,
-{
+impl<'a, F> FilterFields<'a, F> {
   fn new(in_: &'a F, fields: &'a Vec<String>) -> Self {
     Self { in_, fields }
   }
@@ -679,7 +642,6 @@ where
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(FieldsWriter::new(self.base.clone()))
   }
@@ -694,7 +656,6 @@ where
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     FieldsReader::new::<B::Format, D1, D2>(state, segment_info)
   }

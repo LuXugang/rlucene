@@ -27,11 +27,7 @@ use crate::core::util::packed::direct_writer::{DirectWriter, unsigned_bits_requi
 /// `DirectMonotonicReader`
 ///
 /// # Internal
-pub struct DirectMonotonicWriter<'a, I1, I2>
-where
-  I1: IndexOutput,
-  I2: IndexOutput,
-{
+pub struct DirectMonotonicWriter<'a, I1, I2> {
   meta: &'a mut I1,
   data: &'a mut I2,
   num_values: i64,

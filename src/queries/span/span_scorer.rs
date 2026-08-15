@@ -27,12 +27,7 @@ use crate::queries::span::spans::Spans;
 /// A basic [`Scorer`] over [`Spans`].
 ///
 /// @lucene.experimental
-pub struct SpanScorer<S, SS, N>
-where
-  S: Spans,
-  SS: SimScorer,
-  N: NumericDocValues,
-{
+pub struct SpanScorer<S, SS, N> {
   spans: S,
   scorer: Option<SS>,
   norms: Option<N>,
@@ -42,12 +37,7 @@ where
   last_scored_doc: i32,
 }
 
-impl<S, SS, N> SpanScorer<S, SS, N>
-where
-  S: Spans,
-  SS: SimScorer,
-  N: NumericDocValues,
-{
+impl<S, SS, N> SpanScorer<S, SS, N> {
   /// Creates a new instance.
   pub fn new(spans: S, scorer: Option<SS>, norms: Option<N>) -> Self {
     SpanScorer {
@@ -63,7 +53,14 @@ where
   pub fn get_spans(&self) -> &S {
     &self.spans
   }
+}
 
+impl<S, SS, N> SpanScorer<S, SS, N>
+where
+  S: Spans,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
   /// Score the current doc. The default implementation scores the doc
   /// with the similarity using the slop-adjusted
   /// [`freq`](SpanScorer::freq).
@@ -141,13 +138,7 @@ where
   }
 }
 
-impl<S, SS, N> FixedScore for SpanScorer<S, SS, N>
-where
-  S: Spans,
-  SS: SimScorer,
-  N: NumericDocValues,
-{
-}
+impl<S, SS, N> FixedScore for SpanScorer<S, SS, N> {}
 
 impl<S, SS, N> Scorable for SpanScorer<S, SS, N>
 where

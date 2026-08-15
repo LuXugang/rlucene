@@ -623,10 +623,7 @@ where
   }
 }
 
-impl<D> Display for CommitPoint<D>
-where
-  D: Directory,
-{
+impl<D> Display for CommitPoint<D> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -718,7 +715,6 @@ pub(crate) fn inflate_gens<'a, D, I>(
   info_stream: &InfoStreamMT,
 ) -> Result<()>
 where
-  D: Directory,
   I: IntoIterator<Item = &'a String>,
 {
   let mut max_segment_gen = i64::MIN;

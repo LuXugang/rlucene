@@ -84,18 +84,12 @@ where
   }
 }
 
-struct Builder<LR>
-where
-  LR: LeafReader,
-{
+struct Builder<LR> {
   pub(crate) leaves: Vec<LeafReaderContext<LR>>,
   pub(crate) leaf_doc_base: usize,
   pub(crate) max_doc: i32,
 }
-impl<LR> Builder<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> Builder<LR> {
   fn new() -> Self {
     Self {
       leaves: Vec::new(),

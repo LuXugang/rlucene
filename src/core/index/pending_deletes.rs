@@ -105,10 +105,7 @@ impl PendingDeletes {
     v.pending_delete_count = reader.num_deleted_docs()? - info.get_del_count();
     Ok(v)
   }
-  pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self>
-  where
-    D: Directory,
-  {
+  pub(crate) fn new<D>(info: &SegmentCommitInfo<D>) -> Result<Self> {
     Ok(PendingDeletes::with(
       info.info.get_id_key().to_string(),
       None,
@@ -197,10 +194,7 @@ impl PendingDeletesBase for PendingDeletes {
     &self.info_id
   }
 
-  fn delete<D>(&mut self, doc_id: i32, _info: &SegmentCommitInfo<D>) -> Result<bool>
-  where
-    D: Directory,
-  {
+  fn delete<D>(&mut self, doc_id: i32, _info: &SegmentCommitInfo<D>) -> Result<bool> {
     debug_assert!(self.max_doc > 0);
 
     let mutable_bits = self.get_mutable_bits()?;
@@ -294,7 +288,6 @@ impl PendingDeletesBase for PendingDeletes {
   fn write_live_docs<D1, D2>(&mut self, dir: D1, info: &mut SegmentCommitInfo<D2>) -> Result<bool>
   where
     D1: Directory,
-    D2: Directory,
   {
     if self.pending_delete_count == 0 {
       return Ok(false);
@@ -405,9 +398,7 @@ impl fmt::Display for PendingDeletes {
 pub(crate) trait PendingDeletesBase: Display {
   fn get_info_id(&self) -> &str;
   /// Marks a document as deleted in this segment and return true if a document got actually deleted or if the document was already deleted.
-  fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
-  where
-    D: Directory;
+  fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool>;
   /// Returns a snapshot of the hard live docs.
   fn get_hard_live_docs(&mut self) -> Option<DocBits>;
   /// Returns a snapshot of the current live docs.
@@ -426,8 +417,7 @@ pub(crate) trait PendingDeletesBase: Display {
   /// Writes the live docs to disk and returns `true` if any new docs were written.
   fn write_live_docs<D1, D2>(&mut self, dir: D1, info: &mut SegmentCommitInfo<D2>) -> Result<bool>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
   fn is_fully_deleted<D>(
     &mut self,
     info: &SegmentCommitInfo<D>,
@@ -465,17 +455,11 @@ pub(crate) trait PendingDeletesBase: Display {
     Ok(live_docs_changed || reader.num_deleted_docs()? != self.get_del_count(info))
   }
   /// Returns the number of deleted docs in the segment.
-  fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32
-  where
-    D: Directory,
-  {
+  fn get_del_count<D>(&self, info: &SegmentCommitInfo<D>) -> i32 {
     info.get_del_count() + info.get_soft_del_count() + self.num_pending_deletes()
   }
   /// Returns the number of live documents in this segment
-  fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32>
-  where
-    D: Directory,
-  {
+  fn num_docs<D>(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
     debug_assert!(info.info.max_doc()? == self.max_doc());
     let max_doc = info.info.max_doc()?;
     Ok(max_doc - self.get_del_count(info))
@@ -485,10 +469,7 @@ pub(crate) trait PendingDeletesBase: Display {
     &mut self,
     reader: &impl CodecReader,
     info: &SegmentCommitInfo<D>,
-  ) -> Result<bool>
-  where
-    D: Directory,
-  {
+  ) -> Result<bool> {
     debug_assert!(info.info.max_doc()? == self.max_doc());
     let max_doc = info.info.max_doc()?;
     let mut count = 0;
@@ -541,10 +522,7 @@ pub(crate) trait PendingDeletesBase: Display {
     _field_info: &FieldInfo,
     _iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     _info: &mut SegmentCommitInfo<D>,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     Ok(())
   }
   /// Returns `true` if this `PendingDeletes` must be initialized before [`delete`](Self::delete);
@@ -589,10 +567,7 @@ impl PendingDeletesBase for PendingDeletesEnum {
     }
   }
 
-  fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
-  where
-    D: Directory,
-  {
+  fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool> {
     match self {
       PendingDeletesEnum::PD(a) => a.delete(doc_id, info),
       PendingDeletesEnum::Soft(b) => b.delete(doc_id, info),
@@ -644,7 +619,6 @@ impl PendingDeletesBase for PendingDeletesEnum {
   fn write_live_docs<D1, D2>(&mut self, dir: D1, info: &mut SegmentCommitInfo<D2>) -> Result<bool>
   where
     D1: Directory,
-    D2: Directory,
   {
     match self {
       PendingDeletesEnum::PD(a) => a.write_live_docs(dir, info),
@@ -698,10 +672,7 @@ impl PendingDeletesBase for PendingDeletesEnum {
     info: &FieldInfo,
     iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     segment_info: &mut SegmentCommitInfo<D>,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     match self {
       PendingDeletesEnum::PD(a) => a.on_doc_values_update(info, iterator, segment_info),
       PendingDeletesEnum::Soft(b) => b.on_doc_values_update(info, iterator, segment_info),

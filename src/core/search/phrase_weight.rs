@@ -46,11 +46,7 @@ pub type PhraseWeightScorer<S, IRC> = PhraseScorer<
 
 pub type PhraseMatcherResult<IE, SS> = Result<Option<PhraseMatcherEnum<IE, SS>>>;
 
-struct PhraseMatchesIterator<IE, SS>
-where
-  IE: ImpactsEnum,
-  SS: SimScorer,
-{
+struct PhraseMatchesIterator<IE, SS> {
   matcher: PhraseMatcherEnum<IE, SS>,
   started: bool,
   query: Arc<Query>,

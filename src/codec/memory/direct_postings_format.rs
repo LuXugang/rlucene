@@ -124,7 +124,6 @@ impl PostingsFormat for DirectPostingsFormat {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene101PostingsFormat::new().fields_consumer(state, segment_info)
   }
@@ -141,7 +140,6 @@ impl PostingsFormat for DirectPostingsFormat {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let postings = Lucene101PostingsFormat::new().fields_producer(state, segment_info)?;
     if state.context.get_context() != &Context::Merge {

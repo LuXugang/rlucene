@@ -27,16 +27,10 @@ use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
 
 /// 2D circle implementation containing spatial logic
-pub struct Circle2D<T>
-where
-  T: DistanceCalculator,
-{
+pub struct Circle2D<T> {
   calculator: T,
 }
-impl<T> Circle2D<T>
-where
-  T: DistanceCalculator,
-{
+impl<T> Circle2D<T> {
   pub(crate) fn new(calculator: T) -> Self {
     Self { calculator }
   }

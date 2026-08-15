@@ -59,7 +59,6 @@ where
   ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self
       .delegate
@@ -76,7 +75,6 @@ where
   ) -> Result<Self::TermVectorsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
@@ -212,7 +210,6 @@ where
 
   fn merge<D, CR>(&mut self, merge_state: &mut MergeState<D, CR>) -> Result<i32>
   where
-    D: Directory,
     CR: CodecReader,
   {
     if self.random.lock().random_range(0..100) == 0 {

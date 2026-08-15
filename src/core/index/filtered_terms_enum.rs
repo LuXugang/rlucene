@@ -33,11 +33,7 @@ use std::fmt::Debug;
 /// only; it will return
 /// [`UnsupportedOperationError`](LuceneError::unsupported_operation) when a
 /// seeking method is called.
-pub struct FilteredTermsEnum<T, F>
-where
-  T: TermsEnum,
-  F: FilteredTermsEnumBase,
-{
+pub struct FilteredTermsEnum<T, F> {
   initial_seek_term: Option<BytesRef<Vec<u8>>>,
   do_seek: bool,
   pub actual_term: Option<BytesRef<Vec<u8>>>,
@@ -45,18 +41,11 @@ where
   hook: FilteredTermsEnumHook<F>,
 }
 
-enum FilteredTermsEnumHook<F>
-where
-  F: FilteredTermsEnumBase,
-{
+enum FilteredTermsEnumHook<F> {
   Default,
   Filtered(F),
 }
-impl<T, F> FilteredTermsEnum<T, F>
-where
-  T: TermsEnum,
-  F: FilteredTermsEnumBase,
-{
+impl<T, F> FilteredTermsEnum<T, F> {
   pub(crate) fn new(tenum: T, sub: F) -> Self {
     Self::with_seek(tenum, true, sub)
   }
@@ -83,6 +72,13 @@ where
   pub(crate) fn set_initial_seek_term(&mut self, term: BytesRef<Vec<u8>>) {
     self.initial_seek_term = Some(term);
   }
+}
+
+impl<T, F> FilteredTermsEnum<T, F>
+where
+  T: TermsEnum,
+  F: FilteredTermsEnumBase,
+{
   pub fn next_seek_term(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let sub = match &mut self.hook {
       FilteredTermsEnumHook::Default => {

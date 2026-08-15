@@ -21,10 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 
 /// [`IndexReaderContext`] for [`LeafReader`] instances.
-pub struct LeafReaderContext<LR>
-where
-  LR: LeafReader,
-{
+pub struct LeafReaderContext<LR> {
   /// The reader's ord in the top-level's leaves array
   pub ord: usize,
   /// The reader's absolute doc base
@@ -39,10 +36,7 @@ pub struct TopParentMeta {
   pub(crate) max_doc: i32,
   pub(crate) id: Identity,
 }
-impl<LR> LeafReaderContext<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> LeafReaderContext<LR> {
   pub(crate) fn new(
     reader: LR,
     ord: i32,
@@ -88,10 +82,7 @@ where
   }
 }
 
-impl<LR> LeafReaderContext<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> LeafReaderContext<LR> {
   pub fn top_parent(&self) -> &TopParentMeta {
     &self.top_parent
   }

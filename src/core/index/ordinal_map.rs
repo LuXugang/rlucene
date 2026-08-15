@@ -444,10 +444,7 @@ impl LongValues for LongValuesImpl1 {
   }
 }
 
-struct TermsEnumPriorityQueueCmp<TE>
-where
-  TE: TermsEnum,
-{
+struct TermsEnumPriorityQueueCmp<TE> {
   terms_enum_indices: Vec<TermsEnumIndex<TE>>,
 }
 impl<TE> TermsEnumPriorityQueueCmp<TE>

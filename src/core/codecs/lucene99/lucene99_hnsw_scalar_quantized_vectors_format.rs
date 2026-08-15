@@ -149,7 +149,6 @@ impl KnnVectorsFormat for Lucene99HnswScalarQuantizedVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene99HnswVectorsWriter::new(
       state,
@@ -173,7 +172,6 @@ impl KnnVectorsFormat for Lucene99HnswScalarQuantizedVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene99HnswVectorsReader::new(
       state,

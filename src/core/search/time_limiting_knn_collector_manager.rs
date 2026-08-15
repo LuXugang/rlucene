@@ -26,19 +26,11 @@ use crate::core::search::total_hits::TotalHits;
 use crate::core::util::error::lucene_error::Result;
 
 /// A [`KnnCollectorManager`] that collects results with a timeout.
-pub struct TimeLimitingKnnCollectorManager<K, Q>
-where
-  K: KnnCollectorManager,
-  Q: QueryTimeout,
-{
+pub struct TimeLimitingKnnCollectorManager<K, Q> {
   delegate: K,
   query_timeout: Option<Q>,
 }
-impl<K, Q> TimeLimitingKnnCollectorManager<K, Q>
-where
-  K: KnnCollectorManager,
-  Q: QueryTimeout,
-{
+impl<K, Q> TimeLimitingKnnCollectorManager<K, Q> {
   pub fn new(delegate: K, query_timeout: Option<Q>) -> Self {
     Self {
       delegate,
@@ -77,19 +69,11 @@ where
   }
 }
 
-pub struct TimeLimitingKnnCollector<'a, K, Q>
-where
-  K: KnnCollector,
-  Q: QueryTimeout,
-{
+pub struct TimeLimitingKnnCollector<'a, K, Q> {
   collector: K,
   query_timeout: &'a Q,
 }
-impl<'a, K, Q> TimeLimitingKnnCollector<'a, K, Q>
-where
-  K: KnnCollector,
-  Q: QueryTimeout,
-{
+impl<'a, K, Q> TimeLimitingKnnCollector<'a, K, Q> {
   pub fn new(delegate: K, query_timeout: &'a Q) -> Self {
     Self {
       collector: delegate,

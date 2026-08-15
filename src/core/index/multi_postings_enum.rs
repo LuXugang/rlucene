@@ -25,10 +25,7 @@ use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 /// Exposes [`PostingsEnum`], merged from [`PostingsEnum`] API of sub-segments.
-pub struct MultiPostingsEnum<PE>
-where
-  PE: PostingsEnum,
-{
+pub struct MultiPostingsEnum<PE> {
   parent: Identity,
   pub(crate) sub_postings_enums: Vec<Option<PE>>,
   subs: Vec<EnumWithSlice>,
@@ -38,10 +35,7 @@ where
   current_base: usize,
   doc: i32,
 }
-impl<PE> MultiPostingsEnum<PE>
-where
-  PE: PostingsEnum,
-{
+impl<PE> MultiPostingsEnum<PE> {
   pub fn new(parent: Identity, sub_reader_count: usize) -> Self {
     let mut subs = Vec::with_capacity(sub_reader_count);
     let mut sub_postings_enums = Vec::with_capacity(sub_reader_count);
@@ -224,10 +218,7 @@ where
     }
   }
 }
-impl<PE> Display for MultiPostingsEnum<PE>
-where
-  PE: PostingsEnum,
-{
+impl<PE> Display for MultiPostingsEnum<PE> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     let mut first = true;
     for sub in self.get_subs().iter() {

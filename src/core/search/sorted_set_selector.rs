@@ -92,21 +92,21 @@ impl SortedSetSelectorType {
   }
 }
 /// Wraps a SortedSetDocValues and returns the first ordinal (min)
-pub struct MinValue<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct MinValue<S> {
   inner: S,
   ord: i32,
+}
+
+impl<S> MinValue<S> {
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
 }
 
 impl<S> MinValue<S>
 where
   S: SortedSetDocValues,
 {
-  fn new(inner: S) -> Self {
-    Self { inner, ord: 0 }
-  }
   fn set_ord(&mut self) -> Result<()> {
     if self.doc_id() != NO_MORE_DOCS {
       self.ord = self.inner.next_ord()? as i32
@@ -182,22 +182,21 @@ where
   }
 }
 /// Wraps a SortedSetDocValues and returns the last ordinal (max)
-pub struct MaxValue<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct MaxValue<S> {
   inner: S,
   ord: i32,
+}
+
+impl<S> MaxValue<S> {
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
 }
 
 impl<S> MaxValue<S>
 where
   S: SortedSetDocValues,
 {
-  fn new(inner: S) -> Self {
-    Self { inner, ord: 0 }
-  }
-
   fn set_ord(&mut self) -> Result<()> {
     if self.doc_id() != NO_MORE_DOCS {
       let doc_value_count = self.inner.doc_value_count()?;
@@ -279,22 +278,21 @@ where
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or min of the
 /// two)
-pub struct MiddleMinValue<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct MiddleMinValue<S> {
   inner: S,
   ord: i32,
+}
+
+impl<S> MiddleMinValue<S> {
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
 }
 
 impl<S> MiddleMinValue<S>
 where
   S: SortedSetDocValues,
 {
-  fn new(inner: S) -> Self {
-    Self { inner, ord: 0 }
-  }
-
   fn set_ord(&mut self) -> Result<()> {
     if self.doc_id() != NO_MORE_DOCS {
       let doc_value_count = self.inner.doc_value_count()?;
@@ -376,22 +374,21 @@ where
 }
 /// Wraps a SortedSetDocValues and returns the middle ordinal (or max of the
 /// two)
-pub struct MiddleMaxValue<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct MiddleMaxValue<S> {
   inner: S,
   ord: i32,
+}
+
+impl<S> MiddleMaxValue<S> {
+  fn new(inner: S) -> Self {
+    Self { inner, ord: 0 }
+  }
 }
 
 impl<S> MiddleMaxValue<S>
 where
   S: SortedSetDocValues,
 {
-  fn new(inner: S) -> Self {
-    Self { inner, ord: 0 }
-  }
-
   fn set_ord(&mut self) -> Result<()> {
     if self.doc_id() != NO_MORE_DOCS {
       let count = self.inner.doc_value_count()?;

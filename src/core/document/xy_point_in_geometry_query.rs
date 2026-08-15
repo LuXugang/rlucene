@@ -264,10 +264,7 @@ where
   }
 }
 
-struct XYPointInGeometryScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+struct XYPointInGeometryScorerSupplier<PV> {
   score: f32,
   score_mode: ScoreMode,
   values: PV,
@@ -275,10 +272,7 @@ where
   cost: i64,
 }
 
-impl<PV> XYPointInGeometryScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+impl<PV> XYPointInGeometryScorerSupplier<PV> {
   fn new(
     score: f32,
     score_mode: ScoreMode,

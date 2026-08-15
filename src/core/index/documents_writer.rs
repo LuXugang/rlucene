@@ -82,7 +82,6 @@ use std::thread;
 pub(crate) struct DocumentsWriter<D, FN>
 where
   D: Directory,
-  FN: FlushNotifications,
 {
   closed: AtomicBool,
   info_stream: InfoStreamMT,
@@ -891,7 +890,6 @@ where
 impl<D, FN> Accountable for DocumentsWriter<D, FN>
 where
   D: Directory,
-  FN: FlushNotifications,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(self.flush_control.get_delete_bytes_used()? + self.flush_control.net_bytes(None))
@@ -968,9 +966,7 @@ pub(crate) trait FlushNotifications {
   fn delete_unused_files(&self, files: HashSet<String>) -> Result<()>;
 
   /// Called when a segment failed to flush.
-  fn flush_failed<D>(&self, info: SegmentInfo<D>) -> Result<()>
-  where
-    D: Directory;
+  fn flush_failed<D>(&self, info: SegmentInfo<D>) -> Result<()>;
 
   /// Called after one or more segments were flushed to disk.
   fn after_segments_flushed<D>(&self, writer: &IndexWriter<D>) -> Result<()>

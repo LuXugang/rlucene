@@ -59,11 +59,7 @@ pub type SloopyImpactsDISI<IE, SS> = ImpactsDISI<ConjunctionDISI<IE>, ImpactsSou
  * would get same score as "g f"~2, although "c b"~2 could be matched twice. We may want to fix this
  * in the future (currently not, for performance reasons).
  */
-pub struct SloppyPhraseMatcher<IE, SS>
-where
-  IE: ImpactsEnum,
-  SS: SimScorer,
-{
+pub struct SloppyPhraseMatcher<IE, SS> {
   slop: usize,
   num_postings: usize,
   /// for advancing min position

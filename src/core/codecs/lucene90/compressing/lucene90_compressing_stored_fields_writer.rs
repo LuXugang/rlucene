@@ -95,10 +95,7 @@ where
     chunk_size: i32,
     max_docs_per_chunk: i32,
     block_shift: i32,
-  ) -> Result<Self>
-  where
-    D2: Directory,
-  {
+  ) -> Result<Self> {
     let segment = si.name.clone();
     let compressor = compression_mode.new_compressor();
     let buffered_docs = ByteBuffersDataOutput::new_resettable_instance();
@@ -322,7 +319,6 @@ where
     to_doc_id: i32,
   ) -> Result<()>
   where
-    MD: Directory,
     CR: CodecReader,
   {
     let reader_wrap = match merge_state.stored_fields_readers[sub.reader_index] {
@@ -460,7 +456,6 @@ where
     reader_index: usize,
   ) -> Result<MergeStrategy>
   where
-    MD: Directory,
     CR: CodecReader,
   {
     let candidate = match merge_state.stored_fields_readers[reader_index] {
@@ -654,7 +649,6 @@ where
 
   fn merge<MD, D1, CR>(&mut self, merge_state: &mut MergeState<MD, CR>, dir: &D1) -> Result<i32>
   where
-    MD: Directory,
     D1: Directory,
     CR: CodecReader,
     Self: Sized,
@@ -780,10 +774,7 @@ enum MergeStrategy {
   /// Copy field by field of decompressed documents.
   Visitor,
 }
-struct CompressingStoredFieldsMergeSub<DM>
-where
-  DM: DocMap,
-{
+struct CompressingStoredFieldsMergeSub<DM> {
   pub reader_index: usize,
   pub max_doc: i32,
   pub merge_strategy: MergeStrategy,
@@ -791,10 +782,7 @@ where
   pub doc_map: Rc<DM>,
 }
 
-impl<DM> CompressingStoredFieldsMergeSub<DM>
-where
-  DM: DocMap,
-{
+impl<DM> CompressingStoredFieldsMergeSub<DM> {
   fn new(
     doc_map: Rc<DM>,
     max_doc: i32,

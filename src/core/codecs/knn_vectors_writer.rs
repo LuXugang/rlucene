@@ -64,7 +64,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -84,7 +83,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -135,7 +133,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<i32>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -169,7 +166,6 @@ where
   }
   fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     for reader in merge_state.knn_vectors_readers.iter().flatten() {
@@ -233,7 +229,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     match self {
       Self::A(inner) => inner.add_field(write_state, segment_info, field_info),
@@ -258,7 +253,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -281,7 +275,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<i32>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -293,7 +286,6 @@ where
 
   fn finish_merge<D, CR>(&self, merge_state: &MergeState<'_, D, CR>) -> Result<()>
   where
-    D: Directory,
     CR: CodecReader,
   {
     match self {
@@ -394,7 +386,6 @@ where
 pub struct FloatVectorValuesSub<F, DM>
 where
   F: FloatVectorValues,
-  DM: MergeDocMap,
 {
   values: F,
   iterator: <F as KnnVectorValues>::DocIndexIterator,
@@ -403,7 +394,6 @@ where
 impl<F, DM> FloatVectorValuesSub<F, DM>
 where
   F: FloatVectorValues,
-  DM: MergeDocMap,
 {
   fn new(values: F, doc_map: DM) -> Result<Self> {
     let iterator = values.iterator()?;
@@ -435,7 +425,6 @@ where
 pub struct ByteVectorValuesSub<B, DM>
 where
   B: ByteVectorValues,
-  DM: MergeDocMap,
 {
   values: B,
   iterator: <B as KnnVectorValues>::DocIndexIterator,
@@ -445,7 +434,6 @@ where
 impl<B, DM> ByteVectorValuesSub<B, DM>
 where
   B: ByteVectorValues,
-  DM: MergeDocMap,
 {
   fn new(values: B, doc_map: DM) -> Result<Self> {
     let iterator = values.iterator()?;
@@ -508,7 +496,6 @@ pub(crate) fn has_vector_values(field_infos: &FieldInfos, field_name: &str) -> R
 struct MergedFloat32VectorValuesState<F, DM>
 where
   F: FloatVectorValues,
-  DM: MergeDocMap,
 {
   doc_id: i32,
   last_ord: i32,
@@ -519,7 +506,6 @@ where
 pub struct MergedFloat32VectorValues<F, DM>
 where
   F: FloatVectorValues,
-  DM: MergeDocMap,
 {
   state: Rc<RefCell<MergedFloat32VectorValuesState<F, DM>>>,
   size: usize,
@@ -536,7 +522,6 @@ where
     merge_state: &MergeState<'_, Dir, CR>,
   ) -> Result<Self>
   where
-    Dir: Directory,
     CR: CodecReader,
   {
     let dimension = match subs.first() {
@@ -645,7 +630,6 @@ where
 pub struct MergedFloat32VectorValuesIterator<F, DM>
 where
   F: FloatVectorValues,
-  DM: MergeDocMap,
 {
   state: Rc<RefCell<MergedFloat32VectorValuesState<F, DM>>>,
   index: i32,
@@ -726,7 +710,6 @@ where
 struct MergedByteVectorValuesState<B, DM>
 where
   B: ByteVectorValues,
-  DM: MergeDocMap,
 {
   doc_id: i32,
   last_ord: i32,
@@ -737,7 +720,6 @@ where
 pub struct MergedByteVectorValues<B, DM>
 where
   B: ByteVectorValues,
-  DM: MergeDocMap,
 {
   state: Rc<RefCell<MergedByteVectorValuesState<B, DM>>>,
   size: usize,
@@ -754,7 +736,6 @@ where
     merge_state: &MergeState<'_, Dir, CR>,
   ) -> Result<Self>
   where
-    Dir: Directory,
     CR: CodecReader,
   {
     let dimension = match subs.first() {
@@ -864,7 +845,6 @@ where
 pub struct MergedByteVectorValuesIterator<B, DM>
 where
   B: ByteVectorValues,
-  DM: MergeDocMap,
 {
   state: Rc<RefCell<MergedByteVectorValuesState<B, DM>>>,
   index: i32,
@@ -954,7 +934,6 @@ fn merge_vector_values<D, CR, V, S, VSupplier, NewSub>(
   mut new_sub: NewSub,
 ) -> Result<Vec<Sub<S>>>
 where
-  D: Directory,
   CR: CodecReader,
   V: KnnVectorValues,
   S: SubBase<DocMap = Rc<MergeStateDocMap<CR>>>,
@@ -987,7 +966,6 @@ pub(crate) fn merge_float_vector_values<D, CR>(
   >,
 >
 where
-  D: Directory,
   CR: CodecReader,
 {
   validate_field_encoding(field_info, VectorEncoding::FLOAT32(4))?;
@@ -1013,7 +991,6 @@ pub(crate) fn merge_byte_vector_values<D, CR>(
   >,
 >
 where
-  D: Directory,
   CR: CodecReader,
 {
   validate_field_encoding(field_info, VectorEncoding::BYTE(1))?;

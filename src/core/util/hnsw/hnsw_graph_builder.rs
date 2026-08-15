@@ -42,12 +42,7 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSu
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
-pub struct HnswGraphBuilder<B, S, BS>
-where
-  S: RandomVectorScorerSupplier,
-  BS: BitSet,
-  B: Bits,
-{
+pub struct HnswGraphBuilder<B, S, BS> {
   m: usize,
   ml: f64,
   random: SmallRng,
@@ -63,10 +58,7 @@ where
 }
 
 #[derive(Default)]
-pub enum HnswGraphBuilderHook<B>
-where
-  B: Bits,
-{
+pub enum HnswGraphBuilderHook<B> {
   #[default]
   Default,
   Initialized(InitializedHnswGraphBuilder<B>),

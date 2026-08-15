@@ -165,18 +165,12 @@ where
   }
 }
 
-pub(crate) struct FilterFieldsProducer<'a, P>
-where
-  P: FieldsProducer,
-{
+pub(crate) struct FilterFieldsProducer<'a, P> {
   in_: &'a P,
   filtered: Vec<String>,
 }
 
-impl<'a, P> FilterFieldsProducer<'a, P>
-where
-  P: FieldsProducer,
-{
+impl<'a, P> FilterFieldsProducer<'a, P> {
   fn new(in_: &'a P, filtered: Vec<String>) -> Self {
     Self { in_, filtered }
   }

@@ -21,16 +21,10 @@ use crate::core::util::{
   StableMSBRadixSorter, StableMSBRadixSorterBase, StringSorterBase,
 };
 
-pub(crate) struct StableStringSorter<T>
-where
-  T: StableStringSorterBase,
-{
+pub(crate) struct StableStringSorter<T> {
   delegate: T,
 }
-impl<T> StableStringSorter<T>
-where
-  T: StableStringSorterBase,
-{
+impl<T> StableStringSorter<T> {
   pub fn new(delegate: T) -> StableStringSorter<T> {
     StableStringSorter { delegate }
   }
@@ -73,11 +67,7 @@ where
     MSBRadixSorter::new(length, stable_msb_radix_sorter)
   }
 }
-pub struct StableMSBRadixSorterImpl<'a, T, C>
-where
-  T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
-{
+pub struct StableMSBRadixSorterImpl<'a, T, C> {
   delegate: &'a mut T,
   cmp: &'a mut C,
   scratch1: BytesRefBuilder<Vec<u8>>,
@@ -124,11 +114,7 @@ where
   }
 }
 
-pub struct MergeSorterStableImpl<'a, T, C>
-where
-  T: StableStringSorterBase + MSBRadixSorterBase,
-  C: BytesRefComparator,
-{
+pub struct MergeSorterStableImpl<'a, T, C> {
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch2: BytesRefBuilder<Vec<u8>>,
   scratch_bytes1: BytesRef<Vec<u8>>,

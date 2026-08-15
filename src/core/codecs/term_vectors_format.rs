@@ -37,8 +37,7 @@ pub trait TermVectorsFormat {
     context: &IOContext,
   ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   type TermVectorsWriter<D: Directory>: TermVectorsWriter;
   /// Returns a [`TermVectorsWriter`] to write term vectors.
@@ -49,6 +48,5 @@ pub trait TermVectorsFormat {
     context: &IOContext,
   ) -> Result<Self::TermVectorsWriter<D1>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 }

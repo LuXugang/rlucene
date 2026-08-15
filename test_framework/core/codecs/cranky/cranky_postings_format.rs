@@ -70,7 +70,6 @@ where
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
@@ -92,7 +91,6 @@ where
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.delegate.fields_producer(state, segment_info)
   }
@@ -128,7 +126,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {

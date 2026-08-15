@@ -60,7 +60,6 @@ where
   ) -> Result<Self::PointsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(CrankyPointsWriter::new(
       self.delegate.fields_writer(state, info)?,
@@ -77,7 +76,6 @@ where
   ) -> Result<Self::PointsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(CrankyPointsReader::new(
       self.delegate.fields_reader(state, info)?,
@@ -111,7 +109,6 @@ where
   where
     PR: PointsReader,
     D1: Directory,
-    D2: Directory,
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other("Fake IOException")));
@@ -134,7 +131,6 @@ where
 
   fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {

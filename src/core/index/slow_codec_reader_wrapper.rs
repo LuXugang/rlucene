@@ -62,10 +62,7 @@ impl SlowCodecReaderWrapper {
   }
 }
 
-pub struct CodecReaderImpl<LR>
-where
-  LR: LeafReader,
-{
+pub struct CodecReaderImpl<LR> {
   reader: LR,
   index_base: IndexReaderBase,
 }
@@ -79,10 +76,7 @@ where
   }
 }
 
-impl<LR> CodecReaderImpl<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> CodecReaderImpl<LR> {
   pub(crate) fn new(reader: LR) -> Self {
     Self {
       reader,
@@ -345,22 +339,16 @@ where
   PointsReaderImpl::new(reader)
 }
 
-pub struct PointsReaderImpl<LR>
-where
-  LR: LeafReader,
-{
+pub struct PointsReaderImpl<LR> {
   reader: LR,
 }
-impl<LR> PointsReaderImpl<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> PointsReaderImpl<LR> {
   fn new(reader: LR) -> Self {
     Self { reader }
   }
 }
 
-impl<LR> CloseableRef for PointsReaderImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for PointsReaderImpl<LR> {}
 
 impl<LR> PointsReader for PointsReaderImpl<LR>
 where
@@ -384,30 +372,17 @@ where
   NormsProducerImpl::new(reader)
 }
 
-pub struct NormsProducerImpl<LR>
-where
-  LR: LeafReader,
-{
+pub struct NormsProducerImpl<LR> {
   reader: LR,
 }
 
-impl<LR> NormsProducerImpl<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> NormsProducerImpl<LR> {
   fn new(reader: LR) -> Self {
     Self { reader }
   }
 }
 
-impl<LR> CloseableRef for NormsProducerImpl<LR>
-where
-  LR: LeafReader,
-{
-  fn close(&self) -> Result<()> {
-    Ok(())
-  }
-}
+impl<LR> CloseableRef for NormsProducerImpl<LR> {}
 
 impl<LR> NormsProducer for NormsProducerImpl<LR>
 where
@@ -434,23 +409,17 @@ where
   DocValuesProducerImpl::new(reader)
 }
 
-pub struct DocValuesProducerImpl<LR>
-where
-  LR: LeafReader,
-{
+pub struct DocValuesProducerImpl<LR> {
   reader: LR,
 }
 
-impl<LR> DocValuesProducerImpl<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> DocValuesProducerImpl<LR> {
   fn new(reader: LR) -> Self {
     Self { reader }
   }
 }
 
-impl<LR> CloseableRef for DocValuesProducerImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for DocValuesProducerImpl<LR> {}
 
 impl<LR> DocValuesProducer for DocValuesProducerImpl<LR>
 where
@@ -701,18 +670,12 @@ where
   Ok(FieldsProducerImpl::new(reader, indexed_fields))
 }
 
-pub struct FieldsProducerImpl<LR>
-where
-  LR: LeafReader,
-{
+pub struct FieldsProducerImpl<LR> {
   reader: LR,
   indexed_fields: Vec<String>,
 }
 
-impl<LR> FieldsProducerImpl<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> FieldsProducerImpl<LR> {
   fn new(reader: LR, indexed_fields: Vec<String>) -> Self {
     Self {
       reader,
@@ -721,7 +684,7 @@ where
   }
 }
 
-impl<LR> CloseableRef for FieldsProducerImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for FieldsProducerImpl<LR> {}
 
 impl<LR> Fields for FieldsProducerImpl<LR>
 where
@@ -766,16 +729,13 @@ where
 pub struct KnnVectorsReaderImpl<LR> {
   reader: LR,
 }
-impl<LR> KnnVectorsReaderImpl<LR>
-where
-  LR: LeafReader,
-{
+impl<LR> KnnVectorsReaderImpl<LR> {
   fn new(reader: LR) -> Self {
     Self { reader }
   }
 }
 
-impl<LR> CloseableRef for KnnVectorsReaderImpl<LR> where LR: LeafReader {}
+impl<LR> CloseableRef for KnnVectorsReaderImpl<LR> {}
 
 impl<LR> HnswGraphProvider for KnnVectorsReaderImpl<LR>
 where

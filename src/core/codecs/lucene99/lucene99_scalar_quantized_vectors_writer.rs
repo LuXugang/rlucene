@@ -106,12 +106,7 @@ const QUANTILE_RECOMPUTE_LIMIT: f32 = 32.0;
 const REQUANTIZATION_LIMIT: f32 = 0.2;
 
 /// Writes quantized vector values and metadata to index segments.
-pub struct Lucene99ScalarQuantizedVectorsWriter<O, R, F>
-where
-  O: IndexOutput,
-  R: FlatVectorsWriter<IndexOutput = O>,
-  F: FlatVectorsScorer,
-{
+pub struct Lucene99ScalarQuantizedVectorsWriter<O, R, F> {
   fields: Vec<ScalarQuantizedFieldWriter>,
   meta: O,
   quantized_vector_data: O,
@@ -142,7 +137,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     Self::with_version(
       state,
@@ -169,7 +163,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
@@ -360,7 +353,6 @@ where
     <Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>,
   >
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -483,9 +475,7 @@ where
 
 impl<O, R, F> Accountable for Lucene99ScalarQuantizedVectorsWriter<O, R, F>
 where
-  O: IndexOutput,
-  R: FlatVectorsWriter<IndexOutput = O>,
-  F: FlatVectorsScorer,
+  R: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut total = self
@@ -501,9 +491,8 @@ where
 
 impl<O, R, F> Closeable for Lucene99ScalarQuantizedVectorsWriter<O, R, F>
 where
-  O: IndexOutput,
-  R: FlatVectorsWriter<IndexOutput = O>,
-  F: FlatVectorsScorer,
+  O: Closeable,
+  R: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     IOUtils::close(0..3, |operation| match operation {
@@ -530,7 +519,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     self.flat_add_field(field_info)
   }
@@ -591,7 +579,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -800,7 +787,6 @@ where
     segment_write_state: &SegmentWriteState<'a, &'a D2>,
   ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
   {
@@ -1106,7 +1092,6 @@ pub fn merge_and_recalculate_quantiles<D, CR>(
   bits: u8,
 ) -> Result<ScalarQuantizer>
 where
-  D: Directory,
   CR: CodecReader,
 {
   debug_assert_eq!(
@@ -1487,7 +1472,6 @@ impl FloatVectorValues for FloatVectorWrapper<'_> {
 struct QuantizedByteVectorValueSub<V, DM>
 where
   V: QuantizedByteVectorValues,
-  DM: MergeDocMap,
 {
   values: V,
   iterator: <V as KnnVectorValues>::DocIndexIterator,
@@ -1497,7 +1481,6 @@ where
 impl<V, DM> QuantizedByteVectorValueSub<V, DM>
 where
   V: QuantizedByteVectorValues,
-  DM: MergeDocMap,
 {
   fn new(doc_map: DM, values: V) -> Result<Self> {
     let iterator = values.iterator()?;
@@ -1572,10 +1555,7 @@ where
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D, CR>,
     scalar_quantizer: ScalarQuantizer,
-  ) -> Result<Self>
-  where
-    D: Directory,
-  {
+  ) -> Result<Self> {
     debug_assert!(field_info.has_vector_values());
 
     let mut subs = Vec::new();
@@ -1614,10 +1594,7 @@ where
   fn new<D>(
     subs: Vec<Sub<QuantizedByteVectorValueSub<V, Rc<MergeStateDocMap<CR>>>>>,
     merge_state: &MergeState<'_, D, CR>,
-  ) -> Result<Self>
-  where
-    D: Directory,
-  {
+  ) -> Result<Self> {
     let dimension = match subs.first() {
       Some(sub) => sub.sub.values.dimension(),
       None => return Err(LuceneError::illegal_state("no sub-vectors to merge")),
@@ -1812,10 +1789,7 @@ where
   }
 }
 
-struct QuantizedFloatVectorValues<FVV>
-where
-  FVV: FloatVectorValues,
-{
+struct QuantizedFloatVectorValues<FVV> {
   values: FVV,
   quantizer: ScalarQuantizer,
   inner: RefCell<QuantizedFloatVectorValuesInner>,
@@ -1962,20 +1936,14 @@ where
   }
 }
 
-struct OffsetCorrectedQuantizedByteVectorValues<Q>
-where
-  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
-{
+struct OffsetCorrectedQuantizedByteVectorValues<Q> {
   in_: Q,
   vector_similarity_function: VectorSimilarityFunction,
   scalar_quantizer: ScalarQuantizer,
   old_scalar_quantizer: ScalarQuantizer,
 }
 
-impl<Q> OffsetCorrectedQuantizedByteVectorValues<Q>
-where
-  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
-{
+impl<Q> OffsetCorrectedQuantizedByteVectorValues<Q> {
   fn new(
     in_: Q,
     vector_similarity_function: VectorSimilarityFunction,
@@ -2098,17 +2066,11 @@ where
   }
 }
 
-struct NormalizedFloatVectorValues<FVV>
-where
-  FVV: FloatVectorValues,
-{
+struct NormalizedFloatVectorValues<FVV> {
   values: FVV,
 }
 
-impl<FVV> NormalizedFloatVectorValues<FVV>
-where
-  FVV: FloatVectorValues,
-{
+impl<FVV> NormalizedFloatVectorValues<FVV> {
   fn new(values: FVV) -> Self {
     Self { values }
   }

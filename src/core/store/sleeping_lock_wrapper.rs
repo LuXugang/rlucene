@@ -28,20 +28,14 @@ use std::time::Duration;
 /// Directory that wraps another, and that sleeps and retries if obtaining the lock fails.
 ///
 /// This is not a good idea.
-pub struct SleepingLockWrapper<D>
-where
-  D: Directory,
-{
+pub struct SleepingLockWrapper<D> {
   in_: D,
   lock_wait_timeout: i64,
   poll_interval: i64,
   id: Identity,
 }
 
-impl<D> SleepingLockWrapper<D>
-where
-  D: Directory,
-{
+impl<D> SleepingLockWrapper<D> {
   /// Pass this lockWaitTimeout to try forever to obtain the lock.
   pub const LOCK_OBTAIN_WAIT_FOREVER: i64 = -1;
 
@@ -85,7 +79,7 @@ where
 
 impl<D> Display for SleepingLockWrapper<D>
 where
-  D: Directory,
+  D: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SleepingLockWrapper({})", self.in_)
@@ -94,17 +88,14 @@ where
 
 impl<D> CloseableRef for SleepingLockWrapper<D>
 where
-  D: Directory,
+  D: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
 
-impl<D> HasIdentity for SleepingLockWrapper<D>
-where
-  D: Directory,
-{
+impl<D> HasIdentity for SleepingLockWrapper<D> {
   fn identity(&self) -> &Identity {
     &self.id
   }

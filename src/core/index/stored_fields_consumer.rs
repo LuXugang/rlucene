@@ -110,19 +110,17 @@ where
       hook,
     }
   }
-  fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()>
-  where
-    D1: Directory,
-  {
+  fn init_stored_fields_writer<D1>(&mut self, info: &mut SegmentInfo<D1>) -> Result<()> {
     self
       .hook
       .init_stored_fields_writer(&self.directory, &self.codec, info)
   }
 
-  pub(crate) fn start_document<D1>(&mut self, doc_id: i32, info: &mut SegmentInfo<D1>) -> Result<()>
-  where
-    D1: Directory,
-  {
+  pub(crate) fn start_document<D1>(
+    &mut self,
+    doc_id: i32,
+    info: &mut SegmentInfo<D1>,
+  ) -> Result<()> {
     debug_assert!(self.last_doc < doc_id);
     self.init_stored_fields_writer(info)?;
 
@@ -137,10 +135,7 @@ where
     self.hook.finish_document()
   }
 
-  pub(crate) fn finish<D1>(&mut self, max_doc: i32, info: &mut SegmentInfo<D1>) -> Result<()>
-  where
-    D1: Directory,
-  {
+  pub(crate) fn finish<D1>(&mut self, max_doc: i32, info: &mut SegmentInfo<D1>) -> Result<()> {
     while self.last_doc < max_doc - 1 {
       self.start_document(self.last_doc + 1, info)?;
       self.finish_document()?;
@@ -156,7 +151,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     self.hook.flush(&self.codec, state, sort_map, info)
   }
@@ -184,7 +178,6 @@ impl StoredFieldsConsumerDefaults {
   ) -> Result<()>
   where
     D: Directory + Clone,
-    D1: Directory,
   {
     if writer.is_none() {
       *writer = Some(codec.stored_fields_format().fields_writer(
@@ -266,7 +259,6 @@ impl StoredFieldsConsumerDefaults {
   where
     TW: StoredFieldsWriter,
     WD: Directory,
-    D1: Directory,
   {
     let writer = writer
       .as_mut()
@@ -294,9 +286,7 @@ pub(crate) trait StoredFieldsConsumerBase {
     directory: &Self::Directory,
     codec: &Codecs,
     info: &mut SegmentInfo<D1>,
-  ) -> Result<()>
-  where
-    D1: Directory;
+  ) -> Result<()>;
   fn start_document(&mut self, last_doc: &mut i32, doc_id: i32) -> Result<()>;
   fn finish_document(&mut self) -> Result<()>;
   fn flush<DM, D1>(
@@ -307,8 +297,7 @@ pub(crate) trait StoredFieldsConsumerBase {
     info: &mut SegmentInfo<D1>,
   ) -> Result<()>
   where
-    DM: DocMap,
-    D1: Directory;
+    DM: DocMap;
   fn abort(&mut self) -> Result<()>;
 }
 
@@ -323,10 +312,7 @@ where
     directory: &Self::Directory,
     codec: &Codecs,
     info: &mut SegmentInfo<D1>,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     match self {
       Self::Default { writer } => {
         StoredFieldsConsumerDefaults::init_stored_fields_writer(writer, directory, codec, info)
@@ -370,7 +356,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     match self {
       Self::Default { writer } => {

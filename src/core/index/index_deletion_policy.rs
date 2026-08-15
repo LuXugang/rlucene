@@ -99,10 +99,7 @@ where
   fn on_commit(&self, commits: &[IC]) -> Result<()>;
 }
 
-pub enum IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+pub enum IndexDeletionPolicyEnum<D> {
   KeepOnlyLastCommit(KeepOnlyLastCommitDeletionPolicy),
   No(NoDeletionPolicy),
   Snapshot(Box<SnapshotDeletionPolicy<D>>),
@@ -125,126 +122,87 @@ where
   DeleteNothing(DeleteNothingIndexDeletionPolicy),
 }
 
-impl<D> From<KeepOnlyLastCommitDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<KeepOnlyLastCommitDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: KeepOnlyLastCommitDeletionPolicy) -> Self {
     Self::KeepOnlyLastCommit(policy)
   }
 }
 
-impl<D> From<NoDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<NoDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: NoDeletionPolicy) -> Self {
     Self::No(policy)
   }
 }
 
-impl<D> From<SnapshotDeletionPolicy<D>> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<SnapshotDeletionPolicy<D>> for IndexDeletionPolicyEnum<D> {
   fn from(policy: SnapshotDeletionPolicy<D>) -> Self {
     Self::Snapshot(Box::new(policy))
   }
 }
 
-impl<D> From<PersistentSnapshotDeletionPolicy<D>> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<PersistentSnapshotDeletionPolicy<D>> for IndexDeletionPolicyEnum<D> {
   fn from(policy: PersistentSnapshotDeletionPolicy<D>) -> Self {
     Self::PersistentSnapshot(Box::new(policy))
   }
 }
 
 #[cfg(test)]
-impl<D> From<KeepAllDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<KeepAllDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: KeepAllDeletionPolicy) -> Self {
     Self::KeepAll(policy)
   }
 }
 
 #[cfg(test)]
-impl<D> From<KeepNoneOnInitDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<KeepNoneOnInitDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: KeepNoneOnInitDeletionPolicy) -> Self {
     Self::KeepNoneOnInit(policy)
   }
 }
 
 #[cfg(test)]
-impl<D> From<KeepLastNDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<KeepLastNDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: KeepLastNDeletionPolicy) -> Self {
     Self::KeepLastN(policy)
   }
 }
 
 #[cfg(test)]
-impl<D> From<ExpirationTimeDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<ExpirationTimeDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: ExpirationTimeDeletionPolicy) -> Self {
     Self::ExpirationTime(policy)
   }
 }
 
 #[cfg(test)]
-impl<D> From<KeepAllTransactionDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<KeepAllTransactionDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: KeepAllTransactionDeletionPolicy) -> Self {
     Self::KeepAllTransaction(policy)
   }
 }
 
 #[cfg(test)]
-impl<D> From<RollbackDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<RollbackDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: RollbackDeletionPolicy) -> Self {
     Self::Rollback(policy)
   }
 }
 
 #[cfg(test)]
-impl<D> From<DeleteLastCommitPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<DeleteLastCommitPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: DeleteLastCommitPolicy) -> Self {
     Self::DeleteLastCommit(policy)
   }
 }
 
 #[cfg(test)]
-impl<D> From<DeleteNothingIndexDeletionPolicy> for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> From<DeleteNothingIndexDeletionPolicy> for IndexDeletionPolicyEnum<D> {
   fn from(policy: DeleteNothingIndexDeletionPolicy) -> Self {
     Self::DeleteNothing(policy)
   }
 }
 
-impl<D> Display for IndexDeletionPolicyEnum<D>
-where
-  D: Directory,
-{
+impl<D> Display for IndexDeletionPolicyEnum<D> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::KeepOnlyLastCommit(policy) => write!(f, "{policy}"),

@@ -68,18 +68,12 @@ pub trait PerFieldDocValuesFormatBase {
 /// file named `_1.dat` would instead look like `_1_Lucene40_0.dat`.
 ///
 /// # Experimental
-pub struct PerFieldDocValuesFormat<B>
-where
-  B: PerFieldDocValuesFormatBase,
-{
+pub struct PerFieldDocValuesFormat<B> {
   base: Arc<B>,
   identity: Identity,
 }
 
-impl<B> Clone for PerFieldDocValuesFormat<B>
-where
-  B: PerFieldDocValuesFormatBase,
-{
+impl<B> Clone for PerFieldDocValuesFormat<B> {
   fn clone(&self) -> Self {
     Self {
       base: Arc::clone(&self.base),
@@ -88,10 +82,7 @@ where
   }
 }
 
-impl<B> PerFieldDocValuesFormat<B>
-where
-  B: PerFieldDocValuesFormatBase,
-{
+impl<B> PerFieldDocValuesFormat<B> {
   /// Sole constructor.
   pub fn new(base: B) -> Self {
     Self {
@@ -101,56 +92,39 @@ where
   }
 }
 
-impl<B> HasIdentity for PerFieldDocValuesFormat<B>
-where
-  B: PerFieldDocValuesFormatBase,
-{
+impl<B> HasIdentity for PerFieldDocValuesFormat<B> {
   fn identity(&self) -> &Identity {
     &self.identity
   }
 }
 
-impl<B> Display for PerFieldDocValuesFormat<B>
-where
-  B: PerFieldDocValuesFormatBase,
-{
+impl<B> Display for PerFieldDocValuesFormat<B> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "DocValuesFormat(name={PER_FIELD_NAME})")
   }
 }
 
-struct ConsumerAndSuffix<DVC>
-where
-  DVC: DocValuesConsumer,
-{
+struct ConsumerAndSuffix<DVC> {
   consumer: DVC,
   suffix: i32,
 }
 
 impl<DVC> Closeable for ConsumerAndSuffix<DVC>
 where
-  DVC: DocValuesConsumer,
+  DVC: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     self.consumer.close()
   }
 }
 
-pub struct FieldsWriter<B, DVC>
-where
-  B: PerFieldDocValuesFormatBase,
-  DVC: DocValuesConsumer,
-{
+pub struct FieldsWriter<B, DVC> {
   base: Arc<B>,
   formats: HashMap<Identity, ConsumerAndSuffix<DVC>>,
   suffixes: HashMap<String, i32>,
 }
 
-impl<B, DVC> FieldsWriter<B, DVC>
-where
-  B: PerFieldDocValuesFormatBase,
-  DVC: DocValuesConsumer,
-{
+impl<B, DVC> FieldsWriter<B, DVC> {
   fn new(base: Arc<B>) -> Self {
     Self {
       base,
@@ -158,7 +132,13 @@ where
       suffixes: HashMap::new(),
     }
   }
+}
 
+impl<B, DVC> FieldsWriter<B, DVC>
+where
+  B: PerFieldDocValuesFormatBase,
+  DVC: DocValuesConsumer,
+{
   fn get_instance<D1, D2>(
     &mut self,
     write_state: &SegmentWriteState<D1>,
@@ -167,7 +147,6 @@ where
   ) -> Result<(Identity, &mut DVC)>
   where
     D1: Directory<IndexOutput = DVC::IndexOutput>,
-    D2: Directory,
     B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
   {
     self.get_instance_with_ignore_current_format(write_state, segment_info, field, false)
@@ -183,7 +162,6 @@ where
   ) -> Result<(Identity, &mut DVC)>
   where
     D1: Directory<IndexOutput = DVC::IndexOutput>,
-    D2: Directory,
     B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
   {
     let base = Arc::clone(&self.base);
@@ -307,7 +285,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
@@ -323,7 +300,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
@@ -339,7 +315,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
@@ -355,7 +330,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
@@ -371,7 +345,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
@@ -386,7 +359,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     let mut consumers_to_fields: HashMap<Identity, Vec<String>> = HashMap::new();
@@ -426,8 +398,7 @@ where
 
 impl<B, DVC> Closeable for FieldsWriter<B, DVC>
 where
-  B: PerFieldDocValuesFormatBase,
-  DVC: DocValuesConsumer,
+  DVC: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     // Close all subs.
@@ -447,10 +418,7 @@ fn get_full_segment_suffix(outer_segment_suffix: &str, segment_suffix: &str) -> 
   }
 }
 
-pub struct FieldsReader<DVP>
-where
-  DVP: DocValuesProducer,
-{
+pub struct FieldsReader<DVP> {
   fields: HashMap<i32, Arc<DVP>>,
   formats: HashMap<String, Arc<DVP>>,
 }
@@ -530,7 +498,6 @@ where
   where
     PF: DocValuesFormat<DocValuesProducer<D1::IndexInput> = DVP>,
     D1: Directory,
-    D2: Directory,
   {
     let mut fields = HashMap::new();
     let mut formats: HashMap<String, Arc<DVP>> = HashMap::new();
@@ -584,10 +551,7 @@ where
   }
 }
 
-impl<DVP> Display for FieldsReader<DVP>
-where
-  DVP: DocValuesProducer,
-{
+impl<DVP> Display for FieldsReader<DVP> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "PerFieldDocValues(formats={})", self.formats.len())
   }
@@ -595,7 +559,7 @@ where
 
 impl<DVP> CloseableRef for FieldsReader<DVP>
 where
-  DVP: DocValuesProducer,
+  DVP: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close(self.formats.values(), |format| format.close())
@@ -723,7 +687,6 @@ where
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(FieldsWriter::new(Arc::clone(&self.base)))
   }
@@ -738,7 +701,6 @@ where
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     FieldsReader::new::<B::Format, D1, D2>(state, segment_info)
   }

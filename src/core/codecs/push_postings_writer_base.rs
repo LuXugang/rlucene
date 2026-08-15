@@ -42,10 +42,7 @@ use std::sync::Arc;
 // TODO: find a better name; this defines the API that the
 // terms dict impls use to talk to a postings impl.
 /// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
-pub struct PushPostingsWriterBase<S>
-where
-  S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
-{
+pub struct PushPostingsWriterBase<S> {
   enum_flags: i32,
 
   /// `FieldInfo` of current field being written.
@@ -69,10 +66,7 @@ pub struct FieldWriteOptions {
   pub(crate) write_offsets: bool,
 }
 
-impl<S> PushPostingsWriterBase<S>
-where
-  S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
-{
+impl<S> PushPostingsWriterBase<S> {
   #[allow(clippy::too_many_arguments)]
   /// # Parameters
   /// - `field_info`: It is just a placeholder value; it should be initialized
@@ -96,7 +90,7 @@ where
 }
 impl<S> Closeable for PushPostingsWriterBase<S>
 where
-  S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
+  S: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     Closeable::close(&mut self.sub)
@@ -114,7 +108,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.sub.init(terms_out, state, segment_info)
   }

@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::bit_table_util::BitTableUtil;
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::on_heap_fst_store::OnHeapFSTStore;
-use crate::core::util::fst_impl::outputs::{Outputs, OutputsBound};
+use crate::core::util::fst_impl::outputs::Outputs;
 use core::fmt;
 use parking_lot::Mutex;
 use std::cell::RefCell;
@@ -35,7 +35,6 @@ use std::rc::Rc;
 pub struct FST<O, F>
 where
   O: Outputs,
-  F: FstReader,
 {
   pub metadata: FSTMetadata<O>,
   pub outputs: O,
@@ -55,10 +54,10 @@ where
     Ok(Self::new(metadata, store))
   }
 }
+
 impl<O, F> FST<O, F>
 where
   O: Outputs,
-  F: FstReader,
 {
   /// Create the FST with a metadata object and a reader.
   pub fn new(metadata: FSTMetadata<O>, fst_reader: F) -> Self {
@@ -68,15 +67,13 @@ where
       fst_reader: Mutex::new(fst_reader),
     }
   }
+
   /// Create an FST from metadata and reader. Returns `None` if the metadata
   /// is `None`.
   pub fn from_fst_reader(metadata: FSTMetadata<O>, fst_reader: F) -> Option<Self> {
-    Some(Self {
-      outputs: metadata.outputs.clone(),
-      metadata,
-      fst_reader: Mutex::new(fst_reader),
-    })
+    Some(Self::new(metadata, fst_reader))
   }
+
   pub fn num_bytes(&self) -> i64 {
     self.metadata.num_bytes
   }
@@ -88,7 +85,13 @@ where
   pub fn metadata(&self) -> &FSTMetadata<O> {
     &self.metadata
   }
+}
 
+impl<O, F> FST<O, F>
+where
+  O: Outputs,
+  F: FstReader,
+{
   /// Save the FST to DataOutput.
   ///
   /// # Arguments
@@ -795,7 +798,6 @@ where
 impl<O, F> Display for FST<O, F>
 where
   O: Outputs,
-  F: FstReader,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(
@@ -809,10 +811,7 @@ where
 }
 
 #[derive(Default, Clone, Debug)]
-pub struct Arc<T>
-where
-  T: OutputsBound,
-{
+pub struct Arc<T> {
   // *** Arc fields.
   pub(crate) label: i32,
   pub(crate) output: T,
@@ -848,10 +847,7 @@ where
   /// repeatedly when iterating arcs.
   presence_index: i32,
 }
-impl<T> Arc<T>
-where
-  T: OutputsBound,
-{
+impl<T> Arc<T> {
   pub(crate) fn flag(&self, flag: i32) -> bool {
     flag_mod(self.flags as i32, flag)
   }
@@ -923,10 +919,7 @@ where
     self.first_label
   }
 }
-impl<T: Clone> Arc<T>
-where
-  T: OutputsBound,
-{
+impl<T: Clone> Arc<T> {
   /// Returns `self` after copying all fields from `other`.
   pub fn copy_from(&mut self, other: &Arc<T>) {
     self.label = other.label();
@@ -957,10 +950,7 @@ where
     self.next_final_output.clone()
   }
 }
-impl<T: Display + Clone> Display for Arc<T>
-where
-  T: OutputsBound,
-{
+impl<T: Display + Clone> Display for Arc<T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, " target={}", self.target)?;
     write!(f, " label=0x{:x}", self.label)?;
@@ -1006,10 +996,7 @@ impl BitTable {
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<bool>
-  where
-    T: OutputsBound,
-  {
+  ) -> Result<bool> {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start);
     BitTableUtil::is_bit_set(bit_index, reader)
@@ -1020,7 +1007,6 @@ impl BitTable {
   pub(crate) fn count_bits<R, T>(arc: &Arc<T>, reader: &mut R) -> Result<i32>
   where
     R: BytesReader,
-    T: OutputsBound,
   {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start);
@@ -1032,10 +1018,7 @@ impl BitTable {
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<i32>
-  where
-    T: OutputsBound,
-  {
+  ) -> Result<i32> {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start);
     BitTableUtil::count_bits_upto(bit_index, reader)
@@ -1046,10 +1029,7 @@ impl BitTable {
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<i32>
-  where
-    T: OutputsBound,
-  {
+  ) -> Result<i32> {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start);
     let num_bytes = get_num_presence_bytes(arc.num_arcs());
@@ -1061,20 +1041,14 @@ impl BitTable {
     bit_index: i32,
     arc: &Arc<T>,
     reader: &mut impl BytesReader,
-  ) -> Result<i32>
-  where
-    T: OutputsBound,
-  {
+  ) -> Result<i32> {
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
     reader.set_position(arc.bit_table_start);
     BitTableUtil::previous_bit_set(bit_index, reader)
   }
 
   /// Asserts the bit-table of the provided [`Arc`] is valid.
-  pub(crate) fn assert_is_valid<T>(arc: &Arc<T>, reader: &mut impl BytesReader) -> Result<bool>
-  where
-    T: OutputsBound,
-  {
+  pub(crate) fn assert_is_valid<T>(arc: &Arc<T>, reader: &mut impl BytesReader) -> Result<bool> {
     debug_assert!(arc.bytes_per_arc() > 0);
     debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
 
@@ -1414,10 +1388,7 @@ where
 }
 
 /// Returns `true` if the node at this address has any outgoing arcs.
-pub fn target_has_arcs<T>(arc: &Arc<T>) -> bool
-where
-  T: OutputsBound,
-{
+pub fn target_has_arcs<T>(arc: &Arc<T>) -> bool {
   arc.target() > 0
 }
 /// Gets the number of bytes required to flag the presence of each arc in
@@ -1429,10 +1400,10 @@ pub(crate) fn get_num_presence_bytes(label_range: i32) -> i32 {
 /// Reads the presence bits of a direct-addressing node. Actually we don't
 /// read them here, we just keep the pointer to the bit-table start and
 /// we skip them.
-pub(crate) fn read_presence_bytes<T>(arc: &mut Arc<T>, reader: &mut impl BytesReader) -> Result<()>
-where
-  T: OutputsBound,
-{
+pub(crate) fn read_presence_bytes<T>(
+  arc: &mut Arc<T>,
+  reader: &mut impl BytesReader,
+) -> Result<()> {
   debug_assert!(arc.bytes_per_arc() > 0);
   debug_assert_eq!(arc.node_flags(), ARCS_FOR_DIRECT_ADDRESSING);
   arc.bit_table_start = reader.get_position();
@@ -1453,7 +1424,7 @@ where
 /// The updated `arc` if `follow` is final, otherwise `None`
 pub(crate) fn read_end_arc<T>(follow: &Arc<T>, arc: &mut Arc<T>) -> Option<()>
 where
-  T: OutputsBound + Clone,
+  T: Clone,
 {
   if follow.is_final() {
     if follow.target() <= 0 {

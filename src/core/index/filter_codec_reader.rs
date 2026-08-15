@@ -35,18 +35,11 @@ pub(crate) fn wrap_live_docs<CR, B>(
   reader: CR,
   live_docs: Option<B>,
   num_docs: i32,
-) -> CodecReaderImpl<CR, B>
-where
-  CR: CodecReader,
-  B: Bits + Clone,
-{
+) -> CodecReaderImpl<CR, B> {
   CodecReaderImpl::new_with_live_docs(reader, live_docs, num_docs)
 }
 
-enum FilterCodecReaderHook<B>
-where
-  B: Bits + Clone,
-{
+enum FilterCodecReaderHook<B> {
   Default,
   LiveDocs {
     live_docs: Option<B>,
@@ -55,20 +48,12 @@ where
   },
 }
 
-pub struct CodecReaderImpl<CR, B>
-where
-  CR: CodecReader,
-  B: Bits + Clone,
-{
+pub struct CodecReaderImpl<CR, B> {
   reader: CR,
   hook: FilterCodecReaderHook<B>,
 }
 
-impl<CR, B> CodecReaderImpl<CR, B>
-where
-  CR: CodecReader,
-  B: Bits + Clone,
-{
+impl<CR, B> CodecReaderImpl<CR, B> {
   pub(crate) fn new(reader: CR) -> Self {
     Self {
       reader,
@@ -94,8 +79,8 @@ where
 
 impl<CR, B> Clone for CodecReaderImpl<CR, B>
 where
-  CR: CodecReader + Clone,
-  B: Bits + Clone,
+  CR: Clone,
+  B: Clone,
 {
   fn clone(&self) -> Self {
     let hook = match &self.hook {
@@ -119,8 +104,7 @@ where
 
 impl<CR, B> Display for CodecReaderImpl<CR, B>
 where
-  CR: CodecReader,
-  B: Bits + Clone,
+  CR: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match &self.hook {

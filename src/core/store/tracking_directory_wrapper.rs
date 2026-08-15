@@ -25,10 +25,7 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
 /// A delegating Directory that records which files were written to and deleted.
-pub struct TrackingDirectoryWrapper<D>
-where
-  D: Directory,
-{
+pub struct TrackingDirectoryWrapper<D> {
   pub(crate) in_: D,
   inner: Mutex<Inner>,
   id: Identity,
@@ -36,10 +33,7 @@ where
 pub struct Inner {
   pub(crate) created_filenames: HashSet<String>,
 }
-impl<D> TrackingDirectoryWrapper<D>
-where
-  D: Directory,
-{
+impl<D> TrackingDirectoryWrapper<D> {
   pub fn new(input: D) -> Self {
     let lock = Mutex::new(Inner {
       created_filenames: HashSet::new(),
@@ -65,7 +59,7 @@ where
 
 impl<D> Display for TrackingDirectoryWrapper<D>
 where
-  D: Directory,
+  D: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "TrackingDirectoryWrapper({})", self.in_)
@@ -74,17 +68,14 @@ where
 
 impl<D> CloseableRef for TrackingDirectoryWrapper<D>
 where
-  D: Directory,
+  D: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
 
-impl<D> HasIdentity for TrackingDirectoryWrapper<D>
-where
-  D: Directory,
-{
+impl<D> HasIdentity for TrackingDirectoryWrapper<D> {
   fn identity(&self) -> &Identity {
     &self.id
   }

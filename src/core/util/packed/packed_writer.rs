@@ -21,10 +21,7 @@ use crate::core::util::packed::bulk_operation_packed_enum::BulkOperationPackedEn
 use crate::core::util::packed::format_behavior::FormatBehavior;
 use crate::core::util::packed::{Encoder, Format, PackedInts, Writer};
 
-pub(crate) struct PackedWriter<'a, T>
-where
-  T: DataOutput + 'a,
-{
+pub(crate) struct PackedWriter<'a, T> {
   finished: bool,
   format: Format,
   encoder: &'static BulkOperationPackedEnum,

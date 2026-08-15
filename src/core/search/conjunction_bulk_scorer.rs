@@ -25,10 +25,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// For simplicity, it focuses on scorers that produce regular
 /// [`DocIdSetIterator`]s rather than [`TwoPhaseIterator`](crate::core::search::two_phase_iterator::TwoPhaseIterator)s.
-pub struct ConjunctionBulkScorer<S>
-where
-  S: Scorer,
-{
+pub struct ConjunctionBulkScorer<S> {
   // lead1: all_scores[0]
   // lead2: all_scores[1]
   all_scores: Vec<S>,
@@ -232,16 +229,10 @@ where
   }
 }
 
-struct ScorableImpl<'a, S>
-where
-  S: Scorer,
-{
+struct ScorableImpl<'a, S> {
   base: &'a mut ConjunctionBulkScorer<S>,
 }
-impl<'a, S> ScorableImpl<'a, S>
-where
-  S: Scorer,
-{
+impl<'a, S> ScorableImpl<'a, S> {
   fn new(base: &'a mut ConjunctionBulkScorer<S>) -> Self {
     Self { base }
   }
@@ -263,4 +254,4 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for ScorableImpl<'_, S> where S: Scorer {}
+impl<S> crate::core::search::scorable::FixedScore for ScorableImpl<'_, S> {}

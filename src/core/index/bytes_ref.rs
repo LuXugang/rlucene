@@ -37,10 +37,7 @@ use std::sync::Arc;
 /// lexicographically, treating elements as unsigned. This is identical to
 /// Unicode codepoint order.
 #[derive(Debug, Default)]
-pub struct BytesRef<AV>
-where
-  AV: SharedAccessVec<u8>,
-{
+pub struct BytesRef<AV> {
   /// The contents of the BytesRef
   pub bytes: AV,
   pub offset: usize,
@@ -196,7 +193,7 @@ where
 
 impl<AV> Clone for BytesRef<AV>
 where
-  AV: SharedAccessVec<u8>,
+  AV: Clone,
 {
   fn clone(&self) -> Self {
     BytesRef {

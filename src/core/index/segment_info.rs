@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use crate::core::codecs::Codecs;
 use crate::core::search::sort::Sort;
-use crate::core::store::directory::Directory;
 #[cfg(test)]
 use crate::core::store::dummy::dummy_directory::DummyDirectory;
 use crate::core::util::StringHelper;
@@ -32,10 +31,7 @@ use crate::core::util::version::Version;
 ///
 /// # Experimental
 /// This API is experimental and may change in future releases.
-pub struct SegmentInfo<D>
-where
-  D: Directory,
-{
+pub struct SegmentInfo<D> {
   /// Unique segment name in the directory.
   pub name: String,
   max_doc: i32, // number of docs in seg
@@ -98,10 +94,7 @@ impl Default for SegmentInfo<DummyDirectory> {
 pub const NO: i32 = -1; // e.g. no norms; no deletes;
 /// Used by some member fields to mean present (e.g., norms, deletions).
 pub const YES: i32 = 1; // e.g. have norms; have deletes;
-impl<D> SegmentInfo<D>
-where
-  D: Directory,
-{
+impl<D> SegmentInfo<D> {
   /// Constructs a new complete `SegmentInfo` instance from input.
   ///
   /// # Arguments
@@ -169,10 +162,7 @@ where
     })
   }
 }
-impl<D> SegmentInfo<D>
-where
-  D: Directory,
-{
+impl<D> SegmentInfo<D> {
   /// Sets the diagnostics map. The given map is cloned to ensure
   /// immutability.
   pub fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
@@ -478,19 +468,13 @@ where
     }
   }
 }
-impl<D> Display for SegmentInfo<D>
-where
-  D: Directory,
-{
+impl<D> Display for SegmentInfo<D> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.to_string(0))
   }
 }
 #[cfg(test)]
-impl<D> Clone for SegmentInfo<D>
-where
-  D: Directory,
-{
+impl<D> Clone for SegmentInfo<D> {
   fn clone(&self) -> Self {
     SegmentInfo {
       name: self.name.clone(),

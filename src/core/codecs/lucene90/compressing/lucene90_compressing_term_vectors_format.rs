@@ -106,7 +106,6 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
   ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90CompressingTermVectorsReader::new(
       directory,
@@ -129,7 +128,6 @@ impl TermVectorsFormat for Lucene90CompressingTermVectorsFormat {
   ) -> Result<Self::TermVectorsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90CompressingTermVectorsWriter::new(
       directory,

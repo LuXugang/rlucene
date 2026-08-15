@@ -55,8 +55,6 @@ use std::time::Instant;
 /// See [`SegmentMerger::merge`].
 pub(crate) struct SegmentMerger<'a, D1, D2, CR>
 where
-  D1: Directory,
-  D2: Directory,
   CR: CodecReader,
 {
   directory: &'a D2,

@@ -117,7 +117,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let segment = &si.name;
     let num_docs = si.max_doc()?;

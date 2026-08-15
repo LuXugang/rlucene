@@ -31,11 +31,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::math_util::MathUtil;
 
 pub(crate) const INNER_WINDOW_SIZE: i32 = 1 << 12;
-pub struct MaxScoreBulkScorer<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+pub struct MaxScoreBulkScorer<S1, S2> {
   max_doc: i32,
   all_scorers: Vec<DisiWrapper<S1>>,
   // All scorers, sorted by increasing max score.

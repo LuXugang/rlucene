@@ -60,7 +60,9 @@ where
       collectors,
     })
   }
+}
 
+impl<C> MultiCollector<C> {
   /// Provides access to the wrapped [`Collector`]s for advanced use-cases.
   pub fn get_collectors(&self) -> &[C] {
     &self.collectors
@@ -370,7 +372,7 @@ where
 
 pub struct MinCompetitiveScoreAwareScorable<'a, S>
 where
-  S: Scorable + ?Sized,
+  S: ?Sized,
 {
   in_: &'a mut S,
   idx: usize,
@@ -379,7 +381,7 @@ where
 
 impl<'a, S> MinCompetitiveScoreAwareScorable<'a, S>
 where
-  S: Scorable + ?Sized,
+  S: ?Sized,
 {
   pub fn new(in_: &'a mut S, idx: usize, min_scores: &'a mut [f32]) -> Self {
     Self {
@@ -432,4 +434,4 @@ where
   }
 }
 
-impl<S> FixedScore for MinCompetitiveScoreAwareScorable<'_, S> where S: Scorable + ?Sized {}
+impl<S> FixedScore for MinCompetitiveScoreAwareScorable<'_, S> where S: ?Sized {}

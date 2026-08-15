@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
+use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
@@ -648,19 +648,13 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
   }
 }
 
-pub struct PostingsAndFreq<IE>
-where
-  IE: ImpactsEnum,
-{
+pub struct PostingsAndFreq<IE> {
   pub(crate) postings: IE,
   pub(crate) position: i32,
   pub(crate) terms: Option<Vec<Term>>,
   pub(crate) n_terms: usize, // for faster comparisons
 }
-impl<IE> PostingsAndFreq<IE>
-where
-  IE: ImpactsEnum,
-{
+impl<IE> PostingsAndFreq<IE> {
   pub fn new(postings: IE, position: i32, terms: &[Term]) -> Self {
     let n_terms = terms.len();
 
@@ -682,10 +676,7 @@ where
     }
   }
 }
-impl<IE> Ord for PostingsAndFreq<IE>
-where
-  IE: ImpactsEnum,
-{
+impl<IE> Ord for PostingsAndFreq<IE> {
   fn cmp(&self, other: &Self) -> Ordering {
     match self.position.cmp(&other.position) {
       Ordering::Equal => {},
@@ -715,18 +706,12 @@ where
   }
 }
 
-impl<IE> PartialOrd for PostingsAndFreq<IE>
-where
-  IE: ImpactsEnum,
-{
+impl<IE> PartialOrd for PostingsAndFreq<IE> {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     Some(self.cmp(other))
   }
 }
-impl<IE> PartialEq for PostingsAndFreq<IE>
-where
-  IE: ImpactsEnum,
-{
+impl<IE> PartialEq for PostingsAndFreq<IE> {
   fn eq(&self, other: &Self) -> bool {
     if self.position != other.position {
       return false;
@@ -740,7 +725,7 @@ where
   }
 }
 
-impl<IE> Eq for PostingsAndFreq<IE> where IE: ImpactsEnum {}
+impl<IE> Eq for PostingsAndFreq<IE> {}
 
 impl crate::core::util::accountable::Accountable for PhraseQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {

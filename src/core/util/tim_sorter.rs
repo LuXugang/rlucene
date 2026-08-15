@@ -43,10 +43,7 @@ const MIN_GALLOP: usize = 7;
 ///
 /// # Note
 /// This is an internal API.
-pub struct TimSorter<T>
-where
-  T: TimSorterBase,
-{
+pub struct TimSorter<T> {
   max_temp_slots: usize,
   min_run: usize,
   to: usize,

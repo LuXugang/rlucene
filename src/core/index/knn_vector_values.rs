@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::byte_vector_values::ByteVectorValues;
-use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -128,18 +126,12 @@ where
     (**self).iterator()
   }
 }
-pub struct BitsImpl1<B>
-where
-  B: Bits,
-{
+pub struct BitsImpl1<B> {
   accept_docs: B,
   id: Identity,
   length: usize,
 }
-impl<B> BitsImpl1<B>
-where
-  B: Bits,
-{
+impl<B> BitsImpl1<B> {
   pub(crate) fn new(accept_docs: B, length: usize) -> Self {
     Self {
       accept_docs,
@@ -149,10 +141,7 @@ where
   }
 }
 
-impl<B> HasIdentity for BitsImpl1<B>
-where
-  B: Bits,
-{
+impl<B> HasIdentity for BitsImpl1<B> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -171,21 +160,13 @@ where
   }
 }
 
-pub(crate) struct BitsImpl<B, T>
-where
-  B: Bits,
-  T: OrdToDoc,
-{
+pub(crate) struct BitsImpl<B, T> {
   accept_docs: B,
   size: usize,
   map: T,
   id: Identity,
 }
-impl<B, T> BitsImpl<B, T>
-where
-  B: Bits,
-  T: OrdToDoc,
-{
+impl<B, T> BitsImpl<B, T> {
   pub(crate) fn new(accept_docs: B, size: usize, map: T) -> Self {
     Self {
       accept_docs,
@@ -196,11 +177,7 @@ where
   }
 }
 
-impl<B, T> HasIdentity for BitsImpl<B, T>
-where
-  B: Bits,
-  T: OrdToDoc,
-{
+impl<B, T> HasIdentity for BitsImpl<B, T> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -237,7 +214,7 @@ macro_rules! either_doc_index_iterator_named {
 
         impl<$( $T ),+> $crate::core::search::doc_id_set_iterator::DocIdSetIterator for $name<$( $T ),+>
         where
-            $( $T: $crate::core::index::knn_vector_values::DocIndexIterator ),+
+            $( $T: $crate::core::search::doc_id_set_iterator::DocIdSetIterator ),+
         {
             fn doc_id(&self) -> i32 {
                 match self {
@@ -334,10 +311,7 @@ pub(crate) struct DocIndexIteratorImpl2<D> {
   docs_with_field: D,
 }
 
-impl<D> DocIndexIteratorImpl2<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> DocIndexIteratorImpl2<D> {
   pub(crate) fn new(docs_with_field: D) -> Self {
     Self {
       ord: -1,
@@ -380,19 +354,13 @@ where
   }
 }
 
-pub(crate) struct SparseDocIndexIterator<T>
-where
-  T: OrdToDoc,
-{
+pub(crate) struct SparseDocIndexIterator<T> {
   ord: i32,
   size: usize,
   map: T,
 }
 
-impl<T> SparseDocIndexIterator<T>
-where
-  T: OrdToDoc,
-{
+impl<T> SparseDocIndexIterator<T> {
   pub(crate) fn new(size: usize, ord_to_doc: T) -> Self {
     Self {
       ord: -1,
@@ -468,11 +436,7 @@ where
 {
   SparseDocIndexIterator::new(size, map)
 }
-pub enum KnnVectorValuesType<B, F>
-where
-  B: ByteVectorValues,
-  F: FloatVectorValues,
-{
+pub enum KnnVectorValuesType<B, F> {
   Byte(B),
   Float(F),
 }

@@ -110,10 +110,7 @@ where
   }
 }
 
-impl<P> crate::core::util::close::Closeable for ByteSliceReader<P> where
-  P: Deref<Target = ByteBlockPool>
-{
-}
+impl<P> crate::core::util::close::Closeable for ByteSliceReader<P> {}
 
 impl<P> DataInput for ByteSliceReader<P>
 where

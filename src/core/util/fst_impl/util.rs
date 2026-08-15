@@ -571,10 +571,7 @@ impl Util {
   }
 }
 /// Represents a path in TopNSearcher.
-pub struct FSTPath<T>
-where
-  T: OutputsBound,
-{
+pub struct FSTPath<T> {
   /// Holds the last arc appended to this path
   pub arc: Arc<T>,
   /// Holds cost plus any usage-specific output:
@@ -589,7 +586,7 @@ where
 
 impl<T> FSTPath<T>
 where
-  T: OutputsBound,
+  T: Clone + Default,
 {
   pub fn new<V>(
     output: T,
@@ -613,6 +610,12 @@ where
       payload,
     }
   }
+}
+
+impl<T> FSTPath<T>
+where
+  T: Clone,
+{
   pub fn new_path(&self, output: T, input: IntsRefBuilder<Vec<i32>>) -> Self {
     FSTPath {
       arc: self.arc.clone(),
@@ -626,7 +629,7 @@ where
 }
 impl<T> Display for FSTPath<T>
 where
-  T: OutputsBound,
+  T: Display,
 {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(
@@ -975,28 +978,19 @@ where
 }
 
 /// Holds a single input (IntsRef) + output, returned by shortest_paths.
-pub struct TopResult<T>
-where
-  T: OutputsBound,
-{
+pub struct TopResult<T> {
   pub input: IntsRef<Vec<i32>>,
   pub output: T,
 }
 
-impl<T> TopResult<T>
-where
-  T: OutputsBound,
-{
+impl<T> TopResult<T> {
   pub fn new(input: IntsRef<Vec<i32>>, output: T) -> Self {
     Self { input, output }
   }
 }
 
 /// Holds the results for a top N search using TopNSearcher.
-pub struct TopResults<T>
-where
-  T: OutputsBound,
-{
+pub struct TopResults<T> {
   /// `true` iff this is a complete result ie. if the specified queue size was large enough to find
   /// the complete list of results. This might be `false` if the `TopNSearcher` rejected too many
   /// results.
@@ -1005,19 +999,13 @@ where
   pub top_n: Vec<TopResult<T>>,
 }
 
-impl<T> TopResults<T>
-where
-  T: OutputsBound,
-{
+impl<T> TopResults<T> {
   fn new(is_complete: bool, top_n: Vec<TopResult<T>>) -> Self {
     Self { is_complete, top_n }
   }
 }
 
-impl<T> IntoIterator for TopResults<T>
-where
-  T: OutputsBound,
-{
+impl<T> IntoIterator for TopResults<T> {
   type Item = TopResult<T>;
   type IntoIter = std::vec::IntoIter<TopResult<T>>;
 

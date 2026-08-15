@@ -34,8 +34,6 @@ use crate::core::util::{SliceCopyOps, TryIntoInt};
 #[derive(Default)]
 pub struct ByteArrayDataInput<B>
 // TODO: 这里可以考虑改成引用bytes或者所有权
-where
-  B: ByteSource,
 {
   pub(crate) bytes: B,
   pos: usize,
@@ -43,21 +41,30 @@ where
 }
 impl<B> ByteArrayDataInput<B>
 where
-  B: ByteSource,
+  B: Default,
 {
   pub fn new() -> Self {
     Self::default()
   }
 
-  pub fn with_bytes(bytes: B) -> Self {
-    let len = bytes.as_slice().len();
-    Self::with_range(bytes, 0, len)
-  }
   pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
     let mut data_input = Self::new();
     data_input.reset_with_range(bytes, offset, length);
     data_input
   }
+}
+
+impl<B> ByteArrayDataInput<B>
+where
+  B: ByteSource,
+{
+  pub fn with_bytes(bytes: B) -> Self {
+    let len = bytes.as_slice().len();
+    Self::with_range(bytes, 0, len)
+  }
+}
+
+impl<B> ByteArrayDataInput<B> {
   pub fn reset_meta(&mut self, offset: usize, length: usize) {
     self.pos = offset;
     self.limit = offset + length;
@@ -85,22 +92,16 @@ where
   pub fn eof(&self) -> bool {
     self.pos == self.limit
   }
-  fn type_name(&self) -> &'static str {
-    type_name::<Self>()
-  }
 }
 
-impl<B> Display for ByteArrayDataInput<B>
-where
-  B: ByteSource,
-{
+impl<B> Display for ByteArrayDataInput<B> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     let address = self as *const Self as usize;
-    write!(f, "{}@{:x}", self.type_name(), address)
+    write!(f, "{}@{:x}", type_name::<Self>(), address)
   }
 }
 
-impl<B> crate::core::util::close::Closeable for ByteArrayDataInput<B> where B: ByteSource {}
+impl<B> crate::core::util::close::Closeable for ByteArrayDataInput<B> {}
 
 impl<B> DataInput for ByteArrayDataInput<B>
 where

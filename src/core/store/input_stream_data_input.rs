@@ -22,17 +22,17 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// A [`DataInput`] wrapping a plain [`Read`] and [`Seek`].
-pub struct InputStreamDataInput<R: Read + Seek> {
+pub struct InputStreamDataInput<R> {
   is: R,
 }
 
-impl<R: Read + Seek> InputStreamDataInput<R> {
+impl<R> InputStreamDataInput<R> {
   pub fn new(is: R) -> Self {
     Self { is }
   }
 }
 
-impl<R: Read + Seek> crate::core::util::close::Closeable for InputStreamDataInput<R> {}
+impl<R> crate::core::util::close::Closeable for InputStreamDataInput<R> {}
 
 impl<R: Read + Seek> DataInput for InputStreamDataInput<R> {
   fn read_byte(&mut self) -> Result<u8> {
@@ -78,7 +78,7 @@ impl<R: Read + Seek> DataInput for InputStreamDataInput<R> {
   }
 }
 
-impl<R: Read + Seek> Display for InputStreamDataInput<R> {
+impl<R> Display for InputStreamDataInput<R> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }

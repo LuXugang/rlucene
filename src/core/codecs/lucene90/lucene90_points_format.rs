@@ -68,7 +68,6 @@ impl PointsFormat for Lucene90PointsFormat {
   ) -> Result<Self::PointsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90PointsWriter::with_default_config(state, info)
   }
@@ -82,7 +81,6 @@ impl PointsFormat for Lucene90PointsFormat {
   ) -> Result<Self::PointsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90PointsReader::new(state, info)
   }

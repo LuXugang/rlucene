@@ -29,10 +29,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 
 /// Default implementation of [`CharTermAttribute`].
-pub struct CharTermAttributeImpl<T>
-where
-  T: AttributeImpl + CharTermAttributeImplBase,
-{
+pub struct CharTermAttributeImpl<T> {
   term_buffer: Vec<char>,
   term_length: usize,
   /// Implementations may use this to convert to other character sets or encodings when implementing [`get_bytes_ref`](Self::get_bytes_ref).

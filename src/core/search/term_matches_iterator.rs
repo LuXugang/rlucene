@@ -21,10 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 /// A [`MatchesIterator`] over a single term's postings list
-pub(crate) struct TermMatchesIterator<PE>
-where
-  PE: PostingsEnum,
-{
+pub(crate) struct TermMatchesIterator<PE> {
   upto: i32,
   pos: i32,
   pe: PE,

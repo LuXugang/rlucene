@@ -62,10 +62,7 @@ pub(crate) const BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD: usize = 16;
 #[allow(dead_code)]
 pub struct AbstractMultiTermQueryConstantScoreWrapper {}
 
-pub struct RewritingWeight<Q>
-where
-  Q: MultiTermQuery,
-{
+pub struct RewritingWeight<Q> {
   score_mode: ScoreMode,
   q: Q,
   base: ConstantScoreWeight,
@@ -322,11 +319,7 @@ impl_from_for_enum!(
     BlendedRewritingWeight => Blended,
     StandardRewritingWeight => Standard,
 );
-pub struct ScorerSupplierImpl<T, TE>
-where
-  T: Terms,
-  TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
-{
+pub struct ScorerSupplierImpl<T, TE> {
   cost: i64,
   score_mode: ScoreMode,
   terms: T,
@@ -337,11 +330,7 @@ where
   field: String,
   sub: RewritingWeightBaseEnum,
 }
-impl<T, TE> ScorerSupplierImpl<T, TE>
-where
-  T: Terms,
-  TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
-{
+impl<T, TE> ScorerSupplierImpl<T, TE> {
   #[allow(clippy::too_many_arguments)]
   fn new(
     cost: i64,
@@ -606,7 +595,6 @@ impl TermAndState {
 pub(crate) struct WeightOrDocIdSetIterator<IRC, D>
 where
   IRC: IndexReaderContext,
-  D: DocIdSetIterator,
 {
   pub(crate) weight: Option<QueryWeight<IRC>>,
   pub(crate) iterator: Option<D>,

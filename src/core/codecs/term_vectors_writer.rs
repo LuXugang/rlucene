@@ -29,7 +29,6 @@ use crate::core::index::{BytesRef, BytesRefBuilder, DocIDMerger, Sub, SubBase, o
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
-use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::Closeable;
@@ -37,20 +36,14 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::IteratorExt;
 use std::rc::Rc;
 
-struct TermVectorsMergeSub<DM>
-where
-  DM: DocMap,
-{
+struct TermVectorsMergeSub<DM> {
   reader_index: usize,
   max_doc: i32,
   doc_id: i32,
   doc_map: Rc<DM>,
 }
 
-impl<DM> TermVectorsMergeSub<DM>
-where
-  DM: DocMap,
-{
+impl<DM> TermVectorsMergeSub<DM> {
   fn new(doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
     Self {
       reader_index,
@@ -149,7 +142,6 @@ pub trait TermVectorsWriter: Accountable + Closeable {
   /// more sophisticated merging (bulk-byte copying, etc).
   fn merge<D, CR>(&mut self, merge_state: &mut MergeState<D, CR>) -> Result<i32>
   where
-    D: Directory,
     CR: CodecReader,
     Self: Sized,
   {
@@ -340,7 +332,6 @@ impl TermVectorsWriterDefaults {
   pub fn merge<W, D, CR>(writer: &mut W, merge_state: &mut MergeState<D, CR>) -> Result<i32>
   where
     W: TermVectorsWriter,
-    D: Directory,
     CR: CodecReader,
   {
     let mut subs = Vec::with_capacity(merge_state.term_vectors_readers.len());
@@ -385,8 +376,8 @@ pub enum TermVectorsWriterEnum2<A, B> {
 
 impl<A, B> Closeable for TermVectorsWriterEnum2<A, B>
 where
-  A: TermVectorsWriter,
-  B: TermVectorsWriter,
+  A: Closeable,
+  B: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     match self {
@@ -398,8 +389,8 @@ where
 
 impl<A, B> Accountable for TermVectorsWriterEnum2<A, B>
 where
-  A: TermVectorsWriter,
-  B: TermVectorsWriter,
+  A: Accountable,
+  B: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     match self {
@@ -497,7 +488,6 @@ where
 
   fn merge<D, CR>(&mut self, merge_state: &mut MergeState<D, CR>) -> Result<i32>
   where
-    D: Directory,
     CR: CodecReader,
   {
     match self {

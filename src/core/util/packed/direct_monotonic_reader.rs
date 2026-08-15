@@ -27,10 +27,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 ///
 /// # See also
 /// `DirectMonotonicWriter`
-pub struct DirectMonotonicReader<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectMonotonicReader<R> {
   block_shift: i32,
   block_mask: usize,
   readers: Vec<DirectPackedEnum<R>>,
@@ -40,10 +37,7 @@ where
   slice: R,
 }
 
-impl<R> DirectMonotonicReader<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectMonotonicReader<R> {
   pub(crate) fn new(
     block_shift: i32,
     readers: Vec<DirectPackedEnum<R>>,
@@ -69,7 +63,12 @@ where
       slice,
     })
   }
+}
 
+impl<R> DirectMonotonicReader<R>
+where
+  R: RandomAccessInput,
+{
   /// Get lower/upper bounds for the value at a given index without hitting
   /// the direct reader.
   fn get_bounds(&self, index: usize) -> Result<[i64; 2]> {

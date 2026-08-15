@@ -22,10 +22,7 @@ use crate::core::util::{Comparator, SliceCopyOps, Sorter, TimSorter, TimSorterBa
 ///
 /// # Note
 /// This is an internal API.
-pub struct ArrayTimSorter<'a, T, C: Comparator<T>>
-where
-  T: Copy,
-{
+pub struct ArrayTimSorter<'a, T, C> {
   arr: &'a mut [T],
   tmp: Vec<T>,
   comparator: C,

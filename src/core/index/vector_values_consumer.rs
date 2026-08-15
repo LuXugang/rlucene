@@ -57,10 +57,7 @@ where
       context: IOContext::default_io_context()?,
     })
   }
-  fn init_knn_vectors_writer<D2>(&mut self, segment_info: &SegmentInfo<D2>) -> Result<()>
-  where
-    D2: Directory,
-  {
+  fn init_knn_vectors_writer<D2>(&mut self, segment_info: &SegmentInfo<D2>) -> Result<()> {
     if self.writer.is_none() {
       let fmt = self.codec.knn_vectors_format()?;
       let initial_write_state = SegmentWriteState::new(
@@ -77,10 +74,7 @@ where
     &mut self,
     field_info: Arc<FieldInfo>,
     segment_info: &SegmentInfo<D2>,
-  ) -> Result<usize>
-  where
-    D2: Directory,
-  {
+  ) -> Result<usize> {
     self.init_knn_vectors_writer(segment_info)?;
     let write_state = SegmentWriteState::new(
       self.info_stream.clone(),
@@ -100,7 +94,6 @@ where
     sort_map: Option<&DM>,
   ) -> Result<()>
   where
-    D2: Directory,
     DM: DocMap,
   {
     if let Some(writer) = self.writer.as_mut() {

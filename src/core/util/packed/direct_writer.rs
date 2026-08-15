@@ -30,10 +30,7 @@ use crate::core::util::packed::{FormatBehavior, PackedImpl, PackedInts};
 ///
 ///
 /// See also: [`DirectReader`](crate::core::util::packed::direct_reader::DirectReader)
-pub struct DirectWriter<'a, D>
-where
-  D: DataOutput,
-{
+pub struct DirectWriter<'a, D> {
   bits_per_value: i32,
   num_values: i64,
   output: &'a mut D,

@@ -28,10 +28,7 @@ use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
 
-pub struct ConjunctionDISI<D>
-where
-  D: DocIdSetIterator,
-{
+pub struct ConjunctionDISI<D> {
   lead1: usize,
   lead2: usize,
   others: Vec<usize>,
@@ -163,16 +160,10 @@ where
     self.all_disi[self.lead1].cost()
   }
 }
-struct DisiCmp<'a, D>
-where
-  D: DocIdSetIterator,
-{
+struct DisiCmp<'a, D> {
   disi: &'a [D],
 }
-impl<'a, D> DisiCmp<'a, D>
-where
-  D: DocIdSetIterator,
-{
+impl<'a, D> DisiCmp<'a, D> {
   fn new(disi: &'a [D]) -> Self {
     DisiCmp { disi }
   }
@@ -190,11 +181,7 @@ where
   }
 }
 /// Conjunction between a [`DocIdSetIterator`] and one or more BitSetIterators.
-pub struct BitSetConjunctionDISI<DISI, T>
-where
-  DISI: DocIdSetIterator,
-  T: BitSet,
-{
+pub struct BitSetConjunctionDISI<DISI, T> {
   lead: DISI,
   bit_set_iterators: Vec<BitSetIterator<T>>,
   min_length: usize,
@@ -296,16 +283,10 @@ where
     self.lead.cost()
   }
 }
-struct BitSetIteratorCmp<'a, B>
-where
-  B: BitSet,
-{
+struct BitSetIteratorCmp<'a, B> {
   disi: &'a [Option<BitSetIterator<B>>],
 }
-impl<'a, B> BitSetIteratorCmp<'a, B>
-where
-  B: BitSet,
-{
+impl<'a, B> BitSetIteratorCmp<'a, B> {
   fn new(disi: &'a [Option<BitSetIterator<B>>]) -> Self {
     BitSetIteratorCmp { disi }
   }
@@ -328,10 +309,7 @@ where
   }
 }
 /// [`TwoPhaseIterator`] implementing a conjunction.
-pub struct ConjunctionTwoPhaseIterator<S>
-where
-  S: Scorer,
-{
+pub struct ConjunctionTwoPhaseIterator<S> {
   two_phase_iterator_idx: Vec<usize>,
   pub(crate) approximation: ConjunctionDISI<ScorerDisi<S>>,
   match_cost: f32,
@@ -411,16 +389,10 @@ where
     self.match_cost
   }
 }
-struct TwoPhaseIteratorCmp<'a, T>
-where
-  T: TwoPhaseIterator,
-{
+struct TwoPhaseIteratorCmp<'a, T> {
   tpis: &'a [Option<T>],
 }
-impl<'a, T> TwoPhaseIteratorCmp<'a, T>
-where
-  T: TwoPhaseIterator,
-{
+impl<'a, T> TwoPhaseIteratorCmp<'a, T> {
   fn new(tpis: &'a [Option<T>]) -> Self {
     TwoPhaseIteratorCmp { tpis }
   }
@@ -446,16 +418,10 @@ where
   }
 }
 
-pub struct VectorScorerDisi<V>
-where
-  V: VectorScorer,
-{
+pub struct VectorScorerDisi<V> {
   vector_scorer: V,
 }
-impl<V> VectorScorerDisi<V>
-where
-  V: VectorScorer,
-{
+impl<V> VectorScorerDisi<V> {
   pub fn new(vector_scorer: V) -> Self {
     Self { vector_scorer }
   }
@@ -511,16 +477,10 @@ where
   }
 }
 
-pub struct ScorerDisi<S>
-where
-  S: Scorer,
-{
+pub struct ScorerDisi<S> {
   scorer: S,
 }
-impl<S> ScorerDisi<S>
-where
-  S: Scorer,
-{
+impl<S> ScorerDisi<S> {
   pub fn new(scorer: S) -> Self {
     Self { scorer }
   }
@@ -575,7 +535,7 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for ScorerDisi<S> where S: Scorer {}
+impl<S> crate::core::search::scorable::FixedScore for ScorerDisi<S> {}
 
 impl<S> Scorer for ScorerDisi<S>
 where

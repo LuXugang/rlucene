@@ -23,27 +23,18 @@ use crate::core::util::fst_impl::fst::BytesReader;
 use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Implements reverse read from a RandomAccessInput.
-pub struct ReverseRandomAccessReader<R>
-where
-  R: RandomAccessInput,
-{
+pub struct ReverseRandomAccessReader<R> {
   input: R,
   pos: i64,
 }
 
-impl<R> ReverseRandomAccessReader<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> ReverseRandomAccessReader<R> {
   pub fn new(input: R) -> Self {
     Self { input, pos: 0 }
   }
 }
 
-impl<R> crate::core::util::close::Closeable for ReverseRandomAccessReader<R> where
-  R: RandomAccessInput
-{
-}
+impl<R> crate::core::util::close::Closeable for ReverseRandomAccessReader<R> {}
 
 impl<R> DataInput for ReverseRandomAccessReader<R>
 where
@@ -92,10 +83,7 @@ where
   }
 }
 
-impl<R> Display for ReverseRandomAccessReader<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> Display for ReverseRandomAccessReader<R> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }

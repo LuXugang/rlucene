@@ -345,10 +345,7 @@ where
 }
 
 // Single instance of this per ParallelLeafReader term-vectors instance.
-pub struct ParallelFields<T>
-where
-  T: Terms,
-{
+pub struct ParallelFields<T> {
   fields: BTreeMap<String, Arc<T>>,
   field_names: Vec<String>,
 }
@@ -395,10 +392,7 @@ where
   }
 }
 
-pub struct ParallelStoredFields<S>
-where
-  S: StoredFields,
-{
+pub struct ParallelStoredFields<S> {
   fields: Vec<S>,
 }
 
@@ -445,10 +439,7 @@ where
   type IndexInput = DummyIndexInput;
 }
 
-pub struct ParallelTermVectors<TV>
-where
-  TV: TermVectors,
-{
+pub struct ParallelTermVectors<TV> {
   reader_to_term_vectors: Vec<Option<TV>>,
   tv_field_to_reader: BTreeMap<String, usize>,
 }

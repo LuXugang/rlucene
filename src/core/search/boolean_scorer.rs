@@ -38,10 +38,7 @@ pub(crate) const SET_MASK: usize = SET_SIZE - 1;
 /// `MinimumNumberShouldMatch` and dense clauses.
 ///
 /// This scorer scores documents by batches of **4,096 docs**.
-pub struct BooleanScorer<S>
-where
-  S: Scorer,
-{
+pub struct BooleanScorer<S> {
   // One bucket per doc ID in the window, present if scores are needed or if frequencies need to be
   // counted
   pub(crate) buckets: Option<Vec<Bucket>>,
@@ -452,10 +449,7 @@ where
   }
 }
 
-struct DocIdStreamView<'a, S>
-where
-  S: Scorer,
-{
+struct DocIdStreamView<'a, S> {
   scorer: &'a mut BooleanScorer<S>,
   base: i32,
 }

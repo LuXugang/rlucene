@@ -132,8 +132,8 @@ macro_rules! either_normsproducer {
 
         impl<$A, $B> CloseableRef for $name<$A, $B>
         where
-            $A: NormsProducer,
-            $B: NormsProducer,
+            $A: CloseableRef,
+            $B: CloseableRef,
         {
             fn close(&self) -> Result<()> {
                 match self {

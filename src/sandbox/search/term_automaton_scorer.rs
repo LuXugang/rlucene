@@ -27,12 +27,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
 // TODO: add two-phase and needsScores support. maybe use conjunctionDISI internally?
-pub(crate) struct TermAutomatonScorer<PE, SS, N>
-where
-  PE: PostingsEnum,
-  SS: SimScorer,
-  N: NumericDocValues,
-{
+pub(crate) struct TermAutomatonScorer<PE, SS, N> {
   // The original EnumAndScorer values used to create this scorer. The matching queues refer to
   // these values by index; direct access is only exposed for explain purposes.
   subs: Vec<EnumAndScorer<PE>>,
@@ -59,10 +54,7 @@ where
   freq: i32,
 }
 
-pub(crate) struct EnumAndScorer<PE>
-where
-  PE: PostingsEnum,
-{
+pub(crate) struct EnumAndScorer<PE> {
   pub(crate) term_id: i32,
   pub(crate) pos_enum: PE,
 
@@ -73,10 +65,7 @@ where
   pos: i32,
 }
 
-impl<PE> EnumAndScorer<PE>
-where
-  PE: PostingsEnum,
-{
+impl<PE> EnumAndScorer<PE> {
   pub(crate) fn new(term_id: i32, pos_enum: PE) -> Self {
     Self {
       term_id,
@@ -391,13 +380,7 @@ where
   }
 }
 
-impl<PE, SS, N> FixedScore for TermAutomatonScorer<PE, SS, N>
-where
-  PE: PostingsEnum + 'static,
-  SS: SimScorer + 'static,
-  N: NumericDocValues + 'static,
-{
-}
+impl<PE, SS, N> FixedScore for TermAutomatonScorer<PE, SS, N> {}
 
 impl<PE, SS, N> Scorer for TermAutomatonScorer<PE, SS, N>
 where

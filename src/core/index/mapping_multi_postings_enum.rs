@@ -26,11 +26,7 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 /// Exposes flex API, merged from flex API of sub-segments, remapping docIDs (this is used for segment merging).
-pub struct MappingMultiPostingsEnum<PE, DM>
-where
-  PE: PostingsEnum,
-  DM: DocMap,
-{
+pub struct MappingMultiPostingsEnum<PE, DM> {
   // for easy taken
   multi_docs_and_positions_enum: Option<MultiPostingsEnum<PE>>,
   pub(crate) field: String,
@@ -223,19 +219,11 @@ where
       .get_payload()
   }
 }
-pub(crate) struct MappingPostingsSub<PE, DM>
-where
-  PE: PostingsEnum,
-  DM: DocMap,
-{
+pub(crate) struct MappingPostingsSub<PE, DM> {
   postings: Option<PE>,
   doc_map: Rc<DM>,
 }
-impl<PE, DM> MappingPostingsSub<PE, DM>
-where
-  PE: PostingsEnum,
-  DM: DocMap,
-{
+impl<PE, DM> MappingPostingsSub<PE, DM> {
   fn new(doc_map: Rc<DM>) -> Self {
     Self {
       postings: None,

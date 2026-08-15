@@ -21,18 +21,10 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Wrapper around a [`TwoPhaseIterator`] used by doc-values range queries to
 /// accelerate matching by leveraging a [`DocValuesSkipper`].
-pub struct DocValuesRangeIterator<TPI, DVS>
-where
-  TPI: TwoPhaseIterator,
-  DVS: DocValuesSkipper,
-{
+pub struct DocValuesRangeIterator<TPI, DVS> {
   pub(crate) approximation: Approximation<TPI, DVS>,
 }
-impl<TPI, DVS> DocValuesRangeIterator<TPI, DVS>
-where
-  TPI: TwoPhaseIterator,
-  DVS: DocValuesSkipper,
-{
+impl<TPI, DVS> DocValuesRangeIterator<TPI, DVS> {
   pub fn new(
     inner_approximation: TPI,
     skipper: DVS,
@@ -91,11 +83,7 @@ pub enum Match {
   /// All documents in this range match unconditionally.
   YES,
 }
-pub struct Approximation<TPI, DVS>
-where
-  TPI: TwoPhaseIterator,
-  DVS: DocValuesSkipper,
-{
+pub struct Approximation<TPI, DVS> {
   pub(crate) inner_approximation: TPI,
   skipper: DVS,
   lower_value: i64,
@@ -105,11 +93,7 @@ where
   pub(crate) upto: i32,
   sub: ApproximationBaseEnum,
 }
-impl<TPI, DVS> Approximation<TPI, DVS>
-where
-  TPI: TwoPhaseIterator,
-  DVS: DocValuesSkipper,
-{
+impl<TPI, DVS> Approximation<TPI, DVS> {
   pub(crate) fn new(
     inner_approximation: TPI,
     skipper: DVS,

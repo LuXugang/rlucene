@@ -525,7 +525,7 @@ macro_rules! either_directory {
 
         impl<$( $T ),+> Display for $name<$( $T ),+>
         where
-            $( $T: Directory ),+
+            $( $T: Display ),+
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                 match self {
@@ -535,7 +535,7 @@ macro_rules! either_directory {
         }
         impl<$( $T ),+> HasIdentity for $name<$( $T ),+>
         where
-            $( $T: Directory ),+
+            $( $T: HasIdentity ),+
         {
             fn identity(&self) -> &Identity {
                 match self {
@@ -669,7 +669,7 @@ macro_rules! either_directory {
 
         impl<$( $T ),+> CloseableRef for $name<$( $T ),+>
         where
-            $( $T: Directory ),+
+            $( $T: CloseableRef ),+
         {
             fn close(&self) -> Result<()> {
                 match self {

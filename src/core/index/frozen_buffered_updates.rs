@@ -784,16 +784,10 @@ pub(crate) trait TermsProvider {
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>>;
 }
 
-pub(crate) struct TermsProviderImpl1<'a, F>
-where
-  F: Fields,
-{
+pub(crate) struct TermsProviderImpl1<'a, F> {
   pub(crate) fields: &'a F,
 }
-impl<'a, F> TermsProviderImpl1<'a, F>
-where
-  F: Fields,
-{
+impl<'a, F> TermsProviderImpl1<'a, F> {
   pub(crate) fn new(fields: &'a F) -> Self {
     Self { fields }
   }
@@ -809,16 +803,10 @@ where
   }
 }
 
-pub struct TermsProviderImpl2<'a, L>
-where
-  L: LeafReader,
-{
+pub struct TermsProviderImpl2<'a, L> {
   reader: &'a L,
 }
-impl<'a, L> TermsProviderImpl2<'a, L>
-where
-  L: LeafReader,
-{
+impl<'a, L> TermsProviderImpl2<'a, L> {
   pub(crate) fn new(reader: &'a L) -> Self {
     Self { reader }
   }

@@ -58,11 +58,7 @@ use std::sync::Arc;
 
 /// Read the quantized vector values and their score correction values from the index input. This
 /// supports both iterated and random access.
-struct OffHeapQuantizedByteVectorValues<I, F>
-where
-  I: IndexInput,
-  F: FlatVectorsScorer,
-{
+struct OffHeapQuantizedByteVectorValues<I, F> {
   dimension: usize,
   size: usize,
   num_bytes: usize,
@@ -81,11 +77,7 @@ struct Inner<I> {
   score_correction_constant: [f32; 1],
 }
 
-impl<I, F> OffHeapQuantizedByteVectorValues<I, F>
-where
-  I: IndexInput,
-  F: FlatVectorsScorer,
-{
+impl<I, F> OffHeapQuantizedByteVectorValues<I, F> {
   fn new(
     dimension: usize,
     size: usize,
@@ -119,7 +111,12 @@ where
       inner,
     }
   }
+}
 
+impl<I, F> OffHeapQuantizedByteVectorValues<I, F>
+where
+  I: IndexInput,
+{
   fn read_value(&self, target_ord: usize, inner: &mut Inner<I>) -> Result<()> {
     let pos = target_ord
       .checked_mul(self.byte_size)
@@ -160,7 +157,6 @@ where
 impl<I, F> HasIndexSlice for OffHeapQuantizedByteVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer,
 {
   fn seek(&self, pos: usize) -> Result<()> {
     self.inner.lock().slice.seek(pos)
@@ -174,7 +170,6 @@ where
 impl<I, F> KnnVectorValues for OffHeapQuantizedByteVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer,
 {
   fn dimension(&self) -> usize {
     self.dimension
@@ -217,7 +212,6 @@ where
 impl<I, F> ByteVectorValues for OffHeapQuantizedByteVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer,
 {
   fn vector_value(&self, target_ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     let mut inner = self.inner.lock();
@@ -284,19 +278,11 @@ pub(crate) fn compress_bytes(raw: &[u8], compressed: &mut [u8]) -> Result<()> {
 
 /// Dense vector values that are stored off-heap. This is the most common case when every doc has a
 /// vector.
-pub struct DenseOffHeapVectorValues<I, F>
-where
-  I: IndexInput,
-  F: FlatVectorsScorer,
-{
+pub struct DenseOffHeapVectorValues<I, F> {
   base: OffHeapQuantizedByteVectorValues<I, F>,
 }
 
-impl<I, F> DenseOffHeapVectorValues<I, F>
-where
-  I: IndexInput,
-  F: FlatVectorsScorer,
-{
+impl<I, F> DenseOffHeapVectorValues<I, F> {
   pub fn new(
     dimension: usize,
     size: usize,
@@ -345,7 +331,6 @@ where
 impl<I, F> HasIndexSlice for DenseOffHeapVectorValues<I, F>
 where
   I: IndexInput,
-  F: FlatVectorsScorer,
 {
   fn seek(&self, pos: usize) -> Result<()> {
     self.base.seek(pos)
@@ -456,18 +441,12 @@ where
   }
 }
 
-pub struct DenseVectorScorer<R>
-where
-  R: RandomVectorScorer,
-{
+pub struct DenseVectorScorer<R> {
   iterator: DenseDocIndexIterator,
   random_vector_scorer: R,
 }
 
-impl<R> DenseVectorScorer<R>
-where
-  R: RandomVectorScorer,
-{
+impl<R> DenseVectorScorer<R> {
   fn new(iterator: DenseDocIndexIterator, random_vector_scorer: R) -> Self {
     Self {
       iterator,
@@ -506,8 +485,7 @@ where
 
 pub struct SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput + Clone,
-  F: FlatVectorsScorer,
+  I: IndexInput,
 {
   base: OffHeapQuantizedByteVectorValues<I::IndexInput, F>,
   ord_to_doc: Rc<RefCell<DirectMonotonicReader<I::RandomAccessSlice>>>,
@@ -519,7 +497,6 @@ where
 impl<I, F> SparseOffHeapVectorValues<I, F>
 where
   I: IndexInput + Clone,
-  F: FlatVectorsScorer,
 {
   #[allow(clippy::too_many_arguments)]
   pub fn new(
@@ -574,8 +551,7 @@ where
 
 impl<I, F> HasIndexSlice for SparseOffHeapVectorValues<I, F>
 where
-  I: IndexInput + Clone,
-  F: FlatVectorsScorer,
+  I: IndexInput,
 {
   fn seek(&self, pos: usize) -> Result<()> {
     self.base.seek(pos)
@@ -729,7 +705,6 @@ where
 pub struct SparseVectorScorer<I, R>
 where
   I: IndexInput,
-  R: RandomVectorScorer,
 {
   iterator: DocIndexIteratorImpl<I>,
   random_vector_scorer: R,
@@ -738,7 +713,6 @@ where
 impl<I, R> SparseVectorScorer<I, R>
 where
   I: IndexInput,
-  R: RandomVectorScorer,
 {
   fn new(iterator: DocIndexIteratorImpl<I>, random_vector_scorer: R) -> Self {
     Self {
@@ -777,22 +751,14 @@ where
   }
 }
 
-pub struct SparseBits<B, R>
-where
-  B: Bits,
-  R: RandomAccessInput,
-{
+pub struct SparseBits<B, R> {
   accept_docs: B,
   size: usize,
   map: Rc<RefCell<DirectMonotonicReader<R>>>,
   id: Identity,
 }
 
-impl<B, R> SparseBits<B, R>
-where
-  B: Bits,
-  R: RandomAccessInput,
-{
+impl<B, R> SparseBits<B, R> {
   fn new(accept_docs: B, size: usize, map: Rc<RefCell<DirectMonotonicReader<R>>>) -> Self {
     Self {
       accept_docs,
@@ -803,11 +769,7 @@ where
   }
 }
 
-impl<B, R> HasIdentity for SparseBits<B, R>
-where
-  B: Bits,
-  R: RandomAccessInput,
-{
+impl<B, R> HasIdentity for SparseBits<B, R> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -917,8 +879,7 @@ impl QuantizedByteVectorValues for EmptyOffHeapVectorValues {
 
 pub enum OffHeapQuantizedByteVectorValuesEnum<I, F>
 where
-  I: IndexInput + Clone,
-  F: FlatVectorsScorer,
+  I: IndexInput,
 {
   Empty(EmptyOffHeapVectorValues),
   Dense(DenseOffHeapVectorValues<I::IndexInput, F>),
@@ -927,8 +888,7 @@ where
 
 impl<I, F> HasIndexSlice for OffHeapQuantizedByteVectorValuesEnum<I, F>
 where
-  I: IndexInput + Clone,
-  F: FlatVectorsScorer,
+  I: IndexInput,
 {
   fn seek(&self, pos: usize) -> Result<()> {
     match self {
@@ -1109,19 +1069,14 @@ where
   }
 }
 
-pub enum OffHeapQuantizedByteVectorValueBitsEnum<R, B>
-where
-  R: RandomAccessInput,
-  B: Bits,
-{
+pub enum OffHeapQuantizedByteVectorValueBitsEnum<R, B> {
   Dense(B),
   Sparse(SparseBits<B, R>),
 }
 
 impl<R, B> HasIdentity for OffHeapQuantizedByteVectorValueBitsEnum<R, B>
 where
-  R: RandomAccessInput,
-  B: Bits,
+  B: HasIdentity,
 {
   fn identity(&self) -> &Identity {
     match self {

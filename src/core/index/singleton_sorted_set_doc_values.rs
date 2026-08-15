@@ -29,10 +29,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// This can be used if you want to have one multi-valued implementation that
 /// works for both single-valued and multi-valued types.
-pub struct SingletonSortedSetDocValues<S>
-where
-  S: SortedDocValues,
-{
+pub struct SingletonSortedSetDocValues<S> {
   pub(crate) inner: Option<S>,
   ord: i64,
 }

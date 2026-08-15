@@ -151,7 +151,7 @@ macro_rules! either_leaf_collector {
 
         impl<$( $T ),+> Display for $name<$( $T ),+>
         where
-            $( $T: LeafCollector ),+
+            $( $T: Display ),+
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {
@@ -209,8 +209,8 @@ either_leaf_collector!(
 
 struct CollectorConsumer<'a, LC, S>
 where
-  LC: LeafCollector + ?Sized,
-  S: Scorable + ?Sized,
+  LC: ?Sized,
+  S: ?Sized,
 {
   collector: &'a mut LC,
   scorer: &'a mut S,

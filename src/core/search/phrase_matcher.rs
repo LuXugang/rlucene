@@ -57,11 +57,7 @@ pub trait PhraseMatcher {
   /// See `TwoPhaseIterator::match_cost`.
   fn get_match_cost(&self) -> f32;
 }
-pub enum PhraseMatcherEnum<IE, SS>
-where
-  IE: ImpactsEnum,
-  SS: SimScorer,
-{
+pub enum PhraseMatcherEnum<IE, SS> {
   Exact(ExactPhraseMatcher<IE, SS>),
   Sloppy(SloppyPhraseMatcher<IE, SS>),
 }

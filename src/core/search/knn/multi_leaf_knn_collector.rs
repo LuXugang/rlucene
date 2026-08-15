@@ -24,10 +24,7 @@ use crate::core::util::hnsw::float_heap::FloatHeap;
 
 /// MultiLeafKnnCollector is a specific KnnCollector that can exchange the top collected results
 /// across segments through a shared global queue.
-pub struct MultiLeafKnnCollector<'a, A>
-where
-  A: AbstractKnnCollector,
-{
+pub struct MultiLeafKnnCollector<'a, A> {
   /// interval to synchronize the local and global queues, as a number of visited vectors
   pub(crate) interval: usize,
   /// the global queue of the highest similarities collected so far across all segments

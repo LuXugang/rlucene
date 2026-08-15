@@ -18,10 +18,7 @@ use std::cmp::Ordering;
 
 use crate::core::util::packed::{Decoder, Encoder, PackedInts};
 
-pub(crate) struct BulkOperationPacked<T>
-where
-  T: Decoder + Encoder,
-{
+pub(crate) struct BulkOperationPacked<T> {
   sub_operation: Option<T>,
   bits_per_value: i32,
   long_block_count: i32,

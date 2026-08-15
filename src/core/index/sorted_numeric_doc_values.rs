@@ -49,7 +49,7 @@ macro_rules! either_sorted_numeric_docvalues {
 
         impl<$( $T ),+> DocValuesIterator for $name<$( $T ),+>
         where
-            $( $T: SortedNumericDocValues ),+
+            $( $T: DocValuesIterator ),+
         {
 
             fn advance_exact(&mut self, target: i32) -> Result<bool> {
@@ -61,7 +61,7 @@ macro_rules! either_sorted_numeric_docvalues {
 
         impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
         where
-            $( $T: SortedNumericDocValues ),+
+            $( $T: DocIdSetIterator ),+
         {
 
             fn doc_id(&self) -> i32 {

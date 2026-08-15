@@ -25,10 +25,7 @@ use crate::core::index::term::Term;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
-pub struct DummyCompositeReader<LR>
-where
-  LR: LeafReader + Clone,
-{
+pub struct DummyCompositeReader<LR> {
   lr: Vec<LR>,
 }
 

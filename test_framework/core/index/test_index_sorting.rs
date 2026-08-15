@@ -148,7 +148,6 @@ impl PointsFormat for AssertingNeedsIndexSortPointsFormat {
   ) -> Result<Self::PointsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingNeedsIndexSortPointsWriter {
       writer: self.in_.fields_writer(state, info)?,
@@ -166,7 +165,6 @@ impl PointsFormat for AssertingNeedsIndexSortPointsFormat {
   ) -> Result<Self::PointsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.in_.fields_reader(state, info)
   }
@@ -195,7 +193,6 @@ where
   where
     PR: PointsReader,
     D1: Directory,
-    D2: Directory,
   {
     self
       .writer
@@ -208,7 +205,6 @@ where
 
   fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {

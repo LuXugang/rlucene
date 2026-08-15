@@ -87,7 +87,6 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let data_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, data_extension);
@@ -986,7 +985,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1011,7 +1009,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1111,7 +1108,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1129,7 +1125,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1149,7 +1144,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     self.meta.write_int(field.number)?;
@@ -1306,14 +1300,11 @@ impl SkipAccumulator {
     acc
   }
 }
-struct EmptyDocValuesProducerSub1<'a, D>
-where
-  D: DocValuesProducer,
-{
+struct EmptyDocValuesProducerSub1<'a, D> {
   values_producer: &'a D,
 }
 
-impl<D> CloseableRef for EmptyDocValuesProducerSub1<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub1<'_, D> {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub1<'_, D>
 where
@@ -1331,14 +1322,11 @@ where
   type SortedSetDocValues = DummySortedSetDocValues;
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
-struct EmptyDocValuesProducerSub2<'a, D>
-where
-  D: DocValuesProducer,
-{
+struct EmptyDocValuesProducerSub2<'a, D> {
   values_producer: &'a D,
 }
 
-impl<D> CloseableRef for EmptyDocValuesProducerSub2<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub2<'_, D> {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub2<'_, D>
 where
@@ -1360,14 +1348,11 @@ where
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub struct EmptyDocValuesProducerSub3<'a, D>
-where
-  D: DocValuesProducer,
-{
+pub struct EmptyDocValuesProducerSub3<'a, D> {
   values_producer: &'a D,
 }
 
-impl<D> CloseableRef for EmptyDocValuesProducerSub3<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub3<'_, D> {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub3<'_, D>
 where
@@ -1387,14 +1372,11 @@ where
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub struct EmptyDocValuesProducerSub4<'a, D>
-where
-  D: DocValuesProducer,
-{
+pub struct EmptyDocValuesProducerSub4<'a, D> {
   values_producer: &'a D,
 }
 
-impl<D> CloseableRef for EmptyDocValuesProducerSub4<'_, D> where D: DocValuesProducer {}
+impl<D> CloseableRef for EmptyDocValuesProducerSub4<'_, D> {}
 
 impl<D> DocValuesProducer for EmptyDocValuesProducerSub4<'_, D>
 where
@@ -1419,10 +1401,7 @@ where
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub struct NumericDocValuesImpl<S>
-where
-  S: SortedDocValues,
-{
+pub struct NumericDocValuesImpl<S> {
   sorted: S,
 }
 

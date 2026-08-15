@@ -43,20 +43,14 @@ use std::fmt::{Display, Formatter};
 /// threads can call any of its methods concurrently. If your application requires
 /// external synchronization, you should **not** synchronize on the `IndexReader`
 /// instance; instead, use your own (non-Lucene) objects.
-pub struct MultiReader<R>
-where
-  R: IndexReader,
-{
+pub struct MultiReader<R> {
   base_composite_reader_base: BaseCompositeReaderBase<R>,
   index_reader_base: IndexReaderBase,
   close_sub_readers: bool,
 }
 
 #[doc(hidden)]
-pub trait MultiReaderKind<R>
-where
-  R: IndexReader,
-{
+pub trait MultiReaderKind<R> {
   type LeafReader: LeafReader + Clone;
 
   fn visit_leaves<F>(sub_readers: &[R], visitor: &mut F) -> Result<()>

@@ -150,7 +150,6 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
   ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90CompressingStoredFieldsReader::new(
       directory,
@@ -173,7 +172,6 @@ impl StoredFieldsFormat for Lucene90CompressingStoredFieldsFormat {
   ) -> Result<Self::StoredFieldsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene90CompressingStoredFieldsWriter::new(
       directory,

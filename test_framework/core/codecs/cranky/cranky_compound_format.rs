@@ -52,10 +52,7 @@ where
     self.delegate.get_compound_reader(dir, si)
   }
 
-  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake IOException from CompoundFormat.write()",

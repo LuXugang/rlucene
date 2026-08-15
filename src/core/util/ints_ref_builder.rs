@@ -26,13 +26,22 @@ use crate::core::util::ints_ref::IntsRef;
 /// Internal utility used during FST construction.
 ///
 /// # Lucene internal
-#[derive(Clone, Debug)]
-pub struct IntsRefBuilder<AV>
-where
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
-{
+#[derive(Debug)]
+pub struct IntsRefBuilder<AV> {
   ints_ref: IntsRef<AV>,
 }
+
+impl<AV> Clone for IntsRefBuilder<AV>
+where
+  AV: Clone,
+{
+  fn clone(&self) -> Self {
+    Self {
+      ints_ref: self.ints_ref.clone(),
+    }
+  }
+}
+
 impl<AV> Default for IntsRefBuilder<AV>
 where
   AV: SharedAccessVec<i32> + WritableVec<i32>,

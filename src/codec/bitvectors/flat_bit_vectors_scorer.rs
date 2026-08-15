@@ -103,10 +103,7 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
   }
 }
 
-pub struct BitRandomVectorScorer<B>
-where
-  B: ByteVectorValues,
-{
+pub struct BitRandomVectorScorer<B> {
   vector_values: B,
   bit_dimensions: usize,
   query: Vec<u8>,
@@ -114,7 +111,7 @@ where
 
 impl<B> BitRandomVectorScorer<B>
 where
-  B: ByteVectorValues,
+  B: KnnVectorValues,
 {
   pub(crate) fn new(vector_values: B, query: Vec<u8>) -> Self {
     Self {

@@ -92,10 +92,7 @@ pub struct DoubleSorter<NP> {
   reverse_mul: i32,
   values_provider: NP,
 }
-impl<NP> DoubleSorter<NP>
-where
-  NP: NumericDocValuesProvider,
-{
+impl<NP> DoubleSorter<NP> {
   pub fn new(
     provider_name: String,
     missing_value: Option<MissingValueEnum>,
@@ -203,18 +200,12 @@ impl DocComparator for DocComparatorImplDouble {
         .to_int()
   }
 }
-pub struct DoubleComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+pub struct DoubleComparableProvider<N> {
   values: N,
   missing_value_bits: i64,
 }
 
-impl<N> DoubleComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+impl<N> DoubleComparableProvider<N> {
   pub fn new(values: N, missing_value_bits: i64) -> Self {
     Self {
       values,
@@ -245,10 +236,7 @@ pub struct IntSorter<NP> {
   reverse_mul: i32,
   values_provider: NP,
 }
-impl<NP> IntSorter<NP>
-where
-  NP: NumericDocValuesProvider,
-{
+impl<NP> IntSorter<NP> {
   pub fn new(
     provider_name: String,
     missing_value: Option<MissingValueEnum>,
@@ -353,17 +341,11 @@ impl DocComparator for DocComparatorImplInt {
     self.reverse_mul * self.values[doc_id1].cmp(&self.values[doc_id2]).to_int()
   }
 }
-pub struct IntComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+pub struct IntComparableProvider<N> {
   values: N,
   missing_value: i64,
 }
-impl<N> IntComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+impl<N> IntComparableProvider<N> {
   pub fn new(values: N, missing_value: i64) -> Self {
     Self {
       values,
@@ -392,10 +374,7 @@ pub struct LongSorter<NP> {
   reverse_mul: i32,
   values_provider: NP,
 }
-impl<NP> LongSorter<NP>
-where
-  NP: NumericDocValuesProvider,
-{
+impl<NP> LongSorter<NP> {
   pub fn new(
     provider_name: String,
     missing_value: Option<MissingValueEnum>,
@@ -503,18 +482,12 @@ impl DocComparator for DocComparatorImplLong {
     self.reverse_mul * self.values[doc_id1].cmp(&self.values[doc_id2]).to_int()
   }
 }
-pub struct LongComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+pub struct LongComparableProvider<N> {
   values: N,
   missing_value: i64,
 }
 
-impl<N> LongComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+impl<N> LongComparableProvider<N> {
   pub fn new(values: N, missing_value: i64) -> Self {
     Self {
       values,
@@ -545,10 +518,7 @@ pub struct FloatSorter<NP> {
   values_provider: NP,
 }
 
-impl<NP> FloatSorter<NP>
-where
-  NP: NumericDocValuesProvider,
-{
+impl<NP> FloatSorter<NP> {
   pub fn new(
     provider_name: String,
     missing_value: Option<MissingValueEnum>,
@@ -660,18 +630,12 @@ impl DocComparator for DocComparatorImplFloat {
     self.reverse_mul * ord
   }
 }
-pub struct FloatComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+pub struct FloatComparableProvider<N> {
   values: N,
   missing_value_bits: i32,
 }
 
-impl<N> FloatComparableProvider<N>
-where
-  N: NumericDocValues,
-{
+impl<N> FloatComparableProvider<N> {
   pub fn new(values: N, missing_value_bits: i32) -> Self {
     Self {
       values,
@@ -703,10 +667,7 @@ pub struct StringSorter<SP> {
   values_provider: SP,
 }
 
-impl<SP> StringSorter<SP>
-where
-  SP: SortedDocValuesProvider,
-{
+impl<SP> StringSorter<SP> {
   pub fn new(
     provider_name: String,
     missing_value: Option<MissingValueEnum>,
@@ -815,10 +776,7 @@ where
     Ok(DocComparatorImplString::new(ords, self.reverse_mul))
   }
 }
-pub struct StringComparableProvider<SDV>
-where
-  SDV: SortedDocValues,
-{
+pub struct StringComparableProvider<SDV> {
   reader_values: SDV,
   global_ords: Rc<SegmentToGlobalOrds>,
   missing_ord: i32,
@@ -884,11 +842,7 @@ macro_rules! either_comparable_provider {
 }
 either_comparable_provider!(pub ComparableProviderEnum2 { A1: A, B1: B});
 either_comparable_provider!(pub ComparableProviderEnum3 { SortedNumeric: A, SortedSet: B, Sorter: C});
-pub enum ComparableProviderEnum5<N, S>
-where
-  N: NumericDocValues,
-  S: SortedDocValues,
-{
+pub enum ComparableProviderEnum5<N, S> {
   Int(IntComparableProvider<N>),
   Long(LongComparableProvider<N>),
   Float(FloatComparableProvider<N>),
@@ -911,10 +865,7 @@ where
     }
   }
 }
-pub enum ComparableProviderEnum4<N>
-where
-  N: NumericDocValues,
-{
+pub enum ComparableProviderEnum4<N> {
   Int(IntComparableProvider<N>),
   Long(LongComparableProvider<N>),
   Float(FloatComparableProvider<N>),

@@ -45,8 +45,7 @@ pub trait PointsWriter: Closeable {
   ) -> Result<()>
   where
     PR: PointsReader,
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   /// Called once at the end before close
   fn finish(&mut self) -> Result<()>;
@@ -58,7 +57,6 @@ pub trait PointsWriter: Closeable {
     dir: &D2,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
@@ -103,7 +101,6 @@ pub trait PointsWriter: Closeable {
   /// Default merge implementation to merge incoming points readers by visiting all their points and adding to this writer
   fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
@@ -129,8 +126,8 @@ pub enum PointsWriterEnum2<A, B> {
 
 impl<A, B> Closeable for PointsWriterEnum2<A, B>
 where
-  A: PointsWriter,
-  B: PointsWriter,
+  A: Closeable,
+  B: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     match self {
@@ -155,7 +152,6 @@ where
   where
     PR: PointsReader,
     D1: Directory,
-    D2: Directory,
   {
     match self {
       Self::A(inner) => inner.write_field(field_info, values, dir, segment_info),
@@ -177,7 +173,6 @@ where
     dir: &D2,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
@@ -189,7 +184,6 @@ where
 
   fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
   where
-    D1: Directory,
     D2: Directory,
     CR: CodecReader,
   {
@@ -200,29 +194,16 @@ where
   }
 }
 
-struct PointsReaderImpl<P, DM>
-where
-  P: PointValues,
-  DM: DocMap,
-{
+struct PointsReaderImpl<P, DM> {
   field_info: Arc<FieldInfo>,
   final_max_point_count: usize,
   point_value: Rc<Vec<P>>,
   doc_map: Vec<Rc<DM>>,
 }
 
-impl<P, DM> CloseableRef for PointsReaderImpl<P, DM>
-where
-  P: PointValues,
-  DM: DocMap,
-{
-}
+impl<P, DM> CloseableRef for PointsReaderImpl<P, DM> {}
 
-impl<P, DM> PointsReaderImpl<P, DM>
-where
-  P: PointValues,
-  DM: DocMap,
-{
+impl<P, DM> PointsReaderImpl<P, DM> {
   fn new(
     field_info: Arc<FieldInfo>,
     final_max_point_count: usize,
@@ -263,20 +244,12 @@ where
   }
 }
 
-struct PointValuesImpl<P, DM>
-where
-  P: PointValues,
-  DM: DocMap,
-{
+struct PointValuesImpl<P, DM> {
   final_max_point_count: usize,
   point_value: Rc<Vec<P>>,
   doc_map: Vec<Rc<DM>>,
 }
-impl<P, DM> PointValuesImpl<P, DM>
-where
-  P: PointValues,
-  DM: DocMap,
-{
+impl<P, DM> PointValuesImpl<P, DM> {
   fn new(final_max_point_count: usize, point_value: Rc<Vec<P>>, doc_map: Vec<Rc<DM>>) -> Self {
     Self {
       final_max_point_count,
@@ -331,20 +304,12 @@ where
   }
 }
 
-struct PointTreeImpl<P, DM>
-where
-  P: PointValues,
-  DM: DocMap,
-{
+struct PointTreeImpl<P, DM> {
   final_max_point_count: usize,
   doc_map: Vec<Rc<DM>>,
   point_value: Rc<Vec<P>>,
 }
-impl<P, DM> PointTreeImpl<P, DM>
-where
-  P: PointValues,
-  DM: DocMap,
-{
+impl<P, DM> PointTreeImpl<P, DM> {
   fn new(final_max_point_count: usize, doc_map: Vec<Rc<DM>>, point_value: Rc<Vec<P>>) -> Self {
     Self {
       final_max_point_count,
@@ -416,19 +381,11 @@ where
   }
 }
 
-struct IntersectVisitorImpl<'a, I, DM>
-where
-  I: IntersectVisitor,
-  DM: DocMap,
-{
+struct IntersectVisitorImpl<'a, I, DM> {
   doc_map: &'a DM,
   merged_visitor: &'a mut I,
 }
-impl<'a, I, DM> IntersectVisitorImpl<'a, I, DM>
-where
-  I: IntersectVisitor,
-  DM: DocMap,
-{
+impl<'a, I, DM> IntersectVisitorImpl<'a, I, DM> {
   fn new(doc_map: &'a DM, merged_visitor: &'a mut I) -> Self {
     Self {
       doc_map,

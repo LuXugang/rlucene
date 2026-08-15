@@ -24,7 +24,7 @@ pub(crate) const MIN_BLOCK_SIZE: i32 = 64;
 pub(crate) const MAX_BLOCK_SIZE: i32 = 1 << (30 - 3);
 pub(crate) const MIN_VALUE_EQUALS_0: i32 = 1 << 0;
 pub(crate) const BPV_SHIFT: i32 = 1;
-pub(crate) struct AbstractBlockPackedWriter<D: AbstractBlockPackedWriterBase> {
+pub(crate) struct AbstractBlockPackedWriter<D> {
   values: Vec<i64>,
   blocks: Vec<u8>,
   off: i32,

@@ -105,10 +105,7 @@ pub fn from_sub_matches<'a>(
   ))))
 }
 
-pub struct FieldMatches<'a, F>
-where
-  F: Fn() -> Result<Option<QueryWeightMatchesIterator<'a>>>,
-{
+pub struct FieldMatches<'a, F> {
   field: String,
   fields: Vec<String>,
   supplier: F,

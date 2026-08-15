@@ -352,7 +352,7 @@ macro_rules! either_scorer {
 
         impl<$( $T ),+> Scorable for $name<$( $T ),+>
         where
-            $( $T: Scorer ),+
+            $( $T: Scorable ),+
         {
             #[inline]
             fn score(&mut self) -> Result<f32> {
@@ -389,7 +389,7 @@ macro_rules! either_scorer {
 
         impl<$( $T ),+> FixedScore for $name<$( $T ),+>
         where
-            $( $T: Scorer ),+
+            $( $T: FixedScore ),+
         {
             #[inline]
             fn set_score(&mut self, score: f32) -> Result<()> {

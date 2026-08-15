@@ -317,10 +317,7 @@ where
   }
 }
 
-pub struct RangeFieldScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+pub struct RangeFieldScorerSupplier<PV> {
   score: f32,
   score_mode: ScoreMode,
   values: PV,
@@ -328,10 +325,7 @@ where
   cost: i64,
 }
 
-impl<PV> RangeFieldScorerSupplier<PV>
-where
-  PV: PointValues,
-{
+impl<PV> RangeFieldScorerSupplier<PV> {
   fn new(
     score: f32,
     score_mode: ScoreMode,

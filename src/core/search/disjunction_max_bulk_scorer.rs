@@ -29,10 +29,7 @@ use std::fmt::{Display, Formatter};
 
 const WINDOW_SIZE: usize = 4096;
 /// Bulk scorer for DisjunctionMaxQuery when the tie-break multiplier is zero.
-pub struct DisjunctionMaxBulkScorer<BS>
-where
-  BS: BulkScorer,
-{
+pub struct DisjunctionMaxBulkScorer<BS> {
   window_matches: FixedBitSet,
   window_scores: [f32; WINDOW_SIZE],
   scorers: PriorityQueue<usize, BulkScorerAndNextCmp<BS>>,
@@ -156,25 +153,16 @@ where
     Ok(cost)
   }
 }
-struct BulkScorerAndNext<BS>
-where
-  BS: BulkScorer,
-{
+struct BulkScorerAndNext<BS> {
   scorer: BS,
   next: i32,
 }
-impl<BS> BulkScorerAndNext<BS>
-where
-  BS: BulkScorer,
-{
+impl<BS> BulkScorerAndNext<BS> {
   fn new(scorer: BS) -> Self {
     Self { scorer, next: 0 }
   }
 }
-struct BulkScorerAndNextCmp<BS>
-where
-  BS: BulkScorer,
-{
+struct BulkScorerAndNextCmp<BS> {
   bulk_scorer_and_nexts: Vec<BulkScorerAndNext<BS>>,
 }
 impl<BS> Compare<usize> for BulkScorerAndNextCmp<BS>

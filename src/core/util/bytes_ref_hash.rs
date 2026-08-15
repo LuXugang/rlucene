@@ -42,10 +42,7 @@ use crate::core::util::{
 /// - The internal storage is limited to 2GB total byte storage.
 ///
 /// [`BYTE_BLOCK_SIZE`]: BYTE_BLOCK_SIZE
-pub(crate) struct BytesRefHash<BSA>
-where
-  BSA: BytesStartArray,
-{
+pub(crate) struct BytesRefHash<BSA> {
   pool: BytesRefBlockPool,
   hash_size: i32,
   hash_half_size: i32,
@@ -489,10 +486,7 @@ where
   }
 }
 
-pub(crate) struct StringSorterImpl<'a, BSA>
-where
-  BSA: BytesStartArray,
-{
+pub(crate) struct StringSorterImpl<'a, BSA> {
   tmp_offset: usize,
   compact: &'a mut Vec<i32>,
   pool: &'a mut BytesRefBlockPool,
@@ -733,11 +727,7 @@ impl BytesStartArray for DirectBytesStartArray {
 /// # Note
 /// In Java Lucene, BytesRefHash uses MSBStringRadixSorter. Due to language
 /// limitations, a new MSBStringHashRadixSorter is currently being used.
-pub struct MSBStringHashRadixSorter<'a, T, C>
-where
-  T: StringSorterBase,
-  C: BytesRefComparator,
-{
+pub struct MSBStringHashRadixSorter<'a, T, C> {
   cmp: &'a mut C,
   delegate: &'a mut T,
 }

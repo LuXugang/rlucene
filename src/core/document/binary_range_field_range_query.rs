@@ -255,10 +255,7 @@ where
 /// Wraps a BinaryRangeDocValues (which itself wraps BinaryDocValues) and
 /// uses the QueryType's matches method to check if each document's packed
 /// value matches the query's packed value.
-pub struct BinaryRangeFieldRangeTPI<T>
-where
-  T: BinaryDocValues,
-{
+pub struct BinaryRangeFieldRangeTPI<T> {
   values: BinaryRangeDocValues<T>,
   query_packed_value: Vec<u8>,
   num_dims: usize,
@@ -267,10 +264,7 @@ where
   comparator: ByteArrayComparatorEnum,
 }
 
-impl<T> BinaryRangeFieldRangeTPI<T>
-where
-  T: BinaryDocValues,
-{
+impl<T> BinaryRangeFieldRangeTPI<T> {
   fn new(
     values: BinaryRangeDocValues<T>,
     query_packed_value: Vec<u8>,

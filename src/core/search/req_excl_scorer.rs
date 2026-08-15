@@ -27,11 +27,7 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::Result;
 
 /// A Scorer for queries with a required subscorer and an excluding (prohibited) sub `Scorer`.
-pub struct ReqExclScorer<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+pub struct ReqExclScorer<S1, S2> {
   disi: TwoPhaseIteratorAsDocIdSetIterator<Tpi<S1, S2>>,
 }
 impl<S1, S2> ReqExclScorer<S1, S2>
@@ -92,12 +88,7 @@ where
   }
 }
 
-impl<S1, S2> crate::core::search::scorable::FixedScore for ReqExclScorer<S1, S2>
-where
-  S1: Scorer + 'static,
-  S2: Scorer + 'static,
-{
-}
+impl<S1, S2> crate::core::search::scorable::FixedScore for ReqExclScorer<S1, S2> {}
 
 impl<S1, S2> Scorer for ReqExclScorer<S1, S2>
 where
@@ -171,20 +162,12 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl1<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+pub struct TwoPhaseIteratorImpl1<S1, S2> {
   req_scorer: S1,
   excl_scorer: S2,
   match_cost: f32,
 }
-impl<S1, S2> TwoPhaseIteratorImpl1<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+impl<S1, S2> TwoPhaseIteratorImpl1<S1, S2> {
   fn new(req_scorer: S1, excl_scorer: S2, match_cost: f32) -> Self {
     Self {
       req_scorer,
@@ -242,20 +225,12 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl2<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+pub struct TwoPhaseIteratorImpl2<S1, S2> {
   req_scorer: S1,
   excl_scorer: S2,
   match_cost: f32,
 }
-impl<S1, S2> TwoPhaseIteratorImpl2<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+impl<S1, S2> TwoPhaseIteratorImpl2<S1, S2> {
   fn new(req_scorer: S1, excl_scorer: S2, match_cost: f32) -> Self {
     Self {
       req_scorer,

@@ -183,8 +183,8 @@ macro_rules! either_docvaluesproducer {
 
         impl<$A, $B> CloseableRef for $name<$A, $B>
         where
-            $A: DocValuesProducer,
-            $B: DocValuesProducer,
+            $A: CloseableRef,
+            $B: CloseableRef,
         {
             fn close(&self) -> Result<()> {
                 match self {

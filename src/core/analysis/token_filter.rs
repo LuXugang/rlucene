@@ -23,16 +23,10 @@ use crate::core::util::error::lucene_error::Result;
 /// See also: [`TokenStream`].
 pub trait TokenFilter: TokenStream {}
 
-pub struct TokenFilterBase<T>
-where
-  T: TokenStream,
-{
+pub struct TokenFilterBase<T> {
   pub input: T,
 }
-impl<T> TokenFilterBase<T>
-where
-  T: TokenStream,
-{
+impl<T> TokenFilterBase<T> {
   pub fn new(input: T) -> Self {
     TokenFilterBase { input }
   }

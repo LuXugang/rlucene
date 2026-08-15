@@ -27,10 +27,7 @@ pub(crate) const LEVEL_THRESHOLD: usize = 8;
 pub(crate) const HISTOGRAM_SIZE: usize = 257;
 /// Buckets below this size will be sorted with the fallback sorter.
 pub(crate) const LENGTH_THRESHOLD: usize = 100;
-pub struct MSBRadixSorter<T>
-where
-  T: MSBRadixSorterBase,
-{
+pub struct MSBRadixSorter<T> {
   /// One histogram per recursion level.
   histograms: Vec<Vec<usize>>,
   /// End offsets for histograms.
@@ -41,10 +38,7 @@ where
   max_length: usize,
   delegate: T,
 }
-impl<T> MSBRadixSorter<T>
-where
-  T: MSBRadixSorterBase,
-{
+impl<T> MSBRadixSorter<T> {
   /// Creates a new instance.
   ///
   /// # Parameters
@@ -59,6 +53,12 @@ where
       delegate,
     }
   }
+}
+
+impl<T> MSBRadixSorter<T>
+where
+  T: MSBRadixSorterBase,
+{
   pub fn sort_impl(&mut self, from: usize, to: usize, k: usize, l: usize) -> Result<()> {
     if self.should_fallback(from, to, l) {
       self.get_fallback_sorter(k).sort(from, to)
@@ -314,10 +314,7 @@ where
   }
 }
 
-pub struct MSBRadixIntroSorterImpl<'a, T>
-where
-  T: MSBRadixSorterBase,
-{
+pub struct MSBRadixIntroSorterImpl<'a, T> {
   pivot: BytesRefBuilder<Vec<u8>>,
   max_length: usize,
   k: usize,

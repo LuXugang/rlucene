@@ -16,7 +16,6 @@
  */
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::merge_state::MergeState;
-use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStream;
 
@@ -35,7 +34,6 @@ pub struct MatchingReaders {
 impl MatchingReaders {
   pub fn new<D, CR>(merge_state: &MergeState<D, CR>) -> Result<Self>
   where
-    D: Directory,
     CR: CodecReader,
   {
     // If the i'th reader is a SegmentReader and has

@@ -141,7 +141,6 @@ impl TermVectorsFormat for Lucene90TermVectorsFormat {
   ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self
       .base
@@ -159,7 +158,6 @@ impl TermVectorsFormat for Lucene90TermVectorsFormat {
   ) -> Result<Self::TermVectorsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.base.vectors_writer(directory, segment_info, context)
   }

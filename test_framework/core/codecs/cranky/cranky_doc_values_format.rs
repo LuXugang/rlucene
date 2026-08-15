@@ -80,7 +80,6 @@ where
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
@@ -102,7 +101,6 @@ where
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.delegate.fields_producer(state, segment_info)
   }
@@ -155,7 +153,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     if self.random.lock().random_range(0..100) == 0 {
@@ -177,7 +174,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     if self.random.lock().random_range(0..100) == 0 {
@@ -199,7 +195,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     if self.random.lock().random_range(0..100) == 0 {
@@ -221,7 +216,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     if self.random.lock().random_range(0..100) == 0 {
@@ -243,7 +237,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     if self.random.lock().random_range(0..100) == 0 {

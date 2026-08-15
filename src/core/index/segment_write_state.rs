@@ -16,16 +16,12 @@
  */
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::store::IOContext;
-use crate::core::store::directory::Directory;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::InfoStreamMT;
 use std::sync::Arc;
 
 /// Holder struct for common parameters used during write.
-pub struct SegmentWriteState<'a, D>
-where
-  D: Directory,
-{
+pub struct SegmentWriteState<'a, D> {
   /// InfoStream used for debugging messages.
   pub info_stream: InfoStreamMT,
 
@@ -57,14 +53,11 @@ where
   pub segment_suffix: String,
 
   /// IOContext for all writes; you should pass this to
-  /// Directory::create_output.
+  /// [`Directory::create_output`](crate::core::store::directory::Directory::create_output).
   pub context: &'a IOContext,
 }
 
-impl<'a, D> SegmentWriteState<'a, D>
-where
-  D: Directory,
-{
+impl<'a, D> SegmentWriteState<'a, D> {
   /// Creates an instance without a suffix.
   pub(crate) fn new(
     info_stream: InfoStreamMT,

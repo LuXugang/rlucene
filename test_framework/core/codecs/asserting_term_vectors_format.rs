@@ -61,7 +61,6 @@ impl TermVectorsFormat for AssertingTermVectorsFormat {
   ) -> Result<Self::TermVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingTermVectorsReader::new(self.in_.vectors_reader(
       directory,
@@ -83,7 +82,6 @@ impl TermVectorsFormat for AssertingTermVectorsFormat {
   ) -> Result<Self::TermVectorsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingTermVectorsWriter::new(self.in_.vectors_writer(
       directory,

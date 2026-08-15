@@ -27,10 +27,7 @@ use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 /// This creates a graph builder that is initialized with the provided `HnswGraph`. This is useful for
 /// merging HnswGraphs from multiple segments.
-pub struct InitializedHnswGraphBuilder<B>
-where
-  B: Bits,
-{
+pub struct InitializedHnswGraphBuilder<B> {
   initialized_nodes: B,
 }
 pub fn new<B, S>(

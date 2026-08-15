@@ -31,10 +31,7 @@ macro_rules! define_impacts_enum_enum {
         $impacts_wrapper:ident, // ImpactsEnum2 / ImpactsEnum3 / ...
         [$($V:ident),+ $(,)?]
     ) => {
-        pub enum $enum_name<$($V),+>
-        where
-            $($V: ImpactsEnum,)+
-        {
+        pub enum $enum_name<$($V),+> {
             $($V($V)),+
         }
 

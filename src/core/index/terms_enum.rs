@@ -309,16 +309,10 @@ impl TermsEnum for EmptyTermsEnum {
     ))
   }
 }
-pub struct EmptyTermsEnumTermsWrapper<T>
-where
-  T: Terms,
-{
+pub struct EmptyTermsEnumTermsWrapper<T> {
   in_: T,
 }
-impl<T> EmptyTermsEnumTermsWrapper<T>
-where
-  T: Terms,
-{
+impl<T> EmptyTermsEnumTermsWrapper<T> {
   pub fn new(in_: T) -> EmptyTermsEnumTermsWrapper<T> {
     Self { in_ }
   }

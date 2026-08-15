@@ -25,12 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 /// iterator the ability to skip low-scoring documents.
 ///
 /// @lucene.internal
-pub struct ImpactsDISI<D, IE, SS>
-where
-  D: DocIdSetIterator,
-  IE: ImpactsEnum,
-  SS: SimScorer,
-{
+pub struct ImpactsDISI<D, IE, SS> {
   pub(crate) in_: D,
   pub(crate) max_score_cache: MaxScoreCache<IE, SS>,
   min_competitive_score: f32,
@@ -38,12 +33,7 @@ where
   max_score: f32,
   pub(crate) use_disi: bool,
 }
-impl<D, IE, SS> ImpactsDISI<D, IE, SS>
-where
-  D: DocIdSetIterator,
-  IE: ImpactsEnum,
-  SS: SimScorer,
-{
+impl<D, IE, SS> ImpactsDISI<D, IE, SS> {
   pub fn new(in_: D, max_score_cache: MaxScoreCache<IE, SS>, use_disi: bool) -> Self {
     Self {
       in_,
@@ -72,6 +62,14 @@ where
       self.upto = -1;
     }
   }
+}
+
+impl<D, IE, SS> ImpactsDISI<D, IE, SS>
+where
+  D: DocIdSetIterator,
+  IE: ImpactsEnum,
+  SS: SimScorer,
+{
   fn advance_target(&mut self, mut target: i32) -> Result<i32> {
     if target <= self.upto {
       // we are still in the current block, which is considered competitive

@@ -27,10 +27,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{ReadableCursorExt, SliceCopyOps, TryIntoInt};
 /// Base implementation struct for buffered [`IndexInput`].  */
-pub struct BufferedIndexInput<T>
-where
-  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
-{
+pub struct BufferedIndexInput<T> {
   buffer_size: usize,
   resource_desc: String,
   buffer: Cursor<Vec<u8>>,
@@ -42,10 +39,7 @@ where
   length: usize,
 }
 
-impl<T> BufferedIndexInput<T>
-where
-  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
-{
+impl<T> BufferedIndexInput<T> {
   pub fn with_buffer_size(
     sub_index_input: T,
     resource_desc: &str,
@@ -94,6 +88,12 @@ where
     }
     Ok(())
   }
+}
+
+impl<T> BufferedIndexInput<T>
+where
+  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
+{
   /// Refills the buffer with data from the underlying input, preserving
   /// unaligned bytes.
   ///
@@ -653,10 +653,7 @@ where
   }
 }
 
-impl<T> Display for BufferedIndexInput<T>
-where
-  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
-{
+impl<T> Display for BufferedIndexInput<T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "BufferedIndexInput({})", self.resource_desc)
   }

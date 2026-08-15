@@ -73,7 +73,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer;
   fn add_binary_field<D1, D2, D>(
     &mut self,
@@ -84,7 +83,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer;
   fn add_sorted_field<D1, D2, D>(
     &mut self,
@@ -95,7 +93,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer;
   fn add_sorted_numeric_field<D1, D2, D>(
     &mut self,
@@ -106,7 +103,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer;
   fn add_sorted_set_field<D1, D2, D>(
     &mut self,
@@ -117,7 +113,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer;
   fn merge<D1, D2, MS>(
     &mut self,
@@ -127,7 +122,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     for producer in merge_state.doc_values_producers().iter().flatten() {
@@ -178,7 +172,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge1 {
@@ -197,7 +190,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge2 {
@@ -215,7 +207,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     let producer = EmptyDocValuesProducerMerge3 {
@@ -233,7 +224,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers().len());
@@ -313,7 +303,6 @@ pub trait DocValuesConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     let mut to_merge = Vec::with_capacity(merge_state.doc_values_producers().len());
@@ -417,19 +406,14 @@ impl FilteredTermsEnumBase for BitsFilteredTermsEnum {
 
 // 1. NumericDocValues
 /// Tracks state of one numeric sub-reader that we are merging.
-pub(crate) struct NumericDocValuesSub<N, DM>
-where
-  N: NumericDocValues,
-  DM: DocMap,
-{
+pub(crate) struct NumericDocValuesSub<N, DM> {
   values: N,
   doc_map: Rc<DM>,
 }
 
 impl<N, DM> NumericDocValuesSub<N, DM>
 where
-  N: NumericDocValues,
-  DM: DocMap,
+  N: DocIdSetIterator,
 {
   fn new(doc_map: Rc<DM>, values: N) -> Self {
     debug_assert!(values.doc_id() == -1);
@@ -452,11 +436,7 @@ where
   }
 }
 
-pub struct NumericDocValuesMerge<N, DM>
-where
-  N: NumericDocValues,
-  DM: DocMap,
-{
+pub struct NumericDocValuesMerge<N, DM> {
   doc_id: i32,
   current: Option<usize>,
   doc_id_merger: DocIDMergerEnum<NumericDocValuesSub<N, DM>>,
@@ -521,15 +501,12 @@ where
     }
   }
 }
-pub(crate) struct EmptyDocValuesProducerMerge1<'a, MS>
-where
-  MS: MergeStateAccess,
-{
+pub(crate) struct EmptyDocValuesProducerMerge1<'a, MS> {
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MS,
 }
 
-impl<MS> CloseableRef for EmptyDocValuesProducerMerge1<'_, MS> where MS: MergeStateAccess {}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge1<'_, MS> {}
 
 impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge1<'_, MS>
 where
@@ -579,19 +556,14 @@ where
 }
 // 2. BinaryDocValues
 /// Tracks state of one binary sub-reader that we are merging.
-struct BinaryDocValuesSub<B, DM>
-where
-  B: BinaryDocValues,
-  DM: DocMap,
-{
+struct BinaryDocValuesSub<B, DM> {
   values: B,
   doc_map: Rc<DM>,
 }
 
 impl<B, DM> BinaryDocValuesSub<B, DM>
 where
-  B: BinaryDocValues,
-  DM: DocMap,
+  B: DocIdSetIterator,
 {
   fn new(doc_map: Rc<DM>, values: B) -> Self {
     debug_assert!(values.doc_id() == -1);
@@ -615,11 +587,7 @@ where
   }
 }
 
-pub struct BinaryDocValuesMerge<B, DM>
-where
-  B: BinaryDocValues,
-  DM: DocMap,
-{
+pub struct BinaryDocValuesMerge<B, DM> {
   doc_id: i32,
   current: Option<usize>,
   doc_id_merger: DocIDMergerEnum<BinaryDocValuesSub<B, DM>>,
@@ -684,15 +652,12 @@ where
     }
   }
 }
-pub(crate) struct EmptyDocValuesProducerMerge2<'a, MS>
-where
-  MS: MergeStateAccess,
-{
+pub(crate) struct EmptyDocValuesProducerMerge2<'a, MS> {
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MS,
 }
 
-impl<MS> CloseableRef for EmptyDocValuesProducerMerge2<'_, MS> where MS: MergeStateAccess {}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge2<'_, MS> {}
 
 impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge2<'_, MS>
 where
@@ -751,19 +716,14 @@ where
 }
 // 3. SortedNumericDocValues
 /// Tracks state of one sorted numeric sub-reader that we are merging.
-struct SortedNumericDocValuesSub<SN, DM>
-where
-  SN: SortedNumericDocValues,
-  DM: DocMap,
-{
+struct SortedNumericDocValuesSub<SN, DM> {
   values: SN,
   doc_map: Rc<DM>,
 }
 
 impl<SN, DM> SortedNumericDocValuesSub<SN, DM>
 where
-  SN: SortedNumericDocValues,
-  DM: DocMap,
+  SN: DocIdSetIterator,
 {
   fn new(doc_map: Rc<DM>, values: SN) -> Self {
     debug_assert!(values.doc_id() == -1);
@@ -787,11 +747,7 @@ where
   }
 }
 
-pub struct SortedNumericDocValuesMerge<SN, DM>
-where
-  SN: SortedNumericDocValues,
-  DM: DocMap,
-{
+pub struct SortedNumericDocValuesMerge<SN, DM> {
   doc_id: i32,
   current_sub: Option<usize>,
   doc_id_merger: DocIDMergerEnum<SortedNumericDocValuesSub<SN, DM>>,
@@ -868,15 +824,12 @@ where
 
   type NumericDocValues = DummyNumericDocValues;
 }
-pub(crate) struct EmptyDocValuesProducerMerge3<'a, MS>
-where
-  MS: MergeStateAccess,
-{
+pub(crate) struct EmptyDocValuesProducerMerge3<'a, MS> {
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MS,
 }
 
-impl<MS> CloseableRef for EmptyDocValuesProducerMerge3<'_, MS> where MS: MergeStateAccess {}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge3<'_, MS> {}
 
 pub type MergeSortedNumeric<P> = <P as DocValuesProducer>::SortedNumericDocValues;
 pub type MergeNumeric<P> = <MergeSortedNumeric<P> as SortedNumericDocValues>::NumericDocValues;
@@ -1001,19 +954,14 @@ where
   })
 }
 // 4. SortedDocValues
-struct SortedDocValuesSub<S, DM>
-where
-  S: SortedDocValues,
-  DM: DocMap,
-{
+struct SortedDocValuesSub<S, DM> {
   values: S,
   map: Rc<SegmentToGlobalOrds>,
   doc_map: Rc<DM>,
 }
 impl<S, DM> SortedDocValuesSub<S, DM>
 where
-  S: SortedDocValues,
-  DM: DocMap,
+  S: DocIdSetIterator,
 {
   fn new(doc_map: Rc<DM>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
     debug_assert!(values.doc_id() == -1);
@@ -1041,16 +989,13 @@ where
   }
 }
 
-pub(crate) struct EmptyDocValuesProducerMerge4<'a, MS>
-where
-  MS: MergeStateAccess,
-{
+pub(crate) struct EmptyDocValuesProducerMerge4<'a, MS> {
   field_info: Arc<FieldInfo>,
   merge_state: &'a MS,
   map: Rc<OrdinalMap>,
 }
 
-impl<MS> CloseableRef for EmptyDocValuesProducerMerge4<'_, MS> where MS: MergeStateAccess {}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge4<'_, MS> {}
 
 impl<MS> DocValuesProducer for EmptyDocValuesProducerMerge4<'_, MS>
 where
@@ -1108,11 +1053,7 @@ where
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub struct SortedDocValuesMerge<S, DM>
-where
-  S: SortedDocValues,
-  DM: DocMap,
-{
+pub struct SortedDocValuesMerge<S, DM> {
   doc_id: i32,
   current: Option<usize>,
   doc_id_merger: DocIDMergerEnum<SortedDocValuesSub<S, DM>>,
@@ -1206,20 +1147,14 @@ where
 /// A merged [`TermsEnum`]. This helps avoid relying on the default terms enum, which calls
 /// [`SortedDocValues::lookup_ord`] or [`SortedSetDocValues::lookup_ord`] on every call to
 /// `TermsEnum::next`.
-pub struct MergedTermsEnum<TE>
-where
-  TE: TermsEnum,
-{
+pub struct MergedTermsEnum<TE> {
   subs: Vec<TE>,
   ordinal_map: Rc<OrdinalMap>,
   value_count: i64,
   ord: i64,
   term: BytesRef<Vec<u8>>,
 }
-impl<TE> MergedTermsEnum<TE>
-where
-  TE: TermsEnum,
-{
+impl<TE> MergedTermsEnum<TE> {
   fn new(ordinal_map: Rc<OrdinalMap>, subs: Vec<TE>) -> Self {
     let value_count = ordinal_map.get_value_count();
     Self {
@@ -1372,11 +1307,7 @@ where
   })
 }
 // 4. SortedSetDocValues
-struct SortedSetDocValuesSub<S, DM>
-where
-  S: SortedSetDocValues,
-  DM: DocMap,
-{
+struct SortedSetDocValuesSub<S, DM> {
   values: S,
   map: Rc<SegmentToGlobalOrds>,
   doc_map: Rc<DM>,
@@ -1384,8 +1315,7 @@ where
 
 impl<S, DM> SortedSetDocValuesSub<S, DM>
 where
-  S: SortedSetDocValues,
-  DM: DocMap,
+  S: DocIdSetIterator,
 {
   fn new(doc_map: Rc<DM>, values: S, map: Rc<SegmentToGlobalOrds>) -> Self {
     debug_assert!(values.doc_id() == -1);
@@ -1412,11 +1342,7 @@ where
     Ok(self.doc_map.as_ref())
   }
 }
-pub struct SortedSetDocValuesMerge<S, DM>
-where
-  S: SortedSetDocValues,
-  DM: DocMap,
-{
+pub struct SortedSetDocValuesMerge<S, DM> {
   doc_id: i32,
   current_sub: Option<usize>,
   doc_id_merger: DocIDMergerEnum<SortedSetDocValuesSub<S, DM>>,
@@ -1512,16 +1438,13 @@ where
   where
     Self: 'a;
 }
-pub(crate) struct EmptyDocValuesProducerMerge5<'a, MS>
-where
-  MS: MergeStateAccess,
-{
+pub(crate) struct EmptyDocValuesProducerMerge5<'a, MS> {
   merge_field_info: Arc<FieldInfo>,
   merge_state: &'a MS,
   map: Rc<OrdinalMap>,
 }
 
-impl<MS> CloseableRef for EmptyDocValuesProducerMerge5<'_, MS> where MS: MergeStateAccess {}
+impl<MS> CloseableRef for EmptyDocValuesProducerMerge5<'_, MS> {}
 
 pub type MergeSortedSetDocValues<P> = <P as DocValuesProducer>::SortedSetDocValues;
 pub type MergeSortedSetSortedDocValues<P> =
@@ -1644,8 +1567,8 @@ pub enum DocValuesConsumerEnum2<A, B> {
 
 impl<A, B> Closeable for DocValuesConsumerEnum2<A, B>
 where
-  A: DocValuesConsumer,
-  B: DocValuesConsumer<IndexOutput = A::IndexOutput>,
+  A: Closeable,
+  B: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     match self {
@@ -1671,7 +1594,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     match self {
@@ -1689,7 +1611,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     match self {
@@ -1707,7 +1628,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     match self {
@@ -1725,7 +1645,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     match self {
@@ -1747,7 +1666,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     D: DocValuesProducer,
   {
     match self {
@@ -1768,7 +1686,6 @@ where
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = Self::IndexOutput>,
-    D2: Directory,
     MS: MergeStateAccess,
   {
     match self {

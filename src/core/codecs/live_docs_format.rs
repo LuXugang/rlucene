@@ -38,9 +38,7 @@ pub trait LiveDocsFormat {
     dir: &impl Directory,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits>
-  where
-    D: Directory;
+  ) -> Result<Self::Bits>;
 
   /// Persist live docs bits. Use
   /// [`SegmentCommitInfo#
@@ -53,13 +51,9 @@ pub trait LiveDocsFormat {
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory;
+  ) -> Result<()>;
 
   /// Records all files in use by this [`SegmentCommitInfo`] into the files
   /// argument.
-  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
-  where
-    D: Directory;
+  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>;
 }

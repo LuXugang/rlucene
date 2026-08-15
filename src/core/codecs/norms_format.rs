@@ -36,8 +36,7 @@ pub trait NormsFormat {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   type NormsProducer<T: IndexInput>: NormsProducer;
   /// Returns a [`NormsProducer`] to read norms from the index.
@@ -59,6 +58,5 @@ pub trait NormsFormat {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::NormsProducer<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 }

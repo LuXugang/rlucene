@@ -89,7 +89,6 @@ impl StoredFieldsWriter for DummyStoredFieldsWriter {
 
   fn merge<D, D1, CR>(&mut self, _merge_state: &mut MergeState<D, CR>, _dir: &D1) -> Result<i32>
   where
-    D: Directory,
     D1: Directory,
     CR: CodecReader,
     Self: Sized,

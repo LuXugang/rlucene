@@ -27,10 +27,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 /// Searches an HNSW graph to find nearest neighbors to a query vector.
 ///
 /// For more background on the search algorithm, see [`HnswGraph`].
-pub struct HnswGraphSearcher<B>
-where
-  B: BitSet,
-{
+pub struct HnswGraphSearcher<B> {
   /// Scratch data structures that are used in each `search_level` call.
   /// These can be expensive to allocate, so they're cleared and reused across
   /// calls.

@@ -41,7 +41,7 @@ macro_rules! either_binary_docvalues {
 
         impl<$( $T ),+> DocValuesIterator for $name<$( $T ),+>
         where
-            $( $T: BinaryDocValues ),+
+            $( $T: DocValuesIterator ),+
         {
             fn advance_exact(&mut self, target: i32) -> Result<bool> {
                 match self {
@@ -52,7 +52,7 @@ macro_rules! either_binary_docvalues {
 
         impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
         where
-            $( $T: BinaryDocValues ),+
+            $( $T: DocIdSetIterator ),+
         {
             fn doc_id(&self) -> i32 {
                 match self {

@@ -39,10 +39,7 @@ use std::sync::Arc;
 
 /// This selects the biggest Hnsw graph from the provided merge state and initializes a new
 /// HnswGraphBuilder with that graph as a starting point.
-pub struct IncrementalHnswGraphMerger<S>
-where
-  S: RandomVectorScorerSupplier,
-{
+pub struct IncrementalHnswGraphMerger<S> {
   field_info: Arc<FieldInfo>,
   scorer_supplier: Option<S>,
   m: usize,
@@ -52,10 +49,7 @@ where
   init_graph_size: usize,
 }
 
-impl<S> IncrementalHnswGraphMerger<S>
-where
-  S: RandomVectorScorerSupplier,
-{
+impl<S> IncrementalHnswGraphMerger<S> {
   pub fn new(field_info: Arc<FieldInfo>, scorer_supplier: S, m: usize, beam_width: usize) -> Self {
     Self {
       field_info,
@@ -67,6 +61,12 @@ where
       init_graph_size: 0,
     }
   }
+}
+
+impl<S> IncrementalHnswGraphMerger<S>
+where
+  S: RandomVectorScorerSupplier,
+{
   /// Builds a new HnswGraphBuilder using the biggest graph from the merge state as a starting point.
   /// If no valid readers were added to the merge state, a new graph is created.
   ///

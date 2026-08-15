@@ -46,7 +46,7 @@ use std::sync::Arc;
 /// modes, abstracting over access, mutation, cloning, and construction.
 /// Represents int[], as a slice (offset + length) into an existing int[].
 #[derive(Debug)]
-pub struct IntsRef<AV: SharedAccessVec<i32>> {
+pub struct IntsRef<AV> {
   /// The contents of the IntsRef
   pub ints: AV,
   /// Offset of first valid integer.
@@ -160,7 +160,7 @@ where
 }
 impl<AV> Clone for IntsRef<AV>
 where
-  AV: SharedAccessVec<i32>,
+  AV: Clone,
 {
   /// Returns a shallow clone of this instance (the underlying ints are
   /// **not** copied and will be shared by both the returned object and

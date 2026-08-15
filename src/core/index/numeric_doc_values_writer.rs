@@ -120,7 +120,6 @@ impl DocValuesWriter for NumericDocValuesWriter {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = DC::IndexOutput>,
-    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -262,19 +261,13 @@ impl NumericDocValues for BufferedNumericDocValues {
   }
 }
 
-pub struct SortingNumericDocValues<T>
-where
-  T: BitSet,
-{
+pub struct SortingNumericDocValues<T> {
   dvs: NumericDVs<T>,
   doc_id: i32,
   cost: Cell<i64>,
 }
 
-impl<T> SortingNumericDocValues<T>
-where
-  T: BitSet,
-{
+impl<T> SortingNumericDocValues<T> {
   pub(crate) fn new(dvs: NumericDVs<T>) -> Self {
     Self {
       dvs,
@@ -333,19 +326,13 @@ where
   }
 }
 #[derive(Clone)]
-pub struct NumericDVs<T>
-where
-  T: BitSet,
-{
+pub struct NumericDVs<T> {
   pub values: Arc<Vec<i64>>,
   pub docs_with_field: Option<Arc<T>>,
   pub max_doc: i32,
 }
 
-impl<T> NumericDVs<T>
-where
-  T: BitSet,
-{
+impl<T> NumericDVs<T> {
   pub(crate) fn new(values: Vec<i64>, docs_with_field: Option<T>) -> Self {
     debug_assert!(values.len() <= i32::MAX as usize);
     let docs_with_field = docs_with_field.map(Arc::new);
@@ -360,7 +347,12 @@ where
   pub(crate) fn max_doc(&self) -> i32 {
     self.max_doc
   }
+}
 
+impl<T> NumericDVs<T>
+where
+  T: BitSet,
+{
   fn advance_exact(&self, target: i32) -> bool {
     match &self.docs_with_field {
       Some(bits) => bits.get(target as usize).unwrap_or(false),

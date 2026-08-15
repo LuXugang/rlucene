@@ -21,10 +21,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 
 /// Reuse API, currently only used by postings during merge
-pub trait DocIDMerger<S>
-where
-  S: SubBase,
-{
+pub trait DocIDMerger<S> {
   /// Reuse API, currently only used by postings during merge
   fn reset(&mut self) -> Result<()>;
 
@@ -35,10 +32,7 @@ where
   fn next(&mut self) -> Result<Option<usize>>;
 }
 
-pub(crate) struct SequentialDocIDMerger<S>
-where
-  S: SubBase,
-{
+pub(crate) struct SequentialDocIDMerger<S> {
   subs: Vec<Sub<S>>,
   current: Option<usize>,
   next_index: usize,
@@ -98,10 +92,7 @@ where
   }
 }
 
-pub(crate) struct SortedDocIDMerger<S>
-where
-  S: SubBase,
-{
+pub(crate) struct SortedDocIDMerger<S> {
   current: Option<usize>,
   queue: PriorityQueue<usize, SubCompare<S>>,
   queue_min_doc_id: i32,
@@ -217,10 +208,7 @@ where
     }
   }
 }
-pub(crate) enum DocIDMergerEnum<S>
-where
-  S: SubBase,
-{
+pub(crate) enum DocIDMergerEnum<S> {
   Sequential(SequentialDocIDMerger<S>),
   Sorted(SortedDocIDMerger<S>),
 }
@@ -275,24 +263,24 @@ where
 }
 
 /// Represents one sub-reader being merged
-pub struct Sub<S>
-where
-  S: SubBase,
-{
+pub struct Sub<S> {
   /// Mapped doc ID
   pub(crate) sub: S,
   pub mapped_doc_id: i32,
 }
-impl<S> Sub<S>
-where
-  S: SubBase,
-{
+impl<S> Sub<S> {
   pub fn new(sub: S) -> Self {
     Self {
       sub,
       mapped_doc_id: 0,
     }
   }
+}
+
+impl<S> Sub<S>
+where
+  S: SubBase,
+{
   /// Like `next_doc()` but skips over unmapped docs and returns the next
   /// mapped doc ID, or `DocIdSetIterator::NO_MORE_DOCS` when exhausted.
   /// This method sets `mapped_doc_id` as a side effect.
@@ -319,16 +307,10 @@ pub trait SubBase {
   fn get_doc_map(&self) -> Result<&Self::DocMap>;
 }
 
-struct SubCompare<S>
-where
-  S: SubBase,
-{
+struct SubCompare<S> {
   subs: Vec<Sub<S>>,
 }
-impl<S> SubCompare<S>
-where
-  S: SubBase,
-{
+impl<S> SubCompare<S> {
   fn new(subs: Vec<Sub<S>>) -> Self {
     Self { subs }
   }

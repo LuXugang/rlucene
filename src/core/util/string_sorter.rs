@@ -26,11 +26,7 @@ use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, Sorter};
 ///
 /// # Note
 /// - This is an internal API and is not intended for external use.
-pub(crate) struct StringSorter<T, C>
-where
-  T: StringSorterBase,
-  C: BytesRefComparator,
-{
+pub(crate) struct StringSorter<T, C> {
   delegate: T,
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch2: BytesRefBuilder<Vec<u8>>,
@@ -94,11 +90,7 @@ where
   }
 }
 
-pub struct MSBStringRadixSorter<'a, T, C>
-where
-  T: StringSorterBase,
-  C: BytesRefComparator,
-{
+pub struct MSBStringRadixSorter<'a, T, C> {
   scratch1: BytesRefBuilder<Vec<u8>>,
   scratch_bytes1: BytesRef<Vec<u8>>,
   cmp: &'a mut C,
@@ -146,11 +138,7 @@ where
   }
 }
 
-pub struct IntroSorterImpl<'a, T, C>
-where
-  T: StringSorterBase,
-  C: BytesRefComparator,
-{
+pub struct IntroSorterImpl<'a, T, C> {
   pivot: BytesRef<Vec<u8>>,
   pivot_builder: BytesRefBuilder<Vec<u8>>,
   scratch1: BytesRefBuilder<Vec<u8>>,

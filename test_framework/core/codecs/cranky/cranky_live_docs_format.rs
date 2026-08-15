@@ -49,10 +49,7 @@ where
     dir: &impl Directory,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits>
-  where
-    D: Directory,
-  {
+  ) -> Result<Self::Bits> {
     self.delegate.read_live_docs(dir, info, context)
   }
 
@@ -63,10 +60,7 @@ where
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake IOException from LiveDocsFormat.writeLiveDocs()",
@@ -77,10 +71,7 @@ where
       .write_live_docs(bits, dir, info, new_del_count, context)
   }
 
-  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()> {
     // TODO: is this called only from write? if so we should throw exception!
     self.delegate.files(info, files)
   }

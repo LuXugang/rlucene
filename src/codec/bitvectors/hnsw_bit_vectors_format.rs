@@ -134,7 +134,6 @@ impl KnnVectorsFormat for HnswBitVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(FlatBitVectorsWriter::new(Lucene99HnswVectorsWriter::new(
       state,
@@ -156,7 +155,6 @@ impl KnnVectorsFormat for HnswBitVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Lucene99HnswVectorsReader::new(
       state,
@@ -227,7 +225,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -248,7 +245,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     if !matches!(field_info.get_vector_encoding(), VectorEncoding::BYTE(_)) {
       return Err(LuceneError::illegal_argument(

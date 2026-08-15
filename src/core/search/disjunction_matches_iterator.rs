@@ -39,10 +39,7 @@ use std::sync::Arc;
 ///
 /// Matches may overlap, or be duplicated if they appear in more than one of the
 /// sub-iterators.
-pub struct DisjunctionMatchesIterator<M>
-where
-  M: MatchesIterator,
-{
+pub struct DisjunctionMatchesIterator<M> {
   queue: PriorityQueue<M, DisjunctionMatchesIteratorPQCmp>,
   started: bool,
 }
@@ -167,7 +164,6 @@ pub(crate) struct TermsEnumDisjunctionMatchesIterator<'a, TE, BRI>
 where
   TE: TermsEnum,
   TE::PostingsEnum: 'a,
-  BRI: BytesRefIterator,
 {
   first: Option<TermMatchesIterator<TE::PostingsEnum>>,
   terms: BRI,

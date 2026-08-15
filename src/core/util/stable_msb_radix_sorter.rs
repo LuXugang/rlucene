@@ -20,19 +20,13 @@ use crate::core::util::{
   BINARY_SORT_THRESHOLD, HISTOGRAM_SIZE, MSBRadixSorterBase, SliceCopyOps, Sorter, check_range,
 };
 
-pub struct StableMSBRadixSorter<T>
-where
-  T: StableMSBRadixSorterBase,
-{
+pub struct StableMSBRadixSorter<T> {
   delegate: T,
   fixed_start_offsets: Vec<usize>,
   max_length: usize,
 }
 
-impl<T> StableMSBRadixSorter<T>
-where
-  T: StableMSBRadixSorterBase,
-{
+impl<T> StableMSBRadixSorter<T> {
   pub fn new(delegate: T, max_length: usize) -> StableMSBRadixSorter<T> {
     StableMSBRadixSorter {
       delegate,
@@ -95,10 +89,7 @@ pub trait StableMSBRadixSorterBase: MSBRadixSorterBase {
   fn restore(&mut self, i: usize, j: usize);
 }
 
-pub struct MergeSorter<T>
-where
-  T: StableMSBRadixSorterBase,
-{
+pub struct MergeSorter<T> {
   pub(crate) delegate: T,
   pub(crate) pivot_index: usize,
 }
@@ -200,22 +191,13 @@ where
   }
 }
 
-pub struct MergeSorterImpl<'a, T>
-where
-  T: StableMSBRadixSorterBase,
-{
+pub struct MergeSorterImpl<'a, T> {
   k: usize,
   max_length: usize,
   delegate: &'a mut T,
 }
-impl<'a, T> MergeSorterImpl<'a, T>
-where
-  T: StableMSBRadixSorterBase,
-{
-  pub fn new(k: usize, max_length: usize, delegate: &'a mut T) -> MergeSorterImpl<'a, T>
-  where
-    T: StableMSBRadixSorterBase,
-  {
+impl<'a, T> MergeSorterImpl<'a, T> {
+  pub fn new(k: usize, max_length: usize, delegate: &'a mut T) -> MergeSorterImpl<'a, T> {
     MergeSorterImpl {
       k,
       max_length,

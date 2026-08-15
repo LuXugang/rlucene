@@ -33,8 +33,7 @@ pub trait FlatVectorsFormat: KnnVectorsFormat {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::FlatVectorsWriter<D1::IndexOutput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
   type FlatVectorsReader<T: IndexInput>: FlatVectorsReader;
   /// Returns a `KnnVectorsReader` to write the vectors to the index.
   fn fields_reader<D1, D2>(
@@ -43,8 +42,7 @@ pub trait FlatVectorsFormat: KnnVectorsFormat {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::FlatVectorsReader<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
   fn get_max_dimensions(&self, _field_name: &str) -> usize {
     1024
   }

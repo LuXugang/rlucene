@@ -59,7 +59,6 @@ where
   ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self
       .delegate
@@ -76,7 +75,6 @@ where
   ) -> Result<Self::StoredFieldsWriter<D1>>
   where
     D1: Directory,
-    D2: Directory,
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
@@ -209,7 +207,6 @@ where
 
   fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
   where
-    D: Directory,
     D1: Directory,
     CR: CodecReader,
   {

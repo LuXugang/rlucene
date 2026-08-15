@@ -110,7 +110,7 @@ macro_rules! either_lock {
 
         impl<$( $T ),+> Display for $name<$( $T ),+>
         where
-            $( $T: Lock ),+
+            $( $T: Display ),+
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                 match self {
@@ -121,7 +121,7 @@ macro_rules! either_lock {
 
         impl<$( $T ),+> CloseableRef for $name<$( $T ),+>
         where
-            $( $T: Lock ),+
+            $( $T: CloseableRef ),+
         {
             fn close(&self) -> Result<()> {
                 match self {

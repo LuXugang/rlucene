@@ -51,17 +51,11 @@ pub trait RandomAccessInput {
   }
 }
 
-pub struct RandomAccessInputWrapper<I>
-where
-  I: IndexInput,
-{
+pub struct RandomAccessInputWrapper<I> {
   slice: I,
 }
 
-impl<I> RandomAccessInputWrapper<I>
-where
-  I: IndexInput,
-{
+impl<I> RandomAccessInputWrapper<I> {
   pub fn new(inner: I) -> Self {
     Self { slice: inner }
   }
@@ -110,7 +104,7 @@ where
 }
 impl<I> Display for RandomAccessInputWrapper<I>
 where
-  I: IndexInput,
+  I: Display,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "RandomAccessInput({})", self.slice)

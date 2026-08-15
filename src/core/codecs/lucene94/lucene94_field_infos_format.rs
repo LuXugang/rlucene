@@ -246,10 +246,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     _io_context: &IOContext,
-  ) -> Result<FieldInfos>
-  where
-    D: Directory,
-  {
+  ) -> Result<FieldInfos> {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
     let mut input = directory.open_checksum_input(&file_name)?;
@@ -396,10 +393,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     segment_suffix: &str,
     infos: &FieldInfos,
     io_context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
     let mut output = directory.create_output(&file_name, io_context)?;

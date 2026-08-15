@@ -56,11 +56,7 @@ use std::sync::Arc;
 /// state and scorer/visitor machinery live here, while concrete shape queries provide their own
 /// [`SpatialVisitor`] implementation.
 #[derive(Clone)]
-pub struct SpatialQuery<G, C>
-where
-  C: SpatialQueryBase,
-  G: Geometry,
-{
+pub struct SpatialQuery<G, C> {
   /// field name
   pub(crate) field: String,
   /// query relation
@@ -70,11 +66,7 @@ where
   id: Identity,
 }
 
-impl<G, C> SpatialQuery<G, C>
-where
-  C: SpatialQueryBase + 'static,
-  G: Geometry + 'static,
-{
+impl<G, C> SpatialQuery<G, C> {
   pub fn new(
     field: String,
     query_relation: QueryRelation,
@@ -103,7 +95,13 @@ where
   pub fn transpose_relation(r: Relation) -> Relation {
     transpose_relation(r)
   }
+}
 
+impl<G, C> SpatialQuery<G, C>
+where
+  C: SpatialQueryBase + 'static,
+  G: Geometry + 'static,
+{
   pub(crate) fn to_string(&self, field: &str) -> Result<String> {
     let mut sb = String::new();
     sb.push_str(std::any::type_name::<Self>());
@@ -152,21 +150,13 @@ where
   }
 }
 
-impl<G, C> Debug for SpatialQuery<G, C>
-where
-  C: SpatialQueryBase,
-  G: Geometry,
-{
+impl<G, C> Debug for SpatialQuery<G, C> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
-impl<G, C> HasIdentity for SpatialQuery<G, C>
-where
-  C: SpatialQueryBase,
-  G: Geometry,
-{
+impl<G, C> HasIdentity for SpatialQuery<G, C> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -469,11 +459,7 @@ pub fn transpose_relation(r: Relation) -> Relation {
 
 /// Utility struct implementing constant-score logic for INTERSECT, WITHIN, DISJOINT,
 /// and CONTAINS.
-pub struct RelationScorerSupplier<PV, V>
-where
-  PV: PointValues,
-  V: SpatialVisitor,
-{
+pub struct RelationScorerSupplier<PV, V> {
   values: PV,
   spatial_visitor: V,
   query_relation: QueryRelation,
@@ -485,11 +471,7 @@ where
   cost: i64,
 }
 
-impl<PV, V> RelationScorerSupplier<PV, V>
-where
-  PV: PointValues,
-  V: SpatialVisitor,
-{
+impl<PV, V> RelationScorerSupplier<PV, V> {
   #[allow(clippy::too_many_arguments)]
   pub fn new(
     values: PV,
@@ -513,7 +495,13 @@ where
       cost: -1,
     }
   }
+}
 
+impl<PV, V> RelationScorerSupplier<PV, V>
+where
+  PV: PointValues,
+  V: SpatialVisitor,
+{
   fn get_scorer(&mut self) -> Result<QueryWeightSsScorer> {
     match self.query_relation {
       QueryRelation::Intersects => self.get_sparse_scorer(),

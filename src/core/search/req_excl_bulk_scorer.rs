@@ -26,19 +26,11 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 
-pub struct ReqExclBulkScorer<BS, S>
-where
-  BS: BulkScorer,
-  S: Scorer,
-{
+pub struct ReqExclBulkScorer<BS, S> {
   req: BS,
   excl: S,
 }
-impl<BS, S> ReqExclBulkScorer<BS, S>
-where
-  BS: BulkScorer,
-  S: Scorer,
-{
+impl<BS, S> ReqExclBulkScorer<BS, S> {
   pub(crate) fn new(req: BS, excl: S) -> Self {
     Self { req, excl }
   }

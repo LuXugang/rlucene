@@ -34,11 +34,7 @@ pub type Disi<S> = DocIdSetIteratorEnum2<
   TwoPhaseIteratorAsDocIdSetIterator<TwoPhase<S>>,
 >;
 /// Base trait for scorers that score disjunctions.
-pub struct DisjunctionScorer<S, T>
-where
-  S: Scorer,
-  T: DisjunctionScorerBase,
-{
+pub struct DisjunctionScorer<S, T> {
   disi: Disi<S>,
   sub: T,
   tpi_state: TwoPhaseState,
@@ -154,12 +150,7 @@ where
   }
 }
 
-impl<S, T> crate::core::search::scorable::FixedScore for DisjunctionScorer<S, T>
-where
-  S: Scorer + 'static,
-  T: DisjunctionScorerBase,
-{
-}
+impl<S, T> crate::core::search::scorable::FixedScore for DisjunctionScorer<S, T> {}
 
 impl<S, T> Scorer for DisjunctionScorer<S, T>
 where
@@ -317,10 +308,7 @@ where
   }
 }
 
-pub struct TwoPhase<S>
-where
-  S: Scorer,
-{
+pub struct TwoPhase<S> {
   match_cost: f32,
   // list of verified matches on the current doc
   verified_matches: Option<usize>,
@@ -441,10 +429,7 @@ where
   }
 }
 
-struct DisiWrapperCmp<S>
-where
-  S: Scorer,
-{
+struct DisiWrapperCmp<S> {
   approximation: DisjunctionDISIApproximation<S>,
 }
 impl<S> Compare<usize> for DisiWrapperCmp<S>

@@ -23,13 +23,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// which defaults to a no-op.
 pub struct FilterScorable<'a, S>
 where
-  S: Scorable + ?Sized,
+  S: ?Sized,
 {
   pub(crate) in_: &'a mut S,
 }
 impl<'a, S> FilterScorable<'a, S>
 where
-  S: Scorable + ?Sized,
+  S: ?Sized,
 {
   pub fn new(in_: &'a mut S) -> Self {
     Self { in_ }
@@ -57,7 +57,4 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for FilterScorable<'_, S> where
-  S: Scorable + ?Sized
-{
-}
+impl<S> crate::core::search::scorable::FixedScore for FilterScorable<'_, S> where S: ?Sized {}

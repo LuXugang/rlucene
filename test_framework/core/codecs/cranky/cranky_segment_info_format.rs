@@ -61,10 +61,7 @@ where
     directory: &impl Directory,
     info: &mut SegmentInfo<D>,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake IOException from SegmentInfoFormat.write()",

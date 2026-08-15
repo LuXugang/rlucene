@@ -230,10 +230,7 @@ where
     per_fields: &mut [PerField],
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     if !self.has_vectors {
       return Ok(());
     }
@@ -311,17 +308,13 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     self
       .hook
       .flush(&self.codec, &mut self.last_doc_id, state, sort_map, info)
   }
 
-  fn init_term_vectors_writer<D1>(&mut self, info: &SegmentInfo<D1>) -> Result<()>
-  where
-    D1: Directory,
-  {
+  fn init_term_vectors_writer<D1>(&mut self, info: &SegmentInfo<D1>) -> Result<()> {
     self.hook.init_term_vectors_writer(
       &self.directory,
       &self.codec,
@@ -378,7 +371,6 @@ impl TermVectorsConsumerDefaults {
   ) -> Result<()>
   where
     TW: TermVectorsWriter,
-    D1: Directory,
   {
     if writer.is_some() {
       let num_docs = info.max_doc()?;
@@ -412,7 +404,6 @@ impl TermVectorsConsumerDefaults {
   ) -> Result<()>
   where
     D: Directory + Clone,
-    D1: Directory,
   {
     if writer.is_none() {
       let flush_info = FlushInfo::new(*last_doc_id, bytes_used);
@@ -448,8 +439,7 @@ pub(crate) trait TermVectorsConsumerBase {
     info: &SegmentInfo<D1>,
   ) -> Result<()>
   where
-    DM: DocMap,
-    D1: Directory;
+    DM: DocMap;
   fn init_term_vectors_writer<D1>(
     &mut self,
     directory: &Self::Directory,
@@ -457,9 +447,7 @@ pub(crate) trait TermVectorsConsumerBase {
     last_doc_id: &mut i32,
     info: &SegmentInfo<D1>,
     bytes_used: i64,
-  ) -> Result<()>
-  where
-    D1: Directory;
+  ) -> Result<()>;
   fn abort(&mut self) -> Result<()>;
 }
 
@@ -479,7 +467,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     match self {
       Self::Default { writer } => TermVectorsConsumerDefaults::flush(writer, last_doc_id, info),
@@ -494,10 +481,7 @@ where
     last_doc_id: &mut i32,
     info: &SegmentInfo<D1>,
     bytes_used: i64,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     match self {
       Self::Default { writer } => TermVectorsConsumerDefaults::init_term_vectors_writer(
         writer,

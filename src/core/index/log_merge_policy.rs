@@ -44,10 +44,7 @@ use std::fmt::{Display, Formatter};
 /// **NOTE**: This policy returns natural merges whose size is below the `LogMergePolicy::min_merge_size`
 /// minimum merge size for [`LogMergePolicy::find_full_flush_merges`] full-flush merges.
 #[derive(Clone)]
-pub struct LogMergePolicy<T>
-where
-  T: LogMergePolicyBase,
-{
+pub struct LogMergePolicy<T> {
   /// How many segments to merge at a time.
   pub(crate) merge_factor: usize,
   /// Any segments whose size is smaller than this value will be candidates for full-flush merges and
@@ -71,10 +68,7 @@ where
   pub(crate) sub: T,
 }
 
-impl<T> LogMergePolicy<T>
-where
-  T: LogMergePolicyBase,
-{
+impl<T> LogMergePolicy<T> {
   /// Defines the allowed range of log(size) for each level. A level is computed by taking the max
   /// segment log size, minus LEVEL_LOG_SPAN, and finding all segments falling within that range.
   pub const LEVEL_LOG_SPAN: f64 = 0.75;
@@ -152,6 +146,7 @@ where
   where
     D: Directory,
     MC: MergeContext<D>,
+    T: LogMergePolicyBase,
   {
     let num_segments = infos.size();
     let mut num_to_merge = 0;
@@ -196,6 +191,7 @@ where
   where
     D: Directory,
     MC: MergeContext<D>,
+    T: LogMergePolicyBase,
   {
     debug_assert!(last > 0);
     let mut spec = MergeSpecification::new();
@@ -270,6 +266,7 @@ where
   where
     D: Directory,
     MC: MergeContext<D>,
+    T: LogMergePolicyBase,
   {
     let mut spec = MergeSpecification::new();
     let segments = infos.iter();
@@ -379,10 +376,7 @@ where
     start: usize,
     end: usize,
     sci: &[SegmentCommitInfo<D>],
-  ) -> Result<Vec<SegmentDocAndID>>
-  where
-    D: Directory,
-  {
+  ) -> Result<Vec<SegmentDocAndID>> {
     let mut meta = Vec::new();
     for seg in sci.iter().take(end).skip(start) {
       meta.push(SegmentDocAndID::new(
@@ -812,26 +806,17 @@ where
   }
 }
 #[derive(Clone)]
-pub(crate) struct SegmentInfoAndLevel<'a, D>
-where
-  D: Directory,
-{
+pub(crate) struct SegmentInfoAndLevel<'a, D> {
   pub(crate) info: &'a SegmentCommitInfo<D>,
   pub(crate) level: f32,
 }
-impl<'a, D> SegmentInfoAndLevel<'a, D>
-where
-  D: Directory,
-{
+impl<'a, D> SegmentInfoAndLevel<'a, D> {
   fn new(info: &'a SegmentCommitInfo<D>, level: f32) -> Self {
     Self { info, level }
   }
 }
 
-impl<D> Ord for SegmentInfoAndLevel<'_, D>
-where
-  D: Directory,
-{
+impl<D> Ord for SegmentInfoAndLevel<'_, D> {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
     other
       .level
@@ -840,22 +825,16 @@ where
   }
 }
 
-impl<D> PartialOrd for SegmentInfoAndLevel<'_, D>
-where
-  D: Directory,
-{
+impl<D> PartialOrd for SegmentInfoAndLevel<'_, D> {
   fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
     Some(self.cmp(other))
   }
 }
 
-impl<D> PartialEq for SegmentInfoAndLevel<'_, D>
-where
-  D: Directory,
-{
+impl<D> PartialEq for SegmentInfoAndLevel<'_, D> {
   fn eq(&self, other: &Self) -> bool {
     self.level.to_bits() == other.level.to_bits()
   }
 }
 
-impl<D> Eq for SegmentInfoAndLevel<'_, D> where D: Directory {}
+impl<D> Eq for SegmentInfoAndLevel<'_, D> {}

@@ -36,10 +36,7 @@ const MAX_BLOCK_SIZE: i32 = 1 << 30;
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
 #[derive(Default)]
-pub(crate) struct AbstractPagedMutable<T>
-where
-  T: AbstractPagedMutableBase,
-{
+pub(crate) struct AbstractPagedMutable<T> {
   sub_reader: T,
   size: usize,
   page_shift: i32,

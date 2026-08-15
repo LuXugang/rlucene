@@ -21,10 +21,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Diff to Java Lucene, Compile-time polymorphism makes it unnecessary to wrap `likelyTermScorer`
 /// or `likelyImpactsEnum`.
 #[derive(Default)]
-pub struct DisiWrapper<S>
-where
-  S: Scorer,
-{
+pub struct DisiWrapper<S> {
   pub(crate) scorer: S,
   pub(crate) next: Option<usize>,
   pub(crate) doc: i32,

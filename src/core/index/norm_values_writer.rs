@@ -29,7 +29,6 @@ use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -95,7 +94,6 @@ impl NormValuesWriter {
     segment_info: &SegmentInfo<D>,
   ) -> Result<()>
   where
-    D: Directory,
     DM: DocMap,
     N: NormsConsumer,
   {

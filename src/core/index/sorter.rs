@@ -227,10 +227,7 @@ where
   }
 }
 
-struct DocValueSorter<'a, DC>
-where
-  DC: DocComparator,
-{
+struct DocValueSorter<'a, DC> {
   docs: &'a mut [i32],
   comparator: DC,
   tmp: Vec<i32>,
@@ -333,16 +330,10 @@ impl DocMap for DocMapImpl {
   }
 }
 
-struct DocComparatorSorterImpl<DC>
-where
-  DC: DocComparator,
-{
+struct DocComparatorSorterImpl<DC> {
   comparators: Vec<DC>,
 }
-impl<DC> DocComparatorSorterImpl<DC>
-where
-  DC: DocComparator,
-{
+impl<DC> DocComparatorSorterImpl<DC> {
   pub fn new(comparators: Vec<DC>) -> Self {
     DocComparatorSorterImpl { comparators }
   }
@@ -363,19 +354,11 @@ where
   }
 }
 
-pub struct DocComparatorWrapper<DC, B>
-where
-  DC: DocComparator,
-  B: BitSet,
-{
+pub struct DocComparatorWrapper<DC, B> {
   in_: DC,
   parents: B,
 }
-impl<DC, B> DocComparatorWrapper<DC, B>
-where
-  DC: DocComparator,
-  B: BitSet,
-{
+impl<DC, B> DocComparatorWrapper<DC, B> {
   fn new(cmp: DC, parents: B) -> Self {
     DocComparatorWrapper { in_: cmp, parents }
   }
@@ -393,11 +376,7 @@ where
   }
 }
 
-pub enum DocComparatorEnum<DC, B>
-where
-  DC: DocComparator,
-  B: BitSet,
-{
+pub enum DocComparatorEnum<DC, B> {
   Plain(DocComparatorImpl),
   BS(DocComparatorWrapper<DC, B>),
 }

@@ -64,10 +64,7 @@ impl LiveDocsFormat for AssertingLiveDocsFormat {
     dir: &impl Directory,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits>
-  where
-    D: Directory,
-  {
+  ) -> Result<Self::Bits> {
     let raw = self.in_.read_live_docs(dir, info, context)?;
     Self::check(&raw, info.info.max_doc()? as usize, info.get_del_count())?;
     Ok(AssertingBits::new(raw))
@@ -80,10 +77,7 @@ impl LiveDocsFormat for AssertingLiveDocsFormat {
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     Self::check(
       bits,
       info.info.max_doc()? as usize,
@@ -94,10 +88,7 @@ impl LiveDocsFormat for AssertingLiveDocsFormat {
       .write_live_docs(bits, dir, info, new_del_count, context)
   }
 
-  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()> {
     self.in_.files(info, files)
   }
 }

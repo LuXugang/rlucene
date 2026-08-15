@@ -354,10 +354,7 @@ impl LatLonDistanceContext {
   }
 }
 
-struct ScorerSupplierImpl<PV>
-where
-  PV: PointValues,
-{
+struct ScorerSupplierImpl<PV> {
   score: f32,
   score_mode: ScoreMode,
   values: PV,
@@ -365,10 +362,7 @@ where
   cost: i64,
 }
 
-impl<PV> ScorerSupplierImpl<PV>
-where
-  PV: PointValues,
-{
+impl<PV> ScorerSupplierImpl<PV> {
   fn new(
     score: f32,
     score_mode: ScoreMode,

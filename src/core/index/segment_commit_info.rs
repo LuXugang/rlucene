@@ -27,10 +27,7 @@ use std::sync::atomic::{AtomicI64, Ordering};
 /// Embeds a [read-only] [SegmentInfo] and adds per-commit fields.
 ///
 /// @lucene.experimental
-pub struct SegmentCommitInfo<D>
-where
-  D: Directory,
-{
+pub struct SegmentCommitInfo<D> {
   /// The SegmentInfo that we wrap.
   pub info: Arc<SegmentInfo<D>>,
   /// Id that uniquely identifies this segment commit.
@@ -66,10 +63,7 @@ where
   /// to disk.
   buffered_deletes_gen: i64,
 }
-impl<D> SegmentCommitInfo<D>
-where
-  D: Directory,
-{
+impl<D> SegmentCommitInfo<D> {
   /// Creates a new instance.
   ///
   /// # Arguments
@@ -227,7 +221,10 @@ where
   }
 
   /// Returns the total size in bytes of all files for this segment.
-  pub fn size_in_bytes(&self) -> Result<i64> {
+  pub fn size_in_bytes(&self) -> Result<i64>
+  where
+    D: Directory,
+  {
     let current_size = self.size_in_bytes.load(Ordering::SeqCst);
     if current_size != -1 {
       return Ok(current_size);
@@ -434,18 +431,12 @@ pub fn validate_soft_del_count(del_count: i32, max_doc: i32, soft_del_count: i32
   Ok(())
 }
 /// Implement `Display` for `SegmentCommitInfo`.
-impl<D> std::fmt::Display for SegmentCommitInfo<D>
-where
-  D: Directory,
-{
+impl<D> std::fmt::Display for SegmentCommitInfo<D> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.to_string_with_pending_del_count(0))
   }
 }
-impl<D> Clone for SegmentCommitInfo<D>
-where
-  D: Directory,
-{
+impl<D> Clone for SegmentCommitInfo<D> {
   fn clone(&self) -> Self {
     let mut other = SegmentCommitInfo::new(
       self.info.clone(),
@@ -472,10 +463,7 @@ where
     other
   }
 }
-impl<D> PartialEq for SegmentCommitInfo<D>
-where
-  D: Directory,
-{
+impl<D> PartialEq for SegmentCommitInfo<D> {
   fn eq(&self, other: &Self) -> bool {
     std::ptr::eq(self, other)
   }

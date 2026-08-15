@@ -59,7 +59,6 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let data_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, data_extension);

@@ -41,10 +41,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 ///
 /// # Lucene Internal
 #[derive(Debug, Clone)]
-pub struct PrefixCodedTerms<B = Vec<u8>>
-where
-  B: ByteBuffersDataInputBlock + Clone,
-{
+pub struct PrefixCodedTerms<B = Vec<u8>> {
   content: Vec<Cursor<B>>,
   content_len: i64,
   size: i64,
@@ -56,10 +53,7 @@ where
 pub type PrefixCodedTermsRc = PrefixCodedTerms<Rc<Vec<u8>>>;
 pub type PrefixCodedTermsArc = PrefixCodedTerms<Arc<Vec<u8>>>;
 
-impl<B> PrefixCodedTerms<B>
-where
-  B: ByteBuffersDataInputBlock + Clone,
-{
+impl<B> PrefixCodedTerms<B> {
   pub fn new(content: Vec<Cursor<B>>, content_len: i64, size: i64) -> Self {
     debug_assert!(!content.is_empty());
     PrefixCodedTerms {
@@ -319,10 +313,7 @@ pub type TermIteratorRef<'a> = TermIterator<&'a [u8]>;
 pub type TermIteratorRc = TermIterator<Rc<Vec<u8>>>;
 pub type TermIteratorArc = TermIterator<Arc<Vec<u8>>>;
 
-pub struct TermIterator<B>
-where
-  B: ByteBuffersDataInputBlock,
-{
+pub struct TermIterator<B> {
   input: ByteBuffersDataInput<B>,
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
   end: i64,

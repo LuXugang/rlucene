@@ -52,11 +52,7 @@ use std::mem;
 use std::sync::Arc;
 
 /// Reads vectors from the index segments.
-pub struct Lucene99FlatVectorsReader<I, F>
-where
-  I: IndexInput,
-  F: FlatVectorsScorer,
-{
+pub struct Lucene99FlatVectorsReader<I, F> {
   field_infos: Arc<FieldInfos>,
   fields: HashMap<i32, FieldEntry>,
   vector_data: Arc<I>,
@@ -74,7 +70,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let mut fields = HashMap::<i32, FieldEntry>::new();
     let version_meta = Self::read_metadata(state, segment_info, &mut fields)?;
@@ -102,7 +97,6 @@ where
   ) -> Result<i32>
   where
     D1: Directory,
-    D2: Directory,
   {
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
@@ -144,7 +138,6 @@ where
   ) -> Result<I>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
@@ -235,8 +228,7 @@ where
 
 impl<I, F> CloseableRef for Lucene99FlatVectorsReader<I, F>
 where
-  I: IndexInput,
-  F: FlatVectorsScorer,
+  I: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     CloseableRef::close(&self.vector_data)
@@ -343,11 +335,7 @@ where
   }
 }
 
-impl<I, F> Accountable for Lucene99FlatVectorsReader<I, F>
-where
-  F: FlatVectorsScorer + Clone,
-  I: IndexInput,
-{
+impl<I, F> Accountable for Lucene99FlatVectorsReader<I, F> {
   fn ram_bytes_used(&self) -> Result<i64> {
     self.fields.ram_bytes_used()
   }

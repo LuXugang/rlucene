@@ -108,10 +108,7 @@ const LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
 ///
 /// # Experimental
 /// This API is marked as experimental, following the original Lucene design.
-pub struct LRUQueryCache<P>
-where
-  P: Predicate<TopParentMeta>,
-{
+pub struct LRUQueryCache<P> {
   hook: LRUQueryCacheHook,
   max_size: i32,
   max_ram_bytes_used: i64,
@@ -412,10 +409,7 @@ impl LRUQueryCache<MinSegmentSizePredicate> {
   }
 }
 
-impl<P> LRUQueryCache<P>
-where
-  P: Predicate<TopParentMeta>,
-{
+impl<P> LRUQueryCache<P> {
   /// Expert: Create a new instance that will cache at most `max_size` queries with at most
   /// `max_ram_bytes_used` bytes of memory, only on leaves that satisfy `leaves_to_cache`.
   ///
@@ -452,7 +446,12 @@ where
       leaves_to_cache,
     })
   }
+}
 
+impl<P> LRUQueryCache<P>
+where
+  P: Predicate<TopParentMeta>,
+{
   #[cfg(test)]
   pub(crate) fn with_hook(mut self, hook: LRUQueryCacheHook) -> Self {
     self.hook = hook;
@@ -1014,7 +1013,6 @@ impl Accountable for LeafCache {
 }
 pub struct CachingWrapperWeight<P, IRC>
 where
-  P: Predicate<TopParentMeta>,
   IRC: IndexReaderContext,
 {
   in_: QueryWeight<IRC>,
@@ -1025,7 +1023,6 @@ where
 }
 impl<P, IRC> CachingWrapperWeight<P, IRC>
 where
-  P: Predicate<TopParentMeta>,
   IRC: IndexReaderContext,
 {
   pub(crate) fn new(
@@ -1041,6 +1038,13 @@ where
       lru_cache,
     }
   }
+}
+
+impl<P, IRC> CachingWrapperWeight<P, IRC>
+where
+  P: Predicate<TopParentMeta>,
+  IRC: IndexReaderContext,
+{
   fn should_cache(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let top_context = ReaderUtil::get_top_level_context(context);
     let max_doc = top_context.max_doc;
@@ -1231,8 +1235,6 @@ where
 pub struct ScorerSupplierImpl1<C, P, IRC>
 where
   IRC: IndexReaderContext,
-  C: CacheHelper,
-  P: Predicate<TopParentMeta>,
 {
   cost: i64,
   skip_cache_factor: f32,
@@ -1245,8 +1247,6 @@ where
 impl<C, P, IRC> ScorerSupplierImpl1<C, P, IRC>
 where
   IRC: IndexReaderContext,
-  C: CacheHelper,
-  P: Predicate<TopParentMeta>,
 {
   pub(crate) fn new(
     cost: i64,
@@ -1371,10 +1371,7 @@ where
 }
 
 /// Cache of doc ids with a count.
-pub(crate) struct CacheAndCount<D>
-where
-  D: DocIdSet,
-{
+pub(crate) struct CacheAndCount<D> {
   cache: D,
   count: usize,
 }
@@ -1387,17 +1384,22 @@ impl CacheAndCount<EmptyDocIdSet> {
   }
 }
 
+impl<D> CacheAndCount<D> {
+  pub(crate) fn new(cache: D, count: usize) -> Self {
+    Self { cache, count }
+  }
+}
+
 impl<D> CacheAndCount<D>
 where
   D: DocIdSet,
 {
-  pub(crate) fn new(cache: D, count: usize) -> Self {
-    Self { cache, count }
-  }
-
   pub(crate) fn iterator(&self) -> Result<D::DocIdSetIterator> {
     self.cache.iterator()
   }
+}
+
+impl<D> CacheAndCount<D> {
   pub(crate) fn count(&self) -> usize {
     self.count
   }

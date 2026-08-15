@@ -27,14 +27,11 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Simple implementation of [`ChecksumIndexInput`] that wraps another input and
 /// delegates calls.
-pub struct BufferedChecksumIndexInput<T: IndexInput> {
+pub struct BufferedChecksumIndexInput<T> {
   main: T,
   digest: BufferedChecksum<HasherChecksum>,
 }
-impl<T> BufferedChecksumIndexInput<T>
-where
-  T: IndexInput,
-{
+impl<T> BufferedChecksumIndexInput<T> {
   pub fn new(main: T) -> BufferedChecksumIndexInput<T> {
     let digest = BufferedChecksum::new(HasherChecksum::new(Hasher::new()));
     BufferedChecksumIndexInput { main, digest }
@@ -151,7 +148,7 @@ where
 
 impl<T> Display for BufferedChecksumIndexInput<T>
 where
-  T: IndexInput,
+  T: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "BufferedChecksumIndexInput({})", self.main)

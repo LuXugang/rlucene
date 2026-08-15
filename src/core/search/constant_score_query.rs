@@ -324,17 +324,11 @@ where
   }
 }
 /// We return this as our BulkScorer so that if the CSQ wraps a query with its own optimized top-level scorer (e.g. BooleanScorer) we can use that top-level scorer.
-pub struct ConstantBulkScorer<BS>
-where
-  BS: BulkScorer,
-{
+pub struct ConstantBulkScorer<BS> {
   bulk_scorer: BS,
   the_score: f32,
 }
-impl<BS> ConstantBulkScorer<BS>
-where
-  BS: BulkScorer,
-{
+impl<BS> ConstantBulkScorer<BS> {
   pub fn new(bulk_scorer: BS, the_score: f32) -> Self {
     Self {
       bulk_scorer,
@@ -372,18 +366,12 @@ where
   }
 }
 
-pub struct FilterLeafCollectorImpl<LC>
-where
-  LC: LeafCollector,
-{
+pub struct FilterLeafCollectorImpl<LC> {
   in_: LC,
   the_score: f32,
 }
 
-impl<LC> FilterLeafCollectorImpl<LC>
-where
-  LC: LeafCollector,
-{
+impl<LC> FilterLeafCollectorImpl<LC> {
   pub fn new(in_: LC, the_score: f32) -> Self {
     Self { in_, the_score }
   }
@@ -391,7 +379,7 @@ where
 
 impl<LC> Display for FilterLeafCollectorImpl<LC>
 where
-  LC: LeafCollector + Display,
+  LC: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{} ({})", std::any::type_name::<Self>(), self.in_)
@@ -432,14 +420,14 @@ where
 
 pub struct FilterScorableImpl<'a, S>
 where
-  S: Scorable + ?Sized,
+  S: ?Sized,
 {
   the_score: f32,
   base: FilterScorable<'a, S>,
 }
 impl<'a, S> FilterScorableImpl<'a, S>
 where
-  S: Scorable + ?Sized,
+  S: ?Sized,
 {
   pub(crate) fn new(the_score: f32, s: &'a mut S) -> Self {
     let base = FilterScorable::new(s);
@@ -471,10 +459,7 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for FilterScorableImpl<'_, S> where
-  S: Scorable + ?Sized
-{
-}
+impl<S> crate::core::search::scorable::FixedScore for FilterScorableImpl<'_, S> where S: ?Sized {}
 impl crate::core::util::accountable::Accountable for ConstantScoreQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {
     Ok(crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED)

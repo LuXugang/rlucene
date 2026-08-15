@@ -112,10 +112,7 @@ where
     chunk_size: i32,
     max_docs_per_chunk: i32,
     block_shift: i32,
-  ) -> Result<Self>
-  where
-    D2: Directory,
-  {
+  ) -> Result<Self> {
     debug_assert!(chunk_size > 0);
     debug_assert!(max_docs_per_chunk > 0);
 
@@ -763,7 +760,6 @@ where
     to_doc_id: i32,
   ) -> Result<()>
   where
-    MD: Directory,
     CR: CodecReader,
   {
     let merge_state_meta = merge_state.get_meta();
@@ -904,7 +900,6 @@ where
     reader_index: usize,
   ) -> Result<bool>
   where
-    MD: Directory,
     CR: CodecReader,
   {
     match merge_state.term_vectors_readers[reader_index] {
@@ -1224,7 +1219,6 @@ where
 
   fn merge<MD, CR>(&mut self, merge_state: &mut MergeState<MD, CR>) -> Result<i32>
   where
-    MD: Directory,
     CR: CodecReader,
   {
     let num_readers = merge_state.term_vectors_readers.len();
@@ -1302,10 +1296,7 @@ where
     Ok(doc_count)
   }
 }
-pub struct CompressingTermVectorsSub<DM>
-where
-  DM: DocMap,
-{
+pub struct CompressingTermVectorsSub<DM> {
   max_doc: i32,
   reader_index: usize,
   can_perform_bulk_merge: bool,
@@ -1313,10 +1304,7 @@ where
   doc_map: Rc<DM>,
 }
 
-impl<DM> CompressingTermVectorsSub<DM>
-where
-  DM: DocMap,
-{
+impl<DM> CompressingTermVectorsSub<DM> {
   pub fn new(
     doc_map: Rc<DM>,
     max_doc: i32,

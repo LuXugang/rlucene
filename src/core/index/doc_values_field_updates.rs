@@ -567,10 +567,7 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
   }
 }
 
-struct IntroSorterImpl<'a, D>
-where
-  D: DocValuesFieldUpdatesBase,
-{
+struct IntroSorterImpl<'a, D> {
   ords: &'a mut MutablePacked64Enum,
   pivot_doc: i64,
   pivot_ord: i64,
@@ -768,16 +765,10 @@ impl DocValuesFieldIterator for DocValuesFieldIteratorEnum {
 }
 
 /// Wraps the given iterator as a BinaryDocValues instance.
-pub(crate) struct BinaryDocValuesDVFU<T>
-where
-  T: DocValuesFieldIterator,
-{
+pub(crate) struct BinaryDocValuesDVFU<T> {
   pub(crate) iterator: T,
 }
-impl<T> BinaryDocValuesDVFU<T>
-where
-  T: DocValuesFieldIterator,
-{
+impl<T> BinaryDocValuesDVFU<T> {
   pub fn new(iterator: T) -> Self {
     Self { iterator }
   }
@@ -823,16 +814,10 @@ where
 }
 
 /// Wraps the given iterator as a NumericDocValues instance.
-pub(crate) struct NumericDocValuesDVFU<T>
-where
-  T: DocValuesFieldIterator,
-{
+pub(crate) struct NumericDocValuesDVFU<T> {
   pub(crate) iterator: T,
 }
-impl<T> NumericDocValuesDVFU<T>
-where
-  T: DocValuesFieldIterator,
-{
+impl<T> NumericDocValuesDVFU<T> {
   pub fn new(iterator: T) -> Self {
     Self { iterator }
   }
@@ -901,17 +886,11 @@ where
   }
 }
 
-pub(crate) struct MergedIterator<T>
-where
-  T: DocValuesFieldIterator,
-{
+pub(crate) struct MergedIterator<T> {
   queue: PriorityQueue<T, IteratorPQCmp>,
   doc: i32,
 }
-impl<T> MergedIterator<T>
-where
-  T: DocValuesFieldIterator,
-{
+impl<T> MergedIterator<T> {
   pub fn new(queue: PriorityQueue<T, IteratorPQCmp>) -> Result<Self> {
     Ok(Self { queue, doc: -1 })
   }
@@ -997,10 +976,7 @@ where
     Ok(self.doc)
   }
 }
-pub(crate) struct AbstractIterator<A>
-where
-  A: AbstractIteratorBase,
-{
+pub(crate) struct AbstractIterator<A> {
   inner: DocValuesFieldInnerIter,
   idx: usize,
   doc: i32,
@@ -1009,10 +985,7 @@ where
   sub: A,
 }
 
-impl<A> AbstractIterator<A>
-where
-  A: AbstractIteratorBase,
-{
+impl<A> AbstractIterator<A> {
   pub fn new(inner: DocValuesFieldInnerIter, del_gen: i64, sub: A) -> Self {
     AbstractIterator {
       inner,

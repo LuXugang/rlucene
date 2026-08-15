@@ -28,18 +28,12 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// # Note
 /// This is an internal API.
-pub struct NotDocIdSet<T>
-where
-  T: DocIdSet,
-{
+pub struct NotDocIdSet<T> {
   max_doc: i32,
   in_: T,
 }
 
-impl<T> NotDocIdSet<T>
-where
-  T: DocIdSet,
-{
+impl<T> NotDocIdSet<T> {
   pub fn new(max_doc: i32, set: T) -> Self {
     NotDocIdSet { max_doc, in_: set }
   }
@@ -47,7 +41,7 @@ where
 
 impl<T> Accountable for NotDocIdSet<T>
 where
-  T: DocIdSet,
+  T: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     self.in_.ram_bytes_used()
@@ -75,18 +69,12 @@ where
 }
 
 #[derive(Clone)]
-pub struct NotDocIdBits<B>
-where
-  B: Bits,
-{
+pub struct NotDocIdBits<B> {
   in_bit: B,
   id: Identity,
 }
 
-impl<B> NotDocIdBits<B>
-where
-  B: Bits,
-{
+impl<B> NotDocIdBits<B> {
   pub fn new(in_bits: B) -> NotDocIdBits<B> {
     NotDocIdBits {
       in_bit: in_bits,
@@ -95,10 +83,7 @@ where
   }
 }
 
-impl<B> HasIdentity for NotDocIdBits<B>
-where
-  B: Bits,
-{
+impl<B> HasIdentity for NotDocIdBits<B> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -117,7 +102,7 @@ where
   }
 }
 
-pub struct NotDocDocIdSetIterator<D: DocIdSetIterator> {
+pub struct NotDocDocIdSetIterator<D> {
   in_iterator: D,
   doc: i32,
   next_skipped_doc: i32,

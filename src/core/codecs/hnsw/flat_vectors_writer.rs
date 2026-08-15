@@ -96,7 +96,6 @@ pub trait FlatVectorsWriter: KnnVectorsWriter<Self::IndexOutput> {
     _segment_write_state: &SegmentWriteState<'a, &D2>,
   ) -> Result<Self::CloseableRandomVectorScorerSupplier<'a, D2::IndexInput, D2>>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = Self::IndexOutput>,
     CR: CodecReader,
   {

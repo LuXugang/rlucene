@@ -23,10 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// # Note
 /// This is an internal API.
-pub struct BitSetIterator<T>
-where
-  T: BitSet,
-{
+pub struct BitSetIterator<T> {
   pub bits: T,
   length: i32,
   cost: i64,

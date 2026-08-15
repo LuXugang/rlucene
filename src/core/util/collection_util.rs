@@ -75,10 +75,7 @@ impl CollectionUtil {
   }
 }
 // ListTimSorter
-struct ListTimSorter<'a, T, C: Comparator<T>>
-where
-  T: Copy,
-{
+struct ListTimSorter<'a, T, C> {
   arr: &'a mut [T],
   tmp: Vec<T>,
   comp: C,
@@ -160,15 +157,12 @@ where
 }
 
 // ListIntroSorter
-struct ListIntroSorter<'a, T, C: Comparator<T>> {
+struct ListIntroSorter<'a, T, C> {
   pub list: &'a mut [T],
   comp: C,
   pivot: usize,
 }
-impl<'a, T, C> ListIntroSorter<'a, T, C>
-where
-  C: Comparator<T>,
-{
+impl<'a, T, C> ListIntroSorter<'a, T, C> {
   pub fn new(list: &'a mut [T], comp: C) -> ListIntroSorter<'a, T, C> {
     ListIntroSorter {
       list,

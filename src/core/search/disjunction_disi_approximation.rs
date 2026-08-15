@@ -21,18 +21,12 @@ use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-pub struct DisjunctionDISIApproximation<S>
-where
-  S: Scorer,
-{
+pub struct DisjunctionDISIApproximation<S> {
   pub(crate) all_scores: Vec<DisiWrapper<S>>,
   pub(crate) sub_iterators: DisiPriorityQueue,
   pub(crate) cost: i64,
 }
-impl<S> DisjunctionDISIApproximation<S>
-where
-  S: Scorer,
-{
+impl<S> DisjunctionDISIApproximation<S> {
   pub fn new(sub_iterators: DisiPriorityQueue, all_scores: Vec<DisiWrapper<S>>) -> Self {
     let mut cost = 0i64;
     for idx in sub_iterators.iter() {

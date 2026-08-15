@@ -786,19 +786,13 @@ pub trait ReaderIterator: Display {
   fn ord(&self) -> i32;
 }
 /// A base implementation of the `ReaderIterator` trait.
-pub struct ReaderIteratorImpl<C>
-where
-  C: ReaderIterator,
-{
+pub struct ReaderIteratorImpl<C> {
   bits_per_value: i32,
   value_count: i32,
   sub_reader: C,
 }
 
-impl<C> ReaderIteratorImpl<C>
-where
-  C: ReaderIterator,
-{
+impl<C> ReaderIteratorImpl<C> {
   /// Creates a new `ReaderIteratorImpl`.
   ///
   /// # Arguments
@@ -845,7 +839,7 @@ where
 }
 impl<C> Display for ReaderIteratorImpl<C>
 where
-  C: ReaderIterator,
+  C: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "{}", self.sub_reader)

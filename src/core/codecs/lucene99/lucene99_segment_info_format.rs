@@ -171,10 +171,7 @@ impl Lucene99SegmentInfoFormat {
     si.set_files(files)?;
     Ok(si)
   }
-  fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()> {
     let version_wrap = si.get_version_ref();
     debug_assert!(version_wrap.is_some());
     let version = version_wrap.unwrap();
@@ -301,10 +298,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     dir: &impl Directory,
     si: &mut SegmentInfo<D>,
     io_context: &IOContext,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
     let mut output = dir.create_output(&file_name, io_context)?;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {

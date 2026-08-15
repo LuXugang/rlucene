@@ -22,46 +22,31 @@ use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-pub struct DummyIndexCommit<D>
-where
-  D: Directory,
-{
+pub struct DummyIndexCommit<D> {
   _marker: PhantomData<D>,
 }
 
-impl<D> PartialEq for DummyIndexCommit<D>
-where
-  D: Directory,
-{
+impl<D> PartialEq for DummyIndexCommit<D> {
   fn eq(&self, _other: &Self) -> bool {
     dummy_unreachable!()
   }
 }
 
-impl<D> Eq for DummyIndexCommit<D> where D: Directory {}
+impl<D> Eq for DummyIndexCommit<D> {}
 
-impl<D> PartialOrd for DummyIndexCommit<D>
-where
-  D: Directory,
-{
+impl<D> PartialOrd for DummyIndexCommit<D> {
   fn partial_cmp(&self, _other: &Self) -> Option<Ordering> {
     Some(self.cmp(_other))
   }
 }
 
-impl<D> Ord for DummyIndexCommit<D>
-where
-  D: Directory,
-{
+impl<D> Ord for DummyIndexCommit<D> {
   fn cmp(&self, _other: &Self) -> Ordering {
     dummy_unreachable!()
   }
 }
 
-impl<D> Display for DummyIndexCommit<D>
-where
-  D: Directory,
-{
+impl<D> Display for DummyIndexCommit<D> {
   fn fmt(&self, _f: &mut Formatter<'_>) -> std::fmt::Result {
     dummy_unreachable!()
   }

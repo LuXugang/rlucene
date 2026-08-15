@@ -41,10 +41,7 @@ const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be
 /// `PersistentSnapshotDeletionPolicy`.
 ///
 /// # Experimental
-pub struct SnapshotDeletionPolicy<D>
-where
-  D: Directory,
-{
+pub struct SnapshotDeletionPolicy<D> {
   primary: Arc<IndexDeletionPolicyEnum<D>>,
   inner: Arc<Mutex<Inner<D>>>,
   op_lock: Arc<Mutex<()>>,
@@ -54,10 +51,7 @@ pub(crate) struct SnapshotDeletionPolicyLock<'a> {
   _guard: MutexGuard<'a, ()>,
 }
 
-struct Inner<D>
-where
-  D: Directory,
-{
+struct Inner<D> {
   /// Records how many snapshots are held against each commit generation.
   ref_counts: HashMap<i64, i32>,
 
@@ -71,10 +65,7 @@ where
   init_called: bool,
 }
 
-impl<D> Clone for SnapshotDeletionPolicy<D>
-where
-  D: Directory,
-{
+impl<D> Clone for SnapshotDeletionPolicy<D> {
   fn clone(&self) -> Self {
     Self {
       primary: self.primary.clone(),
@@ -356,29 +347,20 @@ where
   }
 }
 
-impl<D> Display for SnapshotDeletionPolicy<D>
-where
-  D: Directory,
-{
+impl<D> Display for SnapshotDeletionPolicy<D> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", std::any::type_name::<Self>())
   }
 }
 
 /// Wraps a provided [`IndexCommit`] and prevents it from being deleted.
-pub struct SnapshotCommitPoint<D>
-where
-  D: Directory,
-{
+pub struct SnapshotCommitPoint<D> {
   /// The [`IndexCommit`] we are preventing from deletion.
   cp: Arc<CommitPoint<D>>,
   snapshot_policy: Arc<Mutex<Inner<D>>>,
 }
 
-impl<D> SnapshotCommitPoint<D>
-where
-  D: Directory,
-{
+impl<D> SnapshotCommitPoint<D> {
   /// Creates a [`SnapshotCommitPoint`] wrapping the provided [`IndexCommit`].
   fn new(policy: Arc<Mutex<Inner<D>>>, cp: Arc<CommitPoint<D>>) -> Self {
     SnapshotCommitPoint {
@@ -388,10 +370,7 @@ where
   }
 }
 
-impl<D> Clone for SnapshotCommitPoint<D>
-where
-  D: Directory,
-{
+impl<D> Clone for SnapshotCommitPoint<D> {
   fn clone(&self) -> Self {
     SnapshotCommitPoint {
       cp: self.cp.clone(),
@@ -429,10 +408,7 @@ where
   }
 }
 
-impl<D> Display for SnapshotCommitPoint<D>
-where
-  D: Directory,
-{
+impl<D> Display for SnapshotCommitPoint<D> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "SnapshotDeletionPolicy.SnapshotCommitPoint({})", self.cp)
   }

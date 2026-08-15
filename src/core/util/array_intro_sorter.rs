@@ -23,16 +23,13 @@ use crate::core::util::sorter::Sorter;
 ///
 /// # Note
 /// This is an internal API.
-pub(crate) struct ArrayIntroSorter<'a, T, C: Comparator<T>> {
+pub(crate) struct ArrayIntroSorter<'a, T, C> {
   pub arr: &'a mut [T],
   comparator: C,
   pivot: usize,
 }
 
-impl<'a, T, C> ArrayIntroSorter<'a, T, C>
-where
-  C: Comparator<T>,
-{
+impl<'a, T, C> ArrayIntroSorter<'a, T, C> {
   pub fn new(arr: &'a mut [T], comparator: C) -> ArrayIntroSorter<'a, T, C> {
     ArrayIntroSorter {
       arr,

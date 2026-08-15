@@ -29,10 +29,7 @@ use crate::core::util::error::lucene_error::Result;
 /// # Note
 /// This is an experimental API.
 #[derive(Default)]
-pub struct ByteArrayDataOutput<B>
-where
-  B: ByteSourceMut,
-{
+pub struct ByteArrayDataOutput<B> {
   pub bytes: B,
   pos: usize,
   limit: usize,

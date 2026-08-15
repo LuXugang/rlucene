@@ -103,18 +103,12 @@ where
 ///   itself also have children.)
 /// - `relationship`: An arbitrary string relating this scorer to the parent.
 #[derive(Debug, Clone)]
-pub struct ChildScorable<T>
-where
-  T: Scorable,
-{
+pub struct ChildScorable<T> {
   pub child: T,
   pub relationship: String,
 }
 
-impl<T> ChildScorable<T>
-where
-  T: Scorable,
-{
+impl<T> ChildScorable<T> {
   pub fn new(child: T, relationship: String) -> Self {
     Self {
       child,
@@ -199,7 +193,7 @@ macro_rules! either_scorable {
 
         impl<$( $T ),+> FixedScore for $name<$( $T ),+>
         where
-            $( $T: Scorable ),+
+            $( $T: FixedScore ),+
         {
             fn set_score(&mut self, score: f32) -> Result<()> {
                 match self { $( Self::$Variant(inner) => inner.set_score(score), )+ }

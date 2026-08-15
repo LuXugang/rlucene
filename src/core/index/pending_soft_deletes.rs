@@ -43,10 +43,7 @@ pub(crate) struct PendingSoftDeletes {
   pub(crate) base: PendingDeletes,
 }
 impl PendingSoftDeletes {
-  pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfo<D>) -> Result<Self>
-  where
-    D: Directory,
-  {
+  pub(crate) fn new<D>(field: &str, info: &SegmentCommitInfo<D>) -> Result<Self> {
     let base = PendingDeletes::with(
       info.info.get_id_key().to_string(),
       None,
@@ -80,10 +77,7 @@ impl PendingSoftDeletes {
     })
   }
 
-  fn assert_pending_deletes<D>(&self, info: &SegmentCommitInfo<D>) -> Result<bool>
-  where
-    D: Directory,
-  {
+  fn assert_pending_deletes<D>(&self, info: &SegmentCommitInfo<D>) -> Result<bool> {
     let sum = self.base.pending_delete_count + info.get_soft_del_count();
     debug_assert!(sum >= 0, "illegal pending delete count: {sum}");
     debug_assert!(info.info.max_doc()? >= self.get_del_count(info));
@@ -147,10 +141,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
     self.base.get_info_id()
   }
 
-  fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool>
-  where
-    D: Directory,
-  {
+  fn delete<D>(&mut self, doc_id: i32, info: &SegmentCommitInfo<D>) -> Result<bool> {
     // we need to fetch this first it might be a shared instance with
     let mutable_bits = self.base.get_mutable_bits()?;
     // hardDeletes
@@ -236,7 +227,6 @@ impl PendingDeletesBase for PendingSoftDeletes {
   fn write_live_docs<D1, D2>(&mut self, dir: D1, info: &mut SegmentCommitInfo<D2>) -> Result<bool>
   where
     D1: Directory,
-    D2: Directory,
   {
     // we need to set this here to make sure our stats in SCI are up-to-date otherwise we might hit
     // an assertion
@@ -286,10 +276,7 @@ impl PendingDeletesBase for PendingSoftDeletes {
     field_info: &FieldInfo,
     iterator: Option<MergedIterator<DocValuesFieldIteratorEnum>>,
     info: &mut SegmentCommitInfo<D>,
-  ) -> Result<()>
-  where
-    D: Directory,
-  {
+  ) -> Result<()> {
     if self.field == field_info.name
       && let Some(mut iter) = iterator
     {

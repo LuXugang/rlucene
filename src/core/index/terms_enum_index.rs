@@ -25,19 +25,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// must be performed via this wrapper, not directly on the wrapped [`TermsEnum`].
 ///
 /// This follows the behavior of Lucene's `TermsEnumIndex`.
-pub struct TermsEnumIndex<TE>
-where
-  TE: TermsEnum,
-{
+pub struct TermsEnumIndex<TE> {
   pub(crate) sub_index: usize,
   pub(crate) terms_enum: Option<TE>,
   current_term: Option<BytesRef<Vec<u8>>>,
   current_term_prefix8: i64,
 }
-impl<TE> TermsEnumIndex<TE>
-where
-  TE: TermsEnum,
-{
+impl<TE> TermsEnumIndex<TE> {
   pub fn new(terms_enum: Option<TE>, sub_index: usize) -> Self {
     Self {
       sub_index,
@@ -59,7 +53,12 @@ where
     }
     self.current_term = term;
   }
+}
 
+impl<TE> TermsEnumIndex<TE>
+where
+  TE: TermsEnum,
+{
   pub(crate) fn next(&mut self) -> Result<Option<&BytesRef<Vec<u8>>>> {
     let Some(terms_enum) = &mut self.terms_enum else {
       return Err(LuceneError::illegal_state("terms_enum is None"));

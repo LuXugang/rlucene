@@ -76,7 +76,6 @@ impl PostingsFormat for AssertingPostingsFormat {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingFieldsConsumer::new(
       self.in_.fields_consumer(state, segment_info)?,
@@ -93,7 +92,6 @@ impl PostingsFormat for AssertingPostingsFormat {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingFieldsProducer::new(
       self.in_.fields_producer(state, segment_info)?,
@@ -212,7 +210,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {

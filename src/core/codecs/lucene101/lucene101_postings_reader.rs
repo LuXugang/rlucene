@@ -57,10 +57,7 @@ use std::borrow::Cow;
 use std::fmt::{self, Display, Formatter};
 use std::sync::Arc;
 
-pub struct Lucene101PostingsReader<I>
-where
-  I: IndexInput,
-{
+pub struct Lucene101PostingsReader<I> {
   doc_in: I,
   doc_in_identity: Identity,
   pos_in: Option<I>,
@@ -78,7 +75,6 @@ where
   pub fn new<D1, D2>(state: &SegmentReadState<D1>, segment_info: &SegmentInfo<D2>) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let meta_name = IndexFileNames::segment_file_name(
       &segment_info.name,
@@ -267,7 +263,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
   {
     // Make sure we are talking to the matching postings writer
     CodecUtil::check_index_header(
@@ -410,10 +405,7 @@ where
   }
 }
 
-pub struct BlockPostingsEnum<I>
-where
-  I: IndexInput,
-{
+pub struct BlockPostingsEnum<I> {
   doc_in_identity: Identity,
   for_delta_util: Option<ForDeltaUtil>,
   pfor_util: Option<PForUtil>,

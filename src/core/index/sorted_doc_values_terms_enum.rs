@@ -30,19 +30,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
 /// Implements a [`TermsEnum`] wrapping a provided [`SortedDocValues`].
-pub struct SortedDocValuesTermsEnum<S>
-where
-  S: SortedDocValues,
-{
+pub struct SortedDocValuesTermsEnum<S> {
   values: S,
   current_ord: i32,
   scratch: BytesRefBuilder<Vec<u8>>,
 }
 
-impl<S> SortedDocValuesTermsEnum<S>
-where
-  S: SortedDocValues,
-{
+impl<S> SortedDocValuesTermsEnum<S> {
   /// Creates a new TermsEnum over the provided values.
   pub fn new(values: S) -> SortedDocValuesTermsEnum<S> {
     SortedDocValuesTermsEnum {

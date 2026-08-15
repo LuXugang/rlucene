@@ -19,7 +19,7 @@ use crate::core::util::SliceCopyOps;
 
 /// Wraps another [`Checksum`] with an internal buffer to speed up checksum
 /// calculations.
-pub struct BufferedChecksum<T: Checksum> {
+pub struct BufferedChecksum<T> {
   buffer: Vec<u8>,
   upto: usize,
   checksum: T,

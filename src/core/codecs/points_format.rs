@@ -32,8 +32,7 @@ pub trait PointsFormat {
     info: &SegmentInfo<D2>,
   ) -> Result<Self::PointsWriter<D1::IndexOutput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   type PointsReader<T: IndexInput>: PointsReader;
   /// Reads a segment. NOTE: by the time this call returns, it must hold open any files it will need
@@ -47,6 +46,5 @@ pub trait PointsFormat {
     info: &SegmentInfo<D2>,
   ) -> Result<Self::PointsReader<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 }

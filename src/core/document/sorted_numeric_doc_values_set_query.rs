@@ -218,17 +218,11 @@ where
   }
 }
 
-pub struct TwoPhaseIterator1<N>
-where
-  N: NumericDocValues,
-{
+pub struct TwoPhaseIterator1<N> {
   singleton: N,
   query: SortedNumericDocValuesSetQuery,
 }
-impl<N> TwoPhaseIterator1<N>
-where
-  N: NumericDocValues,
-{
+impl<N> TwoPhaseIterator1<N> {
   pub fn new(singleton: N, query: SortedNumericDocValuesSetQuery) -> Self {
     TwoPhaseIterator1 { singleton, query }
   }
@@ -255,18 +249,12 @@ where
     5f32
   }
 }
-pub struct TwoPhaseIterator2<S>
-where
-  S: SortedNumericDocValues,
-{
+pub struct TwoPhaseIterator2<S> {
   value: S,
   query: SortedNumericDocValuesSetQuery,
 }
 
-impl<S> TwoPhaseIterator2<S>
-where
-  S: SortedNumericDocValues,
-{
+impl<S> TwoPhaseIterator2<S> {
   pub fn new(value: S, query: SortedNumericDocValuesSetQuery) -> Self {
     TwoPhaseIterator2 { value, query }
   }

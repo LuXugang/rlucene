@@ -48,8 +48,7 @@ pub trait PostingsReaderBase: Display + CloseableRef {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   /// Return a newly created empty `TermState`.
   fn new_term_state(&self) -> Result<TermStateEnum>;

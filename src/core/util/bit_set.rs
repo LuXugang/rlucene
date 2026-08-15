@@ -110,8 +110,8 @@ pub enum BitSetEnum2<A, B> {
 
 impl<A, B> HasIdentity for BitSetEnum2<A, B>
 where
-  A: BitSet,
-  B: BitSet,
+  A: HasIdentity,
+  B: HasIdentity,
 {
   fn identity(&self) -> &Identity {
     match self {
@@ -150,8 +150,8 @@ where
 
 impl<A, B> Accountable for BitSetEnum2<A, B>
 where
-  A: BitSet,
-  B: BitSet,
+  A: Accountable,
+  B: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     match self {
@@ -325,7 +325,7 @@ where
 
 impl<T> HasIdentity for Rc<T>
 where
-  T: BitSet,
+  T: HasIdentity,
 {
   fn identity(&self) -> &Identity {
     (**self).identity()

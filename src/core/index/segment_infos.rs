@@ -123,10 +123,7 @@ static INFO_STREAM: LazyLock<Mutex<Option<OutputEnum>>> = LazyLock::new(|| Mutex
 ///
 /// # Note
 /// This module is experimental and subject to change.
-pub struct SegmentInfos<D>
-where
-  D: Directory,
-{
+pub struct SegmentInfos<D> {
   /// Used to name new segments.
   pub counter: i64,
   /// Counts how often the index has been changed.
@@ -157,10 +154,7 @@ where
   pub(crate) pending_commit: bool,
 }
 
-impl<D> SegmentInfos<D>
-where
-  D: Directory,
-{
+impl<D> SegmentInfos<D> {
   /// Creates a new instance.
   ///
   /// # Arguments
@@ -263,7 +257,10 @@ where
   ///
   /// - Returns `LuceneError::CorruptIndex` if the index is corrupt.
   /// - Returns `LuceneError` for any low-level IO error.
-  pub fn read_commit(directory: Arc<D>, segment_file_name: &str) -> Result<SegmentInfos<D>> {
+  pub fn read_commit(directory: Arc<D>, segment_file_name: &str) -> Result<SegmentInfos<D>>
+  where
+    D: Directory,
+  {
     Self::read_commit_with_file_min_version(directory, segment_file_name, *MIN_SUPPORTED_MAJOR)
   }
 
@@ -279,7 +276,10 @@ where
     directory: Arc<D>,
     segment_file_name: &str,
     min_supported_major_version: i32,
-  ) -> Result<SegmentInfos<D>> {
+  ) -> Result<SegmentInfos<D>>
+  where
+    D: Directory,
+  {
     let generation = generation_from_segments_file_name(segment_file_name)?;
     let mut input = directory.open_checksum_input(segment_file_name)?;
 
@@ -324,7 +324,10 @@ where
     directory: Arc<D>,
     input: &mut impl ChecksumIndexInput,
     generation: i64,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    D: Directory,
+  {
     Self::read_commit_impl(directory, input, generation, *MIN_SUPPORTED_MAJOR)
   }
   /// Read the commit from the provided [`ChecksumIndexInput`].
@@ -333,7 +336,10 @@ where
     input: &mut impl ChecksumIndexInput,
     generation: i64,
     min_supported_major_version: i32,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    D: Directory,
+  {
     let mut format = -1;
     let read_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Self> {
       // NOTE: as long as we want to return index_format_too_old (vs
@@ -412,7 +418,10 @@ where
     input: &mut impl DataInput,
     infos: &mut SegmentInfos<D>,
     format: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D: Directory,
+  {
     infos.version = CodecUtil::read_be_long(input)?;
     let counter_value = input.read_vlong()?;
     debug_assert!(counter_value >= 0);
@@ -574,7 +583,10 @@ where
   }
   /// Find the latest commit (`segments_N` file) and load all
   /// `SegmentCommitInfo`s.
-  pub fn read_latest_commit(directory: Arc<D>) -> Result<SegmentInfos<D>> {
+  pub fn read_latest_commit(directory: Arc<D>) -> Result<SegmentInfos<D>>
+  where
+    D: Directory,
+  {
     Self::read_latest_commit_with_min_version(directory, *MIN_SUPPORTED_MAJOR)
   }
 
@@ -583,7 +595,10 @@ where
   pub fn read_latest_commit_with_min_version(
     directory: Arc<D>,
     min_supported_major_version: i32,
-  ) -> Result<SegmentInfos<D>> {
+  ) -> Result<SegmentInfos<D>>
+  where
+    D: Directory,
+  {
     let mut find_segments_file = FindSegmentsFileImpl {
       dir: directory.clone(),
       min_supported_major_version,
@@ -784,20 +799,14 @@ where
     self.last_generation
   }
   /// Carry over generation numbers from another `SegmentInfos`.
-  pub fn update_generation<D1>(&mut self, other: &SegmentInfos<D1>)
-  where
-    D1: Directory,
-  {
+  pub fn update_generation<D1>(&mut self, other: &SegmentInfos<D1>) {
     self.last_generation = other.last_generation;
     self.generation = other.generation;
   }
 
   /// Carry over generation numbers, and version/counter, from another
   /// `SegmentInfos`.
-  pub fn update_generation_version_and_counter<D1>(&mut self, other: &SegmentInfos<D1>)
-  where
-    D1: Directory,
-  {
+  pub fn update_generation_version_and_counter<D1>(&mut self, other: &SegmentInfos<D1>) {
     self.update_generation(other);
     self.version = other.version;
     self.counter = other.counter;
@@ -992,6 +1001,7 @@ where
     drop_segment: bool,
   ) -> Result<()>
   where
+    D: Directory,
     CR: CodecReader,
   {
     if self.index_created_version_major >= 7
@@ -1152,10 +1162,7 @@ where
   }
 }
 
-impl<D> fmt::Display for SegmentInfos<D>
-where
-  D: Directory,
-{
+impl<D> fmt::Display for SegmentInfos<D> {
   /// Returns a readable description of this segment.
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     write!(f, "{}: ", self.get_segments_file_name().unwrap_or_default())?;
@@ -1265,10 +1272,7 @@ pub trait FindSegmentsFile {
   fn do_body(&mut self, segment_file_name: &str) -> Result<Self::V>;
 }
 
-pub struct FindSegmentsFileImpl<D>
-where
-  D: Directory,
-{
+pub struct FindSegmentsFileImpl<D> {
   pub(crate) dir: Arc<D>,
   pub(crate) min_supported_major_version: i32,
 }

@@ -40,8 +40,7 @@ pub trait DocValuesFormat: Display + HasIdentity {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::DocValuesConsumer<D1::IndexOutput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   type DocValuesProducer<T: IndexInput>: DocValuesProducer;
   /// Returns a [`DocValuesProducer`] to read docvalues from the index.
@@ -59,8 +58,7 @@ pub trait DocValuesFormat: Display + HasIdentity {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::DocValuesProducer<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   /// Looks up a format by name.
   fn for_name(name: &str) -> Result<Arc<Self>>

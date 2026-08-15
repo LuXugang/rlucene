@@ -61,7 +61,6 @@ pub trait FieldsConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer;
   /// Merges the fields from the readers in `merge_state`.
@@ -83,7 +82,6 @@ pub trait FieldsConsumer: Closeable {
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     N: NormsProducer,
     MS: MergeStateAccess,
   {
@@ -125,8 +123,8 @@ pub enum FieldsConsumerEnum2<A, B> {
 
 impl<A, B> Closeable for FieldsConsumerEnum2<A, B>
 where
-  A: FieldsConsumer,
-  B: FieldsConsumer,
+  A: Closeable,
+  B: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     match self {
@@ -150,7 +148,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {
@@ -169,7 +166,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     N: NormsProducer,
     MS: MergeStateAccess,
   {

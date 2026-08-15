@@ -23,10 +23,7 @@ use std::io::{self, Write};
 use std::sync::atomic::{AtomicI32, Ordering};
 
 /// InfoStream implementation over a writable stream such as stdout.
-pub struct PrintStreamInfoStream<W>
-where
-  W: Write + Send + 'static,
-{
+pub struct PrintStreamInfoStream<W> {
   message_id: i32,
   pub(crate) stream: Mutex<W>,
   is_system_stream: bool,
@@ -34,10 +31,7 @@ where
 
 static MESSAGE_ID: AtomicI32 = AtomicI32::new(0);
 
-impl<W> PrintStreamInfoStream<W>
-where
-  W: Write + Send + 'static,
-{
+impl<W> PrintStreamInfoStream<W> {
   pub fn new(stream: W) -> Self {
     Self::with_message_id(stream, MESSAGE_ID.fetch_add(1, Ordering::SeqCst))
   }

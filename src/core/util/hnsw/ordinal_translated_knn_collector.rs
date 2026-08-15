@@ -21,19 +21,11 @@ use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::TotalHits;
 use crate::core::util::error::lucene_error::Result;
 /// Wraps a provided KnnCollector object, translating the provided vectorId ordinal to a documentId
-pub struct OrdinalTranslatedKnnCollector<'a, K, F>
-where
-  K: KnnCollector,
-  F: Fn(usize) -> Result<usize>,
-{
+pub struct OrdinalTranslatedKnnCollector<'a, K, F> {
   in_: &'a mut K,
   vector_ordinal_to_doc_id: F,
 }
-impl<'a, K, F> OrdinalTranslatedKnnCollector<'a, K, F>
-where
-  K: KnnCollector,
-  F: Fn(usize) -> Result<usize>,
-{
+impl<'a, K, F> OrdinalTranslatedKnnCollector<'a, K, F> {
   pub fn new(in_: &'a mut K, vector_ordinal_to_doc_id: F) -> Self {
     OrdinalTranslatedKnnCollector {
       in_,

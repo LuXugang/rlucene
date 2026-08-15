@@ -19,10 +19,7 @@ use std::vec::Vec;
 /// An approximate priority queue, which attempts to poll items by decreasing
 /// log of the weight, though exact ordering is not guaranteed. This struct
 /// doesn't support None elements.
-pub(crate) struct ApproximatePriorityQueue<T>
-where
-  T: IdentityId,
-{
+pub(crate) struct ApproximatePriorityQueue<T> {
   /// Indexes between 0 and 63 are sparsely populated, and indexes that are
   /// greater than or equal to 64 are densely populated
   /// Items close to the beginning of this list are more likely to have a
@@ -32,10 +29,7 @@ where
   /// taken.
   used_slots: i64,
 }
-impl<T> ApproximatePriorityQueue<T>
-where
-  T: IdentityId,
-{
+impl<T> ApproximatePriorityQueue<T> {
   pub(crate) fn new() -> Self {
     let mut slots = Vec::with_capacity(i64::BITS as usize);
     slots.resize_with(i64::BITS as usize, || None);
@@ -44,6 +38,12 @@ where
       used_slots: 0,
     }
   }
+}
+
+impl<T> ApproximatePriorityQueue<T>
+where
+  T: IdentityId,
+{
   /// Add an entry to this queue that has the provided weight.
   pub(crate) fn add(&mut self, entry: T, weight: i64) {
     // The expected slot of an item is the number of leading zeros of its

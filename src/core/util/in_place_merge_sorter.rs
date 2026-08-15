@@ -17,23 +17,23 @@
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{BINARY_SORT_THRESHOLD, Sorter, check_range};
 
-pub struct InPlaceMergeSorter<S>
-where
-  S: Sorter,
-{
+pub struct InPlaceMergeSorter<S> {
   sub: S,
   pivot_index: usize,
 }
-impl<S> InPlaceMergeSorter<S>
-where
-  S: Sorter,
-{
+impl<S> InPlaceMergeSorter<S> {
   pub fn new(sub: S) -> Self {
     InPlaceMergeSorter {
       sub,
       pivot_index: 0,
     }
   }
+}
+
+impl<S> InPlaceMergeSorter<S>
+where
+  S: Sorter,
+{
   fn merge_sort(&mut self, from: usize, to: usize) -> Result<()> {
     if to - from < BINARY_SORT_THRESHOLD {
       self.binary_sort(from, to)

@@ -63,8 +63,8 @@ macro_rules! either_stored_fields_reader {
 
         impl<$First, $( $T ),+> CloseableRef for $name<$First, $( $T ),+>
         where
-            $First: StoredFieldsReader,
-            $( $T: StoredFieldsReader ),+
+            $First: CloseableRef,
+            $( $T: CloseableRef ),+
         {
             fn close(&self) -> Result<()> {
                 match self {
@@ -76,8 +76,8 @@ macro_rules! either_stored_fields_reader {
 
         impl<$First, $( $T ),+> StoredFields for $name<$First, $( $T ),+>
         where
-            $First: StoredFieldsReader,
-            $( $T: StoredFieldsReader + RawStoredFieldsReader<IndexInput = <$First as RawStoredFieldsReader>::IndexInput> ),+
+            $First: StoredFields,
+            $( $T: StoredFields + RawStoredFieldsReader<IndexInput = <$First as RawStoredFieldsReader>::IndexInput> ),+
         {
             fn prefetch(&mut self, doc_id: i32) -> Result<()> {
                 match self {
@@ -123,8 +123,8 @@ macro_rules! either_stored_fields_reader {
 
         impl<$First, $( $T ),+> TryClone for $name<$First, $( $T ),+>
         where
-            $First: StoredFieldsReader,
-            $( $T: StoredFieldsReader ),+
+            $First: TryClone,
+            $( $T: TryClone ),+
         {
             fn try_clone(&self) -> Result<Self>
             where

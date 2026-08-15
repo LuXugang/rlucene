@@ -51,10 +51,7 @@ use std::sync::Arc;
 
 /// Writer for
 /// [`Lucene101PostingsFormat`](crate::core::codecs::lucene101::lucene101_postings_format)
-pub struct Lucene101PostingsWriter<O>
-where
-  O: IndexOutput,
-{
+pub struct Lucene101PostingsWriter<O> {
   pub(crate) meta_out: O,
   pub(crate) doc_out: O,
   pub(crate) pos_out: Option<O>,
@@ -124,7 +121,6 @@ where
   pub fn new<D1, D2>(state: &SegmentWriteState<D1>, segment_info: &SegmentInfo<D2>) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let meta_file = IndexFileNames::segment_file_name(
       &segment_info.name,
@@ -471,7 +467,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
   {
     CodecUtil::write_index_header(
       terms_out,

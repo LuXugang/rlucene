@@ -294,17 +294,11 @@ where
   ConstantScoreScorer::from_disi(1.0f32, CompleteNoScores, disi)
 }
 const POSTINGS_PRE_PROCESS_THRESHOLD: i32 = 16;
-struct PostingsEnumCmp<PE>
-where
-  PE: PostingsEnum,
-{
+struct PostingsEnumCmp<PE> {
   // for easy taken
   postings_enum: Vec<Option<PE>>,
 }
-impl<PE> PostingsEnumCmp<PE>
-where
-  PE: PostingsEnum,
-{
+impl<PE> PostingsEnumCmp<PE> {
   fn new(postings_enum: Vec<Option<PE>>) -> Self {
     Self { postings_enum }
   }

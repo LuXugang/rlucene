@@ -274,7 +274,6 @@ impl PostingsFormat for InvertedWritePostingsFormat {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(InvertedWriteFieldsConsumer::new(
       self.in_.base_fields_consumer(state, segment_info)?,
@@ -291,7 +290,6 @@ impl PostingsFormat for InvertedWritePostingsFormat {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.in_.base_fields_producer(state, segment_info)
   }
@@ -339,7 +337,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {

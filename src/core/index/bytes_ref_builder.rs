@@ -21,10 +21,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 
 /// A builder for [`BytesRef`] instances.
-pub struct BytesRefBuilder<AV>
-where
-  AV: SharedAccessVec<u8> + WritableVec<u8>,
-{
+pub struct BytesRefBuilder<AV> {
   pub(crate) bytes_ref: BytesRef<AV>,
 }
 impl<AV> Default for BytesRefBuilder<AV>

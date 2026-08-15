@@ -36,8 +36,7 @@ pub trait StoredFieldsFormat {
     context: &IOContext,
   ) -> Result<Self::StoredFieldsReader<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
   type StoredFieldsWriter<D: Directory>: StoredFieldsWriter;
   /// Returns a [`StoredFieldsWriter`] to write stored fields.
   fn fields_writer<D1, D2>(
@@ -47,6 +46,5 @@ pub trait StoredFieldsFormat {
     context: &IOContext,
   ) -> Result<Self::StoredFieldsWriter<D1>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 }

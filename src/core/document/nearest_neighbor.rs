@@ -36,10 +36,7 @@ pub(crate) struct NearestNeighbor;
 ///   approximation to the closest distance, and there could be a point in the cell that is
 ///   closer.
 #[derive(Clone)]
-pub(crate) struct Cell<PT>
-where
-  PT: PointTree,
-{
+pub(crate) struct Cell<PT> {
   index: PT,
   reader_index: i32,
   min_packed: Vec<u8>,
@@ -47,10 +44,7 @@ where
   distance_sort_key: f64,
 }
 
-impl<PT> Cell<PT>
-where
-  PT: PointTree,
-{
+impl<PT> Cell<PT> {
   pub(crate) fn new(
     index: PT,
     reader_index: i32,
@@ -68,30 +62,21 @@ where
   }
 }
 
-impl<PT> PartialEq for Cell<PT>
-where
-  PT: PointTree,
-{
+impl<PT> PartialEq for Cell<PT> {
   fn eq(&self, other: &Self) -> bool {
     self.distance_sort_key.to_bits() == other.distance_sort_key.to_bits()
   }
 }
 
-impl<PT> Eq for Cell<PT> where PT: PointTree {}
+impl<PT> Eq for Cell<PT> {}
 
-impl<PT> PartialOrd for Cell<PT>
-where
-  PT: PointTree,
-{
+impl<PT> PartialOrd for Cell<PT> {
   fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
     Some(self.cmp(other))
   }
 }
 
-impl<PT> Ord for Cell<PT>
-where
-  PT: PointTree,
-{
+impl<PT> Ord for Cell<PT> {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
     // BinaryHeap pops greatest first. We want closest cells first (smallest distance_sort_key).
     // Reverse comparison so smaller distance_sort_key is "greater" and pops first.
@@ -146,7 +131,7 @@ impl Ord for NearestHit {
 }
 struct NearestVisitor<'a, B>
 where
-  B: Bits + ?Sized,
+  B: ?Sized,
 {
   cur_doc_base: i32,
   cur_live_docs: Option<&'a B>,
@@ -167,7 +152,7 @@ where
 
 impl<'a, B> NearestVisitor<'a, B>
 where
-  B: Bits + ?Sized,
+  B: ?Sized,
 {
   fn new(
     hit_queue: &'a mut BinaryHeap<NearestHit>,

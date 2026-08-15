@@ -44,7 +44,7 @@ pub struct BaseDirectoryBase<LF> {
 }
 impl<LF> Display for BaseDirectoryBase<LF>
 where
-  LF: LockFactory,
+  LF: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -54,18 +54,12 @@ where
     )
   }
 }
-impl<LF> BaseDirectoryBase<LF>
-where
-  LF: LockFactory,
-{
+impl<LF> BaseDirectoryBase<LF> {
   pub fn new(lock_factory: LF) -> Self {
     Self {
       lock_factory,
       is_open: AtomicBool::new(true),
     }
-  }
-  pub fn obtain_lock(&self, dir: &Path, name: &str) -> Result<LF::Lock> {
-    self.lock_factory.obtain_lock(dir, name)
   }
   pub fn close(&self) {
     self.is_open.store(false, SeqCst);
@@ -75,5 +69,14 @@ where
       return Err(LuceneError::already_closed("this Directory is closed"));
     }
     Ok(())
+  }
+}
+
+impl<LF> BaseDirectoryBase<LF>
+where
+  LF: LockFactory,
+{
+  pub fn obtain_lock(&self, dir: &Path, name: &str) -> Result<LF::Lock> {
+    self.lock_factory.obtain_lock(dir, name)
   }
 }

@@ -28,20 +28,14 @@ use crate::core::util::{Comparator, ToInt};
 
 /// Represents hits returned.
 #[derive(Clone)]
-pub struct TopDocs<S>
-where
-  S: ScoreDocLike,
-{
+pub struct TopDocs<S> {
   /// The total number of hits for the query.
   pub total_hits: TotalHits,
 
   /// The top hits for the query.
   pub score_docs: Vec<S>,
 }
-impl<S> TopDocs<S>
-where
-  S: ScoreDocLike,
-{
+impl<S> TopDocs<S> {
   /// Constructs a new `TopDocs`.
   pub fn new(total_hits: TotalHits, score_docs: Vec<S>) -> Self {
     Self {
@@ -329,19 +323,11 @@ where
   ))
 }
 
-pub(crate) struct ScoreMergeSortQueueCmp<'a, C, S>
-where
-  C: Comparator<S>,
-  S: ScoreDocLike,
-{
+pub(crate) struct ScoreMergeSortQueueCmp<'a, C, S> {
   shard_hits: &'a Vec<TopDocs<S>>,
   tie_breaker_comparator: C,
 }
-impl<'a, C, S> ScoreMergeSortQueueCmp<'a, C, S>
-where
-  C: Comparator<S>,
-  S: ScoreDocLike,
-{
+impl<'a, C, S> ScoreMergeSortQueueCmp<'a, C, S> {
   pub fn new(shard_hits: &'a Vec<TopDocs<S>>, tie_breaker_comparator: C) -> Self {
     Self {
       shard_hits,
@@ -379,20 +365,14 @@ where
   }
 }
 
-pub(crate) struct MergeSortQueueCmp<'a, C>
-where
-  C: Comparator<TopFieldScoreDoc>,
-{
+pub(crate) struct MergeSortQueueCmp<'a, C> {
   shard_hits: &'a Vec<TopDocs<TopFieldScoreDoc>>,
   comparators: Vec<FieldComparatorEnum>,
   reverse_mul: Vec<i32>,
   tie_breaker: C,
 }
 
-impl<'a, C> MergeSortQueueCmp<'a, C>
-where
-  C: Comparator<TopFieldScoreDoc>,
-{
+impl<'a, C> MergeSortQueueCmp<'a, C> {
   pub fn new(
     sort: &Sort,
     shard_hits: &'a Vec<TopDocs<TopFieldScoreDoc>>,

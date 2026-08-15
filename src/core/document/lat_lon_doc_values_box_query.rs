@@ -236,18 +236,12 @@ where
   }
 }
 
-struct LatLonDocValuesBoxTwoPhaseIterator<S>
-where
-  S: SortedNumericDocValues,
-{
+struct LatLonDocValuesBoxTwoPhaseIterator<S> {
   values: S,
   query: LatLonDocValuesBoxQuery,
 }
 
-impl<S> LatLonDocValuesBoxTwoPhaseIterator<S>
-where
-  S: SortedNumericDocValues,
-{
+impl<S> LatLonDocValuesBoxTwoPhaseIterator<S> {
   fn new(values: S, query: LatLonDocValuesBoxQuery) -> Self {
     Self { values, query }
   }

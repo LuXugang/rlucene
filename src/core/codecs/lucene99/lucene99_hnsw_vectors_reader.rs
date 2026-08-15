@@ -57,11 +57,7 @@ use std::mem;
 use std::sync::Arc;
 
 /// Reads vectors from the index segments along with index data structures supporting KNN search.
-pub struct Lucene99HnswVectorsReader<F, I>
-where
-  F: FlatVectorsReader,
-  I: IndexInput,
-{
+pub struct Lucene99HnswVectorsReader<F, I> {
   flat_vectors_reader: F,
   field_infos: Arc<FieldInfos>,
   fields: HashMap<i32, FieldEntry>,
@@ -79,7 +75,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let mut fields = HashMap::new();
     let field_infos = state.field_infos.clone();
@@ -179,7 +174,6 @@ where
   ) -> Result<D1::IndexInput>
   where
     D1: Directory,
-    D2: Directory,
   {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
@@ -331,8 +325,7 @@ fn validate_field_entry(info: &FieldInfo, field_entry: &FieldEntry) -> Result<()
 
 impl<F, I> Accountable for Lucene99HnswVectorsReader<F, I>
 where
-  F: FlatVectorsReader,
-  I: IndexInput,
+  F: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(
@@ -346,8 +339,8 @@ where
 
 impl<F, I> CloseableRef for Lucene99HnswVectorsReader<F, I>
 where
-  F: FlatVectorsReader,
-  I: IndexInput,
+  F: CloseableRef,
+  I: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs_tuple((Some(&self.flat_vectors_reader), Some(&self.vector_index)))

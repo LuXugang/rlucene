@@ -105,7 +105,6 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
   /// method for more sophisticated merging (bulk-byte copying, etc.).
   fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
   where
-    D: Directory,
     D1: Directory,
     CR: CodecReader,
     Self: Sized,
@@ -124,7 +123,6 @@ impl StoredFieldsWriterDefaults {
   ) -> Result<i32>
   where
     W: StoredFieldsWriter,
-    D: Directory,
     D1: Directory,
     CR: CodecReader,
   {
@@ -179,10 +177,7 @@ impl StoredFieldsWriterDefaults {
 }
 pub type DefaultStoredFieldsWriter<D> =
   <DefaultStoredFieldsFormat as StoredFieldsFormat>::StoredFieldsWriter<D>;
-struct StoredFieldsMergeSub<DM>
-where
-  DM: DocMap,
-{
+struct StoredFieldsMergeSub<DM> {
   pub reader_index: usize,
   pub max_doc: i32,
   pub visitor: MergeVisitor,
@@ -190,10 +185,7 @@ where
   pub doc_map: Rc<DM>,
 }
 
-impl<DM> StoredFieldsMergeSub<DM>
-where
-  DM: DocMap,
-{
+impl<DM> StoredFieldsMergeSub<DM> {
   fn new(visitor: MergeVisitor, doc_map: Rc<DM>, reader_index: usize, max_doc: i32) -> Self {
     Self {
       reader_index,
@@ -234,7 +226,6 @@ pub(crate) struct MergeVisitor {
 impl MergeVisitor {
   pub(crate) fn new<D, CR>(merge_state: &MergeState<D, CR>, reader_index: usize) -> Result<Self>
   where
-    D: Directory,
     CR: CodecReader,
   {
     for fi in merge_state.field_infos[reader_index].as_ref() {
@@ -393,8 +384,8 @@ pub enum StoredFieldsWriterEnum2<A, B> {
 
 impl<A, B> Closeable for StoredFieldsWriterEnum2<A, B>
 where
-  A: StoredFieldsWriter,
-  B: StoredFieldsWriter,
+  A: Closeable,
+  B: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     match self {
@@ -406,8 +397,8 @@ where
 
 impl<A, B> Accountable for StoredFieldsWriterEnum2<A, B>
 where
-  A: StoredFieldsWriter,
-  B: StoredFieldsWriter,
+  A: Accountable,
+  B: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     match self {
@@ -502,7 +493,6 @@ where
 
   fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>
   where
-    D: Directory,
     D1: Directory,
     CR: CodecReader,
   {

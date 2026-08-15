@@ -22,16 +22,10 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-pub struct SingleLeafCompositeReader<LR>
-where
-  LR: LeafReader + Clone,
-{
+pub struct SingleLeafCompositeReader<LR> {
   leaf_reader: Arc<[LR]>,
 }
-impl<LR> SingleLeafCompositeReader<LR>
-where
-  LR: LeafReader + Clone,
-{
+impl<LR> SingleLeafCompositeReader<LR> {
   pub fn new(lr: LR) -> Self {
     Self {
       leaf_reader: Arc::from([lr]),

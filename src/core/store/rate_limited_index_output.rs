@@ -27,11 +27,7 @@ use crate::core::util::error::lucene_error::Result;
 /// A [`RateLimiter`] rate limiting [`IndexOutput`].
 ///
 /// @lucene.internal
-pub struct RateLimitedIndexOutput<O, R>
-where
-  O: IndexOutput,
-  R: RateLimiter,
-{
+pub struct RateLimitedIndexOutput<O, R> {
   out: O,
   rate_limiter: R,
   /// How many bytes we've written since we last called [`RateLimiter::pause`].
@@ -42,7 +38,6 @@ where
 
 impl<O, R> RateLimitedIndexOutput<O, R>
 where
-  O: IndexOutput,
   R: RateLimiter,
 {
   pub fn new(rate_limiter: R, out: O) -> Self {
@@ -111,8 +106,7 @@ where
 
 impl<O, R> Display for RateLimitedIndexOutput<O, R>
 where
-  O: IndexOutput,
-  R: RateLimiter,
+  O: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "RateLimitedIndexOutput({})", self.out)
@@ -121,8 +115,7 @@ where
 
 impl<O, R> Closeable for RateLimitedIndexOutput<O, R>
 where
-  O: IndexOutput,
-  R: RateLimiter,
+  O: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     self.out.close()

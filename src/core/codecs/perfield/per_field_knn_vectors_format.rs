@@ -75,18 +75,12 @@ pub trait PerFieldKnnVectorsFormatBase {
 /// file named `_1.dat` would instead look like `_1_Lucene40_0.dat`.
 ///
 /// # Experimental
-pub struct PerFieldKnnVectorsFormat<B>
-where
-  B: PerFieldKnnVectorsFormatBase,
-{
+pub struct PerFieldKnnVectorsFormat<B> {
   base: Arc<B>,
   identity: Identity,
 }
 
-impl<B> Clone for PerFieldKnnVectorsFormat<B>
-where
-  B: PerFieldKnnVectorsFormatBase,
-{
+impl<B> Clone for PerFieldKnnVectorsFormat<B> {
   fn clone(&self) -> Self {
     Self {
       base: Arc::clone(&self.base),
@@ -95,10 +89,7 @@ where
   }
 }
 
-impl<B> PerFieldKnnVectorsFormat<B>
-where
-  B: PerFieldKnnVectorsFormatBase,
-{
+impl<B> PerFieldKnnVectorsFormat<B> {
   /// Sole constructor.
   pub fn new(base: B) -> Self {
     Self {
@@ -106,7 +97,12 @@ where
       identity: Identity::new(),
     }
   }
+}
 
+impl<B> PerFieldKnnVectorsFormat<B>
+where
+  B: PerFieldKnnVectorsFormatBase,
+{
   /// Returns the numeric vector format that should be used for writing new
   /// segments of `field`.
   ///
@@ -117,19 +113,13 @@ where
   }
 }
 
-impl<B> HasIdentity for PerFieldKnnVectorsFormat<B>
-where
-  B: PerFieldKnnVectorsFormatBase,
-{
+impl<B> HasIdentity for PerFieldKnnVectorsFormat<B> {
   fn identity(&self) -> &Identity {
     &self.identity
   }
 }
 
-impl<B> Display for PerFieldKnnVectorsFormat<B>
-where
-  B: PerFieldKnnVectorsFormatBase,
-{
+impl<B> Display for PerFieldKnnVectorsFormat<B> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "KnnVectorsFormat(name={PER_FIELD_NAME})")
   }
@@ -187,7 +177,6 @@ where
   )>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let base = Arc::clone(&self.base);
     let format = base.get_knn_vectors_format_for_field(&field.name)?;
@@ -255,7 +244,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     let (identity, delegate_index) = {
       let (identity, segment_suffix, writer) =
@@ -285,7 +273,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {
@@ -350,10 +337,7 @@ where
 }
 
 /// Vector reader that can wrap multiple delegate readers, selected by field.
-pub struct FieldsReader<KVR>
-where
-  KVR: KnnVectorsReader,
-{
+pub struct FieldsReader<KVR> {
   fields: HashMap<i32, Arc<KVR>>,
   field_infos: Arc<FieldInfos>,
 }
@@ -369,7 +353,6 @@ where
   where
     PF: KnnVectorsFormat<KnnVectorsReader<D1::IndexInput> = KVR>,
     D1: Directory,
-    D2: Directory,
   {
     let field_infos = Arc::clone(&read_state.field_infos);
     let mut fields = HashMap::new();
@@ -569,7 +552,7 @@ where
 
 impl<KVR> CloseableRef for FieldsReader<KVR>
 where
-  KVR: KnnVectorsReader,
+  KVR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close(self.fields.values(), |reader| reader.close())
@@ -605,7 +588,6 @@ where
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(FieldsWriter::new(Arc::clone(&self.base)))
   }
@@ -620,7 +602,6 @@ where
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     FieldsReader::new::<B::Format, D1, D2>(state, segment_info)
   }

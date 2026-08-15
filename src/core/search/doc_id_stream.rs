@@ -41,7 +41,7 @@ pub trait DocIdStream {
 }
 struct CountConsumer<'a, S>
 where
-  S: Scorable + ?Sized,
+  S: ?Sized,
 {
   cnt: i32,
   scorer: &'a mut S,

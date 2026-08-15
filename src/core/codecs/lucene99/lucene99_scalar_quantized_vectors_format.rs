@@ -188,7 +188,6 @@ impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     FlatVectorsFormat::fields_writer(self, state, segment_info)
   }
@@ -206,7 +205,6 @@ impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     FlatVectorsFormat::fields_reader(self, state, segment_info)
   }
@@ -255,7 +253,6 @@ impl FlatVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   ) -> Result<Self::FlatVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let raw_vector_delegate =
       FlatVectorsFormat::fields_writer(&*RAW_VECTOR_FORMAT, state, segment_info)?;
@@ -283,7 +280,6 @@ impl FlatVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   ) -> Result<Self::FlatVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let raw_vectors_reader =
       FlatVectorsFormat::fields_reader(&*RAW_VECTOR_FORMAT, state, segment_info)?;

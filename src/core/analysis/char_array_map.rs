@@ -16,7 +16,7 @@
  */
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
 /// A map that stores string keys as character arrays in a hash table.
 #[derive(Clone)]
@@ -24,10 +24,7 @@ pub struct CharArrayMap<T> {
   ignore: bool,
   map: HashMap<Vec<char>, T>,
 }
-impl<T> CharArrayMap<T>
-where
-  T: Debug,
-{
+impl<T> CharArrayMap<T> {
   /// Creates a map with enough capacity to hold `start_size` terms.
   ///
   /// # Arguments

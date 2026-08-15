@@ -231,20 +231,12 @@ where
   }
 }
 
-pub struct XYDocValuesPointInGeometryTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+pub struct XYDocValuesPointInGeometryTPI<S, C> {
   values: S,
   component2d: C,
 }
 
-impl<S, C> XYDocValuesPointInGeometryTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+impl<S, C> XYDocValuesPointInGeometryTPI<S, C> {
   fn new(values: S, component2d: C) -> Self {
     Self {
       values,

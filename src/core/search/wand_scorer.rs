@@ -66,10 +66,7 @@ use crate::core::util::math_util::MathUtil;
 ///    constraints:
 ///    - `freq >= minShouldMatch`
 ///    - and/or `∑ max_score >= minCompetitiveScore`.
-pub struct WANDScorer<S>
-where
-  S: Scorer,
-{
+pub struct WANDScorer<S> {
   disi: TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<S>>,
 }
 
@@ -135,7 +132,7 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for WANDScorer<S> where S: Scorer + 'static {}
+impl<S> crate::core::search::scorable::FixedScore for WANDScorer<S> {}
 
 impl<S> Scorer for WANDScorer<S>
 where
@@ -207,10 +204,7 @@ where
   }
 }
 
-pub struct DocIdSetIteratorImpl<S>
-where
-  S: Scorer,
-{
+pub struct DocIdSetIteratorImpl<S> {
   all_scorers: Vec<DisiWrapper<S>>,
   doc: i32,
   score_mode: ScoreMode,
@@ -790,16 +784,10 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl<S>
-where
-  S: Scorer,
-{
+pub struct TwoPhaseIteratorImpl<S> {
   approximation: DocIdSetIteratorImpl<S>,
 }
-impl<S> TwoPhaseIteratorImpl<S>
-where
-  S: Scorer,
-{
+impl<S> TwoPhaseIteratorImpl<S> {
   pub fn new(approximation: DocIdSetIteratorImpl<S>) -> Self {
     Self { approximation }
   }

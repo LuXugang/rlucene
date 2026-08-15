@@ -113,7 +113,6 @@ impl NormsFormat for Lucene90NormsFormat {
   ) -> Result<Self::NormsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let norms_consumer = Lucene90NormsConsumer::new(
       state,
@@ -135,7 +134,6 @@ impl NormsFormat for Lucene90NormsFormat {
   ) -> Result<Self::NormsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let norms_producer = Lucene90NormsProducer::new(
       state,

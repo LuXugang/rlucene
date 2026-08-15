@@ -24,16 +24,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// # Note
 /// This is an internal API.
-pub struct BitDocIdSet<T>
-where
-  T: BitSet,
-{
+pub struct BitDocIdSet<T> {
   set: T,
   pub(crate) cost: i64,
 }
 /// Wraps the given [`BitSet`] as a [`DocIdSet`].
 /// The provided [`BitSet`] must not be modified afterwards.
-impl<T: BitSet> BitDocIdSet<T> {
+impl<T> BitDocIdSet<T> {
   pub fn with_cost(set: Option<T>, cost: i64) -> Result<BitDocIdSet<T>> {
     if cost < 0 {
       return Err(LuceneError::illegal_argument(format!(
@@ -45,6 +42,9 @@ impl<T: BitSet> BitDocIdSet<T> {
       Some(v) => Ok(BitDocIdSet { set: v, cost }),
     }
   }
+}
+
+impl<T: BitSet> BitDocIdSet<T> {
   /// Same as [`BitDocIdSet`] but uses the set's
   /// [`BitSet::approximate_cardinality`] as a cost.
   pub fn new(set: Option<T>) -> Result<BitDocIdSet<T>> {
@@ -58,7 +58,7 @@ impl<T: BitSet> BitDocIdSet<T> {
 
 impl<T> Accountable for BitDocIdSet<T>
 where
-  T: BitSet + Clone,
+  T: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     self.set.ram_bytes_used()

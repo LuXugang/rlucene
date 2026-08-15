@@ -473,10 +473,7 @@ pub fn index_exists(directory: &impl Directory) -> Result<bool> {
 pub struct DirectoryReaderBase<D> {
   pub directory: Arc<D>,
 }
-impl<D> DirectoryReaderBase<D>
-where
-  D: Directory,
-{
+impl<D> DirectoryReaderBase<D> {
   pub fn new(directory: Arc<D>) -> Self {
     Self { directory }
   }

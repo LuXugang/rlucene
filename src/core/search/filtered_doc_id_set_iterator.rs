@@ -85,17 +85,11 @@ pub trait FilteredDocIdSetIterator: DocIdSetIterator {
     self.base().inner_iter.cost()
   }
 }
-pub struct FilteredDocIdSetIteratorBase<D>
-where
-  D: DocIdSetIterator,
-{
+pub struct FilteredDocIdSetIteratorBase<D> {
   doc: i32,
   pub(crate) inner_iter: D,
 }
-impl<D> FilteredDocIdSetIteratorBase<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> FilteredDocIdSetIteratorBase<D> {
   pub(crate) fn new(inner_iter: D) -> FilteredDocIdSetIteratorBase<D> {
     FilteredDocIdSetIteratorBase {
       doc: -1,

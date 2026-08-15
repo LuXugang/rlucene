@@ -37,8 +37,7 @@ pub trait PostingsFormat: HasIdentity {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
   type FieldsProducer<T: IndexInput>: FieldsProducer;
   /// Reads a segment. **NOTE**: by the time this call returns, it must hold open any files it will need
   /// to use; else, those files may be deleted. Additionally, required files may be deleted during
@@ -51,8 +50,7 @@ pub trait PostingsFormat: HasIdentity {
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
-    D1: Directory,
-    D2: Directory;
+    D1: Directory;
 
   /// Looks up a format by name.
   fn for_name(name: &str) -> Result<Arc<Self>>

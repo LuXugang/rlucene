@@ -33,10 +33,7 @@ pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
 >;
 // TODO IMPORTANT This implementation is quite different from the Java version, and performance is worse in some scenarios.
 /// Scorer for conjunctions, sets of queries, all of which are required.
-pub struct ConjunctionScorer<S>
-where
-  S: Scorer,
-{
+pub struct ConjunctionScorer<S> {
   disi: ConjunctionScorerDisi<S>,
   scoring_idx: Vec<usize>,
 }
@@ -110,7 +107,7 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for ConjunctionScorer<S> where S: Scorer + 'static {}
+impl<S> crate::core::search::scorable::FixedScore for ConjunctionScorer<S> {}
 
 impl<S> Scorer for ConjunctionScorer<S>
 where

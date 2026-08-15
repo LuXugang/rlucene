@@ -34,11 +34,7 @@ pub type ReqOptSumScorerDisi<S1, S2> = DocIdSetIteratorEnum2<
 >;
 /// A scorer for queries with a required part and an optional part.
 /// Delays advance on the optional part until a score is needed.
-pub struct ReqOptSumScorer<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+pub struct ReqOptSumScorer<S1, S2> {
   disi: ReqOptSumScorerDisi<S1, S2>,
   tpi_state: TwoPhaseState,
 }
@@ -120,12 +116,7 @@ where
   }
 }
 
-impl<S1, S2> crate::core::search::scorable::FixedScore for ReqOptSumScorer<S1, S2>
-where
-  S1: Scorer + 'static,
-  S2: Scorer + 'static,
-{
-}
+impl<S1, S2> crate::core::search::scorable::FixedScore for ReqOptSumScorer<S1, S2> {}
 
 impl<S1, S2> Scorer for ReqOptSumScorer<S1, S2>
 where
@@ -254,11 +245,7 @@ where
     ScorerKind::ReqOptSum
   }
 }
-pub struct DocIdSetIteratorImpl<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+pub struct DocIdSetIteratorImpl<S1, S2> {
   upto: i32,
   max_score: f32,
   opt_is_required: bool,
@@ -479,18 +466,10 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+pub struct TwoPhaseIteratorImpl<S1, S2> {
   disi: DocIdSetIteratorImpl<S1, S2>,
 }
-impl<S1, S2> TwoPhaseIteratorImpl<S1, S2>
-where
-  S1: Scorer,
-  S2: Scorer,
-{
+impl<S1, S2> TwoPhaseIteratorImpl<S1, S2> {
   fn new(disi: DocIdSetIteratorImpl<S1, S2>) -> Self {
     Self { disi }
   }

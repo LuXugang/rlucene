@@ -287,7 +287,7 @@ macro_rules! either_index_output {
 
         impl<$( $T ),+> DataOutput for $name<$( $T ),+>
         where
-            $( $T: IndexOutput ),+
+            $( $T: DataOutput ),+
         {
             fn write_byte(&mut self, b: u8) -> Result<()> {
                 match self {
@@ -386,7 +386,7 @@ macro_rules! either_index_output {
 
         impl<$( $T ),+> Display for $name<$( $T ),+>
         where
-            $( $T: IndexOutput ),+
+            $( $T: Display ),+
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                 match self {
@@ -397,7 +397,7 @@ macro_rules! either_index_output {
 
         impl<$( $T ),+> Closeable for $name<$( $T ),+>
         where
-            $( $T: IndexOutput ),+
+            $( $T: Closeable ),+
         {
             fn close(&mut self) -> Result<()> {
                 match self {

@@ -16,14 +16,10 @@
  */
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::store::IOContext;
-use crate::core::store::directory::Directory;
 use std::sync::Arc;
 
 /// Holder struct for common parameters used during read.
-pub struct SegmentReadState<'a, D>
-where
-  D: Directory,
-{
+pub struct SegmentReadState<'a, D> {
   /// Directory where this segment is read from.
   pub directory: &'a D,
 
@@ -37,10 +33,7 @@ where
   pub segment_suffix: String,
 }
 
-impl<'a, D> SegmentReadState<'a, D>
-where
-  D: Directory,
-{
+impl<'a, D> SegmentReadState<'a, D> {
   /// Creates a SegmentReadState with an empty segment suffix.
   pub fn new(directory: &'a D, field_infos: Arc<FieldInfos>, context: &'a IOContext) -> Self {
     Self::with_suffix(directory, field_infos, context, "")

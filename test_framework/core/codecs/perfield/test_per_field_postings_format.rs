@@ -170,7 +170,6 @@ impl PostingsFormat for MergeRecordingPostingsFormatWrapper {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(MergeRecordingFieldsConsumer {
       consumer: self.delegate.fields_consumer(state, segment_info)?,
@@ -187,7 +186,6 @@ impl PostingsFormat for MergeRecordingPostingsFormatWrapper {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     self.delegate.fields_producer(state, segment_info)
   }
@@ -229,7 +227,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     N: NormsProducer,
   {
@@ -245,7 +242,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     N: NormsProducer,
     MS: MergeStateAccess,
   {

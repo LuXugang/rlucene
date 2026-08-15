@@ -584,18 +584,12 @@ impl TieredMergePolicy {
     std::cmp::max(self.floor_segment_bytes, bytes)
   }
 }
-pub struct SegmentCommitInfoMeta<'a, D>
-where
-  D: Directory,
-{
+pub struct SegmentCommitInfoMeta<'a, D> {
   pub(crate) seg_info: &'a SegmentCommitInfo<D>,
   pub(crate) size_in_seg: i64,
   pub(crate) max_doc: i32,
 }
-impl<'a, D> SegmentCommitInfoMeta<'a, D>
-where
-  D: Directory,
-{
+impl<'a, D> SegmentCommitInfoMeta<'a, D> {
   fn new(seg_info: &'a SegmentCommitInfo<D>, size_in_seg: i64, max_doc: i32) -> Self {
     Self {
       seg_info,
@@ -1030,10 +1024,7 @@ enum MergeType {
   ForceMerge,
   ForceMergeDeletes,
 }
-struct SegmentSizeAndDocs<'a, D>
-where
-  D: Directory,
-{
+struct SegmentSizeAndDocs<'a, D> {
   seg_info: &'a SegmentCommitInfo<D>,
   /// Size of the segment in bytes, pro-rated by the number of live documents.
   size_in_bytes: i64,
@@ -1042,12 +1033,9 @@ where
   max_doc: i32,
 }
 
-impl<D> Copy for SegmentSizeAndDocs<'_, D> where D: Directory {}
+impl<D> Copy for SegmentSizeAndDocs<'_, D> {}
 
-impl<D> Clone for SegmentSizeAndDocs<'_, D>
-where
-  D: Directory,
-{
+impl<D> Clone for SegmentSizeAndDocs<'_, D> {
   fn clone(&self) -> Self {
     *self
   }

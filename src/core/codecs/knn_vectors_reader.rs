@@ -169,7 +169,7 @@ macro_rules! either_knn_vectors_reader {
 
         impl<$( $T ),+> $crate::core::util::close::CloseableRef for $name<$( $T ),+>
         where
-            $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
+            $( $T: $crate::core::util::close::CloseableRef ),+
         {
             fn close(&self) -> $crate::core::util::error::lucene_error::Result<()> {
                 match self {
@@ -180,7 +180,7 @@ macro_rules! either_knn_vectors_reader {
 
         impl<$( $T ),+> $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider for $name<$( $T ),+>
         where
-            $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
+            $( $T: $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider ),+
         {
             type HnswGraph =
                 $graph_ty<$( < $T as $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider >::HnswGraph ),+>;

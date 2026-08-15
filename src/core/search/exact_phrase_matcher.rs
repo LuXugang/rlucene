@@ -35,11 +35,7 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::borrow::Cow;
 pub type ImpactsApproximationType<IE, SS> = ImpactsDISI<DummyDISI, ImpactsSourceImpl<IE>, SS>;
 /// Expert: Find exact phrases
-pub struct ExactPhraseMatcher<IE, SS>
-where
-  IE: ImpactsEnum,
-  SS: SimScorer,
-{
+pub struct ExactPhraseMatcher<IE, SS> {
   pub(crate) impacts_approximation: ImpactsApproximationType<IE, SS>,
   match_cost: f32,
   pub(crate) score_mode: ScoreMode,
@@ -257,17 +253,11 @@ where
   Ok(ImpactsSourceImpl::new(wrapped_impacts_enums, lead_index))
 }
 
-pub struct ImpactsSourceImpl<IE>
-where
-  IE: ImpactsEnum,
-{
+pub struct ImpactsSourceImpl<IE> {
   pub(crate) impacts_enums: ConjunctionDISI<IE>,
   lead_index: usize,
 }
-impl<IE> ImpactsSourceImpl<IE>
-where
-  IE: ImpactsEnum,
-{
+impl<IE> ImpactsSourceImpl<IE> {
   pub(crate) fn new(impacts_enums: ConjunctionDISI<IE>, lead_index: usize) -> Self {
     Self {
       impacts_enums,
@@ -352,18 +342,12 @@ where
 }
 
 impl<IE> ImpactsEnum for ImpactsSourceImpl<IE> where IE: ImpactsEnum {}
-pub struct ImpactsImpl<I>
-where
-  I: Impacts,
-{
+pub struct ImpactsImpl<I> {
   impacts: Vec<I>,
   lead_index: usize,
 }
 
-impl<I> ImpactsImpl<I>
-where
-  I: Impacts,
-{
+impl<I> ImpactsImpl<I> {
   fn new(impacts: Vec<I>, lead_index: usize) -> Self {
     Self {
       impacts,

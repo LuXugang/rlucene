@@ -67,18 +67,12 @@ where
   fn wrap(&self, reader: LR) -> Result<Self::LeafReader2>;
 }
 #[derive(Clone)]
-pub struct DelegatingCacheHelper<CH>
-where
-  CH: CacheHelper + Clone,
-{
+pub struct DelegatingCacheHelper<CH> {
   _delegate: CH,
   cache_key: CacheKey,
 }
 
-impl<CH> DelegatingCacheHelper<CH>
-where
-  CH: CacheHelper + Clone,
-{
+impl<CH> DelegatingCacheHelper<CH> {
   pub(crate) fn new(delegate: CH) -> Self {
     Self {
       _delegate: delegate,

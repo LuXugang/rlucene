@@ -89,7 +89,6 @@ impl KnnVectorsFormat for AssertingKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsWriter<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingKnnVectorsWriter::new(
       self.delegate.fields_writer(state, segment_info)?,
@@ -105,7 +104,6 @@ impl KnnVectorsFormat for AssertingKnnVectorsFormat {
   ) -> Result<Self::KnnVectorsReader<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     Ok(AssertingKnnVectorsReader::new(
       KnnVectorsFormatsReader::Lucene99Hnsw(self.delegate.fields_reader(state, segment_info)?),
@@ -164,7 +162,6 @@ where
   ) -> Result<usize>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     self
       .delegate
@@ -185,7 +182,6 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D1: Directory,
     D2: Directory<IndexOutput = O>,
     CR: CodecReader,
   {

@@ -148,10 +148,7 @@ impl MutablePointTreeReaderUtils {
   }
 }
 
-struct StableMSBRadixSorterImpl<'a, M>
-where
-  M: MutablePointTree,
-{
+struct StableMSBRadixSorterImpl<'a, M> {
   reader: &'a mut M,
   config: &'a BKDConfig,
   bits_per_doc_id: usize,
@@ -196,10 +193,7 @@ where
   }
 }
 
-struct IntroSorterImpl<'a, M>
-where
-  M: MutablePointTree,
-{
+struct IntroSorterImpl<'a, M> {
   reader: &'a mut M,
   config: &'a BKDConfig,
   pivot: BytesRef<Vec<u8>>,
@@ -265,10 +259,7 @@ where
 
 impl<M> IntroSorter for IntroSorterImpl<'_, M> where M: MutablePointTree {}
 
-struct RadixSelectorImpl<'a, M>
-where
-  M: MutablePointTree,
-{
+struct RadixSelectorImpl<'a, M> {
   split_dim: usize,
   config: &'a BKDConfig,
   dim_cmp_bytes: usize,
@@ -338,10 +329,7 @@ where
   }
 }
 
-struct IntroSelectorImpl<'a, M>
-where
-  M: MutablePointTree,
-{
+struct IntroSelectorImpl<'a, M> {
   dim_cmp_bytes: usize,
   data_cmp_bytes: usize,
   pivot: BytesRef<Vec<u8>>,

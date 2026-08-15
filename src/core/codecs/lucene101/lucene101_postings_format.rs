@@ -347,7 +347,6 @@ impl PostingsFormat for Lucene101PostingsFormat {
   ) -> Result<Self::FieldsConsumer<D1::IndexOutput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let mut postings_writer = Some(PushPostingsWriterBase::new(Lucene101PostingsWriter::new(
       state,
@@ -377,7 +376,6 @@ impl PostingsFormat for Lucene101PostingsFormat {
   ) -> Result<Self::FieldsProducer<D1::IndexInput>>
   where
     D1: Directory,
-    D2: Directory,
   {
     let postings_reader = Lucene101PostingsReader::new(state, segment_info)?;
     let ret = Lucene90BlockTreeTermsReader::new(postings_reader, state, segment_info)?;

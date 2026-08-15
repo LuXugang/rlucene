@@ -61,12 +61,7 @@ use std::mem;
 use std::sync::Arc;
 
 /// Reads scalar quantized vectors from the index segments.
-pub struct Lucene99ScalarQuantizedVectorsReader<I, R, F>
-where
-  I: IndexInput,
-  R: FlatVectorsReader,
-  F: FlatVectorsScorer,
-{
+pub struct Lucene99ScalarQuantizedVectorsReader<I, R, F> {
   fields: HashMap<i32, FieldEntry>,
   quantized_vector_data: Arc<I>,
   raw_vectors_reader: R,
@@ -88,7 +83,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let mut fields = HashMap::<i32, FieldEntry>::new();
 
@@ -258,7 +252,6 @@ where
   ) -> Result<I>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, file_extension);
@@ -315,9 +308,8 @@ where
 
 impl<I, R, F> CloseableRef for Lucene99ScalarQuantizedVectorsReader<I, R, F>
 where
-  I: IndexInput,
-  R: FlatVectorsReader,
-  F: FlatVectorsScorer,
+  I: CloseableRef,
+  R: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs_tuple((
@@ -420,9 +412,7 @@ where
 
 impl<I, R, F> Accountable for Lucene99ScalarQuantizedVectorsReader<I, R, F>
 where
-  I: IndexInput,
-  R: FlatVectorsReader,
-  F: FlatVectorsScorer,
+  R: Accountable,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(
@@ -620,20 +610,12 @@ impl Accountable for FieldEntry {
   }
 }
 
-pub struct QuantizedVectorValues<R, Q>
-where
-  R: FloatVectorValues,
-  Q: QuantizedByteVectorValues,
-{
+pub struct QuantizedVectorValues<R, Q> {
   raw_vector_values: R,
   quantized_vector_values: Q,
 }
 
-impl<R, Q> QuantizedVectorValues<R, Q>
-where
-  R: FloatVectorValues,
-  Q: QuantizedByteVectorValues,
-{
+impl<R, Q> QuantizedVectorValues<R, Q> {
   fn new(raw_vector_values: R, quantized_vector_values: Q) -> Self {
     Self {
       raw_vector_values,

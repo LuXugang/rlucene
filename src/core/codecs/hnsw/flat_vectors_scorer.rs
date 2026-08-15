@@ -176,7 +176,7 @@ macro_rules! either_flat_vectors_scorer {
 
         impl<$( $T ),+> Display for $name<$( $T ),+>
         where
-            $( $T: FlatVectorsScorer ),+
+            $( $T: Display ),+
         {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 match self {

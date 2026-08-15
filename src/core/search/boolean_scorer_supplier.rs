@@ -935,16 +935,10 @@ where
   }
 }
 
-pub struct FilterScorerImpl<S>
-where
-  S: Scorer,
-{
+pub struct FilterScorerImpl<S> {
   inner: S,
 }
-impl<S> FilterScorerImpl<S>
-where
-  S: Scorer,
-{
+impl<S> FilterScorerImpl<S> {
   fn new(inner: S) -> Self {
     Self { inner }
   }
@@ -963,7 +957,7 @@ where
   }
 }
 
-impl<S> crate::core::search::scorable::FixedScore for FilterScorerImpl<S> where S: Scorer {}
+impl<S> crate::core::search::scorable::FixedScore for FilterScorerImpl<S> {}
 
 impl<S> Scorer for FilterScorerImpl<S>
 where
@@ -1031,23 +1025,14 @@ where
   }
 }
 
-pub(crate) fn disable_scoring<BS>(scorer: BS) -> BulkScorerImpl<BS>
-where
-  BS: BulkScorer,
-{
+pub(crate) fn disable_scoring<BS>(scorer: BS) -> BulkScorerImpl<BS> {
   BulkScorerImpl::new(scorer)
 }
 
-pub struct BulkScorerImpl<BS>
-where
-  BS: BulkScorer,
-{
+pub struct BulkScorerImpl<BS> {
   scorer: BS,
 }
-impl<BS> BulkScorerImpl<BS>
-where
-  BS: BulkScorer,
-{
+impl<BS> BulkScorerImpl<BS> {
   fn new(scorer: BS) -> Self {
     Self { scorer }
   }
@@ -1074,17 +1059,11 @@ where
   }
 }
 
-pub struct LeafCollectorImpl<LC>
-where
-  LC: LeafCollector,
-{
+pub struct LeafCollectorImpl<LC> {
   collector: LC,
   fake: Score,
 }
-impl<LC> LeafCollectorImpl<LC>
-where
-  LC: LeafCollector,
-{
+impl<LC> LeafCollectorImpl<LC> {
   fn new(collector: LC) -> Self {
     Self {
       collector,
@@ -1095,7 +1074,7 @@ where
 
 impl<LC> Display for LeafCollectorImpl<LC>
 where
-  LC: LeafCollector,
+  LC: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "LeafCollectorImpl({})", self.collector)

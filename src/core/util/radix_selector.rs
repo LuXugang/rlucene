@@ -19,10 +19,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::selector::Selector;
 use crate::core::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, TryIntoInt};
 
-pub struct RadixSelector<T>
-where
-  T: RadixSelectorBase,
-{
+pub struct RadixSelector<T> {
   max_length: usize,
   common_prefix: Vec<i32>,
   histogram: Vec<usize>,
@@ -315,10 +312,7 @@ pub trait RadixSelectorBase: Selector {
   }
 }
 
-pub struct IntroSelectorImpl<'a, T>
-where
-  T: RadixSelectorBase,
-{
+pub struct IntroSelectorImpl<'a, T> {
   d: usize,
   max_length: usize,
   pivot: BytesRefBuilder<Vec<u8>>,
