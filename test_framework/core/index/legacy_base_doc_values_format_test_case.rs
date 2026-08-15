@@ -55,6 +55,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::{Directory, DirectoryEnum};
 use crate::core::store::lock::LockEnum;
+use crate::core::util::IOUtils;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
@@ -4345,7 +4346,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
                 true,
               )?;
               if let Some(error) = status.error {
-                return Err(error);
+                return IOUtils::rethrow_always(error);
               }
             }
             Ok(())

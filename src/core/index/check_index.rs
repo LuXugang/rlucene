@@ -92,7 +92,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::error::lucene_error::{CaughtResult, LuceneError, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::iterator::IteratorExt;
 use crate::core::util::long_bit_set::LongBitSet;
@@ -122,7 +122,7 @@ pub struct CheckIndex<D: Directory, L: Lock = <D as Directory>::Lock, W: Write =
   dir: Arc<D>,
   write_lock: L,
   info_stream: Option<W>,
-  closed: bool,
+  closed: AtomicBool,
   level: i32,
   fail_fast: bool,
   verbose: bool,
@@ -271,7 +271,7 @@ pub struct SegmentInfoStatus {
   pub soft_deletes_status: Option<SoftDeletesStatus>,
 
   /// Error thrown during the segment test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 impl Default for SegmentInfoStatus {
@@ -311,7 +311,7 @@ pub struct LiveDocStatus {
   pub num_deleted: i32,
 
   /// Error thrown during the live docs test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing field infos.
@@ -321,7 +321,7 @@ pub struct FieldInfoStatus {
   pub tot_fields: i64,
 
   /// Error thrown during the field infos test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing field norms.
@@ -331,7 +331,7 @@ pub struct FieldNormStatus {
   pub tot_fields: i64,
 
   /// Error thrown during the field norms test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing the term index.
@@ -350,7 +350,7 @@ pub struct TermIndexStatus {
   pub tot_pos: i64,
 
   /// Error thrown during the term index test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 
   /// Details of block allocations in the block tree terms dictionary. This is
   /// only set when the postings format for the segment uses block tree.
@@ -367,7 +367,7 @@ pub struct StoredFieldStatus {
   pub tot_fields: i64,
 
   /// Error thrown during the stored fields test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing term vectors.
@@ -380,7 +380,7 @@ pub struct TermVectorStatus {
   pub tot_vectors: i64,
 
   /// Error thrown during the term vector test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing DocValues.
@@ -408,7 +408,7 @@ pub struct DocValuesStatus {
   pub total_skipping_index: i64,
 
   /// Error thrown during the DocValues test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing PointValues.
@@ -421,7 +421,7 @@ pub struct PointsStatus {
   pub total_value_fields: i32,
 
   /// Error thrown during the PointValues test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing vector values.
@@ -434,21 +434,21 @@ pub struct VectorValuesStatus {
   pub total_knn_vector_fields: i32,
 
   /// Error thrown during the vector values test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing index sort.
 #[derive(Default)]
 pub struct IndexSortStatus {
   /// Error thrown during the index sort test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 /// Status from testing soft deletes.
 #[derive(Default)]
 pub struct SoftDeletesStatus {
   /// Error thrown during the soft deletes test, or None on success.
-  pub error: Option<LuceneError>,
+  pub error: Option<CaughtResult>,
 }
 
 impl<D, W> CheckIndex<D, <D as Directory>::Lock, W>
@@ -480,7 +480,7 @@ where
       dir,
       write_lock,
       info_stream: None,
-      closed: false,
+      closed: AtomicBool::new(false),
       level: 0,
       fail_fast: false,
       verbose: false,
@@ -489,7 +489,7 @@ where
   }
 
   fn ensure_open(&self) -> Result<()> {
-    if self.closed {
+    if self.closed.load(AtomicOrdering::SeqCst) {
       return Err(LuceneError::already_closed("this instance is closed"));
     }
     Ok(())
@@ -503,7 +503,7 @@ where
   W: Write,
 {
   fn close(&mut self) -> Result<()> {
-    self.closed = true;
+    self.closed.store(true, AtomicOrdering::SeqCst);
     CloseableRef::close(&self.write_lock)
   }
 }
@@ -617,6 +617,15 @@ where
       ))
     })?;
 
+    // https://github.com/apache/lucene/issues/7820: also attempt to open any older commit
+    // points (segments_N), which will catch certain corruption like missing _N.si files
+    // for segments not also referenced by the newest commit point (which was already
+    // loaded, successfully, above). Note that we do not do a deeper check of segments
+    // referenced ONLY by these older commit points, because such corruption would not
+    // prevent a new IndexWriter from opening on the newest commit point. But it is still
+    // corruption, e.g. a reader opened on those old commit points can hit corruption
+    // exceptions which we (still) will not detect here. Progress not perfection!
+
     let mut all_segments_files = Vec::new();
     for file_name in &files {
       if file_name.starts_with(IndexFileNames::SEGMENTS) && file_name != OLD_SEGMENTS_GEN {
@@ -626,6 +635,9 @@ where
         ));
       }
     }
+    // Sort descending by generation so that we always attempt to read the last commit first. This
+    // way if an index has a broken last commit AND a broken old commit, we report the last commit
+    // error first:
     all_segments_files.sort_by(|a, b| b.0.cmp(&a.0));
 
     let mut last_commit = None;
@@ -669,6 +681,10 @@ where
       }
     }
 
+    // We know there is a lastSegmentsFileName, so we must have attempted to load it in the loop
+    // above. If it failed to load, fail-fast rethrew the failure or non-fail-fast returned the
+    // failure status, so a valid lastCommit should always be present here.
+    debug_assert!(last_commit.is_some());
     let last_commit = match last_commit {
       Some(last_commit) => last_commit,
       None => {
@@ -861,7 +877,6 @@ where
       }
 
       let next_job = AtomicUsize::new(0);
-      let cancelled = AtomicBool::new(false);
       let worker_count = usize::min(self.thread_count.try_convert()?, jobs.len());
       let level = self.level;
       let fail_fast = self.fail_fast;
@@ -873,20 +888,13 @@ where
           let sender = sender.clone();
           let jobs = &jobs;
           let next_job = &next_job;
-          let cancelled = &cancelled;
           let last_commit = &last_commit;
           handles.push(scope.spawn(move || {
             loop {
-              if fail_fast && cancelled.load(AtomicOrdering::Relaxed) {
-                break;
-              }
               let job_index = next_job.fetch_add(1, AtomicOrdering::Relaxed);
               let Some((index, info)) = jobs.get(job_index).copied() else {
                 break;
               };
-              if fail_fast && cancelled.load(AtomicOrdering::Relaxed) {
-                break;
-              }
 
               let mut output = Vec::new();
               let segment_result = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -911,9 +919,6 @@ where
                   )
                 })()
               }));
-              if fail_fast && !matches!(&segment_result, Ok(Ok(_))) {
-                cancelled.store(true, AtomicOrdering::Relaxed);
-              }
               if sender.send((index, output, segment_result)).is_err() {
                 break;
               }
@@ -938,10 +943,6 @@ where
                 segment_results[result_index] = Some((output, segment_result));
                 continue;
               },
-              Err(_error) if fail_fast => {
-                index += 1;
-                continue;
-              },
               Err(error) => {
                 return Err(LuceneError::illegal_state(format!(
                   "failed to receive segment check result: {error}"
@@ -958,12 +959,14 @@ where
               return IOUtils::rethrow_always(result);
             },
             Ok(Err(error)) => {
+              debug_assert!(fail_fast);
               let mut check_index_error =
                 LuceneError::corrupt_index(format!("Segment {} check failed.", info.info.name));
               check_index_error.add_suppressed(error);
               return Err(check_index_error);
             },
             Err(payload) => {
+              debug_assert!(fail_fast);
               let mut check_index_error =
                 LuceneError::corrupt_index(format!("Segment {} check failed.", info.info.name));
               check_index_error.add_suppressed(LuceneError::tragedy_from_panic(
@@ -1308,7 +1311,7 @@ where
           segment_status.index_sort_status =
             Some(CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_sort(
               opened_reader,
-              index_sort.as_ref(),
+              Some(index_sort.as_ref()),
               info_stream.as_deref_mut(),
               fail_fast,
             )?);
@@ -1339,7 +1342,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Live docs test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during live docs test")
+              .expect("the live docs test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .field_info_status
@@ -1347,7 +1354,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Field Info test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during field info test")
+              .expect("the field info test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .field_norm_status
@@ -1355,7 +1366,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Field Norm test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during field norms test")
+              .expect("the field norms test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .term_index_status
@@ -1363,7 +1378,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Term Index test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during term index test")
+              .expect("the term index test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .stored_field_status
@@ -1371,7 +1390,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Stored Field test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during stored fields test")
+              .expect("the stored fields test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .term_vector_status
@@ -1379,7 +1402,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Term Vector test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during term vectors test")
+              .expect("the term vectors test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .doc_values_status
@@ -1387,7 +1414,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("DocValues test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during doc values test")
+              .expect("the doc values test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .points_status
@@ -1395,7 +1426,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Points test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during points test")
+              .expect("the points test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .vector_values_status
@@ -1403,7 +1438,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Vectors test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during vectors test")
+              .expect("the vectors test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .index_sort_status
@@ -1411,7 +1450,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Index Sort test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during index sort test")
+              .expect("the index sort test failed"),
+          );
           return Err(check_error);
         } else if let Some(error) = segment_status
           .soft_deletes_status
@@ -1419,7 +1462,11 @@ where
           .and_then(|status| status.error.as_ref())
         {
           let mut check_error = LuceneError::corrupt_index("Soft Deletes test failed");
-          check_error.add_suppressed(error.clone());
+          check_error.add_suppressed(
+            error
+              .caught_failure("panic during soft deletes test")
+              .expect("the soft deletes test failed"),
+          );
           return Err(check_error);
         }
       }
@@ -1428,29 +1475,19 @@ where
     }));
 
     let result = panic::catch_unwind(AssertUnwindSafe(|| -> Result<SegmentInfoStatus> {
-      let body_result = match body_result {
-        result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
-          return IOUtils::rethrow_always(result);
-        },
-        Ok(body_result) => body_result,
-        Err(payload) => Err(LuceneError::tragedy_from_panic(
-          "CheckIndex segment check failed",
-          payload.as_ref(),
-        )),
-      };
-
       match body_result {
-        Ok(()) => Ok(segment_status),
-        Err(error) => {
-          let error_debug = format!("{error:?}");
-          segment_status.error = Some(error);
+        Ok(Ok(())) => Ok(segment_status),
+        result @ (Ok(Err(_)) | Err(_)) if fail_fast => IOUtils::rethrow_always(result),
+        failure @ (Ok(Err(_)) | Err(_)) => {
+          let error_display = failure.display().to_string();
+          segment_status.error = Some(failure);
           segment_status.to_lose_doc_count = to_lose_doc_count;
           Self::msg(info_stream.as_deref_mut(), "FAILED")?;
           Self::msg(
             info_stream.as_deref_mut(),
             "    WARNING: exorciseIndex() would remove reference to this segment; full exception:",
           )?;
-          Self::msg(info_stream.as_deref_mut(), &error_debug)?;
+          Self::msg(info_stream.as_deref_mut(), &error_display)?;
           Self::msg(info_stream, "")?;
           Ok(segment_status)
         },
@@ -1468,7 +1505,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
   /// Tests index sort order.
   pub fn test_sort<R, O>(
     reader: &R,
-    sort: &Sort,
+    sort: Option<&Sort>,
     mut info_stream: Option<&mut O>,
     fail_fast: bool,
   ) -> Result<IndexSortStatus>
@@ -1481,11 +1518,11 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     let start = Instant::now();
     let mut status = IndexSortStatus::default();
 
-    if let Some(info_stream) = info_stream.as_deref_mut() {
-      write!(info_stream, "    test: index sort..........")?;
-    }
+    if let Some(sort) = sort {
+      if let Some(info_stream) = info_stream.as_deref_mut() {
+        write!(info_stream, "    test: index sort..........")?;
+      }
 
-    let check_result = panic::catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let fields = sort.get_sort();
       let reverse_mul: Vec<i32> = fields
         .iter()
@@ -1501,77 +1538,80 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         leaf_comparators.push(leaf_comparator);
       }
 
-      let meta_data = reader.get_metadata()?;
-      let field_infos = reader.get_field_infos()?;
-      if meta_data.get_has_blocks()
-        && field_infos.get_parent_field().is_none()
-        && meta_data.get_created_version_major() >= crate::core::util::LUCENE_10_0_0.major
-      {
-        return Err(LuceneError::illegal_state(format!(
-          "parent field is not set but the index has document blocks and was created with version: {}",
-          meta_data.get_created_version_major()
-        )));
-      }
-      let mut iterator = if meta_data.get_has_blocks() && field_infos.get_parent_field().is_some() {
-        let parent_field = field_infos
-          .get_parent_field()
-          .expect("the parent field is present");
-        let iterator = LeafReader::get_numeric_doc_values(reader, parent_field)?
-          .ok_or_else(|| LuceneError::corrupt_index("parent field has no numeric doc values"))?;
-        DocIdSetIteratorEnum2::A(iterator)
-      } else {
-        DocIdSetIteratorEnum2::B(AllDISI::new(reader.max_doc()?))
-      };
-
-      let mut prev_doc = iterator.next_doc()?;
-      let mut scorer = DummyScorable;
-      loop {
-        let next_doc = iterator.next_doc()?;
-        if next_doc == NO_MORE_DOCS {
-          break;
-        }
-        let mut cmp = 0;
-        for i in 0..leaf_comparators.len() {
-          // TODO: would be better if copy() didn't cause a term lookup in TermOrdVal & co,
-          // the segments are always the same here...
-          leaf_comparators[i].copy(0, prev_doc, &mut scorer, &mut comparators[i])?;
-          leaf_comparators[i].set_bottom(0, &mut comparators[i])?;
-          cmp = reverse_mul[i]
-            * leaf_comparators[i].compare_bottom(next_doc, &mut scorer, &mut comparators[i])?;
-          if cmp != 0 {
-            break;
-          }
-        }
-        if cmp > 0 {
-          return Err(LuceneError::corrupt_index(format!(
-            "segment has indexSort={sort} but docID={prev_doc} sorts after docID={next_doc}"
+      let check_result = panic::catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+        let meta_data = reader.get_metadata()?;
+        let field_infos = reader.get_field_infos()?;
+        if meta_data.get_has_blocks()
+          && field_infos.get_parent_field().is_none()
+          && meta_data.get_created_version_major() >= crate::core::util::LUCENE_10_0_0.major
+        {
+          return Err(LuceneError::illegal_state(format!(
+            "parent field is not set but the index has document blocks and was created with version: {}",
+            meta_data.get_created_version_major()
           )));
         }
-        prev_doc = next_doc;
-      }
-      Self::msg(
-        info_stream.as_deref_mut(),
-        &format!("OK [took {:.3} sec]", ns_to_sec(start.elapsed().as_nanos())),
-      )?;
-      Ok(())
-    }));
+        let mut iterator = if meta_data.get_has_blocks() && field_infos.get_parent_field().is_some()
+        {
+          let parent_field = field_infos
+            .get_parent_field()
+            .expect("the parent field is present");
+          let iterator = LeafReader::get_numeric_doc_values(reader, parent_field)?
+            .ok_or_else(|| LuceneError::corrupt_index("parent field has no numeric doc values"))?;
+          DocIdSetIteratorEnum2::A(iterator)
+        } else {
+          DocIdSetIteratorEnum2::B(AllDISI::new(reader.max_doc()?))
+        };
 
-    let check_result = match check_result {
-      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
-        return IOUtils::rethrow_always(result);
-      },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex index sort test failed",
-        payload.as_ref(),
-      )),
-    };
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
+        let mut prev_doc = iterator.next_doc()?;
+        let mut scorer = DummyScorable;
+        loop {
+          let next_doc = iterator.next_doc()?;
+          if next_doc == NO_MORE_DOCS {
+            break;
+          }
+          let mut cmp = 0;
+          for i in 0..leaf_comparators.len() {
+            // TODO: would be better if copy() didn't cause a term lookup in TermOrdVal & co,
+            // the segments are always the same here...
+            leaf_comparators[i].copy(0, prev_doc, &mut scorer, &mut comparators[i])?;
+            leaf_comparators[i].set_bottom(0, &mut comparators[i])?;
+            cmp = reverse_mul[i]
+              * leaf_comparators[i].compare_bottom(next_doc, &mut scorer, &mut comparators[i])?;
+            if cmp != 0 {
+              break;
+            }
+          }
+          if cmp > 0 {
+            return Err(LuceneError::corrupt_index(format!(
+              "segment has indexSort={sort} but docID={prev_doc} sorts after docID={next_doc}"
+            )));
+          }
+          prev_doc = next_doc;
+        }
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("OK [took {:.3} sec]", ns_to_sec(start.elapsed().as_nanos())),
+        )?;
+        Ok(())
+      }));
+
+      match check_result {
+        Ok(Ok(())) => {},
+        result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
+          return IOUtils::rethrow_always(result);
+        },
+        failure @ (Ok(Err(_)) | Err(_)) => {
+          let error_display = failure.display().to_string();
+          Self::msg(
+            info_stream.as_deref_mut(),
+            &format!("ERROR [{error_display}]"),
+          )?;
+          if let Some(info_stream) = info_stream {
+            writeln!(info_stream, "{error_display}")?;
+          }
+          status.error = Some(failure);
+        },
       }
-      status.error = Some(error);
     }
     Ok(status)
   }
@@ -1637,23 +1677,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       }
       Ok(())
     }));
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex live docs test failed",
-        payload.as_ref(),
-      )),
-    };
-
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR [{error_display}]"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
 
     Ok(status)
@@ -1692,23 +1731,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       status.tot_fields = field_infos.size().try_convert()?;
       Ok(())
     }));
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex field infos test failed",
-        payload.as_ref(),
-      )),
-    };
-
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR [{error_display}]"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
 
     Ok(status)
@@ -1767,23 +1805,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
 
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex field norms test failed",
-        payload.as_ref(),
-      )),
-    };
-
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{}]", error))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR [{error_display}]"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
 
     Ok(status)
@@ -2906,26 +2943,20 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       )
     }));
 
-    let check_result = match check_result {
-      result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
-        return IOUtils::rethrow_always(result);
-      },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex postings test failed",
-        payload.as_ref(),
-      )),
-    };
-
     match check_result {
-      Ok(status) => Ok(status),
-      Err(error) => {
-        Self::msg(info_stream.as_deref_mut(), &format!("ERROR: {error}"))?;
+      Ok(Ok(status)) => Ok(status),
+      result @ (Ok(Err(_)) | Err(_)) if fail_fast => IOUtils::rethrow_always(result),
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR: {error_display}"),
+        )?;
         if let Some(info_stream) = info_stream {
-          writeln!(info_stream, "{error:?}")?;
+          writeln!(info_stream, "{error_display}")?;
         }
         let mut status = TermIndexStatus::default();
-        status.error = Some(error);
+        status.error = Some(failure.map(|result| result.map(|_| ())));
         Ok(status)
       },
     }
@@ -3031,23 +3062,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       )?;
       Ok(())
     }));
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex points test failed",
-        payload.as_ref(),
-      )),
-    };
-
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR: {error}"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR: {error_display}"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
 
     Ok(status)
@@ -3082,17 +3112,16 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                 field_info.name
               )));
             }
-            let float_vector_values =
-              CodecReader::get_float_vector_values(reader, &field_info.name)?;
-            let byte_vector_values = CodecReader::get_byte_vector_values(reader, &field_info.name)?;
-            if float_vector_values.is_none() && byte_vector_values.is_none() {
+            if CodecReader::get_float_vector_values(reader, &field_info.name)?.is_none()
+              && CodecReader::get_byte_vector_values(reader, &field_info.name)?.is_none()
+            {
               continue;
             }
 
             status.total_knn_vector_fields += 1;
             match field_info.get_vector_encoding() {
               VectorEncoding::BYTE(_) => Self::check_byte_vector_values(
-                byte_vector_values.ok_or_else(|| {
+                CodecReader::get_byte_vector_values(reader, &field_info.name)?.ok_or_else(|| {
                   LuceneError::corrupt_index(format!(
                     "Field \"{}\" has BYTE vector encoding but getByteVectorValues returned null",
                     field_info.name
@@ -3103,7 +3132,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                 reader,
               )?,
               VectorEncoding::FLOAT32(_) => Self::check_float_vector_values(
-                float_vector_values.ok_or_else(|| {
+                CodecReader::get_float_vector_values(reader, &field_info.name)?.ok_or_else(|| {
                   LuceneError::corrupt_index(format!(
                     "Field \"{}\" has FLOAT32 vector encoding but getFloatVectorValues returned null",
                     field_info.name
@@ -3129,22 +3158,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
 
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex vectors test failed",
-        payload.as_ref(),
-      )),
-    };
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR: {error}"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR: {error_display}"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
     Ok(status)
   }
@@ -3153,11 +3182,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
   where
     R: CodecReader,
   {
-    Ok(
-      codec_reader
-        .get_vector_reader()?
-        .is_some_and(|reader| !reader.is_flat_vectors_reader(field_name)),
-    )
+    let Some(vectors_reader) = codec_reader.get_vector_reader()? else {
+      return Ok(true);
+    };
+    Ok(!vectors_reader.is_flat_vectors_reader(field_name))
   }
 
   fn check_float_vector_values<V, R>(
@@ -3175,7 +3203,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     while count < values.size() {
       // search the first maxNumSearches vectors to exercise the graph
       if values.ord_to_doc(count)? % every_n_doc == 0 {
-        let mut collector = TopKnnCollector::new(10, usize::MAX)?;
+        let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         if Self::vectors_reader_supports_search(codec_reader, &field_info.name)? {
           let vector = values.vector_value(count)?;
           let vector = match vector.as_ref() {
@@ -3244,7 +3272,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     while count < values.size() {
       // search the first maxNumSearches vectors to exercise the graph
       if supports_search && values.ord_to_doc(count)? % every_n_doc == 0 {
-        let mut collector = TopKnnCollector::new(10, usize::MAX)?;
+        let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         let vector = values.vector_value(count)?;
         let vector = match vector.as_ref() {
           crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Byte(vector) => {
@@ -3596,7 +3624,7 @@ impl VerifyPointsVisitor {
       return Err(LuceneError::corrupt_index(format!(
         "{desc} has incorrect length={} vs expected={} for docID={doc_id} field=\"{}\"",
         packed_value.len(),
-        expected_length,
+        self.packed_index_bytes_count,
         self.field_name
       )));
     }
@@ -3695,23 +3723,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
 
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex stored fields test failed",
-        payload.as_ref(),
-      )),
-    };
-
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR [{error_display}]"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
 
     Ok(status)
@@ -3773,23 +3800,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
 
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex docvalues test failed",
-        payload.as_ref(),
-      )),
-    };
-
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR [{error_display}]"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
     Ok(status)
   }
@@ -4362,7 +4388,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           doc_values_reader.get_numeric(field_info)?,
         )
       },
-      DocValuesType::None => Err(LuceneError::unreachable("")),
+      DocValuesType::None => std::panic::panic_any(()),
     }
   }
 
@@ -4679,23 +4705,22 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       Ok(())
     }));
 
-    let check_result = match check_result {
+    match check_result {
+      Ok(Ok(())) => {},
       result @ (Ok(Err(_)) | Err(_)) if fail_fast => {
         return IOUtils::rethrow_always(result);
       },
-      Ok(check_result) => check_result,
-      Err(payload) => Err(LuceneError::tragedy_from_panic(
-        "CheckIndex term vectors test failed",
-        payload.as_ref(),
-      )),
-    };
-
-    if let Err(error) = check_result {
-      Self::msg(info_stream.as_deref_mut(), &format!("ERROR [{error}]"))?;
-      if let Some(info_stream) = info_stream {
-        writeln!(info_stream, "{error:?}")?;
-      }
-      status.error = Some(error);
+      failure @ (Ok(Err(_)) | Err(_)) => {
+        let error_display = failure.display().to_string();
+        Self::msg(
+          info_stream.as_deref_mut(),
+          &format!("ERROR [{error_display}]"),
+        )?;
+        if let Some(info_stream) = info_stream {
+          writeln!(info_stream, "{error_display}")?;
+        }
+        status.error = Some(failure);
+      },
     }
 
     Ok(status)
@@ -5166,7 +5191,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if let Some(info_stream) = info_stream {
         writeln!(info_stream, "{error:?}")?;
       }
-      status.error = Some(error);
+      status.error = Some(Ok(Err(error)));
     }
     Ok(status)
   }

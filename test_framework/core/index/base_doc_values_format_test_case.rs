@@ -41,6 +41,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::directory::DirectoryEnum;
 use crate::core::store::lock::LockEnum;
+use crate::core::util::IOUtils;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -696,7 +697,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
         true,
       )?;
       if let Some(error) = status.error {
-        return Err(error);
+        return IOUtils::rethrow_always(error);
       }
       let skipper = test_doc_value_skipper.doc_values_skipper(reader)?;
       let wrapper = test_doc_value_skipper.doc_values_wrapper(reader)?;
