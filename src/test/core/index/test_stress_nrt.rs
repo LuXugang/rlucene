@@ -20,7 +20,6 @@ use crate::core::document::field_type::FieldType;
 use crate::core::index::base_composite_reader::{
   BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
 };
-use crate::core::index::codec_reader::CodecReaderEnum2;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
@@ -82,7 +81,7 @@ impl StressDirReader {
       .get_sequential_sub_readers()
       .iter()
       .cloned()
-      .map(CodecReaderEnum2::A)
+      .map(SoftDeletesCodecReader::A)
       .collect();
     let index_base = IndexReaderBase::new();
     let base = BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None, &index_base)?;

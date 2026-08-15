@@ -16,6 +16,7 @@
  */
 use crate::core::document::lat_lon_point_distance_comparator::LatLonPointDistanceLeafComparator;
 use crate::core::document::xy_point_distance_comparator::XYPointDistanceLeafComparator;
+use crate::core::index::doc_values::{Binary, SortedNumeric};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::search::comparators::doc_comparator::{DocComparatorIterator, DocLeafComparator};
 use crate::core::search::comparators::double_comparator::DoubleLeafComparator;
@@ -225,11 +226,11 @@ where
   Double(DoubleLeafComparator<LR>),
   Float(FloatLeafComparator<LR>),
   Int(IntLeafComparator<LR>),
-  LatLonPointDistance(LatLonPointDistanceLeafComparator<LR>),
+  LatLonPointDistance(LatLonPointDistanceLeafComparator<SortedNumeric<LR>>),
   Long(LongLeafComparator<LR>),
-  TermVal(TermValLeafComparator<LR>),
+  TermVal(TermValLeafComparator<Binary<LR>>),
   TermOrdVal(TermOrdValLeafComparator<LR>),
-  XYPointDistance(XYPointDistanceLeafComparator<LR>),
+  XYPointDistance(XYPointDistanceLeafComparator<SortedNumeric<LR>>),
 }
 
 impl<LR> LeafFieldComparator for LeafFieldComparatorEnum<LR>

@@ -15,34 +15,206 @@
  * limitations under the License.
  */
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 
 use crate::core::index::index_reader::Identity;
+use crate::core::store::data_input::DataInput;
+use crate::core::store::data_output::DataOutput;
 use crate::core::store::directory::Directory;
+use crate::core::store::index_output::IndexOutput;
 use crate::core::store::rate_limited_index_output::RateLimitedIndexOutput;
 use crate::core::store::rate_limiter::RateLimiter;
-use crate::core::store::{Context, IOContext, IndexOutputEnum2};
+use crate::core::store::{Context, IOContext};
 use crate::core::util::HasIdentity;
-use crate::core::util::close::CloseableRef;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 
-/// A delegating [`Directory`] that rate-limits created outputs.
-pub struct RateLimitedDirectory<D, R>
+pub enum RateLimitedIndexOutputEnum<O, R> {
+  A(RateLimitedIndexOutput<O, R>),
+  B(O),
+}
+
+impl<O, R> DataOutput for RateLimitedIndexOutputEnum<O, R>
 where
-  D: Directory,
-  R: RateLimiter + Clone,
+  O: IndexOutput,
+  R: RateLimiter,
 {
+  fn write_byte(&mut self, b: u8) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_byte(b),
+      Self::B(output) => output.write_byte(b),
+    }
+  }
+
+  fn write_bytes_with_len(&mut self, b: &[u8], len: usize) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_bytes_with_len(b, len),
+      Self::B(output) => output.write_bytes_with_len(b, len),
+    }
+  }
+
+  fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_bytes_range(b, offset, length),
+      Self::B(output) => output.write_bytes_range(b, offset, length),
+    }
+  }
+
+  fn write_int(&mut self, i: i32) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_int(i),
+      Self::B(output) => output.write_int(i),
+    }
+  }
+
+  fn write_short(&mut self, i: i16) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_short(i),
+      Self::B(output) => output.write_short(i),
+    }
+  }
+
+  fn write_vint(&mut self, i: i32) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_vint(i),
+      Self::B(output) => output.write_vint(i),
+    }
+  }
+
+  fn write_zint(&mut self, i: i32) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_zint(i),
+      Self::B(output) => output.write_zint(i),
+    }
+  }
+
+  fn write_long(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_long(i),
+      Self::B(output) => output.write_long(i),
+    }
+  }
+
+  fn write_vlong(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_vlong(i),
+      Self::B(output) => output.write_vlong(i),
+    }
+  }
+
+  fn write_signed_vlong(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_signed_vlong(i),
+      Self::B(output) => output.write_signed_vlong(i),
+    }
+  }
+
+  fn write_zlong(&mut self, i: i64) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_zlong(i),
+      Self::B(output) => output.write_zlong(i),
+    }
+  }
+
+  fn write_string(&mut self, s: &str) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_string(s),
+      Self::B(output) => output.write_string(s),
+    }
+  }
+
+  fn copy_bytes<I>(&mut self, input: &mut I, num_bytes: usize) -> Result<()>
+  where
+    I: DataInput + ?Sized,
+  {
+    match self {
+      Self::A(output) => output.copy_bytes(input, num_bytes),
+      Self::B(output) => output.copy_bytes(input, num_bytes),
+    }
+  }
+
+  fn write_map_of_strings(&mut self, map: &HashMap<String, String>) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_map_of_strings(map),
+      Self::B(output) => output.write_map_of_strings(map),
+    }
+  }
+
+  fn write_set_of_strings(&mut self, set: &HashSet<String>) -> Result<()> {
+    match self {
+      Self::A(output) => output.write_set_of_strings(set),
+      Self::B(output) => output.write_set_of_strings(set),
+    }
+  }
+}
+
+impl<O, R> Display for RateLimitedIndexOutputEnum<O, R>
+where
+  O: Display,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::A(output) => output.fmt(f),
+      Self::B(output) => output.fmt(f),
+    }
+  }
+}
+
+impl<O, R> Closeable for RateLimitedIndexOutputEnum<O, R>
+where
+  O: Closeable,
+{
+  fn close(&mut self) -> Result<()> {
+    match self {
+      Self::A(output) => output.close(),
+      Self::B(output) => output.close(),
+    }
+  }
+}
+
+impl<O, R> IndexOutput for RateLimitedIndexOutputEnum<O, R>
+where
+  O: IndexOutput,
+  R: RateLimiter,
+{
+  fn get_file_pointer(&self) -> Result<usize> {
+    match self {
+      Self::A(output) => output.get_file_pointer(),
+      Self::B(output) => output.get_file_pointer(),
+    }
+  }
+
+  fn get_checksum(&mut self) -> Result<u64> {
+    match self {
+      Self::A(output) => output.get_checksum(),
+      Self::B(output) => output.get_checksum(),
+    }
+  }
+
+  fn get_name(&self) -> &str {
+    match self {
+      Self::A(output) => output.get_name(),
+      Self::B(output) => output.get_name(),
+    }
+  }
+
+  fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
+    match self {
+      Self::A(output) => output.align_file_pointer(alignment_bytes),
+      Self::B(output) => output.align_file_pointer(alignment_bytes),
+    }
+  }
+}
+
+/// A delegating [`Directory`] that rate-limits created outputs.
+pub struct RateLimitedDirectory<D, R> {
   in_: D,
   rate_limiter: R,
   id: Identity,
 }
 
-impl<D, R> RateLimitedDirectory<D, R>
-where
-  D: Directory,
-  R: RateLimiter + Clone,
-{
+impl<D, R> RateLimitedDirectory<D, R> {
   pub fn new(in_: D, rate_limiter: R) -> Self {
     Self {
       in_,
@@ -54,8 +226,7 @@ where
 
 impl<D, R> Display for RateLimitedDirectory<D, R>
 where
-  D: Directory,
-  R: RateLimiter + Clone,
+  D: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "RateLimitedDirectory({})", self.in_)
@@ -64,19 +235,14 @@ where
 
 impl<D, R> CloseableRef for RateLimitedDirectory<D, R>
 where
-  D: Directory,
-  R: RateLimiter + Clone,
+  D: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.in_.close()
   }
 }
 
-impl<D, R> HasIdentity for RateLimitedDirectory<D, R>
-where
-  D: Directory,
-  R: RateLimiter + Clone,
-{
+impl<D, R> HasIdentity for RateLimitedDirectory<D, R> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -99,7 +265,7 @@ where
     self.in_.file_length(name)
   }
 
-  type IndexOutput = IndexOutputEnum2<RateLimitedIndexOutput<D::IndexOutput, R>, D::IndexOutput>;
+  type IndexOutput = RateLimitedIndexOutputEnum<D::IndexOutput, R>;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
     self.ensure_open()?;
@@ -108,7 +274,7 @@ where
       "got context={:?}",
       context.get_context()
     );
-    Ok(IndexOutputEnum2::A(RateLimitedIndexOutput::new(
+    Ok(RateLimitedIndexOutputEnum::A(RateLimitedIndexOutput::new(
       self.rate_limiter.clone(),
       self.in_.create_output(name, context)?,
     )))
@@ -121,7 +287,7 @@ where
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
     self.ensure_open()?;
-    Ok(IndexOutputEnum2::B(
+    Ok(RateLimitedIndexOutputEnum::B(
       self.in_.create_temp_output(prefix, suffix, context)?,
     ))
   }

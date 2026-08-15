@@ -37,7 +37,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::{BytesRef, BytesRefBuilder, IndexFileNames};
 use crate::core::store::directory::Directory;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::{ByteArrayDataOutput, ByteBuffersDataOutput, DataOutput, IndexOutput};
 use crate::core::util::IOUtils;
 #[cfg(debug_assertions)]
@@ -244,7 +244,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     Self::with_version(
       state,
@@ -266,7 +265,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
-    D2: Directory,
   {
     Self::validate_settings(min_items_in_block, max_items_in_block)?;
     if !(VERSION_START..=VERSION_CURRENT).contains(&version) {
@@ -406,7 +404,6 @@ where
   ) -> Result<()>
   where
     D1: Directory,
-    D2: Directory,
     F: Fields,
     PW: PostingsWriterBase,
     N: NormsProducer,
@@ -563,8 +560,8 @@ impl fmt::Display for PendingTerm {
 pub struct PendingBlock {
   pub prefix: BytesRef<Vec<u8>>,
   pub fp: i64,
-  pub index: Option<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
-  pub sub_indices: Vec<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
+  pub index: Option<FST<ByteSequenceOutputs, DataOutputEnum<DummyIndexOutput>>>,
+  pub sub_indices: Vec<FST<ByteSequenceOutputs, DataOutputEnum<DummyIndexOutput>>>,
   pub has_terms: bool,
   pub is_floor: bool,
   pub floor_lead_byte: i32,
@@ -576,7 +573,7 @@ impl PendingBlock {
     has_terms: bool,
     is_floor: bool,
     floor_lead_byte: i32,
-    sub_indices: Vec<FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>>,
+    sub_indices: Vec<FST<ByteSequenceOutputs, DataOutputEnum<DummyIndexOutput>>>,
   ) -> Self {
     Self {
       prefix,
@@ -683,8 +680,8 @@ impl PendingBlock {
   }
   fn append(
     &self,
-    fst_compiler: &mut FSTCompiler<ByteSequenceOutputs, DummyDirectory>,
-    sub_index: FST<ByteSequenceOutputs, DataOutputEnum<DummyDirectory>>,
+    fst_compiler: &mut FSTCompiler<ByteSequenceOutputs, DummyIndexOutput>,
+    sub_index: FST<ByteSequenceOutputs, DataOutputEnum<DummyIndexOutput>>,
     scratch_ints_ref: &mut IntsRefBuilder<Vec<i32>>,
   ) -> Result<()> {
     let mut sub_index_enum = BytesRefFSTEnum::new(sub_index)?;
@@ -698,19 +695,13 @@ impl PendingBlock {
   }
 }
 
-struct StatsWriter<'a, DO>
-where
-  DO: DataOutput,
-{
+struct StatsWriter<'a, DO> {
   has_freqs: bool,
   singleton_count: i32,
   out: &'a mut DO,
 }
 
-impl<'a, DO> StatsWriter<'a, DO>
-where
-  DO: DataOutput,
-{
+impl<'a, DO> StatsWriter<'a, DO> {
   fn new(out: &'a mut DO, has_freqs: bool) -> Self {
     Self {
       has_freqs,
@@ -718,6 +709,12 @@ where
       out,
     }
   }
+}
+
+impl<DO> StatsWriter<'_, DO>
+where
+  DO: DataOutput,
+{
   fn add(&mut self, df: i32, ttf: i64) -> Result<()> {
     if df == 1 && (!self.has_freqs || ttf == 1) {
       self.singleton_count += 1;

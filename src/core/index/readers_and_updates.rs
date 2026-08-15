@@ -983,10 +983,7 @@ enum CurrentSource {
 }
 /// Merges current on-disk doc values with incoming updates, giving the updates precedence.
 /// in other words the values of the update always wins over the on-disk version.
-struct MergedDocValues<DI>
-where
-  DI: DocValuesIterator,
-{
+struct MergedDocValues<DI> {
   // merged docID
   doc_id_out: i32,
   // docID from our original doc values
@@ -1001,10 +998,7 @@ where
   >,
   current_values_supplier: Option<CurrentSource>,
 }
-impl<DI> MergedDocValues<DI>
-where
-  DI: DocValuesIterator,
-{
+impl<DI> MergedDocValues<DI> {
   pub fn new(
     on_disk_doc_values: Option<DI>,
     update_doc_values: DocIdSetIteratorEnum2<
@@ -1088,35 +1082,27 @@ where
   }
 }
 
-struct BinaryDocValuesImpl<D>
-where
-  D: Directory,
-{
-  merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
+struct BinaryDocValuesImpl<DI> {
+  merged_doc_values: MergedDocValues<DI>,
 }
-impl<D> BinaryDocValuesImpl<D>
-where
-  D: Directory,
-{
-  fn new(
-    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::BinaryDocValues>,
-  ) -> Self {
+impl<DI> BinaryDocValuesImpl<DI> {
+  fn new(merged_doc_values: MergedDocValues<DI>) -> Self {
     Self { merged_doc_values }
   }
 }
 
-impl<D> DocValuesIterator for BinaryDocValuesImpl<D>
+impl<DI> DocValuesIterator for BinaryDocValuesImpl<DI>
 where
-  D: Directory,
+  DI: DocValuesIterator,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.merged_doc_values.advance_exact(target)
   }
 }
 
-impl<D> DocIdSetIterator for BinaryDocValuesImpl<D>
+impl<DI> DocIdSetIterator for BinaryDocValuesImpl<DI>
 where
-  D: Directory,
+  DI: DocValuesIterator,
 {
   fn doc_id(&self) -> i32 {
     self.merged_doc_values.doc_id()
@@ -1135,9 +1121,9 @@ where
   }
 }
 
-impl<D> BinaryDocValues for BinaryDocValuesImpl<D>
+impl<DI> BinaryDocValues for BinaryDocValuesImpl<DI>
 where
-  D: Directory,
+  DI: BinaryDocValues,
 {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self.merged_doc_values.current_values_supplier {
@@ -1160,36 +1146,28 @@ where
     }
   }
 }
-struct NumericDocValuesImpl<D>
-where
-  D: Directory,
-{
-  merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
+struct NumericDocValuesImpl<DI> {
+  merged_doc_values: MergedDocValues<DI>,
 }
 
-impl<D> NumericDocValuesImpl<D>
-where
-  D: Directory,
-{
-  fn new(
-    merged_doc_values: MergedDocValues<<SegmentReader<D> as LeafReader>::NumericDocValues>,
-  ) -> Self {
+impl<DI> NumericDocValuesImpl<DI> {
+  fn new(merged_doc_values: MergedDocValues<DI>) -> Self {
     Self { merged_doc_values }
   }
 }
 
-impl<D> DocValuesIterator for NumericDocValuesImpl<D>
+impl<DI> DocValuesIterator for NumericDocValuesImpl<DI>
 where
-  D: Directory,
+  DI: DocValuesIterator,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.merged_doc_values.advance_exact(target)
   }
 }
 
-impl<D> DocIdSetIterator for NumericDocValuesImpl<D>
+impl<DI> DocIdSetIterator for NumericDocValuesImpl<DI>
 where
-  D: Directory,
+  DI: DocValuesIterator,
 {
   fn doc_id(&self) -> i32 {
     self.merged_doc_values.doc_id()
@@ -1208,9 +1186,9 @@ where
   }
 }
 
-impl<D> NumericDocValues for NumericDocValuesImpl<D>
+impl<DI> NumericDocValues for NumericDocValuesImpl<DI>
 where
-  D: Directory,
+  DI: NumericDocValues,
 {
   fn long_value(&mut self) -> Result<i64> {
     match self.merged_doc_values.current_values_supplier {
@@ -1270,7 +1248,7 @@ where
   D: Directory,
 {
   type NumericDocValues = DummyNumericDocValues;
-  type BinaryDocValues = BinaryDocValuesImpl<D>;
+  type BinaryDocValues = BinaryDocValuesImpl<<SegmentReader<D> as LeafReader>::BinaryDocValues>;
 
   fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     let iterator = match self.update_supplier.apply(&self.field_info)? {
@@ -1327,7 +1305,7 @@ impl<'a, D> DocValuesProducer for DocValuesProducerNumeric<'a, D>
 where
   D: Directory,
 {
-  type NumericDocValues = NumericDocValuesImpl<D>;
+  type NumericDocValues = NumericDocValuesImpl<<SegmentReader<D> as LeafReader>::NumericDocValues>;
   fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     let iterator = match self.update_supplier.apply(&self.field_info)? {
       Some(it) => it,

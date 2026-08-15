@@ -34,7 +34,6 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -54,6 +53,123 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{ByteBlockPool, Counter, SharedCounter, TryIntoInt};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+
+type BufferedSingleSortedNumericDocValues =
+  SingletonSortedNumericDocValues<BufferedNumericDocValues>;
+type BufferedMultiSortedNumericDocValues = BufferedSortedNumericDocValues<DocsWithFieldSetDISI>;
+
+pub(crate) enum SortedNumericDocValuesWriterValues {
+  Single(BufferedSingleSortedNumericDocValues),
+  Multi(BufferedMultiSortedNumericDocValues),
+  SortedSingle(SortingSortedNumericDocValues<BufferedSingleSortedNumericDocValues>),
+  SortedMulti(SortingSortedNumericDocValues<BufferedMultiSortedNumericDocValues>),
+}
+
+impl DocValuesIterator for SortedNumericDocValuesWriterValues {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Single(values) => values.advance_exact(target),
+      Self::Multi(values) => values.advance_exact(target),
+      Self::SortedSingle(values) => values.advance_exact(target),
+      Self::SortedMulti(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl DocIdSetIterator for SortedNumericDocValuesWriterValues {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Single(values) => values.doc_id(),
+      Self::Multi(values) => values.doc_id(),
+      Self::SortedSingle(values) => values.doc_id(),
+      Self::SortedMulti(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.next_doc(),
+      Self::Multi(values) => values.next_doc(),
+      Self::SortedSingle(values) => values.next_doc(),
+      Self::SortedMulti(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.advance(target),
+      Self::Multi(values) => values.advance(target),
+      Self::SortedSingle(values) => values.advance(target),
+      Self::SortedMulti(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.slow_advance(target),
+      Self::Multi(values) => values.slow_advance(target),
+      Self::SortedSingle(values) => values.slow_advance(target),
+      Self::SortedMulti(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Single(values) => values.cost(),
+      Self::Multi(values) => values.cost(),
+      Self::SortedSingle(values) => values.cost(),
+      Self::SortedMulti(values) => values.cost(),
+    }
+  }
+}
+
+impl SortedNumericDocValues for SortedNumericDocValuesWriterValues {
+  fn next_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Single(values) => values.next_value(),
+      Self::Multi(values) => values.next_value(),
+      Self::SortedSingle(values) => values.next_value(),
+      Self::SortedMulti(values) => values.next_value(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.doc_value_count(),
+      Self::Multi(values) => values.doc_value_count(),
+      Self::SortedSingle(values) => values.doc_value_count(),
+      Self::SortedMulti(values) => values.doc_value_count(),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::Single(values) => values.is_single_valued(),
+      Self::Multi(values) => values.is_single_valued(),
+      Self::SortedSingle(values) => values.is_single_valued(),
+      Self::SortedMulti(values) => values.is_single_valued(),
+    }
+  }
+
+  type NumericDocValues = NumericDocValuesEnum2<BufferedNumericDocValues, DummyNumericDocValues>;
+
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::Single(values) => values
+        .get_numeric_doc_values()
+        .map(NumericDocValuesEnum2::A),
+      Self::Multi(values) => values
+        .get_numeric_doc_values()
+        .map(NumericDocValuesEnum2::B),
+      Self::SortedSingle(values) => values
+        .get_numeric_doc_values()
+        .map(NumericDocValuesEnum2::B),
+      Self::SortedMulti(values) => values
+        .get_numeric_doc_values()
+        .map(NumericDocValuesEnum2::B),
+    }
+  }
+}
 
 /// Buffers up pending `[i64]` per doc, sorts, then flushes when segment flushes.
 pub(crate) struct SortedNumericDocValuesWriter {
@@ -166,24 +282,19 @@ impl SortedNumericDocValuesWriter {
     values: &PackedLongValues,
     value_counts: Option<&PackedLongValues>,
     docs_with_field: &DocsWithFieldSet,
-  ) -> Result<
-    SortedNumericDocValuesEnum2<
-      SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-      BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-    >,
-  > {
+  ) -> Result<SortedNumericDocValuesWriterValues> {
     let iter = docs_with_field.iterator()?;
 
     match value_counts {
       None => {
         let dv = BufferedNumericDocValues::new(values, iter);
-        Ok(SortedNumericDocValuesEnum2::A(
+        Ok(SortedNumericDocValuesWriterValues::Single(
           DocValues::singleton_numeric(dv)?,
         ))
       },
       Some(value_counts) => {
         let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter);
-        Ok(SortedNumericDocValuesEnum2::B(dv))
+        Ok(SortedNumericDocValuesWriterValues::Multi(dv))
       },
     }
   }
@@ -205,7 +316,6 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = DC::IndexOutput>,
-    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -268,10 +378,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
     dv_consumer.add_sorted_numeric_field(write_state, segment_info, &self.field_info, &producer)
   }
 
-  type DocIdSetIterator = SortedNumericDocValuesEnum2<
-    SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-    BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-  >;
+  type DocIdSetIterator = SortedNumericDocValuesWriterValues;
 
   fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
     if self.final_values.is_none() {
@@ -366,18 +473,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
-  type SortedNumericDocValues = SortedNumericDocValuesEnum2<
-    SortedNumericDocValuesEnum2<
-      SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-      BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-    >,
-    SortingSortedNumericDocValues<
-      SortedNumericDocValuesEnum2<
-        SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-        BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-      >,
-    >,
-  >;
+  type SortedNumericDocValues = SortedNumericDocValuesWriterValues;
 
   fn get_sorted_numeric(
     &self,
@@ -391,11 +487,21 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
       self.value_counts.as_ref(),
       &self.docs_with_field,
     )?;
-    match &self.sorted {
-      Some(sorted) => Ok(SortedNumericDocValuesEnum2::B(
-        SortingSortedNumericDocValues::new(buf, sorted.clone()),
+    match (buf, &self.sorted) {
+      (SortedNumericDocValuesWriterValues::Single(values), Some(sorted)) => {
+        Ok(SortedNumericDocValuesWriterValues::SortedSingle(
+          SortingSortedNumericDocValues::new(values, sorted.clone()),
+        ))
+      },
+      (SortedNumericDocValuesWriterValues::Multi(values), Some(sorted)) => {
+        Ok(SortedNumericDocValuesWriterValues::SortedMulti(
+          SortingSortedNumericDocValues::new(values, sorted.clone()),
+        ))
+      },
+      (values, None) => Ok(values),
+      _ => Err(LuceneError::illegal_state(
+        "get_values must return unsorted values",
       )),
-      None => Ok(SortedNumericDocValuesEnum2::A(buf)),
     }
   }
 
@@ -403,10 +509,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) struct BufferedSortedNumericDocValues<D>
-where
-  D: DocIdSetIterator,
-{
+pub(crate) struct BufferedSortedNumericDocValues<D> {
   values_iter: PackedLongValuesIterator,
   value_counts_iter: PackedLongValuesIterator,
   docs_with_field: D,
@@ -414,10 +517,7 @@ where
   value_upto: i32,
 }
 
-impl<D> BufferedSortedNumericDocValues<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> BufferedSortedNumericDocValues<D> {
   pub(crate) fn new(
     values: &PackedLongValues,
     value_counts: &PackedLongValues,
@@ -488,20 +588,14 @@ where
   type NumericDocValues = DummyNumericDocValues;
 }
 
-pub struct SortingSortedNumericDocValues<S>
-where
-  S: SortedNumericDocValues,
-{
+pub struct SortingSortedNumericDocValues<S> {
   input: S,
   values: LongValues,
   doc_id: i32,
   upto: usize,
   num_values: i32,
 }
-impl<S> SortingSortedNumericDocValues<S>
-where
-  S: SortedNumericDocValues,
-{
+impl<S> SortingSortedNumericDocValues<S> {
   pub(crate) fn new(input: S, values: LongValues) -> Self {
     Self {
       input,

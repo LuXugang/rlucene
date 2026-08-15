@@ -103,10 +103,7 @@ impl DirectReader {
   }
 }
 
-pub struct LongValuesImpl<R>
-where
-  R: RandomAccessInput,
-{
+pub struct LongValuesImpl<R> {
   slice: Option<R>,
   bits_per_value: i32,
   num_values: usize,
@@ -114,10 +111,7 @@ where
   buffer: Vec<i64>,
   block_index: Option<usize>,
 }
-impl<R> LongValuesImpl<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> LongValuesImpl<R> {
   fn new(
     slice: Option<R>,
     bits_per_value: i32,
@@ -137,7 +131,12 @@ where
       block_index: None,
     }
   }
+}
 
+impl<R> LongValuesImpl<R>
+where
+  R: RandomAccessInput,
+{
   fn fill_buffer(&mut self, index: usize, slice: Option<&mut R>) -> Result<()> {
     // NOTE: we're not allowed to read more than 3 bytes past the last value
     let slice = match slice {
@@ -236,17 +235,11 @@ where
   }
 }
 
-pub struct DirectPackedReader1<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader1<R> {
   input: Option<R>,
   offset: usize,
 }
-impl<R> DirectPackedReader1<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader1<R> {
   pub fn new(input: Option<R>, offset: usize) -> DirectPackedReader1<R> {
     DirectPackedReader1 { input, offset }
   }
@@ -277,18 +270,12 @@ where
   }
 }
 
-pub struct DirectPackedReader2<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader2<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader2<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader2<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader2 { input, offset }
   }
@@ -321,18 +308,12 @@ where
   }
 }
 
-pub struct DirectPackedReader4<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader4<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader4<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader4<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader4 { input, offset }
   }
@@ -365,18 +346,12 @@ where
   }
 }
 
-pub struct DirectPackedReader8<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader8<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader8<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader8<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader8 { input, offset }
   }
@@ -408,18 +383,12 @@ where
   }
 }
 
-pub struct DirectPackedReader12<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader12<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader12<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader12<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader12 { input, offset }
   }
@@ -453,18 +422,12 @@ where
   }
 }
 
-pub struct DirectPackedReader16<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader16<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader16<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader16<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader16 { input, offset }
   }
@@ -494,18 +457,12 @@ where
     Ok(result as i64)
   }
 }
-pub struct DirectPackedReader20<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader20<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader20<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader20<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader20 { input, offset }
   }
@@ -539,18 +496,12 @@ where
   }
 }
 
-pub struct DirectPackedReader24<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader24<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader24<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader24<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader24 { input, offset }
   }
@@ -582,18 +533,12 @@ where
   }
 }
 
-pub struct DirectPackedReader28<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader28<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader28<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader28<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader28 { input, offset }
   }
@@ -627,18 +572,12 @@ where
   }
 }
 
-pub struct DirectPackedReader32<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader32<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader32<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader32<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader32 { input, offset }
   }
@@ -670,18 +609,12 @@ where
   }
 }
 
-pub struct DirectPackedReader40<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader40<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader40<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader40<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader40 { input, offset }
   }
@@ -713,18 +646,12 @@ where
   }
 }
 
-pub struct DirectPackedReader48<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader48<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader48<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader48<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader48 { input, offset }
   }
@@ -756,18 +683,12 @@ where
   }
 }
 
-pub struct DirectPackedReader56<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader56<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader56<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader56<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader56 { input, offset }
   }
@@ -799,18 +720,12 @@ where
   }
 }
 
-pub struct DirectPackedReader64<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DirectPackedReader64<R> {
   input: Option<R>,
   offset: usize,
 }
 
-impl<R> DirectPackedReader64<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DirectPackedReader64<R> {
   pub fn new(input: Option<R>, offset: usize) -> Self {
     DirectPackedReader64 { input, offset }
   }
@@ -841,10 +756,7 @@ where
   }
 }
 
-pub enum DirectPackedEnum<R>
-where
-  R: RandomAccessInput,
-{
+pub enum DirectPackedEnum<R> {
   Direct1(DirectPackedReader1<R>),
   Direct2(DirectPackedReader2<R>),
   Direct4(DirectPackedReader4<R>),

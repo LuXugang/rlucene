@@ -21,7 +21,6 @@ use crate::core::store::directory::Directory;
 use crate::core::util::info_stream::InfoStreamMT;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
-use std::marker::PhantomData;
 
 /// A wrapper around the IndexWriter `MergeContext`.
 ///
@@ -30,29 +29,19 @@ use std::marker::PhantomData;
 ///
 /// This helps prevent repeated computation of delete counts for the same
 /// `SegmentCommitInfo`.
-pub(crate) struct CachingMergeContext<'a, T, D>
-where
-  T: MergeContext<D>,
-  D: Directory,
-{
+pub(crate) struct CachingMergeContext<'a, T> {
   merge_context: &'a T,
   pub(crate) cached_num_deletes_to_merge: Mutex<HashMap<String, i32>>,
-  _mark: PhantomData<D>,
 }
-impl<'a, T, D> CachingMergeContext<'a, T, D>
-where
-  T: MergeContext<D>,
-  D: Directory,
-{
+impl<'a, T> CachingMergeContext<'a, T> {
   pub fn new(merge_context: &'a T) -> Self {
     CachingMergeContext {
       merge_context,
       cached_num_deletes_to_merge: Mutex::new(HashMap::new()),
-      _mark: PhantomData,
     }
   }
 }
-impl<T, D> MergeContext<D> for CachingMergeContext<'_, T, D>
+impl<T, D> MergeContext<D> for CachingMergeContext<'_, T>
 where
   T: MergeContext<D>,
   D: Directory,

@@ -18,15 +18,11 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 
 use crate::core::store::IOContext;
-use crate::core::store::buffered_index_input::BufferedIndexInput;
-use crate::core::store::index_input::{IndexInput, IndexInputEnum2};
-use crate::core::store::memory_segment_index_input::MemorySegmentIndexInput;
+pub use crate::core::store::index_input::BuiltInFSIndexInput;
+use crate::core::store::index_input::IndexInput;
 use crate::core::store::mmap_directory::MMapDirectory;
-use crate::core::store::nio_fs_directory::{NIOFSDirectory, NIOFSIndexInput};
+use crate::core::store::nio_fs_directory::NIOFSDirectory;
 use crate::core::util::error::lucene_error::Result;
-
-pub type BuiltInFSIndexInput =
-  IndexInputEnum2<MemorySegmentIndexInput, BufferedIndexInput<NIOFSIndexInput>>;
 
 pub trait FSDirectoryBase: Display + Send + Sync {
   type Output: IndexInput<IndexInput = Self::Output, RandomAccessSlice: Send + Sync> + Send + Sync;

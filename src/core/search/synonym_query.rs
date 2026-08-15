@@ -23,7 +23,7 @@ use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{
-  LRImpactsEnum, LRNormNumericDocValues, LRPosting, LeafReader,
+  LRImpactsEnum, LRNormNumericDocValues, LRPosting, LRTermsEnum, LeafReader,
 };
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::NumericDocValues;
@@ -437,17 +437,11 @@ where
   }
 }
 
-struct SharedPostingsEnum<P>
-where
-  P: PostingsEnum,
-{
+struct SharedPostingsEnum<P> {
   inner: Rc<RefCell<P>>,
 }
 
-impl<P> Clone for SharedPostingsEnum<P>
-where
-  P: PostingsEnum,
-{
+impl<P> Clone for SharedPostingsEnum<P> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -455,10 +449,7 @@ where
   }
 }
 
-impl<P> SharedPostingsEnum<P>
-where
-  P: PostingsEnum,
-{
+impl<P> SharedPostingsEnum<P> {
   fn new(inner: P) -> Self {
     Self {
       inner: Rc::new(RefCell::new(inner)),
@@ -518,17 +509,11 @@ where
   }
 }
 
-struct SharedImpactsEnum<I>
-where
-  I: ImpactsEnum,
-{
+struct SharedImpactsEnum<I> {
   inner: Rc<RefCell<I>>,
 }
 
-impl<I> Clone for SharedImpactsEnum<I>
-where
-  I: ImpactsEnum,
-{
+impl<I> Clone for SharedImpactsEnum<I> {
   fn clone(&self) -> Self {
     Self {
       inner: self.inner.clone(),
@@ -536,10 +521,7 @@ where
   }
 }
 
-impl<I> SharedImpactsEnum<I>
-where
-  I: ImpactsEnum,
-{
+impl<I> SharedImpactsEnum<I> {
   fn new(inner: I) -> Self {
     Self {
       inner: Rc::new(RefCell::new(inner)),
@@ -659,18 +641,12 @@ impl Impacts for OwnedImpacts {
   }
 }
 
-pub(crate) struct SynonymImpactsSource<IE>
-where
-  IE: ImpactsEnum,
-{
+pub(crate) struct SynonymImpactsSource<IE> {
   impacts_enums: Vec<IE>,
   boosts: Vec<f32>,
 }
 
-impl<IE> SynonymImpactsSource<IE>
-where
-  IE: ImpactsEnum,
-{
+impl<IE> SynonymImpactsSource<IE> {
   fn new(impacts_enums: Vec<IE>, boosts: Vec<f32>) -> Self {
     debug_assert_eq!(impacts_enums.len(), boosts.len());
     Self {
@@ -996,7 +972,7 @@ where
   }
 }
 
-impl<LR> FixedScore for SynonymSubScorer<LR> where LR: LeafReader + 'static {}
+impl<LR> FixedScore for SynonymSubScorer<LR> where LR: LeafReader {}
 
 impl<LR> Scorable for SynonymSubScorer<LR>
 where
@@ -1345,7 +1321,7 @@ where
 {
   cost: i64,
   term_states: Arc<Vec<Mutex<TermStates>>>,
-  prepare_states: Vec<Option<PrepareState<LR>>>,
+  prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
   query: SynonymQuery,
   sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
   score_mode: ScoreMode,
@@ -1362,7 +1338,7 @@ where
   fn new(
     cost: i64,
     term_states: Arc<Vec<Mutex<TermStates>>>,
-    prepare_states: Vec<Option<PrepareState<LR>>>,
+    prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
     query: SynonymQuery,
     sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
     score_mode: ScoreMode,

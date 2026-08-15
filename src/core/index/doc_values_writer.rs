@@ -24,14 +24,12 @@ use crate::core::index::numeric_doc_values_writer::{
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
-use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values_writer::{
   BufferedSortedDocValues, SortedDocValuesWriter,
 };
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values_writer::{
-  BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
+  SortedNumericDocValuesWriter, SortedNumericDocValuesWriterValues,
 };
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::{
@@ -56,7 +54,6 @@ pub(crate) trait DocValuesWriter: Display {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = DC::IndexOutput>,
-    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer;
 
@@ -93,7 +90,6 @@ impl DocValuesWriter for DocValuesWriterEnum {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = DC::IndexOutput>,
-    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -148,10 +144,7 @@ impl DocValuesWriter for DocValuesWriterEnum {
 pub(crate) type DocValuesWriterDISI = DocIdSetIteratorEnum5<
   BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
   BufferedNumericDocValues,
-  SortedNumericDocValuesEnum2<
-    SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-    BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-  >,
+  SortedNumericDocValuesWriterValues,
   BufferedSortedDocValues<DocsWithFieldSetDISI>,
   SortedSetDocValuesEnum2<
     SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,

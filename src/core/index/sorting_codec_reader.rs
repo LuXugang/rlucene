@@ -21,7 +21,7 @@ use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
-use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
+use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
@@ -49,7 +49,7 @@ use crate::core::index::index_reader::{
 use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::numeric_doc_values::NumericDocValues;
+use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDocValues};
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
@@ -76,7 +76,7 @@ use crate::core::search::sort::Sort;
 use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
-use crate::core::util::bits::{Bits, BitsEnum2};
+use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
@@ -105,11 +105,7 @@ pub enum CachedObject {
 ///
 /// **NOTE**: This reader should only be used for merging. Pulling fields from this reader might be
 /// very costly and memory intensive.
-pub struct SortingCodecReader<CR, DM>
-where
-  CR: CodecReader,
-  DM: DocMap + Clone,
-{
+pub struct SortingCodecReader<CR, DM> {
   in_: CR,
   doc_map: DM,
   meta_data: LeafMetaData,
@@ -127,11 +123,7 @@ pub struct Inner {
   sort: Option<Arc<Sort>>,
 }
 
-impl<CR, DM> SortingCodecReader<CR, DM>
-where
-  CR: CodecReader,
-  DM: DocMap + Clone,
-{
+impl<CR, DM> SortingCodecReader<CR, DM> {
   pub fn new(base: CR, doc_map: DM, meta_data: LeafMetaData) -> Self {
     let inner = Arc::new(Mutex::new(Inner {
       cached_field: None,
@@ -451,19 +443,11 @@ where
   TermVectorsReaderImpl::new(delegate, doc_map)
 }
 
-pub struct TermVectorsReaderImpl<T, DM>
-where
-  T: TermVectorsReader,
-  DM: DocMap + Clone,
-{
+pub struct TermVectorsReaderImpl<T, DM> {
   delegate: T,
   doc_map: DM,
 }
-impl<T, DM> TermVectorsReaderImpl<T, DM>
-where
-  T: TermVectorsReader,
-  DM: DocMap + Clone,
-{
+impl<T, DM> TermVectorsReaderImpl<T, DM> {
   pub fn new(delegate: T, doc_map: DM) -> Self {
     Self { delegate, doc_map }
   }
@@ -533,8 +517,7 @@ where
 
 impl<T, DM> CloseableRef for TermVectorsReaderImpl<T, DM>
 where
-  T: TermVectorsReader,
-  DM: DocMap + Clone,
+  T: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.delegate.close()
@@ -551,21 +534,13 @@ where
   }
 }
 
-pub struct NormsProducerImpl<NP, DM>
-where
-  NP: NormsProducer,
-  DM: DocMap,
-{
+pub struct NormsProducerImpl<NP, DM> {
   delegate: NP,
   inner: Arc<Mutex<Inner>>,
   max_doc: i32,
   doc_map: DM,
 }
-impl<NP, DM> NormsProducerImpl<NP, DM>
-where
-  NP: NormsProducer,
-  DM: DocMap,
-{
+impl<NP, DM> NormsProducerImpl<NP, DM> {
   fn new(delegate: NP, inner: Arc<Mutex<Inner>>, max_doc: i32, doc_map: DM) -> Self {
     Self {
       delegate,
@@ -578,8 +553,7 @@ where
 
 impl<NP, DM> CloseableRef for NormsProducerImpl<NP, DM>
 where
-  NP: NormsProducer,
-  DM: DocMap,
+  NP: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.delegate.close()
@@ -624,21 +598,60 @@ where
   }
 }
 
-pub struct DocValuesProducerImpl<DVP, DM>
+pub enum SortingNormsProducerEnum<NP, DM> {
+  A(NP),
+  B(NormsProducerImpl<NP, DM>),
+}
+
+impl<NP, DM> CloseableRef for SortingNormsProducerEnum<NP, DM>
 where
-  DVP: DocValuesProducer,
-  DM: DocMap + Clone,
+  NP: CloseableRef,
 {
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::A(producer) => producer.close(),
+      Self::B(producer) => producer.close(),
+    }
+  }
+}
+
+impl<NP, DM> NormsProducer for SortingNormsProducerEnum<NP, DM>
+where
+  NP: NormsProducer,
+  DM: DocMap,
+{
+  type NumericDocValues =
+    NumericDocValuesEnum2<NP::NumericDocValues, SortingNumericDocValues<FixedBitSet>>;
+
+  fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::A(producer) => producer.get_norms(field).map(NumericDocValuesEnum2::A),
+      Self::B(producer) => producer.get_norms(field).map(NumericDocValuesEnum2::B),
+    }
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::A(producer) => producer.check_integrity(),
+      Self::B(producer) => producer.check_integrity(),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self {
+      Self::A(producer) => Ok(producer.get_merge_instance()?.map(Self::A)),
+      Self::B(producer) => Ok(producer.get_merge_instance()?.map(Self::B)),
+    }
+  }
+}
+
+pub struct DocValuesProducerImpl<DVP, DM> {
   delegate: DVP,
   inner: Arc<Mutex<Inner>>,
   max_doc: i32,
   doc_map: DM,
 }
-impl<DVP, DM> DocValuesProducerImpl<DVP, DM>
-where
-  DVP: DocValuesProducer,
-  DM: DocMap + Clone,
-{
+impl<DVP, DM> DocValuesProducerImpl<DVP, DM> {
   fn new(delegate: DVP, inner: Arc<Mutex<Inner>>, max_doc: i32, doc_map: DM) -> Self {
     Self {
       delegate,
@@ -651,8 +664,7 @@ where
 
 impl<DVP, DM> CloseableRef for DocValuesProducerImpl<DVP, DM>
 where
-  DVP: DocValuesProducer,
-  DM: DocMap + Clone,
+  DVP: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.delegate.close()
@@ -939,19 +951,11 @@ fn assert_created_only_once(field: &str, norms: bool, inner: &mut MutexGuard<'_,
   true
 }
 
-pub struct PointsReaderImpl<PR, DM>
-where
-  PR: PointsReader,
-  DM: DocMap + Clone,
-{
+pub struct PointsReaderImpl<PR, DM> {
   delegate: PR,
   doc_map: DM,
 }
-impl<PR, DM> PointsReaderImpl<PR, DM>
-where
-  PR: PointsReader,
-  DM: DocMap + Clone,
-{
+impl<PR, DM> PointsReaderImpl<PR, DM> {
   fn new(delegate: PR, doc_map: DM) -> Self {
     Self { delegate, doc_map }
   }
@@ -959,8 +963,7 @@ where
 
 impl<PR, DM> CloseableRef for PointsReaderImpl<PR, DM>
 where
-  PR: PointsReader,
-  DM: DocMap + Clone,
+  PR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.delegate.close()
@@ -988,19 +991,11 @@ where
   }
 }
 
-pub struct KnnVectorsReaderImpl<KVR, DM>
-where
-  KVR: KnnVectorsReader,
-  DM: DocMap,
-{
+pub struct KnnVectorsReaderImpl<KVR, DM> {
   delegate: KVR,
   doc_map: DM,
 }
-impl<KVR, DM> KnnVectorsReaderImpl<KVR, DM>
-where
-  KVR: KnnVectorsReader,
-  DM: DocMap,
-{
+impl<KVR, DM> KnnVectorsReaderImpl<KVR, DM> {
   fn new(delegate: KVR, doc_map: DM) -> Self {
     Self { delegate, doc_map }
   }
@@ -1008,8 +1003,7 @@ where
 
 impl<KVR, DM> CloseableRef for KnnVectorsReaderImpl<KVR, DM>
 where
-  KVR: KnnVectorsReader,
-  DM: DocMap,
+  KVR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.delegate.close()
@@ -1072,10 +1066,7 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 }
-pub struct SortingByteVectorValues<B>
-where
-  B: ByteVectorValues,
-{
+pub struct SortingByteVectorValues<B> {
   delegate: B,
   iterator_supplier: SortingIteratorSupplier,
 }
@@ -1151,10 +1142,7 @@ where
   type VectorScorer = DummyVectorScorer;
 }
 /// Sorting FloatVectorValues that maps ordinals using the provided sortMap
-pub struct SortingFloatVectorValues<B>
-where
-  B: FloatVectorValues,
-{
+pub struct SortingFloatVectorValues<B> {
   delegate: B,
   iterator_supplier: SortingIteratorSupplier,
 }
@@ -1230,19 +1218,11 @@ where
   type VectorScorer = DummyVectorScorer;
 }
 
-pub struct SortingPointValues<PV, DM>
-where
-  PV: PointValues,
-  DM: DocMap + Clone,
-{
+pub struct SortingPointValues<PV, DM> {
   in_: PV,
   doc_map: DM,
 }
-impl<PV, DM> SortingPointValues<PV, DM>
-where
-  PV: PointValues,
-  DM: DocMap + Clone,
-{
+impl<PV, DM> SortingPointValues<PV, DM> {
   pub fn new(delegate: PV, doc_map: DM) -> Self {
     Self {
       in_: delegate,
@@ -1296,19 +1276,11 @@ where
   }
 }
 
-pub struct SortingPointTree<PT, DM>
-where
-  PT: PointTree,
-  DM: DocMap + Clone,
-{
+pub struct SortingPointTree<PT, DM> {
   index_tree: PT,
   doc_map: DM,
 }
-impl<PT, DM> SortingPointTree<PT, DM>
-where
-  PT: PointTree,
-  DM: DocMap + Clone,
-{
+impl<PT, DM> SortingPointTree<PT, DM> {
   pub fn new(delegate: PT, doc_map: DM) -> Self {
     Self {
       index_tree: delegate,
@@ -1379,19 +1351,11 @@ where
   }
 }
 
-pub struct SortingIntersectVisitor<'a, DM, IV>
-where
-  DM: DocMap + Clone,
-  IV: IntersectVisitor,
-{
+pub struct SortingIntersectVisitor<'a, DM, IV> {
   doc_map: DM,
   visitor: &'a mut IV,
 }
-impl<'a, DM, IV> SortingIntersectVisitor<'a, DM, IV>
-where
-  DM: DocMap + Clone,
-  IV: IntersectVisitor,
-{
+impl<'a, DM, IV> SortingIntersectVisitor<'a, DM, IV> {
   fn new(doc_map: DM, visitor: &'a mut IV) -> Self {
     Self { doc_map, visitor }
   }
@@ -1415,20 +1379,12 @@ where
     self.visitor.compare(min_packed_value, max_packed_value)
   }
 }
-pub struct SortingBitsImpl<B, DM>
-where
-  B: Bits,
-  DM: DocMap + Clone,
-{
+pub struct SortingBitsImpl<B, DM> {
   in_: B,
   doc_map: DM,
   id: Identity,
 }
-impl<B, DM> SortingBitsImpl<B, DM>
-where
-  B: Bits,
-  DM: DocMap + Clone,
-{
+impl<B, DM> SortingBitsImpl<B, DM> {
   fn new(in_: B, doc_map: DM) -> Self {
     Self {
       in_,
@@ -1438,11 +1394,7 @@ where
   }
 }
 
-impl<B, DM> HasIdentity for SortingBitsImpl<B, DM>
-where
-  B: Bits,
-  DM: Clone + DocMap,
-{
+impl<B, DM> HasIdentity for SortingBitsImpl<B, DM> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -1463,6 +1415,57 @@ where
     self.in_.length()
   }
 }
+
+pub enum SortingCodecReaderBits<B, DM> {
+  Filter(B),
+  Sorting(SortingBitsImpl<B, DM>),
+}
+
+impl<B, DM> HasIdentity for SortingCodecReaderBits<B, DM>
+where
+  B: HasIdentity,
+{
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::Filter(bits) => bits.identity(),
+      Self::Sorting(bits) => bits.identity(),
+    }
+  }
+}
+
+impl<B, DM> Bits for SortingCodecReaderBits<B, DM>
+where
+  B: Bits,
+  DM: DocMap + Clone,
+{
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      Self::Filter(bits) => bits.get(index),
+      Self::Sorting(bits) => bits.get(index),
+    }
+  }
+
+  fn length(&self) -> usize {
+    match self {
+      Self::Filter(bits) => bits.length(),
+      Self::Sorting(bits) => bits.length(),
+    }
+  }
+
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    match self {
+      Self::Filter(bits) => bits.copy_of(),
+      Self::Sorting(bits) => bits.copy_of(),
+    }
+  }
+
+  fn to_string(&self) -> String {
+    match self {
+      Self::Filter(bits) => bits.to_string(),
+      Self::Sorting(bits) => bits.to_string(),
+    }
+  }
+}
 pub fn new_stored_fields_reader<SFR, DM>(
   delegate: SFR,
   doc_map: DM,
@@ -1474,19 +1477,11 @@ where
   StoredFieldsReaderImpl::new(delegate, doc_map)
 }
 
-pub struct StoredFieldsReaderImpl<SFR, DM>
-where
-  SFR: StoredFieldsReader,
-  DM: DocMap + Clone,
-{
+pub struct StoredFieldsReaderImpl<SFR, DM> {
   delegate: SFR,
   doc_map: DM,
 }
-impl<SFR, DM> StoredFieldsReaderImpl<SFR, DM>
-where
-  SFR: StoredFieldsReader,
-  DM: DocMap + Clone,
-{
+impl<SFR, DM> StoredFieldsReaderImpl<SFR, DM> {
   fn new(delegate: SFR, doc_map: DM) -> Self {
     Self { delegate, doc_map }
   }
@@ -1534,8 +1529,7 @@ where
 
 impl<SFR, DM> CloseableRef for StoredFieldsReaderImpl<SFR, DM>
 where
-  SFR: StoredFieldsReader,
-  DM: DocMap + Clone,
+  SFR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.delegate.close()
@@ -1570,21 +1564,13 @@ where
   type IndexInput = SFR::IndexInput;
 }
 
-pub struct FieldsProducerImpl<FP, DM>
-where
-  FP: FieldsProducer,
-  DM: DocMap + Clone,
-{
+pub struct FieldsProducerImpl<FP, DM> {
   postings_reader: FP,
   doc_map: DM,
   field_infos: Arc<FieldInfos>,
 }
 
-impl<FP, DM> FieldsProducerImpl<FP, DM>
-where
-  FP: FieldsProducer,
-  DM: DocMap + Clone,
-{
+impl<FP, DM> FieldsProducerImpl<FP, DM> {
   fn new(postings_reader: FP, doc_map: DM, field_infos: Arc<FieldInfos>) -> Self {
     Self {
       postings_reader,
@@ -1596,8 +1582,7 @@ where
 
 impl<FP, DM> CloseableRef for FieldsProducerImpl<FP, DM>
 where
-  FP: FieldsProducer,
-  DM: DocMap + Clone,
+  FP: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     self.postings_reader.close()
@@ -1652,18 +1637,12 @@ where
   }
 }
 
-pub struct FilterCodecReaderImpl<CR>
-where
-  CR: CodecReader,
-{
+pub struct FilterCodecReaderImpl<CR> {
   in_: CR,
   new_meta_data: LeafMetaData,
   index_base: IndexReaderBase,
 }
-impl<CR> FilterCodecReaderImpl<CR>
-where
-  CR: CodecReader,
-{
+impl<CR> FilterCodecReaderImpl<CR> {
   pub fn new(reader: CR, new_meta_data: LeafMetaData) -> Self {
     Self {
       in_: reader,
@@ -1963,11 +1942,7 @@ where
   Ok(SortingCodecReader::new(reader, doc_map, new_meta_data))
 }
 
-pub enum SortingCodecReaderEnum<CR, DM>
-where
-  CR: CodecReader,
-  DM: DocMap + Clone,
-{
+pub enum SortingCodecReaderEnum<CR, DM> {
   Filter(FilterCodecReaderImpl<CR>),
   Sorting(SortingCodecReader<CR, DM>),
 }
@@ -2114,12 +2089,16 @@ where
     }
   }
 
-  type Bits = BitsEnum2<CRBits<CR>, SortingBitsImpl<CRBits<CR>, DM>>;
+  type Bits = SortingCodecReaderBits<CRBits<CR>, DM>;
 
   fn get_live_docs(&self) -> Result<Option<Self::Bits>> {
     match self {
-      SortingCodecReaderEnum::Filter(reader) => Ok(reader.get_live_docs()?.map(BitsEnum2::A)),
-      SortingCodecReaderEnum::Sorting(reader) => Ok(reader.get_live_docs()?.map(BitsEnum2::B)),
+      SortingCodecReaderEnum::Filter(reader) => {
+        Ok(reader.get_live_docs()?.map(SortingCodecReaderBits::Filter))
+      },
+      SortingCodecReaderEnum::Sorting(reader) => {
+        Ok(reader.get_live_docs()?.map(SortingCodecReaderBits::Sorting))
+      },
     }
   }
 
@@ -2264,10 +2243,7 @@ where
     <CR as CodecReader>::TermVectorsReader,
     <SortingCodecReader<CR, DM> as CodecReader>::TermVectorsReader,
   >;
-  type NormsProducer = NormsProducerEnum2<
-    <CR as CodecReader>::NormsProducer,
-    <SortingCodecReader<CR, DM> as CodecReader>::NormsProducer,
-  >;
+  type NormsProducer = SortingNormsProducerEnum<CRNormsProducer<CR>, DM>;
   type DocValuesProducer = DocValuesProducerEnum2<
     <CR as CodecReader>::DocValuesProducer,
     <SortingCodecReader<CR, DM> as CodecReader>::DocValuesProducer,
@@ -2305,8 +2281,8 @@ where
 
   fn get_norms_reader(&self) -> Result<Option<Self::NormsProducer>> {
     Ok(match self {
-      SortingCodecReaderEnum::Filter(f) => f.get_norms_reader()?.map(NormsProducerEnum2::A),
-      SortingCodecReaderEnum::Sorting(s) => s.get_norms_reader()?.map(NormsProducerEnum2::B),
+      SortingCodecReaderEnum::Filter(f) => f.get_norms_reader()?.map(SortingNormsProducerEnum::A),
+      SortingCodecReaderEnum::Sorting(s) => s.get_norms_reader()?.map(SortingNormsProducerEnum::B),
     })
   }
 

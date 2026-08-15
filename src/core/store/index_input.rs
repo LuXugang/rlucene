@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::memory_segment_index_input::MemorySegmentIndexInput;
 use crate::core::store::nio_fs_directory::NIOFSIndexInput;
 use crate::core::store::random_access_input::{
   BoxRandomAccessInput, RandomAccessInput, RandomAccessInputEnum2, RandomAccessInputEnum3,
@@ -475,14 +476,50 @@ pub fn get_full_slice_description(slice_description: &str) -> String {
 }
 
 macro_rules! either_index_input {
-    ($vis:vis $name:ident, $random_access:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
-        $vis enum $name<$( $T ),+> {
+    (
+        $vis:vis $name:ident<$( $G:ident ),+>,
+        index_input = $index_input:ty,
+        random_access = $random_access_type:ty,
+        random_access_enum = $random_access:ident
+        { $( $Variant:ident : $T:ty ),+ $(,)? }
+    ) => {
+        either_index_input!(@impl
+            $vis $name [<$( $G ),+>],
+            index_input = $index_input,
+            random_access = $random_access_type,
+            random_access_enum = $random_access
+            { $( $Variant : $T ),+ }
+        );
+    };
+    (
+        $vis:vis $name:ident,
+        index_input = $index_input:ty,
+        random_access = $random_access_type:ty,
+        random_access_enum = $random_access:ident
+        { $( $Variant:ident : $T:ty ),+ $(,)? }
+    ) => {
+        either_index_input!(@impl
+            $vis $name [],
+            index_input = $index_input,
+            random_access = $random_access_type,
+            random_access_enum = $random_access
+            { $( $Variant : $T ),+ }
+        );
+    };
+    (@impl
+        $vis:vis $name:ident [$($generics:tt)*],
+        index_input = $index_input:ty,
+        random_access = $random_access_type:ty,
+        random_access_enum = $random_access:ident
+        { $( $Variant:ident : $T:ty ),+ $(,)? }
+    ) => {
+        $vis enum $name $($generics)* {
             $( $Variant($T), )+
         }
 
-        impl<$( $T ),+> CloseableRef for $name<$( $T ),+>
+        impl $($generics)* CloseableRef for $name $($generics)*
         where
-            $( $T: IndexInput ),+
+            $( $T: CloseableRef ),+
         {
             fn close(&self) -> Result<()> {
                 match self {
@@ -491,19 +528,19 @@ macro_rules! either_index_input {
             }
         }
 
-        impl<$( $T ),+> DataInput for $name<$( $T ),+>
+        impl $($generics)* DataInput for $name $($generics)*
         where
-            $( $T: IndexInput ),+
+            $( $T: DataInput ),+
         {
             fn read_byte(&mut self) -> Result<u8> {
                 match self {
-                    $( Self::$Variant(inner) => inner.read_byte(), )+
+                    $( Self::$Variant(inner) => DataInput::read_byte(inner), )+
                 }
             }
 
             fn read_bytes(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
                 match self {
-                    $( Self::$Variant(inner) => inner.read_bytes(b, offset, len), )+
+                    $( Self::$Variant(inner) => DataInput::read_bytes(inner, b, offset, len), )+
                 }
             }
 
@@ -526,7 +563,7 @@ macro_rules! either_index_input {
 
             fn read_short(&mut self) -> Result<i16> {
                 match self {
-                    $( Self::$Variant(inner) => inner.read_short(), )+
+                    $( Self::$Variant(inner) => DataInput::read_short(inner), )+
                 }
             }
 
@@ -534,7 +571,7 @@ macro_rules! either_index_input {
 
             fn read_int(&mut self) -> Result<i32> {
                 match self {
-                    $( Self::$Variant(inner) => inner.read_int(), )+
+                    $( Self::$Variant(inner) => DataInput::read_int(inner), )+
                 }
             }
 
@@ -562,7 +599,7 @@ macro_rules! either_index_input {
 
             fn read_long(&mut self) -> Result<i64> {
                 match self {
-                    $( Self::$Variant(inner) => inner.read_long(), )+
+                    $( Self::$Variant(inner) => DataInput::read_long(inner), )+
                 }
             }
 
@@ -641,9 +678,9 @@ macro_rules! either_index_input {
             }
         }
 
-        impl<$( $T ),+> Display for $name<$( $T ),+>
+        impl $($generics)* Display for $name $($generics)*
         where
-            $( $T: IndexInput ),+
+            $( $T: Display ),+
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                 match self {
@@ -652,9 +689,9 @@ macro_rules! either_index_input {
             }
         }
 
-        impl<$( $T ),+> TryClone for $name<$( $T ),+>
+        impl $($generics)* TryClone for $name $($generics)*
         where
-            $( $T: IndexInput ),+
+            $( $T: TryClone ),+
         {
             fn try_clone(&self) -> Result<Self>
             where
@@ -666,9 +703,9 @@ macro_rules! either_index_input {
             }
         }
 
-        impl<$( $T ),+> RandomAccessInput for $name<$( $T ),+>
+        impl $($generics)* RandomAccessInput for $name $($generics)*
         where
-            $( $T: IndexInput + RandomAccessInput ),+
+            $( $T: RandomAccessInput ),+
         {
             fn length(&self) -> Result<usize> {
                 match self {
@@ -719,11 +756,11 @@ macro_rules! either_index_input {
             }
         }
 
-        impl<$( $T ),+> IndexInput for $name<$( $T ),+>
+        impl $($generics)* IndexInput for $name $($generics)*
         where
             $( $T: IndexInput ),+
         {
-            type IndexInput = $name<$( $T::IndexInput ),+>;
+            type IndexInput = $index_input;
 
             fn get_file_pointer(&self) -> Result<usize>{
                 match self {
@@ -745,7 +782,7 @@ macro_rules! either_index_input {
 
             fn length(&self) -> Result<usize> {
                 match self {
-                    $( Self::$Variant(inner) => inner.length(), )+
+                    $( Self::$Variant(inner) => IndexInput::length(inner), )+
                 }
             }
 
@@ -779,7 +816,7 @@ macro_rules! either_index_input {
                 }
             }
 
-            type RandomAccessSlice = $random_access<$( $T::RandomAccessSlice ),+>;
+            type RandomAccessSlice = $random_access_type;
 
             fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
                 match self {
@@ -791,7 +828,7 @@ macro_rules! either_index_input {
 
             fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
                 match self {
-                    $( Self::$Variant(inner) => inner.prefetch(pos, len), )+
+                    $( Self::$Variant(inner) => IndexInput::prefetch(inner, pos, len), )+
                 }
             }
 
@@ -979,5 +1016,34 @@ where
     IndexInput::is_loaded(self.as_ref())
   }
 }
-either_index_input!(pub IndexInputEnum2, RandomAccessInputEnum2 { A: A, B: B });
-either_index_input!(pub IndexInputEnum3, RandomAccessInputEnum3 { A: A, B: B, C: C });
+either_index_input!(
+    pub IndexInputEnum2<A, B>,
+    index_input = IndexInputEnum2<A::IndexInput, B::IndexInput>,
+    random_access = RandomAccessInputEnum2<A::RandomAccessSlice, B::RandomAccessSlice>,
+    random_access_enum = RandomAccessInputEnum2
+    { A: A, B: B }
+);
+either_index_input!(
+    pub IndexInputEnum3<A, B, C>,
+    index_input = IndexInputEnum3<A::IndexInput, B::IndexInput, C::IndexInput>,
+    random_access = RandomAccessInputEnum3<
+        A::RandomAccessSlice,
+        B::RandomAccessSlice,
+        C::RandomAccessSlice,
+    >,
+    random_access_enum = RandomAccessInputEnum3
+    { A: A, B: B, C: C }
+);
+either_index_input!(
+    pub BuiltInFSIndexInput,
+    index_input = BuiltInFSIndexInput,
+    random_access = RandomAccessInputEnum2<
+        MemorySegmentIndexInput,
+        BufferedIndexInput<NIOFSIndexInput>,
+    >,
+    random_access_enum = RandomAccessInputEnum2
+    {
+        A: MemorySegmentIndexInput,
+        B: BufferedIndexInput<NIOFSIndexInput>,
+    }
+);

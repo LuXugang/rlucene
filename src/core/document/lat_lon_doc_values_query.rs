@@ -37,7 +37,7 @@ use crate::core::search::query::{Query, QueryBase, QueryWeight, QueryWeightSs};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::segment_cacheable::SegmentCacheable;
-use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum4};
+use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -272,18 +272,21 @@ where
     {
       Some(values) => {
         let iterator = match self.query.query_relation {
-          QueryRelation::Intersects => {
-            TwoPhaseIteratorEnum4::A(IntersectsTPI::new(values, component2d_predicate.unwrap()))
-          },
-          QueryRelation::Within => {
-            TwoPhaseIteratorEnum4::B(WithinTPI::new(values, component2d_predicate.unwrap()))
-          },
-          QueryRelation::Disjoint => {
-            TwoPhaseIteratorEnum4::C(DisjointTPI::new(values, component2d_predicate.unwrap()))
-          },
-          QueryRelation::Contains => {
-            TwoPhaseIteratorEnum4::D(ContainsTPI::new(values, self.query.geometries.as_slice())?)
-          },
+          QueryRelation::Intersects => LatLonDocValuesTwoPhaseIterator::Intersects(
+            IntersectsTPI::new(values, component2d_predicate.unwrap()),
+          ),
+          QueryRelation::Within => LatLonDocValuesTwoPhaseIterator::Within(WithinTPI::new(
+            values,
+            component2d_predicate.unwrap(),
+          )),
+          QueryRelation::Disjoint => LatLonDocValuesTwoPhaseIterator::Disjoint(DisjointTPI::new(
+            values,
+            component2d_predicate.unwrap(),
+          )),
+          QueryRelation::Contains => LatLonDocValuesTwoPhaseIterator::Contains(ContainsTPI::new(
+            values,
+            self.query.geometries.as_slice(),
+          )?),
         };
         let scorer = ConstantScoreScorer::from_tpi(self.boost, self.score_mode, iterator);
         Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
@@ -293,19 +296,11 @@ where
   }
 }
 
-pub struct IntersectsTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+pub struct IntersectsTPI<S, C> {
   values: S,
   component2d_predicate: Component2DPredicate<C>,
 }
-impl<S, C> IntersectsTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+impl<S, C> IntersectsTPI<S, C> {
   fn new(values: S, component2d_predicate: Component2DPredicate<C>) -> Self {
     Self {
       values,
@@ -343,19 +338,11 @@ where
     1000f32
   }
 }
-pub struct WithinTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+pub struct WithinTPI<S, C> {
   values: S,
   component2d_predicate: Component2DPredicate<C>,
 }
-impl<S, C> WithinTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+impl<S, C> WithinTPI<S, C> {
   fn new(values: S, component2d_predicate: Component2DPredicate<C>) -> Self {
     Self {
       values,
@@ -391,19 +378,11 @@ where
     1000f32
   }
 }
-pub struct DisjointTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+pub struct DisjointTPI<S, C> {
   values: S,
   component2d_predicate: Component2DPredicate<C>,
 }
-impl<S, C> DisjointTPI<S, C>
-where
-  S: SortedNumericDocValues,
-  C: Component2D,
-{
+impl<S, C> DisjointTPI<S, C> {
   fn new(values: S, component2d_predicate: Component2DPredicate<C>) -> Self {
     Self {
       values,
@@ -440,17 +419,61 @@ where
     1000f32
   }
 }
-pub struct ContainsTPI<S>
-where
-  S: SortedNumericDocValues,
-{
+pub struct ContainsTPI<S> {
   values: S,
   component2ds: Vec<LatLonGeometryType<<LatLonGeometryEnum as Geometry>::Component2D>>,
 }
-impl<S> ContainsTPI<S>
+
+enum LatLonDocValuesTwoPhaseIterator<S, C> {
+  Intersects(IntersectsTPI<S, C>),
+  Within(WithinTPI<S, C>),
+  Disjoint(DisjointTPI<S, C>),
+  Contains(ContainsTPI<S>),
+}
+
+impl<S, C> TwoPhaseIterator for LatLonDocValuesTwoPhaseIterator<S, C>
 where
   S: SortedNumericDocValues,
+  C: Component2D,
 {
+  fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
+    match self {
+      Self::Intersects(iterator) => iterator.approximation_mut(),
+      Self::Within(iterator) => iterator.approximation_mut(),
+      Self::Disjoint(iterator) => iterator.approximation_mut(),
+      Self::Contains(iterator) => iterator.approximation_mut(),
+    }
+  }
+
+  fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
+    match self {
+      Self::Intersects(iterator) => iterator.approximation(),
+      Self::Within(iterator) => iterator.approximation(),
+      Self::Disjoint(iterator) => iterator.approximation(),
+      Self::Contains(iterator) => iterator.approximation(),
+    }
+  }
+
+  fn matches(&mut self) -> Result<bool> {
+    match self {
+      Self::Intersects(iterator) => iterator.matches(),
+      Self::Within(iterator) => iterator.matches(),
+      Self::Disjoint(iterator) => iterator.matches(),
+      Self::Contains(iterator) => iterator.matches(),
+    }
+  }
+
+  fn match_cost(&self) -> f32 {
+    match self {
+      Self::Intersects(iterator) => iterator.match_cost(),
+      Self::Within(iterator) => iterator.match_cost(),
+      Self::Disjoint(iterator) => iterator.match_cost(),
+      Self::Contains(iterator) => iterator.match_cost(),
+    }
+  }
+}
+
+impl<S> ContainsTPI<S> {
   fn new(values: S, geometries: &[LatLonGeometryEnum]) -> Result<Self> {
     let mut component2ds = Vec::with_capacity(geometries.len());
     for geometry in geometries {

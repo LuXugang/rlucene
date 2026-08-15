@@ -18,8 +18,9 @@ use crate::core::index::index_reader::{Identity, IndexReader, IndexReaderContext
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::{LRBits, LeafReader};
 use crate::core::index::reader_util::ReaderUtil;
-use crate::core::util::bits::{Bits, BitsEnum2};
+use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::{HasIdentity, TryIntoInt};
 use std::fmt::{Display, Formatter};
 
@@ -27,20 +28,77 @@ use std::fmt::{Display, Formatter};
 ///
 /// **NOTE:** This is very costly, as every lookup must perform a binary search
 /// to locate the correct sub-reader.
-pub struct MultiBits<B>
-where
-  B: Bits,
-{
+pub struct MultiBits<B> {
   subs: Vec<Option<B>>,
   starts: Vec<usize>,
   default_value: bool,
   id: Identity,
 }
 
-impl<B> MultiBits<B>
+pub enum MultiBitsType<B> {
+  A(B),
+  B(MultiBits<B>),
+}
+
+impl<B> Clone for MultiBitsType<B>
+where
+  B: Clone,
+  MultiBits<B>: Clone,
+{
+  fn clone(&self) -> Self {
+    match self {
+      Self::A(bits) => Self::A(bits.clone()),
+      Self::B(bits) => Self::B(bits.clone()),
+    }
+  }
+}
+
+impl<B> HasIdentity for MultiBitsType<B>
+where
+  B: HasIdentity,
+{
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::A(bits) => bits.identity(),
+      Self::B(bits) => bits.identity(),
+    }
+  }
+}
+
+impl<B> Bits for MultiBitsType<B>
 where
   B: Bits,
 {
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      Self::A(bits) => bits.get(index),
+      Self::B(bits) => bits.get(index),
+    }
+  }
+
+  fn length(&self) -> usize {
+    match self {
+      Self::A(bits) => bits.length(),
+      Self::B(bits) => bits.length(),
+    }
+  }
+
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    match self {
+      Self::A(bits) => bits.copy_of(),
+      Self::B(bits) => bits.copy_of(),
+    }
+  }
+
+  fn to_string(&self) -> String {
+    match self {
+      Self::A(bits) => bits.to_string(),
+      Self::B(bits) => Bits::to_string(bits),
+    }
+  }
+}
+
+impl<B> MultiBits<B> {
   pub fn new(subs: Vec<Option<B>>, starts: Vec<usize>, default_value: bool) -> Self {
     debug_assert_eq!(starts.len(), subs.len() + 1);
     Self {
@@ -50,6 +108,12 @@ where
       id: Identity::new(),
     }
   }
+}
+
+impl<B> MultiBits<B>
+where
+  B: Bits,
+{
   fn check_length(&self, reader: usize, doc: usize) -> bool {
     let length = self.starts[reader + 1] - self.starts[reader];
     debug_assert!(
@@ -64,10 +128,7 @@ where
   }
 }
 
-impl<B> HasIdentity for MultiBits<B>
-where
-  B: Bits,
-{
+impl<B> HasIdentity for MultiBits<B> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -151,7 +212,7 @@ where
 
   if size == 1 {
     return match leaves[0].reader().get_live_docs()? {
-      Some(bits) => Ok(Some(BitsEnum2::A(bits))),
+      Some(bits) => Ok(Some(BitsType::<IR>::A(bits))),
       None => Ok(None),
     };
   }
@@ -171,7 +232,4 @@ where
     live_docs, starts, true,
   ))))
 }
-pub type BitsType<IR> = BitsEnum2<
-  LRBits<IRCLeafReader<IndexReaderContextType<IR>>>,
-  MultiBits<LRBits<IRCLeafReader<IndexReaderContextType<IR>>>>,
->;
+pub type BitsType<IR> = MultiBitsType<LRBits<IRCLeafReader<IndexReaderContextType<IR>>>>;

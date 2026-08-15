@@ -30,7 +30,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_doc_values_writer::{
-  BufferedSortedDocValues, SortingSortedDocValues, get_doc_values_producer,
+  BufferedSortedDocValues, SortedDocValuesWriterValues, get_doc_values_producer,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
@@ -261,7 +261,6 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = DC::IndexOutput>,
-    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -472,12 +471,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
   type SortedNumericDocValues = DummySortedNumericDocValues;
-  type SortedSetDocValues = SingletonSortedSetDocValues<
-    SortedDocValuesEnum2<
-      BufferedSortedDocValues<DocsWithFieldSetDISI>,
-      SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-    >,
-  >;
+  type SortedSetDocValues = SingletonSortedSetDocValues<SortedDocValuesWriterValues>;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     DocValues::singleton_sorted(self.single_value_producer.get_sorted(field_info)?)
@@ -486,10 +480,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) struct BufferedSortedSetDocValues<D>
-where
-  D: DocIdSetIterator,
-{
+pub(crate) struct BufferedSortedSetDocValues<D> {
   ord_map: Arc<Vec<i32>>,
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
@@ -502,10 +493,7 @@ where
   ord_upto: usize,
 }
 
-impl<D> BufferedSortedSetDocValues<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> BufferedSortedSetDocValues<D> {
   pub(crate) fn new(
     ord_map: Arc<Vec<i32>>,
     hash: Arc<DirectBytesRefHash>,
@@ -612,10 +600,7 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub struct SortingSortedSetDocValues<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct SortingSortedSetDocValues<S> {
   input: S,
   ords: DocOrds,
   doc_id: i32,
@@ -623,10 +608,7 @@ where
   count: i32,
 }
 
-impl<S> SortingSortedSetDocValues<S>
-where
-  S: SortedSetDocValues,
-{
+impl<S> SortingSortedSetDocValues<S> {
   pub(crate) fn new(input: S, ords: DocOrds) -> Self {
     Self {
       input,
@@ -788,8 +770,8 @@ pub enum SortedSetDocValuesEnum2<A, B> {
 
 impl<A, B> DocValuesIterator for SortedSetDocValuesEnum2<A, B>
 where
-  A: SortedSetDocValues,
-  B: SortedSetDocValues,
+  A: DocValuesIterator,
+  B: DocValuesIterator,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
@@ -801,8 +783,8 @@ where
 
 impl<A, B> DocIdSetIterator for SortedSetDocValuesEnum2<A, B>
 where
-  A: SortedSetDocValues,
-  B: SortedSetDocValues,
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
 {
   fn doc_id(&self) -> i32 {
     match self {

@@ -29,7 +29,7 @@ use crate::core::codecs::lucene90_doc_values_format::{
   Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
 };
 use crate::core::index::base_terms_enum::BaseTermsEnumTermStateImpl;
-use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum3};
+use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values::{DocValues, EmptyBinary, EmptyNumeric};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
@@ -44,11 +44,10 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
-use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum, TermsEnumEnum2};
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -73,10 +72,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-pub struct Lucene90DocValuesProducer<I>
-where
-  I: IndexInput,
-{
+pub struct Lucene90DocValuesProducer<I> {
   numerics: HashMap<i32, Arc<NumericEntry>>,
   binaries: HashMap<i32, Arc<BinaryEntry>>,
   sorted: HashMap<i32, Arc<SortedEntry>>,
@@ -103,7 +99,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let meta_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, meta_extension);
@@ -614,7 +609,7 @@ where
     I: IndexInput,
   {
     let long_values = if entry.bits_per_value == 0 {
-      LongValuesEnums::A(LongValuesImpl {
+      LongValuesEnums::Constant(LongValuesImpl {
         min_values: entry.min_value,
       })
     } else {
@@ -625,7 +620,7 @@ where
         slice.prefetch(0, 1)?
       }
       if entry.block_shift >= 0 {
-        LongValuesEnums::B(LongValuesImpl1 {
+        LongValuesEnums::Block(LongValuesImpl1 {
           vbpv_reader: VaryingBPVReader::new(
             entry.clone(),
             slice,
@@ -642,24 +637,24 @@ where
           entry.num_values,
         )?;
         match entry.table {
-          Some(ref table) => LongValuesEnums::C(LongValuesImpl2 {
+          Some(ref table) => LongValuesEnums::Table(LongValuesImpl2 {
             table: table.clone(),
             values,
           }),
           None => {
             if entry.gcd != 1 {
-              LongValuesEnums::D(LongValuesImpl3 {
+              LongValuesEnums::Gcd(LongValuesImpl3 {
                 values,
                 gcd: entry.gcd,
                 min_value: entry.min_value,
               })
             } else if entry.min_value != 0 {
-              LongValuesEnums::E(LongValuesImpl4 {
+              LongValuesEnums::Delta(LongValuesImpl4 {
                 values,
                 min_value: entry.min_value,
               })
             } else {
-              LongValuesEnums::F(values)
+              LongValuesEnums::Direct(values)
             }
           },
         }
@@ -805,7 +800,7 @@ where
       )));
     };
     if entry.docs_with_field_offset == -2 {
-      return Ok(BinaryDocValuesEnum3::C(DocValues::empty_binary()));
+      return Ok(Lucene90BinaryDocValuesEnum::Empty(DocValues::empty_binary()));
     }
     let mut bytes_slice = self
       .data
@@ -847,10 +842,9 @@ where
         };
         DenseBinaryDocValuesBaseEnum::Dense1(base)
       };
-      Ok(BinaryDocValuesEnum3::A(DenseBinaryDocValues::new(
-        dense,
-        self.max_doc,
-      )))
+      Ok(Lucene90BinaryDocValuesEnum::Dense(
+        DenseBinaryDocValues::new(dense, self.max_doc),
+      ))
     } else {
       let disi = IndexedDISI::new(
         self.data.as_ref(),
@@ -892,9 +886,9 @@ where
           addresses,
         })
       };
-      Ok(BinaryDocValuesEnum3::B(SparseBinaryDocValues::new(
-        sub, disi,
-      )))
+      Ok(Lucene90BinaryDocValuesEnum::Sparse(
+        SparseBinaryDocValues::new(sub, disi),
+      ))
     }
   }
 
@@ -931,7 +925,7 @@ where
     };
     if let Some(ref single_value_entry) = entry.single_value_entry {
       let singleton = DocValues::singleton_sorted(self.get_sorted(single_value_entry.clone())?)?;
-      return Ok(SortedSetDocValuesEnum2::A(singleton));
+      return Ok(Lucene90SortedSetDocValuesEnum::Single(singleton));
     }
     // Specialize the common case for ordinals: single block of
     // packed integers.
@@ -991,22 +985,16 @@ where
         let ords = self.get_sorted_numeric(ords_entry)?;
         BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords))
       };
-      return Ok(SortedSetDocValuesEnum2::B(BaseSortedSetDocValues::new(
-        entry.clone(),
-        self.data.clone(),
-        sub,
-        self.merging,
-      )?));
+      return Ok(Lucene90SortedSetDocValuesEnum::Multi(
+        BaseSortedSetDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)?,
+      ));
     }
 
     let ords = self.get_sorted_numeric(ords_entry)?;
     let sub = BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesImpl::new(ords));
-    Ok(SortedSetDocValuesEnum2::B(BaseSortedSetDocValues::new(
-      entry.clone(),
-      self.data.clone(),
-      sub,
-      self.merging,
-    )?))
+    Ok(Lucene90SortedSetDocValuesEnum::Multi(
+      BaseSortedSetDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)?,
+    ))
   }
 
   type DocValuesSkipper = Lucene90Skipper<I::IndexInput>;
@@ -1128,18 +1116,12 @@ pub struct SortedNumericEntry {
   pub addresses_offset: usize,
   pub addresses_length: usize,
 }
-pub struct DenseNumericDocValues<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseNumericDocValues<R> {
   sub: DenseNumericDocValuesSubEnum<R>,
   max_doc: i32,
   doc: i32,
 }
-impl<R> DenseNumericDocValues<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DenseNumericDocValues<R> {
   fn new(base: DenseNumericDocValuesSubEnum<R>, max_doc: i32) -> Self {
     Self {
       sub: base,
@@ -1252,18 +1234,12 @@ where
   }
 }
 
-pub struct DenseBinaryDocValues<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseBinaryDocValues<R> {
   sub: DenseBinaryDocValuesBaseEnum<R>,
   max_doc: i32,
   doc: i32,
 }
-impl<R> DenseBinaryDocValues<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DenseBinaryDocValues<R> {
   fn new(sub: DenseBinaryDocValuesBaseEnum<R>, max_doc: i32) -> Self {
     Self {
       sub,
@@ -1385,10 +1361,7 @@ where
 ///
 /// Note 2: The `rank_slice` is only used if an advance of more than one block
 /// is called. Its construction could be lazy.
-struct VaryingBPVReader<R>
-where
-  R: RandomAccessInput,
-{
+struct VaryingBPVReader<R> {
   // 2 slices to avoid cache thrashing when using rank
   slice: R,
   rank_slice: Option<R>,
@@ -1520,10 +1493,7 @@ where
   }
 }
 
-pub struct DocValuesSkipperImpl<I>
-where
-  I: IndexInput,
-{
+pub struct DocValuesSkipperImpl<I> {
   min_doc_id: [i32; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
   max_doc_id: [i32; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
   min_value: [i64; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
@@ -1533,10 +1503,7 @@ where
   input: I,
   entry: Arc<DocValuesSkipperEntry>,
 }
-impl<I> DocValuesSkipperImpl<I>
-where
-  I: IndexInput,
-{
+impl<I> DocValuesSkipperImpl<I> {
   pub fn new(input: I, entry: Arc<DocValuesSkipperEntry>) -> Self {
     Self {
       min_doc_id: [-1; Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL],
@@ -1657,10 +1624,7 @@ impl DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl {
     Ok(self.min_values)
   }
 }
-pub struct DenseNumericDocValuesBaseImpl1<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseNumericDocValuesBaseImpl1<R> {
   vbpv_reader: VaryingBPVReader<R>,
 }
 impl<R> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl1<R>
@@ -1671,10 +1635,7 @@ where
     self.vbpv_reader.get_long_value(doc.try_convert()?)
   }
 }
-pub struct DenseNumericDocValuesBaseImpl2<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseNumericDocValuesBaseImpl2<R> {
   table: Arc<Vec<i64>>,
   values: DirectPackedEnum<R>,
 }
@@ -1686,10 +1647,7 @@ where
     Ok(self.table[self.values.get_mut(doc as usize)? as usize])
   }
 }
-pub struct DenseNumericDocValuesBaseImpl3<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseNumericDocValuesBaseImpl3<R> {
   values: DirectPackedEnum<R>,
 }
 impl<R> DenseNumericDocValuesBase for DenseNumericDocValuesBaseImpl3<R>
@@ -1700,10 +1658,7 @@ where
     self.values.get_mut(doc as usize)
   }
 }
-pub struct DenseNumericDocValuesBaseImpl4<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseNumericDocValuesBaseImpl4<R> {
   values: DirectPackedEnum<R>,
   mul: i64,
   delta: i64,
@@ -1741,10 +1696,7 @@ where
     Ok(self.min_values)
   }
 }
-pub struct SparseNumericDocValuesBaseImpl1<R>
-where
-  R: RandomAccessInput,
-{
+pub struct SparseNumericDocValuesBaseImpl1<R> {
   vbpv_reader: VaryingBPVReader<R>,
 }
 impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I::RandomAccessSlice>
@@ -1759,10 +1711,7 @@ where
     self.vbpv_reader.get_long_value(index)
   }
 }
-pub struct SparseNumericDocValuesBaseImpl2<R>
-where
-  R: RandomAccessInput,
-{
+pub struct SparseNumericDocValuesBaseImpl2<R> {
   table: Arc<Vec<i64>>,
   values: DirectPackedEnum<R>,
 }
@@ -1777,10 +1726,7 @@ where
     Ok(self.table[self.values.get_mut(disi.index_u())? as usize])
   }
 }
-pub struct SparseNumericDocValuesBaseImpl3<R>
-where
-  R: RandomAccessInput,
-{
+pub struct SparseNumericDocValuesBaseImpl3<R> {
   values: DirectPackedEnum<R>,
 }
 impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I::RandomAccessSlice>
@@ -1794,10 +1740,7 @@ where
     self.values.get_mut(disi.index_u())
   }
 }
-pub struct SparseNumericDocValuesBaseImpl4<R>
-where
-  R: RandomAccessInput,
-{
+pub struct SparseNumericDocValuesBaseImpl4<R> {
   values: DirectPackedEnum<R>,
   mul: i64,
   delta: i64,
@@ -1831,10 +1774,7 @@ impl LongValues for LongValuesImpl {
     Ok(self.min_values)
   }
 }
-pub struct LongValuesImpl1<R>
-where
-  R: RandomAccessInput,
-{
+pub struct LongValuesImpl1<R> {
   vbpv_reader: VaryingBPVReader<R>,
 }
 impl<R> LongValues for LongValuesImpl1<R>
@@ -1845,10 +1785,7 @@ where
     self.vbpv_reader.get_long_value(index)
   }
 }
-pub struct LongValuesImpl2<R>
-where
-  R: RandomAccessInput,
-{
+pub struct LongValuesImpl2<R> {
   table: Arc<Vec<i64>>,
   values: DirectPackedEnum<R>,
 }
@@ -1860,10 +1797,7 @@ where
     Ok(self.table[self.values.get_mut(index)? as usize])
   }
 }
-pub struct LongValuesImpl3<R>
-where
-  R: RandomAccessInput,
-{
+pub struct LongValuesImpl3<R> {
   values: DirectPackedEnum<R>,
   gcd: i64,
   min_value: i64,
@@ -1881,10 +1815,7 @@ where
     )
   }
 }
-pub struct LongValuesImpl4<R>
-where
-  R: RandomAccessInput,
-{
+pub struct LongValuesImpl4<R> {
   values: DirectPackedEnum<R>,
   min_value: i64,
 }
@@ -1901,10 +1832,7 @@ pub trait DenseBinaryDocValuesBase {
   fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }
 
-pub struct DenseBinaryDocValuesBaseImpl<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseBinaryDocValuesBaseImpl<R> {
   bytes_slice: R,
   length: i32,
   bytes: BytesRef<Vec<u8>>,
@@ -1923,10 +1851,7 @@ where
     Ok(Cow::Borrowed(&self.bytes))
   }
 }
-pub struct DenseBinaryDocValuesBaseImpl1<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseBinaryDocValuesBaseImpl1<R> {
   bytes_slice: R,
   bytes: BytesRef<Vec<u8>>,
   addresses: DirectMonotonicReader<R>,
@@ -1957,10 +1882,7 @@ where
     disi: &mut IndexedDISI<I, Owned>,
   ) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }
-pub struct SparseBinaryDocValuesBaseImpl<R>
-where
-  R: RandomAccessInput,
-{
+pub struct SparseBinaryDocValuesBaseImpl<R> {
   bytes_slice: R,
   bytes: BytesRef<Vec<u8>>,
   length: i32,
@@ -1981,10 +1903,7 @@ where
     Ok(Cow::Borrowed(&self.bytes))
   }
 }
-pub struct SparseBinaryDocValuesBaseImpl1<R>
-where
-  R: RandomAccessInput,
-{
+pub struct SparseBinaryDocValuesBaseImpl1<R> {
   bytes_slice: R,
   bytes: BytesRef<Vec<u8>>,
   addresses: DirectMonotonicReader<R>,
@@ -2010,18 +1929,12 @@ where
   }
 }
 
-pub struct DenseBaseSortedDocValues<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseBaseSortedDocValues<R> {
   doc: i32,
   max_doc: i32,
   value: DirectPackedEnum<R>,
 }
-impl<R> DenseBaseSortedDocValues<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DenseBaseSortedDocValues<R> {
   fn new(max_doc: i32, value: DirectPackedEnum<R>) -> Self {
     Self {
       doc: -1,
@@ -2316,10 +2229,7 @@ where
     )
   }
 }
-pub struct DenseBaseSortedSetDocValues<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseBaseSortedSetDocValues<R> {
   max_doc: i32,
   doc: i32,
   curr: i64,
@@ -2327,10 +2237,7 @@ where
   value: DirectPackedEnum<R>,
   addresses: DirectMonotonicReader<R>,
 }
-impl<R> DenseBaseSortedSetDocValues<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DenseBaseSortedSetDocValues<R> {
   fn new(max_doc: i32, value: DirectPackedEnum<R>, addresses: DirectMonotonicReader<R>) -> Self {
     Self {
       max_doc,
@@ -3162,10 +3069,7 @@ where
   }
 }
 
-pub struct DenseSortedNumericDocValues<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseSortedNumericDocValues<R> {
   max_doc: i32,
   start: i64,
   end: i64,
@@ -3174,10 +3078,7 @@ where
   values: LongValuesEnums<R>,
   addresses: DirectMonotonicReader<R>,
 }
-impl<R> DenseSortedNumericDocValues<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DenseSortedNumericDocValues<R> {
   fn new(max_doc: i32, values: LongValuesEnums<R>, addresses: DirectMonotonicReader<R>) -> Self {
     Self {
       max_doc,
@@ -3560,17 +3461,220 @@ where
 }
 
 // 3. BinaryDocValues
-pub type Lucene90BinaryDocValuesEnum<I> = BinaryDocValuesEnum3<
-  DenseBinaryDocValues<<I as IndexInput>::RandomAccessSlice>,
-  SparseBinaryDocValues<I>,
-  EmptyBinary,
->;
+pub enum Lucene90BinaryDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  Dense(DenseBinaryDocValues<I::RandomAccessSlice>),
+  Sparse(SparseBinaryDocValues<I>),
+  Empty(EmptyBinary),
+}
+
+impl<I> DocValuesIterator for Lucene90BinaryDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Dense(values) => values.advance_exact(target),
+      Self::Sparse(values) => values.advance_exact(target),
+      Self::Empty(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<I> DocIdSetIterator for Lucene90BinaryDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Dense(values) => values.doc_id(),
+      Self::Sparse(values) => values.doc_id(),
+      Self::Empty(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Dense(values) => values.next_doc(),
+      Self::Sparse(values) => values.next_doc(),
+      Self::Empty(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Dense(values) => values.advance(target),
+      Self::Sparse(values) => values.advance(target),
+      Self::Empty(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Dense(values) => values.slow_advance(target),
+      Self::Sparse(values) => values.slow_advance(target),
+      Self::Empty(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Dense(values) => values.cost(),
+      Self::Sparse(values) => values.cost(),
+      Self::Empty(values) => values.cost(),
+    }
+  }
+}
+
+impl<I> BinaryDocValues for Lucene90BinaryDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Dense(values) => values.binary_value(),
+      Self::Sparse(values) => values.binary_value(),
+      Self::Empty(values) => values.binary_value(),
+    }
+  }
+}
 
 // 4. SortedSetDocValues
-pub type Lucene90SortedSetDocValuesEnum<I> = SortedSetDocValuesEnum2<
-  SingletonSortedSetDocValues<BaseSortedDocValues<I>>,
-  BaseSortedSetDocValues<I>,
->;
+pub enum Lucene90SortedSetDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  Single(SingletonSortedSetDocValues<BaseSortedDocValues<I>>),
+  Multi(BaseSortedSetDocValues<I>),
+}
+
+impl<I> DocValuesIterator for Lucene90SortedSetDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Single(values) => values.advance_exact(target),
+      Self::Multi(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<I> DocIdSetIterator for Lucene90SortedSetDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Single(values) => values.doc_id(),
+      Self::Multi(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.next_doc(),
+      Self::Multi(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.advance(target),
+      Self::Multi(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.slow_advance(target),
+      Self::Multi(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Single(values) => values.cost(),
+      Self::Multi(values) => values.cost(),
+    }
+  }
+}
+
+impl<I> SortedSetDocValues for Lucene90SortedSetDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+  fn next_ord(&mut self) -> Result<i64> {
+    match self {
+      Self::Single(values) => values.next_ord(),
+      Self::Multi(values) => values.next_ord(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(values) => values.doc_value_count(),
+      Self::Multi(values) => values.doc_value_count(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Single(values) => values.lookup_ord(ord),
+      Self::Multi(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i64> {
+    match self {
+      Self::Single(values) => values.get_value_count(),
+      Self::Multi(values) => values.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    match self {
+      Self::Single(values) => values.lookup_term(key),
+      Self::Multi(values) => values.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a>
+    = TermsEnumEnum2<
+    <SingletonSortedSetDocValues<BaseSortedDocValues<I>> as SortedSetDocValues>::TermsEnum<'a>,
+    <BaseSortedSetDocValues<I> as SortedSetDocValues>::TermsEnum<'a>,
+  >
+  where
+    I: 'a;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    match self {
+      Self::Single(values) => values.terms_enum().map(TermsEnumEnum2::A),
+      Self::Multi(values) => values.terms_enum().map(TermsEnumEnum2::B),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::Single(values) => values.is_single_valued(),
+      Self::Multi(values) => values.is_single_valued(),
+    }
+  }
+
+  type SortedDocValues = SortedDocValuesEnum2<
+    <SingletonSortedSetDocValues<BaseSortedDocValues<I>> as SortedSetDocValues>::SortedDocValues,
+    <BaseSortedSetDocValues<I> as SortedSetDocValues>::SortedDocValues,
+  >;
+
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    match self {
+      Self::Single(values) => values.get_sorted_doc_values().map(SortedDocValuesEnum2::A),
+      Self::Multi(values) => values.get_sorted_doc_values().map(SortedDocValuesEnum2::B),
+    }
+  }
+}
 // 5. SortedDocValues
 pub type Lucene90SortedDocValuesEnum<I> = BaseSortedDocValues<I>;
 

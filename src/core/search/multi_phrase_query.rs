@@ -19,7 +19,7 @@ use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::postings_enum::{PostingsEnum, PostingsEnumEnum2};
+use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::{TermStates, build};
@@ -323,8 +323,7 @@ impl MultiPhraseQueryWeightBase {
 
 impl PhraseWeightBase for MultiPhraseQueryWeightBase {
   type SimScorer = Arc<SimScorerType>;
-  type IE<LR: LeafReader> =
-    SlowImpactsEnum<PostingsEnumEnum2<LRPosting<LR>, UnionPE<LRPosting<LR>>>>;
+  type IE<LR: LeafReader> = SlowImpactsEnum<MultiPhrasePostingsEnum<LRPosting<LR>>>;
 
   fn get_stats<IRC>(&mut self, searcher: &IndexSearcher<IRC>) -> Result<Self::SimScorer>
   where
@@ -443,14 +442,11 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
       }
 
       let postings_enum = if posting_enums.len() == 1 {
-        PostingsEnumEnum2::A(posting_enums.remove(0))
+        MultiPhrasePostingsEnum::Single(posting_enums.remove(0))
+      } else if expose_offsets {
+        MultiPhrasePostingsEnum::UnionFull(UnionFullPostingsEnum::new(posting_enums)?)
       } else {
-        let union_pe = if expose_offsets {
-          PostingsEnumEnum2::A(UnionFullPostingsEnum::new(posting_enums)?)
-        } else {
-          PostingsEnumEnum2::B(UnionPostingsEnum::new(posting_enums)?)
-        };
-        PostingsEnumEnum2::B(union_pe)
+        MultiPhrasePostingsEnum::Union(UnionPostingsEnum::new(posting_enums)?)
       };
 
       postings_freqs.push(PostingsAndFreq::new(
@@ -488,10 +484,7 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
 /// Takes the logical union of multiple PostingsEnum iterators.
 ///
 /// Note: positions are merged during freq()
-pub struct UnionPostingsEnum<P>
-where
-  P: PostingsEnum,
-{
+pub struct UnionPostingsEnum<P> {
   docs_queue: PriorityQueue<usize, DocsQueueCmp<P>>,
   cost: i64,
   pos_queue: PositionsQueue,
@@ -611,16 +604,10 @@ where
   }
 }
 
-struct DocsQueueCmp<P>
-where
-  P: PostingsEnum,
-{
+struct DocsQueueCmp<P> {
   subs: Vec<P>,
 }
-impl<P> DocsQueueCmp<P>
-where
-  P: PostingsEnum,
-{
+impl<P> DocsQueueCmp<P> {
   pub fn new(subs: Vec<P>) -> Self {
     Self { subs }
   }
@@ -717,10 +704,7 @@ impl Compare<PostingsAndPosition> for PosQueueCmp {
 }
 
 /// Slower version of UnionPostingsEnum that delegates offsets and positions.
-pub struct UnionFullPostingsEnum<P>
-where
-  P: PostingsEnum,
-{
+pub struct UnionFullPostingsEnum<P> {
   base: UnionPostingsEnum<P>,
   freq: i32,
   started: bool,
@@ -860,7 +844,102 @@ where
     self.base.docs_queue.compare.subs[top.pe].get_payload()
   }
 }
-pub type UnionPE<P> = PostingsEnumEnum2<UnionFullPostingsEnum<P>, UnionPostingsEnum<P>>;
+#[allow(clippy::large_enum_variant)] // Keep postings iteration allocation-free.
+pub enum MultiPhrasePostingsEnum<P> {
+  Single(P),
+  UnionFull(UnionFullPostingsEnum<P>),
+  Union(UnionPostingsEnum<P>),
+}
+
+impl<P> DocIdSetIterator for MultiPhrasePostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Single(postings) => postings.doc_id(),
+      Self::UnionFull(postings) => postings.doc_id(),
+      Self::Union(postings) => postings.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(postings) => postings.next_doc(),
+      Self::UnionFull(postings) => postings.next_doc(),
+      Self::Union(postings) => postings.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(postings) => postings.advance(target),
+      Self::UnionFull(postings) => postings.advance(target),
+      Self::Union(postings) => postings.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Single(postings) => postings.slow_advance(target),
+      Self::UnionFull(postings) => postings.slow_advance(target),
+      Self::Union(postings) => postings.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Single(postings) => postings.cost(),
+      Self::UnionFull(postings) => postings.cost(),
+      Self::Union(postings) => postings.cost(),
+    }
+  }
+}
+
+impl<P> PostingsEnum for MultiPhrasePostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+  fn freq(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(postings) => postings.freq(),
+      Self::UnionFull(postings) => postings.freq(),
+      Self::Union(postings) => postings.freq(),
+    }
+  }
+
+  fn next_position(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(postings) => postings.next_position(),
+      Self::UnionFull(postings) => postings.next_position(),
+      Self::Union(postings) => postings.next_position(),
+    }
+  }
+
+  fn start_offset(&self) -> Result<i32> {
+    match self {
+      Self::Single(postings) => postings.start_offset(),
+      Self::UnionFull(postings) => postings.start_offset(),
+      Self::Union(postings) => postings.start_offset(),
+    }
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    match self {
+      Self::Single(postings) => postings.end_offset(),
+      Self::UnionFull(postings) => postings.end_offset(),
+      Self::Union(postings) => postings.end_offset(),
+    }
+  }
+
+  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Single(postings) => postings.get_payload(),
+      Self::UnionFull(postings) => postings.get_payload(),
+      Self::Union(postings) => postings.get_payload(),
+    }
+  }
+}
 
 impl crate::core::util::accountable::Accountable for MultiPhraseQuery {
   fn ram_bytes_used(&self) -> crate::core::util::error::lucene_error::Result<i64> {

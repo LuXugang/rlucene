@@ -179,7 +179,8 @@ where
     } else {
       InputType::Byte4
     };
-    let mut fst_compiler_builder: Builder<_, D> = Builder::new(input_type, self.outputs.clone());
+    let mut fst_compiler_builder: Builder<_, D::IndexOutput> =
+      Builder::new(input_type, self.outputs.clone());
     let use_off_heap = random.random_bool(0.5);
     if use_off_heap {
       let out = self
@@ -817,7 +818,7 @@ where
   D: Directory,
 {
   FST1(FST<O, OnHeapFSTStore>),
-  FST2(FST<O, DataOutputEnum<D>>),
+  FST2(FST<O, DataOutputEnum<D::IndexOutput>>),
 }
 
 use crate::core::index::BytesRef;

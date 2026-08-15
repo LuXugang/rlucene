@@ -122,7 +122,12 @@ pub struct FloatLeafComparator<LR>
 where
   LR: LeafReader,
 {
-  base: NumericLeafComparator<LR, NumericLeafComparatorDocValues<LR>, f32, FloatConverter>,
+  base: NumericLeafComparator<
+    <LR as LeafReader>::PointValues,
+    NumericLeafComparatorDocValues<LR>,
+    f32,
+    FloatConverter,
+  >,
 }
 
 impl<LR> FloatLeafComparator<LR>

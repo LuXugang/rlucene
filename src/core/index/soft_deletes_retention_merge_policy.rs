@@ -47,7 +47,6 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::io_utils::IOUtils;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 use std::sync::Arc;
 
 pub type RetentionQuerySupplier = Arc<dyn Fn() -> Result<Query> + Send + Sync>;
@@ -334,7 +333,6 @@ where
   field: String,
   retention_query_supplier: RetentionQuerySupplier,
   apply_retention_query: fn(&str, Query, DefaultLeafReader<D>) -> Result<DefaultLeafReader<D>>,
-  marker: PhantomData<fn() -> D>,
 }
 
 impl<D> Clone for SoftDeletesRetentionOneMergeUnaryOperator<D>
@@ -346,7 +344,6 @@ where
       field: self.field.clone(),
       retention_query_supplier: self.retention_query_supplier.clone(),
       apply_retention_query: self.apply_retention_query,
-      marker: PhantomData,
     }
   }
 }
@@ -364,7 +361,6 @@ where
       field,
       retention_query_supplier,
       apply_retention_query,
-      marker: PhantomData,
     }
   }
 }

@@ -36,7 +36,7 @@ use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::directory::Directory;
 use crate::core::store::directory::MockDirWrapper;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteArrayDataInput, IOContext};
 use crate::core::util::Comparator;
@@ -528,7 +528,7 @@ fn test_real_terms() -> Result<()> {
     }
 
     let metadata = fst_compiler.compile()?.unwrap();
-    let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+    let fst_reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
     let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
 
     if ord > 0 {
@@ -575,7 +575,7 @@ fn test_single_string() -> Result<()> {
   fst_compiler.add(builder.get(), outputs.get_no_output())?;
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
   let mut fst_enum = BytesRefFSTEnum::new(fst)?;
@@ -603,7 +603,7 @@ fn test_duplicate_fsa_string() -> Result<()> {
   }
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
   let actual = Util::get_from_bytes(&fst, &key)?;
@@ -654,7 +654,7 @@ fn test_simple() -> Result<()> {
   fst_compiler.add(v.get(), Arc::new(13824324872317238))?;
 
   let fst_metadata = fst_compiler.compile()?.unwrap();
-  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst_reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(fst_metadata, fst_reader).unwrap();
 
   assert_eq!(*Util::get_from_bytes(&fst, &c)?.unwrap(), 13824324872317238);
@@ -900,7 +900,7 @@ fn test_expanded_close_to_root() -> Result<()> {
     }
   }
 
-  fn compile(lines: &[String]) -> Result<FST<NoOutputs, DataOutputEnum<DummyDirectory>>> {
+  fn compile(lines: &[String]) -> Result<FST<NoOutputs, DataOutputEnum<DummyIndexOutput>>> {
     let outputs = NoOutputs::get_singleton().clone();
     let nothing = outputs.get_no_output();
     let mut fst_compiler = Builder::new(InputType::Byte1, outputs).build()?;
@@ -988,7 +988,7 @@ fn test_final_output_on_end_state() {
   fst_compiler.add(scratch.get(), Arc::new(17)).expect("");
 
   let metadata = fst_compiler.compile().expect("").unwrap();
-  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader().expect("");
+  let reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader().expect("");
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
   let mut w = Vec::new();
   Util::to_dot(&fst, &mut w, false, false).expect("");
@@ -1014,7 +1014,7 @@ fn test_internal_final_state() -> Result<()> {
   fst_compiler.add(scratch.get(), nothing.clone())?;
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
   let mut w = Vec::new();
   Util::to_dot(&fst, &mut w, false, false)?;
@@ -1052,7 +1052,7 @@ fn test_save_different_meta_out() -> Result<()> {
 
   // Compile and load once
   let metadata = fst_compiler.compile()?.unwrap();
-  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst_reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
 
   // Save into a single output
@@ -1098,7 +1098,7 @@ fn test_save_different_meta_out() -> Result<()> {
 fn test_non_final_stop_node() -> Result<()> {
   let outputs = PositiveIntOutputs::get_singleton();
   let nothing = outputs.get_no_output();
-  let builder: Builder<_, DummyDirectory> = Builder::new(InputType::Byte1, outputs.clone());
+  let builder: Builder<_, DummyIndexOutput> = Builder::new(InputType::Byte1, outputs.clone());
   let mut fst_compiler = builder.build()?;
   let no_output = fst_compiler.no_output.clone();
   // Root node
@@ -1234,7 +1234,7 @@ fn test_shortest_paths() -> Result<()> {
   fst_compiler.add(scratch.get(), Arc::new(17))?;
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst_reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
 
   let mut first_arc = crate::core::util::fst_impl::fst::Arc::default();
@@ -1282,7 +1282,7 @@ fn test_reject_no_limits() -> Result<()> {
   fst_compiler.add(scratch.get(), Arc::new(17))?;
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst_reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
 
   let reject_count = Rc::new(Cell::new(0));
@@ -1362,7 +1362,7 @@ fn test_shortest_paths_random() -> Result<()> {
   }
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst_reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
   let mut reader = fst.get_bytes_reader()?;
 
@@ -1448,7 +1448,7 @@ fn test_large_outputs_on_array_arcs() -> Result<()> {
   }
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let fst_reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let fst_reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, fst_reader).unwrap();
 
   for arc in 0..6 {
@@ -1498,7 +1498,7 @@ fn test_illegally_modify_root_arc() -> Result<()> {
   }
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
   let mut arc = crate::core::util::fst_impl::fst::Arc::default();
@@ -1532,7 +1532,7 @@ fn test_simple_depth() -> Result<()> {
   fst_compiler.add(builder.get(), Arc::new(7))?;
 
   let metadata = fst_compiler.compile()?.unwrap();
-  let reader: DataOutputEnum<DummyDirectory> = fst_compiler.get_fst_reader()?;
+  let reader: DataOutputEnum<DummyIndexOutput> = fst_compiler.get_fst_reader()?;
   let fst = FST::from_fst_reader(metadata, reader).unwrap();
 
   assert_eq!(*Util::get_from_bytes(&fst, &ab)?.unwrap(), 3);

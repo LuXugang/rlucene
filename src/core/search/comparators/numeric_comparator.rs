@@ -45,10 +45,7 @@ const MAX_SKIP_INTERVAL: i32 = 8192;
 /// You can pass a dummy value for a field name (e.g. when sorting by script),
 /// but in this case both methods must be provided.
 #[derive(Default)]
-pub struct NumericComparator<V>
-where
-  V: PartialOrd + Copy,
-{
+pub struct NumericComparator<V> {
   pub(crate) field: String,
   missing_value_as_long: i64,
   pub(crate) reverse: bool,
@@ -61,10 +58,7 @@ where
   pub(crate) pruning: Pruning,
 }
 
-impl<V> NumericComparator<V>
-where
-  V: PartialOrd + Copy,
-{
+impl<V> NumericComparator<V> {
   pub fn new(
     field: String,
     missing_value: V,
@@ -99,17 +93,15 @@ where
 }
 
 #[allow(clippy::type_complexity)]
-pub struct NumericLeafComparator<LR, N, V, T>
+pub struct NumericLeafComparator<PV, N, V, T>
 where
-  LR: LeafReader,
-  N: NumericDocValues,
-  V: PartialOrd + Copy,
+  PV: PointValues,
   T: ToLong<V = V>,
 {
   pub(crate) doc_values: N,
-  point_values: Option<LR::PointValues>,
+  point_values: Option<PV>,
   // lazily constructed to avoid performance overhead when this is not used
-  point_tree: Option<PointTreeEnum<LR::PointValues>>,
+  point_tree: Option<PointTreeEnum<PV>>,
   // if skipping functionality should be enabled on this segment
   enable_skipping: bool,
   max_doc: i32,
@@ -126,21 +118,24 @@ where
   skip_doc_values: Option<N>,
   convert: T,
 }
-impl<LR, N, V, T> NumericLeafComparator<LR, N, V, T>
+impl<PV, N, V, T> NumericLeafComparator<PV, N, V, T>
 where
-  LR: LeafReader,
+  PV: PointValues,
   N: NumericDocValues,
   V: PartialOrd + Copy,
   T: ToLong<V = V>,
 {
-  pub fn new(
+  pub fn new<LR>(
     context: &LeafReaderContext<LR>,
     parent: &mut NumericComparator<V>,
     doc_values: N,
     candidate: N,
     v_to_long: T,
     top: V,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    LR: LeafReader<PointValues = PV>,
+  {
     let field = &parent.field;
 
     let point_values = if parent.pruning != Pruning::None {
@@ -471,10 +466,7 @@ where
     self.update_competitive_iterator(bottom, top, comparator)
   }
 }
-pub struct CompetitiveIterator<D>
-where
-  D: DocIdSetIterator,
-{
+pub struct CompetitiveIterator<D> {
   competitive_iterator: D,
   doc_id: i32,
 }
@@ -512,20 +504,14 @@ where
   }
 }
 
-struct IntersectVisitorImpl<'a, T>
-where
-  T: ToLong,
-{
+struct IntersectVisitorImpl<'a, T> {
   result: DocIdSetBuilder,
   max_doc_visited: i32,
   min_value_as_long: i64,
   max_value_as_long: i64,
   as_long: &'a T,
 }
-impl<'a, T> IntersectVisitorImpl<'a, T>
-where
-  T: ToLong,
-{
+impl<'a, T> IntersectVisitorImpl<'a, T> {
   fn new(
     result: DocIdSetBuilder,
     max_doc_visited: i32,

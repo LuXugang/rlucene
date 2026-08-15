@@ -22,7 +22,6 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
@@ -110,7 +109,7 @@ impl FieldComparator for LatLonPointDistanceComparator {
   }
 
   type LeafFieldComparator<LR>
-    = LatLonPointDistanceLeafComparator<LR>
+    = LatLonPointDistanceLeafComparator<SortedNumeric<LR>>
   where
     LR: LeafReader;
 
@@ -132,20 +131,17 @@ impl FieldComparator for LatLonPointDistanceComparator {
   }
 }
 
-pub struct LatLonPointDistanceLeafComparator<LR>
-where
-  LR: LeafReader,
-{
-  current_docs: SortedNumeric<LR>,
+pub struct LatLonPointDistanceLeafComparator<DVS> {
+  current_docs: DVS,
 }
 
-impl<LR> LatLonPointDistanceLeafComparator<LR>
+impl<DVS> LatLonPointDistanceLeafComparator<DVS>
 where
-  LR: LeafReader,
+  DVS: SortedNumericDocValues,
 {
   fn set_values(
     &mut self,
-    comparator: &mut <LatLonPointDistanceLeafComparator<LR> as LeafFieldComparator>::FieldComparator,
+    comparator: &mut <LatLonPointDistanceLeafComparator<DVS> as LeafFieldComparator>::FieldComparator,
   ) -> Result<()> {
     if comparator.values_doc_id != self.current_docs.doc_id() {
       debug_assert!(
@@ -172,7 +168,7 @@ where
   fn sort_key(
     &mut self,
     doc: i32,
-    comparator: &mut <LatLonPointDistanceLeafComparator<LR> as LeafFieldComparator>::FieldComparator,
+    comparator: &mut <LatLonPointDistanceLeafComparator<DVS> as LeafFieldComparator>::FieldComparator,
   ) -> Result<f64> {
     if doc > self.current_docs.doc_id() {
       self.current_docs.advance(doc)?;
@@ -200,9 +196,9 @@ where
   }
 }
 
-impl<LR> LeafFieldComparator for LatLonPointDistanceLeafComparator<LR>
+impl<DVS> LeafFieldComparator for LatLonPointDistanceLeafComparator<DVS>
 where
-  LR: LeafReader,
+  DVS: SortedNumericDocValues,
 {
   type FieldComparator = LatLonPointDistanceComparator;
 

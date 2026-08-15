@@ -108,7 +108,12 @@ pub struct IntLeafComparator<LR>
 where
   LR: LeafReader,
 {
-  base: NumericLeafComparator<LR, NumericLeafComparatorDocValues<LR>, i32, IntConverter>,
+  base: NumericLeafComparator<
+    <LR as LeafReader>::PointValues,
+    NumericLeafComparatorDocValues<LR>,
+    i32,
+    IntConverter,
+  >,
 }
 impl<LR> IntLeafComparator<LR>
 where

@@ -18,7 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::string_field::StringField;
-use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::{CacheHelper, CacheKey, IndexReader};
@@ -239,7 +239,7 @@ where
   CR: CodecReader,
   CR::ReaderCacheHelper: Clone,
 {
-  matches!(reader, CodecReaderEnum2::B(_))
+  matches!(reader, SoftDeletesCodecReader::B(_))
 }
 
 fn reader_cache_key<CR>(reader: &SoftDeletesCodecReader<CR>) -> Result<CacheKey>
@@ -248,13 +248,13 @@ where
   CR::ReaderCacheHelper: Clone,
 {
   match reader {
-    CodecReaderEnum2::A(reader) => Ok(
+    SoftDeletesCodecReader::A(reader) => Ok(
       reader
         .get_reader_cache_helper()?
         .expect("reader cache helper should exist")
         .get_key(),
     ),
-    CodecReaderEnum2::B(reader) => Ok(
+    SoftDeletesCodecReader::B(reader) => Ok(
       reader
         .get_reader_cache_helper()?
         .expect("reader cache helper should exist")
@@ -483,7 +483,7 @@ fn test_avoid_wrapping_readers_without_soft_deletes() -> Result<()> {
     assert_eq!(0, wrapped.num_deleted_docs()?);
     let context = (&wrapped).get_context()?;
     for leaf in context.leaves()? {
-      assert!(matches!(leaf.reader(), CodecReaderEnum2::A(_)));
+      assert!(matches!(leaf.reader(), SoftDeletesCodecReader::A(_)));
     }
     wrapped.close()
   })();

@@ -28,9 +28,7 @@ use rand::{RngExt, SeedableRng};
 
 use crate::core::index::BytesRef;
 use crate::core::store::directory::Directory;
-use crate::core::store::fs_directory::FSDirectory;
 use crate::core::store::mmap_directory::MMapDirectory;
-use crate::core::store::native_fs_lock_factory::NativeFSLockFactory;
 use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::IOUtils;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -68,8 +66,7 @@ fn test() -> Result<()> {
     let outputs = NoOutputs::get_singleton().clone();
     let no_output = outputs.get_no_output();
     let index_output = dir.create_output("fst", &IOContext::default_io_context()?)?;
-    let mut builder: Builder<_, FSDirectory<NativeFSLockFactory, MMapDirectory>> =
-      Builder::new(InputType::Byte1, outputs.clone());
+    let mut builder = Builder::new(InputType::Byte1, outputs.clone());
     builder.data_output(DataOutputEnum::FromDir(index_output));
     let mut fst_compiler = builder.build()?;
 
@@ -168,8 +165,7 @@ fn test() -> Result<()> {
     println!("\nTEST: 3 GB size; outputs=bytes");
     let index_output = dir.create_output("fst", &IOContext::default_io_context()?)?;
     let outputs = ByteSequenceOutputs::get_singleton().clone();
-    let mut builder: Builder<_, FSDirectory<NativeFSLockFactory, MMapDirectory>> =
-      Builder::new(InputType::Byte1, outputs.clone());
+    let mut builder = Builder::new(InputType::Byte1, outputs.clone());
     builder.data_output(DataOutputEnum::FromDir(index_output));
     let mut fst_compiler = builder.build()?;
 
@@ -262,8 +258,7 @@ fn test() -> Result<()> {
     let index_output = dir.create_output("fst", &IOContext::default_io_context()?)?;
     println!("\nTEST: 3 GB size; outputs=long");
     let outputs = PositiveIntOutputs::get_singleton().clone();
-    let mut builder: Builder<_, FSDirectory<NativeFSLockFactory, MMapDirectory>> =
-      Builder::new(InputType::Byte1, outputs.clone());
+    let mut builder = Builder::new(InputType::Byte1, outputs.clone());
     builder.data_output(DataOutputEnum::FromDir(index_output));
     let mut fst_compiler = builder.build()?;
 

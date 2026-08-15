@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::bytes_ref_fst_enum::BytesRefFSTEnum;
 use crate::core::util::fst_impl::fst::{FST, InputType};
@@ -118,7 +118,7 @@ fn test_worst_case_for_direct_addressing() -> Result<()> {
 
 fn build_fst(
   entries: &[BytesRef<Vec<u8>>],
-) -> Result<FST<NoOutputs, DataOutputEnum<DummyDirectory>>> {
+) -> Result<FST<NoOutputs, DataOutputEnum<DummyIndexOutput>>> {
   build_fst_with_compiler(
     entries,
     create_fst_compiler(DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR)?,
@@ -129,9 +129,9 @@ fn build_fst_with_compiler(
   entries: &[BytesRef<Vec<u8>>],
   mut fst_compiler: crate::core::util::fst_impl::fst_compiler::FSTCompiler<
     NoOutputs,
-    DummyDirectory,
+    DummyIndexOutput,
   >,
-) -> Result<FST<NoOutputs, DataOutputEnum<DummyDirectory>>> {
+) -> Result<FST<NoOutputs, DataOutputEnum<DummyIndexOutput>>> {
   let nothing = fst_compiler.get_fst().outputs.get_no_output();
   let mut scratch = IntsRefBuilder::new();
   for entry in entries {
@@ -145,7 +145,7 @@ fn build_fst_with_compiler(
 
 fn create_fst_compiler(
   direct_addressing_max_oversizing_factor: f32,
-) -> Result<crate::core::util::fst_impl::fst_compiler::FSTCompiler<NoOutputs, DummyDirectory>> {
+) -> Result<crate::core::util::fst_impl::fst_compiler::FSTCompiler<NoOutputs, DummyIndexOutput>> {
   use crate::core::util::fst_impl::no_outputs::NoOutputs;
   let mut builder = Builder::new(InputType::Byte1, NoOutputs::get_singleton().clone());
   builder.with_direct_addressing_max_oversizing_factor(direct_addressing_max_oversizing_factor);

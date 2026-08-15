@@ -30,7 +30,7 @@ use crate::core::index::frozen_buffered_updates::{TermDocsIterator, TermsProvide
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexing_chain::PerField;
 use crate::core::index::postings_enum::PostingsEnum;
-use crate::core::index::postings_enum::{FREQS, PostingsEnumEnum2, feature_requested};
+use crate::core::index::postings_enum::{FREQS, feature_requested};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -87,10 +87,7 @@ where
     fields: &FreqProxFields,
     segment_info: &SegmentInfo<D1>,
     seg_updates: Option<&mut BufferedUpdates>,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     if let Some(seg_updates) = seg_updates {
       let seg_deletes = &mut seg_updates.delete_terms;
 
@@ -160,7 +157,6 @@ where
   where
     N: NormsProducer,
     DM: DocMap + Clone,
-    D1: Directory,
   {
     self.next_terms_hash.flush(state, sort_map, info)?;
     if !state.field_infos.has_postings() {
@@ -201,10 +197,7 @@ where
     per_fields: &mut [PerField],
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     self
       .next_terms_hash
       .finish_document(doc_id, info, per_fields, int_pool, byte_pool)?;
@@ -223,20 +216,12 @@ where
   }
 }
 
-pub(crate) struct FilterFieldsImpl<F, DM>
-where
-  F: Fields,
-  DM: DocMap + Clone,
-{
+pub(crate) struct FilterFieldsImpl<F, DM> {
   inner: F,
   field_infos: Arc<FieldInfos>,
   doc_map: DM,
 }
-impl<F, DM> FilterFieldsImpl<F, DM>
-where
-  F: Fields,
-  DM: DocMap + Clone,
-{
+impl<F, DM> FilterFieldsImpl<F, DM> {
   pub(crate) fn new(base: F, field_infos: Arc<FieldInfos>, doc_map: DM) -> Self {
     Self {
       inner: base,
@@ -287,20 +272,12 @@ where
 }
 
 // SortingTerms
-pub struct SortingTerms<T, DM>
-where
-  T: Terms,
-  DM: DocMap + Clone,
-{
+pub struct SortingTerms<T, DM> {
   in_: T,
   index_options: IndexOptions,
   doc_map: DM,
 }
-impl<T, DM> SortingTerms<T, DM>
-where
-  T: Terms,
-  DM: DocMap + Clone,
-{
+impl<T, DM> SortingTerms<T, DM> {
   pub(crate) fn new(base: T, index_options: IndexOptions, doc_map: DM) -> Self {
     Self {
       in_: base,
@@ -385,20 +362,12 @@ where
 }
 
 // SortingTermsEnum
-pub struct SortingTermsEnum<T, DM>
-where
-  T: TermsEnum,
-  DM: DocMap,
-{
+pub struct SortingTermsEnum<T, DM> {
   in_: T,
   index_options: IndexOptions,
   doc_map: DM,
 }
-impl<T, DM> SortingTermsEnum<T, DM>
-where
-  T: TermsEnum,
-  DM: DocMap,
-{
+impl<T, DM> SortingTermsEnum<T, DM> {
   pub(crate) fn new(in_: T, index_options: IndexOptions, doc_map: DM) -> Self {
     Self {
       in_,
@@ -484,8 +453,7 @@ where
     self.in_.total_term_freq()
   }
 
-  type PostingsEnum =
-    PostingsEnumEnum2<SortingPostingsEnum<T::PostingsEnum>, SortingDocsEnum<T::PostingsEnum>>;
+  type PostingsEnum = SortingPostingsEnumType<T::PostingsEnum>;
 
   fn postings_with_flags(
     &mut self,
@@ -496,7 +464,7 @@ where
 
     if self.index_options >= IndexOptions::DocsAndFreqs && feature_freqs {
       let mut wrap_reuse = match reuse {
-        Some(PostingsEnumEnum2::A(sorting_enum)) => sorting_enum,
+        Some(SortingPostingsEnumType::A(sorting_enum)) => sorting_enum,
         _ => SortingPostingsEnum::new(),
       };
       let in_reuse = wrap_reuse.postings_enum.take();
@@ -523,17 +491,17 @@ where
         store_positions,
         store_offsets,
       )?;
-      return Ok(PostingsEnumEnum2::A(wrap_reuse));
+      return Ok(SortingPostingsEnumType::A(wrap_reuse));
     }
 
     let mut wrap_reuse = match reuse {
-      Some(PostingsEnumEnum2::B(sorting_enum)) => sorting_enum,
+      Some(SortingPostingsEnumType::B(sorting_enum)) => sorting_enum,
       _ => SortingDocsEnum::new(),
     };
     let in_reuse = wrap_reuse.postings_enum.take();
     let in_docs = self.in_.postings_with_flags(in_reuse, flags)?;
     wrap_reuse.reset(&self.doc_map, in_docs)?;
-    Ok(PostingsEnumEnum2::B(wrap_reuse))
+    Ok(SortingPostingsEnumType::B(wrap_reuse))
   }
 
   type ImpactsEnum = T::ImpactsEnum;
@@ -546,21 +514,102 @@ where
     self.in_.term_state()
   }
 }
-// SortingDocsEnum
-pub struct SortingDocsEnum<P>
+
+#[allow(clippy::large_enum_variant)] // Keep postings reuse allocation-free.
+pub enum SortingPostingsEnumType<P> {
+  A(SortingPostingsEnum<P>),
+  B(SortingDocsEnum<P>),
+}
+
+impl<P> DocIdSetIterator for SortingPostingsEnumType<P>
 where
   P: PostingsEnum,
 {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(postings) => postings.doc_id(),
+      Self::B(postings) => postings.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(postings) => postings.next_doc(),
+      Self::B(postings) => postings.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(postings) => postings.advance(target),
+      Self::B(postings) => postings.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(postings) => postings.slow_advance(target),
+      Self::B(postings) => postings.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(postings) => postings.cost(),
+      Self::B(postings) => postings.cost(),
+    }
+  }
+}
+
+impl<P> PostingsEnum for SortingPostingsEnumType<P>
+where
+  P: PostingsEnum,
+{
+  fn freq(&mut self) -> Result<i32> {
+    match self {
+      Self::A(postings) => postings.freq(),
+      Self::B(postings) => postings.freq(),
+    }
+  }
+
+  fn next_position(&mut self) -> Result<i32> {
+    match self {
+      Self::A(postings) => postings.next_position(),
+      Self::B(postings) => postings.next_position(),
+    }
+  }
+
+  fn start_offset(&self) -> Result<i32> {
+    match self {
+      Self::A(postings) => postings.start_offset(),
+      Self::B(postings) => postings.start_offset(),
+    }
+  }
+
+  fn end_offset(&self) -> Result<i32> {
+    match self {
+      Self::A(postings) => postings.end_offset(),
+      Self::B(postings) => postings.end_offset(),
+    }
+  }
+
+  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::A(postings) => postings.get_payload(),
+      Self::B(postings) => postings.get_payload(),
+    }
+  }
+}
+
+// SortingDocsEnum
+pub struct SortingDocsEnum<P> {
   sorter: LSBRadixSorter,
   postings_enum: Option<P>,
   docs: Vec<i32>,
   doc_it: i32,
   upto: i32,
 }
-impl<P> SortingDocsEnum<P>
-where
-  P: PostingsEnum,
-{
+impl<P> SortingDocsEnum<P> {
   pub(crate) fn new() -> Self {
     Self {
       sorter: LSBRadixSorter::new(),
@@ -570,7 +619,10 @@ where
       upto: 0,
     }
   }
-  pub(crate) fn reset(&mut self, doc_map: &impl DocMap, mut postings_enum: P) -> Result<()> {
+  pub(crate) fn reset(&mut self, doc_map: &impl DocMap, mut postings_enum: P) -> Result<()>
+  where
+    P: PostingsEnum,
+  {
     let mut i = 0;
     loop {
       let doc = postings_enum.next_doc()?;
@@ -728,10 +780,7 @@ impl TimSorterBase for DocOffsetSorter<'_> {
     Ok(self.tmp_docs[i] - self.docs[j])
   }
 }
-pub struct SortingPostingsEnum<P>
-where
-  P: PostingsEnum,
-{
+pub struct SortingPostingsEnum<P> {
   docs: Vec<i32>,
   offsets: Vec<i64>,
   upto: usize,
@@ -752,10 +801,7 @@ where
 
   buffer: ByteBuffersDataOutput,
 }
-impl<P> SortingPostingsEnum<P>
-where
-  P: PostingsEnum,
-{
+impl<P> SortingPostingsEnum<P> {
   pub fn new() -> Self {
     Self {
       docs: Vec::new(),
@@ -783,6 +829,7 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
+    P: PostingsEnum,
   {
     self.store_positions = store_positions;
     self.store_offsets = store_offsets;

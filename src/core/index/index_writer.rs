@@ -42,7 +42,6 @@ use crate::core::util::long_supplier::LongSupplier;
 use crate::test_framework::core::index::test_tragic_index_writer_deadlock::TragicIndexWriter;
 use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
 use std::cell::{Cell, RefCell};
-use std::marker::PhantomData;
 use std::sync::{Arc, OnceLock, Weak};
 
 pub trait IntoFallibleIterator {
@@ -7122,10 +7121,7 @@ where
   }
 }
 /// Called internally if any index state has changed.
-pub(crate) fn changed<D>(change_count: &mut i64, segment_infos: &mut SegmentInfos<D>)
-where
-  D: Directory,
-{
+pub(crate) fn changed<D>(change_count: &mut i64, segment_infos: &mut SegmentInfos<D>) {
   *change_count += 1;
   segment_infos.changed()
 }
@@ -7330,19 +7326,11 @@ where
   }
 }
 
-struct DocMapIMpl2<DM1, DM2>
-where
-  DM1: DocMap,
-  DM2: DocMap,
-{
+struct DocMapIMpl2<DM1, DM2> {
   compaction_doc_map: DM1,
   reorder_doc_map: DM2,
 }
-impl<DM1, DM2> DocMapIMpl2<DM1, DM2>
-where
-  DM1: DocMap,
-  DM2: DocMap,
-{
+impl<DM1, DM2> DocMapIMpl2<DM1, DM2> {
   fn new(compaction_doc_map: DM1, reorder_doc_map: DM2) -> Self {
     Self {
       compaction_doc_map,
@@ -7362,18 +7350,12 @@ where
   }
 }
 
-struct DocMapImpl1<DM>
-where
-  DM: crate::core::index::sorter::DocMap,
-{
+struct DocMapImpl1<DM> {
   doc_map: DM,
   max_doc: i32,
   current_doc_base: i32,
 }
-impl<DM> DocMapImpl1<DM>
-where
-  DM: crate::core::index::sorter::DocMap,
-{
+impl<DM> DocMapImpl1<DM> {
   fn new(doc_map: DM, max_doc: i32, current_doc_base: i32) -> Self {
     Self {
       doc_map,
@@ -7392,17 +7374,14 @@ where
   }
 }
 
-pub(crate) enum LiveDocsBits<B>
-where
-  B: Bits,
-{
+pub(crate) enum LiveDocsBits<B> {
   Hard(B),
   Mixed(BitsImpl<B>),
 }
 
 impl<B> Clone for LiveDocsBits<B>
 where
-  B: Bits + Clone,
+  B: Clone,
 {
   fn clone(&self) -> Self {
     match self {
@@ -7414,7 +7393,7 @@ where
 
 impl<B> HasIdentity for LiveDocsBits<B>
 where
-  B: Bits,
+  B: HasIdentity,
 {
   fn identity(&self) -> &Identity {
     match self {
@@ -7457,10 +7436,7 @@ where
   }
 }
 
-pub(crate) struct BitsImpl<B>
-where
-  B: Bits,
-{
+pub(crate) struct BitsImpl<B> {
   hard_live_docs: B,
   wrapped_live_docs: B,
   id: Identity,
@@ -7468,7 +7444,7 @@ where
 
 impl<B> Clone for BitsImpl<B>
 where
-  B: Bits + Clone,
+  B: Clone,
 {
   fn clone(&self) -> Self {
     Self {
@@ -7479,10 +7455,7 @@ where
   }
 }
 
-impl<B> HasIdentity for BitsImpl<B>
-where
-  B: Bits,
-{
+impl<B> HasIdentity for BitsImpl<B> {
   fn identity(&self) -> &Identity {
     &self.id
   }
@@ -7917,10 +7890,7 @@ impl FlushNotifications for FlushNotificationsImpl {
     self.event_queue.add(event)
   }
 
-  fn flush_failed<D>(&self, mut info: SegmentInfo<D>) -> Result<()>
-  where
-    D: Directory,
-  {
+  fn flush_failed<D>(&self, mut info: SegmentInfo<D>) -> Result<()> {
     match info.take_files() {
       Ok(files) => {
         let event = EventEnum::B(EventImpl2::new(files));
@@ -8119,19 +8089,14 @@ pub(crate) fn set_max_docs(max_docs: i32) -> Result<()> {
   Ok(())
 }
 /// Convenience overload: no extra details.
-pub(crate) fn set_diagnostics<D>(info: &mut SegmentInfo<D>, source: &str)
-where
-  D: Directory,
-{
+pub(crate) fn set_diagnostics<D>(info: &mut SegmentInfo<D>, source: &str) {
   set_diagnostics_impl(info, source, None)
 }
 fn set_diagnostics_impl<D>(
   info: &mut SegmentInfo<D>,
   source: &str,
   details: Option<HashMap<String, String>>,
-) where
-  D: Directory,
-{
+) {
   let mut diagnostics = HashMap::new();
   diagnostics.insert("source".to_string(), source.to_string());
   diagnostics.insert("lucene.version".to_string(), LATEST.to_string());
@@ -8976,7 +8941,6 @@ where
   merge_finished: PointInTimeMergeFinished<D>,
   orig_info: Mutex<Option<SegmentCommitInfo<D>>>,
   only_once: AtomicBool,
-  _codec_reader: PhantomData<fn(CR)>,
 }
 impl<D, CR> Clone for PointInTimeOneMerge<D, CR>
 where
@@ -8992,7 +8956,6 @@ where
       merge_finished: self.merge_finished.clone(),
       orig_info: Mutex::new(None),
       only_once: AtomicBool::new(false),
-      _codec_reader: PhantomData,
     }
   }
 }
@@ -9028,7 +8991,6 @@ where
       merge_finished,
       orig_info: Mutex::new(None),
       only_once: AtomicBool::new(false),
-      _codec_reader: PhantomData,
     }
   }
 

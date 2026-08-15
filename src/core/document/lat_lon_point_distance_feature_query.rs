@@ -301,26 +301,18 @@ pub struct QueryMeta {
   origin_lon: f64,
   pivot_distance: f64,
 }
-pub struct ScorerSupplierImpl<IRC>
-where
-  IRC: IndexReaderContext,
-{
+pub struct ScorerSupplierImpl<DV> {
   query_meta: QueryMeta,
   max_doc: i32,
   boost: f32,
-  doc_values: Option<SelectValue<IRC>>,
+  doc_values: Option<DV>,
   cost: i64,
 }
-impl<IRC> ScorerSupplierImpl<IRC>
+impl<DV> ScorerSupplierImpl<DV>
 where
-  IRC: IndexReaderContext,
+  DV: NumericDocValues,
 {
-  fn new(
-    query_meta: QueryMeta,
-    max_doc: i32,
-    boost: f32,
-    doc_values: Option<SelectValue<IRC>>,
-  ) -> Result<Self> {
+  fn new(query_meta: QueryMeta, max_doc: i32, boost: f32, doc_values: Option<DV>) -> Result<Self> {
     let cost = doc_values
       .as_ref()
       .ok_or_else(|| {
@@ -336,7 +328,7 @@ where
     })
   }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<IRC>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl<SelectValue<IRC>>
 where
   IRC: IndexReaderContext,
 {
@@ -401,11 +393,7 @@ pub struct DistanceScorer<PV, ND> {
   query_meta: QueryMeta,
 }
 
-impl<PV, ND> DistanceScorer<PV, ND>
-where
-  ND: NumericDocValues,
-  PV: PointValues,
-{
+impl<PV, ND> DistanceScorer<PV, ND> {
   fn new(
     max_doc: i32,
     lead_cost: i64,
@@ -540,12 +528,7 @@ where
   }
 }
 
-impl<PV, ND> FixedScore for DistanceScorer<PV, ND>
-where
-  ND: NumericDocValues,
-  PV: PointValues,
-{
-}
+impl<PV, ND> FixedScore for DistanceScorer<PV, ND> {}
 
 impl<PV, ND> Scorer for DistanceScorer<PV, ND>
 where
@@ -689,10 +672,7 @@ pub struct DocIdSetIteratorImpl<ND> {
   doc_values: ND,
   doc: i32,
 }
-impl<ND> DocIdSetIteratorImpl<ND>
-where
-  ND: NumericDocValues,
-{
+impl<ND> DocIdSetIteratorImpl<ND> {
   fn new(it: ND) -> Self {
     Self {
       it: None,
@@ -747,10 +727,7 @@ pub struct NumericDocValuesImpl<T> {
   origin_lat: f64,
   origin_lon: f64,
 }
-impl<T> NumericDocValuesImpl<T>
-where
-  T: SortedNumericDocValues,
-{
+impl<T> NumericDocValuesImpl<T> {
   fn new(multi_doc_values: T, origin_lat: f64, origin_lon: f64) -> Self {
     Self {
       multi_doc_values,

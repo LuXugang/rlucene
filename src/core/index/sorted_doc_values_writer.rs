@@ -29,9 +29,9 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorted_doc_values::SortedDocValues;
-use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
+use crate::core::index::terms_enum::TermsEnumEnum2;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -52,6 +52,101 @@ use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, 
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+
+type BufferedWriterSortedDocValues = BufferedSortedDocValues<DocsWithFieldSetDISI>;
+
+pub(crate) enum SortedDocValuesWriterValues {
+  Buffered(BufferedWriterSortedDocValues),
+  Sorting(SortingSortedDocValues<BufferedWriterSortedDocValues>),
+}
+
+impl DocValuesIterator for SortedDocValuesWriterValues {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Buffered(values) => values.advance_exact(target),
+      Self::Sorting(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl DocIdSetIterator for SortedDocValuesWriterValues {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Buffered(values) => values.doc_id(),
+      Self::Sorting(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.next_doc(),
+      Self::Sorting(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.advance(target),
+      Self::Sorting(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.slow_advance(target),
+      Self::Sorting(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(values) => values.cost(),
+      Self::Sorting(values) => values.cost(),
+    }
+  }
+}
+
+impl SortedDocValues for SortedDocValuesWriterValues {
+  fn ord_value(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.ord_value(),
+      Self::Sorting(values) => values.ord_value(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Buffered(values) => values.lookup_ord(ord),
+      Self::Sorting(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.get_value_count(),
+      Self::Sorting(values) => values.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.lookup_term(key),
+      Self::Sorting(values) => values.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a> = TermsEnumEnum2<
+    <BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a>,
+    <SortingSortedDocValues<BufferedWriterSortedDocValues> as SortedDocValues>::TermsEnum<'a>,
+  >;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    match self {
+      Self::Buffered(values) => values.terms_enum().map(TermsEnumEnum2::A),
+      Self::Sorting(values) => values.terms_enum().map(TermsEnumEnum2::B),
+    }
+  }
+}
 
 ///  Buffers up pending `[u8]` per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedDocValuesWriter {
@@ -192,7 +287,6 @@ impl DocValuesWriter for SortedDocValuesWriter {
   ) -> Result<()>
   where
     D1: Directory<IndexOutput = DC::IndexOutput>,
-    D2: Directory,
     DM: DocMap,
     DC: DocValuesConsumer,
   {
@@ -298,10 +392,7 @@ impl DocValuesProducerImpl {
 impl DocValuesProducer for DocValuesProducerImpl {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
-  type SortedDocValues = SortedDocValuesEnum2<
-    BufferedSortedDocValues<DocsWithFieldSetDISI>,
-    SortingSortedDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-  >;
+  type SortedDocValues = SortedDocValuesWriterValues;
 
   fn get_sorted(&self, field_info_in: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
     if !Arc::ptr_eq(&self.writer_field_info, field_info_in) {
@@ -315,12 +406,11 @@ impl DocValuesProducer for DocValuesProducerImpl {
       self.docs_with_field.iterator()?,
     );
     if self.sorted.is_none() {
-      return Ok(SortedDocValuesEnum2::A(buf));
+      return Ok(SortedDocValuesWriterValues::Buffered(buf));
     }
-    Ok(SortedDocValuesEnum2::B(SortingSortedDocValues::new(
-      buf,
-      self.sorted.as_ref().unwrap().clone(),
-    )))
+    Ok(SortedDocValuesWriterValues::Sorting(
+      SortingSortedDocValues::new(buf, self.sorted.as_ref().unwrap().clone()),
+    ))
   }
 
   type SortedNumericDocValues = DummySortedNumericDocValues;
@@ -328,10 +418,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) struct BufferedSortedDocValues<D>
-where
-  D: DocIdSetIterator,
-{
+pub(crate) struct BufferedSortedDocValues<D> {
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
   scratch: BytesRef<Vec<u8>>,
@@ -341,10 +428,7 @@ where
   docs_with_field: D,
 }
 
-impl<D> BufferedSortedDocValues<D>
-where
-  D: DocIdSetIterator,
-{
+impl<D> BufferedSortedDocValues<D> {
   pub(crate) fn new(
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
@@ -435,19 +519,13 @@ where
   }
 }
 
-pub struct SortingSortedDocValues<S>
-where
-  S: SortedDocValues,
-{
+pub struct SortingSortedDocValues<S> {
   input: S,
   ords: Arc<Vec<i32>>,
   doc_id: i32,
 }
 
-impl<S> SortingSortedDocValues<S>
-where
-  S: SortedDocValues,
-{
+impl<S> SortingSortedDocValues<S> {
   pub(crate) fn new(input: S, ords: Arc<Vec<i32>>) -> Self {
     Self {
       input,

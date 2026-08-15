@@ -16,7 +16,6 @@
  */
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
-use crate::core::index::dummy::dummy_codec_reader::DummyCodecReader;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::merge_state::{DocMap, DocMapEnum};
 use crate::core::index::point_values::{
@@ -36,6 +35,7 @@ use crate::core::util::bkd::bkd_writer::{
 };
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
@@ -967,7 +967,7 @@ where
         doc_maps
           .as_mut()
           .unwrap()
-          .push(Rc::new(DocMapEnum::<DummyCodecReader>::Mock(DocMapMock {
+          .push(Rc::new(DocMapEnum::<DummyBits>::Mock(DocMapMock {
             cur_doc_id_base,
           })));
 

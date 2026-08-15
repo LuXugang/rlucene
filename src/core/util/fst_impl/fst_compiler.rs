@@ -16,8 +16,7 @@
  */
 use std::fmt::{Display, Formatter};
 
-use crate::core::store::directory::Directory;
-use crate::core::store::{ByteArrayDataOutput, DataOutput};
+use crate::core::store::{ByteArrayDataOutput, DataOutput, IndexOutput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::Closeable;
@@ -66,10 +65,10 @@ use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 /// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to
 ///   be saved at the end). In order to use it, you need to construct the
 ///   corresponding `DataInput` and use the FST loading method to read it.
-pub struct FSTCompiler<O, D>
+pub struct FSTCompiler<O, DO>
 where
   O: Outputs,
-  D: Directory,
+  DO: IndexOutput,
 {
   pub(crate) dedup_hash: NodeHash<O::V>,
   /// A temporary FST used during building for NodeHash cache.
@@ -102,23 +101,23 @@ where
   pub(crate) direct_addressing_max_oversizing_factor: f32,
   pub(crate) version: i32,
   pub(crate) direct_addressing_expansion_credit: i64,
-  pub(crate) data_output: DataOutputEnum<D>,
+  pub(crate) data_output: DataOutputEnum<DO>,
   pub(crate) scratch_bytes: GrowableByteArrayDataOutput,
   pub(crate) num_bytes_written: i64,
   /// Current frontier. Entries use `Option` so the frontier can grow incrementally.
   pub(crate) frontier: Vec<Option<UnCompiledNode<O::V>>>,
 }
-impl<O, D> FSTCompiler<O, D>
+impl<O, DO> FSTCompiler<O, DO>
 where
   O: Outputs,
-  D: Directory,
+  DO: IndexOutput,
 {
   fn new(
     input_type: InputType,
     suffix_ram_limit_mb: f64,
     outputs: O,
     allow_fixed_length_arcs: bool,
-    data_output: DataOutputEnum<D>,
+    data_output: DataOutputEnum<DO>,
     direct_addressing_max_oversizing_factor: f32,
     version: i32,
   ) -> Result<Self> {
@@ -598,7 +597,7 @@ where
   /// to use the default `DataOutput` or
   /// [`get_on_heap_reader_writer`],
   /// otherwise an error will be returned.
-  pub fn get_fst_reader(&mut self) -> Result<DataOutputEnum<D>> {
+  pub fn get_fst_reader(&mut self) -> Result<DataOutputEnum<DO>> {
     let is_fst_reader = match self.data_output {
       DataOutputEnum::FromDir(_) => false,
       DataOutputEnum::ReadWriter(_) => true,
@@ -1040,23 +1039,23 @@ impl FstReader for NullFSTReader {
 ///
 /// Creates an FST/FSA builder with all possible tuning and construction tweaks.
 /// Read parameter documentation carefully.
-pub struct Builder<O, D>
+pub struct Builder<O, DO>
 where
   O: Outputs,
-  D: Directory,
+  DO: IndexOutput,
 {
   input_type: InputType,
   outputs: O,
   suffix_ram_limit_mb: f64,
   allow_fixed_length_arcs: bool,
-  data_output: Option<DataOutputEnum<D>>,
+  data_output: Option<DataOutputEnum<DO>>,
   direct_addressing_max_oversizing_factor: f32,
   version: i32,
 }
-impl<O, D> Builder<O, D>
+impl<O, DO> Builder<O, DO>
 where
   O: Outputs,
-  D: Directory,
+  DO: IndexOutput,
 {
   /// Creates a new [`Builder`] with the given input type and outputs.
   ///
@@ -1140,7 +1139,7 @@ where
   /// # See also
   ///
   /// [`get_on_heap_reader_writer`]
-  pub fn data_output(&mut self, data_output: DataOutputEnum<D>) {
+  pub fn data_output(&mut self, data_output: DataOutputEnum<DO>) {
     self.data_output = Some(data_output);
   }
   /// Overrides the default maximum oversizing of fixed array allowed to
@@ -1171,7 +1170,7 @@ where
     Ok(())
   }
   /// Creates a new `FSTCompiler`.
-  pub fn build(mut self) -> Result<FSTCompiler<O, D>> {
+  pub fn build(mut self) -> Result<FSTCompiler<O, DO>> {
     if self.data_output.is_none() {
       self.data_output = Some(DataOutputEnum::ReadWriter(get_on_heap_reader_writer(15)?));
     }
@@ -1186,16 +1185,13 @@ where
     )
   }
 }
-pub enum DataOutputEnum<D>
-where
-  D: Directory,
-{
-  FromDir(D::IndexOutput),
+pub enum DataOutputEnum<O> {
+  FromDir(O),
   ReadWriter(ReadWriteDataOutput),
 }
-impl<D> Display for DataOutputEnum<D>
+impl<O> Display for DataOutputEnum<O>
 where
-  D: Directory,
+  O: Display,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
@@ -1209,10 +1205,7 @@ where
   }
 }
 
-impl<D> Accountable for DataOutputEnum<D>
-where
-  D: Directory,
-{
+impl<O> Accountable for DataOutputEnum<O> {
   fn ram_bytes_used(&self) -> Result<i64> {
     match self {
       DataOutputEnum::FromDir(_) => Ok(0),
@@ -1221,9 +1214,9 @@ where
   }
 }
 
-impl<D> Closeable for DataOutputEnum<D>
+impl<O> Closeable for DataOutputEnum<O>
 where
-  D: Directory,
+  O: Closeable,
 {
   fn close(&mut self) -> Result<()> {
     match self {
@@ -1233,10 +1226,7 @@ where
   }
 }
 
-impl<D> FstReader for DataOutputEnum<D>
-where
-  D: Directory,
-{
+impl<O> FstReader for DataOutputEnum<O> {
   type FstBytesReader = BytesReaderEnum2<BytesReaderImpl, ReverseBytesReader>;
 
   fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader> {
@@ -1263,9 +1253,9 @@ where
     }
   }
 }
-impl<D> DataOutput for DataOutputEnum<D>
+impl<O> DataOutput for DataOutputEnum<O>
 where
-  D: Directory,
+  O: DataOutput,
 {
   fn write_byte(&mut self, b: u8) -> Result<()> {
     match self {
@@ -1282,10 +1272,7 @@ where
   }
 }
 /// Expert: holds a pending (seen but not yet serialized) arc.
-pub(crate) struct Arc<T>
-where
-  T: OutputsBound,
-{
+pub(crate) struct Arc<T> {
   pub label: i32, // really an "unsigned" byte
   pub target: NodeEnum,
   pub is_final: bool,
@@ -1338,10 +1325,7 @@ impl Node for CompiledNode {
   }
 }
 /// Expert: holds a pending (seen but not yet serialized) Node.
-pub(crate) struct UnCompiledNode<T>
-where
-  T: OutputsBound,
-{
+pub(crate) struct UnCompiledNode<T> {
   pub(crate) num_arcs: i32,
   pub(crate) arcs: Vec<Arc<T>>,
   // TODO: instead of recording is_final/output on the node,
@@ -1435,14 +1419,14 @@ where
     arc.is_final = is_final;
   }
 
-  pub(crate) fn set_last_output<O, D>(
+  pub(crate) fn set_last_output<O, DO>(
     label_to_match: i32,
     new_output: O::V,
-    compiler: &mut FSTCompiler<O, D>,
+    compiler: &mut FSTCompiler<O, DO>,
     node_idx: usize,
   ) where
     O: Outputs,
-    D: Directory,
+    DO: IndexOutput,
   {
     debug_assert!(compiler.valid_output(&new_output));
     let un_compile_node = compiler.frontier[node_idx].as_mut().unwrap();
@@ -1453,13 +1437,13 @@ where
   }
 
   /// Pushes an output prefix forward onto all arcs.
-  pub(crate) fn prepend_output<O, D>(
+  pub(crate) fn prepend_output<O, DO>(
     output_prefix: &O::V,
-    compiler: &mut FSTCompiler<O, D>,
+    compiler: &mut FSTCompiler<O, DO>,
     node_index: usize,
   ) where
     O: Outputs,
-    D: Directory,
+    DO: IndexOutput,
   {
     debug_assert!(compiler.valid_output(output_prefix));
     let un_compiled_node = compiler.frontier[node_index].as_mut().unwrap();

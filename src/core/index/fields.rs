@@ -45,21 +45,17 @@ pub trait Fields {
 }
 
 /// Iterator used by [`FieldsEnum2`].
-pub enum FieldIterEnum2<'a, A, B>
-where
-  A: IteratorExt<Item = &'a String>,
-  B: IteratorExt<Item = &'a String>,
-{
+pub enum FieldIterEnum2<A, B> {
   A(A),
   B(B),
 }
 
-impl<'a, A, B> IteratorExt for FieldIterEnum2<'a, A, B>
+impl<A, B> IteratorExt for FieldIterEnum2<A, B>
 where
-  A: IteratorExt<Item = &'a String>,
-  B: IteratorExt<Item = &'a String>,
+  A: IteratorExt,
+  B: IteratorExt<Item = A::Item>,
 {
-  type Item = &'a String;
+  type Item = A::Item;
 
   fn next(&mut self) -> Result<Option<Self::Item>> {
     match self {
@@ -91,7 +87,7 @@ macro_rules! either_fields {
             $( $T: Fields ),+
         {
             type FieldIter<'a> =
-                $fi<'a, $( <$T as Fields>::FieldIter<'a> ),+>
+                $fi<$( <$T as Fields>::FieldIter<'a> ),+>
             where
                 $( $T: 'a ),+;
 

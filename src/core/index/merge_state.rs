@@ -30,7 +30,6 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_writer::is_congruent_sort;
 use crate::core::index::multi_sorter::MultiSorter;
 use crate::core::index::segment_info::SegmentInfo;
-use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
@@ -48,7 +47,6 @@ use std::time::SystemTime;
 /// @lucene.experimental
 pub struct MergeState<'a, D, CR>
 where
-  D: Directory,
   CR: CodecReader,
 {
   /// [SegmentInfo] of the newly merged segment.
@@ -116,7 +114,6 @@ pub trait MergeStateAccess {
 
 impl<D, CR> MergeStateAccess for MergeState<'_, D, CR>
 where
-  D: Directory,
   CR: CodecReader,
 {
   type FieldsProducer = CRFieldsProducer<CR>;
@@ -163,7 +160,6 @@ where
 
 impl<'a, D, CR> MergeState<'a, D, CR>
 where
-  D: Directory,
   CR: CodecReader,
 {
   /// Sole constructor.
@@ -353,10 +349,7 @@ where
 
 pub type MergeStateDocMap<CR> = MergeStateDocMapImpl<CRBits<CR>>;
 
-pub struct MergeStateDocMapImpl<B>
-where
-  B: Bits,
-{
+pub struct MergeStateDocMapImpl<B> {
   live_docs: Option<B>,
   hook: MergeStateDocMapHook,
 }
@@ -371,10 +364,7 @@ enum MergeStateDocMapHook {
   },
 }
 
-impl<B> MergeStateDocMapImpl<B>
-where
-  B: Bits,
-{
+impl<B> MergeStateDocMapImpl<B> {
   pub(crate) fn new_sorted(live_docs: Option<B>, remapped: PackedLongValues) -> Self {
     Self {
       live_docs,
@@ -465,7 +455,6 @@ where
 fn verify_index_sort<CR, D>(readers: &[CR], segment_info: &SegmentInfo<D>) -> Result<()>
 where
   CR: CodecReader,
-  D: Directory,
 {
   let index_sort = match segment_info.get_index_sort() {
     Some(sort) => sort,
@@ -543,17 +532,14 @@ macro_rules! either_doc_map {
 }
 either_doc_map!(pub DocMapEnum2 { A: A, B: B});
 
-pub enum DocMapEnum<CR>
-where
-  CR: CodecReader,
-{
+pub enum DocMapEnum<B> {
   #[cfg(test)]
   Mock(DocMapMock),
-  Merge(MergeStateDocMap<CR>),
+  Merge(MergeStateDocMapImpl<B>),
 }
-impl<CR> DocMap for DocMapEnum<CR>
+impl<B> DocMap for DocMapEnum<B>
 where
-  CR: CodecReader,
+  B: Bits,
 {
   fn get(&self, doc_id: i32) -> Result<i32> {
     match self {
@@ -565,20 +551,14 @@ where
 }
 
 // for shared
-pub struct MergeStateMeta<DM>
-where
-  DM: DocMap,
-{
+pub struct MergeStateMeta<DM> {
   pub(crate) fields_producers_len: usize,
   pub(crate) doc_maps: Vec<Rc<DM>>,
   pub needs_index_sort: bool,
   pub merge_field_infos: Arc<FieldInfos>,
   pub field_infos: Vec<Arc<FieldInfos>>,
 }
-impl<DM> Clone for MergeStateMeta<DM>
-where
-  DM: DocMap,
-{
+impl<DM> Clone for MergeStateMeta<DM> {
   fn clone(&self) -> Self {
     Self {
       fields_producers_len: self.fields_producers_len,

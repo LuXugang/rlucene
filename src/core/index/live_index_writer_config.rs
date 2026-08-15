@@ -41,7 +41,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::marker::PhantomData;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -332,8 +331,6 @@ pub struct LiveIndexWriterConfigBase<D>
 where
   D: Directory,
 {
-  /// Directory type marker for the `IndexWriter` using this configuration.
-  _mark: PhantomData<D>,
   /// Default analyzer to use for indexing documents.
   pub analyzer: AnalyzerEnum,
   /// RAM buffer size in MB for added documents and deletions before flushing.
@@ -401,7 +398,6 @@ where
   }
   pub fn new() -> Result<Self> {
     Ok(Self {
-      _mark: PhantomData,
       analyzer: AnalyzerEnum::default(),
       ram_buffer_size_mb: DEFAULT_RAM_BUFFER_SIZE_MB,
       max_buffered_docs: DEFAULT_MAX_BUFFERED_DOCS,

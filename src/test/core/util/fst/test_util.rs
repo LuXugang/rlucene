@@ -16,7 +16,7 @@
  */
 
 use crate::core::index::BytesRef;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::{Arc, FST, InputType};
 use crate::core::util::fst_impl::fst_compiler::{Builder, DataOutputEnum};
@@ -145,7 +145,7 @@ pub fn build_fst(
   words: &[String],
   allow_array_arcs: bool,
   allow_direct_addressing: bool,
-) -> Result<FST<NoOutputs, DataOutputEnum<DummyDirectory>>> {
+) -> Result<FST<NoOutputs, DataOutputEnum<DummyIndexOutput>>> {
   let outputs = NoOutputs::get_singleton();
 
   let mut builder = Builder::new(InputType::Byte1, outputs.clone());

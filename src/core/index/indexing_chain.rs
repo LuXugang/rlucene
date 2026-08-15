@@ -77,9 +77,8 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values_writer::{
   BufferedSortedDocValues, SortedDocValuesWriter,
 };
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values_writer::{
-  BufferedSortedNumericDocValues, SortedNumericDocValuesWriter,
+  SortedNumericDocValuesWriter, SortedNumericDocValuesWriterValues,
 };
 use crate::core::index::sorted_set_doc_values_writer::{
   BufferedSortedSetDocValues, SortedSetDocValuesEnum2, SortedSetDocValuesWriter,
@@ -189,7 +188,6 @@ where
     index_writer_config: &impl LiveIndexWriterConfig,
   ) -> Result<Self>
   where
-    D1: Directory,
     D: Clone,
   {
     let bytes_used = Arc::new(AtomicCounter::new());
@@ -275,7 +273,6 @@ where
   ) -> Result<Option<Arc<DocMapImpl>>>
   where
     D: Directory,
-    D1: Directory,
   {
     let index_created_version_major = self.index_created_version_major;
     let index_sort = segment_info.get_index_sort();
@@ -341,10 +338,7 @@ where
     seg_updates: Option<&mut BufferedUpdates>,
     index_writer_config: &impl LiveIndexWriterConfig,
     field_info: &mut Builder,
-  ) -> Result<Option<Arc<DocMapImpl>>>
-  where
-    D1: Directory,
-  {
+  ) -> Result<Option<Arc<DocMapImpl>>> {
     // NOTE: caller (DocumentsWriterPerThread) handles
     // aborting on any error from this method
     let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
@@ -504,7 +498,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap + Clone,
-    D1: Directory,
   {
     let mut points_writer = None;
     let mut success = false;
@@ -580,7 +573,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     let mut dv_consumer = None;
     let mut success = false;
@@ -660,7 +652,6 @@ where
   ) -> Result<()>
   where
     DM: DocMap,
-    D1: Directory,
   {
     if !state.field_infos.has_norms() {
       return Ok(());
@@ -746,10 +737,7 @@ where
     doc_id: i32,
     info: &mut SegmentInfo<D1>,
     aborting_exception: &OnceLock<CaughtResult>,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     catch_aborting_exception!(
       &mut self.has_hit_aborting_exception,
       aborting_exception,
@@ -781,7 +769,6 @@ where
   ) -> Result<()>
   where
     DF: IntoIterator<Item = Fields>,
-    D1: Directory,
   {
     // number of unique fields by names (collapses multiple field instances by the same name)
     let mut field_count = 0;
@@ -914,10 +901,7 @@ where
     index_writer_config: &impl LiveIndexWriterConfig,
     segment_info: &SegmentInfo<D1>,
     aborting_exception: &OnceLock<CaughtResult>,
-  ) -> Result<()>
-  where
-    D1: Directory,
-  {
+  ) -> Result<()> {
     // Create and add a new fieldInfo to fieldInfos for this segment.
     // During the creation of FieldInfo there is also verification of the correctness of all its
     // parameters.
@@ -2310,10 +2294,7 @@ where
     }
   }
 
-  type SortedNumericDocValues = SortedNumericDocValuesEnum2<
-    SingletonSortedNumericDocValues<BufferedNumericDocValues>,
-    BufferedSortedNumericDocValues<DocsWithFieldSetDISI>,
-  >;
+  type SortedNumericDocValues = SortedNumericDocValuesWriterValues;
 
   fn get_sorted_numeric_doc_values(
     &self,
@@ -2699,17 +2680,11 @@ where
   }
 }
 
-struct DocComparatorImpl<DC>
-where
-  DC: DocComparator,
-{
+struct DocComparatorImpl<DC> {
   parents: Rc<SparseFixedBitSetBitSet>,
   doc_comparator: DC,
 }
-impl<DC> DocComparatorImpl<DC>
-where
-  DC: DocComparator,
-{
+impl<DC> DocComparatorImpl<DC> {
   fn new(parents: Rc<SparseFixedBitSetBitSet>, doc_comparator: DC) -> Self {
     DocComparatorImpl {
       parents,
@@ -2728,16 +2703,10 @@ where
   }
 }
 
-pub struct ReservedField<T>
-where
-  T: IndexableField,
-{
+pub struct ReservedField<T> {
   delegate: T,
 }
-impl<T> ReservedField<T>
-where
-  T: IndexableField,
-{
+impl<T> ReservedField<T> {
   pub(crate) fn new(delegate: T) -> Self {
     ReservedField { delegate }
   }

@@ -108,7 +108,12 @@ pub struct LongLeafComparator<LR>
 where
   LR: LeafReader,
 {
-  base: NumericLeafComparator<LR, NumericLeafComparatorDocValues<LR>, i64, LongConverter>,
+  base: NumericLeafComparator<
+    <LR as LeafReader>::PointValues,
+    NumericLeafComparatorDocValues<LR>,
+    i64,
+    LongConverter,
+  >,
 }
 impl<LR> LongLeafComparator<LR>
 where

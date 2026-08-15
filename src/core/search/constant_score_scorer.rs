@@ -14,9 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::{
-  DocIdSetIterator, DocIdSetIteratorEnum2, EmptyDISI,
-};
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::scorable::Scorable;
@@ -25,24 +23,17 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
-  EmptyTPI, TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator, TwoPhaseIteratorEnum2,
+  EmptyTPI, TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A constant-scoring Scorer.
-pub struct ConstantScoreScorer<DISI, TPI>
-where
-  DISI: DocIdSetIterator,
-  TPI: TwoPhaseIterator,
-{
+pub struct ConstantScoreScorer<DISI, TPI> {
   score: f32,
   score_mode: ScoreMode,
-  disi: ConstantDISI_<DISI, TPI>,
+  disi: ConstantScoreIterator<DISI, TPI>,
   tpi_state: TwoPhaseState,
 }
-impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator>
-where
-  DISI: DocIdSetIterator,
-{
+impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator> {
   /// Creates an instance based on a [`DocIdSetIterator`] used to drive iteration. Two-phase
   /// iteration is not supported.
   ///
@@ -53,22 +44,19 @@ where
   pub fn from_disi(score: f32, score_mode: ScoreMode, disi: DISI) -> Self {
     let approximation = match score_mode {
       ScoreMode::TopScores => {
-        ConstantDISI::A(DocIdSetIteratorWrapper::new(DelegateEnum::Disi(disi)))
+        ConstantScoreIterator::DisiTop(DocIdSetIteratorWrapper::new(DelegateEnum::Disi(disi)))
       },
-      _ => ConstantDISI::B(disi),
+      _ => ConstantScoreIterator::Disi(disi),
     };
     Self {
       score,
       score_mode,
-      disi: DocIdSetIteratorEnum2::A(approximation),
+      disi: approximation,
       tpi_state: TwoPhaseState::No,
     }
   }
 }
-impl<TPI> ConstantScoreScorer<DummyDISI, TPI>
-where
-  TPI: TwoPhaseIterator,
-{
+impl<TPI> ConstantScoreScorer<DummyDISI, TPI> {
   /// Creates an instance based on a [`TwoPhaseIterator`]. In this case the `Scorer` will
   /// support two-phase iteration.
   ///
@@ -81,14 +69,16 @@ where
       ScoreMode::TopScores => {
         let v: DocIdSetIteratorWrapper<TPI, DummyDISI> =
           DocIdSetIteratorWrapper::new(DelegateEnum::TPI(two_phase_iterator));
-        ConstantTPI::A(TwoPhaseIteratorImpl::new(v))
+        ConstantScoreIterator::TpiTop(TwoPhaseIteratorAsDocIdSetIterator::new(
+          TwoPhaseIteratorImpl::new(v),
+        ))
       },
-      _ => ConstantTPI::B(two_phase_iterator),
+      _ => ConstantScoreIterator::Tpi(TwoPhaseIteratorAsDocIdSetIterator::new(two_phase_iterator)),
     };
     Self {
       score,
       score_mode,
-      disi: DocIdSetIteratorEnum2::B(TwoPhaseIteratorAsDocIdSetIterator::new(two_phase_iterator)),
+      disi: two_phase_iterator,
       tpi_state: TwoPhaseState::Yes,
     }
   }
@@ -105,22 +95,15 @@ where
 
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
     if min_score > self.score && matches!(self.score_mode, ScoreMode::TopScores) {
-      match self.disi {
-        ConstantDISI_::A(ref mut v) => match v {
-          DocIdSetIteratorEnum2::A(v) => {
-            v.delegate = DelegateEnum::EmptyDisi(EmptyDISI::new());
-          },
-          DocIdSetIteratorEnum2::B(_) => {
-            return Err(LuceneError::illegal_state("TopScores: should not be here"));
-          },
+      match &mut self.disi {
+        ConstantScoreIterator::DisiTop(iterator) => {
+          iterator.delegate = DelegateEnum::EmptyDisi(EmptyDISI::new());
         },
-        ConstantDISI_::B(ref mut v) => match v.two_phase_iterator {
-          TwoPhaseIteratorEnum2::A(ref mut wrapper) => {
-            wrapper.approximation.delegate = DelegateEnum::EmptyTPI(EmptyTPI);
-          },
-          TwoPhaseIteratorEnum2::B(_) => {
-            return Err(LuceneError::illegal_state("TopScores: should not be here"));
-          },
+        ConstantScoreIterator::TpiTop(iterator) => {
+          iterator.two_phase_iterator.approximation.delegate = DelegateEnum::EmptyTPI(EmptyTPI);
+        },
+        ConstantScoreIterator::Disi(_) | ConstantScoreIterator::Tpi(_) => {
+          return Err(LuceneError::illegal_state("TopScores: should not be here"));
         },
       }
     }
@@ -132,12 +115,7 @@ where
   }
 }
 
-impl<DISI, TPI> crate::core::search::scorable::FixedScore for ConstantScoreScorer<DISI, TPI>
-where
-  DISI: DocIdSetIterator + 'static,
-  TPI: TwoPhaseIterator + 'static,
-{
-}
+impl<DISI, TPI> crate::core::search::scorable::FixedScore for ConstantScoreScorer<DISI, TPI> {}
 
 impl<DISI, TPI> Scorer for ConstantScoreScorer<DISI, TPI>
 where
@@ -149,45 +127,28 @@ where
   }
 
   fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    match &self.disi {
-      ConstantDISI_::A(v) => match v {
-        DocIdSetIteratorEnum2::A(wrapper) => Box::new(wrapper),
-        DocIdSetIteratorEnum2::B(disi) => Box::new(disi),
-      },
-      ConstantDISI_::B(v) => Box::new(v),
-    }
+    Box::new(&self.disi)
   }
 
   fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    match &mut self.disi {
-      ConstantDISI_::A(v) => match v {
-        DocIdSetIteratorEnum2::A(wrapper) => Box::new(wrapper),
-        DocIdSetIteratorEnum2::B(disi) => Box::new(disi),
-      },
-      ConstantDISI_::B(v) => Box::new(v),
-    }
+    Box::new(&mut self.disi)
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
     let ConstantScoreScorer { disi, .. } = *self;
-    match disi {
-      ConstantDISI_::A(v) => match v {
-        DocIdSetIteratorEnum2::A(wrapper) => Box::new(wrapper),
-        DocIdSetIteratorEnum2::B(disi) => Box::new(disi),
-      },
-      ConstantDISI_::B(v) => Box::new(v),
-    }
+    Box::new(disi)
   }
 
   fn two_phase_iterator(&self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
     match self.tpi_state {
       TwoPhaseState::No => None,
-      _ => match self.disi {
-        ConstantDISI_::A(_) => {
+      _ => match &self.disi {
+        ConstantScoreIterator::DisiTop(_) | ConstantScoreIterator::Disi(_) => {
           debug_assert!(false, "should not be here");
           None
         },
-        ConstantDISI_::B(ref v) => Some(Box::new(&v.two_phase_iterator)),
+        ConstantScoreIterator::TpiTop(iterator) => Some(Box::new(&iterator.two_phase_iterator)),
+        ConstantScoreIterator::Tpi(iterator) => Some(Box::new(&iterator.two_phase_iterator)),
       },
     }
   }
@@ -195,12 +156,13 @@ where
   fn two_phase_iterator_mut(&mut self) -> Option<Box<dyn TwoPhaseIterator + '_>> {
     match self.tpi_state {
       TwoPhaseState::No => None,
-      _ => match self.disi {
-        ConstantDISI_::A(_) => {
+      _ => match &mut self.disi {
+        ConstantScoreIterator::DisiTop(_) | ConstantScoreIterator::Disi(_) => {
           debug_assert!(false, "should not be here");
           None
         },
-        ConstantDISI_::B(ref mut v) => Some(Box::new(&mut v.two_phase_iterator)),
+        ConstantScoreIterator::TpiTop(iterator) => Some(Box::new(&mut iterator.two_phase_iterator)),
+        ConstantScoreIterator::Tpi(iterator) => Some(Box::new(&mut iterator.two_phase_iterator)),
       },
     }
   }
@@ -212,11 +174,12 @@ where
     match tpi_state {
       TwoPhaseState::No => None,
       _ => match disi {
-        ConstantDISI_::A(_) => {
+        ConstantScoreIterator::DisiTop(_) | ConstantScoreIterator::Disi(_) => {
           debug_assert!(false, "should not be here");
           None
         },
-        ConstantDISI_::B(wrapper) => Some(Box::new(wrapper.two_phase_iterator)),
+        ConstantScoreIterator::TpiTop(iterator) => Some(Box::new(iterator.two_phase_iterator)),
+        ConstantScoreIterator::Tpi(iterator) => Some(Box::new(iterator.two_phase_iterator)),
       },
     }
   }
@@ -232,9 +195,11 @@ where
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
     match self.tpi_state {
       TwoPhaseState::No => self.iterator_mut(),
-      _ => match self.disi {
-        ConstantDISI_::A(_) => self.iterator_mut(),
-        ConstantDISI_::B(ref mut v) => v.two_phase_iterator.approximation_mut(),
+      _ => match &mut self.disi {
+        ConstantScoreIterator::DisiTop(iterator) => Box::new(iterator),
+        ConstantScoreIterator::Disi(iterator) => Box::new(iterator),
+        ConstantScoreIterator::TpiTop(iterator) => iterator.two_phase_iterator.approximation_mut(),
+        ConstantScoreIterator::Tpi(iterator) => iterator.two_phase_iterator.approximation_mut(),
       },
     }
   }
@@ -242,9 +207,11 @@ where
   fn approximation(&self) -> Box<dyn DocIdSetIterator + '_> {
     match self.tpi_state {
       TwoPhaseState::No => self.iterator(),
-      _ => match self.disi {
-        ConstantDISI_::A(_) => self.iterator(),
-        ConstantDISI_::B(ref v) => v.two_phase_iterator.approximation(),
+      _ => match &self.disi {
+        ConstantScoreIterator::DisiTop(iterator) => Box::new(iterator),
+        ConstantScoreIterator::Disi(iterator) => Box::new(iterator),
+        ConstantScoreIterator::TpiTop(iterator) => iterator.two_phase_iterator.approximation(),
+        ConstantScoreIterator::Tpi(iterator) => iterator.two_phase_iterator.approximation(),
       },
     }
   }
@@ -254,16 +221,10 @@ where
   }
 }
 
-pub struct TwoPhaseIteratorImpl<TPI>
-where
-  TPI: TwoPhaseIterator,
-{
+pub struct TwoPhaseIteratorImpl<TPI> {
   approximation: DocIdSetIteratorWrapper<TPI, DummyDISI>,
 }
-impl<TPI> TwoPhaseIteratorImpl<TPI>
-where
-  TPI: TwoPhaseIterator,
-{
+impl<TPI> TwoPhaseIteratorImpl<TPI> {
   pub fn new(approximation: DocIdSetIteratorWrapper<TPI, DummyDISI>) -> Self {
     Self { approximation }
   }
@@ -299,20 +260,65 @@ where
   }
 }
 
-// used for Creation method from DISI
-pub type ConstantDISI<DISI> =
-  DocIdSetIteratorEnum2<DocIdSetIteratorWrapper<DummyTwoPhaseIterator, DISI>, DISI>;
-// used Creation method from TwoPhaseIterator
-pub type ConstantTPI<TPI> = TwoPhaseIteratorEnum2<TwoPhaseIteratorImpl<TPI>, TPI>;
+enum ConstantScoreIterator<DISI, TPI> {
+  DisiTop(DocIdSetIteratorWrapper<DummyTwoPhaseIterator, DISI>),
+  Disi(DISI),
+  TpiTop(TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<TPI>>),
+  Tpi(TwoPhaseIteratorAsDocIdSetIterator<TPI>),
+}
 
-pub type ConstantDISI_<DISI, TPI> =
-  DocIdSetIteratorEnum2<ConstantDISI<DISI>, TwoPhaseIteratorAsDocIdSetIterator<ConstantTPI<TPI>>>;
-
-pub enum DelegateEnum<T, D>
+impl<DISI, TPI> DocIdSetIterator for ConstantScoreIterator<DISI, TPI>
 where
-  T: TwoPhaseIterator,
-  D: DocIdSetIterator,
+  DISI: DocIdSetIterator,
+  TPI: TwoPhaseIterator,
 {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::DisiTop(iterator) => iterator.doc_id(),
+      Self::Disi(iterator) => iterator.doc_id(),
+      Self::TpiTop(iterator) => iterator.doc_id(),
+      Self::Tpi(iterator) => iterator.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::DisiTop(iterator) => iterator.next_doc(),
+      Self::Disi(iterator) => iterator.next_doc(),
+      Self::TpiTop(iterator) => iterator.next_doc(),
+      Self::Tpi(iterator) => iterator.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::DisiTop(iterator) => iterator.advance(target),
+      Self::Disi(iterator) => iterator.advance(target),
+      Self::TpiTop(iterator) => iterator.advance(target),
+      Self::Tpi(iterator) => iterator.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::DisiTop(iterator) => iterator.slow_advance(target),
+      Self::Disi(iterator) => iterator.slow_advance(target),
+      Self::TpiTop(iterator) => iterator.slow_advance(target),
+      Self::Tpi(iterator) => iterator.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::DisiTop(iterator) => iterator.cost(),
+      Self::Disi(iterator) => iterator.cost(),
+      Self::TpiTop(iterator) => iterator.cost(),
+      Self::Tpi(iterator) => iterator.cost(),
+    }
+  }
+}
+
+pub enum DelegateEnum<T, D> {
   TPI(T),
   EmptyTPI(EmptyTPI),
   Disi(D),
@@ -369,20 +375,12 @@ where
   }
 }
 
-pub struct DocIdSetIteratorWrapper<T, D>
-where
-  T: TwoPhaseIterator,
-  D: DocIdSetIterator,
-{
+pub struct DocIdSetIteratorWrapper<T, D> {
   doc: i32,
   delegate: DelegateEnum<T, D>,
 }
 
-impl<T, D> DocIdSetIteratorWrapper<T, D>
-where
-  T: TwoPhaseIterator,
-  D: DocIdSetIterator,
-{
+impl<T, D> DocIdSetIteratorWrapper<T, D> {
   pub fn new(delegate: DelegateEnum<T, D>) -> Self {
     Self { doc: -1, delegate }
   }

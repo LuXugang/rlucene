@@ -75,7 +75,6 @@ where
   ) -> Result<Self>
   where
     D1: Directory<IndexInput = I>,
-    D2: Directory,
   {
     let max_doc = segment_info.max_doc()?;
     let meta_name =
@@ -306,10 +305,7 @@ where
     }
   }
 }
-pub enum RandomAccessSliceEnum<R>
-where
-  R: RandomAccessInput,
-{
+pub enum RandomAccessSliceEnum<R> {
   Shared(Arc<Mutex<R>>),
   Owned(R),
 }
@@ -317,7 +313,11 @@ impl<I> Lucene90NormsProducer<I>
 where
   I: IndexInput,
 {
-  fn get_disi_input(&self, field: &FieldInfo, entry: &NormsEntry) -> Result<SliceEnum<I>> {
+  fn get_disi_input(
+    &self,
+    field: &FieldInfo,
+    entry: &NormsEntry,
+  ) -> Result<SliceEnum<I::IndexInput, I::RandomAccessSlice>> {
     if self.merging {
       if let Some(existing) = {
         let map = self.disi_inputs.lock();
@@ -354,12 +354,9 @@ where
     }
   }
 }
-pub enum SliceEnum<I>
-where
-  I: IndexInput,
-{
-  Shared(IndexInputImpl<I>),
-  Owned(I::IndexInput),
+pub enum SliceEnum<I, R> {
+  Shared(IndexInputImpl<I, R>),
+  Owned(I),
 }
 impl<I> Display for Lucene90NormsProducer<I>
 where
@@ -570,18 +567,12 @@ struct NormsEntry {
   pub num_docs_with_field: usize,
   pub norms_offset: i64,
 }
-pub struct DenseNormsIterator<R>
-where
-  R: RandomAccessInput,
-{
+pub struct DenseNormsIterator<R> {
   max_doc: i32,
   doc: i32,
   sub_dense_norms: DenseNormsIteratorBaseEnum<R>,
 }
-impl<R> DenseNormsIterator<R>
-where
-  R: RandomAccessInput,
-{
+impl<R> DenseNormsIterator<R> {
   fn new(max_doc: i32, sub_dense_norms: DenseNormsIteratorBaseEnum<R>) -> Self {
     Self {
       max_doc,
@@ -647,10 +638,7 @@ impl DenseNormsIteratorBase for DenseNormsIteratorBaseImpl {
   }
 }
 // case 1
-struct DenseNormsIteratorBaseImpl1<R>
-where
-  R: RandomAccessInput,
-{
+struct DenseNormsIteratorBaseImpl1<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl1<R>
@@ -669,10 +657,7 @@ where
   }
 }
 // case 2
-struct DenseNormsIteratorBaseImpl2<R>
-where
-  R: RandomAccessInput,
-{
+struct DenseNormsIteratorBaseImpl2<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl2<R>
@@ -691,10 +676,7 @@ where
   }
 }
 // case 4
-struct DenseNormsIteratorBaseImpl4<R>
-where
-  R: RandomAccessInput,
-{
+struct DenseNormsIteratorBaseImpl4<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl4<R>
@@ -711,10 +693,7 @@ where
   }
 }
 // case 8
-struct DenseNormsIteratorBaseImpl8<R>
-where
-  R: RandomAccessInput,
-{
+struct DenseNormsIteratorBaseImpl8<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> DenseNormsIteratorBase for DenseNormsIteratorBaseImpl8<R>
@@ -728,10 +707,7 @@ where
     }
   }
 }
-enum DenseNormsIteratorBaseEnum<R>
-where
-  R: RandomAccessInput,
-{
+enum DenseNormsIteratorBaseEnum<R> {
   Dense(DenseNormsIteratorBaseImpl),
   Dense1(DenseNormsIteratorBaseImpl1<R>),
   Dense2(DenseNormsIteratorBaseImpl2<R>),
@@ -833,10 +809,7 @@ impl SparseNormsIteratorBase for SparseNormsIteratorBaseImpl {
   }
 }
 // case 1
-struct SparseNormsIteratorBaseImpl1<R>
-where
-  R: RandomAccessInput,
-{
+struct SparseNormsIteratorBaseImpl1<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl1<R>
@@ -851,10 +824,7 @@ where
   }
 }
 // case 2
-struct SparseNormsIteratorBaseImpl2<R>
-where
-  R: RandomAccessInput,
-{
+struct SparseNormsIteratorBaseImpl2<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl2<R>
@@ -869,10 +839,7 @@ where
   }
 }
 // case 4
-struct SparseNormsIteratorBaseImpl4<R>
-where
-  R: RandomAccessInput,
-{
+struct SparseNormsIteratorBaseImpl4<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl4<R>
@@ -887,10 +854,7 @@ where
   }
 }
 // case 8
-struct SparseNormsIteratorBaseImpl8<R>
-where
-  R: RandomAccessInput,
-{
+struct SparseNormsIteratorBaseImpl8<R> {
   slice: RandomAccessSliceEnum<R>,
 }
 impl<R> SparseNormsIteratorBase for SparseNormsIteratorBaseImpl8<R>
@@ -904,10 +868,7 @@ where
     }
   }
 }
-enum SparseNormsIteratorBaseEnum<R>
-where
-  R: RandomAccessInput,
-{
+enum SparseNormsIteratorBaseEnum<R> {
   Sparse(SparseNormsIteratorBaseImpl),
   Sparse1(SparseNormsIteratorBaseImpl1<R>),
   Sparse2(SparseNormsIteratorBaseImpl2<R>),

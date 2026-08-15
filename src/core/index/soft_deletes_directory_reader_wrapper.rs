@@ -17,7 +17,8 @@
 use crate::core::index::base_composite_reader::{
   BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
 };
-use crate::core::index::codec_reader::{CodecReader, CodecReaderEnum2};
+use crate::core::index::codec_reader::CodecReader;
+pub use crate::core::index::codec_reader::SoftDeletesCodecReader;
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{DirectoryReader, DirectoryReaderBase};
 use crate::core::index::filter_directory_reader::{
@@ -42,8 +43,6 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-
-pub type SoftDeletesCodecReader<CR> = CodecReaderEnum2<CR, SoftDeletesFilterCodecReader<CR>>;
 
 /// This reader filters out documents that have a doc values value in the given field and treats
 /// these documents as soft deleted. Hard deleted documents are also filtered out in the live docs of
@@ -103,12 +102,12 @@ where
   fn do_wrap_directory_reader_impl(&self, in_: DR) -> Result<Self> {
     let mut reader_cache = HashMap::new();
     for reader in self.get_sequential_sub_readers() {
-      if let CodecReaderEnum2::B(reader) = reader
+      if let SoftDeletesCodecReader::B(reader) = reader
         && let Some(reader_cache_helper) = reader.get_delegate().get_reader_cache_helper()?
       {
         reader_cache.insert(
           reader_cache_helper.get_key(),
-          CodecReaderEnum2::B(reader.clone()),
+          SoftDeletesCodecReader::B(reader.clone()),
         );
       }
     }
@@ -386,7 +385,7 @@ where
 {
   let mut iterator = match get_doc_values_doc_id_set_iterator(field, &reader)? {
     Some(iterator) => iterator,
-    None => return Ok(CodecReaderEnum2::A(reader)),
+    None => return Ok(SoftDeletesCodecReader::A(reader)),
   };
 
   let max_doc = reader.max_doc()?;
@@ -403,15 +402,15 @@ where
 
   let num_soft_deletes = apply_soft_deletes(&mut iterator, &mut bits, |_| Ok(true))?;
   if num_soft_deletes == 0 {
-    return Ok(CodecReaderEnum2::A(reader));
+    return Ok(SoftDeletesCodecReader::A(reader));
   }
 
   let num_deletes = reader.num_deleted_docs()? + num_soft_deletes;
   let num_docs = max_doc - num_deletes;
   debug_assert!(assert_doc_counts(num_docs, num_soft_deletes, &reader)?);
-  Ok(CodecReaderEnum2::B(SoftDeletesFilterCodecReader::new(
-    reader, bits, num_docs,
-  )?))
+  Ok(SoftDeletesCodecReader::B(
+    SoftDeletesFilterCodecReader::new(reader, bits, num_docs)?,
+  ))
 }
 
 fn assert_doc_counts<LR>(

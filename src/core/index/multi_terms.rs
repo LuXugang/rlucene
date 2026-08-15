@@ -21,8 +21,8 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
 use crate::core::index::postings_enum::ALL;
 use crate::core::index::reader_slice::ReaderSlice;
-use crate::core::index::terms::{Terms, TermsEnum2};
-use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum};
+use crate::core::index::terms::Terms;
+use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum, TermsEnumEnum2};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
@@ -31,10 +31,7 @@ use std::borrow::Cow;
 use std::rc::Rc;
 
 /// Exposes flex API, merged from flex API of sub-segments.
-pub struct MultiTerms<T>
-where
-  T: Terms,
-{
+pub struct MultiTerms<T> {
   subs: Vec<T>,
   sub_slices: Vec<Rc<ReaderSlice>>,
   has_freqs: bool,
@@ -216,10 +213,116 @@ where
   }
 }
 
-pub type TermsType<IR> = TermsEnum2<
-  <IRCLeafReader<IndexReaderContextType<IR>> as LeafReader>::Terms,
-  MultiTerms<<IRCLeafReader<IndexReaderContextType<IR>> as LeafReader>::Terms>,
->;
+pub enum MultiTermsType<T> {
+  A(T),
+  B(MultiTerms<T>),
+}
+
+impl<T> Terms for MultiTermsType<T>
+where
+  T: Terms,
+{
+  type TermsEnum = TermsEnumEnum2<T::TermsEnum, <MultiTerms<T> as Terms>::TermsEnum>;
+  type IntersectIter = TermsEnumEnum2<T::IntersectIter, <MultiTerms<T> as Terms>::IntersectIter>;
+
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    match self {
+      Self::A(terms) => terms.iterator().map(TermsEnumEnum2::A),
+      Self::B(terms) => terms.iterator().map(TermsEnumEnum2::B),
+    }
+  }
+
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    match self {
+      Self::A(terms) => terms.intersect(compiled, start_term).map(TermsEnumEnum2::A),
+      Self::B(terms) => terms.intersect(compiled, start_term).map(TermsEnumEnum2::B),
+    }
+  }
+
+  fn size(&self) -> Result<i64> {
+    match self {
+      Self::A(terms) => terms.size(),
+      Self::B(terms) => terms.size(),
+    }
+  }
+
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    match self {
+      Self::A(terms) => terms.get_sum_total_term_freq(),
+      Self::B(terms) => terms.get_sum_total_term_freq(),
+    }
+  }
+
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    match self {
+      Self::A(terms) => terms.get_sum_doc_freq(),
+      Self::B(terms) => terms.get_sum_doc_freq(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::A(terms) => terms.get_doc_count(),
+      Self::B(terms) => terms.get_doc_count(),
+    }
+  }
+
+  fn has_freqs(&self) -> bool {
+    match self {
+      Self::A(terms) => terms.has_freqs(),
+      Self::B(terms) => terms.has_freqs(),
+    }
+  }
+
+  fn has_offsets(&self) -> bool {
+    match self {
+      Self::A(terms) => terms.has_offsets(),
+      Self::B(terms) => terms.has_offsets(),
+    }
+  }
+
+  fn has_positions(&self) -> bool {
+    match self {
+      Self::A(terms) => terms.has_positions(),
+      Self::B(terms) => terms.has_positions(),
+    }
+  }
+
+  fn has_payloads(&self) -> bool {
+    match self {
+      Self::A(terms) => terms.has_payloads(),
+      Self::B(terms) => terms.has_payloads(),
+    }
+  }
+
+  fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::A(terms) => terms.get_min(),
+      Self::B(terms) => terms.get_min(),
+    }
+  }
+
+  fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::A(terms) => terms.get_max(),
+      Self::B(terms) => terms.get_max(),
+    }
+  }
+
+  fn get_stats(&self) -> Result<String> {
+    match self {
+      Self::A(terms) => terms.get_stats(),
+      Self::B(terms) => terms.get_stats(),
+    }
+  }
+}
+
+pub type TermsType<IR> =
+  MultiTermsType<<IRCLeafReader<IndexReaderContextType<IR>> as LeafReader>::Terms>;
 pub type TermsPostingType<IR> = <<TermsType<IR> as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
 /// This method may return `None` if the field does not exist or if it has no terms.
 pub fn get_terms<IR>(reader: IR, field: &str) -> Result<Option<TermsType<IR>>>
@@ -232,7 +335,7 @@ where
 
   if leaves.len() == 1 {
     return match leaves[0].reader().terms(field)? {
-      Some(terms) => Ok(Some(TermsEnum2::A(terms))),
+      Some(terms) => Ok(Some(TermsType::<IR>::A(terms))),
       None => return Ok(None),
     };
   }
@@ -254,7 +357,7 @@ where
   if terms_per_leaf.is_empty() {
     Ok(None)
   } else {
-    Ok(Some(TermsEnum2::B(MultiTerms::new(
+    Ok(Some(TermsType::<IR>::B(MultiTerms::new(
       terms_per_leaf,
       slice_per_leaf,
     )?)))

@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::index_reader::Identity;
+use crate::core::util::HasIdentity;
 use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::fixed_bit_set::FixedBitSet;
 
 /// A trait for scoring random nodes in batches against an abstract query.
 pub trait RandomVectorScorer {
@@ -64,6 +67,81 @@ pub trait RandomVectorScorer {
   fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Result<Option<Self::Bits<'a, B>>>
   where
     B: Bits;
+}
+
+pub enum RandomVectorScorerBits3<A, B, C> {
+  A(A),
+  B(B),
+  C(C),
+}
+
+impl<A, B, C> Clone for RandomVectorScorerBits3<A, B, C>
+where
+  A: Clone,
+  B: Clone,
+  C: Clone,
+{
+  fn clone(&self) -> Self {
+    match self {
+      Self::A(bits) => Self::A(bits.clone()),
+      Self::B(bits) => Self::B(bits.clone()),
+      Self::C(bits) => Self::C(bits.clone()),
+    }
+  }
+}
+
+impl<A, B, C> HasIdentity for RandomVectorScorerBits3<A, B, C>
+where
+  A: HasIdentity,
+  B: HasIdentity,
+  C: HasIdentity,
+{
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::A(bits) => bits.identity(),
+      Self::B(bits) => bits.identity(),
+      Self::C(bits) => bits.identity(),
+    }
+  }
+}
+
+impl<A, B, C> Bits for RandomVectorScorerBits3<A, B, C>
+where
+  A: Bits,
+  B: Bits,
+  C: Bits,
+{
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      Self::A(bits) => bits.get(index),
+      Self::B(bits) => bits.get(index),
+      Self::C(bits) => bits.get(index),
+    }
+  }
+
+  fn length(&self) -> usize {
+    match self {
+      Self::A(bits) => bits.length(),
+      Self::B(bits) => bits.length(),
+      Self::C(bits) => bits.length(),
+    }
+  }
+
+  fn copy_of(&self) -> Result<FixedBitSet> {
+    match self {
+      Self::A(bits) => bits.copy_of(),
+      Self::B(bits) => bits.copy_of(),
+      Self::C(bits) => bits.copy_of(),
+    }
+  }
+
+  fn to_string(&self) -> String {
+    match self {
+      Self::A(bits) => bits.to_string(),
+      Self::B(bits) => bits.to_string(),
+      Self::C(bits) => bits.to_string(),
+    }
+  }
 }
 
 macro_rules! either_random_vector_scorer {
@@ -138,16 +216,18 @@ either_random_vector_scorer!(
 either_random_vector_scorer!(
     pub RandomVectorScorerEnum3 {
         bits_param = Q;
-        bits = BitsEnum2<BitsEnum2<A::Bits<'a, Q>, B::Bits<'a, Q>>, C::Bits<'a, Q>>;
+        bits = RandomVectorScorerBits3<A::Bits<'a, Q>, B::Bits<'a, Q>, C::Bits<'a, Q>>;
         accept_ords = |self, accept_docs| {
             Ok(match self {
                 Self::A(inner) => inner
                     .get_accept_ords(accept_docs)?
-                    .map(|bits| BitsEnum2::A(BitsEnum2::A(bits))),
+                    .map(RandomVectorScorerBits3::A),
                 Self::B(inner) => inner
                     .get_accept_ords(accept_docs)?
-                    .map(|bits| BitsEnum2::A(BitsEnum2::B(bits))),
-                Self::C(inner) => inner.get_accept_ords(accept_docs)?.map(BitsEnum2::B),
+                    .map(RandomVectorScorerBits3::B),
+                Self::C(inner) => inner
+                    .get_accept_ords(accept_docs)?
+                    .map(RandomVectorScorerBits3::C),
             })
         };
         A: A,

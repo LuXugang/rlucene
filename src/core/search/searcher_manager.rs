@@ -29,20 +29,13 @@ use crate::core::search::searcher_factory::SearcherFactory;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use std::marker::PhantomData;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 type ManagedSearcher<DR> = IndexSearcher<CompositeReaderContext<Arc<DR>>>;
 
-struct SearcherManagerBase<DR>
-where
-  DR: DirectoryReader<DirectoryReader = DR> + 'static,
-  DR::ContextKind: IndexReaderContextKind<Arc<DR>, Context = CompositeReaderContext<Arc<DR>>>,
-  CompositeReaderContext<Arc<DR>>: Sync + 'static,
-{
+struct SearcherManagerBase<DR> {
   searcher_factory: SearcherFactory<DR>,
-  marker: PhantomData<fn() -> DR>,
 }
 
 /// Utility struct for safely sharing [`IndexSearcher`] instances across multiple threads, while
@@ -127,13 +120,7 @@ where
       None,
     )?;
     Ok(Self {
-      reference_manager: ReferenceManager::new(
-        current,
-        SearcherManagerBase {
-          searcher_factory,
-          marker: PhantomData,
-        },
-      ),
+      reference_manager: ReferenceManager::new(current, SearcherManagerBase { searcher_factory }),
     })
   }
 
@@ -156,13 +143,7 @@ where
       None,
     )?;
     Ok(Self {
-      reference_manager: ReferenceManager::new(
-        current,
-        SearcherManagerBase {
-          searcher_factory,
-          marker: PhantomData,
-        },
-      ),
+      reference_manager: ReferenceManager::new(current, SearcherManagerBase { searcher_factory }),
     })
   }
 }
@@ -186,13 +167,7 @@ where
     let searcher_factory = searcher_factory.unwrap_or_default();
     let current = get_searcher(&searcher_factory, Arc::new(reader), None)?;
     Ok(Self {
-      reference_manager: ReferenceManager::new(
-        current,
-        SearcherManagerBase {
-          searcher_factory,
-          marker: PhantomData,
-        },
-      ),
+      reference_manager: ReferenceManager::new(current, SearcherManagerBase { searcher_factory }),
     })
   }
 }

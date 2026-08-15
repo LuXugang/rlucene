@@ -423,10 +423,7 @@ pub type CRBits<CR> = <CR as LeafReader>::Bits;
 pub type StoredFieldsType<SF> = StoredFieldsImpl<SF>;
 pub type TermVectorsType<TVR> = TermVectorsEnum2<EmptyTermVectors, TVR>;
 
-pub struct StoredFieldsImpl<SF>
-where
-  SF: StoredFields,
-{
+pub struct StoredFieldsImpl<SF> {
   reader: SF,
   max_doc: i32,
 }
@@ -471,14 +468,18 @@ where
 }
 
 macro_rules! either_codec_reader {
-    ($vis:vis $name:ident { A: $A:ident, B: $B:ident $(,)? }) => {
-        $vis enum $name<$A, $B> {
+    ($vis:vis $name:ident<$($G:ident),+> where [$($base:tt)*] { A: $A:ty, B: $B:ty $(,)? }) => {
+        $vis enum $name<$($G),+>
+        where
+            $($base)*
+        {
             A($A),
             B($B),
         }
 
-        impl<$A, $B> Clone for $name<$A, $B>
+        impl<$($G),+> Clone for $name<$($G),+>
         where
+            $($base)*
             $A: Clone,
             $B: Clone,
         {
@@ -490,10 +491,11 @@ macro_rules! either_codec_reader {
             }
         }
 
-        impl<$A, $B> Display for $name<$A, $B>
+        impl<$($G),+> Display for $name<$($G),+>
         where
-            $A: CodecReader,
-            $B: CodecReader,
+            $($base)*
+            $A: Display,
+            $B: Display,
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
                 match self {
@@ -503,10 +505,11 @@ macro_rules! either_codec_reader {
             }
         }
 
-        impl<$A, $B> IndexReader for $name<$A, $B>
+        impl<$($G),+> IndexReader for $name<$($G),+>
         where
-            $A: CodecReader,
-            $B: CodecReader,
+            $($base)*
+            $A: LeafReader,
+            $B: LeafReader,
         {
             type ContextKind = LeafReaderContextKind;
 
@@ -603,10 +606,11 @@ macro_rules! either_codec_reader {
             }
         }
 
-        impl<$A, $B> LeafReader for $name<$A, $B>
+        impl<$($G),+> LeafReader for $name<$($G),+>
         where
-            $A: CodecReader,
-            $B: CodecReader,
+            $($base)*
+            $A: LeafReader,
+            $B: LeafReader,
         {
             type CacheHelper = CacheHelperEnum2<
                 <$A as LeafReader>::CacheHelper,
@@ -807,8 +811,9 @@ macro_rules! either_codec_reader {
             }
         }
 
-        impl<$A, $B> CodecReader for $name<$A, $B>
+        impl<$($G),+> CodecReader for $name<$($G),+>
         where
+            $($base)*
             $A: CodecReader,
             $B: CodecReader,
             <$B as CodecReader>::StoredFieldsReader: RawStoredFieldsReader<
@@ -912,7 +917,28 @@ macro_rules! either_codec_reader {
     };
 }
 
-either_codec_reader!(pub CodecReaderEnum2 { A: A, B: B });
+either_codec_reader!(pub CodecReaderEnum2<A, B> where [] { A: A, B: B });
+
+either_codec_reader!(
+    pub(crate) SlowCompositeCodecReader<CR>
+    where [CR: CodecReader + Clone,]
+    {
+        A: CR,
+        B: crate::core::index::slow_composite_codec_reader_wrapper::SlowCompositeCodecReaderWrapper<CR>,
+    }
+);
+
+either_codec_reader!(
+    pub SoftDeletesCodecReader<CR>
+    where [
+        CR: CodecReader,
+        CR::ReaderCacheHelper: Clone,
+    ]
+    {
+        A: CR,
+        B: crate::core::index::soft_deletes_directory_reader_wrapper::SoftDeletesFilterCodecReader<CR>,
+    }
+);
 
 impl<CR> CodecReader for Arc<CR>
 where

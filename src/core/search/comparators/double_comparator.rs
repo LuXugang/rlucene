@@ -123,7 +123,12 @@ pub struct DoubleLeafComparator<LR>
 where
   LR: LeafReader,
 {
-  base: NumericLeafComparator<LR, NumericLeafComparatorDocValues<LR>, f64, DoubleConverter>,
+  base: NumericLeafComparator<
+    <LR as LeafReader>::PointValues,
+    NumericLeafComparatorDocValues<LR>,
+    f64,
+    DoubleConverter,
+  >,
 }
 
 impl<LR> DoubleLeafComparator<LR>

@@ -545,7 +545,7 @@ where
 {
   top_level_scoring_clause: bool,
   term_states: Arc<Mutex<TermStates>>,
-  prepare_state: PrepareState<LR>,
+  prepare_state: PrepareState<LRTermsEnum<LR>>,
   term: Arc<Term>,
   sim_scorer: Arc<TermQuerySimScorer>,
   score_mode: ScoreMode,
@@ -559,7 +559,7 @@ where
   pub fn new(
     top_level_scoring_clause: bool,
     term_states: Arc<Mutex<TermStates>>,
-    prepare_state: PrepareState<LR>,
+    prepare_state: PrepareState<LRTermsEnum<LR>>,
     term: Arc<Term>,
     sim_scorer: Arc<TermQuerySimScorer>,
     score_mode: ScoreMode,

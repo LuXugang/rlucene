@@ -39,7 +39,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::long_values::LongValuesEnum6;
+use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_reader::DirectPackedEnum;
 use std::borrow::Cow;
 
@@ -222,10 +222,7 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub enum SparseBinaryDocValuesBaseEnum<R>
-where
-  R: RandomAccessInput,
-{
+pub enum SparseBinaryDocValuesBaseEnum<R> {
   Sparse(SparseBinaryDocValuesBaseImpl<R>),
   Sparse1(SparseBinaryDocValuesBaseImpl1<R>),
 }
@@ -245,10 +242,7 @@ where
   }
 }
 
-pub enum DenseBinaryDocValuesBaseEnum<R>
-where
-  R: RandomAccessInput,
-{
+pub enum DenseBinaryDocValuesBaseEnum<R> {
   Dense(DenseBinaryDocValuesBaseImpl<R>),
   Dense1(DenseBinaryDocValuesBaseImpl1<R>),
 }
@@ -264,19 +258,43 @@ where
     }
   }
 }
-pub type LongValuesEnums<R> = LongValuesEnum6<
-  LongValuesImpl,
-  LongValuesImpl1<R>,
-  LongValuesImpl2<R>,
-  LongValuesImpl3<R>,
-  LongValuesImpl4<R>,
-  DirectPackedEnum<R>,
->;
+pub enum LongValuesEnums<R> {
+  Constant(LongValuesImpl),
+  Block(LongValuesImpl1<R>),
+  Table(LongValuesImpl2<R>),
+  Gcd(LongValuesImpl3<R>),
+  Delta(LongValuesImpl4<R>),
+  Direct(DirectPackedEnum<R>),
+}
 
-pub enum SparseNumericDocValuesSubEnum<R>
+impl<R> LongValues for LongValuesEnums<R>
 where
   R: RandomAccessInput,
 {
+  fn get_mut(&mut self, index: usize) -> Result<i64> {
+    match self {
+      Self::Constant(values) => values.get_mut(index),
+      Self::Block(values) => values.get_mut(index),
+      Self::Table(values) => values.get_mut(index),
+      Self::Gcd(values) => values.get_mut(index),
+      Self::Delta(values) => values.get_mut(index),
+      Self::Direct(values) => values.get_mut(index),
+    }
+  }
+
+  fn get(&self, index: usize) -> Result<i64> {
+    match self {
+      Self::Constant(values) => values.get(index),
+      Self::Block(values) => values.get(index),
+      Self::Table(values) => values.get(index),
+      Self::Gcd(values) => values.get(index),
+      Self::Delta(values) => values.get(index),
+      Self::Direct(values) => values.get(index),
+    }
+  }
+}
+
+pub enum SparseNumericDocValuesSubEnum<R> {
   Sparse(SparseNumericDocValuesBaseImpl),
   Sparse1(SparseNumericDocValuesBaseImpl1<R>),
   Sparse2(SparseNumericDocValuesBaseImpl2<R>),
@@ -302,10 +320,7 @@ where
   }
 }
 
-pub enum DenseNumericDocValuesSubEnum<R>
-where
-  R: RandomAccessInput,
-{
+pub enum DenseNumericDocValuesSubEnum<R> {
   Dense(DenseNumericDocValuesBaseImpl),
   Dense1(DenseNumericDocValuesBaseImpl1<R>),
   Dense2(DenseNumericDocValuesBaseImpl2<R>),

@@ -28,30 +28,20 @@ use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /// Expert: A Scorer for documents matching a Term.
-pub struct TermScorer<PE, SS, N, IE>
-where
-  PE: PostingsEnum,
-  SS: SimScorer,
-  N: NumericDocValues,
-  IE: ImpactsEnum,
-{
+pub struct TermScorer<PE, SS, N, IE> {
   norms: Option<N>,
   impacts_disi: Option<ImpactsDISI<DummyDISI, IE, SS>>,
   max_score_cache: Option<MaxScoreCache<ImpactsEnums<IE, PE>, SS>>,
 }
 
-enum TSPostings<'a, IE, PE>
-where
-  IE: ImpactsEnum,
-  PE: PostingsEnum,
-{
+enum TSPostings<'a, IE, PE> {
   Impacts(&'a mut IE),
   Posting(&'a mut PE),
 }
 
 impl<'a, IE, PE> TSPostings<'a, IE, PE>
 where
-  IE: ImpactsEnum,
+  IE: PostingsEnum,
   PE: PostingsEnum,
 {
   fn freq(&mut self) -> Result<i32> {
@@ -70,10 +60,7 @@ where
 }
 impl<PE, SS, N, IE> TermScorer<PE, SS, N, IE>
 where
-  PE: PostingsEnum,
   SS: SimScorer,
-  N: NumericDocValues,
-  IE: ImpactsEnum,
 {
   /// Construct a [`TermScorer`] that will iterate all documents.
   pub fn from_postings(postings_enum: PE, scorer: SS, norms: Option<N>) -> Self {
@@ -107,6 +94,15 @@ where
       max_score_cache,
     }
   }
+}
+
+impl<PE, SS, N, IE> TermScorer<PE, SS, N, IE>
+where
+  PE: PostingsEnum,
+  SS: SimScorer,
+  N: NumericDocValues,
+  IE: ImpactsEnum,
+{
   /// Returns term frequency in the current document.
   pub fn freq(&mut self) -> Result<i32> {
     let mut postings = self.postings()?;
@@ -187,14 +183,7 @@ where
   }
 }
 
-impl<PE, SS, N, IE> crate::core::search::scorable::FixedScore for TermScorer<PE, SS, N, IE>
-where
-  IE: ImpactsEnum + 'static,
-  N: NumericDocValues,
-  PE: PostingsEnum + 'static,
-  SS: SimScorer + 'static,
-{
-}
+impl<PE, SS, N, IE> crate::core::search::scorable::FixedScore for TermScorer<PE, SS, N, IE> {}
 
 impl<PE, SS, N, IE> Scorer for TermScorer<PE, SS, N, IE>
 where

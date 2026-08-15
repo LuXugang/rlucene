@@ -47,7 +47,7 @@ macro_rules! either_fields_producer {
 
         impl<$( $T ),+> CloseableRef for $name<$( $T ),+>
         where
-            $( $T: FieldsProducer ),+
+            $( $T: CloseableRef ),+
         {
             fn close(&self) -> Result<()> {
                 match self {
@@ -58,10 +58,10 @@ macro_rules! either_fields_producer {
 
         impl<$( $T ),+> Fields for $name<$( $T ),+>
         where
-            $( $T: FieldsProducer ),+
+            $( $T: Fields ),+
         {
             type FieldIter<'a> =
-                FieldIterEnum2<'a, $( <$T as Fields>::FieldIter<'a> ),+>
+                FieldIterEnum2<$( <$T as Fields>::FieldIter<'a> ),+>
             where
                 $( $T: 'a ),+;
 

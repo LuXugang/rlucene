@@ -17,7 +17,7 @@
 pub(crate) use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::index_reader_context::IndexReaderContext;
-use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::leaf_reader::{LRTermsEnum, LeafReader};
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 use crate::core::index::term::Term;
 use crate::core::index::term_state::TermState;
@@ -148,7 +148,10 @@ impl TermStates {
   ///
   /// # Returns
   /// A [`PrepareState`] for a [`TermState`].
-  pub fn get<LR>(&mut self, ctx: &LeafReaderContext<LR>) -> Result<Option<PrepareState<LR>>>
+  pub fn get<LR>(
+    &mut self,
+    ctx: &LeafReaderContext<LR>,
+  ) -> Result<Option<PrepareState<LRTermsEnum<LR>>>>
   where
     LR: LeafReader,
   {
@@ -189,10 +192,9 @@ impl TermStates {
       Ok(Some(PrepareState::Ready(ctx_ord)))
     }
   }
-  pub fn resolve<LR>(&mut self, state: &mut PrepareState<LR>) -> Result<Option<Arc<TermStateEnum>>>
+  pub fn resolve<TE>(&mut self, state: &mut PrepareState<TE>) -> Result<Option<Arc<TermStateEnum>>>
   where
-    LR: LeafReader,
-    <<LR as LeafReader>::Terms as Terms>::TermsEnum: TermsEnum,
+    TE: TermsEnum,
   {
     match state {
       PrepareState::Ready(ord) => Ok(self.states[*ord].clone()),
@@ -310,16 +312,9 @@ impl TermState for EmptyTermState {
   }
 }
 
-pub enum PrepareState<LR>
-where
-  LR: LeafReader,
-{
+pub enum PrepareState<TE> {
   Ready(usize),
-  Pending(
-    Arc<Term>,
-    usize,
-    <<LR as LeafReader>::Terms as Terms>::TermsEnum,
-  ),
+  Pending(Arc<Term>, usize, TE),
 }
 
 pub fn build<IRC, T>(

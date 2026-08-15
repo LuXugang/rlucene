@@ -19,7 +19,6 @@ use crate::core::document::xy_point_distance_comparator::XYPointDistanceComparat
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values::{Binary, DocValues};
-use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
@@ -911,7 +910,7 @@ impl FieldComparator for TermValComparator {
   }
 
   type LeafFieldComparator<LR>
-    = TermValLeafComparator<LR>
+    = TermValLeafComparator<Binary<LR>>
   where
     LR: LeafReader;
 
@@ -935,25 +934,21 @@ impl FieldComparator for TermValComparator {
     }
   }
 }
-pub struct TermValLeafComparator<LR>
-where
-  LR: LeafReader,
-{
-  doc_terms: Binary<LR>,
+pub struct TermValLeafComparator<B> {
+  doc_terms: B,
 }
 
-impl<LR> TermValLeafComparator<LR>
-where
-  LR: LeafReader,
-{
-  pub fn new(doc_terms: Binary<LR>) -> Self {
+impl<B> TermValLeafComparator<B> {
+  pub fn new(doc_terms: B) -> Self {
     Self { doc_terms }
   }
+}
 
-  fn get_value_for_doc(
-    doc_terms: &mut Binary<LR>,
-    doc: i32,
-  ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+impl<B> TermValLeafComparator<B>
+where
+  B: BinaryDocValues,
+{
+  fn get_value_for_doc(doc_terms: &mut B, doc: i32) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if doc_terms.advance_exact(doc)? {
       Ok(Some(doc_terms.binary_value()?))
     } else {
@@ -962,9 +957,9 @@ where
   }
 }
 
-impl<LR> LeafFieldComparator for TermValLeafComparator<LR>
+impl<B> LeafFieldComparator for TermValLeafComparator<B>
 where
-  LR: LeafReader,
+  B: BinaryDocValues,
 {
   type FieldComparator = TermValComparator;
   fn set_bottom(&mut self, slot: usize, comparator: &mut Self::FieldComparator) -> Result<()> {
@@ -1040,5 +1035,5 @@ where
   type DocIdSetIteratorRef<'a>
     = &'a mut DummyDISI
   where
-    LR: 'a;
+    B: 'a;
 }

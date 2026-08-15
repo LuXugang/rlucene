@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::store::directory::Directory;
+use crate::core::store::IndexOutput;
 use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_block_pool_reverse_bytes_reader::ByteBlockPoolReverseBytesReader;
@@ -32,10 +32,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::abstract_paged_mutable::AbstractPagedMutable;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::{ByteBlockPool, TryIntoInt};
-pub struct NodeHash<T>
-where
-  T: OutputsBound,
-{
+pub struct NodeHash<T> {
   // primary table -- we add nodes into this until it reaches the requested
   // tableSizeLimit/2, then we move it to fallback
   primary_table: PagedGrowableHash<T>,
@@ -87,14 +84,14 @@ where
       enable,
     })
   }
-  fn get_fallback<O, D>(
+  fn get_fallback<O, DO>(
     node_in_index: usize,
     hash: usize,
-    fst_compiler: &mut FSTCompiler<O, D>,
+    fst_compiler: &mut FSTCompiler<O, DO>,
   ) -> Result<i64>
   where
     O: Outputs<V = T>,
-    D: Directory,
+    DO: IndexOutput,
   {
     let fallback_table = {
       let node_hash = &mut fst_compiler.dedup_hash;
@@ -139,10 +136,10 @@ where
       },
     }
   }
-  pub fn add<O, D>(node_in_index: usize, fst_compiler: &mut FSTCompiler<O, D>) -> Result<i64>
+  pub fn add<O, DO>(node_in_index: usize, fst_compiler: &mut FSTCompiler<O, DO>) -> Result<i64>
   where
     O: Outputs<V = T>,
-    D: Directory,
+    DO: IndexOutput,
   {
     debug_assert!(fst_compiler.dedup_hash.enable);
     let (mut hash_slot, mut c, hash) = {
@@ -301,10 +298,7 @@ where
 }
 
 /// Inner struct because it needs access to hash function and FST bytes.
-pub struct PagedGrowableHash<T>
-where
-  T: OutputsBound,
-{
+pub struct PagedGrowableHash<T> {
   count: i64,
   mask: usize,
   inner: Inner,

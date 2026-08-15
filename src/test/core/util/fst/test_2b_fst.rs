@@ -26,7 +26,7 @@ use rand::{RngExt, SeedableRng};
 
 use crate::core::index::BytesRef;
 use crate::core::store::directory::Directory;
-use crate::core::store::dummy::dummy_directory::DummyDirectory;
+use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::store::{DataInput, IOContext};
 use crate::core::util::IOUtils;
@@ -64,7 +64,7 @@ fn test() -> Result<()> {
       println!("\nTEST: ~2.2B nodes; output=NO_OUTPUTS");
       let outputs = NoOutputs::get_singleton().clone();
       let no_output = outputs.get_no_output();
-      let builder: Builder<_, DummyDirectory> = Builder::new(InputType::Byte1, outputs.clone());
+      let builder: Builder<_, DummyIndexOutput> = Builder::new(InputType::Byte1, outputs.clone());
       let mut fst_compiler = builder.build()?;
 
       let mut count = 0;
@@ -196,7 +196,7 @@ fn test() -> Result<()> {
     {
       println!("\nTEST: 3 GB size; outputs=bytes");
       let outputs = ByteSequenceOutputs::get_singleton().clone();
-      let builder: Builder<_, DummyDirectory> = Builder::new(InputType::Byte1, outputs.clone());
+      let builder: Builder<_, DummyIndexOutput> = Builder::new(InputType::Byte1, outputs.clone());
       let mut fst_compiler = builder.build()?;
 
       let mut output_bytes = vec![0; 20];
@@ -321,7 +321,7 @@ fn test() -> Result<()> {
     {
       println!("\nTEST: 3 GB size; outputs=long");
       let outputs = PositiveIntOutputs::get_singleton().clone();
-      let builder: Builder<_, DummyDirectory> = Builder::new(InputType::Byte1, outputs.clone());
+      let builder: Builder<_, DummyIndexOutput> = Builder::new(InputType::Byte1, outputs.clone());
       let mut fst_compiler = builder.build()?;
 
       let mut output = 1_i64;

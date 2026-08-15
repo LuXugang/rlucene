@@ -343,23 +343,20 @@ where
 
   Ok(doc)
 }
-pub struct ScorerSupplierImpl3<LR>
-where
-  LR: LeafReader,
-{
+pub struct ScorerSupplierImpl3<S> {
   query: SortedSetDocValuesRangeQuery,
-  values: Option<SortedSet<LR>>,
+  values: Option<S>,
   cost: i64,
   score: f32,
   score_mode: ScoreMode,
 }
-impl<LR> ScorerSupplierImpl3<LR>
+impl<S> ScorerSupplierImpl3<S>
 where
-  LR: LeafReader,
+  S: SortedSetDocValues,
 {
   pub fn new(
     query: SortedSetDocValuesRangeQuery,
-    values: SortedSet<LR>,
+    values: S,
     score: f32,
     score_mode: ScoreMode,
   ) -> Result<Self> {
@@ -373,7 +370,7 @@ where
     })
   }
 }
-impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl3<IRCLeafReader<IRC>>
+impl<IRC> ScorerSupplier<IRC> for ScorerSupplierImpl3<SortedSet<IRCLeafReader<IRC>>>
 where
   IRC: IndexReaderContext,
 {
@@ -498,19 +495,13 @@ where
     Ok(self.cost)
   }
 }
-pub struct TwoPhaseIterator5<S>
-where
-  S: SortedDocValues,
-{
+pub struct TwoPhaseIterator5<S> {
   singleton: S,
   min_ord: i64,
   max_ord: i64,
 }
 
-impl<S> TwoPhaseIterator5<S>
-where
-  S: SortedDocValues,
-{
+impl<S> TwoPhaseIterator5<S> {
   pub fn new(singleton: S, min_ord: i64, max_ord: i64) -> Self {
     TwoPhaseIterator5 {
       singleton,
@@ -541,19 +532,13 @@ where
     2f32
   }
 }
-pub struct TwoPhaseIterator6<S>
-where
-  S: SortedSetDocValues,
-{
+pub struct TwoPhaseIterator6<S> {
   values: S,
   min_ord: i64,
   max_ord: i64,
 }
 
-impl<S> TwoPhaseIterator6<S>
-where
-  S: SortedSetDocValues,
-{
+impl<S> TwoPhaseIterator6<S> {
   pub fn new(values: S, min_ord: i64, max_ord: i64) -> Self {
     TwoPhaseIterator6 {
       values,

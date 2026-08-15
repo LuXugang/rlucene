@@ -592,7 +592,7 @@ where
   docs_with_field: Option<TermOrdValDocValues<LR>>,
   // if docs_with_field is active, dense must be false
   using_skip: bool,
-  disjunction: Option<PriorityQueue<PostingsEnumAndOrd<LR>, PostingsEnumAndOrdCmp>>,
+  disjunction: Option<PriorityQueue<PostingsEnumAndOrd<LRPosting<LR>>, PostingsEnumAndOrdCmp>>,
 }
 impl<LR> TermOrdValCompetitiveIterator<LR>
 where
@@ -695,7 +695,7 @@ where
         )));
       }
 
-      disjunction.add(PostingsEnumAndOrd::<LR>::new(
+      disjunction.add(PostingsEnumAndOrd::new(
         self.terms.postings_with_flags(None, NONE as i32)?,
         min_ord,
       ))?;
@@ -783,27 +783,21 @@ where
     Ok(self.max_doc as i64)
   }
 }
-struct PostingsEnumAndOrd<LR>
-where
-  LR: LeafReader,
-{
-  postings: LRPosting<LR>,
+struct PostingsEnumAndOrd<PE> {
+  postings: PE,
   ord: i32,
 }
-impl<LR> PostingsEnumAndOrd<LR>
-where
-  LR: LeafReader,
-{
-  pub fn new(postings: LRPosting<LR>, ord: i32) -> Self {
+impl<PE> PostingsEnumAndOrd<PE> {
+  pub fn new(postings: PE, ord: i32) -> Self {
     Self { postings, ord }
   }
 }
 struct PostingsEnumAndOrdCmp;
-impl<LR> Compare<PostingsEnumAndOrd<LR>> for PostingsEnumAndOrdCmp
+impl<PE> Compare<PostingsEnumAndOrd<PE>> for PostingsEnumAndOrdCmp
 where
-  LR: LeafReader,
+  PE: DocIdSetIterator,
 {
-  fn less_than(&self, a: &PostingsEnumAndOrd<LR>, b: &PostingsEnumAndOrd<LR>) -> Result<bool> {
+  fn less_than(&self, a: &PostingsEnumAndOrd<PE>, b: &PostingsEnumAndOrd<PE>) -> Result<bool> {
     Ok(a.postings.doc_id() < b.postings.doc_id())
   }
 }

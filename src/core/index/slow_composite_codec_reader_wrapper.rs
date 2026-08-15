@@ -29,7 +29,7 @@ use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVec
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
   CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer, CRPointsReader,
-  CRStoredFieldsReader, CRTermVectorsReader, CodecReader, CodecReaderEnum2,
+  CRStoredFieldsReader, CRTermVectorsReader, CodecReader, SlowCompositeCodecReader,
 };
 use crate::core::index::doc_values::DocValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
@@ -84,9 +84,7 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
 
-pub(crate) fn wrap<CR>(
-  mut readers: Vec<CR>,
-) -> Result<CodecReaderEnum2<CR, SlowCompositeCodecReaderWrapper<CR>>>
+pub(crate) fn wrap<CR>(mut readers: Vec<CR>) -> Result<SlowCompositeCodecReader<CR>>
 where
   CR: CodecReader + Clone,
 {
@@ -94,10 +92,10 @@ where
     0 => Err(LuceneError::illegal_argument(
       "Must take at least one reader, got 0",
     )),
-    1 => Ok(CodecReaderEnum2::A(readers.pop().unwrap())),
-    _ => Ok(CodecReaderEnum2::B(SlowCompositeCodecReaderWrapper::new(
-      readers,
-    )?)),
+    1 => Ok(SlowCompositeCodecReader::A(readers.pop().unwrap())),
+    _ => Ok(SlowCompositeCodecReader::B(
+      SlowCompositeCodecReaderWrapper::new(readers)?,
+    )),
   }
 }
 
@@ -471,10 +469,7 @@ where
   }
 }
 
-pub struct StoredFieldsImpl<SF>
-where
-  SF: StoredFields,
-{
+pub struct StoredFieldsImpl<SF> {
   reader: SF,
   max_doc: i32,
 }
@@ -532,18 +527,12 @@ fn doc_id_to_reader_id(doc: i32, doc_starts: &[usize]) -> Result<usize> {
   }
 }
 
-pub struct SlowCompositeStoredFieldsReaderWrapper<SFR>
-where
-  SFR: StoredFieldsReader,
-{
+pub struct SlowCompositeStoredFieldsReaderWrapper<SFR> {
   doc_starts: Arc<Vec<usize>>,
   readers: Vec<Option<SFR>>,
   field_infos: Arc<FieldInfos>,
 }
-impl<SFR> SlowCompositeStoredFieldsReaderWrapper<SFR>
-where
-  SFR: StoredFieldsReader,
-{
+impl<SFR> SlowCompositeStoredFieldsReaderWrapper<SFR> {
   pub fn new(
     doc_starts: Arc<Vec<usize>>,
     readers: Vec<Option<SFR>>,
@@ -616,7 +605,7 @@ where
 
 impl<SFR> CloseableRef for SlowCompositeStoredFieldsReaderWrapper<SFR>
 where
-  SFR: StoredFieldsReader,
+  SFR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs(self.readers.iter().flatten())
@@ -642,10 +631,7 @@ where
   type IndexInput = SFR::IndexInput;
 }
 
-pub struct StoredFieldVisitorImpl<'a, SFV>
-where
-  SFV: StoredFieldVisitor,
-{
+pub struct StoredFieldVisitorImpl<'a, SFV> {
   visitor: &'a mut SFV,
   field_infos: Arc<FieldInfos>,
 }
@@ -767,18 +753,12 @@ where
   }
 }
 
-pub struct SlowCompositeTermVectorsReaderWrapper<TVR>
-where
-  TVR: TermVectorsReader,
-{
+pub struct SlowCompositeTermVectorsReaderWrapper<TVR> {
   doc_starts: Arc<Vec<usize>>,
   readers: Vec<Option<TVR>>,
 }
 
-impl<TVR> SlowCompositeTermVectorsReaderWrapper<TVR>
-where
-  TVR: TermVectorsReader,
-{
+impl<TVR> SlowCompositeTermVectorsReaderWrapper<TVR> {
   pub fn new(doc_starts: Arc<Vec<usize>>, readers: Vec<Option<TVR>>) -> Self {
     Self {
       doc_starts,
@@ -860,7 +840,7 @@ where
 
 impl<TVR> CloseableRef for SlowCompositeTermVectorsReaderWrapper<TVR>
 where
-  TVR: TermVectorsReader,
+  TVR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs(self.readers.iter().flatten())
@@ -888,7 +868,7 @@ where
 
 pub struct SlowCompositeNormsProducer<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   codec_readers: Vec<CR>,
   producers: Vec<Option<CRNormsProducer<CR>>>,
@@ -912,7 +892,7 @@ where
 
 impl<CR> CloseableRef for SlowCompositeNormsProducer<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs(self.producers.iter().flatten())
@@ -946,7 +926,7 @@ where
 
 pub struct SlowCompositeDocValuesProducerWrapper<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   codec_readers: Vec<CR>,
   producers: Vec<Option<CRDocValuesProducer<CR>>>,
@@ -974,7 +954,7 @@ where
 
 impl<CR> CloseableRef for SlowCompositeDocValuesProducerWrapper<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs(self.producers.iter().flatten())
@@ -1138,14 +1118,14 @@ where
 
 pub struct SlowCompositeFieldsProducerWrapper<FP>
 where
-  FP: FieldsProducer,
+  FP: Fields,
 {
   fields: MultiFields<FP>,
 }
 
 impl<FP> SlowCompositeFieldsProducerWrapper<FP>
 where
-  FP: FieldsProducer,
+  FP: Fields,
 {
   pub fn new(producers: Vec<Option<FP>>, doc_starts: &[usize]) -> Result<Self> {
     let mut subs = Vec::new();
@@ -1170,7 +1150,7 @@ where
 
 impl<FP> CloseableRef for SlowCompositeFieldsProducerWrapper<FP>
 where
-  FP: FieldsProducer,
+  FP: Fields + CloseableRef,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs(self.fields.subs.iter())
@@ -1213,18 +1193,12 @@ where
   }
 }
 
-pub struct PointValuesSub<PV>
-where
-  PV: PointValues,
-{
+pub struct PointValuesSub<PV> {
   pub sub: PV,
   pub doc_base: i32,
 }
 
-impl<PV> PointValuesSub<PV>
-where
-  PV: PointValues,
-{
+impl<PV> PointValuesSub<PV> {
   pub fn new(sub: PV, doc_base: i32) -> Self {
     Self { sub, doc_base }
   }
@@ -1232,7 +1206,7 @@ where
 
 pub struct SlowCompositeKnnVectorsReaderWrapper<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   codec_readers: Vec<CR>,
   readers: Vec<Option<CRKnnVectorReader<CR>>>,
@@ -1257,7 +1231,7 @@ where
 
 impl<CR> CloseableRef for SlowCompositeKnnVectorsReaderWrapper<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs(self.readers.iter().flatten())
@@ -1367,19 +1341,13 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 }
-pub struct DocValuesSub<T>
-where
-  T: KnnVectorValues,
-{
+pub struct DocValuesSub<T> {
   pub sub: Option<T>,
   pub doc_start: i32,
   pub ord_start: i32,
 }
 
-impl<T> DocValuesSub<T>
-where
-  T: KnnVectorValues,
-{
+impl<T> DocValuesSub<T> {
   pub fn new(sub: Option<T>, doc_start: i32, ord_start: i32) -> Self {
     Self {
       sub,
@@ -1388,10 +1356,7 @@ where
     }
   }
 }
-pub struct MergedDocIterator<T>
-where
-  T: DocIndexIterator,
-{
+pub struct MergedDocIterator<T> {
   subs: Vec<DocIteratorSub<T>>,
   current: usize,
   current_iter: Option<T>,
@@ -1399,10 +1364,7 @@ where
   doc: i32,
 }
 
-struct DocIteratorSub<T>
-where
-  T: DocIndexIterator,
-{
+struct DocIteratorSub<T> {
   iterator: Option<T>,
   doc_start: i32,
   ord_start: i32,
@@ -1782,7 +1744,7 @@ fn binary_search_starts(starts: &[i32], ord: i32, from: usize, to: usize) -> usi
 
 pub struct SlowCompositePointsReaderWrapper<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   codec_readers: Vec<CR>,
   readers: Vec<Option<CRPointsReader<CR>>>,
@@ -1809,7 +1771,7 @@ where
 
 impl<CR> CloseableRef for SlowCompositePointsReaderWrapper<CR>
 where
-  CR: CodecReader + Clone,
+  CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
     IOUtils::close_refs(self.readers.iter().flatten())
@@ -1852,10 +1814,7 @@ where
   }
 }
 
-pub struct PointValuesImpl<PV>
-where
-  PV: PointValues,
-{
+pub struct PointValuesImpl<PV> {
   values: Rc<Vec<PointValuesSub<PV>>>,
 }
 impl<PV> PointValuesImpl<PV>
@@ -1924,10 +1883,7 @@ where
   }
 }
 
-pub struct PointTreeImpl<PV>
-where
-  PV: PointValues,
-{
+pub struct PointTreeImpl<PV> {
   values: Rc<Vec<PointValuesSub<PV>>>,
 }
 impl<PV> PointTreeImpl<PV>
@@ -2088,10 +2044,7 @@ where
   IntersectVisitorImpl::new(visitor, doc_start)
 }
 
-struct IntersectVisitorImpl<'a, IV>
-where
-  IV: IntersectVisitor,
-{
+struct IntersectVisitorImpl<'a, IV> {
   visitor: &'a mut IV,
   doc_start: i32,
 }
