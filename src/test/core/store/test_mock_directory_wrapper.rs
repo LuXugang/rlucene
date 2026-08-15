@@ -310,7 +310,7 @@ where
 
     // otherwise MDW sometimes randomly leaves the file intact and we'll see
     // false test failures:
-    wrapped.state.always_corrupt.store(true, Ordering::SeqCst);
+    wrapped.state.always_corrupt.store(true, Ordering::Relaxed);
 
     // MDW will only try to corrupt things if it sees an index:
     {

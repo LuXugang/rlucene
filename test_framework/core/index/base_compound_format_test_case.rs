@@ -539,10 +539,16 @@ pub trait BaseCompoundFormatTestCase:
       let file = format!("_123.{}", file_idx);
       files.push(file.clone());
       let mut out = dir.create_output(&file, &new_io_context(random)?)?;
-      CodecUtil::write_index_header(&mut out, "Foo", 0, si.get_id(), "suffix")?;
-      out.write_byte(file_idx as u8)?;
-      CodecUtil::write_footer(&mut out)?;
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        CodecUtil::write_index_header(&mut out, "Foo", 0, si.get_id(), "suffix")?;
+        out.write_byte(file_idx as u8)?;
+        CodecUtil::write_footer(&mut out)
+      }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
+      IOUtils::use_or_suppress_caught_result(result, close_result)?;
     }
+    assert_eq!(0, dir.get_file_handle_count());
+
     let file_sets = files.iter().cloned().collect();
     si.set_files(file_sets)?;
     si.get_codec()?
@@ -560,16 +566,20 @@ pub trait BaseCompoundFormatTestCase:
       CodecUtil::check_index_header(&mut input, "Foo", 0, 0, si.get_id(), "suffix")?;
       ins.push(input);
     }
-    // assert_eq!(dir.get_file_handle_count(), 1);
+    assert_eq!(1, dir.get_file_handle_count());
+
     for (file_idx, input) in ins.iter_mut().enumerate() {
       assert_eq!(DataInput::read_byte(input)?, file_idx as u8);
     }
-    // Ensure only one file handle is used
-    // assert_eq!(dir.get_file_handle_count(), 1);
-    // for input in ins.iter_mut() {
-    //     input.close()?;
-    // }
-    Ok(())
+
+    assert_eq!(1, dir.get_file_handle_count());
+
+    for input in &ins {
+      input.close()?;
+    }
+    cfs.close()?;
+
+    dir.close()
   }
   fn test_cloned_streams_closing<R>(&self, random: &mut R) -> Result<()>
   where
