@@ -132,11 +132,7 @@ impl QueryBase for RandomApproximationQuery {
   }
 }
 
-pub struct RandomApproximationWeight<LR>
-where
-  LR: IndexReaderContext + 'static,
-  IRCLeafReader<LR>: 'static,
-{
+pub struct RandomApproximationWeight<LR> {
   query: Arc<Query>,
   random_seed: u64,
   in_: QueryWeight<LR>,
@@ -214,10 +210,7 @@ where
   }
 }
 
-pub struct RandomApproximationScorer<S>
-where
-  S: Scorer,
-{
+pub struct RandomApproximationScorer<S> {
   random_seed: u64,
   two_phase_view: RandomTwoPhaseView<ScorerDISI<S>>,
 }
@@ -323,10 +316,7 @@ where
   }
 }
 
-pub struct RandomTwoPhaseView<DISI>
-where
-  DISI: DocIdSetIterator,
-{
+pub struct RandomTwoPhaseView<DISI> {
   approximation: RandomApproximation<StdRng, DISI>,
   last_doc: i32,
   random_match_cost: f32,
@@ -391,11 +381,7 @@ where
     self.random_match_cost
   }
 }
-pub struct RandomApproximation<RNG, DISI>
-where
-  RNG: Rng,
-  DISI: DocIdSetIterator,
-{
+pub struct RandomApproximation<RNG, DISI> {
   random: RNG,
   disi: DISI,
   doc: i32,
@@ -448,10 +434,7 @@ where
   }
 }
 
-pub struct ScorerDISI<S>
-where
-  S: Scorer,
-{
+pub struct ScorerDISI<S> {
   scorer: S,
 }
 impl<S> ScorerDISI<S>

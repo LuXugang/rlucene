@@ -1315,7 +1315,7 @@ where
 // }
 struct IntersectVisitorImpl<'a, R>
 where
-  R: Rng + ?Sized,
+  R: ?Sized,
 {
   hits: &'a mut BitSet,
   query_min: &'a [Vec<u8>],
@@ -2277,11 +2277,7 @@ fn test_too_many_points_1d() -> Result<()> {
 
   Ok(())
 }
-struct CorruptingTempOutputDirectory<'a, D, F>
-where
-  D: Directory,
-  F: Fn(&str, &str) -> bool + Send + Sync,
-{
+struct CorruptingTempOutputDirectory<'a, D, F> {
   in_: &'a D,
   byte_to_corrupt: usize,
   corrupted: AtomicBool,

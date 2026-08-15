@@ -443,10 +443,7 @@ impl LeafCollector for LeafCollectorImpl3 {
     Ok(())
   }
 }
-struct LeafCollectorImpl4<'a, S>
-where
-  S: Scorer,
-{
+struct LeafCollectorImpl4<'a, S> {
   scorer: &'a mut S,
   min: i32,
   max: i32,
@@ -487,8 +484,7 @@ where
 
 struct SimpleCollectorImp<'a, IRC>
 where
-  IRC: IndexReaderContext + 'static,
-  IRC::LeafReader: Clone,
+  IRC: 'static,
 {
   weight: QueryWeight<IRC>,
   leaf_ptr: usize,
