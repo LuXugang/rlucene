@@ -16,7 +16,7 @@
  */
 mod test_automaton;
 mod test_intset;
-mod test_nfs_run_automaton;
+mod test_nfa_run_automaton;
 mod test_strings_to_automaton;
 
 mod test_compiled_automaton;
