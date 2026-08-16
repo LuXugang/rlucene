@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::knn_vector_values::DocIndexIterator;
+use crate::core::index::knn_vector_values::{DenseDocIndexIterator, DocIndexIterator};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;
@@ -696,6 +696,66 @@ where
 {
   fn index(&self) -> Result<i32> {
     Ok(self.disi.index())
+  }
+}
+
+pub enum IndexedDISIDocIndexIterator<I>
+where
+  I: IndexInput,
+{
+  Dense(DenseDocIndexIterator),
+  Sparse(DocIndexIteratorImpl<I>),
+}
+
+impl<I> DocIdSetIterator for IndexedDISIDocIndexIterator<I>
+where
+  I: IndexInput,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Dense(iterator) => iterator.doc_id(),
+      Self::Sparse(iterator) => iterator.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Dense(iterator) => iterator.next_doc(),
+      Self::Sparse(iterator) => iterator.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Dense(iterator) => iterator.advance(target),
+      Self::Sparse(iterator) => iterator.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Dense(iterator) => iterator.slow_advance(target),
+      Self::Sparse(iterator) => iterator.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Dense(iterator) => iterator.cost(),
+      Self::Sparse(iterator) => iterator.cost(),
+    }
+  }
+}
+
+impl<I> DocIndexIterator for IndexedDISIDocIndexIterator<I>
+where
+  I: IndexInput,
+{
+  fn index(&self) -> Result<i32> {
+    match self {
+      Self::Dense(iterator) => iterator.index(),
+      Self::Sparse(iterator) => iterator.index(),
+    }
   }
 }
 pub trait IndexedDISIPolicy<I>

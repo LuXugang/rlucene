@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::indexed_disi::{
-  DocIndexIteratorImpl, IndexedDISIImpl, get_doc_index_iterator,
+  DocIndexIteratorImpl, IndexedDISIDocIndexIterator, IndexedDISIImpl, get_doc_index_iterator,
 };
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
@@ -33,7 +33,7 @@ use crate::core::index::knn_vector_values::{
 };
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::IndexInput;
@@ -983,13 +983,13 @@ where
     }
   }
 
-  type DocIndexIterator = IterEnum<I>;
+  type DocIndexIterator = IndexedDISIDocIndexIterator<I>;
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     match self {
-      Self::Empty(e) => e.iterator().map(IterEnum::Dense),
-      Self::Dense(e) => e.iterator().map(IterEnum::Dense),
-      Self::Sparse(e) => e.iterator().map(IterEnum::Sparse),
+      Self::Empty(e) => e.iterator().map(IndexedDISIDocIndexIterator::Dense),
+      Self::Dense(e) => e.iterator().map(IndexedDISIDocIndexIterator::Dense),
+      Self::Sparse(e) => e.iterator().map(IndexedDISIDocIndexIterator::Sparse),
     }
   }
 }
@@ -1116,66 +1116,6 @@ where
     match self {
       Self::Dense(e) => e.to_string(),
       Self::Sparse(e) => e.to_string(),
-    }
-  }
-}
-
-pub enum IterEnum<I>
-where
-  I: IndexInput,
-{
-  Dense(DenseDocIndexIterator),
-  Sparse(DocIndexIteratorImpl<I>),
-}
-
-impl<I> DocIdSetIterator for IterEnum<I>
-where
-  I: IndexInput,
-{
-  fn doc_id(&self) -> i32 {
-    match self {
-      Self::Dense(e) => e.doc_id(),
-      Self::Sparse(e) => e.doc_id(),
-    }
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    match self {
-      Self::Dense(e) => e.next_doc(),
-      Self::Sparse(e) => e.next_doc(),
-    }
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      Self::Dense(e) => e.advance(target),
-      Self::Sparse(e) => e.advance(target),
-    }
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      Self::Dense(e) => e.slow_advance(target),
-      Self::Sparse(e) => e.slow_advance(target),
-    }
-  }
-
-  fn cost(&self) -> Result<i64> {
-    match self {
-      Self::Dense(e) => e.cost(),
-      Self::Sparse(e) => e.cost(),
-    }
-  }
-}
-
-impl<I> DocIndexIterator for IterEnum<I>
-where
-  I: IndexInput,
-{
-  fn index(&self) -> Result<i32> {
-    match self {
-      Self::Dense(e) => e.index(),
-      Self::Sparse(e) => e.index(),
     }
   }
 }
