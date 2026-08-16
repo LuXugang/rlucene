@@ -173,7 +173,6 @@ impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   }
 
   type KnnVectorsWriter<T: IndexOutput> = Lucene99ScalarQuantizedVectorsWriter<
-    T,
     crate::core::codecs::lucene99::lucene99_flat_vectors_writer::Lucene99FlatVectorsWriter<
       T,
       DefaultFlatVectorScorer,
@@ -241,7 +240,6 @@ impl KnnVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
 
 impl FlatVectorsFormat for Lucene99ScalarQuantizedVectorsFormat {
   type FlatVectorsWriter<T: IndexOutput> = Lucene99ScalarQuantizedVectorsWriter<
-    T,
     Lucene99FlatVectorsWriter<T, DefaultFlatVectorScorer>,
     Lucene99ScalarQuantizedVectorScorer<DefaultFlatVectorScorer>,
   >;

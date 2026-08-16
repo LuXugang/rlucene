@@ -111,7 +111,6 @@ where
   base: NumericLeafComparator<
     <LR as LeafReader>::PointValues,
     NumericLeafComparatorDocValues<LR>,
-    i64,
     LongConverter,
   >,
 }

@@ -124,7 +124,7 @@ impl KnnVectorsFormat for HnswBitVectorsFormat {
   }
 
   type KnnVectorsWriter<T: IndexOutput> = FlatBitVectorsWriter<
-    Lucene99HnswVectorsWriter<Lucene99FlatVectorsWriter<T, FlatBitVectorsScorer>, T>,
+    Lucene99HnswVectorsWriter<Lucene99FlatVectorsWriter<T, FlatBitVectorsScorer>>,
   >;
 
   fn fields_writer<D1, D2>(

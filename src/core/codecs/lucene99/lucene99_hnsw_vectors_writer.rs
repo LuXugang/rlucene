@@ -41,7 +41,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::store::IndexOutput;
+use crate::core::store::{DataOutput, IndexOutput};
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
@@ -66,13 +66,12 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::sync::Arc;
 
 /// Writes vector values and knn graphs to index segments.
-pub struct Lucene99HnswVectorsWriter<F, O>
+pub struct Lucene99HnswVectorsWriter<F>
 where
-  F: FlatVectorsWriter<IndexOutput = O>,
-  O: IndexOutput,
+  F: FlatVectorsWriter,
 {
-  meta: O,
-  vector_index: O,
+  meta: F::IndexOutput,
+  vector_index: F::IndexOutput,
   m: usize,
   beam_width: usize,
   pub(crate) flat_vector_writer: F,
@@ -84,10 +83,9 @@ where
 }
 pub type DefaultRandomVectorScorerSupplier<F> =
   FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>;
-impl<F, O> Lucene99HnswVectorsWriter<F, O>
+impl<F> Lucene99HnswVectorsWriter<F>
 where
-  F: FlatVectorsWriter<IndexOutput = O>,
-  O: IndexOutput,
+  F: FlatVectorsWriter,
 {
   pub fn new<D1, D2>(
     state: &SegmentWriteState<D1>,
@@ -98,7 +96,7 @@ where
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self>
   where
-    D1: Directory<IndexOutput = O>,
+    D1: Directory<IndexOutput = F::IndexOutput>,
   {
     let meta_file_name =
       IndexFileNames::segment_file_name(&segment_info.name, &state.segment_suffix, META_EXTENSION);
@@ -282,7 +280,7 @@ where
   /// # Errors
   /// if writing to vectorIndex fails
   fn reconstruct_and_write_graph<'a>(
-    vector_index: &mut O,
+    vector_index: &mut F::IndexOutput,
     graph: Option<&'a mut OnHeapHnswGraph>,
     new_to_old_map: &[usize],
     old_to_new_map: &[usize],
@@ -352,7 +350,7 @@ where
     Ok(Some(HnswGraphImpl::new(graph, nodes_by_level)))
   }
   fn reconstruct_and_write_neighbours(
-    vector_index: &mut O,
+    vector_index: &mut F::IndexOutput,
     neighbors: &mut NeighborArray,
     old_to_new_map: &[usize],
     max_ord: usize,
@@ -391,7 +389,7 @@ where
   ///
   /// Returns an I/O error if writing to `vector_index` fails.
   fn write_graph(
-    vector_index: &mut O,
+    vector_index: &mut F::IndexOutput,
     graph: Option<&mut OnHeapHnswGraph>,
   ) -> Result<Vec<Vec<i32>>> {
     let Some(graph) = graph else {
@@ -446,8 +444,8 @@ where
   }
   #[allow(clippy::too_many_arguments)]
   fn write_meta<H>(
-    vector_index: &mut O,
-    meta: &mut O,
+    vector_index: &mut F::IndexOutput,
+    meta: &mut F::IndexOutput,
     m: usize,
     field: &FieldInfo,
     vector_index_offset: i64,
@@ -548,10 +546,9 @@ where
   }
 }
 
-impl<F, O> Accountable for Lucene99HnswVectorsWriter<F, O>
+impl<F> Accountable for Lucene99HnswVectorsWriter<F>
 where
-  F: FlatVectorsWriter<IndexOutput = O>,
-  O: IndexOutput,
+  F: FlatVectorsWriter,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut size = self
@@ -565,10 +562,9 @@ where
   }
 }
 
-impl<F, O> Closeable for Lucene99HnswVectorsWriter<F, O>
+impl<F> Closeable for Lucene99HnswVectorsWriter<F>
 where
-  F: FlatVectorsWriter<IndexOutput = O>,
-  O: IndexOutput,
+  F: FlatVectorsWriter,
 {
   fn close(&mut self) -> Result<()> {
     IOUtils::close(0..3, |operation| match operation {
@@ -580,10 +576,9 @@ where
   }
 }
 
-impl<F, O> KnnVectorsWriter<O> for Lucene99HnswVectorsWriter<F, O>
+impl<F> KnnVectorsWriter<F::IndexOutput> for Lucene99HnswVectorsWriter<F>
 where
-  F: FlatVectorsWriter<IndexOutput = O>,
-  O: IndexOutput,
+  F: FlatVectorsWriter,
 {
   fn add_field<D1, D2>(
     &mut self,
@@ -592,7 +587,7 @@ where
     field_info: Arc<FieldInfo>,
   ) -> Result<usize>
   where
-    D1: Directory<IndexOutput = O>,
+    D1: Directory<IndexOutput = F::IndexOutput>,
   {
     let flat_field_vectors_writer =
       FlatVectorsWriter::flat_add_field(&mut self.flat_vector_writer, field_info.clone())?;
@@ -635,7 +630,7 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
   ) -> Result<()>
   where
-    D2: Directory<IndexOutput = O>,
+    D2: Directory<IndexOutput = F::IndexOutput>,
     CR: CodecReader,
   {
     let mut scorer_supplier = self.flat_vector_writer.merge_one_field_to_index(

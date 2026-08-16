@@ -139,7 +139,6 @@ impl KnnVectorsFormat for Lucene99HnswScalarQuantizedVectorsFormat {
 
   type KnnVectorsWriter<T: IndexOutput> = Lucene99HnswVectorsWriter<
     <Lucene99ScalarQuantizedVectorsFormat as FlatVectorsFormat>::FlatVectorsWriter<T>,
-    T,
   >;
 
   fn fields_writer<D1, D2>(

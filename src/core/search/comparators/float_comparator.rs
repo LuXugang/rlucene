@@ -125,7 +125,6 @@ where
   base: NumericLeafComparator<
     <LR as LeafReader>::PointValues,
     NumericLeafComparatorDocValues<LR>,
-    f32,
     FloatConverter,
   >,
 }

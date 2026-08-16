@@ -15,12 +15,10 @@
  * limitations under the License.
  */
 use crate::core::codecs::CodecUtil;
-use crate::core::codecs::doc_values_enum::norms::{
-  Lucene90NormNumericDocValuesEnum, Lucene90NormNumericDocValuesEnumImpl,
-};
+use crate::core::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 
 use crate::core::codecs::indexed_disi::{
-  IndexedDISIEnumImpl, create_block_slice, create_jump_table,
+  IndexedDISIEnum, create_block_slice, create_jump_table,
 };
 use crate::core::codecs::lucene90::indexed_disi::{IndexInputImpl, IndexedDISIImpl};
 use crate::core::codecs::lucene90_norms_format::Lucene90NormsFormat;
@@ -391,7 +389,7 @@ where
     let entry = self.norms.get(&field.number).unwrap().clone();
     if entry.docs_with_field_offset == -2 {
       // empty
-      return Ok(Lucene90NormNumericDocValuesEnumImpl::Empty(
+      return Ok(Lucene90NormNumericDocValuesEnum::Empty(
         DocValues::empty_numeric(),
       ));
     }
@@ -403,7 +401,7 @@ where
           norms_offset: entry.norms_offset,
         });
         let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-        return Ok(Lucene90NormNumericDocValuesEnumImpl::Dense(
+        return Ok(Lucene90NormNumericDocValuesEnum::Dense(
           dense_norms_iterator,
         ));
       }
@@ -414,7 +412,7 @@ where
           let sub_dense_norms =
             DenseNormsIteratorBaseEnum::Dense1(DenseNormsIteratorBaseImpl1 { slice });
           let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnumImpl::Dense(
+          Ok(Lucene90NormNumericDocValuesEnum::Dense(
             dense_norms_iterator,
           ))
         },
@@ -422,7 +420,7 @@ where
           let sub_dense_norms =
             DenseNormsIteratorBaseEnum::Dense2(DenseNormsIteratorBaseImpl2 { slice });
           let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnumImpl::Dense(
+          Ok(Lucene90NormNumericDocValuesEnum::Dense(
             dense_norms_iterator,
           ))
         },
@@ -430,7 +428,7 @@ where
           let sub_dense_norms =
             DenseNormsIteratorBaseEnum::Dense3(DenseNormsIteratorBaseImpl4 { slice });
           let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnumImpl::Dense(
+          Ok(Lucene90NormNumericDocValuesEnum::Dense(
             dense_norms_iterator,
           ))
         },
@@ -438,7 +436,7 @@ where
           let sub_dense_norms =
             DenseNormsIteratorBaseEnum::Dense4(DenseNormsIteratorBaseImpl8 { slice });
           let dense_norms_iterator = DenseNormsIterator::new(self.max_doc, sub_dense_norms);
-          Ok(Lucene90NormNumericDocValuesEnumImpl::Dense(
+          Ok(Lucene90NormNumericDocValuesEnum::Dense(
             dense_norms_iterator,
           ))
         },
@@ -451,7 +449,7 @@ where
       self.get_disi_input(field, &entry)?,
     ) {
       (Some(RandomAccessSliceEnum::Shared(jt)), SliceEnum::Shared(input)) => {
-        IndexedDISIEnumImpl::Shared(IndexedDISIImpl::from_components(
+        IndexedDISIEnum::<I>::Shared(IndexedDISIImpl::from_components(
           input,
           Some(jt),
           entry.jump_table_entry_count as i32,
@@ -461,7 +459,7 @@ where
       },
 
       (Some(RandomAccessSliceEnum::Owned(jt)), SliceEnum::Owned(input)) => {
-        IndexedDISIEnumImpl::Owned(IndexedDISIImpl::from_components(
+        IndexedDISIEnum::<I>::Owned(IndexedDISIImpl::from_components(
           input,
           Some(jt),
           entry.jump_table_entry_count as i32,
@@ -470,7 +468,7 @@ where
         )?)
       },
       (None, SliceEnum::Shared(input)) => {
-        IndexedDISIEnumImpl::Shared(IndexedDISIImpl::from_components(
+        IndexedDISIEnum::<I>::Shared(IndexedDISIImpl::from_components(
           input,
           None,
           entry.jump_table_entry_count as i32,
@@ -479,7 +477,7 @@ where
         )?)
       },
 
-      (None, SliceEnum::Owned(input)) => IndexedDISIEnumImpl::Owned(IndexedDISIImpl::from_components(
+      (None, SliceEnum::Owned(input)) => IndexedDISIEnum::<I>::Owned(IndexedDISIImpl::from_components(
         input,
         None,
         entry.jump_table_entry_count as i32,
@@ -497,8 +495,8 @@ where
       let sub_sparse_norms = SparseNormsIteratorBaseEnum::Sparse(SparseNormsIteratorBaseImpl {
         norms_offset: entry.norms_offset,
       });
-      let sparse_norms_iterator = SparseNormsIteratorImpl::new(sub_sparse_norms, disi);
-      return Ok(Lucene90NormNumericDocValuesEnumImpl::Sparse(
+      let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+      return Ok(Lucene90NormNumericDocValuesEnum::Sparse(
         sparse_norms_iterator,
       ));
     }
@@ -509,32 +507,32 @@ where
       1 => {
         let sub_sparse_norms =
           SparseNormsIteratorBaseEnum::Sparse1(SparseNormsIteratorBaseImpl1 { slice });
-        let sparse_norms_iterator = SparseNormsIteratorImpl::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnumImpl::Sparse(
+        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
           sparse_norms_iterator,
         ))
       },
       2 => {
         let sub_sparse_norms =
           SparseNormsIteratorBaseEnum::Sparse2(SparseNormsIteratorBaseImpl2 { slice });
-        let sparse_norms_iterator = SparseNormsIteratorImpl::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnumImpl::Sparse(
+        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
           sparse_norms_iterator,
         ))
       },
       4 => {
         let sub_sparse_norms =
           SparseNormsIteratorBaseEnum::Sparse3(SparseNormsIteratorBaseImpl4 { slice });
-        let sparse_norms_iterator = SparseNormsIteratorImpl::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnumImpl::Sparse(
+        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
           sparse_norms_iterator,
         ))
       },
       8 => {
         let sub_sparse_norms =
           SparseNormsIteratorBaseEnum::Sparse4(SparseNormsIteratorBaseImpl8 { slice });
-        let sparse_norms_iterator = SparseNormsIteratorImpl::new(sub_sparse_norms, disi);
-        Ok(Lucene90NormNumericDocValuesEnumImpl::Sparse(
+        let sparse_norms_iterator = SparseNormsIterator::new(sub_sparse_norms, disi);
+        Ok(Lucene90NormNumericDocValuesEnum::Sparse(
           sparse_norms_iterator,
         ))
       },
@@ -735,28 +733,21 @@ where
   }
 }
 
-pub struct SparseNormsIteratorImpl<I, R>
+pub struct SparseNormsIterator<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  sub_sparse_norms: SparseNormsIteratorBaseEnum<R>,
-  disi: IndexedDISIEnumImpl<I, R>,
+  sub_sparse_norms: SparseNormsIteratorBaseEnum<I::RandomAccessSlice>,
+  disi: IndexedDISIEnum<I>,
 }
 
-pub type SparseNormsIterator<I> = SparseNormsIteratorImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> SparseNormsIteratorImpl<I, R>
+impl<I> SparseNormsIterator<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn new(
-    sub_sparse_norms: SparseNormsIteratorBaseEnum<R>,
-    disi: IndexedDISIEnumImpl<I, R>,
+    sub_sparse_norms: SparseNormsIteratorBaseEnum<I::RandomAccessSlice>,
+    disi: IndexedDISIEnum<I>,
   ) -> Self {
     Self {
       sub_sparse_norms,
@@ -765,20 +756,18 @@ where
   }
 }
 
-impl<I, R> DocValuesIterator for SparseNormsIteratorImpl<I, R>
+impl<I> DocValuesIterator for SparseNormsIterator<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.disi.advance_exact(target)
   }
 }
 
-impl<I, R> DocIdSetIterator for SparseNormsIteratorImpl<I, R>
+impl<I> DocIdSetIterator for SparseNormsIterator<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.disi.doc_id()
@@ -797,10 +786,9 @@ where
   }
 }
 
-impl<I, R> NumericDocValues for SparseNormsIteratorImpl<I, R>
+impl<I> NumericDocValues for SparseNormsIterator<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn long_value(&mut self) -> Result<i64> {
     self

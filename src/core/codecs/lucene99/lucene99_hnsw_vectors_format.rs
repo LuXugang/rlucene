@@ -175,7 +175,7 @@ impl KnnVectorsFormat for Lucene99HnswVectorsFormat {
   }
 
   type KnnVectorsWriter<T: IndexOutput> =
-    Lucene99HnswVectorsWriter<Lucene99FlatVectorsWriter<T, DefaultFlatVectorScorer>, T>;
+    Lucene99HnswVectorsWriter<Lucene99FlatVectorsWriter<T, DefaultFlatVectorScorer>>;
 
   fn fields_writer<D1, D2>(
     &self,

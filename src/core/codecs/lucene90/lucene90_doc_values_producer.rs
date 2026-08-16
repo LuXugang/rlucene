@@ -21,8 +21,8 @@ use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::indexed_disi::IndexedDISIImpl;
 use crate::core::codecs::lucene90::dov_values_inner_enum::{
-  BaseSortedDocValuesEnum, BaseSortedDocValuesEnumImpl, BaseSortedSetDocValuesEnum,
-  BaseSortedSetDocValuesEnumImpl, DenseBinaryDocValuesBaseEnum, DenseNumericDocValuesSubEnum,
+  BaseSortedDocValuesEnum, BaseSortedSetDocValuesEnum, DenseBinaryDocValuesBaseEnum,
+  DenseNumericDocValuesSubEnum,
   LongValuesEnums, SparseBinaryDocValuesBaseEnum, SparseNumericDocValuesSubEnum,
 };
 use crate::core::codecs::lucene90_doc_values_format::{
@@ -483,7 +483,7 @@ where
   fn get_numeric(&self, entry: Arc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
     if entry.docs_with_field_offset == -2 {
       // empty
-      Ok(Lucene90NumericDocValuesEnumImpl::C(
+      Ok(Lucene90NumericDocValuesEnum::C(
         DocValues::empty_numeric(),
       ))
     } else if entry.docs_with_field_offset == -1 {
@@ -534,7 +534,7 @@ where
           }
         }
       };
-      Ok(Lucene90NumericDocValuesEnumImpl::A(DenseNumericDocValues::new(
+      Ok(Lucene90NumericDocValuesEnum::A(DenseNumericDocValues::new(
         dense_numeric_doc_values_base_enum,
         self.max_doc,
       )))
@@ -598,8 +598,8 @@ where
           }
         }
       };
-      Ok(Lucene90NumericDocValuesEnumImpl::B(
-        SparseNumericDocValuesImpl::new(sparse_numeric_doc_values_base_enum, disi),
+      Ok(Lucene90NumericDocValuesEnum::B(
+        SparseNumericDocValues::new(sparse_numeric_doc_values_base_enum, disi),
       ))
     }
   }
@@ -692,7 +692,7 @@ where
 
       let sub = if ords_entry.docs_with_field_offset == -1 {
         //dense
-        BaseSortedDocValuesEnumImpl::Dense(DenseBaseSortedDocValues::new(self.max_doc, values))
+        BaseSortedDocValuesEnum::Dense(DenseBaseSortedDocValues::new(self.max_doc, values))
       } else if ords_entry.docs_with_field_offset >= 0 {
         let disi = IndexedDISIImpl::new(
           self.data.as_ref(),
@@ -702,16 +702,16 @@ where
           ords_entry.dense_rank_power,
           ords_entry.num_values as i64,
         )?;
-        BaseSortedDocValuesEnumImpl::Sparse(SparseBaseSortedDocValuesImpl::new(disi, values))
+        BaseSortedDocValuesEnum::Sparse(SparseBaseSortedDocValues::new(disi, values))
       } else {
         let ords = self.get_numeric(ords_entry.clone())?;
-        BaseSortedDocValuesEnumImpl::Impl(BaseSortedDocValuesOrdinals::new(ords))
+        BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesOrdinals::new(ords))
       };
       return BaseSortedDocValues::new(entry.clone(), self.data.clone(), sub, self.merging);
     }
 
     let ords = self.get_numeric(ords_entry.clone())?;
-    let sub = BaseSortedDocValuesEnumImpl::Impl(BaseSortedDocValuesOrdinals::new(ords));
+    let sub = BaseSortedDocValuesEnum::Impl(BaseSortedDocValuesOrdinals::new(ords));
     BaseSortedDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)
   }
 
@@ -723,7 +723,7 @@ where
     I: IndexInput,
   {
     if entry.base.num_values == entry.num_docs_with_field as usize {
-      return Ok(Lucene90SortedNumericDocValuesEnumImpl::C(
+      return Ok(Lucene90SortedNumericDocValuesEnum::C(
         DocValues::singleton_numeric(self.get_numeric(entry.base.clone())?)?,
       ));
     }
@@ -748,7 +748,7 @@ where
 
     if entry.base.docs_with_field_offset == -1 {
       // dense
-      Ok(Lucene90SortedNumericDocValuesEnumImpl::A(
+      Ok(Lucene90SortedNumericDocValuesEnum::A(
         DenseSortedNumericDocValues::new(self.max_doc, values, addresses),
       ))
     } else {
@@ -762,8 +762,8 @@ where
         entry.num_docs_with_field as i64,
       )?;
 
-      Ok(Lucene90SortedNumericDocValuesEnumImpl::B(
-        SpareSortedNumericDocValuesImpl::new(disi, values, addresses),
+      Ok(Lucene90SortedNumericDocValuesEnum::B(
+        SpareSortedNumericDocValues::new(disi, values, addresses),
       ))
     }
   }
@@ -802,7 +802,7 @@ where
       )));
     };
     if entry.docs_with_field_offset == -2 {
-      return Ok(Lucene90BinaryDocValuesEnumImpl::Empty(
+      return Ok(Lucene90BinaryDocValuesEnum::Empty(
         DocValues::empty_binary(),
       ));
     }
@@ -846,7 +846,7 @@ where
         };
         DenseBinaryDocValuesBaseEnum::Dense1(base)
       };
-      Ok(Lucene90BinaryDocValuesEnumImpl::Dense(
+      Ok(Lucene90BinaryDocValuesEnum::Dense(
         DenseBinaryDocValues::new(dense, self.max_doc),
       ))
     } else {
@@ -890,8 +890,8 @@ where
           addresses,
         })
       };
-      Ok(Lucene90BinaryDocValuesEnumImpl::Sparse(
-        SparseBinaryDocValuesImpl::new(sub, disi),
+      Ok(Lucene90BinaryDocValuesEnum::Sparse(
+        SparseBinaryDocValues::new(sub, disi),
       ))
     }
   }
@@ -967,7 +967,7 @@ where
       let values = DirectReader::get_instance(slice, ords_entry.base.bits_per_value as i32)?;
 
       let sub = if ords_entry.base.docs_with_field_offset == -1 {
-        BaseSortedSetDocValuesEnumImpl::Dense(DenseBaseSortedSetDocValues::new(
+        BaseSortedSetDocValuesEnum::Dense(DenseBaseSortedSetDocValues::new(
           self.max_doc,
           values,
           addresses,
@@ -982,12 +982,12 @@ where
           ords_entry.base.dense_rank_power,
           ords_entry.base.num_values as i64,
         )?;
-        BaseSortedSetDocValuesEnumImpl::Sparse(SparseBaseSortedSetDocValuesImpl::new(
+        BaseSortedSetDocValuesEnum::Sparse(SparseBaseSortedSetDocValues::new(
           disi, values, addresses,
         ))
       } else {
         let ords = self.get_sorted_numeric(ords_entry)?;
-        BaseSortedSetDocValuesEnumImpl::Impl(BaseSortedSetDocValuesOrdinals::new(ords))
+        BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesOrdinals::new(ords))
       };
       return Ok(Lucene90SortedSetDocValuesEnum::Multi(
         BaseSortedSetDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)?,
@@ -995,7 +995,7 @@ where
     }
 
     let ords = self.get_sorted_numeric(ords_entry)?;
-    let sub = BaseSortedSetDocValuesEnumImpl::Impl(BaseSortedSetDocValuesOrdinals::new(ords));
+    let sub = BaseSortedSetDocValuesEnum::Impl(BaseSortedSetDocValuesOrdinals::new(ords));
     Ok(Lucene90SortedSetDocValuesEnum::Multi(
       BaseSortedSetDocValues::new(entry.clone(), self.data.clone(), sub, self.merging)?,
     ))
@@ -1180,44 +1180,38 @@ where
   }
 }
 
-pub struct SparseNumericDocValuesImpl<I, R>
+pub struct SparseNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  sub: SparseNumericDocValuesSubEnum<R>,
-  disi: IndexedDISIImpl<I, R>,
+  sub: SparseNumericDocValuesSubEnum<I::RandomAccessSlice>,
+  disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
 }
 
-pub type SparseNumericDocValues<I> = SparseNumericDocValuesImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> SparseNumericDocValuesImpl<I, R>
+impl<I> SparseNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn new(sub: SparseNumericDocValuesSubEnum<R>, disi: IndexedDISIImpl<I, R>) -> Self {
+  fn new(
+    sub: SparseNumericDocValuesSubEnum<I::RandomAccessSlice>,
+    disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Self {
     Self { sub, disi }
   }
 }
 
-impl<I, R> DocValuesIterator for SparseNumericDocValuesImpl<I, R>
+impl<I> DocValuesIterator for SparseNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.disi.advance_exact(target)
   }
 }
 
-impl<I, R> DocIdSetIterator for SparseNumericDocValuesImpl<I, R>
+impl<I> DocIdSetIterator for SparseNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.disi.doc_id()
@@ -1236,13 +1230,15 @@ where
   }
 }
 
-impl<I, R> NumericDocValues for SparseNumericDocValuesImpl<I, R>
+impl<I> NumericDocValues for SparseNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn long_value(&mut self) -> Result<i64> {
-    self.sub.long_value(&mut self.disi)
+    <SparseNumericDocValuesSubEnum<I::RandomAccessSlice> as SparseNumericDocValuesBase<I>>::long_value(
+      &mut self.sub,
+      &mut self.disi,
+    )
   }
 }
 
@@ -1306,44 +1302,38 @@ where
   }
 }
 
-pub struct SparseBinaryDocValuesImpl<I, R>
+pub struct SparseBinaryDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  sub: SparseBinaryDocValuesBaseEnum<R>,
-  disi: IndexedDISIImpl<I, R>,
+  sub: SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>,
+  disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
 }
 
-pub type SparseBinaryDocValues<I> = SparseBinaryDocValuesImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> SparseBinaryDocValuesImpl<I, R>
+impl<I> SparseBinaryDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn new(sub: SparseBinaryDocValuesBaseEnum<R>, disi: IndexedDISIImpl<I, R>) -> Self {
+  fn new(
+    sub: SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>,
+    disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Self {
     Self { sub, disi }
   }
 }
 
-impl<I, R> DocValuesIterator for SparseBinaryDocValuesImpl<I, R>
+impl<I> DocValuesIterator for SparseBinaryDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.disi.advance_exact(target)
   }
 }
 
-impl<I, R> DocIdSetIterator for SparseBinaryDocValuesImpl<I, R>
+impl<I> DocIdSetIterator for SparseBinaryDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.disi.doc_id()
@@ -1362,10 +1352,9 @@ where
   }
 }
 
-impl<I, R> BinaryDocValues for SparseBinaryDocValuesImpl<I, R>
+impl<I> BinaryDocValues for SparseBinaryDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     self.sub.binary_value(&mut self.disi)
@@ -1697,34 +1686,41 @@ where
   }
 }
 
-pub trait SparseNumericDocValuesBase<I, R>
+pub trait SparseNumericDocValuesBase<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn long_value(&mut self, disi: &mut IndexedDISIImpl<I, R>) -> Result<i64>;
+  fn long_value(
+    &mut self,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Result<i64>;
 }
 pub struct SparseNumericDocValuesBaseImpl {
   min_values: i64,
 }
-impl<I, R> SparseNumericDocValuesBase<I, R> for SparseNumericDocValuesBaseImpl
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn long_value(&mut self, _disi: &mut IndexedDISIImpl<I, R>) -> Result<i64> {
+  fn long_value(
+    &mut self,
+    _disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Result<i64> {
     Ok(self.min_values)
   }
 }
 pub struct SparseNumericDocValuesBaseImpl1<R> {
   vbpv_reader: VaryingBPVReader<R>,
 }
-impl<I, R> SparseNumericDocValuesBase<I, R> for SparseNumericDocValuesBaseImpl1<R>
+impl<I> SparseNumericDocValuesBase<I>
+  for SparseNumericDocValuesBaseImpl1<I::RandomAccessSlice>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn long_value(&mut self, disi: &mut IndexedDISIImpl<I, R>) -> Result<i64> {
+  fn long_value(
+    &mut self,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Result<i64> {
     let index = disi.index_u();
     self.vbpv_reader.get_long_value(index)
   }
@@ -1733,24 +1729,30 @@ pub struct SparseNumericDocValuesBaseImpl2<R> {
   table: Arc<Vec<i64>>,
   values: DirectPackedEnum<R>,
 }
-impl<I, R> SparseNumericDocValuesBase<I, R> for SparseNumericDocValuesBaseImpl2<R>
+impl<I> SparseNumericDocValuesBase<I>
+  for SparseNumericDocValuesBaseImpl2<I::RandomAccessSlice>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn long_value(&mut self, disi: &mut IndexedDISIImpl<I, R>) -> Result<i64> {
+  fn long_value(
+    &mut self,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Result<i64> {
     Ok(self.table[self.values.get_mut(disi.index_u())? as usize])
   }
 }
 pub struct SparseNumericDocValuesBaseImpl3<R> {
   values: DirectPackedEnum<R>,
 }
-impl<I, R> SparseNumericDocValuesBase<I, R> for SparseNumericDocValuesBaseImpl3<R>
+impl<I> SparseNumericDocValuesBase<I>
+  for SparseNumericDocValuesBaseImpl3<I::RandomAccessSlice>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn long_value(&mut self, disi: &mut IndexedDISIImpl<I, R>) -> Result<i64> {
+  fn long_value(
+    &mut self,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Result<i64> {
     self.values.get_mut(disi.index_u())
   }
 }
@@ -1759,12 +1761,15 @@ pub struct SparseNumericDocValuesBaseImpl4<R> {
   mul: i64,
   delta: i64,
 }
-impl<I, R> SparseNumericDocValuesBase<I, R> for SparseNumericDocValuesBaseImpl4<R>
+impl<I> SparseNumericDocValuesBase<I>
+  for SparseNumericDocValuesBaseImpl4<I::RandomAccessSlice>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn long_value(&mut self, disi: &mut IndexedDISIImpl<I, R>) -> Result<i64> {
+  fn long_value(
+    &mut self,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  ) -> Result<i64> {
     Ok(
       self
         .mul
@@ -2013,44 +2018,38 @@ where
   }
 }
 
-pub struct SparseBaseSortedDocValuesImpl<I, R>
+pub struct SparseBaseSortedDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  disi: IndexedDISIImpl<I, R>,
-  value: DirectPackedEnum<R>,
+  disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  value: DirectPackedEnum<I::RandomAccessSlice>,
 }
 
-pub type SparseBaseSortedDocValues<I> = SparseBaseSortedDocValuesImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> SparseBaseSortedDocValuesImpl<I, R>
+impl<I> SparseBaseSortedDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn new(disi: IndexedDISIImpl<I, R>, value: DirectPackedEnum<R>) -> Self {
+  fn new(
+    disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    value: DirectPackedEnum<I::RandomAccessSlice>,
+  ) -> Self {
     Self { disi, value }
   }
 }
 
-impl<I, R> DocValuesIterator for SparseBaseSortedDocValuesImpl<I, R>
+impl<I> DocValuesIterator for SparseBaseSortedDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.disi.advance_exact(target)
   }
 }
 
-impl<I, R> DocIdSetIterator for SparseBaseSortedDocValuesImpl<I, R>
+impl<I> DocIdSetIterator for SparseBaseSortedDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.disi.doc_id()
@@ -2069,10 +2068,9 @@ where
   }
 }
 
-impl<I, R> SortedDocValues for SparseBaseSortedDocValuesImpl<I, R>
+impl<I> SortedDocValues for SparseBaseSortedDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.value.get_mut(self.disi.index_u())? as i32)
@@ -2081,50 +2079,40 @@ where
   type TermsEnum<'a>
     = DummyTermsEnum
   where
-    I: 'a,
-    R: 'a;
+    I: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     Err(LuceneError::unsupported_operation(""))
   }
 }
-pub struct BaseSortedDocValuesOrdinals<I, R>
+pub struct BaseSortedDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  ords: Lucene90NumericDocValuesEnumImpl<I, R>,
+  ords: Lucene90NumericDocValuesEnum<I>,
 }
 
-pub type BaseSortedDocValuesImpl<I> = BaseSortedDocValuesOrdinals<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> BaseSortedDocValuesOrdinals<I, R>
+impl<I> BaseSortedDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn new(ords: Lucene90NumericDocValuesEnumImpl<I, R>) -> Self {
+  fn new(ords: Lucene90NumericDocValuesEnum<I>) -> Self {
     Self { ords }
   }
 }
 
-impl<I, R> DocValuesIterator for BaseSortedDocValuesOrdinals<I, R>
+impl<I> DocValuesIterator for BaseSortedDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.ords.advance_exact(target)
   }
 }
 
-impl<I, R> DocIdSetIterator for BaseSortedDocValuesOrdinals<I, R>
+impl<I> DocIdSetIterator for BaseSortedDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.ords.doc_id()
@@ -2143,10 +2131,9 @@ where
   }
 }
 
-impl<I, R> SortedDocValues for BaseSortedDocValuesOrdinals<I, R>
+impl<I> SortedDocValues for BaseSortedDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn ord_value(&mut self) -> Result<i32> {
     Ok(self.ords.long_value()? as i32)
@@ -2155,8 +2142,7 @@ where
   type TermsEnum<'a>
     = DummyTermsEnum
   where
-    I: 'a,
-    R: 'a;
+    I: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     Err(LuceneError::unsupported_operation(""))
@@ -2168,7 +2154,7 @@ where
   I: IndexInput,
 {
   entry: Arc<SortedEntry>,
-  terms_enum: TermsDict<I::IndexInput, I::RandomAccessSlice>,
+  terms_enum: TermsDict<I>,
   sub: BaseSortedDocValuesEnum<I>,
   data: Arc<I>,
   merging: bool,
@@ -2256,7 +2242,7 @@ where
     }
   }
   type TermsEnum<'a>
-    = TermsDict<I::IndexInput, I::RandomAccessSlice>
+    = TermsDict<I>
   where
     I: 'a;
 
@@ -2359,33 +2345,26 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub struct SparseBaseSortedSetDocValuesImpl<I, R>
+pub struct SparseBaseSortedSetDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  disi: IndexedDISIImpl<I, R>,
+  disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   set: bool,
   curr: i64,
   count: i32,
-  value: DirectPackedEnum<R>,
-  addresses: DirectMonotonicReader<R>,
+  value: DirectPackedEnum<I::RandomAccessSlice>,
+  addresses: DirectMonotonicReader<I::RandomAccessSlice>,
 }
 
-pub type SparseBaseSortedSetDocValues<I> = SparseBaseSortedSetDocValuesImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> SparseBaseSortedSetDocValuesImpl<I, R>
+impl<I> SparseBaseSortedSetDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn new(
-    disi: IndexedDISIImpl<I, R>,
-    value: DirectPackedEnum<R>,
-    addresses: DirectMonotonicReader<R>,
+    disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    value: DirectPackedEnum<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
   ) -> Self {
     Self {
       disi,
@@ -2408,10 +2387,9 @@ where
   }
 }
 
-impl<I, R> DocValuesIterator for SparseBaseSortedSetDocValuesImpl<I, R>
+impl<I> DocValuesIterator for SparseBaseSortedSetDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.set = false;
@@ -2419,10 +2397,9 @@ where
   }
 }
 
-impl<I, R> DocIdSetIterator for SparseBaseSortedSetDocValuesImpl<I, R>
+impl<I> DocIdSetIterator for SparseBaseSortedSetDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.disi.doc_id()
@@ -2443,10 +2420,9 @@ where
   }
 }
 
-impl<I, R> SortedSetDocValues for SparseBaseSortedSetDocValuesImpl<I, R>
+impl<I> SortedSetDocValues for SparseBaseSortedSetDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn next_ord(&mut self) -> Result<i64> {
     self.set()?;
@@ -2463,8 +2439,7 @@ where
   type TermsEnum<'a>
     = DummyTermsEnum
   where
-    I: 'a,
-    R: 'a;
+    I: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     Err(LuceneError::unsupported_operation(""))
@@ -2473,43 +2448,34 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub struct BaseSortedSetDocValuesOrdinals<I, R>
+pub struct BaseSortedSetDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  ords: Lucene90SortedNumericDocValuesEnumImpl<I, R>,
+  ords: Lucene90SortedNumericDocValuesEnum<I>,
 }
 
-pub type BaseSortedSetDocValuesImpl<I> = BaseSortedSetDocValuesOrdinals<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> BaseSortedSetDocValuesOrdinals<I, R>
+impl<I> BaseSortedSetDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  fn new(ords: Lucene90SortedNumericDocValuesEnumImpl<I, R>) -> Self {
+  fn new(ords: Lucene90SortedNumericDocValuesEnum<I>) -> Self {
     Self { ords }
   }
 }
 
-impl<I, R> DocValuesIterator for BaseSortedSetDocValuesOrdinals<I, R>
+impl<I> DocValuesIterator for BaseSortedSetDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.ords.advance_exact(target)
   }
 }
 
-impl<I, R> DocIdSetIterator for BaseSortedSetDocValuesOrdinals<I, R>
+impl<I> DocIdSetIterator for BaseSortedSetDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.ords.doc_id()
@@ -2528,10 +2494,9 @@ where
   }
 }
 
-impl<I, R> SortedSetDocValues for BaseSortedSetDocValuesOrdinals<I, R>
+impl<I> SortedSetDocValues for BaseSortedSetDocValuesOrdinals<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn next_ord(&mut self) -> Result<i64> {
     self.ords.next_value()
@@ -2543,8 +2508,7 @@ where
   type TermsEnum<'a>
     = DummyTermsEnum
   where
-    I: 'a,
-    R: 'a;
+    I: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     Err(LuceneError::unsupported_operation(""))
@@ -2558,7 +2522,7 @@ where
   I: IndexInput,
 {
   entry: Arc<SortedSetEntry>,
-  terms_enum: TermsDict<I::IndexInput, I::RandomAccessSlice>,
+  terms_enum: TermsDict<I>,
   sub: BaseSortedSetDocValuesEnum<I>,
   data: Arc<I>,
   merging: bool,
@@ -2657,7 +2621,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsDict<I::IndexInput, I::RandomAccessSlice>
+    = TermsDict<I>
   where
     I: 'a;
 
@@ -2674,17 +2638,16 @@ where
   type SortedDocValues = DummySortedDocValues;
 }
 
-pub struct TermsDict<I, R>
+pub struct TermsDict<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   entry: Arc<TermsDictEntry>,
-  block_addresses: DirectMonotonicReader<R>,
-  bytes: I,
+  block_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+  bytes: I::IndexInput,
   block_mask: u64,
-  index_addresses: DirectMonotonicReader<R>,
-  index_bytes: R,
+  index_addresses: DirectMonotonicReader<I::RandomAccessSlice>,
+  index_bytes: I::RandomAccessSlice,
   term: BytesRef<Vec<u8>>,
   ord: i64,
   block_input: ByteArrayDataInput<Vec<u8>>,
@@ -2694,17 +2657,13 @@ where
   current_compressed_block_end: Option<usize>,
 }
 
-impl<I, R> TermsDict<I, R>
+impl<I> TermsDict<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   const LZ4_DECOMPRESSOR_PADDING: i32 = 7;
 
-  pub fn new<D>(entry: Arc<TermsDictEntry>, data: &D, merging: bool) -> Result<Self>
-  where
-    D: IndexInput<IndexInput = I, RandomAccessSlice = R>,
-  {
+  pub fn new(entry: Arc<TermsDictEntry>, data: &I, merging: bool) -> Result<Self> {
     let addresses_slice =
       data.random_access_slice(entry.terms_addresses_offset, entry.terms_addresses_length)?;
 
@@ -2966,10 +2925,9 @@ where
   }
 }
 
-impl<I, R> BytesRefIterator for TermsDict<I, R>
+impl<I> BytesRefIterator for TermsDict<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     self.ord += 1;
@@ -3003,10 +2961,9 @@ where
   }
 }
 
-impl<I, R> TermsEnum for TermsDict<I, R>
+impl<I> TermsEnum for TermsDict<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   type AttributeSource<'a>
     = &'a DummyAttributeSource
@@ -3221,33 +3178,26 @@ where
   }
   type NumericDocValues = DummyNumericDocValues;
 }
-pub struct SpareSortedNumericDocValuesImpl<I, R>
+pub struct SpareSortedNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  disi: IndexedDISIImpl<I, R>,
-  values: LongValuesEnums<R>,
-  addresses: DirectMonotonicReader<R>,
+  disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+  values: LongValuesEnums<I::RandomAccessSlice>,
+  addresses: DirectMonotonicReader<I::RandomAccessSlice>,
   set: bool,
   start: i64,
   end: i64,
   count: i32,
 }
-pub type SpareSortedNumericDocValues<I> = SpareSortedNumericDocValuesImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> SpareSortedNumericDocValuesImpl<I, R>
+impl<I> SpareSortedNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   pub fn new(
-    disi: IndexedDISIImpl<I, R>,
-    values: LongValuesEnums<R>,
-    addresses: DirectMonotonicReader<R>,
+    disi: IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
+    values: LongValuesEnums<I::RandomAccessSlice>,
+    addresses: DirectMonotonicReader<I::RandomAccessSlice>,
   ) -> Self {
     Self {
       disi,
@@ -3271,10 +3221,9 @@ where
     Ok(())
   }
 }
-impl<I, R> DocIdSetIterator for SpareSortedNumericDocValuesImpl<I, R>
+impl<I> DocIdSetIterator for SpareSortedNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     self.disi.doc_id()
@@ -3295,20 +3244,18 @@ where
   }
 }
 
-impl<I, R> DocValuesIterator for SpareSortedNumericDocValuesImpl<I, R>
+impl<I> DocValuesIterator for SpareSortedNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     self.set = false;
     self.disi.advance_exact(target)
   }
 }
-impl<I, R> SortedNumericDocValues for SpareSortedNumericDocValuesImpl<I, R>
+impl<I> SortedNumericDocValues for SpareSortedNumericDocValues<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn next_value(&mut self) -> Result<i64> {
     self.set()?;
@@ -3326,25 +3273,18 @@ where
 }
 
 // 1. NumericDocValues
-pub enum Lucene90NumericDocValuesEnumImpl<I, R>
+pub enum Lucene90NumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  A(DenseNumericDocValues<R>),
-  B(SparseNumericDocValuesImpl<I, R>),
+  A(DenseNumericDocValues<I::RandomAccessSlice>),
+  B(SparseNumericDocValues<I>),
   C(EmptyNumeric),
 }
 
-pub type Lucene90NumericDocValuesEnum<I> = Lucene90NumericDocValuesEnumImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> DocValuesIterator for Lucene90NumericDocValuesEnumImpl<I, R>
+impl<I> DocValuesIterator for Lucene90NumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   #[inline]
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
@@ -3356,10 +3296,9 @@ where
   }
 }
 
-impl<I, R> DocIdSetIterator for Lucene90NumericDocValuesEnumImpl<I, R>
+impl<I> DocIdSetIterator for Lucene90NumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   #[inline]
   fn doc_id(&self) -> i32 {
@@ -3407,10 +3346,9 @@ where
   }
 }
 
-impl<I, R> NumericDocValues for Lucene90NumericDocValuesEnumImpl<I, R>
+impl<I> NumericDocValues for Lucene90NumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   #[inline]
   fn long_value(&mut self) -> Result<i64> {
@@ -3423,25 +3361,18 @@ where
 }
 
 // 2.SortedNumericDocValues
-pub enum Lucene90SortedNumericDocValuesEnumImpl<I, R>
+pub enum Lucene90SortedNumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  A(DenseSortedNumericDocValues<R>),
-  B(SpareSortedNumericDocValuesImpl<I, R>),
-  C(SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnumImpl<I, R>>),
+  A(DenseSortedNumericDocValues<I::RandomAccessSlice>),
+  B(SpareSortedNumericDocValues<I>),
+  C(SingletonSortedNumericDocValues<Lucene90NumericDocValuesEnum<I>>),
 }
 
-pub type Lucene90SortedNumericDocValuesEnum<I> = Lucene90SortedNumericDocValuesEnumImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> DocValuesIterator for Lucene90SortedNumericDocValuesEnumImpl<I, R>
+impl<I> DocValuesIterator for Lucene90SortedNumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   #[inline]
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
@@ -3453,10 +3384,9 @@ where
   }
 }
 
-impl<I, R> DocIdSetIterator for Lucene90SortedNumericDocValuesEnumImpl<I, R>
+impl<I> DocIdSetIterator for Lucene90SortedNumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   #[inline]
   fn doc_id(&self) -> i32 {
@@ -3504,10 +3434,9 @@ where
   }
 }
 
-impl<I, R> SortedNumericDocValues for Lucene90SortedNumericDocValuesEnumImpl<I, R>
+impl<I> SortedNumericDocValues for Lucene90SortedNumericDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   #[inline]
   fn next_value(&mut self) -> Result<i64> {
@@ -3536,7 +3465,7 @@ where
     }
   }
 
-  type NumericDocValues = Lucene90NumericDocValuesEnumImpl<I, R>;
+  type NumericDocValues = Lucene90NumericDocValuesEnum<I>;
 
   #[inline]
   fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
@@ -3548,25 +3477,18 @@ where
 }
 
 // 3. BinaryDocValues
-pub enum Lucene90BinaryDocValuesEnumImpl<I, R>
+pub enum Lucene90BinaryDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
-  Dense(DenseBinaryDocValues<R>),
-  Sparse(SparseBinaryDocValuesImpl<I, R>),
+  Dense(DenseBinaryDocValues<I::RandomAccessSlice>),
+  Sparse(SparseBinaryDocValues<I>),
   Empty(EmptyBinary),
 }
 
-pub type Lucene90BinaryDocValuesEnum<I> = Lucene90BinaryDocValuesEnumImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> DocValuesIterator for Lucene90BinaryDocValuesEnumImpl<I, R>
+impl<I> DocValuesIterator for Lucene90BinaryDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
@@ -3577,10 +3499,9 @@ where
   }
 }
 
-impl<I, R> DocIdSetIterator for Lucene90BinaryDocValuesEnumImpl<I, R>
+impl<I> DocIdSetIterator for Lucene90BinaryDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     match self {
@@ -3623,10 +3544,9 @@ where
   }
 }
 
-impl<I, R> BinaryDocValues for Lucene90BinaryDocValuesEnumImpl<I, R>
+impl<I> BinaryDocValues for Lucene90BinaryDocValuesEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {

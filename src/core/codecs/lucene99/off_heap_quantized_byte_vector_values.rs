@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::indexed_disi::{
-  DocIndexIteratorImpl, IndexedDISIImpl, IndexedDocIterator, get_doc_index_iterator,
+  DocIndexIteratorImpl, IndexedDISIImpl, get_doc_index_iterator,
 };
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
@@ -679,7 +679,7 @@ where
       copy,
       target.to_vec(),
     )?;
-    Ok(Some(SparseVectorScorerImpl::new(
+    Ok(Some(SparseVectorScorer::new(
       iterator,
       random_vector_scorer,
     )))
@@ -702,27 +702,19 @@ where
   }
 }
 
-pub struct SparseVectorScorerImpl<I, RI, R>
+pub struct SparseVectorScorer<I, R>
 where
   I: IndexInput,
-  RI: RandomAccessInput,
 {
-  iterator: IndexedDocIterator<I, RI>,
+  iterator: DocIndexIteratorImpl<I>,
   random_vector_scorer: R,
 }
 
-pub type SparseVectorScorer<I, R> = SparseVectorScorerImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
-  R,
->;
-
-impl<I, RI, R> SparseVectorScorerImpl<I, RI, R>
+impl<I, R> SparseVectorScorer<I, R>
 where
   I: IndexInput,
-  RI: RandomAccessInput,
 {
-  fn new(iterator: IndexedDocIterator<I, RI>, random_vector_scorer: R) -> Self {
+  fn new(iterator: DocIndexIteratorImpl<I>, random_vector_scorer: R) -> Self {
     Self {
       iterator,
       random_vector_scorer,
@@ -730,10 +722,9 @@ where
   }
 }
 
-impl<I, RI, R> VectorScorer for SparseVectorScorerImpl<I, RI, R>
+impl<I, R> VectorScorer for SparseVectorScorer<I, R>
 where
   I: IndexInput,
-  RI: RandomAccessInput,
   R: RandomVectorScorer,
 {
   fn score(&self) -> Result<f32> {
@@ -742,7 +733,7 @@ where
   }
 
   type DocIdSetIteratorRef<'a>
-    = &'a IndexedDocIterator<I, RI>
+    = &'a DocIndexIteratorImpl<I>
   where
     Self: 'a;
 
@@ -751,7 +742,7 @@ where
   }
 
   type DocIdSetIteratorMut<'a>
-    = &'a mut IndexedDocIterator<I, RI>
+    = &'a mut DocIndexIteratorImpl<I>
   where
     Self: 'a;
 
@@ -996,9 +987,9 @@ where
 
   fn iterator(&self) -> Result<Self::DocIndexIterator> {
     match self {
-      Self::Empty(e) => e.iterator().map(IterEnumImpl::Dense),
-      Self::Dense(e) => e.iterator().map(IterEnumImpl::Dense),
-      Self::Sparse(e) => e.iterator().map(IterEnumImpl::Sparse),
+      Self::Empty(e) => e.iterator().map(IterEnum::Dense),
+      Self::Dense(e) => e.iterator().map(IterEnum::Dense),
+      Self::Sparse(e) => e.iterator().map(IterEnum::Sparse),
     }
   }
 }
@@ -1129,24 +1120,17 @@ where
   }
 }
 
-pub enum IterEnumImpl<I, R>
+pub enum IterEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   Dense(DenseDocIndexIterator),
-  Sparse(IndexedDocIterator<I, R>),
+  Sparse(DocIndexIteratorImpl<I>),
 }
 
-pub type IterEnum<I> = IterEnumImpl<
-  <I as IndexInput>::IndexInput,
-  <I as IndexInput>::RandomAccessSlice,
->;
-
-impl<I, R> DocIdSetIterator for IterEnumImpl<I, R>
+impl<I> DocIdSetIterator for IterEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn doc_id(&self) -> i32 {
     match self {
@@ -1184,10 +1168,9 @@ where
   }
 }
 
-impl<I, R> DocIndexIterator for IterEnumImpl<I, R>
+impl<I> DocIndexIterator for IterEnum<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn index(&self) -> Result<i32> {
     match self {

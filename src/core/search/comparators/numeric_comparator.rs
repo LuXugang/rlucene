@@ -93,10 +93,10 @@ impl<V> NumericComparator<V> {
 }
 
 #[allow(clippy::type_complexity)]
-pub struct NumericLeafComparator<PV, N, V, T>
+pub struct NumericLeafComparator<PV, N, T>
 where
   PV: PointValues,
-  T: ToLong<V = V>,
+  T: ToLong,
 {
   pub(crate) doc_values: N,
   point_values: Option<PV>,
@@ -118,20 +118,19 @@ where
   skip_doc_values: Option<N>,
   convert: T,
 }
-impl<PV, N, V, T> NumericLeafComparator<PV, N, V, T>
+impl<PV, N, T> NumericLeafComparator<PV, N, T>
 where
   PV: PointValues,
   N: NumericDocValues,
-  V: PartialOrd + Copy,
-  T: ToLong<V = V>,
+  T: ToLong,
 {
   pub fn new<LR>(
     context: &LeafReaderContext<LR>,
-    parent: &mut NumericComparator<V>,
+    parent: &mut NumericComparator<T::V>,
     doc_values: N,
     candidate: N,
     v_to_long: T,
-    top: V,
+    top: T::V,
   ) -> Result<Self>
   where
     LR: LeafReader<PointValues = PV>,
@@ -209,9 +208,9 @@ where
   }
   fn update_competitive_iterator(
     &mut self,
-    bottom: V,
-    top: V,
-    comparator: &mut NumericComparator<V>,
+    bottom: T::V,
+    top: T::V,
+    comparator: &mut NumericComparator<T::V>,
   ) -> Result<()> {
     if !self.enable_skipping
       || !comparator.hits_threshold_reached
@@ -315,7 +314,7 @@ where
       }
     }
   }
-  fn encode_bottom(&mut self, bottom: V, comparator: &mut NumericComparator<V>) {
+  fn encode_bottom(&mut self, bottom: T::V, comparator: &mut NumericComparator<T::V>) {
     if !comparator.reverse {
       // ascending order
       self.max_value_as_long = self.convert.value_to_long(bottom);
@@ -330,7 +329,7 @@ where
       }
     }
   }
-  fn encode_top(&mut self, top: V, comparator: &mut NumericComparator<V>) {
+  fn encode_top(&mut self, top: T::V, comparator: &mut NumericComparator<T::V>) {
     if !comparator.reverse {
       self.min_value_as_long = self.convert.value_to_long(top);
       if comparator.single_sort
@@ -355,9 +354,9 @@ where
   #[allow(clippy::collapsible_else_if)]
   fn is_missing_value_competitive(
     &self,
-    bottom: V,
-    top: V,
-    comparator: &mut NumericComparator<V>,
+    bottom: T::V,
+    top: T::V,
+    comparator: &mut NumericComparator<T::V>,
   ) -> bool {
     // if queue is full, compare with bottom first,
     // if competitive, then check if we can compare with topValue
@@ -408,9 +407,9 @@ where
 
   pub(crate) fn set_bottom(
     &mut self,
-    bottom: V,
-    top: V,
-    comparator: &mut NumericComparator<V>,
+    bottom: T::V,
+    top: T::V,
+    comparator: &mut NumericComparator<T::V>,
   ) -> Result<()> {
     comparator.queue_full = true; // if we are setting bottom, it means that we have collected enough hits
     self.update_competitive_iterator(bottom, top, comparator)?; // update an iterator if we set a new bottom
@@ -425,9 +424,9 @@ where
   pub(crate) fn set_scorer<S>(
     &mut self,
     scorer: &mut S,
-    bottom: V,
-    top: V,
-    comparator: &mut NumericComparator<V>,
+    bottom: T::V,
+    top: T::V,
+    comparator: &mut NumericComparator<T::V>,
   ) -> Result<()>
   where
     S: Scorable + ?Sized,
@@ -458,9 +457,9 @@ where
 
   pub(crate) fn set_hits_threshold_reached(
     &mut self,
-    bottom: V,
-    top: V,
-    comparator: &mut NumericComparator<V>,
+    bottom: T::V,
+    top: T::V,
+    comparator: &mut NumericComparator<T::V>,
   ) -> Result<()> {
     comparator.hits_threshold_reached = true;
     self.update_competitive_iterator(bottom, top, comparator)
