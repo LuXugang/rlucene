@@ -51,7 +51,7 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{SeekStatus, TermsEnum, TermsEnumEnum2};
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::HasIdentity;
@@ -1699,16 +1699,12 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumEnum2<DV::TermsEnum<'a>, SortedDocValuesTermsEnum<&'a mut Self>>
+    = SortedDocValuesTermsEnum<&'a mut Self>
   where
     Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    if self.asserting {
-      Ok(TermsEnumEnum2::B(self.default_terms_enum()?))
-    } else {
-      Ok(TermsEnumEnum2::A(self.in_.terms_enum()?))
-    }
+    self.default_terms_enum()
   }
 }
 
@@ -2213,15 +2209,12 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumEnum2<DV::TermsEnum<'a>, SortedSetDocValuesTermsEnum<&'a mut Self>>
+    = SortedSetDocValuesTermsEnum<&'a mut Self>
   where
     Self: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    match self {
-      Self::Default(in_) => Ok(TermsEnumEnum2::A(in_.terms_enum()?)),
-      Self::Multi { .. } | Self::Single(_) => Ok(TermsEnumEnum2::B(self.default_terms_enum()?)),
-    }
+    self.default_terms_enum()
   }
 
   fn is_single_valued(&self) -> bool {
