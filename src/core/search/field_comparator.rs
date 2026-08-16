@@ -323,7 +323,6 @@ impl LeafFieldComparator for RelevanceLeafComparator {
 pub enum FieldComparatorValue {
   #[default]
   Missing,
-  Doc(i32),
   Double(f64),
   Float(f32),
   Int(i32),
@@ -345,14 +344,14 @@ impl FieldComparatorValue {
 
   pub fn as_i32(&self) -> Option<&i32> {
     match self {
-      FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
+      FieldComparatorValue::Int(v) => Some(v),
       _ => None,
     }
   }
 
   pub fn into_i32(self) -> Option<i32> {
     match self {
-      FieldComparatorValue::Doc(v) | FieldComparatorValue::Int(v) => Some(v),
+      FieldComparatorValue::Int(v) => Some(v),
       _ => None,
     }
   }
@@ -419,10 +418,7 @@ impl PartialOrd for FieldComparatorValue {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
     match (self, other) {
       (FieldComparatorValue::Missing, FieldComparatorValue::Missing) => Some(Ordering::Equal),
-      (FieldComparatorValue::Doc(a), FieldComparatorValue::Doc(b))
-      | (FieldComparatorValue::Int(a), FieldComparatorValue::Int(b))
-      | (FieldComparatorValue::Doc(a), FieldComparatorValue::Int(b))
-      | (FieldComparatorValue::Int(a), FieldComparatorValue::Doc(b)) => a.partial_cmp(b),
+      (FieldComparatorValue::Int(a), FieldComparatorValue::Int(b)) => a.partial_cmp(b),
       (FieldComparatorValue::Double(a), FieldComparatorValue::Double(b)) => a.partial_cmp(b),
       (FieldComparatorValue::Float(a), FieldComparatorValue::Float(b)) => a.partial_cmp(b),
       (FieldComparatorValue::Long(a), FieldComparatorValue::Long(b)) => a.partial_cmp(b),
@@ -606,7 +602,7 @@ impl FieldComparator for FieldComparatorEnum {
       FieldComparatorEnum::Relevance(comparator) => {
         comparator.value(slot).map(FieldComparatorValue::Float)
       },
-      FieldComparatorEnum::Doc(comparator) => comparator.value(slot).map(FieldComparatorValue::Doc),
+      FieldComparatorEnum::Doc(comparator) => comparator.value(slot).map(FieldComparatorValue::Int),
       FieldComparatorEnum::Double(comparator) => {
         comparator.value(slot).map(FieldComparatorValue::Double)
       },

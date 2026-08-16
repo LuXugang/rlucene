@@ -49,15 +49,12 @@ use crate::core::search::query::{
   Query, QueryBase, QueryWeight, QueryWeightSs, QueryWeightSsBulkScorer, QueryWeightSsScorer,
 };
 use crate::core::search::query_visitor::QueryVisitor;
-use crate::core::search::regexp_query::RegexpQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_in_set_query::TermInSetQuery;
-use crate::core::search::term_range_query::TermRangeQuery;
 use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorEnum2};
 use crate::core::search::weight::Weight;
-use crate::core::search::wildcard_query::WildcardQuery;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::core_helper::HasIdentity;
@@ -400,19 +397,19 @@ where
     MultiTermQuerySet::Fuzzy(q) => Ok(MultiTermQueryDocValuesTermsEnum::Fuzzy(Box::new(
       q.get_terms_enum(terms)?,
     ))),
-    MultiTermQuerySet::Prefix(q) => Ok(MultiTermQueryDocValuesTermsEnum::Prefix(
+    MultiTermQuerySet::Prefix(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQuerySet::Regexp(q) => Ok(MultiTermQueryDocValuesTermsEnum::Regexp(
+    MultiTermQuerySet::Regexp(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
     )),
     MultiTermQuerySet::TermInSet(q) => Ok(MultiTermQueryDocValuesTermsEnum::TermInSet(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQuerySet::TermRange(q) => Ok(MultiTermQueryDocValuesTermsEnum::TermRange(
+    MultiTermQuerySet::TermRange(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQuerySet::Wildcard(q) => Ok(MultiTermQueryDocValuesTermsEnum::Wildcard(
+    MultiTermQuerySet::Wildcard(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
     )),
     #[cfg(test)]
@@ -589,11 +586,7 @@ where
 {
   Automaton(<AutomatonQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
   Fuzzy(Box<<FuzzyQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>>),
-  Prefix(<crate::core::search::prefix_query::PrefixQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
-  Regexp(<RegexpQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
   TermInSet(<TermInSetQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
-  TermRange(<TermRangeQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
-  Wildcard(<WildcardQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
   #[cfg(test)]
   BoostChecking(
     <crate::test_framework::core::search::multi_term::BoostCheckingQuery as MultiTermQuery>::TermsEnum<
@@ -619,11 +612,7 @@ macro_rules! dispatch_doc_values_terms_enum {
     match $self {
       MultiTermQueryDocValuesTermsEnum::Automaton($inner) => $body,
       MultiTermQueryDocValuesTermsEnum::Fuzzy($inner) => $body,
-      MultiTermQueryDocValuesTermsEnum::Prefix($inner) => $body,
-      MultiTermQueryDocValuesTermsEnum::Regexp($inner) => $body,
       MultiTermQueryDocValuesTermsEnum::TermInSet($inner) => $body,
-      MultiTermQueryDocValuesTermsEnum::TermRange($inner) => $body,
-      MultiTermQueryDocValuesTermsEnum::Wildcard($inner) => $body,
       #[cfg(test)]
       MultiTermQueryDocValuesTermsEnum::BoostChecking($inner) => $body,
       #[cfg(test)]

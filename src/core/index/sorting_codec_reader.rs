@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
+use crate::core::codecs::doc_values_producer::DocValuesProducer;
+use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
-use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
@@ -26,7 +27,9 @@ use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
+use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
+use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
   CRBits, CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer,
@@ -47,16 +50,22 @@ use crate::core::index::index_reader::{
 use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDocValues};
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
 };
-use crate::core::index::sorted_doc_values::SortedDocValues;
+use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
+use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_doc_values_writer::SortingSortedDocValues;
 use crate::core::index::sorted_numeric_doc_values_writer::{
   LongValues, SortingSortedNumericDocValues,
 };
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
+use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
+use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::sorted_set_doc_values_writer::{
   DocOrds, START_BITS_PER_VALUE, SortingSortedSetDocValues,
 };
@@ -64,6 +73,8 @@ use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
+use crate::core::index::terms::TermsEnum2;
+use crate::core::index::terms_enum::TermsEnumEnum2;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -948,6 +959,355 @@ where
     self.delegate.check_integrity()
   }
 }
+
+pub enum SortingCodecReaderSortedDocValues<S> {
+  Original(S),
+  Sorting(SortingSortedDocValues<S>),
+}
+
+impl<S> DocValuesIterator for SortingCodecReaderSortedDocValues<S>
+where
+  S: SortedDocValues,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Original(values) => values.advance_exact(target),
+      Self::Sorting(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<S> DocIdSetIterator for SortingCodecReaderSortedDocValues<S>
+where
+  S: SortedDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Original(values) => values.doc_id(),
+      Self::Sorting(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.next_doc(),
+      Self::Sorting(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.advance(target),
+      Self::Sorting(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.slow_advance(target),
+      Self::Sorting(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.cost(),
+      Self::Sorting(values) => values.cost(),
+    }
+  }
+}
+
+impl<S> SortedDocValues for SortingCodecReaderSortedDocValues<S>
+where
+  S: SortedDocValues,
+{
+  fn ord_value(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.ord_value(),
+      Self::Sorting(values) => values.ord_value(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Original(values) => values.lookup_ord(ord),
+      Self::Sorting(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.get_value_count(),
+      Self::Sorting(values) => values.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.lookup_term(key),
+      Self::Sorting(values) => values.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a>
+    = TermsEnumEnum2<S::TermsEnum<'a>, SortedDocValuesTermsEnum<&'a mut SortingSortedDocValues<S>>>
+  where
+    S: 'a;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    match self {
+      Self::Original(values) => values.terms_enum().map(TermsEnumEnum2::A),
+      Self::Sorting(values) => values.terms_enum().map(TermsEnumEnum2::B),
+    }
+  }
+}
+
+pub enum SortingCodecReaderSortedSetDocValues<S> {
+  Original(S),
+  Sorting(SortingSortedSetDocValues<S>),
+}
+
+impl<S> DocValuesIterator for SortingCodecReaderSortedSetDocValues<S>
+where
+  S: SortedSetDocValues,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Original(values) => values.advance_exact(target),
+      Self::Sorting(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<S> DocIdSetIterator for SortingCodecReaderSortedSetDocValues<S>
+where
+  S: SortedSetDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Original(values) => values.doc_id(),
+      Self::Sorting(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.next_doc(),
+      Self::Sorting(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.advance(target),
+      Self::Sorting(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.slow_advance(target),
+      Self::Sorting(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.cost(),
+      Self::Sorting(values) => values.cost(),
+    }
+  }
+}
+
+impl<S> SortedSetDocValues for SortingCodecReaderSortedSetDocValues<S>
+where
+  S: SortedSetDocValues,
+{
+  fn next_ord(&mut self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.next_ord(),
+      Self::Sorting(values) => values.next_ord(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.doc_value_count(),
+      Self::Sorting(values) => values.doc_value_count(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Original(values) => values.lookup_ord(ord),
+      Self::Sorting(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.get_value_count(),
+      Self::Sorting(values) => values.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.lookup_term(key),
+      Self::Sorting(values) => values.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a>
+    = TermsEnumEnum2<
+    S::TermsEnum<'a>,
+    SortedSetDocValuesTermsEnum<&'a mut SortingSortedSetDocValues<S>>,
+  >
+  where
+    S: 'a;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    match self {
+      Self::Original(values) => values.terms_enum().map(TermsEnumEnum2::A),
+      Self::Sorting(values) => values.terms_enum().map(TermsEnumEnum2::B),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::Original(values) => values.is_single_valued(),
+      Self::Sorting(values) => values.is_single_valued(),
+    }
+  }
+
+  type SortedDocValues = SortedDocValuesEnum2<S::SortedDocValues, DummySortedDocValues>;
+
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    match self {
+      Self::Original(values) => values
+        .get_sorted_doc_values()
+        .map(SortedDocValuesEnum2::A),
+      Self::Sorting(values) => values
+        .get_sorted_doc_values()
+        .map(SortedDocValuesEnum2::B),
+    }
+  }
+}
+
+pub enum SortingCodecReaderDocValuesProducer<DVP, DM> {
+  Original(DVP),
+  Sorting(DocValuesProducerImpl<DVP, DM>),
+}
+
+impl<DVP, DM> CloseableRef for SortingCodecReaderDocValuesProducer<DVP, DM>
+where
+  DVP: DocValuesProducer,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Original(producer) => producer.close(),
+      Self::Sorting(producer) => producer.close(),
+    }
+  }
+}
+
+impl<DVP, DM> DocValuesProducer for SortingCodecReaderDocValuesProducer<DVP, DM>
+where
+  DVP: DocValuesProducer,
+  DM: DocMap + Clone,
+{
+  type NumericDocValues =
+    NumericDocValuesEnum2<DVP::NumericDocValues, SortingNumericDocValues<FixedBitSet>>;
+
+  fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::Original(producer) => producer.get_numeric(field).map(NumericDocValuesEnum2::A),
+      Self::Sorting(producer) => producer.get_numeric(field).map(NumericDocValuesEnum2::B),
+    }
+  }
+
+  type BinaryDocValues = BinaryDocValuesEnum2<DVP::BinaryDocValues, SortingBinaryDocValues>;
+
+  fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
+    match self {
+      Self::Original(producer) => producer.get_binary(field).map(BinaryDocValuesEnum2::A),
+      Self::Sorting(producer) => producer.get_binary(field).map(BinaryDocValuesEnum2::B),
+    }
+  }
+
+  type SortedDocValues = SortingCodecReaderSortedDocValues<DVP::SortedDocValues>;
+
+  fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
+    match self {
+      Self::Original(producer) => producer
+        .get_sorted(field)
+        .map(SortingCodecReaderSortedDocValues::Original),
+      Self::Sorting(producer) => producer
+        .get_sorted(field)
+        .map(SortingCodecReaderSortedDocValues::Sorting),
+    }
+  }
+
+  type SortedNumericDocValues = SortedNumericDocValuesEnum2<
+    DVP::SortedNumericDocValues,
+    SortingSortedNumericDocValues<DVP::SortedNumericDocValues>,
+  >;
+
+  fn get_sorted_numeric(
+    &self,
+    field: &Arc<FieldInfo>,
+  ) -> Result<Self::SortedNumericDocValues> {
+    match self {
+      Self::Original(producer) => producer
+        .get_sorted_numeric(field)
+        .map(SortedNumericDocValuesEnum2::A),
+      Self::Sorting(producer) => producer
+        .get_sorted_numeric(field)
+        .map(SortedNumericDocValuesEnum2::B),
+    }
+  }
+
+  type SortedSetDocValues = SortingCodecReaderSortedSetDocValues<DVP::SortedSetDocValues>;
+
+  fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
+    match self {
+      Self::Original(producer) => producer
+        .get_sorted_set(field)
+        .map(SortingCodecReaderSortedSetDocValues::Original),
+      Self::Sorting(producer) => producer
+        .get_sorted_set(field)
+        .map(SortingCodecReaderSortedSetDocValues::Sorting),
+    }
+  }
+
+  type DocValuesSkipper =
+    DocValuesSkipperEnum2<DVP::DocValuesSkipper, DummyDocValuesSkipper>;
+
+  fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
+    match self {
+      Self::Original(producer) => producer
+        .get_skipper(field)
+        .map(|skipper| skipper.map(DocValuesSkipperEnum2::A)),
+      Self::Sorting(producer) => producer
+        .get_skipper(field)
+        .map(|skipper| skipper.map(DocValuesSkipperEnum2::B)),
+    }
+  }
+
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::Original(producer) => producer.check_integrity(),
+      Self::Sorting(producer) => producer.check_integrity(),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self {
+      Self::Original(producer) => Ok(producer.get_merge_instance()?.map(Self::Original)),
+      Self::Sorting(producer) => Ok(producer.get_merge_instance()?.map(Self::Sorting)),
+    }
+  }
+}
 fn get_or_create_dv<F>(field: &str, supplier: F, inner: &Arc<Mutex<Inner>>) -> Result<CachedObject>
 where
   F: FnOnce() -> Result<CachedObject>,
@@ -1742,6 +2102,77 @@ where
   }
 }
 
+pub enum SortingCodecReaderFieldsProducer<FP, DM> {
+  Original(FP),
+  Sorting(FieldsProducerImpl<FP, DM>),
+}
+
+impl<FP, DM> CloseableRef for SortingCodecReaderFieldsProducer<FP, DM>
+where
+  FP: FieldsProducer,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Original(producer) => producer.close(),
+      Self::Sorting(producer) => producer.close(),
+    }
+  }
+}
+
+impl<FP, DM> Fields for SortingCodecReaderFieldsProducer<FP, DM>
+where
+  FP: FieldsProducer,
+  DM: DocMap + Clone,
+{
+  type FieldIter<'a>
+    = FP::FieldIter<'a>
+  where
+    Self: 'a;
+
+  fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+    match self {
+      Self::Original(producer) => producer.iterator(),
+      Self::Sorting(producer) => producer.iterator(),
+    }
+  }
+
+  type Terms = TermsEnum2<FP::Terms, SortingTerms<FP::Terms, DM>>;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    match self {
+      Self::Original(producer) => producer.terms(field).map(|terms| terms.map(TermsEnum2::A)),
+      Self::Sorting(producer) => producer.terms(field).map(|terms| terms.map(TermsEnum2::B)),
+    }
+  }
+
+  fn size(&self) -> Result<i32> {
+    match self {
+      Self::Original(producer) => producer.size(),
+      Self::Sorting(producer) => producer.size(),
+    }
+  }
+}
+
+impl<FP, DM> FieldsProducer for SortingCodecReaderFieldsProducer<FP, DM>
+where
+  FP: FieldsProducer,
+  DM: DocMap + Clone,
+{
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::Original(producer) => producer.check_integrity(),
+      Self::Sorting(producer) => producer.check_integrity(),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self {
+      Self::Original(producer) => Ok(producer.get_merge_instance()?.map(Self::Original)),
+      Self::Sorting(producer) => Ok(producer.get_merge_instance()?.map(Self::Sorting)),
+    }
+  }
+}
+
 pub struct FilterCodecReaderImpl<CR> {
   in_: CR,
   new_meta_data: LeafMetaData,
@@ -2347,14 +2778,8 @@ where
   type TermVectorsReader =
     SortingCodecReaderTermVectorsReader<<CR as CodecReader>::TermVectorsReader, DM>;
   type NormsProducer = SortingNormsProducerEnum<CRNormsProducer<CR>, DM>;
-  type DocValuesProducer = DocValuesProducerEnum2<
-    <CR as CodecReader>::DocValuesProducer,
-    <SortingCodecReader<CR, DM> as CodecReader>::DocValuesProducer,
-  >;
-  type FieldsProducer = FieldsProducerEnum2<
-    <CR as CodecReader>::FieldsProducer,
-    <SortingCodecReader<CR, DM> as CodecReader>::FieldsProducer,
-  >;
+  type DocValuesProducer = SortingCodecReaderDocValuesProducer<CRDocValuesProducer<CR>, DM>;
+  type FieldsProducer = SortingCodecReaderFieldsProducer<CRFieldsProducer<CR>, DM>;
   type PointsReader = PointsReaderEnum2<
     <CR as CodecReader>::PointsReader,
     <SortingCodecReader<CR, DM> as CodecReader>::PointsReader,
@@ -2394,18 +2819,24 @@ where
   fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
     Ok(match self {
       SortingCodecReaderEnum::Filter(f) => {
-        f.get_doc_values_reader()?.map(DocValuesProducerEnum2::A)
+        f.get_doc_values_reader()?
+          .map(SortingCodecReaderDocValuesProducer::Original)
       },
       SortingCodecReaderEnum::Sorting(s) => {
-        s.get_doc_values_reader()?.map(DocValuesProducerEnum2::B)
+        s.get_doc_values_reader()?
+          .map(SortingCodecReaderDocValuesProducer::Sorting)
       },
     })
   }
 
   fn get_postings_reader(&self) -> Result<Option<Self::FieldsProducer>> {
     Ok(match self {
-      SortingCodecReaderEnum::Filter(f) => f.get_postings_reader()?.map(FieldsProducerEnum2::A),
-      SortingCodecReaderEnum::Sorting(s) => s.get_postings_reader()?.map(FieldsProducerEnum2::B),
+      SortingCodecReaderEnum::Filter(f) => f
+        .get_postings_reader()?
+        .map(SortingCodecReaderFieldsProducer::Original),
+      SortingCodecReaderEnum::Sorting(s) => s
+        .get_postings_reader()?
+        .map(SortingCodecReaderFieldsProducer::Sorting),
     })
   }
 

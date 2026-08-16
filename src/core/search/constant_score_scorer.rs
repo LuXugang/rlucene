@@ -22,9 +22,7 @@ use crate::core::search::score_mode::ScoreMode;
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::two_phase_iterator::{
-  EmptyTPI, TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
-};
+use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A constant-scoring Scorer.
 pub struct ConstantScoreScorer<DISI, TPI> {
@@ -97,10 +95,11 @@ where
     if min_score > self.score && matches!(self.score_mode, ScoreMode::TopScores) {
       match &mut self.disi {
         ConstantScoreIterator::DisiTop(iterator) => {
-          iterator.delegate = DelegateEnum::EmptyDisi(EmptyDISI::new());
+          iterator.delegate = DelegateEnum::Empty(EmptyDISI::new());
         },
         ConstantScoreIterator::TpiTop(iterator) => {
-          iterator.two_phase_iterator.approximation.delegate = DelegateEnum::EmptyTPI(EmptyTPI);
+          iterator.two_phase_iterator.approximation.delegate =
+            DelegateEnum::Empty(EmptyDISI::new());
         },
         ConstantScoreIterator::Disi(_) | ConstantScoreIterator::Tpi(_) => {
           return Err(LuceneError::illegal_state("TopScores: should not be here"));
@@ -244,7 +243,7 @@ where
   fn matches(&mut self) -> Result<bool> {
     match self.approximation.delegate {
       DelegateEnum::TPI(ref mut t) => t.matches(),
-      DelegateEnum::EmptyTPI(ref mut t) => t.matches(),
+      DelegateEnum::Empty(_) => Ok(false),
       _ => Err(LuceneError::illegal_state(
         "two-phase iterator has a doc-id iterator delegate",
       )),
@@ -254,7 +253,7 @@ where
   fn match_cost(&self) -> f32 {
     match self.approximation.delegate {
       DelegateEnum::TPI(ref t) => t.match_cost(),
-      DelegateEnum::EmptyTPI(ref t) => t.match_cost(),
+      DelegateEnum::Empty(_) => 0.0,
       _ => unreachable!("should not be here"),
     }
   }
@@ -320,9 +319,8 @@ where
 
 pub enum DelegateEnum<T, D> {
   TPI(T),
-  EmptyTPI(EmptyTPI),
   Disi(D),
-  EmptyDisi(EmptyDISI),
+  Empty(EmptyDISI),
 }
 impl<T, D> DocIdSetIterator for DelegateEnum<T, D>
 where
@@ -332,45 +330,40 @@ where
   fn doc_id(&self) -> i32 {
     match self {
       DelegateEnum::TPI(t) => t.approximation().doc_id(),
-      DelegateEnum::EmptyTPI(t) => t.approximation().doc_id(),
       DelegateEnum::Disi(d) => d.doc_id(),
-      DelegateEnum::EmptyDisi(e) => e.doc_id(),
+      DelegateEnum::Empty(e) => e.doc_id(),
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
     match self {
       DelegateEnum::TPI(t) => t.approximation_mut().next_doc(),
-      DelegateEnum::EmptyTPI(t) => t.approximation_mut().next_doc(),
       DelegateEnum::Disi(d) => d.next_doc(),
-      DelegateEnum::EmptyDisi(e) => e.next_doc(),
+      DelegateEnum::Empty(e) => e.next_doc(),
     }
   }
 
   fn advance(&mut self, _target: i32) -> Result<i32> {
     match self {
       DelegateEnum::TPI(t) => t.approximation_mut().advance(_target),
-      DelegateEnum::EmptyTPI(t) => t.approximation_mut().advance(_target),
       DelegateEnum::Disi(d) => d.advance(_target),
-      DelegateEnum::EmptyDisi(e) => e.advance(_target),
+      DelegateEnum::Empty(e) => e.advance(_target),
     }
   }
 
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
     match self {
       DelegateEnum::TPI(t) => t.approximation_mut().slow_advance(target),
-      DelegateEnum::EmptyTPI(t) => t.approximation_mut().slow_advance(target),
       DelegateEnum::Disi(d) => d.slow_advance(target),
-      DelegateEnum::EmptyDisi(e) => e.slow_advance(target),
+      DelegateEnum::Empty(e) => e.slow_advance(target),
     }
   }
 
   fn cost(&self) -> Result<i64> {
     match self {
       DelegateEnum::TPI(t) => t.approximation().cost(),
-      DelegateEnum::EmptyTPI(t) => t.approximation().cost(),
       DelegateEnum::Disi(d) => d.cost(),
-      DelegateEnum::EmptyDisi(e) => e.cost(),
+      DelegateEnum::Empty(e) => e.cost(),
     }
   }
 }

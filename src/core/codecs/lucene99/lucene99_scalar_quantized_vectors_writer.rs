@@ -48,9 +48,9 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::float_vector_values::{FloatVectorValues, FloatVectorValuesEnum2};
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{
-  BitsImpl1, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues,
+  BitsImpl1, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMapImpl};
@@ -63,6 +63,7 @@ use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
+use crate::core::search::vector_scorer::VectorScorerEnum2;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
@@ -1536,7 +1537,7 @@ where
 
 impl<F, LiveBits>
   MergedQuantizedVectorValues<
-    QuantizedFloatVectorValues<FloatVectorValuesEnum2<F, NormalizedFloatVectorValues<F>>>,
+    QuantizedFloatVectorValues<MergeFloatVectorValues<F>>,
     LiveBits,
   >
 where
@@ -1563,9 +1564,9 @@ where
         let to_quantize = knn_vectors_reader.get_float_vector_values(&field_info.name)?;
         let to_quantize =
           if *field_info.get_vector_similarity_function() == VectorSimilarityFunction::Cosine {
-            FloatVectorValuesEnum2::B(NormalizedFloatVectorValues::new(to_quantize))
+            MergeFloatVectorValues::Normalized(NormalizedFloatVectorValues::new(to_quantize))
           } else {
-            FloatVectorValuesEnum2::A(to_quantize)
+            MergeFloatVectorValues::Original(to_quantize)
           };
         let sub = QuantizedByteVectorValueSub::new(
           merge_state.doc_maps[i].clone(),
@@ -2067,6 +2068,154 @@ where
 
 struct NormalizedFloatVectorValues<FVV> {
   values: FVV,
+}
+
+enum MergeFloatVectorValues<FVV> {
+  Original(FVV),
+  Normalized(NormalizedFloatVectorValues<FVV>),
+}
+
+impl<FVV> KnnVectorValues for MergeFloatVectorValues<FVV>
+where
+  FVV: FloatVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::Original(values) => values.dimension(),
+      Self::Normalized(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Original(values) => values.size(),
+      Self::Normalized(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Original(values) => values.ord_to_doc(ord),
+      Self::Normalized(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = KnnVectorValuesEnm2<
+    FVV::KnnVectorValues,
+    NormalizedFloatVectorValues<FVV::FloatVectorValues>,
+  >;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::Original(values) => values.copy().map(KnnVectorValuesEnm2::A),
+      Self::Normalized(values) => values.copy().map(KnnVectorValuesEnm2::B),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::Original(values) => values.get_vector_byte_length(),
+      Self::Normalized(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Original(values) => KnnVectorValues::get_encoding(values),
+      Self::Normalized(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B>
+    = FVV::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    match self {
+      Self::Original(values) => values.get_accept_ords(accept_docs),
+      Self::Normalized(values) => values.get_accept_ords(accept_docs),
+    }
+  }
+
+  type DocIndexIterator = FVV::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::Original(values) => values.iterator(),
+      Self::Normalized(values) => values.iterator(),
+    }
+  }
+}
+
+impl<FVV> FloatVectorValues for MergeFloatVectorValues<FVV>
+where
+  FVV: FloatVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::Original(values) => values.vector_value(ord),
+      Self::Normalized(values) => values.vector_value(ord),
+    }
+  }
+
+  type FloatVectorValues = MergeFloatVectorValues<FVV::FloatVectorValues>;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    match self {
+      Self::Original(values) => values
+        .float_copy()
+        .map(|values| values.map(MergeFloatVectorValues::Original)),
+      Self::Normalized(values) => values
+        .float_copy()
+        .map(|values| values.map(MergeFloatVectorValues::Normalized)),
+    }
+  }
+
+  type VectorScorer = VectorScorerEnum2<FVV::VectorScorer, DummyVectorScorer>;
+
+  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::Original(values) => values
+        .scorer(target)
+        .map(|scorer| scorer.map(VectorScorerEnum2::A)),
+      Self::Normalized(values) => values
+        .scorer(target)
+        .map(|scorer| scorer.map(VectorScorerEnum2::B)),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Original(values) => FloatVectorValues::get_encoding(values),
+      Self::Normalized(values) => FloatVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::Original(values) => values.get_vectors_mut(),
+      Self::Normalized(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::Original(values) => values.get_vectors(),
+      Self::Normalized(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::Original(values) => values.get_vectors_capacity(),
+      Self::Normalized(values) => values.get_vectors_capacity(),
+    }
+  }
 }
 
 impl<FVV> NormalizedFloatVectorValues<FVV> {

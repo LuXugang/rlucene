@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 use crate::core::index::doc_values::{Numeric, SortedNumeric};
+use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
+use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::{
   IntersectVisitor, PointTreeEnum, PointValues, Relation,
   is_estimated_point_count_greater_than_or_equal_to,
@@ -579,7 +580,76 @@ pub trait ToLong {
   fn bytes_to_long(&self, bytes: &[u8]) -> i64;
 }
 
-pub type NumericLeafComparatorDocValues<LR> =
-  NumericDocValuesEnum2<SortedNumericSelectorWrap<SortedNumeric<LR>>, Numeric<LR>>;
+pub enum NumericLeafComparatorDocValues<LR>
+where
+  LR: LeafReader,
+{
+  A(SortedNumericSelectorWrap<SortedNumeric<LR>>),
+  B(Numeric<LR>),
+}
+
+impl<LR> DocValuesIterator for NumericLeafComparatorDocValues<LR>
+where
+  LR: LeafReader,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(values) => values.advance_exact(target),
+      Self::B(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<LR> DocIdSetIterator for NumericLeafComparatorDocValues<LR>
+where
+  LR: LeafReader,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(values) => values.doc_id(),
+      Self::B(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.next_doc(),
+      Self::B(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.advance(target),
+      Self::B(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.slow_advance(target),
+      Self::B(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.cost(),
+      Self::B(values) => values.cost(),
+    }
+  }
+}
+
+impl<LR> NumericDocValues for NumericLeafComparatorDocValues<LR>
+where
+  LR: LeafReader,
+{
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.long_value(),
+      Self::B(values) => values.long_value(),
+    }
+  }
+}
 pub type NumericCompetitiveIterator<LR> =
   CompetitiveIterator<CompetitiveIteratorType<NumericLeafComparatorDocValues<LR>>>;

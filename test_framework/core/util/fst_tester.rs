@@ -49,7 +49,7 @@ where
   S: FSTTesterBase,
 {
   pub random: R,
-  pub pairs: Vec<InputOutput<O::V, Vec<i32>>>,
+  pub pairs: Vec<InputOutput<O::V>>,
   pub input_mode: i32,
   pub outputs: O,
   pub dir: Rc<D>,
@@ -70,7 +70,7 @@ where
     random: R,
     dir: Rc<D>,
     input_mode: i32,
-    pairs: Vec<InputOutput<O::V, Vec<i32>>>,
+    pairs: Vec<InputOutput<O::V>>,
     outputs: O,
   ) -> Self {
     Self {
@@ -761,40 +761,34 @@ impl FSTTesterBase for DummyFSTTesterBaseImpl {
 }
 
 #[derive(Debug, Clone)]
-pub struct InputOutput<T, AV>
+pub struct InputOutput<T>
 where
   T: OutputsBound,
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
 {
-  pub input: IntsRef<AV>,
+  pub input: IntsRef<Vec<i32>>,
   pub output: T,
 }
 
-impl<T, AV> InputOutput<T, AV>
+impl<T> InputOutput<T>
 where
   T: OutputsBound,
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
 {
-  pub fn new(input: IntsRef<AV>, output: T) -> Self {
+  pub fn new(input: IntsRef<Vec<i32>>, output: T) -> Self {
     Self { input, output }
   }
 }
-impl<T: PartialEq, AV> PartialEq for InputOutput<T, AV>
+impl<T: PartialEq> PartialEq for InputOutput<T>
 where
   T: OutputsBound,
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
 {
   fn eq(&self, other: &Self) -> bool {
     self.input == other.input
   }
 }
 
-impl<T: Eq, AV: SharedAccessVec<i32> + WritableVec<i32>> Eq for InputOutput<T, AV> where
-  T: OutputsBound
-{
-}
+impl<T: Eq> Eq for InputOutput<T> where T: OutputsBound {}
 
-impl<T: Ord, AV: SharedAccessVec<i32> + WritableVec<i32>> PartialOrd<Self> for InputOutput<T, AV>
+impl<T: Ord> PartialOrd<Self> for InputOutput<T>
 where
   T: OutputsBound,
 {
@@ -803,7 +797,7 @@ where
   }
 }
 
-impl<T: Ord, AV: SharedAccessVec<i32> + WritableVec<i32>> Ord for InputOutput<T, AV>
+impl<T: Ord> Ord for InputOutput<T>
 where
   T: OutputsBound,
 {

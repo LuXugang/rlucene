@@ -99,7 +99,9 @@ use crate::core::index::merge_state::{MergeState, MergeStateAccess};
 #[cfg(test)]
 use crate::core::index::numeric_doc_values::NumericDocValues;
 #[cfg(test)]
-use crate::core::index::point_values::{PointTreeEnum, PointTreeEnum2, PointValues};
+use crate::core::index::point_values::{
+  IntersectVisitor, PointTree, PointTreeEnum, PointValues,
+};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -2309,6 +2311,118 @@ type CrankyAssertingCodecPointValues<I> =
   <CrankyAssertingCodecPointsReader<I> as PointsReader>::PointValuesType;
 
 #[cfg(test)]
+type Lucene90CodecPointTree<I> = <Lucene90CodecPointValues<I> as PointValues>::PointTree;
+#[cfg(test)]
+type AssertingCodecPointTree<I> = <AssertingCodecPointValues<I> as PointValues>::PointTree;
+#[cfg(test)]
+type CrankyLucene101CodecPointTree<I> =
+  <CrankyLucene101CodecPointValues<I> as PointValues>::PointTree;
+#[cfg(test)]
+type CrankyAssertingCodecPointTree<I> =
+  <CrankyAssertingCodecPointValues<I> as PointValues>::PointTree;
+
+#[cfg(test)]
+pub enum CodecPointTree<I: IndexInput> {
+  Lucene90(Lucene90CodecPointTree<I>),
+  Asserting(AssertingCodecPointTree<I>),
+  CrankyLucene101(CrankyLucene101CodecPointTree<I>),
+  CrankyAsserting(CrankyAssertingCodecPointTree<I>),
+}
+
+#[cfg(test)]
+impl<I: IndexInput> TryClone for CodecPointTree<I> {
+  fn try_clone(&self) -> Result<Self> {
+    match self {
+      Self::Lucene90(tree) => tree.try_clone().map(Self::Lucene90),
+      Self::Asserting(tree) => tree.try_clone().map(Self::Asserting),
+      Self::CrankyLucene101(tree) => tree.try_clone().map(Self::CrankyLucene101),
+      Self::CrankyAsserting(tree) => tree.try_clone().map(Self::CrankyAsserting),
+    }
+  }
+}
+
+#[cfg(test)]
+impl<I: IndexInput> PointTree for CodecPointTree<I> {
+  fn move_to_child(&mut self) -> Result<bool> {
+    match self {
+      Self::Lucene90(tree) => tree.move_to_child(),
+      Self::Asserting(tree) => tree.move_to_child(),
+      Self::CrankyLucene101(tree) => tree.move_to_child(),
+      Self::CrankyAsserting(tree) => tree.move_to_child(),
+    }
+  }
+
+  fn move_to_sibling(&mut self) -> Result<bool> {
+    match self {
+      Self::Lucene90(tree) => tree.move_to_sibling(),
+      Self::Asserting(tree) => tree.move_to_sibling(),
+      Self::CrankyLucene101(tree) => tree.move_to_sibling(),
+      Self::CrankyAsserting(tree) => tree.move_to_sibling(),
+    }
+  }
+
+  fn move_to_parent(&mut self) -> Result<bool> {
+    match self {
+      Self::Lucene90(tree) => tree.move_to_parent(),
+      Self::Asserting(tree) => tree.move_to_parent(),
+      Self::CrankyLucene101(tree) => tree.move_to_parent(),
+      Self::CrankyAsserting(tree) => tree.move_to_parent(),
+    }
+  }
+
+  fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
+    match self {
+      Self::Lucene90(tree) => tree.get_min_packed_value(),
+      Self::Asserting(tree) => tree.get_min_packed_value(),
+      Self::CrankyLucene101(tree) => tree.get_min_packed_value(),
+      Self::CrankyAsserting(tree) => tree.get_min_packed_value(),
+    }
+  }
+
+  fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
+    match self {
+      Self::Lucene90(tree) => tree.get_max_packed_value(),
+      Self::Asserting(tree) => tree.get_max_packed_value(),
+      Self::CrankyLucene101(tree) => tree.get_max_packed_value(),
+      Self::CrankyAsserting(tree) => tree.get_max_packed_value(),
+    }
+  }
+
+  fn size(&self) -> Result<usize> {
+    match self {
+      Self::Lucene90(tree) => tree.size(),
+      Self::Asserting(tree) => tree.size(),
+      Self::CrankyLucene101(tree) => tree.size(),
+      Self::CrankyAsserting(tree) => tree.size(),
+    }
+  }
+
+  fn visit_doc_ids<IV>(&mut self, visitor: &mut IV) -> Result<()>
+  where
+    IV: IntersectVisitor,
+  {
+    match self {
+      Self::Lucene90(tree) => tree.visit_doc_ids(visitor),
+      Self::Asserting(tree) => tree.visit_doc_ids(visitor),
+      Self::CrankyLucene101(tree) => tree.visit_doc_ids(visitor),
+      Self::CrankyAsserting(tree) => tree.visit_doc_ids(visitor),
+    }
+  }
+
+  fn visit_doc_values<IV>(&mut self, visitor: &mut IV) -> Result<()>
+  where
+    IV: IntersectVisitor,
+  {
+    match self {
+      Self::Lucene90(tree) => tree.visit_doc_values(visitor),
+      Self::Asserting(tree) => tree.visit_doc_values(visitor),
+      Self::CrankyLucene101(tree) => tree.visit_doc_values(visitor),
+      Self::CrankyAsserting(tree) => tree.visit_doc_values(visitor),
+    }
+  }
+}
+
+#[cfg(test)]
 pub enum CodecPointValues<I: IndexInput> {
   Lucene90(Lucene90CodecPointValues<I>),
   Asserting(AssertingCodecPointValues<I>),
@@ -2441,43 +2555,34 @@ impl<I: IndexInput> PointValues for CodecPointValues<I> {
     }
   }
 
-  type PointTree = PointTreeEnum2<
-    PointTreeEnum2<
-      <Lucene90CodecPointValues<I> as PointValues>::PointTree,
-      <AssertingCodecPointValues<I> as PointValues>::PointTree,
-    >,
-    PointTreeEnum2<
-      <CrankyLucene101CodecPointValues<I> as PointValues>::PointTree,
-      <CrankyAssertingCodecPointValues<I> as PointValues>::PointTree,
-    >,
-  >;
+  type PointTree = CodecPointTree<I>;
   type MutablePointTree = DummyMutablePointTree;
 
   fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
     match self {
       Self::Lucene90(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::A(
-          PointTreeEnum2::A(tree),
-        ))),
+        PointTreeEnum::Other(tree) => {
+          Ok(PointTreeEnum::Other(CodecPointTree::Lucene90(tree)))
+        },
       },
       Self::Asserting(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::A(
-          PointTreeEnum2::B(tree),
-        ))),
+        PointTreeEnum::Other(tree) => {
+          Ok(PointTreeEnum::Other(CodecPointTree::Asserting(tree)))
+        },
       },
       Self::CrankyLucene101(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::B(
-          PointTreeEnum2::A(tree),
-        ))),
+        PointTreeEnum::Other(tree) => {
+          Ok(PointTreeEnum::Other(CodecPointTree::CrankyLucene101(tree)))
+        },
       },
       Self::CrankyAsserting(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::B(
-          PointTreeEnum2::B(tree),
-        ))),
+        PointTreeEnum::Other(tree) => {
+          Ok(PointTreeEnum::Other(CodecPointTree::CrankyAsserting(tree)))
+        },
       },
     }
   }

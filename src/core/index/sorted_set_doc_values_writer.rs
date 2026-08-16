@@ -35,7 +35,6 @@ use crate::core::index::sorted_doc_values_writer::{
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
-use crate::core::index::terms_enum::TermsEnumEnum2;
 use crate::core::index::{BytesRef, docs_with_field_set::DocsWithFieldSet, field_info::FieldInfo};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -60,6 +59,97 @@ use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool, Counter, SharedCounter, 
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+
+type BufferedWriterSortedSetDocValues = BufferedSortedSetDocValues<DocsWithFieldSetDISI>;
+
+pub(crate) enum SortedSetDocValuesWriterValues {
+  Buffered(BufferedWriterSortedSetDocValues),
+  Sorting(SortingSortedSetDocValues<BufferedWriterSortedSetDocValues>),
+}
+
+impl DocValuesIterator for SortedSetDocValuesWriterValues {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Buffered(values) => values.advance_exact(target),
+      Self::Sorting(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl DocIdSetIterator for SortedSetDocValuesWriterValues {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Buffered(values) => values.doc_id(),
+      Self::Sorting(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.next_doc(),
+      Self::Sorting(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.advance(target),
+      Self::Sorting(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.slow_advance(target),
+      Self::Sorting(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(values) => values.cost(),
+      Self::Sorting(values) => values.cost(),
+    }
+  }
+}
+
+impl SortedSetDocValues for SortedSetDocValuesWriterValues {
+  fn next_ord(&mut self) -> Result<i64> {
+    match self {
+      Self::Buffered(values) => values.next_ord(),
+      Self::Sorting(values) => values.next_ord(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.doc_value_count(),
+      Self::Sorting(values) => values.doc_value_count(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Buffered(values) => values.lookup_ord(ord),
+      Self::Sorting(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(values) => values.get_value_count(),
+      Self::Sorting(values) => values.get_value_count(),
+    }
+  }
+
+  type TermsEnum<'a> = SortedSetDocValuesTermsEnum<&'a mut Self>;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
+
+  type SortedDocValues = DummySortedDocValues;
+}
 
 /// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
 pub(crate) struct SortedSetDocValuesWriter {
@@ -419,10 +509,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
   type SortedNumericDocValues = DummySortedNumericDocValues;
-  type SortedSetDocValues = SortedSetDocValuesEnum2<
-    BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-    SortingSortedSetDocValues<BufferedSortedSetDocValues<DocsWithFieldSetDISI>>,
-  >;
+  type SortedSetDocValues = SortedSetDocValuesWriterValues;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     if !Arc::ptr_eq(&self.field_info, field_info) {
@@ -439,11 +526,10 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
       docs_iter,
     );
     match &self.doc_ords {
-      Some(ords) => Ok(SortedSetDocValuesEnum2::B(SortingSortedSetDocValues::new(
-        buf,
-        ords.clone(),
-      ))),
-      None => Ok(SortedSetDocValuesEnum2::A(buf)),
+      Some(ords) => Ok(SortedSetDocValuesWriterValues::Sorting(
+        SortingSortedSetDocValues::new(buf, ords.clone()),
+      )),
+      None => Ok(SortedSetDocValuesWriterValues::Buffered(buf)),
     }
   }
 
@@ -863,22 +949,13 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumEnum2<A::TermsEnum<'a>, B::TermsEnum<'a>>
+    = SortedSetDocValuesTermsEnum<&'a mut Self>
   where
     A: 'a,
     B: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    match self {
-      SortedSetDocValuesEnum2::A(t) => {
-        let terms_enum = t.terms_enum()?;
-        Ok(TermsEnumEnum2::A(terms_enum))
-      },
-      SortedSetDocValuesEnum2::B(s) => {
-        let terms_enum = s.terms_enum()?;
-        Ok(TermsEnumEnum2::B(terms_enum))
-      },
-    }
+    self.default_terms_enum()
   }
 
   fn is_single_valued(&self) -> bool {

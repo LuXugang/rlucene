@@ -19,6 +19,9 @@ use crate::core::codecs::indexed_disi::{
   DocIndexIteratorImpl, IndexedDISIDocIndexIterator, IndexedDISIImpl, get_doc_index_iterator,
 };
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::off_heap_vector_values::{
+  OffHeapVectorValueBits, SparseOffHeapVectorValueBits,
+};
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::{
@@ -27,7 +30,6 @@ use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::{
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
-use crate::core::index::index_reader::Identity;
 use crate::core::index::knn_vector_values::{
   DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, create_dense_iterator,
 };
@@ -37,19 +39,17 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::IndexInput;
-use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
-use crate::core::util::{HasIdentity, TryIntoInt};
+use crate::core::util::TryIntoInt;
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -604,7 +604,7 @@ where
   }
 
   type Bits<'a, B>
-    = SparseBits<B, I::RandomAccessSlice>
+    = SparseOffHeapVectorValueBits<B, I::RandomAccessSlice>
   where
     B: Bits,
     Self: 'a;
@@ -613,7 +613,9 @@ where
   where
     B: Bits,
   {
-    accept_docs.map(|bits| SparseBits::new(bits, self.base.size, self.ord_to_doc.clone()))
+    accept_docs.map(|bits| {
+      SparseOffHeapVectorValueBits::new(bits, self.base.size, self.ord_to_doc.clone())
+    })
   }
 
   type DocIndexIterator = DocIndexIteratorImpl<I>;
@@ -748,45 +750,6 @@ where
 
   fn iterator_mut(&mut self) -> Self::DocIdSetIteratorMut<'_> {
     &mut self.iterator
-  }
-}
-
-pub struct SparseBits<B, R> {
-  accept_docs: B,
-  size: usize,
-  map: Rc<RefCell<DirectMonotonicReader<R>>>,
-  id: Identity,
-}
-
-impl<B, R> SparseBits<B, R> {
-  fn new(accept_docs: B, size: usize, map: Rc<RefCell<DirectMonotonicReader<R>>>) -> Self {
-    Self {
-      accept_docs,
-      size,
-      map,
-      id: Identity::new(),
-    }
-  }
-}
-
-impl<B, R> HasIdentity for SparseBits<B, R> {
-  fn identity(&self) -> &Identity {
-    &self.id
-  }
-}
-
-impl<B, R> Bits for SparseBits<B, R>
-where
-  B: Bits,
-  R: RandomAccessInput,
-{
-  fn get(&self, index: usize) -> Result<bool> {
-    let index = self.map.borrow_mut().get_mut(index)? as usize;
-    self.accept_docs.get(index)
-  }
-
-  fn length(&self) -> usize {
-    self.size
   }
 }
 
@@ -963,7 +926,7 @@ where
   }
 
   type Bits<'a, B>
-    = OffHeapQuantizedByteVectorValueBitsEnum<I::RandomAccessSlice, B>
+    = OffHeapVectorValueBits<I::RandomAccessSlice, B>
   where
     B: Bits,
     Self: 'a;
@@ -976,10 +939,10 @@ where
       Self::Empty(_) => None,
       Self::Dense(e) => e
         .get_accept_ords(accept_docs)
-        .map(OffHeapQuantizedByteVectorValueBitsEnum::Dense),
+        .map(OffHeapVectorValueBits::Dense),
       Self::Sparse(e) => e
         .get_accept_ords(accept_docs)
-        .map(OffHeapQuantizedByteVectorValueBitsEnum::Sparse),
+        .map(OffHeapVectorValueBits::Sparse),
     }
   }
 
@@ -1065,57 +1028,6 @@ where
       Self::Empty(e) => QuantizedByteVectorValues::copy(e).map(Self::Empty),
       Self::Dense(e) => QuantizedByteVectorValues::copy(e).map(Self::Dense),
       Self::Sparse(e) => QuantizedByteVectorValues::copy(e).map(Self::Sparse),
-    }
-  }
-}
-
-pub enum OffHeapQuantizedByteVectorValueBitsEnum<R, B> {
-  Dense(B),
-  Sparse(SparseBits<B, R>),
-}
-
-impl<R, B> HasIdentity for OffHeapQuantizedByteVectorValueBitsEnum<R, B>
-where
-  B: HasIdentity,
-{
-  fn identity(&self) -> &Identity {
-    match self {
-      Self::Dense(e) => e.identity(),
-      Self::Sparse(e) => e.identity(),
-    }
-  }
-}
-
-impl<R, B> Bits for OffHeapQuantizedByteVectorValueBitsEnum<R, B>
-where
-  R: RandomAccessInput,
-  B: Bits,
-{
-  fn get(&self, index: usize) -> Result<bool> {
-    match self {
-      Self::Dense(e) => e.get(index),
-      Self::Sparse(e) => e.get(index),
-    }
-  }
-
-  fn length(&self) -> usize {
-    match self {
-      Self::Dense(e) => e.length(),
-      Self::Sparse(e) => e.length(),
-    }
-  }
-
-  fn copy_of(&self) -> Result<FixedBitSet> {
-    match self {
-      Self::Dense(e) => e.copy_of(),
-      Self::Sparse(e) => e.copy_of(),
-    }
-  }
-
-  fn to_string(&self) -> String {
-    match self {
-      Self::Dense(e) => e.to_string(),
-      Self::Sparse(e) => e.to_string(),
     }
   }
 }

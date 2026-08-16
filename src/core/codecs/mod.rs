@@ -49,6 +49,7 @@ pub mod mutable_point_tree;
 pub mod norms_consumer;
 pub mod norms_format;
 pub mod norms_producer;
+pub mod off_heap_vector_values;
 pub mod perfield;
 pub mod points_format;
 pub mod points_reader;

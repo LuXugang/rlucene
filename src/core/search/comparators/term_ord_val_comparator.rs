@@ -22,9 +22,9 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::{LRPosting, LRTermsEnum, LeafReader};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::NONE;
-use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
+use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::TermsEnum;
+use crate::core::index::terms_enum::{TermsEnum, TermsEnumEnum2};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::field_comparator::FieldComparator;
@@ -37,6 +37,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{ToInt, TryIntoInt};
+use std::borrow::Cow;
 use std::collections::VecDeque;
 
 /// Sorts by field's natural Term sort order, using ordinals.
@@ -801,5 +802,110 @@ where
     Ok(a.postings.doc_id() < b.postings.doc_id())
   }
 }
-pub type TermOrdValDocValues<LR> =
-  SortedDocValuesEnum2<SortedDocValuesWrap<SortedSet<LR>>, Sorted<LR>>;
+pub enum TermOrdValDocValues<LR>
+where
+  LR: LeafReader,
+{
+  A(SortedDocValuesWrap<SortedSet<LR>>),
+  B(Sorted<LR>),
+}
+
+impl<LR> DocValuesIterator for TermOrdValDocValues<LR>
+where
+  LR: LeafReader,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(values) => values.advance_exact(target),
+      Self::B(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<LR> DocIdSetIterator for TermOrdValDocValues<LR>
+where
+  LR: LeafReader,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(values) => values.doc_id(),
+      Self::B(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.next_doc(),
+      Self::B(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.advance(target),
+      Self::B(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.slow_advance(target),
+      Self::B(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.cost(),
+      Self::B(values) => values.cost(),
+    }
+  }
+}
+
+impl<LR> SortedDocValues for TermOrdValDocValues<LR>
+where
+  LR: LeafReader,
+{
+  fn ord_value(&mut self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.ord_value(),
+      Self::B(values) => values.ord_value(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::A(values) => values.lookup_ord(ord),
+      Self::B(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.get_value_count(),
+      Self::B(values) => values.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    match self {
+      Self::A(values) => values.lookup_term(key),
+      Self::B(values) => values.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a>
+    = TermsEnumEnum2<
+    <SortedDocValuesWrap<SortedSet<LR>> as SortedDocValues>::TermsEnum<'a>,
+    <Sorted<LR> as SortedDocValues>::TermsEnum<'a>,
+  >
+  where
+    LR: 'a;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    match self {
+      Self::A(values) => values.terms_enum().map(TermsEnumEnum2::A),
+      Self::B(values) => values.terms_enum().map(TermsEnumEnum2::B),
+    }
+  }
+}
