@@ -48,7 +48,6 @@ use crate::test_framework::core::util::lucene_test_case::{
 use rand::Rng;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
 pub static STORED_TEXT_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
@@ -396,36 +395,27 @@ where
   }
 }
 
-pub struct SoftUpdatesConcurrentlyOneMergeUnaryOperator<D> {
+pub struct SoftUpdatesConcurrentlyOneMergeUnaryOperator {
   merge_away_soft_deletes: Arc<AtomicBool>,
-  _marker: PhantomData<fn() -> D>,
 }
 
-impl<D> Clone for SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
+impl Clone for SoftUpdatesConcurrentlyOneMergeUnaryOperator {
   fn clone(&self) -> Self {
     Self {
       merge_away_soft_deletes: self.merge_away_soft_deletes.clone(),
-      _marker: PhantomData,
     }
   }
 }
 
-impl<D> SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
+impl SoftUpdatesConcurrentlyOneMergeUnaryOperator {
   pub(crate) fn new(merge_away_soft_deletes: Arc<AtomicBool>) -> Self {
     Self {
       merge_away_soft_deletes,
-      _marker: PhantomData,
     }
   }
 }
 
-impl<D> OneMergeUnaryOperatorBase<D> for SoftUpdatesConcurrentlyOneMergeUnaryOperator<D>
+impl<D> OneMergeUnaryOperatorBase<D> for SoftUpdatesConcurrentlyOneMergeUnaryOperator
 where
   D: Directory,
 {
@@ -566,21 +556,19 @@ where
   }
 }
 
-pub(crate) struct MergeFinishedOnceOneMerge<D, CR> {
+pub(crate) struct MergeFinishedOnceOneMerge {
   only_finish_once: AtomicBool,
-  _marker: PhantomData<fn(D, CR)>,
 }
 
-impl<D, CR> MergeFinishedOnceOneMerge<D, CR> {
+impl MergeFinishedOnceOneMerge {
   fn new() -> Self {
     Self {
       only_finish_once: AtomicBool::new(false),
-      _marker: PhantomData,
     }
   }
 }
 
-impl<D, CR> OneMergeBase<D, CR> for MergeFinishedOnceOneMerge<D, CR>
+impl<D, CR> OneMergeBase<D, CR> for MergeFinishedOnceOneMerge
 where
   D: Directory,
   CR: CodecReader,
@@ -671,21 +659,19 @@ where
   }
 }
 
-pub(crate) struct AbortOnMergeCompleteOneMerge<D, CR> {
+pub(crate) struct AbortOnMergeCompleteOneMerge {
   abort_merge_before_commit: Arc<AtomicBool>,
-  _marker: PhantomData<fn(D, CR)>,
 }
 
-impl<D, CR> AbortOnMergeCompleteOneMerge<D, CR> {
+impl AbortOnMergeCompleteOneMerge {
   fn new(abort_merge_before_commit: Arc<AtomicBool>) -> Self {
     Self {
       abort_merge_before_commit,
-      _marker: PhantomData,
     }
   }
 }
 
-impl<D, CR> OneMergeBase<D, CR> for AbortOnMergeCompleteOneMerge<D, CR>
+impl<D, CR> OneMergeBase<D, CR> for AbortOnMergeCompleteOneMerge
 where
   D: Directory,
   CR: CodecReader,

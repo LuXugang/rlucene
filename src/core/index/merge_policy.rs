@@ -2449,15 +2449,15 @@ where
   PointInTime(Box<PointInTimeOneMerge<D, CR>>),
   SoftDeletesRetention(SoftDeletesRetentionOneMerge<D, CR>),
   #[cfg(test)]
-  MergeFinishedOnce(MergeFinishedOnceOneMerge<D, CR>),
+  MergeFinishedOnce(MergeFinishedOnceOneMerge),
   #[cfg(test)]
-  AbortOnMergeComplete(AbortOnMergeCompleteOneMerge<D, CR>),
+  AbortOnMergeComplete(AbortOnMergeCompleteOneMerge),
   #[cfg(test)]
-  SetDiagnostics(SetDiagnosticsOneMerge<D, CR>),
+  SetDiagnostics(SetDiagnosticsOneMerge),
   #[cfg(test)]
-  SetMergePolicyDiagnostics(SetMergePolicyDiagnosticsOneMerge<D, CR>),
+  SetMergePolicyDiagnostics(SetMergePolicyDiagnosticsOneMerge),
   #[cfg(test)]
-  ForceMergeDvUpdate(ForceMergeDvUpdateOneMerge<D, CR>),
+  ForceMergeDvUpdate(ForceMergeDvUpdateOneMerge),
   #[cfg(test)]
   SoftUpdatesConcurrently(SoftUpdatesConcurrentlyOneMerge<D, CR>),
   #[cfg(test)]
@@ -2557,19 +2557,53 @@ where
         hook.merge_finished(inner, stat, success, segment_dropped)
       },
       #[cfg(test)]
-      Self::MergeFinishedOnce(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      Self::MergeFinishedOnce(hook) => {
+        <MergeFinishedOnceOneMerge as OneMergeBase<D, CR>>::merge_finished(
+          hook,
+          inner,
+          stat,
+          success,
+          segment_dropped,
+        )
+      },
       #[cfg(test)]
       Self::AbortOnMergeComplete(hook) => {
-        hook.merge_finished(inner, stat, success, segment_dropped)
+        <AbortOnMergeCompleteOneMerge as OneMergeBase<D, CR>>::merge_finished(
+          hook,
+          inner,
+          stat,
+          success,
+          segment_dropped,
+        )
       },
       #[cfg(test)]
-      Self::SetDiagnostics(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      Self::SetDiagnostics(hook) => <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::merge_finished(
+        hook,
+        inner,
+        stat,
+        success,
+        segment_dropped,
+      ),
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => {
-        hook.merge_finished(inner, stat, success, segment_dropped)
+        <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::merge_finished(
+          hook,
+          inner,
+          stat,
+          success,
+          segment_dropped,
+        )
       },
       #[cfg(test)]
-      Self::ForceMergeDvUpdate(hook) => hook.merge_finished(inner, stat, success, segment_dropped),
+      Self::ForceMergeDvUpdate(hook) => {
+        <ForceMergeDvUpdateOneMerge as OneMergeBase<D, CR>>::merge_finished(
+          hook,
+          inner,
+          stat,
+          success,
+          segment_dropped,
+        )
+      },
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => {
         hook.merge_finished(inner, stat, success, segment_dropped)
@@ -2587,15 +2621,25 @@ where
       Self::PointInTime(hook) => hook.wrap_for_merge(reader),
       Self::SoftDeletesRetention(hook) => hook.wrap_for_merge(reader),
       #[cfg(test)]
-      Self::MergeFinishedOnce(hook) => hook.wrap_for_merge(reader),
+      Self::MergeFinishedOnce(hook) => {
+        <MergeFinishedOnceOneMerge as OneMergeBase<D, CR>>::wrap_for_merge(hook, reader)
+      },
       #[cfg(test)]
-      Self::AbortOnMergeComplete(hook) => hook.wrap_for_merge(reader),
+      Self::AbortOnMergeComplete(hook) => {
+        <AbortOnMergeCompleteOneMerge as OneMergeBase<D, CR>>::wrap_for_merge(hook, reader)
+      },
       #[cfg(test)]
-      Self::SetDiagnostics(hook) => hook.wrap_for_merge(reader),
+      Self::SetDiagnostics(hook) => {
+        <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::wrap_for_merge(hook, reader)
+      },
       #[cfg(test)]
-      Self::SetMergePolicyDiagnostics(hook) => hook.wrap_for_merge(reader),
+      Self::SetMergePolicyDiagnostics(hook) => {
+        <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::wrap_for_merge(hook, reader)
+      },
       #[cfg(test)]
-      Self::ForceMergeDvUpdate(hook) => hook.wrap_for_merge(reader),
+      Self::ForceMergeDvUpdate(hook) => {
+        <ForceMergeDvUpdateOneMerge as OneMergeBase<D, CR>>::wrap_for_merge(hook, reader)
+      },
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => hook.wrap_for_merge(reader),
       #[cfg(test)]
@@ -2613,15 +2657,25 @@ where
       Self::PointInTime(hook) => hook.reorder(reader, dir),
       Self::SoftDeletesRetention(hook) => hook.reorder(reader, dir),
       #[cfg(test)]
-      Self::MergeFinishedOnce(hook) => hook.reorder(reader, dir),
+      Self::MergeFinishedOnce(hook) => {
+        <MergeFinishedOnceOneMerge as OneMergeBase<D, CR>>::reorder(hook, reader, dir)
+      },
       #[cfg(test)]
-      Self::AbortOnMergeComplete(hook) => hook.reorder(reader, dir),
+      Self::AbortOnMergeComplete(hook) => {
+        <AbortOnMergeCompleteOneMerge as OneMergeBase<D, CR>>::reorder(hook, reader, dir)
+      },
       #[cfg(test)]
-      Self::SetDiagnostics(hook) => hook.reorder(reader, dir),
+      Self::SetDiagnostics(hook) => {
+        <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::reorder(hook, reader, dir)
+      },
       #[cfg(test)]
-      Self::SetMergePolicyDiagnostics(hook) => hook.reorder(reader, dir),
+      Self::SetMergePolicyDiagnostics(hook) => {
+        <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::reorder(hook, reader, dir)
+      },
       #[cfg(test)]
-      Self::ForceMergeDvUpdate(hook) => hook.reorder(reader, dir),
+      Self::ForceMergeDvUpdate(hook) => {
+        <ForceMergeDvUpdateOneMerge as OneMergeBase<D, CR>>::reorder(hook, reader, dir)
+      },
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => hook.reorder(reader, dir),
       #[cfg(test)]
@@ -2640,15 +2694,35 @@ where
       Self::PointInTime(hook) => hook.set_merge_info(stat, merge_info, info),
       Self::SoftDeletesRetention(hook) => hook.set_merge_info(stat, merge_info, info),
       #[cfg(test)]
-      Self::MergeFinishedOnce(hook) => hook.set_merge_info(stat, merge_info, info),
+      Self::MergeFinishedOnce(hook) => {
+        <MergeFinishedOnceOneMerge as OneMergeBase<D, CR>>::set_merge_info(
+          hook, stat, merge_info, info,
+        )
+      },
       #[cfg(test)]
-      Self::AbortOnMergeComplete(hook) => hook.set_merge_info(stat, merge_info, info),
+      Self::AbortOnMergeComplete(hook) => {
+        <AbortOnMergeCompleteOneMerge as OneMergeBase<D, CR>>::set_merge_info(
+          hook, stat, merge_info, info,
+        )
+      },
       #[cfg(test)]
-      Self::SetDiagnostics(hook) => hook.set_merge_info(stat, merge_info, info),
+      Self::SetDiagnostics(hook) => {
+        <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::set_merge_info(
+          hook, stat, merge_info, info,
+        )
+      },
       #[cfg(test)]
-      Self::SetMergePolicyDiagnostics(hook) => hook.set_merge_info(stat, merge_info, info),
+      Self::SetMergePolicyDiagnostics(hook) => {
+        <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::set_merge_info(
+          hook, stat, merge_info, info,
+        )
+      },
       #[cfg(test)]
-      Self::ForceMergeDvUpdate(hook) => hook.set_merge_info(stat, merge_info, info),
+      Self::ForceMergeDvUpdate(hook) => {
+        <ForceMergeDvUpdateOneMerge as OneMergeBase<D, CR>>::set_merge_info(
+          hook, stat, merge_info, info,
+        )
+      },
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => hook.set_merge_info(stat, merge_info, info),
       #[cfg(test)]
@@ -2670,19 +2744,55 @@ where
         hook.on_merge_complete(inner, stat, merge_info, is_aborted)
       },
       #[cfg(test)]
-      Self::MergeFinishedOnce(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      Self::MergeFinishedOnce(hook) => {
+        <MergeFinishedOnceOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
+          hook,
+          inner,
+          stat,
+          merge_info,
+          is_aborted,
+        )
+      },
       #[cfg(test)]
       Self::AbortOnMergeComplete(hook) => {
-        hook.on_merge_complete(inner, stat, merge_info, is_aborted)
+        <AbortOnMergeCompleteOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
+          hook,
+          inner,
+          stat,
+          merge_info,
+          is_aborted,
+        )
       },
       #[cfg(test)]
-      Self::SetDiagnostics(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      Self::SetDiagnostics(hook) => {
+        <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
+          hook,
+          inner,
+          stat,
+          merge_info,
+          is_aborted,
+        )
+      },
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => {
-        hook.on_merge_complete(inner, stat, merge_info, is_aborted)
+        <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
+          hook,
+          inner,
+          stat,
+          merge_info,
+          is_aborted,
+        )
       },
       #[cfg(test)]
-      Self::ForceMergeDvUpdate(hook) => hook.on_merge_complete(inner, stat, merge_info, is_aborted),
+      Self::ForceMergeDvUpdate(hook) => {
+        <ForceMergeDvUpdateOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
+          hook,
+          inner,
+          stat,
+          merge_info,
+          is_aborted,
+        )
+      },
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => {
         hook.on_merge_complete(inner, stat, merge_info, is_aborted)
@@ -2710,20 +2820,49 @@ where
         hook.init_merge_readers(merge_readers, stat, reader_factory)
       },
       #[cfg(test)]
-      Self::MergeFinishedOnce(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
-      #[cfg(test)]
-      Self::AbortOnMergeComplete(hook) => {
-        hook.init_merge_readers(merge_readers, stat, reader_factory)
+      Self::MergeFinishedOnce(hook) => {
+        <MergeFinishedOnceOneMerge as OneMergeBase<D, CR>>::init_merge_readers(
+          hook,
+          merge_readers,
+          stat,
+          reader_factory,
+        )
       },
       #[cfg(test)]
-      Self::SetDiagnostics(hook) => hook.init_merge_readers(merge_readers, stat, reader_factory),
+      Self::AbortOnMergeComplete(hook) => {
+        <AbortOnMergeCompleteOneMerge as OneMergeBase<D, CR>>::init_merge_readers(
+          hook,
+          merge_readers,
+          stat,
+          reader_factory,
+        )
+      },
+      #[cfg(test)]
+      Self::SetDiagnostics(hook) => {
+        <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::init_merge_readers(
+          hook,
+          merge_readers,
+          stat,
+          reader_factory,
+        )
+      },
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => {
-        hook.init_merge_readers(merge_readers, stat, reader_factory)
+        <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::init_merge_readers(
+          hook,
+          merge_readers,
+          stat,
+          reader_factory,
+        )
       },
       #[cfg(test)]
       Self::ForceMergeDvUpdate(hook) => {
-        hook.init_merge_readers(merge_readers, stat, reader_factory)
+        <ForceMergeDvUpdateOneMerge as OneMergeBase<D, CR>>::init_merge_readers(
+          hook,
+          merge_readers,
+          stat,
+          reader_factory,
+        )
       },
       #[cfg(test)]
       Self::SoftUpdatesConcurrently(hook) => {

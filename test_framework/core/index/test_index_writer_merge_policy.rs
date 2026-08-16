@@ -40,7 +40,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::marker::PhantomData;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
@@ -153,23 +152,21 @@ where
   }
 }
 
-pub(crate) struct ForceMergeDvUpdateOneMerge<D, CR> {
+pub(crate) struct ForceMergeDvUpdateOneMerge {
   wait_for_init_merge_reader: CountDownLatch,
   wait_for_dv_update: CountDownLatch,
-  _marker: PhantomData<fn(D, CR)>,
 }
 
-impl<D, CR> ForceMergeDvUpdateOneMerge<D, CR> {
+impl ForceMergeDvUpdateOneMerge {
   fn new(wait_for_init_merge_reader: CountDownLatch, wait_for_dv_update: CountDownLatch) -> Self {
     Self {
       wait_for_init_merge_reader,
       wait_for_dv_update,
-      _marker: PhantomData,
     }
   }
 }
 
-impl<D, CR> OneMergeBase<D, CR> for ForceMergeDvUpdateOneMerge<D, CR>
+impl<D, CR> OneMergeBase<D, CR> for ForceMergeDvUpdateOneMerge
 where
   D: Directory,
   CR: CodecReader,
@@ -378,19 +375,15 @@ where
   }
 }
 
-pub(crate) struct SetMergePolicyDiagnosticsOneMerge<D, CR> {
-  _marker: PhantomData<fn(D, CR)>,
-}
+pub(crate) struct SetMergePolicyDiagnosticsOneMerge;
 
-impl<D, CR> SetMergePolicyDiagnosticsOneMerge<D, CR> {
+impl SetMergePolicyDiagnosticsOneMerge {
   pub(crate) fn new() -> Self {
-    Self {
-      _marker: PhantomData,
-    }
+    Self
   }
 }
 
-impl<D, CR> OneMergeBase<D, CR> for SetMergePolicyDiagnosticsOneMerge<D, CR>
+impl<D, CR> OneMergeBase<D, CR> for SetMergePolicyDiagnosticsOneMerge
 where
   D: Directory,
   CR: CodecReader,
