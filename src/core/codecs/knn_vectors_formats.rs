@@ -50,8 +50,6 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
-use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -524,123 +522,6 @@ impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValues<I> {
 }
 
 type Lucene99HnswGraph<I> = <Lucene99HnswVectorsReader<I> as HnswGraphProvider>::HnswGraph;
-type Lucene99ScalarQuantizedHnswGraph<I> =
-  <Lucene99ScalarQuantizedVectorsReader<I> as HnswGraphProvider>::HnswGraph;
-
-pub enum KnnVectorsFormatsNodesIterator<I: IndexInput> {
-  Hnsw(<Lucene99HnswGraph<I> as HnswGraph>::NodeIterator),
-  ScalarQuantized(<Lucene99ScalarQuantizedHnswGraph<I> as HnswGraph>::NodeIterator),
-}
-
-impl<I: IndexInput> Iterator for KnnVectorsFormatsNodesIterator<I> {
-  type Item = usize;
-
-  fn next(&mut self) -> Option<Self::Item> {
-    match self {
-      Self::Hnsw(iterator) => iterator.next(),
-      Self::ScalarQuantized(iterator) => iterator.next(),
-    }
-  }
-}
-
-impl<I: IndexInput> NodesIterator for KnnVectorsFormatsNodesIterator<I> {
-  fn size(&self) -> usize {
-    match self {
-      Self::Hnsw(iterator) => iterator.size(),
-      Self::ScalarQuantized(iterator) => iterator.size(),
-    }
-  }
-
-  fn consume(&mut self, dest: &mut [usize]) -> Result<usize> {
-    match self {
-      Self::Hnsw(iterator) => iterator.consume(dest),
-      Self::ScalarQuantized(iterator) => iterator.consume(dest),
-    }
-  }
-
-  fn has_next(&self) -> bool {
-    match self {
-      Self::Hnsw(iterator) => iterator.has_next(),
-      Self::ScalarQuantized(iterator) => iterator.has_next(),
-    }
-  }
-}
-
-pub enum KnnVectorsFormatsHnswGraph<I: IndexInput> {
-  Hnsw(Lucene99HnswGraph<I>),
-  ScalarQuantized(Lucene99ScalarQuantizedHnswGraph<I>),
-}
-
-impl<I: IndexInput> HnswGraph for KnnVectorsFormatsHnswGraph<I> {
-  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
-    match self {
-      Self::Hnsw(graph) => graph.seek(level, target),
-      Self::ScalarQuantized(graph) => graph.seek(level, target),
-    }
-  }
-
-  fn size(&self) -> usize {
-    match self {
-      Self::Hnsw(graph) => graph.size(),
-      Self::ScalarQuantized(graph) => graph.size(),
-    }
-  }
-
-  fn max_node_id(&self) -> Option<usize> {
-    match self {
-      Self::Hnsw(graph) => graph.max_node_id(),
-      Self::ScalarQuantized(graph) => graph.max_node_id(),
-    }
-  }
-
-  fn next_neighbor(&mut self) -> Result<usize> {
-    match self {
-      Self::Hnsw(graph) => graph.next_neighbor(),
-      Self::ScalarQuantized(graph) => graph.next_neighbor(),
-    }
-  }
-
-  fn num_levels(&self) -> Result<usize> {
-    match self {
-      Self::Hnsw(graph) => graph.num_levels(),
-      Self::ScalarQuantized(graph) => graph.num_levels(),
-    }
-  }
-
-  fn entry_node(&self) -> Result<Option<usize>> {
-    match self {
-      Self::Hnsw(graph) => graph.entry_node(),
-      Self::ScalarQuantized(graph) => graph.entry_node(),
-    }
-  }
-
-  type NodeIterator = KnnVectorsFormatsNodesIterator<I>;
-
-  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
-    match self {
-      Self::Hnsw(graph) => graph
-        .get_nodes_on_level(level)
-        .map(KnnVectorsFormatsNodesIterator::Hnsw),
-      Self::ScalarQuantized(graph) => graph
-        .get_nodes_on_level(level)
-        .map(KnnVectorsFormatsNodesIterator::ScalarQuantized),
-    }
-  }
-
-  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
-    match self {
-      Self::Hnsw(graph) => graph.get_neighbors_mut(level, node),
-      Self::ScalarQuantized(graph) => graph.get_neighbors_mut(level, node),
-    }
-  }
-
-  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
-    match self {
-      Self::Hnsw(graph) => graph.get_neighbors(level, node),
-      Self::ScalarQuantized(graph) => graph.get_neighbors(level, node),
-    }
-  }
-}
 
 pub enum KnnVectorsFormatsWriter<O: IndexOutput> {
   Lucene99Hnsw(Lucene99HnswVectorsWriter<O>),
@@ -807,7 +688,7 @@ impl<I: IndexInput> CloseableRef for KnnVectorsFormatsReader<I> {
 }
 
 impl<I: IndexInput> HnswGraphProvider for KnnVectorsFormatsReader<I> {
-  type HnswGraph = KnnVectorsFormatsHnswGraph<I>;
+  type HnswGraph = Lucene99HnswGraph<I>;
 
   fn is_hnsw_graph_provider(&self, field: &str) -> bool {
     match self {
@@ -820,18 +701,10 @@ impl<I: IndexInput> HnswGraphProvider for KnnVectorsFormatsReader<I> {
 
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     match self {
-      Self::Lucene99Hnsw(reader) => reader
-        .get_graph(field)
-        .map(KnnVectorsFormatsHnswGraph::Hnsw),
-      Self::Lucene99ScalarQuantized(reader) => reader
-        .get_graph(field)
-        .map(KnnVectorsFormatsHnswGraph::ScalarQuantized),
-      Self::Lucene99HnswScalarQuantized(reader) => reader
-        .get_graph(field)
-        .map(KnnVectorsFormatsHnswGraph::Hnsw),
-      Self::HnswBit(reader) => reader
-        .get_graph(field)
-        .map(KnnVectorsFormatsHnswGraph::Hnsw),
+      Self::Lucene99Hnsw(reader) => reader.get_graph(field),
+      Self::Lucene99ScalarQuantized(_) => Err(LuceneError::unsupported_operation("")),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.get_graph(field),
+      Self::HnswBit(reader) => reader.get_graph(field),
     }
   }
 }
