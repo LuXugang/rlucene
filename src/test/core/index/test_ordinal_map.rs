@@ -22,9 +22,10 @@ use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
-use crate::core::index::multi_doc_values::{MultiDocValues, MultiSortedSetDocValuesEnum};
+use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
+use crate::core::index::sorted_set_doc_values_writer::SingletonOrMultiSortedSetDocValuesEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
@@ -105,7 +106,7 @@ fn test_ram_bytes_used() -> Result<()> {
   assert!(ssdv.is_some());
   let ssdv = ssdv.unwrap();
 
-  if let MultiSortedSetDocValuesEnum::B(ref mssdv) = ssdv {
+  if let SingletonOrMultiSortedSetDocValuesEnum::Multi(ref mssdv) = ssdv {
     let ram_bytes_used = mssdv.mapping.ram_bytes_used()?;
     // TODO: RamUsageTester is not implemented, so Java's exact recursive retained-heap comparison
     // cannot be reproduced; the Accountable result is only sanity-checked for now.

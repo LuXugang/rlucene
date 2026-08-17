@@ -47,7 +47,7 @@ use crate::core::index::multi_bits::{BitsType, get_live_docs};
 use crate::core::index::multi_doc_values::{
   MultiBinaryDocValues, MultiDocValues, MultiNormNumericDocValues, MultiNumericDocValues,
   MultiSortedDocValues, MultiSortedDocValuesType, MultiSortedNumericDocValues,
-  MultiSortedSetDocValues, MultiSortedSetDocValuesEnum, MultiSortedSetDocValuesType,
+  MultiSortedSetDocValues, MultiSortedSetDocValuesType,
 };
 use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
 use crate::core::index::multi_reader::MultiReader;
@@ -57,7 +57,9 @@ use crate::core::index::point_values::{
 };
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
-use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::index::sorted_set_doc_values_writer::{
+  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2,
+};
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
@@ -1650,7 +1652,8 @@ where
         }
       }
 
-      return Ok(MultiSortedSetDocValuesEnum::B(MultiSortedSetDocValues::new(
+      return Ok(SingletonOrMultiSortedSetDocValuesEnum::Multi(
+        MultiSortedSetDocValues::new(
         values,
         self.doc_starts.clone(),
         map,
@@ -1667,7 +1670,7 @@ where
       ))
     })?;
 
-    if let MultiSortedSetDocValuesEnum::B(ref multi) = dv {
+    if let SingletonOrMultiSortedSetDocValuesEnum::Multi(ref multi) = dv {
       self
         .cached_ord_maps
         .lock()

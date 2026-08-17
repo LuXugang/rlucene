@@ -43,7 +43,9 @@ use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::index::sorted_set_doc_values_writer::{
+  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2,
+};
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -1458,7 +1460,7 @@ where
   type SortedDocValues = DummySortedDocValues;
   type SortedNumericDocValues = DummySortedNumericDocValues;
 
-  type SortedSetDocValues = SortedSetDocValuesEnum2<
+  type SortedSetDocValues = SingletonOrMultiSortedSetDocValuesEnum<
     SingletonSortedSetDocValues<
       SortedDocValuesMerge<
         SortedDocValuesEnum2<MergeSortedSetSortedDocValues<MS::DocValuesProducer>, EmptySorted>,
@@ -1542,7 +1544,7 @@ where
         self.map.clone(),
       )?;
       let v = DocValues::singleton_sorted(dv)?;
-      return Ok(SortedSetDocValuesEnum2::A(v));
+      return Ok(SingletonOrMultiSortedSetDocValuesEnum::Singleton(v));
     }
 
     let doc_id_merger = of(subs, self.merge_state.needs_index_sort())?;
@@ -1554,7 +1556,7 @@ where
       map: self.map.clone(),
       to_merge,
     };
-    Ok(SortedSetDocValuesEnum2::B(v))
+    Ok(SingletonOrMultiSortedSetDocValuesEnum::Multi(v))
   }
 
   type DocValuesSkipper = DummyDocValuesSkipper;
