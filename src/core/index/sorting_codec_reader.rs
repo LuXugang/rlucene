@@ -2201,7 +2201,7 @@ where
   T: HnswGraphProvider,
   U: HnswGraphProvider,
 {
-  type HnswGraph = SortingCodecReaderHnswGraph<T::HnswGraph, U::HnswGraph>;
+  type HnswGraph = T::HnswGraph;
 
   fn is_hnsw_graph_provider(&self, field: &str) -> bool {
     match self {
@@ -2212,12 +2212,8 @@ where
 
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     match self {
-      Self::Filter(reader) => reader
-        .get_graph(field)
-        .map(SortingCodecReaderHnswGraph::Filter),
-      Self::Sorting(reader) => reader
-        .get_graph(field)
-        .map(SortingCodecReaderHnswGraph::Sorting),
+      Self::Filter(reader) => reader.get_graph(field),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 }
