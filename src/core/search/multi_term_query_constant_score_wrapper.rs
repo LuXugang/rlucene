@@ -28,8 +28,6 @@ use crate::core::search::abstract_multi_term_query_constant_score_wrapper::{
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::doc_id_set::DocIdSet;
-use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, dispatch_multi_term_query,
@@ -144,7 +142,7 @@ impl Eq for MultiTermQueryConstantScoreWrapper {}
 pub struct StandardRewritingWeight;
 impl RewritingWeightBase for StandardRewritingWeight {
   type Iter<T>
-    = DocIdSetIteratorEnum2<DummyDISI, DocIdSetBuilderIterator>
+    = DocIdSetBuilderIterator
   where
     T: Terms,
     TermsPosting<T>: 'static;
@@ -218,9 +216,7 @@ impl RewritingWeightBase for StandardRewritingWeight {
 
     let iterator = builder.build()?.iterator()?;
 
-    Ok(WeightOrDocIdSetIterator::from_iterator(
-      DocIdSetIteratorEnum2::B(iterator),
-    ))
+    Ok(WeightOrDocIdSetIterator::from_iterator(iterator))
   }
 }
 

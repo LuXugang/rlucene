@@ -33,7 +33,6 @@ use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
-use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
@@ -151,15 +150,12 @@ impl Eq for MultiTermQueryConstantScoreBlendedWrapper {}
 pub struct BlendedRewritingWeight;
 impl RewritingWeightBase for BlendedRewritingWeight {
   type Iter<T>
-    = DocIdSetIteratorEnum2<
-    DummyDISI,
-    DisjunctionDISIApproximation<
+    = DisjunctionDISIApproximation<
       ConstantScoreScorer<
         DocIdSetIteratorEnum2<DocIdSetBuilderIterator, TermsPosting<T>>,
         DummyTwoPhaseIterator,
       >,
-    >,
-  >
+    >
   where
     T: Terms,
     TermsPosting<T>: 'static;
@@ -273,8 +269,9 @@ impl RewritingWeightBase for BlendedRewritingWeight {
     all_scorers.push(DisiWrapper::new(scorer)?);
     let len = all_scorers.len() - 1;
     subs.add(len, all_scorers.as_slice());
-    let v = WeightOrDocIdSetIterator::from_iterator(DocIdSetIteratorEnum2::B(
-      DisjunctionDISIApproximation::new(subs, all_scorers),
+    let v = WeightOrDocIdSetIterator::from_iterator(DisjunctionDISIApproximation::new(
+      subs,
+      all_scorers,
     ));
     Ok(v)
   }
