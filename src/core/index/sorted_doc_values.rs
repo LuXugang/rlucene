@@ -23,7 +23,8 @@ use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::terms_enum::{
-  EmptyTermsEnum, TermsEnum, TermsEnumEnum2, TermsEnumWithUnsupportedFirstPostings4,
+  EmptyTermsEnum, TermsEnum, TermsEnumWithUnsupportedFirstPostings4,
+  TermsEnumWithUnsupportedSecondPostings2,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::ToInt;
@@ -227,7 +228,7 @@ macro_rules! either_sorted_docvalues {
 }
 either_sorted_docvalues!(
     pub SortedDocValuesEnum2
-    => TermsEnumEnum2
+    => TermsEnumWithUnsupportedSecondPostings2
     { A: A, B: B }
 );
 
