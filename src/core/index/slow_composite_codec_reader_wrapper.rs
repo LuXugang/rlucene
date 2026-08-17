@@ -47,7 +47,7 @@ use crate::core::index::multi_bits::{BitsType, get_live_docs};
 use crate::core::index::multi_doc_values::{
   MultiBinaryDocValues, MultiDocValues, MultiNormNumericDocValues, MultiNumericDocValues,
   MultiSortedDocValues, MultiSortedDocValuesType, MultiSortedNumericDocValues,
-  MultiSortedSetDocValues, MultiSortedSetDocValuesType,
+  MultiSortedSetDocValues, MultiSortedSetDocValuesEnum, MultiSortedSetDocValuesType,
 };
 use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
 use crate::core::index::multi_reader::MultiReader;
@@ -1650,7 +1650,7 @@ where
         }
       }
 
-      return Ok(SortedSetDocValuesEnum2::B(MultiSortedSetDocValues::new(
+      return Ok(MultiSortedSetDocValuesEnum::B(MultiSortedSetDocValues::new(
         values,
         self.doc_starts.clone(),
         map,
@@ -1667,7 +1667,7 @@ where
       ))
     })?;
 
-    if let SortedSetDocValuesEnum2::B(ref multi) = dv {
+    if let MultiSortedSetDocValuesEnum::B(ref multi) = dv {
       self
         .cached_ord_maps
         .lock()
