@@ -20,7 +20,6 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::numeric_doc_values_writer::{
   NumericDVs, SortingNumericDocValues, sort_doc_values,
 };
@@ -140,15 +139,14 @@ impl NormsProducerImpl {
 impl CloseableRef for NormsProducerImpl {}
 
 impl NormsProducer for NormsProducerImpl {
-  type NumericDocValues =
-    NumericDocValuesEnum2<BufferedNorms, SortingNumericDocValues<FixedBitSet>>;
+  type NumericDocValues = BufferedSortingNorms;
 
   fn get_norms(&self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     match &self.sorted {
-      Some(sorted) => Ok(NumericDocValuesEnum2::B(SortingNumericDocValues::new(
+      Some(sorted) => Ok(BufferedSortingNorms::Sorting(SortingNumericDocValues::new(
         sorted.clone(),
       ))),
-      None => Ok(NumericDocValuesEnum2::A(BufferedNorms::new(
+      None => Ok(BufferedSortingNorms::Buffered(BufferedNorms::new(
         &self.values,
         self.docs_with_field.iterator()?,
       ))),
@@ -161,7 +159,7 @@ impl NormsProducer for NormsProducerImpl {
 }
 
 /// iterates over the values we have in ram
-struct BufferedNorms {
+pub(crate) struct BufferedNorms {
   iter: PackedLongValuesIterator,
   doc_with_field: DocsWithFieldSetDISI,
   value: i64,
@@ -172,6 +170,66 @@ impl BufferedNorms {
       iter: values.iterator(),
       doc_with_field,
       value: 0,
+    }
+  }
+}
+
+pub(crate) enum BufferedSortingNorms {
+  Buffered(BufferedNorms),
+  Sorting(SortingNumericDocValues<FixedBitSet>),
+}
+
+impl DocValuesIterator for BufferedSortingNorms {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Buffered(inner) => inner.advance_exact(target),
+      Self::Sorting(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl DocIdSetIterator for BufferedSortingNorms {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Buffered(inner) => inner.doc_id(),
+      Self::Sorting(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.next_doc(),
+      Self::Sorting(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.advance(target),
+      Self::Sorting(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.slow_advance(target),
+      Self::Sorting(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(inner) => inner.cost(),
+      Self::Sorting(inner) => inner.cost(),
+    }
+  }
+}
+
+impl NumericDocValues for BufferedSortingNorms {
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Buffered(inner) => inner.long_value(),
+      Self::Sorting(inner) => inner.long_value(),
     }
   }
 }
