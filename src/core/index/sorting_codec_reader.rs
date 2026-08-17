@@ -17,7 +17,6 @@
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
-use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
@@ -36,7 +35,6 @@ use crate::core::index::codec_reader::{
   CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
 };
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
@@ -1416,88 +1414,14 @@ where
     }
   }
 
-  type NumericDocValues = SortingCodecReaderSortedNumericNumericDocValues<S>;
+  type NumericDocValues = <S as SortedNumericDocValues>::NumericDocValues;
 
   fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
     match self {
-      Self::Original(values) => Ok(SortingCodecReaderSortedNumericNumericDocValues::Original(
-        values.get_numeric_doc_values()?,
+      Self::Original(values) => values.get_numeric_doc_values(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation(
+        "get_numeric_doc_values is unavailable for sorting values",
       )),
-      Self::Sorting(values) => Ok(SortingCodecReaderSortedNumericNumericDocValues::Sorting(
-        values.get_numeric_doc_values()?,
-      )),
-    }
-  }
-}
-
-pub enum SortingCodecReaderSortedNumericNumericDocValues<S>
-where
-  S: SortedNumericDocValues,
-{
-  Original(<S as SortedNumericDocValues>::NumericDocValues),
-  Sorting(DummyNumericDocValues),
-}
-
-impl<S> DocValuesIterator for SortingCodecReaderSortedNumericNumericDocValues<S>
-where
-  S: SortedNumericDocValues,
-{
-  fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    match self {
-      Self::Original(values) => values.advance_exact(target),
-      Self::Sorting(values) => values.advance_exact(target),
-    }
-  }
-}
-
-impl<S> NumericDocValues for SortingCodecReaderSortedNumericNumericDocValues<S>
-where
-  S: SortedNumericDocValues,
-{
-  fn long_value(&mut self) -> Result<i64> {
-    match self {
-      Self::Original(values) => values.long_value(),
-      Self::Sorting(values) => values.long_value(),
-    }
-  }
-}
-
-impl<S> DocIdSetIterator for SortingCodecReaderSortedNumericNumericDocValues<S>
-where
-  S: SortedNumericDocValues,
-{
-  fn doc_id(&self) -> i32 {
-    match self {
-      Self::Original(values) => values.doc_id(),
-      Self::Sorting(values) => values.doc_id(),
-    }
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    match self {
-      Self::Original(values) => values.next_doc(),
-      Self::Sorting(values) => values.next_doc(),
-    }
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      Self::Original(values) => values.advance(target),
-      Self::Sorting(values) => values.advance(target),
-    }
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      Self::Original(values) => values.slow_advance(target),
-      Self::Sorting(values) => values.slow_advance(target),
-    }
-  }
-
-  fn cost(&self) -> Result<i64> {
-    match self {
-      Self::Original(values) => values.cost(),
-      Self::Sorting(values) => values.cost(),
     }
   }
 }
@@ -1590,16 +1514,14 @@ where
     }
   }
 
-  type DocValuesSkipper = SortingCodecReaderDocValuesSkipper<DVP::DocValuesSkipper>;
+  type DocValuesSkipper = DVP::DocValuesSkipper;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
     match self {
-      Self::Original(producer) => producer
-        .get_skipper(field)
-        .map(|skipper| skipper.map(SortingCodecReaderDocValuesSkipper::Original)),
-      Self::Sorting(producer) => producer
-        .get_skipper(field)
-        .map(|skipper| skipper.map(SortingCodecReaderDocValuesSkipper::Sorting)),
+      Self::Original(producer) => producer.get_skipper(field),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation(
+        "get_skipper is unavailable for sorting values",
+      )),
     }
   }
 
@@ -1618,88 +1540,6 @@ where
   }
 }
 
-pub enum SortingCodecReaderDocValuesSkipper<DS>
-where
-  DS: DocValuesSkipper,
-{
-  Original(DS),
-  Sorting(DummyDocValuesSkipper),
-}
-
-impl<DS> DocValuesSkipper for SortingCodecReaderDocValuesSkipper<DS>
-where
-  DS: DocValuesSkipper,
-{
-  fn advance(&mut self, target: i32) -> Result<()> {
-    match self {
-      Self::Original(skipper) => skipper.advance(target),
-      Self::Sorting(skipper) => skipper.advance(target),
-    }
-  }
-
-  fn num_levels(&self) -> usize {
-    match self {
-      Self::Original(skipper) => skipper.num_levels(),
-      Self::Sorting(skipper) => skipper.num_levels(),
-    }
-  }
-
-  fn min_doc_id_with_level(&self, level: usize) -> i32 {
-    match self {
-      Self::Original(skipper) => skipper.min_doc_id_with_level(level),
-      Self::Sorting(skipper) => skipper.min_doc_id_with_level(level),
-    }
-  }
-
-  fn max_doc_id_with_level(&self, level: usize) -> i32 {
-    match self {
-      Self::Original(skipper) => skipper.max_doc_id_with_level(level),
-      Self::Sorting(skipper) => skipper.max_doc_id_with_level(level),
-    }
-  }
-
-  fn min_value_with_level(&self, level: usize) -> i64 {
-    match self {
-      Self::Original(skipper) => skipper.min_value_with_level(level),
-      Self::Sorting(skipper) => skipper.min_value_with_level(level),
-    }
-  }
-
-  fn max_value_with_level(&self, level: usize) -> i64 {
-    match self {
-      Self::Original(skipper) => skipper.max_value_with_level(level),
-      Self::Sorting(skipper) => skipper.max_value_with_level(level),
-    }
-  }
-
-  fn doc_count_with_level(&self, level: usize) -> i32 {
-    match self {
-      Self::Original(skipper) => skipper.doc_count_with_level(level),
-      Self::Sorting(skipper) => skipper.doc_count_with_level(level),
-    }
-  }
-
-  fn min_value(&self) -> i64 {
-    match self {
-      Self::Original(skipper) => skipper.min_value(),
-      Self::Sorting(skipper) => skipper.min_value(),
-    }
-  }
-
-  fn max_value(&self) -> i64 {
-    match self {
-      Self::Original(skipper) => skipper.max_value(),
-      Self::Sorting(skipper) => skipper.max_value(),
-    }
-  }
-
-  fn doc_count(&self) -> i32 {
-    match self {
-      Self::Original(skipper) => skipper.doc_count(),
-      Self::Sorting(skipper) => skipper.doc_count(),
-    }
-  }
-}
 fn get_or_create_dv<F>(field: &str, supplier: F, inner: &Arc<Mutex<Inner>>) -> Result<CachedObject>
 where
   F: FnOnce() -> Result<CachedObject>,
