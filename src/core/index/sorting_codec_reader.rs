@@ -89,7 +89,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
+use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIteratorEnum2};
 use crate::core::util::packed::PackedInts;
 use crate::core::util::supplier::Supplier;
 use parking_lot::{Mutex, MutexGuard};
@@ -1059,9 +1059,7 @@ where
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
       Self::Original(values) => values.terms_enum().map(TermsEnumEnum2::A),
-      Self::Sorting(_) => Err(LuceneError::unsupported_operation(
-        "term enumeration is unavailable for sorting values",
-      )),
+      Self::Sorting(values) => values.terms_enum().map(TermsEnumEnum2::B),
     }
   }
 }
@@ -1847,7 +1845,7 @@ where
   T: HnswGraphProvider,
   U: HnswGraphProvider,
 {
-  type HnswGraph = HnswGraphEnum2<T::HnswGraph, U::HnswGraph>;
+  type HnswGraph = SortingCodecReaderHnswGraph<T::HnswGraph, U::HnswGraph>;
 
   fn is_hnsw_graph_provider(&self, field: &str) -> bool {
     match self {
@@ -1858,8 +1856,89 @@ where
 
   fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
     match self {
-      Self::Filter(reader) => reader.get_graph(field).map(HnswGraphEnum2::A),
-      Self::Sorting(reader) => reader.get_graph(field).map(HnswGraphEnum2::B),
+      Self::Filter(reader) => reader
+        .get_graph(field)
+        .map(SortingCodecReaderHnswGraph::Filter),
+      Self::Sorting(reader) => reader
+        .get_graph(field)
+        .map(SortingCodecReaderHnswGraph::Sorting),
+    }
+  }
+}
+
+pub enum SortingCodecReaderHnswGraph<T, U> {
+  Filter(T),
+  Sorting(U),
+}
+
+impl<T, U> HnswGraph for SortingCodecReaderHnswGraph<T, U>
+where
+  T: HnswGraph,
+  U: HnswGraph,
+{
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    match self {
+      Self::Filter(graph) => graph.seek(level, target),
+      Self::Sorting(graph) => graph.seek(level, target),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Filter(graph) => graph.size(),
+      Self::Sorting(graph) => graph.size(),
+    }
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    match self {
+      Self::Filter(graph) => graph.next_neighbor(),
+      Self::Sorting(graph) => graph.next_neighbor(),
+    }
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    match self {
+      Self::Filter(graph) => graph.num_levels(),
+      Self::Sorting(graph) => graph.num_levels(),
+    }
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    match self {
+      Self::Filter(graph) => graph.entry_node(),
+      Self::Sorting(graph) => graph.entry_node(),
+    }
+  }
+
+  type NodeIterator = NodesIteratorEnum2<T::NodeIterator, U::NodeIterator>;
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    match self {
+      Self::Filter(graph) => graph.get_nodes_on_level(level).map(NodesIteratorEnum2::A),
+      Self::Sorting(graph) => graph.get_nodes_on_level(level).map(NodesIteratorEnum2::B),
+    }
+  }
+
+  fn get_neighbors_mut(
+    &mut self,
+    level: usize,
+    node: usize,
+  ) -> Result<&mut crate::core::util::hnsw::neighbor_array::NeighborArray> {
+    match self {
+      Self::Filter(graph) => graph.get_neighbors_mut(level, node),
+      Self::Sorting(graph) => graph.get_neighbors_mut(level, node),
+    }
+  }
+
+  fn get_neighbors(
+    &self,
+    level: usize,
+    node: usize,
+  ) -> Result<&crate::core::util::hnsw::neighbor_array::NeighborArray> {
+    match self {
+      Self::Filter(graph) => graph.get_neighbors(level, node),
+      Self::Sorting(graph) => graph.get_neighbors(level, node),
     }
   }
 }
