@@ -1353,7 +1353,10 @@ where
   I: IndexInput,
 {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    self.sub.binary_value(&mut self.disi)
+    <SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(
+      &mut self.sub,
+      &mut self.disi,
+    )
   }
 }
 
@@ -1882,14 +1885,13 @@ where
   }
 }
 
-pub trait SparseBinaryDocValuesBase<I, R>
+pub trait SparseBinaryDocValuesBase<I>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn binary_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I, R>,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, BytesRef<Vec<u8>>>>;
 }
 pub struct SparseBinaryDocValuesBaseImpl<R> {
@@ -1897,14 +1899,13 @@ pub struct SparseBinaryDocValuesBaseImpl<R> {
   bytes: BytesRef<Vec<u8>>,
   length: i32,
 }
-impl<I, R> SparseBinaryDocValuesBase<I, R> for SparseBinaryDocValuesBaseImpl<R>
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I::RandomAccessSlice>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn binary_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I, R>,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     let length = self.length as usize;
     let pos = disi.index_u() * length;
@@ -1919,14 +1920,13 @@ pub struct SparseBinaryDocValuesBaseImpl1<R> {
   bytes: BytesRef<Vec<u8>>,
   addresses: DirectMonotonicReader<R>,
 }
-impl<I, R> SparseBinaryDocValuesBase<I, R> for SparseBinaryDocValuesBaseImpl1<R>
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl1<I::RandomAccessSlice>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn binary_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I, R>,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     let index = disi.index() as usize;
     let start_offset = self.addresses.get_mut(index)?;

@@ -227,18 +227,21 @@ pub enum SparseBinaryDocValuesBaseEnum<R> {
   Sparse1(SparseBinaryDocValuesBaseImpl1<R>),
 }
 
-impl<I, R> SparseBinaryDocValuesBase<I, R> for SparseBinaryDocValuesBaseEnum<R>
+impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseEnum<I::RandomAccessSlice>
 where
   I: IndexInput,
-  R: RandomAccessInput,
 {
   fn binary_value(
     &mut self,
-    disi: &mut IndexedDISIImpl<I, R>,
+    disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
-      SparseBinaryDocValuesBaseEnum::Sparse(sub) => sub.binary_value(disi),
-      SparseBinaryDocValuesBaseEnum::Sparse1(sub) => sub.binary_value(disi),
+      SparseBinaryDocValuesBaseEnum::Sparse(sub) => {
+        <SparseBinaryDocValuesBaseImpl<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(sub, disi)
+      },
+      SparseBinaryDocValuesBaseEnum::Sparse1(sub) => {
+        <SparseBinaryDocValuesBaseImpl1<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(sub, disi)
+      },
     }
   }
 }
