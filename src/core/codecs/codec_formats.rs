@@ -112,7 +112,11 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 #[cfg(test)]
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 #[cfg(test)]
-use crate::core::index::terms::TermsEnum2;
+use crate::core::index::terms::Terms;
+#[cfg(test)]
+use crate::core::index::terms_enum::TermsEnumWithUnsupportedSecondAttributes2;
+#[cfg(test)]
+use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 #[cfg(test)]
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 #[cfg(test)]
@@ -1386,6 +1390,128 @@ type AssertingCodecTermVectorsFields<I> =
   <AssertingCodecTermVectorsReader<I> as TermVectors>::Fields;
 
 #[cfg(test)]
+pub enum CodecTermVectorsTerms<I: IndexInput> {
+  Lucene90(<Lucene90CodecTermVectorsFields<I> as Fields>::Terms),
+  Asserting(<AssertingCodecTermVectorsFields<I> as Fields>::Terms),
+}
+
+#[cfg(test)]
+impl<I: IndexInput> Terms for CodecTermVectorsTerms<I> {
+  type TermsEnum = TermsEnumWithUnsupportedSecondAttributes2<
+    <<Lucene90CodecTermVectorsFields<I> as Fields>::Terms as Terms>::TermsEnum,
+    <<AssertingCodecTermVectorsFields<I> as Fields>::Terms as Terms>::TermsEnum,
+  >;
+
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    match self {
+      Self::Lucene90(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+      Self::Asserting(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
+    }
+  }
+
+  type IntersectIter = TermsEnumWithUnsupportedSecondAttributes2<
+    <<Lucene90CodecTermVectorsFields<I> as Fields>::Terms as Terms>::IntersectIter,
+    <<AssertingCodecTermVectorsFields<I> as Fields>::Terms as Terms>::IntersectIter,
+  >;
+
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    match self {
+      Self::Lucene90(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+      Self::Asserting(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
+    }
+  }
+
+  fn size(&self) -> Result<i64> {
+    match self {
+      Self::Lucene90(terms) => terms.size(),
+      Self::Asserting(terms) => terms.size(),
+    }
+  }
+
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    match self {
+      Self::Lucene90(terms) => terms.get_sum_total_term_freq(),
+      Self::Asserting(terms) => terms.get_sum_total_term_freq(),
+    }
+  }
+
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    match self {
+      Self::Lucene90(terms) => terms.get_sum_doc_freq(),
+      Self::Asserting(terms) => terms.get_sum_doc_freq(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::Lucene90(terms) => terms.get_doc_count(),
+      Self::Asserting(terms) => terms.get_doc_count(),
+    }
+  }
+
+  fn has_freqs(&self) -> bool {
+    match self {
+      Self::Lucene90(terms) => terms.has_freqs(),
+      Self::Asserting(terms) => terms.has_freqs(),
+    }
+  }
+
+  fn has_offsets(&self) -> bool {
+    match self {
+      Self::Lucene90(terms) => terms.has_offsets(),
+      Self::Asserting(terms) => terms.has_offsets(),
+    }
+  }
+
+  fn has_positions(&self) -> bool {
+    match self {
+      Self::Lucene90(terms) => terms.has_positions(),
+      Self::Asserting(terms) => terms.has_positions(),
+    }
+  }
+
+  fn has_payloads(&self) -> bool {
+    match self {
+      Self::Lucene90(terms) => terms.has_payloads(),
+      Self::Asserting(terms) => terms.has_payloads(),
+    }
+  }
+
+  fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Lucene90(terms) => terms.get_min(),
+      Self::Asserting(terms) => terms.get_min(),
+    }
+  }
+
+  fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Lucene90(terms) => terms.get_max(),
+      Self::Asserting(terms) => terms.get_max(),
+    }
+  }
+
+  fn get_stats(&self) -> Result<String> {
+    match self {
+      Self::Lucene90(terms) => terms.get_stats(),
+      Self::Asserting(terms) => terms.get_stats(),
+    }
+  }
+}
+
+#[cfg(test)]
 pub enum CodecTermVectorsFields<I: IndexInput> {
   Lucene90(Lucene90CodecTermVectorsFields<I>),
   Asserting(AssertingCodecTermVectorsFields<I>),
@@ -1405,15 +1531,16 @@ impl<I: IndexInput> Fields for CodecTermVectorsFields<I> {
     }
   }
 
-  type Terms = TermsEnum2<
-    <Lucene90CodecTermVectorsFields<I> as Fields>::Terms,
-    <AssertingCodecTermVectorsFields<I> as Fields>::Terms,
-  >;
+  type Terms = CodecTermVectorsTerms<I>;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match self {
-      Self::Lucene90(fields) => fields.terms(field).map(|terms| terms.map(TermsEnum2::A)),
-      Self::Asserting(fields) => fields.terms(field).map(|terms| terms.map(TermsEnum2::B)),
+      Self::Lucene90(fields) => fields
+        .terms(field)
+        .map(|terms| terms.map(CodecTermVectorsTerms::Lucene90)),
+      Self::Asserting(fields) => fields
+        .terms(field)
+        .map(|terms| terms.map(CodecTermVectorsTerms::Asserting)),
     }
   }
 
@@ -1488,10 +1615,10 @@ impl<I: IndexInput> TermVectors for CodecTermVectorsReader<I> {
     match self {
       Self::Lucene90(reader) => reader
         .get_field_terms(doc, field)
-        .map(|terms| terms.map(TermsEnum2::A)),
+        .map(|terms| terms.map(CodecTermVectorsTerms::Lucene90)),
       Self::Asserting(reader) => reader
         .get_field_terms(doc, field)
-        .map(|terms| terms.map(TermsEnum2::B)),
+        .map(|terms| terms.map(CodecTermVectorsTerms::Asserting)),
     }
   }
 }
