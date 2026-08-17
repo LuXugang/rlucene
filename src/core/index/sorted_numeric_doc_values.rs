@@ -43,6 +43,101 @@ pub trait SortedNumericDocValues: DocValuesIterator {
   }
 }
 
+pub enum SingletonOrMultiSortedNumericDocValuesEnum<A, B> {
+  Singleton(A),
+  Multi(B),
+}
+
+impl<A, B> DocValuesIterator for SingletonOrMultiSortedNumericDocValuesEnum<A, B>
+where
+  A: DocValuesIterator,
+  B: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Singleton(values) => values.advance_exact(target),
+      Self::Multi(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<A, B> DocIdSetIterator for SingletonOrMultiSortedNumericDocValuesEnum<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Singleton(values) => values.doc_id(),
+      Self::Multi(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Singleton(values) => values.next_doc(),
+      Self::Multi(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Singleton(values) => values.advance(target),
+      Self::Multi(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Singleton(values) => values.slow_advance(target),
+      Self::Multi(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Singleton(values) => values.cost(),
+      Self::Multi(values) => values.cost(),
+    }
+  }
+}
+
+impl<A, B> SortedNumericDocValues for SingletonOrMultiSortedNumericDocValuesEnum<A, B>
+where
+  A: SortedNumericDocValues,
+  B: SortedNumericDocValues,
+{
+  fn next_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Singleton(values) => values.next_value(),
+      Self::Multi(values) => values.next_value(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::Singleton(values) => values.doc_value_count(),
+      Self::Multi(values) => values.doc_value_count(),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::Singleton(values) => values.is_single_valued(),
+      Self::Multi(values) => values.is_single_valued(),
+    }
+  }
+
+  type NumericDocValues = A::NumericDocValues;
+
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::Singleton(values) => values.get_numeric_doc_values(),
+      Self::Multi(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+}
+
 macro_rules! either_sorted_numeric_docvalues {
     ($vis:vis $name:ident => $numdv:ident { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> { $( $Variant($T), )+ }

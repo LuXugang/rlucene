@@ -34,7 +34,8 @@ use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNume
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
-  SortedNumericDocValues, SortedNumericDocValuesEnum2,
+  SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues,
+  SortedNumericDocValuesEnum2,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
@@ -72,7 +73,7 @@ pub type MultiBinaryDocValues<IR> = BinaryDocValuesEnum2<
   LRBinaryDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   BinaryDocValuesImpl<IndexReaderContextType<IR>>,
 >;
-pub type MultiSortedNumericDocValues<IR> = SortedNumericDocValuesEnum2<
+pub type MultiSortedNumericDocValues<IR> = SingletonOrMultiSortedNumericDocValuesEnum<
   LRSortedNumericDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   SortedNumericDocValuesImpl<IndexReaderContextType<IR>>,
 >;
@@ -223,7 +224,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_sorted_numeric_doc_values(field)? {
-        Some(v) => Ok(Some(MultiSortedNumericDocValues::<IR>::A(v))),
+        Some(v) => Ok(Some(MultiSortedNumericDocValues::<IR>::Singleton(v))),
         None => Ok(None),
       };
     }
@@ -250,7 +251,7 @@ impl MultiDocValues {
       return Ok(None);
     }
 
-    Ok(Some(MultiSortedNumericDocValues::<IR>::B(
+    Ok(Some(MultiSortedNumericDocValues::<IR>::Multi(
       SortedNumericDocValuesImpl::new(reader, values, field.to_string(), total_cost),
     )))
   }

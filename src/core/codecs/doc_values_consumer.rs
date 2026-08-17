@@ -40,8 +40,10 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
+use crate::core::index::sorted_numeric_doc_values::{
+  SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues,
+  SortedNumericDocValuesEnum2,
+};
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::{
   SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2,
@@ -842,7 +844,7 @@ where
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
-  type SortedNumericDocValues = SortedNumericDocValuesEnum2<
+  type SortedNumericDocValues = SingletonOrMultiSortedNumericDocValuesEnum<
     SingletonSortedNumericDocValues<
       NumericDocValuesMerge<
         NumericDocValuesEnum2<MergeNumeric<MS::DocValuesProducer>, EmptyNumeric>,
@@ -916,12 +918,12 @@ where
         )));
       }
       let dv = merge_numeric_values(single_valued_subs, self.merge_state.needs_index_sort())?;
-      return Ok(SortedNumericDocValuesEnum2::A(
+      return Ok(SingletonOrMultiSortedNumericDocValuesEnum::Singleton(
         DocValues::singleton_numeric(dv)?,
       ));
     }
     let doc_id_merger = of(subs, self.merge_state.needs_index_sort())?;
-    Ok(SortedNumericDocValuesEnum2::B(
+    Ok(SingletonOrMultiSortedNumericDocValuesEnum::Multi(
       SortedNumericDocValuesMerge {
         doc_id: -1,
         current_sub: None,
