@@ -45,6 +45,9 @@ use crate::core::index::slow_composite_codec_reader_wrapper::{
   SlowCompositeByteVectorValues, SlowCompositeFloatVectorValues,
   SlowCompositeKnnVectorsReader, SlowCompositePointValues, SlowCompositePointsReader,
 };
+use crate::core::index::sorting_codec_reader::{
+  SortingCodecReaderKnnVectorsReader, SortingCodecReaderPointsReader,
+};
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields, StoredFieldsEnum2};
 use crate::core::index::term_vectors::{EmptyTermVectors, RawTermVectors, TermVectorsEnum2};
@@ -972,8 +975,8 @@ either_codec_reader!(
       FloatVectorValues: FloatVectorValuesEnum2,
       ByteVectorValues: ByteVectorValuesEnum2,
       PointValues: PointValuesEnum2,
-      PointsReader: PointsReaderEnum2,
-      KnnVectorsReader: KnnVectorsReaderEnum2,
+      PointsReader: SortingCodecReaderPointsReader,
+      KnnVectorsReader: SortingCodecReaderKnnVectorsReader,
     }
 );
 

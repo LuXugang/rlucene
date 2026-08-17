@@ -2123,6 +2123,18 @@ pub enum SortingCodecReaderPointsReader<T, U> {
   Sorting(U),
 }
 
+impl<T, U> SortingCodecReaderPointsReader<T, U> {
+  #[allow(non_snake_case)]
+  pub(crate) fn A(reader: T) -> Self {
+    Self::Filter(reader)
+  }
+
+  #[allow(non_snake_case)]
+  pub(crate) fn B(reader: U) -> Self {
+    Self::Sorting(reader)
+  }
+}
+
 impl<T, U> CloseableRef for SortingCodecReaderPointsReader<T, U>
 where
   T: CloseableRef,
@@ -2181,6 +2193,18 @@ where
 pub enum SortingCodecReaderKnnVectorsReader<T, U> {
   Filter(T),
   Sorting(U),
+}
+
+impl<T, U> SortingCodecReaderKnnVectorsReader<T, U> {
+  #[allow(non_snake_case)]
+  pub(crate) fn A(reader: T) -> Self {
+    Self::Filter(reader)
+  }
+
+  #[allow(non_snake_case)]
+  pub(crate) fn B(reader: U) -> Self {
+    Self::Sorting(reader)
+  }
 }
 
 impl<T, U> CloseableRef for SortingCodecReaderKnnVectorsReader<T, U>
