@@ -21,6 +21,7 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
+use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
@@ -388,13 +389,6 @@ where
 
     self.file_deleter.delete_files_if_no_ref(&to_delete)
   }
-  pub fn close(&mut self) -> Result<()> {
-    if !self.last_files.is_empty() {
-      let files = std::mem::take(&mut self.last_files);
-      self.dec_ref(files.iter())?;
-    }
-    Ok(())
-  }
   fn assert_commits_are_not_deleted(&self, commits: &[Arc<CommitPoint<D>>]) -> bool {
     for commit in commits {
       debug_assert!(
@@ -532,23 +526,16 @@ where
     self.file_deleter.delete_files_if_no_ref(files)
   }
 }
-impl<D> Drop for IndexFileDeleter<D>
+impl<D> Closeable for IndexFileDeleter<D>
 where
   D: Directory,
 {
-  fn drop(&mut self) {
-    let v = self.close();
-    match v {
-      Ok(_) => {},
-      Err(e) => {
-        if self.info_stream.is_enabled("IFD") {
-          self
-            .info_stream
-            .message("IFD", &format!("Error closing IndexFileDeleter: {e}"))
-            .unwrap_or_default();
-        }
-      },
+  fn close(&mut self) -> Result<()> {
+    if !self.last_files.is_empty() {
+      let files = std::mem::take(&mut self.last_files);
+      self.dec_ref(files.iter())?;
     }
+    Ok(())
   }
 }
 /// Holds details for each commit point. This struct is also passed to the deletion policy.
