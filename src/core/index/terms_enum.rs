@@ -1077,11 +1077,7 @@ where
   D: TermsEnum<PostingsEnum = B::PostingsEnum, ImpactsEnum = B::ImpactsEnum>,
 {
   type AttributeSource<'a>
-    = AttributeSourceEnum3<
-    B::AttributeSource<'a>,
-    C::AttributeSource<'a>,
-    D::AttributeSource<'a>,
-  >
+    = AttributeSourceEnum3<B::AttributeSource<'a>, C::AttributeSource<'a>, D::AttributeSource<'a>>
   where
     Self: 'a;
   type AttributeSourceMut<'a>

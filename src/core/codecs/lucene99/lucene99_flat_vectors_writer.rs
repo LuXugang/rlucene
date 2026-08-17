@@ -594,12 +594,13 @@ where
               *field_info.get_vector_similarity_function(),
               FlatVectorValuesEnum::Float(
                 off_heap_float_vector_values::DenseOffHeapVectorValues::new(
-                field_info.get_vector_dimension() as usize,
-                docs_with_field.cardinality() as usize,
-                vector_values_input,
-                field_info.get_vector_dimension() as usize * VectorEncoding::FLOAT32(4).byte_size(),
-                self.flat_vectors_scorer.clone(),
-                *field_info.get_vector_similarity_function(),
+                  field_info.get_vector_dimension() as usize,
+                  docs_with_field.cardinality() as usize,
+                  vector_values_input,
+                  field_info.get_vector_dimension() as usize
+                    * VectorEncoding::FLOAT32(4).byte_size(),
+                  self.flat_vectors_scorer.clone(),
+                  *field_info.get_vector_similarity_function(),
                 )?,
               ),
             )?

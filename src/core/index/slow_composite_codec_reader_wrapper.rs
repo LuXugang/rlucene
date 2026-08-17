@@ -63,9 +63,7 @@ use crate::core::index::sorted_set_doc_values_writer::{
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
-use crate::core::index::term_vectors::{
-  OptionalTermVectors, RawTermVectors, TermVectors,
-};
+use crate::core::index::term_vectors::{OptionalTermVectors, RawTermVectors, TermVectors};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -324,8 +322,7 @@ where
     }
   }
 
-  type ByteVectorValues =
-    SlowCompositeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
+  type ByteVectorValues = SlowCompositeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     match self {
@@ -576,8 +573,7 @@ where
     }
   }
 
-  type ByteVectorValues =
-    SlowCompositeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
+  type ByteVectorValues = SlowCompositeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
     match self {
@@ -1653,12 +1649,8 @@ where
       }
 
       return Ok(SingletonOrMultiSortedSetDocValuesEnum::Multi(
-        MultiSortedSetDocValues::new(
-        values,
-        self.doc_starts.clone(),
-        map,
-        total_cost,
-      )));
+        MultiSortedSetDocValues::new(values, self.doc_starts.clone(), map, total_cost),
+      ));
     }
 
     let mr: MultiReader<CR> = MultiReader::new(self.codec_readers.clone())?;

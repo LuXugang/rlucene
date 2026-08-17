@@ -38,13 +38,13 @@ use crate::core::index::index_reader::{CacheHelperEnum2, IndexReader, LeafReader
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::point_values::PointValuesEnum2;
+use crate::core::index::slow_composite_codec_reader_wrapper::{
+  SlowCompositeByteVectorValues, SlowCompositeFloatVectorValues, SlowCompositeKnnVectorsReader,
+  SlowCompositePointValues, SlowCompositePointsReader,
+};
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
-use crate::core::index::slow_composite_codec_reader_wrapper::{
-  SlowCompositeByteVectorValues, SlowCompositeFloatVectorValues,
-  SlowCompositeKnnVectorsReader, SlowCompositePointValues, SlowCompositePointsReader,
-};
 use crate::core::index::sorting_codec_reader::{
   SortingCodecReaderKnnVectorsReader, SortingCodecReaderPointsReader,
 };

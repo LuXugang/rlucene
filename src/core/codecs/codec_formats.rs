@@ -116,8 +116,6 @@ use crate::core::index::terms::Terms;
 #[cfg(test)]
 use crate::core::index::terms_enum::TermsEnumWithUnsupportedSecondAttributes2;
 #[cfg(test)]
-use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
-#[cfg(test)]
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 #[cfg(test)]
 use crate::core::search::vector_scorer::VectorScorer;
@@ -130,6 +128,8 @@ use crate::core::util::HasIdentity;
 use crate::core::util::StringHelper;
 #[cfg(test)]
 use crate::core::util::accountable::Accountable;
+#[cfg(test)]
+use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bits::Bits;
 #[cfg(test)]
 use crate::core::util::clone::TryClone;

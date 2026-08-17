@@ -28,8 +28,8 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
 /// A [`Fields`] implementation that merges multiple `Fields` into one,
@@ -111,7 +111,7 @@ where
   T: Terms,
 {
   A(EmptyTermsEnum),
-  B(MappedMultiTermsEnum<T::TermsEnum, DM>),
+  B(Box<MappedMultiTermsEnum<T::TermsEnum, DM>>),
 }
 
 impl<T, DM> BytesRefIterator for MappedMultiTermsTE<T, DM>
@@ -236,8 +236,7 @@ where
     }
   }
 
-  type PostingsEnum =
-    <MappedMultiTermsEnum<T::TermsEnum, DM> as TermsEnum>::PostingsEnum;
+  type PostingsEnum = <MappedMultiTermsEnum<T::TermsEnum, DM> as TermsEnum>::PostingsEnum;
 
   fn postings_with_flags(
     &mut self,
@@ -282,8 +281,8 @@ where
     match iterator {
       IteratorType::<T>::B(empty) => Ok(MappedMultiTermsTE::<T, DM>::A(empty)),
       IteratorType::<T>::A(v) => {
-        let v = MappedMultiTermsEnum::new(self.field.clone(), self.merge_state.clone(), v);
-        Ok(MappedMultiTermsTE::<T, DM>::B(v))
+        let v = MappedMultiTermsEnum::new(self.field.clone(), self.merge_state.clone(), *v);
+        Ok(MappedMultiTermsTE::<T, DM>::B(Box::new(v)))
       },
     }
   }

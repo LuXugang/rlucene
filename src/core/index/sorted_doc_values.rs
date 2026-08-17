@@ -131,16 +131,17 @@ pub trait SortedDocValues: DocValuesIterator {
     match automaton.type_ {
       AutomatonType::None => Ok(TermsEnumWithUnsupportedFirstPostings4::A(EmptyTermsEnum)),
       AutomatonType::All => Ok(TermsEnumWithUnsupportedFirstPostings4::B(terms_enum)),
-      AutomatonType::Single => Ok(TermsEnumWithUnsupportedFirstPostings4::C(SingleTermsEnum::new(
-        terms_enum,
-        automaton
-          .term
-          .clone()
-          .ok_or_else(|| LuceneError::illegal_state("term must exist for AutomatonType::Single"))?,
-      ))),
-      AutomatonType::Normal => Ok(TermsEnumWithUnsupportedFirstPostings4::D(AutomatonTermsEnum::new(
-        terms_enum, automaton,
-      )?)),
+      AutomatonType::Single => Ok(TermsEnumWithUnsupportedFirstPostings4::C(
+        SingleTermsEnum::new(
+          terms_enum,
+          automaton.term.clone().ok_or_else(|| {
+            LuceneError::illegal_state("term must exist for AutomatonType::Single")
+          })?,
+        ),
+      )),
+      AutomatonType::Normal => Ok(TermsEnumWithUnsupportedFirstPostings4::D(
+        AutomatonTermsEnum::new(terms_enum, automaton)?,
+      )),
     }
   }
 }

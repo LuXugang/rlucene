@@ -24,9 +24,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::postings_enum::NONE;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{
-  TermsEnum, TermsEnumWithUnsupportedPostingsAndAttributes2,
-};
+use crate::core::index::terms_enum::{TermsEnum, TermsEnumWithUnsupportedPostingsAndAttributes2};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::field_comparator::FieldComparator;

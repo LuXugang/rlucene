@@ -112,7 +112,7 @@ where
     if self.queue.q.size() == 0 {
       Ok(MultiTermsEnumType::B(EmptyTermsEnum))
     } else {
-      Ok(MultiTermsEnumType::A(self))
+      Ok(MultiTermsEnumType::A(Box::new(self)))
     }
   }
   fn pull_top(&mut self) -> Result<()> {
@@ -520,7 +520,7 @@ pub enum MultiTermsEnumType<TE>
 where
   TE: TermsEnum,
 {
-  A(MultiTermsEnum<TE>),
+  A(Box<MultiTermsEnum<TE>>),
   B(EmptyTermsEnum),
 }
 

@@ -41,8 +41,7 @@ use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNume
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_numeric_doc_values::{
-  SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues,
-  SortedNumericDocValuesEnum2,
+  SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues, SortedNumericDocValuesEnum2,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::{
