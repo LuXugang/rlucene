@@ -236,12 +236,16 @@ where
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
-      SparseBinaryDocValuesBaseEnum::Sparse(sub) => {
-        <SparseBinaryDocValuesBaseImpl<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(sub, disi)
-      },
-      SparseBinaryDocValuesBaseEnum::Sparse1(sub) => {
-        <SparseBinaryDocValuesBaseImpl1<I::RandomAccessSlice> as SparseBinaryDocValuesBase<I>>::binary_value(sub, disi)
-      },
+      SparseBinaryDocValuesBaseEnum::Sparse(sub) => <SparseBinaryDocValuesBaseImpl<
+        I::RandomAccessSlice,
+      > as SparseBinaryDocValuesBase<I>>::binary_value(
+        sub, disi
+      ),
+      SparseBinaryDocValuesBaseEnum::Sparse1(sub) => <SparseBinaryDocValuesBaseImpl1<
+        I::RandomAccessSlice,
+      > as SparseBinaryDocValuesBase<I>>::binary_value(
+        sub, disi
+      ),
     }
   }
 }
