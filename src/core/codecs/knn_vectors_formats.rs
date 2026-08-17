@@ -131,18 +131,15 @@ type Lucene99HnswFloatVectorValues<I> =
   <Lucene99HnswVectorsReader<I> as KnnVectorsReader>::FloatVectorValues;
 type Lucene99ScalarQuantizedFloatVectorValues<I> =
   <Lucene99ScalarQuantizedVectorsReader<I> as KnnVectorsReader>::FloatVectorValues;
-type HnswBitFloatVectorValues<I> = <HnswBitVectorsReader<I> as KnnVectorsReader>::FloatVectorValues;
 
 type Lucene99HnswFloatVectorScorer<I> =
   <Lucene99HnswFloatVectorValues<I> as FloatVectorValues>::VectorScorer;
 type Lucene99ScalarQuantizedFloatVectorScorer<I> =
   <Lucene99ScalarQuantizedFloatVectorValues<I> as FloatVectorValues>::VectorScorer;
-type HnswBitFloatVectorScorer<I> = <HnswBitFloatVectorValues<I> as FloatVectorValues>::VectorScorer;
 
 pub enum KnnVectorsFormatsFloatVectorScorer<I: IndexInput> {
   Lucene99Hnsw(Lucene99HnswFloatVectorScorer<I>),
   Lucene99ScalarQuantized(Lucene99ScalarQuantizedFloatVectorScorer<I>),
-  HnswBit(HnswBitFloatVectorScorer<I>),
 }
 
 impl<I: IndexInput> VectorScorer for KnnVectorsFormatsFloatVectorScorer<I> {
@@ -150,7 +147,6 @@ impl<I: IndexInput> VectorScorer for KnnVectorsFormatsFloatVectorScorer<I> {
     match self {
       Self::Lucene99Hnsw(scorer) => scorer.score(),
       Self::Lucene99ScalarQuantized(scorer) => scorer.score(),
-      Self::HnswBit(scorer) => scorer.score(),
     }
   }
 
@@ -163,7 +159,6 @@ impl<I: IndexInput> VectorScorer for KnnVectorsFormatsFloatVectorScorer<I> {
     match self {
       Self::Lucene99Hnsw(scorer) => scorer.iterator(),
       Self::Lucene99ScalarQuantized(scorer) => scorer.iterator(),
-      Self::HnswBit(scorer) => scorer.iterator(),
     }
   }
 
@@ -176,7 +171,6 @@ impl<I: IndexInput> VectorScorer for KnnVectorsFormatsFloatVectorScorer<I> {
     match self {
       Self::Lucene99Hnsw(scorer) => scorer.iterator_mut(),
       Self::Lucene99ScalarQuantized(scorer) => scorer.iterator_mut(),
-      Self::HnswBit(scorer) => scorer.iterator_mut(),
     }
   }
 }
@@ -184,7 +178,6 @@ impl<I: IndexInput> VectorScorer for KnnVectorsFormatsFloatVectorScorer<I> {
 pub enum KnnVectorsFormatsFloatVectorValues<I: IndexInput> {
   Lucene99Hnsw(Lucene99HnswFloatVectorValues<I>),
   Lucene99ScalarQuantized(Lucene99ScalarQuantizedFloatVectorValues<I>),
-  HnswBit(HnswBitFloatVectorValues<I>),
 }
 
 impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
@@ -192,7 +185,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.dimension(),
       Self::Lucene99ScalarQuantized(values) => values.dimension(),
-      Self::HnswBit(values) => values.dimension(),
     }
   }
 
@@ -200,7 +192,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.size(),
       Self::Lucene99ScalarQuantized(values) => values.size(),
-      Self::HnswBit(values) => values.size(),
     }
   }
 
@@ -208,7 +199,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.ord_to_doc(ord),
       Self::Lucene99ScalarQuantized(values) => values.ord_to_doc(ord),
-      Self::HnswBit(values) => values.ord_to_doc(ord),
     }
   }
 
@@ -218,7 +208,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.copy().map(Self::Lucene99Hnsw),
       Self::Lucene99ScalarQuantized(values) => values.copy().map(Self::Lucene99ScalarQuantized),
-      Self::HnswBit(values) => values.copy().map(Self::HnswBit),
     }
   }
 
@@ -226,7 +215,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_vector_byte_length(),
       Self::Lucene99ScalarQuantized(values) => values.get_vector_byte_length(),
-      Self::HnswBit(values) => values.get_vector_byte_length(),
     }
   }
 
@@ -234,7 +222,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => KnnVectorValues::get_encoding(values),
       Self::Lucene99ScalarQuantized(values) => KnnVectorValues::get_encoding(values),
-      Self::HnswBit(values) => KnnVectorValues::get_encoding(values),
     }
   }
 
@@ -251,7 +238,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.get_accept_ords(accept_docs),
       Self::Lucene99ScalarQuantized(values) => values.get_accept_ords(accept_docs),
-      Self::HnswBit(values) => values.get_accept_ords(accept_docs),
     }
   }
 
@@ -261,7 +247,6 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.iterator(),
       Self::Lucene99ScalarQuantized(values) => values.iterator(),
-      Self::HnswBit(values) => values.iterator(),
     }
   }
 }
@@ -271,7 +256,6 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     match self {
       Self::Lucene99Hnsw(values) => values.vector_value(ord),
       Self::Lucene99ScalarQuantized(values) => values.vector_value(ord),
-      Self::HnswBit(values) => values.vector_value(ord),
     }
   }
 
@@ -285,7 +269,6 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
       Self::Lucene99ScalarQuantized(values) => values
         .float_copy()
         .map(|values| values.map(Self::Lucene99ScalarQuantized)),
-      Self::HnswBit(values) => values.float_copy().map(|values| values.map(Self::HnswBit)),
     }
   }
 
@@ -299,9 +282,6 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
       Self::Lucene99ScalarQuantized(values) => values
         .scorer(target)
         .map(|scorer| scorer.map(KnnVectorsFormatsFloatVectorScorer::Lucene99ScalarQuantized)),
-      Self::HnswBit(values) => values
-        .scorer(target)
-        .map(|scorer| scorer.map(KnnVectorsFormatsFloatVectorScorer::HnswBit)),
     }
   }
 
@@ -309,7 +289,6 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     match self {
       Self::Lucene99Hnsw(values) => FloatVectorValues::get_encoding(values),
       Self::Lucene99ScalarQuantized(values) => FloatVectorValues::get_encoding(values),
-      Self::HnswBit(values) => FloatVectorValues::get_encoding(values),
     }
   }
 
@@ -317,7 +296,6 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors_mut(),
-      Self::HnswBit(values) => values.get_vectors_mut(),
     }
   }
 
@@ -325,7 +303,6 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors(),
-      Self::HnswBit(values) => values.get_vectors(),
     }
   }
 
@@ -333,7 +310,6 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     match self {
       Self::Lucene99Hnsw(values) => values.get_vectors_capacity(),
       Self::Lucene99ScalarQuantized(values) => values.get_vectors_capacity(),
-      Self::HnswBit(values) => values.get_vectors_capacity(),
     }
   }
 }
@@ -732,9 +708,9 @@ impl<I: IndexInput> KnnVectorsReader for KnnVectorsFormatsReader<I> {
       Self::Lucene99HnswScalarQuantized(reader) => reader
         .get_float_vector_values(field)
         .map(KnnVectorsFormatsFloatVectorValues::Lucene99ScalarQuantized),
-      Self::HnswBit(reader) => reader
-        .get_float_vector_values(field)
-        .map(KnnVectorsFormatsFloatVectorValues::HnswBit),
+      Self::HnswBit(_) => Err(LuceneError::illegal_argument(
+        "HnswBitVectorsFormat only supports BYTE encoding",
+      )),
     }
   }
 
