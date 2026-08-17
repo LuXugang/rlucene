@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::byte_vector_values::{ByteVectorValues, ByteVectorValuesEnum2};
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::{KnnVectorValues, KnnVectorValuesEnm2};
+use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::bits::Bits;
@@ -46,20 +46,20 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
     _similarity_function: VectorSimilarityFunction,
-    vector_values: KnnVectorValuesEnm2<B, F>,
+    vector_values: FlatVectorValuesEnum<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + TryClone,
     F: FloatVectorValues + TryClone,
   {
     match vector_values {
-      KnnVectorValuesEnm2::A(byte_vector_values) => {
+      FlatVectorValuesEnum::Byte(byte_vector_values) => {
         debug_assert!(
           KnnVectorValues::get_encoding(&byte_vector_values) == VectorEncoding::BYTE(1)
         );
         BitRandomVectorScorerSupplier::new(byte_vector_values)
       },
-      KnnVectorValuesEnm2::B(_) => Err(LuceneError::illegal_argument(
+      FlatVectorValuesEnum::Float(_) => Err(LuceneError::illegal_argument(
         "vectorValues must be an instance of ByteVectorValues",
       )),
     }

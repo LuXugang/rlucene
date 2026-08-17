@@ -16,10 +16,9 @@
  */
 use crate::core::codecs::hnsw::default_flat_vector_scorer::DefaultFlatVectorScorer;
 use crate::core::codecs::hnsw::flat_vector_scorer_util::GET_LUCENE99_FLAT_VECTORS_SCORER;
-use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
 use crate::core::codecs::lucene95::off_heap_byte_vector_values::DenseOffHeapVectorValues as DenseOffHeapByteVectorValues;
 use crate::core::codecs::lucene95::off_heap_float_vector_values::DenseOffHeapVectorValues as DenseOffHeapFloatVectorValues;
-use crate::core::index::knn_vector_values::KnnVectorValuesEnm2;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::directory::{DirEnum, Directory};
@@ -90,7 +89,7 @@ fn test_multiple_byte_scorers() -> Result<()> {
     let supplier = scorer
       .get_random_vector_scorer_supplier::<TestByteVectorValues, TestFloatVectorValues>(
         VectorSimilarityFunction::Euclidean,
-        KnnVectorValuesEnm2::A(vector_values),
+        FlatVectorValuesEnum::Byte(vector_values),
       )?;
 
     let scorer_against_ord0 = supplier.scorer(0)?;
@@ -132,7 +131,7 @@ fn test_multiple_float_scorers() -> Result<()> {
     let supplier = scorer
       .get_random_vector_scorer_supplier::<TestByteVectorValues, TestFloatVectorValues>(
         VectorSimilarityFunction::Euclidean,
-        KnnVectorValuesEnm2::B(vector_values),
+        FlatVectorValuesEnum::Float(vector_values),
       )?;
 
     let scorer_against_ord0 = supplier.scorer(0)?;

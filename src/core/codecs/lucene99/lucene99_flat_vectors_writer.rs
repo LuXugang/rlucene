@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
-use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
 use crate::core::codecs::hnsw::flat_vectors_writer::FlatVectorsWriter;
 use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
 use crate::core::codecs::knn_vectors_writer::{
@@ -39,9 +39,7 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::{
-  DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
-};
+use crate::core::index::knn_vector_values::{DocIndexIterator, KnnVectorValues};
 use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -582,7 +580,7 @@ where
         let random_vector_scorer_supplier = match field_info.get_vector_encoding() {
           VectorEncoding::BYTE(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
             *field_info.get_vector_similarity_function(),
-            KnnVectorValuesEnm2::A(off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
+            FlatVectorValuesEnum::Byte(off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
               field_info.get_vector_dimension() as usize,
               docs_with_field.cardinality() as usize,
               vector_values_input,
@@ -594,14 +592,16 @@ where
           VectorEncoding::FLOAT32(_) => {
             self.flat_vectors_scorer.get_random_vector_scorer_supplier(
               *field_info.get_vector_similarity_function(),
-              KnnVectorValuesEnm2::B(off_heap_float_vector_values::DenseOffHeapVectorValues::new(
+              FlatVectorValuesEnum::Float(
+                off_heap_float_vector_values::DenseOffHeapVectorValues::new(
                 field_info.get_vector_dimension() as usize,
                 docs_with_field.cardinality() as usize,
                 vector_values_input,
                 field_info.get_vector_dimension() as usize * VectorEncoding::FLOAT32(4).byte_size(),
                 self.flat_vectors_scorer.clone(),
                 *field_info.get_vector_similarity_function(),
-              )?),
+                )?,
+              ),
             )?
           },
         };

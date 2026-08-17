@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
-use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
 use crate::core::codecs::hnsw::flat_vectors_writer::{FlatVectorsWriter, FlatVectorsWriterSs};
 use crate::core::codecs::knn_field_vectors_writer::{KnnFieldVectorsWriter, VectorValueEnum};
 use crate::core::codecs::knn_vectors_writer::{
@@ -34,7 +34,6 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::{FloatVectorValuesImpl, from_floats};
-use crate::core::index::knn_vector_values::KnnVectorValuesEnm2;
 use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -794,7 +793,7 @@ where
         let random_vector_scorer_supplier = from_bytes(field_info.get_vector_dimension() as usize);
         scorer.get_random_vector_scorer_supplier(
           *field_info.get_vector_similarity_function(),
-          KnnVectorValuesEnm2::<ByteVectorValuesImpl, FloatVectorValuesImpl>::A(
+          FlatVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Byte(
             random_vector_scorer_supplier,
           ),
         )?
@@ -803,7 +802,7 @@ where
         let random_vector_scorer_supplier = from_floats(field_info.get_vector_dimension() as usize);
         scorer.get_random_vector_scorer_supplier(
           *field_info.get_vector_similarity_function(),
-          KnnVectorValuesEnm2::<ByteVectorValuesImpl, FloatVectorValuesImpl>::B(
+          FlatVectorValuesEnum::<ByteVectorValuesImpl, FloatVectorValuesImpl>::Float(
             random_vector_scorer_supplier,
           ),
         )?

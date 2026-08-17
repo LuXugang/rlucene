@@ -16,7 +16,6 @@
  */
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::KnnVectorValuesEnm2;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
@@ -28,6 +27,11 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::{
 };
 use std::fmt::Display;
 use std::sync::Arc;
+
+pub enum FlatVectorValuesEnum<B, F> {
+  Byte(B),
+  Float(F),
+}
 
 /// Provides mechanisms to score vectors stored in a flat file. This trait
 /// for providing flexibility to the codec utilizing the vectors
@@ -50,7 +54,7 @@ pub trait FlatVectorsScorer: Display {
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: KnnVectorValuesEnm2<B, F>,
+    vector_values: FlatVectorValuesEnum<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + TryClone,
@@ -118,7 +122,7 @@ where
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: KnnVectorValuesEnm2<B, F>,
+    vector_values: FlatVectorValuesEnum<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
     B: ByteVectorValues + TryClone,
@@ -198,7 +202,7 @@ macro_rules! either_flat_vectors_scorer {
             fn get_random_vector_scorer_supplier<VB, VF>(
                 &self,
                 similarity_function: VectorSimilarityFunction,
-                vector_values: KnnVectorValuesEnm2<VB, VF>,
+                vector_values: FlatVectorValuesEnum<VB, VF>,
             ) -> Result<Self::RandomVectorScorerSupplier<VB, VF>>
             where
                 VB: ByteVectorValues + TryClone,

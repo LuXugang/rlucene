@@ -17,7 +17,7 @@
 use crate::core::codecs::hnsw::default_flat_vector_scorer::{
   ByteVectorScorer, DefaultFlatVectorScorer, FloatVectorScorer,
 };
-use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
@@ -158,6 +158,10 @@ where
     R: Rng + ?Sized,
   {
     let v = self.similarity_function();
+    let vectors = match vectors {
+      KnnVectorValuesEnm2::A(values) => FlatVectorValuesEnum::Byte(values),
+      KnnVectorValuesEnm2::B(values) => FlatVectorValuesEnum::Float(values),
+    };
     self
       .flat_vector_scorer()
       .get_random_vector_scorer_supplier(v, vectors)

@@ -14,10 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
+use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::KnnVectorValuesEnm2;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
@@ -178,7 +177,7 @@ where
   fn get_random_vector_scorer_supplier<B, FV>(
     &self,
     similarity_function: VectorSimilarityFunction,
-    vector_values: KnnVectorValuesEnm2<B, FV>,
+    vector_values: FlatVectorValuesEnum<B, FV>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, FV>>
   where
     B: ByteVectorValues + TryClone,
