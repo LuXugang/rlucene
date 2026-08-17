@@ -24,16 +24,15 @@ use crate::core::index::numeric_doc_values_writer::{
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
-use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values_writer::{
   BufferedSortedDocValues, SortedDocValuesWriter,
 };
 use crate::core::index::sorted_numeric_doc_values_writer::{
   SortedNumericDocValuesWriter, SortedNumericDocValuesWriterValues,
 };
-use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::{
-  BufferedSortedSetDocValues, SortedSetDocValuesWriter,
+  SortedSetDocValuesWriter,
+  SortedSetDocValuesWriterDocIdSetIterator,
 };
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum5};
@@ -146,8 +145,5 @@ pub(crate) type DocValuesWriterDISI = DocIdSetIteratorEnum5<
   BufferedNumericDocValues,
   SortedNumericDocValuesWriterValues,
   BufferedSortedDocValues<DocsWithFieldSetDISI>,
-  SortedSetDocValuesEnum2<
-    SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-    BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-  >,
+  SortedSetDocValuesWriterDocIdSetIterator,
 >;

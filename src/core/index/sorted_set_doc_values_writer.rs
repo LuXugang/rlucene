@@ -67,6 +67,11 @@ pub(crate) enum SortedSetDocValuesWriterValues {
   Sorting(SortingSortedSetDocValues<BufferedWriterSortedSetDocValues>),
 }
 
+pub(crate) enum SortedSetDocValuesWriterDocIdSetIterator {
+  Buffered(BufferedWriterSortedSetDocValues),
+  Singleton(SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>),
+}
+
 impl DocValuesIterator for SortedSetDocValuesWriterValues {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
     match self {
@@ -139,6 +144,90 @@ impl SortedSetDocValues for SortedSetDocValuesWriterValues {
     match self {
       Self::Buffered(values) => values.get_value_count(),
       Self::Sorting(values) => values.get_value_count(),
+    }
+  }
+
+  type TermsEnum<'a> = SortedSetDocValuesTermsEnum<&'a mut Self>;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
+
+  type SortedDocValues = DummySortedDocValues;
+}
+
+impl DocValuesIterator for SortedSetDocValuesWriterDocIdSetIterator {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Buffered(values) => values.advance_exact(target),
+      Self::Singleton(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl DocIdSetIterator for SortedSetDocValuesWriterDocIdSetIterator {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Buffered(values) => values.doc_id(),
+      Self::Singleton(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.next_doc(),
+      Self::Singleton(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.advance(target),
+      Self::Singleton(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.slow_advance(target),
+      Self::Singleton(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(values) => values.cost(),
+      Self::Singleton(values) => values.cost(),
+    }
+  }
+}
+
+impl SortedSetDocValues for SortedSetDocValuesWriterDocIdSetIterator {
+  fn next_ord(&mut self) -> Result<i64> {
+    match self {
+      Self::Buffered(values) => values.next_ord(),
+      Self::Singleton(values) => values.next_ord(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(values) => values.doc_value_count(),
+      Self::Singleton(values) => values.doc_value_count(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Buffered(values) => values.lookup_ord(ord),
+      Self::Singleton(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(values) => values.get_value_count(),
+      Self::Singleton(values) => values.get_value_count(),
     }
   }
 
@@ -311,26 +400,25 @@ impl SortedSetDocValuesWriter {
     ord_counts: Option<PackedLongValues>,
     max_count: i32,
     docs_with_field: &DocsWithFieldSet,
-  ) -> Result<
-    SortedSetDocValuesEnum2<
-      SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-      BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-    >,
-  > {
+  ) -> Result<SortedSetDocValuesWriterDocIdSetIterator> {
     let docs_iter = docs_with_field.iterator()?;
     match ord_counts {
-      Some(ords_counts) => Ok(SortedSetDocValuesEnum2::B(BufferedSortedSetDocValues::new(
-        ord_map,
-        hash,
-        pool,
-        ords,
-        ords_counts,
-        max_count,
-        docs_iter,
-      ))),
-      None => Ok(SortedSetDocValuesEnum2::A(DocValues::singleton_sorted(
-        BufferedSortedDocValues::new(hash, pool, ords, ord_map, docs_iter),
-      )?)),
+      Some(ords_counts) => Ok(SortedSetDocValuesWriterDocIdSetIterator::Buffered(
+        BufferedSortedSetDocValues::new(
+          ord_map,
+          hash,
+          pool,
+          ords,
+          ords_counts,
+          max_count,
+          docs_iter,
+        ),
+      )),
+      None => Ok(SortedSetDocValuesWriterDocIdSetIterator::Singleton(
+        DocValues::singleton_sorted(
+          BufferedSortedDocValues::new(hash, pool, ords, ord_map, docs_iter),
+        )?,
+      )),
     }
   }
 }
@@ -412,10 +500,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     Ok(())
   }
 
-  type DocIdSetIterator = SortedSetDocValuesEnum2<
-    SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-    BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-  >;
+  type DocIdSetIterator = SortedSetDocValuesWriterDocIdSetIterator;
 
   fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
     if self.final_ords.is_none() {

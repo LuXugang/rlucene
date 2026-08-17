@@ -73,7 +73,6 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values_writer::{
   BufferedSortedDocValues, SortedDocValuesWriter,
 };
@@ -81,7 +80,8 @@ use crate::core::index::sorted_numeric_doc_values_writer::{
   SortedNumericDocValuesWriter, SortedNumericDocValuesWriterValues,
 };
 use crate::core::index::sorted_set_doc_values_writer::{
-  BufferedSortedSetDocValues, SortedSetDocValuesEnum2, SortedSetDocValuesWriter,
+  SortedSetDocValuesWriter,
+  SortedSetDocValuesWriterDocIdSetIterator,
 };
 use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
@@ -2353,10 +2353,7 @@ where
       .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
   }
 
-  type SortedSetDocValues = SortedSetDocValuesEnum2<
-    SingletonSortedSetDocValues<BufferedSortedDocValues<DocsWithFieldSetDISI>>,
-    BufferedSortedSetDocValues<DocsWithFieldSetDISI>,
-  >;
+  type SortedSetDocValues = SortedSetDocValuesWriterDocIdSetIterator;
 
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
     let pf_index = self.index_chain.get_per_field(field);
