@@ -31,7 +31,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
-use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostings2;
+use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributes2;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -135,15 +135,19 @@ impl SortedDocValues for SortedDocValuesWriterValues {
     }
   }
 
-  type TermsEnum<'a> = TermsEnumWithUnsupportedPostings2<
+  type TermsEnum<'a> = TermsEnumWithUnsupportedPostingsAndAttributes2<
     <BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a>,
     <SortingSortedDocValues<BufferedWriterSortedDocValues> as SortedDocValues>::TermsEnum<'a>,
   >;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
-      Self::Buffered(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::A),
-      Self::Sorting(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::B),
+      Self::Buffered(values) => values
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+      Self::Sorting(values) => values
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
     }
   }
 }

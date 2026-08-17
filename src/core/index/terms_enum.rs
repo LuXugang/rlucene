@@ -24,7 +24,9 @@ use crate::core::index::postings_enum::{
 };
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::util::attribute_source::AttributeSourceEnum2;
-use crate::core::util::attribute_source::{AttributeSource, AttributeSourceEnum4};
+use crate::core::util::attribute_source::{
+  AttributeSource, AttributeSourceEnum3, AttributeSourceEnum4,
+};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -533,12 +535,12 @@ where
   }
 }
 
-pub enum TermsEnumWithUnsupportedPostings2<A, B> {
+pub enum TermsEnumWithUnsupportedPostingsAndAttributes2<A, B> {
   A(A),
   B(B),
 }
 
-impl<A, B> BytesRefIterator for TermsEnumWithUnsupportedPostings2<A, B>
+impl<A, B> BytesRefIterator for TermsEnumWithUnsupportedPostingsAndAttributes2<A, B>
 where
   A: TermsEnum,
   B: TermsEnum,
@@ -558,31 +560,31 @@ where
   }
 }
 
-impl<A, B> TermsEnum for TermsEnumWithUnsupportedPostings2<A, B>
+impl<A, B> TermsEnum for TermsEnumWithUnsupportedPostingsAndAttributes2<A, B>
 where
   A: TermsEnum,
   B: TermsEnum,
 {
   type AttributeSource<'a>
-    = AttributeSourceEnum2<A::AttributeSource<'a>, B::AttributeSource<'a>>
+    = A::AttributeSource<'a>
   where
     Self: 'a;
   type AttributeSourceMut<'a>
-    = AttributeSourceEnum2<A::AttributeSourceMut<'a>, B::AttributeSourceMut<'a>>
+    = A::AttributeSourceMut<'a>
   where
     Self: 'a;
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
-      Self::A(terms) => terms.attributes().map(AttributeSourceEnum2::A),
-      Self::B(terms) => terms.attributes().map(AttributeSourceEnum2::B),
+      Self::A(terms) => terms.attributes(),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
-      Self::A(terms) => terms.attributes_mut().map(AttributeSourceEnum2::A),
-      Self::B(terms) => terms.attributes_mut().map(AttributeSourceEnum2::B),
+      Self::A(terms) => terms.attributes_mut(),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -738,8 +740,7 @@ where
   D: TermsEnum<PostingsEnum = B::PostingsEnum, ImpactsEnum = B::ImpactsEnum>,
 {
   type AttributeSource<'a>
-    = AttributeSourceEnum4<
-    A::AttributeSource<'a>,
+    = AttributeSourceEnum3<
     B::AttributeSource<'a>,
     C::AttributeSource<'a>,
     D::AttributeSource<'a>,
@@ -747,8 +748,7 @@ where
   where
     Self: 'a;
   type AttributeSourceMut<'a>
-    = AttributeSourceEnum4<
-    A::AttributeSourceMut<'a>,
+    = AttributeSourceEnum3<
     B::AttributeSourceMut<'a>,
     C::AttributeSourceMut<'a>,
     D::AttributeSourceMut<'a>,
@@ -758,19 +758,19 @@ where
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
-      Self::A(terms) => terms.attributes().map(AttributeSourceEnum4::A),
-      Self::B(terms) => terms.attributes().map(AttributeSourceEnum4::B),
-      Self::C(terms) => terms.attributes().map(AttributeSourceEnum4::C),
-      Self::D(terms) => terms.attributes().map(AttributeSourceEnum4::D),
+      Self::A(_) => Err(LuceneError::unsupported_operation("")),
+      Self::B(terms) => terms.attributes().map(AttributeSourceEnum3::A),
+      Self::C(terms) => terms.attributes().map(AttributeSourceEnum3::B),
+      Self::D(terms) => terms.attributes().map(AttributeSourceEnum3::C),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
-      Self::A(terms) => terms.attributes_mut().map(AttributeSourceEnum4::A),
-      Self::B(terms) => terms.attributes_mut().map(AttributeSourceEnum4::B),
-      Self::C(terms) => terms.attributes_mut().map(AttributeSourceEnum4::C),
-      Self::D(terms) => terms.attributes_mut().map(AttributeSourceEnum4::D),
+      Self::A(_) => Err(LuceneError::unsupported_operation("")),
+      Self::B(terms) => terms.attributes_mut().map(AttributeSourceEnum3::A),
+      Self::C(terms) => terms.attributes_mut().map(AttributeSourceEnum3::B),
+      Self::D(terms) => terms.attributes_mut().map(AttributeSourceEnum3::C),
     }
   }
 

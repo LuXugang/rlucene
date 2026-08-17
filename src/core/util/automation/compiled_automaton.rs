@@ -26,7 +26,7 @@ use crate::core::search::query::QueryRef;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::util::StringHelper;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::attribute_source::AttributeSourceEnum4;
+use crate::core::util::attribute_source::AttributeSourceEnum3;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
@@ -675,8 +675,7 @@ where
   TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
 {
   type AttributeSource<'a>
-    = AttributeSourceEnum4<
-    <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::AttributeSource<'a>,
+    = AttributeSourceEnum3<
     <TermsTE<T> as TermsEnum>::AttributeSource<'a>,
     <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSource<'a>,
     <TermsIntersect<T> as TermsEnum>::AttributeSource<'a>,
@@ -684,8 +683,7 @@ where
   where
     Self: 'a;
   type AttributeSourceMut<'a>
-    = AttributeSourceEnum4<
-    <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::AttributeSourceMut<'a>,
+    = AttributeSourceEnum3<
     <TermsTE<T> as TermsEnum>::AttributeSourceMut<'a>,
     <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSourceMut<'a>,
     <TermsIntersect<T> as TermsEnum>::AttributeSourceMut<'a>,
@@ -695,19 +693,19 @@ where
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
-      Self::Empty(t) => Ok(AttributeSourceEnum4::A(t.attributes()?)),
-      Self::TE(t) => Ok(AttributeSourceEnum4::B(t.attributes()?)),
-      Self::Single(t) => Ok(AttributeSourceEnum4::C(t.attributes()?)),
-      Self::Intersect(t) => Ok(AttributeSourceEnum4::D(t.attributes()?)),
+      Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
+      Self::TE(t) => Ok(AttributeSourceEnum3::A(t.attributes()?)),
+      Self::Single(t) => Ok(AttributeSourceEnum3::B(t.attributes()?)),
+      Self::Intersect(t) => Ok(AttributeSourceEnum3::C(t.attributes()?)),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
-      Self::Empty(t) => Ok(AttributeSourceEnum4::A(t.attributes_mut()?)),
-      Self::TE(t) => Ok(AttributeSourceEnum4::B(t.attributes_mut()?)),
-      Self::Single(t) => Ok(AttributeSourceEnum4::C(t.attributes_mut()?)),
-      Self::Intersect(t) => Ok(AttributeSourceEnum4::D(t.attributes_mut()?)),
+      Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
+      Self::TE(t) => Ok(AttributeSourceEnum3::A(t.attributes_mut()?)),
+      Self::Single(t) => Ok(AttributeSourceEnum3::B(t.attributes_mut()?)),
+      Self::Intersect(t) => Ok(AttributeSourceEnum3::C(t.attributes_mut()?)),
     }
   }
 

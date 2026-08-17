@@ -75,7 +75,7 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::TermsEnum2;
-use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostings2;
+use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributes2;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -1054,7 +1054,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumWithUnsupportedPostings2<
+    = TermsEnumWithUnsupportedPostingsAndAttributes2<
     S::TermsEnum<'a>,
     SortedDocValuesTermsEnum<&'a mut SortingSortedDocValues<S>>,
   >
@@ -1063,8 +1063,12 @@ where
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
-      Self::Original(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::A),
-      Self::Sorting(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::B),
+      Self::Original(values) => values
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+      Self::Sorting(values) => values
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
     }
   }
 }
@@ -1166,7 +1170,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumWithUnsupportedPostings2<
+    = TermsEnumWithUnsupportedPostingsAndAttributes2<
     S::TermsEnum<'a>,
     SortedSetDocValuesTermsEnum<&'a mut SortingSortedSetDocValues<S>>,
   >
@@ -1175,8 +1179,12 @@ where
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
-      Self::Original(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::A),
-      Self::Sorting(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::B),
+      Self::Original(values) => values
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+      Self::Sorting(values) => values
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
     }
   }
 
