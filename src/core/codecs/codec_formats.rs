@@ -87,7 +87,6 @@ use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 #[cfg(test)]
 use crate::core::index::field_info::FieldInfo;
-#[cfg(test)]
 use crate::core::index::field_infos::FieldInfos;
 #[cfg(test)]
 use crate::core::index::fields::Fields;
