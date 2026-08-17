@@ -19,7 +19,6 @@ use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
-use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
@@ -545,8 +544,7 @@ where
     }
   }
 
-  type DocValuesSkipper =
-    DocValuesSkipperEnum2<DVP::DocValuesSkipper, AssertingDocValuesSkipper<DVP::DocValuesSkipper>>;
+  type DocValuesSkipper = AssertingDocValuesSkipper<DVP::DocValuesSkipper>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
     if self.asserting {
@@ -565,11 +563,14 @@ where
         .in_
         .get_skipper(field)?
         .expect("doc-values skipper must not be None");
-      Ok(Some(DocValuesSkipperEnum2::B(
-        AssertingDocValuesSkipper::new(skipper),
-      )))
+      Ok(Some(AssertingDocValuesSkipper::new(skipper)))
     } else {
-      Ok(self.in_.get_skipper(field)?.map(DocValuesSkipperEnum2::A))
+      Ok(
+        self
+          .in_
+          .get_skipper(field)?
+          .map(AssertingDocValuesSkipper::new),
+      )
     }
   }
 

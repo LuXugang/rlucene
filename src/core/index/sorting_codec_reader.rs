@@ -17,6 +17,7 @@
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
+use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
@@ -60,7 +61,7 @@ use crate::core::index::point_values::{
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_doc_values_writer::SortingSortedDocValues;
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values_writer::{
   LongValues, SortingSortedNumericDocValues,
 };
@@ -736,13 +737,16 @@ where
   NP: NormsProducer,
   DM: DocMap,
 {
-  type NumericDocValues =
-    NumericDocValuesEnum2<NP::NumericDocValues, SortingNumericDocValues<FixedBitSet>>;
+  type NumericDocValues = SortingCodecReaderNumericDocValues<NP::NumericDocValues>;
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     match self {
-      Self::A(producer) => producer.get_norms(field).map(NumericDocValuesEnum2::A),
-      Self::B(producer) => producer.get_norms(field).map(NumericDocValuesEnum2::B),
+      Self::A(producer) => producer
+        .get_norms(field)
+        .map(SortingCodecReaderNumericDocValues::Original),
+      Self::B(producer) => producer
+        .get_norms(field)
+        .map(SortingCodecReaderNumericDocValues::Sorting),
     }
   }
 
@@ -1190,6 +1194,167 @@ where
   }
 }
 
+pub enum SortingCodecReaderNumericDocValues<N> {
+  Original(N),
+  Sorting(SortingNumericDocValues<FixedBitSet>),
+}
+
+impl<N> DocValuesIterator for SortingCodecReaderNumericDocValues<N>
+where
+  N: NumericDocValues,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Original(values) => values.advance_exact(target),
+      Self::Sorting(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<N> DocIdSetIterator for SortingCodecReaderNumericDocValues<N>
+where
+  N: NumericDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Original(values) => values.doc_id(),
+      Self::Sorting(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.next_doc(),
+      Self::Sorting(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.advance(target),
+      Self::Sorting(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.slow_advance(target),
+      Self::Sorting(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.cost(),
+      Self::Sorting(values) => values.cost(),
+    }
+  }
+}
+
+impl<N> NumericDocValues for SortingCodecReaderNumericDocValues<N>
+where
+  N: NumericDocValues,
+{
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.long_value(),
+      Self::Sorting(values) => values.long_value(),
+    }
+  }
+}
+
+pub enum SortingCodecReaderSortedNumericDocValues<S> {
+  Original(S),
+  Sorting(SortingSortedNumericDocValues<S>),
+}
+
+impl<S> DocValuesIterator for SortingCodecReaderSortedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Original(values) => values.advance_exact(target),
+      Self::Sorting(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<S> DocIdSetIterator for SortingCodecReaderSortedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Original(values) => values.doc_id(),
+      Self::Sorting(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.next_doc(),
+      Self::Sorting(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.advance(target),
+      Self::Sorting(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.slow_advance(target),
+      Self::Sorting(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.cost(),
+      Self::Sorting(values) => values.cost(),
+    }
+  }
+}
+
+impl<S> SortedNumericDocValues for SortingCodecReaderSortedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+  fn next_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.next_value(),
+      Self::Sorting(values) => values.next_value(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.doc_value_count(),
+      Self::Sorting(values) => values.doc_value_count(),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::Original(values) => values.is_single_valued(),
+      Self::Sorting(values) => values.is_single_valued(),
+    }
+  }
+
+  type NumericDocValues = NumericDocValuesEnum2<S::NumericDocValues, DummyNumericDocValues>;
+
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::Original(values) => Ok(NumericDocValuesEnum2::A(values.get_numeric_doc_values()?)),
+      Self::Sorting(values) => Ok(NumericDocValuesEnum2::B(values.get_numeric_doc_values()?)),
+    }
+  }
+}
+
 pub enum SortingCodecReaderDocValuesProducer<DVP, DM> {
   Original(DVP),
   Sorting(DocValuesProducerImpl<DVP, DM>),
@@ -1212,13 +1377,16 @@ where
   DVP: DocValuesProducer,
   DM: DocMap + Clone,
 {
-  type NumericDocValues =
-    NumericDocValuesEnum2<DVP::NumericDocValues, SortingNumericDocValues<FixedBitSet>>;
+  type NumericDocValues = SortingCodecReaderNumericDocValues<DVP::NumericDocValues>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     match self {
-      Self::Original(producer) => producer.get_numeric(field).map(NumericDocValuesEnum2::A),
-      Self::Sorting(producer) => producer.get_numeric(field).map(NumericDocValuesEnum2::B),
+      Self::Original(producer) => producer
+        .get_numeric(field)
+        .map(SortingCodecReaderNumericDocValues::Original),
+      Self::Sorting(producer) => producer
+        .get_numeric(field)
+        .map(SortingCodecReaderNumericDocValues::Sorting),
     }
   }
 
@@ -1244,19 +1412,17 @@ where
     }
   }
 
-  type SortedNumericDocValues = SortedNumericDocValuesEnum2<
-    DVP::SortedNumericDocValues,
-    SortingSortedNumericDocValues<DVP::SortedNumericDocValues>,
-  >;
+  type SortedNumericDocValues =
+    SortingCodecReaderSortedNumericDocValues<DVP::SortedNumericDocValues>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
     match self {
       Self::Original(producer) => producer
         .get_sorted_numeric(field)
-        .map(SortedNumericDocValuesEnum2::A),
+        .map(SortingCodecReaderSortedNumericDocValues::Original),
       Self::Sorting(producer) => producer
         .get_sorted_numeric(field)
-        .map(SortedNumericDocValuesEnum2::B),
+        .map(SortingCodecReaderSortedNumericDocValues::Sorting),
     }
   }
 
