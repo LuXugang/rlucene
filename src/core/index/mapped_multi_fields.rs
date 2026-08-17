@@ -25,10 +25,11 @@ use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
 use crate::core::index::multi_terms::IteratorType;
 use crate::core::index::multi_terms_enum::MultiTermsEnum;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
+use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use std::borrow::Cow;
 
 /// A [`Fields`] implementation that merges multiple `Fields` into one,
@@ -105,8 +106,170 @@ impl<T, DM> MappedMultiTerms<T, DM> {
     }
   }
 }
-pub type MappedMultiTermsTE<T, DM> =
-  TermsEnumEnum2<EmptyTermsEnum, MappedMultiTermsEnum<<T as Terms>::TermsEnum, DM>>;
+pub enum MappedMultiTermsTE<T, DM>
+where
+  T: Terms,
+{
+  A(EmptyTermsEnum),
+  B(MappedMultiTermsEnum<T::TermsEnum, DM>),
+}
+
+impl<T, DM> BytesRefIterator for MappedMultiTermsTE<T, DM>
+where
+  T: Terms,
+  DM: DocMap,
+{
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::A(terms) => terms.next(),
+      Self::B(terms) => terms.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::A(terms) => terms.set_next(),
+      Self::B(terms) => terms.set_next(),
+    }
+  }
+}
+
+impl<T, DM> TermsEnum for MappedMultiTermsTE<T, DM>
+where
+  T: Terms,
+  DM: DocMap,
+{
+  type AttributeSource<'a>
+    = &'a DummyAttributeSource
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = &'a mut DummyAttributeSource
+  where
+    Self: 'a;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::A(terms) => terms.attributes(),
+      Self::B(terms) => terms.attributes(),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::A(terms) => terms.attributes_mut(),
+      Self::B(terms) => terms.attributes_mut(),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::A(terms) => terms.seek_exact(term),
+      Self::B(terms) => terms.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::A(terms) => terms.prepare_seek_exact(text),
+      Self::B(terms) => terms.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::A(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::B(terms) => terms.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::A(terms) => terms.seek_ceil(term),
+      Self::B(terms) => terms.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::A(terms) => terms.seek_exact_with_ord(ord),
+      Self::B(terms) => terms.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::A(terms) => terms.seek_exact_with_state(term, state),
+      Self::B(terms) => terms.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::A(terms) => terms.term(),
+      Self::B(terms) => terms.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::A(terms) => terms.ord(),
+      Self::B(terms) => terms.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::A(terms) => terms.doc_freq(),
+      Self::B(terms) => terms.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::A(terms) => terms.total_term_freq(),
+      Self::B(terms) => terms.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum =
+    <MappedMultiTermsEnum<T::TermsEnum, DM> as TermsEnum>::PostingsEnum;
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::A(_) => Err(LuceneError::illegal_state(
+        "this method should never be called",
+      )),
+      Self::B(terms) => terms.postings_with_flags(reuse, flags),
+    }
+  }
+
+  type ImpactsEnum = <MappedMultiTermsEnum<T::TermsEnum, DM> as TermsEnum>::ImpactsEnum;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    match self {
+      Self::A(_) => Err(LuceneError::illegal_state(
+        "this method should never be called",
+      )),
+      Self::B(terms) => terms.impacts(flags),
+    }
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::A(terms) => terms.term_state(),
+      Self::B(terms) => terms.term_state(),
+    }
+  }
+}
 impl<T, DM> Terms for MappedMultiTerms<T, DM>
 where
   T: Terms,
