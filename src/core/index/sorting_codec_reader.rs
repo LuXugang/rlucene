@@ -29,7 +29,7 @@ use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFields
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::BytesRef;
-use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
+use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
 use crate::core::index::byte_vector_values::{ByteVectorValues, ByteVectorValuesEnum2};
 use crate::core::index::codec_reader::{
@@ -1200,6 +1200,11 @@ pub enum SortingCodecReaderNumericDocValues<N> {
   Sorting(SortingNumericDocValues<FixedBitSet>),
 }
 
+pub enum SortingCodecReaderBinaryDocValues<B> {
+  Original(B),
+  Sorting(SortingBinaryDocValues),
+}
+
 impl<N> DocValuesIterator for SortingCodecReaderNumericDocValues<N>
 where
   N: NumericDocValues,
@@ -1260,6 +1265,70 @@ where
     match self {
       Self::Original(values) => values.long_value(),
       Self::Sorting(values) => values.long_value(),
+    }
+  }
+}
+
+impl<B> DocValuesIterator for SortingCodecReaderBinaryDocValues<B>
+where
+  B: BinaryDocValues,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Original(values) => values.advance_exact(target),
+      Self::Sorting(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<B> DocIdSetIterator for SortingCodecReaderBinaryDocValues<B>
+where
+  B: BinaryDocValues,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Original(values) => values.doc_id(),
+      Self::Sorting(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.next_doc(),
+      Self::Sorting(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.advance(target),
+      Self::Sorting(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Original(values) => values.slow_advance(target),
+      Self::Sorting(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Original(values) => values.cost(),
+      Self::Sorting(values) => values.cost(),
+    }
+  }
+}
+
+impl<B> BinaryDocValues for SortingCodecReaderBinaryDocValues<B>
+where
+  B: BinaryDocValues,
+{
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Original(values) => values.binary_value(),
+      Self::Sorting(values) => values.binary_value(),
     }
   }
 }
@@ -1391,12 +1460,16 @@ where
     }
   }
 
-  type BinaryDocValues = BinaryDocValuesEnum2<DVP::BinaryDocValues, SortingBinaryDocValues>;
+  type BinaryDocValues = SortingCodecReaderBinaryDocValues<DVP::BinaryDocValues>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     match self {
-      Self::Original(producer) => producer.get_binary(field).map(BinaryDocValuesEnum2::A),
-      Self::Sorting(producer) => producer.get_binary(field).map(BinaryDocValuesEnum2::B),
+      Self::Original(producer) => producer
+        .get_binary(field)
+        .map(SortingCodecReaderBinaryDocValues::Original),
+      Self::Sorting(producer) => producer
+        .get_binary(field)
+        .map(SortingCodecReaderBinaryDocValues::Sorting),
     }
   }
 
