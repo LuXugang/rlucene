@@ -18,7 +18,6 @@ use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::doc_values::EmptySorted;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
-use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::{CacheHelper, IndexReader, LeafReaderContextKind};
@@ -26,7 +25,7 @@ use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::PointValues;
-use crate::core::index::postings_enum::{FREQS, PostingsEnumEnum2};
+use crate::core::index::postings_enum::FREQS;
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
@@ -158,7 +157,9 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   where
     Self: Sized,
   {
-    let terms = get_terms(self, term.field())?;
+    let Some(terms) = self.terms(term.field())? else {
+      return Ok(None);
+    };
     let mut terms_enum = terms.iterator()?;
     if terms_enum.seek_exact(term.bytes())? {
       Ok(Some(terms_enum.postings_with_flags(None, flags)?))
@@ -463,8 +464,7 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   fn get_metadata(&self) -> Result<&LeafMetaData>;
 }
 
-// DummyPostingsEnum from  EmptyTerms's EmptyTermsEnum's PostingsEnum
-pub type LeafPostingsEnum<T> = PostingsEnumEnum2<TermsPosting<T>, DummyPostingsEnum>;
+pub type LeafPostingsEnum<T> = TermsPosting<T>;
 
 // TermsEnum
 pub type LRTermsEnum<LR> = <<LR as LeafReader>::Terms as Terms>::TermsEnum;

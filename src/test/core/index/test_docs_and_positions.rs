@@ -564,20 +564,13 @@ fn test_docs_and_positions_enum_start() -> Result<()> {
   let mut te = terms.iterator()?;
 
   assert!(te.seek_exact(&new_bytes_ref_from_string(&mut random, "bar")?)?);
-  match disi {
-    PostingsEnumEnum2::A(v) => {
-      let mut disi = te.postings_with_flags(Some(v), ALL as i32)?;
+  let mut disi = te.postings_with_flags(Some(disi), ALL as i32)?;
 
-      let docid = disi.doc_id();
-      assert_eq!(-1, docid);
+  let docid = disi.doc_id();
+  assert_eq!(-1, docid);
 
-      let next2 = disi.next_doc()?;
-      assert_ne!(next2, NO_MORE_DOCS);
-    },
-    PostingsEnumEnum2::B(_v) => {
-      unreachable!("should not happen");
-    },
-  }
+  let next2 = disi.next_doc()?;
+  assert_ne!(next2, NO_MORE_DOCS);
 
   Ok(())
 }

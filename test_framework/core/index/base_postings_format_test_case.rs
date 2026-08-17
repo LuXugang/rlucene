@@ -47,7 +47,7 @@ use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::postings_enum::{
-  ALL, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum, PostingsEnumEnum2,
+  ALL, FREQS, NONE, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum,
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -1092,10 +1092,7 @@ pub trait BasePostingsFormatTestCase:
 
     let reader = directory_reader::open_from_writer(&w)?;
     let leaf = get_only_leaf_reader(&reader)?;
-    let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
+    let mut postings = leaf.postings(&Term::from_text("foo", "bar"))?.unwrap();
     assert_eq!(-1, postings.doc_id());
     assert_eq!(0, postings.next_doc()?);
     assert_eq!(1, postings.freq()?);
@@ -1151,10 +1148,7 @@ pub trait BasePostingsFormatTestCase:
 
     let reader = directory_reader::open_from_writer(&w)?;
     let leaf = get_only_leaf_reader(&reader)?;
-    let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
+    let mut postings = leaf.postings(&Term::from_text("foo", "bar"))?.unwrap();
     assert_eq!(-1, postings.doc_id());
     assert_eq!(0, postings.next_doc()?);
     assert_eq!(2, postings.freq()?);
@@ -1221,10 +1215,7 @@ pub trait BasePostingsFormatTestCase:
     let reader = directory_reader::open_from_writer(&w)?;
     let leaf = get_only_leaf_reader(&reader)?;
 
-    let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
+    let mut postings = leaf.postings(&Term::from_text("foo", "bar"))?.unwrap();
     assert_eq!(-1, postings.doc_id());
     assert_eq!(0, postings.next_doc()?);
     assert_eq!(2, postings.freq()?);
@@ -1393,10 +1384,7 @@ pub trait BasePostingsFormatTestCase:
     let reader = directory_reader::open_from_writer(&w)?;
     let leaf = get_only_leaf_reader(&reader)?;
 
-    let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
+    let mut postings = leaf.postings(&Term::from_text("foo", "bar"))?.unwrap();
     assert_eq!(-1, postings.doc_id());
     assert_eq!(0, postings.next_doc()?);
     assert_eq!(2, postings.freq()?);
@@ -1613,10 +1601,7 @@ pub trait BasePostingsFormatTestCase:
     let reader = directory_reader::open_from_writer(&w)?;
     let leaf = get_only_leaf_reader(&reader)?;
     // sugar method (FREQS)
-    let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
+    let mut postings = leaf.postings(&Term::from_text("foo", "bar"))?.unwrap();
     assert_eq!(-1, postings.doc_id());
     assert_eq!(0, postings.next_doc()?);
     assert_eq!(2, postings.freq()?);
@@ -1668,10 +1653,6 @@ pub trait BasePostingsFormatTestCase:
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), POSITIONS as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
@@ -1718,10 +1699,6 @@ pub trait BasePostingsFormatTestCase:
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), PAYLOADS as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
@@ -1768,10 +1745,6 @@ pub trait BasePostingsFormatTestCase:
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), OFFSETS as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
@@ -1815,10 +1788,6 @@ pub trait BasePostingsFormatTestCase:
       docs_and_positions_enum.get_payload()?.unwrap().as_ref()
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), ALL as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
@@ -1882,10 +1851,7 @@ pub trait BasePostingsFormatTestCase:
     let reader = directory_reader::open_from_writer(&w)?;
     let leaf = get_only_leaf_reader(&reader)?;
 
-    let mut postings = match leaf.postings(&Term::from_text("foo", "bar"))?.unwrap() {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
+    let mut postings = leaf.postings(&Term::from_text("foo", "bar"))?.unwrap();
     assert_eq!(-1, postings.doc_id());
     assert_eq!(0, postings.next_doc()?);
     assert_eq!(2, postings.freq()?);
@@ -1944,10 +1910,6 @@ pub trait BasePostingsFormatTestCase:
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), POSITIONS as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
@@ -2011,10 +1973,6 @@ pub trait BasePostingsFormatTestCase:
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), PAYLOADS as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
@@ -2070,10 +2028,6 @@ pub trait BasePostingsFormatTestCase:
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), OFFSETS as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
@@ -2119,10 +2073,6 @@ pub trait BasePostingsFormatTestCase:
     );
     assert_eq!(NO_MORE_DOCS, docs_and_positions_enum.next_doc()?);
 
-    let docs_and_positions_enum = match docs_and_positions_enum {
-      PostingsEnumEnum2::A(p) => p,
-      PostingsEnumEnum2::B(_) => unreachable!(),
-    };
     let mut docs_and_positions_enum2 =
       terms_enum.postings_with_flags(Some(docs_and_positions_enum), ALL as i32)?;
     assert_eq!(-1, docs_and_positions_enum2.doc_id());
