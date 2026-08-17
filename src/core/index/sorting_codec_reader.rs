@@ -29,7 +29,7 @@ use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVec
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
-use crate::core::index::byte_vector_values::{ByteVectorValues, ByteVectorValuesEnum2};
+use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
   CRBits, CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer,
   CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
@@ -42,18 +42,20 @@ use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::float_vector_values::{FloatVectorValues, FloatVectorValuesEnum2};
+use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::freq_prox_terms_writer::SortingTerms;
 use crate::core::index::index_reader::{
   Identity, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
-use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
+use crate::core::index::knn_vector_values::{
+  BitsImpl1, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues,
+};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDocValues};
 use crate::core::index::point_values::{
-  IntersectVisitor, PointTree, PointTreeEnum, PointValues, PointValuesEnum2, Relation,
+  IntersectVisitor, PointTree, PointTreeEnum, PointTreeEnum2, PointValues, Relation,
 };
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
@@ -83,7 +85,7 @@ use crate::core::search::sort::Sort;
 use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
@@ -1762,6 +1764,360 @@ where
   }
 }
 
+pub enum SortingCodecReaderFloatVectorValues<T, U> {
+  Filter(T),
+  Sorting(U),
+}
+
+impl<T, U> KnnVectorValues for SortingCodecReaderFloatVectorValues<T, U>
+where
+  T: FloatVectorValues,
+  U: FloatVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::Filter(values) => values.dimension(),
+      Self::Sorting(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Filter(values) => values.size(),
+      Self::Sorting(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.ord_to_doc(ord),
+      Self::Sorting(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = T::KnnVectorValues;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::Filter(values) => values.copy(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::Filter(values) => values.get_vector_byte_length(),
+      Self::Sorting(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Filter(values) => KnnVectorValues::get_encoding(values),
+      Self::Sorting(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B>
+    = BitsEnum2<T::Bits<'a, B>, U::Bits<'a, B>>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    match self {
+      Self::Filter(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::A),
+      Self::Sorting(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::B),
+    }
+  }
+
+  type DocIndexIterator = DocIndexIteratorEnum2<T::DocIndexIterator, U::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::Filter(values) => values.iterator().map(DocIndexIteratorEnum2::A),
+      Self::Sorting(values) => values.iterator().map(DocIndexIteratorEnum2::B),
+    }
+  }
+}
+
+impl<T, U> FloatVectorValues for SortingCodecReaderFloatVectorValues<T, U>
+where
+  T: FloatVectorValues,
+  U: FloatVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::Filter(values) => values.vector_value(ord),
+      Self::Sorting(values) => values.vector_value(ord),
+    }
+  }
+
+  type FloatVectorValues = T::FloatVectorValues;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    match self {
+      Self::Filter(values) => values.float_copy(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::Filter(values) => values.scorer(target),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Filter(values) => FloatVectorValues::get_encoding(values),
+      Self::Sorting(values) => FloatVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::Filter(values) => values.get_vectors_mut(),
+      Self::Sorting(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::Filter(values) => values.get_vectors(),
+      Self::Sorting(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.get_vectors_capacity(),
+      Self::Sorting(values) => values.get_vectors_capacity(),
+    }
+  }
+}
+
+pub enum SortingCodecReaderByteVectorValues<T, U> {
+  Filter(T),
+  Sorting(U),
+}
+
+impl<T, U> KnnVectorValues for SortingCodecReaderByteVectorValues<T, U>
+where
+  T: ByteVectorValues,
+  U: ByteVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::Filter(values) => values.dimension(),
+      Self::Sorting(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Filter(values) => values.size(),
+      Self::Sorting(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.ord_to_doc(ord),
+      Self::Sorting(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = T::KnnVectorValues;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::Filter(values) => values.copy(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::Filter(values) => values.get_vector_byte_length(),
+      Self::Sorting(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Filter(values) => KnnVectorValues::get_encoding(values),
+      Self::Sorting(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B>
+    = BitsEnum2<T::Bits<'a, B>, U::Bits<'a, B>>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    match self {
+      Self::Filter(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::A),
+      Self::Sorting(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::B),
+    }
+  }
+
+  type DocIndexIterator = DocIndexIteratorEnum2<T::DocIndexIterator, U::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::Filter(values) => values.iterator().map(DocIndexIteratorEnum2::A),
+      Self::Sorting(values) => values.iterator().map(DocIndexIteratorEnum2::B),
+    }
+  }
+}
+
+impl<T, U> ByteVectorValues for SortingCodecReaderByteVectorValues<T, U>
+where
+  T: ByteVectorValues,
+  U: ByteVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::Filter(values) => values.vector_value(ord),
+      Self::Sorting(values) => values.vector_value(ord),
+    }
+  }
+
+  type ByteVectorValues = T::ByteVectorValues;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    match self {
+      Self::Filter(values) => values.byte_copy(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::Filter(values) => values.scorer(target),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Filter(values) => ByteVectorValues::get_encoding(values),
+      Self::Sorting(values) => ByteVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::Filter(values) => values.get_vectors_mut(),
+      Self::Sorting(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::Filter(values) => values.get_vectors(),
+      Self::Sorting(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.get_vectors_capacity(),
+      Self::Sorting(values) => values.get_vectors_capacity(),
+    }
+  }
+}
+
+pub enum SortingCodecReaderPointValues<T, U> {
+  Filter(T),
+  Sorting(U),
+}
+
+impl<T, U> PointValues for SortingCodecReaderPointValues<T, U>
+where
+  T: PointValues,
+  U: PointValues,
+{
+  fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    match self {
+      Self::Filter(values) => values.get_min_packed_value(),
+      Self::Sorting(values) => values.get_min_packed_value(),
+    }
+  }
+
+  fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    match self {
+      Self::Filter(values) => values.get_max_packed_value(),
+      Self::Sorting(values) => values.get_max_packed_value(),
+    }
+  }
+
+  fn get_num_dimensions(&self) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.get_num_dimensions(),
+      Self::Sorting(values) => values.get_num_dimensions(),
+    }
+  }
+
+  fn get_num_index_dimensions(&self) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.get_num_index_dimensions(),
+      Self::Sorting(values) => values.get_num_index_dimensions(),
+    }
+  }
+
+  fn get_bytes_per_dimension(&self) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.get_bytes_per_dimension(),
+      Self::Sorting(values) => values.get_bytes_per_dimension(),
+    }
+  }
+
+  fn size(&self) -> Result<usize> {
+    match self {
+      Self::Filter(values) => values.size(),
+      Self::Sorting(values) => values.size(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::Filter(values) => values.get_doc_count(),
+      Self::Sorting(values) => values.get_doc_count(),
+    }
+  }
+
+  type PointTree = PointTreeEnum2<T::PointTree, U::PointTree>;
+  type MutablePointTree = T::MutablePointTree;
+
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+    match self {
+      Self::Filter(values) => match values.get_point_tree()? {
+        PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(tree)),
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::A(tree))),
+      },
+      Self::Sorting(values) => match values.get_point_tree()? {
+        PointTreeEnum::Mutable(_) => Err(LuceneError::unsupported_operation("")),
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::B(tree))),
+      },
+    }
+  }
+}
+
 pub enum SortingCodecReaderPointsReader<T, U> {
   Filter(T),
   Sorting(U),
@@ -1792,16 +2148,16 @@ where
     }
   }
 
-  type PointValuesType = PointValuesEnum2<T::PointValuesType, U::PointValuesType>;
+  type PointValuesType = SortingCodecReaderPointValues<T::PointValuesType, U::PointValuesType>;
 
   fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
     match self {
       Self::Filter(reader) => reader
         .get_values(field)
-        .map(|values| values.map(PointValuesEnum2::A)),
+        .map(|values| values.map(SortingCodecReaderPointValues::Filter)),
       Self::Sorting(reader) => reader
         .get_values(field)
-        .map(|values| values.map(PointValuesEnum2::B)),
+        .map(|values| values.map(SortingCodecReaderPointValues::Sorting)),
     }
   }
 
@@ -1955,29 +2311,31 @@ where
     }
   }
 
-  type FloatVectorValues = FloatVectorValuesEnum2<T::FloatVectorValues, U::FloatVectorValues>;
+  type FloatVectorValues =
+    SortingCodecReaderFloatVectorValues<T::FloatVectorValues, U::FloatVectorValues>;
 
   fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
     match self {
       Self::Filter(reader) => reader
         .get_float_vector_values(field)
-        .map(FloatVectorValuesEnum2::A),
+        .map(SortingCodecReaderFloatVectorValues::Filter),
       Self::Sorting(reader) => reader
         .get_float_vector_values(field)
-        .map(FloatVectorValuesEnum2::B),
+        .map(SortingCodecReaderFloatVectorValues::Sorting),
     }
   }
 
-  type ByteVectorValues = ByteVectorValuesEnum2<T::ByteVectorValues, U::ByteVectorValues>;
+  type ByteVectorValues =
+    SortingCodecReaderByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
     match self {
       Self::Filter(reader) => reader
         .get_byte_vector_values(field)
-        .map(ByteVectorValuesEnum2::A),
+        .map(SortingCodecReaderByteVectorValues::Filter),
       Self::Sorting(reader) => reader
         .get_byte_vector_values(field)
-        .map(ByteVectorValuesEnum2::B),
+        .map(SortingCodecReaderByteVectorValues::Sorting),
     }
   }
 
