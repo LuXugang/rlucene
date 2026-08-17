@@ -22,7 +22,6 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
@@ -238,22 +237,72 @@ impl DocValuesProducerImpl {
   }
 }
 
+pub(crate) enum BufferedSortingBinaryDocValues {
+  Buffered(BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>),
+  Sorting(SortingBinaryDocValues),
+}
+
+impl DocValuesIterator for BufferedSortingBinaryDocValues {
+  fn advance_exact(&mut self, _target: i32) -> Result<bool> {
+    match self {
+      Self::Buffered(inner) => inner.advance_exact(_target),
+      Self::Sorting(inner) => inner.advance_exact(_target),
+    }
+  }
+}
+
+impl DocIdSetIterator for BufferedSortingBinaryDocValues {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Buffered(inner) => inner.doc_id(),
+      Self::Sorting(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.next_doc(),
+      Self::Sorting(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, _target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.advance(_target),
+      Self::Sorting(inner) => inner.advance(_target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(inner) => inner.cost(),
+      Self::Sorting(inner) => inner.cost(),
+    }
+  }
+}
+
+impl BinaryDocValues for BufferedSortingBinaryDocValues {
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Buffered(inner) => inner.binary_value(),
+      Self::Sorting(inner) => inner.binary_value(),
+    }
+  }
+}
+
 impl DocValuesProducer for DocValuesProducerImpl {
   type NumericDocValues = DummyNumericDocValues;
-  type BinaryDocValues = BinaryDocValuesEnum2<
-    SortingBinaryDocValues,
-    BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>,
-  >;
+  type BinaryDocValues = BufferedSortingBinaryDocValues;
 
   fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     if !Arc::ptr_eq(field_info, &self.field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     match &self.sorted {
-      Some(sorted) => Ok(BinaryDocValuesEnum2::A(SortingBinaryDocValues::new(
+      Some(sorted) => Ok(BufferedSortingBinaryDocValues::Sorting(SortingBinaryDocValues::new(
         sorted.clone(),
       ))),
-      None => Ok(BinaryDocValuesEnum2::B(BufferedBinaryDocValues::new(
+      None => Ok(BufferedSortingBinaryDocValues::Buffered(BufferedBinaryDocValues::new(
         &self.final_lengths,
         self.max_length as usize,
         get_data_input(&self.paged_bytes)?,
