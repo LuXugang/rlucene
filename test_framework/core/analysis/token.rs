@@ -103,7 +103,6 @@ impl Default for TokenBase {
 }
 
 impl Attribute for TokenBase {
-  #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }

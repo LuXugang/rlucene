@@ -26,7 +26,7 @@ use crate::test_framework::core::analysis::base_token_stream_test_case::{
   CheckClearAttributesAttribute, CheckClearAttributesAttributeImpl,
 };
 use std::borrow::Cow;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -36,7 +36,7 @@ pub struct BytesTermAttributeImpl {
   bytes: Option<BytesRef<Vec<u8>>>,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   attribute: HashSet<String>,
 }
 impl Default for BytesTermAttributeImpl {
@@ -53,9 +53,9 @@ impl CheckClearAttributesAttribute for BytesTermAttributeImpl {
 impl BytesTermAttributeImpl {
   pub fn new() -> Self {
     // TODO is there a better way to do this?
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     let mut attribute = HashSet::new();
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     {
       attribute.insert(<Self as BytesTermAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
@@ -64,14 +64,14 @@ impl BytesTermAttributeImpl {
       bytes: None,
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
-      #[cfg(debug_assertions)]
+      #[cfg(any(test, debug_assertions))]
       attribute,
     }
   }
 }
 
 impl Attribute for BytesTermAttributeImpl {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }

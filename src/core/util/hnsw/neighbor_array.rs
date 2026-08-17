@@ -18,7 +18,7 @@ use std::fmt;
 
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-#[cfg(debug_assertions)]
+#[cfg(test)]
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -209,7 +209,7 @@ impl NeighborArray {
     Ok(insertion_point)
   }
   /// This method is for test only.
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub fn insert_sorted(&mut self, new_node: usize, new_score: f32) -> Result<()> {
     self.add_out_of_order(new_node, new_score)?;
     let mut v = DummyRandomVectorScorer;

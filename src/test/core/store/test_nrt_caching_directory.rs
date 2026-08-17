@@ -144,7 +144,7 @@ impl Directory for ByteBuffersNRTCachingDirectory {
     self.0.get_pending_deletions()
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     self.0.is_fs_directory()
   }

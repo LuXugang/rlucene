@@ -18,7 +18,7 @@ use crate::core::util::attribute::Attribute;
 
 /// A Token’s lexical type. The default value is `"word"`.
 pub trait TypeAttribute: Attribute {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Returns this Token’s lexical type. Defaults to `"word"`.

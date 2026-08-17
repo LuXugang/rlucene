@@ -356,7 +356,7 @@ impl DeletedTerms {
     }
     Ok(())
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub(crate) fn get_pool(&self) -> &ByteBlockPool {
     &self.pool
   }

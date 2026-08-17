@@ -50,7 +50,7 @@ where
       cmp,
     }
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub fn get_delegate(&self) -> &T {
     &self.delegate
   }

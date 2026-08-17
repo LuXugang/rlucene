@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// **Note:** this is optional, and most analyzers don’t change the default value (`1`).
 pub trait PositionLengthAttribute: Attribute {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Set the position length of this Token.

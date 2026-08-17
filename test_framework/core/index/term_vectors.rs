@@ -28,7 +28,6 @@ use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
-#[cfg(debug_assertions)]
 use std::collections::HashSet;
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -78,7 +77,6 @@ pub struct RandomTokenStreamAttr {
   packed: PackedTokenAttribute,
   o_att: PermissiveOffsetAttributeImpl,
   p_att: PayloadAttributeImpl,
-  #[cfg(debug_assertions)]
   attribute: HashSet<String>,
 }
 
@@ -86,9 +84,7 @@ impl RandomTokenStreamAttr {
   pub(crate) fn new() -> Result<Self> {
     let packed = PackedTokenAttributeImpl::new()?;
     let p_att = PayloadAttributeImpl::new();
-    #[cfg(debug_assertions)]
     let mut attribute = HashSet::new();
-    #[cfg(debug_assertions)]
     {
       attribute.extend(packed.get_attribute_name()?.clone());
       attribute
@@ -99,14 +95,12 @@ impl RandomTokenStreamAttr {
       packed,
       o_att: PermissiveOffsetAttributeImpl::new(),
       p_att,
-      #[cfg(debug_assertions)]
       attribute,
     })
   }
 }
 
 impl Attribute for RandomTokenStreamAttr {
-  #[cfg(debug_assertions)]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }

@@ -20,7 +20,7 @@ use std::fmt::Display;
 
 /// The term text of a `Token`.
 pub trait CharTermAttribute: Attribute + Display {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;
 
   fn length(&self) -> usize;

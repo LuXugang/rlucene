@@ -158,7 +158,7 @@ where
     self.in_.get_pending_deletions()
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     self.in_.is_fs_directory()
   }
@@ -314,7 +314,7 @@ impl Directory for AddIndexesTestDirectory {
     }
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     match self {
       Self::Target(directory) => directory.is_fs_directory(),

@@ -23,7 +23,7 @@ use crate::core::util::attribute::Attribute;
 /// purposes. The flags can be used to encode information about the token for use by other
 /// `TokenFilter`s.
 pub trait FlagsAttribute: Attribute {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Get the bitset for any bits that have been set.

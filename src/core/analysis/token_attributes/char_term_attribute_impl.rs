@@ -23,7 +23,7 @@ use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, SliceCopyOps};
 use std::borrow::Cow;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -35,7 +35,7 @@ pub struct CharTermAttributeImpl<T> {
   /// Implementations may use this to convert to other character sets or encodings when implementing [`get_bytes_ref`](Self::get_bytes_ref).
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
   pub sub: T,
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   attribute: HashSet<String>,
 }
 impl CharTermAttributeImpl<EmptyAttributeImpl> {
@@ -51,9 +51,9 @@ where
   const MIN_BUFFER_SIZE: usize = 10;
 
   pub fn with_sub(sub: T) -> Result<Self> {
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     let mut attribute = HashSet::new();
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     {
       attribute.insert(<Self as CharTermAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as TermToBytesRefAttribute>::ATTRIBUTE_NAME.to_string());
@@ -66,7 +66,7 @@ where
       term_length: 0,
       builder: BytesRefBuilder::new(),
       sub,
-      #[cfg(debug_assertions)]
+      #[cfg(any(test, debug_assertions))]
       attribute,
     })
   }
@@ -102,7 +102,7 @@ impl<T> Attribute for CharTermAttributeImpl<T>
 where
   T: AttributeImpl + CharTermAttributeImplBase,
 {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }
@@ -333,7 +333,7 @@ where
 }
 #[derive(Clone)]
 pub struct EmptyAttributeImpl {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   attribute: HashSet<String>,
 }
 impl Default for EmptyAttributeImpl {
@@ -344,14 +344,14 @@ impl Default for EmptyAttributeImpl {
 impl EmptyAttributeImpl {
   fn new() -> Self {
     EmptyAttributeImpl {
-      #[cfg(debug_assertions)]
+      #[cfg(any(test, debug_assertions))]
       attribute: HashSet::new(),
     }
   }
 }
 
 impl Attribute for EmptyAttributeImpl {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }

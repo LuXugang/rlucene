@@ -466,7 +466,7 @@ where
     }
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     true
   }

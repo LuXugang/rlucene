@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 /// if the token is modified. Stemming filters for instance can use this attribute to conditionally
 /// skip a term if [`is_keyword`](KeywordAttribute::is_keyword) returns `true`.
 pub trait KeywordAttribute: Attribute {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;
 
   /// Returns `true` if the current token is a keyword, otherwise `false`.

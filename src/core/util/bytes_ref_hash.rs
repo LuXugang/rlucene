@@ -447,7 +447,6 @@ where
   /// # Returns
   /// The `bytesStart` offset into the internally used
   /// `SingleThreadedByteBlockPool` for the given ID.
-  #[cfg(debug_assertions)]
   pub fn byte_start(&self, bytes_id: i32) -> i32 {
     debug_assert!(
       self.bytes_start_array.len() > 0,

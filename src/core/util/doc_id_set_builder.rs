@@ -178,11 +178,11 @@ impl DocIdSetBuilder {
     }
     true
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub fn get_num_values_per_doc(&self) -> f64 {
     self.num_values_per_doc
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub fn get_multi_valued(&self) -> bool {
     self.multi_valued
   }

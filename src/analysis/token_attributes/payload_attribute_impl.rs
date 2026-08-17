@@ -19,13 +19,13 @@ use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::error::lucene_error::Result;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 /// Default implementation of [`PayloadAttribute`].
 #[derive(PartialEq, Eq, Clone)]
 pub struct PayloadAttributeImpl {
   payload: Option<BytesRef<Vec<u8>>>,
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   attribute: HashSet<String>,
 }
 impl Default for PayloadAttributeImpl {
@@ -36,22 +36,22 @@ impl Default for PayloadAttributeImpl {
 
 impl PayloadAttributeImpl {
   pub fn new() -> Self {
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     let mut attribute = HashSet::new();
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     {
       attribute.insert(<Self as PayloadAttribute>::ATTRIBUTE_NAME.to_string());
     }
     Self {
       payload: None,
-      #[cfg(debug_assertions)]
+      #[cfg(any(test, debug_assertions))]
       attribute,
     }
   }
 }
 
 impl Attribute for PayloadAttributeImpl {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }

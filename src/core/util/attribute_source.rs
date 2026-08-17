@@ -28,7 +28,7 @@ use crate::test_framework::core::analysis::base_token_stream_test_case::CheckCle
 #[cfg(test)]
 use crate::test_framework::core::index::term_vectors::RandomTokenStreamAttr;
 use std::borrow::Cow;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
@@ -425,7 +425,7 @@ impl From<RandomTokenStreamAttr> for Attributes {
   }
 }
 impl Attribute for Attributes {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     match self {
       Attributes::PackedToken(attr) => attr.get_attribute_name(),

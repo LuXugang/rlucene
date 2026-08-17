@@ -376,7 +376,7 @@ where
     self.delegate.get_pending_deletions()
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     self.delegate.is_fs_directory()
   }

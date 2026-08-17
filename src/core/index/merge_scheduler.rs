@@ -316,7 +316,7 @@ where
     }
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     match self {
       Self::Direct(directory) => directory.is_fs_directory(),

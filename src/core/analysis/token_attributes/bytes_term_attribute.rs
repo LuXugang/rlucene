@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 /// It can be used as replacement for CharTermAttribute,
 /// if binary terms should be indexed.
 pub trait BytesTermAttribute: TermToBytesRefAttribute {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;
   /// Sets the BytesRef of the term
   fn set_bytes_ref(&mut self, bytes: Option<BytesRef<Vec<u8>>>) -> Result<()>;

@@ -436,7 +436,7 @@ impl DocumentsWriterDeleteQueue {
     );
     Ok(())
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub(crate) fn num_global_term_deletes(&self) -> i32 {
     let global_state = self.global_buffer_lock.lock();
     global_state.global_buffered_updates.delete_terms.size()
@@ -610,7 +610,7 @@ impl DeleteSlice {
 
   /// Returns `true` if the item of the given node matches the item in the
   /// tail.
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub(crate) fn is_tail_item(&self, item: &NodeEnum) -> bool {
     let node1 = NodeEnum::get_node_base(&self.slice_tail.item);
     let node2 = NodeEnum::get_node_base(item);
@@ -847,7 +847,7 @@ impl NodeEnum {
       NodeEnum::EmptyNode(node) => node.apply(buffered_deletes, doc_id_upto),
     }
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub(crate) fn get_node_base(node: &NodeEnum) -> Option<&TermNodeArray> {
     match node {
       NodeEnum::TermNodeArray(node) => Some(node),

@@ -292,7 +292,7 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
   /// This is an internal API.
   fn get_pending_deletions(&self) -> Result<HashSet<String>>;
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     false
   }
@@ -496,7 +496,7 @@ impl Directory for DirectoryEnum {
     }
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     match self {
       Self::Fs(inner) => inner.is_fs_directory(),
@@ -657,7 +657,7 @@ macro_rules! either_directory {
                     $( Self::$Variant(inner) => inner.get_pending_deletions(), )+
                 }
             }
-            #[cfg(debug_assertions)]
+            #[cfg(test)]
             fn is_fs_directory(&self) -> bool {
                 match self {
                     $( Self::$Variant(inner) => inner.is_fs_directory(), )+
@@ -745,7 +745,7 @@ impl<D: Directory> Directory for &D {
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     (**self).get_pending_deletions()
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     (**self).is_fs_directory()
   }
@@ -804,7 +804,7 @@ impl<D: Directory> Directory for Arc<D> {
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     (**self).get_pending_deletions()
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     (**self).is_fs_directory()
   }
@@ -979,7 +979,7 @@ impl Directory for MaybeNrtDirEnum {
     }
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     match self {
       Self::Raw(directory) => directory.is_fs_directory(),
@@ -1118,7 +1118,7 @@ impl Directory for MockDirWrapper {
     self.0.get_pending_deletions()
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     self.0.is_fs_directory()
   }
@@ -1614,7 +1614,7 @@ impl Directory for DirEnum {
     }
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     match self {
       Self::A(directory) => directory.is_fs_directory(),
@@ -1840,7 +1840,7 @@ impl Directory for RawDirEnum {
     }
   }
 
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     match self {
       Self::Nio(inner) => inner.is_fs_directory(),

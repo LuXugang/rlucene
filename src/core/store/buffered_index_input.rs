@@ -545,7 +545,7 @@ where
     self.refill(0, self.buffer_start)?;
     Ok(())
   }
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
   pub fn get_sub_index_input(&self) -> &T {
     &self.sub_index_input
   }

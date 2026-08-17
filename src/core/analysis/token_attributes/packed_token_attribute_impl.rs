@@ -40,7 +40,7 @@ use crate::test_framework::core::analysis::base_token_stream_test_case::{
 #[cfg(test)]
 use crate::test_framework::core::analysis::token::TokenBase;
 use std::borrow::Cow;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -63,7 +63,7 @@ pub struct PackedTokenAttributeImpl {
   term_frequency: i32,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   attribute: HashSet<String>,
   #[cfg(test)]
   pub token: TokenBase,
@@ -72,9 +72,9 @@ pub struct PackedTokenAttributeImpl {
 impl PackedTokenAttributeImpl {
   pub fn new() -> Result<CharTermAttributeImpl<Self>> {
     // TODO is there a better way to do this?
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     let mut attribute = HashSet::new();
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     {
       attribute.insert(<Self as TypeAttribute>::ATTRIBUTE_NAME.to_string());
       attribute.insert(<Self as PositionIncrementAttribute>::ATTRIBUTE_NAME.to_string());
@@ -98,7 +98,7 @@ impl PackedTokenAttributeImpl {
       term_frequency: 1,
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
-      #[cfg(debug_assertions)]
+      #[cfg(any(test, debug_assertions))]
       attribute,
       #[cfg(test)]
       token,
@@ -108,7 +108,7 @@ impl PackedTokenAttributeImpl {
 }
 
 impl Attribute for PackedTokenAttributeImpl {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)
   }
@@ -208,7 +208,7 @@ impl Clone for PackedTokenAttributeImpl {
       term_frequency: self.term_frequency,
       #[cfg(test)]
       check_clear_attributes: self.check_clear_attributes.clone(),
-      #[cfg(debug_assertions)]
+      #[cfg(any(test, debug_assertions))]
       attribute: self.attribute.clone(),
       #[cfg(test)]
       token: self.token.clone(),

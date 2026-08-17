@@ -19,7 +19,7 @@ use crate::core::analysis::token_attributes::char_term_attribute::CharTermAttrib
 use crate::core::analysis::token_attributes::char_term_attribute_impl::CharTermAttributeImpl;
 use crate::core::analysis::token_attributes::packed_token_attribute_impl::PackedTokenAttributeImpl;
 use crate::core::index::BytesRef;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::AttributeSource;
@@ -29,7 +29,7 @@ use crate::test_framework::core::analysis::base_token_stream_test_case::CheckCle
 #[cfg(test)]
 use crate::test_framework::core::analysis::base_token_stream_test_case::CheckClearAttributesAttributeImpl;
 use std::borrow::Cow;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 use std::fmt::Display;
 
@@ -38,7 +38,7 @@ pub struct BinaryTokenStreamAttributeImpl {
   binary: BytesTermAttributeImpl,
   #[cfg(test)]
   check_clear_attributes: CheckClearAttributesAttributeImpl,
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   attribute: HashSet<String>,
 }
 
@@ -47,9 +47,9 @@ impl BinaryTokenStreamAttributeImpl {
     let packed_token = PackedTokenAttributeImpl::new()?;
     let binary = BytesTermAttributeImpl::default();
     // TODO is there a better way to do this?
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     let mut attribute = HashSet::new();
-    #[cfg(debug_assertions)]
+    #[cfg(any(test, debug_assertions))]
     {
       attribute.extend(packed_token.get_attribute_name()?.clone());
       attribute.extend(binary.get_attribute_name()?.clone());
@@ -59,7 +59,7 @@ impl BinaryTokenStreamAttributeImpl {
       binary,
       #[cfg(test)]
       check_clear_attributes: CheckClearAttributesAttributeImpl::new(),
-      #[cfg(debug_assertions)]
+      #[cfg(any(test, debug_assertions))]
       attribute,
     })
   }
@@ -233,7 +233,7 @@ impl AttributeImpl for BinaryTokenStreamAttributeImpl {
   }
 }
 
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 impl Attribute for BinaryTokenStreamAttributeImpl {
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Ok(&self.attribute)

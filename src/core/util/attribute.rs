@@ -14,16 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use crate::core::util::error::lucene_error::LuceneError;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use crate::core::util::error::lucene_error::Result;
-#[cfg(debug_assertions)]
+#[cfg(any(test, debug_assertions))]
 use std::collections::HashSet;
 
 /// Base trait for attributes.
 pub trait Attribute {
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn get_attribute_name(&self) -> Result<&HashSet<String>> {
     Err(LuceneError::need_implemented(""))
   }
