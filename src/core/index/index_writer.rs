@@ -28,9 +28,7 @@ use crate::core::index::merge_policy::{
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
-use crate::core::index::segment_info::SegmentInfo;
-#[cfg(debug_assertions)]
-use crate::core::index::segment_info::named_for_this_segment;
+use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
@@ -3799,32 +3797,29 @@ where
     );
     new_info_per_commit.set_field_infos_files(info.get_field_infos_files().clone());
     new_info_per_commit.set_doc_values_updates_files(info.get_doc_values_updates_files().clone());
-    #[cfg(debug_assertions)]
-    {
-      let mut copied_files = HashSet::new();
-      let mut success = false;
-      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-        for file in info.files()? {
-          let new_filename = named_for_this_segment(seg_name, file.clone());
-          self
-            .directory
-            .copy_from(info.info.dir.as_ref(), &file, &new_filename, context)?;
-          copied_files.insert(new_filename);
-        }
-        success = true;
-        Ok(())
-      }));
-      if !success {
-        self.delete_new_files(copied_files.iter(), None)?;
+    let mut copied_files = HashSet::new();
+    let mut success = false;
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      for file in info.files()? {
+        let new_filename = named_for_this_segment(seg_name, file.clone());
+        self
+          .directory
+          .copy_from(info.info.dir.as_ref(), &file, &new_filename, context)?;
+        copied_files.insert(new_filename);
       }
-      unwrap_caught_result!(result)?;
-      debug_assert_eq!(
-        copied_files,
-        new_info_per_commit.files()?,
-        "copiedFiles={copied_files:?} vs newInfoPerCommit.files()={:?}",
-        new_info_per_commit.files()?
-      );
+      success = true;
+      Ok(())
+    }));
+    if !success {
+      self.delete_new_files(copied_files.iter(), None)?;
     }
+    unwrap_caught_result!(result)?;
+    debug_assert_eq!(
+      copied_files,
+      new_info_per_commit.files()?,
+      "copiedFiles={copied_files:?} vs newInfoPerCommit.files()={:?}",
+      new_info_per_commit.files()?
+    );
 
     Ok(new_info_per_commit)
   }

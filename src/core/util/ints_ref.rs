@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 use crate::core::util::access::SharedAccessVec;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+#[cfg(debug_assertions)]
+use crate::core::util::error::lucene_error::LuceneError;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{Comparator, HashCode, ToInt};
 use crate::with_other;
 use std::cmp::Ordering;
@@ -106,6 +108,7 @@ where
       offset,
       length,
     };
+    #[cfg(debug_assertions)]
     debug_assert!(instance.is_valid().unwrap_or(false));
     instance
   }
