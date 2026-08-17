@@ -75,7 +75,7 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::TermsEnum2;
-use crate::core::index::terms_enum::TermsEnumEnum2;
+use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostings2;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -1054,14 +1054,17 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumEnum2<S::TermsEnum<'a>, SortedDocValuesTermsEnum<&'a mut SortingSortedDocValues<S>>>
+    = TermsEnumWithUnsupportedPostings2<
+    S::TermsEnum<'a>,
+    SortedDocValuesTermsEnum<&'a mut SortingSortedDocValues<S>>,
+  >
   where
     S: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
-      Self::Original(values) => values.terms_enum().map(TermsEnumEnum2::A),
-      Self::Sorting(values) => values.terms_enum().map(TermsEnumEnum2::B),
+      Self::Original(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::A),
+      Self::Sorting(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::B),
     }
   }
 }
@@ -1163,7 +1166,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumEnum2<
+    = TermsEnumWithUnsupportedPostings2<
     S::TermsEnum<'a>,
     SortedSetDocValuesTermsEnum<&'a mut SortingSortedSetDocValues<S>>,
   >
@@ -1172,8 +1175,8 @@ where
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
-      Self::Original(values) => values.terms_enum().map(TermsEnumEnum2::A),
-      Self::Sorting(values) => values.terms_enum().map(TermsEnumEnum2::B),
+      Self::Original(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::A),
+      Self::Sorting(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::B),
     }
   }
 

@@ -47,7 +47,9 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::terms_enum::{SeekStatus, TermsEnum, TermsEnumEnum2};
+use crate::core::index::terms_enum::{
+  SeekStatus, TermsEnum, TermsEnumWithUnsupportedPostings2,
+};
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -3650,7 +3652,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumEnum2<
+    = TermsEnumWithUnsupportedPostings2<
     <SingletonSortedSetDocValues<BaseSortedDocValues<I>> as SortedSetDocValues>::TermsEnum<'a>,
     <BaseSortedSetDocValues<I> as SortedSetDocValues>::TermsEnum<'a>,
   >
@@ -3659,8 +3661,8 @@ where
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
-      Self::Single(values) => values.terms_enum().map(TermsEnumEnum2::A),
-      Self::Multi(values) => values.terms_enum().map(TermsEnumEnum2::B),
+      Self::Single(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::A),
+      Self::Multi(values) => values.terms_enum().map(TermsEnumWithUnsupportedPostings2::B),
     }
   }
 
