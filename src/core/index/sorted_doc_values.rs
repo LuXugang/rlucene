@@ -22,7 +22,9 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
-use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum, TermsEnumEnum2, TermsEnumEnum4};
+use crate::core::index::terms_enum::{
+  EmptyTermsEnum, TermsEnum, TermsEnumEnum2, TermsEnumWithUnsupportedFirstPostings4,
+};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
@@ -114,7 +116,7 @@ pub trait SortedDocValues: DocValuesIterator {
     &mut self,
     automaton: &CompiledAutomaton,
   ) -> Result<
-    TermsEnumEnum4<
+    TermsEnumWithUnsupportedFirstPostings4<
       EmptyTermsEnum,
       Self::TermsEnum<'_>,
       FilteredTermsEnum<Self::TermsEnum<'_>, SingleTermsEnum>,
@@ -126,16 +128,16 @@ pub trait SortedDocValues: DocValuesIterator {
   {
     let terms_enum = self.terms_enum()?;
     match automaton.type_ {
-      AutomatonType::None => Ok(TermsEnumEnum4::A(EmptyTermsEnum)),
-      AutomatonType::All => Ok(TermsEnumEnum4::B(terms_enum)),
-      AutomatonType::Single => Ok(TermsEnumEnum4::C(SingleTermsEnum::new(
+      AutomatonType::None => Ok(TermsEnumWithUnsupportedFirstPostings4::A(EmptyTermsEnum)),
+      AutomatonType::All => Ok(TermsEnumWithUnsupportedFirstPostings4::B(terms_enum)),
+      AutomatonType::Single => Ok(TermsEnumWithUnsupportedFirstPostings4::C(SingleTermsEnum::new(
         terms_enum,
         automaton
           .term
           .clone()
           .ok_or_else(|| LuceneError::illegal_state("term must exist for AutomatonType::Single"))?,
       ))),
-      AutomatonType::Normal => Ok(TermsEnumEnum4::D(AutomatonTermsEnum::new(
+      AutomatonType::Normal => Ok(TermsEnumWithUnsupportedFirstPostings4::D(AutomatonTermsEnum::new(
         terms_enum, automaton,
       )?)),
     }

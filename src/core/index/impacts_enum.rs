@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::impacts::{ImpactsEnum2, ImpactsEnum4};
+use crate::core::index::impacts::{ImpactsEnum2, ImpactsEnum3, ImpactsEnum4};
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -133,4 +133,5 @@ macro_rules! define_impacts_enum_enum {
     };
 }
 define_impacts_enum_enum!(ImpactsEnumEnum2, ImpactsEnum2, [A, B]);
+define_impacts_enum_enum!(ImpactsEnumEnum3, ImpactsEnum3, [A, B, C]);
 define_impacts_enum_enum!(ImpactsEnumEnum4, ImpactsEnum4, [A, B, C, D]);

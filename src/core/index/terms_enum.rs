@@ -697,6 +697,222 @@ where
   }
 }
 
+pub enum TermsEnumWithUnsupportedFirstPostings4<A, B, C, D> {
+  A(A),
+  B(B),
+  C(C),
+  D(D),
+}
+
+impl<A, B, C, D> BytesRefIterator for TermsEnumWithUnsupportedFirstPostings4<A, B, C, D>
+where
+  A: TermsEnum,
+  B: TermsEnum,
+  C: TermsEnum,
+  D: TermsEnum,
+{
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::A(terms) => terms.next(),
+      Self::B(terms) => terms.next(),
+      Self::C(terms) => terms.next(),
+      Self::D(terms) => terms.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::A(terms) => terms.set_next(),
+      Self::B(terms) => terms.set_next(),
+      Self::C(terms) => terms.set_next(),
+      Self::D(terms) => terms.set_next(),
+    }
+  }
+}
+
+impl<A, B, C, D> TermsEnum for TermsEnumWithUnsupportedFirstPostings4<A, B, C, D>
+where
+  A: TermsEnum,
+  B: TermsEnum,
+  C: TermsEnum<PostingsEnum = B::PostingsEnum, ImpactsEnum = B::ImpactsEnum>,
+  D: TermsEnum<PostingsEnum = B::PostingsEnum, ImpactsEnum = B::ImpactsEnum>,
+{
+  type AttributeSource<'a>
+    = AttributeSourceEnum4<
+    A::AttributeSource<'a>,
+    B::AttributeSource<'a>,
+    C::AttributeSource<'a>,
+    D::AttributeSource<'a>,
+  >
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = AttributeSourceEnum4<
+    A::AttributeSourceMut<'a>,
+    B::AttributeSourceMut<'a>,
+    C::AttributeSourceMut<'a>,
+    D::AttributeSourceMut<'a>,
+  >
+  where
+    Self: 'a;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::A(terms) => terms.attributes().map(AttributeSourceEnum4::A),
+      Self::B(terms) => terms.attributes().map(AttributeSourceEnum4::B),
+      Self::C(terms) => terms.attributes().map(AttributeSourceEnum4::C),
+      Self::D(terms) => terms.attributes().map(AttributeSourceEnum4::D),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::A(terms) => terms.attributes_mut().map(AttributeSourceEnum4::A),
+      Self::B(terms) => terms.attributes_mut().map(AttributeSourceEnum4::B),
+      Self::C(terms) => terms.attributes_mut().map(AttributeSourceEnum4::C),
+      Self::D(terms) => terms.attributes_mut().map(AttributeSourceEnum4::D),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::A(terms) => terms.seek_exact(term),
+      Self::B(terms) => terms.seek_exact(term),
+      Self::C(terms) => terms.seek_exact(term),
+      Self::D(terms) => terms.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::A(terms) => terms.prepare_seek_exact(text),
+      Self::B(terms) => terms.prepare_seek_exact(text),
+      Self::C(terms) => terms.prepare_seek_exact(text),
+      Self::D(terms) => terms.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::A(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::B(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::C(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::D(terms) => terms.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::A(terms) => terms.seek_ceil(term),
+      Self::B(terms) => terms.seek_ceil(term),
+      Self::C(terms) => terms.seek_ceil(term),
+      Self::D(terms) => terms.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::A(terms) => terms.seek_exact_with_ord(ord),
+      Self::B(terms) => terms.seek_exact_with_ord(ord),
+      Self::C(terms) => terms.seek_exact_with_ord(ord),
+      Self::D(terms) => terms.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::A(terms) => terms.seek_exact_with_state(term, state),
+      Self::B(terms) => terms.seek_exact_with_state(term, state),
+      Self::C(terms) => terms.seek_exact_with_state(term, state),
+      Self::D(terms) => terms.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::A(terms) => terms.term(),
+      Self::B(terms) => terms.term(),
+      Self::C(terms) => terms.term(),
+      Self::D(terms) => terms.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::A(terms) => terms.ord(),
+      Self::B(terms) => terms.ord(),
+      Self::C(terms) => terms.ord(),
+      Self::D(terms) => terms.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::A(terms) => terms.doc_freq(),
+      Self::B(terms) => terms.doc_freq(),
+      Self::C(terms) => terms.doc_freq(),
+      Self::D(terms) => terms.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::A(terms) => terms.total_term_freq(),
+      Self::B(terms) => terms.total_term_freq(),
+      Self::C(terms) => terms.total_term_freq(),
+      Self::D(terms) => terms.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum = B::PostingsEnum;
+
+  fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::A(_) => Err(LuceneError::unsupported_operation("")),
+      Self::B(terms) => terms.postings(reuse),
+      Self::C(terms) => terms.postings(reuse),
+      Self::D(terms) => terms.postings(reuse),
+    }
+  }
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::A(_) => Err(LuceneError::unsupported_operation("")),
+      Self::B(terms) => terms.postings_with_flags(reuse, flags),
+      Self::C(terms) => terms.postings_with_flags(reuse, flags),
+      Self::D(terms) => terms.postings_with_flags(reuse, flags),
+    }
+  }
+
+  type ImpactsEnum = B::ImpactsEnum;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    match self {
+      Self::A(_) => Err(LuceneError::unsupported_operation("")),
+      Self::B(terms) => terms.impacts(flags),
+      Self::C(terms) => terms.impacts(flags),
+      Self::D(terms) => terms.impacts(flags),
+    }
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::A(terms) => terms.term_state(),
+      Self::B(terms) => terms.term_state(),
+      Self::C(terms) => terms.term_state(),
+      Self::D(terms) => terms.term_state(),
+    }
+  }
+}
+
 macro_rules! define_terms_enum_enum {
     (
         $enum_name:ident,

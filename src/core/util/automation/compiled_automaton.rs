@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
-use crate::core::index::impacts_enum::ImpactsEnumEnum4;
+use crate::core::index::impacts_enum::ImpactsEnumEnum3;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, TermsIntersect, TermsPosting, TermsTE};
@@ -829,8 +829,7 @@ where
     }
   }
 
-  type ImpactsEnum = ImpactsEnumEnum4<
-    <EmptyTermsEnumTermsWrapper<T> as TermsEnum>::ImpactsEnum,
+  type ImpactsEnum = ImpactsEnumEnum3<
     <TermsTE<T> as TermsEnum>::ImpactsEnum,
     <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::ImpactsEnum,
     <TermsIntersect<T> as TermsEnum>::ImpactsEnum,
@@ -838,10 +837,12 @@ where
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     match self {
-      Self::Empty(t) => Ok(ImpactsEnumEnum4::A(t.impacts(flags)?)),
-      Self::TE(t) => Ok(ImpactsEnumEnum4::B(t.impacts(flags)?)),
-      Self::Single(t) => Ok(ImpactsEnumEnum4::C(t.impacts(flags)?)),
-      Self::Intersect(t) => Ok(ImpactsEnumEnum4::D(t.impacts(flags)?)),
+      Self::Empty(_) => Err(LuceneError::illegal_state(
+        "this method should never be called",
+      )),
+      Self::TE(t) => t.impacts(flags).map(ImpactsEnumEnum3::A),
+      Self::Single(t) => t.impacts(flags).map(ImpactsEnumEnum3::B),
+      Self::Intersect(t) => t.impacts(flags).map(ImpactsEnumEnum3::C),
     }
   }
 
