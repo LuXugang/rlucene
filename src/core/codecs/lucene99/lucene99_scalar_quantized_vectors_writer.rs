@@ -63,7 +63,6 @@ use crate::core::index::{DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
-use crate::core::search::vector_scorer::VectorScorerEnum2;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
@@ -2169,16 +2168,12 @@ where
     }
   }
 
-  type VectorScorer = VectorScorerEnum2<FVV::VectorScorer, DummyVectorScorer>;
+  type VectorScorer = FVV::VectorScorer;
 
   fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
     match self {
-      Self::Original(values) => values
-        .scorer(target)
-        .map(|scorer| scorer.map(VectorScorerEnum2::A)),
-      Self::Normalized(values) => values
-        .scorer(target)
-        .map(|scorer| scorer.map(VectorScorerEnum2::B)),
+      Self::Original(values) => values.scorer(target),
+      Self::Normalized(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
