@@ -22,7 +22,9 @@ use crate::core::index::multi_terms_enum::{MultiTermsEnum, MultiTermsEnumType};
 use crate::core::index::postings_enum::ALL;
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{EmptyTermsEnum, TermsEnum, TermsEnumEnum2};
+use crate::core::index::terms_enum::{
+  EmptyTermsEnum, TermsEnum, TermsEnumWithUnsupportedSecondAttributes2,
+};
 use crate::core::index::terms_enum_index::TermsEnumIndex;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
@@ -222,13 +224,21 @@ impl<T> Terms for MultiTermsType<T>
 where
   T: Terms,
 {
-  type TermsEnum = TermsEnumEnum2<T::TermsEnum, <MultiTerms<T> as Terms>::TermsEnum>;
-  type IntersectIter = TermsEnumEnum2<T::IntersectIter, <MultiTerms<T> as Terms>::IntersectIter>;
+  type TermsEnum =
+    TermsEnumWithUnsupportedSecondAttributes2<T::TermsEnum, <MultiTerms<T> as Terms>::TermsEnum>;
+  type IntersectIter = TermsEnumWithUnsupportedSecondAttributes2<
+    T::IntersectIter,
+    <MultiTerms<T> as Terms>::IntersectIter,
+  >;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
     match self {
-      Self::A(terms) => terms.iterator().map(TermsEnumEnum2::A),
-      Self::B(terms) => terms.iterator().map(TermsEnumEnum2::B),
+      Self::A(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+      Self::B(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
     }
   }
 
@@ -238,8 +248,12 @@ where
     start_term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Self::IntersectIter> {
     match self {
-      Self::A(terms) => terms.intersect(compiled, start_term).map(TermsEnumEnum2::A),
-      Self::B(terms) => terms.intersect(compiled, start_term).map(TermsEnumEnum2::B),
+      Self::A(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+      Self::B(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
     }
   }
 

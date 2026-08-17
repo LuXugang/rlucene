@@ -17,7 +17,10 @@
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEnumBase};
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2};
+use crate::core::index::terms_enum::{
+  EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2,
+  TermsEnumWithUnsupportedPostingsAndAttributes2,
+};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -359,12 +362,132 @@ where
 {
   let terms = reader.terms(field)?;
   match terms {
-    Some(t) => Ok(TermsEnum2::A(t)),
-    None => Ok(TermsEnum2::B(EmptyTerms)),
+    Some(t) => Ok(TermsWithEmpty::Terms(t)),
+    None => Ok(TermsWithEmpty::Empty(EmptyTerms)),
   }
 }
 
-pub type TermsEnum2Type<T> = TermsEnum2<T, EmptyTerms>;
+pub type TermsEnum2Type<T> = TermsWithEmpty<T>;
+
+pub enum TermsWithEmpty<T> {
+  Terms(T),
+  Empty(EmptyTerms),
+}
+
+impl<T> Terms for TermsWithEmpty<T>
+where
+  T: Terms,
+{
+  type TermsEnum = TermsEnumWithUnsupportedPostingsAndAttributes2<T::TermsEnum, EmptyTermsEnum>;
+
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    match self {
+      Self::Terms(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+      Self::Empty(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
+    }
+  }
+
+  type IntersectIter = TermsEnumWithUnsupportedPostingsAndAttributes2<
+    T::IntersectIter,
+    <EmptyTerms as Terms>::IntersectIter,
+  >;
+
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    match self {
+      Self::Terms(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+      Self::Empty(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
+    }
+  }
+
+  fn size(&self) -> Result<i64> {
+    match self {
+      Self::Terms(terms) => terms.size(),
+      Self::Empty(terms) => terms.size(),
+    }
+  }
+
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    match self {
+      Self::Terms(terms) => terms.get_sum_total_term_freq(),
+      Self::Empty(terms) => terms.get_sum_total_term_freq(),
+    }
+  }
+
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    match self {
+      Self::Terms(terms) => terms.get_sum_doc_freq(),
+      Self::Empty(terms) => terms.get_sum_doc_freq(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::Terms(terms) => terms.get_doc_count(),
+      Self::Empty(terms) => terms.get_doc_count(),
+    }
+  }
+
+  fn has_freqs(&self) -> bool {
+    match self {
+      Self::Terms(terms) => terms.has_freqs(),
+      Self::Empty(terms) => terms.has_freqs(),
+    }
+  }
+
+  fn has_offsets(&self) -> bool {
+    match self {
+      Self::Terms(terms) => terms.has_offsets(),
+      Self::Empty(terms) => terms.has_offsets(),
+    }
+  }
+
+  fn has_positions(&self) -> bool {
+    match self {
+      Self::Terms(terms) => terms.has_positions(),
+      Self::Empty(terms) => terms.has_positions(),
+    }
+  }
+
+  fn has_payloads(&self) -> bool {
+    match self {
+      Self::Terms(terms) => terms.has_payloads(),
+      Self::Empty(terms) => terms.has_payloads(),
+    }
+  }
+
+  fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Terms(terms) => terms.get_min(),
+      Self::Empty(terms) => terms.get_min(),
+    }
+  }
+
+  fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Terms(terms) => terms.get_max(),
+      Self::Empty(terms) => terms.get_max(),
+    }
+  }
+
+  fn get_stats(&self) -> Result<String> {
+    match self {
+      Self::Terms(terms) => terms.get_stats(),
+      Self::Empty(terms) => terms.get_stats(),
+    }
+  }
+}
 
 #[derive(Default)]
 pub struct EmptyTerms;
