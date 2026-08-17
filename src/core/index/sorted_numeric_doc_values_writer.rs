@@ -26,9 +26,9 @@ use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::numeric_doc_values_writer::{
-  BufferedNumericDocValues, DocValuesProducerImpl, SortingNumericDocValues, get_doc_values_producer,
+  BufferedNumericDocValues, BufferedSortingNumericDocValues, DocValuesProducerImpl,
+  get_doc_values_producer,
 };
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -43,7 +43,6 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::long_values::LongValues as OtherLongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::{
@@ -406,9 +405,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
-  type SortedNumericDocValues = SingletonSortedNumericDocValues<
-    NumericDocValuesEnum2<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>,
-  >;
+  type SortedNumericDocValues = SingletonSortedNumericDocValues<BufferedSortingNumericDocValues>;
 
   fn get_sorted_numeric(
     &self,

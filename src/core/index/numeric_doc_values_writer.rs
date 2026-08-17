@@ -26,7 +26,6 @@ use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::{DocsWithFieldSet, DocsWithFieldSetDISI};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
@@ -186,21 +185,19 @@ impl DocValuesProducerImpl {
   }
 }
 impl DocValuesProducer for DocValuesProducerImpl {
-  type NumericDocValues =
-    NumericDocValuesEnum2<BufferedNumericDocValues, SortingNumericDocValues<FixedBitSet>>;
+  type NumericDocValues = BufferedSortingNumericDocValues;
 
   fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     if !Arc::ptr_eq(field_info, &self.writer_field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     match self.sorted {
-      Some(ref sorted) => Ok(NumericDocValuesEnum2::B(SortingNumericDocValues::new(
-        sorted.clone(),
-      ))),
-      None => Ok(NumericDocValuesEnum2::A(BufferedNumericDocValues::new(
-        &self.values,
-        self.docs_with_field.iterator()?,
-      ))),
+      Some(ref sorted) => Ok(BufferedSortingNumericDocValues::Sorting(
+        SortingNumericDocValues::new(sorted.clone()),
+      )),
+      None => Ok(BufferedSortingNumericDocValues::Buffered(
+        BufferedNumericDocValues::new(&self.values, self.docs_with_field.iterator()?),
+      )),
     }
   }
 
@@ -325,6 +322,67 @@ where
     Ok(self.dvs.values[self.doc_id as usize])
   }
 }
+
+pub(crate) enum BufferedSortingNumericDocValues {
+  Buffered(BufferedNumericDocValues),
+  Sorting(SortingNumericDocValues<FixedBitSet>),
+}
+
+impl DocValuesIterator for BufferedSortingNumericDocValues {
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::Buffered(inner) => inner.advance_exact(target),
+      Self::Sorting(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl DocIdSetIterator for BufferedSortingNumericDocValues {
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Buffered(inner) => inner.doc_id(),
+      Self::Sorting(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.next_doc(),
+      Self::Sorting(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.advance(target),
+      Self::Sorting(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Buffered(inner) => inner.slow_advance(target),
+      Self::Sorting(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(inner) => inner.cost(),
+      Self::Sorting(inner) => inner.cost(),
+    }
+  }
+}
+
+impl NumericDocValues for BufferedSortingNumericDocValues {
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::Buffered(inner) => inner.long_value(),
+      Self::Sorting(inner) => inner.long_value(),
+    }
+  }
+}
+
 #[derive(Clone)]
 pub struct NumericDVs<T> {
   pub values: Arc<Vec<i64>>,

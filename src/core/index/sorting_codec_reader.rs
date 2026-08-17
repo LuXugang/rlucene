@@ -22,16 +22,16 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
-use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
+use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
-use crate::core::index::byte_vector_values::ByteVectorValues;
+use crate::core::index::byte_vector_values::{ByteVectorValues, ByteVectorValuesEnum2};
 use crate::core::index::codec_reader::{
   CRBits, CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer,
   CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
@@ -45,7 +45,7 @@ use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
-use crate::core::index::float_vector_values::FloatVectorValues;
+use crate::core::index::float_vector_values::{FloatVectorValues, FloatVectorValuesEnum2};
 use crate::core::index::freq_prox_terms_writer::SortingTerms;
 use crate::core::index::index_reader::{
   Identity, IndexReader, IndexReaderBase, LeafReaderContextKind,
@@ -56,7 +56,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDocValues};
 use crate::core::index::point_values::{
-  IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
+  IntersectVisitor, PointTree, PointTreeEnum, PointValues, PointValuesEnum2, Relation,
 };
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
@@ -92,6 +92,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::supplier::Supplier;
 use parking_lot::{Mutex, MutexGuard};
@@ -1689,6 +1690,220 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+pub enum SortingCodecReaderPointsReader<T, U> {
+  Filter(T),
+  Sorting(U),
+}
+
+impl<T, U> CloseableRef for SortingCodecReaderPointsReader<T, U>
+where
+  T: CloseableRef,
+  U: CloseableRef,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Filter(reader) => reader.close(),
+      Self::Sorting(reader) => reader.close(),
+    }
+  }
+}
+
+impl<T, U> PointsReader for SortingCodecReaderPointsReader<T, U>
+where
+  T: PointsReader,
+  U: PointsReader,
+{
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::Filter(reader) => reader.check_integrity(),
+      Self::Sorting(reader) => reader.check_integrity(),
+    }
+  }
+
+  type PointValuesType = PointValuesEnum2<T::PointValuesType, U::PointValuesType>;
+
+  fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
+    match self {
+      Self::Filter(reader) => reader
+        .get_values(field)
+        .map(|values| values.map(PointValuesEnum2::A)),
+      Self::Sorting(reader) => reader
+        .get_values(field)
+        .map(|values| values.map(PointValuesEnum2::B)),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::Filter(reader) => match reader.get_merge_instance()? {
+        Some(values) => Ok(Some(Self::Filter(values))),
+        None => Ok(None),
+      },
+      Self::Sorting(reader) => match reader.get_merge_instance()? {
+        Some(values) => Ok(Some(Self::Sorting(values))),
+        None => Ok(None),
+      },
+    }
+  }
+}
+
+pub enum SortingCodecReaderKnnVectorsReader<T, U> {
+  Filter(T),
+  Sorting(U),
+}
+
+impl<T, U> CloseableRef for SortingCodecReaderKnnVectorsReader<T, U>
+where
+  T: CloseableRef,
+  U: CloseableRef,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Filter(reader) => reader.close(),
+      Self::Sorting(reader) => reader.close(),
+    }
+  }
+}
+
+impl<T, U> HnswGraphProvider for SortingCodecReaderKnnVectorsReader<T, U>
+where
+  T: HnswGraphProvider,
+  U: HnswGraphProvider,
+{
+  type HnswGraph = HnswGraphEnum2<T::HnswGraph, U::HnswGraph>;
+
+  fn is_hnsw_graph_provider(&self, field: &str) -> bool {
+    match self {
+      Self::Filter(reader) => reader.is_hnsw_graph_provider(field),
+      Self::Sorting(reader) => reader.is_hnsw_graph_provider(field),
+    }
+  }
+
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
+    match self {
+      Self::Filter(reader) => reader.get_graph(field).map(HnswGraphEnum2::A),
+      Self::Sorting(reader) => reader.get_graph(field).map(HnswGraphEnum2::B),
+    }
+  }
+}
+
+impl<T, U> KnnVectorsReader for SortingCodecReaderKnnVectorsReader<T, U>
+where
+  T: KnnVectorsReader,
+  U: KnnVectorsReader,
+{
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::Filter(reader) => reader.check_integrity(),
+      Self::Sorting(reader) => reader.check_integrity(),
+    }
+  }
+
+  type FloatVectorValues = FloatVectorValuesEnum2<T::FloatVectorValues, U::FloatVectorValues>;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    match self {
+      Self::Filter(reader) => reader
+        .get_float_vector_values(field)
+        .map(FloatVectorValuesEnum2::A),
+      Self::Sorting(reader) => reader
+        .get_float_vector_values(field)
+        .map(FloatVectorValuesEnum2::B),
+    }
+  }
+
+  type ByteVectorValues = ByteVectorValuesEnum2<T::ByteVectorValues, U::ByteVectorValues>;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    match self {
+      Self::Filter(reader) => reader
+        .get_byte_vector_values(field)
+        .map(ByteVectorValuesEnum2::A),
+      Self::Sorting(reader) => reader
+        .get_byte_vector_values(field)
+        .map(ByteVectorValuesEnum2::B),
+    }
+  }
+
+  fn get_quantization_state(
+    &self,
+    field: &str,
+  ) -> Result<Option<crate::core::util::quantization::scalar_quantizer::ScalarQuantizer>> {
+    match self {
+      Self::Filter(reader) => reader.get_quantization_state(field),
+      Self::Sorting(reader) => reader.get_quantization_state(field),
+    }
+  }
+
+  fn is_flat_vectors_reader(&self, field: &str) -> bool {
+    match self {
+      Self::Filter(reader) => reader.is_flat_vectors_reader(field),
+      Self::Sorting(reader) => reader.is_flat_vectors_reader(field),
+    }
+  }
+
+  fn search_f32<B, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::Filter(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+      Self::Sorting(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn search_u8<B, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B>,
+  ) -> Result<()>
+  where
+    B: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::Filter(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+      Self::Sorting(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::Filter(reader) => match reader.get_merge_instance()? {
+        Some(values) => Ok(Some(Self::Filter(values))),
+        None => Ok(None),
+      },
+      Self::Sorting(reader) => match reader.get_merge_instance()? {
+        Some(values) => Ok(Some(Self::Sorting(values))),
+        None => Ok(None),
+      },
+    }
+  }
+
+  fn finish_merge(&self) -> Result<()> {
+    match self {
+      Self::Filter(reader) => reader.finish_merge(),
+      Self::Sorting(reader) => reader.finish_merge(),
+    }
+  }
+}
+
 pub struct SortingByteVectorValues<B> {
   delegate: B,
   iterator_supplier: SortingIteratorSupplier,
@@ -2938,11 +3153,11 @@ where
   type NormsProducer = SortingNormsProducerEnum<CRNormsProducer<CR>, DM>;
   type DocValuesProducer = SortingCodecReaderDocValuesProducer<CRDocValuesProducer<CR>, DM>;
   type FieldsProducer = SortingCodecReaderFieldsProducer<CRFieldsProducer<CR>, DM>;
-  type PointsReader = PointsReaderEnum2<
+  type PointsReader = SortingCodecReaderPointsReader<
     <CR as CodecReader>::PointsReader,
     <SortingCodecReader<CR, DM> as CodecReader>::PointsReader,
   >;
-  type KnnVectorsReader = KnnVectorsReaderEnum2<
+  type KnnVectorsReader = SortingCodecReaderKnnVectorsReader<
     <CR as CodecReader>::KnnVectorsReader,
     <SortingCodecReader<CR, DM> as CodecReader>::KnnVectorsReader,
   >;
@@ -2996,15 +3211,23 @@ where
 
   fn get_points_reader(&self) -> Result<Option<Self::PointsReader>> {
     Ok(match self {
-      SortingCodecReaderEnum::Filter(f) => f.get_points_reader()?.map(PointsReaderEnum2::A),
-      SortingCodecReaderEnum::Sorting(s) => s.get_points_reader()?.map(PointsReaderEnum2::B),
+      SortingCodecReaderEnum::Filter(f) => f
+        .get_points_reader()?
+        .map(SortingCodecReaderPointsReader::Filter),
+      SortingCodecReaderEnum::Sorting(s) => s
+        .get_points_reader()?
+        .map(SortingCodecReaderPointsReader::Sorting),
     })
   }
 
   fn get_vector_reader(&self) -> Result<Option<Self::KnnVectorsReader>> {
     Ok(match self {
-      SortingCodecReaderEnum::Filter(f) => f.get_vector_reader()?.map(KnnVectorsReaderEnum2::A),
-      SortingCodecReaderEnum::Sorting(s) => s.get_vector_reader()?.map(KnnVectorsReaderEnum2::B),
+      SortingCodecReaderEnum::Filter(f) => f
+        .get_vector_reader()?
+        .map(SortingCodecReaderKnnVectorsReader::Filter),
+      SortingCodecReaderEnum::Sorting(s) => s
+        .get_vector_reader()?
+        .map(SortingCodecReaderKnnVectorsReader::Sorting),
     })
   }
 }
