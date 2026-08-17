@@ -41,6 +41,10 @@ use crate::core::index::point_values::PointValuesEnum2;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::index::slow_composite_codec_reader_wrapper::{
+  SlowCompositeByteVectorValues, SlowCompositeFloatVectorValues,
+  SlowCompositeKnnVectorsReader, SlowCompositePointValues, SlowCompositePointsReader,
+};
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields, StoredFieldsEnum2};
 use crate::core::index::term_vectors::{EmptyTermVectors, RawTermVectors, TermVectorsEnum2};
@@ -470,7 +474,14 @@ where
 }
 
 macro_rules! either_codec_reader {
-    ($vis:vis $name:ident<$($G:ident),+> where [$($base:tt)*] { A: $A:ty, B: $B:ty $(,)? }) => {
+    ($vis:vis $name:ident<$($G:ident),+> where [$($base:tt)*] { A: $A:ty, B: $B:ty $(,)? }
+     return_types {
+       FloatVectorValues: $FloatVectorValues:ident,
+       ByteVectorValues: $ByteVectorValues:ident,
+       PointValues: $PointValues:ident,
+       PointsReader: $PointsReader:ident,
+       KnnVectorsReader: $KnnVectorsReader:ident $(,)?
+     }) => {
         $vis enum $name<$($G),+>
         where
             $($base)*
@@ -726,21 +737,21 @@ macro_rules! either_codec_reader {
                 }
             }
 
-            type FloatVectorValues = FloatVectorValuesEnum2<<$A as LeafReader>::FloatVectorValues, <$B as LeafReader>::FloatVectorValues>;
+            type FloatVectorValues = $FloatVectorValues<<$A as LeafReader>::FloatVectorValues, <$B as LeafReader>::FloatVectorValues>;
 
             fn get_float_vector_values(&self, field: &str) -> Result<Option<Self::FloatVectorValues>> {
                 match self {
-                    Self::A(inner) => LeafReader::get_float_vector_values(inner,field).map(|opt| opt.map(FloatVectorValuesEnum2::A)),
-                    Self::B(inner) => LeafReader::get_float_vector_values(inner,field).map(|opt| opt.map(FloatVectorValuesEnum2::B)),
+                    Self::A(inner) => LeafReader::get_float_vector_values(inner,field).map(|opt| opt.map($FloatVectorValues::A)),
+                    Self::B(inner) => LeafReader::get_float_vector_values(inner,field).map(|opt| opt.map($FloatVectorValues::B)),
                 }
             }
 
-           type ByteVectorValues = ByteVectorValuesEnum2<<$A as LeafReader>::ByteVectorValues, <$B as LeafReader>::ByteVectorValues>;
+           type ByteVectorValues = $ByteVectorValues<<$A as LeafReader>::ByteVectorValues, <$B as LeafReader>::ByteVectorValues>;
 
             fn get_byte_vector_values(&self, field: &str) -> Result<Option<Self::ByteVectorValues>> {
                 match self {
-                    Self::A(inner) => LeafReader::get_byte_vector_values(inner,field).map(|opt| opt.map(ByteVectorValuesEnum2::A)),
-                    Self::B(inner) => LeafReader::get_byte_vector_values(inner,field).map(|opt| opt.map(ByteVectorValuesEnum2::B)),
+                    Self::A(inner) => LeafReader::get_byte_vector_values(inner,field).map(|opt| opt.map($ByteVectorValues::A)),
+                    Self::B(inner) => LeafReader::get_byte_vector_values(inner,field).map(|opt| opt.map($ByteVectorValues::B)),
                 }
             }
 
@@ -796,12 +807,12 @@ macro_rules! either_codec_reader {
             }
 
             type PointValues =
-                PointValuesEnum2<<$A as LeafReader>::PointValues, <$B as LeafReader>::PointValues>;
+                $PointValues<<$A as LeafReader>::PointValues, <$B as LeafReader>::PointValues>;
 
             fn get_point_values(&self, field: &str) -> Result<Option<Self::PointValues>> {
                 match self {
-                    Self::A(inner) => LeafReader::get_point_values(inner,field).map(|opt| opt.map(PointValuesEnum2::A)),
-                    Self::B(inner) => LeafReader::get_point_values(inner,field).map(|opt| opt.map(PointValuesEnum2::B)),
+                    Self::A(inner) => LeafReader::get_point_values(inner,field).map(|opt| opt.map($PointValues::A)),
+                    Self::B(inner) => LeafReader::get_point_values(inner,field).map(|opt| opt.map($PointValues::B)),
                 }
             }
 
@@ -836,8 +847,8 @@ macro_rules! either_codec_reader {
             type FieldsProducer =
                 FieldsProducerEnum2<<$A as CodecReader>::FieldsProducer, <$B as CodecReader>::FieldsProducer>;
             type PointsReader =
-                PointsReaderEnum2<<$A as CodecReader>::PointsReader, <$B as CodecReader>::PointsReader>;
-            type KnnVectorsReader = KnnVectorsReaderEnum2<<$A as CodecReader>::KnnVectorsReader, <$B as CodecReader>::KnnVectorsReader>;
+                $PointsReader<<$A as CodecReader>::PointsReader, <$B as CodecReader>::PointsReader>;
+            type KnnVectorsReader = $KnnVectorsReader<<$A as CodecReader>::KnnVectorsReader, <$B as CodecReader>::KnnVectorsReader>;
 
             fn get_fields_reader(&self) -> Result<Option<Self::StoredFieldsReader>> {
                 match self {
@@ -898,10 +909,10 @@ macro_rules! either_codec_reader {
                 match self {
                     Self::A(inner) => inner
                         .get_points_reader()
-                        .map(|opt| opt.map(PointsReaderEnum2::A)),
+                        .map(|opt| opt.map($PointsReader::A)),
                     Self::B(inner) => inner
                         .get_points_reader()
-                        .map(|opt| opt.map(PointsReaderEnum2::B)),
+                        .map(|opt| opt.map($PointsReader::B)),
                 }
             }
 
@@ -909,17 +920,24 @@ macro_rules! either_codec_reader {
                 match self {
                     Self::A(inner) => inner
                     .get_vector_reader()
-                    .map(|opt| opt.map(KnnVectorsReaderEnum2::A)),
+                    .map(|opt| opt.map($KnnVectorsReader::A)),
                     Self::B(inner) => inner
                     .get_vector_reader()
-                    .map(|opt| opt.map(KnnVectorsReaderEnum2::B)),
+                    .map(|opt| opt.map($KnnVectorsReader::B)),
                 }
             }
         }
     };
 }
 
-either_codec_reader!(pub CodecReaderEnum2<A, B> where [] { A: A, B: B });
+either_codec_reader!(pub CodecReaderEnum2<A, B> where [] { A: A, B: B }
+return_types {
+  FloatVectorValues: FloatVectorValuesEnum2,
+  ByteVectorValues: ByteVectorValuesEnum2,
+  PointValues: PointValuesEnum2,
+  PointsReader: PointsReaderEnum2,
+  KnnVectorsReader: KnnVectorsReaderEnum2,
+});
 
 either_codec_reader!(
     pub(crate) SlowCompositeCodecReader<CR>
@@ -927,6 +945,13 @@ either_codec_reader!(
     {
         A: CR,
         B: crate::core::index::slow_composite_codec_reader_wrapper::SlowCompositeCodecReaderWrapper<CR>,
+    }
+    return_types {
+      FloatVectorValues: SlowCompositeFloatVectorValues,
+      ByteVectorValues: SlowCompositeByteVectorValues,
+      PointValues: SlowCompositePointValues,
+      PointsReader: SlowCompositePointsReader,
+      KnnVectorsReader: SlowCompositeKnnVectorsReader,
     }
 );
 
@@ -942,6 +967,13 @@ either_codec_reader!(
             SlowCompositeCodecReader<CR>,
             DM,
         >,
+    }
+    return_types {
+      FloatVectorValues: FloatVectorValuesEnum2,
+      ByteVectorValues: ByteVectorValuesEnum2,
+      PointValues: PointValuesEnum2,
+      PointsReader: PointsReaderEnum2,
+      KnnVectorsReader: KnnVectorsReaderEnum2,
     }
 );
 

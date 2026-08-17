@@ -38,7 +38,9 @@ use crate::core::index::field_infos::{FieldInfos, get_merged_field_infos};
 use crate::core::index::fields::Fields;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
-use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
+use crate::core::index::knn_vector_values::{
+  BitsImpl1, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues, KnnVectorValuesEnm2,
+};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::multi_bits::{BitsType, get_live_docs};
@@ -51,7 +53,7 @@ use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::point_values::{
-  IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
+  IntersectVisitor, PointTree, PointTreeEnum, PointTreeEnum2, PointValues, Relation,
 };
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
@@ -68,7 +70,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator};
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
@@ -83,6 +85,581 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 use std::sync::Arc;
+
+pub(crate) enum SlowCompositeFloatVectorValues<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> KnnVectorValues for SlowCompositeFloatVectorValues<T, U>
+where
+  T: FloatVectorValues,
+  U: FloatVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::A(values) => values.dimension(),
+      Self::B(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::A(values) => values.size(),
+      Self::B(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::A(values) => values.ord_to_doc(ord),
+      Self::B(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = KnnVectorValuesEnm2<T::KnnVectorValues, U::KnnVectorValues>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::A(values) => values.copy().map(KnnVectorValuesEnm2::A),
+      Self::B(values) => values.copy().map(KnnVectorValuesEnm2::B),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::A(values) => values.get_vector_byte_length(),
+      Self::B(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => KnnVectorValues::get_encoding(values),
+      Self::B(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B1>
+    = BitsEnum2<T::Bits<'a, B1>, U::Bits<'a, B1>>
+  where
+    B1: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
+  where
+    B1: Bits,
+  {
+    match self {
+      Self::A(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::A),
+      Self::B(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::B),
+    }
+  }
+
+  type DocIndexIterator = DocIndexIteratorEnum2<T::DocIndexIterator, U::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::A(values) => values.iterator().map(DocIndexIteratorEnum2::A),
+      Self::B(values) => values.iterator().map(DocIndexIteratorEnum2::B),
+    }
+  }
+}
+
+impl<T, U> FloatVectorValues for SlowCompositeFloatVectorValues<T, U>
+where
+  T: FloatVectorValues,
+  U: FloatVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.vector_value(ord),
+      Self::B(values) => values.vector_value(ord),
+    }
+  }
+
+  type FloatVectorValues =
+    SlowCompositeFloatVectorValues<T::FloatVectorValues, U::FloatVectorValues>;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    match self {
+      Self::A(values) => values
+        .float_copy()
+        .map(|values| values.map(SlowCompositeFloatVectorValues::A)),
+      Self::B(values) => values
+        .float_copy()
+        .map(|values| values.map(SlowCompositeFloatVectorValues::B)),
+    }
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::A(values) => values.scorer(target),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => FloatVectorValues::get_encoding(values),
+      Self::B(values) => FloatVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.get_vectors_mut(),
+      Self::B(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::A(values) => values.get_vectors(),
+      Self::B(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_vectors_capacity(),
+      Self::B(values) => values.get_vectors_capacity(),
+    }
+  }
+}
+
+pub(crate) enum SlowCompositeByteVectorValues<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> KnnVectorValues for SlowCompositeByteVectorValues<T, U>
+where
+  T: ByteVectorValues,
+  U: ByteVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::A(values) => values.dimension(),
+      Self::B(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::A(values) => values.size(),
+      Self::B(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::A(values) => values.ord_to_doc(ord),
+      Self::B(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = KnnVectorValuesEnm2<T::KnnVectorValues, U::KnnVectorValues>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::A(values) => values.copy().map(KnnVectorValuesEnm2::A),
+      Self::B(values) => values.copy().map(KnnVectorValuesEnm2::B),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::A(values) => values.get_vector_byte_length(),
+      Self::B(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => KnnVectorValues::get_encoding(values),
+      Self::B(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B1>
+    = BitsEnum2<T::Bits<'a, B1>, U::Bits<'a, B1>>
+  where
+    B1: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
+  where
+    B1: Bits,
+  {
+    match self {
+      Self::A(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::A),
+      Self::B(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::B),
+    }
+  }
+
+  type DocIndexIterator = DocIndexIteratorEnum2<T::DocIndexIterator, U::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::A(values) => values.iterator().map(DocIndexIteratorEnum2::A),
+      Self::B(values) => values.iterator().map(DocIndexIteratorEnum2::B),
+    }
+  }
+}
+
+impl<T, U> ByteVectorValues for SlowCompositeByteVectorValues<T, U>
+where
+  T: ByteVectorValues,
+  U: ByteVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.vector_value(ord),
+      Self::B(values) => values.vector_value(ord),
+    }
+  }
+
+  type ByteVectorValues =
+    SlowCompositeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    match self {
+      Self::A(values) => values
+        .byte_copy()
+        .map(|values| values.map(SlowCompositeByteVectorValues::A)),
+      Self::B(values) => values
+        .byte_copy()
+        .map(|values| values.map(SlowCompositeByteVectorValues::B)),
+    }
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::A(values) => values.scorer(target),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => ByteVectorValues::get_encoding(values),
+      Self::B(values) => ByteVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.get_vectors_mut(),
+      Self::B(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::A(values) => values.get_vectors(),
+      Self::B(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_vectors_capacity(),
+      Self::B(values) => values.get_vectors_capacity(),
+    }
+  }
+}
+
+pub(crate) enum SlowCompositePointValues<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> PointValues for SlowCompositePointValues<T, U>
+where
+  T: PointValues,
+  U: PointValues,
+{
+  fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    match self {
+      Self::A(values) => values.get_min_packed_value(),
+      Self::B(values) => values.get_min_packed_value(),
+    }
+  }
+
+  fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    match self {
+      Self::A(values) => values.get_max_packed_value(),
+      Self::B(values) => values.get_max_packed_value(),
+    }
+  }
+
+  fn get_num_dimensions(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_num_dimensions(),
+      Self::B(values) => values.get_num_dimensions(),
+    }
+  }
+
+  fn get_num_index_dimensions(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_num_index_dimensions(),
+      Self::B(values) => values.get_num_index_dimensions(),
+    }
+  }
+
+  fn get_bytes_per_dimension(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_bytes_per_dimension(),
+      Self::B(values) => values.get_bytes_per_dimension(),
+    }
+  }
+
+  fn size(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.size(),
+      Self::B(values) => values.size(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.get_doc_count(),
+      Self::B(values) => values.get_doc_count(),
+    }
+  }
+
+  type PointTree = PointTreeEnum2<T::PointTree, U::PointTree>;
+  type MutablePointTree = T::MutablePointTree;
+
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+    match self {
+      Self::A(values) => match values.get_point_tree()? {
+        PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(tree)),
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::A(tree))),
+      },
+      Self::B(values) => match values.get_point_tree()? {
+        PointTreeEnum::Mutable(_) => Err(LuceneError::unsupported_operation("")),
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::B(tree))),
+      },
+    }
+  }
+}
+
+pub(crate) enum SlowCompositePointsReader<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> CloseableRef for SlowCompositePointsReader<T, U>
+where
+  T: CloseableRef,
+  U: CloseableRef,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::A(reader) => reader.close(),
+      Self::B(reader) => reader.close(),
+    }
+  }
+}
+
+impl<T, U> PointsReader for SlowCompositePointsReader<T, U>
+where
+  T: PointsReader,
+  U: PointsReader,
+{
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::A(reader) => reader.check_integrity(),
+      Self::B(reader) => reader.check_integrity(),
+    }
+  }
+
+  type PointValuesType = SlowCompositePointValues<T::PointValuesType, U::PointValuesType>;
+
+  fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
+    match self {
+      Self::A(reader) => reader
+        .get_values(field)
+        .map(|values| values.map(SlowCompositePointValues::A)),
+      Self::B(reader) => reader
+        .get_values(field)
+        .map(|values| values.map(SlowCompositePointValues::B)),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::A(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(SlowCompositePointsReader::A)),
+      Self::B(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(SlowCompositePointsReader::B)),
+    }
+  }
+}
+
+pub(crate) enum SlowCompositeKnnVectorsReader<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> CloseableRef for SlowCompositeKnnVectorsReader<T, U>
+where
+  T: CloseableRef,
+  U: CloseableRef,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::A(reader) => reader.close(),
+      Self::B(reader) => reader.close(),
+    }
+  }
+}
+
+impl<T, U> HnswGraphProvider for SlowCompositeKnnVectorsReader<T, U>
+where
+  T: HnswGraphProvider,
+  U: HnswGraphProvider,
+{
+  type HnswGraph = T::HnswGraph;
+
+  fn is_hnsw_graph_provider(&self, field: &str) -> bool {
+    match self {
+      Self::A(reader) => reader.is_hnsw_graph_provider(field),
+      Self::B(reader) => reader.is_hnsw_graph_provider(field),
+    }
+  }
+
+  fn get_graph(&self, field: &str) -> Result<Self::HnswGraph> {
+    match self {
+      Self::A(reader) => reader.get_graph(field),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+}
+
+impl<T, U> KnnVectorsReader for SlowCompositeKnnVectorsReader<T, U>
+where
+  T: KnnVectorsReader,
+  U: KnnVectorsReader,
+{
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::A(reader) => reader.check_integrity(),
+      Self::B(reader) => reader.check_integrity(),
+    }
+  }
+
+  type FloatVectorValues =
+    SlowCompositeFloatVectorValues<T::FloatVectorValues, U::FloatVectorValues>;
+
+  fn get_float_vector_values(&self, field: &str) -> Result<Self::FloatVectorValues> {
+    match self {
+      Self::A(reader) => reader
+        .get_float_vector_values(field)
+        .map(SlowCompositeFloatVectorValues::A),
+      Self::B(reader) => reader
+        .get_float_vector_values(field)
+        .map(SlowCompositeFloatVectorValues::B),
+    }
+  }
+
+  type ByteVectorValues =
+    SlowCompositeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
+
+  fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
+    match self {
+      Self::A(reader) => reader
+        .get_byte_vector_values(field)
+        .map(SlowCompositeByteVectorValues::A),
+      Self::B(reader) => reader
+        .get_byte_vector_values(field)
+        .map(SlowCompositeByteVectorValues::B),
+    }
+  }
+
+  fn get_quantization_state(
+    &self,
+    field: &str,
+  ) -> Result<Option<crate::core::util::quantization::scalar_quantizer::ScalarQuantizer>> {
+    match self {
+      Self::A(reader) => reader.get_quantization_state(field),
+      Self::B(reader) => reader.get_quantization_state(field),
+    }
+  }
+
+  fn is_flat_vectors_reader(&self, field: &str) -> bool {
+    match self {
+      Self::A(reader) => reader.is_flat_vectors_reader(field),
+      Self::B(reader) => reader.is_flat_vectors_reader(field),
+    }
+  }
+
+  fn search_f32<B1, K>(
+    &self,
+    field: &str,
+    target: Vec<f32>,
+    knn_collector: &mut K,
+    accept_docs: Option<B1>,
+  ) -> Result<()>
+  where
+    B1: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::A(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+      Self::B(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn search_u8<B1, K>(
+    &self,
+    field: &str,
+    target: Vec<u8>,
+    knn_collector: &mut K,
+    accept_docs: Option<B1>,
+  ) -> Result<()>
+  where
+    B1: Bits,
+    K: KnnCollector,
+  {
+    match self {
+      Self::A(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+      Self::B(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    match self {
+      Self::A(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(SlowCompositeKnnVectorsReader::A)),
+      Self::B(reader) => reader
+        .get_merge_instance()
+        .map(|reader| reader.map(SlowCompositeKnnVectorsReader::B)),
+    }
+  }
+
+  fn finish_merge(&self) -> Result<()> {
+    match self {
+      Self::A(reader) => reader.finish_merge(),
+      Self::B(reader) => reader.finish_merge(),
+    }
+  }
+}
 
 pub(crate) fn wrap<CR>(mut readers: Vec<CR>) -> Result<SlowCompositeCodecReader<CR>>
 where
