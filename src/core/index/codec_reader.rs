@@ -50,7 +50,7 @@ use crate::core::index::sorting_codec_reader::{
 };
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields, StoredFieldsEnum2};
-use crate::core::index::term_vectors::{EmptyTermVectors, RawTermVectors, TermVectorsEnum2};
+use crate::core::index::term_vectors::{OptionalTermVectors, RawTermVectors, TermVectorsEnum2};
 use crate::core::index::terms::TermsEnum2;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::knn_collector::KnnCollector;
@@ -108,8 +108,8 @@ pub trait CodecReader: LeafReader {
   fn term_vectors(&self) -> Result<TermVectorsType<Self::TermVectorsReader>> {
     let reader = self.get_term_vectors_reader()?;
     match reader {
-      Some(r) => Ok(TermVectorsEnum2::B(r)),
-      None => Ok(TermVectorsEnum2::A(EmptyTermVectors)),
+      Some(r) => Ok(OptionalTermVectors::Reader(r)),
+      None => Ok(OptionalTermVectors::Empty),
     }
   }
   fn terms(
@@ -430,7 +430,7 @@ pub type CRStoredFieldsReader<CR> = <CR as CodecReader>::StoredFieldsReader;
 pub type CRBits<CR> = <CR as LeafReader>::Bits;
 
 pub type StoredFieldsType<SF> = StoredFieldsImpl<SF>;
-pub type TermVectorsType<TVR> = TermVectorsEnum2<EmptyTermVectors, TVR>;
+pub type TermVectorsType<TVR> = OptionalTermVectors<TVR>;
 
 pub struct StoredFieldsImpl<SF> {
   reader: SF,

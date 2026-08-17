@@ -107,6 +107,61 @@ impl TermVectors for EmptyTermVectors {
     self.default_get_field_terms(doc, field)
   }
 }
+
+pub enum OptionalTermVectors<T> {
+  Empty,
+  Reader(T),
+}
+
+impl<T> RawTermVectors for OptionalTermVectors<T> {
+  type IndexInput = DummyIndexInput;
+
+  fn raw_term_vectors_mut(&mut self) -> Result<&mut DefaultTermVectorsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "raw term vectors reader is not available".to_string(),
+    ))
+  }
+
+  fn raw_term_vectors(&self) -> Result<&DefaultTermVectorsReader<Self::IndexInput>> {
+    Err(LuceneError::illegal_state(
+      "raw term vectors reader is not available".to_string(),
+    ))
+  }
+}
+
+impl<T> TermVectors for OptionalTermVectors<T>
+where
+  T: TermVectors,
+{
+  type Fields = T::Fields;
+  type Terms = <T::Fields as Fields>::Terms;
+
+  fn prefetch(&mut self, doc_id: i32) -> Result<()> {
+    match self {
+      Self::Empty => Ok(()),
+      Self::Reader(reader) => reader.prefetch(doc_id),
+    }
+  }
+
+  fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
+    match self {
+      Self::Empty => Ok(None),
+      Self::Reader(reader) => reader.get(doc),
+    }
+  }
+
+  fn get_field_terms(
+    &mut self,
+    doc: i32,
+    field: &str,
+  ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
+    match self {
+      Self::Empty => Ok(None),
+      Self::Reader(reader) => reader.get_field_terms(doc, field),
+    }
+  }
+}
+
 macro_rules! either_term_vectors {
     ($vis:vis $name:ident => { fe: $fe:ident, te: $te:ident } { $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$( $T ),+> {

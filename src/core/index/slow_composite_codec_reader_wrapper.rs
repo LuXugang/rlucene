@@ -64,7 +64,7 @@ use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{
-  EmptyTermVectors, RawTermVectors, TermVectors, TermVectorsEnum2,
+  OptionalTermVectors, RawTermVectors, TermVectors,
 };
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -893,12 +893,12 @@ where
 {
   type ContextKind = LeafReaderContextKind;
 
-  type TermVectors = TermVectorsEnum2<<Self as CodecReader>::TermVectorsReader, EmptyTermVectors>;
+  type TermVectors = OptionalTermVectors<<Self as CodecReader>::TermVectorsReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
     match self.get_term_vectors_reader()? {
-      Some(tvr) => Ok(TermVectorsEnum2::A(tvr)),
-      None => Ok(TermVectorsEnum2::B(EmptyTermVectors)),
+      Some(tvr) => Ok(OptionalTermVectors::Reader(tvr)),
+      None => Ok(OptionalTermVectors::Empty),
     }
   }
 
