@@ -18,7 +18,6 @@ use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
-use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
@@ -37,7 +36,7 @@ use crate::core::index::codec_reader::{
   CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
 };
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
+use crate::core::index::doc_values_skipper::DocValuesSkipper;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
@@ -58,7 +57,7 @@ use crate::core::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDo
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, PointValuesEnum2, Relation,
 };
-use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
+use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_doc_values_writer::SortingSortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
@@ -1062,7 +1061,9 @@ where
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
       Self::Original(values) => values.terms_enum().map(TermsEnumEnum2::A),
-      Self::Sorting(values) => values.terms_enum().map(TermsEnumEnum2::B),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation(
+        "term enumeration is unavailable for sorting values",
+      )),
     }
   }
 }
@@ -1185,12 +1186,12 @@ where
     }
   }
 
-  type SortedDocValues = SortedDocValuesEnum2<S::SortedDocValues, DummySortedDocValues>;
+  type SortedDocValues = <S as SortedSetDocValues>::SortedDocValues;
 
   fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
     match self {
-      Self::Original(values) => values.get_sorted_doc_values().map(SortedDocValuesEnum2::A),
-      Self::Sorting(values) => values.get_sorted_doc_values().map(SortedDocValuesEnum2::B),
+      Self::Original(values) => values.get_sorted_doc_values(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 }
@@ -1589,16 +1590,16 @@ where
     }
   }
 
-  type DocValuesSkipper = DocValuesSkipperEnum2<DVP::DocValuesSkipper, DummyDocValuesSkipper>;
+  type DocValuesSkipper = SortingCodecReaderDocValuesSkipper<DVP::DocValuesSkipper>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
     match self {
       Self::Original(producer) => producer
         .get_skipper(field)
-        .map(|skipper| skipper.map(DocValuesSkipperEnum2::A)),
+        .map(|skipper| skipper.map(SortingCodecReaderDocValuesSkipper::Original)),
       Self::Sorting(producer) => producer
         .get_skipper(field)
-        .map(|skipper| skipper.map(DocValuesSkipperEnum2::B)),
+        .map(|skipper| skipper.map(SortingCodecReaderDocValuesSkipper::Sorting)),
     }
   }
 
@@ -1613,6 +1614,89 @@ where
     match self {
       Self::Original(producer) => Ok(producer.get_merge_instance()?.map(Self::Original)),
       Self::Sorting(producer) => Ok(producer.get_merge_instance()?.map(Self::Sorting)),
+    }
+  }
+}
+
+pub enum SortingCodecReaderDocValuesSkipper<DS>
+where
+  DS: DocValuesSkipper,
+{
+  Original(DS),
+  Sorting(DummyDocValuesSkipper),
+}
+
+impl<DS> DocValuesSkipper for SortingCodecReaderDocValuesSkipper<DS>
+where
+  DS: DocValuesSkipper,
+{
+  fn advance(&mut self, target: i32) -> Result<()> {
+    match self {
+      Self::Original(skipper) => skipper.advance(target),
+      Self::Sorting(skipper) => skipper.advance(target),
+    }
+  }
+
+  fn num_levels(&self) -> usize {
+    match self {
+      Self::Original(skipper) => skipper.num_levels(),
+      Self::Sorting(skipper) => skipper.num_levels(),
+    }
+  }
+
+  fn min_doc_id_with_level(&self, level: usize) -> i32 {
+    match self {
+      Self::Original(skipper) => skipper.min_doc_id_with_level(level),
+      Self::Sorting(skipper) => skipper.min_doc_id_with_level(level),
+    }
+  }
+
+  fn max_doc_id_with_level(&self, level: usize) -> i32 {
+    match self {
+      Self::Original(skipper) => skipper.max_doc_id_with_level(level),
+      Self::Sorting(skipper) => skipper.max_doc_id_with_level(level),
+    }
+  }
+
+  fn min_value_with_level(&self, level: usize) -> i64 {
+    match self {
+      Self::Original(skipper) => skipper.min_value_with_level(level),
+      Self::Sorting(skipper) => skipper.min_value_with_level(level),
+    }
+  }
+
+  fn max_value_with_level(&self, level: usize) -> i64 {
+    match self {
+      Self::Original(skipper) => skipper.max_value_with_level(level),
+      Self::Sorting(skipper) => skipper.max_value_with_level(level),
+    }
+  }
+
+  fn doc_count_with_level(&self, level: usize) -> i32 {
+    match self {
+      Self::Original(skipper) => skipper.doc_count_with_level(level),
+      Self::Sorting(skipper) => skipper.doc_count_with_level(level),
+    }
+  }
+
+  fn min_value(&self) -> i64 {
+    match self {
+      Self::Original(skipper) => skipper.min_value(),
+      Self::Sorting(skipper) => skipper.min_value(),
+    }
+  }
+
+  fn max_value(&self) -> i64 {
+    match self {
+      Self::Original(skipper) => skipper.max_value(),
+      Self::Sorting(skipper) => skipper.max_value(),
+    }
+  }
+
+  fn doc_count(&self) -> i32 {
+    match self {
+      Self::Original(skipper) => skipper.doc_count(),
+      Self::Sorting(skipper) => skipper.doc_count(),
     }
   }
 }

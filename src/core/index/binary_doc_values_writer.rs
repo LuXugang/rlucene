@@ -299,15 +299,17 @@ impl DocValuesProducer for DocValuesProducerImpl {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     match &self.sorted {
-      Some(sorted) => Ok(BufferedSortingBinaryDocValues::Sorting(SortingBinaryDocValues::new(
-        sorted.clone(),
-      ))),
-      None => Ok(BufferedSortingBinaryDocValues::Buffered(BufferedBinaryDocValues::new(
-        &self.final_lengths,
-        self.max_length as usize,
-        get_data_input(&self.paged_bytes)?,
-        self.docs_with_field.iterator()?,
-      )?)),
+      Some(sorted) => Ok(BufferedSortingBinaryDocValues::Sorting(
+        SortingBinaryDocValues::new(sorted.clone()),
+      )),
+      None => Ok(BufferedSortingBinaryDocValues::Buffered(
+        BufferedBinaryDocValues::new(
+          &self.final_lengths,
+          self.max_length as usize,
+          get_data_input(&self.paged_bytes)?,
+          self.docs_with_field.iterator()?,
+        )?,
+      )),
     }
   }
 

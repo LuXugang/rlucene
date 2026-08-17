@@ -415,9 +415,9 @@ impl SortedSetDocValuesWriter {
         ),
       )),
       None => Ok(SortedSetDocValuesWriterDocIdSetIterator::Singleton(
-        DocValues::singleton_sorted(
-          BufferedSortedDocValues::new(hash, pool, ords, ord_map, docs_iter),
-        )?,
+        DocValues::singleton_sorted(BufferedSortedDocValues::new(
+          hash, pool, ords, ord_map, docs_iter,
+        ))?,
       )),
     }
   }

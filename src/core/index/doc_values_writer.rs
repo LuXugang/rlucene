@@ -31,8 +31,7 @@ use crate::core::index::sorted_numeric_doc_values_writer::{
   SortedNumericDocValuesWriter, SortedNumericDocValuesWriterValues,
 };
 use crate::core::index::sorted_set_doc_values_writer::{
-  SortedSetDocValuesWriter,
-  SortedSetDocValuesWriterDocIdSetIterator,
+  SortedSetDocValuesWriter, SortedSetDocValuesWriterDocIdSetIterator,
 };
 use crate::core::index::sorter::DocMap;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum5};
