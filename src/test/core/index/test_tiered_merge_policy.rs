@@ -833,8 +833,7 @@ fn test_forced_merge_with_pending() -> Result<()> {
     )?)?;
   }
 
-  let mut merge_context =
-    MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
+  let mut merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
   let merging = infos.info(0).unwrap();
   merge_context.set_merging_segments(HashSet::from([merging.info.get_id_key().to_string()]));
 

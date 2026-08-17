@@ -262,10 +262,7 @@ where
 
     Ok(())
   }
-  fn get_graph_from_entry(
-    &self,
-    entry: &FieldEntry,
-  ) -> Result<OffHeapHnswGraph<I>> {
+  fn get_graph_from_entry(&self, entry: &FieldEntry) -> Result<OffHeapHnswGraph<I>> {
     OffHeapHnswGraph::new(entry, &self.vector_index)
   }
   fn get_field_entry(&self, field: &str, expected_encoding: VectorEncoding) -> Result<&FieldEntry> {

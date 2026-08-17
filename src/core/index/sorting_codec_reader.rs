@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
-use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
+use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
@@ -27,14 +27,16 @@ use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
 use crate::core::codecs::stored_fields_reader::{StoredFieldsReader, StoredFieldsReaderEnum2};
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
+use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::binary_doc_values_writer::{BinaryDVs, SortingBinaryDocValues};
-use crate::core::index::BytesRef;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::{
   CRBits, CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer,
   CRPointsReader, CRStoredFieldsReader, CRTermVectorsReader, CodecReader,
 };
+use crate::core::index::doc_values_iterator::DocValuesIterator;
+use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
@@ -50,8 +52,6 @@ use crate::core::index::index_reader::{
 use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDocValues};
 use crate::core::index::point_values::{
@@ -60,10 +60,10 @@ use crate::core::index::point_values::{
 use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_doc_values_writer::SortingSortedDocValues;
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values_writer::{
   LongValues, SortingSortedNumericDocValues,
 };
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::sorted_set_doc_values_writer::{
@@ -73,9 +73,9 @@ use crate::core::index::sorter::{DocMap, DocMapImpl, Sorter};
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
+use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::TermsEnum2;
 use crate::core::index::terms_enum::TermsEnumEnum2;
-use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -1184,12 +1184,8 @@ where
 
   fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
     match self {
-      Self::Original(values) => values
-        .get_sorted_doc_values()
-        .map(SortedDocValuesEnum2::A),
-      Self::Sorting(values) => values
-        .get_sorted_doc_values()
-        .map(SortedDocValuesEnum2::B),
+      Self::Original(values) => values.get_sorted_doc_values().map(SortedDocValuesEnum2::A),
+      Self::Sorting(values) => values.get_sorted_doc_values().map(SortedDocValuesEnum2::B),
     }
   }
 }
@@ -1253,10 +1249,7 @@ where
     SortingSortedNumericDocValues<DVP::SortedNumericDocValues>,
   >;
 
-  fn get_sorted_numeric(
-    &self,
-    field: &Arc<FieldInfo>,
-  ) -> Result<Self::SortedNumericDocValues> {
+  fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
     match self {
       Self::Original(producer) => producer
         .get_sorted_numeric(field)
@@ -1280,8 +1273,7 @@ where
     }
   }
 
-  type DocValuesSkipper =
-    DocValuesSkipperEnum2<DVP::DocValuesSkipper, DummyDocValuesSkipper>;
+  type DocValuesSkipper = DocValuesSkipperEnum2<DVP::DocValuesSkipper, DummyDocValuesSkipper>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
     match self {
@@ -2798,14 +2790,12 @@ where
 
   fn get_term_vectors_reader(&self) -> Result<Option<Self::TermVectorsReader>> {
     Ok(match self {
-      SortingCodecReaderEnum::Filter(f) => {
-        f.get_term_vectors_reader()?
-          .map(SortingCodecReaderTermVectorsReader::Filter)
-      },
-      SortingCodecReaderEnum::Sorting(s) => {
-        s.get_term_vectors_reader()?
-          .map(SortingCodecReaderTermVectorsReader::Sorting)
-      },
+      SortingCodecReaderEnum::Filter(f) => f
+        .get_term_vectors_reader()?
+        .map(SortingCodecReaderTermVectorsReader::Filter),
+      SortingCodecReaderEnum::Sorting(s) => s
+        .get_term_vectors_reader()?
+        .map(SortingCodecReaderTermVectorsReader::Sorting),
     })
   }
 
@@ -2818,14 +2808,12 @@ where
 
   fn get_doc_values_reader(&self) -> Result<Option<Self::DocValuesProducer>> {
     Ok(match self {
-      SortingCodecReaderEnum::Filter(f) => {
-        f.get_doc_values_reader()?
-          .map(SortingCodecReaderDocValuesProducer::Original)
-      },
-      SortingCodecReaderEnum::Sorting(s) => {
-        s.get_doc_values_reader()?
-          .map(SortingCodecReaderDocValuesProducer::Sorting)
-      },
+      SortingCodecReaderEnum::Filter(f) => f
+        .get_doc_values_reader()?
+        .map(SortingCodecReaderDocValuesProducer::Original),
+      SortingCodecReaderEnum::Sorting(s) => s
+        .get_doc_values_reader()?
+        .map(SortingCodecReaderDocValuesProducer::Sorting),
     })
   }
 

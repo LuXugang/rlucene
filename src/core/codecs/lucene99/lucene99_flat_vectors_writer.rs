@@ -908,8 +908,7 @@ where
   }
 }
 
-impl<S, D> CloseableRandomVectorScorerSupplier
-  for FlatCloseableRandomVectorScorerSupplier<'_, S, D>
+impl<S, D> CloseableRandomVectorScorerSupplier for FlatCloseableRandomVectorScorerSupplier<'_, S, D>
 where
   S: RandomVectorScorerSupplier,
   D: Directory,

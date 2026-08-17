@@ -2577,13 +2577,15 @@ where
         )
       },
       #[cfg(test)]
-      Self::SetDiagnostics(hook) => <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::merge_finished(
-        hook,
-        inner,
-        stat,
-        success,
-        segment_dropped,
-      ),
+      Self::SetDiagnostics(hook) => {
+        <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::merge_finished(
+          hook,
+          inner,
+          stat,
+          success,
+          segment_dropped,
+        )
+      },
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => {
         <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::merge_finished(
@@ -2746,51 +2748,31 @@ where
       #[cfg(test)]
       Self::MergeFinishedOnce(hook) => {
         <MergeFinishedOnceOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
-          hook,
-          inner,
-          stat,
-          merge_info,
-          is_aborted,
+          hook, inner, stat, merge_info, is_aborted,
         )
       },
       #[cfg(test)]
       Self::AbortOnMergeComplete(hook) => {
         <AbortOnMergeCompleteOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
-          hook,
-          inner,
-          stat,
-          merge_info,
-          is_aborted,
+          hook, inner, stat, merge_info, is_aborted,
         )
       },
       #[cfg(test)]
       Self::SetDiagnostics(hook) => {
         <SetDiagnosticsOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
-          hook,
-          inner,
-          stat,
-          merge_info,
-          is_aborted,
+          hook, inner, stat, merge_info, is_aborted,
         )
       },
       #[cfg(test)]
       Self::SetMergePolicyDiagnostics(hook) => {
         <SetMergePolicyDiagnosticsOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
-          hook,
-          inner,
-          stat,
-          merge_info,
-          is_aborted,
+          hook, inner, stat, merge_info, is_aborted,
         )
       },
       #[cfg(test)]
       Self::ForceMergeDvUpdate(hook) => {
         <ForceMergeDvUpdateOneMerge as OneMergeBase<D, CR>>::on_merge_complete(
-          hook,
-          inner,
-          stat,
-          merge_info,
-          is_aborted,
+          hook, inner, stat, merge_info, is_aborted,
         )
       },
       #[cfg(test)]

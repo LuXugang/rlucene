@@ -213,9 +213,7 @@ where
       Self::Default(consumer) => consumer.merge(state, segment_info, merge_state, norms),
       Self::Asserting(consumer) => consumer.merge(state, segment_info, merge_state, norms),
       Self::Direct(consumer) => consumer.merge(state, segment_info, merge_state, norms),
-      Self::MergeRecording(consumer) => {
-        consumer.merge(state, segment_info, merge_state, norms)
-      },
+      Self::MergeRecording(consumer) => consumer.merge(state, segment_info, merge_state, norms),
     }
   }
 }

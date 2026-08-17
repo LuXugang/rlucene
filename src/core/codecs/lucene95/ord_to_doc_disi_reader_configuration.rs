@@ -15,8 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::indexed_disi::{
-  DEFAULT_DENSE_RANK_POWER, IndexedDISI, IndexedDISIImpl, Owned,
-  write_bitset_with_dense_rank_power,
+  DEFAULT_DENSE_RANK_POWER, IndexedDISI, IndexedDISIImpl, Owned, write_bitset_with_dense_rank_power,
 };
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::search::doc_id_set::DocIdSet;

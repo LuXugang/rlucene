@@ -19,12 +19,12 @@ use crate::core::index::index_reader::Identity;
 #[cfg(test)]
 use crate::core::store::ByteBuffersDirectory;
 #[cfg(test)]
+use crate::core::store::ReadAdvice;
+use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
+#[cfg(test)]
 use crate::core::store::byte_buffers_directory::DirectoryByteBuffersIndexOutput;
 #[cfg(test)]
 use crate::core::store::byte_buffers_index_input::ByteBuffersIndexInputOwned;
-#[cfg(test)]
-use crate::core::store::ReadAdvice;
-use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 #[cfg(test)]
 use crate::core::store::data_input::DataInput;
 use crate::core::store::data_output::DataOutput;
@@ -830,10 +830,8 @@ pub(crate) type FileSwitchDir = FileSwitchDirectory<CoreDirEnum>;
 type MaybeNrtIndexInput =
   IndexInputEnum2<<RawDirEnum as Directory>::IndexInput, ByteBuffersIndexInputOwned>;
 #[cfg(test)]
-type MaybeNrtIndexOutput = IndexOutputEnum2<
-  <RawDirEnum as Directory>::IndexOutput,
-  DirectoryByteBuffersIndexOutput,
->;
+type MaybeNrtIndexOutput =
+  IndexOutputEnum2<<RawDirEnum as Directory>::IndexOutput, DirectoryByteBuffersIndexOutput>;
 #[cfg(test)]
 pub(crate) enum MaybeNrtDirEnum {
   Raw(RawDirEnum),
@@ -912,9 +910,9 @@ impl Directory for MaybeNrtDirEnum {
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
     match self {
-      Self::Raw(directory) => Ok(IndexOutputEnum2::A(directory.create_temp_output(
-        prefix, suffix, context,
-      )?)),
+      Self::Raw(directory) => Ok(IndexOutputEnum2::A(
+        directory.create_temp_output(prefix, suffix, context)?,
+      )),
       Self::Nrt(directory) => match directory.create_temp_output(prefix, suffix, context)? {
         IndexOutputEnum2::A(output) => Ok(IndexOutputEnum2::B(output)),
         IndexOutputEnum2::B(output) => Ok(IndexOutputEnum2::A(output)),

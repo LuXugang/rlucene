@@ -98,9 +98,7 @@ use crate::core::index::merge_state::{MergeState, MergeStateAccess};
 #[cfg(test)]
 use crate::core::index::numeric_doc_values::NumericDocValues;
 #[cfg(test)]
-use crate::core::index::point_values::{
-  IntersectVisitor, PointTree, PointTreeEnum, PointValues,
-};
+use crate::core::index::point_values::{IntersectVisitor, PointTree, PointTreeEnum, PointValues};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
@@ -1382,8 +1380,7 @@ type Lucene90CodecTermVectorsReader<I> =
 type AssertingCodecTermVectorsReader<I> =
   <AssertingTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<I>;
 #[cfg(test)]
-type Lucene90CodecTermVectorsFields<I> =
-  <Lucene90CodecTermVectorsReader<I> as TermVectors>::Fields;
+type Lucene90CodecTermVectorsFields<I> = <Lucene90CodecTermVectorsReader<I> as TermVectors>::Fields;
 #[cfg(test)]
 type AssertingCodecTermVectorsFields<I> =
   <AssertingCodecTermVectorsReader<I> as TermVectors>::Fields;
@@ -1837,18 +1834,10 @@ impl<O: IndexOutput> NormsConsumer for CodecNormsConsumer<O> {
     CR: CodecReader,
   {
     match self {
-      Self::Lucene90(consumer) => {
-        consumer.merge_norms_field(merge_field_info, merge_state)
-      },
-      Self::Asserting(consumer) => {
-        consumer.merge_norms_field(merge_field_info, merge_state)
-      },
-      Self::CrankyLucene101(consumer) => {
-        consumer.merge_norms_field(merge_field_info, merge_state)
-      },
-      Self::CrankyAsserting(consumer) => {
-        consumer.merge_norms_field(merge_field_info, merge_state)
-      },
+      Self::Lucene90(consumer) => consumer.merge_norms_field(merge_field_info, merge_state),
+      Self::Asserting(consumer) => consumer.merge_norms_field(merge_field_info, merge_state),
+      Self::CrankyLucene101(consumer) => consumer.merge_norms_field(merge_field_info, merge_state),
+      Self::CrankyAsserting(consumer) => consumer.merge_norms_field(merge_field_info, merge_state),
     }
   }
 }
@@ -2561,15 +2550,11 @@ impl<I: IndexInput> PointValues for CodecPointValues<I> {
     match self {
       Self::Lucene90(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => {
-          Ok(PointTreeEnum::Other(CodecPointTree::Lucene90(tree)))
-        },
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(CodecPointTree::Lucene90(tree))),
       },
       Self::Asserting(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),
-        PointTreeEnum::Other(tree) => {
-          Ok(PointTreeEnum::Other(CodecPointTree::Asserting(tree)))
-        },
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(CodecPointTree::Asserting(tree))),
       },
       Self::CrankyLucene101(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),

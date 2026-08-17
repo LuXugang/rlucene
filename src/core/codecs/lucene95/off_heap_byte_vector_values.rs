@@ -19,11 +19,11 @@ use crate::core::codecs::indexed_disi::{
   DocIndexIteratorImpl, IndexedDISIDocIndexIterator, IndexedDISIImpl, get_doc_index_iterator,
 };
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
+use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::off_heap_vector_values::{
   OffHeapVectorValueBits, SparseOffHeapVectorValueBits,
 };
-use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
-use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
@@ -36,6 +36,7 @@ use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIterato
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::store::IndexInput;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::dummy::dummy_bits::DummyBits;
@@ -43,7 +44,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader;
-use crate::core::util::TryIntoInt;
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::RefCell;
@@ -489,9 +489,8 @@ where
   where
     B: Bits,
   {
-    accept_docs.map(|bits| {
-      SparseOffHeapVectorValueBits::new(bits, self.base.size, self.ord_to_doc.clone())
-    })
+    accept_docs
+      .map(|bits| SparseOffHeapVectorValueBits::new(bits, self.base.size, self.ord_to_doc.clone()))
   }
 
   type DocIndexIterator = DocIndexIteratorImpl<I>;
@@ -792,15 +791,9 @@ where
     match self {
       Self::Empty(_) => Ok(None),
 
-      Self::Dense(e) => Ok(
-        e.scorer(target)?
-          .map(VectorScorerEnum::Dense),
-      ),
+      Self::Dense(e) => Ok(e.scorer(target)?.map(VectorScorerEnum::Dense)),
 
-      Self::Sparse(e) => Ok(
-        e.scorer(target)?
-          .map(VectorScorerEnum::Sparse),
-      ),
+      Self::Sparse(e) => Ok(e.scorer(target)?.map(VectorScorerEnum::Sparse)),
     }
   }
 

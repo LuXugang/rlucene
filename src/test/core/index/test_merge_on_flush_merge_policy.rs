@@ -138,8 +138,7 @@ fn test_find_full_flush_merges() -> Result<()> {
       segment_infos.add(sci)?;
     }
 
-    let mut merge_context =
-      MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
+    let mut merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
     merge_context.set_merging_segments(merging_segments.clone());
 
     let merge_spec = merge_policy.find_full_flush_merges(

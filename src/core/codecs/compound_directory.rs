@@ -126,9 +126,7 @@ where
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
     match self {
-      CompoundDirectoryEnum::A(_) => {
-        Err(LuceneError::unsupported_operation("create_temp_output"))
-      },
+      CompoundDirectoryEnum::A(_) => Err(LuceneError::unsupported_operation("create_temp_output")),
       CompoundDirectoryEnum::B(dir) => dir.create_temp_output(prefix, suffix, context),
     }
   }

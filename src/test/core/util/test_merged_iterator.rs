@@ -28,8 +28,7 @@ struct TestMergedIterator;
 
 #[test]
 fn test_merge_empty() -> Result<()> {
-  let merged: MergedIterator<EmptyIter> =
-    MergedIterator::with_remove_duplicates(true, Vec::new())?;
+  let merged: MergedIterator<EmptyIter> = MergedIterator::with_remove_duplicates(true, Vec::new())?;
   assert!(!merged.has_next()?);
 
   let empty = EmptyIter::new();

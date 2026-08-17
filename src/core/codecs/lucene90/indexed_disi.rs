@@ -121,10 +121,8 @@ where
   gap: i32,
 }
 
-pub type IndexedDISI<I, P> = IndexedDISIImpl<
-  <P as IndexedDISIPolicy<I>>::Slice,
-  <P as IndexedDISIPolicy<I>>::JumpTable,
->;
+pub type IndexedDISI<I, P> =
+  IndexedDISIImpl<<P as IndexedDISIPolicy<I>>::Slice, <P as IndexedDISIPolicy<I>>::JumpTable>;
 
 impl<I, R> IndexedDISIImpl<I, R>
 where
@@ -1333,9 +1331,7 @@ where
   I: IndexInput,
 {
   Owned(IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>),
-  Shared(
-    IndexedDISIImpl<IndexInputImpl<I::IndexInput>, Arc<Mutex<I::RandomAccessSlice>>>,
-  ),
+  Shared(IndexedDISIImpl<IndexInputImpl<I::IndexInput>, Arc<Mutex<I::RandomAccessSlice>>>),
 }
 
 impl<I> IndexedDISIEnum<I>

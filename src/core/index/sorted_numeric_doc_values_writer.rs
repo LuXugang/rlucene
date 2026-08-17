@@ -146,9 +146,7 @@ impl SortedNumericDocValues for SortedNumericDocValuesWriterValues {
   fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
     match self {
       Self::Single(values) => values.get_numeric_doc_values(),
-      Self::Multi(_) | Self::SortedMulti(_) => {
-        Err(LuceneError::unsupported_operation(""))
-      },
+      Self::Multi(_) | Self::SortedMulti(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 }
@@ -471,11 +469,9 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
       self.docs_with_field.iterator()?,
     );
     match &self.sorted {
-      Some(sorted) => {
-        Ok(SortedNumericDocValuesWriterValues::SortedMulti(
-          SortingSortedNumericDocValues::new(buf, sorted.clone()),
-        ))
-      },
+      Some(sorted) => Ok(SortedNumericDocValuesWriterValues::SortedMulti(
+        SortingSortedNumericDocValues::new(buf, sorted.clone()),
+      )),
       None => Ok(SortedNumericDocValuesWriterValues::Multi(buf)),
     }
   }

@@ -41,5 +41,4 @@ pub trait CompoundFormat {
   fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>;
 }
 pub type DefaultCompoundReaderImpl<I> = Lucene90CompoundReader<I>;
-pub type DefaultCompoundReader<D> =
-  DefaultCompoundReaderImpl<<D as Directory>::IndexInput>;
+pub type DefaultCompoundReader<D> = DefaultCompoundReaderImpl<<D as Directory>::IndexInput>;

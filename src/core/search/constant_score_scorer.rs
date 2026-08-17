@@ -22,7 +22,9 @@ use crate::core::search::score_mode::ScoreMode;
 #[cfg(test)]
 use crate::core::search::scorer::ScorerKind;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
-use crate::core::search::two_phase_iterator::{TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator};
+use crate::core::search::two_phase_iterator::{
+  TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
+};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// A constant-scoring Scorer.
 pub struct ConstantScoreScorer<DISI, TPI> {

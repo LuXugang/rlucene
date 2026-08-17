@@ -17,9 +17,7 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::doc_values_enum::norms::Lucene90NormNumericDocValuesEnum;
 
-use crate::core::codecs::indexed_disi::{
-  IndexedDISIEnum, create_block_slice, create_jump_table,
-};
+use crate::core::codecs::indexed_disi::{IndexedDISIEnum, create_block_slice, create_jump_table};
 use crate::core::codecs::lucene90::indexed_disi::{IndexInputImpl, IndexedDISIImpl};
 use crate::core::codecs::lucene90_norms_format::Lucene90NormsFormat;
 use crate::core::codecs::norms_producer::NormsProducer;
@@ -477,13 +475,15 @@ where
         )?)
       },
 
-      (None, SliceEnum::Owned(input)) => IndexedDISIEnum::<I>::Owned(IndexedDISIImpl::from_components(
-        input,
-        None,
-        entry.jump_table_entry_count as i32,
-        entry.dense_rank_power,
-        entry.num_docs_with_field as i64,
-      )?),
+      (None, SliceEnum::Owned(input)) => {
+        IndexedDISIEnum::<I>::Owned(IndexedDISIImpl::from_components(
+          input,
+          None,
+          entry.jump_table_entry_count as i32,
+          entry.dense_rank_power,
+          entry.num_docs_with_field as i64,
+        )?)
+      },
       _ => {
         return Err(LuceneError::illegal_state(
           "should have same ownership: Shared or Owned",

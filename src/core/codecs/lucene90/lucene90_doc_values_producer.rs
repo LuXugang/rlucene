@@ -22,8 +22,8 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::indexed_disi::IndexedDISIImpl;
 use crate::core::codecs::lucene90::dov_values_inner_enum::{
   BaseSortedDocValuesEnum, BaseSortedSetDocValuesEnum, DenseBinaryDocValuesBaseEnum,
-  DenseNumericDocValuesSubEnum,
-  LongValuesEnums, SparseBinaryDocValuesBaseEnum, SparseNumericDocValuesSubEnum,
+  DenseNumericDocValuesSubEnum, LongValuesEnums, SparseBinaryDocValuesBaseEnum,
+  SparseNumericDocValuesSubEnum,
 };
 use crate::core::codecs::lucene90_doc_values_format::{
   Lucene90DocValuesFormat, SKIP_INDEX_JUMP_LENGTH_PER_LEVEL,
@@ -483,9 +483,7 @@ where
   fn get_numeric(&self, entry: Arc<NumericEntry>) -> Result<Lucene90NumericDocValuesEnum<I>> {
     if entry.docs_with_field_offset == -2 {
       // empty
-      Ok(Lucene90NumericDocValuesEnum::C(
-        DocValues::empty_numeric(),
-      ))
+      Ok(Lucene90NumericDocValuesEnum::C(DocValues::empty_numeric()))
     } else if entry.docs_with_field_offset == -1 {
       // dense
       let dense_numeric_doc_values_base_enum = if entry.bits_per_value == 0 {
@@ -802,9 +800,7 @@ where
       )));
     };
     if entry.docs_with_field_offset == -2 {
-      return Ok(Lucene90BinaryDocValuesEnum::Empty(
-        DocValues::empty_binary(),
-      ));
+      return Ok(Lucene90BinaryDocValuesEnum::Empty(DocValues::empty_binary()));
     }
     let mut bytes_slice = self
       .data
@@ -1712,8 +1708,7 @@ where
 pub struct SparseNumericDocValuesBaseImpl1<R> {
   vbpv_reader: VaryingBPVReader<R>,
 }
-impl<I> SparseNumericDocValuesBase<I>
-  for SparseNumericDocValuesBaseImpl1<I::RandomAccessSlice>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl1<I::RandomAccessSlice>
 where
   I: IndexInput,
 {
@@ -1729,8 +1724,7 @@ pub struct SparseNumericDocValuesBaseImpl2<R> {
   table: Arc<Vec<i64>>,
   values: DirectPackedEnum<R>,
 }
-impl<I> SparseNumericDocValuesBase<I>
-  for SparseNumericDocValuesBaseImpl2<I::RandomAccessSlice>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl2<I::RandomAccessSlice>
 where
   I: IndexInput,
 {
@@ -1744,8 +1738,7 @@ where
 pub struct SparseNumericDocValuesBaseImpl3<R> {
   values: DirectPackedEnum<R>,
 }
-impl<I> SparseNumericDocValuesBase<I>
-  for SparseNumericDocValuesBaseImpl3<I::RandomAccessSlice>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl3<I::RandomAccessSlice>
 where
   I: IndexInput,
 {
@@ -1761,8 +1754,7 @@ pub struct SparseNumericDocValuesBaseImpl4<R> {
   mul: i64,
   delta: i64,
 }
-impl<I> SparseNumericDocValuesBase<I>
-  for SparseNumericDocValuesBaseImpl4<I::RandomAccessSlice>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesBaseImpl4<I::RandomAccessSlice>
 where
   I: IndexInput,
 {

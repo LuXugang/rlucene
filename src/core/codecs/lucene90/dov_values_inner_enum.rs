@@ -27,8 +27,8 @@ use crate::core::codecs::lucene90::lucene90_doc_values_producer::{
   SparseNumericDocValuesBaseImpl3, SparseNumericDocValuesBaseImpl4,
 };
 use crate::core::codecs::lucene90_doc_values_producer::{
-  BaseSortedSetDocValuesOrdinals, DenseBaseSortedSetDocValues,
-  SparseBaseSortedSetDocValues, SparseBinaryDocValuesBase,
+  BaseSortedSetDocValuesOrdinals, DenseBaseSortedSetDocValues, SparseBaseSortedSetDocValues,
+  SparseBinaryDocValuesBase,
 };
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -303,8 +303,7 @@ pub enum SparseNumericDocValuesSubEnum<R> {
   Sparse4(SparseNumericDocValuesBaseImpl4<R>),
 }
 
-impl<I> SparseNumericDocValuesBase<I>
-  for SparseNumericDocValuesSubEnum<I::RandomAccessSlice>
+impl<I> SparseNumericDocValuesBase<I> for SparseNumericDocValuesSubEnum<I::RandomAccessSlice>
 where
   I: IndexInput,
 {
@@ -318,16 +317,24 @@ where
       },
       SparseNumericDocValuesSubEnum::Sparse1(sub) => <SparseNumericDocValuesBaseImpl1<
         I::RandomAccessSlice,
-      > as SparseNumericDocValuesBase<I>>::long_value(sub, disi),
+      > as SparseNumericDocValuesBase<I>>::long_value(
+        sub, disi
+      ),
       SparseNumericDocValuesSubEnum::Sparse2(sub) => <SparseNumericDocValuesBaseImpl2<
         I::RandomAccessSlice,
-      > as SparseNumericDocValuesBase<I>>::long_value(sub, disi),
+      > as SparseNumericDocValuesBase<I>>::long_value(
+        sub, disi
+      ),
       SparseNumericDocValuesSubEnum::Sparse3(sub) => <SparseNumericDocValuesBaseImpl3<
         I::RandomAccessSlice,
-      > as SparseNumericDocValuesBase<I>>::long_value(sub, disi),
+      > as SparseNumericDocValuesBase<I>>::long_value(
+        sub, disi
+      ),
       SparseNumericDocValuesSubEnum::Sparse4(sub) => <SparseNumericDocValuesBaseImpl4<
         I::RandomAccessSlice,
-      > as SparseNumericDocValuesBase<I>>::long_value(sub, disi),
+      > as SparseNumericDocValuesBase<I>>::long_value(
+        sub, disi
+      ),
     }
   }
 }

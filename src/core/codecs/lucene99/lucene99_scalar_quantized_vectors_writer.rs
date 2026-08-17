@@ -352,9 +352,7 @@ where
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D1, CR>,
     merged_quantization_state: ScalarQuantizer,
-  ) -> Result<
-    <Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'a, D2>,
-  >
+  ) -> Result<<Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'a, D2>>
   where
     D2: Directory<IndexOutput = R::IndexOutput>,
     CR: CodecReader,
@@ -385,9 +383,7 @@ where
     let mut quantization_data_input = None;
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-      || -> Result<
-        <Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'_, D2>,
-      > {
+      || -> Result<<Self as FlatVectorsWriter>::CloseableRandomVectorScorerSupplier<'_, D2>> {
         let byte_vector_values = MergedQuantizedVectorValues::merge_quantized_byte_vector_values(
           field_info,
           merge_state,
@@ -414,7 +410,8 @@ where
         self
           .quantized_vector_data
           .copy_bytes(quantization_data_input_ref, copy_len)?;
-        let vector_data_length = self.quantized_vector_data.get_file_pointer()? - vector_data_offset;
+        let vector_data_length =
+          self.quantized_vector_data.get_file_pointer()? - vector_data_offset;
         CodecUtil::retrieve_checksum(quantization_data_input_ref)?;
         write_meta(
           &mut self.meta,
@@ -434,8 +431,9 @@ where
         success = true;
 
         let vector_values_input = quantization_data_input_ref.try_clone()?;
-        let random_vector_scorer_supplier =
-          self.flat_vector_scorer.get_random_vector_scorer_supplier_quantized(
+        let random_vector_scorer_supplier = self
+          .flat_vector_scorer
+          .get_random_vector_scorer_supplier_quantized(
             *field_info.get_vector_similarity_function(),
             off_heap_quantized_byte_vector_values::DenseOffHeapVectorValues::new(
               field_info.get_vector_dimension() as usize,
@@ -1536,10 +1534,7 @@ where
 }
 
 impl<F, LiveBits>
-  MergedQuantizedVectorValues<
-    QuantizedFloatVectorValues<MergeFloatVectorValues<F>>,
-    LiveBits,
-  >
+  MergedQuantizedVectorValues<QuantizedFloatVectorValues<MergeFloatVectorValues<F>>, LiveBits>
 where
   F: FloatVectorValues,
   LiveBits: Bits,
@@ -2100,10 +2095,8 @@ where
     }
   }
 
-  type KnnVectorValues = KnnVectorValuesEnm2<
-    FVV::KnnVectorValues,
-    NormalizedFloatVectorValues<FVV::FloatVectorValues>,
-  >;
+  type KnnVectorValues =
+    KnnVectorValuesEnm2<FVV::KnnVectorValues, NormalizedFloatVectorValues<FVV::FloatVectorValues>>;
 
   fn copy(&self) -> Result<Self::KnnVectorValues> {
     match self {

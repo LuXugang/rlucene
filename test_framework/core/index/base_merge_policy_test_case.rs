@@ -226,8 +226,7 @@ pub trait BaseMergePolicyTestCase {
     let mut stats = IOStats::default();
     let seg_name_generator = AtomicU64::new(0);
 
-    let merge_context =
-      MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
+    let merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
     let mut segment_infos = SegmentInfos::new(LATEST.major)?;
 
     let avg_doc_size_mb = 5.0 / 1024.0; // 5kB
@@ -334,8 +333,7 @@ pub trait BaseMergePolicyTestCase {
     let mut stats = IOStats::default();
     let seg_name_generator = AtomicU64::new(0);
 
-    let merge_context =
-      MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
+    let merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
     let mut segment_infos = SegmentInfos::new(LATEST.major)?;
 
     let avg_doc_size_mb = 5.0 / 1024.0; // 5kB
@@ -449,8 +447,7 @@ pub trait BaseMergePolicyTestCase {
     let mut stats = IOStats::default();
     let seg_name_generator = AtomicU64::new(0);
 
-    let merge_context =
-      MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
+    let merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
     let mut segment_infos = SegmentInfos::new(LATEST.major)?;
 
     let avg_doc_size_mb = 10.0 / 1024.0 / 1024.0;
