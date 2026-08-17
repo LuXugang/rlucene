@@ -27,8 +27,7 @@ use crate::core::search::comparators::numeric_comparator::NumericCompetitiveIter
 use crate::core::search::comparators::term_ord_val_comparator::{
   TermOrdValCompetitiveIterator, TermOrdValLeafComparator,
 };
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum4};
-use crate::core::search::dummy::dummy_disi::DummyDISI;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum3};
 use crate::core::search::field_comparator::{
   FieldComparator, FieldComparatorEnum, RelevanceLeafComparator, TermValLeafComparator,
 };
@@ -204,16 +203,14 @@ pub trait LeafFieldComparator {
   }
 }
 
-pub type LeafFieldComparatorDocIdSetIterator<LR> = DocIdSetIteratorEnum4<
+pub type LeafFieldComparatorDocIdSetIterator<LR> = DocIdSetIteratorEnum3<
   DocComparatorIterator,
   NumericCompetitiveIterator<LR>,
-  DummyDISI,
   TermOrdValCompetitiveIterator<LR>,
 >;
-pub type LeafFieldComparatorDocIdSetIteratorRef<'a, LR> = DocIdSetIteratorEnum4<
+pub type LeafFieldComparatorDocIdSetIteratorRef<'a, LR> = DocIdSetIteratorEnum3<
   <DocLeafComparator as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
   <DoubleLeafComparator<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
-  &'a mut DummyDISI,
   <TermOrdValLeafComparator<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
 >;
 
@@ -514,9 +511,7 @@ where
     comparator: &mut Self::FieldComparator,
   ) -> Result<Option<Self::DocIdSetIteratorRef<'_>>> {
     match (self, comparator) {
-      (Self::Relevance(comparator), FieldComparatorEnum::Relevance(c)) => comparator
-        .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C)),
+      (Self::Relevance(_comparator), FieldComparatorEnum::Relevance(_c)) => Ok(None),
       (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => comparator
         .competitive_iterator(c)
         .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::A)),
@@ -544,17 +539,15 @@ where
       (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => comparator
         .competitive_iterator(&mut c.base)
         .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
-      (Self::TermVal(comparator), FieldComparatorEnum::TermVal(c)) => comparator
-        .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C)),
+      (Self::TermVal(_comparator), FieldComparatorEnum::TermVal(_c)) => Ok(None),
       (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => comparator
         .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::D)),
+        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C)),
 
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator
           .competitive_iterator(&mut c.base)
-          .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::D))
+          .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C))
       },
       (Self::LatLonPointDistance(_comparator), FieldComparatorEnum::LatLonPointDistance(_c)) => {
         Ok(None)
