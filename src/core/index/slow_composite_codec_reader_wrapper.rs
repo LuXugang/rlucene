@@ -32,6 +32,7 @@ use crate::core::index::codec_reader::{
   CRStoredFieldsReader, CRTermVectorsReader, CodecReader, SlowCompositeCodecReader,
 };
 use crate::core::index::doc_values::DocValues;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::{FieldInfos, get_merged_field_infos};
@@ -39,7 +40,7 @@ use crate::core::index::fields::Fields;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::knn_vector_values::{
-  BitsImpl1, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues, KnnVectorValuesEnm2,
+  BitsImpl, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues, KnnVectorValuesEnm2,
 };
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -585,6 +586,8 @@ where
         .map(SlowCompositeByteVectorValues::B),
     }
   }
+
+  type QuantizedByteVectorValues = DummyByteVectorValues;
 
   fn get_quantization_state(
     &self,
@@ -1885,6 +1888,8 @@ where
     )
   }
 
+  type QuantizedByteVectorValues = DummyByteVectorValues;
+
   fn search_f32<B, K>(
     &self,
     _field: &str,
@@ -2099,7 +2104,7 @@ where
   }
 
   type Bits<'a, B>
-    = BitsImpl1<B>
+    = BitsImpl<B, &'a Self>
   where
     B: Bits,
     Self: 'a;
@@ -2228,7 +2233,7 @@ where
   }
 
   type Bits<'a, B1>
-    = BitsImpl1<B1>
+    = BitsImpl<B1, &'a Self>
   where
     B1: Bits,
     Self: 'a;

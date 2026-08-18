@@ -48,7 +48,7 @@ use crate::core::index::index_reader::{
   Identity, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
 use crate::core::index::knn_vector_values::{
-  BitsImpl1, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues,
+  BitsImpl, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues,
 };
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -1746,6 +1746,8 @@ where
     SortingByteVectorValues::new(self.delegate.get_byte_vector_values(field)?, &self.doc_map)
   }
 
+  type QuantizedByteVectorValues = DummyByteVectorValues;
+
   fn search_f32<B, K>(
     &self,
     _field: &str,
@@ -2370,6 +2372,18 @@ where
     }
   }
 
+  type QuantizedByteVectorValues = T::QuantizedByteVectorValues;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    match self {
+      Self::Filter(reader) => reader.get_quantized_vector_values(field),
+      Self::Sorting(_) => Ok(None),
+    }
+  }
+
   fn get_quantization_state(
     &self,
     field: &str,
@@ -2485,7 +2499,7 @@ where
   }
 
   type Bits<'a, B1>
-    = BitsImpl1<B1>
+    = BitsImpl<B1, &'a Self>
   where
     B1: Bits,
     Self: 'a;
@@ -2561,7 +2575,7 @@ where
   }
 
   type Bits<'a, B1>
-    = BitsImpl1<B1>
+    = BitsImpl<B1, &'a Self>
   where
     B1: Bits,
     Self: 'a;

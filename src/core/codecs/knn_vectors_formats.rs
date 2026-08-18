@@ -652,6 +652,9 @@ pub enum KnnVectorsFormatsReader<I: IndexInput> {
   HnswBit(HnswBitVectorsReader<I>),
 }
 
+type KnnVectorsFormatsQuantizedByteVectorValues<I> =
+  <Lucene99ScalarQuantizedVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues;
+
 impl<I: IndexInput> CloseableRef for KnnVectorsFormatsReader<I> {
   fn close(&self) -> Result<()> {
     match self {
@@ -730,6 +733,20 @@ impl<I: IndexInput> KnnVectorsReader for KnnVectorsFormatsReader<I> {
       Self::HnswBit(reader) => reader
         .get_byte_vector_values(field)
         .map(KnnVectorsFormatsByteVectorValues::HnswBit),
+    }
+  }
+
+  type QuantizedByteVectorValues = KnnVectorsFormatsQuantizedByteVectorValues<I>;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    match self {
+      Self::Lucene99Hnsw(_) => Ok(None),
+      Self::Lucene99ScalarQuantized(reader) => reader.get_quantized_vector_values(field),
+      Self::Lucene99HnswScalarQuantized(reader) => reader.get_quantized_vector_values(field),
+      Self::HnswBit(_) => Ok(None),
     }
   }
 

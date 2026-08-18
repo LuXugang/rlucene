@@ -951,6 +951,19 @@ impl<I: IndexInput> KnnVectorsReader for AssertingCodecKnnVectorsReader<I> {
     }
   }
 
+  type QuantizedByteVectorValues =
+    <KnnVectorsFormatsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    match self {
+      Self::Asserting(_) => Ok(None),
+      Self::Source(reader) => reader.get_quantized_vector_values(field),
+    }
+  }
+
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
     match self {
       Self::Asserting(reader) => reader.get_quantization_state(field),

@@ -355,7 +355,7 @@ where
   type QuantizedByteVectorValues = <F as QuantizedVectorsReader>::QuantizedByteVectorValues;
 
   fn get_quantized_vector_values(&self, field: &str) -> Result<Self::QuantizedByteVectorValues> {
-    self.flat_vectors_reader.get_quantized_vector_values(field)
+    QuantizedVectorsReader::get_quantized_vector_values(&self.flat_vectors_reader, field)
   }
 
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
@@ -414,6 +414,15 @@ where
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
     self.flat_vectors_reader.get_byte_vector_values(field)
+  }
+
+  type QuantizedByteVectorValues = <F as KnnVectorsReader>::QuantizedByteVectorValues;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    self.flat_vectors_reader.get_quantized_vector_values(field)
   }
 
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {

@@ -22,6 +22,7 @@ use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_reader::Identity;
@@ -433,6 +434,8 @@ where
     let _ = values.size();
     Ok(values)
   }
+
+  type QuantizedByteVectorValues = DummyByteVectorValues;
 
   fn get_quantization_state(&self, _field: &str) -> Result<Option<ScalarQuantizer>> {
     Ok(None)

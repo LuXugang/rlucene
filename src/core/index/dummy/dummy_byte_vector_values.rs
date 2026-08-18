@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
+use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
 use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
@@ -23,6 +24,8 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_bits::DummyBits;
+use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
+use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use std::borrow::Cow;
 
 #[derive(Clone)]
@@ -79,6 +82,32 @@ impl ByteVectorValues for DummyByteVectorValues {
   }
 
   fn get_encoding(&self) -> VectorEncoding {
+    dummy_unreachable!()
+  }
+}
+
+impl HasIndexSlice for DummyByteVectorValues {}
+
+impl QuantizedByteVectorValues for DummyByteVectorValues {
+  fn get_score_correction_constant(
+    &self,
+    _ord: usize,
+  ) -> crate::core::util::error::lucene_error::Result<f32> {
+    dummy_unreachable!()
+  }
+
+  fn get_scalar_quantizer(
+    &self,
+  ) -> crate::core::util::error::lucene_error::Result<ScalarQuantizer> {
+    dummy_unreachable!()
+  }
+
+  type QuantizedVectorScorer = DummyVectorScorer;
+  type QuantizedByteVectorValues = Self;
+
+  fn copy(
+    &self,
+  ) -> crate::core::util::error::lucene_error::Result<Self::QuantizedByteVectorValues> {
     dummy_unreachable!()
   }
 }

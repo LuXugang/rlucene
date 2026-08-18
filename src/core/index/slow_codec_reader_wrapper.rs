@@ -24,6 +24,7 @@ use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{DefaultTermVectorsReader, TermVectorsReader};
 use crate::core::index::codec_reader::{CodecReader, StoredFieldsType, TermVectorsType};
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
@@ -772,6 +773,8 @@ where
       )),
     }
   }
+
+  type QuantizedByteVectorValues = DummyByteVectorValues;
 
   fn search_f32<B, K>(
     &self,

@@ -486,6 +486,18 @@ where
       .get_byte_vector_values(field)
   }
 
+  type QuantizedByteVectorValues = KVR::QuantizedByteVectorValues;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    match self.get_field_reader(field)? {
+      Some(reader) => reader.get_quantized_vector_values(field),
+      None => Ok(None),
+    }
+  }
+
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
     match self.get_field_reader(field)? {
       Some(reader) => reader.get_quantization_state(field),

@@ -29,6 +29,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
+use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use std::sync::Arc;
 
@@ -51,6 +52,17 @@ pub trait KnnVectorsReader: HnswGraphProvider + CloseableRef {
   /// the given field doesn't have KNN vectors enabled on its `FieldInfo`. The return value is
   /// never `None`.
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues>;
+
+  type QuantizedByteVectorValues: QuantizedByteVectorValues;
+
+  /// Returns quantized vector values when this reader implements Java's
+  /// `QuantizedVectorsReader`; ordinary vector readers return `None`.
+  fn get_quantized_vector_values(
+    &self,
+    _field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    Ok(None)
+  }
 
   fn get_quantization_state(&self, _field: &str) -> Result<Option<ScalarQuantizer>> {
     Ok(None)
@@ -231,6 +243,19 @@ macro_rules! either_knn_vectors_reader {
                 }
             }
 
+            type QuantizedByteVectorValues =
+                $crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2<
+                    $( < $T as $crate::core::codecs::knn_vectors_reader::KnnVectorsReader >::QuantizedByteVectorValues ),+
+                >;
+
+            #[inline]
+            fn get_quantized_vector_values(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Option<Self::QuantizedByteVectorValues>> {
+                match self {
+                    $( Self::$Variant(inner) => inner.get_quantized_vector_values(field)
+                        .map(|values| values.map($crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2::$Variant)), )+
+                }
+            }
+
             #[inline]
             fn get_quantization_state(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Option<$crate::core::util::quantization::scalar_quantizer::ScalarQuantizer>> {
                 match self {
@@ -330,6 +355,8 @@ impl KnnVectorsReader for KnnVectorsReaderEnum {
     todo!()
   }
 
+  type QuantizedByteVectorValues = DummyByteVectorValues;
+
   fn search_f32<B, K>(
     &self,
     _field: &str,
@@ -403,6 +430,15 @@ where
 
   fn get_byte_vector_values(&self, field: &str) -> Result<Self::ByteVectorValues> {
     (**self).get_byte_vector_values(field)
+  }
+
+  type QuantizedByteVectorValues = T::QuantizedByteVectorValues;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    (**self).get_quantized_vector_values(field)
   }
 
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {

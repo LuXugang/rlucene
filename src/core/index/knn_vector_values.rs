@@ -62,11 +62,12 @@ pub trait KnnVectorValues {
   fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
   where
     B: Bits;
-  fn default_get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<BitsImpl1<B>>
+  fn default_get_accept_ords<B>(&self, accept_docs: Option<B>) -> Option<BitsImpl<B, &Self>>
   where
     B: Bits,
+    Self: Sized,
   {
-    accept_docs.map(|accept_docs| BitsImpl1::new(accept_docs, self.size()))
+    accept_docs.map(|accept_docs| BitsImpl::new(accept_docs, self.size(), self))
   }
 
   type DocIndexIterator: DocIndexIterator;
@@ -126,41 +127,7 @@ where
     (**self).iterator()
   }
 }
-pub struct BitsImpl1<B> {
-  accept_docs: B,
-  id: Identity,
-  length: usize,
-}
-impl<B> BitsImpl1<B> {
-  pub(crate) fn new(accept_docs: B, length: usize) -> Self {
-    Self {
-      accept_docs,
-      id: Identity::new(),
-      length,
-    }
-  }
-}
-
-impl<B> HasIdentity for BitsImpl1<B> {
-  fn identity(&self) -> &Identity {
-    &self.id
-  }
-}
-
-impl<B> Bits for BitsImpl1<B>
-where
-  B: Bits,
-{
-  fn get(&self, index: usize) -> Result<bool> {
-    self.accept_docs.get(index)
-  }
-
-  fn length(&self) -> usize {
-    self.length
-  }
-}
-
-pub(crate) struct BitsImpl<B, T> {
+pub struct BitsImpl<B, T> {
   accept_docs: B,
   size: usize,
   map: T,
@@ -186,10 +153,10 @@ impl<B, T> HasIdentity for BitsImpl<B, T> {
 impl<B, T> Bits for BitsImpl<B, T>
 where
   B: Bits,
-  T: OrdToDoc,
+  T: KnnVectorValues,
 {
   fn get(&self, index: usize) -> Result<bool> {
-    self.accept_docs.get(self.map.ord_to_doc(index) as usize)
+    self.accept_docs.get(self.map.ord_to_doc(index)?)
   }
 
   fn length(&self) -> usize {
@@ -306,13 +273,13 @@ impl DocIndexIterator for DenseDocIndexIterator {
   }
 }
 
-pub(crate) struct DocIndexIteratorImpl2<D> {
+pub struct DocIndexIteratorImpl2<D> {
   ord: i32,
   docs_with_field: D,
 }
 
 impl<D> DocIndexIteratorImpl2<D> {
-  pub(crate) fn new(docs_with_field: D) -> Self {
+  pub fn new(docs_with_field: D) -> Self {
     Self {
       ord: -1,
       docs_with_field,
@@ -354,14 +321,14 @@ where
   }
 }
 
-pub(crate) struct SparseDocIndexIterator<T> {
+pub struct SparseDocIndexIterator<T> {
   ord: i32,
   size: usize,
   map: T,
 }
 
 impl<T> SparseDocIndexIterator<T> {
-  pub(crate) fn new(size: usize, ord_to_doc: T) -> Self {
+  pub fn new(size: usize, ord_to_doc: T) -> Self {
     Self {
       ord: -1,
       size,
@@ -421,7 +388,7 @@ pub(crate) fn create_dense_iterator(size: i32) -> DenseDocIndexIterator {
 
 /// creates an iterator from a docidsetiterator indicating which docs have
 /// values, and for which ordinals increase monotonically with docid.
-pub(crate) fn from_disi<D>(disi: D) -> DocIndexIteratorImpl2<D>
+pub fn from_disi<D>(disi: D) -> DocIndexIteratorImpl2<D>
 where
   D: DocIdSetIterator,
 {
@@ -430,7 +397,7 @@ where
 
 ///  Creates an iterator from this instance's ordinal-to-docid mapping which
 /// must be monotonic (docid increases when ordinal does).
-pub(crate) fn create_sparse_iterator<T>(size: usize, map: T) -> SparseDocIndexIterator<T>
+pub fn create_sparse_iterator<T>(size: usize, map: T) -> SparseDocIndexIterator<T>
 where
   T: OrdToDoc,
 {

@@ -26,7 +26,7 @@ use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIterator, KnnVectorValues};
+use crate::core::index::knn_vector_values::{BitsImpl, DocIndexIterator, KnnVectorValues};
 use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -567,7 +567,7 @@ where
   }
 
   type Bits<'a, B>
-    = BitsImpl1<B>
+    = BitsImpl<B, &'a Self>
   where
     B: Bits,
     Self: 'a;
@@ -781,7 +781,7 @@ where
   }
 
   type Bits<'a, B1>
-    = BitsImpl1<B1>
+    = BitsImpl<B1, &'a Self>
   where
     B1: Bits,
     Self: 'a;

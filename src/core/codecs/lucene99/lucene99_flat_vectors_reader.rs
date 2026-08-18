@@ -30,6 +30,7 @@ use crate::core::codecs::lucene99::lucene99_hnsw_vectors_reader::{
   read_similarity_function, read_vector_encoding,
 };
 use crate::core::index::IndexFileNames;
+use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
@@ -284,6 +285,8 @@ where
       self.vector_data.clone(),
     )
   }
+
+  type QuantizedByteVectorValues = DummyByteVectorValues;
 
   fn is_flat_vectors_reader(&self, _field: &str) -> bool {
     true

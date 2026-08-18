@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::dummy::dummy_doc_index_iterator::DummyDocIndexIterator;
-use crate::core::index::knn_vector_values::{BitsImpl1, DocIndexIteratorEnum2, KnnVectorValues};
+use crate::core::index::knn_vector_values::{BitsImpl, DocIndexIteratorEnum2, KnnVectorValues};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
@@ -296,7 +296,7 @@ impl KnnVectorValues for FloatVectorValuesImpl {
   }
 
   type Bits<'a, B>
-    = BitsImpl1<B>
+    = BitsImpl<B, &'a Self>
   where
     B: Bits,
     Self: 'a;

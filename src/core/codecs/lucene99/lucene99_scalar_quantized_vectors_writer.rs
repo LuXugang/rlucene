@@ -47,10 +47,12 @@ use crate::core::index::codec_reader::CRKnnVectorReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::docs_with_field_set::DocsWithFieldSet;
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
+use crate::core::index::dummy::dummy_knn_vector_values::DummyKnnVectorsWriter;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::{
-  BitsImpl1, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
+  BitsImpl, DenseDocIndexIterator, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues,
+  KnnVectorValuesEnm2,
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_state::{DocMap as MergeDocMap, MergeState, MergeStateDocMapImpl};
@@ -68,7 +70,7 @@ use crate::core::store::{DataOutput, IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::bits::Bits;
+use crate::core::util::bits::{Bits, BitsEnum2};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -1252,6 +1254,7 @@ impl ScalarQuantizedFieldWriter {
     }
   }
 
+  #[allow(dead_code)] // Mirrors Java FieldWriter.isFinished; Rust returns the delegate field writer and tracks this wrapper separately.
   fn is_finished<FW>(&self, flat_field_vectors_writers: &mut [FW]) -> Result<bool>
   where
     FW: FlatFieldVectorsWriter,
@@ -1424,7 +1427,7 @@ impl KnnVectorValues for FloatVectorWrapper<'_> {
   }
 
   type Bits<'a, B>
-    = BitsImpl1<B>
+    = BitsImpl<B, &'a Self>
   where
     B: Bits,
     Self: 'a;
@@ -1507,7 +1510,172 @@ where
   }
 }
 
-/// Returns a merged view over all the segment's [`QuantizedByteVectorValues`].
+type RequantizedMergedValues<F> = QuantizedFloatVectorValues<MergeFloatVectorValues<F>>;
+type OffsetCorrectedMergedValues<Q> = OffsetCorrectedQuantizedByteVectorValues<Q>;
+
+enum MergedQuantizedByteVectorValues<F, Q> {
+  Requantized(RequantizedMergedValues<F>),
+  OffsetCorrected(OffsetCorrectedMergedValues<Q>),
+}
+
+impl<F, Q> HasIndexSlice for MergedQuantizedByteVectorValues<F, Q>
+where
+  F: FloatVectorValues,
+  Q: QuantizedByteVectorValues,
+{
+  fn seek(&self, pos: usize) -> Result<()> {
+    match self {
+      Self::Requantized(values) => values.seek(pos),
+      Self::OffsetCorrected(values) => values.seek(pos),
+    }
+  }
+
+  fn read_bytes(&self, bytes: &mut [u8], offset: usize, len: usize) -> Result<()> {
+    match self {
+      Self::Requantized(values) => values.read_bytes(bytes, offset, len),
+      Self::OffsetCorrected(values) => values.read_bytes(bytes, offset, len),
+    }
+  }
+}
+
+impl<F, Q> KnnVectorValues for MergedQuantizedByteVectorValues<F, Q>
+where
+  F: FloatVectorValues,
+  Q: QuantizedByteVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::Requantized(values) => values.dimension(),
+      Self::OffsetCorrected(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Requantized(values) => values.size(),
+      Self::OffsetCorrected(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Requantized(values) => values.ord_to_doc(ord),
+      Self::OffsetCorrected(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = DummyKnnVectorsWriter;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Requantized(values) => KnnVectorValues::get_encoding(values),
+      Self::OffsetCorrected(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, AcceptDocs>
+    = BitsEnum2<
+    <RequantizedMergedValues<F> as KnnVectorValues>::Bits<'a, AcceptDocs>,
+    <OffsetCorrectedMergedValues<Q> as KnnVectorValues>::Bits<'a, AcceptDocs>,
+  >
+  where
+    AcceptDocs: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, AcceptDocs>(
+    &'a self,
+    accept_docs: Option<AcceptDocs>,
+  ) -> Option<Self::Bits<'a, AcceptDocs>>
+  where
+    AcceptDocs: Bits,
+  {
+    match self {
+      Self::Requantized(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::A),
+      Self::OffsetCorrected(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::B),
+    }
+  }
+
+  type DocIndexIterator = DocIndexIteratorEnum2<
+    <RequantizedMergedValues<F> as KnnVectorValues>::DocIndexIterator,
+    <OffsetCorrectedMergedValues<Q> as KnnVectorValues>::DocIndexIterator,
+  >;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::Requantized(values) => values.iterator().map(DocIndexIteratorEnum2::A),
+      Self::OffsetCorrected(values) => values.iterator().map(DocIndexIteratorEnum2::B),
+    }
+  }
+}
+
+impl<F, Q> ByteVectorValues for MergedQuantizedByteVectorValues<F, Q>
+where
+  F: FloatVectorValues,
+  Q: QuantizedByteVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::Requantized(values) => values.vector_value(ord),
+      Self::OffsetCorrected(values) => values.vector_value(ord),
+    }
+  }
+
+  type ByteVectorValues = <OffsetCorrectedMergedValues<Q> as ByteVectorValues>::ByteVectorValues;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    match self {
+      Self::Requantized(_) => Err(LuceneError::unsupported_operation("")),
+      Self::OffsetCorrected(values) => values.byte_copy(),
+    }
+  }
+
+  type VectorScorer = DummyVectorScorer;
+
+  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
+
+impl<F, Q> QuantizedByteVectorValues for MergedQuantizedByteVectorValues<F, Q>
+where
+  F: FloatVectorValues,
+  Q: QuantizedByteVectorValues,
+{
+  fn get_scalar_quantizer(&self) -> Result<ScalarQuantizer> {
+    match self {
+      Self::Requantized(values) => values.get_scalar_quantizer(),
+      Self::OffsetCorrected(values) => values.get_scalar_quantizer(),
+    }
+  }
+
+  fn get_score_correction_constant(&self, ord: usize) -> Result<f32> {
+    match self {
+      Self::Requantized(values) => values.get_score_correction_constant(ord),
+      Self::OffsetCorrected(values) => values.get_score_correction_constant(ord),
+    }
+  }
+
+  type QuantizedVectorScorer = DummyVectorScorer;
+
+  fn scorer(&self, _query: &[f32]) -> Result<Option<Self::QuantizedVectorScorer>> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type QuantizedByteVectorValues =
+    <OffsetCorrectedMergedValues<Q> as QuantizedByteVectorValues>::QuantizedByteVectorValues;
+
+  fn copy(&self) -> Result<Self::QuantizedByteVectorValues> {
+    match self {
+      Self::Requantized(_) => Err(LuceneError::unsupported_operation("")),
+      Self::OffsetCorrected(values) => QuantizedByteVectorValues::copy(values),
+    }
+  }
+}
+
 struct MergedQuantizedVectorValues<V, LiveBits>
 where
   V: QuantizedByteVectorValues,
@@ -1532,12 +1700,13 @@ where
   doc_id_merger: DocIDMergerEnum<QuantizedByteVectorValueSub<V, DM>>,
 }
 
-impl<F, LiveBits>
-  MergedQuantizedVectorValues<QuantizedFloatVectorValues<MergeFloatVectorValues<F>>, LiveBits>
+impl<F, Q, LiveBits> MergedQuantizedVectorValues<MergedQuantizedByteVectorValues<F, Q>, LiveBits>
 where
   F: FloatVectorValues,
+  Q: QuantizedByteVectorValues,
   LiveBits: Bits,
 {
+  /// Returns a merged view over all the segment's [`QuantizedByteVectorValues`].
   fn merge_quantized_byte_vector_values<D, CR>(
     field_info: &FieldInfo,
     merge_state: &MergeState<'_, D, CR>,
@@ -1545,7 +1714,7 @@ where
   ) -> Result<Self>
   where
     CR: CodecReader + LeafReader<Bits = LiveBits>,
-    CRKnnVectorReader<CR>: KnnVectorsReader<FloatVectorValues = F>,
+    CRKnnVectorReader<CR>: KnnVectorsReader<FloatVectorValues = F, QuantizedByteVectorValues = Q>,
   {
     debug_assert!(field_info.has_vector_values());
 
@@ -1555,21 +1724,46 @@ where
         && let Some(knn_vectors_reader) = merge_state.knn_vectors_readers[i].as_ref()
       {
         debug_assert!(scalar_quantizer.get_bits() > 0);
-        let to_quantize = knn_vectors_reader.get_float_vector_values(&field_info.name)?;
-        let to_quantize =
-          if *field_info.get_vector_similarity_function() == VectorSimilarityFunction::Cosine {
-            MergeFloatVectorValues::Normalized(NormalizedFloatVectorValues::new(to_quantize))
-          } else {
-            MergeFloatVectorValues::Original(to_quantize)
-          };
-        let sub = QuantizedByteVectorValueSub::new(
-          merge_state.doc_maps[i].clone(),
-          QuantizedFloatVectorValues::new(
-            to_quantize,
-            *field_info.get_vector_similarity_function(),
-            scalar_quantizer.clone(),
-          ),
-        )?;
+        let old_scalar_quantizer = knn_vectors_reader.get_quantization_state(&field_info.name)?;
+        // Either our quantization parameters are way different than the merged ones
+        // or we have never been quantized. For smaller `bits` values, always
+        // recalculate the quantiles, matching Java's conservative int4 policy.
+        let existing_values = match old_scalar_quantizer.as_ref() {
+          Some(old_scalar_quantizer)
+            if scalar_quantizer.get_bits() > 4
+              && !should_requantize(old_scalar_quantizer, &scalar_quantizer) =>
+          {
+            knn_vectors_reader.get_quantized_vector_values(&field_info.name)?
+          },
+          _ => None,
+        };
+        let values = match (existing_values, old_scalar_quantizer) {
+          (Some(existing_values), Some(old_scalar_quantizer)) => {
+            MergedQuantizedByteVectorValues::OffsetCorrected(
+              OffsetCorrectedQuantizedByteVectorValues::new(
+                existing_values,
+                *field_info.get_vector_similarity_function(),
+                scalar_quantizer.clone(),
+                old_scalar_quantizer,
+              ),
+            )
+          },
+          _ => {
+            let to_quantize = knn_vectors_reader.get_float_vector_values(&field_info.name)?;
+            let to_quantize =
+              if *field_info.get_vector_similarity_function() == VectorSimilarityFunction::Cosine {
+                MergeFloatVectorValues::Normalized(NormalizedFloatVectorValues::new(to_quantize))
+              } else {
+                MergeFloatVectorValues::Original(to_quantize)
+              };
+            MergedQuantizedByteVectorValues::Requantized(QuantizedFloatVectorValues::new(
+              to_quantize,
+              *field_info.get_vector_similarity_function(),
+              scalar_quantizer.clone(),
+            ))
+          },
+        };
+        let sub = QuantizedByteVectorValueSub::new(merge_state.doc_maps[i].clone(), values)?;
         subs.push(Sub::new(sub));
       }
     }
@@ -1636,7 +1830,7 @@ where
   }
 
   type Bits<'a, B>
-    = BitsImpl1<B>
+    = BitsImpl<B, &'a Self>
   where
     B: Bits,
     Self: 'a;
@@ -1955,7 +2149,7 @@ impl<Q> OffsetCorrectedQuantizedByteVectorValues<Q> {
 
 impl<Q> HasIndexSlice for OffsetCorrectedQuantizedByteVectorValues<Q>
 where
-  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+  Q: QuantizedByteVectorValues,
 {
   fn seek(&self, pos: usize) -> Result<()> {
     self.in_.seek(pos)
@@ -1968,7 +2162,7 @@ where
 
 impl<Q> KnnVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
 where
-  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+  Q: QuantizedByteVectorValues,
 {
   fn dimension(&self) -> usize {
     self.in_.dimension()
@@ -2010,13 +2204,13 @@ where
 
 impl<Q> ByteVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
 where
-  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+  Q: QuantizedByteVectorValues,
 {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     self.in_.vector_value(ord)
   }
 
-  type ByteVectorValues = Self;
+  type ByteVectorValues = OffsetCorrectedQuantizedByteVectorValues<Q::QuantizedByteVectorValues>;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     QuantizedByteVectorValues::copy(self).map(Some)
@@ -2027,7 +2221,7 @@ where
 
 impl<Q> QuantizedByteVectorValues for OffsetCorrectedQuantizedByteVectorValues<Q>
 where
-  Q: QuantizedByteVectorValues<QuantizedByteVectorValues = Q>,
+  Q: QuantizedByteVectorValues,
 {
   fn get_scalar_quantizer(&self) -> Result<ScalarQuantizer> {
     Ok(self.scalar_quantizer.clone())
@@ -2048,10 +2242,13 @@ where
     Err(LuceneError::unsupported_operation(""))
   }
 
-  type QuantizedByteVectorValues = Self;
+  type QuantizedByteVectorValues =
+    OffsetCorrectedQuantizedByteVectorValues<Q::QuantizedByteVectorValues>;
 
   fn copy(&self) -> Result<Self::QuantizedByteVectorValues> {
-    Ok(Self::new(
+    Ok(OffsetCorrectedQuantizedByteVectorValues::<
+      Q::QuantizedByteVectorValues,
+    >::new(
       QuantizedByteVectorValues::copy(&self.in_)?,
       self.vector_similarity_function,
       self.scalar_quantizer.clone(),

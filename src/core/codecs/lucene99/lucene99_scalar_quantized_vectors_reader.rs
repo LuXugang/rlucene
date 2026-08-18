@@ -371,6 +371,15 @@ where
     self.raw_vectors_reader.get_byte_vector_values(field)
   }
 
+  type QuantizedByteVectorValues = OffHeapQuantizedByteVectorValuesEnum<Arc<I>, F>;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    QuantizedVectorsReader::get_quantized_vector_values(self, field).map(Some)
+  }
+
   fn get_quantization_state(&self, field: &str) -> Result<Option<ScalarQuantizer>> {
     QuantizedVectorsReader::get_quantization_state(self, field)
   }

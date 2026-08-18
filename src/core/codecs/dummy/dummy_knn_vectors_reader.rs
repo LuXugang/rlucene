@@ -51,6 +51,8 @@ impl KnnVectorsReader for DummyKnnVectorsReader {
     dummy_unreachable!()
   }
 
+  type QuantizedByteVectorValues = DummyByteVectorValues;
+
   fn search_f32<B, K>(
     &self,
     _field: &str,

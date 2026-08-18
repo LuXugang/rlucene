@@ -38,7 +38,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::knn_vector_values::{
-  BitsImpl1, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
+  BitsImpl, DenseDocIndexIterator, DocIndexIterator, KnnVectorValues, KnnVectorValuesEnm2,
   create_dense_iterator,
 };
 use crate::core::index::leaf_reader::LeafReader;
@@ -1198,7 +1198,7 @@ impl KnnVectorValues for CircularByteVectorValues {
   }
 
   type Bits<'a, B>
-    = BitsImpl1<B>
+    = BitsImpl<B, &'a Self>
   where
     B: Bits,
     Self: 'a;
@@ -1278,7 +1278,7 @@ impl KnnVectorValues for CircularFloatVectorValues {
   }
 
   type Bits<'a, B>
-    = BitsImpl1<B>
+    = BitsImpl<B, &'a Self>
   where
     B: Bits,
     Self: 'a;
