@@ -16,13 +16,14 @@
  */
 use crate::{LogColor, colorize, log, run_cargo_with_env};
 
-pub(crate) fn run(extra_args: &[String]) {
-  let mut args = vec!["test".to_string(), "--lib".to_string()];
-  args.extend_from_slice(extra_args);
-  let args: Vec<&str> = args.iter().map(String::as_str).collect();
+pub(crate) fn run() {
+  let args = ["test", "--lib", "-q"];
 
   log(&colorize("Running Cargo test-light", LogColor::Green, true));
-  run_cargo_with_env(&args, &[("tests.light", "true")]);
+  run_cargo_with_env(
+    &args,
+    &[("tests.light", "true"), ("CARGO_PROFILE_TEST_DEBUG", "0")],
+  );
   log(&colorize(
     "✅ ✅ ✅ Finished Cargo test-light",
     LogColor::Green,

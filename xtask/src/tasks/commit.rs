@@ -14,22 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::{LogColor, colorize, log, run_cargo};
+use crate::{LogColor, colorize, log};
 
 pub(crate) fn run() {
   super::tidy::run();
   super::check_uncommitted::run();
-  log(&colorize(
-    "Running Cargo test-light -q",
-    LogColor::Green,
-    true,
-  ));
-  run_cargo(&["test-light", "-q"]);
-  log(&colorize(
-    "✅ ✅ ✅ Finished Cargo test-light -q",
-    LogColor::Green,
-    true,
-  ));
+  super::test_light::run();
   log(&colorize(
     "✅ ✅ ✅ Finished Cargo commit",
     LogColor::Green,

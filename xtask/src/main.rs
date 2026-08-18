@@ -81,14 +81,13 @@ pub(crate) fn log(msg: &str) {
 fn main() {
   let mut args = env::args().skip(1);
   let command = args.next();
-  let extra_args: Vec<String> = args.collect();
   match command.as_deref() {
     Some("tidy") => tasks::tidy::run(),
     Some("commit") => tasks::commit::run(),
     Some("ci") => tasks::ci::run(),
     Some("nightly") => tasks::nightly::run(),
     Some("monster") => tasks::monster::run(),
-    Some("test-light") => tasks::test_light::run(&extra_args),
+    Some("test-light") => tasks::test_light::run(),
     Some("check-uncommitted") => tasks::check_uncommitted::run(),
     Some("license-check") => tasks::license::license_check::run(),
     Some("nextest-run") => tasks::nextest::run(),
