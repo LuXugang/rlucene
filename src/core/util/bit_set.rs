@@ -25,8 +25,19 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// Rust-side specialization hooks for [`BitSet`].
+pub trait BitSetExtensions {
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    None
+  }
+
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    None
+  }
+}
+
 /// Base implementation for a bit set.
-pub trait BitSet: Bits + Accountable {
+pub trait BitSet: Bits + Accountable + BitSetExtensions {
   /// Clears all the bits of the set.
   ///
   /// # Note
@@ -100,14 +111,6 @@ pub trait BitSet: Bits + Accountable {
 
   fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
     Ok(())
-  }
-
-  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
-    None
-  }
-
-  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
-    None
   }
 }
 
@@ -261,7 +264,13 @@ where
       BitSetEnum2::B(s) => s.ensure_capacity(_num_bits),
     }
   }
+}
 
+impl<A, B> BitSetExtensions for BitSetEnum2<A, B>
+where
+  A: BitSet,
+  B: BitSet,
+{
   fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     match self {
       BitSetEnum2::A(t) => t.as_fixed_bit_set(),
@@ -344,7 +353,12 @@ where
       "cannot mutate a BitSet through Arc",
     ))
   }
+}
 
+impl<T> BitSetExtensions for Arc<T>
+where
+  T: BitSet,
+{
   fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     (**self).as_fixed_bit_set()
   }
@@ -443,7 +457,12 @@ where
       "cannot mutate a BitSet through Rc",
     ))
   }
+}
 
+impl<T> BitSetExtensions for Rc<T>
+where
+  T: BitSet,
+{
   fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     (**self).as_fixed_bit_set()
   }

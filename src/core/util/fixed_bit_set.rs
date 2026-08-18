@@ -491,10 +491,6 @@ impl Accountable for FixedBitSet {
 }
 
 impl BitSet for FixedBitSet {
-  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
-    Some(self)
-  }
-
   fn set(&mut self, i: usize) {
     debug_assert!(
       i < self.num_bits,
@@ -689,6 +685,12 @@ impl BitSet for FixedBitSet {
     Ok(())
   }
 }
+impl crate::core::util::bit_set::BitSetExtensions for FixedBitSet {
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    Some(self)
+  }
+}
+
 /// Immutable of FixedBitSet.
 #[derive(Clone)]
 pub struct FixedBit {

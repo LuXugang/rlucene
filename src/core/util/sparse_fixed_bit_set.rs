@@ -432,10 +432,6 @@ impl Accountable for SparseFixedBitSet {
   }
 }
 impl BitSet for SparseFixedBitSet {
-  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
-    Some(self)
-  }
-
   fn clear(&mut self) {
     for bit_array in &mut self.bits {
       *bit_array = None;
@@ -618,5 +614,11 @@ impl BitSet for SparseFixedBitSet {
     } else {
       self.or_dense(iter)
     }
+  }
+}
+
+impl crate::core::util::bit_set::BitSetExtensions for SparseFixedBitSet {
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    Some(self)
   }
 }

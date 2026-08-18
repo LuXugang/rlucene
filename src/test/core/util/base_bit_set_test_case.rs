@@ -541,6 +541,8 @@ impl BitSet for RustUtilBitSet {
     self.default_or(iter)
   }
 }
+
+impl crate::core::util::bit_set::BitSetExtensions for RustUtilBitSet {}
 #[test]
 fn bit_set_util_equal_and_clone() {
   let mut random = random();
