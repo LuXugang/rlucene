@@ -27,6 +27,10 @@ impl DocValuesIterator for DummyNumericDocValues {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DummyNumericDocValues
+{
+}
 impl DocIdSetIterator for DummyNumericDocValues {
   fn doc_id(&self) -> i32 {
     -1

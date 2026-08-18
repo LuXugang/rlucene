@@ -714,6 +714,12 @@ impl<D> BoundedDocIdSetIterator<D> {
   }
 }
 
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BoundedDocIdSetIterator<D>
+where
+  D: DocIdSetIterator,
+{
+}
 impl<D> DocIdSetIterator for BoundedDocIdSetIterator<D>
 where
   D: DocIdSetIterator,

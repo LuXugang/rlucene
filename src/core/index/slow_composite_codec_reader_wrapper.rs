@@ -1988,6 +1988,12 @@ where
   }
 }
 
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MergedDocIterator<T>
+where
+  T: DocIndexIterator,
+{
+}
 impl<T> DocIdSetIterator for MergedDocIterator<T>
 where
   T: DocIndexIterator,

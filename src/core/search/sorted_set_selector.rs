@@ -128,6 +128,10 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MinValue<S> where
+  S: SortedSetDocValues
+{
+}
 impl<S> DocIdSetIterator for MinValue<S>
 where
   S: SortedSetDocValues,
@@ -222,6 +226,10 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MaxValue<S> where
+  S: SortedSetDocValues
+{
+}
 impl<S> DocIdSetIterator for MaxValue<S>
 where
   S: SortedSetDocValues,
@@ -319,6 +327,10 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MiddleMinValue<S> where
+  S: SortedSetDocValues
+{
+}
 impl<S> DocIdSetIterator for MiddleMinValue<S>
 where
   S: SortedSetDocValues,
@@ -415,6 +427,10 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MiddleMaxValue<S> where
+  S: SortedSetDocValues
+{
+}
 impl<S> DocIdSetIterator for MiddleMaxValue<S>
 where
   S: SortedSetDocValues,
@@ -495,6 +511,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedDocValuesWrap<S>
+where
+  S: SortedSetDocValues,
+{
+}
 impl<S> DocIdSetIterator for SortedDocValuesWrap<S>
 where
   S: SortedSetDocValues,

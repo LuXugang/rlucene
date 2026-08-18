@@ -44,6 +44,12 @@ pub mod norms {
     }
   }
 
+  impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+    for Lucene90NormNumericDocValuesEnum<I>
+  where
+    I: IndexInput,
+  {
+  }
   impl<I> DocIdSetIterator for Lucene90NormNumericDocValuesEnum<I>
   where
     I: IndexInput,

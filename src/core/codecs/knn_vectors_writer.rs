@@ -636,6 +636,13 @@ where
   size: usize,
 }
 
+impl<F, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MergedFloat32VectorValuesIterator<F, DM>
+where
+  F: FloatVectorValues,
+  DM: MergeDocMap,
+{
+}
 impl<F, DM> DocIdSetIterator for MergedFloat32VectorValuesIterator<F, DM>
 where
   F: FloatVectorValues,
@@ -851,6 +858,13 @@ where
   size: usize,
 }
 
+impl<B, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MergedByteVectorValuesIterator<B, DM>
+where
+  B: ByteVectorValues,
+  DM: MergeDocMap,
+{
+}
 impl<B, DM> DocIdSetIterator for MergedByteVectorValuesIterator<B, DM>
 where
   B: ByteVectorValues,

@@ -207,6 +207,10 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for Rc<RefCell<S>> where
+  S: DocIdSetIterator
+{
+}
 impl<S> DocIdSetIterator for Rc<RefCell<S>>
 where
   S: DocIdSetIterator,

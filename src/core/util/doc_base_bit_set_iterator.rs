@@ -103,7 +103,11 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
   fn cost(&self) -> Result<i64> {
     Ok(self.cost)
   }
+}
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocBaseBitSetIterator
+{
   fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
     Some((self.doc_base, &self.bits))
   }

@@ -81,6 +81,10 @@ impl DocValuesIterator for SortedSetDocValuesWriterValues {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedSetDocValuesWriterValues
+{
+}
 impl DocIdSetIterator for SortedSetDocValuesWriterValues {
   fn doc_id(&self) -> i32 {
     match self {
@@ -165,6 +169,10 @@ impl DocValuesIterator for SortedSetDocValuesWriterDocIdSetIterator {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedSetDocValuesWriterDocIdSetIterator
+{
+}
 impl DocIdSetIterator for SortedSetDocValuesWriterDocIdSetIterator {
   fn doc_id(&self) -> i32 {
     match self {
@@ -689,6 +697,12 @@ impl<D> BufferedSortedSetDocValues<D> {
   }
 }
 
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BufferedSortedSetDocValues<D>
+where
+  D: DocIdSetIterator,
+{
+}
 impl<D> DocIdSetIterator for BufferedSortedSetDocValues<D>
 where
   D: DocIdSetIterator,
@@ -810,6 +824,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingSortedSetDocValues<S>
+where
+  S: SortedSetDocValues,
+{
+}
 impl<S> DocIdSetIterator for SortingSortedSetDocValues<S>
 where
   S: SortedSetDocValues,
@@ -952,6 +972,13 @@ where
   }
 }
 
+impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedSetDocValuesEnum2<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
 impl<A, B> DocIdSetIterator for SortedSetDocValuesEnum2<A, B>
 where
   A: DocIdSetIterator,
@@ -1078,6 +1105,13 @@ where
   }
 }
 
+impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SingletonOrMultiSortedSetDocValuesEnum<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
 impl<A, B> DocIdSetIterator for SingletonOrMultiSortedSetDocValuesEnum<A, B>
 where
   A: DocIdSetIterator,

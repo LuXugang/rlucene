@@ -252,6 +252,10 @@ impl DocComparatorIterator {
     }
   }
 }
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocComparatorIterator
+{
+}
 impl DocIdSetIterator for DocComparatorIterator {
   fn doc_id(&self) -> i32 {
     self.competitive_iterator.doc_id()

@@ -120,6 +120,10 @@ impl<D: DocIdSetIterator> NotDocDocIdSetIterator<D> {
   }
 }
 
+impl<D: DocIdSetIterator> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NotDocDocIdSetIterator<D>
+{
+}
 impl<D: DocIdSetIterator> DocIdSetIterator for NotDocDocIdSetIterator<D> {
   fn doc_id(&self) -> i32 {
     self.doc

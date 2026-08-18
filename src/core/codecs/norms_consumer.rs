@@ -237,6 +237,13 @@ where
   }
 }
 
+impl<N, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesMerge<N, DM>
+where
+  N: NumericDocValues,
+  DM: DocMap,
+{
+}
 impl<N, DM> DocIdSetIterator for NumericDocValuesMerge<N, DM>
 where
   N: NumericDocValues,

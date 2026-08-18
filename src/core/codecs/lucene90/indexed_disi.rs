@@ -365,6 +365,13 @@ where
   }
 }
 
+impl<I, R> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for IndexedDISIImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+}
 impl<I, R> DocIdSetIterator for IndexedDISIImpl<I, R>
 where
   I: IndexInput,
@@ -668,6 +675,12 @@ where
     Self { disi }
   }
 }
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIndexIteratorImpl<I>
+where
+  I: IndexInput,
+{
+}
 impl<I> DocIdSetIterator for DocIndexIteratorImpl<I>
 where
   I: IndexInput,
@@ -705,6 +718,12 @@ where
   Sparse(DocIndexIteratorImpl<I>),
 }
 
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for IndexedDISIDocIndexIterator<I>
+where
+  I: IndexInput,
+{
+}
 impl<I> DocIdSetIterator for IndexedDISIDocIndexIterator<I>
 where
   I: IndexInput,
@@ -1351,6 +1370,10 @@ where
       Self::Shared(disi) => disi.index(),
     }
   }
+}
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for IndexedDISIEnum<I> where
+  I: IndexInput
+{
 }
 impl<I> DocIdSetIterator for IndexedDISIEnum<I>
 where

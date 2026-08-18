@@ -1017,6 +1017,12 @@ impl<DI> MergedDocValues<DI> {
     }
   }
 }
+impl<DI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MergedDocValues<DI>
+where
+  DI: DocValuesIterator,
+{
+}
 impl<DI> DocIdSetIterator for MergedDocValues<DI>
 where
   DI: DocValuesIterator,
@@ -1101,6 +1107,12 @@ where
   }
 }
 
+impl<DI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BinaryDocValuesImpl<DI>
+where
+  DI: DocValuesIterator,
+{
+}
 impl<DI> DocIdSetIterator for BinaryDocValuesImpl<DI>
 where
   DI: DocValuesIterator,
@@ -1166,6 +1178,12 @@ where
   }
 }
 
+impl<DI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesImpl<DI>
+where
+  DI: DocValuesIterator,
+{
+}
 impl<DI> DocIdSetIterator for NumericDocValuesImpl<DI>
 where
   DI: DocValuesIterator,

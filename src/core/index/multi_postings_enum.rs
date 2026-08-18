@@ -86,6 +86,12 @@ impl<PE> MultiPostingsEnum<PE> {
   }
 }
 
+impl<PE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MultiPostingsEnum<PE>
+where
+  PE: PostingsEnum,
+{
+}
 impl<PE> DocIdSetIterator for MultiPostingsEnum<PE>
 where
   PE: PostingsEnum,

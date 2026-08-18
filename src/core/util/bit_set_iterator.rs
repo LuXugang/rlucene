@@ -84,7 +84,12 @@ where
   fn cost(&self) -> Result<i64> {
     Ok(self.cost)
   }
+}
 
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BitSetIterator<T>
+where
+  T: BitSet,
+{
   fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     self.bits.as_fixed_bit_set()
   }

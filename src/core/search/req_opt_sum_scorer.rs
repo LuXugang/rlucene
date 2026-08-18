@@ -435,6 +435,13 @@ where
     Ok(score)
   }
 }
+impl<S1, S2> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorImpl<S1, S2>
+where
+  S1: Scorer,
+  S2: Scorer,
+{
+}
 impl<S1, S2> DocIdSetIterator for DocIdSetIteratorImpl<S1, S2>
 where
   S1: Scorer,

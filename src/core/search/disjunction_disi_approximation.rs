@@ -39,6 +39,12 @@ impl<S> DisjunctionDISIApproximation<S> {
     }
   }
 }
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DisjunctionDISIApproximation<S>
+where
+  S: Scorer,
+{
+}
 impl<S> DocIdSetIterator for DisjunctionDISIApproximation<S>
 where
   S: Scorer,

@@ -656,6 +656,10 @@ impl DocValuesIterator for DocValuesFieldIteratorEnum {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocValuesFieldIteratorEnum
+{
+}
 impl DocIdSetIterator for DocValuesFieldIteratorEnum {
   fn doc_id(&self) -> i32 {
     match self {
@@ -771,6 +775,12 @@ where
   }
 }
 
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BinaryDocValuesDVFU<T>
+where
+  T: DocValuesFieldIterator,
+{
+}
 impl<T> DocIdSetIterator for BinaryDocValuesDVFU<T>
 where
   T: DocValuesFieldIterator,
@@ -820,6 +830,12 @@ where
   }
 }
 
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesDVFU<T>
+where
+  T: DocValuesFieldIterator,
+{
+}
 impl<T> DocIdSetIterator for NumericDocValuesDVFU<T>
 where
   T: DocValuesFieldIterator,
@@ -921,6 +937,10 @@ where
     }
   }
 }
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MergedIterator<T> where
+  T: DocValuesFieldIterator
+{
+}
 impl<T> DocIdSetIterator for MergedIterator<T>
 where
   T: DocValuesFieldIterator,
@@ -988,6 +1008,10 @@ impl<A> AbstractIterator<A> {
 
 impl<A> DocValuesIterator for AbstractIterator<A> where A: AbstractIteratorBase {}
 
+impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for AbstractIterator<A> where
+  A: AbstractIteratorBase
+{
+}
 impl<A> DocIdSetIterator for AbstractIterator<A>
 where
   A: AbstractIteratorBase,
@@ -1271,6 +1295,10 @@ impl DocValuesFieldIterator for SingleValueDocValuesFieldUpdatesIterator {
       Ok(true)
     }
   }
+}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SingleValueDocValuesFieldUpdatesIterator
+{
 }
 impl DocIdSetIterator for SingleValueDocValuesFieldUpdatesIterator {
   fn doc_id(&self) -> i32 {

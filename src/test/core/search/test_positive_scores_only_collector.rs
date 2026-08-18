@@ -121,6 +121,10 @@ struct SimpleScorerIterator<'a> {
   idx: &'a Cell<i32>,
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SimpleScorerIterator<'_>
+{
+}
 impl DocIdSetIterator for SimpleScorerIterator<'_> {
   fn doc_id(&self) -> i32 {
     self.idx.get()
@@ -155,6 +159,10 @@ struct OwnedSimpleScorerIterator {
   idx: i32,
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for OwnedSimpleScorerIterator
+{
+}
 impl DocIdSetIterator for OwnedSimpleScorerIterator {
   fn doc_id(&self) -> i32 {
     self.idx

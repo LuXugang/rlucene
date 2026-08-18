@@ -456,6 +456,13 @@ where
   }
 }
 
+impl<N, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesMerge<N, DM>
+where
+  N: NumericDocValues,
+  DM: DocMap,
+{
+}
 impl<N, DM> DocIdSetIterator for NumericDocValuesMerge<N, DM>
 where
   N: NumericDocValues,
@@ -607,6 +614,13 @@ where
   }
 }
 
+impl<B, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BinaryDocValuesMerge<B, DM>
+where
+  B: BinaryDocValues,
+  DM: DocMap,
+{
+}
 impl<B, DM> DocIdSetIterator for BinaryDocValuesMerge<B, DM>
 where
   B: BinaryDocValues,
@@ -767,6 +781,13 @@ where
   }
 }
 
+impl<SN, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesMerge<SN, DM>
+where
+  SN: SortedNumericDocValues,
+  DM: DocMap,
+{
+}
 impl<SN, DM> DocIdSetIterator for SortedNumericDocValuesMerge<SN, DM>
 where
   SN: SortedNumericDocValues,
@@ -1074,6 +1095,13 @@ where
   }
 }
 
+impl<S, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedDocValuesMerge<S, DM>
+where
+  S: SortedDocValues,
+  DM: DocMap,
+{
+}
 impl<S, DM> DocIdSetIterator for SortedDocValuesMerge<S, DM>
 where
   S: SortedDocValues,
@@ -1354,6 +1382,13 @@ pub struct SortedSetDocValuesMerge<S, DM> {
   to_merge: Vec<S>,
 }
 
+impl<S, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedSetDocValuesMerge<S, DM>
+where
+  S: SortedSetDocValues,
+  DM: DocMap,
+{
+}
 impl<S, DM> DocIdSetIterator for SortedSetDocValuesMerge<S, DM>
 where
   S: SortedSetDocValues,

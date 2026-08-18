@@ -1932,6 +1932,13 @@ where
   size: usize,
 }
 
+impl<V, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MergedQuantizedVectorValuesIterator<V, B>
+where
+  V: QuantizedByteVectorValues,
+  B: Bits,
+{
+}
 impl<V, B> DocIdSetIterator for MergedQuantizedVectorValuesIterator<V, B>
 where
   V: QuantizedByteVectorValues,

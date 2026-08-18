@@ -70,6 +70,10 @@ macro_rules! define_impacts_enum_enum {
             }
         }
 
+        impl<$($V),+> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for $enum_name<$($V),+>
+        where
+            $($V: ImpactsEnum,)+
+        {}
         impl<$($V),+> DocIdSetIterator for $enum_name<$($V),+>
         where
             $($V: ImpactsEnum,)+

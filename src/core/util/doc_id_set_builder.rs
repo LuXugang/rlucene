@@ -224,6 +224,10 @@ pub enum DocIdSetBuilderIterator {
   BitSet(BitSetIterator<FixedBitSet>),
   IntArray(IntArrayDocIdSetIterator),
 }
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetBuilderIterator
+{
+}
 impl DocIdSetIterator for DocIdSetBuilderIterator {
   fn doc_id(&self) -> i32 {
     match self {

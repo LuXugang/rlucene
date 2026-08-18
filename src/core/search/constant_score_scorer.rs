@@ -268,6 +268,13 @@ enum ConstantScoreIterator<DISI, TPI> {
   Tpi(TwoPhaseIteratorAsDocIdSetIterator<TPI>),
 }
 
+impl<DISI, TPI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ConstantScoreIterator<DISI, TPI>
+where
+  DISI: DocIdSetIterator,
+  TPI: TwoPhaseIterator,
+{
+}
 impl<DISI, TPI> DocIdSetIterator for ConstantScoreIterator<DISI, TPI>
 where
   DISI: DocIdSetIterator,
@@ -323,6 +330,13 @@ pub enum DelegateEnum<T, D> {
   TPI(T),
   Disi(D),
   Empty(EmptyDISI),
+}
+impl<T, D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DelegateEnum<T, D>
+where
+  T: TwoPhaseIterator,
+  D: DocIdSetIterator,
+{
 }
 impl<T, D> DocIdSetIterator for DelegateEnum<T, D>
 where
@@ -381,6 +395,13 @@ impl<T, D> DocIdSetIteratorWrapper<T, D> {
   }
 }
 
+impl<T, D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorWrapper<T, D>
+where
+  T: TwoPhaseIterator,
+  D: DocIdSetIterator,
+{
+}
 impl<T, D> DocIdSetIterator for DocIdSetIteratorWrapper<T, D>
 where
   T: TwoPhaseIterator,

@@ -214,6 +214,13 @@ macro_rules! either_doc_index_iterator_named {
             }
         }
 
+        impl<$( $T ),+>
+          $crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+          for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::search::doc_id_set_iterator::DocIdSetIterator ),+
+        {}
+
         impl<$( $T ),+> $crate::core::index::knn_vector_values::DocIndexIterator for $name<$( $T ),+>
         where
             $( $T: $crate::core::index::knn_vector_values::DocIndexIterator ),+
@@ -237,6 +244,11 @@ impl DenseDocIndexIterator {
   pub(crate) fn new(size: i32) -> Self {
     Self { doc: -1, size }
   }
+}
+
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DenseDocIndexIterator
+{
 }
 
 impl DocIdSetIterator for DenseDocIndexIterator {
@@ -287,6 +299,13 @@ impl<D> DocIndexIteratorImpl2<D> {
   }
 }
 
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIndexIteratorImpl2<D>
+where
+  D: DocIdSetIterator,
+{
+}
+
 impl<D> DocIdSetIterator for DocIndexIteratorImpl2<D>
 where
   D: DocIdSetIterator,
@@ -335,6 +354,13 @@ impl<T> SparseDocIndexIterator<T> {
       map: ord_to_doc,
     }
   }
+}
+
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SparseDocIndexIterator<T>
+where
+  T: OrdToDoc,
+{
 }
 
 impl<T> DocIdSetIterator for SparseDocIndexIterator<T>

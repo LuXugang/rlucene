@@ -521,6 +521,12 @@ pub enum SortingPostingsEnumType<P> {
   B(SortingDocsEnum<P>),
 }
 
+impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingPostingsEnumType<P>
+where
+  P: PostingsEnum,
+{
+}
 impl<P> DocIdSetIterator for SortingPostingsEnumType<P>
 where
   P: PostingsEnum,
@@ -655,6 +661,10 @@ impl<P> SortingDocsEnum<P> {
   }
 }
 
+impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for SortingDocsEnum<P> where
+  P: PostingsEnum
+{
+}
 impl<P> DocIdSetIterator for SortingDocsEnum<P>
 where
   P: PostingsEnum,
@@ -909,6 +919,12 @@ impl<P> SortingPostingsEnum<P> {
   }
 }
 
+impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+}
 impl<P> DocIdSetIterator for SortingPostingsEnum<P>
 where
   P: PostingsEnum,

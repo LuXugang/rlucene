@@ -1386,6 +1386,12 @@ where
   }
 }
 
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BlockPostingsEnum<I>
+where
+  I: IndexInput,
+{
+}
 impl<I> DocIdSetIterator for BlockPostingsEnum<I>
 where
   I: IndexInput,

@@ -981,6 +981,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingCodecReaderSortedDocValues<S>
+where
+  S: SortedDocValues,
+{
+}
 impl<S> DocIdSetIterator for SortingCodecReaderSortedDocValues<S>
 where
   S: SortedDocValues,
@@ -1090,6 +1096,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingCodecReaderSortedSetDocValues<S>
+where
+  S: SortedSetDocValues,
+{
+}
 impl<S> DocIdSetIterator for SortingCodecReaderSortedSetDocValues<S>
 where
   S: SortedSetDocValues,
@@ -1227,6 +1239,12 @@ where
   }
 }
 
+impl<N> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingCodecReaderNumericDocValues<N>
+where
+  N: NumericDocValues,
+{
+}
 impl<N> DocIdSetIterator for SortingCodecReaderNumericDocValues<N>
 where
   N: NumericDocValues,
@@ -1291,6 +1309,12 @@ where
   }
 }
 
+impl<B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingCodecReaderBinaryDocValues<B>
+where
+  B: BinaryDocValues,
+{
+}
 impl<B> DocIdSetIterator for SortingCodecReaderBinaryDocValues<B>
 where
   B: BinaryDocValues,
@@ -1360,6 +1384,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingCodecReaderSortedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+}
 impl<S> DocIdSetIterator for SortingCodecReaderSortedNumericDocValues<S>
 where
   S: SortedNumericDocValues,
@@ -3838,6 +3868,10 @@ impl SortingValuesIterator {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingValuesIterator
+{
+}
 impl DocIdSetIterator for SortingValuesIterator {
   fn doc_id(&self) -> i32 {
     self.doc

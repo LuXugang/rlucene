@@ -44,6 +44,12 @@ where
   }
 }
 
+impl<N> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SingletonSortedNumericDocValues<N>
+where
+  N: NumericDocValues,
+{
+}
 impl<N> DocIdSetIterator for SingletonSortedNumericDocValues<N>
 where
   N: NumericDocValues,

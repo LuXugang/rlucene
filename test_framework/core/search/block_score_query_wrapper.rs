@@ -327,6 +327,10 @@ impl Scorer for BlockScoreScorer {
 struct BlockScoreIterator<'a> {
   scorer: &'a BlockScoreScorer,
 }
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BlockScoreIterator<'_>
+{
+}
 impl DocIdSetIterator for BlockScoreIterator<'_> {
   fn doc_id(&self) -> i32 {
     self.scorer.docs[self.scorer.i.get()]
@@ -353,6 +357,10 @@ impl DocIdSetIterator for BlockScoreIterator<'_> {
 struct BlockScoreOwnedIterator {
   docs: Vec<i32>,
   i: usize,
+}
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BlockScoreOwnedIterator
+{
 }
 impl DocIdSetIterator for BlockScoreOwnedIterator {
   fn doc_id(&self) -> i32 {

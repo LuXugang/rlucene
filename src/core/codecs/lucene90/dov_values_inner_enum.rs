@@ -65,6 +65,12 @@ where
   }
 }
 
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BaseSortedDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
 impl<I> DocIdSetIterator for BaseSortedDocValuesEnum<I>
 where
   I: IndexInput,
@@ -154,6 +160,12 @@ where
   }
 }
 
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BaseSortedSetDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
 impl<I> DocIdSetIterator for BaseSortedSetDocValuesEnum<I>
 where
   I: IndexInput,

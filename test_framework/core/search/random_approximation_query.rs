@@ -401,6 +401,13 @@ where
   }
 }
 
+impl<RNG, DISI> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for RandomApproximation<RNG, DISI>
+where
+  RNG: Rng,
+  DISI: DocIdSetIterator,
+{
+}
 impl<RNG, DISI> DocIdSetIterator for RandomApproximation<RNG, DISI>
 where
   RNG: Rng,
@@ -444,6 +451,10 @@ where
   pub fn new(scorer: S) -> Self {
     Self { scorer }
   }
+}
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ScorerDISI<S> where
+  S: Scorer
+{
 }
 impl<S> DocIdSetIterator for ScorerDISI<S>
 where

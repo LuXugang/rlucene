@@ -457,6 +457,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MultiSortedDocValues<S>
+where
+  S: SortedDocValues,
+{
+}
 impl<S> DocIdSetIterator for MultiSortedDocValues<S>
 where
   S: SortedDocValues,
@@ -656,6 +662,12 @@ where
   }
 }
 
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MultiSortedSetDocValues<T>
+where
+  T: SortedSetDocValues,
+{
+}
 impl<T> DocIdSetIterator for MultiSortedSetDocValues<T>
 where
   T: SortedSetDocValues,
@@ -812,6 +824,12 @@ where
 
 impl<IRC> DocValuesIterator for NumericDocValuesImpl<IRC> where IRC: IndexReaderContext {}
 
+impl<IRC> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesImpl<IRC>
+where
+  IRC: IndexReaderContext,
+{
+}
 impl<IRC> DocIdSetIterator for NumericDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
@@ -975,6 +993,12 @@ where
   }
 }
 
+impl<IRC> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesImpl1<IRC>
+where
+  IRC: IndexReaderContext,
+{
+}
 impl<IRC> DocIdSetIterator for NumericDocValuesImpl1<IRC>
 where
   IRC: IndexReaderContext,
@@ -1130,6 +1154,12 @@ where
       Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base as i32),
     }
   }
+}
+impl<IRC> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BinaryDocValuesImpl<IRC>
+where
+  IRC: IndexReaderContext,
+{
 }
 impl<IRC> DocIdSetIterator for BinaryDocValuesImpl<IRC>
 where
@@ -1303,6 +1333,12 @@ where
       },
     }
   }
+}
+impl<IRC> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesImpl<IRC>
+where
+  IRC: IndexReaderContext,
+{
 }
 impl<IRC> DocIdSetIterator for SortedNumericDocValuesImpl<IRC>
 where

@@ -314,6 +314,12 @@ where
   }
 }
 
+impl<IE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ImpactsSourceImpl<IE>
+where
+  IE: ImpactsEnum,
+{
+}
 impl<IE> DocIdSetIterator for ImpactsSourceImpl<IE>
 where
   IE: ImpactsEnum,

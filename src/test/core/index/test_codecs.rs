@@ -636,6 +636,7 @@ struct NumericDocValuesImpl {
   max_doc: i32,
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for NumericDocValuesImpl {}
 impl DocIdSetIterator for NumericDocValuesImpl {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -943,6 +944,7 @@ impl DataPostingsEnum {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DataPostingsEnum {}
 impl DocIdSetIterator for DataPostingsEnum {
   fn doc_id(&self) -> i32 {
     self.term_data.docs[self.doc_upto as usize]

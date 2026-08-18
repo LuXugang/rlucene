@@ -729,6 +729,12 @@ where
     Ok(())
   }
 }
+impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for TermOrdValCompetitiveIterator<LR>
+where
+  LR: LeafReader,
+{
+}
 impl<LR> DocIdSetIterator for TermOrdValCompetitiveIterator<LR>
 where
   LR: LeafReader,
@@ -822,6 +828,12 @@ where
   }
 }
 
+impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for TermOrdValDocValues<LR>
+where
+  LR: LeafReader,
+{
+}
 impl<LR> DocIdSetIterator for TermOrdValDocValues<LR>
 where
   LR: LeafReader,

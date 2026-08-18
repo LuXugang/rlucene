@@ -166,6 +166,12 @@ where
     Ok(())
   }
 }
+impl<BS> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorImpl<BS>
+where
+  BS: BulkScorer,
+{
+}
 impl<BS> DocIdSetIterator for DocIdSetIteratorImpl<BS>
 where
   BS: BulkScorer,

@@ -645,6 +645,12 @@ where
 struct DocIdSetIteratorImpl<D> {
   it: D,
 }
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorImpl<D>
+where
+  D: DocIdSetIterator,
+{
+}
 impl<D> DocIdSetIterator for DocIdSetIteratorImpl<D>
 where
   D: DocIdSetIterator,

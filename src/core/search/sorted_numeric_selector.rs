@@ -112,6 +112,10 @@ where
   }
 }
 /// Wraps a SortedNumericDocValues and returns the first value (min)
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MinValue<S> where
+  S: SortedNumericDocValues
+{
+}
 impl<S> DocIdSetIterator for MinValue<S>
 where
   S: SortedNumericDocValues,
@@ -174,6 +178,10 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MaxValue<S> where
+  S: SortedNumericDocValues
+{
+}
 impl<S> DocIdSetIterator for MaxValue<S>
 where
   S: SortedNumericDocValues,
@@ -244,6 +252,12 @@ where
   }
 }
 
+impl<N> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for FilterNumericDocValuesImpl1<N>
+where
+  N: NumericDocValues,
+{
+}
 impl<N> DocIdSetIterator for FilterNumericDocValuesImpl1<N>
 where
   N: NumericDocValues,
@@ -296,6 +310,12 @@ where
   }
 }
 
+impl<N> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for FilterNumericDocValuesImpl2<N>
+where
+  N: NumericDocValues,
+{
+}
 impl<N> DocIdSetIterator for FilterNumericDocValuesImpl2<N>
 where
   N: NumericDocValues,
@@ -353,6 +373,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SelectedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+}
 impl<S> DocIdSetIterator for SelectedNumericDocValues<S>
 where
   S: SortedNumericDocValues,
@@ -433,6 +459,12 @@ where
   }
 }
 
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericSelectorWrap<S>
+where
+  S: SortedNumericDocValues,
+{
+}
 impl<S> DocIdSetIterator for SortedNumericSelectorWrap<S>
 where
   S: SortedNumericDocValues,

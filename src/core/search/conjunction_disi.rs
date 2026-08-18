@@ -130,6 +130,10 @@ where
     iterators_on_the_same_doc
   }
 }
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ConjunctionDISI<D> where
+  D: DocIdSetIterator
+{
+}
 impl<D> DocIdSetIterator for ConjunctionDISI<D>
 where
   D: DocIdSetIterator,
@@ -251,6 +255,13 @@ where
     }
     true
   }
+}
+impl<DISI, T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BitSetConjunctionDISI<DISI, T>
+where
+  DISI: DocIdSetIterator,
+  T: BitSet,
+{
 }
 impl<DISI, T> DocIdSetIterator for BitSetConjunctionDISI<DISI, T>
 where
@@ -426,6 +437,10 @@ impl<V> VectorScorerDisi<V> {
     Self { vector_scorer }
   }
 }
+impl<V> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for VectorScorerDisi<V> where
+  V: VectorScorer
+{
+}
 impl<V> DocIdSetIterator for VectorScorerDisi<V>
 where
   V: VectorScorer,
@@ -484,6 +499,10 @@ impl<S> ScorerDisi<S> {
   pub fn new(scorer: S) -> Self {
     Self { scorer }
   }
+}
+impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ScorerDisi<S> where
+  S: Scorer
+{
 }
 impl<S> DocIdSetIterator for ScorerDisi<S>
 where

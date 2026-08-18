@@ -509,6 +509,12 @@ impl<P> SharedPostingsEnum<P> {
   }
 }
 
+impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SharedPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+}
 impl<P> DocIdSetIterator for SharedPostingsEnum<P>
 where
   P: PostingsEnum,
@@ -581,6 +587,12 @@ impl<I> SharedImpactsEnum<I> {
   }
 }
 
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SharedImpactsEnum<I>
+where
+  I: ImpactsEnum,
+{
+}
 impl<I> DocIdSetIterator for SharedImpactsEnum<I>
 where
   I: ImpactsEnum,
@@ -708,6 +720,12 @@ impl<IE> SynonymImpactsSource<IE> {
   }
 }
 
+impl<IE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SynonymImpactsSource<IE>
+where
+  IE: ImpactsEnum,
+{
+}
 impl<IE> DocIdSetIterator for SynonymImpactsSource<IE>
 where
   IE: ImpactsEnum,

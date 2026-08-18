@@ -482,6 +482,12 @@ where
     }
   }
 }
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CompetitiveIterator<D>
+where
+  D: DocIdSetIterator,
+{
+}
 impl<D> DocIdSetIterator for CompetitiveIterator<D>
 where
   D: DocIdSetIterator,
@@ -600,6 +606,12 @@ where
   }
 }
 
+impl<LR> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericLeafComparatorDocValues<LR>
+where
+  LR: LeafReader,
+{
+}
 impl<LR> DocIdSetIterator for NumericLeafComparatorDocValues<LR>
 where
   LR: LeafReader,

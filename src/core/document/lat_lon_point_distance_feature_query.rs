@@ -689,6 +689,12 @@ impl<ND> DocIdSetIteratorImpl<ND> {
     self.it = Some(DocIdSetIteratorEnum2::B(it));
   }
 }
+impl<ND> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorImpl<ND>
+where
+  ND: NumericDocValues,
+{
+}
 impl<ND> DocIdSetIterator for DocIdSetIteratorImpl<ND>
 where
   ND: NumericDocValues,
@@ -752,6 +758,12 @@ where
   }
 }
 
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesImpl<T>
+where
+  T: SortedNumericDocValues,
+{
+}
 impl<T> DocIdSetIterator for NumericDocValuesImpl<T>
 where
   T: SortedNumericDocValues,

@@ -596,6 +596,12 @@ where
   }
 }
 
+impl<R> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DenseNormsIterator<R>
+where
+  R: RandomAccessInput,
+{
+}
 impl<R> DocIdSetIterator for DenseNormsIterator<R>
 where
   R: RandomAccessInput,
@@ -765,6 +771,12 @@ where
   }
 }
 
+impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SparseNormsIterator<I>
+where
+  I: IndexInput,
+{
+}
 impl<I> DocIdSetIterator for SparseNormsIterator<I>
 where
   I: IndexInput,

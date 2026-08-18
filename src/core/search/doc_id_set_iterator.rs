@@ -18,6 +18,28 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
+/// Rust-side specialization hooks for [`DocIdSetIterator`].
+pub trait DocIdSetIteratorExtensions {
+  /// Returns the wrapped fixed bit set when this iterator has the same shape
+  /// as Java's `BitSetIterator.getFixedBitSetOrNull` specialization.
+  fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    None
+  }
+
+  /// Returns the wrapped sparse fixed bit set when this iterator has the same
+  /// shape as Java's `BitSetIterator.getSparseFixedBitSetOrNull`
+  /// specialization.
+  fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    None
+  }
+
+  /// Returns Java's `DocBaseBitSetIterator` specialization as its document
+  /// base and backing bit set.
+  fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
+    None
+  }
+}
+
 /// This abstract struct defines methods to iterate over a set of non-decreasing
 /// document IDs. Note that this struct assumes it iterates on document IDs, and
 /// therefore [`NO_MORE_DOCS`] is set to its constant value to be used as a
@@ -25,7 +47,7 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 ///
 /// Implementations of this struct are expected to treat `i32::MAX` as an
 /// invalid value.
-pub trait DocIdSetIterator {
+pub trait DocIdSetIterator: DocIdSetIteratorExtensions {
   /// Returns the following:
   ///
   /// - `-1` if [`next_doc`](DocIdSetIterator::next_doc) or
@@ -96,25 +118,6 @@ pub trait DocIdSetIterator {
   /// hardcoded value, or otherwise completely inaccurate.
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::not_implemented(""))
-  }
-
-  /// Returns the wrapped fixed bit set when this iterator has the same shape
-  /// as Java's `BitSetIterator.getFixedBitSetOrNull` specialization.
-  fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
-    None
-  }
-
-  /// Returns the wrapped sparse fixed bit set when this iterator has the same
-  /// shape as Java's `BitSetIterator.getSparseFixedBitSetOrNull`
-  /// specialization.
-  fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
-    None
-  }
-
-  /// Returns Java's `DocBaseBitSetIterator` specialization as its document
-  /// base and backing bit set.
-  fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
-    None
   }
 }
 
@@ -269,7 +272,8 @@ where
   fn cost(&self) -> Result<i64> {
     (**self).cost()
   }
-
+}
+impl<T: DocIdSetIterator + ?Sized> DocIdSetIteratorExtensions for Box<T> {
   fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     (**self).get_fixed_bit_set()
   }
@@ -282,6 +286,9 @@ where
     (**self).get_doc_base_fixed_bit_set()
   }
 }
+impl DocIdSetIteratorExtensions for EmptyDISI {}
+impl DocIdSetIteratorExtensions for AllDISI {}
+impl DocIdSetIteratorExtensions for RangeDISI {}
 impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &mut T {
   fn doc_id(&self) -> i32 {
     (**self).doc_id()
@@ -302,7 +309,8 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &mut T {
   fn cost(&self) -> Result<i64> {
     (**self).cost()
   }
-
+}
+impl<T: DocIdSetIterator + ?Sized> DocIdSetIteratorExtensions for &mut T {
   fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     (**self).get_fixed_bit_set()
   }
@@ -341,7 +349,8 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &T {
   fn cost(&self) -> Result<i64> {
     (**self).cost()
   }
-
+}
+impl<T: DocIdSetIterator + ?Sized> DocIdSetIteratorExtensions for &T {
   fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
     (**self).get_fixed_bit_set()
   }
@@ -407,6 +416,12 @@ macro_rules! either_docidsetiterator_named {
                 }
             }
         }
+
+        impl<$( $T ),+> $crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+          for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::search::doc_id_set_iterator::DocIdSetIterator ),+
+        {}
     };
 }
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum2 { A: A, B: B});

@@ -292,6 +292,7 @@ impl EmptyBinary {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for EmptyBinary {}
 impl DocIdSetIterator for EmptyBinary {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -350,6 +351,7 @@ impl DocValuesIterator for EmptyNumeric {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for EmptyNumeric {}
 impl DocIdSetIterator for EmptyNumeric {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -406,6 +408,7 @@ impl DocValuesIterator for EmptySorted {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for EmptySorted {}
 impl DocIdSetIterator for EmptySorted {
   fn doc_id(&self) -> i32 {
     self.doc

@@ -519,6 +519,12 @@ where
   }
 }
 
+impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for UnionPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+}
 impl<P> DocIdSetIterator for UnionPostingsEnum<P>
 where
   P: PostingsEnum,
@@ -736,6 +742,12 @@ where
   }
 }
 
+impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for UnionFullPostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+}
 impl<P> DocIdSetIterator for UnionFullPostingsEnum<P>
 where
   P: PostingsEnum,
@@ -851,6 +863,12 @@ pub enum MultiPhrasePostingsEnum<P> {
   Union(UnionPostingsEnum<P>),
 }
 
+impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MultiPhrasePostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+}
 impl<P> DocIdSetIterator for MultiPhrasePostingsEnum<P>
 where
   P: PostingsEnum,

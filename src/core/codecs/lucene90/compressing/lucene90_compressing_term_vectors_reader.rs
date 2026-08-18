@@ -1625,6 +1625,7 @@ impl TVPostingsEnum {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for TVPostingsEnum {}
 impl DocIdSetIterator for TVPostingsEnum {
   fn doc_id(&self) -> i32 {
     self.doc

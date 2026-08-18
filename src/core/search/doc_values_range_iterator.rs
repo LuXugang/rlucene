@@ -113,6 +113,13 @@ impl<TPI, DVS> Approximation<TPI, DVS> {
     }
   }
 }
+impl<TPI, DVS> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for Approximation<TPI, DVS>
+where
+  TPI: TwoPhaseIterator,
+  DVS: DocValuesSkipper,
+{
+}
 impl<TPI, DVS> DocIdSetIterator for Approximation<TPI, DVS>
 where
   TPI: TwoPhaseIterator,

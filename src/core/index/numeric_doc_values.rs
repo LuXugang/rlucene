@@ -45,6 +45,10 @@ macro_rules! either_numeric_docvalues {
             }
         }
 
+        impl<$( $T ),+> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for $name<$( $T ),+>
+        where
+            $( $T: DocIdSetIterator ),+
+        {}
         impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
         where
             $( $T: DocIdSetIterator ),+

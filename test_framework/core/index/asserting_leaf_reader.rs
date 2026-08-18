@@ -840,6 +840,12 @@ where
   }
 }
 
+impl<PE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for AssertingPostingsEnum<PE>
+where
+  PE: PostingsEnum,
+{
+}
 impl<PE> DocIdSetIterator for AssertingPostingsEnum<PE>
 where
   PE: PostingsEnum,
@@ -1144,6 +1150,12 @@ where
   }
 }
 
+impl<IE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for AssertingImpactsEnum<IE>
+where
+  IE: ImpactsEnum,
+{
+}
 impl<IE> DocIdSetIterator for AssertingImpactsEnum<IE>
 where
   IE: ImpactsEnum,
@@ -1321,6 +1333,12 @@ where
   }
 }
 
+impl<DV> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for AssertingNumericDocValues<DV>
+where
+  DV: NumericDocValues,
+{
+}
 impl<DV> DocIdSetIterator for AssertingNumericDocValues<DV>
 where
   DV: NumericDocValues,
@@ -1447,6 +1465,12 @@ where
   }
 }
 
+impl<DV> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for AssertingBinaryDocValues<DV>
+where
+  DV: BinaryDocValues,
+{
+}
 impl<DV> DocIdSetIterator for AssertingBinaryDocValues<DV>
 where
   DV: BinaryDocValues,
@@ -1576,6 +1600,12 @@ where
   }
 }
 
+impl<DV> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for AssertingSortedDocValues<DV>
+where
+  DV: SortedDocValues,
+{
+}
 impl<DV> DocIdSetIterator for AssertingSortedDocValues<DV>
 where
   DV: SortedDocValues,
@@ -1761,6 +1791,12 @@ where
   }
 }
 
+impl<DV> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for AssertingSortedNumericDocValues<DV>
+where
+  DV: SortedNumericDocValues,
+{
+}
 impl<DV> DocIdSetIterator for AssertingSortedNumericDocValues<DV>
 where
   DV: SortedNumericDocValues,
@@ -1998,6 +2034,12 @@ where
   }
 }
 
+impl<DV> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for AssertingSortedSetDocValues<DV>
+where
+  DV: SortedSetDocValues,
+{
+}
 impl<DV> DocIdSetIterator for AssertingSortedSetDocValues<DV>
 where
   DV: SortedSetDocValues,

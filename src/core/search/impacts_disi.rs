@@ -114,6 +114,14 @@ where
     }
   }
 }
+impl<D, IE, SS> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for ImpactsDISI<D, IE, SS>
+where
+  D: DocIdSetIterator,
+  IE: ImpactsEnum,
+  SS: SimScorer,
+{
+}
 impl<D, IE, SS> DocIdSetIterator for ImpactsDISI<D, IE, SS>
 where
   D: DocIdSetIterator,

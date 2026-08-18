@@ -201,6 +201,7 @@ impl DocIdSetIteratorImpl {
     }
   }
 }
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DocIdSetIteratorImpl {}
 impl DocIdSetIterator for DocIdSetIteratorImpl {
   fn doc_id(&self) -> i32 {
     self.doc

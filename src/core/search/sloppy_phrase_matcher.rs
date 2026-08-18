@@ -873,6 +873,7 @@ impl PostingsEnum for ImpactsSourceImpl {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ImpactsSourceImpl {}
 impl DocIdSetIterator for ImpactsSourceImpl {
   fn doc_id(&self) -> i32 {
     unreachable!()

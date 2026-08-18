@@ -230,6 +230,10 @@ impl DocValuesIterator for BufferedNumericDocValues {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BufferedNumericDocValues
+{
+}
 impl DocIdSetIterator for BufferedNumericDocValues {
   fn doc_id(&self) -> i32 {
     self.doc_with_field.doc_id()
@@ -285,6 +289,12 @@ where
   }
 }
 
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortingNumericDocValues<T>
+where
+  T: BitSet,
+{
+}
 impl<T> DocIdSetIterator for SortingNumericDocValues<T>
 where
   T: BitSet,
@@ -337,6 +347,10 @@ impl DocValuesIterator for BufferedSortingNumericDocValues {
   }
 }
 
+impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BufferedSortingNumericDocValues
+{
+}
 impl DocIdSetIterator for BufferedSortingNumericDocValues {
   fn doc_id(&self) -> i32 {
     match self {

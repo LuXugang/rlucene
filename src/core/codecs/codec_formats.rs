@@ -1996,6 +1996,11 @@ pub enum CodecNormNumericDocValues<I: IndexInput> {
 }
 
 #[cfg(test)]
+impl<I: IndexInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CodecNormNumericDocValues<I>
+{
+}
+#[cfg(test)]
 impl<I: IndexInput> DocIdSetIterator for CodecNormNumericDocValues<I> {
   fn doc_id(&self) -> i32 {
     match self {
@@ -3096,6 +3101,11 @@ where
   I: IndexInput;
 
 #[cfg(test)]
+impl<I: IndexInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CodecFloatDocIndexIterator<I>
+{
+}
+#[cfg(test)]
 impl<I: IndexInput> DocIdSetIterator for CodecFloatDocIndexIterator<I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3139,6 +3149,11 @@ where
   I: IndexInput + 'a;
 
 #[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CodecFloatVectorScorerIteratorRef<'a, I>
+{
+}
+#[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorRef<'a, I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3170,6 +3185,11 @@ pub struct CodecFloatVectorScorerIteratorMut<'a, I>(CodecFloatVectorScorerIterat
 where
   I: IndexInput + 'a;
 
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CodecFloatVectorScorerIteratorMut<'a, I>
+{
+}
 #[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorMut<'a, I> {
   fn doc_id(&self) -> i32 {
@@ -3342,6 +3362,11 @@ where
   I: IndexInput;
 
 #[cfg(test)]
+impl<I: IndexInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CodecByteDocIndexIterator<I>
+{
+}
+#[cfg(test)]
 impl<I: IndexInput> DocIdSetIterator for CodecByteDocIndexIterator<I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3385,6 +3410,11 @@ where
   I: IndexInput + 'a;
 
 #[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CodecByteVectorScorerIteratorRef<'a, I>
+{
+}
+#[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorRef<'a, I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3416,6 +3446,11 @@ pub struct CodecByteVectorScorerIteratorMut<'a, I>(CodecByteVectorScorerIterator
 where
   I: IndexInput + 'a;
 
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for CodecByteVectorScorerIteratorMut<'a, I>
+{
+}
 #[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorMut<'a, I> {
   fn doc_id(&self) -> i32 {

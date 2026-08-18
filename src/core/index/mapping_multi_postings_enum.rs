@@ -110,6 +110,13 @@ where
   }
 }
 
+impl<PE, DM> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for MappingMultiPostingsEnum<PE, DM>
+where
+  PE: PostingsEnum,
+  DM: DocMap,
+{
+}
 impl<PE, DM> DocIdSetIterator for MappingMultiPostingsEnum<PE, DM>
 where
   PE: PostingsEnum,
