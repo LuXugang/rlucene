@@ -710,11 +710,6 @@ fn test_invalid_double_point_usage() -> Result<()> {
 struct IntersectVisitorImpl {
   last_doc_id: i32,
 }
-impl IntersectVisitorImpl {
-  fn new() -> Self {
-    Self { last_doc_id: -1 }
-  }
-}
 impl IntersectVisitor for IntersectVisitorImpl {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
     if doc_id < self.last_doc_id {

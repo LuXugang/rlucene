@@ -669,6 +669,7 @@ impl NodeState {
     })
   }
 
+  #[allow(unused)]
   pub fn init_searcher(&self, node_versions: &[i64]) -> Result<()> {
     let mut current_shard_searcher = self.current_shard_searcher.write();
     assert!(current_shard_searcher.is_none());
@@ -960,6 +961,7 @@ impl ShardSearchingTestContext {
 }
 
 /// An [`IndexSearcher`] and associated version (lease).
+#[allow(dead_code)]
 pub struct SearcherAndVersion {
   pub searcher: Arc<ManagedSearcher>,
   pub version: i64,

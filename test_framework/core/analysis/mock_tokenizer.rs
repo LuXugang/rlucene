@@ -146,13 +146,6 @@ where
     Self::with_default_max_token_length(random, WHITESPACE.clone(), true)
   }
 
-  pub fn with_attribute_factory_default_max_token_length(
-    random: R,
-    run_automaton: CharacterRunAutomaton,
-    lower_case: bool,
-  ) -> Self {
-    Self::with_automaton(random, run_automaton, lower_case, DEFAULT_MAX_TOKEN_LENGTH)
-  }
   /// Toggle consumer workflow checking: if your test consumes tokenstreams normally you should leave this enabled.
   pub fn set_enable_checks(&mut self, enable_checks: bool) {
     self.enable_checks = enable_checks;

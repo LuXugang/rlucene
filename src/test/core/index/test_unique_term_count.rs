@@ -39,6 +39,7 @@ use rand::Rng;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 
+#[allow(dead_code)] // for quick search
 pub struct TestUniqueTermCount;
 
 /// Simple similarity that encodes unique term count directly as the norm

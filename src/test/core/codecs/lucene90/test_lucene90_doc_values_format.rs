@@ -943,6 +943,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_set_variable_length_many_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -967,6 +968,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_variable_length_many_vs_stored_fields<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -979,6 +981,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_terms_enum_fixed_width<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -993,6 +996,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_terms_enum_variable_width<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1007,6 +1011,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_terms_enum_random_many<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1021,6 +1026,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_terms_enum_long_shared_prefixes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1203,6 +1209,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn do_test_terms_enum_random<R, F>(
     &self,
     _random: &mut R,
@@ -1216,6 +1223,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     // 自定义 Codec 未实现
     Ok(())
   }
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_set_around_block_size<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1285,6 +1293,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_numeric_around_block_size<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1330,6 +1339,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_numeric_blocks_of_various_bits_per_value<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1339,6 +1349,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     })
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sparse_sorted_numeric_blocks_of_various_bits_per_value<R>(
     &self,
     random: &mut R,
@@ -1351,6 +1362,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     })
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_numeric_blocks_of_various_bits_per_value<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1358,6 +1370,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     self.do_test_sparse_numeric_blocks_of_various_bits_per_value(random, 1.0)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sparse_numeric_blocks_of_various_bits_per_value<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1365,6 +1378,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     let density = random.random::<f64>();
     self.do_test_sparse_numeric_blocks_of_various_bits_per_value(random, density)
   }
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_numeric_field_jump_tables<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1414,6 +1428,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     self.assert_dv_advance(dir, if rarely(random) { 1 } else { 7 })?;
     Ok(())
   }
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn do_test_sorted_numeric_blocks_of_various_bits_per_value<R, FC>(
     &self,
     random: &mut R,
@@ -1500,6 +1515,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn do_test_sparse_numeric_blocks_of_various_bits_per_value<R>(
     &self,
     random: &mut R,
@@ -1541,6 +1557,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     self.assert_dv_advance(dir, 1)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn assert_dv_advance<D>(&self, dir: std::sync::Arc<D>, jump_step: i32) -> Result<()>
   where
     D: crate::core::store::directory::Directory + 'static,
@@ -1933,6 +1950,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     Ok(())
   }
 }
+#[cfg_attr(not(feature = "nightly"), allow(dead_code))]
 struct BlocksOfVariousBPV {
   rng: RefCell<StdRng>,
   mul: i64,
@@ -1942,6 +1960,7 @@ struct BlocksOfVariousBPV {
 }
 
 impl BlocksOfVariousBPV {
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn new<R>(random: &mut R) -> Self
   where
     R: Rng + ?Sized,

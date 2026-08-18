@@ -280,7 +280,7 @@ fn test_singleton() -> Result<()> {
     let mut set = HashSet::new();
     set.insert(ints.get_owner());
 
-    let actual = TestOperations::get_finite_strings(&utf8)?;
+    let actual = crate::test_framework::core::util::automaton::test_operations::TestOperations::get_finite_strings(&utf8)?;
     assert_eq!(set, actual, "Failed for input string: {:?}", s);
   }
 

@@ -62,8 +62,6 @@ use std::time::Duration;
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterWithThreads;
 
-const SOFT_DELETES_FIELD: &str = "___soft_deletes";
-
 type MockDirectoryDelegate = MaybeNrtDirEnum;
 
 // Used by test cases below

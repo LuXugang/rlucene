@@ -85,7 +85,7 @@ mod test_version;
 mod test_virtual_method;
 
 pub use crate::test_framework::core::util::{
-  DefaultCRReader, DefaultCRReaderShared, DefaultIRCLR, DefaultIRCRC, DefaultIndexSearchCR,
+  DefaultCRReader, DefaultCRReaderShared, DefaultIRCRC, DefaultIndexSearchCR,
   DefaultIndexSearchCRShared, DefaultIndexSearchLR, DefaultLRReader, DummyCR,
 };
 pub(crate) use crate::test_framework::core::util::{dummy_directory, dummy_index_searcher};

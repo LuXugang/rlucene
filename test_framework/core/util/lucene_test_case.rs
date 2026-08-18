@@ -1011,54 +1011,6 @@ where
     field_to_type,
   )
 }
-pub(crate) fn new_string_field_string_with_random<S1, S2, R>(
-  random: &mut R,
-  name: S1,
-  value: S2,
-  stored: Store,
-  field_to_type: &mut HashMap<String, FieldType>,
-) -> Result<Field>
-where
-  R: Rng + ?Sized,
-  S1: Into<String>,
-  S2: Into<String>,
-{
-  let field_type = match stored {
-    Store::Yes => crate::core::document::string_field::TYPE_STORED.clone(),
-    Store::No => crate::core::document::string_field::TYPE_NOT_STORED.clone(),
-  };
-
-  new_field_with_random(
-    random,
-    name,
-    FieldDataEnum::String(value.into()),
-    &field_type,
-    field_to_type,
-  )
-}
-pub(crate) fn new_string_field_binary_with_random<S, R>(
-  random: &mut R,
-  name: S,
-  value: BytesRef<Vec<u8>>,
-  stored: Store,
-  field_to_type: &mut HashMap<String, FieldType>,
-) -> Result<Field>
-where
-  R: Rng + ?Sized,
-  S: Into<String>,
-{
-  let field_type = match stored {
-    Store::Yes => crate::core::document::string_field::TYPE_STORED.clone(),
-    Store::No => crate::core::document::string_field::TYPE_NOT_STORED.clone(),
-  };
-  new_field_with_random(
-    random,
-    name,
-    FieldDataEnum::Binary(value),
-    &field_type,
-    field_to_type,
-  )
-}
 
 pub(crate) fn new_field<S, V, R>(
   random: &mut R,

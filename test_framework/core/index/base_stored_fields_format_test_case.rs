@@ -817,6 +817,7 @@ pub trait BaseStoredFieldsFormatTestCase:
     dir2.close()
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_big_documents<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

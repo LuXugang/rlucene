@@ -65,25 +65,6 @@ use std::time::{Duration, Instant};
 #[allow(dead_code)] // for quick search
 struct TestDeletionPolicy;
 
-fn verify_commit_order<IC>(commits: &[IC])
-where
-  IC: IndexCommit,
-{
-  if commits.is_empty() {
-    return;
-  }
-
-  let first_commit = &commits[0];
-  let mut last = generation_from_segments_file_name(first_commit.get_segments_file_name()).unwrap();
-  assert_eq!(last, first_commit.get_generation());
-  for commit in commits.iter().skip(1) {
-    let now = generation_from_segments_file_name(commit.get_segments_file_name()).unwrap();
-    assert!(now > last, "SegmentInfos commits are out-of-order");
-    assert_eq!(now, commit.get_generation());
-    last = now;
-  }
-}
-
 #[cfg(feature = "nightly")]
 fn current_time_nanos() -> i64 {
   static START: OnceLock<Instant> = OnceLock::new();
@@ -688,6 +669,7 @@ where
   Ok(())
 }
 
+#[allow(dead_code)]
 fn get_commit_time<IC>(commit: &IC) -> Result<i64>
 where
   IC: IndexCommit,

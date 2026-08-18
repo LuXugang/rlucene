@@ -31,10 +31,6 @@ use crate::test::core::document::base_spatial_test_case::{BaseSpatialTestCase, V
 use rand::Rng;
 use std::fmt::Debug;
 
-/// Base test case for testing geospatial indexing and search functionality for
-/// `LatLonDocValuesField`.
-pub trait BaseLatLonDocValueTestCase: BaseLatLonSpatialTestCase {}
-
 pub struct BaseLatLonDocValueTestCaseDefaults;
 
 impl BaseLatLonDocValueTestCaseDefaults {
@@ -90,6 +86,7 @@ pub trait BaseLatLonDocValueTestCaseHook {
   type Shape: Clone + Debug;
   type Validator: Validator<Shape = Self::Shape, Encoder = LatLonEncoder>;
 
+  #[allow(dead_code)]
   fn get_shape_type(&self) -> &'static str;
 
   fn next_shape<R>(&self, random: &mut R) -> Result<Self::Shape>
@@ -137,7 +134,7 @@ where
   }
 
   fn get_encoder(&self) -> Self::Encoder {
-    BaseLatLonSpatialTestCaseDefaults::get_encoder()
+    LatLonEncoder
   }
 
   fn create_indexable_fields(&self, field: &str, shape: &Self::Shape) -> Result<Vec<Fields>> {
@@ -286,11 +283,6 @@ where
 }
 
 impl<H> BaseLatLonSpatialTestCase for BaseLatLonDocValueTestCaseOwner<H> where
-  H: BaseLatLonDocValueTestCaseHook
-{
-}
-
-impl<H> BaseLatLonDocValueTestCase for BaseLatLonDocValueTestCaseOwner<H> where
   H: BaseLatLonDocValueTestCaseHook
 {
 }

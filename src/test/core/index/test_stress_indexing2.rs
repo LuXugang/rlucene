@@ -163,6 +163,7 @@ fn test_multi_config() -> Result<()> {
 }
 
 struct DocsAndWriter {
+  #[allow(dead_code)]
   docs: HashMap<String, Document>,
   writer: Arc<IndexWriter<DirEnum>>,
 }

@@ -613,7 +613,7 @@ fn test_null_collectors() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   // Tests that the collector handles some None collectors well. If it
   // does not, the test would fail on an absent collector.
@@ -658,7 +658,7 @@ fn test_collector() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   // Tests that the collector delegates calls to input collectors properly.
 
@@ -701,7 +701,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
     let mut collector = collector(
@@ -806,7 +806,7 @@ fn test_set_scorer_after_collection_terminated() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   let set_scorer_called1 = Arc::new(AtomicBool::new(false));
   let collector1 = SetScorerCollector::new(DummyCollector::new(), set_scorer_called1.clone());
@@ -860,7 +860,7 @@ fn test_disables_set_min_score() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   let collector = CollectorEnum2::A(SetMinScoreCollector::new());
   let collector2 = CollectorEnum2::B(DummyTotalHitCountCollector::new());
@@ -885,7 +885,7 @@ fn test_disables_set_min_score_with_early_termination() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   for num_col in 1..4 {
     let mut cols = Vec::new();
@@ -919,7 +919,7 @@ fn test_scorer_wrapping_for_top_scores() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   let c1 = collector(
     ScoreMode::TopScores,
@@ -1004,7 +1004,7 @@ fn test_collection_termination() -> Result<()> {
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   let c1 = TerminatingDummyCollector::new(1, ScoreMode::Complete);
   let c1_collect_called = c1.base.collect_called.clone();
@@ -1055,7 +1055,7 @@ fn do_test_set_scorer_on_collection_termination(allow_skip_non_competitive: bool
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   let score_mode = if allow_skip_non_competitive {
     ScoreMode::TopScores

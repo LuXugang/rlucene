@@ -314,8 +314,6 @@ impl BaseKnnVectorsFormatTestCase for TestLucene99HnswVectorsFormat {
     &self.base_knn_vectors_format_test_case_state
   }
 }
-impl TestLucene99HnswVectorsFormatTests for TestLucene99HnswVectorsFormat {}
-
 fn run_case<F>(f: F) -> crate::core::util::error::lucene_error::Result<()>
 where
   F: FnOnce(
@@ -332,8 +330,6 @@ where
   case.tear_down(codec_guard);
   result
 }
-
-trait TestLucene99HnswVectorsFormatTests: BaseKnnVectorsFormatTestCase {}
 
 mod base_index_file_format_test_case_test {
   use super::run_case;

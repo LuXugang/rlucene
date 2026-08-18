@@ -528,6 +528,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     self.do_test_numeric_doc_values_with_skipper(random, total_docs)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_numeric_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -563,6 +564,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     self.do_test_sorted_numeric_doc_values_with_skipper(random, total_docs)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_numeric_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -598,6 +600,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     self.do_test_sorted_doc_values_with_skipper(random, total_docs)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -629,6 +632,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     self.do_test_sorted_set_doc_values_with_skipper(random, total_docs)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sorted_set_doc_values_with_skipper_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

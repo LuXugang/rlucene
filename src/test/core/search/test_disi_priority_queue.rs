@@ -38,7 +38,6 @@ use rand::Rng;
 use rand::RngExt;
 use std::hash::Hash;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestDisiPriorityQueue;
@@ -126,16 +125,13 @@ where
   DocIdSetIteratorImpl::new(int_vec_iter, max_size)
 }
 
-static COUNTER: AtomicI32 = AtomicI32::new(0);
 #[derive(Debug, Clone)]
 pub struct DummyQueryImpl {
-  id: i32,
   disi: DocIdSetIteratorImpl,
 }
 impl DummyQueryImpl {
   pub fn new(disi: DocIdSetIteratorImpl) -> Self {
-    let id = COUNTER.fetch_add(1, Ordering::SeqCst);
-    Self { id, disi }
+    Self { disi }
   }
   fn weight(self) -> DummyQueryImplWeight {
     DummyQueryImplWeight::new(self, ScoreMode::CompleteNoScores)

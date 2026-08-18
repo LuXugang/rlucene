@@ -61,14 +61,11 @@ const TERM_FREQ: usize = 3;
 
 struct TestTermVectorsReaderSetup {
   test_fields: Vec<&'static str>,
-  test_fields_store_pos: Vec<bool>,
-  test_fields_store_off: Vec<bool>,
   test_terms: Vec<&'static str>,
   positions: Vec<Vec<i32>>,
   dir: Arc<DirEnum>,
   seg: SegmentCommitInfo<DirEnum>,
   field_infos: Arc<FieldInfos>,
-  tokens: Vec<TestToken>,
 }
 
 impl TestTermVectorsReader {
@@ -82,8 +79,8 @@ impl TestTermVectorsReader {
 
   fn build_setup() -> Result<TestTermVectorsReaderSetup> {
     let mut test_fields = vec!["f1", "f2", "f3", "f4"];
-    let test_fields_store_pos = vec![true, false, true, false];
-    let test_fields_store_off = vec![true, false, false, true];
+    let test_fields_store_pos = [true, false, true, false];
+    let test_fields_store_off = [true, false, false, true];
     let mut test_terms = vec!["this", "is", "a", "test"];
     let mut positions = vec![Vec::new(); test_terms.len()];
     let mut tokens = Vec::with_capacity(test_terms.len() * TERM_FREQ);
@@ -107,8 +104,7 @@ impl TestTermVectorsReader {
     tokens.sort();
 
     let dir = new_directory_shared(&mut random)?;
-    let mut config =
-      new_index_writer_config_with_analyzer(&mut random, MyAnalyzer::new(tokens.clone()))?;
+    let mut config = new_index_writer_config_with_analyzer(&mut random, MyAnalyzer::new(tokens))?;
     config.set_max_buffered_docs(-1);
     config.set_merge_policy(new_log_merge_policy_with_merge_factor_cfs(
       &mut random,
@@ -149,14 +145,11 @@ impl TestTermVectorsReader {
 
     Ok(TestTermVectorsReaderSetup {
       test_fields,
-      test_fields_store_pos,
-      test_fields_store_off,
       test_terms,
       positions,
       dir,
       seg,
       field_infos,
-      tokens,
     })
   }
 }

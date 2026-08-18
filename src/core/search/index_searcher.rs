@@ -1200,6 +1200,7 @@ pub(crate) enum IndexSearcherHook {
   #[cfg(test)]
   Counting(CountingIndexSearcher),
   #[cfg(test)]
+  #[allow(dead_code)]
   Scorer(ScorerIndexSearcherHook),
   #[cfg(test)]
   CustomSearcher(CustomSearcher),

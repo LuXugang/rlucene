@@ -17,6 +17,7 @@
 pub struct English;
 
 impl English {
+  #[allow(unused)]
   pub fn long_to_english(i: i64) -> String {
     let mut result = String::new();
     Self::long_to_english_into(i, &mut result);
@@ -117,6 +118,7 @@ impl English {
     result
   }
 
+  #[allow(unused)]
   pub fn int_to_english_into(i: i32, result: &mut String) {
     Self::long_to_english_into(i as i64, result);
   }

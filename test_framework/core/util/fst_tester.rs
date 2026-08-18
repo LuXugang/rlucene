@@ -719,6 +719,7 @@ where
     Ok(fst_enum)
   }
 
+  #[allow(unused)]
   pub fn verify_unpruned<F>(
     &self,
     _input_mode: i32,
@@ -934,6 +935,7 @@ where
   ir.get().clone()
 }
 
+#[allow(unused)]
 pub fn to_ints_ref_from_bytes<AV>(
   br: &BytesRef<Vec<u8>>,
   ir: &mut IntsRefBuilder<AV>,

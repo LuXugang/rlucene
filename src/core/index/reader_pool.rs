@@ -526,7 +526,7 @@ where
     if create {
       rld.inc_ref();
     }
-    #[cfg(test)]
+    #[cfg(any(test, debug_assertions))]
     debug_assert!(self.no_dups(&inner));
 
     Ok(Some(rld))
@@ -555,7 +555,7 @@ where
     }
   }
   /// Make sure that every segment appears only once in the pool.
-  #[cfg(debug_assertions)]
+  #[cfg(any(test, debug_assertions))]
   fn no_dups(&self, inner: &Inner<D>) -> bool {
     let mut seen = std::collections::HashSet::new();
 

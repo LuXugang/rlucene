@@ -725,7 +725,8 @@ where
       "docs(...) called on unpositioned TermsEnum"
     );
 
-    let (actual_reuse, reuse_thread) = if let Some(reuse) = reuse {
+    let (actual_reuse, reuse_thread) = if let Some(mut reuse) = reuse {
+      reuse.reset();
       let AssertingPostingsEnum {
         in_,
         creation_thread,

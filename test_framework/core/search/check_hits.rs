@@ -1049,10 +1049,12 @@ impl Display for SetCollector {
 pub static COMPUTED_FROM_PATTERN: LazyLock<Regex> =
   LazyLock::new(|| Regex::new(r"^.*, computed as .* from:$").unwrap());
 
+#[allow(dead_code)]
 fn empty_reader(max_doc: i32) -> EmptyLeafReader {
   EmptyLeafReader::new(max_doc)
 }
 
+#[allow(dead_code)]
 struct EmptyLeafReader {
   max_doc: i32,
   live_docs: MatchNoBits,
@@ -1061,6 +1063,7 @@ struct EmptyLeafReader {
 }
 
 impl EmptyLeafReader {
+  #[allow(dead_code)]
   fn new(max_doc: i32) -> Self {
     assert!(max_doc >= 0, "max_doc must be non-negative");
     Self {
@@ -1256,6 +1259,7 @@ impl LeafReader for EmptyLeafReader {
   }
 }
 
+#[allow(dead_code)]
 struct EmptyStoredFields;
 
 impl StoredFields for EmptyStoredFields {

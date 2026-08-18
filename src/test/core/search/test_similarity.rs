@@ -87,7 +87,7 @@ fn test_similarity() -> Result<()> {
   bq.add(TermQuery::new(a.clone()), Occur::Should)?;
   bq.add(TermQuery::new(b.clone()), Occur::Should)?;
 
-  let manager = CollectorManagerImpl;
+  let manager = CollectorManagerImpl1;
   searcher.search_with_collector_manager(bq.build(), &manager)?;
 
   let mut pq =
@@ -112,6 +112,7 @@ trait ScoreAssertingCollector: SimpleCollector {
     ScoreMode::Complete
   }
 }
+
 struct ScoreAssertingCollectorImpl1 {
   base: usize,
 }

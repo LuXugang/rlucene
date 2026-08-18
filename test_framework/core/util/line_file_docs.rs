@@ -143,6 +143,7 @@ impl LineFileDocs {
     Ok(())
   }
 
+  #[allow(unused)]
   pub fn reset(&mut self) -> Result<()> {
     self.reader = None;
     self.open()?;

@@ -818,12 +818,14 @@ fn test_commit_data_is_live() -> Result<()> {
   Ok(())
 }
 
+#[cfg_attr(not(feature = "nightly"), allow(dead_code))]
 struct CommitOnCloseDiskUsageNoPayloadAnalyzer {
   random: Mutex<StdRng>,
   stored_value: AnalyzerStoredValue,
 }
 
 impl CommitOnCloseDiskUsageNoPayloadAnalyzer {
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn new<R>(random: &mut R) -> Self
   where
     R: Rng + ?Sized,
@@ -834,6 +836,7 @@ impl CommitOnCloseDiskUsageNoPayloadAnalyzer {
     }
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn next_random(&self) -> StdRng {
     StdRng::seed_from_u64(self.random.lock().expect("random mutex poisoned").random())
   }
@@ -858,6 +861,7 @@ impl Analyzer for CommitOnCloseDiskUsageNoPayloadAnalyzer {
 
 crate::impl_analyzer_close!(CommitOnCloseDiskUsageNoPayloadAnalyzer);
 
+#[cfg_attr(not(feature = "nightly"), allow(dead_code))]
 struct CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
   random: Mutex<StdRng>,
   length: usize,
@@ -865,6 +869,7 @@ struct CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
 }
 
 impl CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn new<R>(random: &mut R, length: usize) -> Self
   where
     R: Rng + ?Sized,
@@ -876,6 +881,7 @@ impl CommitOnCloseDiskUsageFixedLengthPayloadAnalyzer {
     }
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn next_random(&self) -> StdRng {
     StdRng::seed_from_u64(self.random.lock().expect("random mutex poisoned").random())
   }

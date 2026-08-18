@@ -27,7 +27,9 @@ use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
-use crate::core::index::base_composite_reader::{BaseCompositeReader, BaseCompositeReaderBase};
+use crate::core::index::base_composite_reader::{
+  BCRStoredFieldsImpl, BCRTermVectorsImpl, BaseCompositeReader, BaseCompositeReaderBase,
+};
 use crate::core::index::composite_reader::CompositeReader;
 use crate::core::index::directory_reader::{self, DirectoryReader, DirectoryReaderBase};
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
@@ -1744,6 +1746,7 @@ where
     NoIndexLeafReader::new(reader)
   }
 }
+#[derive(Clone)]
 pub struct NoIndexLeafReader<LR>
 where
   LR: LeafReader,
@@ -2082,18 +2085,21 @@ impl<DR> CompositeReader for NoIndexDirectoryReader<DR>
 where
   DR: DirectoryReader,
 {
-  type LeafReader = DR::LeafReader;
-  type SubReader = DR::SubReader;
+  type LeafReader = NoIndexLeafReader<DR::LeafReader>;
+  type SubReader = Self::LeafReader;
 
   fn get_sequential_sub_readers(&self) -> &[Self::SubReader] {
-    self.in_.get_sequential_sub_readers()
+    self.base.get_sequential_sub_readers()
   }
 
   fn visit_leaves<F>(&self, visitor: &mut F) -> Result<()>
   where
     F: FnMut(&Self::LeafReader) -> Result<()>,
   {
-    self.in_.visit_leaves(visitor)
+    for reader in self.get_sequential_sub_readers() {
+      visitor(reader)?;
+    }
+    Ok(())
   }
 }
 
@@ -2103,24 +2109,24 @@ where
 {
   type ContextKind = CompositeReaderContextKind;
 
-  type TermVectors = DR::TermVectors;
+  type TermVectors = BCRTermVectorsImpl<<Self as CompositeReader>::LeafReader>;
 
   fn term_vectors(&self) -> Result<Self::TermVectors> {
-    self.in_.term_vectors()
+    self.base.term_vector(self)
   }
 
   fn max_doc(&self) -> Result<i32> {
-    self.in_.max_doc()
+    Ok(self.base.max_doc())
   }
 
   fn num_docs(&self) -> Result<i32> {
-    self.in_.num_docs()
+    self.base.num_docs()
   }
 
-  type StoredFields = DR::StoredFields;
+  type StoredFields = BCRStoredFieldsImpl<<Self as CompositeReader>::LeafReader>;
 
   fn stored_fields(&self) -> Result<Self::StoredFields> {
-    self.in_.stored_fields()
+    self.base.stored_fields(self)
   }
 
   fn do_close(&self) -> Result<()> {
@@ -2134,23 +2140,23 @@ where
   }
 
   fn doc_freq(&self, term: &Term) -> Result<i32> {
-    self.in_.doc_freq(term)
+    self.base.doc_freq(term, self)
   }
 
   fn total_term_freq(&self, term: &Term) -> Result<i64> {
-    self.in_.total_term_freq(term)
+    self.base.total_term_freq(term, self)
   }
 
   fn get_sum_doc_freq(&self, field: &str) -> Result<i64> {
-    self.in_.get_sum_doc_freq(field)
+    self.base.get_sum_doc_freq(field, self)
   }
 
   fn get_doc_count(&self, field: &str) -> Result<i32> {
-    self.in_.get_doc_count(field)
+    self.base.get_doc_count(field, self)
   }
 
   fn get_sum_total_term_freq(&self, field: &str) -> Result<i64> {
-    self.in_.get_sum_total_term_freq(field)
+    self.base.get_sum_total_term_freq(field, self)
   }
 
   fn index_base(&self) -> &IndexReaderBase {

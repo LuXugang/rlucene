@@ -2104,6 +2104,7 @@ pub trait BasePostingsFormatTestCase:
   }
 
   /// Test realistic data, which is often better at uncovering real bugs.
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_line_file_docs<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

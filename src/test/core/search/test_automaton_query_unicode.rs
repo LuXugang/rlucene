@@ -46,6 +46,7 @@ use crate::test_framework::core::util::DefaultIndexSearchCR;
 use rand::Rng;
 use rand::prelude::StdRng;
 
+#[allow(dead_code)] // for quick search
 pub struct TestAutomatonQueryUnicode;
 const FN: &str = "field";
 

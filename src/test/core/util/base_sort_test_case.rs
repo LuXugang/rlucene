@@ -140,13 +140,13 @@ pub trait BaseSortTestCase {
 pub enum Strategy {
   Random(),
   RandomLowCardinality(),
-
+  #[allow(unused)]
   RandomMediumCardinality(),
   Ascending(),
   Descending(),
   StrictlyDescending(),
   AscendingSequences(),
-
+  #[allow(unused)]
   MostlyAscending(),
 }
 impl Strategy {

@@ -59,10 +59,12 @@ impl AssertingQuery {
     }
   }
 
+  #[allow(dead_code)]
   pub(crate) fn get_random_seed(&self) -> u64 {
     self.random_seed
   }
 
+  #[allow(unused)]
   pub(crate) fn get_in(&self) -> &Query {
     &self.in_
   }

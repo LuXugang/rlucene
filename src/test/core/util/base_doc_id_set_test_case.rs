@@ -133,11 +133,6 @@ pub trait BaseDocIdSetTestCase {
   where
     R: Rng + ?Sized;
 }
-// todo
-
-fn ram_bytes_used(_set: impl DocIdSet, _length: i32) -> i64 {
-  0
-}
 pub trait BaseDocIdSetTestCaseSupperImpl {
   fn assert_equals<R>(
     &self,

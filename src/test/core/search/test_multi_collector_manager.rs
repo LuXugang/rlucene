@@ -108,7 +108,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
 
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -168,7 +168,7 @@ fn test_score_wrapping() -> Result<()> {
   writer.close(&mut random)?;
   let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
   let searcher = IndexSearcher::new(leaves[0].reader().clone().get_context()?)?;
 
   // all wrapped collector managers are TOP_SCORE score mode, so they should see a
@@ -252,7 +252,7 @@ where
   LR: LeafReader + Clone + 'static,
 {
   let mut random = random();
-  let dummy_weight = DummyWeight::<LeafReaderContext<LR>>::new(ctx.reader().clone());
+  let dummy_weight = DummyWeight::new(ctx.reader().clone());
   let searcher = IndexSearcher::new(ctx.reader().clone().get_context()?)?;
   let mut collectors = vec![collector_manager.new_collector()?];
   for v in values {

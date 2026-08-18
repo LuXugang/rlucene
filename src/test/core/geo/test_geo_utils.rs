@@ -23,6 +23,7 @@ use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use rand::{Rng, RngExt};
 
+#[allow(dead_code)] // for quick search
 struct TestGeoUtils;
 
 #[test]

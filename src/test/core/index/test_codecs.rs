@@ -465,6 +465,7 @@ struct FieldData {
   field_info: Arc<FieldInfo>,
   terms: Vec<TermData>,
   omit_tf: bool,
+  #[allow(dead_code)]
   store_payloads: bool,
 }
 

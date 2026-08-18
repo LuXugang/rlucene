@@ -48,6 +48,7 @@ impl EarthDebugger {
     }
   }
 
+  #[allow(dead_code)]
   pub fn with_center(center_lat: f64, center_lon: f64, altitude_meters: f64) -> Self {
     let mut b = String::new();
     b.push_str("<!DOCTYPE HTML>\n");
@@ -67,10 +68,12 @@ impl EarthDebugger {
     }
   }
 
+  #[allow(dead_code)]
   pub fn add_polygon(&mut self, poly: &Polygon) {
     self.add_polygon_with_color(poly, "#00ff00");
   }
 
+  #[allow(dead_code)]
   pub fn add_polygon_with_color(&mut self, poly: &Polygon, color: &str) {
     let name = format!("poly{}", self.next_shape);
     self.next_shape += 1;
@@ -197,6 +200,7 @@ impl EarthDebugger {
       .push_str(&format!("        {}.addTo(earth);\n", name));
   }
 
+  #[allow(dead_code)]
   pub fn add_lon_line(&mut self, min_lat: f64, max_lat: f64, lon: f64) {
     let name = format!("lonline{}", self.next_shape);
     self.next_shape += 1;

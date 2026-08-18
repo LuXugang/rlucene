@@ -85,6 +85,7 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
     self.do_test_random(random, 1000, false)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_random_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

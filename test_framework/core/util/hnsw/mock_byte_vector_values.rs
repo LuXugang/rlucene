@@ -35,7 +35,6 @@ pub struct MockByteVectorValues {
   dense_values: Vec<Vec<u8>>,
   pub(crate) values: Vec<Vec<u8>>,
   num_vectors: i32,
-  scratch: Vec<u8>,
   seed: u64,
 }
 impl TryClone for MockByteVectorValues {
@@ -75,7 +74,6 @@ impl MockByteVectorValues {
       dense_values,
       values,
       num_vectors,
-      scratch: vec![0; dimension],
       seed,
     }
   }

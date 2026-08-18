@@ -39,7 +39,6 @@ pub mod doc_helper;
 pub mod force_merge_policy;
 pub mod legacy_base_doc_values_format_test_case;
 pub mod merge_policy;
-pub(crate) mod merge_reader_wrapper;
 pub mod merging_codec_reader;
 pub mod merging_directory_reader_wrapper;
 pub(crate) mod mismatched_codec_reader;

@@ -928,6 +928,7 @@ impl TestUtil {
   /// Returns a string that's "regexpish" — it contains many characters
   /// typically found in regular expressions. If you call this enough
   /// times, you might get a valid regex!
+  #[allow(unused)]
   fn random_regexpish_string<R>(random: &mut R) -> String
   where
     R: Rng + ?Sized,

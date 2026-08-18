@@ -494,6 +494,7 @@ where
     self.w.update_binary_doc_value(term, field, value)
   }
 
+  #[allow(unused)]
   pub fn update_doc_values<R, T>(&self, r: &mut R, term: T, updates: Vec<Fields>) -> Result<i64>
   where
     R: Rng + ?Sized,
@@ -589,6 +590,7 @@ where
     self.get_reader_with_options(r, true, false)
   }
 
+  #[allow(unused)]
   pub fn force_merge_deletes_with_wait<R>(&self, r: &mut R, do_wait: bool) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -597,6 +599,7 @@ where
     self.w.force_merge_deletes_with_wait(do_wait)
   }
 
+  #[allow(unused)]
   pub fn force_merge_deletes<R>(&self, r: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

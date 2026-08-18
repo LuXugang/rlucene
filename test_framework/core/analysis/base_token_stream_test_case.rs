@@ -35,8 +35,6 @@ use crate::core::util::io_utils::IOUtils;
 use rand::Rng;
 use std::collections::HashMap;
 
-pub trait BaseTokenStreamTestCase {}
-
 pub trait CheckClearAttributesAttribute: AttributeImpl {
   const ATTRIBUTE_NAME: &'static str = NAME;
 
@@ -387,6 +385,7 @@ where
   Ok(())
 }
 
+#[allow(unused)]
 #[allow(clippy::too_many_arguments)]
 pub fn assert_token_stream_contents1<TS>(
   ts: &mut TS,
@@ -424,6 +423,7 @@ where
   )
 }
 
+#[allow(unused)]
 #[allow(clippy::too_many_arguments)]
 pub fn assert_token_stream_contents2<TS>(
   ts: &mut TS,
@@ -643,7 +643,7 @@ where
   )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(unused)]
 pub fn assert_token_stream_contents9<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -668,7 +668,7 @@ where
   )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(unused)]
 pub fn assert_token_stream_contents10<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -692,7 +692,7 @@ where
   )
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(unused)]
 pub fn assert_token_stream_contents11<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -725,7 +725,7 @@ where
   assert_token_stream_contents7(ts, output, None, None, None, None, None, None)
 }
 
-#[allow(non_snake_case)]
+#[allow(unused)]
 pub fn assert_token_stream_contents13<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -737,7 +737,7 @@ where
   assert_token_stream_contents7(ts, output, None, None, types, None, None, None)
 }
 
-#[allow(non_snake_case)]
+#[allow(unused)]
 pub fn assert_token_stream_contents14<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -749,7 +749,7 @@ where
   assert_token_stream_contents7(ts, output, None, None, None, pos_increments, None, None)
 }
 
-#[allow(non_snake_case)]
+#[allow(unused)]
 pub fn assert_token_stream_contents15<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -771,7 +771,7 @@ where
   )
 }
 
-#[allow(non_snake_case)]
+#[allow(unused)]
 pub fn assert_token_stream_contents16<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -794,7 +794,7 @@ where
   )
 }
 
-#[allow(non_snake_case)]
+#[allow(unused)]
 pub fn assert_token_stream_contents17<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -841,7 +841,7 @@ where
   )
 }
 
-#[allow(non_snake_case)]
+#[allow(unused)]
 pub fn assert_token_stream_contents19<TS>(
   ts: &mut TS,
   output: &[&str],
@@ -876,6 +876,7 @@ where
   f(&mut ts)
 }
 
+#[allow(unused)]
 #[allow(clippy::too_many_arguments)]
 pub fn assert_analyzes_to1<A, R>(
   random: &mut R,
@@ -970,6 +971,7 @@ where
   check_analysis_consistency1(random, a, true, input)
 }
 
+#[allow(unused)]
 #[allow(clippy::too_many_arguments)]
 pub fn assert_analyzes_to4<A, R>(
   random: &mut R,
@@ -1005,6 +1007,7 @@ where
   check_analysis_consistency2(random, a, true, input, graph_offsets_are_correct)
 }
 
+#[allow(unused)]
 #[allow(clippy::too_many_arguments)]
 pub fn assert_analyzes_to5<A, R>(
   random: &mut R,
@@ -1090,6 +1093,7 @@ where
   )
 }
 
+#[allow(unused)]
 pub fn assert_analyzes_to_positions1<A, R>(
   random: &mut R,
   a: &A,
@@ -1115,6 +1119,7 @@ where
   )
 }
 
+#[allow(unused)]
 pub fn assert_analyzes_to_positions2<A, R>(
   random: &mut R,
   a: &A,
@@ -1166,6 +1171,7 @@ where
   )
 }
 
+#[allow(unused)]
 pub fn assert_analyzes_to10<A, R>(
   random: &mut R,
   a: &A,

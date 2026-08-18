@@ -140,6 +140,7 @@ pub trait BaseSpatialTestCase {
     self.do_test_random(random, count)
   }
 
+  #[allow(dead_code)]
   fn test_random_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -166,12 +167,14 @@ pub trait BaseSpatialTestCase {
     self.verify(random, &shapes)
   }
 
+  #[allow(dead_code)]
   fn get_shape_type(&self) -> &'static str;
 
   fn next_shape<R>(&self, random: &mut R) -> Result<Self::Shape>
   where
     R: Rng + ?Sized;
 
+  #[allow(dead_code)]
   fn get_encoder(&self) -> Self::Encoder;
 
   /// Creates the array of `LatLonShape::Triangle` values that are used to index the shape.
@@ -748,12 +751,16 @@ pub trait Encoder {
 
   fn decode_y(&self, encoded: i32) -> f64;
 
+  #[allow(dead_code)]
   fn quantize_x(&self, raw: f64) -> f64;
 
+  #[allow(dead_code)]
   fn quantize_x_ceil(&self, raw: f64) -> f64;
 
+  #[allow(dead_code)]
   fn quantize_y(&self, raw: f64) -> f64;
 
+  #[allow(dead_code)]
   fn quantize_y_ceil(&self, raw: f64) -> f64;
 }
 

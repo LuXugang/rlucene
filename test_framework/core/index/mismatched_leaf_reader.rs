@@ -24,6 +24,7 @@ use rand::Rng;
 use rand::prelude::SliceRandom;
 use std::sync::Arc;
 
+#[allow(unused)] // for quick search; mirrors Java MismatchedLeafReader.
 pub struct MismatchedLeafReader;
 
 pub struct MismatchedVisitor<'a, V> {

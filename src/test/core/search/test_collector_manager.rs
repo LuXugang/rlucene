@@ -103,7 +103,7 @@ where
   CM: CollectorManager,
   LR: LeafReader + Clone + 'static,
 {
-  let dummy_weight = DummyWeight::<LeafReaderContext<LR>>::new(ctx.reader().clone());
+  let dummy_weight = DummyWeight::new(ctx.reader().clone());
   let searcher = IndexSearcher::new(ctx.reader().clone().get_context()?)?;
   let mut collectors = Vec::new();
   let mut collector = collector_manager.new_collector()?;

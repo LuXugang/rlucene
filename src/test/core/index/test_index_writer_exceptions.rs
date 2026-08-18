@@ -720,6 +720,7 @@ impl InfoStream for RollbackOnceInfoStream {
   }
 }
 
+#[cfg_attr(not(feature = "nightly"), allow(dead_code))]
 struct TooManyTokensStream {
   attrs: Attributes,
   num: i64,
@@ -1011,6 +1012,7 @@ where
 }
 
 #[derive(Clone)]
+#[cfg_attr(not(feature = "nightly"), allow(dead_code))]
 struct MergeFailure {
   random: Arc<Mutex<StdRng>>,
   did_fail: Arc<AtomicBool>,

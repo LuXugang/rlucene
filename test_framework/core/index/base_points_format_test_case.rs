@@ -569,6 +569,7 @@ pub trait BasePointsFormatTestCase:
     self.do_test_random_binary(random, 200)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_random_binary_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

@@ -59,6 +59,7 @@ use std::hash::{Hash, Hasher};
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::{Arc, LazyLock};
 
+#[allow(dead_code)] // for quick search
 pub struct TestMultiTermQueryRewrites;
 
 type MultiTermRewriteSearcher =
@@ -218,7 +219,12 @@ fn test_rewrites_with_duplicate_terms() -> Result<()> {
 
   Ok(())
 }
-fn check_boolean_query_boosts(bq: &BooleanQuery) -> Result<()> {
+#[allow(dead_code)]
+fn check_boolean_query_boosts(bq: Query) -> Result<()> {
+  let bq = match bq {
+    Query::Boolean(q) => q,
+    _ => unreachable!("expected BooleanQuery"),
+  };
   for clause in bq.clauses() {
     let boost_q = match clause.query.clone() {
       Query::Boost(q) => q,
@@ -263,9 +269,10 @@ where
     assert!(matches!(q2, Query::MatchNoDocs(_)));
     assert!(matches!(q3, Query::MatchNoDocs(_)));
   } else {
-    check_boolean_query_order(q1);
-    check_boolean_query_order(q2);
-    check_boolean_query_order(q3);
+    // check_boolean_query_boosts(q1)?;
+    // check_boolean_query_boosts(q2)?;
+    // check_boolean_query_boosts(q3)?;
+    unreachable!("expected MatchNoDocs");
   }
 
   Ok(())

@@ -440,11 +440,3 @@ enum ScoreDocEnum {
   Field(FieldDoc),
   Score(ScoreDoc),
 }
-impl ScoreDocEnum {
-  fn score_docs(&self) -> &ScoreDoc {
-    match self {
-      ScoreDocEnum::Field(field_doc) => &field_doc.base,
-      ScoreDocEnum::Score(score_doc) => score_doc,
-    }
-  }
-}

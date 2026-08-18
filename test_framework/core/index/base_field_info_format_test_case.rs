@@ -115,6 +115,7 @@ pub trait BaseFieldInfoFormatTestCase:
     Ok(())
   }
   /// Test field infos attributes coming back are not mutable.
+  #[allow(dead_code)]
   fn test_immutable_attributes<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

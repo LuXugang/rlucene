@@ -25,6 +25,7 @@ use std::sync::Arc;
 ///
 /// This API is internal.
 pub(crate) trait IndexWriterAccess {
+  #[allow(unused)]
   fn seg_string<D>(&self, iw: &IndexWriter<D>) -> Result<String>
   where
     D: Directory;
@@ -50,10 +51,12 @@ pub(crate) trait IndexWriterAccess {
   where
     D: Directory;
 
+  #[allow(unused)]
   fn is_deleter_closed<D>(&self, iw: &IndexWriter<D>) -> Result<bool>
   where
     D: Directory;
 
+  #[allow(unused)]
   fn newest_segment<D>(&self, iw: &IndexWriter<D>) -> Option<SegmentCommitInfo<D>>
   where
     D: Directory;

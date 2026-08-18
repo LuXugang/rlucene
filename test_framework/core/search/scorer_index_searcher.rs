@@ -37,6 +37,7 @@ impl<IR> ScorerIndexSearcher<IR>
 where
   IR: IndexReader + 'static,
 {
+  #[allow(unused)]
   pub fn new(reader: IR) -> Self {
     let s = IndexSearcher::new(reader.get_context().unwrap())
       .unwrap()

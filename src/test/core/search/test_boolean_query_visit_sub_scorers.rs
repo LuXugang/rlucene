@@ -33,11 +33,14 @@ use crate::test_framework::core::util::{DefaultCRReaderShared, DefaultIndexSearc
 use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
+#[allow(dead_code)]
 const F1: &str = "title";
+#[allow(dead_code)]
 const F2: &str = "body";
 #[allow(dead_code)] // for quick search
 pub struct TestBooleanQueryVisitSubScorers;
 
+#[allow(dead_code)]
 fn set_up<R: Rng + ?Sized>(
   random: &mut R,
 ) -> Result<(
@@ -86,6 +89,7 @@ fn set_up<R: Rng + ?Sized>(
   Ok((searcher, scorer_searcher))
 }
 
+#[allow(dead_code)]
 fn get_doc_counts(
   _searcher: &ScorerIndexSearcher<DefaultCRReaderShared>,
   _query: Query,
@@ -94,6 +98,7 @@ fn get_doc_counts(
   todo!()
 }
 
+#[allow(dead_code)]
 fn doc(v1: &str, v2: &str) -> Result<Document> {
   let mut doc = Document::new();
 

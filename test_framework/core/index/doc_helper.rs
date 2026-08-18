@@ -225,6 +225,7 @@ pub static TEXT_UTF_FIELD_1: LazyLock<Field> =
   LazyLock::new(|| Field::new(TEXT_FIELD_UTF1_KEY, FIELD_UTF1_TEXT, CUSTOM_TYPE.clone()));
 
 pub static FIELD_UTF2_TEXT: &str = "field field field 一two text";
+#[allow(dead_code)]
 pub static FIELD_UTF2_FREQS: [i32; 3] = [3, 1, 1];
 pub static TEXT_FIELD_UTF2_KEY: &str = "textField2Utf8";
 
@@ -238,6 +239,7 @@ pub static TEXT_UTF_FIELD_2: LazyLock<Field> = LazyLock::new(|| {
 #[derive(Clone, Debug)]
 pub enum NameValue {
   Str(&'static str),
+  #[allow(dead_code)]
   Bytes(Vec<u8>),
   String(String),
 }
@@ -345,6 +347,7 @@ pub struct Data {
   pub(crate) unindexed: HashMap<String, Fields>,
   pub(crate) term_vector: HashMap<String, Fields>,
   pub(crate) no_term_vector: HashMap<String, Fields>,
+  #[allow(dead_code)]
   pub(crate) lazy: HashMap<String, Fields>,
   pub(crate) no_norms: HashMap<String, Fields>,
   pub(crate) no_tf: HashMap<String, Fields>,

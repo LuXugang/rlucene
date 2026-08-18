@@ -76,6 +76,7 @@ impl ThrottledOutputTemplate {
 #[derive(Clone, Copy)]
 pub enum Throttling {
   /// always emulate a slow hard disk. could be very slow!
+  #[allow(dead_code)]
   Always,
   /// sometimes (0.5% of the time) emulate a slow hard disk.
   Sometimes,
@@ -370,6 +371,7 @@ where
     self.state.input_clone_count.load(Ordering::SeqCst)
   }
 
+  #[allow(unused)]
   pub fn is_open(&self) -> bool {
     self.state.base.lock().is_open()
   }
@@ -379,10 +381,12 @@ where
     self.state.base.lock().set_check_index_on_close(value);
   }
 
+  #[allow(unused)]
   pub fn get_check_index_on_close(&self) -> bool {
     self.state.base.lock().get_check_index_on_close()
   }
 
+  #[allow(unused)]
   pub fn set_cross_check_term_vectors_on_close(&self, value: bool) {
     self
       .state
@@ -391,12 +395,14 @@ where
       .set_cross_check_term_vectors_on_close(value);
   }
 
+  #[allow(unused)]
   pub fn get_level_for_check_on_close(&self) -> i32 {
     self.state.base.lock().get_level_for_check_on_close()
   }
 
   /// If set to true, we print a fake exception with filename and stacktrace on
   /// every indexinput clone()
+  #[allow(unused)]
   pub fn set_verbose_clone(&self, v: bool) {
     self.state.verbose_clone.store(v, Ordering::SeqCst);
   }
@@ -408,6 +414,7 @@ where
   /// If set to true (the default), when we throw random IOException on
   /// openInput or createOutput, we may sometimes throw FileNotFoundException or
   /// NoSuchFileException.
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub fn set_allow_random_file_not_found_exception(&self, value: bool) {
     self
       .state
@@ -417,6 +424,7 @@ where
 
   /// If set to true, you can open an inputstream on a file that is still open
   /// for writes.
+  #[allow(unused)]
   pub fn set_allow_reading_files_still_open_for_write(&self, value: bool) {
     self
       .state
@@ -452,6 +460,7 @@ where
     Ok(size)
   }
 
+  #[allow(unused)]
   pub fn corrupt_unknown_files(&self) -> Result<()> {
     if cfg!(feature = "test_log_verbose") {
       eprintln!("MDW: corrupt unknown files");
@@ -794,6 +803,7 @@ where
     self.state.max_size.store(max_size, Ordering::SeqCst);
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub fn get_max_size_in_bytes(&self) -> i64 {
     self.state.max_size.load(Ordering::SeqCst)
   }
@@ -819,6 +829,7 @@ where
       .store(value, Ordering::SeqCst);
   }
 
+  #[allow(unused)]
   pub fn get_assert_no_delete_open_file(&self) -> bool {
     self.state.assert_no_delete_open_file.load(Ordering::SeqCst)
   }
@@ -830,6 +841,7 @@ where
     *self.state.random_io_exception_rate.lock() = rate;
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub fn get_random_io_exception_rate(&self) -> f64 {
     *self.state.random_io_exception_rate.lock()
   }
@@ -841,6 +853,7 @@ where
     *self.state.random_io_exception_rate_on_open.lock() = rate;
   }
 
+  #[allow(unused)]
   pub fn get_random_io_exception_rate_on_open(&self) -> f64 {
     *self.state.random_io_exception_rate_on_open.lock()
   }
@@ -1008,6 +1021,7 @@ where
 enum Handle {
   Input,
   Output,
+  #[allow(dead_code)]
   Slice,
 }
 

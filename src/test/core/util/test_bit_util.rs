@@ -16,6 +16,7 @@
  */
 use crate::core::util::bit_util::BitUtil;
 
+#[allow(dead_code)] // for quick search
 pub struct TestBitUtil;
 
 #[test]

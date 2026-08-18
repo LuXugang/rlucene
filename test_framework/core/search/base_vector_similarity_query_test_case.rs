@@ -130,10 +130,6 @@ pub trait BaseVectorSimilarityQueryTestCase {
     filter: Option<Query>,
   ) -> Result<Self::VectorQuery>;
 
-  fn get_vector_similarity_function(&self) -> VectorSimilarityFunction {
-    VectorSimilarityFunction::Euclidean
-  }
-
   fn test_equals<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

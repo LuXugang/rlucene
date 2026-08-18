@@ -103,6 +103,7 @@ impl BinaryToken {
     }
   }
 
+  #[allow(unused)]
   pub fn with_pos_inc_pos_len(term: BytesRef<Vec<u8>>, pos_inc: i32, pos_len: i32) -> Self {
     Self {
       term,

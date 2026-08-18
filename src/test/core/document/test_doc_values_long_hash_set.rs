@@ -41,7 +41,7 @@ where
         break;
       }
     }
-    assert_ne!(set3, long_hash_set.stream());
+    assert_not_eq_set(&set3, long_hash_set);
   }
   assert!(set1.iter().all(|v| long_hash_set.contains(*v)));
 }

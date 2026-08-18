@@ -67,6 +67,7 @@ pub trait BaseLiveDocsFormatTestCase {
     self.test_serialization(random, max_doc, 1, true)?;
     Ok(())
   }
+  #[cfg_attr(not(feature = "monster"), allow(dead_code))]
   fn test_overflow<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

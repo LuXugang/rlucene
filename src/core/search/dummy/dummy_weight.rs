@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::dummy::dummy_leaf_reader::DummyLeafReader;
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::dummy::dummy_scorer_supplier::DummyScorerSupplier;
 use crate::core::search::explanation::Explanation;
@@ -27,28 +27,20 @@ use crate::core::search::weight::Weight;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-pub struct DummyWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  leaf_reader: IRCLeafReader<IRC>,
-}
+pub struct DummyWeight;
 
-impl<IRC> DummyWeight<IRC>
-where
-  IRC: IndexReaderContext,
-{
-  pub fn new(lr: IRCLeafReader<IRC>) -> Self {
-    Self { leaf_reader: lr }
+impl DummyWeight {
+  pub fn new(_lr: impl LeafReader) -> Self {
+    Self
   }
 }
-impl Default for DummyWeight<LeafReaderContext<DummyLeafReader>> {
+impl Default for DummyWeight {
   fn default() -> Self {
-    Self::new(DummyLeafReader)
+    Self
   }
 }
 
-impl<IRC> SegmentCacheable<IRC> for DummyWeight<IRC>
+impl<IRC> SegmentCacheable<IRC> for DummyWeight
 where
   IRC: IndexReaderContext,
 {
@@ -57,7 +49,7 @@ where
   }
 }
 
-impl<IRC> Weight<IRC> for DummyWeight<IRC>
+impl<IRC> Weight<IRC> for DummyWeight
 where
   IRC: IndexReaderContext,
 {

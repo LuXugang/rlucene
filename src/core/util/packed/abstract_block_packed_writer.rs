@@ -104,7 +104,8 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   ///
   /// Returns an error if the writer has already finished or the offset is
   /// invalid.
-  #[cfg(debug_assertions)]
+  #[cfg(test)]
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub(crate) fn add_block_of_zeros(&mut self, out: &mut impl DataOutput) -> Result<()> {
     self.check_not_finished()?;
     if self.off != 0 && self.off as usize != self.values.len() {

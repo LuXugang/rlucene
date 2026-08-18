@@ -562,11 +562,13 @@ fn test_io_error() -> Result<()> {
 }
 
 #[derive(Clone)]
+#[cfg_attr(not(feature = "nightly"), allow(dead_code))]
 struct CheckpointFailure {
   random: Arc<Mutex<StdRng>>,
 }
 
 impl CheckpointFailure {
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn new(seed: u64) -> Self {
     Self {
       random: Arc::new(Mutex::new(StdRng::seed_from_u64(seed))),

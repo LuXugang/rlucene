@@ -57,6 +57,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 
+#[allow(dead_code)] // for quick search
 pub struct TestIndexingSequenceNumbers;
 
 #[test]
@@ -163,6 +164,7 @@ fn test_stress_update_same_id() -> Result<()> {
   Ok(())
 }
 
+#[cfg(feature = "nightly")]
 #[derive(Clone, Debug, Default)]
 struct Operation {
   // 0 = update, 1 = delete, 2 = commit, 3 = add
@@ -580,6 +582,7 @@ fn test_delete_all() -> Result<()> {
   Ok(())
 }
 
+#[cfg(feature = "nightly")]
 fn get_i32_field(doc: &Document, name: &str) -> Result<i32> {
   match doc
     .get_field(name)
@@ -594,6 +597,7 @@ fn get_i32_field(doc: &Document, name: &str) -> Result<i32> {
   }
 }
 
+#[cfg(feature = "nightly")]
 fn list_commits<D>(dir: Arc<D>) -> Result<Vec<CommitPoint<D>>>
 where
   D: Directory,

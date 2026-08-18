@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use regex::Regex;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-#[allow(deprecated)] // for quick search
+#[allow(dead_code)] // for quick search
 struct TestCharTermAttributeImpl;
 
 #[test]

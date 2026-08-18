@@ -49,7 +49,6 @@ pub type DefaultCRReaderShared = Arc<StandardDirectoryReader<DirEnum>>;
 pub type DefaultCRReader = StandardDirectoryReader<DirEnum>;
 pub type DefaultLRReader = DefaultLeafReader<DirEnum>;
 pub type DefaultIRCRC = CompositeReaderContext<DefaultCRReader>;
-pub type DefaultIRCLR = LeafReaderContext<DefaultLRReader>;
 pub type DefaultIndexSearchCRShared =
   DefaultIndexSearcher<CompositeReaderContext<DefaultCRReaderShared>>;
 pub type DefaultIndexSearchCR = DefaultIndexSearcher<CompositeReaderContext<DefaultCRReader>>;

@@ -66,6 +66,7 @@ where
     &self.in_
   }
 
+  #[allow(dead_code)]
   pub fn is_open(&self) -> bool {
     self.is_open.load(Ordering::SeqCst)
   }
@@ -79,6 +80,7 @@ where
     self.check_index_on_close.load(Ordering::Relaxed)
   }
 
+  #[allow(unused)]
   pub fn set_cross_check_term_vectors_on_close(&mut self, value: bool) {
     // If true, we are enabling slow checks.
     if value {

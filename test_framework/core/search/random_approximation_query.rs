@@ -99,11 +99,9 @@ impl QueryBase for RandomApproximationQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    let query = self.clone();
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
     let mut random = random_from_seed(self.random_seed);
     Ok(Box::new(RandomApproximationWeight::new(
-      query,
       random.random(),
       weight,
     )))
@@ -133,7 +131,6 @@ impl QueryBase for RandomApproximationQuery {
 }
 
 pub struct RandomApproximationWeight<LR> {
-  query: Arc<Query>,
   random_seed: u64,
   in_: QueryWeight<LR>,
 }
@@ -142,10 +139,8 @@ where
   LR: IndexReaderContext + 'static,
   IRCLeafReader<LR>: 'static,
 {
-  fn new(query: RandomApproximationQuery, random_seed: u64, weight: QueryWeight<LR>) -> Self {
-    let query = Arc::new(query.into());
+  fn new(random_seed: u64, weight: QueryWeight<LR>) -> Self {
     Self {
-      query,
       random_seed,
       in_: weight,
     }
@@ -211,7 +206,6 @@ where
 }
 
 pub struct RandomApproximationScorer<S> {
-  random_seed: u64,
   two_phase_view: RandomTwoPhaseView<ScorerDISI<S>>,
 }
 impl<S> RandomApproximationScorer<S>
@@ -222,10 +216,7 @@ where
     let disi = ScorerDISI::new(scorer);
     let mut random = random_from_seed(random_seed);
     let two_phase_view = RandomTwoPhaseView::new(&mut random, disi);
-    Self {
-      random_seed,
-      two_phase_view,
-    }
+    Self { two_phase_view }
   }
 }
 

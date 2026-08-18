@@ -223,6 +223,7 @@ pub trait MatchesTestBase {
   }
 
   /// Check each document's term submatches against the expected matches.
+  #[allow(unused)]
   fn check_term_matches(&self, q: Query, field: &str, expected: &[&[&[TermMatch]]]) -> Result<()> {
     let searcher = &self.context().searcher;
     let rewritten = searcher.rewrite(q)?;
@@ -246,6 +247,7 @@ pub trait MatchesTestBase {
     Ok(())
   }
 
+  #[allow(unused)]
   fn check_terms(
     &self,
     expected: &[&[TermMatch]],
@@ -378,6 +380,7 @@ impl MatchesTestContext {
 
 /// Encapsulates a term position, start offset and end offset.
 #[derive(Clone, Debug, Eq)]
+#[allow(dead_code)]
 pub struct TermMatch {
   pub position: i32,
   pub start_offset: i32,
@@ -385,6 +388,7 @@ pub struct TermMatch {
 }
 
 impl TermMatch {
+  #[allow(unused)]
   pub fn new(position: i32, start_offset: i32, end_offset: i32) -> Self {
     Self {
       position,

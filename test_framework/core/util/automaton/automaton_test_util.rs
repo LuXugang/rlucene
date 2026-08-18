@@ -16,7 +16,6 @@
  */
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use bit_set::BitSet;
@@ -523,20 +522,6 @@ impl AutomatonTestUtil {
     }
 
     Ok(true)
-  }
-}
-#[derive(Eq, PartialEq, Clone)]
-struct HashSetAsKey {
-  set: Rc<BTreeSet<i32>>,
-}
-impl Hash for HashSetAsKey {
-  fn hash<H>(&self, state: &mut H)
-  where
-    H: Hasher,
-  {
-    for i in self.set.iter() {
-      i.hash(state);
-    }
   }
 }
 /// Allows retrieving random strings accepted by an [`Automaton`].

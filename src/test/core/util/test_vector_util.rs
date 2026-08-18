@@ -23,6 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
 use crate::test_framework::core::util::lucene_test_case::random;
 use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::test_vector_util::random_vector_dim;
 use rand::{Rng, RngExt};
 
 const DELTA: f32 = 1e-4;
@@ -408,13 +409,6 @@ where
   random_vector_dim(random, dim)
 }
 
-pub fn random_vector_dim<R>(random: &mut R, dim: usize) -> Vec<f32>
-where
-  R: Rng + ?Sized,
-{
-  (0..dim).map(|_| random.random::<f32>()).collect()
-}
-
 fn random_vector_bytes<R>(random: &mut R) -> Vec<u8>
 where
   R: Rng + ?Sized,
@@ -427,19 +421,6 @@ where
     }
   }
   assert_eq!(v.offset, 0);
-  v.bytes
-}
-
-pub fn random_vector_bytes_dim<R>(random: &mut R, dim: usize) -> Vec<u8>
-where
-  R: Rng + ?Sized,
-{
-  let mut v: BytesRef<Vec<u8>> = TestUtil::random_binary_term_with_len(random, dim);
-  for i in v.offset..(v.offset + v.length) {
-    if v.bytes[i] == i8::MIN as u8 {
-      v.bytes[i] = (-127i8) as u8;
-    }
-  }
   v.bytes
 }
 

@@ -97,6 +97,7 @@ where
     DefaultFlatVectorScorer
   }
 
+  #[allow(unused)]
   fn get_vector_encoding(&self) -> VectorEncoding;
 
   fn knn_query(&self, field: &str, vector: T, k: usize) -> Result<Query>;
@@ -1152,7 +1153,6 @@ where
 #[derive(Clone)]
 pub struct CircularByteVectorValues {
   size: usize,
-  doc: i32,
 }
 impl TryClone for CircularByteVectorValues {
   fn try_clone(&self) -> Result<Self>
@@ -1165,7 +1165,7 @@ impl TryClone for CircularByteVectorValues {
 
 impl CircularByteVectorValues {
   pub fn new(size: usize) -> Self {
-    Self { size, doc: -1 }
+    Self { size }
   }
 
   fn vector_value_bytes(&self, ord: usize) -> Vec<u8> {

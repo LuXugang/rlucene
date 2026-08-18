@@ -40,48 +40,9 @@ use crate::test_framework::core::util::automaton::automaton_test_util::{
   AutomatonTestUtil, RandomAcceptedStrings,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
-
+#[allow(dead_code)]
 pub(crate) struct TestOperations;
 
-impl TestOperations {
-  /// Returns the set of all accepted strings.
-  ///
-  /// This method exists primarily to ease testing.
-  /// For production code, directly use [`FiniteStringsIterator`] instead.
-  ///
-  /// See also:
-  /// - [`FiniteStringsIterator`]
-  pub fn get_finite_strings(a: &Automaton) -> Result<HashSet<IntsRef<Vec<i32>>>> {
-    let iter = FiniteStringsIterator::new(a)?;
-    Self::get_finite_strings_impl(iter)
-  }
-  /// Returns the set of accepted strings, up to at most `limit` strings.
-  ///
-  /// This method exists primarily to ease testing.
-  /// For production code, directly use [`LimitedFiniteStringsIterator`]
-  /// instead.
-  ///
-  /// See also:
-  /// - [`LimitedFiniteStringsIterator`]
-  pub fn get_finite_strings_with_limit(
-    a: &Automaton,
-    limit: i32,
-  ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
-    let iter = LimitedFiniteStringsIterator::new(a, limit)?;
-    Self::get_finite_strings_impl(iter)
-  }
-
-  /// Get all finite strings of an iterator.
-  pub fn get_finite_strings_impl(
-    mut iterator: impl FiniteStringsIteratorBase,
-  ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
-    let mut result = HashSet::new();
-    while let Some(finite_string) = iterator.next()? {
-      result.insert(IntsRef::deep_copy_of(&finite_string));
-    }
-    Ok(result)
-  }
-}
 #[test]
 fn test_string_union() -> Result<()> {
   let mut random = random();

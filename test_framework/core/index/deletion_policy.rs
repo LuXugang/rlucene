@@ -259,6 +259,7 @@ pub struct ExpirationTimeDeletionPolicy {
 }
 
 impl ExpirationTimeDeletionPolicy {
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub(crate) fn new(dir: Arc<DirEnum>, seconds: f64) -> Self {
     Self {
       dir,
@@ -266,7 +267,7 @@ impl ExpirationTimeDeletionPolicy {
       num_delete: Arc::new(AtomicUsize::new(0)),
     }
   }
-
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub(crate) fn num_delete(&self) -> usize {
     self.num_delete.load(Ordering::SeqCst)
   }

@@ -404,6 +404,7 @@ pub trait BaseNormsFormatTestCase:
     })
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_n_common_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -426,6 +427,7 @@ pub trait BaseNormsFormatTestCase:
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_sparse_n_common_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -560,6 +562,7 @@ pub trait BaseNormsFormatTestCase:
     Ok(())
   }
 
+  #[allow(dead_code)]
   fn test_merge_stability(&self) -> Result<()> {
     // TODO: can we improve this base test to just have implementations declare the extensions to
     // check, rather than a blacklist to exclude? We need to index data to get norms, but we do not

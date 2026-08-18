@@ -236,6 +236,7 @@ pub trait BaseGeoPointTestCase {
   }
 
   /// Null field name not allowed.
+  #[allow(dead_code)]
   fn test_box_null(&self) -> Result<()> {
     // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
     Ok(())
@@ -287,6 +288,7 @@ pub trait BaseGeoPointTestCase {
   }
 
   /// Null field name not allowed.
+  #[allow(dead_code)]
   fn test_distance_null(&self) -> Result<()> {
     // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
     Ok(())
@@ -483,6 +485,7 @@ pub trait BaseGeoPointTestCase {
   }
 
   /// Null field name not allowed.
+  #[allow(dead_code)]
   fn test_polygon_null_field(&self) -> Result<()> {
     // The concrete Rust entries are Java-only ignores because `&str` cannot be null.
     Ok(())
@@ -702,6 +705,7 @@ pub trait BaseGeoPointTestCase {
     self.do_test_random(random, 1000)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_random_big<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1348,6 +1352,7 @@ pub trait BaseGeoPointTestCase {
     Ok(())
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_random_distance_huge<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

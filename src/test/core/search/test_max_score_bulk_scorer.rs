@@ -561,6 +561,12 @@ struct FakeScorer {
   cost: i32,
   disi: AllDISI,
 }
+
+impl Display for FakeScorer {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.to_string)
+  }
+}
 impl FakeScorer {
   fn new(to_string: String) -> Self {
     let cost = 10;

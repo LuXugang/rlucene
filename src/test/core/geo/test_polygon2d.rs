@@ -26,7 +26,7 @@ use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 
-#[cfg(test)] // for quick search
+#[allow(dead_code)] // for quick search
 struct TestPolygon2D;
 #[test]
 fn test_multi_polygon() -> Result<()> {

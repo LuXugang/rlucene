@@ -1355,10 +1355,6 @@ impl FieldAndTerm {
   pub fn term(&self) -> &BytesRef<Vec<u8>> {
     &self.term
   }
-
-  pub fn ord(&self) -> i64 {
-    self.ord
-  }
 }
 
 impl RandomPostingsTester {

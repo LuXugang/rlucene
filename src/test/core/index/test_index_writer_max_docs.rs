@@ -55,6 +55,7 @@ use std::thread;
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterMaxDocs;
 
+#[cfg_attr(not(feature = "nightly"), allow(dead_code))]
 struct AddIndexesFilterDirectory<D> {
   id: Identity,
   in_: Arc<D>,
@@ -64,6 +65,7 @@ impl<D> AddIndexesFilterDirectory<D>
 where
   D: Directory,
 {
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn new(in_: Arc<D>) -> Self {
     Self {
       id: Identity::new(),

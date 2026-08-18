@@ -309,7 +309,7 @@ fn test_total_hits() -> Result<()> {
   assert_eq!(2, reader.leaves()?.len());
   writer.close()?;
 
-  let dummy_weight = DummyWeight::<_>::new(reader.leaves()?[0].reader().clone());
+  let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
   for total_hits_threshold in 0..20 {
     let after_variants: [Option<FieldDoc>; 2] = [
       None,
@@ -394,7 +394,7 @@ fn test_set_min_competitive_score() -> Result<()> {
   let reader = &searcher.reader_context;
   assert_eq!(2, reader.leaves()?.len());
   writer.close()?;
-  let dummy_weight = DummyWeight::<_>::new(reader.leaves()?[0].reader().clone());
+  let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
 
   let sort = Sort::with_fields(vec![
     SortField::get_field_score()?,
@@ -471,7 +471,7 @@ fn test_total_hits_with_score() -> Result<()> {
   let reader = &searcher.reader_context;
   assert_eq!(2, reader.leaves()?.len());
   writer.close()?;
-  let dummy_weight = DummyWeight::<_>::new(reader.leaves()?[0].reader().clone());
+  let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
   for total_hits_threshold in 0..20 {
     let sort = Sort::with_fields(vec![
       SortField::get_field_score()?,
@@ -715,7 +715,7 @@ fn test_concurrent_min_score() -> Result<()> {
   let mut scorer2 = Score::default();
 
   let leaves = reader.leaves()?;
-  let dummy_weight = DummyWeight::<_>::new(reader.leaves()?[0].reader().clone());
+  let dummy_weight = DummyWeight::new(reader.leaves()?[0].reader().clone());
 
   let mut leaf_collector =
     collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;

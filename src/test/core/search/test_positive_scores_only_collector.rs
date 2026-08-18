@@ -213,7 +213,7 @@ fn test_negative_scores() -> Result<()> {
   let manager = TopScoreDocCollectorManager::new(SCORES.len(), i32::MAX as usize)?;
   let top_docs_collector = manager.new_collector()?;
   let mut collector = PositiveScoresOnlyCollector::new(top_docs_collector);
-  let dummy_weight = DummyWeight::<LeafReaderContext<_>>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
   let mut leaf_collector =
     collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;
   leaf_collector.set_scorer(&mut scorer)?;

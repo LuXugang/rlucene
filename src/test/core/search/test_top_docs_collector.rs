@@ -463,7 +463,7 @@ fn test_set_min_competitive_score() -> Result<()> {
   let collector_manager = TopScoreDocCollectorManager::new(2, 2)?;
   let mut collector = collector_manager.new_collector()?;
   let mut scorer = Score::new();
-  let dummy_weight = Box::new(DummyWeight::<_>::new(v.leaves()?[0].reader().clone()));
+  let dummy_weight = Box::new(DummyWeight::new(v.leaves()?[0].reader().clone()));
   let mut leaf_collector =
     collector.get_leaf_collector(&v.leaves()?[0], Some(&dummy_weight), &searcher)?;
   leaf_collector.set_scorer(&mut scorer)?;
@@ -571,7 +571,7 @@ fn test_total_hits() -> Result<()> {
   let v = &searcher.reader_context;
   assert_eq!(v.leaves()?.len(), 2);
   writer.close()?;
-  let dummy_weight = DummyWeight::<_>::new(v.leaves()?[0].reader().clone());
+  let dummy_weight = DummyWeight::new(v.leaves()?[0].reader().clone());
 
   for total_hits_threshold in 0..20 {
     let collector_manager = TopScoreDocCollectorManager::new(2, total_hits_threshold)?;
@@ -696,7 +696,7 @@ fn test_concurrent_min_score() -> Result<()> {
   let mut scorer2 = Score::new();
 
   let leaves = reader.leaves()?;
-  let dummy_weight = DummyWeight::<_>::new(leaves[0].reader().clone());
+  let dummy_weight = DummyWeight::new(leaves[0].reader().clone());
 
   let mut leaf_collector =
     collector.get_leaf_collector(&leaves[0], Some(&dummy_weight), &searcher)?;

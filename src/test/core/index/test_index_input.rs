@@ -308,7 +308,7 @@ impl DataInput for InterceptingIndexInput {
 
 impl Display for InterceptingIndexInput {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
+    write!(f, "{}", self.resource_description)
   }
 }
 

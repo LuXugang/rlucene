@@ -220,6 +220,7 @@ pub trait BaseLatLonPointTestCaseHook {
   type Shape: Clone + Debug;
   type Validator: Validator<Shape = Self::Shape, Encoder = LatLonEncoder>;
 
+  #[allow(dead_code)]
   fn get_shape_type(&self) -> &'static str;
 
   fn next_shape<R>(&self, random: &mut R) -> Result<Self::Shape>
@@ -267,7 +268,7 @@ where
   }
 
   fn get_encoder(&self) -> Self::Encoder {
-    BaseLatLonSpatialTestCaseDefaults::get_encoder()
+    LatLonEncoder
   }
 
   fn create_indexable_fields(&self, field: &str, shape: &Self::Shape) -> Result<Vec<Fields>> {

@@ -473,8 +473,6 @@ impl BytesStartArray for PostingsBytesStartArray {
 pub(crate) enum TermsHashPerFieldType {
   TermVectors,
   FreqProx(FreqProx),
-  #[cfg(test)]
-  Mock,
 }
 impl TermsHashPerFieldType {
   pub(crate) fn new_per_field(&self, size: usize) -> PostingsArrayEnum {
@@ -492,10 +490,6 @@ impl TermsHashPerFieldType {
           has_prox,
           has_offsets,
         ))
-      },
-      #[cfg(test)]
-      TermsHashPerFieldType::Mock => {
-        PostingsArrayEnum::FreqProx(FreqProxPostingsArray::new(size, true, false, false))
       },
     }
   }

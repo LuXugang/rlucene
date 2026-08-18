@@ -59,6 +59,7 @@ impl ShapeTestUtil {
       Self::triangle_polygon(&box_)
     }
   }
+  #[allow(unused)]
   pub fn next_xy_point<R>(random: &mut R) -> Result<XYPoint>
   where
     R: Rng + ?Sized,

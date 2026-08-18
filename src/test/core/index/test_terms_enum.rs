@@ -548,13 +548,6 @@ where
     }
   }
 }
-struct TermAndState<TS>
-where
-  TS: TermState,
-{
-  term: BytesRef<Vec<u8>>,
-  state: Option<TS>,
-}
 fn test_random_seeks<'a, R, IR>(
   random: &mut R,
   reader: &'a IR,

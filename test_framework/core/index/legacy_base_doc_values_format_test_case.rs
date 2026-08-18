@@ -4109,6 +4109,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     reader.close()?;
     Ok(())
   }
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_threads2<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -4275,6 +4276,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     reader.close()?;
     Ok(())
   }
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_threads3<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -5105,6 +5107,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     Self::do_test_random_advance(random, fc)
   }
 
+  #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   fn test_high_ords_sorted_set_dv<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

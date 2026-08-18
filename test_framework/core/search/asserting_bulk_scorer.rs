@@ -55,6 +55,7 @@ impl AssertingBulkScorer {
     })
   }
 
+  #[allow(unused)]
   pub(crate) fn get_in(&self) -> &QueryWeightSsBulkScorer {
     &self.in_
   }

@@ -155,10 +155,6 @@ impl BaseLatLonSpatialTestCaseDefaults {
   {
     GeoTestUtil::next_polygon(random)
   }
-
-  pub fn get_encoder() -> LatLonEncoder {
-    LatLonEncoder
-  }
 }
 
 #[derive(Clone, Copy)]

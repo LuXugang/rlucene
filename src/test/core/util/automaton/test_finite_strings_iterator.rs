@@ -229,7 +229,7 @@ fn test_single_string() -> Result<()> {
   a.add_transition(start, end, 'a' as i32, 'a' as i32)?;
   a.finish_state()?;
 
-  let accepted = TestOperations::get_finite_strings(&a)?;
+  let accepted =  crate::test_framework::core::util::automaton::test_operations::TestOperations::get_finite_strings(&a)?;
 
   assert_eq!(accepted.len(), 1);
 

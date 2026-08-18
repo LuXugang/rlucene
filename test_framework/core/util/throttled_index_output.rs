@@ -25,8 +25,10 @@ use crate::core::util::error::lucene_error::Result;
 /// Intentionally slow IndexOutput for testing.
 pub struct ThrottledIndexOutput<O> {
   bytes_per_second: i32,
+  #[allow(dead_code)]
   flush_delay_millis: i64,
   close_delay_millis: i64,
+  #[allow(dead_code)]
   seek_delay_millis: i64,
   pending_bytes: i64,
   min_bytes_written: i64,
@@ -42,6 +44,7 @@ where
 {
   pub const DEFAULT_MIN_WRITTEN_BYTES: i32 = 1024;
 
+  #[allow(unused)]
   pub fn new_from_delegate<D>(&self, out: D) -> ThrottledIndexOutput<D>
   where
     D: IndexOutput,
@@ -67,6 +70,7 @@ where
     )
   }
 
+  #[allow(unused)]
   pub fn with_delays(bytes_per_second: i32, delays: i64, min_bytes_written: i32, out: O) -> Self {
     Self::with_all_delays(
       bytes_per_second,
@@ -78,6 +82,7 @@ where
     )
   }
 
+  #[allow(unused)]
   pub fn m_bits_to_bytes(mbits: i32) -> i32 {
     mbits.wrapping_mul(125_000_000)
   }
