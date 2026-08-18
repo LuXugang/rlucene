@@ -393,6 +393,7 @@ where
   /// # Returns
   ///
   /// The copied byte array
+  #[cfg(test)]
   pub fn get_bytes(&self, hash_slot: usize, length: i32) -> Result<Vec<u8>> {
     let address = self.inner.copied_node_address.get(hash_slot)?;
     debug_assert!(address - length as i64 + 1 >= 0);

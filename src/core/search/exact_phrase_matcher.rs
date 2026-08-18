@@ -21,7 +21,7 @@ use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::conjunction_disi::ConjunctionDISI;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::impacts_disi::ImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
@@ -96,7 +96,7 @@ where
   fn posting(&self, idx: usize) -> &IE {
     &self
       .impacts_approximation
-      .max_score_cache
+      .max_score_cache()
       .impacts_source
       .impacts_enums
       .all_disi[idx]
@@ -126,13 +126,11 @@ where
   pub(crate) fn approximation(&self) -> &ConjunctionDISI<IE> {
     &self
       .impacts_approximation
-      .max_score_cache
+      .max_score_cache()
       .impacts_source
       .impacts_enums
   }
 }
-pub type Disi<IE, SS> =
-  DocIdSetIteratorEnum2<ImpactsApproximationType<IE, SS>, ConjunctionDISI<IE>>;
 impl<IE, SS> PhraseMatcher for ExactPhraseMatcher<IE, SS>
 where
   IE: ImpactsEnum,

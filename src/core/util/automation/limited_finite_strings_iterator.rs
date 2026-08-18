@@ -17,9 +17,9 @@
 use std::borrow::Cow;
 
 use crate::core::util::automation::automaton::Automaton;
-use crate::core::util::automation::finite_strings_iterator::{
-  FiniteStringsIterator, FiniteStringsIteratorBase,
-};
+use crate::core::util::automation::finite_strings_iterator::FiniteStringsIterator;
+#[cfg(test)]
+use crate::core::util::automation::finite_strings_iterator::FiniteStringsIteratorBase;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ints_ref::IntsRef;
@@ -59,9 +59,11 @@ impl<'a> LimitedFiniteStringsIterator<'a> {
   pub fn size(&self) -> i32 {
     self.count
   }
-}
-impl FiniteStringsIteratorBase for LimitedFiniteStringsIterator<'_> {
-  fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
+
+  /// Generates the next finite string, or `None` when the limit is reached.
+  #[allow(clippy::should_implement_trait)]
+  // Mirrors Java's public, fallible lending API; std::Iterator cannot return the reused buffer borrowed from self.
+  pub fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
     if self.count >= self.limit {
       return Ok(None);
     }
@@ -72,5 +74,12 @@ impl FiniteStringsIteratorBase for LimitedFiniteStringsIterator<'_> {
     } else {
       Ok(None)
     }
+  }
+}
+
+#[cfg(test)]
+impl FiniteStringsIteratorBase for LimitedFiniteStringsIterator<'_> {
+  fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
+    LimitedFiniteStringsIterator::next(self)
   }
 }

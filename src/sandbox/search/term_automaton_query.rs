@@ -579,6 +579,8 @@ struct TermAutomatonWeight {
   automaton: Automaton,
   term_states: Vec<Option<Mutex<TermStates>>>,
   stats: Option<Arc<SimilarityEnumSimScorer>>,
+  #[allow(dead_code)]
+  // Mirrors Java's retained similarity field, which is only read during construction.
   similarity: Arc<SimilarityEnum>,
   parent_query: Arc<Query>,
 }

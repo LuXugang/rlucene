@@ -154,8 +154,6 @@ pub(crate) trait CaughtResultExt {
 
   fn clone_caught_failure(&self, panic_message: &str) -> Option<CaughtResult>;
 
-  fn caught_panic(&self, panic_message: &str) -> Option<LuceneError>;
-
   fn add_suppressed<T>(&mut self, suppressed: CaughtResult<T>, panic_message: &str);
 
   fn fmt_caught_result(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result;
@@ -197,16 +195,6 @@ impl<T> CaughtResultExt for CaughtResult<T> {
         panic_message,
         payload.as_ref(),
       )))),
-    }
-  }
-
-  fn caught_panic(&self, panic_message: &str) -> Option<LuceneError> {
-    match self {
-      Err(payload) => Some(LuceneError::tragedy_from_panic(
-        panic_message,
-        payload.as_ref(),
-      )),
-      Ok(_) => None,
     }
   }
 

@@ -59,7 +59,6 @@ pub struct TermsHashPerField {
   // vectors.
   pub(crate) bytes_hash: BytesRefHash<PostingsBytesStartArray>,
   last_doc_id: i32, // only used with debug/asserts
-  pub(crate) do_next_call: bool,
   pub(crate) field_name: String,
   pub(crate) index_options: IndexOptions,
 }
@@ -87,7 +86,6 @@ impl TermsHashPerField {
       stream_count,
       bytes_hash,
       last_doc_id: 0,
-      do_next_call: false,
       field_name,
       index_options,
     })
@@ -366,7 +364,6 @@ pub(crate) trait TermsHashPerFieldBase {
       "should nerve called".to_string(),
     ))
   }
-  fn get_field_name(&self) -> &str;
 }
 pub(crate) struct PostingsArrayWrapper {
   pub(crate) postings_array: Option<PostingsArrayEnum>,

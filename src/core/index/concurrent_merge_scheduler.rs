@@ -1372,6 +1372,11 @@ where
     }
   }
 
+  #[cfg(test)]
+  pub(crate) fn name(&self) -> &str {
+    &self.state.name
+  }
+
   fn run(self, merge_scheduler: ConcurrentMergeScheduler) -> Result<()> {
     let MergeThread {
       state,
@@ -1467,10 +1472,6 @@ where
       },
     }
   }
-
-  pub(crate) fn name(&self) -> &str {
-    &self.state.name
-  }
 }
 
 impl ConcurrentMergeScheduler {
@@ -1480,11 +1481,13 @@ impl ConcurrentMergeScheduler {
   }
 
   /** Used for testing */
+  #[cfg(test)]
   pub(crate) fn set_suppress_exceptions(&self) {
     self.inner.lock().suppress_exceptions = true;
   }
 
   /** Used for testing */
+  #[cfg(test)]
   pub(crate) fn clear_suppress_exceptions(&self) {
     self.inner.lock().suppress_exceptions = false;
   }

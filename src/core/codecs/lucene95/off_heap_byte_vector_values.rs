@@ -599,15 +599,11 @@ where
 
 pub struct EmptyOffHeapVectorValues {
   dimension: usize,
-  binary_value: Vec<u8>,
 }
 
 impl EmptyOffHeapVectorValues {
   fn new(dimension: usize) -> Self {
-    Self {
-      dimension,
-      binary_value: Vec::new(),
-    }
+    Self { dimension }
   }
 }
 

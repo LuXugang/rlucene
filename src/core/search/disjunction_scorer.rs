@@ -352,9 +352,6 @@ where
     self.unverified_matches.clear();
     Ok(self.verified_matches)
   }
-  fn all_scores_ref(&mut self) -> &[DisiWrapper<S>] {
-    &self.unverified_matches.compare.approximation.all_scores
-  }
   fn all_scores_mut(&mut self) -> &mut [DisiWrapper<S>] {
     &mut self.unverified_matches.compare.approximation.all_scores
   }

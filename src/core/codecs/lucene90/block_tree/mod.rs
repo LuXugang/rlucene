@@ -22,4 +22,4 @@ pub mod lucene90_block_tree_terms_reader;
 pub mod lucene90_block_tree_terms_writer;
 pub mod segment_terms_enum;
 pub(crate) mod segment_terms_enum_frame;
-mod stats;
+pub mod stats;

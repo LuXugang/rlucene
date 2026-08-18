@@ -18,6 +18,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::cmp;
+#[cfg(test)]
 use std::collections::HashMap;
 /// A ring buffer that tracks the frequency of the integers that it contains.
 /// This is typically useful to track the hash codes of popular recently-used items.
@@ -186,6 +187,7 @@ impl IntBag {
     }
   }
 
+  #[cfg(test)]
   pub(crate) fn as_map(&self) -> HashMap<i32, i32> {
     let mut map = HashMap::new();
     for i in 0..self.keys.len() {

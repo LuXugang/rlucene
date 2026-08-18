@@ -38,6 +38,7 @@ use std::fmt::{Display, Formatter};
 /// document due to wrapping a BinaryDocValuesField.
 pub struct DoubleRangeDocValuesField {
   pub(crate) base: BinaryDocValuesField,
+  #[allow(dead_code)] // Mirrors Java's package-private field for source and test API fidelity.
   pub(crate) field: String,
   pub(crate) min: Vec<f64>,
   pub(crate) max: Vec<f64>,

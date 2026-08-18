@@ -298,18 +298,6 @@ where
   //     inner.swap(i, j)?;
   //     Ok(())
   // }
-  pub(crate) fn grow(&mut self, size: i32) -> Result<()> {
-    self.sub_update.grow(size)?;
-    let mut inner = self.inner.lock();
-    inner.grow(size)?;
-    Ok(())
-  }
-  pub(crate) fn resize(&mut self, size: i32) -> Result<()> {
-    self.sub_update.resize(size)?;
-    let mut inner = self.inner.lock();
-    inner.resize(size)?;
-    Ok(())
-  }
   pub(crate) fn ensure_finished(&self) -> Result<()> {
     let inner = self.inner.lock();
     if !inner.finished {
@@ -1140,7 +1128,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
   }
 
   fn add_value(&mut self, doc: i32, value: i64, _index: usize) -> Result<()> {
-    debug_assert!(self.sub_update.long_value()? == value);
+    debug_assert!(self.long_value()? == value);
     self.bit_set.set(doc as usize);
 
     self.has_at_least_one_value = true;
@@ -1152,7 +1140,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
   }
 
   fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: usize) -> Result<()> {
-    debug_assert!(self.sub_update.binary_value()?.as_ref() == value);
+    debug_assert!(self.binary_value()?.as_ref() == value);
     self.bit_set.set(doc as usize);
     self.has_at_least_one_value = true;
     if let Some(has_no_value) = self.has_no_value.as_mut() {
@@ -1323,18 +1311,4 @@ where
   }
   let value = MergedIterator::new(queue)?;
   Ok(Some(value))
-}
-/// Wraps the given iterator as a BinaryDocValues instance.
-fn get_binary_doc_values<T>(iterator: T)
-where
-  T: DocValuesFieldIterator,
-{
-  BinaryDocValuesDVFU::new(iterator);
-}
-/// Wraps the given iterator as a NumericDocValues instance.
-fn get_numeric_doc_values<T>(iterator: T)
-where
-  T: DocValuesFieldIterator,
-{
-  NumericDocValuesDVFU::new(iterator);
 }

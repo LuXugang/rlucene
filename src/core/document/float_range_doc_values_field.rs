@@ -38,6 +38,7 @@ use std::fmt::{Display, Formatter};
 /// BinaryDocValuesField.
 pub struct FloatRangeDocValuesField {
   pub(crate) base: BinaryDocValuesField,
+  #[allow(dead_code)] // Mirrors Java's package-private field for source and test API fidelity.
   pub(crate) field: String,
   pub(crate) min: Vec<f32>,
   pub(crate) max: Vec<f32>,

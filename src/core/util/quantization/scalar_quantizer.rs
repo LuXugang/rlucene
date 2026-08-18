@@ -187,6 +187,7 @@ impl ScalarQuantizer {
   ///
   /// - `src`: the source vector
   /// - `dest`: the destination vector
+  #[cfg(test)]
   pub(crate) fn de_quantize(&self, src: &[u8], dest: &mut [f32]) {
     debug_assert_eq!(src.len(), dest.len());
     for i in 0..src.len() {

@@ -40,6 +40,8 @@ pub struct LevenshteinAutomata {
   /// The automata alphabet.
   alphabet: Vec<i32>,
   /// The maximum symbol in the alphabet (e.g. 255 for UTF-8 or 10FFFF for UTF-32).
+  #[allow(dead_code)]
+  // Mirrors Java's retained alphaMax field, which is only used during construction.
   alpha_max: i32,
   /// Lower bounds for ranges outside of alphabet.
   range_lower: Vec<i32>,
@@ -296,13 +298,13 @@ impl ParametricDescription {
     self.sub.transition(state, position, vector, self)
   }
 }
-pub trait ParametricDescriptionBase {
+pub(crate) trait ParametricDescriptionBase {
   /// Returns the state number for a transition from the given `state`, assuming `position` and
   /// characteristic vector `vector`.
   fn transition(&self, state: i32, position: i32, vector: i32, base: &ParametricDescription)
   -> i32;
 }
-pub enum ParametricDescriptionBaseEnum {
+pub(crate) enum ParametricDescriptionBaseEnum {
   Lev1(Lev1ParametricDescription),
   Lev1T(Lev1TParametricDescription),
   Lev2(Lev2ParametricDescription),

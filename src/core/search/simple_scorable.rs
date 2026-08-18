@@ -22,12 +22,6 @@ pub struct SimpleScorable {
   pub(crate) score: f32,
   pub(crate) min_competitive_score: f32,
 }
-impl SimpleScorable {
-  pub(crate) fn set_score(&mut self, score: f32) {
-    self.score = score
-  }
-}
-
 impl Scorable for SimpleScorable {
   fn score(&mut self) -> Result<f32> {
     Ok(self.score)

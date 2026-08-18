@@ -245,6 +245,7 @@ impl FreqProxTermsWriterPerField {
     }
     Ok(())
   }
+  #[allow(dead_code)] // Mirrors Java's inherited TermsHashPerField.reset hook, which has no current production caller.
   pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
     self.base.reset(byte_pool);
     if let Some(next_per_field) = self.next_per_field.as_mut() {
@@ -624,10 +625,6 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
       },
     }
     Ok(())
-  }
-
-  fn get_field_name(&self) -> &str {
-    &self.field_info.name
   }
 }
 

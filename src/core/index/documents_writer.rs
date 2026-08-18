@@ -96,8 +96,6 @@ where
   pub(crate) guard: Mutex<()>,
   pub(crate) inner: Mutex<Inner>,
   pub(crate) flush_control: DocumentsWriterFlushControl<D>,
-  index_created_version_major: i32,
-  enable_test_points: bool,
   flush_notifications: FN,
 }
 pub(crate) struct Inner {
@@ -111,8 +109,6 @@ where
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new<L>(
     flush_notifications: FN,
-    index_created_version_major: i32,
-    enable_test_points: bool,
     pending_num_docs: Arc<AtomicI64>,
     config: &L,
   ) -> Result<Self>
@@ -133,8 +129,6 @@ where
         current_full_flush_del_queue: None,
       }),
       flush_control: DocumentsWriterFlushControl::new(config, delete_queue)?,
-      index_created_version_major,
-      enable_test_points,
       flush_notifications,
     })
   }
@@ -372,6 +366,7 @@ where
 
     Ok(any)
   }
+  #[cfg(test)]
   pub(crate) fn get_buffered_delete_terms_size(&self) -> Result<i32> {
     self
       .flush_control

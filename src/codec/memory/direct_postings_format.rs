@@ -258,8 +258,6 @@ struct DirectFieldData {
   sum_total_term_freq: i64,
   doc_count: i32,
   sum_doc_freq: i64,
-  skip_count: i32,
-  count: i32,
   same_counts: Vec<i32>,
   min_skip_count: i32,
 }
@@ -561,8 +559,6 @@ impl DirectField {
         sum_total_term_freq,
         doc_count,
         sum_doc_freq,
-        skip_count,
-        count: count as i32,
         same_counts,
         min_skip_count,
       }),

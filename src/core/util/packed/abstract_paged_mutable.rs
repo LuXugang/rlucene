@@ -36,7 +36,7 @@ const MAX_BLOCK_SIZE: i32 = 1 << 30;
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
 #[derive(Default)]
-pub(crate) struct AbstractPagedMutable<T> {
+pub struct AbstractPagedMutable<T> {
   sub_reader: T,
   size: usize,
   page_shift: i32,
@@ -44,6 +44,7 @@ pub(crate) struct AbstractPagedMutable<T> {
   sub_mutables: Vec<MutableEnum>,
 }
 
+#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
 impl<T> AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase,
@@ -169,6 +170,7 @@ where
     self.grow_with_size(self.size() << 1)
   }
 }
+#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
 impl<T> LongValues for AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase,
@@ -180,6 +182,7 @@ where
     Ok(self.sub_mutables[page_index].get(index_in_page.try_convert()?))
   }
 }
+#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
 impl<T> Accountable for AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase,
@@ -194,6 +197,7 @@ where
     Ok(byte_used)
   }
 }
+#[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
 impl<T> Display for AbstractPagedMutable<T>
 where
   T: AbstractPagedMutableBase + Display,

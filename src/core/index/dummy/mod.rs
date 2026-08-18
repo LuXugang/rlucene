@@ -25,7 +25,6 @@ pub mod dummy_doc_map;
 pub mod dummy_doc_map_sorter;
 pub mod dummy_fields;
 pub mod dummy_float_vector_values;
-pub mod dummy_flush_policy;
 pub mod dummy_impacts;
 pub mod dummy_impacts_enum;
 pub mod dummy_index_commit;

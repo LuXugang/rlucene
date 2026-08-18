@@ -139,6 +139,7 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
     Ok(())
   }
   /// Returns the number of values that have been added.
+  #[cfg(test)]
   pub fn ord(&self) -> usize {
     self.ord
   }

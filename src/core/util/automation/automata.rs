@@ -599,7 +599,7 @@ impl Automata {
   /// Returns:
   /// - An [`Automaton`] accepting all input strings. The resulting automaton
   ///   is codepoint-based (full Unicode codepoints on transitions).
-  pub(crate) fn make_string_union_from_iter<B>(utf8_strings: &mut B) -> Result<Automaton>
+  pub fn make_string_union_from_iter<B>(utf8_strings: &mut B) -> Result<Automaton>
   where
     B: BytesRefIterator,
   {

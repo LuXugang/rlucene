@@ -21,7 +21,6 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::priority_queue::Compare;
 use crate::core::util::{SloppyMath, ToInt};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -297,21 +296,6 @@ where
     Ok(Relation::CellCrossesQuery)
   }
 }
-struct NearestHitCmp;
-impl Compare<NearestHit> for NearestHitCmp {
-  fn less_than(&self, a: &NearestHit, b: &NearestHit) -> Result<bool> {
-    // sort by opposite distance_sort_key natural order
-    match a.distance_sort_key.total_cmp(&b.distance_sort_key) {
-      std::cmp::Ordering::Less => Ok(false),
-      std::cmp::Ordering::Greater => Ok(true),
-      std::cmp::Ordering::Equal => {
-        // tie-break by higher doc_id
-        Ok(a.doc_id < b.doc_id)
-      },
-    }
-  }
-}
-
 pub fn nearest<PV, B>(
   point_lat: f64,
   point_lon: f64,

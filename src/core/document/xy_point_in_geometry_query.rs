@@ -19,7 +19,7 @@ use crate::core::geo::component2d::Component2D;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry;
-use crate::core::geo::xy_geometry::{XYGeometry, XYGeometryEnum, XYGeometryType};
+use crate::core::geo::xy_geometry::{XYGeometryEnum, XYGeometryType};
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
@@ -83,14 +83,6 @@ impl XYPointInGeometryQuery {
   pub fn get_geometries(&self) -> &[XYGeometryEnum] {
     self.xy_geometries.as_slice()
   }
-}
-
-pub(crate) fn new_xy_point_in_geometry_query<T>(field: &str, xy_geometries: Vec<T>) -> Result<Query>
-where
-  T: XYGeometry + Into<XYGeometryEnum>,
-{
-  let xy_geometries = xy_geometries.into_iter().map(Into::into).collect();
-  Ok(XYPointInGeometryQuery::new(field.to_string(), xy_geometries)?.into())
 }
 
 impl Debug for XYPointInGeometryQuery {

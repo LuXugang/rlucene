@@ -14,11 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(test)]
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
+#[cfg(test)]
 use crate::core::index::codec_reader::CodecReader;
+#[cfg(test)]
 use crate::core::index::index_reader::{
   IndexReader, IndexReaderContextKind, IndexReaderContextType,
 };
+#[cfg(test)]
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
@@ -41,6 +45,7 @@ impl HnswUtil {
   limit the search to include non-full nodes only.
   */
   /// Returns true if every node on every level is reachable from node 0.
+  #[cfg(test)]
   pub(crate) fn is_rooted<G>(hnsw: &mut G) -> Result<bool>
   where
     G: HnswGraph,
@@ -56,6 +61,7 @@ impl HnswUtil {
   /// Returns the sizes of the distinct graph components on level 0. If the
   /// graph is fully-rooted the list will have one entry. If it is empty, the
   /// returned list will be empty.
+  #[cfg(test)]
   pub(crate) fn component_sizes<G>(hnsw: &mut G) -> Result<Vec<usize>>
   where
     G: HnswGraph,
@@ -68,6 +74,7 @@ impl HnswUtil {
   /// rooted in the entry points--that is, every node is reachable from at
   /// least one entry point--the returned list will have a single entry. If
   /// the graph is empty, the returned list will be empty.
+  #[cfg(test)]
   pub(crate) fn component_sizes_on_level<G>(hnsw: &mut G, level: usize) -> Result<Vec<usize>>
   where
     G: HnswGraph,
@@ -303,6 +310,7 @@ impl HnswUtil {
   ///
   /// This method evaluates connectivity starting from a single node,
   /// effectively checking whether the graph is a "rooted graph".
+  #[cfg(test)]
   pub fn graph_is_rooted<IR>(reader: IR, vector_field: &str) -> Result<bool>
   where
     IR: IndexReader,

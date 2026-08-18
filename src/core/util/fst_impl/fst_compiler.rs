@@ -74,9 +74,6 @@ where
   /// A temporary FST used during building for NodeHash cache.
   pub(crate) fst: FST<O, NullFSTReader>,
   pub(crate) no_output: O::V,
-  /// A FSTReader used when a non-FSTReader DataOutput is configured.
-  /// Will panic if `get_reverse_bytes_reader()` or `write_to()` is called.
-  pub(crate) null_fst_reader: NullFSTReader,
   /// Node deduplication hash table.
   /// Last input added.
   pub(crate) last_input: IntsRefBuilder<Vec<i32>>,
@@ -135,7 +132,6 @@ where
     let num_bytes_written = 1; // pad 1 byte, written lazily
     let padding_byte_pending = true;
 
-    let null_fst_reader = NullFSTReader; // assume you implemented Default
     let no_output = outputs.get_no_output();
     let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
     let fst = FST::new(fst_meta, NullFSTReader);
@@ -147,7 +143,6 @@ where
       dedup_hash,
       fst,
       no_output,
-      null_fst_reader,
       last_input: IntsRefBuilder::default(),
       padding_byte_pending,
       last_frozen_node: 0,
@@ -298,7 +293,7 @@ where
     let offset = input.offset;
     for idx in prefix_len_plus1..=input.length {
       let label = ints[offset + idx - 1];
-      let un_compiled = NodeEnum::UnCompiledNode(idx);
+      let un_compiled = NodeEnum::UnCompiledNode;
       let v = self.no_output.clone();
       self.frontier[idx - 1]
         .as_mut()
@@ -522,7 +517,7 @@ where
               max_bytes_per_arc_without_label.max(num_arc_bytes - num_label_bytes);
           }
         },
-        NodeEnum::UnCompiledNode(_) => {
+        NodeEnum::UnCompiledNode => {
           return Err(LuceneError::illegal_state("should be compiled"));
         },
       }
@@ -1298,19 +1293,19 @@ where
 /// Not many instances of Node or CompiledNode are in
 /// memory while the FST is being built; it's only the
 /// current "frontier":
+#[allow(dead_code)] // Mirrors Java's retained Node interface and isCompiled implementations, which have no current callers.
 pub(crate) trait Node {
   fn is_compiled(&self) -> bool;
 }
 pub(crate) enum NodeEnum {
-  // Since UnCompiledNode in Java is a reference within the frontier, we record the index of the
-  // frontier instead to satisfy Rust's ownership rules.
-  UnCompiledNode(usize),
+  // Rust only needs to distinguish Java's uncompiled-node reference until the arc is compiled.
+  UnCompiledNode,
   CompiledNode(CompiledNode),
 }
 impl Node for NodeEnum {
   fn is_compiled(&self) -> bool {
     match self {
-      NodeEnum::UnCompiledNode(_) => false,
+      NodeEnum::UnCompiledNode => false,
       NodeEnum::CompiledNode(node) => node.is_compiled(),
     }
   }
@@ -1357,10 +1352,6 @@ where
       is_final: false,
       depth,
     }
-  }
-
-  pub(crate) fn is_compiled(&self) -> bool {
-    false
   }
 
   pub(crate) fn clear(&mut self, no_outputs: T) {

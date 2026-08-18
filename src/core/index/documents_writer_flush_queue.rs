@@ -247,6 +247,7 @@ where
     self.segment.as_mut()
   }
   /// Returns a frozen global deletes package.
+  #[allow(dead_code)] // Mirrors Java's getFrozenUpdates; Rust publishers take ownership instead. See take_frozen_updates
   pub(crate) fn get_frozen_updates(&self) -> &FrozenBufferedUpdates {
     self.frozen_updates.as_ref().unwrap()
   }

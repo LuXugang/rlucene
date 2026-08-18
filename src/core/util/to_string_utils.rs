@@ -21,13 +21,8 @@ use crate::core::util::access::{SharedAccessVec, WritableVec};
 pub struct ToStringUtils;
 
 impl ToStringUtils {
-  const HEX: [char; 16] = [
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-  ];
-
-  pub fn long_hex(_x: u64) -> String {
-    // not used in Java Lucene
-    "".to_string()
+  pub fn long_hex(x: u64) -> String {
+    format!("0x{x:016x}")
   }
 
   pub fn bytes_ref_to_string<AV>(b: &BytesRef<AV>) -> String

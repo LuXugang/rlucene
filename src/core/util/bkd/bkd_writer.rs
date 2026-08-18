@@ -73,6 +73,8 @@ where
   temp_dir: TrackingDirectoryWrapper<D>,
   temp_file_name_prefix: String,
 
+  #[allow(dead_code)]
+  // Mirrors Java's retained constructor setting; derived limits are used afterward.
   max_mb_sort_in_heap: f64,
   scratch_diff: Vec<u8>,
   scratch: Vec<u8>,

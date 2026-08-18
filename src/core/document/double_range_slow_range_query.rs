@@ -26,7 +26,6 @@ pub struct DoubleRangeSlowRangeQuery {
   field: String,
   min: Vec<f64>,
   max: Vec<f64>,
-  query_type: QueryType,
 }
 
 impl DoubleRangeSlowRangeQuery {
@@ -39,12 +38,7 @@ impl DoubleRangeSlowRangeQuery {
   ) -> Result<BinaryRangeFieldRangeQuery> {
     let range = encode_ranges(&min, &max)?;
     let len = min.len();
-    let sub = Self {
-      field,
-      min,
-      max,
-      query_type,
-    };
+    let sub = Self { field, min, max };
     BinaryRangeFieldRangeQuery::new(range, double_range::BYTES, len, query_type, sub)
   }
 
@@ -58,10 +52,6 @@ impl DoubleRangeSlowRangeQuery {
 
   pub(crate) fn max(&self) -> &[f64] {
     &self.max
-  }
-
-  pub(crate) fn query_type(&self) -> QueryType {
-    self.query_type
   }
 }
 

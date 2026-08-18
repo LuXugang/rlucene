@@ -43,9 +43,6 @@ use crate::core::util::packed::bulk_operation_packed22::BulkOperationPacked22;
 use crate::core::util::packed::bulk_operation_packed23::BulkOperationPacked23;
 use crate::core::util::packed::bulk_operation_packed24::BulkOperationPacked24;
 use crate::core::util::packed::{Decoder, Encoder};
-/// Padding Value to make compiler happy
-pub(crate) const PACKED_DUMMY: BulkOperationPackedEnum =
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new());
 pub(crate) const PACKED_BULK_OPS: [BulkOperationPackedEnum; 64] = [
   BulkOperationPackedEnum::Packed1(BulkOperationPacked::new(1, Some(BulkOperationPacked1))),
   BulkOperationPackedEnum::Packed2(BulkOperationPacked::new(2, Some(BulkOperationPacked2))),

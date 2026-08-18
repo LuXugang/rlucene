@@ -98,7 +98,7 @@ fn test_illegal_arguments() -> Result<()> {
   let top_docs =
     searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
 
-  assert_eq!(large_collector.total_hits(), top_docs.total_hits.value());
+  assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 
   match large_collector.top_docs_with_how_many(350_000) {
     Ok(_) => unreachable!("top_docs_with_how_many should reject oversized requests"),
@@ -126,10 +126,16 @@ fn test_no_pq_build() -> Result<()> {
   let top_docs =
     searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
 
-  assert_eq!(large_collector.total_hits(), top_docs.total_hits.value());
+  assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 
-  assert!(large_collector.pq().is_none());
-  assert!(large_collector.pq_top().is_none());
+  assert!(large_collector.pq.is_none());
+  assert!(
+    large_collector
+      .pq
+      .as_ref()
+      .and_then(|pq| pq.top())
+      .is_none()
+  );
   Ok(())
 }
 
@@ -145,10 +151,16 @@ fn test_pq_build() -> Result<()> {
   let top_docs =
     searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
 
-  assert_eq!(large_collector.total_hits(), top_docs.total_hits.value());
+  assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 
-  assert!(large_collector.pq().is_some());
-  assert!(large_collector.pq_top().is_some());
+  assert!(large_collector.pq.is_some());
+  assert!(
+    large_collector
+      .pq
+      .as_ref()
+      .and_then(|pq| pq.top())
+      .is_some()
+  );
   Ok(())
 }
 
@@ -165,10 +177,16 @@ fn test_no_pq_hits_order() -> Result<()> {
   let mut top_docs =
     searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
 
-  assert_eq!(large_collector.total_hits(), top_docs.total_hits.value());
+  assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 
-  assert!(large_collector.pq().is_none());
-  assert!(large_collector.pq_top().is_none());
+  assert!(large_collector.pq.is_none());
+  assert!(
+    large_collector
+      .pq
+      .as_ref()
+      .and_then(|pq| pq.top())
+      .is_none()
+  );
 
   top_docs = large_collector.top_docs()?;
 
@@ -196,7 +214,7 @@ fn run_num_hits(num_hits: usize) -> Result<()> {
     searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
 
   assert_eq!(
-    large_collector.total_hits(),
+    large_collector.total_hits,
     second_top_docs.total_hits.value()
   );
   assert_eq!(

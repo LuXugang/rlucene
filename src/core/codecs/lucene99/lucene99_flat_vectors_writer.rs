@@ -343,9 +343,7 @@ where
     D1: Directory<IndexOutput = O>,
   {
     let field_idx = self.fields.len();
-    self
-      .fields
-      .push(FlatFieldWriter::new(field_info, field_idx));
+    self.fields.push(FlatFieldWriter::new(field_info));
     Ok(field_idx)
   }
 
@@ -464,7 +462,7 @@ where
 
   fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize> {
     let len = self.fields.len();
-    let new_field = FlatFieldWriter::new(field_info, len);
+    let new_field = FlatFieldWriter::new(field_info);
     self.fields.push(new_field);
     Ok(len)
   }
@@ -734,11 +732,10 @@ pub struct FlatFieldWriter {
   docs_with_field: DocsWithFieldSet,
   finished: bool,
   last_doc_id: i32,
-  idx: usize,
   vectors: Arc<Vec<VectorValueEnum>>,
 }
 impl FlatFieldWriter {
-  pub fn new(field_info: Arc<FieldInfo>, idx: usize) -> Self {
+  pub fn new(field_info: Arc<FieldInfo>) -> Self {
     let dim = field_info.get_vector_dimension() as usize;
     Self {
       field_info,
@@ -746,7 +743,6 @@ impl FlatFieldWriter {
       docs_with_field: DocsWithFieldSet::new(),
       finished: false,
       last_doc_id: -1,
-      idx,
       vectors: Arc::new(Vec::new()),
     }
   }

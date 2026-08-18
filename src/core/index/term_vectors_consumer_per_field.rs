@@ -499,10 +499,6 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
 
     Ok(())
   }
-
-  fn get_field_name(&self) -> &str {
-    self.field_name.as_str()
-  }
 }
 
 pub(crate) struct TermVectorsPostingsArray {

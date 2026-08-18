@@ -746,7 +746,7 @@ where
 /// This type itself carries no semantic data. Its sole purpose is to provide
 /// a stable allocation whose address can be used as an identity token.
 #[derive(Debug)]
-struct IdentityTag(u8);
+struct IdentityTag;
 /// An identity wrapper whose equality and hashing are based on pointer identity.
 ///
 /// Two `Identity` values are considered equal **if and only if** they point to
@@ -762,7 +762,7 @@ pub struct Identity(Arc<IdentityTag>);
 
 impl Identity {
   pub fn new() -> Self {
-    Identity(Arc::new(IdentityTag(0)))
+    Identity(Arc::new(IdentityTag))
   }
   /// Returns the raw pointer to the underlying identity allocation.
   ///

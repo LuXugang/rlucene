@@ -36,6 +36,7 @@ impl PositiveIntOutputs {
     &SINGLETON
   }
 
+  #[cfg(debug_assertions)]
   fn valid(&self, o: &Arc<i64>) -> bool {
     debug_assert!(Arc::ptr_eq(o, &NO_OUTPUT) || **o > 0, "o= {o}");
     true
@@ -46,8 +47,11 @@ impl Outputs for PositiveIntOutputs {
   type V = Arc<i64>;
 
   fn common(&self, output1: &Self::V, output2: &Self::V) -> Self::V {
-    debug_assert!(self.valid(output1));
-    debug_assert!(self.valid(output2));
+    #[cfg(debug_assertions)]
+    {
+      debug_assert!(self.valid(output1));
+      debug_assert!(self.valid(output2));
+    }
 
     if Arc::ptr_eq(output1, &self.get_no_output()) || Arc::ptr_eq(output2, &self.get_no_output()) {
       self.get_no_output()
@@ -59,8 +63,11 @@ impl Outputs for PositiveIntOutputs {
   }
 
   fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
-    debug_assert!(self.valid(output));
-    debug_assert!(self.valid(inc));
+    #[cfg(debug_assertions)]
+    {
+      debug_assert!(self.valid(output));
+      debug_assert!(self.valid(inc));
+    }
     debug_assert!(**output >= **inc);
 
     if Arc::ptr_eq(inc, &self.get_no_output()) {
@@ -73,8 +80,11 @@ impl Outputs for PositiveIntOutputs {
   }
 
   fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
-    debug_assert!(self.valid(prefix));
-    debug_assert!(self.valid(output));
+    #[cfg(debug_assertions)]
+    {
+      debug_assert!(self.valid(prefix));
+      debug_assert!(self.valid(output));
+    }
 
     if Arc::ptr_eq(prefix, &self.get_no_output()) {
       output.clone()
@@ -86,6 +96,7 @@ impl Outputs for PositiveIntOutputs {
   }
 
   fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
+    #[cfg(debug_assertions)]
     debug_assert!(self.valid(output));
     out.write_vlong(**output)
   }

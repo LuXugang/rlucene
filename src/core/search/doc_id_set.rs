@@ -61,7 +61,7 @@ pub trait DocIdSet: Accountable {
 
 /// A [`DocIdSet`] that matches all document IDs up to a specified document
 /// (exclusive).
-struct All {
+pub struct All {
   max_doc: i32,
   bits: Option<MatchAllBits>,
 }
@@ -71,6 +71,12 @@ impl All {
     All { max_doc, bits }
   }
 }
+
+/// Returns a [`DocIdSet`] that matches all document IDs below `max_doc`.
+pub fn all(max_doc: i32) -> All {
+  All::new(max_doc)
+}
+
 /// A `DocIdSet` that matches all doc ids up to a specified doc (exclusive).
 impl DocIdSet for All {
   type DocIdSetIterator = AllDISI;

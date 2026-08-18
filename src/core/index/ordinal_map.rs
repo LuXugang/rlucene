@@ -126,7 +126,7 @@ impl OrdinalMap {
 /// @lucene.internal
 pub struct OrdinalMap {
   /// Cache key of whoever asked for this awful thing
-  owner: Option<CacheKey>,
+  pub owner: Option<CacheKey>,
   /// number of global ordinals
   value_count: i64,
   /// globalOrd -> (globalOrd - segmentOrd) where segmentOrd is the ordinal in the first segment

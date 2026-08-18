@@ -312,6 +312,13 @@ impl BitUtil {
 
     ((v2 << 1) | v1) as i64
   }
+
+  /// Swaps odd and even bits.
+  pub fn flip_flop(b: i64) -> i64 {
+    let b = b as u64;
+    (((b & Self::MAGIC6) >> 1) | ((b & Self::MAGIC0) << 1)) as i64
+  }
+
   pub fn zig_zag_decode_i32(i: u32) -> i32 {
     ((i >> 1) as i32) ^ -((i & 1) as i32)
   }

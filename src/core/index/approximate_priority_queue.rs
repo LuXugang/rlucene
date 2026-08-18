@@ -115,6 +115,7 @@ where
       .any(|slot| slot.as_ref().is_some_and(|v| v.id() == o))
   }
 
+  #[cfg(test)]
   pub(crate) fn is_empty(&self) -> bool {
     self.used_slots == 0 && self.slots.len() == i64::BITS as usize
   }

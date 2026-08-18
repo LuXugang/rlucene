@@ -803,11 +803,6 @@ trait SparseNormsIteratorBase {
 struct SparseNormsIteratorBaseImpl {
   norms_offset: i64,
 }
-impl SparseNormsIteratorBaseImpl {
-  fn new(norms_offset: i64) -> Self {
-    Self { norms_offset }
-  }
-}
 impl SparseNormsIteratorBase for SparseNormsIteratorBaseImpl {
   fn long_value(&mut self, _index: usize) -> Result<i64> {
     Ok(self.norms_offset)

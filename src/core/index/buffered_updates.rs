@@ -57,6 +57,8 @@ pub(crate) struct BufferedUpdates {
   verbose_deletes: bool,
   gen_: i64,
 
+  #[allow(dead_code)]
+  // Mirrors Java's retained segmentName field for source and diagnostic fidelity.
   segment_name: String,
 }
 
@@ -362,9 +364,6 @@ impl DeletedTerms {
   }
 }
 
-pub trait DeletedTermConsumer {
-  fn accept(&mut self, term: &Term, doc_id: i32) -> Result<()>;
-}
 impl Accountable for DeletedTerms {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(self.bytes_used.get())

@@ -182,11 +182,12 @@ where
 
     Ok(frame_idx)
   }
-
+  #[cfg(any(test, debug_assertions))]
   fn clear_eof(&mut self) -> bool {
     self.eof = false;
     true
   }
+  #[cfg(any(test, debug_assertions))]
   fn set_eof(&mut self) -> bool {
     self.eof = true;
     true
@@ -208,6 +209,7 @@ where
       return Ok(None);
     }
     self.term.grow(1 + target.length)?;
+    #[cfg(any(test, debug_assertions))]
     debug_assert!(self.clear_eof());
     let mut target_upto;
     let target_before_current_length = self.stack[self.current_frame_idx].ord;
@@ -437,7 +439,8 @@ where
             let current_frame_idx = self.current_frame_idx;
             let current_ord = self.stack[current_frame_idx].ord;
             if current_ord == 0 {
-              self.eof = true;
+              #[cfg(any(test, debug_assertions))]
+              debug_assert!(self.set_eof());
               self.term.clear();
               self.valid_index_prefix = 0;
               self.stack[current_frame_idx].rewind()?;
@@ -536,6 +539,7 @@ where
     }
 
     self.term.grow(1 + target.length)?;
+    #[cfg(any(test, debug_assertions))]
     debug_assert!(self.clear_eof());
 
     let mut target_upto;
@@ -716,6 +720,7 @@ where
     target: &BytesRef<Vec<u8>>,
     other_state: &TermStateEnum,
   ) -> Result<()> {
+    #[cfg(any(test, debug_assertions))]
     debug_assert!(self.clear_eof());
     if target.cmp(self.term.get_bytes_mut_ref()).to_int() != 0 || !self.term_exists {
       self.stack[STATIC_FRAME_IDX].state = other_state.clone();

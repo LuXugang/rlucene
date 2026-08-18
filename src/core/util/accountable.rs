@@ -36,18 +36,6 @@ pub trait Accountable {
   }
 }
 
-struct EmptyAccountable;
-impl EmptyAccountable {
-  pub fn new() -> Self {
-    EmptyAccountable
-  }
-}
-impl Accountable for EmptyAccountable {
-  fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(0)
-  }
-}
-
 impl<T> Accountable for Rc<T>
 where
   T: Accountable + ?Sized,

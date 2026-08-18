@@ -17,7 +17,6 @@
 use crate::core::index::BytesRef;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::{HashCode, OutputIdentity};
 use std::fmt::Display;
@@ -94,10 +93,6 @@ pub trait Outputs: Display + Clone + Default {
   ///
   /// See also: `Accountable`
   fn ram_bytes_used(&self, output: &Self::V) -> i64;
-}
-
-pub enum OutputsEnum {
-  ByteSequence(ByteSequenceOutputs),
 }
 
 pub trait OutputsBound:

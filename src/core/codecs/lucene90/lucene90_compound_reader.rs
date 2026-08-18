@@ -52,7 +52,6 @@ where
   entries: HashMap<String, FileEntry>,
   handle: Mutex<I>,
 
-  version: i32,
   dir_fmt: String,
   id: Identity,
 }
@@ -123,7 +122,6 @@ where
       segment_name,
       entries,
       handle: Mutex::new(handle),
-      version,
       dir_fmt,
       id: Identity::new(),
     })

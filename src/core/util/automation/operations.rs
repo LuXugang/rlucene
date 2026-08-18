@@ -1266,13 +1266,6 @@ pub(crate) struct TransitionList {
 }
 
 impl TransitionList {
-  pub(crate) fn new() -> Self {
-    TransitionList {
-      transitions: Vec::with_capacity(3),
-      next: 0,
-    }
-  }
-
   pub(crate) fn add(&mut self, t: &Transition) -> Result<()> {
     if self.transitions.len() < self.next + 3 {
       ArrayUtil::grow_with_len(&mut self.transitions, self.next + 3)?;
@@ -1294,14 +1287,6 @@ pub(crate) struct PointTransitions {
 }
 
 impl PointTransitions {
-  pub(crate) fn new(point: i32) -> Self {
-    PointTransitions {
-      point,
-      ends: TransitionList::new(),
-      starts: TransitionList::new(),
-    }
-  }
-
   pub(crate) fn reset(&mut self, point: i32) {
     self.point = point;
     self.ends.next = 0;

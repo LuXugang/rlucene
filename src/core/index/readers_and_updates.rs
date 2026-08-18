@@ -744,6 +744,7 @@ where
     }
   }
 
+  #[cfg(test)]
   pub(crate) fn is_merging(&self) -> bool {
     let inner = self.inner.lock();
     inner.is_merging

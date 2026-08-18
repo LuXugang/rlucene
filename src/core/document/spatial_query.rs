@@ -199,7 +199,6 @@ where
   parent_query: Arc<SpatialQuery<G, C>>,
   base: ConstantScoreWeight,
   spatial_visitor: Arc<C::SpatialVisitor>,
-  boost: f32,
   score_mode: ScoreMode,
   query_s: Arc<Query>,
 }
@@ -221,7 +220,6 @@ where
       parent_query,
       base,
       spatial_visitor: Arc::new(spatial_visitor),
-      boost,
       score_mode,
       query_s,
     }
@@ -322,7 +320,6 @@ where
         score,
         self.score_mode,
         max_doc,
-        rel,
       ))))
     }
   }
@@ -467,7 +464,6 @@ pub struct RelationScorerSupplier<PV, V> {
   score: f32,
   score_mode: ScoreMode,
   max_doc: i32,
-  root_relation: Relation,
   cost: i64,
 }
 
@@ -481,7 +477,6 @@ impl<PV, V> RelationScorerSupplier<PV, V> {
     score: f32,
     score_mode: ScoreMode,
     max_doc: i32,
-    root_relation: Relation,
   ) -> Self {
     Self {
       values,
@@ -491,7 +486,6 @@ impl<PV, V> RelationScorerSupplier<PV, V> {
       score,
       score_mode,
       max_doc,
-      root_relation,
       cost: -1,
     }
   }

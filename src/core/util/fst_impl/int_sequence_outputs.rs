@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -39,10 +38,6 @@ pub struct IntSequenceOutputs;
 impl IntSequenceOutputs {
   pub fn get_singleton() -> &'static IntSequenceOutputs {
     &SINGLETON
-  }
-
-  fn valid(&self, o: &IntsRef<Rc<Vec<i32>>>) -> bool {
-    o.offset + o.length <= o.ints.len()
   }
 }
 

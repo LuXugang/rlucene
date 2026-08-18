@@ -378,6 +378,7 @@ impl TieredMergePolicy {
       let mut best_score: Option<MergeScoreImpl> = None;
       let mut best = None;
       let mut best_too_large = false;
+      let mut best_merge_bytes = 0;
 
       for start_idx in 0..sorted_eligible.len() {
         let mut candidate = Vec::new();
@@ -472,6 +473,28 @@ impl TieredMergePolicy {
         }
 
         let score = self.score(&candidate, hit_too_large, &seg_infos_sizes)?;
+        if self.verbose(merge_context) {
+          let candidate_string = candidate
+            .iter()
+            .map(|meta| {
+              let info = meta.seg_info;
+              let del = merge_context.num_deleted_docs(info) - info.get_del_count();
+              info.to_string_with_pending_del_count(del)
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+          self.message(
+            &format!(
+              "  maybe={} score={} {} tooLarge={} size={:.3} MB",
+              candidate_string,
+              score.score(),
+              score.explanation(),
+              hit_too_large,
+              bytes_this_merge as f64 / 1024.0 / 1024.0
+            ),
+            merge_context,
+          )?;
+        }
 
         if (best_score.is_none() || score.score() < best_score.as_ref().unwrap().score())
           && (!hit_too_large || !max_merge_is_running)
@@ -479,6 +502,7 @@ impl TieredMergePolicy {
           best = Some(candidate);
           best_score = Some(score);
           best_too_large = hit_too_large;
+          best_merge_bytes = bytes_this_merge;
         }
       }
 
@@ -494,9 +518,33 @@ impl TieredMergePolicy {
       if !have_one_large_merge || !best_too_large || merge_type == MergeType::ForceMergeDeletes {
         have_one_large_merge |= best_too_large;
 
+        let best_string = best
+          .iter()
+          .map(|meta| {
+            let info = meta.seg_info;
+            let del = merge_context.num_deleted_docs(info) - info.get_del_count();
+            info.to_string_with_pending_del_count(del)
+          })
+          .collect::<Vec<_>>()
+          .join(" ");
         let spec_ref = spec.get_or_insert_with(MergeSpecification::new);
         let merge = OneMerge::from_meta(best.as_ref())?;
         spec_ref.add(merge);
+
+        if self.verbose(merge_context) {
+          let best_score = best_score.as_ref().unwrap();
+          self.message(
+            &format!(
+              "  add merge={} size={:.3} MB score={:.3} {}{}",
+              best_string,
+              best_merge_bytes as f64 / 1024.0 / 1024.0,
+              best_score.score(),
+              best_score.explanation(),
+              if best_too_large { " [max merge]" } else { "" }
+            ),
+            merge_context,
+          )?;
+        }
       }
       // whether we're going to return this list in the spec of not, we need to remove it from
       // consideration on the next loop.
@@ -1021,6 +1069,7 @@ where
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum MergeType {
   Natural,
+  #[allow(dead_code)] // Mirrors Java's retained FORCE_MERGE value, which has no current callers.
   ForceMerge,
   ForceMergeDeletes,
 }

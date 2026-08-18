@@ -30,7 +30,7 @@ use crate::core::util::packed::{Mutable, PackedInts, Reader};
 ///
 /// # Internal
 /// This is an internal API and may change in future versions.
-pub(crate) struct GrowableWriter {
+pub struct GrowableWriter {
   current_mask: i64,
   current: MutablePacked64Enum,
   acceptable_overhead_ratio: f32,
@@ -58,7 +58,7 @@ impl GrowableWriter {
     }
   }
 
-  pub fn get_mutable(&self) -> &MutablePacked64Enum {
+  pub fn get_mutable(&self) -> &impl Mutable {
     &self.current
   }
   fn ensure_capacity(&mut self, value: i64) {

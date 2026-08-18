@@ -17,12 +17,12 @@
 pub mod blocking_float_heap;
 pub mod closeable_random_vector_scorer_supplier;
 pub(crate) mod dummy;
-pub(crate) mod float_heap;
+pub mod float_heap;
 pub(crate) mod hnsw_builder;
-pub(crate) mod hnsw_graph;
-pub(crate) mod hnsw_graph_builder;
+pub mod hnsw_graph;
+pub mod hnsw_graph_builder;
 pub mod hnsw_graph_merger;
-pub(crate) mod hnsw_graph_searcher;
+pub mod hnsw_graph_searcher;
 pub(crate) mod hnsw_lock;
 pub(crate) mod hnsw_util;
 pub mod initialized_hnsw_graph_builder;

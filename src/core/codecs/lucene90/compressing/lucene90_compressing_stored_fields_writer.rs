@@ -61,6 +61,7 @@ pub struct Lucene90CompressingStoredFieldsWriter<D>
 where
   D: Directory,
 {
+  #[allow(dead_code)] // Kept to mirror Java, which only reads this field during construction.
   segment: String,
   index_writer: FieldsIndexWriter<D>,
   meta_stream: D::IndexOutput,

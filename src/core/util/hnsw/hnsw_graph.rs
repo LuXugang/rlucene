@@ -309,9 +309,7 @@ macro_rules! define_hnsw_graph_enum {
     };
 }
 define_nodes_iterator_enum!(NodesIteratorEnum2, [A, B]);
-define_nodes_iterator_enum!(NodesIteratorEnum3, [A, B, C]);
 define_hnsw_graph_enum!(HnswGraphEnum2, NodesIteratorEnum2, [A, B]);
-define_hnsw_graph_enum!(HnswGraphEnum3, NodesIteratorEnum3, [A, B, C]);
 pub fn get_sorted_nodes<I>(nodes: &mut I) -> Vec<usize>
 where
   I: NodesIterator,

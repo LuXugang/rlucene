@@ -74,6 +74,8 @@ where
   m: usize,
   beam_width: usize,
   pub(crate) flat_vector_writer: F,
+  #[allow(dead_code)]
+  // TODO IMPORTANT Used by Java's concurrent merge path, which Rust has not implemented yet.
   num_merge_workers: usize,
   // TODO IMPORTANT 多线程未实现
   finished: bool,

@@ -16,7 +16,9 @@
  */
 use crate::core::index::index_commit::{IndexCommit, cmp_commit, is_same_commit};
 use crate::core::index::index_deletion_policy::IndexDeletionPolicy;
-use crate::core::index::index_writer::{IndexWriter, IndexWriterDir};
+#[cfg(test)]
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer::IndexWriterDir;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::store::directory::Directory;
@@ -79,7 +81,6 @@ where
   /// Whether the starting commit was deleted.
   pub(crate) starting_commit_deleted: bool,
 
-  verbose_ref_counts: bool,
   file_deleter: FileDeleter<D, MessengerImpl>,
 }
 impl<D> IndexFileDeleter<D>
@@ -130,7 +131,6 @@ where
       directory_orig: directory_orig.clone(),
       directory,
       starting_commit_deleted: !initial_index_exists,
-      verbose_ref_counts: false,
       file_deleter,
     };
     let mut current_commit_point = None;
@@ -278,6 +278,7 @@ where
     index_file_deleter.delete_commits()?;
     Ok(index_file_deleter)
   }
+  #[cfg(test)]
   fn ensure_open(&self, index_writer: &IndexWriter<D>) -> Result<()> {
     index_writer.do_ensure_open(false)?;
 
@@ -293,6 +294,7 @@ where
 
     Ok(())
   }
+  #[cfg(test)]
   pub(crate) fn is_closed(&self, index_writer: &IndexWriter<D>) -> Result<bool> {
     match self.ensure_open(index_writer) {
       Ok(_) => Ok(false),

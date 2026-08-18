@@ -35,11 +35,6 @@ impl NoOutputs {
   pub fn get_singleton() -> &'static NoOutputs {
     &SINGLETON
   }
-
-  fn valid(&self, o: &Arc<i64>) -> bool {
-    debug_assert!(Arc::ptr_eq(o, &NO_OUTPUT), "got {o}");
-    true
-  }
 }
 
 impl Display for NoOutputs {

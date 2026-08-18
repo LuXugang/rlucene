@@ -36,6 +36,7 @@ pub trait TermCollectingRewrite: RewriteMethod {
   fn build(&self, builder: Self::B) -> Result<Query>;
 
   /// Add a [`MultiTermQuery`] term to the top-level query builder.
+  #[allow(dead_code)] // Mirrors Java's retained four-argument addClause overload, which has no current callers.
   fn add_clause(
     &self,
     top_level: &mut Self::B,

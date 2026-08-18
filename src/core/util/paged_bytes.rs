@@ -306,6 +306,7 @@ impl Reader {
     let offset = o & self.block_mask;
     self.blocks[index][offset]
   }
+  #[allow(dead_code)]
   pub fn fill(_b: &mut BytesRef<Rc<Vec<u8>>>, _start: i64) {
     unimplemented!("not used in Java Lucene");
   }

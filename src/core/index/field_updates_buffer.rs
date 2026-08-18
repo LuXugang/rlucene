@@ -74,8 +74,6 @@ pub(crate) struct FieldUpdatesBuffer {
 }
 
 impl FieldUpdatesBuffer {
-  const SELF_SHALLOW_SIZE: i64 = 0;
-
   fn new(
     bytes_used: SharedCounter,
     initial_value: &DocValuesUpdate,
@@ -565,29 +563,6 @@ pub struct BufferedUpdate {
   pub term_field: String,
   /// The update terms value. This will never be None.
   pub term_value: Option<BytesRef<Vec<u8>>>,
-}
-
-impl BufferedUpdate {
-  pub fn new(
-    doc_upto: i32,
-    numeric_value: i64,
-    binary_value: Option<BytesRef<Vec<u8>>>,
-    has_value: bool,
-    term_field: String,
-    term_value: Option<BytesRef<Vec<u8>>>,
-  ) -> Self {
-    BufferedUpdate {
-      doc_upto,
-      numeric_value,
-      binary_value,
-      has_value,
-      term_field,
-      term_value,
-    }
-  }
-  pub(crate) fn get_binary_value(&self) -> Option<&BytesRef<Vec<u8>>> {
-    self.binary_value.as_ref()
-  }
 }
 
 type UpdateBits<'a> = BitsEnum2<MatchAllBits, &'a FixedBitSet>;

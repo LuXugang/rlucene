@@ -251,7 +251,7 @@ impl MultiDocValues {
     }
 
     Ok(Some(MultiSortedNumericDocValues::<IR>::Multi(
-      SortedNumericDocValuesImpl::new(reader, values, field.to_string(), total_cost),
+      SortedNumericDocValuesImpl::new(reader, values, total_cost),
     )))
   }
   /// Returns a [`SortedDocValues`] for a reader's docvalues (potentially doing extremely slow things).
@@ -1237,7 +1237,6 @@ where
   >,
   reader: IRC,
   doc_id: i32,
-  field: String,
   current_doc_base: usize,
   final_total_cost: i64,
 }
@@ -1253,7 +1252,6 @@ where
         LRSortedNumericDocValues<IRC::LeafReader>,
       >,
     >,
-    field: String,
     total_cost: i64,
   ) -> Self {
     Self {
@@ -1262,7 +1260,6 @@ where
       values,
       reader,
       doc_id: -1,
-      field,
       current_doc_base: 0,
       final_total_cost: total_cost,
     }

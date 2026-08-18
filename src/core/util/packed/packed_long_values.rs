@@ -176,7 +176,6 @@ impl LongValues for PackedLongValues {
 pub struct Builder {
   pub(crate) page_shift: i32,
   pub(crate) page_mask: i32,
-  page_size: i32,
   acceptable_overhead_ratio: f32,
   pending: Vec<i64>,
   pub(crate) size: i64,
@@ -220,7 +219,6 @@ impl Builder {
       page_shift,
       page_mask,
       acceptable_overhead_ratio,
-      page_size,
       pending,
       size: 0,
       values,
@@ -291,10 +289,6 @@ impl Builder {
     self.pending_off = 0;
     Ok(())
   }
-  fn base_ram_bytes_used(&self) -> i64 {
-    Self::BASE_RAM_BYTES_USED
-  }
-
   fn pack(&mut self, num_values: i32, block: i32, acceptable_overhead_ratio: f32) -> Result<()> {
     let mut min_value = self.pending[0];
     let mut max_value = self.pending[0];

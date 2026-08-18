@@ -189,15 +189,6 @@ where
 {
   sub_iterator: Vec<SubIterator<E>>,
 }
-impl<E> TermMergeQueueCmp<E>
-where
-  E: IteratorExt,
-  E::Item: Ord + Clone,
-{
-  fn new(sub_iterator: Vec<SubIterator<E>>) -> TermMergeQueueCmp<E> {
-    TermMergeQueueCmp { sub_iterator }
-  }
-}
 impl<E> Compare<usize> for TermMergeQueueCmp<E>
 where
   E: IteratorExt,

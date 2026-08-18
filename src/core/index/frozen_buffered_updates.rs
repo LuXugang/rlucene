@@ -343,7 +343,7 @@ impl FrozenBufferedUpdates {
           } else {
             (
               buffered_update.numeric_value,
-              buffered_update.get_binary_value(),
+              buffered_update.binary_value.as_ref(),
             )
           };
 

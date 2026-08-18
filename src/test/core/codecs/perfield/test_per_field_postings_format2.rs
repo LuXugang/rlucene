@@ -22,6 +22,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::document::text_field;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{DefaultIndexWriter, IndexWriter};
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;

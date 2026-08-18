@@ -41,6 +41,8 @@ where
   points_in_buffer: usize,
   max_point_on_heap: usize,
   // File name we are reading
+  #[allow(dead_code)]
+  // Mirrors Java's diagnostic name field, whose only read is in commented tracing code.
   name: String,
   pub(crate) point_value: PointValueEnum,
 }

@@ -46,7 +46,6 @@ use std::hash::Hash;
 /// See [`AutomatonQuery`].
 #[derive(Clone)]
 pub struct WildcardQuery {
-  determinize_work_limit: i32,
   base: AutomatonQuery,
   id: Identity,
 }
@@ -79,7 +78,6 @@ impl WildcardQuery {
     let automaton = to_automaton(&term, determinize_work_limit)?;
     let base = AutomatonQuery::new(term, automaton, false, rewrite_method)?;
     Ok(Self {
-      determinize_work_limit,
       base,
       id: Identity::default(),
     })

@@ -122,7 +122,7 @@ where
     let mut attrs = FuzzyTermsEnumAttributeSource::new();
     attrs.automaton_att.init(automaton_builder)?;
 
-    let automata = attrs.get_automata();
+    let automata = attrs.automaton_att.get_automata();
     let term_length = attrs.automaton_att.get_term_length();
     let mut max_edits = automata.len() as i32 - 1;
 
@@ -378,9 +378,6 @@ impl FuzzyTermsEnumAttributeSource {
       max_boost_att: MaxNonCompetitiveBoostAttributeImpl::new(),
       automaton_att: AutomatonAttributeImpl::new(),
     }
-  }
-  fn get_automata(&self) -> &[CompiledAutomaton] {
-    &self.automaton_att.automata
   }
   fn get_automata_mut(&mut self) -> &mut [CompiledAutomaton] {
     self.automaton_att.automata.as_mut()

@@ -1051,11 +1051,13 @@ where
     Ok(None)
   }
 
+  #[cfg(test)]
   pub(crate) fn get_peak_active_bytes(&self) -> i64 {
     let inner = self.inner.lock();
     inner.peak_active_bytes
   }
 
+  #[cfg(test)]
   pub(crate) fn get_peak_net_bytes(&self) -> i64 {
     let inner = self.inner.lock();
     inner.peak_net_bytes

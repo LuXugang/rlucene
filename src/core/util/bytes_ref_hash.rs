@@ -42,7 +42,7 @@ use crate::core::util::{
 /// - The internal storage is limited to 2GB total byte storage.
 ///
 /// [`BYTE_BLOCK_SIZE`]: BYTE_BLOCK_SIZE
-pub(crate) struct BytesRefHash<BSA> {
+pub struct BytesRefHash<BSA> {
   pool: BytesRefBlockPool,
   hash_size: i32,
   hash_half_size: i32,

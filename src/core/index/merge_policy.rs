@@ -2072,16 +2072,6 @@ impl MergeStat {
     self.state.lock().max_doc = Some(max_doc);
   }
 
-  pub(crate) fn clear_merge_info(&self) {
-    let mut state = self.state.lock();
-    state.info_id = None;
-    state.name = None;
-    #[cfg(test)]
-    {
-      state.max_doc = None;
-    }
-  }
-
   pub(crate) fn set_aborted(&self) {
     self.merge_progress.abort();
   }
@@ -2148,27 +2138,6 @@ where
       ))
     }
     Self::new(segments_meta)
-  }
-  /// Creates wrapping.
-  pub(crate) fn from_other(one_merge: OneMerge<D, CR>) -> Self {
-    let stat = MergeStat::default();
-    let one_merge = Self {
-      hook: OneMergeHook::<D, CR>::Default,
-      merge_readers: one_merge.merge_readers,
-      total_max_doc: one_merge.total_max_doc,
-      #[cfg(test)]
-      segments: one_merge.segments,
-      uses_pooled_readers: one_merge.uses_pooled_readers,
-      is_external: false,
-      estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
-      total_merge_bytes: AtomicI64::new(0),
-      merge_start_ns: Arc::new(Mutex::new(Instant::now())),
-      stat,
-      info: None,
-    };
-    one_merge.stat.set_max_num_segments(-1);
-    one_merge.stat.clear_merge_info();
-    one_merge
   }
   /// Create a OneMerge directly from CodecReaders. Used to merge incoming readers in
   /// IndexWriter::add_indexes(reader...). This OneMerge works directly on readers and has an
@@ -2240,10 +2209,6 @@ where
     self.stat.merge_progress.clone()
   }
 
-  pub(crate) fn merge_start_time(&self) -> Instant {
-    *self.merge_start_ns.lock()
-  }
-
   pub(crate) fn set_merge_start_time(&self, merge_start_time: Instant) {
     *self.merge_start_ns.lock() = merge_start_time;
   }
@@ -2269,9 +2234,11 @@ where
     self.stat.has_finished()
   }
 
+  #[allow(dead_code)] // Java calls this on OneMerge; Rust addIndexes tracks the detached MergeStat values directly.
   pub(crate) fn has_completed_successfully(&self) -> Option<bool> {
     self.stat.has_completed_successfully()
   }
+  #[cfg(test)]
   pub(crate) fn with_hook(mut self, hook: OneMergeHook<D, CR>) -> Self {
     self.hook = hook;
     self

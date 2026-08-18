@@ -25,6 +25,7 @@ pub(crate) struct LockableConcurrentApproximatePriorityQueue<T> {
   add_and_unlock_counter: AtomicI32,
 }
 impl<T> LockableConcurrentApproximatePriorityQueue<T> {
+  #[cfg(test)]
   pub(crate) fn with_concurrency(concurrency: usize) -> Result<Self> {
     Ok(Self {
       queue: ConcurrentApproximatePriorityQueue::with_concurrency(concurrency)?,
@@ -46,18 +47,6 @@ where
 {
   /// Lock an entry, and poll it from the queue, in that order. If no entry can be found and locked, None is returned.
   pub(crate) fn lock_and_poll(&self) -> Option<T> {
-    loop {
-      let prev = self.add_and_unlock_counter.load(Ordering::SeqCst);
-      if let Some(entry) = self.queue.poll(|e| e.try_lock()) {
-        return Some(entry);
-      }
-      if prev == self.add_and_unlock_counter.load(Ordering::SeqCst) {
-        break;
-      }
-    }
-    None
-  }
-  pub(crate) fn lock_and_poll_flush(&self) -> Option<T> {
     loop {
       let prev = self.add_and_unlock_counter.load(Ordering::SeqCst);
       if let Some(entry) = self.queue.poll(|e| e.try_lock()) {

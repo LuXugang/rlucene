@@ -98,9 +98,13 @@ impl<'a> FiniteStringsIterator<'a> {
     }
     Ok(())
   }
-}
-impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
-  fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
+
+  /// Generates the next finite string.
+  ///
+  /// The return value is only valid until the next call of this method.
+  #[allow(clippy::should_implement_trait)]
+  // Mirrors Java's public, fallible lending API; std::Iterator cannot return the reused buffer borrowed from self.
+  pub fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
     // Special case the empty string, as usual:
     if self.emit_empty_string {
       self.emit_empty_string = false;
@@ -154,6 +158,15 @@ impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
     Ok(None)
   }
 }
+
+#[cfg(test)]
+impl FiniteStringsIteratorBase for FiniteStringsIterator<'_> {
+  fn next(&mut self) -> Result<Option<Cow<'_, IntsRef<Vec<i32>>>>> {
+    FiniteStringsIterator::next(self)
+  }
+}
+
+#[cfg(test)]
 pub(crate) trait FiniteStringsIteratorBase {
   /// Generates the next finite string.
   ///

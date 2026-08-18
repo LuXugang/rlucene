@@ -14,4 +14,4 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod char_tokenizer;
+pub mod char_tokenizer;

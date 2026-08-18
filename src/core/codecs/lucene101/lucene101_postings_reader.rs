@@ -37,7 +37,6 @@ use crate::core::index::postings_enum::{
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::{BytesRef, IndexFileNames};
-use crate::core::internal::vectorization::default_vectorization_provider::DefaultVectorizationProvider;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::internal::vectorization::vectorization_provider::{
   DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
@@ -66,7 +65,6 @@ pub struct Lucene101PostingsReader<I> {
   max_impact_num_bytes_at_level0: i32,
   max_num_impacts_at_level1: i32,
   max_impact_num_bytes_at_level1: i32,
-  vectorization_provider: DefaultVectorizationProvider,
 }
 impl<I> Lucene101PostingsReader<I>
 where
@@ -225,7 +223,6 @@ where
         max_impact_num_bytes_at_level0,
         max_num_impacts_at_level1,
         max_impact_num_bytes_at_level1,
-        vectorization_provider: DefaultVectorizationProvider,
       })
     }));
     IOUtils::close_while_handling_exception((
@@ -504,8 +501,6 @@ pub struct BlockPostingsEnum<I> {
 
   max_num_impacts_at_level0: i32,
   max_num_impacts_at_level1: i32,
-  max_impact_num_bytes_at_level0: i32,
-  max_impact_num_bytes_at_level1: i32,
 }
 
 impl<I> BlockPostingsEnum<I>
@@ -674,9 +669,6 @@ where
       needs_refilling: false,
       max_num_impacts_at_level0: reader.max_num_impacts_at_level0,
       max_num_impacts_at_level1: reader.max_num_impacts_at_level1,
-
-      max_impact_num_bytes_at_level0: reader.max_impact_num_bytes_at_level0,
-      max_impact_num_bytes_at_level1: reader.max_impact_num_bytes_at_level1,
     })
   }
   pub fn can_reuse(
@@ -1562,14 +1554,6 @@ impl MutableImpactList {
       norm: 1,
     });
     MutableImpactList { length: 0, impacts }
-  }
-
-  pub(crate) fn get(&self, index: usize) -> &Impact {
-    &self.impacts[index]
-  }
-
-  pub(crate) fn size(&self) -> usize {
-    self.length
   }
 }
 

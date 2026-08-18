@@ -69,6 +69,8 @@ pub struct TopFieldCollector {
   search_sort_part_of_index_sort: Option<bool>,
   min_score_acc: Option<Arc<MaxScoreAccumulator>>,
   min_competitive_score: f32,
+  #[allow(dead_code)]
+  // Mirrors Java's retained numComparators field, which is not read after construction.
   num_comparators: i32,
   queue_full: bool,
   doc_base: usize,
@@ -540,10 +542,6 @@ where
   #[inline]
   fn bottom(&self) -> Result<&TopFieldScoreDoc> {
     self.base.bottom()
-  }
-  #[inline]
-  fn bottom_mut(&mut self) -> Result<&mut TopFieldScoreDoc> {
-    self.base.bottom_mut()
   }
 }
 

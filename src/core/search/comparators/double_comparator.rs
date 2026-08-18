@@ -118,6 +118,10 @@ impl FieldComparator for DoubleComparator {
   fn disable_skipping(&mut self) {
     self.base.disable_skipping()
   }
+
+  fn set_single_sort(&mut self) {
+    self.base.set_single_sort();
+  }
 }
 pub struct DoubleLeafComparator<LR>
 where

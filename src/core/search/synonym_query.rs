@@ -957,7 +957,6 @@ where
     scorer: SynonymTermScorer<LR>,
     boost: f32,
   },
-  Empty(EmptySynonymScorer),
 }
 
 impl<LR> SynonymSubScorer<LR>
@@ -967,7 +966,6 @@ where
   fn freq(&mut self) -> Result<f32> {
     match self {
       SynonymSubScorer::Term { scorer, boost } => Ok(*boost * scorer.freq()? as f32),
-      SynonymSubScorer::Empty(_) => Ok(0.0),
     }
   }
 }
@@ -981,28 +979,24 @@ where
   fn score(&mut self) -> Result<f32> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.score(),
-      SynonymSubScorer::Empty(scorer) => scorer.score(),
     }
   }
 
   fn smoothing_score(&mut self, doc_id: i32) -> Result<f32> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.smoothing_score(doc_id),
-      SynonymSubScorer::Empty(scorer) => scorer.smoothing_score(doc_id),
     }
   }
 
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.set_min_competitive_score(min_score),
-      SynonymSubScorer::Empty(scorer) => scorer.set_min_competitive_score(min_score),
     }
   }
 
   fn cost(&self) -> Result<i64> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.cost(),
-      SynonymSubScorer::Empty(scorer) => scorer.cost(),
     }
   }
 }
@@ -1014,35 +1008,30 @@ where
   fn doc_id(&mut self) -> Result<i32> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.doc_id(),
-      SynonymSubScorer::Empty(scorer) => scorer.doc_id(),
     }
   }
 
   fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.iterator(),
-      SynonymSubScorer::Empty(scorer) => scorer.iterator(),
     }
   }
 
   fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.iterator_mut(),
-      SynonymSubScorer::Empty(scorer) => scorer.iterator_mut(),
     }
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
     match *self {
       SynonymSubScorer::Term { scorer, .. } => Box::new(scorer).take_iterator(),
-      SynonymSubScorer::Empty(scorer) => Box::new(scorer).take_iterator(),
     }
   }
 
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
     match self {
       SynonymSubScorer::Term { scorer, .. } => scorer.get_max_score(upto),
-      SynonymSubScorer::Empty(scorer) => scorer.get_max_score(upto),
     }
   }
 

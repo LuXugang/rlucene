@@ -755,7 +755,7 @@ where
     }
   }
   /// Clear the content of this cache.
-  pub(crate) fn clear(&self) {
+  pub fn clear(&self) {
     let mut inner = self.inner.write();
     inner.cache.clear();
     inner.unique_queries.lock().clear();

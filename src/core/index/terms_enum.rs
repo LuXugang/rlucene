@@ -31,6 +31,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
+use std::marker::PhantomData;
 
 /// Iterator to seek [`seek_ceil(BytesRef)`](TermsEnum::seek_ceil),
 /// [`seek_exact(BytesRef)`](TermsEnum::seek_exact) or step through
@@ -312,11 +313,13 @@ impl TermsEnum for EmptyTermsEnum {
   }
 }
 pub struct EmptyTermsEnumTermsWrapper<T> {
-  in_: T,
+  _terms_type: PhantomData<fn() -> T>,
 }
 impl<T> EmptyTermsEnumTermsWrapper<T> {
-  pub fn new(in_: T) -> EmptyTermsEnumTermsWrapper<T> {
-    Self { in_ }
+  pub fn new(_in: T) -> EmptyTermsEnumTermsWrapper<T> {
+    Self {
+      _terms_type: PhantomData,
+    }
   }
 }
 

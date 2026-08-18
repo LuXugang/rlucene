@@ -171,15 +171,6 @@ impl<D> IndexingChain<D>
 where
   D: Directory + Clone,
 {
-  fn on_aborting_exception(
-    &mut self,
-    aborting_exception: &OnceLock<CaughtResult>,
-    throwable: CaughtResult,
-  ) {
-    self.has_hit_aborting_exception = true;
-    let _ = aborting_exception.set(throwable);
-  }
-
   pub(crate) fn new<D1>(
     index_created_version_major: i32,
     segment_info: &SegmentInfo<D1>,

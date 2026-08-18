@@ -28,7 +28,6 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 /// # Parameters
 /// - `size`: the requested size of this queue.
 /// - `pre_populate`: specifies whether to pre-populate the queue with sentinel values.
-pub struct HitQueue;
 pub fn new(size: usize, pre_populate: bool) -> Result<PriorityQueue<ScoreDoc, HitQueueComparator>> {
   PriorityQueue::with_sentinel_object(
     size,

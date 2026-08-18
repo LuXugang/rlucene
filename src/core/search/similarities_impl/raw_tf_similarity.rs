@@ -49,6 +49,10 @@ impl Display for RawTFSimilarity {
 }
 
 impl Similarity for RawTFSimilarity {
+  fn get_discount_overlaps(&self) -> bool {
+    self.discount_overlaps
+  }
+
   type SimScorer = RawTFSimScorer;
 
   fn scorer(

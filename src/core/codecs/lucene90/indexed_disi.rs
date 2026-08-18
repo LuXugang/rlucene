@@ -952,6 +952,7 @@ pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
 ///
 /// # Errors
 /// Returns an error if writing to the output fails.
+#[allow(dead_code)] // Mirrors Java's retained package-private two-argument overload; production callers pass the rank power explicitly.
 pub(crate) fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
 where
   O: IndexOutput,

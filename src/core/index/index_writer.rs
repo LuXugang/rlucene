@@ -532,8 +532,6 @@ where
       let global_field_number_map = Arc::new(Mutex::new(global_field_number_map));
       let doc_writer = DocumentsWriter::new(
         FlushNotificationsImpl::new(event_queue.clone()),
-        segment_infos.get_index_created_version_major(),
-        enable_test_points,
         pending_num_docs.clone(),
         &conf,
       )?;
@@ -3824,6 +3822,12 @@ where
     Ok(new_info_per_commit)
   }
 
+  /// Returns the number of bytes currently being flushed.
+  pub fn get_flushing_bytes(&self) -> Result<i64> {
+    self.ensure_open()?;
+    Ok(self.doc_writer.get_flushing_bytes())
+  }
+
   /// Expert: Flushes the next pending writer per thread buffer if available or the largest active
   /// non-pending writer per thread buffer in the calling thread. This can be used to flush documents
   /// to disk outside of an indexing thread. In contrast to [`Self::flush`] this won't mark all
@@ -5555,6 +5559,7 @@ where
   }
 
   // utility routines for tests
+  #[cfg(test)]
   pub(crate) fn newest_segment(&self) -> Option<SegmentCommitInfo<D>> {
     let inner = self.inner.lock();
     let size = inner.segment_infos.size();
@@ -5917,6 +5922,7 @@ where
     self.closed.load(Ordering::SeqCst)
   }
 
+  #[cfg(test)]
   pub(crate) fn is_deleter_closed(&self) -> Result<bool> {
     let inner = self.inner.lock();
     inner.deleter.is_closed(self)
@@ -6553,6 +6559,7 @@ where
     Ok(result)
   }
   /// Tests should use this method to snapshot the current segmentInfos to have a consistent view
+  #[cfg(test)]
   pub(crate) fn clone_segment_infos(&self) -> Result<SegmentInfos<D>> {
     let inner = self.inner.lock();
     inner.segment_infos.try_clone()
@@ -7107,10 +7114,14 @@ where
     );
     Ok(true)
   }
-
-  pub(crate) fn get_segment_infos_version(&self) -> i64 {
-    let inner = self.inner.lock();
-    inner.segment_infos.get_version()
+}
+impl<D> Accountable for IndexWriter<D>
+where
+  D: Directory,
+{
+  fn ram_bytes_used(&self) -> Result<i64> {
+    self.ensure_open()?;
+    self.doc_writer.ram_bytes_used()
   }
 }
 /// Called internally if any index state has changed.
@@ -7468,52 +7479,6 @@ impl Merges {
   {
     writer.ensure_open()?;
     self.merges_enabled = true;
-    Ok(())
-  }
-}
-
-pub(crate) struct IOConsumerImpl<'a, D>
-where
-  D: Directory,
-{
-  inner: &'a mut Inner<D>,
-  merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
-  reader_factory: &'a mut IOFunctionImpl<D>,
-  stop_collecting_merged_readers: &'a AtomicBool,
-}
-impl<'a, D> IOConsumerImpl<'a, D>
-where
-  D: Directory,
-{
-  pub(crate) fn new(
-    inner: &'a mut Inner<D>,
-    merge_readers: &'a mut HashMap<String, DefaultLeafReader<D>>,
-    reader_factory: &'a mut IOFunctionImpl<D>,
-    stop_collecting_merged_readers: &'a AtomicBool,
-  ) -> Self {
-    Self {
-      inner,
-      merge_readers,
-      reader_factory,
-      stop_collecting_merged_readers,
-    }
-  }
-}
-impl<'a, D> IOConsumer<SegmentCommitInfo<D>> for IOConsumerImpl<'a, D>
-where
-  D: Directory,
-{
-  fn accept_ref(&mut self, sci: &SegmentCommitInfo<D>) -> Result<()> {
-    debug_assert!(
-      !self.stop_collecting_merged_readers.load(Ordering::SeqCst),
-      "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
-    );
-    let apply = self.reader_factory.apply(sci, self.inner)?;
-    self.merge_readers.insert(sci.info.name.clone(), apply);
-    // we need to incRef the files of the opened SR otherwise it's possible that
-    // another merge
-    // removes the segment before we pass it on to the SDR
-    self.inner.deleter.inc_ref_files(sci.files()?)?;
     Ok(())
   }
 }
@@ -7968,6 +7933,7 @@ pub(crate) fn get_actual_max_docs() -> i32 {
     ACTUAL_MAX_DOCS.load(Ordering::Relaxed)
   }
 }
+#[cfg(test)]
 pub(crate) fn set_max_docs(max_docs: i32) -> Result<()> {
   if max_docs > MAX_DOCS {
     return Err(LuceneError::illegal_argument(format!(

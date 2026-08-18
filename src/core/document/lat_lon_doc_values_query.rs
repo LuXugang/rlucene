@@ -41,7 +41,6 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -198,7 +197,7 @@ pub struct LatLonDocValuesQueryWeight {
   score_mode: ScoreMode,
   boost: f32,
   component2d_predicate:
-    Mutex<Option<Component2DPredicate<Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>>>>,
+    Option<Arc<Component2DPredicate<Arc<LatLonGeometryType<LatLonGeometryEnumComponent2D>>>>>,
 }
 
 impl LatLonDocValuesQueryWeight {
@@ -206,9 +205,9 @@ impl LatLonDocValuesQueryWeight {
     let component2d_predicate = if query.query_relation == QueryRelation::Contains {
       None
     } else {
-      Some(GeoEncodingUtils::create_component_predicate(
+      Some(Arc::new(GeoEncodingUtils::create_component_predicate(
         query.component2d.clone(),
-      )?)
+      )?))
     };
     let query_clone = query.clone();
     let parent_query = Arc::new(query.into());
@@ -218,7 +217,7 @@ impl LatLonDocValuesQueryWeight {
       parent_query,
       score_mode,
       boost,
-      component2d_predicate: Mutex::new(component2d_predicate),
+      component2d_predicate,
     })
   }
 }
@@ -260,12 +259,7 @@ where
     context: &LeafReaderContext<IRCLeafReader<IRC>>,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
-    let component2d_predicate = match self.query.query_relation {
-      QueryRelation::Contains => None,
-      _ => Some(GeoEncodingUtils::create_component_predicate(
-        self.query.component2d.clone(),
-      )?),
-    };
+    let component2d_predicate = self.component2d_predicate.clone();
     match context
       .reader()
       .get_sorted_numeric_doc_values(&self.query.field)?
@@ -298,10 +292,10 @@ where
 
 pub struct IntersectsTPI<S, C> {
   values: S,
-  component2d_predicate: Component2DPredicate<C>,
+  component2d_predicate: Arc<Component2DPredicate<C>>,
 }
 impl<S, C> IntersectsTPI<S, C> {
-  fn new(values: S, component2d_predicate: Component2DPredicate<C>) -> Self {
+  fn new(values: S, component2d_predicate: Arc<Component2DPredicate<C>>) -> Self {
     Self {
       values,
       component2d_predicate,
@@ -340,10 +334,10 @@ where
 }
 pub struct WithinTPI<S, C> {
   values: S,
-  component2d_predicate: Component2DPredicate<C>,
+  component2d_predicate: Arc<Component2DPredicate<C>>,
 }
 impl<S, C> WithinTPI<S, C> {
-  fn new(values: S, component2d_predicate: Component2DPredicate<C>) -> Self {
+  fn new(values: S, component2d_predicate: Arc<Component2DPredicate<C>>) -> Self {
     Self {
       values,
       component2d_predicate,
@@ -380,10 +374,10 @@ where
 }
 pub struct DisjointTPI<S, C> {
   values: S,
-  component2d_predicate: Component2DPredicate<C>,
+  component2d_predicate: Arc<Component2DPredicate<C>>,
 }
 impl<S, C> DisjointTPI<S, C> {
-  fn new(values: S, component2d_predicate: Component2DPredicate<C>) -> Self {
+  fn new(values: S, component2d_predicate: Arc<Component2DPredicate<C>>) -> Self {
     Self {
       values,
       component2d_predicate,

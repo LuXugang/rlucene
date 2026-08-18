@@ -448,6 +448,7 @@ impl DocumentsWriterDeleteQueue {
     global_state.global_slice.slice_tail = current_tail;
     global_state.global_buffered_updates.clear();
   }
+  #[cfg(test)]
   pub(crate) fn get_buffered_updates_terms_size(&self) -> Result<i32> {
     let mut global_state = self.global_buffer_lock.lock();
     let current_tail = self.tail.lock().clone();
@@ -875,6 +876,7 @@ pub(crate) trait NodeBase {
     ))
   }
 
+  #[allow(dead_code)] // Mirrors Java's retained Node.isDelete hook, which has no current callers.
   fn is_delete(&self) -> bool {
     true
   }

@@ -99,7 +99,7 @@ impl NFARunAutomaton {
   ///
   /// Returns:
   /// - `true` if the input is accepted; `false` otherwise.
-  pub(crate) fn run(&mut self, input: &[i32]) -> Result<bool> {
+  pub fn run(&mut self, input: &[i32]) -> Result<bool> {
     let mut p = 0;
     for &c in input {
       p = self.step(p, c)?;

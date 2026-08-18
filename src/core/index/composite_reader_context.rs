@@ -30,14 +30,6 @@ where
   reader: CR,
   base: IndexReaderContextBase,
 }
-impl<CR> CompositeReaderContext<CR>
-where
-  CR: CompositeReader,
-{
-  pub(crate) fn reader(&self) -> &CR {
-    &self.reader
-  }
-}
 pub(crate) fn create<CR>(reader: CR) -> Result<CompositeReaderContext<CR>>
 where
   CR: CompositeReader,

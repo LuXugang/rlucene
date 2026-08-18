@@ -34,6 +34,7 @@ where
   pub(crate) arcs: Vec<Arc<O::V>>,
   pub(crate) output: Vec<O::V>,
 
+  #[allow(dead_code)] // Mirrors Java's protected NO_OUTPUT member for subclass API fidelity.
   pub(crate) no_output: O::V,
   pub(crate) fst_reader: F::FstBytesReader,
   pub(crate) upto: usize,

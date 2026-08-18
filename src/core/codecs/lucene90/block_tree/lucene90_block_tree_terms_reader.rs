@@ -420,6 +420,7 @@ use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
 
 pub(crate) const OUTPUT_FLAGS_NUM_BITS: i32 = 2;
+#[allow(dead_code)] // Mirrors Java's retained OUTPUT_FLAGS_MASK constant, which has no current callers.
 pub(crate) const OUTPUT_FLAGS_MASK: i32 = 0x3;
 pub(crate) const OUTPUT_FLAG_IS_FLOOR: i32 = 0x1;
 pub(crate) const OUTPUT_FLAG_HAS_TERMS: i32 = 0x2;

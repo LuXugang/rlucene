@@ -230,11 +230,7 @@ where
       MatchAllBulkScorerEnum::B(opt)
     } else {
       let score = self.weight.score();
-      MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(
-        self.score_mode,
-        self.max_doc,
-        score,
-      ))
+      MatchAllBulkScorerEnum::A(MatchAllBulkScorer::new(self.max_doc, score))
     };
     Ok(Some(Box::new(v)))
   }
@@ -248,17 +244,12 @@ where
   }
 }
 pub struct MatchAllBulkScorer {
-  score_mode: ScoreMode,
   max_doc: i32,
   score: f32,
 }
 impl MatchAllBulkScorer {
-  pub fn new(score_mode: ScoreMode, max_doc: i32, score: f32) -> Self {
-    Self {
-      score_mode,
-      max_doc,
-      score,
-    }
+  pub fn new(max_doc: i32, score: f32) -> Self {
+    Self { max_doc, score }
   }
 }
 impl BulkScorer for MatchAllBulkScorer {

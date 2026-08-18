@@ -519,9 +519,6 @@ where
     }
   }
 }
-trait PendingEntry {
-  fn is_term(&self) -> bool;
-}
 pub struct PendingTerm {
   pub term_bytes: Arc<Vec<u8>>,
   pub state: TermStateEnum,
@@ -532,12 +529,6 @@ impl Default for PendingTerm {
       term_bytes: Arc::new(vec![]),
       state: TermStateEnum::Int(Default::default()),
     }
-  }
-}
-
-impl PendingEntry for PendingTerm {
-  fn is_term(&self) -> bool {
-    true
   }
 }
 

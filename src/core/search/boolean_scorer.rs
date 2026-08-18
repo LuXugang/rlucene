@@ -32,6 +32,7 @@ pub(crate) const SIZE: usize = 1 << SHIFT;
 pub(crate) const MASK: usize = SIZE - 1;
 
 pub(crate) const SET_SIZE: usize = 1 << (SHIFT - 6);
+#[allow(dead_code)] // Mirrors Java's retained SET_MASK constant, which has no current callers.
 pub(crate) const SET_MASK: usize = SET_SIZE - 1;
 
 /// **BulkScorer** that is used for pure disjunctions and disjunctions that have low values of

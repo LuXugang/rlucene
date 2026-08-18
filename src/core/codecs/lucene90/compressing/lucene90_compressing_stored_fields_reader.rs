@@ -88,18 +88,6 @@ impl<I> Lucene90CompressingStoredFieldsReader<I>
 where
   I: IndexInput,
 {
-  // -0 isn't compressed.
-  const NEGATIVE_ZERO_FLOAT: u32 = (-0f32).to_bits();
-  const NEGATIVE_ZERO_DOUBLE: u64 = (-0f64).to_bits();
-
-  // for compression of timestamps
-  const SECOND: i64 = 1_000;
-  const HOUR: i64 = 60 * 60 * Self::SECOND;
-  const DAY: i64 = 24 * Self::HOUR;
-
-  const SECOND_ENCODING: u8 = 0x40;
-  const HOUR_ENCODING: u8 = 0x80;
-  const DAY_ENCODING: u8 = 0xC0;
   pub fn new<D1, D2>(
     dir: &D1,
     si: &SegmentInfo<D2>,

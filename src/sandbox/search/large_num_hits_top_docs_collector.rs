@@ -54,18 +54,6 @@ impl LargeNumHitsTopDocsCollector {
     }
   }
 
-  pub(crate) fn total_hits(&self) -> usize {
-    self.total_hits
-  }
-
-  pub(crate) fn pq(&self) -> Option<&PriorityQueue<ScoreDoc, HitQueueComparator>> {
-    self.pq.as_ref()
-  }
-
-  pub(crate) fn pq_top(&self) -> Option<&ScoreDoc> {
-    self.pq.as_ref().and_then(|pq| pq.top())
-  }
-
   /** Returns the top docs that were collected by this collector. */
   pub fn top_docs_with_how_many(&mut self, how_many: usize) -> Result<TopDocs<ScoreDoc>> {
     if how_many == 0 || how_many > self.total_hits {

@@ -109,6 +109,7 @@ impl PointValuesWriter {
   }
 
   /// Get number of buffered documents.
+  #[allow(dead_code)] // Mirrors Java's retained public getNumDocs method, which has no current callers.
   pub(crate) fn get_num_docs(&self) -> usize {
     self.num_docs
   }

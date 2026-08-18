@@ -110,6 +110,8 @@ impl<B> HasIdentity for PerFieldPostingsFormat<B> {
 /// segment suffix unique to this postings format.
 struct FieldsGroup<'a, D> {
   fields: Vec<String>,
+  #[allow(dead_code)]
+  // Mirrors the Java record component; grouping uses the builder's suffix directly.
   suffix: i32,
   state: SegmentWriteState<'a, D>,
 }

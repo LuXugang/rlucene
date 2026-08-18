@@ -195,9 +195,6 @@ impl<DM> StoredFieldsMergeSub<DM> {
       doc_map,
     }
   }
-  fn reader_index(&self) -> usize {
-    self.reader_index
-  }
 }
 impl<DM> SubBase for StoredFieldsMergeSub<DM>
 where

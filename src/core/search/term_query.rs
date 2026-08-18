@@ -25,7 +25,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, NONE, OFFSETS};
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::term::Term;
-use crate::core::index::term_states::{PrepareState, TermStateEnum, TermStates, build};
+use crate::core::index::term_states::{PrepareState, TermStates, build};
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::collection_statistics::CollectionStatistics;
@@ -179,31 +179,6 @@ impl QueryBase for TermQuery {
       visitor.consume_terms(self.into(), std::slice::from_ref(self.term.as_ref()))?;
     }
     Ok(())
-  }
-}
-#[derive(Clone)]
-pub struct TermStatesMeta {
-  ord: usize,
-  doc_freq: i32,
-  total_term_freq: i64,
-  term_state: TermStateEnum,
-  id: Identity,
-}
-impl TermStatesMeta {
-  pub(crate) fn new(
-    ord: usize,
-    doc_freq: i32,
-    total_term_freq: i64,
-    term_state: TermStateEnum,
-    id: Identity,
-  ) -> Self {
-    Self {
-      ord,
-      doc_freq,
-      total_term_freq,
-      term_state,
-      id,
-    }
   }
 }
 pub struct TermWeight {

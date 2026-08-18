@@ -39,6 +39,7 @@ use crate::core::util::io_utils::IOUtils;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::index::index_reader::{CacheHelper, CacheKey, ClosedListener, ClosedListenerList};
 use parking_lot::Mutex;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
 
@@ -227,6 +228,7 @@ where
     })
   }
 
+  #[allow(dead_code)] // Mirrors Java's retained package-private getRefCount method, which has no current callers.
   pub(crate) fn get_ref_count(&self) -> i32 {
     self.ref_.load(Ordering::SeqCst)
   }
@@ -272,13 +274,21 @@ where
     }
     Ok(())
   }
-  pub(crate) fn get_cache_helper_ref(&self) -> &SegmentCoreReadersCacheHelperImpl {
-    &self.cache_helper
-  }
   pub(crate) fn get_cache_helper(&self) -> SegmentCoreReadersCacheHelperImpl {
     self.cache_helper.clone()
   }
 }
+
+impl<I> Display for SegmentCoreReaders<I>
+where
+  I: IndexInput<IndexInput = I> + Send + Sync,
+  I::RandomAccessSlice: Send + Sync,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "SegmentCoreReader({})", self.segment)
+  }
+}
+
 #[derive(Clone)]
 pub struct SegmentCoreReadersCacheHelperImpl {
   cache_key: CacheKey,

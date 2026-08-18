@@ -85,7 +85,7 @@ pub struct Stats {
   pub field: String,
 }
 impl Stats {
-  pub fn new(segment: String, field: String) -> Self {
+  pub(crate) fn new(segment: String, field: String) -> Self {
     Self {
       index_num_bytes: 0,
       total_term_count: 0,

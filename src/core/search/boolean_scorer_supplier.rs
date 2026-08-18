@@ -821,9 +821,6 @@ where
   }
 }
 
-pub type FilteredOptionalBulkScorer<S> =
-  MaxScoreBulkScorer<S, ScorerEnum2<S, ConjunctionScorer<S>>>;
-
 impl<IRC> ScorerSupplier<IRC> for BooleanScorerSupplier<IRC>
 where
   IRC: IndexReaderContext + 'static,

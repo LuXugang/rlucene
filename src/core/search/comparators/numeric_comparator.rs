@@ -84,7 +84,7 @@ impl<V> NumericComparator<V> {
   pub(crate) fn set_top_value(&mut self) {
     self.top_value_set = true;
   }
-  fn set_single_sort(&mut self) {
+  pub(crate) fn set_single_sort(&mut self) {
     self.single_sort = true;
   }
 

@@ -25,6 +25,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -1110,7 +1111,7 @@ fn test_non_final_stop_node() -> Result<()> {
     let mut node = UnCompiledNode::new(no_output.clone(), 0);
     node.is_final = true;
     fst_compiler.frontier[0] = Some(node);
-    root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode(0), no_output.clone())?;
+    root_node.add_arc(b'a' as i32, NodeEnum::UnCompiledNode, no_output.clone())?;
     let fronze = CompiledNode {
       node: fst_compiler.add_node(0)?,
     };
@@ -1126,7 +1127,7 @@ fn test_non_final_stop_node() -> Result<()> {
     let no_output = fst_compiler.no_output.clone();
     let node = UnCompiledNode::new(no_output.clone(), 0);
     fst_compiler.frontier[1] = Some(node);
-    root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode(1), no_output.clone())?;
+    root_node.add_arc(b'b' as i32, NodeEnum::UnCompiledNode, no_output.clone())?;
     let fronze = CompiledNode {
       node: fst_compiler.add_node(1)?,
     };

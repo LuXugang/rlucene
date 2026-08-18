@@ -167,6 +167,7 @@ where
     debug_assert!(!matches!(&throwable, Ok(Ok(()))));
     let _ = self.aborting_exception.set(throwable);
   }
+  #[allow(dead_code)] // Mirrors Java; Rust reads the separately synchronized DWPT state without locking the writer.
   pub(crate) fn is_aborted(&self) -> bool {
     self.state.is_aborted()
   }
@@ -926,6 +927,7 @@ where
     res
   }
 
+  #[allow(dead_code)] // Mirrors Java; Rust must move this value out when reporting a failed flush.
   pub(crate) fn get_segment_info(&self) -> &SegmentInfo<D> {
     &self.segment_info
   }
@@ -936,6 +938,7 @@ where
   }
 
   /// Sets this DWPT as flush pending. This can only be set once.
+  #[allow(dead_code)] // Mirrors Java; Rust updates the separately synchronized DWPT state directly.
   pub(crate) fn set_flush_pending(&self) -> Result<()> {
     self.state.set_flush_pending()
   }
@@ -971,6 +974,7 @@ where
   }
 
   /// Returns `true` iff this DWPT has been flushed
+  #[allow(dead_code)] // Mirrors Java; Rust checks the separately synchronized DWPT state without locking the writer.
   pub(crate) fn has_flushed(&self) -> bool {
     self.state.has_flushed()
   }
