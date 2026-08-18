@@ -307,6 +307,10 @@ where
       asserting: false,
     }
   }
+
+  pub(crate) fn with_inner<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+    f(&self.in_)
+  }
 }
 
 impl<T> Terms for AssertingTerms<T>

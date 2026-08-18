@@ -21,6 +21,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -99,6 +100,14 @@ pub trait BitSet: Bits + Accountable {
 
   fn ensure_capacity(&mut self, _num_bits: usize) -> Result<()> {
     Ok(())
+  }
+
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    None
+  }
+
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    None
   }
 }
 
@@ -252,6 +261,20 @@ where
       BitSetEnum2::B(s) => s.ensure_capacity(_num_bits),
     }
   }
+
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    match self {
+      BitSetEnum2::A(t) => t.as_fixed_bit_set(),
+      BitSetEnum2::B(s) => s.as_fixed_bit_set(),
+    }
+  }
+
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    match self {
+      BitSetEnum2::A(t) => t.as_sparse_fixed_bit_set(),
+      BitSetEnum2::B(s) => s.as_sparse_fixed_bit_set(),
+    }
+  }
 }
 
 impl<T> BitSet for Arc<T>
@@ -320,6 +343,14 @@ where
     Err(LuceneError::unsupported_operation(
       "cannot mutate a BitSet through Arc",
     ))
+  }
+
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    (**self).as_fixed_bit_set()
+  }
+
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    (**self).as_sparse_fixed_bit_set()
   }
 }
 
@@ -412,9 +443,16 @@ where
       "cannot mutate a BitSet through Rc",
     ))
   }
+
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    (**self).as_fixed_bit_set()
+  }
+
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    (**self).as_sparse_fixed_bit_set()
+  }
 }
 use crate::core::util::error::lucene_error::LuceneError;
-use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 use crate::core::util::{HasIdentity, TryIntoInt};
 
 /// Builds a [`BitSet`] from the content of the provided

@@ -290,15 +290,13 @@ where
     Ok(())
   }
 }
-#[allow(dead_code)]
-pub(crate) trait MultiLevelSkipListReaderAbstract {
+pub trait MultiLevelSkipListReaderAbstract {
   /// Copies the values of the last read skip entry on this level.
   fn set_last_skip_data(&mut self, level: usize);
   /// Seeks the skip entry on the given level
   fn seek_child(&mut self, level: usize) -> Result<()>;
 }
-#[allow(dead_code)]
-pub(crate) trait MultiLevelSkipListReaderBase {
+pub trait MultiLevelSkipListReaderBase {
   /// Implementations must provide the actual skip-data encoding in this method.
   ///
   /// Parameters:

@@ -378,11 +378,63 @@ where
 
   fn explain(
     &self,
-    _context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _doc: i32,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    doc: i32,
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Explanation> {
-    todo!()
+    let parent_query = if let Query::Synonym(query) = self.parent_query.as_ref() {
+      query
+    } else {
+      return Err(LuceneError::illegal_state(""));
+    };
+
+    let mut prepare_states = Vec::with_capacity(parent_query.terms.len());
+    for term_states in self.term_states.iter() {
+      prepare_states.push(term_states.lock().get(context)?);
+    }
+    let mut supplier = SynonymScorerSupplier::new(
+      -1,
+      self.term_states.clone(),
+      prepare_states,
+      parent_query.clone(),
+      self.sim_weight.clone(),
+      self.score_mode,
+    );
+    let mut scorer = supplier.get_scorer(context)?;
+    if scorer.iterator_mut().advance(doc)? != doc {
+      return Ok(Explanation::no_match_no_details("no matching term"));
+    }
+
+    let freq = match &mut scorer {
+      SynonymScorerEnum::A(scorer) => scorer.freq()?,
+      SynonymScorerEnum::B(scorer) => scorer.freq()?,
+      SynonymScorerEnum::C(scorer) => scorer.freq()? as f32,
+      SynonymScorerEnum::D(_) => {
+        return Ok(Explanation::no_match_no_details("no matching term"));
+      },
+    };
+    let freq_explanation = Explanation::match_no_details(freq, format!("termFreq={freq}"));
+
+    let mut norm = 1;
+    if let Some(mut norms) = context.reader().get_norm_values(&parent_query.field)?
+      && norms.advance_exact(doc)?
+    {
+      norm = norms.long_value()?;
+    }
+    let sim_weight = self.sim_weight.as_ref().ok_or_else(|| {
+      LuceneError::illegal_state("simWeight is missing for matching synonym terms")
+    })?;
+    let score_explanation = sim_weight.explain(freq_explanation, norm)?;
+    Ok(Explanation::match_(
+      score_explanation.value.clone(),
+      format!(
+        "weight({:?} in {}) [{}], result of:",
+        <Self as Weight<IRC>>::get_query(self),
+        doc,
+        self.similarity,
+      ),
+      vec![score_explanation],
+    ))
   }
 
   fn get_query(&self) -> Arc<Query> {
@@ -1393,21 +1445,11 @@ where
     self.initialized = true;
     Ok(())
   }
-}
 
-impl<IRC> ScorerSupplier<IRC> for SynonymScorerSupplier<IRCLeafReader<IRC>>
-where
-  IRC: IndexReaderContext,
-{
-  type Scorer = QueryWeightSsScorer;
-  type BulkScorer = QueryWeightSsBulkScorer;
-
-  fn get(
-    &mut self,
-    _lead_cost: i64,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-    _searcher: &IndexSearcher<IRC>,
-  ) -> Result<Self::Scorer> {
+  fn get_scorer(&mut self, context: &LeafReaderContext<LR>) -> Result<SynonymScorerEnum<LR>>
+  where
+    LR: 'static,
+  {
     self.init(context)?;
 
     let Some(iterators) = self.iterators.take() else {
@@ -1423,16 +1465,16 @@ where
     let term_boosts = std::mem::take(&mut self.term_boosts);
 
     if iterators.is_empty() {
-      let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::D(
-        ConstantScoreScorer::from_disi(0.0, self.score_mode, EmptyDISI::new()),
-      );
-      return Ok(Box::new(scorer));
+      return Ok(SynonymScorerEnum::D(ConstantScoreScorer::from_disi(
+        0.0,
+        self.score_mode,
+        EmptyDISI::new(),
+      )));
     }
 
     let sim_weight = self.sim_weight.as_ref().cloned().ok_or_else(|| {
       LuceneError::illegal_state("simWeight is missing for matching synonym terms")
     })?;
-
     let norms = context.reader().get_norm_values(&self.query.field)?;
 
     if iterators.len() == 1 {
@@ -1445,22 +1487,22 @@ where
         } else {
           TermScorer::from_postings(iterator, sim_weight.clone(), norms)
         };
-        let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::C(scorer);
-        Ok(Box::new(scorer))
+        Ok(SynonymScorerEnum::C(scorer))
       } else {
         let scorer = if self.score_mode == ScoreMode::TopScores {
           TermScorer::from_impacts(impact, sim_weight.clone(), None, false)
         } else {
           TermScorer::from_postings(iterator, sim_weight.clone(), None)
         };
-        let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::B(
-          FreqBoostTermScorer::new(boost, scorer, sim_weight.clone(), norms)?,
-        );
-        Ok(Box::new(scorer))
+        Ok(SynonymScorerEnum::B(FreqBoostTermScorer::new(
+          boost,
+          scorer,
+          sim_weight.clone(),
+          norms,
+        )?))
       };
     }
 
-    // We use termscorers + disjunction as an implementation detail.
     let mut wrappers = Vec::with_capacity(iterators.len());
     let mut queue = DisiPriorityQueue::new(iterators.len());
     for (idx, (iterator, boost)) in iterators
@@ -1478,20 +1520,34 @@ where
       queue.add(idx, &wrappers);
     }
 
-    // Even though it is called approximation, it is accurate since none of
-    // the sub iterators are two-phase iterators.
     let iterator = DisjunctionDISIApproximation::new(queue, wrappers);
     let impacts_source = SynonymQuery::merge_impacts(impacts, term_boosts);
     let max_score_cache = MaxScoreCache::new(impacts_source, sim_weight.clone());
     let impacts_disi = ImpactsDISI::new(iterator, max_score_cache, true);
 
-    let scorer: SynonymScorerEnum<IRCLeafReader<IRC>> = SynonymScorerEnum::A(SynonymScorer::new(
+    Ok(SynonymScorerEnum::A(SynonymScorer::new(
       impacts_disi,
       sim_weight,
       norms,
       self.score_mode,
-    ));
-    Ok(Box::new(scorer))
+    )))
+  }
+}
+
+impl<IRC> ScorerSupplier<IRC> for SynonymScorerSupplier<IRCLeafReader<IRC>>
+where
+  IRC: IndexReaderContext,
+{
+  type Scorer = QueryWeightSsScorer;
+  type BulkScorer = QueryWeightSsBulkScorer;
+
+  fn get(
+    &mut self,
+    _lead_cost: i64,
+    context: &LeafReaderContext<IRCLeafReader<IRC>>,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Self::Scorer> {
+    Ok(Box::new(self.get_scorer(context)?))
   }
 
   fn bulk_scorer(

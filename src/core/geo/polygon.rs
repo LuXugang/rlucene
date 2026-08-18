@@ -167,7 +167,8 @@ impl Polygon {
     self.holes.as_slice()
   }
 
-  fn get_hole(&self, i: usize) -> &Polygon {
+  #[allow(dead_code)] // Java Tessellator uses this package-private accessor; its Rust entry point is not yet migrated.
+  pub(crate) fn get_hole(&self, i: usize) -> &Polygon {
     &self.holes[i]
   }
   /// Returns the winding order (CW, COLINEAR, CCW) for the polygon shell

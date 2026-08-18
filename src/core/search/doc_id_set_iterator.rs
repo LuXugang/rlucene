@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
 /// This abstract struct defines methods to iterate over a set of non-decreasing
 /// document IDs. Note that this struct assumes it iterates on document IDs, and
@@ -94,6 +96,25 @@ pub trait DocIdSetIterator {
   /// hardcoded value, or otherwise completely inaccurate.
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::not_implemented(""))
+  }
+
+  /// Returns the wrapped fixed bit set when this iterator has the same shape
+  /// as Java's `BitSetIterator.getFixedBitSetOrNull` specialization.
+  fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    None
+  }
+
+  /// Returns the wrapped sparse fixed bit set when this iterator has the same
+  /// shape as Java's `BitSetIterator.getSparseFixedBitSetOrNull`
+  /// specialization.
+  fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    None
+  }
+
+  /// Returns Java's `DocBaseBitSetIterator` specialization as its document
+  /// base and backing bit set.
+  fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
+    None
   }
 }
 
@@ -248,6 +269,18 @@ where
   fn cost(&self) -> Result<i64> {
     (**self).cost()
   }
+
+  fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    (**self).get_fixed_bit_set()
+  }
+
+  fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    (**self).get_sparse_fixed_bit_set()
+  }
+
+  fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
+    (**self).get_doc_base_fixed_bit_set()
+  }
 }
 impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &mut T {
   fn doc_id(&self) -> i32 {
@@ -268,6 +301,18 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &mut T {
 
   fn cost(&self) -> Result<i64> {
     (**self).cost()
+  }
+
+  fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    (**self).get_fixed_bit_set()
+  }
+
+  fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    (**self).get_sparse_fixed_bit_set()
+  }
+
+  fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
+    (**self).get_doc_base_fixed_bit_set()
   }
 }
 impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &T {
@@ -295,6 +340,18 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &T {
 
   fn cost(&self) -> Result<i64> {
     (**self).cost()
+  }
+
+  fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    (**self).get_fixed_bit_set()
+  }
+
+  fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    (**self).get_sparse_fixed_bit_set()
+  }
+
+  fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
+    (**self).get_doc_base_fixed_bit_set()
   }
 }
 

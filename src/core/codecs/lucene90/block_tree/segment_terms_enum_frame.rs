@@ -91,7 +91,7 @@ pub struct SegmentTermsEnumFrame {
   start_byte_pos: usize,
   suffix_length: usize,
   sub_code: i64,
-  compression_alg: CompressionAlgorithm,
+  pub(crate) compression_alg: CompressionAlgorithm,
 }
 impl SegmentTermsEnumFrame {
   pub fn new<I, P>(ord: i32, fr: &FieldReader<I, P>) -> Result<Self>

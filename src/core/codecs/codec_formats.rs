@@ -2587,6 +2587,13 @@ impl<I: IndexInput> PointsReader for CodecPointsReader<I> {
     }
   }
 
+  fn is_lucene90_points_reader(&self) -> bool {
+    match self {
+      Self::Lucene90(reader) => reader.is_lucene90_points_reader(),
+      Self::Asserting(_) | Self::CrankyLucene101(_) | Self::CrankyAsserting(_) => false,
+    }
+  }
+
   fn get_merge_instance(&self) -> Result<Option<Self>> {
     match self {
       Self::Lucene90(reader) => reader
@@ -2982,6 +2989,26 @@ impl<I: IndexInput> KnnVectorsReader for CodecKnnVectorsReaderInner<I> {
     match self {
       Self::Lucene101(reader) => reader.get_byte_vector_values(field),
       Self::Asserting(reader) => reader.get_byte_vector_values(field),
+    }
+  }
+
+  type QuantizedByteVectorValues =
+    crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2<
+      <<Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
+      <<AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
+    >;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    match self {
+      Self::Lucene101(reader) => reader.get_quantized_vector_values(field).map(|values| {
+        values.map(crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2::A)
+      }),
+      Self::Asserting(reader) => reader.get_quantized_vector_values(field).map(|values| {
+        values.map(crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2::B)
+      }),
     }
   }
 
@@ -3698,6 +3725,19 @@ where
       .0
       .get_byte_vector_values(field)
       .map(CodecByteVectorValues)
+  }
+
+  type QuantizedByteVectorValues =
+    crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2<
+      <<Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
+      <<AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
+    >;
+
+  fn get_quantized_vector_values(
+    &self,
+    field: &str,
+  ) -> Result<Option<Self::QuantizedByteVectorValues>> {
+    self.0.get_quantized_vector_values(field)
   }
 
   fn get_quantization_state(

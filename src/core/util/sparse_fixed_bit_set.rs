@@ -241,7 +241,7 @@ impl SparseFixedBitSet {
     (i64 << 6) | bits.trailing_zeros() as usize
   }
 
-  fn _or_other(&mut self, other: SparseFixedBitSet) {
+  fn or_sparse(&mut self, other: &SparseFixedBitSet) {
     for i in 0..other.indices.len() {
       let index = other.indices[i];
       if index != 0 {
@@ -348,8 +348,7 @@ impl SparseFixedBitSet {
           num_longs = 0;
         }
         // we are on a new long, reset state
-
-        i64 = doc4096;
+        i64 = doc64;
         current_long = 1_u64 << (doc % 64);
       }
       doc = it.next_doc()?.try_convert()?;
@@ -433,6 +432,10 @@ impl Accountable for SparseFixedBitSet {
   }
 }
 impl BitSet for SparseFixedBitSet {
+  fn as_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    Some(self)
+  }
+
   fn clear(&mut self) {
     for bit_array in &mut self.bits {
       *bit_array = None;
@@ -605,14 +608,15 @@ impl BitSet for SparseFixedBitSet {
   where
     T: DocIdSetIterator,
   {
-    //TODO IMPORTANT: this is a naive implementation, we can optimize it from Java
-    // Lucene
-    check_unpositioned(iter)?;
-    let mut doc = iter.next_doc()?.try_convert()?;
-    while doc != NO_MORE_DOCS as usize {
-      self.set(doc);
-      doc = iter.next_doc()?.try_convert()?;
+    if let Some(other) = iter.get_sparse_fixed_bit_set() {
+      check_unpositioned(iter)?;
+      self.or_sparse(other);
+      return Ok(());
     }
-    Ok(())
+    if iter.cost()? < self.indices.len() as i64 {
+      self.default_or(iter)
+    } else {
+      self.or_dense(iter)
+    }
   }
 }

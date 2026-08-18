@@ -782,8 +782,6 @@ where
   }
 }
 
-struct SlicedIndexInput {}
-
 /// Default buffer size set to `BUFFER_SIZE`.
 pub const BUFFER_SIZE: usize = 1024;
 /// Minimum buffer size allowed

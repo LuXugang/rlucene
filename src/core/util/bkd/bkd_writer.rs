@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
-use crate::core::index::merge_state::{DocMap, DocMapEnum};
+use crate::core::index::merge_state::DocMap;
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
 };
@@ -27,7 +27,6 @@ use crate::core::store::{ByteBuffersDataOutput, DataOutput, IndexOutput};
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_util::BitUtil;
-use crate::core::util::bits::Bits;
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::bkd_radix_selector::{BKDRadixSelector, PathSlice};
 use crate::core::util::bkd::bkd_util::{BKDUtil, ByteArrayPredicate, ByteArrayPredicateEnum};
@@ -456,15 +455,15 @@ where
   /// This does a merge sort of the already sorted values and currently only
   /// works when num_dims==1. This returns `None` if all documents
   /// containing dimensional values were deleted.
-  pub fn merge<S, B>(
+  pub fn merge<S, DM>(
     &mut self,
     data_out: &mut impl IndexOutput,
-    doc_maps: Option<Vec<Rc<DocMapEnum<B>>>>,
+    doc_maps: Option<Vec<Rc<DM>>>,
     readers: Vec<S>,
   ) -> Result<Option<IORunnable>>
   where
     S: PointValues,
-    B: Bits,
+    DM: DocMap,
   {
     let readers_len = readers.len();
     debug_assert!(match doc_maps {
@@ -2443,26 +2442,26 @@ fn value_in_bounds(
   }
   true
 }
-struct MergeReader<S, B>
+struct MergeReader<S, DM>
 where
   S: PointValues,
-  B: Bits,
+  DM: DocMap,
 {
   point_tree: Option<PointTreeEnum<S>>,
   packed_bytes_length: usize,
-  doc_map: Option<Rc<DocMapEnum<B>>>,
+  doc_map: Option<Rc<DM>>,
   merge_intersects_visitor: MergeIntersectsVisitor,
   doc_block_upto: usize,
   doc_id: i32,
   packed_value: Vec<u8>,
 }
 
-impl<S, B> MergeReader<S, B>
+impl<S, DM> MergeReader<S, DM>
 where
   S: PointValues,
-  B: Bits,
+  DM: DocMap,
 {
-  fn new(point_values: &mut S, doc_map: Option<Rc<DocMapEnum<B>>>) -> Result<Self> {
+  fn new(point_values: &mut S, doc_map: Option<Rc<DM>>) -> Result<Self> {
     let packed_bytes_length =
       point_values.get_bytes_per_dimension()? * point_values.get_num_dimensions()?;
     let mut point_tree = point_values.get_point_tree()?;
@@ -2611,12 +2610,12 @@ impl MergeReaderCmp {
     }
   }
 }
-impl<S, B> Compare<MergeReader<S, B>> for MergeReaderCmp
+impl<S, DM> Compare<MergeReader<S, DM>> for MergeReaderCmp
 where
   S: PointValues,
-  B: Bits,
+  DM: DocMap,
 {
-  fn less_than(&self, a: &MergeReader<S, B>, b: &MergeReader<S, B>) -> Result<bool> {
+  fn less_than(&self, a: &MergeReader<S, DM>, b: &MergeReader<S, DM>) -> Result<bool> {
     debug_assert!(!std::ptr::eq(a, b));
     let cmp = self
       .comparator

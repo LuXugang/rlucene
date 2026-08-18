@@ -20,6 +20,7 @@ use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
 };
 use crate::core::codecs::lucene90::block_tree::lucene90_block_tree_terms_reader::TermsReader;
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum::SegmentTermsEnum;
+use crate::core::codecs::lucene90::block_tree::stats::Stats;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
@@ -171,6 +172,16 @@ where
     }
   }
 }
+impl<I, PR> FieldReader<I, PR>
+where
+  I: IndexInput,
+  PR: PostingsReaderBase,
+{
+  pub(crate) fn get_stats_object(&self) -> Result<Stats> {
+    SegmentTermsEnum::new(self.clone())?.compute_block_stats()
+  }
+}
+
 impl<I, PR> Terms for FieldReader<I, PR>
 where
   I: IndexInput,
@@ -216,6 +227,10 @@ where
 
   fn get_doc_count(&self) -> Result<i32> {
     Ok(self.doc_count)
+  }
+
+  fn get_stats(&self) -> Result<String> {
+    Ok(self.get_stats_object()?.to_string())
   }
 
   fn has_freqs(&self) -> bool {

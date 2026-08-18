@@ -18,6 +18,8 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
 /// A [`DocIdSetIterator`] which iterates over set bits in a bit set.
 ///
@@ -82,55 +84,12 @@ where
   fn cost(&self) -> Result<i64> {
     Ok(self.cost)
   }
-}
 
-use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
-use std::any::TypeId;
+  fn get_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    self.bits.as_fixed_bit_set()
+  }
 
-fn equal_disi_type<T1, T2>(_it1: &T1, _it2: &T2) -> bool
-where
-  T1: DocIdSetIterator + 'static,
-  T2: DocIdSetIterator + 'static,
-{
-  TypeId::of::<T1>() == TypeId::of::<T2>()
-}
-
-fn equal_bit_set_type<T1, T2>(_it1: &T1, _it2: &T2) -> bool
-where
-  T1: BitSet + 'static,
-  T2: BitSet + 'static,
-{
-  TypeId::of::<T1>() == TypeId::of::<T2>()
-}
-//TODO
-pub fn try_get_bit_set<B>(_iterator: impl DocIdSetIterator + 'static, _bit_set: B) -> Option<B>
-where
-  B: BitSet + 'static,
-{
-  todo!()
-}
-
-// todo
-/// If the provided iterator wraps a [`FixedBitSet`], returns it, otherwise
-/// returns `None`.
-pub fn get_fixed_bit_set_or_null<B>(
-  _iterator: impl DocIdSetIterator + 'static,
-) -> Option<FixedBitSet>
-where
-  B: BitSet,
-{
-  todo!()
-}
-
-// todo
-/// If the provided iterator wraps a [`SparseFixedBitSet`] returns it,
-/// otherwise returns `None`.
-pub fn get_sparse_fixed_bit_set_or_null<B>(
-  _iterator: impl DocIdSetIterator + 'static,
-) -> Option<SparseFixedBitSet>
-where
-  B: BitSet,
-{
-  todo!()
+  fn get_sparse_fixed_bit_set(&self) -> Option<&SparseFixedBitSet> {
+    self.bits.as_sparse_fixed_bit_set()
+  }
 }

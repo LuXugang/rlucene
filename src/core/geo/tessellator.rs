@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![allow(dead_code)] // Java Tessellator internals are retained while LatLonShape/XYShape tessellation entry points are not yet migrated.
+
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::point::Point;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;

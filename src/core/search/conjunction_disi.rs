@@ -182,8 +182,8 @@ where
 }
 /// Conjunction between a [`DocIdSetIterator`] and one or more BitSetIterators.
 pub struct BitSetConjunctionDISI<DISI, T> {
-  lead: DISI,
-  bit_set_iterators: Vec<BitSetIterator<T>>,
+  pub(crate) lead: DISI,
+  pub(crate) bit_set_iterators: Vec<BitSetIterator<T>>,
   min_length: usize,
 }
 impl<DISI, T> BitSetConjunctionDISI<DISI, T>

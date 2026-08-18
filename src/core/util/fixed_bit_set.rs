@@ -287,6 +287,17 @@ impl FixedBitSet {
   }
 
   pub fn and_not_iter(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
+    if let Some(bits) = iter.get_fixed_bit_set() {
+      check_unpositioned(iter)?;
+      self.and_not_fixed_bit_set(bits);
+      return Ok(());
+    }
+    if let Some((doc_base, bits)) = iter.get_doc_base_fixed_bit_set() {
+      check_unpositioned(iter)?;
+      self.and_not_offset(doc_base >> 6, bits);
+      return Ok(());
+    }
+    check_unpositioned(iter)?;
     let mut doc = iter.next_doc()?;
     while doc != NO_MORE_DOCS {
       self.clear_with_index(doc.try_convert()?);
@@ -480,6 +491,10 @@ impl Accountable for FixedBitSet {
 }
 
 impl BitSet for FixedBitSet {
+  fn as_fixed_bit_set(&self) -> Option<&FixedBitSet> {
+    Some(self)
+  }
+
   fn set(&mut self, i: usize) {
     debug_assert!(
       i < self.num_bits,
@@ -646,9 +661,16 @@ impl BitSet for FixedBitSet {
   where
     T: DocIdSetIterator,
   {
-    //TODO IMPORTANT: this is a naive implementation, we can optimize it from Java
-    // Lucene
-    check_unpositioned(iter)?;
+    if let Some(bits) = iter.get_fixed_bit_set() {
+      check_unpositioned(iter)?;
+      self.or(bits);
+      return Ok(());
+    }
+    if let Some((doc_base, bits)) = iter.get_doc_base_fixed_bit_set() {
+      check_unpositioned(iter)?;
+      self.or_offset(doc_base >> 6, bits);
+      return Ok(());
+    }
     self.default_or(iter)
   }
 

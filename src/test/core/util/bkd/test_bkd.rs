@@ -17,7 +17,7 @@
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::Identity;
-use crate::core::index::merge_state::{DocMap, DocMapEnum};
+use crate::core::index::merge_state::DocMap;
 use crate::core::index::point_values::{
   IntersectVisitor, MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES, PointTree, PointValues,
   Relation,
@@ -35,13 +35,11 @@ use crate::core::util::bkd::bkd_writer::{
 };
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
-use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use crate::test_framework::core::store::corrupting_index_output::CorruptingIndexOutput;
-pub use crate::test_framework::core::util::bkd::DocMapMock;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, new_directory, new_directory_shared, new_fs_directory,
   new_mock_directory, new_mock_fs_directory, random, random_from_seed,
@@ -61,6 +59,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 #[allow(dead_code)] // for quick search
 struct TestBKD;
+
+struct DocMapMock {
+  cur_doc_id_base: i32,
+}
+
+impl DocMap for DocMapMock {
+  fn get(&self, doc_id: i32) -> Result<i32> {
+    Ok(self.cur_doc_id_base + doc_id)
+  }
+}
 
 fn get_point_values<I>(index_input: Arc<Mutex<I>>) -> Result<BKDReader<I>>
 where
@@ -967,9 +975,7 @@ where
         doc_maps
           .as_mut()
           .unwrap()
-          .push(Rc::new(DocMapEnum::<DummyBits>::Mock(DocMapMock {
-            cur_doc_id_base,
-          })));
+          .push(Rc::new(DocMapMock { cur_doc_id_base }));
 
         let out_ref = out.as_mut().unwrap();
         let finalizer = writer.as_mut().unwrap().finish(out_ref)?.unwrap();
@@ -1020,7 +1026,7 @@ where
         doc_maps
           .as_mut()
           .unwrap()
-          .push(Rc::new(DocMapEnum::Mock(DocMapMock { cur_doc_id_base })));
+          .push(Rc::new(DocMapMock { cur_doc_id_base }));
       }
       if let Some(mut output) = out.take() {
         output.close()?;

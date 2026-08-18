@@ -23,12 +23,14 @@ use crate::core::codecs::block_tree::lucene90_block_tree_terms_reader::{
 };
 use crate::core::codecs::lucene90::block_tree::field_reader::FieldReader;
 use crate::core::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
+use crate::core::codecs::lucene90::block_tree::stats::Stats;
 use crate::core::codecs::postings_reader_base::PostingsReaderBase;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{PrepareSeekStatus, SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::ToInt;
+use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
@@ -104,6 +106,81 @@ where
       self.input = Some(self.fr.parent.as_ref().unwrap().terms_in.try_clone()?);
     }
     Ok(())
+  }
+
+  /// Runs through the entire terms dictionary and computes block statistics.
+  pub fn compute_block_stats(&mut self) -> Result<Stats> {
+    let parent = self.fr.parent.as_ref().unwrap();
+    let mut stats = Stats::new(parent.segment.clone(), self.fr.field_info.name.clone());
+    if let Some(index) = self.fr.index.as_ref() {
+      stats.index_num_bytes = index.fst_reader.lock().ram_bytes_used()?;
+    }
+
+    self.current_frame_idx = STATIC_FRAME_IDX;
+    let arc = if let Some(index) = self.fr.index.as_ref() {
+      index.get_first_arc(&mut self.arcs[0]);
+      debug_assert!(self.arcs[0].is_final());
+      Some(0)
+    } else {
+      None
+    };
+    self.current_frame_idx = self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
+    self.stack[self.current_frame_idx].fp_orig = self.stack[self.current_frame_idx].fp;
+    SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+    self.valid_index_prefix = 0;
+    let is_floor = !self.stack[self.current_frame_idx].is_last_in_floor;
+    stats.start_block(&self.stack[self.current_frame_idx], is_floor);
+
+    'all_terms: loop {
+      while self.stack[self.current_frame_idx].next_ent
+        == self.stack[self.current_frame_idx].ent_count
+      {
+        stats.end_block(&self.stack[self.current_frame_idx])?;
+        if !self.stack[self.current_frame_idx].is_last_in_floor {
+          SegmentTermsEnumFrame::load_next_floor_block(self.current_frame_idx, self)?;
+          stats.start_block(&self.stack[self.current_frame_idx], true);
+          break;
+        }
+        if self.stack[self.current_frame_idx].ord == 0 {
+          break 'all_terms;
+        }
+        let last_fp = self.stack[self.current_frame_idx].fp_orig;
+        self.current_frame_idx = self.stack[self.current_frame_idx].ord as usize;
+        debug_assert_eq!(last_fp, self.stack[self.current_frame_idx].last_sub_fp);
+      }
+
+      loop {
+        if SegmentTermsEnumFrame::next(self.current_frame_idx, self)? {
+          let last_sub_fp = self.stack[self.current_frame_idx].last_sub_fp;
+          self.current_frame_idx = self.push_frame(None, last_sub_fp, self.term.length())?;
+          self.stack[self.current_frame_idx].fp_orig = self.stack[self.current_frame_idx].fp;
+          SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+          let is_floor = !self.stack[self.current_frame_idx].is_last_in_floor;
+          stats.start_block(&self.stack[self.current_frame_idx], is_floor);
+        } else {
+          stats.term(self.term.get_bytes_ref());
+          break;
+        }
+      }
+    }
+
+    stats.finish();
+
+    self.current_frame_idx = STATIC_FRAME_IDX;
+    let arc = if let Some(index) = self.fr.index.as_ref() {
+      index.get_first_arc(&mut self.arcs[0]);
+      debug_assert!(self.arcs[0].is_final());
+      Some(0)
+    } else {
+      None
+    };
+    self.current_frame_idx = self.push_frame_with_data(arc, self.fr.root_code.clone(), 0)?;
+    self.stack[self.current_frame_idx].rewind()?;
+    SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
+    self.valid_index_prefix = 0;
+    self.term.clear();
+
+    Ok(stats)
   }
   fn get_frame(&mut self, ord: usize) -> Result<usize> {
     let frame_idx = ord + 1;

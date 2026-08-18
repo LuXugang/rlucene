@@ -15,8 +15,3 @@
  * limitations under the License.
  */
 pub struct MultiLevelSkipListWriter;
-
-impl MultiLevelSkipListWriter {
-  pub(crate) fn write_level_length(&self) {}
-  pub(crate) fn write_child_pointer(&self) {}
-}

@@ -31,6 +31,12 @@ pub trait PointsReader: CloseableRef {
   type PointValuesType: PointValues;
   fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>>;
 
+  /// Whether this is a Lucene90 points reader whose leaves are sorted in the
+  /// order required by `BKDWriter::merge`.
+  fn is_lucene90_points_reader(&self) -> bool {
+    false
+  }
+
   /// Returns an instance optimized for merging. This instance may only be
   /// cloned
   /// # Note
@@ -89,6 +95,13 @@ macro_rules! either_points_reader {
                 }
             }
 
+            fn is_lucene90_points_reader(&self) -> bool {
+                match self {
+                    Self::A(inner) => inner.is_lucene90_points_reader(),
+                    Self::B(inner) => inner.is_lucene90_points_reader(),
+                }
+            }
+
             fn get_merge_instance(&self) -> Result<Option<Self>>
             where
                 Self: Sized,
@@ -122,6 +135,10 @@ where
 
   fn get_values(&self, field: &str) -> Result<Option<Self::PointValuesType>> {
     (**self).get_values(field)
+  }
+
+  fn is_lucene90_points_reader(&self) -> bool {
+    (**self).is_lucene90_points_reader()
   }
 
   fn get_merge_instance(&self) -> Result<Option<Self>>

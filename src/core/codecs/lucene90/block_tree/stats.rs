@@ -18,6 +18,9 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use crate::core::codecs::lucene90::block_tree::compression_algorithm::CompressionAlgorithm;
+use crate::core::codecs::lucene90::block_tree::segment_terms_enum_frame::SegmentTermsEnumFrame;
+use crate::core::index::BytesRef;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct Stats {
   /// Byte size of the index.
@@ -109,6 +112,69 @@ impl Stats {
       field,
     }
   }
+
+  pub(crate) fn start_block(&mut self, frame: &SegmentTermsEnumFrame, is_floor: bool) {
+    self.total_block_count += 1;
+    if is_floor {
+      if frame.fp == frame.fp_orig {
+        self.floor_block_count += 1;
+      }
+      self.floor_sub_block_count += 1;
+    } else {
+      self.non_floor_block_count += 1;
+    }
+
+    if self.block_count_by_prefix_len.len() <= frame.prefix_length {
+      self
+        .block_count_by_prefix_len
+        .resize(frame.prefix_length + 1, 0);
+    }
+    self.block_count_by_prefix_len[frame.prefix_length] += 1;
+    self.start_block_count += 1;
+    self.total_block_suffix_bytes += frame.total_suffix_bytes;
+    self.total_uncompressed_block_suffix_bytes += frame.suffixes_reader.length() as i64;
+    // Rust keeps the two Java readers as distinct values, so Java's reference
+    // inequality check is always true here.
+    self.total_uncompressed_block_suffix_bytes += frame.suffix_lengths_reader.length() as i64;
+    self.total_block_stats_bytes += frame.stats_reader.length() as i64;
+    self.compression_algorithms[frame.compression_alg.code() as usize] += 1;
+  }
+
+  pub(crate) fn end_block(&mut self, frame: &SegmentTermsEnumFrame) -> Result<()> {
+    let term_count = if frame.is_leaf_block {
+      frame.ent_count
+    } else {
+      frame.state.get_block_term_state()?.term_block_ord
+    };
+    let sub_block_count = frame.ent_count - term_count;
+    self.total_term_count += term_count as i64;
+    if term_count != 0 && sub_block_count != 0 {
+      self.mixed_block_count += 1;
+    } else if term_count != 0 {
+      self.terms_only_block_count += 1;
+    } else if sub_block_count != 0 {
+      self.sub_blocks_only_block_count += 1;
+    } else {
+      return Err(LuceneError::illegal_state("empty terms block"));
+    }
+    self.end_block_count += 1;
+    let other_bytes =
+      frame.fp_end - frame.fp - frame.total_suffix_bytes - frame.stats_reader.length() as i64;
+    debug_assert!(
+      other_bytes > 0,
+      "otherBytes={} frame.fp={} frame.fpEnd={}",
+      other_bytes,
+      frame.fp,
+      frame.fp_end
+    );
+    self.total_block_other_bytes += other_bytes;
+    Ok(())
+  }
+
+  pub(crate) fn term(&mut self, term: &BytesRef<Vec<u8>>) {
+    self.total_term_bytes += term.length as i64;
+  }
+
   pub(crate) fn finish(&self) {
     debug_assert_eq!(
       self.start_block_count, self.end_block_count,

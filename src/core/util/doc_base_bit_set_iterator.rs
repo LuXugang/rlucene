@@ -103,4 +103,8 @@ impl DocIdSetIterator for DocBaseBitSetIterator {
   fn cost(&self) -> Result<i64> {
     Ok(self.cost)
   }
+
+  fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
+    Some((self.doc_base, &self.bits))
+  }
 }

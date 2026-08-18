@@ -104,18 +104,31 @@ pub trait PointsWriter: Closeable {
     D2: Directory,
     CR: CodecReader,
   {
-    // check each incoming reader
-    for reader in merge_state.points_readers.iter().flatten() {
-      reader.check_integrity()?;
-    }
-    // merge field at a time
-    for field_info in merge_state.merge_field_infos.iter() {
-      if field_info.get_point_dimension_count() != 0 {
-        self.merge_one_field(merge_state, field_info, dir)?;
-      }
-    }
-    self.finish()
+    default_merge(self, merge_state, dir)
   }
+}
+
+pub(crate) fn default_merge<PW, D1, D2, CR>(
+  writer: &mut PW,
+  merge_state: &MergeState<D1, CR>,
+  dir: &D2,
+) -> Result<()>
+where
+  PW: PointsWriter + ?Sized,
+  D2: Directory,
+  CR: CodecReader,
+{
+  // check each incoming reader
+  for reader in merge_state.points_readers.iter().flatten() {
+    reader.check_integrity()?;
+  }
+  // merge field at a time
+  for field_info in merge_state.merge_field_infos.iter() {
+    if field_info.get_point_dimension_count() != 0 {
+      writer.merge_one_field(merge_state, field_info, dir)?;
+    }
+  }
+  writer.finish()
 }
 pub type PointsWriterType<O> = Lucene90PointsWriter<O>;
 

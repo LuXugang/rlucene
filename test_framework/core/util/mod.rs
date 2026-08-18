@@ -33,7 +33,6 @@ use std::sync::Arc;
 use tempfile::TempDir;
 
 pub mod automaton;
-pub mod bkd;
 pub mod english;
 pub mod fail_on_non_bulk_merges_info_stream;
 pub mod fst_tester;

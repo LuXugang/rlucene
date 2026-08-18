@@ -16,30 +16,84 @@
  */
 use crate::core::codecs::Codecs;
 use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
+use crate::core::codecs::lucene90::block_tree::field_reader::FieldReader;
+use crate::core::codecs::lucene90::block_tree::stats::Stats;
 use crate::core::codecs::lucene101::lucene101_postings_reader::{
   MutableImpactList, read_impacts, read_vint15, read_vlong15,
 };
 use crate::core::codecs::lucene101::lucene101_postings_writer::{
   write_impacts, write_vint15, write_vlong15,
 };
+use crate::core::codecs::postings_reader_base::PostingsReaderBase;
+use crate::core::document::document::Document;
+use crate::core::document::field::Store;
+use crate::core::index::directory_reader;
 use crate::core::index::impact::Impact;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::leaf_reader::LeafReader;
+use crate::core::index::terms::{Terms, TermsEnum2};
 use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput,
 };
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::close::CloseableRef;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
+use crate::test_framework::core::index::asserting_leaf_reader::AssertingTerms;
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_postings_format_test_case::BasePostingsFormatTestCase;
 use crate::test_framework::core::index::random_postings_tester::RandomPostingsTester;
-use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::lucene_test_case::{
+  get_only_leaf_reader, new_directory_shared, new_string_field, random,
+};
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
+use std::collections::HashMap;
 use std::sync::LazyLock;
 
 #[allow(dead_code)] // for quick search
 struct TestLucene101PostingsFormat;
+
+trait BlockTreeStats {
+  fn block_stats(&self) -> Result<Stats>;
+}
+
+impl<I, PR> BlockTreeStats for FieldReader<I, PR>
+where
+  I: IndexInput,
+  PR: PostingsReaderBase,
+{
+  fn block_stats(&self) -> Result<Stats> {
+    self.get_stats_object()
+  }
+}
+
+impl<A, B> BlockTreeStats for TermsEnum2<A, B>
+where
+  A: BlockTreeStats,
+{
+  fn block_stats(&self) -> Result<Stats> {
+    match self {
+      Self::A(inner) => inner.block_stats(),
+      Self::B(_) => Err(LuceneError::unsupported_operation(
+        "block statistics are only available for the BlockTree terms variant",
+      )),
+    }
+  }
+}
+
+impl<T> BlockTreeStats for AssertingTerms<T>
+where
+  T: Terms + BlockTreeStats,
+{
+  fn block_stats(&self) -> Result<Stats> {
+    self.with_inner(|inner| inner.block_stats())
+  }
+}
 
 static POSTINGS_TESTER: LazyLock<Mutex<RandomPostingsTester>> = LazyLock::new(|| {
   let mut random = random();
@@ -106,8 +160,46 @@ fn test_vlong15() -> Result<()> {
 }
 #[test]
 fn test_final_block() -> Result<()> {
-  // TODO
-  Ok(())
+  run_case(|_, random| {
+    let dir = new_directory_shared(random)?;
+    let analyzer = MockAnalyzer::new(random);
+    let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+    let w = IndexWriter::new(dir.clone(), iwc)?;
+    let mut field_types = HashMap::new();
+
+    for i in 0..25 {
+      let suffix = char::from(b'a' + i);
+      let mut doc = Document::new();
+      doc.add(new_string_field(
+        random,
+        "field",
+        suffix.to_string(),
+        Store::No,
+        &mut field_types,
+      )?);
+      doc.add(new_string_field(
+        random,
+        "field",
+        format!("z{suffix}"),
+        Store::No,
+        &mut field_types,
+      )?);
+      w.add_document(doc)?;
+    }
+    w.force_merge(1)?;
+
+    let reader = directory_reader::open_from_writer(&w)?;
+    let leaf = get_only_leaf_reader(&reader)?;
+    let terms = leaf.terms("field")?.expect("field terms should exist");
+    let stats = BlockTreeStats::block_stats(&terms)?;
+    assert_eq!(stats.floor_block_count, 0);
+    assert_eq!(stats.non_floor_block_count, 2);
+
+    reader.close()?;
+    w.close()?;
+    dir.close()?;
+    Ok(())
+  })
 }
 #[test]
 fn test_impact_serialization() -> Result<()> {

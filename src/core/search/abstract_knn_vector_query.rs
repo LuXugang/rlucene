@@ -22,7 +22,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
-use crate::core::search::conjunction_disi::{ConjunctionDISI, VectorScorerDisi};
+use crate::core::search::conjunction_disi::{BitSetConjunctionDISI, VectorScorerDisi};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
@@ -105,10 +105,7 @@ impl AbstractKnnVectorQueryDefaults {
       .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
 
     let vector_iterator = VectorScorerDisi::new(vector_scorer);
-    let mut conjunction = ConjunctionDISI::from_disi(vec![
-      ConjunctionDISIEnum::VectorScorer(vector_iterator),
-      ConjunctionDISIEnum::Bit(accept_iterator),
-    ])?;
+    let mut conjunction = BitSetConjunctionDISI::new(vector_iterator, vec![accept_iterator])?;
 
     loop {
       let doc = conjunction.next_doc()?;
@@ -120,16 +117,8 @@ impl AbstractKnnVectorQueryDefaults {
         relation = GreaterThanOrEqualTo;
         break;
       }
-      debug_assert!(conjunction.all_disi[0].doc_id() == doc);
-      let vector_scorer = match &conjunction.all_disi[0] {
-        ConjunctionDISIEnum::VectorScorer(vs) => vs,
-        _ => {
-          return Err(LuceneError::illegal_state(
-            "expected vector scorer to be first in conjunction",
-          ));
-        },
-      };
-      let score = vector_scorer.score()?;
+      debug_assert_eq!(conjunction.lead.doc_id(), doc);
+      let score = conjunction.lead.score()?;
       if score > top_doc.score {
         top_doc.score = score;
         top_doc.doc = doc;
@@ -878,51 +867,6 @@ impl Scorer for ScorerImpl {
 
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
     Box::new(&mut self.disi)
-  }
-}
-// TODO IMPORTANT 应该优化为 BitSetConjunctionDISI
-pub enum ConjunctionDISIEnum<T, V> {
-  Bit(BitSetIterator<T>),
-  VectorScorer(VectorScorerDisi<V>),
-}
-impl<T, V> DocIdSetIterator for ConjunctionDISIEnum<T, V>
-where
-  T: BitSet,
-  V: VectorScorer,
-{
-  fn doc_id(&self) -> i32 {
-    match self {
-      ConjunctionDISIEnum::Bit(it) => it.doc_id(),
-      ConjunctionDISIEnum::VectorScorer(it) => it.doc_id(),
-    }
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    match self {
-      ConjunctionDISIEnum::Bit(it) => it.next_doc(),
-      ConjunctionDISIEnum::VectorScorer(it) => it.next_doc(),
-    }
-  }
-
-  fn advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      ConjunctionDISIEnum::Bit(it) => it.advance(target),
-      ConjunctionDISIEnum::VectorScorer(it) => it.advance(target),
-    }
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    match self {
-      ConjunctionDISIEnum::Bit(it) => it.slow_advance(target),
-      ConjunctionDISIEnum::VectorScorer(it) => it.slow_advance(target),
-    }
-  }
-
-  fn cost(&self) -> Result<i64> {
-    match self {
-      ConjunctionDISIEnum::Bit(it) => it.cost(),
-      ConjunctionDISIEnum::VectorScorer(it) => it.cost(),
-    }
   }
 }
 

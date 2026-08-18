@@ -17,9 +17,10 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::lucene90_points_format::Lucene90PointsFormat;
 use crate::core::codecs::points_reader::PointsReader;
-use crate::core::codecs::points_writer::PointsWriter;
+use crate::core::codecs::points_writer::{PointsWriter, default_merge};
 use crate::core::index::IndexFileNames;
 use crate::core::index::field_info::FieldInfo;
+use crate::core::index::merge_state::MergeState;
 use crate::core::index::point_values::Relation::CellCrossesQuery;
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
@@ -264,6 +265,95 @@ where
       .write_long(self.data_out.get_file_pointer()? as i64)?;
     CodecUtil::write_footer(&mut self.meta_out)?;
     Ok(())
+  }
+
+  fn merge<D1, D2, CR>(&mut self, merge_state: &MergeState<D1, CR>, dir: &D2) -> Result<()>
+  where
+    D2: Directory,
+    CR: crate::core::index::codec_reader::CodecReader,
+  {
+    // Java only takes the bulk path when every entry is a non-null
+    // Lucene90PointsReader. Sorted/wrapped or absent readers use the generic merge.
+    if merge_state.points_readers.iter().any(|reader| {
+      reader
+        .as_ref()
+        .is_none_or(|reader| !reader.is_lucene90_points_reader())
+    }) {
+      return default_merge(self, merge_state, dir);
+    }
+
+    for reader in merge_state.points_readers.iter().flatten() {
+      reader.check_integrity()?;
+    }
+
+    for field_info in merge_state.merge_field_infos.iter() {
+      if field_info.get_point_dimension_count() == 0 {
+        continue;
+      }
+      if field_info.get_point_dimension_count() != 1 {
+        self.merge_one_field(merge_state, field_info, dir)?;
+        continue;
+      }
+
+      // Worst case total maximum size (if none of the points are deleted).
+      let mut total_max_size = 0usize;
+      for (i, reader) in merge_state.points_readers.iter().enumerate() {
+        if let Some(reader) = reader.as_ref()
+          && let Some(reader_field_info) =
+            merge_state.field_infos[i].field_info_by_name(&field_info.name)?
+          && reader_field_info.get_point_dimension_count() > 0
+          && let Some(values) = reader.get_values(&field_info.name)?
+        {
+          total_max_size = total_max_size.saturating_add(values.size()?);
+        }
+      }
+
+      let config = BKDConfig::new(
+        field_info.get_point_dimension_count(),
+        field_info.get_point_index_dimension_count(),
+        field_info.get_point_num_bytes(),
+        self.max_points_in_leaf_node,
+      )?;
+      let mut writer = BKDWriter::new(
+        merge_state.segment_info.max_doc()?,
+        dir,
+        &merge_state.segment_info.name,
+        config,
+        self.max_mb_sort_in_heap,
+        total_max_size.try_convert()?,
+      )?;
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+        let mut point_values = Vec::new();
+        let mut doc_maps = Vec::new();
+        for (i, reader) in merge_state.points_readers.iter().enumerate() {
+          let Some(reader) = reader.as_ref() else {
+            continue;
+          };
+          let Some(reader_field_info) =
+            merge_state.field_infos[i].field_info_by_name(&field_info.name)?
+          else {
+            continue;
+          };
+          if reader_field_info.get_point_dimension_count() == 0 {
+            continue;
+          }
+          if let Some(values) = reader.get_values(&reader_field_info.name)? {
+            point_values.push(values);
+            doc_maps.push(merge_state.doc_maps[i].clone());
+          }
+        }
+
+        if let Some(finalizer) = writer.merge(&mut self.data_out, Some(doc_maps), point_values)? {
+          self.meta_out.write_int(field_info.number)?;
+          writer.write_index(&mut self.meta_out, Some(&mut self.index_out), &finalizer)?;
+        }
+        Ok(())
+      }));
+      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
+      IOUtils::use_or_suppress_caught_result(result, close_result)?;
+    }
+
+    self.finish()
   }
 }
 

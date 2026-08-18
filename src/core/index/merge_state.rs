@@ -36,8 +36,6 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
-#[cfg(test)]
-use crate::test_framework::core::util::bkd::DocMapMock;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -531,24 +529,6 @@ macro_rules! either_doc_map {
     };
 }
 either_doc_map!(pub DocMapEnum2 { A: A, B: B});
-
-pub enum DocMapEnum<B> {
-  #[cfg(test)]
-  Mock(DocMapMock),
-  Merge(MergeStateDocMapImpl<B>),
-}
-impl<B> DocMap for DocMapEnum<B>
-where
-  B: Bits,
-{
-  fn get(&self, doc_id: i32) -> Result<i32> {
-    match self {
-      #[cfg(test)]
-      DocMapEnum::Mock(inner) => inner.get(doc_id),
-      DocMapEnum::Merge(inner) => inner.get(doc_id),
-    }
-  }
-}
 
 // for shared
 pub struct MergeStateMeta<DM> {

@@ -268,4 +268,8 @@ where
       ))),
     }
   }
+
+  fn is_lucene90_points_reader(&self) -> bool {
+    true
+  }
 }
