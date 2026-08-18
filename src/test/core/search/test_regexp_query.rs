@@ -31,16 +31,34 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_searcher_with_reader, new_text_field, random,
+  is_light_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestRegexpQuery;
 const FN: &str = "field";
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestRegexpQuery"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {

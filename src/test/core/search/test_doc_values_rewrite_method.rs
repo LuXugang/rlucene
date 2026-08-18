@@ -37,16 +37,35 @@ use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  random,
+  at_least, is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
+use std::sync::{Arc, LazyLock};
 /// Tests the DocValuesRewriteMethod
 #[allow(dead_code)] // for quick search
 struct TestDocValuesRewriteMethod;
 
-fn set_up<R>(random: &mut R) -> Result<(String, DefaultIndexSearchCR)>
+type TestContext = (String, DefaultIndexSearchCR);
+
+static LIGHT_CONTEXT: LazyLock<Arc<TestContext>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestDocValuesRewriteMethod"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<TestContext>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_CONTEXT.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<TestContext>
 where
   R: Rng + ?Sized,
 {
@@ -154,12 +173,12 @@ where
 #[test]
 fn test_regexps() -> Result<()> {
   let mut random = random();
-  let (field_name, searcher) = set_up(&mut random)?;
+  let context = set_up(&mut random)?;
 
   let num = at_least(&mut random, 1000);
   for _ in 0..num {
     let reg = AutomatonTestUtil::random_regexp(&mut random)?;
-    assert_same(&searcher, &field_name, reg)?;
+    assert_same(&context.1, &context.0, reg)?;
   }
   Ok(())
 }
@@ -167,7 +186,8 @@ fn test_regexps() -> Result<()> {
 #[test]
 fn test_equals() -> Result<()> {
   let mut random = random();
-  let (field_name, _searcher) = set_up(&mut random)?;
+  let context = set_up(&mut random)?;
+  let field_name = context.0.clone();
 
   {
     let a1 = RegexpQuery::with_flags(Term::from_text(&field_name, "[aA]"), RegExp::NONE)?;

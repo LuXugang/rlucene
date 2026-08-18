@@ -28,9 +28,11 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::lucene_test_case::{
+  is_light_mode, new_directory_shared, random,
+};
 use rand_chacha::rand_core::Rng;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestFlatVectorScorer;
@@ -39,6 +41,12 @@ type TestIndexInput = <DirEnum as Directory>::IndexInput;
 type TestByteVectorValues = DenseOffHeapByteVectorValues<TestIndexInput, FlatVectorsScores>;
 type TestFloatVectorValues = DenseOffHeapFloatVectorValues<TestIndexInput, FlatVectorsScores>;
 type FlatVectorsScores = DefaultFlatVectorScorer;
+
+static LIGHT_DIR: LazyLock<Arc<DirEnum>> = LazyLock::new(|| {
+  let mut random = random();
+  new_directory_shared(&mut random).expect("failed to initialize TestFlatVectorScorer")
+});
+
 fn set_up<R>(random: &mut R) -> Result<(Vec<FlatVectorsScores>, Arc<DirEnum>)>
 where
   R: Rng + ?Sized,
@@ -47,7 +55,11 @@ where
     DefaultFlatVectorScorer,
     GET_LUCENE99_FLAT_VECTORS_SCORER.clone(),
   ];
-  let dir = new_directory_shared(random)?;
+  let dir = if is_light_mode() {
+    LIGHT_DIR.clone()
+  } else {
+    new_directory_shared(random)?
+  };
   Ok((scorers, dir))
 }
 

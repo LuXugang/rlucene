@@ -28,18 +28,37 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
-use crate::test_framework::core::util::DefaultCRReader;
+use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field, random,
+  is_light_mode, new_directory_shared, new_searcher_with_reader, new_string_field, new_text_field,
+  random,
 };
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 const TEXT_FIELD: &str = "text";
 const DATE_TIME_FIELD: &str = "dateTime";
 #[allow(dead_code)] // for quick search
 pub struct TestDateSort;
-fn set_up<R>(random: &mut R) -> Result<DefaultCRReader>
+
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestDateSort"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {
@@ -65,13 +84,12 @@ where
   let reader = writer.get_reader(random)?;
   writer.close(random)?;
 
-  Ok(reader)
+  new_searcher_with_reader(reader)
 }
 #[test]
 fn test_reverse_date_sort() -> Result<()> {
   let mut random = random();
-  let reader = set_up(&mut random)?;
-  let searcher = new_searcher_with_reader(reader)?;
+  let searcher = set_up(&mut random)?;
 
   let sort = Sort::with_fields(vec![SortField::with_reverse(
     Some(DATE_TIME_FIELD),

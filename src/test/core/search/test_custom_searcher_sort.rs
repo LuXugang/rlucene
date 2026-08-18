@@ -33,22 +33,39 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::test_custom_searcher_sort::CustomSearcher;
-use crate::test_framework::core::util::DefaultCRReader;
+use crate::test_framework::core::util::DefaultCRReaderShared;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least_usize, new_directory_shared, random,
+  at_least_usize, is_light_mode, new_directory_shared, random,
 };
 use chrono::{DateTime, Local, LocalResult, NaiveDate, TimeDelta, TimeZone};
 use rand::{Rng, RngExt};
 use std::collections::BTreeMap;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 pub struct TestCustomSearcherSort;
 
-fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, usize)> {
+type TestContext = (DefaultCRReaderShared, Query, usize);
+
+static LIGHT_CONTEXT: LazyLock<TestContext> = LazyLock::new(|| {
+  let mut random = random();
+  build_context(&mut random).expect("failed to initialize TestCustomSearcherSort")
+});
+
+fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<TestContext> {
+  if is_light_mode() {
+    let context = &*LIGHT_CONTEXT;
+    return Ok((context.0.clone(), context.1.clone(), context.2));
+  }
+
+  build_context(random)
+}
+
+fn build_context<R: Rng + ?Sized>(random: &mut R) -> Result<TestContext> {
   let index_size = at_least_usize(random, 2000);
   let index = new_directory_shared(random)?;
 
-  let writer = RandomIndexWriter::new(random, index)?;
+  let writer = RandomIndexWriter::new(random, index.clone())?;
   let mut random_gen = RandomGen::new(random);
 
   for i in 0..index_size {
@@ -73,7 +90,7 @@ fn set_up<R: Rng + ?Sized>(random: &mut R) -> Result<(DefaultCRReader, Query, us
 
     writer.add_document(&mut *random_gen.random, doc)?;
   }
-  let reader = writer.get_reader(&mut *random_gen.random)?;
+  let reader = Arc::new(writer.get_reader(&mut *random_gen.random)?);
   writer.close(&mut *random_gen.random)?;
   let query = TermQuery::new(Term::from_text("content", "test")).into();
   Ok((reader, query, index_size))
@@ -87,7 +104,7 @@ fn test_field_sort_custom_searcher() -> Result<()> {
     SortField::new(Some("publicationDate_"), SortFieldType::String)?,
     SortField::get_field_score()?,
   ])?;
-  let searcher = IndexSearcher::new(reader.get_context()?)?
+  let searcher = IndexSearcher::new(reader.clone().get_context()?)?
     .with_hook(IndexSearcherHook::CustomSearcher(CustomSearcher::new(2)));
   match_hits(&searcher, &query, cust_sort)
 }
@@ -100,12 +117,12 @@ fn test_field_sort_single_searcher() -> Result<()> {
     SortField::new(Some("publicationDate_"), SortFieldType::String)?,
     SortField::get_field_score()?,
   ])?;
-  let searcher = IndexSearcher::new(reader.get_context()?)?
+  let searcher = IndexSearcher::new(reader.clone().get_context()?)?
     .with_hook(IndexSearcherHook::CustomSearcher(CustomSearcher::new(2)));
   match_hits(&searcher, &query, cust_sort)
 }
 fn match_hits(
-  searcher: &IndexSearcher<IndexReaderContextType<DefaultCRReader>>,
+  searcher: &IndexSearcher<IndexReaderContextType<DefaultCRReaderShared>>,
   query: &Query,
   sort: Sort,
 ) -> Result<()> {

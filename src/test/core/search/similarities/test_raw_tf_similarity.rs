@@ -18,9 +18,11 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config, new_searcher_with_reader, new_text_field, random,
+  is_light_mode, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
+  new_text_field, random,
 };
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 use crate::core::index::directory_reader;
 use crate::core::index::index_writer::IndexWriter;
@@ -35,7 +37,24 @@ use rand::Rng;
 
 #[allow(dead_code)]
 struct TestRawTFSimilarity;
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestRawTFSimilarity"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {

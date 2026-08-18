@@ -39,18 +39,37 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper::{DocHelper, TEXT_FIELD_2_KEY};
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
+  is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestSegmentTermDocs;
 
-fn set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, Document, SegmentCommitInfo<DirEnum>)>
+type TestContext = (Arc<DirEnum>, Document, SegmentCommitInfo<DirEnum>);
+
+static LIGHT_CONTEXT: LazyLock<TestContext> = LazyLock::new(|| {
+  let mut random = random();
+  build_set_up(&mut random).expect("failed to initialize TestSegmentTermDocs")
+});
+
+fn set_up<R>(random: &mut R) -> Result<TestContext>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    let (dir, document, info) = &*LIGHT_CONTEXT;
+    return Ok((dir.clone(), document.clone(), info.clone()));
+  }
+
+  build_set_up(random)
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<TestContext>
 where
   R: Rng + ?Sized,
 {
@@ -64,7 +83,9 @@ where
 fn test() -> Result<()> {
   let mut random = random();
   let (dir, _test_doc, _info) = set_up(&mut random)?;
-  dir.close()?;
+  if !is_light_mode() {
+    dir.close()?;
+  }
   Ok(())
 }
 #[test]

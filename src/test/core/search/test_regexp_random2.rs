@@ -45,13 +45,13 @@ use crate::test_framework::core::analysis::mock_tokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 pub use crate::test_framework::core::search::multi_term::DumbRegexpQuery;
-use crate::test_framework::core::util::DefaultIndexSearchCRShared;
 use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_bytes_ref_from_string, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_searcher_with_reader, new_string_field, random,
+  at_least, is_light_mode, new_bytes_ref_from_string, new_directory_shared,
+  new_index_writer_config_with_analyzer, new_searcher_with_reader, new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::core::util::{DefaultCRReaderShared, DefaultIndexSearchCRShared};
 use rand::Rng;
 use rand::RngExt;
 use rand::prelude::StdRng;
@@ -128,6 +128,13 @@ pub(crate) trait TestRegexpRandom2 {
   }
 }
 
+type TestContext = (DefaultCRReaderShared, String);
+
+static LIGHT_CONTEXT: std::sync::LazyLock<TestContext> = std::sync::LazyLock::new(|| {
+  let mut random = random();
+  build_context(&mut random).expect("failed to initialize TestRegexpRandom2")
+});
+
 fn set_up<R>(
   random: &mut R,
 ) -> Result<(
@@ -136,6 +143,25 @@ fn set_up<R>(
   DefaultIndexSearchCRShared,
   String,
 )>
+where
+  R: Rng + ?Sized,
+{
+  let (reader, field_name) = if is_light_mode() {
+    let (reader, field_name) = &*LIGHT_CONTEXT;
+    (reader.clone(), field_name.clone())
+  } else {
+    build_context(random)?
+  };
+
+  Ok((
+    new_searcher_with_reader(reader.clone())?,
+    new_searcher_with_reader(reader.clone())?,
+    new_searcher_with_reader(reader)?,
+    field_name,
+  ))
+}
+
+fn build_context<R>(random: &mut R) -> Result<TestContext>
 where
   R: Rng + ?Sized,
 {
@@ -172,12 +198,7 @@ where
 
   let reader = Arc::new(writer.get_reader(random)?);
   writer.close(random)?;
-  Ok((
-    new_searcher_with_reader(reader.clone())?,
-    new_searcher_with_reader(reader.clone())?,
-    new_searcher_with_reader(reader)?,
-    field_name,
-  ))
+  Ok((reader, field_name))
 }
 
 struct TestRegexpRandom2Impl;

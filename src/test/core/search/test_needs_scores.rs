@@ -46,11 +46,11 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::search::query::AssertNeedsScores;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_searcher_with_reader, random,
+  is_light_mode, new_directory_shared, new_searcher_with_reader, random,
 };
 use std::hash::{Hash, Hasher};
 use std::mem;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 pub struct TestNeedsScores {
   #[allow(dead_code)]
@@ -59,7 +59,15 @@ pub struct TestNeedsScores {
 }
 
 impl TestNeedsScores {
-  fn set_up() -> Result<Self> {
+  fn set_up() -> Result<Arc<Self>> {
+    if is_light_mode() {
+      return Ok(LIGHT_CONTEXT.clone());
+    }
+
+    Ok(Arc::new(Self::build_set_up()?))
+  }
+
+  fn build_set_up() -> Result<Self> {
     let mut random = random();
     let dir = new_directory_shared(&mut random)?;
     let analyzer = MockAnalyzer::new(&mut random);
@@ -80,6 +88,10 @@ impl TestNeedsScores {
     Ok(Self { dir, searcher })
   }
 }
+
+static LIGHT_CONTEXT: LazyLock<Arc<TestNeedsScores>> = LazyLock::new(|| {
+  Arc::new(TestNeedsScores::build_set_up().expect("failed to initialize TestNeedsScores"))
+});
 
 #[test]
 fn test_prohibited_clause() -> Result<()> {

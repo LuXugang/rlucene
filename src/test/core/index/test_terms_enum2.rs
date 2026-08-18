@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store::Yes;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
+use crate::core::index::directory_reader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::multi_terms::get_terms;
@@ -41,8 +42,8 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_string_field, random,
+  at_least, is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -55,6 +56,13 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 struct TestTermsEnum2;
 
+type TestContext = (i32, Arc<DirEnum>, BTreeSet<BytesRef<Vec<u8>>>, Automaton);
+
+static LIGHT_CONTEXT: std::sync::LazyLock<TestContext> = std::sync::LazyLock::new(|| {
+  let mut random = random();
+  build_context(&mut random).expect("failed to initialize TestTermsEnum2")
+});
+
 #[allow(clippy::type_complexity)]
 fn set_up<R>(
   random: &mut R,
@@ -66,6 +74,33 @@ fn set_up<R>(
   Arc<StandardDirectoryReader<DirEnum>>,
   DefaultIndexSearcher<CompositeReaderContext<Arc<StandardDirectoryReader<DirEnum>>>>,
 )>
+where
+  R: Rng + ?Sized,
+{
+  let (num_iterations, dir, terms, terms_automaton) = if is_light_mode() {
+    let (num_iterations, dir, terms, terms_automaton) = &*LIGHT_CONTEXT;
+    (
+      *num_iterations,
+      dir.clone(),
+      terms.clone(),
+      terms_automaton.clone(),
+    )
+  } else {
+    build_context(random)?
+  };
+  let reader = Arc::new(directory_reader::open(dir.clone())?);
+  let searcher = new_searcher_with_reader(reader.clone())?;
+  Ok((
+    num_iterations,
+    dir,
+    terms,
+    terms_automaton,
+    reader,
+    searcher,
+  ))
+}
+
+fn build_context<R>(random: &mut R) -> Result<TestContext>
 where
   R: Rng + ?Sized,
 {
@@ -97,18 +132,9 @@ where
   let v: Vec<BytesRef<Vec<u8>>> = terms.iter().cloned().collect();
   let terms_automaton = Automata::make_string_union(v.as_slice())?;
 
-  let reader = Arc::new(writer.get_reader(random)?);
-  let searcher = new_searcher_with_reader(reader.clone())?;
   writer.close(random)?;
 
-  Ok((
-    num_iterations,
-    dir.clone(),
-    terms,
-    terms_automaton,
-    reader,
-    searcher,
-  ))
+  Ok((num_iterations, dir, terms, terms_automaton))
 }
 #[test]
 fn test_finite_versus_infinite() -> Result<()> {

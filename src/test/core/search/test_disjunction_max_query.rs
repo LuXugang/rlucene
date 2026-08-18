@@ -31,7 +31,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::query::{Query, QueryBase};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
+  at_least, get_only_leaf_reader, is_light_mode, is_night_mode, new_directory_shared, new_field,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
   new_text_field, random,
 };
@@ -57,11 +57,28 @@ pub use crate::test_framework::core::search::similarity::{TestSimilarity, new_te
 use crate::test_framework::core::util::DefaultIndexSearchLR;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] //for quick search
 struct TestDisjunctionMaxQuery;
 const SCORE_COMP_THRESH: f32 = 0.0000f32;
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchLR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestDisjunctionMaxQuery"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchLR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
 where
   R: Rng + ?Sized,
 {

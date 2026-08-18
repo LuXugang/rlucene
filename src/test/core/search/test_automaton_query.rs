@@ -19,7 +19,8 @@ use crate::core::document::field::Store;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
+  at_least, is_light_mode, is_night_mode, new_directory_shared, new_searcher_with_reader,
+  new_text_field, random,
 };
 
 use crate::core::index::BytesRef;
@@ -44,6 +45,7 @@ use rand::RngExt;
 use rand::prelude::StdRng;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::{Arc, LazyLock};
 
 use crate::core::search::query::{IntoQuery, Query};
 use crate::core::search::regexp_query::RegexpQuery;
@@ -56,7 +58,23 @@ use crate::test_framework::core::util::automaton::automaton_test_util::Automaton
 struct TestAutomatonQuery;
 const FN: &str = "field";
 
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestAutomatonQuery"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {

@@ -16,7 +16,7 @@
  */
 
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_searcher_with_reader, new_text_field, random,
+  is_light_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use std::collections::HashMap;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
@@ -48,7 +49,26 @@ use rand::prelude::StdRng;
 pub struct TestAutomatonQueryUnicode;
 const FN: &str = "field";
 
+static LIGHT_DIR: std::sync::LazyLock<Arc<DirEnum>> = std::sync::LazyLock::new(|| {
+  let mut random = random();
+  let (_, dir) = build_set_up(&mut random).expect("failed to initialize TestAutomatonQueryUnicode");
+  dir
+});
+
 fn set_up<R>(random: &mut R) -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    let directory = LIGHT_DIR.clone();
+    let reader = directory_reader::open(directory.clone())?;
+    return Ok((new_searcher_with_reader(reader)?, directory));
+  }
+
+  build_set_up(random)
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)>
 where
   R: Rng + ?Sized,
 {
@@ -99,7 +119,11 @@ where
   let test_result = catch_unwind(AssertUnwindSafe(|| test(&mut random, &searcher)));
   let close_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
     searcher.get_index_reader().close()?;
-    directory.close()
+    if is_light_mode() {
+      Ok(())
+    } else {
+      directory.close()
+    }
   }));
   IOUtils::finally_caught_result(test_result, close_result)
 }

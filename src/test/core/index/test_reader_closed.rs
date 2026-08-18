@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::parallel_leaf_reader::ParallelLeafReader;
@@ -29,18 +30,37 @@ use crate::test_framework::core::analysis::mock_tokenizer;
 use crate::test_framework::core::index::own_cache_key_multi_reader::OwnCacheKeyMultiReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_searcher, new_string_field, random,
+  at_least, get_only_leaf_reader, is_light_mode, new_directory_shared,
+  new_index_writer_config_with_analyzer, new_searcher, new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestReaderClosed;
 
+static LIGHT_DIR: LazyLock<Arc<DirEnum>> = LazyLock::new(|| {
+  let mut random = random();
+  build_set_up(&mut random)
+    .expect("failed to initialize TestReaderClosed")
+    .0
+});
+
 fn set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, Arc<StandardDirectoryReader<DirEnum>>)>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    let dir = LIGHT_DIR.clone();
+    return Ok((dir.clone(), Arc::new(directory_reader::open(dir)?)));
+  }
+
+  build_set_up(random)
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, Arc<StandardDirectoryReader<DirEnum>>)>
 where
   R: Rng + ?Sized,
 {
@@ -84,7 +104,7 @@ fn test() -> Result<()> {
     Err(LuceneError::AlreadyClosed(_)) => {},
     Err(e) => return Err(e),
   }
-  dir.close()
+  if is_light_mode() { Ok(()) } else { dir.close() }
 }
 
 #[test]
@@ -113,5 +133,5 @@ fn test_reader_chaining() -> Result<()> {
     Err(e) => return Err(e),
   }
   searcher.get_index_reader().close()?;
-  dir.close()
+  if is_light_mode() { Ok(()) } else { dir.close() }
 }

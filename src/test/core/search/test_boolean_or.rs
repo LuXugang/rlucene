@@ -49,13 +49,14 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  random,
+  at_least, is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::SliceRandom;
 use std::fmt::{Display, Formatter};
+use std::sync::{Arc, LazyLock};
 
 struct TestBooleanOr {
   t1: TermQuery,
@@ -67,6 +68,11 @@ struct TestBooleanOr {
 
 const FIELD_T: &str = "T";
 const FIELD_C: &str = "C";
+
+static LIGHT_CONTEXT: LazyLock<Arc<TestBooleanOr>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestBooleanOr"))
+});
 
 fn search<R>(random: &mut R, case: &TestBooleanOr, q: impl Into<Query>) -> Result<usize>
 where
@@ -165,7 +171,18 @@ fn test_parenthesis_should() -> Result<()> {
 
   Ok(())
 }
-fn set_up<R>(random: &mut R) -> Result<TestBooleanOr>
+fn set_up<R>(random: &mut R) -> Result<Arc<TestBooleanOr>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_CONTEXT.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<TestBooleanOr>
 where
   R: Rng + ?Sized,
 {

@@ -42,21 +42,38 @@ use crate::test_framework::core::search::check_hits::CheckHits;
 pub use crate::test_framework::core::search::multi_term::DumbPrefixQuery;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_string_field, random,
+  at_least, is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::{Arc, LazyLock};
 
 /// Create an index with random unicode terms Generates random prefix queries,
 /// and validates against a simple impl.
 #[allow(dead_code)] // for quick search
 pub struct TestPrefixRandom;
 
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestPrefixRandom"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {

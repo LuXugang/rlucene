@@ -19,22 +19,42 @@ use crate::core::document::field::Store;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::top_docs;
+use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config, new_log_merge_policy, random,
+  is_light_mode, new_directory_shared, new_index_writer_config, new_log_merge_policy, random,
 };
 use rand::{Rng, RngExt};
+use std::sync::{Arc, LazyLock};
 #[allow(dead_code)] // for quick search
 pub struct TestMultiSliceMerge;
+static LIGHT_DIRS: LazyLock<(Arc<DirEnum>, Arc<DirEnum>)> = LazyLock::new(|| {
+  let mut random = random();
+  build_set_up_dirs(&mut random).expect("failed to initialize TestMultiSliceMerge")
+});
+
 fn set_up_readers<R>(random: &mut R) -> Result<(DefaultCRReader, DefaultCRReader)>
+where
+  R: Rng + ?Sized,
+{
+  let (dir1, dir2) = if is_light_mode() {
+    (LIGHT_DIRS.0.clone(), LIGHT_DIRS.1.clone())
+  } else {
+    build_set_up_dirs(random)?
+  };
+  Ok((directory_reader::open(dir1)?, directory_reader::open(dir2)?))
+}
+
+fn build_set_up_dirs<R>(random: &mut R) -> Result<(Arc<DirEnum>, Arc<DirEnum>)>
 where
   R: Rng + ?Sized,
 {
@@ -66,7 +86,6 @@ where
     }
   }
 
-  let reader1 = iw1.get_reader(random)?;
   iw1.close(random)?;
 
   let mut iwc2 = new_index_writer_config(random)?;
@@ -94,10 +113,9 @@ where
     }
   }
 
-  let reader2 = iw2.get_reader(random)?;
   iw2.close(random)?;
 
-  Ok((reader1, reader2))
+  Ok((dir1, dir2))
 }
 #[test]
 fn test_multiple_slices_of_same_index_searcher() -> Result<()> {

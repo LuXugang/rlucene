@@ -34,16 +34,28 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_text_field, random,
+  is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_text_field, random,
 };
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 pub struct TestSimilarityProvider;
 
-fn set_up() -> Result<DefaultIndexSearchCR> {
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> =
+  LazyLock::new(|| Arc::new(build_set_up().expect("failed to initialize TestSimilarityProvider")));
+
+fn set_up() -> Result<Arc<DefaultIndexSearchCR>> {
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up()?))
+}
+
+fn build_set_up() -> Result<DefaultIndexSearchCR> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let sim = SimilarityEnum::custom(ExampleSimilarityProvider::new());

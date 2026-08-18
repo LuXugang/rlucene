@@ -31,10 +31,12 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_searcher_with_reader, new_text_field, random,
+  is_light_mode, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
+  new_text_field, random,
 };
 use rand::Rng;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 pub struct TestConjunctions;
@@ -42,7 +44,23 @@ pub struct TestConjunctions;
 const F1: &str = "title";
 const F2: &str = "body";
 
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestConjunctions"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {
@@ -153,10 +171,7 @@ use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::weight::Weight;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
-use std::sync::{
-  Arc,
-  atomic::{AtomicBool, Ordering},
-};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 struct CollectorManagerImpl;
 

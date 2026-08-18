@@ -48,7 +48,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
+  is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer, new_io_context,
   new_log_merge_policy_with_merge_factor_cfs, random,
 };
 use rand::RngExt;
@@ -72,7 +72,15 @@ struct TestTermVectorsReaderSetup {
 }
 
 impl TestTermVectorsReader {
-  fn setup() -> Result<TestTermVectorsReaderSetup> {
+  fn setup() -> Result<Arc<TestTermVectorsReaderSetup>> {
+    if is_light_mode() {
+      return Ok(LIGHT_SETUP.clone());
+    }
+
+    Ok(Arc::new(Self::build_setup()?))
+  }
+
+  fn build_setup() -> Result<TestTermVectorsReaderSetup> {
     let mut test_fields = vec!["f1", "f2", "f3", "f4"];
     let test_fields_store_pos = vec![true, false, true, false];
     let test_fields_store_off = vec![true, false, false, true];
@@ -152,6 +160,13 @@ impl TestTermVectorsReader {
     })
   }
 }
+
+static LIGHT_SETUP: std::sync::LazyLock<Arc<TestTermVectorsReaderSetup>> =
+  std::sync::LazyLock::new(|| {
+    Arc::new(
+      TestTermVectorsReader::build_setup().expect("failed to initialize TestTermVectorsReader"),
+    )
+  });
 
 #[test]
 fn test() -> Result<()> {

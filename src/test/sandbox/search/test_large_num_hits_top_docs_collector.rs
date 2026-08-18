@@ -32,16 +32,35 @@ use crate::sandbox::search::large_num_hits_top_docs_collector::LargeNumHitsTopDo
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_searcher_with_reader, new_string_field, random,
+  is_light_mode, new_directory_shared, new_searcher_with_reader, new_string_field, random,
 };
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestLargeNumHitsTopDocsCollector;
 
-fn set_up<R>(random: &mut R) -> Result<(Arc<StandardDirectoryReader<DirEnum>>, Query)>
+type TestContext = (Arc<StandardDirectoryReader<DirEnum>>, Query);
+
+static LIGHT_CONTEXT: LazyLock<TestContext> = LazyLock::new(|| {
+  let mut random = random();
+  build_set_up(&mut random).expect("failed to initialize TestLargeNumHitsTopDocsCollector")
+});
+
+fn set_up<R>(random: &mut R) -> Result<TestContext>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    let (reader, query) = &*LIGHT_CONTEXT;
+    return Ok((reader.clone(), query.clone()));
+  }
+
+  build_set_up(random)
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<TestContext>
 where
   R: Rng + ?Sized,
 {

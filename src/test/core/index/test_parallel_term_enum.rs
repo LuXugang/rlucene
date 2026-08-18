@@ -32,20 +32,39 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
-  get_only_leaf_reader, new_directory_shared, new_index_writer_config_with_analyzer,
+  get_only_leaf_reader, is_light_mode, new_directory_shared, new_index_writer_config_with_analyzer,
   new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestParallelTermEnum;
 
 type TestLeafReader = DefaultLeafReader<DirEnum>;
 
+static LIGHT_DIRS: LazyLock<(Arc<DirEnum>, Arc<DirEnum>)> = LazyLock::new(|| {
+  let mut random = random();
+  build_set_up_dirs(&mut random).expect("failed to initialize TestParallelTermEnum")
+});
+
 fn set_up<R>(random: &mut R) -> Result<(TestLeafReader, TestLeafReader, Arc<DirEnum>, Arc<DirEnum>)>
+where
+  R: Rng + ?Sized,
+{
+  let (rd1, rd2) = if is_light_mode() {
+    (LIGHT_DIRS.0.clone(), LIGHT_DIRS.1.clone())
+  } else {
+    build_set_up_dirs(random)?
+  };
+  let ir1 = get_only_leaf_reader(directory_reader::open(rd1.clone())?)?;
+  let ir2 = get_only_leaf_reader(directory_reader::open(rd2.clone())?)?;
+  Ok((ir1, ir2, rd1, rd2))
+}
+
+fn build_set_up_dirs<R>(random: &mut R) -> Result<(Arc<DirEnum>, Arc<DirEnum>)>
 where
   R: Rng + ?Sized,
 {
@@ -100,9 +119,7 @@ where
   iw2.add_document(doc)?;
   iw2.close()?;
 
-  let ir1 = get_only_leaf_reader(directory_reader::open(rd1.clone())?)?;
-  let ir2 = get_only_leaf_reader(directory_reader::open(rd2.clone())?)?;
-  Ok((ir1, ir2, rd1, rd2))
+  Ok((rd1, rd2))
 }
 
 fn check_terms<T, R>(random: &mut R, terms: Option<T>, terms_list: &[&str]) -> Result<()>

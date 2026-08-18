@@ -49,16 +49,16 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::DefaultIndexSearchLR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
-  new_text_field, random,
+  at_least, get_only_leaf_reader, is_light_mode, is_night_mode, new_directory_shared,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  new_searcher_with_reader, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)]
 struct TestTermScorer;
@@ -66,7 +66,24 @@ struct TestTermScorer;
 const FIELD: &str = "field";
 
 const VALUES: &[&str] = &["all", "dogs dogs", "like", "playing", "fetch", "all"];
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
+
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchLR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestTermScorer"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchLR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchLR>
 where
   R: Rng + ?Sized,
 {

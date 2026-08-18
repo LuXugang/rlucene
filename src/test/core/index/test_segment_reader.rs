@@ -16,7 +16,9 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::BytesRef;
-use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::lucene_test_case::{
+  is_light_mode, new_directory_shared, random,
+};
 
 use crate::core::index::field_infos::get_indexed_fields;
 use crate::core::index::fields::Fields;
@@ -49,7 +51,7 @@ use crate::test_framework::core::index::doc_helper::{
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 pub(crate) struct TestSegmentReader;
 impl TestSegmentReader {
@@ -75,7 +77,32 @@ impl TestSegmentReader {
   }
 }
 
+type TestContext = (
+  Arc<DirEnum>,
+  Document,
+  crate::core::index::segment_commit_info::SegmentCommitInfo<DirEnum>,
+);
+
+static LIGHT_CONTEXT: LazyLock<TestContext> = LazyLock::new(|| {
+  let mut random = random();
+  build_set_up(&mut random).expect("failed to initialize TestSegmentReader")
+});
+
 fn set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, Document, SegmentReader<DirEnum>)>
+where
+  R: Rng + ?Sized,
+{
+  let (dir, document, info) = if is_light_mode() {
+    let (dir, document, info) = &*LIGHT_CONTEXT;
+    (dir.clone(), document.clone(), info.clone())
+  } else {
+    build_set_up(random)?
+  };
+  let reader = SegmentReader::new(&info, LATEST.major, &IOContext::default_io_context()?)?;
+  Ok((dir, document, reader))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<TestContext>
 where
   R: Rng + ?Sized,
 {
@@ -83,8 +110,7 @@ where
   let mut documnet = Document::new();
   DocHelper::setup_doc(&mut documnet);
   let info = DocHelper::write_doc(random, dir.clone(), documnet.clone())?;
-  let reader = SegmentReader::new(&info, LATEST.major, &IOContext::default_io_context()?)?;
-  Ok((dir, documnet, reader))
+  Ok((dir, documnet, info))
 }
 #[test]
 fn test() -> Result<()> {

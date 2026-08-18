@@ -25,17 +25,35 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_field, new_index_writer_config, new_searcher_with_reader,
-  random,
+  at_least, is_light_mode, new_directory_shared, new_field, new_index_writer_config,
+  new_searcher_with_reader, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 pub struct TestRegexpRandom;
-fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestRegexpRandom"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {

@@ -24,21 +24,63 @@ use crate::core::store::directory::DirEnum;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_text_field, random,
+  is_light_mode, new_directory_shared, new_text_field, random,
 };
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard};
 
 #[allow(dead_code)] // for quick search
 struct TestIsCurrent;
 
-fn set_up<R>(random: &mut R) -> Result<RandomIndexWriter<DirEnum>>
+static LIGHT_DIR: LazyLock<Arc<DirEnum>> = LazyLock::new(|| {
+  let mut random = random();
+  let (dir, writer) = build_set_up(&mut random).expect("failed to initialize TestIsCurrent");
+  writer
+    .close(&mut random)
+    .expect("failed to close TestIsCurrent writer");
+  dir
+});
+static LIGHT_LOCK: Mutex<()> = Mutex::new(());
+
+fn set_up<R>(
+  random: &mut R,
+) -> Result<(RandomIndexWriter<DirEnum>, Option<MutexGuard<'static, ()>>)>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    let guard = LIGHT_LOCK
+      .lock()
+      .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let directory = LIGHT_DIR.clone();
+    let writer = RandomIndexWriter::new(random, directory)?;
+
+    writer.w.delete_all()?;
+    let mut field_types = HashMap::<String, FieldType>::new();
+    let mut doc = Document::new();
+    doc.add(new_text_field(
+      random,
+      "UUID",
+      "1",
+      Store::Yes,
+      &mut field_types,
+    )?);
+    writer.add_document(random, doc)?;
+    writer.commit(random)?;
+    return Ok((writer, Some(guard)));
+  }
+
+  Ok((build_set_up(random)?.1, None))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<(Arc<DirEnum>, RandomIndexWriter<DirEnum>)>
 where
   R: Rng + ?Sized,
 {
   // initialize directory
   let directory = new_directory_shared(random)?;
-  let writer = RandomIndexWriter::new(random, directory)?;
+  let writer = RandomIndexWriter::new(random, directory.clone())?;
 
   // write document
   let mut field_types = HashMap::<String, FieldType>::new();
@@ -53,14 +95,14 @@ where
   writer.add_document(random, doc)?;
   writer.commit(random)?;
 
-  Ok(writer)
+  Ok((directory, writer))
 }
 
 /** Failing testcase showing the trouble */
 #[test]
 fn test_delete_by_term_is_current() -> Result<()> {
   let mut random = random();
-  let writer = set_up(&mut random)?;
+  let (writer, _guard) = set_up(&mut random)?;
 
   // get reader
   let reader = writer.get_reader(&mut random)?;
@@ -87,7 +129,7 @@ fn test_delete_by_term_is_current() -> Result<()> {
 #[test]
 fn test_delete_all_is_current() -> Result<()> {
   let mut random = random();
-  let writer = set_up(&mut random)?;
+  let (writer, _guard) = set_up(&mut random)?;
 
   // get reader
   let reader = writer.get_reader(&mut random)?;

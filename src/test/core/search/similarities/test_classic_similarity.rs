@@ -24,7 +24,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+  is_light_mode, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
 
 use crate::core::index::field_invert_state::FieldInvertState;
@@ -41,11 +41,28 @@ use crate::test_framework::core::search::base_similarity_test_case::BaseSimilari
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestClassicSimilarity;
 
-fn test_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_test_set_up(&mut random).expect("failed to initialize TestClassicSimilarity"))
+});
+
+fn test_set_up<R>(random: &mut R) -> Result<Arc<DefaultIndexSearchCR>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_test_set_up(random)?))
+}
+
+fn build_test_set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
 {

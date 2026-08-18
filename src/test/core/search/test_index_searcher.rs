@@ -20,6 +20,7 @@ use crate::core::document::field_type::FieldType;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
+use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::multi_reader::MultiReader;
@@ -49,7 +50,7 @@ use crate::test_framework::core::search::test_index_searcher::{
   SlicesOffloadedToExecutorIndexSearcher,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_string_field, random,
+  at_least, is_light_mode, new_directory_shared, new_string_field, random,
 };
 use rand::RngExt;
 use std::collections::HashMap;
@@ -64,6 +65,25 @@ pub struct TestIndexSearcher {
 
 impl TestIndexSearcher {
   pub fn set_up<R>(random: &mut R) -> Result<Self>
+  where
+    R: rand::Rng + ?Sized,
+  {
+    if is_light_mode() {
+      let dir = LIGHT_DIR.clone();
+      return Ok(Self {
+        reader: directory_reader::open(dir.clone())?,
+        dir,
+      });
+    }
+
+    let dir = Self::build_set_up(random)?;
+    Ok(Self {
+      reader: directory_reader::open(dir.clone())?,
+      dir,
+    })
+  }
+
+  fn build_set_up<R>(random: &mut R) -> Result<Arc<DirEnum>>
   where
     R: rand::Rng + ?Sized,
   {
@@ -100,12 +120,16 @@ impl TestIndexSearcher {
       }
     }
 
-    let reader = iw.get_reader(random)?;
     iw.close(random)?;
 
-    Ok(Self { dir, reader })
+    Ok(dir)
   }
 }
+
+static LIGHT_DIR: std::sync::LazyLock<Arc<DirEnum>> = std::sync::LazyLock::new(|| {
+  let mut random = random();
+  TestIndexSearcher::build_set_up(&mut random).expect("failed to initialize TestIndexSearcher")
+});
 
 #[test]
 fn test_huge_n() -> Result<()> {

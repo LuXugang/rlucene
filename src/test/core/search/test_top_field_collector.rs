@@ -76,12 +76,23 @@ use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 struct TestTopFieldCollector;
 
-fn setup() -> Result<DefaultIndexSearchCR> {
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> =
+  LazyLock::new(|| Arc::new(build_setup().expect("failed to initialize TestTopFieldCollector")));
+
+fn setup() -> Result<Arc<DefaultIndexSearchCR>> {
+  if crate::test_framework::core::util::lucene_test_case::is_light_mode() {
+    return Ok(LIGHT_SEARCHER.clone());
+  }
+
+  Ok(Arc::new(build_setup()?))
+}
+
+fn build_setup() -> Result<DefaultIndexSearchCR> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir)?;

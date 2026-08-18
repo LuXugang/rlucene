@@ -51,16 +51,35 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::english::English;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_searcher_with_reader, new_text_field, random,
+  at_least, is_light_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
+use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] // for quick search
 pub struct TestSearchAfter;
 
-fn set_up<R>(random: &mut R) -> Result<(Vec<SortField>, DefaultIndexSearchCR)>
+type TestContext = (Vec<SortField>, DefaultIndexSearchCR);
+
+static LIGHT_CONTEXT: LazyLock<Arc<TestContext>> = LazyLock::new(|| {
+  let mut random = random();
+  Arc::new(build_set_up(&mut random).expect("failed to initialize TestSearchAfter"))
+});
+
+fn set_up<R>(random: &mut R) -> Result<Arc<TestContext>>
+where
+  R: Rng + ?Sized,
+{
+  if is_light_mode() {
+    return Ok(LIGHT_CONTEXT.clone());
+  }
+
+  Ok(Arc::new(build_set_up(random)?))
+}
+
+fn build_set_up<R>(random: &mut R) -> Result<TestContext>
 where
   R: Rng + ?Sized,
 {
@@ -204,14 +223,15 @@ where
 #[test]
 fn test_queries() -> Result<()> {
   let mut random = random();
-  let (_all_sort_fields, searcher) = set_up(&mut random)?;
+  let context = set_up(&mut random)?;
+  let searcher = &context.1;
 
   let n = at_least(&mut random, 20);
 
   for _ in 0..n {
     assert_query(
       &mut random,
-      &searcher,
+      searcher,
       MatchAllDocsQuery::new().into(),
       None,
       false,
@@ -219,7 +239,7 @@ fn test_queries() -> Result<()> {
 
     assert_query(
       &mut random,
-      &searcher,
+      searcher,
       TermQuery::new(Term::from_text("english", "one")).into(),
       None,
       false,
@@ -234,7 +254,7 @@ fn test_queries() -> Result<()> {
       TermQuery::new(Term::from_text("oddeven", "even")),
       Occur::Should,
     )?;
-    assert_query(&mut random, &searcher, bq.build().into(), None, false)?;
+    assert_query(&mut random, searcher, bq.build().into(), None, false)?;
   }
 
   Ok(())
