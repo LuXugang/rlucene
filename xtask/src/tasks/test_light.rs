@@ -14,12 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub(crate) mod check_uncommitted;
-pub(crate) mod ci;
-pub(crate) mod commit;
-pub(crate) mod license;
-pub(crate) mod monster;
-pub(crate) mod nextest;
-pub(crate) mod nightly;
-pub(crate) mod test_light;
-pub(crate) mod tidy;
+use crate::{LogColor, colorize, log, run_cargo_with_env};
+
+pub(crate) fn run(extra_args: &[String]) {
+  let mut args = vec!["test".to_string(), "--lib".to_string()];
+  args.extend_from_slice(extra_args);
+  let args: Vec<&str> = args.iter().map(String::as_str).collect();
+
+  log(&colorize("Running Cargo test-light", LogColor::Green, true));
+  run_cargo_with_env(&args, &[("tests.light", "true")]);
+  log(&colorize(
+    "✅ ✅ ✅ Finished Cargo test-light",
+    LogColor::Green,
+    true,
+  ));
+}

@@ -16,3 +16,6 @@ check-uncommitted = "xtask check-uncommitted"
 license-check = "xtask license-check"
 # Using Cargo nexttest instead of Cargo test
 nextest-run = "xtask nextest-run"
+# Run read-only test fixtures in light mode. The environment variable is
+# intentionally opt-in; plain `cargo test` keeps per-test setup lifecycles.
+test-light = "xtask test-light"

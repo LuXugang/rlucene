@@ -26,8 +26,15 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_searcher_with_reader, random,
 };
 use rand::Rng;
+use std::sync::LazyLock;
 #[allow(dead_code)] // for quick search
 struct TestNGramPhraseQuery;
+
+static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
+  let mut random = random();
+  set_up(&mut random).expect("failed to initialize TestNGramPhraseQuery")
+});
+
 fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
 where
   R: Rng + ?Sized,
@@ -43,14 +50,13 @@ where
 }
 #[test]
 fn test_rewrite() -> Result<()> {
-  let mut random = random();
-  let searcher = set_up(&mut random)?;
+  let searcher = &*CONTEXT;
 
   // bi-gram test ABC => AB/BC => AB/BC
   let pq1 = NGramPhraseQuery::new(2, PhraseQuery::from_terms_no_slop("f", &["AB", "BC"])?);
 
-  let q = pq1.rewrite(&searcher)?;
-  assert_eq!(q.clone().rewrite(&searcher)?, q);
+  let q = pq1.rewrite(searcher)?;
+  assert_eq!(q.clone().rewrite(searcher)?, q);
   let Query::Phrase(rewritten1) = q else {
     panic!("expected PhraseQuery");
   };
@@ -66,7 +72,7 @@ fn test_rewrite() -> Result<()> {
     PhraseQuery::from_terms_no_slop("f", &["AB", "BC", "CD"])?,
   );
 
-  let q = pq2.rewrite(&searcher)?;
+  let q = pq2.rewrite(searcher)?;
   assert!(matches!(q, Query::Phrase(_)));
   let Query::Phrase(rewritten2) = q else {
     panic!("expected PhraseQuery");
@@ -83,7 +89,7 @@ fn test_rewrite() -> Result<()> {
     PhraseQuery::from_terms_no_slop("f", &["ABC", "BCD", "CDE", "DEF", "EFG", "FGH"])?,
   );
 
-  let q = pq3.rewrite(&searcher)?;
+  let q = pq3.rewrite(searcher)?;
   assert!(matches!(q, Query::Phrase(_)));
   let Query::Phrase(rewritten3) = q else {
     panic!("expected PhraseQuery");

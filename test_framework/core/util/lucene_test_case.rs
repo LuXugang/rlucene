@@ -87,7 +87,7 @@ use crate::test_framework::core::store::mock_directory_wrapper::{
 };
 use crate::test_framework::core::store::raw_directory_wrapper::RawDirectoryWrapper;
 use crate::test_framework::core::util::lucene_test_case::EnvConfig::{
-  Multiplier, NightMode, TestSeed,
+  LightMode, Multiplier, NightMode, TestSeed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use chrono_tz::{TZ_VARIANTS, Tz, UTC};
@@ -163,6 +163,7 @@ where
 /// control the test mode, random number generator seed, etc.
 #[derive(Debug, Clone, Copy)]
 pub enum EnvConfig {
+  LightMode,
   NightMode,
   Multiplier,
   TestSeed,
@@ -171,6 +172,7 @@ pub enum EnvConfig {
 impl fmt::Display for EnvConfig {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let key = match self {
+      LightMode => "tests.light",
       NightMode => "tests.nightly",
       Multiplier => "tests.multiplier",
       TestSeed => "tests.seed",
@@ -210,6 +212,10 @@ const CORE_DIRECTORIES: [DirectoryImpl; 3] = [
 
 pub fn is_night_mode() -> bool {
   std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
+}
+
+pub fn is_light_mode() -> bool {
+  std::env::var(LightMode.to_string()).is_ok_and(|v| v == "true")
 }
 
 pub(crate) fn random_multiplier() -> i32 {

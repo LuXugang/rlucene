@@ -23,7 +23,16 @@ use std::{
 };
 
 pub(crate) fn run_cargo(args: &[&str]) {
-  let status = Command::new("cargo").args(args).status();
+  run_cargo_with_env(args, &[]);
+}
+
+pub(crate) fn run_cargo_with_env(args: &[&str], envs: &[(&str, &str)]) {
+  let mut command = Command::new("cargo");
+  command.args(args);
+  for (key, value) in envs {
+    command.env(key, value);
+  }
+  let status = command.status();
   match status {
     Err(e) => {
       log(&format!("Failed to execute cargo: {}", e));
@@ -71,19 +80,22 @@ pub(crate) fn log(msg: &str) {
 
 fn main() {
   let mut args = env::args().skip(1);
-  match args.next().as_deref() {
+  let command = args.next();
+  let extra_args: Vec<String> = args.collect();
+  match command.as_deref() {
     Some("tidy") => tasks::tidy::run(),
     Some("commit") => tasks::commit::run(),
     Some("ci") => tasks::ci::run(),
     Some("nightly") => tasks::nightly::run(),
     Some("monster") => tasks::monster::run(),
+    Some("test-light") => tasks::test_light::run(&extra_args),
     Some("check-uncommitted") => tasks::check_uncommitted::run(),
     Some("license-check") => tasks::license::license_check::run(),
     Some("nextest-run") => tasks::nextest::run(),
     _ => {
       log(&format!(
-        "{:?} not support,Available commands: tidy, commit, ci, nightly, monster, check-uncommitted, license-check",
-        args
+        "{:?} not support,Available commands: tidy, commit, ci, nightly, monster, test-light, check-uncommitted, license-check",
+        command
       ));
       process::exit(1);
     },
