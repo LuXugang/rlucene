@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_mutable_point_tree::DummyMutablePointTree;
@@ -75,7 +76,9 @@ use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
 use crate::core::index::terms::TermsEnum2;
-use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributes2;
+use crate::core::index::terms_enum::{
+  SeekStatus, TermsEnum, TermsEnumWithUnsupportedPostingsAndAttributes2,
+};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -86,6 +89,7 @@ use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::{Bits, BitsEnum2};
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
@@ -1027,6 +1031,171 @@ where
   }
 }
 
+pub enum SortingCodecReaderSortedDocValuesTermsEnum<'a, S>
+where
+  S: SortedDocValues,
+{
+  Original(S::TermsEnum<'a>),
+  Sorting(SortedDocValuesTermsEnum<&'a mut SortingSortedDocValues<S>>),
+}
+
+impl<'a, S> BytesRefIterator for SortingCodecReaderSortedDocValuesTermsEnum<'a, S>
+where
+  S: SortedDocValues,
+{
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Original(terms) => terms.next(),
+      Self::Sorting(terms) => terms.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::Original(terms) => terms.set_next(),
+      Self::Sorting(terms) => terms.set_next(),
+    }
+  }
+}
+
+impl<'a, S> TermsEnum for SortingCodecReaderSortedDocValuesTermsEnum<'a, S>
+where
+  S: SortedDocValues,
+{
+  type AttributeSource<'b>
+    = <S::TermsEnum<'a> as TermsEnum>::AttributeSource<'b>
+  where
+    Self: 'b;
+  type AttributeSourceMut<'b>
+    = <S::TermsEnum<'a> as TermsEnum>::AttributeSourceMut<'b>
+  where
+    Self: 'b;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::Original(terms) => terms.attributes(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::Original(terms) => terms.attributes_mut(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Original(terms) => terms.seek_exact(term),
+      Self::Sorting(terms) => terms.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::Original(terms) => terms.prepare_seek_exact(text),
+      Self::Sorting(terms) => terms.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Original(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::Sorting(terms) => terms.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::Original(terms) => terms.seek_ceil(term),
+      Self::Sorting(terms) => terms.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::Original(terms) => terms.seek_exact_with_ord(ord),
+      Self::Sorting(terms) => terms.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::Original(terms) => terms.seek_exact_with_state(term, state),
+      Self::Sorting(terms) => terms.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Original(terms) => terms.term(),
+      Self::Sorting(terms) => terms.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::Original(terms) => terms.ord(),
+      Self::Sorting(terms) => terms.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(terms) => terms.doc_freq(),
+      Self::Sorting(terms) => terms.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::Original(terms) => terms.total_term_freq(),
+      Self::Sorting(terms) => terms.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum = <S::TermsEnum<'a> as TermsEnum>::PostingsEnum;
+
+  fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::Original(terms) => terms.postings(reuse),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::Original(terms) => terms.postings_with_flags(reuse, flags),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  type ImpactsEnum = <S::TermsEnum<'a> as TermsEnum>::ImpactsEnum;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    match self {
+      Self::Original(terms) => terms.impacts(flags),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::Original(terms) => terms.term_state(),
+      Self::Sorting(terms) => terms.term_state(),
+    }
+  }
+}
+
 impl<S> SortedDocValues for SortingCodecReaderSortedDocValues<S>
 where
   S: SortedDocValues,
@@ -1060,10 +1229,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumWithUnsupportedPostingsAndAttributes2<
-    S::TermsEnum<'a>,
-    SortedDocValuesTermsEnum<&'a mut SortingSortedDocValues<S>>,
-  >
+    = SortingCodecReaderSortedDocValuesTermsEnum<'a, S>
   where
     S: 'a;
 
@@ -1071,10 +1237,10 @@ where
     match self {
       Self::Original(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
+        .map(SortingCodecReaderSortedDocValuesTermsEnum::Original),
       Self::Sorting(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
+        .map(SortingCodecReaderSortedDocValuesTermsEnum::Sorting),
     }
   }
 }
