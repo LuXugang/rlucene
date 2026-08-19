@@ -40,10 +40,9 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::hnsw_graph::{
-  ArrayNodesIterator, EmptyHnswGraph, HnswGraph, HnswGraphEnum2,
-};
+use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, EmptyHnswGraph, HnswGraph};
 use crate::core::util::hnsw::hnsw_graph_searcher::search;
+use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::ordinal_translated_knn_collector::OrdinalTranslatedKnnCollector;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
@@ -63,6 +62,85 @@ pub struct Lucene99HnswVectorsReader<F, I> {
   fields: HashMap<i32, FieldEntry>,
   vector_index: I,
 }
+
+pub enum Lucene99HnswGraph<I>
+where
+  I: IndexInput,
+{
+  Disk(Box<OffHeapHnswGraph<I>>),
+  Empty(EmptyHnswGraph),
+}
+
+impl<I> HnswGraph for Lucene99HnswGraph<I>
+where
+  I: IndexInput,
+{
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    match self {
+      Self::Disk(graph) => graph.seek(level, target),
+      Self::Empty(graph) => graph.seek(level, target),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Disk(graph) => graph.size(),
+      Self::Empty(graph) => graph.size(),
+    }
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    match self {
+      Self::Disk(graph) => graph.max_node_id(),
+      Self::Empty(graph) => graph.max_node_id(),
+    }
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    match self {
+      Self::Disk(graph) => graph.next_neighbor(),
+      Self::Empty(graph) => graph.next_neighbor(),
+    }
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    match self {
+      Self::Disk(graph) => graph.num_levels(),
+      Self::Empty(graph) => graph.num_levels(),
+    }
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    match self {
+      Self::Disk(graph) => graph.entry_node(),
+      Self::Empty(graph) => graph.entry_node(),
+    }
+  }
+
+  type NodeIterator = ArrayNodesIterator;
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    match self {
+      Self::Disk(graph) => graph.get_nodes_on_level(level),
+      Self::Empty(graph) => graph.get_nodes_on_level(level),
+    }
+  }
+
+  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    match self {
+      Self::Disk(graph) => graph.get_neighbors_mut(level, node),
+      Self::Empty(graph) => graph.get_neighbors_mut(level, node),
+    }
+  }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+    match self {
+      Self::Disk(graph) => graph.get_neighbors(level, node),
+      Self::Empty(graph) => graph.get_neighbors(level, node),
+    }
+  }
+}
+
 impl<F, I> Lucene99HnswVectorsReader<F, I>
 where
   F: FlatVectorsReader,
@@ -367,7 +445,7 @@ where
   F: FlatVectorsReader,
   I: IndexInput,
 {
-  type HnswGraph = HnswGraphEnum2<Box<OffHeapHnswGraph<I>>, EmptyHnswGraph>;
+  type HnswGraph = Lucene99HnswGraph<I>;
 
   fn is_hnsw_graph_provider(&self, _field: &str) -> bool {
     true
@@ -385,11 +463,11 @@ where
       .ok_or_else(|| LuceneError::illegal_argument(format!("field=\"{}\" not found", field)))?;
 
     if entry.vector_index_length > 0 {
-      Ok(HnswGraphEnum2::A(Box::new(
+      Ok(Lucene99HnswGraph::Disk(Box::new(
         self.get_graph_from_entry(entry)?,
       )))
     } else {
-      Ok(HnswGraphEnum2::B(EmptyHnswGraph))
+      Ok(Lucene99HnswGraph::Empty(EmptyHnswGraph))
     }
   }
 }
