@@ -19,8 +19,8 @@ use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEn
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::terms_enum::{
   EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2,
-  TermsEnumWithUnsupportedPostingsAndAttributes2,
   TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty,
+  TermsEnumWithUnsupportedPostingsAndAttributesWithEmptyIntersect,
 };
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -392,10 +392,8 @@ where
     }
   }
 
-  type IntersectIter = TermsEnumWithUnsupportedPostingsAndAttributes2<
-    T::IntersectIter,
-    <EmptyTerms as Terms>::IntersectIter,
-  >;
+  type IntersectIter =
+    TermsEnumWithUnsupportedPostingsAndAttributesWithEmptyIntersect<T::IntersectIter>;
 
   fn intersect(
     &self,
@@ -405,10 +403,14 @@ where
     match self {
       Self::Terms(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
+        .map(
+          TermsEnumWithUnsupportedPostingsAndAttributesWithEmptyIntersect::WithPostingsAndAttributes,
+        ),
       Self::Empty(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
+        .map(
+          TermsEnumWithUnsupportedPostingsAndAttributesWithEmptyIntersect::WithoutPostingsAndAttributes,
+        ),
     }
   }
 
