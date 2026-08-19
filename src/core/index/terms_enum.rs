@@ -1200,6 +1200,7 @@ where
   }
 }
 
+#[allow(clippy::large_enum_variant)] // Keep the statically dispatched terms iterator allocation-free.
 pub enum TermsEnumWithUnsupportedPostingsAndAttributesWithEmptyIntersect<T> {
   WithPostingsAndAttributes(T),
   WithoutPostingsAndAttributes(FilteredTermsEnum<EmptyTermsEnum, AutomatonTermsEnum>),
@@ -1362,6 +1363,7 @@ where
   }
 }
 
+#[allow(clippy::large_enum_variant)] // Keep the statically dispatched terms iterator allocation-free.
 pub enum TermsEnumWithUnsupportedFirstPostings<T> {
   None(EmptyTermsEnum),
   All(T),
