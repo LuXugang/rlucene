@@ -125,7 +125,6 @@ fn test_delete_left_over_files() -> Result<()> {
   // .s0 file:
   let mut files = dir.list_all()?;
 
-  // TODO: fix this test better
   let ext = ".liv";
 
   // Create a bogus separate del file for a
@@ -166,7 +165,6 @@ fn test_delete_left_over_files() -> Result<()> {
 
   // Create a bogus cfs file shadowing a non-cfs segment:
 
-  // TODO: assert is bogus (relies upon codec-specific filenames)
   assert!(slow_file_exists(dir.as_ref(), "_3.fdt")? || slow_file_exists(dir.as_ref(), "_3.fld")?);
 
   // TODO: SimpleTextCodec is not implemented.
@@ -319,7 +317,7 @@ fn test_no_segments_dot_gen_inflation() -> Result<()> {
 fn test_segments_inflation() -> Result<()> {
   let mut random = random();
   let dir = new_mock_directory(&mut random)?;
-  dir.set_check_index_on_close(false); // TODO: allow falling back more than one commit
+  dir.set_check_index_on_close(false);
 
   // empty commit
   let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;
@@ -440,7 +438,7 @@ fn test_generation_inflation() -> Result<()> {
 fn test_trashy_file() -> Result<()> {
   let mut random = random();
   let dir = new_mock_directory(&mut random)?;
-  dir.set_check_index_on_close(false); // TODO: maybe handle such trash better elsewhere...
+  dir.set_check_index_on_close(false);
 
   // empty commit
   let writer = IndexWriter::new(Arc::new(dir.clone()), IndexWriterConfig::new()?)?;

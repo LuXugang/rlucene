@@ -445,8 +445,6 @@ impl TestUtil {
     let mut default_output = Vec::with_capacity(1024);
     let output = output.unwrap_or(&mut default_output);
 
-    // TODO: actually use the dir's locking, unless test uses a special method?
-    // some tests e.g. exception tests become much more complicated if they have to close the writer
     let mut checker = CheckIndex::<D, NoLock, &mut Vec<u8>>::with_lock(dir, NoLock);
     checker.set_level(level)?;
     checker.set_fail_fast(fail_fast);

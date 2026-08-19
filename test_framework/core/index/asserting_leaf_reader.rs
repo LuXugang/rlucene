@@ -483,8 +483,6 @@ impl<TE> BytesRefIterator for AssertingTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  // TODO: we should separately track if we are "at the end"?
-  // Someone should not call next() after it returns `None`!
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if !self.asserting {
       return self.in_.next();
@@ -2814,8 +2812,6 @@ where
       self.last_compare_result.set(None);
     }
 
-    // TODO: we should assert that this "matches" whatever relation the last
-    // call to compare had returned.
     assert_eq!(packed_value.len(), self.num_data_dims * self.bytes_per_dim);
     if let Some(last_doc_value) = self.last_doc_value.as_ref() {
       let comparison = last_doc_value.borrow().as_slice().cmp(packed_value);

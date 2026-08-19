@@ -26,7 +26,6 @@ use crate::core::util::automation::run_automaton::RunAutomaton;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-// TODO: add two-phase and needsScores support. maybe use conjunctionDISI internally?
 pub(crate) struct TermAutomatonScorer<PE, SS, N> {
   // The original EnumAndScorer values used to create this scorer. The matching queues refer to
   // these values by index; direct access is only exposed for explain purposes.
@@ -372,8 +371,6 @@ where
   N: NumericDocValues + 'static,
 {
   fn score(&mut self) -> Result<f32> {
-    // TODO: we could probably do better here, e.g. look @ freqs of actual terms involved in this
-    // doc and score differently
     let mut norm = 1i64;
     if let Some(norms) = &mut self.norms
       && norms.advance_exact(self.doc_id)?

@@ -41,7 +41,6 @@ pub struct ComponentTree<T> {
 
   /// which dimension was this node split on
   ///
-  /// TODO: its implicit based on level, but boolean keeps code simple
   split_x: bool,
 
   /// root node of edge tree

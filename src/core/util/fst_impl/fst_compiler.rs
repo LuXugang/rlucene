@@ -440,9 +440,6 @@ where
           }
 
           if self.last_frozen_node == target.node && !do_fixed_length_arcs {
-            // TODO: for better perf (but more RAM used) we
-            // could avoid this except when arc is "near" the
-            // last arc:
             flags |= BIT_TARGET_NEXT as i32;
           }
 
@@ -522,8 +519,6 @@ where
         },
       }
     }
-    // TODO: try to avoid wasteful cases: disable doFixedLengthArcs in that
-    // case
     /*
      *
      * LUCENE-4682: what is a fair heuristic here?
@@ -1323,9 +1318,6 @@ impl Node for CompiledNode {
 pub(crate) struct UnCompiledNode<T> {
   pub(crate) num_arcs: i32,
   pub(crate) arcs: Vec<Arc<T>>,
-  // TODO: instead of recording is_final/output on the node,
-  // maybe we should use -1 arc to mean "end" (like we do when reading the
-  // FST). Would simplify much code here...
   pub(crate) output: T,
   pub(crate) is_final: bool,
 

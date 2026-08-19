@@ -36,9 +36,6 @@ use std::sync::Arc;
 ///
 /// See also:
 /// - [`PostingsReaderBase`](crate::core::codecs::postings_reader_base::PostingsReaderBase)
-// TODO: find a better name; this defines the API that the
-// terms dict impls use to talk to a postings impl.
-// TermsDict + PostingsReader/WriterBase == FieldsProducer/Consumer
 pub trait PostingsWriterBase: Closeable {
   /// Called once after startup, before any terms have been added.
   /// Implementations typically write a header to the provided `termsOut`.

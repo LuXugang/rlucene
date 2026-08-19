@@ -56,8 +56,6 @@ where
   /// Expert: Creates an `AssertingPointsFormat` with the provided format.
   ///
   /// This is only intended to pass special parameters for testing.
-  // TODO: can we randomize this a cleaner way? e.g. stored fields and vectors do
-  // this with a separate codec...
   pub fn new_with_format(in_: PF) -> Self {
     Self { in_ }
   }

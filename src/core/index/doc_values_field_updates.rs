@@ -275,8 +275,6 @@ where
     }
     let size = inner.size;
     debug_assert!(doc < self.max_doc, "doc must be less than max_doc");
-    // TODO: If the Sorter trait changes to take long indexes, we can
-    // remove that limitation
     if size == i32::MAX as usize {
       return Err(LuceneError::illegal_state(
         "cannot support more than Integer.MAX_VALUE doc/value entries",

@@ -52,10 +52,6 @@ use std::fmt::{Display, Formatter};
 use std::mem::size_of_val;
 use std::sync::{Arc, OnceLock};
 
-// TODO:
-//   - build depth-N prefix hash?
-//   - or: longer dense skip lists than just next byte?
-
 /// Wraps [`Lucene101PostingsFormat`] for on-disk storage, but then at read time loads and stores
 /// all terms and postings directly in RAM as byte and integer arrays.
 ///
@@ -77,8 +73,6 @@ pub struct DirectPostingsFormat {
 
 const DEFAULT_MIN_SKIP_COUNT: i32 = 8;
 const DEFAULT_LOW_FREQ_CUTOFF: i32 = 32;
-
-// TODO: allow passing/wrapping arbitrary postings format?
 
 impl Default for DirectPostingsFormat {
   fn default() -> Self {
@@ -2149,7 +2143,6 @@ impl PostingsEnum for HighFreqDocsEnum {
   }
 }
 
-// TODO: specialize offsets and not.
 pub struct HighFreqPostingsEnum {
   term: Option<Arc<TermAndSkip>>,
   has_offsets: bool,

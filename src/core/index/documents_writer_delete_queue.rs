@@ -241,8 +241,6 @@ impl DocumentsWriterDeleteQueue {
       !Arc::ptr_eq(&slice.slice_head, &slice.slice_tail),
       "slice head and tail must differ after add"
     );
-    // TODO doing this each time is not necessary maybe
-    // we can do it just every n times or so?
     self.try_apply_global_slice()?;
     Ok(seq_no)
   }

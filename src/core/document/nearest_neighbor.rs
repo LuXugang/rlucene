@@ -345,9 +345,6 @@ where
       continue;
     }
 
-    // TODO: if we replace approxBestDistance with actualBestDistance, we can put an opto here to
-    // break once this "best" cell is fully outside of the hitQueue bottom's radius:
-
     if !cell.index.move_to_child()? {
       // Leaf block: visit all points and possibly collect them:
       visitor.cur_doc_base = doc_bases[cell.reader_index as usize];
@@ -371,7 +368,6 @@ where
         distance_sort_key,
       ));
 
-      // TODO: we are assuming a binary tree
       let move_to_sibling = cell.index.move_to_sibling()?;
       if move_to_sibling {
         let min_pv = cell.index.get_min_packed_value()?.into_owned();

@@ -103,11 +103,9 @@ impl TokenStreamToTermAutomatonQuery {
 
     input.end()?;
 
-    // TODO: look at endOffset? ts2a did...
     let _ = max_offset;
     let _ = max_pos;
 
-    // TODO: this (setting "last" state as the only accept state) may be too simplistic?
     query.set_accept(state, true);
     query.finish()?;
 

@@ -1021,9 +1021,6 @@ pub trait BaseIndexFileFormatTestCase: Sized {
   }
 
   /// Tests exception handling on write and openInput/createOutput.
-  // TODO: This is really not ideal. Each Base*FormatTestCase should have unit tests doing
-  // this. Until then, this shotgun approach prevents bugs by ensuring that a codec does not corrupt
-  // the index or leak file handles.
   fn test_random_exceptions<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

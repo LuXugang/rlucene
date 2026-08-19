@@ -67,10 +67,6 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::thread;
 use std::time::Duration;
 
-// TODO
-//   - mix in forceMerge, addIndexes
-//   - randomly mix in non-congruent docs
-
 pub type ThreadedIndexSearcher<DR> = IndexSearcher<CompositeReaderContext<Arc<DR>>>;
 
 pub struct ThreadedIndexingAndSearchingTestCaseState<D>

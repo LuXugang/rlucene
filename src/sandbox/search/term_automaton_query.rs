@@ -63,13 +63,6 @@ use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-// TODO
-//    - compare perf to PhraseQuery exact and sloppy
-//    - optimize: find terms that are in fact MUST (because all paths
-//      through the A include that term)
-//    - if we ever store posLength in the index, it would be easy[ish]
-//      to take it into account here
-
 /// A proximity query that lets you express an automaton, whose transitions are terms, to match
 /// documents. This is a generalization of other proximity queries like `PhraseQuery`,
 /// `MultiPhraseQuery` and `SpanNearQuery`. It is likely slow, since it visits any document having
@@ -166,11 +159,6 @@ impl TermAutomatonQuery {
     // println!("before det:\n{}", automaton.to_dot()?);
 
     let mut transition = Transition::default();
-
-    // TODO: should we add "eps back to initial node" for all states,
-    // and det that? then we don't need to revisit initial node at
-    // every position? but automaton could blow up? And, this makes it
-    // harder to skip useless positions at search time?
 
     if self.any_term_id != -1 {
       // Make sure there are no leading or trailing ANY:
@@ -271,7 +259,6 @@ impl TermAutomatonQuery {
   /// Returns the dot (graphviz) representation of this automaton. This is extremely useful for
   /// visualizing the automaton.
   pub fn to_dot(&self) -> Result<String> {
-    // TODO: refactor & share with Automaton.toDot!
     let det = self
       .det
       .as_ref()
@@ -418,9 +405,6 @@ impl TermAutomatonQueryBase for TermAutomatonQueryHook {
 pub struct TermAutomatonQueryDefaults;
 
 impl TermAutomatonQueryDefaults {
-  // TODO: should we impl rewrite to return BooleanQuery of PhraseQuery,
-  // when 1) automaton is finite, 2) doesn't use ANY transition, 3) is
-  // "small enough"?
   pub fn rewrite<IRC>(query: TermAutomatonQuery, _searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
@@ -442,9 +426,6 @@ impl TermAutomatonQueryDefaults {
         .ok_or_else(|| LuceneError::illegal_state("singleton term is ANY"))?;
       return Ok(TermQuery::new(Term::new(query.field, term.clone())).into());
     }
-
-    // TODO: can PhraseQuery really handle multiple terms at the same position? If so, why do we
-    // even have MultiPhraseQuery?
 
     // Try for either PhraseQuery or MultiPhraseQuery, which only works when the automaton is a
     // sausage:
@@ -516,15 +497,12 @@ impl TermAutomatonQueryDefaults {
       return Ok(builder.build().into());
     }
 
-    // TODO: we could maybe also rewrite to union of PhraseQuery (pull all finite strings) if it's
-    // "worth it"?
     Ok(query.into())
   }
 }
 
 impl QueryBase for TermAutomatonQuery {
   fn to_string(&self, _field: &str) -> Result<String> {
-    // TODO: what really am I supposed to do with the incoming field...
     let mut value = format!("TermAutomatonQuery(field={}", self.field);
     if let Some(det) = &self.det {
       value.push_str(" numStates=");

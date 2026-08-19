@@ -154,9 +154,6 @@ where
     pending_deletes: &mut HashSet<String>,
   ) -> Result<()> {
     if !pending_deletes.is_empty() {
-      // TODO: We could fix IndexInputs from FSDirectory implementations to
-      // call this when they are closed?
-
       // Clone the set since we mutate it in privateDeleteFile:
       let files_to_delete: Vec<String> = pending_deletes.clone().into_iter().collect();
 
@@ -184,10 +181,6 @@ where
         pending_deletes.remove(name);
 
         if is_pending_delete && cfg!(windows) {
-          // TODO: can we remove this OS-specific hacky logic?  If
-          // windows deleteFile is buggy, we
-          // should instead contain this workaround in
-          // a WindowsFSDirectory ...
           // LUCENE-6684: we suppress this check for Windows, since a
           // file could be in a confusing "pending
           // delete" state, failing the first
@@ -204,14 +197,6 @@ where
         // open file handle against it.  We record this
         // in pendingDeletes and try again later.
 
-        // TODO: This is lenient because we do not know which I/O error
-        // this is), and it should only happen on
-        // filesystems that can do this, so really we should
-        // move this logic to WindowsDirectory or something
-
-        // TODO: can/should we do if (Constants.WINDOWS) here, else
-        // return the exc? but what about a Linux box
-        // with a CIFS mount?
         pending_deletes.insert(name.to_string());
         Ok(())
       },
@@ -404,8 +389,6 @@ where
   }
 
   fn sync_metadata(&self) -> Result<()> {
-    // TODO: to improve listCommits(), IndexFileDeleter could call this
-    // after deleting segments_Ns
     IOUtils::fsync(&self.directory, true)?;
     Self::maybe_delete_pending_files(
       &self.directory,

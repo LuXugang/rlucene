@@ -80,7 +80,6 @@ pub enum SortedNumericSelectorType {
   Min,
   /// Selects the maximum value in the set.
   Max,
-  // TODO: We could implement Median in constant time (at most 2 lookups).
 }
 impl SortedNumericSelectorType {
   pub fn values() -> &'static [Self] {

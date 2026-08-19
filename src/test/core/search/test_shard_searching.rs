@@ -47,7 +47,6 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::time::Instant;
 
-// TODO
 //   - other queries besides PrefixQuery & TermQuery (but:
 //     FuzzyQ will be problematic... the top N terms it
 //     takes means results will differ)
@@ -189,18 +188,17 @@ fn test_simple() -> Result<()> {
             prev_search_state.sort.clone(),
           )
         } else {
-          if terms.is_none() && doc_count > min_docs_to_make_terms {
-            // TODO: try to "focus" on high freq terms sometimes too
-            // TODO: maybe also periodically reset the terms...?
-            if let Some(body_terms) = multi_terms::get_terms(mock_reader.clone(), "body")? {
-              let mut terms_enum = body_terms.iterator()?;
-              let mut new_terms = Vec::new();
-              while let Some(term) = terms_enum.next()? {
-                new_terms.push(BytesRef::deep_copy_of(term.as_ref()));
-              }
-              if !new_terms.is_empty() {
-                terms = Some(new_terms);
-              }
+          if terms.is_none()
+            && doc_count > min_docs_to_make_terms
+            && let Some(body_terms) = multi_terms::get_terms(mock_reader.clone(), "body")?
+          {
+            let mut terms_enum = body_terms.iterator()?;
+            let mut new_terms = Vec::new();
+            while let Some(term) = terms_enum.next()? {
+              new_terms.push(BytesRef::deep_copy_of(term.as_ref()));
+            }
+            if !new_terms.is_empty() {
+              terms = Some(new_terms);
             }
           }
 
@@ -229,16 +227,9 @@ fn test_simple() -> Result<()> {
           let sort = if random.random_bool(0.5) {
             None
           } else {
-            // TODO: sort by more than 1 field
             match random.random_range(0..3) {
               0 => Some(Arc::new(Sort::new()?)),
-              1 => {
-                // TODO: this sort doesn't merge
-                // correctly... it's tricky because you
-                // could have > 2.1B docs across all shards:
-                // sort = new Sort(SortField.FIELD_DOC);
-                None
-              },
+              1 => None,
               2 => Some(Arc::new(Sort::with_fields(vec![SortField::with_reverse(
                 Some("docid_intDV"),
                 SortFieldType::Int,

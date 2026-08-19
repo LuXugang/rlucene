@@ -206,8 +206,6 @@ impl QueryBase for TermInSetQuery {
 }
 
 impl TermInSetQuery {
-  // TODO: This is pretty heavy-weight. If we have TermInSetQuery directly extend AutomatonQuery
-  // we won't have to do this (see GH#12176).
   fn as_byte_run_automaton(&self) -> Result<ByteRunAutomaton> {
     let mut iterator = self.term_data.iterator()?;
     ByteRunAutomaton::with_bool(

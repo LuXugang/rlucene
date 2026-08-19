@@ -73,7 +73,6 @@ impl PointValuesWriter {
       packed_bytes_length,
     })
   }
-  // TODO: if exactly the same value is added to exactly the same doc, should we dedup?
   pub(crate) fn add_packed_value(&mut self, doc_id: i32, value: &BytesRef<Vec<u8>>) -> Result<()> {
     if value.length != self.packed_bytes_length {
       return Err(LuceneError::illegal_argument(format!(

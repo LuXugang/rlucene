@@ -303,7 +303,6 @@ pub trait BasePointsFormatTestCase:
     Ok(())
   }
 
-  // TODO: merge w/ BaseIndexFileFormatTestCase.handleFakeIOException
   fn handle_possibly_fake_exception(&self, e: LuceneError) -> Result<bool> {
     let mut current: Option<&(dyn std::error::Error + 'static)> = Some(&e);
     while let Some(err) = current {
@@ -592,8 +591,6 @@ pub trait BasePointsFormatTestCase:
       let mut values = Vec::with_capacity(num_data_dims);
       for _dim in 0..num_data_dims {
         let mut value = vec![0u8; num_bytes_per_dim];
-        // TODO: sometimes test on a "small" volume too, so we test the high density cases, higher
-        // chance of boundary, etc. cases:
         random.fill_bytes(&mut value);
         values.push(value);
       }

@@ -38,8 +38,6 @@ pub(crate) struct AssertingCollector<'a, C> {
   previous_leaf_max_doc: i32,
   // public visibility for drill-sideways testing, since drill-sideways can't directly use
   // AssertingIndexSearcher
-  // TODO: this is a pretty hacky workaround. It would be nice to rethink drill-sideways (for
-  // multiple reasons) and move this back to pkg-private at some point
   pub(crate) has_finished_collecting_previous_leaf: bool,
 }
 

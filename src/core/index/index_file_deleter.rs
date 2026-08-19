@@ -372,9 +372,6 @@ where
 
       // we only try to clear out pending_segments_N during rollback(), because we don't
       // ref-count it
-      // TODO: this is sneaky, should we do this, or change TestIWExceptions? rollback
-      // closes anyway, and
-      // any leftover file will be deleted/retried on next IW bootup anyway...
       if !is_lock_file
         && !self.file_deleter.exists(&file_name)
         && (is_codec_match || is_segments || is_pending_segments)

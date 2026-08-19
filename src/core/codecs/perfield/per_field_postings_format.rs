@@ -160,8 +160,6 @@ fn get_full_segment_suffix(
   if outer_segment_suffix.is_empty() {
     Ok(segment_suffix.to_string())
   } else {
-    // TODO: support embedding; I think it should work but
-    // we need a test to confirm.
     // return outerSegmentSuffix + "_" + segmentSuffix;
     Err(LuceneError::illegal_state(format!(
       "cannot embed PerFieldPostingsFormat inside itself (field \"{field_name}\" returned PerFieldPostingsFormat)"
@@ -219,7 +217,6 @@ where
         .ok_or_else(|| {
           LuceneError::illegal_state(format!("missing FieldInfo for field {field}"))
         })?;
-      // TODO: This should check current format from the field attribute?
       let format = base.get_postings_format_for_field(field)?;
       let format_name = format.get_name();
       let identity = format.identity().clone();

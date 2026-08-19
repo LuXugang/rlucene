@@ -256,8 +256,6 @@ where
       LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
     })?;
     field.put_attribute(PER_FIELD_SUFFIX_KEY.to_string(), suffix.to_string());
-    // TODO: we should only provide the "slice" of FIS
-    // that this DVF actually sees ...
     let consumer = self.formats.get_mut(&identity).ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "missing doc values consumer for field: {}",

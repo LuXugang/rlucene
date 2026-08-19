@@ -19,7 +19,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 
 /// Hackidy-Häck-Hack to cause a test to fail on non-bulk merges.
-// TODO: we should probably be a wrapper so verbose still works...
 pub struct FailOnNonBulkMergesInfoStream;
 
 impl CloseableRef for FailOnNonBulkMergesInfoStream {

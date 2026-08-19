@@ -29,7 +29,6 @@ use std::sync::LazyLock;
 
 /// Tests [`DirectPostingsFormat`].
 struct TestDirectPostingsFormat {
-  // TODO: randomize parameters.
   codec: Codecs,
 }
 

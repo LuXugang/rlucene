@@ -300,7 +300,6 @@ pub struct UTF8Byte {
   pub bits: u8,
 }
 /// Holds a single code point, as a sequence of 1–4 UTF-8 bytes.
-/// TODO: maybe move to UnicodeUtil?
 #[derive(Debug, Clone)]
 pub struct UTF8Sequence {
   pub bytes: [UTF8Byte; 4],

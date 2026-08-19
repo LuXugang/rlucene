@@ -77,8 +77,6 @@ fn test_threads() -> Result<()> {
   let actual_mb_per_sec =
     (tot_bytes.load(std::sync::atomic::Ordering::SeqCst) as f64 / 1024.0 / 1024.0) / elapsed_secs;
 
-  // TODO: this may false trip .... could be we can only assert that it never exceeds the max, so
-  // slow jenkins doesn't trip:
   let ratio = actual_mb_per_sec / target_mb_per_sec;
 
   // Only enforce that it wasn't too fast; if machine is bogged down (can't schedule threads /

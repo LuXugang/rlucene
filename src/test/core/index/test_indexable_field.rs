@@ -175,8 +175,6 @@ fn test_arbitrary_fields() -> Result<()> {
           assert_eq!(0, dp_enum.next_position()?);
 
           assert!(terms_enum.next()?.is_none());
-
-          // TODO: offsets
         } else {
           let vectors = term_vectors.get(doc_id)?;
           assert!(vectors.is_none() || vectors.unwrap().terms(&name)?.is_none());

@@ -45,7 +45,6 @@ fn set_up() -> StandardAnalyzer {
 // (\p{WB:ExtendNumLet}[\p{WB:Format}\p{WB:Extend}]*)+
 #[test]
 fn test_large_partially_matching_token() -> Result<()> {
-  // TODO: get these lists of chars matching a property from ICU4J
   // http://www.unicode.org/Public/6.3.0/ucd/auxiliary/WordBreakProperty.txt
   let word_break_extend_num_let_chars: Vec<char> =
     "_\u{203f}\u{2040}\u{2054}\u{fe33}\u{fe34}\u{fe4d}\u{fe4e}\u{fe4f}\u{ff3f}"

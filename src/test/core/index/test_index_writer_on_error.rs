@@ -379,9 +379,6 @@ where
 
   if message.contains("Fake") {
     let _ = writeln!(log, "\nTEST: got expected fake exc:{message}");
-    // TODO: remove rollback here, and add this assert to ensure "full OOM protection" anywhere IW
-    // does writes
-    // assert!(writer.is_open() == false, "hit OOM but writer is still open, WTF: ");
     let rollback_result = catch_unwind(AssertUnwindSafe(|| writer.rollback()));
     match rollback_result {
       Ok(Ok(())) => {},

@@ -237,7 +237,6 @@ impl SortedDocValuesWriter {
     } else {
       // reserve additional space for each unique value:
       // 1. when indexing, when hash is 50% full, rehash() suddenly needs 2*size ints.
-      //    TODO: can this same OOM happen in THPF?
       // 2. when flushing, we need 1 int per value (slot in the ordMap).
       self
         .iw_bytes_used

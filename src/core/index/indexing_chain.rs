@@ -1730,9 +1730,7 @@ impl PerField {
           }
           // trigger streams to perform end-of-stream operations
           stream.end()?;
-          // when we come back around to the field...
           let invert_state = self.invert_state.as_mut().unwrap();
-          // TODO
           invert_state.position += stream.get_attribute_source().get_position_increment()?;
           invert_state.offset += stream.get_attribute_source().end_offset()?;
           Ok(())

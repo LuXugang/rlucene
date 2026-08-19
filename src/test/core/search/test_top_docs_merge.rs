@@ -275,7 +275,6 @@ fn test_sort(use_from: bool) -> Result<()> {
 
   let num_iters = at_least(&mut random, 300);
   for _iter in 0..num_iters {
-    // TODO: custom FieldComp...
     let query: Query = TermQuery::new(Term::from_text(
       "text",
       tokens[random.random_range(0..tokens.len())],

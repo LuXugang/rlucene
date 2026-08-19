@@ -25,7 +25,6 @@ use std::sync::Arc;
 /// Implementations of this trait must be thread-safe.
 ///
 /// See also: [`UsageTrackingQueryCachingPolicy`], `LRUQueryCache`.
-// TODO: add APIs for integration with `IndexWriter::IndexReaderWarmer`
 pub trait QueryCachingPolicy {
   /// Callback that is called every time that a cached filter is used.
   /// This is typically useful if the policy wants to track usage statistics

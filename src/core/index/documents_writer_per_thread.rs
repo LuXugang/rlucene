@@ -856,10 +856,6 @@ where
           debug_assert!(Arc::strong_count(&new_segment.info) == 1);
         }
 
-        // TODO: ideally we would freeze newSegment here!!
-        // because any changes after writing the .si will be
-        // lost...
-
         // Must write deleted docs after the CFS so we don't
         // slurp the del file into CFS:
         if let Some(live_docs) = &flushed_segment.live_docs {
@@ -876,14 +872,6 @@ where
               ),
             )?;
           }
-          // TODO: we should prune the segment if it's 100%
-          // deleted... but merge will also catch it.
-
-          // TODO: in the NRT case it'd be better to hand
-          // this del vector over to the
-          // shortly-to-be-opened SegmentReader and let it
-          // carry the changes; there's no reason to use
-          // filesystem as intermediary here.
           let codec = new_segment.info.get_codec()?.clone();
           match sort_map {
             Some(map) => {

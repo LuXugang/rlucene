@@ -150,11 +150,6 @@ impl BufferedUpdatesStream {
   /// We track completed deletion generations and record the maximum `del_gen` for which all prior generations,
   /// inclusive, are completed, so that it’s safe for doc values updates to apply and write.
   pub(crate) fn finished(&self, packet: &FrozenBufferedUpdates) -> Result<()> {
-    // TODO: would be a bit more memory efficient to track this per-segment, so when each segment
-    // writes it writes all packets finished for
-    // it, rather than only recording here, across all segments.  But, more complex code, and more
-    // CPU, and maybe not so much impact in
-    // practice?
     debug_assert!(!packet.applied.load(Ordering::SeqCst), "packet={packet}");
     packet.applied.store(true, Ordering::SeqCst);
 

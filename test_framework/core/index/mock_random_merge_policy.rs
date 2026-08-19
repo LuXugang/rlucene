@@ -110,7 +110,6 @@ where
     if num_segments > 1 && (num_segments > 30 || random.random_range(0..5) == 3) {
       segments.shuffle(&mut *random);
 
-      // TODO: sometimes make more than 1 merge?
       let mut merge_spec = DefaultMergeSpecification::new();
       let segs_to_merge = TestUtil::next_usize(&mut *random, 1, num_segments);
       let mut merge_segments = Vec::with_capacity(segs_to_merge);
@@ -263,8 +262,6 @@ impl MockRandomOneMerge {
     D: Directory,
   {
     // Wrap it (e.g. prevent bulk merge etc).
-    // TODO: cut this over to FilterCodecReader api, we can explicitly
-    // enable/disable bulk merge for portions of the index we want.
     let mut random = self.r.lock();
     let thing_to_do = random.random_range(0..7);
     if thing_to_do == 0 {

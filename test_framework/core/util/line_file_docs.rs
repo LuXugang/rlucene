@@ -233,8 +233,6 @@ impl LineFileDocs {
           line.chars().count() as i64,
         ));
       }
-
-      // TODO: more random sparse fields here too
     }
 
     Ok(doc_state.doc.clone())

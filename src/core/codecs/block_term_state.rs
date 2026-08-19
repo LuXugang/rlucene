@@ -38,7 +38,6 @@ pub struct BlockTermState {
   /// the term's ord in the current block
   pub term_block_ord: i32,
   /// fp into the terms dict primary file (_X.tim) that holds this term
-  // TODO: update BTR to nuke this
   pub block_file_pointer: i64,
   ord: OrdTermState,
 }

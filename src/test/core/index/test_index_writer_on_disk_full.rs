@@ -157,10 +157,8 @@ fn test_add_document_on_disk_full() -> Result<()> {
   Ok(())
 }
 
-// TODO: make @Nightly variant that provokes more disk
 // fulls
 
-// TODO: have test fail if on any given top
 // iter there was not a single IOE hit
 
 /*
@@ -625,7 +623,6 @@ fn test_immediate_disk_full() -> Result<()> {
   Ok(())
 }
 
-// TODO: these are also in TestIndexWriter... add a simple doc-writing method
 // like this to LuceneTestCase?
 fn add_doc<D, R>(
   random: &mut R,

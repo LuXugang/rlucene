@@ -1119,7 +1119,6 @@ where
     None => true,
     Some(merged_quantiles) => {
       // For smaller `bits` values, we should always recalculate the quantiles
-      // TODO: this is very conservative, could we reuse information for even int4 quantization?
       if bits <= 4 {
         true
       } else {

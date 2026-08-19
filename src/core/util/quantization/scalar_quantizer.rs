@@ -423,7 +423,6 @@ impl ScalarQuantizer {
     } else {
       // Reservoir sample the vector ordinals we want to read
       let vectors_to_take = reservoir_sample_indices(total_vector_count, 1000);
-      // TODO make this faster by .advance()ing & dual iterator
       let mut index = 0usize;
       let mut idx = 0usize;
       for i in vectors_to_take {

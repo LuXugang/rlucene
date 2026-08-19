@@ -41,9 +41,6 @@ use crate::test_framework::core::index::test_terms_hash_per_field::TermsHashPerF
 use std::cmp::Ordering;
 use std::sync::Arc;
 
-// TODO: break into separate freq and prox writers as
-// codecs; make separate container (tii/tis/skip/*) that can
-// be configured as any number of files 1..N
 pub(crate) struct FreqProxTermsWriterPerField {
   field_info: Arc<FieldInfo>,
   pub(crate) has_freq: bool,

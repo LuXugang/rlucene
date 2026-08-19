@@ -6791,10 +6791,6 @@ where
                     // through to disk and re-open each
                     // SegmentReader:
 
-                    // TODO: we could instead just clone SIS and pull/incref readers in sync'd block, and
-                    // then do this w/o IW's lock?
-                    // Must do this sync's on IW to prevent a merge from completing at the last second and
-                    // failing to write its DV updates:
                     self.write_reader_pool(write_all_deletes, &mut inner)?;
                     // Prevent segmentInfos from changing while opening the
                     // reader; in theory we could instead do similar retry logic,

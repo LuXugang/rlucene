@@ -97,8 +97,6 @@ pub trait NormsConsumer: Closeable {
       merge_field_info: merge_field_info.clone(),
       merge_state,
     };
-    // TODO: try to share code with default merge of DVConsumer by passing
-    // MatchAllBits ?
     self.add_norms_field(merge_field_info, &mut norms_producer)?;
     Ok(())
   }

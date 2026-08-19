@@ -635,12 +635,6 @@ where
       };
       if self.pos_buffer_upto > 0 {
         debug_assert!((self.pos_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE);
-        // TODO: should we send offsets/payloads to
-        // .pay...?  seems wasteful (have to store extra
-        // vLong for low (< BLOCK_SIZE) DF terms = vast vast
-        // majority)
-
-        // vInt encode the remaining positions/payloads/offsets:
         let mut last_payload_length = -1;
         let mut last_offset_length = -1;
         let mut payload_bytes_read_upto: i32 = 0;

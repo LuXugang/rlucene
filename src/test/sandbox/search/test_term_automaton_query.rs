@@ -1026,7 +1026,6 @@ fn test_explain_no_matching_document() -> Result<()> {
   IOUtils::use_or_suppress_result(close_result, CloseableRef::close(dir.as_ref()))
 }
 
-// TODO: improve experience of working with explain
 #[test]
 fn test_explain_matching_documents() -> Result<()> {
   let mut query = TermAutomatonQuery::with_hook("field", CustomTermAutomatonQuery);

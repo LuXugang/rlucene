@@ -209,7 +209,6 @@ where
       }
     }
 
-    // TODO: make this read-only in a cleaner way?
     let mut builder = Builder::new(Arc::new(Mutex::new(FieldNumbers::new(
       soft_deletes_field,
       parent_field,
@@ -256,13 +255,9 @@ where
           field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
           // Only add these if the reader responsible for that field name is
           // the current reader.
-          // TODO consider populating the first leaf with vectors even if the
-          // field name has been seen on a previous leaf.
           if field_info.has_term_vectors() {
             tv_field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
           }
-          // TODO consider populating the first leaf with terms even if the
-          // field name has been seen on a previous leaf.
           if field_info.get_index_options() != &IndexOptions::None {
             terms_field_to_reader.insert(field_info.name.clone(), *complete_reader_index);
           }

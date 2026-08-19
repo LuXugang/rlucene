@@ -450,9 +450,6 @@ where
     let mut size = 0;
     let base = self.state.base.lock();
     for file in base.get_delegate().list_all()? {
-      // hack 2: see TODO in ExtrasFS (ideally it would always return 0 byte
-      // size for extras it creates, even though the size of non-regular files
-      // is not defined)
       if !file.starts_with("extra") {
         size += base.get_delegate().file_length(&file)?;
       }
@@ -495,9 +492,6 @@ where
   }
 
   fn _corrupt_files(&self, files: impl IntoIterator<Item = String>) -> Result<()> {
-    // TODO: we should also mess with any recent file renames, file deletions,
-    // if syncMetaData was not called!!
-
     // Must make a copy because we change the incoming unsyncedFiles
     // when we create temp files, delete, etc., below:
     let mut files_to_corrupt: Vec<String> = files.into_iter().collect();
@@ -1149,7 +1143,6 @@ where
           )?;
         }
 
-        // TODO: factor this out / share w/ TestIW.assertNoUnreferencedFiles
         if self
           .state
           .assert_no_unreferenced_files_on_close
@@ -1530,7 +1523,6 @@ where
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
     self.maybe_yield();
     self.state.base.lock().obtain_lock(name)
-    // TODO: consider mocking locks, but not all the time, can hide bugs
   }
 
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {

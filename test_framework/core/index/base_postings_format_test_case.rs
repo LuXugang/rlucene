@@ -787,7 +787,6 @@ pub trait BasePostingsFormatTestCase:
   }
 
   // tests that ghost fields still work
-  // TODO: can this be improved?
   fn test_ghosts<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

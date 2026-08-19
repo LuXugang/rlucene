@@ -39,9 +39,6 @@ use std::sync::Arc;
 /// while [`PostingsWriterBase`] is more like an XML DOM API.
 ///
 /// See also [`PostingsWriterBase`].
-// TODO: find a better name; this defines the API that the
-// terms dict impls use to talk to a postings impl.
-/// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
 pub struct PushPostingsWriterBase<S> {
   enum_flags: i32,
 

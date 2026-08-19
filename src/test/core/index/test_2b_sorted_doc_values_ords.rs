@@ -120,5 +120,3 @@ fn test_2b_ords() -> Result<()> {
   dir.as_ref().close()?;
   Ok(())
 }
-
-// TODO: variable

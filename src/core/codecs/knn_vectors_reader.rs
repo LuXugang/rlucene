@@ -19,14 +19,11 @@ use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
-use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
-use crate::core::index::dummy::dummy_float_vector_values::DummyFloatVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::dummy::dummy_hnsw_graph::DummyHnswGraph;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
@@ -332,70 +329,6 @@ either_knn_vectors_reader!(
         A: A, B: B,
     }
 );
-
-pub enum KnnVectorsReaderEnum {}
-impl CloseableRef for KnnVectorsReaderEnum {}
-impl HnswGraphProvider for KnnVectorsReaderEnum {
-  type HnswGraph = DummyHnswGraph;
-}
-impl KnnVectorsReader for KnnVectorsReaderEnum {
-  fn check_integrity(&self) -> Result<()> {
-    todo!()
-  }
-
-  type FloatVectorValues = DummyFloatVectorValues;
-
-  fn get_float_vector_values(&self, _field: &str) -> Result<Self::FloatVectorValues> {
-    todo!()
-  }
-
-  type ByteVectorValues = DummyByteVectorValues;
-
-  fn get_byte_vector_values(&self, _field: &str) -> Result<Self::ByteVectorValues> {
-    todo!()
-  }
-
-  type QuantizedByteVectorValues = DummyByteVectorValues;
-
-  fn search_f32<B, K>(
-    &self,
-    _field: &str,
-    _target: Vec<f32>,
-    _knn_collector: &mut K,
-    _accept_docs: Option<B>,
-  ) -> Result<()>
-  where
-    B: Bits,
-    K: KnnCollector,
-  {
-    todo!()
-  }
-
-  fn search_u8<B, K>(
-    &self,
-    _field: &str,
-    _target: Vec<u8>,
-    _knn_collector: &mut K,
-    _accept_docs: Option<B>,
-  ) -> Result<()>
-  where
-    B: Bits,
-    K: KnnCollector,
-  {
-    todo!()
-  }
-
-  fn get_merge_instance(&self) -> Result<Option<Self>>
-  where
-    Self: Sized,
-  {
-    todo!()
-  }
-
-  fn finish_merge(&self) -> Result<()> {
-    todo!()
-  }
-}
 
 impl<T> HnswGraphProvider for Arc<T>
 where

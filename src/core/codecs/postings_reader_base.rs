@@ -34,10 +34,6 @@ use std::sync::Arc;
 /// provides an IndexInput (`termsIn`) where This struct may read any previously
 /// stored data that it had written in its corresponding
 /// [`PostingsWriterBase`](crate::core::codecs::postings_writer_base::PostingsWriterBase) at indexing time.
-// TODO: maybe move under blocktree?  but it's used by other terms dicts (e.g.
-// Block) TODO: find a better name; this defines the API that the
-// terms dict impls use to talk to a postings impl.
-// TermsDict + PostingsReader/WriterBase == PostingsConsumer/Producer
 pub trait PostingsReaderBase: Display + CloseableRef {
   /// Performs any initialization, such as reading and verifying the header
   /// from the provided terms dictionary [`IndexInput`].

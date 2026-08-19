@@ -1571,8 +1571,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           }
           let mut cmp = 0;
           for i in 0..leaf_comparators.len() {
-            // TODO: would be better if copy() didn't cause a term lookup in TermOrdVal & co,
-            // the segments are always the same here...
             leaf_comparators[i].copy(0, prev_doc, &mut scorer, &mut comparators[i])?;
             leaf_comparators[i].set_bottom(0, &mut comparators[i])?;
             cmp = reverse_mul[i]
@@ -1851,7 +1849,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     N: NormsProducer,
     O: Write,
   {
-    // TODO: we should probably return our own stats thing...?!
     let start = do_print.then(Instant::now);
 
     let mut status = TermIndexStatus::default();
@@ -1878,7 +1875,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       last_field = Some(field.clone());
 
       // check that the field is in fieldinfos, and is indexed.
-      // TODO: add a separate test to check this for different reader impls
       let field_info = field_infos.field_info_by_name(field)?.ok_or_else(|| {
         LuceneError::corrupt_index(format!(
           "fieldsEnum inconsistent with fieldInfos, no fieldInfos for: {field}"
@@ -1890,10 +1886,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         )));
       }
 
-      // TODO: really the codec should not return a field
-      // from FieldsEnum if it has no Terms... but we do
-      // this today:
-      // assert fields.terms(field) != null;
       computed_field_count += 1;
 
       let Some(terms) = fields.terms(field)? else {
@@ -2899,8 +2891,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     R: CodecReader,
     O: Write,
   {
-    // TODO: we should go and verify term vectors match, if the Level is high enough to
-    // include slow checks
     let max_doc = reader.max_doc()?;
     let mut fields_reader = None;
     let mut merge_fields_reader = None;
@@ -4007,7 +3997,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         binary_doc_values.doc_id()
       )));
     }
-    // TODO: we could add stats to DVs, e.g. total doc count w/ a value for this field
     loop {
       let doc = binary_doc_values.next_doc()?;
       if doc == NO_MORE_DOCS {
@@ -4291,7 +4280,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         numeric_doc_values.doc_id()
       )));
     }
-    // TODO: we could add stats to DVs, e.g. total doc count w/ a value for this field
     loop {
       let doc = numeric_doc_values.next_doc()?;
       if doc == NO_MORE_DOCS {
@@ -4424,7 +4412,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
       let live_docs = reader.get_live_docs()?;
 
-      // TODO: testTermsIndex
       if level >= Level::MIN_LEVEL_FOR_SLOW_CHECKS {
         postings_fields_reader = reader.get_postings_reader()?;
         if let Some(postings_fields_reader) = postings_fields_reader.as_ref() {
@@ -4450,9 +4437,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           let Some(tfv) = vectors_reader.get(j)? else {
             continue;
           };
-
-          // TODO: can we make a IS(FIR) that searches just
-          // this term vector... to pass for searcher?
 
           // First run with no deletions:
           Self::check_fields::<_, <R as LeafReader>::Bits, <R as CodecReader>::NormsProducer, O>(
@@ -4611,7 +4595,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                         .as_ref()
                         .expect("term-vector postings are present")
                         .end_offset()?;
-                      // TODO: these are too anal...?
                       /*
                       if (endOffset < startOffset) {
                       throw new RuntimeException("vector startOffset=" + startOffset + " is > endOffset=" + endOffset);

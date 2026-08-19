@@ -29,11 +29,6 @@ use std::sync::Arc;
 /// Note that any operation that returns `NO_OUTPUT` must return the same
 /// SINGLETON object from [`get_no_output`](Outputs::get_no_output).
 pub trait Outputs: Display + Clone + Default {
-  // TODO: maybe change this API to allow for re-use of the
-  // output instances -- this is an insane amount of garbage
-  // (new object per byte/char/int) if eg used during
-  // analysis
-
   type V: OutputsBound;
 
   /// Eg. `common("foobar", "food") -> "foo"`

@@ -336,7 +336,6 @@ where
       field: "".to_string(),
     }
   }
-  // TODO: maybe we should freeze to FST or automaton instead?
   pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
     let len = (prefix + suffix) as usize;
     self.builder.grow(len)?;

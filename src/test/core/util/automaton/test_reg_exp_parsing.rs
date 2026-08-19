@@ -492,7 +492,6 @@ fn test_char_range() -> Result<()> {
 #[test]
 fn test_negated_char_range() -> Result<()> {
   let re = RegExp::from_string("[^b-d]")?;
-  // TODO: would be nice to emit negated class rather than this
   assert_eq!("(.&~([\\b-\\d]))", re.to_string());
   assert_eq!(
     "Intersection\n  AnyChar\n  Complement\n    CharRange from=b to=d\n",

@@ -69,7 +69,6 @@ where
   }
 
   fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
-    // TODO: use the more sophisticated QueryUtils.check sometimes!
     QueryUtils::check_from_query(&original);
     let rewritten = IndexSearcherDefaults::rewrite(searcher, original)?;
     QueryUtils::check_from_query(&rewritten);

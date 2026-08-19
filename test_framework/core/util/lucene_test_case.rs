@@ -1026,11 +1026,6 @@ where
 {
   new_field_with_random(random, name, value.into(), field_type, field_to_type)
 }
-// TODO: if we can pull out the "make term vector options
-// consistent across all instances of the same field name"
-// write-once schema helper type, then we can
-// remove the sync here.  We can also fold the random
-// "enable norms" (now commented out, below) into that:
 pub(crate) fn new_field_with_random<S, R>(
   random: &mut R,
   name: S,
@@ -1048,9 +1043,6 @@ where
   if let Some(prev_type) = map.get(&name) {
     return create_field(&name, value, prev_type.clone());
   }
-  // TODO: once all core & test codecs can index
-  // offsets, sometimes randomly turn on offsets if we are
-  // already indexing positions...
   let mut new_type = FieldType::from_ref(field_type)?;
   if !new_type.stored() && random.random_bool(0.5) {
     new_type.set_stored(true)?; // randomly store it

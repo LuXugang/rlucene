@@ -93,8 +93,6 @@ impl LegacyBaseDocValuesFormatTestCase for TestPerFieldDocValuesFormat {
 impl BaseDocValuesFormatTestCase for TestPerFieldDocValuesFormat {}
 
 // just a simple trivial test
-// TODO: we should come up with a test that somehow checks that segment suffix
-// is respected by all codec apis (not just docvalues and postings)
 #[test]
 fn test_two_fields_two_formats() -> Result<()> {
   let mut random = random();

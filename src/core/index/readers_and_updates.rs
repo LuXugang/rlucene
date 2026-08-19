@@ -264,8 +264,6 @@ where
   }
   pub fn drop_readers(&self) -> Result<()> {
     let mut inner = self.inner.lock();
-    // TODO: can we somehow use IOUtils here...?  problem is
-    // we are calling .decRef not .close)...
     if let Some(reader) = inner.reader.take() {
       reader.dec_ref()?;
     }

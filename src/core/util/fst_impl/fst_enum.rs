@@ -134,8 +134,6 @@ where
     self.push_first(sub)?;
     Ok(())
   }
-  // TODO: should we return a status here (SEEK_FOUND / SEEK_NOT_FOUND /
-  // SEEK_END)?  saves the eq check above?
   /// Seeks to smallest term that's &gt;= target.
   pub(crate) fn do_seek_ceil<FB>(&mut self, sub: &mut FB, target: &FB::V) -> Result<()>
   where
@@ -913,10 +911,6 @@ where
       Ok(Some(self.upto))
     } else if arc.label() > target_label {
       let mut upto = upto;
-      // TODO: if each arc could somehow read the arc just
-      // before, we can save this re-scan.  The ceil case
-      // doesn't need this because it reads the next arc
-      // instead:
       loop {
         let (left, right) = self.arcs.split_at_mut(upto);
         let prev_arc = &left[self.upto - 1];

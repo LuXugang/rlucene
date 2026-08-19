@@ -149,9 +149,6 @@ impl ThreadedIndexingAndSearchingTestCase for TestSearcherManager {
       WarmingSearcherFactory::new(self.warm_called.clone(), search_threads),
     ));
     let mgr = if random.random_bool(0.5) {
-      // TODO: can we randomize the applyAllDeletes?  But
-      // somehow for final searcher we must apply
-      // deletes...
       self.is_nrt.store(true, Ordering::Relaxed);
       SearcherManager::from_writer(&self.state.writer(), Some(factory))?
     } else {

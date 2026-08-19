@@ -52,10 +52,6 @@ use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-///
-// TODO: would be better in this test to pull termsenums and instanceof or something?
-// this way we can verify PFPF is doing the right thing.
-// for now we do termqueries.
 #[allow(clippy::empty_docs)]
 #[allow(dead_code)] // for quick search
 struct TestPerFieldPostingsFormat2;
@@ -181,11 +177,6 @@ fn test_merge_unused_per_field_codec() -> Result<()> {
   dir.close()
 }
 
-/*
- * Test that heterogeneous index segments are merged sucessfully
- */
-// TODO: not sure this test is that great, we should probably peek inside PerFieldPostingsFormat
-// or something?!
 #[test]
 fn test_change_codec_and_merge() -> Result<()> {
   let mut random = random();

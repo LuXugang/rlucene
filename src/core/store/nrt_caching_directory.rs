@@ -39,10 +39,6 @@ use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 
 type CacheDirectory = ByteBuffersDirectory<SingleInstanceLockFactory>;
 
-// TODO
-//   - let implementation dictate policy...?
-//   - rename to MergeCachingDir? NRTCachingDir
-
 /// Wraps a RAM-resident directory around any provided delegate directory, to
 /// be used during NRT search.
 ///

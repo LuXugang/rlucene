@@ -81,9 +81,6 @@ pub trait StoredFields: RawStoredFieldsReader {
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError) if the
   ///   index is corrupt
   /// - [`std::io::Error`] if there is a low-level IO error
-  // TODO: we need a separate StoredField, so that the
-  // Document returned here contains that struct not
-  // IndexableField
   fn document(&mut self, doc_id: i32) -> Result<Document> {
     let mut visitor = DocumentStoredFieldVisitor::new();
     self.document_with_visitor(doc_id, &mut visitor, Some(&mut DummyStoredFieldsWriter))?;

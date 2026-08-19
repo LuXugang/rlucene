@@ -686,8 +686,6 @@ where
   searcher.get_index_reader().close()?;
   Ok(hit_count)
 }
-// TODO: can we fix MockDirectoryWrapper disk full checking to be more efficient (not recompute on
-// every write)?
 #[cfg(feature = "nightly")]
 #[test]
 #[ignore = "nightly"]
@@ -695,8 +693,6 @@ fn test_deletes_on_disk_full() -> Result<()> {
   do_test_operations_on_disk_full(false)
 }
 
-// TODO: can we fix MockDirectoryWrapper disk full checking to be more efficient (not recompute on
-// every write)?
 #[cfg(feature = "nightly")]
 #[test]
 #[ignore = "nightly"]

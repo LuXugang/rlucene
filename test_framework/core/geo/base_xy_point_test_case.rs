@@ -545,7 +545,6 @@ pub trait BaseXYPointTestCase {
       w.add_document(random, doc)?;
     }
 
-    // TODO: share w/ verify; just need parallel array of the expected ids
     if random.random_bool(0.5) {
       w.force_merge(random, 1)?;
     }
@@ -1335,7 +1334,6 @@ pub trait BaseXYPointTestCase {
 
     let directory = new_directory_shared(random)?;
 
-    // TODO: must these simple tests really rely on docid order?
     let mock = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, mock)?;
     iwc.set_max_buffered_docs(TestUtil::next_int(random, 100, 1000));

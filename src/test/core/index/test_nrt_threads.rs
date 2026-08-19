@@ -34,10 +34,6 @@ use rand::prelude::StdRng;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-// TODO
-//   - mix in forceMerge, addIndexes
-//   - randomly mix in non-congruent docs
-
 type TestDirectory = MockDirWrapper;
 type TestDirectoryReader = StandardDirectoryReader<TestDirectory>;
 type TestIndexSearcher = ThreadedIndexSearcher<TestDirectoryReader>;

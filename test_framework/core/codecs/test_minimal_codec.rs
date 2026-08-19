@@ -76,7 +76,6 @@ impl Codec for MinimalCodec {
   }
 
   fn stored_fields_format(&self) -> Self::StoredFieldsFormat {
-    // TODO: avoid calling this when no stored fields are written or read
     self.wrapped_codec.stored_fields_format()
   }
 

@@ -212,11 +212,6 @@ where
   {
     self.in_.write(state, segment_info, fields, norms)?;
 
-    // TODO: more asserts?  can we somehow run a
-    // "limited" CheckIndex here???  Or ... can we improve
-    // AssertingFieldsProducer and us it also to wrap the
-    // incoming Fields here?
-
     let mut last_field: Option<String> = None;
     let mut fields_iterator = fields.iterator()?;
 

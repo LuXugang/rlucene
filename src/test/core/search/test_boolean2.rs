@@ -144,7 +144,6 @@ where
     new_directory_shared(random)?
   };
 
-  // TODO: this test does not need to be doing this crazy stuff. please improve it!
   for file_name in directory.list_all()? {
     if file_name.starts_with("extra") {
       continue;

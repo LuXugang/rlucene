@@ -217,7 +217,6 @@ impl SegmentTermsEnumFrame {
     // seekExact(TermState) don't pay this cost:
     ste.init_index_input()?;
 
-    // TODO: Could we know the number of bytes to prefetch?
     ste.input.as_mut().unwrap().prefetch(fp as usize, 1)?;
     Ok(())
   }
@@ -756,9 +755,6 @@ impl SegmentTermsEnumFrame {
     if exact_only {
       Self::fill_term(frame_idx, ste)?;
     }
-    // TODO: not consistent that in the
-    // not-exact case we don't next() into the next
-    // frame here
     Ok(SeekStatus::End)
   }
 
@@ -927,7 +923,6 @@ impl SegmentTermsEnumFrame {
       } else if cmp > 0 {
         Self::fill_term(frame_idx, ste)?;
         if !exact_only && !ste.term_exists {
-          // TODO this
           // We are on a sub-block, and caller wants
           // us to position to the next term after
           // the target, so we must recurse into the

@@ -72,7 +72,6 @@ where
   }
 
   fn files<D>(&self, info: &SegmentCommitInfo<D>, files: &mut HashSet<String>) -> Result<()> {
-    // TODO: is this called only from write? if so we should throw exception!
     self.delegate.files(info, files)
   }
 }

@@ -564,10 +564,6 @@ pub trait BaseNormsFormatTestCase:
 
   #[allow(dead_code)]
   fn test_merge_stability(&self) -> Result<()> {
-    // TODO: can we improve this base test to just have implementations declare the extensions to
-    // check, rather than a blacklist to exclude? We need to index data to get norms, but we do not
-    // care about testing the postings formats that actually do that. The MockRandom postings
-    // format randomizes content on the fly, so this test is skipped in Java.
     Ok(())
   }
 
@@ -816,7 +812,6 @@ where
   where
     R: Rng + ?Sized,
   {
-    // TODO: improve
     document.add(TextField::from_string(
       "foobar",
       TestUtil::random_simple_string(random),

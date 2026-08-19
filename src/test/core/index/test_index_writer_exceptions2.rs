@@ -89,7 +89,6 @@ impl Analyzer for Exceptions2Analyzer {
       SIMPLE.clone(),
       false,
     );
-    // TODO: can we turn this on? our filter is probably too evil
     tokenizer.set_enable_checks(false);
     let stream: Box<dyn TokenStream + Send + Sync> = if field_name.contains("payloads") {
       // emit some payloads
@@ -156,7 +155,6 @@ fn test_basics() -> Result<()> {
     let mut allow_already_closed = false;
     let mut field_types = HashMap::new();
     for i in 0..num_docs {
-      // TODO: add crankyDocValuesFields, etc
       let mut doc = Document::new();
       doc.add(new_string_field(
         &mut random,

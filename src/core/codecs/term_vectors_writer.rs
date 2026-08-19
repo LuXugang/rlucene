@@ -124,8 +124,6 @@ pub trait TermVectorsWriter: Accountable + Closeable {
   /// the positions, then all the offsets, for example.
   ///
   /// NOTE: This API is extremely expert and subject to change or removal!!!
-  // TODO: we should probably nuke this and make a more efficient 4.x format
-  // PreFlex-RW could then be slow and buffer (it's only used in tests...)
   fn add_prox(
     &mut self,
     num_prox: usize,

@@ -65,7 +65,6 @@ pub struct CompiledAutomaton {
   /// [`CompiledAutomaton::run_automaton`] will not be present at the same
   /// time.
   ///
-  /// TODO: merge this with run_automaton
   pub(crate) nfa_run_automaton: Option<NFARunAutomaton>,
 
   /// Shared common suffix accepted by the automaton. Only valid for

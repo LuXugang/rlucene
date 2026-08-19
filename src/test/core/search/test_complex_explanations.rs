@@ -170,13 +170,6 @@ mod complex_explanations_tests {
 pub(crate) trait ComplexExplanations: BaseExplanationTestCase {
   fn context(&self) -> &BaseExplanationTestContext;
 
-  // :TODO: we really need more crazy complex cases.
-
-  // //////////////////////////////////////////////////////////////////
-
-  // The rest of these aren't that complex, but they are <i>somewhat</i> complex, and they expose
-  // weakness in dealing with queries that match with scores of 0 wrapped in other queries
-
   fn test_t3<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

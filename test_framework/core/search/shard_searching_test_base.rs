@@ -58,15 +58,10 @@ use std::time::{Duration, Instant};
 
 type ManagedSearcher = IndexSearcher<IndexReaderContextType<Arc<DefaultCRReader>>>;
 
-// TODO
-//   - doc blocks? so we can test joins/grouping...
-//   - controlled consistency (NRTMgr)
-
 /// Base test struct for simulating distributed search across multiple shards.
 #[allow(dead_code)] // for quick search
 struct ShardSearchingTestBase;
 
-// TODO: maybe SLM should throw this instead of returning null...
 /// Thrown when the lease for a searcher has expired.
 pub struct SearcherExpiredException {
   message: String,
@@ -186,9 +181,6 @@ impl ShardSearchingState {
     Ok(())
   }
 
-  // TODO: broadcastNodeExpire? then we can purge the
-  // known-stale cache entries...
-
   // MOCK: in a real env you have to hit the wire
   // (send this query to all remote nodes concurrently):
   fn search_node(
@@ -268,10 +260,6 @@ pub struct NodeState {
   pub my_node_id: usize,
   pub current_node_versions: RwLock<Vec<i64>>,
 
-  // TODO: nothing evicts from here!!! Somehow, on searcher
-  // expiration on remote nodes we must evict from our
-  // local cache...? And still LRU otherwise (for the
-  // still-live searchers).
   collection_stats_cache: Mutex<HashMap<FieldAndShardVersion, Arc<CollectionStatistics>>>,
   term_stats_cache: Mutex<HashMap<TermAndShardVersion, Arc<TermStatistics>>>,
   current_shard_searcher: RwLock<Option<Arc<ShardIndexSearcher>>>,
@@ -642,7 +630,6 @@ impl NodeState {
       random,
       create_temp_dir_with_prefix("ShardSearchingTestBase")?,
     )?;
-    // TODO: set warmer
     let mut analyzer = MockAnalyzer::new(random);
     analyzer.set_max_token_length(TestUtil::next_int(
       random,
@@ -787,9 +774,6 @@ impl NodeState {
   }
 }
 
-// TODO: make this more realistic, ie, each node should
-// have its own thread, so we have true node to node
-// concurrency
 struct ChangeIndices {
   state: Arc<ShardSearchingState>,
   end_time: Instant,
@@ -823,7 +807,6 @@ impl ChangeIndices {
               random.random_range(0..num_docs).to_string(),
             )])?;
         }
-        // TODO: doc blocks too
 
         if random.random_range(0..17) == 12 {
           node.writer.commit()?;

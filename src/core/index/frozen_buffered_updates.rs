@@ -121,11 +121,6 @@ impl FrozenBufferedUpdates {
       }
       (queries, limits)
     };
-    // TODO if a Term affects multiple fields, we could keep the updates
-    // key'd by Term so that it maps to all fields it affects,
-    // sorted by their docUpto, and traverse that Term only once,
-    // applying the update to all fields that still need to be
-    // updated.
     for value in updates.field_updates.values_mut() {
       value.finish()?
     }
@@ -293,15 +288,6 @@ impl FrozenBufferedUpdates {
   where
     D: Directory,
   {
-    // TODO: we can process the updates per DV field, from last to first so that
-    // if multiple terms affect same document for the same field, we add an update
-    // only once (that of the last term). To do that, we can keep a bitset which
-    // marks which documents have already been updated. So e.g. if term T1
-    // updates doc 7, and then we process term T2 and it updates doc 7 as well,
-    // we don't apply the update since we know T1 came last and therefore wins
-    // the update.
-    // We can also use that bitset as 'liveDocs' to pass to TermEnum.docs(), so
-    // that these documents aren't even returned.
     let mut update_count: i64 = 0;
 
     let mut resolved_updates = Vec::new();
@@ -317,16 +303,6 @@ impl FrozenBufferedUpdates {
       let mut dv_updates = None;
 
       while let Some(buffered_update) = iterator.next_value()? {
-        // TODO: we traverse the terms in update order (not term order) so that we
-        // apply the updates in the correct order, i.e. if two terms update the
-        // same document, the last one that came in wins, irrespective of the
-        // terms lexical order.
-        // we can apply the updates in terms order if we keep an updatesGen (and
-        // increment it with every update) and attach it to each NumericUpdate. Note
-        // that we cannot rely only on docIDUpto because an app may send two updates
-        // which will get same docIDUpto, yet will still need to respect the order
-        // those updates arrived.
-        // TODO: we could at least *collate* by field?
         if let Some(doc_id_set_iterator) = term_docs_iterator.next_term(
           buffered_update.term_field.as_str(),
           buffered_update.term_value.as_ref().unwrap(),
