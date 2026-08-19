@@ -29,7 +29,7 @@ use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
-use crate::core::index::terms_enum::TermsEnumWithUnsupportedSecondPostings2;
+use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributes2;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -1010,7 +1010,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumWithUnsupportedSecondPostings2<
+    = TermsEnumWithUnsupportedPostingsAndAttributes2<
     A::TermsEnum<'a>,
     SortedDocValuesTermsEnum<&'a mut EmptySorted>,
   >
@@ -1021,10 +1021,10 @@ where
     match self {
       Self::A(inner) => inner
         .terms_enum()
-        .map(TermsEnumWithUnsupportedSecondPostings2::WithPostings),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
       Self::B(inner) => inner
         .terms_enum()
-        .map(TermsEnumWithUnsupportedSecondPostings2::WithoutPostings),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
     }
   }
 }
