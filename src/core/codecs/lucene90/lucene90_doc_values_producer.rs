@@ -656,7 +656,24 @@ where
                 min_value: entry.min_value,
               })
             } else {
-              LongValuesEnums::Direct(values)
+              match values {
+                DirectPackedEnum::Direct1(values) => LongValuesEnums::Direct1(values),
+                DirectPackedEnum::Direct2(values) => LongValuesEnums::Direct2(values),
+                DirectPackedEnum::Direct4(values) => LongValuesEnums::Direct4(values),
+                DirectPackedEnum::Direct8(values) => LongValuesEnums::Direct8(values),
+                DirectPackedEnum::Direct12(values) => LongValuesEnums::Direct12(values),
+                DirectPackedEnum::Direct16(values) => LongValuesEnums::Direct16(values),
+                DirectPackedEnum::Direct20(values) => LongValuesEnums::Direct20(values),
+                DirectPackedEnum::Direct24(values) => LongValuesEnums::Direct24(values),
+                DirectPackedEnum::Direct28(values) => LongValuesEnums::Direct28(values),
+                DirectPackedEnum::Direct32(values) => LongValuesEnums::Direct32(values),
+                DirectPackedEnum::Direct40(values) => LongValuesEnums::Direct40(values),
+                DirectPackedEnum::Direct48(values) => LongValuesEnums::Direct48(values),
+                DirectPackedEnum::Direct56(values) => LongValuesEnums::Direct56(values),
+                DirectPackedEnum::Direct64(values) => LongValuesEnums::Direct64(values),
+                DirectPackedEnum::Merge(values) => LongValuesEnums::Merge(values),
+                DirectPackedEnum::Zeroes(values) => LongValuesEnums::Zeroes(values),
+              }
             }
           },
         }

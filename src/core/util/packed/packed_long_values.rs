@@ -22,6 +22,7 @@ use crate::core::util::packed::delta_packed_long_values::{
   DeltaPackedLongValues, DeltaPackedLongValuesBuilder,
 };
 use crate::core::util::packed::monotonic_long_values::MonotonicLongValuesBuilder;
+use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::read_enum::PackedIntsReadEnum;
 use crate::core::util::packed::{Mutable, NullReader, PackedInts, Reader};
 use crate::core::util::ram_usage_estimator::size_of_vec;
@@ -317,7 +318,23 @@ impl Builder {
         i += mutable.set_bulk(i, self.pending.as_slice(), i, num_values - i);
       }
 
-      self.values[block as usize] = PackedIntsReadEnum::PackedReader(mutable);
+      self.values[block as usize] = match mutable {
+        MutablePacked64Enum::P64SingleBlock1(value) => PackedIntsReadEnum::P64SingleBlock1(value),
+        MutablePacked64Enum::P64SingleBlock2(value) => PackedIntsReadEnum::P64SingleBlock2(value),
+        MutablePacked64Enum::P64SingleBlock3(value) => PackedIntsReadEnum::P64SingleBlock3(value),
+        MutablePacked64Enum::P64SingleBlock4(value) => PackedIntsReadEnum::P64SingleBlock4(value),
+        MutablePacked64Enum::P64SingleBlock5(value) => PackedIntsReadEnum::P64SingleBlock5(value),
+        MutablePacked64Enum::P64SingleBlock6(value) => PackedIntsReadEnum::P64SingleBlock6(value),
+        MutablePacked64Enum::P64SingleBlock7(value) => PackedIntsReadEnum::P64SingleBlock7(value),
+        MutablePacked64Enum::P64SingleBlock8(value) => PackedIntsReadEnum::P64SingleBlock8(value),
+        MutablePacked64Enum::P64SingleBlock9(value) => PackedIntsReadEnum::P64SingleBlock9(value),
+        MutablePacked64Enum::P64SingleBlock10(value) => PackedIntsReadEnum::P64SingleBlock10(value),
+        MutablePacked64Enum::P64SingleBlock12(value) => PackedIntsReadEnum::P64SingleBlock12(value),
+        MutablePacked64Enum::P64SingleBlock16(value) => PackedIntsReadEnum::P64SingleBlock16(value),
+        MutablePacked64Enum::P64SingleBlock21(value) => PackedIntsReadEnum::P64SingleBlock21(value),
+        MutablePacked64Enum::P64SingleBlock32(value) => PackedIntsReadEnum::P64SingleBlock32(value),
+        MutablePacked64Enum::P64(value) => PackedIntsReadEnum::P64(value),
+      };
       Ok(())
     }
   }

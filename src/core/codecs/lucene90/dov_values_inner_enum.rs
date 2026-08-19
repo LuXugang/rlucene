@@ -39,8 +39,13 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::store::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::long_values::LongValues;
-use crate::core::util::packed::direct_reader::DirectPackedEnum;
+use crate::core::util::long_values::{LongValues, Zeroes};
+use crate::core::util::packed::direct_reader::{
+  DirectPackedReader1, DirectPackedReader2, DirectPackedReader4, DirectPackedReader8,
+  DirectPackedReader12, DirectPackedReader16, DirectPackedReader20, DirectPackedReader24,
+  DirectPackedReader28, DirectPackedReader32, DirectPackedReader40, DirectPackedReader48,
+  DirectPackedReader56, DirectPackedReader64, LongValuesImpl as DirectLongValuesImpl,
+};
 use std::borrow::Cow;
 
 pub enum BaseSortedDocValuesEnum<I>
@@ -284,7 +289,22 @@ pub enum LongValuesEnums<R> {
   Table(LongValuesImpl2<R>),
   Gcd(LongValuesImpl3<R>),
   Delta(LongValuesImpl4<R>),
-  Direct(DirectPackedEnum<R>),
+  Direct1(DirectPackedReader1<R>),
+  Direct2(DirectPackedReader2<R>),
+  Direct4(DirectPackedReader4<R>),
+  Direct8(DirectPackedReader8<R>),
+  Direct12(DirectPackedReader12<R>),
+  Direct16(DirectPackedReader16<R>),
+  Direct20(DirectPackedReader20<R>),
+  Direct24(DirectPackedReader24<R>),
+  Direct28(DirectPackedReader28<R>),
+  Direct32(DirectPackedReader32<R>),
+  Direct40(DirectPackedReader40<R>),
+  Direct48(DirectPackedReader48<R>),
+  Direct56(DirectPackedReader56<R>),
+  Direct64(DirectPackedReader64<R>),
+  Merge(DirectLongValuesImpl<R>),
+  Zeroes(Zeroes),
 }
 
 impl<R> LongValues for LongValuesEnums<R>
@@ -298,7 +318,22 @@ where
       Self::Table(values) => values.get_mut(index),
       Self::Gcd(values) => values.get_mut(index),
       Self::Delta(values) => values.get_mut(index),
-      Self::Direct(values) => values.get_mut(index),
+      Self::Direct1(values) => values.get_mut(index),
+      Self::Direct2(values) => values.get_mut(index),
+      Self::Direct4(values) => values.get_mut(index),
+      Self::Direct8(values) => values.get_mut(index),
+      Self::Direct12(values) => values.get_mut(index),
+      Self::Direct16(values) => values.get_mut(index),
+      Self::Direct20(values) => values.get_mut(index),
+      Self::Direct24(values) => values.get_mut(index),
+      Self::Direct28(values) => values.get_mut(index),
+      Self::Direct32(values) => values.get_mut(index),
+      Self::Direct40(values) => values.get_mut(index),
+      Self::Direct48(values) => values.get_mut(index),
+      Self::Direct56(values) => values.get_mut(index),
+      Self::Direct64(values) => values.get_mut(index),
+      Self::Merge(values) => values.get_mut(index),
+      Self::Zeroes(values) => values.get_mut(index),
     }
   }
 
@@ -309,7 +344,22 @@ where
       Self::Table(values) => values.get(index),
       Self::Gcd(values) => values.get(index),
       Self::Delta(values) => values.get(index),
-      Self::Direct(values) => values.get(index),
+      Self::Direct1(values) => values.get(index),
+      Self::Direct2(values) => values.get(index),
+      Self::Direct4(values) => values.get(index),
+      Self::Direct8(values) => values.get(index),
+      Self::Direct12(values) => values.get(index),
+      Self::Direct16(values) => values.get(index),
+      Self::Direct20(values) => values.get(index),
+      Self::Direct24(values) => values.get(index),
+      Self::Direct28(values) => values.get(index),
+      Self::Direct32(values) => values.get(index),
+      Self::Direct40(values) => values.get(index),
+      Self::Direct48(values) => values.get(index),
+      Self::Direct56(values) => values.get(index),
+      Self::Direct64(values) => values.get(index),
+      Self::Merge(values) => values.get(index),
+      Self::Zeroes(values) => values.get(index),
     }
   }
 }
