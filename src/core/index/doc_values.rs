@@ -16,7 +16,6 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -156,10 +155,10 @@ impl DocValues {
     LR: LeafReader,
   {
     match reader.get_binary_doc_values(field)? {
-      Some(dv) => Ok(BinaryDocValuesEnum2::A(dv)),
+      Some(dv) => Ok(BinaryDocValuesWithEmpty::A(dv)),
       None => {
         Self::check_field(reader, field, &[DocValuesType::Binary])?;
-        Ok(BinaryDocValuesEnum2::B(Self::empty_binary()))
+        Ok(BinaryDocValuesWithEmpty::B(Self::empty_binary()))
       },
     }
   }
@@ -261,7 +260,7 @@ impl DocValues {
   }
 }
 pub type Numeric<LR> = NumericDocValuesWithEmpty<<LR as LeafReader>::NumericDocValues>;
-pub type Binary<LR> = BinaryDocValuesEnum2<<LR as LeafReader>::BinaryDocValues, EmptyBinary>;
+pub type Binary<LR> = BinaryDocValuesWithEmpty<<LR as LeafReader>::BinaryDocValues>;
 pub type Sorted<LR> = SortedDocValuesWithEmpty<<LR as LeafReader>::SortedDocValues>;
 pub type SortedNumeric<LR> = SortedNumericDocValuesEnum3<
   <LR as LeafReader>::SortedNumericDocValues,
@@ -325,6 +324,82 @@ impl BinaryDocValues for EmptyBinary {
       "EmptyBinary::binary_value() should not be called, as it is an empty iterator"
     );
     Ok(Cow::Borrowed(&self.bytes))
+  }
+}
+
+pub enum BinaryDocValuesWithEmpty<A> {
+  A(A),
+  B(EmptyBinary),
+}
+
+impl<A> DocValuesIterator for BinaryDocValuesWithEmpty<A>
+where
+  A: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(inner) => inner.advance_exact(target),
+      Self::B(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BinaryDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+
+impl<A> DocIdSetIterator for BinaryDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(inner) => inner.doc_id(),
+      Self::B(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.next_doc(),
+      Self::B(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.advance(target),
+      Self::B(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.slow_advance(target),
+      Self::B(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.cost(),
+      Self::B(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<A> BinaryDocValues for BinaryDocValuesWithEmpty<A>
+where
+  A: BinaryDocValues,
+{
+  fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::A(inner) => inner.binary_value(),
+      Self::B(inner) => inner.binary_value(),
+    }
   }
 }
 /// An empty [`NumericDocValues`] which returns no documents  */
