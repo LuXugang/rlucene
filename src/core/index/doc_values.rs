@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
@@ -29,9 +30,10 @@ use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
-use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributes2;
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
@@ -918,6 +920,168 @@ pub enum SortedDocValuesWithEmpty<A> {
   B(EmptySorted),
 }
 
+pub enum SortedDocValuesTermsEnumWithEmpty<'a, T> {
+  WithPostingsAndAttributes(T),
+  WithoutPostingsAndAttributes(SortedDocValuesTermsEnum<&'a mut EmptySorted>),
+}
+
+impl<'a, T> BytesRefIterator for SortedDocValuesTermsEnumWithEmpty<'a, T>
+where
+  T: TermsEnum,
+{
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.next(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.set_next(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.set_next(),
+    }
+  }
+}
+
+impl<'a, T> TermsEnum for SortedDocValuesTermsEnumWithEmpty<'a, T>
+where
+  T: TermsEnum,
+{
+  type AttributeSource<'b>
+    = T::AttributeSource<'b>
+  where
+    Self: 'b;
+  type AttributeSourceMut<'b>
+    = T::AttributeSourceMut<'b>
+  where
+    Self: 'b;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.attributes(),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.attributes_mut(),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.seek_exact(term),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
+      Self::WithoutPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::WithoutPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.seek_ceil(term),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.seek_exact_with_ord(ord),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.seek_exact_with_state(term, state),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.term(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.ord(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.doc_freq(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.total_term_freq(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum = T::PostingsEnum;
+
+  fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.postings(reuse),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.postings_with_flags(reuse, flags),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  type ImpactsEnum = T::ImpactsEnum;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.impacts(flags),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::WithPostingsAndAttributes(terms) => terms.term_state(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term_state(),
+    }
+  }
+}
+
 impl<A> DocValuesIterator for SortedDocValuesWithEmpty<A>
 where
   A: DocValuesIterator,
@@ -1010,10 +1174,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumWithUnsupportedPostingsAndAttributes2<
-    A::TermsEnum<'a>,
-    SortedDocValuesTermsEnum<&'a mut EmptySorted>,
-  >
+    = SortedDocValuesTermsEnumWithEmpty<'a, A::TermsEnum<'a>>
   where
     A: 'a;
 
@@ -1021,10 +1182,10 @@ where
     match self {
       Self::A(inner) => inner
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
+        .map(SortedDocValuesTermsEnumWithEmpty::WithPostingsAndAttributes),
       Self::B(inner) => inner
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
+        .map(SortedDocValuesTermsEnumWithEmpty::WithoutPostingsAndAttributes),
     }
   }
 }
