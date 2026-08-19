@@ -102,7 +102,7 @@ where
   pub(crate) doc_values: N,
   point_values: Option<PV>,
   // lazily constructed to avoid performance overhead when this is not used
-  point_tree: Option<PointTreeEnum<PV>>,
+  point_tree: Option<PointTreeEnum<PV::MutablePointTree, PV::PointTree>>,
   // if skipping functionality should be enabled on this segment
   enable_skipping: bool,
   max_doc: i32,

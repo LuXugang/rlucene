@@ -2685,7 +2685,7 @@ impl<I: IndexInput> PointValues for CodecPointValues<I> {
   type PointTree = CodecPointTree<I>;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     match self {
       Self::Lucene90(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(_) => dummy_unreachable!(),

@@ -436,7 +436,7 @@ where
   type PointTree = PointTreeEnum2<T::PointTree, U::PointTree>;
   type MutablePointTree = T::MutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     match self {
       Self::A(values) => match values.get_point_tree()? {
         PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(tree)),
@@ -2459,7 +2459,7 @@ where
   type PointTree = PointTreeImpl<PV>;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     Ok(PointTreeEnum::Other(PointTreeImpl::new(
       self.values.clone(),
     )))

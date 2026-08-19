@@ -2447,7 +2447,7 @@ where
   S: PointValues,
   DM: DocMap,
 {
-  point_tree: Option<PointTreeEnum<S>>,
+  point_tree: Option<PointTreeEnum<S::MutablePointTree, S::PointTree>>,
   packed_bytes_length: usize,
   doc_map: Option<Rc<DM>>,
   merge_intersects_visitor: MergeIntersectsVisitor,

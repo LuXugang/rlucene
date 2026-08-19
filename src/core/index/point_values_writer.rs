@@ -263,7 +263,7 @@ where
     MutableSortingPointValues<MutablePointTreeImpl, DM>,
   >;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     if self.taken.swap(true, Relaxed) {
       return Err(LuceneError::illegal_state(format!(
         "{} get_point_tree can only be called once",

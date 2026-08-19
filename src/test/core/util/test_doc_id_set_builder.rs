@@ -400,7 +400,7 @@ impl PointValues for DummyPointValues {
   type PointTree = DummyPointTree;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     unreachable!()
   }
 }

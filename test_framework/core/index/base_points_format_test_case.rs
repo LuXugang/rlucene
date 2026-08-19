@@ -1629,7 +1629,7 @@ impl PointValues for TestPointValues {
   type PointTree = TestPointTree;
   type MutablePointTree = DummyMutablePointTree;
 
-  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     Ok(PointTreeEnum::Other(TestPointTree {
       estimated_point_count: self.estimated_point_count,
     }))
