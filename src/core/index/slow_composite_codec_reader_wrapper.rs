@@ -59,7 +59,7 @@ use crate::core::index::point_values::{
 use crate::core::index::reader_slice::ReaderSlice;
 use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::{
-  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2,
+  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesWithEmpty,
 };
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
@@ -1641,12 +1641,12 @@ where
         match LeafReader::get_sorted_set_doc_values(reader, &field.name)? {
           Some(v) => {
             total_cost += v.cost()?;
-            values.push(SortedSetDocValuesEnum2::A(v));
+            values.push(SortedSetDocValuesWithEmpty::A(v));
           },
           None => {
             let v = DocValues::empty_sorted_set()?;
             total_cost += v.cost()?;
-            values.push(SortedSetDocValuesEnum2::B(v));
+            values.push(SortedSetDocValuesWithEmpty::B(v));
           },
         }
       }

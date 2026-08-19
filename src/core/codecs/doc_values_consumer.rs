@@ -24,7 +24,7 @@ use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNume
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::doc_values::SortedDocValuesWithEmpty;
-use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
+use crate::core::index::doc_values::{DocValues, EmptyNumeric};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
@@ -40,13 +40,13 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
+use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::{
   SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues, SortedNumericDocValuesEnum2,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::{
-  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2,
+  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2, SortedSetDocValuesWithEmpty,
 };
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, DocIDMerger, DocIDMergerEnum, Sub, SubBase, of};
@@ -1497,12 +1497,12 @@ where
   type SortedSetDocValues = SingletonOrMultiSortedSetDocValuesEnum<
     SingletonSortedSetDocValues<
       SortedDocValuesMerge<
-        SortedDocValuesEnum2<MergeSortedSetSortedDocValues<MS::DocValuesProducer>, EmptySorted>,
+        SortedDocValuesWithEmpty<MergeSortedSetSortedDocValues<MS::DocValuesProducer>>,
         MS::DocMap,
       >,
     >,
     SortedSetDocValuesMerge<
-      SortedSetDocValuesEnum2<MergeSortedSetDocValues<MS::DocValuesProducer>, EmptySortedSet>,
+      SortedSetDocValuesWithEmpty<MergeSortedSetDocValues<MS::DocValuesProducer>>,
       MS::DocMap,
     >,
   >;
@@ -1527,19 +1527,23 @@ where
           self.merge_state.field_infos()[i].field_info_by_name(&self.merge_field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::SortedSet
       {
-        values = Some(SortedSetDocValuesEnum2::A(
+        values = Some(SortedSetDocValuesWithEmpty::A(
           doc_values_producer.get_sorted_set(&reader_field_info)?,
         ));
-        values_for_merge = Some(SortedSetDocValuesEnum2::A(
+        values_for_merge = Some(SortedSetDocValuesWithEmpty::A(
           doc_values_producer.get_sorted_set(&reader_field_info)?,
         ));
       }
 
       if values.is_none() {
-        values = Some(SortedSetDocValuesEnum2::B(DocValues::empty_sorted_set()?));
+        values = Some(SortedSetDocValuesWithEmpty::B(
+          DocValues::empty_sorted_set()?
+        ));
       }
       if values_for_merge.is_none() {
-        values_for_merge = Some(SortedSetDocValuesEnum2::B(DocValues::empty_sorted_set()?));
+        values_for_merge = Some(SortedSetDocValuesWithEmpty::B(
+          DocValues::empty_sorted_set()?
+        ));
       }
 
       let values = values.unwrap();

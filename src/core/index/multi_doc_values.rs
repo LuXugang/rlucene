@@ -19,7 +19,7 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum2};
 use crate::core::index::doc_values::SortedDocValuesWithEmpty;
-use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySortedSet};
+use crate::core::index::doc_values::{DocValues, EmptyNumeric};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader::{CacheHelper, IndexReader, IndexReaderContextType};
@@ -40,7 +40,7 @@ use crate::core::index::sorted_numeric_doc_values::{
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::sorted_set_doc_values_writer::{
-  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesEnum2,
+  SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesWithEmpty,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -86,10 +86,7 @@ pub type MultiSortedDocValuesType<IR> = SortedDocValuesEnum2<
 pub type MultiSortedSetDocValuesType<IR> = SingletonOrMultiSortedSetDocValuesEnum<
   LRSortedSetDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   MultiSortedSetDocValues<
-    SortedSetDocValuesEnum2<
-      LRSortedSetDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
-      EmptySortedSet,
-    >,
+    SortedSetDocValuesWithEmpty<LRSortedSetDocValues<IRCLeafReader<IndexReaderContextType<IR>>>>,
   >,
 >;
 
@@ -350,9 +347,9 @@ impl MultiDocValues {
         Some(s) => {
           any_real = true;
           total_cost += s.cost()?;
-          SortedSetDocValuesEnum2::A(s)
+          SortedSetDocValuesWithEmpty::A(s)
         },
-        None => SortedSetDocValuesEnum2::B(DocValues::empty_sorted_set()?),
+        None => SortedSetDocValuesWithEmpty::B(DocValues::empty_sorted_set()?),
       };
 
       values.push(v);

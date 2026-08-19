@@ -21,7 +21,7 @@ use crate::core::codecs::dummy::dummy_doc_values_skipper::DummyDocValuesSkipper;
 use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
-use crate::core::index::doc_values::DocValues;
+use crate::core::index::doc_values::{DocValues, EmptySortedSet, SortedDocValuesWithEmpty};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_writer::DocValuesWriter;
 use crate::core::index::docs_with_field_set::DocsWithFieldSetDISI;
@@ -1082,6 +1082,139 @@ where
     match self {
       SortedSetDocValuesEnum2::A(t) => Ok(SortedDocValuesEnum2::A(t.get_sorted_doc_values()?)),
       SortedSetDocValuesEnum2::B(s) => Ok(SortedDocValuesEnum2::B(s.get_sorted_doc_values()?)),
+    }
+  }
+}
+
+pub enum SortedSetDocValuesWithEmpty<A> {
+  A(A),
+  B(EmptySortedSet),
+}
+
+impl<A> DocValuesIterator for SortedSetDocValuesWithEmpty<A>
+where
+  A: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(inner) => inner.advance_exact(target),
+      Self::B(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedSetDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+
+impl<A> DocIdSetIterator for SortedSetDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(inner) => inner.doc_id(),
+      Self::B(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.next_doc(),
+      Self::B(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.advance(target),
+      Self::B(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.slow_advance(target),
+      Self::B(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.cost(),
+      Self::B(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<A> SortedSetDocValues for SortedSetDocValuesWithEmpty<A>
+where
+  A: SortedSetDocValues,
+{
+  fn next_ord(&mut self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.next_ord(),
+      Self::B(inner) => inner.next_ord(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.doc_value_count(),
+      Self::B(inner) => inner.doc_value_count(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::A(inner) => inner.lookup_ord(ord),
+      Self::B(inner) => inner.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.get_value_count(),
+      Self::B(inner) => inner.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.lookup_term(key),
+      Self::B(inner) => inner.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a>
+    = SortedSetDocValuesTermsEnum<&'a mut Self>
+  where
+    A: 'a;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::A(inner) => inner.is_single_valued(),
+      Self::B(inner) => inner.is_single_valued(),
+    }
+  }
+
+  type SortedDocValues = SortedDocValuesWithEmpty<A::SortedDocValues>;
+
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    match self {
+      Self::A(inner) => inner
+        .get_sorted_doc_values()
+        .map(SortedDocValuesWithEmpty::A),
+      Self::B(inner) => inner
+        .get_sorted_doc_values()
+        .map(SortedDocValuesWithEmpty::B),
     }
   }
 }
