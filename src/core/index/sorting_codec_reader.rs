@@ -2688,11 +2688,14 @@ where
     self.in_.get_doc_count()
   }
 
-  type PointTree = SortingPointTree<PointTreeEnum<PV::MutablePointTree, PV::PointTree>, DM>;
+  type PointTree = SortingPointTree<PV::PointTree, DM>;
   type MutablePointTree = DummyMutablePointTree;
 
   fn get_point_tree(&self) -> Result<PointTreeEnum<Self::MutablePointTree, Self::PointTree>> {
     let tree = self.in_.get_point_tree()?;
+    let PointTreeEnum::Other(tree) = tree else {
+      return Err(LuceneError::unsupported_operation(""));
+    };
     Ok(PointTreeEnum::Other(SortingPointTree::new(
       tree,
       self.doc_map.clone(),

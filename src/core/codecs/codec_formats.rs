@@ -2998,22 +2998,15 @@ impl<I: IndexInput> KnnVectorsReader for CodecKnnVectorsReaderInner<I> {
   }
 
   type QuantizedByteVectorValues =
-    crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2<
-      <<Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
-      <<AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
-    >;
+    <<Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues;
 
   fn get_quantized_vector_values(
     &self,
     field: &str,
   ) -> Result<Option<Self::QuantizedByteVectorValues>> {
     match self {
-      Self::Lucene101(reader) => reader.get_quantized_vector_values(field).map(|values| {
-        values.map(crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2::A)
-      }),
-      Self::Asserting(reader) => reader.get_quantized_vector_values(field).map(|values| {
-        values.map(crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2::B)
-      }),
+      Self::Lucene101(reader) => reader.get_quantized_vector_values(field),
+      Self::Asserting(_) => Ok(None),
     }
   }
 
@@ -3763,10 +3756,7 @@ where
   }
 
   type QuantizedByteVectorValues =
-    crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2<
-      <<Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
-      <<AssertingKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues,
-    >;
+    <<Lucene101CodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<I> as KnnVectorsReader>::QuantizedByteVectorValues;
 
   fn get_quantized_vector_values(
     &self,
