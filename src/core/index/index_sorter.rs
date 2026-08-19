@@ -841,7 +841,6 @@ macro_rules! either_comparable_provider {
     };
 }
 either_comparable_provider!(pub ComparableProviderEnum2 { A1: A, B1: B});
-either_comparable_provider!(pub ComparableProviderEnum3 { SortedNumeric: A, SortedSet: B, Sorter: C});
 pub enum ComparableProviderEnum5<N, S> {
   Int(IntComparableProvider<N>),
   Long(LongComparableProvider<N>),

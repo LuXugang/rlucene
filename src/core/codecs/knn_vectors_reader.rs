@@ -18,14 +18,11 @@ use crate::core::codecs::DefaultCodecKnnVectorsFormat;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
 use crate::core::index::byte_vector_values::ByteVectorValues;
-use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::hnsw::hnsw_graph::HnswGraphEnum2;
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use std::sync::Arc;
@@ -161,174 +158,6 @@ pub trait KnnVectorsReader: HnswGraphProvider + CloseableRef {
 
 pub type DefaultKnnVectorsReader<T> =
   <DefaultCodecKnnVectorsFormat as KnnVectorsFormat>::KnnVectorsReader<T>;
-
-#[macro_export]
-macro_rules! either_knn_vectors_reader {
-    (
-        $vis:vis $name:ident {
-            float = $float_ty:ident,
-            byte = $byte_ty:ident,
-            graph = $graph_ty:ident;
-            $( $Variant:ident : $T:ident ),+ $(,)?
-        }
-    ) => {
-        $vis enum $name<$( $T ),+> {
-            $( $Variant($T), )+
-        }
-
-        impl<$( $T ),+> $crate::core::util::close::CloseableRef for $name<$( $T ),+>
-        where
-            $( $T: $crate::core::util::close::CloseableRef ),+
-        {
-            fn close(&self) -> $crate::core::util::error::lucene_error::Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.close(), )+
-                }
-            }
-        }
-
-        impl<$( $T ),+> $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider for $name<$( $T ),+>
-        where
-            $( $T: $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider ),+
-        {
-            type HnswGraph =
-                $graph_ty<$( < $T as $crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider >::HnswGraph ),+>;
-
-            #[inline]
-            fn is_hnsw_graph_provider(&self, field: &str) -> bool {
-                match self {
-                    $( Self::$Variant(inner) => inner.is_hnsw_graph_provider(field), )+
-                }
-            }
-
-            #[inline]
-            fn get_graph(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Self::HnswGraph> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_graph(field).map($graph_ty::$Variant), )+
-                }
-            }
-        }
-
-        impl<$( $T ),+> $crate::core::codecs::knn_vectors_reader::KnnVectorsReader for $name<$( $T ),+>
-        where
-            $( $T: $crate::core::codecs::knn_vectors_reader::KnnVectorsReader ),+
-        {
-            #[inline]
-            fn check_integrity(&self) -> $crate::core::util::error::lucene_error::Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.check_integrity(), )+
-                }
-            }
-
-            type FloatVectorValues =
-                $float_ty<$( < $T as $crate::core::codecs::knn_vectors_reader::KnnVectorsReader >::FloatVectorValues ),+>;
-
-            #[inline]
-            fn get_float_vector_values(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Self::FloatVectorValues> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_float_vector_values(field).map($float_ty::$Variant), )+
-                }
-            }
-
-            type ByteVectorValues =
-                $byte_ty<$( < $T as $crate::core::codecs::knn_vectors_reader::KnnVectorsReader >::ByteVectorValues ),+>;
-
-            #[inline]
-            fn get_byte_vector_values(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Self::ByteVectorValues> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_byte_vector_values(field).map($byte_ty::$Variant), )+
-                }
-            }
-
-            type QuantizedByteVectorValues =
-                $crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2<
-                    $( < $T as $crate::core::codecs::knn_vectors_reader::KnnVectorsReader >::QuantizedByteVectorValues ),+
-                >;
-
-            #[inline]
-            fn get_quantized_vector_values(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Option<Self::QuantizedByteVectorValues>> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_quantized_vector_values(field)
-                        .map(|values| values.map($crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValuesEnum2::$Variant)), )+
-                }
-            }
-
-            #[inline]
-            fn get_quantization_state(&self, field: &str) -> $crate::core::util::error::lucene_error::Result<Option<$crate::core::util::quantization::scalar_quantizer::ScalarQuantizer>> {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_quantization_state(field), )+
-                }
-            }
-
-            #[inline]
-            fn is_flat_vectors_reader(&self, field: &str) -> bool {
-                match self {
-                    $( Self::$Variant(inner) => inner.is_flat_vectors_reader(field), )+
-                }
-            }
-
-            #[inline]
-            fn search_f32<AcceptDocs, K>(
-                &self,
-                field: &str,
-                target: Vec<f32>,
-                knn_collector: &mut K,
-                accept_docs: Option<AcceptDocs>,
-            ) -> $crate::core::util::error::lucene_error::Result<()>
-            where
-                AcceptDocs: $crate::core::util::bits::Bits,
-                K: $crate::core::search::knn_collector::KnnCollector,
-            {
-                match self {
-                    $( Self::$Variant(inner) => inner.search_f32(field, target, knn_collector, accept_docs), )+
-                }
-            }
-
-            #[inline]
-            fn search_u8<AcceptDocs, K>(
-                &self,
-                field: &str,
-                target: Vec<u8>,
-                knn_collector: &mut K,
-                accept_docs: Option<AcceptDocs>,
-            ) -> $crate::core::util::error::lucene_error::Result<()>
-            where
-                AcceptDocs: $crate::core::util::bits::Bits,
-                K: $crate::core::search::knn_collector::KnnCollector,
-            {
-                match self {
-                    $( Self::$Variant(inner) => inner.search_u8(field, target, knn_collector, accept_docs), )+
-                }
-            }
-
-            #[inline]
-            fn get_merge_instance(&self) -> $crate::core::util::error::lucene_error::Result<Option<Self>>
-            where
-                Self: Sized,
-            {
-                match self {
-                    $( Self::$Variant(inner) => inner.get_merge_instance().map(|opt| opt.map($name::$Variant)), )+
-                }
-            }
-
-            #[inline]
-            fn finish_merge(&self) -> $crate::core::util::error::lucene_error::Result<()> {
-                match self {
-                    $( Self::$Variant(inner) => inner.finish_merge(), )+
-                }
-            }
-        }
-    };
-}
-
-either_knn_vectors_reader!(
-    pub KnnVectorsReaderEnum2 {
-        float = FloatVectorValuesEnum2,
-        byte = ByteVectorValuesEnum2,
-        graph = HnswGraphEnum2;
-        A: A, B: B,
-    }
-);
 
 impl<T> HnswGraphProvider for Arc<T>
 where

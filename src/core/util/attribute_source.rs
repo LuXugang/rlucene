@@ -1091,5 +1091,3 @@ macro_rules! define_attribute_source_enum {
     };
 }
 define_attribute_source_enum!(AttributeSourceEnum2, [A, B]);
-define_attribute_source_enum!(AttributeSourceEnum3, [A, B, C]);
-define_attribute_source_enum!(AttributeSourceEnum4, [A, B, C, D]);

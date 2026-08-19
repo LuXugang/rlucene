@@ -18,15 +18,11 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
-use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2, ImpactsEnumEnum4};
-use crate::core::index::postings_enum::{
-  FREQS, PostingsEnum, PostingsEnumEnum2, PostingsEnumEnum4,
-};
+use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
+use crate::core::index::postings_enum::{FREQS, PostingsEnum, PostingsEnumEnum2};
 use crate::core::index::terms::{Terms, TermsPosting};
 use crate::core::util::attribute_source::AttributeSourceEnum2;
-use crate::core::util::attribute_source::{
-  AttributeSource, AttributeSourceEnum3, AttributeSourceEnum4,
-};
+use crate::core::util::attribute_source::{AttributeSource, AttributeSourceEnum3};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -1413,11 +1409,4 @@ define_terms_enum_enum!(
   PostingsEnumEnum2,
   ImpactsEnumEnum2,
   [A, B]
-);
-define_terms_enum_enum!(
-  TermsEnumEnum4,
-  AttributeSourceEnum4,
-  PostingsEnumEnum4,
-  ImpactsEnumEnum4,
-  [A, B, C, D]
 );

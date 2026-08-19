@@ -257,7 +257,3 @@ either_two_phase_iterator_gat!(
     pub TwoPhaseIteratorEnum2
     { A: A, B: B}
 );
-either_two_phase_iterator_gat!(
-    pub TwoPhaseIteratorEnum4
-    { A: A, B: B,C:C,D:D}
-);

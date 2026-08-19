@@ -16,10 +16,7 @@
  */
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::index::byte_vector_values::ByteVectorValues;
-use crate::core::index::knn_vector_values::DocIndexIteratorEnum2;
 use crate::core::search::vector_scorer::VectorScorer;
-use crate::core::search::vector_scorer::VectorScorerEnum2;
-use crate::core::util::bits::BitsEnum2;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
@@ -48,79 +45,4 @@ pub trait QuantizedByteVectorValues: ByteVectorValues + HasIndexSlice {
   type QuantizedByteVectorValues: QuantizedByteVectorValues;
 
   fn copy(&self) -> Result<Self::QuantizedByteVectorValues>;
-}
-
-crate::either_byte_vector_values!(
-    pub QuantizedByteVectorValuesEnum2 {
-        iter = DocIndexIteratorEnum2,
-        bits = BitsEnum2,
-        scorer = VectorScorerEnum2;
-        A: A, B: B,
-    }
-);
-
-impl<A, B> HasIndexSlice for QuantizedByteVectorValuesEnum2<A, B>
-where
-  A: QuantizedByteVectorValues,
-  B: QuantizedByteVectorValues,
-{
-  fn seek(&self, pos: usize) -> Result<()> {
-    match self {
-      Self::A(values) => values.seek(pos),
-      Self::B(values) => values.seek(pos),
-    }
-  }
-
-  fn read_bytes(&self, bytes: &mut [u8], offset: usize, len: usize) -> Result<()> {
-    match self {
-      Self::A(values) => values.read_bytes(bytes, offset, len),
-      Self::B(values) => values.read_bytes(bytes, offset, len),
-    }
-  }
-}
-
-impl<A, B> QuantizedByteVectorValues for QuantizedByteVectorValuesEnum2<A, B>
-where
-  A: QuantizedByteVectorValues,
-  B: QuantizedByteVectorValues,
-{
-  fn get_scalar_quantizer(&self) -> Result<ScalarQuantizer> {
-    match self {
-      Self::A(values) => values.get_scalar_quantizer(),
-      Self::B(values) => values.get_scalar_quantizer(),
-    }
-  }
-
-  fn get_score_correction_constant(&self, ord: usize) -> Result<f32> {
-    match self {
-      Self::A(values) => values.get_score_correction_constant(ord),
-      Self::B(values) => values.get_score_correction_constant(ord),
-    }
-  }
-
-  type QuantizedVectorScorer =
-    VectorScorerEnum2<A::QuantizedVectorScorer, B::QuantizedVectorScorer>;
-
-  fn scorer(&self, query: &[f32]) -> Result<Option<Self::QuantizedVectorScorer>> {
-    match self {
-      Self::A(values) => QuantizedByteVectorValues::scorer(values, query)
-        .map(|scorer| scorer.map(VectorScorerEnum2::A)),
-      Self::B(values) => QuantizedByteVectorValues::scorer(values, query)
-        .map(|scorer| scorer.map(VectorScorerEnum2::B)),
-    }
-  }
-
-  type QuantizedByteVectorValues =
-    QuantizedByteVectorValuesEnum2<A::QuantizedByteVectorValues, B::QuantizedByteVectorValues>;
-
-  fn copy(&self) -> Result<Self::QuantizedByteVectorValues> {
-    match self {
-      Self::A(values) => {
-        QuantizedByteVectorValues::copy(values).map(QuantizedByteVectorValuesEnum2::A)
-      },
-      Self::B(values) => {
-        QuantizedByteVectorValues::copy(values).map(QuantizedByteVectorValuesEnum2::B)
-      },
-    }
-  }
 }

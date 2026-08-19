@@ -148,4 +148,3 @@ macro_rules! define_postings_enum_enum {
     };
 }
 define_postings_enum_enum!(PostingsEnumEnum2, [A, B]);
-define_postings_enum_enum!(PostingsEnumEnum4, [A, B, C, D]);

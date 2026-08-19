@@ -729,12 +729,6 @@ macro_rules! define_data_input_enum {
     };
 }
 define_data_input_enum!(
-    pub enum DataInputEnum2<
-        A => A,
-        B => B
-    >
-);
-define_data_input_enum!(
     pub enum DataInputEnum3<
         A => A,
         B => B,

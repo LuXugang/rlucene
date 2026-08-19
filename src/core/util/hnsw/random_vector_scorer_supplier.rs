@@ -17,9 +17,7 @@
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::hnsw::random_vector_scorer::{
-  RandomVectorScorer, RandomVectorScorerEnum2, RandomVectorScorerEnum3,
-};
+use crate::core::util::hnsw::random_vector_scorer::{RandomVectorScorer, RandomVectorScorerEnum2};
 
 /// A supplier that creates  [`RandomVectorScorer`] from an ordinal.
 pub trait RandomVectorScorerSupplier {
@@ -168,14 +166,5 @@ either_random_vector_scorer_supplier!(
         scorer = RandomVectorScorerEnum2;
         A: A,
         B: B,
-    }
-);
-
-either_random_vector_scorer_supplier!(
-    pub RandomVectorScorerSupplierEnum3 {
-        scorer = RandomVectorScorerEnum3;
-        A: A,
-        B: B,
-        C: C,
     }
 );

@@ -16,28 +16,25 @@
  */
 use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
-use crate::core::codecs::knn_vectors_reader::{KnnVectorsReader, KnnVectorsReaderEnum2};
+use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
-use crate::core::codecs::points_reader::{PointsReader, PointsReaderEnum2};
+use crate::core::codecs::points_reader::PointsReader;
 use crate::core::codecs::stored_fields_reader::{
   DefaultStoredFieldsReader, StoredFieldsReader, StoredFieldsReaderEnum2,
 };
 use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum2};
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
-use crate::core::index::byte_vector_values::ByteVectorValuesEnum2;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
 use crate::core::index::filter_directory_reader::DelegatingCacheHelper;
-use crate::core::index::float_vector_values::FloatVectorValuesEnum2;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{CacheHelperEnum2, IndexReader, LeafReaderContextKind};
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
-use crate::core::index::point_values::PointValuesEnum2;
 use crate::core::index::slow_composite_codec_reader_wrapper::{
   SlowCompositeByteVectorValues, SlowCompositeFloatVectorValues, SlowCompositeKnnVectorsReader,
   SlowCompositePointValues, SlowCompositePointsReader,
@@ -933,15 +930,6 @@ macro_rules! either_codec_reader {
         }
     };
 }
-
-either_codec_reader!(pub CodecReaderEnum2<A, B> where [] { A: A, B: B }
-return_types {
-  FloatVectorValues: FloatVectorValuesEnum2,
-  ByteVectorValues: ByteVectorValuesEnum2,
-  PointValues: PointValuesEnum2,
-  PointsReader: PointsReaderEnum2,
-  KnnVectorsReader: KnnVectorsReaderEnum2,
-});
 
 either_codec_reader!(
     pub(crate) SlowCompositeCodecReader<CR>

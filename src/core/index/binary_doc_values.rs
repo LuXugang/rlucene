@@ -99,4 +99,3 @@ macro_rules! either_binary_docvalues {
     };
 }
 either_binary_docvalues!(pub BinaryDocValuesEnum2 { A: A, B: B });
-either_binary_docvalues!(pub BinaryDocValuesEnum3 { A: A, B: B, C:C });

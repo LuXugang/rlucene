@@ -94,4 +94,3 @@ macro_rules! either_numeric_docvalues {
 }
 either_numeric_docvalues!(pub NumericDocValuesEnum2 { A: F, B: B });
 either_numeric_docvalues!(pub NumericDocValuesEnum3 { A: F, B: B, C: C });
-either_numeric_docvalues!(pub NumericDocValuesEnum4 { A: F, B: B, C: C, D: D });

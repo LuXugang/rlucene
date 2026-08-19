@@ -157,18 +157,6 @@ macro_rules! either_matches_iterator {
     };
 }
 either_matches_iterator!(
-    pub MatchesIteratorEnum2
-    { A: A, B: B }
-);
-either_matches_iterator!(
-    pub MatchesIteratorEnum3
-    { A: A, B: B,C:C }
-);
-either_matches_iterator!(
-    pub MatchesIteratorEnum4
-    { A: A, B: B,C:C,D:D }
-);
-either_matches_iterator!(
     pub MatchesIteratorEnum5
     { A: A, B: B,C:C,D:D,E:E }
 );

@@ -16,7 +16,7 @@
  */
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::numeric_doc_values::{
-  NumericDocValues, NumericDocValuesEnum2, NumericDocValuesEnum3, NumericDocValuesEnum4,
+  NumericDocValues, NumericDocValuesEnum2, NumericDocValuesEnum3,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -237,16 +237,5 @@ either_sorted_numeric_docvalues!(
         A: A,
         B: B,
         C:C,
-    }
-);
-
-either_sorted_numeric_docvalues!(
-    pub SortedNumericDocValuesEnum4
-    => NumericDocValuesEnum4
-    {
-        A: A,
-        B: B,
-        C:C,
-        D:D,
     }
 );
