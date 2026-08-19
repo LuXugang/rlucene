@@ -24,7 +24,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_doc_values::MultiDocValues;
 use crate::core::index::no_merge_policy::NoMergePolicy;
-use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
+use crate::core::index::sorted_doc_values::SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes;
 use crate::core::index::sorted_set_doc_values_writer::SingletonOrMultiSortedSetDocValuesEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::util::accountable::Accountable;
@@ -92,7 +92,7 @@ fn test_ram_bytes_used() -> Result<()> {
   assert!(sdv.is_some());
   let sdv = sdv.unwrap();
 
-  if let SortedDocValuesEnum2::B(ref msdv) = sdv {
+  if let SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes::B(ref msdv) = sdv {
     let ram_bytes_used = msdv.mapping.ram_bytes_used()?;
     // TODO: RamUsageTester is not implemented, so Java's exact recursive retained-heap comparison
     // cannot be reproduced; the Accountable result is only sanity-checked for now.
@@ -171,7 +171,7 @@ fn test_one_segment_with_all_values() -> Result<()> {
 
   // Check that the optimization kicks in.
   let map = match sdv {
-    SortedDocValuesEnum2::B(ref msdv) => &msdv.mapping,
+    SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes::B(ref msdv) => &msdv.mapping,
     _ => unreachable!("sdv should be MultiSortedDocValues"),
   };
 

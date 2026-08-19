@@ -57,7 +57,7 @@ use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointTreeEnum2, PointValues, Relation,
 };
 use crate::core::index::reader_slice::ReaderSlice;
-use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
+use crate::core::index::sorted_doc_values::SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes;
 use crate::core::index::sorted_set_doc_values_writer::{
   SingletonOrMultiSortedSetDocValuesEnum, SortedSetDocValuesWithEmpty,
 };
@@ -1590,12 +1590,11 @@ where
         }
       }
 
-      return Ok(SortedDocValuesEnum2::B(MultiSortedDocValues::new(
-        self.doc_starts.clone(),
-        values,
-        map,
-        total_cost,
-      )));
+      return Ok(
+        SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes::B(
+          MultiSortedDocValues::new(self.doc_starts.clone(), values, map, total_cost),
+        ),
+      );
     }
 
     let mr: MultiReader<CR> = MultiReader::new(self.codec_readers.clone())?;
@@ -1607,7 +1606,7 @@ where
       ))
     })?;
 
-    if let SortedDocValuesEnum2::B(ref multi) = dv {
+    if let SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes::B(ref multi) = dv {
       self
         .cached_ord_maps
         .lock()

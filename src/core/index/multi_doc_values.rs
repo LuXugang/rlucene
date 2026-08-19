@@ -32,7 +32,9 @@ use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesE
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
-use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
+use crate::core::index::sorted_doc_values::{
+  SortedDocValues, SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes,
+};
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
   SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues, SortedNumericDocValuesEnum2,
@@ -77,12 +79,13 @@ pub type MultiSortedNumericDocValues<IR> = SingletonOrMultiSortedNumericDocValue
   LRSortedNumericDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   SortedNumericDocValuesImpl<IndexReaderContextType<IR>>,
 >;
-pub type MultiSortedDocValuesType<IR> = SortedDocValuesEnum2<
-  LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
-  MultiSortedDocValues<
-    SortedDocValuesWithEmpty<LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>>,
-  >,
->;
+pub type MultiSortedDocValuesType<IR> =
+  SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes<
+    LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
+    MultiSortedDocValues<
+      SortedDocValuesWithEmpty<LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>>,
+    >,
+  >;
 pub type MultiSortedSetDocValuesType<IR> = SingletonOrMultiSortedSetDocValuesEnum<
   LRSortedSetDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   MultiSortedSetDocValues<
