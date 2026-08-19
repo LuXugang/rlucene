@@ -22,7 +22,7 @@ use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
+use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
@@ -134,10 +134,10 @@ impl DocValues {
     LR: LeafReader,
   {
     match reader.get_numeric_doc_values(field)? {
-      Some(dv) => Ok(NumericDocValuesEnum2::A(dv)),
+      Some(dv) => Ok(NumericDocValuesWithEmpty::A(dv)),
       None => {
         Self::check_field(reader, field, &[DocValuesType::Numeric])?;
-        Ok(NumericDocValuesEnum2::B(Self::empty_numeric()))
+        Ok(NumericDocValuesWithEmpty::B(Self::empty_numeric()))
       },
     }
   }
@@ -260,7 +260,7 @@ impl DocValues {
     Ok(true)
   }
 }
-pub type Numeric<LR> = NumericDocValuesEnum2<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
+pub type Numeric<LR> = NumericDocValuesWithEmpty<<LR as LeafReader>::NumericDocValues>;
 pub type Binary<LR> = BinaryDocValuesEnum2<<LR as LeafReader>::BinaryDocValues, EmptyBinary>;
 pub type Sorted<LR> = SortedDocValuesWithEmpty<<LR as LeafReader>::SortedDocValues>;
 pub type SortedNumeric<LR> = SortedNumericDocValuesEnum3<
@@ -375,6 +375,82 @@ impl NumericDocValues for EmptyNumeric {
   fn long_value(&mut self) -> Result<i64> {
     debug_assert!(false);
     Ok(0)
+  }
+}
+
+pub enum NumericDocValuesWithEmpty<A> {
+  A(A),
+  B(EmptyNumeric),
+}
+
+impl<A> DocValuesIterator for NumericDocValuesWithEmpty<A>
+where
+  A: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(inner) => inner.advance_exact(target),
+      Self::B(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+
+impl<A> DocIdSetIterator for NumericDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(inner) => inner.doc_id(),
+      Self::B(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.next_doc(),
+      Self::B(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.advance(target),
+      Self::B(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.slow_advance(target),
+      Self::B(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.cost(),
+      Self::B(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<A> NumericDocValues for NumericDocValuesWithEmpty<A>
+where
+  A: NumericDocValues,
+{
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.long_value(),
+      Self::B(inner) => inner.long_value(),
+    }
   }
 }
 

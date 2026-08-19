@@ -16,14 +16,13 @@
  */
 #![allow(deprecated)]
 use crate::core::index::doc_values::SortedDocValuesWithEmpty;
-use crate::core::index::doc_values::{DocValues, EmptyNumeric};
+use crate::core::index::doc_values::{DocValues, NumericDocValuesWithEmpty};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
   CPEnumType1, ComparableProviderEnum5, DocComparatorImpl, DoubleSorter, FloatSorter, IndexSorter,
   IntSorter, LongSorter, NumericDocValuesProvider, SortedDocValuesProvider, StringSorter,
 };
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::sort_field_provider::SortFieldProvider;
 use crate::core::search::comparators::doc_comparator::DocComparator;
@@ -1022,7 +1021,7 @@ impl NPImpl1 {
     NPImpl1 { field }
   }
 }
-pub type NDVType<LR> = NumericDocValuesEnum2<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
+pub type NDVType<LR> = NumericDocValuesWithEmpty<<LR as LeafReader>::NumericDocValues>;
 impl NumericDocValuesProvider for NPImpl1 {
   type NumericDocValues<LR>
     = NDVType<LR>
