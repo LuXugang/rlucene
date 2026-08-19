@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::dummy_binary_doc_values::DummyBinaryDocValues;
@@ -31,7 +32,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorter::DocMap;
-use crate::core::index::terms_enum::TermsEnumWithUnsupportedPostingsAndAttributes2;
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -41,6 +42,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_hash::{
   BytesRefHash, DEFAULT_CAPACITY, DirectBytesRefHash, DirectBytesStartArray,
 };
+use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
@@ -54,6 +56,166 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 type BufferedWriterSortedDocValues = BufferedSortedDocValues<DocsWithFieldSetDISI>;
+
+pub(crate) enum SortedDocValuesWriterTermsEnum<'a> {
+  Buffered(<BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a>),
+  Sorting(
+    <SortingSortedDocValues<BufferedWriterSortedDocValues> as SortedDocValues>::TermsEnum<'a>,
+  ),
+}
+
+impl<'a> BytesRefIterator for SortedDocValuesWriterTermsEnum<'a> {
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Buffered(terms) => terms.next(),
+      Self::Sorting(terms) => terms.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::Buffered(terms) => terms.set_next(),
+      Self::Sorting(terms) => terms.set_next(),
+    }
+  }
+}
+
+impl<'a> TermsEnum for SortedDocValuesWriterTermsEnum<'a> {
+  type AttributeSource<'b>
+    = <<BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a> as TermsEnum>::AttributeSource<'b>
+  where
+    Self: 'b;
+  type AttributeSourceMut<'b>
+    = <<BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a> as TermsEnum>::AttributeSourceMut<'b>
+  where
+    Self: 'b;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::Buffered(terms) => terms.attributes(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::Buffered(terms) => terms.attributes_mut(),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Buffered(terms) => terms.seek_exact(term),
+      Self::Sorting(terms) => terms.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::Buffered(terms) => terms.prepare_seek_exact(text),
+      Self::Sorting(terms) => terms.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Buffered(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::Sorting(terms) => terms.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::Buffered(terms) => terms.seek_ceil(term),
+      Self::Sorting(terms) => terms.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::Buffered(terms) => terms.seek_exact_with_ord(ord),
+      Self::Sorting(terms) => terms.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::Buffered(terms) => terms.seek_exact_with_state(term, state),
+      Self::Sorting(terms) => terms.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Buffered(terms) => terms.term(),
+      Self::Sorting(terms) => terms.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::Buffered(terms) => terms.ord(),
+      Self::Sorting(terms) => terms.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::Buffered(terms) => terms.doc_freq(),
+      Self::Sorting(terms) => terms.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::Buffered(terms) => terms.total_term_freq(),
+      Self::Sorting(terms) => terms.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum =
+    <<BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a> as TermsEnum>::PostingsEnum;
+
+  fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::Buffered(terms) => terms.postings(reuse),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::Buffered(terms) => terms.postings_with_flags(reuse, flags),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  type ImpactsEnum =
+    <<BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a> as TermsEnum>::ImpactsEnum;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    match self {
+      Self::Buffered(terms) => terms.impacts(flags),
+      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::Buffered(terms) => terms.term_state(),
+      Self::Sorting(terms) => terms.term_state(),
+    }
+  }
+}
 
 pub(crate) enum SortedDocValuesWriterValues {
   Buffered(BufferedWriterSortedDocValues),
@@ -139,19 +301,16 @@ impl SortedDocValues for SortedDocValuesWriterValues {
     }
   }
 
-  type TermsEnum<'a> = TermsEnumWithUnsupportedPostingsAndAttributes2<
-    <BufferedWriterSortedDocValues as SortedDocValues>::TermsEnum<'a>,
-    <SortingSortedDocValues<BufferedWriterSortedDocValues> as SortedDocValues>::TermsEnum<'a>,
-  >;
+  type TermsEnum<'a> = SortedDocValuesWriterTermsEnum<'a>;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
       Self::Buffered(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
+        .map(SortedDocValuesWriterTermsEnum::Buffered),
       Self::Sorting(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
+        .map(SortedDocValuesWriterTermsEnum::Sorting),
     }
   }
 }
