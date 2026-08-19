@@ -18,7 +18,7 @@ use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
-use crate::core::index::doc_values::{DocValues, EmptyNumeric, SortedNumeric};
+use crate::core::index::doc_values::{DocValues, NumericDocValuesEnum3WithEmpty, SortedNumeric};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{
@@ -26,7 +26,7 @@ use crate::core::index::index_reader_context::{
 };
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
-use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum3};
+use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::{
   IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
 };
@@ -188,21 +188,21 @@ where
   let r = match multi_doc_values {
     SortedNumericDocValuesEnum3::A(v) => {
       let v = NumericDocValuesImpl::new(v, origin_lat, origin_lon);
-      NumericDocValuesEnum3::A(v)
+      NumericDocValuesEnum3WithEmpty::A(v)
     },
     SortedNumericDocValuesEnum3::B(mut v) => {
       let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
-      NumericDocValuesEnum3::B(singleton)
+      NumericDocValuesEnum3WithEmpty::B(singleton)
     },
     SortedNumericDocValuesEnum3::C(mut v) => {
       let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
-      NumericDocValuesEnum3::C(singleton)
+      NumericDocValuesEnum3WithEmpty::C(singleton)
     },
   };
   Ok(r)
 }
 pub type SelectValue<IRC> =
-  NumericDocValuesEnum3<NumericDocValuesImpl<IRCSNDV<IRC>>, IRCNDV<IRC>, EmptyNumeric>;
+  NumericDocValuesEnum3WithEmpty<NumericDocValuesImpl<IRCSNDV<IRC>>, IRCNDV<IRC>>;
 
 impl<IRC> SegmentCacheable<IRC> for LatLonPointDistanceFeatureWeight
 where

@@ -529,6 +529,94 @@ where
   }
 }
 
+pub enum NumericDocValuesEnum3WithEmpty<A, B> {
+  A(A),
+  B(B),
+  C(EmptyNumeric),
+}
+
+impl<A, B> DocValuesIterator for NumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocValuesIterator,
+  B: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(inner) => inner.advance_exact(target),
+      Self::B(inner) => inner.advance_exact(target),
+      Self::C(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+
+impl<A, B> DocIdSetIterator for NumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(inner) => inner.doc_id(),
+      Self::B(inner) => inner.doc_id(),
+      Self::C(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.next_doc(),
+      Self::B(inner) => inner.next_doc(),
+      Self::C(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.advance(target),
+      Self::B(inner) => inner.advance(target),
+      Self::C(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.slow_advance(target),
+      Self::B(inner) => inner.slow_advance(target),
+      Self::C(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.cost(),
+      Self::B(inner) => inner.cost(),
+      Self::C(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<A, B> NumericDocValues for NumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: NumericDocValues,
+  B: NumericDocValues,
+{
+  fn long_value(&mut self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.long_value(),
+      Self::B(inner) => inner.long_value(),
+      Self::C(inner) => inner.long_value(),
+    }
+  }
+}
+
 /// An empty SortedDocValues which returns empty [`BytesRef`] for every
 /// document.
 pub struct EmptySorted {
