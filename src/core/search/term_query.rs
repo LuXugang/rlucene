@@ -467,7 +467,7 @@ impl TermWeight {
     sim_scorer: Option<Arc<TermQuerySimScorer>>,
     score_mode: ScoreMode,
     top_level_scoring_clause: bool,
-  ) -> Result<TermScorerEnum<LR, EmptyDISI, DummyTwoPhaseIterator>>
+  ) -> Result<TermScorerEnum<LR>>
   where
     LR: LeafReader,
   {
@@ -482,13 +482,12 @@ impl TermWeight {
           .ok_or_else(|| LuceneError::illegal_state("TermQuery similarity scorer is missing"))?;
 
         if score_mode == ScoreMode::TopScores {
-          let v =
-            TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::from_impacts(
-              terms_enum.impacts(FREQS as i32)?,
-              sim_scorer,
-              norms,
-              top_level_scoring_clause,
-            ));
+          let v = TermScorerEnum::<LR>::A(TermScorer::from_impacts(
+            terms_enum.impacts(FREQS as i32)?,
+            sim_scorer,
+            norms,
+            top_level_scoring_clause,
+          ));
           Ok(v)
         } else {
           let flags = if score_mode.needs_scores() {
@@ -496,19 +495,20 @@ impl TermWeight {
           } else {
             NONE
           };
-          let v =
-            TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::A(TermScorer::from_postings(
-              terms_enum.postings_with_flags(None, flags as i32)?,
-              sim_scorer,
-              norms,
-            ));
+          let v = TermScorerEnum::<LR>::A(TermScorer::from_postings(
+            terms_enum.postings_with_flags(None, flags as i32)?,
+            sim_scorer,
+            norms,
+          ));
           Ok(v)
         }
       },
       None => {
-        let v = TermScorerEnum::<LR, EmptyDISI, DummyTwoPhaseIterator>::B(
-          ConstantScoreScorer::from_disi(0.0, score_mode, EmptyDISI::default()),
-        );
+        let v = TermScorerEnum::<LR>::B(ConstantScoreScorer::from_disi(
+          0.0,
+          score_mode,
+          EmptyDISI::default(),
+        ));
         Ok(v)
       },
     }
@@ -639,9 +639,9 @@ impl SimScorer for SimScorerImpl {
 }
 pub(crate) type TermQuerySimScorer = SimScorerEnum2<SimilaritySimScorer, SimScorerImpl>;
 
-pub type TermScorerEnum<LR, DISI, TPI> = ScorerEnum2<
+pub type TermScorerEnum<LR> = ScorerEnum2<
   TermScorer<LRPosting<LR>, Arc<TermQuerySimScorer>, LRNormNumericDocValues<LR>, LRImpactsEnum<LR>>,
-  ConstantScoreScorer<DISI, TPI>,
+  ConstantScoreScorer<EmptyDISI, DummyTwoPhaseIterator>,
 >;
 
 impl crate::core::util::accountable::Accountable for TermQuery {
