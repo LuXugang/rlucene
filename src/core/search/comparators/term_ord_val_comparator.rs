@@ -918,10 +918,10 @@ where
     match self {
       Self::A(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
       Self::B(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
     }
   }
 }

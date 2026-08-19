@@ -539,13 +539,13 @@ where
 }
 
 pub enum TermsEnumWithUnsupportedPostingsAndAttributes2<A, B> {
-  A(A),
-  B(B),
+  WithPostingsAndAttributes(A),
+  WithoutPostingsAndAttributes(B),
 }
 
 pub enum TermsEnumWithUnsupportedSecondPostings2<A, B> {
-  A(A),
-  B(B),
+  WithPostings(A),
+  WithoutPostings(B),
 }
 
 impl<A, B> BytesRefIterator for TermsEnumWithUnsupportedSecondPostings2<A, B>
@@ -555,15 +555,15 @@ where
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self {
-      Self::A(terms) => terms.next(),
-      Self::B(terms) => terms.next(),
+      Self::WithPostings(terms) => terms.next(),
+      Self::WithoutPostings(terms) => terms.next(),
     }
   }
 
   fn set_next(&mut self) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.set_next(),
-      Self::B(terms) => terms.set_next(),
+      Self::WithPostings(terms) => terms.set_next(),
+      Self::WithoutPostings(terms) => terms.set_next(),
     }
   }
 }
@@ -584,50 +584,50 @@ where
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
-      Self::A(terms) => terms.attributes().map(AttributeSourceEnum2::A),
-      Self::B(terms) => terms.attributes().map(AttributeSourceEnum2::B),
+      Self::WithPostings(terms) => terms.attributes().map(AttributeSourceEnum2::A),
+      Self::WithoutPostings(terms) => terms.attributes().map(AttributeSourceEnum2::B),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
-      Self::A(terms) => terms.attributes_mut().map(AttributeSourceEnum2::A),
-      Self::B(terms) => terms.attributes_mut().map(AttributeSourceEnum2::B),
+      Self::WithPostings(terms) => terms.attributes_mut().map(AttributeSourceEnum2::A),
+      Self::WithoutPostings(terms) => terms.attributes_mut().map(AttributeSourceEnum2::B),
     }
   }
 
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.seek_exact(term),
-      Self::B(terms) => terms.seek_exact(term),
+      Self::WithPostings(terms) => terms.seek_exact(term),
+      Self::WithoutPostings(terms) => terms.seek_exact(term),
     }
   }
 
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
     match self {
-      Self::A(terms) => terms.prepare_seek_exact(text),
-      Self::B(terms) => terms.prepare_seek_exact(text),
+      Self::WithPostings(terms) => terms.prepare_seek_exact(text),
+      Self::WithoutPostings(terms) => terms.prepare_seek_exact(text),
     }
   }
 
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.get_prepare_seek_exact_status(target),
-      Self::B(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::WithPostings(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::WithoutPostings(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     match self {
-      Self::A(terms) => terms.seek_ceil(term),
-      Self::B(terms) => terms.seek_ceil(term),
+      Self::WithPostings(terms) => terms.seek_ceil(term),
+      Self::WithoutPostings(terms) => terms.seek_ceil(term),
     }
   }
 
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_ord(ord),
-      Self::B(terms) => terms.seek_exact_with_ord(ord),
+      Self::WithPostings(terms) => terms.seek_exact_with_ord(ord),
+      Self::WithoutPostings(terms) => terms.seek_exact_with_ord(ord),
     }
   }
 
@@ -637,36 +637,36 @@ where
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_state(term, state),
-      Self::B(terms) => terms.seek_exact_with_state(term, state),
+      Self::WithPostings(terms) => terms.seek_exact_with_state(term, state),
+      Self::WithoutPostings(terms) => terms.seek_exact_with_state(term, state),
     }
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
-      Self::A(terms) => terms.term(),
-      Self::B(terms) => terms.term(),
+      Self::WithPostings(terms) => terms.term(),
+      Self::WithoutPostings(terms) => terms.term(),
     }
   }
 
   fn ord(&self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.ord(),
-      Self::B(terms) => terms.ord(),
+      Self::WithPostings(terms) => terms.ord(),
+      Self::WithoutPostings(terms) => terms.ord(),
     }
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
     match self {
-      Self::A(terms) => terms.doc_freq(),
-      Self::B(terms) => terms.doc_freq(),
+      Self::WithPostings(terms) => terms.doc_freq(),
+      Self::WithoutPostings(terms) => terms.doc_freq(),
     }
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.total_term_freq(),
-      Self::B(terms) => terms.total_term_freq(),
+      Self::WithPostings(terms) => terms.total_term_freq(),
+      Self::WithoutPostings(terms) => terms.total_term_freq(),
     }
   }
 
@@ -674,8 +674,8 @@ where
 
   fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
     match self {
-      Self::A(terms) => terms.postings(reuse),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostings(terms) => terms.postings(reuse),
+      Self::WithoutPostings(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -685,8 +685,8 @@ where
     flags: i32,
   ) -> Result<Self::PostingsEnum> {
     match self {
-      Self::A(terms) => terms.postings_with_flags(reuse, flags),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostings(terms) => terms.postings_with_flags(reuse, flags),
+      Self::WithoutPostings(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -694,22 +694,22 @@ where
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     match self {
-      Self::A(terms) => terms.impacts(flags),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostings(terms) => terms.impacts(flags),
+      Self::WithoutPostings(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
     match self {
-      Self::A(terms) => terms.term_state(),
-      Self::B(terms) => terms.term_state(),
+      Self::WithPostings(terms) => terms.term_state(),
+      Self::WithoutPostings(terms) => terms.term_state(),
     }
   }
 }
 
 pub enum TermsEnumWithUnsupportedSecondAttributes2<A, B> {
-  A(A),
-  B(B),
+  WithAttributes(A),
+  WithoutAttributes(B),
 }
 
 impl<A, B> BytesRefIterator for TermsEnumWithUnsupportedSecondAttributes2<A, B>
@@ -719,15 +719,15 @@ where
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self {
-      Self::A(terms) => terms.next(),
-      Self::B(terms) => terms.next(),
+      Self::WithAttributes(terms) => terms.next(),
+      Self::WithoutAttributes(terms) => terms.next(),
     }
   }
 
   fn set_next(&mut self) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.set_next(),
-      Self::B(terms) => terms.set_next(),
+      Self::WithAttributes(terms) => terms.set_next(),
+      Self::WithoutAttributes(terms) => terms.set_next(),
     }
   }
 }
@@ -748,50 +748,50 @@ where
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
-      Self::A(terms) => terms.attributes(),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithAttributes(terms) => terms.attributes(),
+      Self::WithoutAttributes(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
-      Self::A(terms) => terms.attributes_mut(),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithAttributes(terms) => terms.attributes_mut(),
+      Self::WithoutAttributes(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.seek_exact(term),
-      Self::B(terms) => terms.seek_exact(term),
+      Self::WithAttributes(terms) => terms.seek_exact(term),
+      Self::WithoutAttributes(terms) => terms.seek_exact(term),
     }
   }
 
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
     match self {
-      Self::A(terms) => terms.prepare_seek_exact(text),
-      Self::B(terms) => terms.prepare_seek_exact(text),
+      Self::WithAttributes(terms) => terms.prepare_seek_exact(text),
+      Self::WithoutAttributes(terms) => terms.prepare_seek_exact(text),
     }
   }
 
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.get_prepare_seek_exact_status(target),
-      Self::B(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::WithAttributes(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::WithoutAttributes(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     match self {
-      Self::A(terms) => terms.seek_ceil(term),
-      Self::B(terms) => terms.seek_ceil(term),
+      Self::WithAttributes(terms) => terms.seek_ceil(term),
+      Self::WithoutAttributes(terms) => terms.seek_ceil(term),
     }
   }
 
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_ord(ord),
-      Self::B(terms) => terms.seek_exact_with_ord(ord),
+      Self::WithAttributes(terms) => terms.seek_exact_with_ord(ord),
+      Self::WithoutAttributes(terms) => terms.seek_exact_with_ord(ord),
     }
   }
 
@@ -801,36 +801,36 @@ where
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_state(term, state),
-      Self::B(terms) => terms.seek_exact_with_state(term, state),
+      Self::WithAttributes(terms) => terms.seek_exact_with_state(term, state),
+      Self::WithoutAttributes(terms) => terms.seek_exact_with_state(term, state),
     }
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
-      Self::A(terms) => terms.term(),
-      Self::B(terms) => terms.term(),
+      Self::WithAttributes(terms) => terms.term(),
+      Self::WithoutAttributes(terms) => terms.term(),
     }
   }
 
   fn ord(&self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.ord(),
-      Self::B(terms) => terms.ord(),
+      Self::WithAttributes(terms) => terms.ord(),
+      Self::WithoutAttributes(terms) => terms.ord(),
     }
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
     match self {
-      Self::A(terms) => terms.doc_freq(),
-      Self::B(terms) => terms.doc_freq(),
+      Self::WithAttributes(terms) => terms.doc_freq(),
+      Self::WithoutAttributes(terms) => terms.doc_freq(),
     }
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.total_term_freq(),
-      Self::B(terms) => terms.total_term_freq(),
+      Self::WithAttributes(terms) => terms.total_term_freq(),
+      Self::WithoutAttributes(terms) => terms.total_term_freq(),
     }
   }
 
@@ -842,7 +842,7 @@ where
     flags: i32,
   ) -> Result<Self::PostingsEnum> {
     match self {
-      Self::A(terms) => {
+      Self::WithAttributes(terms) => {
         let reuse = match reuse {
           Some(PostingsEnumEnum2::A(reuse)) => Some(reuse),
           _ => None,
@@ -851,7 +851,7 @@ where
           .postings_with_flags(reuse, flags)
           .map(PostingsEnumEnum2::A)
       },
-      Self::B(terms) => {
+      Self::WithoutAttributes(terms) => {
         let reuse = match reuse {
           Some(PostingsEnumEnum2::B(reuse)) => Some(reuse),
           _ => None,
@@ -867,15 +867,15 @@ where
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     match self {
-      Self::A(terms) => terms.impacts(flags).map(ImpactsEnumEnum2::A),
-      Self::B(terms) => terms.impacts(flags).map(ImpactsEnumEnum2::B),
+      Self::WithAttributes(terms) => terms.impacts(flags).map(ImpactsEnumEnum2::A),
+      Self::WithoutAttributes(terms) => terms.impacts(flags).map(ImpactsEnumEnum2::B),
     }
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
     match self {
-      Self::A(terms) => terms.term_state(),
-      Self::B(terms) => terms.term_state(),
+      Self::WithAttributes(terms) => terms.term_state(),
+      Self::WithoutAttributes(terms) => terms.term_state(),
     }
   }
 }
@@ -887,15 +887,15 @@ where
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self {
-      Self::A(terms) => terms.next(),
-      Self::B(terms) => terms.next(),
+      Self::WithPostingsAndAttributes(terms) => terms.next(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.next(),
     }
   }
 
   fn set_next(&mut self) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.set_next(),
-      Self::B(terms) => terms.set_next(),
+      Self::WithPostingsAndAttributes(terms) => terms.set_next(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.set_next(),
     }
   }
 }
@@ -916,50 +916,50 @@ where
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
-      Self::A(terms) => terms.attributes(),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostingsAndAttributes(terms) => terms.attributes(),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
-      Self::A(terms) => terms.attributes_mut(),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostingsAndAttributes(terms) => terms.attributes_mut(),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.seek_exact(term),
-      Self::B(terms) => terms.seek_exact(term),
+      Self::WithPostingsAndAttributes(terms) => terms.seek_exact(term),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact(term),
     }
   }
 
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
     match self {
-      Self::A(terms) => terms.prepare_seek_exact(text),
-      Self::B(terms) => terms.prepare_seek_exact(text),
+      Self::WithPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
+      Self::WithoutPostingsAndAttributes(terms) => terms.prepare_seek_exact(text),
     }
   }
 
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.get_prepare_seek_exact_status(target),
-      Self::B(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::WithPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::WithoutPostingsAndAttributes(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     match self {
-      Self::A(terms) => terms.seek_ceil(term),
-      Self::B(terms) => terms.seek_ceil(term),
+      Self::WithPostingsAndAttributes(terms) => terms.seek_ceil(term),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_ceil(term),
     }
   }
 
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_ord(ord),
-      Self::B(terms) => terms.seek_exact_with_ord(ord),
+      Self::WithPostingsAndAttributes(terms) => terms.seek_exact_with_ord(ord),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact_with_ord(ord),
     }
   }
 
@@ -969,36 +969,36 @@ where
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_state(term, state),
-      Self::B(terms) => terms.seek_exact_with_state(term, state),
+      Self::WithPostingsAndAttributes(terms) => terms.seek_exact_with_state(term, state),
+      Self::WithoutPostingsAndAttributes(terms) => terms.seek_exact_with_state(term, state),
     }
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
-      Self::A(terms) => terms.term(),
-      Self::B(terms) => terms.term(),
+      Self::WithPostingsAndAttributes(terms) => terms.term(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term(),
     }
   }
 
   fn ord(&self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.ord(),
-      Self::B(terms) => terms.ord(),
+      Self::WithPostingsAndAttributes(terms) => terms.ord(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.ord(),
     }
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
     match self {
-      Self::A(terms) => terms.doc_freq(),
-      Self::B(terms) => terms.doc_freq(),
+      Self::WithPostingsAndAttributes(terms) => terms.doc_freq(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.doc_freq(),
     }
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.total_term_freq(),
-      Self::B(terms) => terms.total_term_freq(),
+      Self::WithPostingsAndAttributes(terms) => terms.total_term_freq(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.total_term_freq(),
     }
   }
 
@@ -1006,8 +1006,8 @@ where
 
   fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
     match self {
-      Self::A(terms) => terms.postings(reuse),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostingsAndAttributes(terms) => terms.postings(reuse),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -1017,8 +1017,8 @@ where
     flags: i32,
   ) -> Result<Self::PostingsEnum> {
     match self {
-      Self::A(terms) => terms.postings_with_flags(reuse, flags),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostingsAndAttributes(terms) => terms.postings_with_flags(reuse, flags),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -1026,24 +1026,24 @@ where
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     match self {
-      Self::A(terms) => terms.impacts(flags),
-      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+      Self::WithPostingsAndAttributes(terms) => terms.impacts(flags),
+      Self::WithoutPostingsAndAttributes(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
     match self {
-      Self::A(terms) => terms.term_state(),
-      Self::B(terms) => terms.term_state(),
+      Self::WithPostingsAndAttributes(terms) => terms.term_state(),
+      Self::WithoutPostingsAndAttributes(terms) => terms.term_state(),
     }
   }
 }
 
 pub enum TermsEnumWithUnsupportedFirstPostings4<A, B, C, D> {
-  A(A),
-  B(B),
-  C(C),
-  D(D),
+  None(A),
+  All(B),
+  Single(C),
+  Normal(D),
 }
 
 impl<A, B, C, D> BytesRefIterator for TermsEnumWithUnsupportedFirstPostings4<A, B, C, D>
@@ -1055,19 +1055,19 @@ where
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self {
-      Self::A(terms) => terms.next(),
-      Self::B(terms) => terms.next(),
-      Self::C(terms) => terms.next(),
-      Self::D(terms) => terms.next(),
+      Self::None(terms) => terms.next(),
+      Self::All(terms) => terms.next(),
+      Self::Single(terms) => terms.next(),
+      Self::Normal(terms) => terms.next(),
     }
   }
 
   fn set_next(&mut self) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.set_next(),
-      Self::B(terms) => terms.set_next(),
-      Self::C(terms) => terms.set_next(),
-      Self::D(terms) => terms.set_next(),
+      Self::None(terms) => terms.set_next(),
+      Self::All(terms) => terms.set_next(),
+      Self::Single(terms) => terms.set_next(),
+      Self::Normal(terms) => terms.set_next(),
     }
   }
 }
@@ -1094,64 +1094,64 @@ where
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
-      Self::A(_) => Err(LuceneError::unsupported_operation("")),
-      Self::B(terms) => terms.attributes().map(AttributeSourceEnum3::A),
-      Self::C(terms) => terms.attributes().map(AttributeSourceEnum3::B),
-      Self::D(terms) => terms.attributes().map(AttributeSourceEnum3::C),
+      Self::None(_) => Err(LuceneError::unsupported_operation("")),
+      Self::All(terms) => terms.attributes().map(AttributeSourceEnum3::A),
+      Self::Single(terms) => terms.attributes().map(AttributeSourceEnum3::B),
+      Self::Normal(terms) => terms.attributes().map(AttributeSourceEnum3::C),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
-      Self::A(_) => Err(LuceneError::unsupported_operation("")),
-      Self::B(terms) => terms.attributes_mut().map(AttributeSourceEnum3::A),
-      Self::C(terms) => terms.attributes_mut().map(AttributeSourceEnum3::B),
-      Self::D(terms) => terms.attributes_mut().map(AttributeSourceEnum3::C),
+      Self::None(_) => Err(LuceneError::unsupported_operation("")),
+      Self::All(terms) => terms.attributes_mut().map(AttributeSourceEnum3::A),
+      Self::Single(terms) => terms.attributes_mut().map(AttributeSourceEnum3::B),
+      Self::Normal(terms) => terms.attributes_mut().map(AttributeSourceEnum3::C),
     }
   }
 
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.seek_exact(term),
-      Self::B(terms) => terms.seek_exact(term),
-      Self::C(terms) => terms.seek_exact(term),
-      Self::D(terms) => terms.seek_exact(term),
+      Self::None(terms) => terms.seek_exact(term),
+      Self::All(terms) => terms.seek_exact(term),
+      Self::Single(terms) => terms.seek_exact(term),
+      Self::Normal(terms) => terms.seek_exact(term),
     }
   }
 
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
     match self {
-      Self::A(terms) => terms.prepare_seek_exact(text),
-      Self::B(terms) => terms.prepare_seek_exact(text),
-      Self::C(terms) => terms.prepare_seek_exact(text),
-      Self::D(terms) => terms.prepare_seek_exact(text),
+      Self::None(terms) => terms.prepare_seek_exact(text),
+      Self::All(terms) => terms.prepare_seek_exact(text),
+      Self::Single(terms) => terms.prepare_seek_exact(text),
+      Self::Normal(terms) => terms.prepare_seek_exact(text),
     }
   }
 
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
     match self {
-      Self::A(terms) => terms.get_prepare_seek_exact_status(target),
-      Self::B(terms) => terms.get_prepare_seek_exact_status(target),
-      Self::C(terms) => terms.get_prepare_seek_exact_status(target),
-      Self::D(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::None(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::All(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::Single(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::Normal(terms) => terms.get_prepare_seek_exact_status(target),
     }
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     match self {
-      Self::A(terms) => terms.seek_ceil(term),
-      Self::B(terms) => terms.seek_ceil(term),
-      Self::C(terms) => terms.seek_ceil(term),
-      Self::D(terms) => terms.seek_ceil(term),
+      Self::None(terms) => terms.seek_ceil(term),
+      Self::All(terms) => terms.seek_ceil(term),
+      Self::Single(terms) => terms.seek_ceil(term),
+      Self::Normal(terms) => terms.seek_ceil(term),
     }
   }
 
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_ord(ord),
-      Self::B(terms) => terms.seek_exact_with_ord(ord),
-      Self::C(terms) => terms.seek_exact_with_ord(ord),
-      Self::D(terms) => terms.seek_exact_with_ord(ord),
+      Self::None(terms) => terms.seek_exact_with_ord(ord),
+      Self::All(terms) => terms.seek_exact_with_ord(ord),
+      Self::Single(terms) => terms.seek_exact_with_ord(ord),
+      Self::Normal(terms) => terms.seek_exact_with_ord(ord),
     }
   }
 
@@ -1161,46 +1161,46 @@ where
     state: &TermStateEnum,
   ) -> Result<()> {
     match self {
-      Self::A(terms) => terms.seek_exact_with_state(term, state),
-      Self::B(terms) => terms.seek_exact_with_state(term, state),
-      Self::C(terms) => terms.seek_exact_with_state(term, state),
-      Self::D(terms) => terms.seek_exact_with_state(term, state),
+      Self::None(terms) => terms.seek_exact_with_state(term, state),
+      Self::All(terms) => terms.seek_exact_with_state(term, state),
+      Self::Single(terms) => terms.seek_exact_with_state(term, state),
+      Self::Normal(terms) => terms.seek_exact_with_state(term, state),
     }
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     match self {
-      Self::A(terms) => terms.term(),
-      Self::B(terms) => terms.term(),
-      Self::C(terms) => terms.term(),
-      Self::D(terms) => terms.term(),
+      Self::None(terms) => terms.term(),
+      Self::All(terms) => terms.term(),
+      Self::Single(terms) => terms.term(),
+      Self::Normal(terms) => terms.term(),
     }
   }
 
   fn ord(&self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.ord(),
-      Self::B(terms) => terms.ord(),
-      Self::C(terms) => terms.ord(),
-      Self::D(terms) => terms.ord(),
+      Self::None(terms) => terms.ord(),
+      Self::All(terms) => terms.ord(),
+      Self::Single(terms) => terms.ord(),
+      Self::Normal(terms) => terms.ord(),
     }
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
     match self {
-      Self::A(terms) => terms.doc_freq(),
-      Self::B(terms) => terms.doc_freq(),
-      Self::C(terms) => terms.doc_freq(),
-      Self::D(terms) => terms.doc_freq(),
+      Self::None(terms) => terms.doc_freq(),
+      Self::All(terms) => terms.doc_freq(),
+      Self::Single(terms) => terms.doc_freq(),
+      Self::Normal(terms) => terms.doc_freq(),
     }
   }
 
   fn total_term_freq(&mut self) -> Result<i64> {
     match self {
-      Self::A(terms) => terms.total_term_freq(),
-      Self::B(terms) => terms.total_term_freq(),
-      Self::C(terms) => terms.total_term_freq(),
-      Self::D(terms) => terms.total_term_freq(),
+      Self::None(terms) => terms.total_term_freq(),
+      Self::All(terms) => terms.total_term_freq(),
+      Self::Single(terms) => terms.total_term_freq(),
+      Self::Normal(terms) => terms.total_term_freq(),
     }
   }
 
@@ -1208,10 +1208,10 @@ where
 
   fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
     match self {
-      Self::A(_) => Err(LuceneError::unsupported_operation("")),
-      Self::B(terms) => terms.postings(reuse),
-      Self::C(terms) => terms.postings(reuse),
-      Self::D(terms) => terms.postings(reuse),
+      Self::None(_) => Err(LuceneError::unsupported_operation("")),
+      Self::All(terms) => terms.postings(reuse),
+      Self::Single(terms) => terms.postings(reuse),
+      Self::Normal(terms) => terms.postings(reuse),
     }
   }
 
@@ -1221,10 +1221,10 @@ where
     flags: i32,
   ) -> Result<Self::PostingsEnum> {
     match self {
-      Self::A(_) => Err(LuceneError::unsupported_operation("")),
-      Self::B(terms) => terms.postings_with_flags(reuse, flags),
-      Self::C(terms) => terms.postings_with_flags(reuse, flags),
-      Self::D(terms) => terms.postings_with_flags(reuse, flags),
+      Self::None(_) => Err(LuceneError::unsupported_operation("")),
+      Self::All(terms) => terms.postings_with_flags(reuse, flags),
+      Self::Single(terms) => terms.postings_with_flags(reuse, flags),
+      Self::Normal(terms) => terms.postings_with_flags(reuse, flags),
     }
   }
 
@@ -1232,19 +1232,19 @@ where
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     match self {
-      Self::A(_) => Err(LuceneError::unsupported_operation("")),
-      Self::B(terms) => terms.impacts(flags),
-      Self::C(terms) => terms.impacts(flags),
-      Self::D(terms) => terms.impacts(flags),
+      Self::None(_) => Err(LuceneError::unsupported_operation("")),
+      Self::All(terms) => terms.impacts(flags),
+      Self::Single(terms) => terms.impacts(flags),
+      Self::Normal(terms) => terms.impacts(flags),
     }
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {
     match self {
-      Self::A(terms) => terms.term_state(),
-      Self::B(terms) => terms.term_state(),
-      Self::C(terms) => terms.term_state(),
-      Self::D(terms) => terms.term_state(),
+      Self::None(terms) => terms.term_state(),
+      Self::All(terms) => terms.term_state(),
+      Self::Single(terms) => terms.term_state(),
+      Self::Normal(terms) => terms.term_state(),
     }
   }
 }

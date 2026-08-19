@@ -148,10 +148,10 @@ impl SortedDocValues for SortedDocValuesWriterValues {
     match self {
       Self::Buffered(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
       Self::Sorting(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
     }
   }
 }

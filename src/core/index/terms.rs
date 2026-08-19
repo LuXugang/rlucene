@@ -384,10 +384,10 @@ where
     match self {
       Self::Terms(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
       Self::Empty(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
     }
   }
 
@@ -404,10 +404,10 @@ where
     match self {
       Self::Terms(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
       Self::Empty(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
     }
   }
 

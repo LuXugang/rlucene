@@ -139,9 +139,9 @@ pub trait SortedSetDocValues: DocValuesIterator {
   {
     let terms_enum = self.terms_enum()?;
     match automaton.type_ {
-      AutomatonType::None => Ok(TermsEnumWithUnsupportedFirstPostings4::A(EmptyTermsEnum)),
-      AutomatonType::All => Ok(TermsEnumWithUnsupportedFirstPostings4::B(terms_enum)),
-      AutomatonType::Single => Ok(TermsEnumWithUnsupportedFirstPostings4::C(
+      AutomatonType::None => Ok(TermsEnumWithUnsupportedFirstPostings4::None(EmptyTermsEnum)),
+      AutomatonType::All => Ok(TermsEnumWithUnsupportedFirstPostings4::All(terms_enum)),
+      AutomatonType::Single => Ok(TermsEnumWithUnsupportedFirstPostings4::Single(
         SingleTermsEnum::new(
           terms_enum,
           automaton.term.clone().ok_or_else(|| {
@@ -149,7 +149,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
           })?,
         ),
       )),
-      AutomatonType::Normal => Ok(TermsEnumWithUnsupportedFirstPostings4::D(
+      AutomatonType::Normal => Ok(TermsEnumWithUnsupportedFirstPostings4::Normal(
         AutomatonTermsEnum::new(terms_enum, automaton)?,
       )),
     }

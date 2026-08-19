@@ -1406,10 +1406,10 @@ impl<I: IndexInput> Terms for CodecTermVectorsTerms<I> {
     match self {
       Self::Lucene90(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithAttributes),
       Self::Asserting(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithoutAttributes),
     }
   }
 
@@ -1426,10 +1426,10 @@ impl<I: IndexInput> Terms for CodecTermVectorsTerms<I> {
     match self {
       Self::Lucene90(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithAttributes),
       Self::Asserting(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithoutAttributes),
     }
   }
 

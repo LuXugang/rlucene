@@ -3771,10 +3771,10 @@ where
     match self {
       Self::Single(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::A),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
       Self::Multi(values) => values
         .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::B),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
     }
   }
 

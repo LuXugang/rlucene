@@ -235,10 +235,10 @@ where
     match self {
       Self::A(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithAttributes),
       Self::B(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithoutAttributes),
     }
   }
 
@@ -250,10 +250,10 @@ where
     match self {
       Self::A(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedSecondAttributes2::A),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithAttributes),
       Self::B(terms) => terms
         .intersect(compiled, start_term)
-        .map(TermsEnumWithUnsupportedSecondAttributes2::B),
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithoutAttributes),
     }
   }
 
