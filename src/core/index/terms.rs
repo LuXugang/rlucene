@@ -20,6 +20,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::terms_enum::{
   EmptyTermsEnum, SeekStatus, TermsEnum, TermsEnumEnum2,
   TermsEnumWithUnsupportedPostingsAndAttributes2,
+  TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty,
 };
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -378,16 +379,16 @@ impl<T> Terms for TermsWithEmpty<T>
 where
   T: Terms,
 {
-  type TermsEnum = TermsEnumWithUnsupportedPostingsAndAttributes2<T::TermsEnum, EmptyTermsEnum>;
+  type TermsEnum = TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty<T::TermsEnum>;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
     match self {
       Self::Terms(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty::WithPostingsAndAttributes),
       Self::Empty(terms) => terms
         .iterator()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
+        .map(TermsEnumWithUnsupportedPostingsAndAttributesWithEmpty::WithoutPostingsAndAttributes),
     }
   }
 
