@@ -26,9 +26,7 @@ use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNume
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
-use crate::core::index::sorted_numeric_doc_values::{
-  SortedNumericDocValues, SortedNumericDocValuesEnum3,
-};
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::terms_enum::TermsEnumWithUnsupportedSecondPostings2;
@@ -199,14 +197,16 @@ impl DocValues {
     LR: LeafReader,
   {
     match reader.get_sorted_numeric_doc_values(field)? {
-      Some(dv) => Ok(SortedNumericDocValuesEnum3::A(dv)),
+      Some(dv) => Ok(SortedNumericDocValuesEnum3WithEmpty::A(dv)),
       None => match reader.get_numeric_doc_values(field)? {
-        Some(single) => Ok(SortedNumericDocValuesEnum3::B(Self::singleton_numeric(
-          single,
-        )?)),
+        Some(single) => Ok(SortedNumericDocValuesEnum3WithEmpty::B(
+          Self::singleton_numeric(single)?,
+        )),
         None => {
           Self::check_field(reader, field, &[DocValuesType::SortedNumeric])?;
-          Ok(SortedNumericDocValuesEnum3::C(Self::empty_sorted_numeric()?))
+          Ok(SortedNumericDocValuesEnum3WithEmpty::C(
+            Self::empty_sorted_numeric()?,
+          ))
         },
       },
     }
@@ -262,10 +262,9 @@ impl DocValues {
 pub type Numeric<LR> = NumericDocValuesWithEmpty<<LR as LeafReader>::NumericDocValues>;
 pub type Binary<LR> = BinaryDocValuesWithEmpty<<LR as LeafReader>::BinaryDocValues>;
 pub type Sorted<LR> = SortedDocValuesWithEmpty<<LR as LeafReader>::SortedDocValues>;
-pub type SortedNumeric<LR> = SortedNumericDocValuesEnum3<
+pub type SortedNumeric<LR> = SortedNumericDocValuesEnum3WithEmpty<
   <LR as LeafReader>::SortedNumericDocValues,
   SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
-  SingletonSortedNumericDocValues<EmptyNumeric>,
 >;
 pub type SortedSet<LR> = SortedSetDocValuesEnum2<
   <LR as LeafReader>::SortedSetDocValues,
@@ -613,6 +612,126 @@ where
       Self::A(inner) => inner.long_value(),
       Self::B(inner) => inner.long_value(),
       Self::C(inner) => inner.long_value(),
+    }
+  }
+}
+
+pub enum SortedNumericDocValuesEnum3WithEmpty<A, B> {
+  A(A),
+  B(B),
+  C(SingletonSortedNumericDocValues<EmptyNumeric>),
+}
+
+impl<A, B> DocValuesIterator for SortedNumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocValuesIterator,
+  B: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(inner) => inner.advance_exact(target),
+      Self::B(inner) => inner.advance_exact(target),
+      Self::C(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+
+impl<A, B> DocIdSetIterator for SortedNumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(inner) => inner.doc_id(),
+      Self::B(inner) => inner.doc_id(),
+      Self::C(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.next_doc(),
+      Self::B(inner) => inner.next_doc(),
+      Self::C(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.advance(target),
+      Self::B(inner) => inner.advance(target),
+      Self::C(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.slow_advance(target),
+      Self::B(inner) => inner.slow_advance(target),
+      Self::C(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.cost(),
+      Self::B(inner) => inner.cost(),
+      Self::C(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<A, B> SortedNumericDocValues for SortedNumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: SortedNumericDocValues,
+  B: SortedNumericDocValues,
+{
+  fn next_value(&mut self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.next_value(),
+      Self::B(inner) => inner.next_value(),
+      Self::C(inner) => inner.next_value(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.doc_value_count(),
+      Self::B(inner) => inner.doc_value_count(),
+      Self::C(inner) => inner.doc_value_count(),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::A(inner) => inner.is_single_valued(),
+      Self::B(inner) => inner.is_single_valued(),
+      Self::C(inner) => inner.is_single_valued(),
+    }
+  }
+
+  type NumericDocValues = NumericDocValuesEnum3WithEmpty<A::NumericDocValues, B::NumericDocValues>;
+
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::A(inner) => inner
+        .get_numeric_doc_values()
+        .map(NumericDocValuesEnum3WithEmpty::A),
+      Self::B(inner) => inner
+        .get_numeric_doc_values()
+        .map(NumericDocValuesEnum3WithEmpty::B),
+      Self::C(inner) => inner
+        .get_numeric_doc_values()
+        .map(NumericDocValuesEnum3WithEmpty::C),
     }
   }
 }

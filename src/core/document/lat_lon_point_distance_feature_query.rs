@@ -18,7 +18,9 @@ use crate::core::document::lat_lon_point::LatLonPoint;
 use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
-use crate::core::index::doc_values::{DocValues, NumericDocValuesEnum3WithEmpty, SortedNumeric};
+use crate::core::index::doc_values::{
+  DocValues, NumericDocValuesEnum3WithEmpty, SortedNumeric, SortedNumericDocValuesEnum3WithEmpty,
+};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{
@@ -30,9 +32,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::{
   IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
 };
-use crate::core::index::sorted_numeric_doc_values::{
-  SortedNumericDocValues, SortedNumericDocValuesEnum3,
-};
+use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum2, EmptyDISI};
@@ -186,15 +186,15 @@ where
   IRC: IndexReaderContext,
 {
   let r = match multi_doc_values {
-    SortedNumericDocValuesEnum3::A(v) => {
+    SortedNumericDocValuesEnum3WithEmpty::A(v) => {
       let v = NumericDocValuesImpl::new(v, origin_lat, origin_lon);
       NumericDocValuesEnum3WithEmpty::A(v)
     },
-    SortedNumericDocValuesEnum3::B(mut v) => {
+    SortedNumericDocValuesEnum3WithEmpty::B(mut v) => {
       let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
       NumericDocValuesEnum3WithEmpty::B(singleton)
     },
-    SortedNumericDocValuesEnum3::C(mut v) => {
+    SortedNumericDocValuesEnum3WithEmpty::C(mut v) => {
       let singleton = DocValues::unwrap_singleton_numeric(&mut v)?;
       NumericDocValuesEnum3WithEmpty::C(singleton)
     },
