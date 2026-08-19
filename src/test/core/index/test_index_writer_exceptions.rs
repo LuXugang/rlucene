@@ -96,6 +96,7 @@ use rand::{Rng, RngExt, SeedableRng};
 use std::cell::Cell;
 use std::collections::HashMap;
 use std::io::Error;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, LazyLock};
 use std::thread;
@@ -694,6 +695,36 @@ impl InfoStream for EvilRollbackInfoStream {
   }
 }
 
+struct OutOfMemoryInfoStream {
+  message_to_fail_on: &'static str,
+  starts_with: bool,
+  thrown: AtomicBool,
+}
+
+impl CloseableRef for OutOfMemoryInfoStream {
+  fn close(&self) -> Result<()> {
+    Ok(())
+  }
+}
+
+impl InfoStream for OutOfMemoryInfoStream {
+  fn message(&self, _component: &str, message: &str) -> Result<()> {
+    let matches = if self.starts_with {
+      message.starts_with(self.message_to_fail_on)
+    } else {
+      message.contains(self.message_to_fail_on)
+    };
+    if matches && !self.thrown.swap(true, Ordering::SeqCst) {
+      panic!("fake OOME at {message}");
+    }
+    Ok(())
+  }
+
+  fn is_enabled(&self, _component: &str) -> bool {
+    true
+  }
+}
+
 struct RollbackOnceInfoStream {
   once: AtomicBool,
 }
@@ -822,8 +853,6 @@ where
   }
 }
 
-// TODO: these are also in TestIndexWriter... add a simple doc-writing method
-// like this to LuceneTestCase?
 fn add_doc<D>(writer: &DefaultIndexWriter<D>) -> Result<()>
 where
   D: Directory + 'static,
@@ -1883,23 +1912,61 @@ fn test_force_merge_exceptions() -> Result<()> {
 
 #[test]
 fn test_out_of_memory_error_causes_close_to_fail() -> Result<()> {
-  // TODO: Java injects an OutOfMemoryError from InfoStream while close() flushes and then verifies
-  // that a second close succeeds. Rust InfoStream::message can only return LuceneError, and
-  // LuceneError currently has no OutOfMemory/Error category whose IndexWriter handling matches
-  // Java's tragic-error path. Do not replace this with an ordinary I/O/IllegalState error: that
-  // would exercise different close and rollback behavior. Convert after the Rust error model and
-  // IndexWriter tragedy handling expose an OOME-equivalent injection point.
-  test_not_required_in_rust_lucene!();
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  config.set_info_stream(InfoStreamEnum::Custom(Box::new(OutOfMemoryInfoStream {
+    message_to_fail_on: "now flush at close",
+    starts_with: true,
+    thrown: AtomicBool::new(false),
+  })));
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  let close_result = catch_unwind(AssertUnwindSafe(|| writer.close()));
+  assert!(
+    close_result.is_err(),
+    "close must propagate the fake OOME panic"
+  );
+
+  writer.close()?;
+  dir.as_ref().close()?;
+  Ok(())
 }
 
 #[test]
 fn test_out_of_memory_error_rollback() -> Result<()> {
-  // TODO: Java injects OutOfMemoryError during startFullFlush, then verifies that close rolls the
-  // writer back, subsequent indexing reports AlreadyClosedException, and no index exists. Rust
-  // InfoStream::message returns LuceneError and has no OOME-equivalent variant, so an ordinary
-  // Result error would not follow the Java fatal-error path. Convert once that fatal error can be
-  // represented and caught without substituting a different exception class.
-  test_not_required_in_rust_lucene!();
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  config.set_info_stream(InfoStreamEnum::Custom(Box::new(OutOfMemoryInfoStream {
+    message_to_fail_on: "startFullFlush",
+    starts_with: false,
+    thrown: AtomicBool::new(false),
+  })));
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  writer.add_document(Document::new())?;
+
+  let commit_result = catch_unwind(AssertUnwindSafe(|| writer.commit()));
+  assert!(
+    commit_result.is_err(),
+    "commit must propagate the fake OOME panic"
+  );
+
+  if let Err(error) = writer.close() {
+    assert!(matches!(error, LuceneError::IllegalArgument(_)));
+  }
+
+  let error = writer
+    .add_document(Document::new())
+    .expect_err("a writer that rolled back after a tragic error must be closed");
+  assert!(matches!(error, LuceneError::AlreadyClosed(_)));
+  assert!(!directory_reader::index_exists(dir.as_ref())?);
+
+  dir.as_ref().close()?;
+  Ok(())
 }
 
 #[test]
@@ -2537,7 +2604,6 @@ fn test_exception_during_rollback() -> Result<()> {
   config.set_info_stream(InfoStreamEnum::Custom(Box::new(EvilRollbackInfoStream {
     message_to_fail_on,
   })));
-  // TODO: cutover to RandomIndexWriter.mockIndexWriter?
   let writer = IndexWriter::with_hooks(
     dir.clone(),
     config,
@@ -2626,7 +2692,6 @@ fn test_random_exception_during_rollback() -> Result<()> {
   Ok(())
 }
 
-// TODO: can be super slow in pathological cases (merge config?)
 #[cfg(feature = "nightly")]
 #[test]
 #[ignore = "nightly"]
