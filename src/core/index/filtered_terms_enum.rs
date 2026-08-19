@@ -91,13 +91,13 @@ where
     match sub.next_seek_term(Option::from(&self.actual_term)) {
       Ok(v) => Ok(v),
       Err(e) => match e {
-        LuceneError::NotImplemented(_) => {
-          let mut a = self.initial_seek_term.take().unwrap();
-          Ok(Some(Cow::Owned(BytesRef::from_slice(
+        LuceneError::NotImplemented(_) => match self.initial_seek_term.take() {
+          Some(mut a) => Ok(Some(Cow::Owned(BytesRef::from_slice(
             std::mem::take(&mut a.bytes),
             a.offset,
             a.length,
-          ))))
+          )))),
+          None => Ok(None),
         },
         _ => Err(e),
       },

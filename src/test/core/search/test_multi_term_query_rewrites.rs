@@ -219,7 +219,6 @@ fn test_rewrites_with_duplicate_terms() -> Result<()> {
 
   Ok(())
 }
-#[allow(dead_code)]
 fn check_boolean_query_boosts(bq: Query) -> Result<()> {
   let bq = match bq {
     Query::Boolean(q) => q,
@@ -269,9 +268,9 @@ where
     assert!(matches!(q2, Query::MatchNoDocs(_)));
     assert!(matches!(q3, Query::MatchNoDocs(_)));
   } else {
-    // check_boolean_query_boosts(q1)?;
-    // check_boolean_query_boosts(q2)?;
-    // check_boolean_query_boosts(q3)?;
+    check_boolean_query_boosts(q1)?;
+    check_boolean_query_boosts(q2)?;
+    check_boolean_query_boosts(q3)?;
     unreachable!("expected MatchNoDocs");
   }
 

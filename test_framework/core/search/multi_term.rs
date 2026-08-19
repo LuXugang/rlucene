@@ -118,8 +118,7 @@ impl MultiTermQuery for BoostCheckingQuery {
   where
     T: Terms + Clone,
   {
-    let mut terms_enum = FilteredTermsEnum::new(terms.iterator()?, BoostCheckingTermsEnum);
-    terms_enum.set_initial_seek_term(BytesRef::from(""));
+    let terms_enum = FilteredTermsEnum::new(terms.iterator()?, BoostCheckingTermsEnum);
     Ok(terms_enum)
   }
 
