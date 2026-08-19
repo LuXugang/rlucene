@@ -80,4 +80,3 @@ macro_rules! define_impacts_enum {
     };
 }
 define_impacts_enum!(ImpactsEnum2, [A, B]);
-define_impacts_enum!(ImpactsEnum3, [A, B, C]);
