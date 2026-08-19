@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
-use crate::core::index::impacts_enum::ImpactsEnumEnum3;
+use crate::core::index::impacts_enum::ImpactsEnumEnum2;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::term::Term;
 use crate::core::index::terms::{Terms, TermsIntersect, TermsPosting, TermsTE};
@@ -26,7 +26,7 @@ use crate::core::search::query::QueryRef;
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::util::StringHelper;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::attribute_source::AttributeSourceEnum3;
+use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
@@ -674,17 +674,15 @@ where
   TermsIntersect<T>: TermsEnum<PostingsEnum = TermsPosting<T>>,
 {
   type AttributeSource<'a>
-    = AttributeSourceEnum3<
+    = AttributeSourceEnum2<
     <TermsTE<T> as TermsEnum>::AttributeSource<'a>,
-    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSource<'a>,
     <TermsIntersect<T> as TermsEnum>::AttributeSource<'a>,
   >
   where
     Self: 'a;
   type AttributeSourceMut<'a>
-    = AttributeSourceEnum3<
+    = AttributeSourceEnum2<
     <TermsTE<T> as TermsEnum>::AttributeSourceMut<'a>,
-    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::AttributeSourceMut<'a>,
     <TermsIntersect<T> as TermsEnum>::AttributeSourceMut<'a>,
   >
   where
@@ -693,18 +691,18 @@ where
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
       Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
-      Self::TE(t) => Ok(AttributeSourceEnum3::A(t.attributes()?)),
-      Self::Single(t) => Ok(AttributeSourceEnum3::B(t.attributes()?)),
-      Self::Intersect(t) => Ok(AttributeSourceEnum3::C(t.attributes()?)),
+      Self::TE(t) => Ok(AttributeSourceEnum2::A(t.attributes()?)),
+      Self::Single(t) => Ok(AttributeSourceEnum2::A(t.attributes()?)),
+      Self::Intersect(t) => Ok(AttributeSourceEnum2::B(t.attributes()?)),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
       Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
-      Self::TE(t) => Ok(AttributeSourceEnum3::A(t.attributes_mut()?)),
-      Self::Single(t) => Ok(AttributeSourceEnum3::B(t.attributes_mut()?)),
-      Self::Intersect(t) => Ok(AttributeSourceEnum3::C(t.attributes_mut()?)),
+      Self::TE(t) => Ok(AttributeSourceEnum2::A(t.attributes_mut()?)),
+      Self::Single(t) => Ok(AttributeSourceEnum2::A(t.attributes_mut()?)),
+      Self::Intersect(t) => Ok(AttributeSourceEnum2::B(t.attributes_mut()?)),
     }
   }
 
@@ -826,9 +824,8 @@ where
     }
   }
 
-  type ImpactsEnum = ImpactsEnumEnum3<
+  type ImpactsEnum = ImpactsEnumEnum2<
     <TermsTE<T> as TermsEnum>::ImpactsEnum,
-    <FilteredTermsEnum<TermsTE<T>, SingleTermsEnum> as TermsEnum>::ImpactsEnum,
     <TermsIntersect<T> as TermsEnum>::ImpactsEnum,
   >;
 
@@ -837,9 +834,9 @@ where
       Self::Empty(_) => Err(LuceneError::illegal_state(
         "this method should never be called",
       )),
-      Self::TE(t) => t.impacts(flags).map(ImpactsEnumEnum3::A),
-      Self::Single(t) => t.impacts(flags).map(ImpactsEnumEnum3::B),
-      Self::Intersect(t) => t.impacts(flags).map(ImpactsEnumEnum3::C),
+      Self::TE(t) => t.impacts(flags).map(ImpactsEnumEnum2::A),
+      Self::Single(t) => t.impacts(flags).map(ImpactsEnumEnum2::A),
+      Self::Intersect(t) => t.impacts(flags).map(ImpactsEnumEnum2::B),
     }
   }
 
