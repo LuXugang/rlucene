@@ -1,21 +1,23 @@
 [alias]
+# Internal xtask entry point used by the aliases below.
 xtask = "run --manifest-path xtask/Cargo.toml --"
-# format code
-tidy  = "xtask tidy"
-# Last command before submitting a PR
-commit = "xtask commit"
-# Github Actions CI
-ci = "xtask ci"
-# nightly test
-nightly = "xtask nightly"
-# monster test
-monster = "xtask monster"
-# Check for uncommitted changes
+# Fail when the Git working tree contains uncommitted changes.
 check-uncommitted = "xtask check-uncommitted"
-# Check License header
+# Run the local CI workflow, including tidy, a clean-tree check, and all tests.
+ci = "xtask ci"
+# List all project-specific Cargo commands and their purpose.
+commands = "xtask commands"
+# Run before submitting a PR. Performs the required checks, including the fast test suite.
+commit = "xtask commit"
+# Verify that Rust source files have the required Apache license header.
 license-check = "xtask license-check"
-# Using Cargo nexttest instead of Cargo test
+# Run ignored tests enabled by the monster feature.
+monster = "xtask monster"
+# Requires cargo-nextest to be installed first. Then run the test suite after tidy and a clean-tree check.
 nextest-run = "xtask nextest-run"
-# Run read-only test fixtures in light mode. The environment variable is
-# intentionally opt-in; plain `cargo test` keeps per-test setup lifecycles.
+# Run ignored tests enabled by the nightly feature.
+nightly = "xtask nightly"
+# Run library tests with shared read-only fixtures and reduced test debuginfo.
 test-light = "xtask test-light"
+# Format and tidy the code. Safe to run while the working tree has uncommitted changes.
+tidy = "xtask tidy"

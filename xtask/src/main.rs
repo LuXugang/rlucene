@@ -82,6 +82,7 @@ fn main() {
   let mut args = env::args().skip(1);
   let command = args.next();
   match command.as_deref() {
+    Some("commands") => tasks::commands::run(),
     Some("tidy") => tasks::tidy::run(),
     Some("commit") => tasks::commit::run(),
     Some("ci") => tasks::ci::run(),
@@ -93,7 +94,7 @@ fn main() {
     Some("nextest-run") => tasks::nextest::run(),
     _ => {
       log(&format!(
-        "{:?} not support,Available commands: tidy, commit, ci, nightly, monster, test-light, check-uncommitted, license-check",
+        "{:?} not supported. Run `cargo commands` to see available project commands.",
         command
       ));
       process::exit(1);
