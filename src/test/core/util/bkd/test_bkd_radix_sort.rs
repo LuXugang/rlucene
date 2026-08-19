@@ -243,7 +243,7 @@ where
       for i in (start + 1)..end {
         let point_value = heap_writer.get_packed_value_slice(i)?;
         let (bytes_ref, packed_value_offset, _length) = point_value.packed_value();
-        let diff = CoreHelper::miss_match(
+        let diff = CoreHelper::miss_match_u8(
           &bytes_ref
             [packed_value_offset + offset..packed_value_offset + offset + config.bytes_per_dim],
           &first_value,

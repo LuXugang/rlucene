@@ -23,6 +23,7 @@ use num_traits::PrimInt;
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
+use wide::{i32x8, u8x32};
 
 pub struct CoreHelper;
 impl CoreHelper {
@@ -56,18 +57,47 @@ The purpose of implementing the Clone trait is to make it could be used with Cow
     }
     Ok(index)
   }
-  pub fn miss_match<T>(a: &[T], b: &[T]) -> i32
-  where
-    T: PartialEq,
-  {
-    let miss_match = a.iter().zip(b.iter()).position(|(x, y)| x != y);
-    match miss_match {
-      Some(i) => i as i32,
-      None => match a.len().cmp(&b.len()) {
-        Ordering::Greater => b.len() as i32,
-        Ordering::Less => a.len() as i32,
-        Ordering::Equal => -1,
-      },
+  pub fn miss_match_u8(a: &[u8], b: &[u8]) -> i32 {
+    let common_len = a.len().min(b.len());
+    let mut i = 0;
+    while i + 32 <= common_len {
+      let equal = u8x32::from(&a[i..i + 32]).simd_eq(u8x32::from(&b[i..i + 32]));
+      let mismatch = !equal.to_bitmask();
+      if mismatch != 0 {
+        return (i + mismatch.trailing_zeros() as usize) as i32;
+      }
+      i += 32;
+    }
+
+    while i < common_len && a[i] == b[i] {
+      i += 1;
+    }
+    if i < common_len || a.len() != b.len() {
+      i as i32
+    } else {
+      -1
+    }
+  }
+
+  pub fn miss_match_i32(a: &[i32], b: &[i32]) -> i32 {
+    let common_len = a.len().min(b.len());
+    let mut i = 0;
+    while i + 8 <= common_len {
+      let equal = i32x8::from(&a[i..i + 8]).simd_eq(i32x8::from(&b[i..i + 8]));
+      let mismatch = (!equal.to_bitmask()) & 0xff;
+      if mismatch != 0 {
+        return (i + mismatch.trailing_zeros() as usize) as i32;
+      }
+      i += 8;
+    }
+
+    while i < common_len && a[i] == b[i] {
+      i += 1;
+    }
+    if i < common_len || a.len() != b.len() {
+      i as i32
+    } else {
+      -1
     }
   }
 

@@ -60,10 +60,9 @@ impl LZ4 {
 
   fn common_bytes(b: &[u8], o1: i32, o2: i32, limit: i32) -> i32 {
     debug_assert!(o1 < o2);
-    // never -1 because lengths always differ
-    CoreHelper::miss_match(
-      &b[(o1 as usize)..(limit as usize)],
-      &b[(o2 as usize)..(limit as usize)],
+    CoreHelper::miss_match_u8(
+      &b[o1 as usize..limit as usize],
+      &b[o2 as usize..limit as usize],
     )
   }
 

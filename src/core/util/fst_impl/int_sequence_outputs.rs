@@ -48,7 +48,7 @@ impl Outputs for IntSequenceOutputs {
     let a = &output1.ints[output1.offset..output1.offset + output1.length];
     let b = &output2.ints[output2.offset..output2.offset + output2.length];
 
-    let mismatch = CoreHelper::miss_match(a, b);
+    let mismatch = CoreHelper::miss_match_i32(a, b);
 
     match mismatch {
       -1 => output1.clone(),     // exactly equals

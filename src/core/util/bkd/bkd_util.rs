@@ -88,7 +88,7 @@ impl BKDUtil {
   ) -> i32 {
     let slice_a = &a[a_offset..a_offset + num_bytes];
     let slice_b = &b[b_offset..b_offset + num_bytes];
-    let cmp = CoreHelper::miss_match(slice_a, slice_b);
+    let cmp = CoreHelper::miss_match_u8(slice_a, slice_b);
     debug_assert!(num_bytes <= i32::MAX as usize);
     if cmp == -1 { num_bytes as i32 } else { cmp }
   }

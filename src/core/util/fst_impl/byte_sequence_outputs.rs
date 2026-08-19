@@ -52,7 +52,7 @@ impl Outputs for ByteSequenceOutputs {
     let a = &output1.bytes[output1.offset..output1.offset + output1.length];
     let b = &output2.bytes[output2.offset..output2.offset + output2.length];
 
-    let mismatch_pos = CoreHelper::miss_match(a, b);
+    let mismatch_pos = CoreHelper::miss_match_u8(a, b);
 
     match mismatch_pos {
       -1 => output1.clone(),

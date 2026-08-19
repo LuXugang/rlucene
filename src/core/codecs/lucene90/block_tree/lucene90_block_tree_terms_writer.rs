@@ -1234,7 +1234,7 @@ where
   }
   fn push_term(&mut self, text: &BytesRef<Vec<u8>>) -> Result<()> {
     let last_bytes = self.last_term.get_bytes_ref();
-    let mut prefix_length = CoreHelper::miss_match(
+    let mut prefix_length = CoreHelper::miss_match_u8(
       &last_bytes.bytes[..self.last_term.length()],
       &text.bytes[text.offset..text.offset + text.length],
     );

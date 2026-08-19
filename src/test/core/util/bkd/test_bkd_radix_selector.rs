@@ -527,7 +527,7 @@ where
 {
   let points_max = get_max(config.clone(), input_slice, split_dim, dir)?;
   let points_min = get_min(config.clone(), input_slice, split_dim, dir)?;
-  let mut common_prefix_length = CoreHelper::miss_match(
+  let mut common_prefix_length = CoreHelper::miss_match_u8(
     &points_max[0..config.bytes_per_dim],
     &points_min[0..config.bytes_per_dim],
   );

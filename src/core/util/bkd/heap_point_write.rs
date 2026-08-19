@@ -327,7 +327,7 @@ impl HeapPointWriter {
         let start = base + prefix_len;
         let end = base + bytes_per_dim;
 
-        if CoreHelper::miss_match(
+        if CoreHelper::miss_match_u8(
           &heap_value.value[next_point_offset + start..next_point_offset + end],
           &heap_value.value[point_offset + start..point_offset + end],
         ) != -1

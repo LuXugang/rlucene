@@ -58,7 +58,7 @@ impl StringHelper {
       prior_term.bytes,
       current_term.bytes,
       |prior_term_bytes, current_term_bytes| {
-        let mismatch = CoreHelper::miss_match(
+        let mismatch = CoreHelper::miss_match_u8(
           &prior_term_bytes[prior_term.offset..(prior_term.offset + prior_term.length)],
           &current_term_bytes[current_term.offset..(current_term.offset + current_term.length)],
         );

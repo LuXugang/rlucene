@@ -307,7 +307,7 @@ impl BKDRadixSelector {
             let (value, packed_value_offset, _length) = point_value.packed_value_doc_id_bytes();
             let packed_value_start_index = (packed_value_offset + offset) + scratch_start_index;
             let packed_value_end_index = (packed_value_offset + offset) + scratch_end_index;
-            let j = CoreHelper::miss_match(
+            let j = CoreHelper::miss_match_u8(
               &self.scratch[scratch_start_index..scratch_end_index],
               &value[packed_value_start_index..packed_value_end_index],
             );
@@ -316,7 +316,7 @@ impl BKDRadixSelector {
                 let start_tie_break = self.config.packed_index_bytes_length();
                 let end_tie_break =
                   start_tie_break + common_prefix_position - self.config.bytes_per_dim;
-                let k = CoreHelper::miss_match(
+                let k = CoreHelper::miss_match_u8(
                   &self.scratch[self.config.bytes_per_dim..common_prefix_position],
                   &value[(packed_value_offset + start_tie_break)
                     ..(packed_value_offset + end_tie_break)],
