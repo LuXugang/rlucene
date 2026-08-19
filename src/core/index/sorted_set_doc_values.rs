@@ -18,12 +18,11 @@
 use crate::core::index::BytesRef;
 use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
-use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::index::terms_enum::{
-  EmptyTermsEnum, TermsEnum, TermsEnumWithUnsupportedFirstPostings4,
+  EmptyTermsEnum, TermsEnum, TermsEnumWithUnsupportedFirstPostings,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::ToInt;
@@ -126,22 +125,15 @@ pub trait SortedSetDocValues: DocValuesIterator {
   fn intersect(
     &mut self,
     automaton: &CompiledAutomaton,
-  ) -> Result<
-    TermsEnumWithUnsupportedFirstPostings4<
-      EmptyTermsEnum,
-      Self::TermsEnum<'_>,
-      FilteredTermsEnum<Self::TermsEnum<'_>, SingleTermsEnum>,
-      FilteredTermsEnum<Self::TermsEnum<'_>, AutomatonTermsEnum>,
-    >,
-  >
+  ) -> Result<TermsEnumWithUnsupportedFirstPostings<Self::TermsEnum<'_>>>
   where
     Self: Sized,
   {
     let terms_enum = self.terms_enum()?;
     match automaton.type_ {
-      AutomatonType::None => Ok(TermsEnumWithUnsupportedFirstPostings4::None(EmptyTermsEnum)),
-      AutomatonType::All => Ok(TermsEnumWithUnsupportedFirstPostings4::All(terms_enum)),
-      AutomatonType::Single => Ok(TermsEnumWithUnsupportedFirstPostings4::Single(
+      AutomatonType::None => Ok(TermsEnumWithUnsupportedFirstPostings::None(EmptyTermsEnum)),
+      AutomatonType::All => Ok(TermsEnumWithUnsupportedFirstPostings::All(terms_enum)),
+      AutomatonType::Single => Ok(TermsEnumWithUnsupportedFirstPostings::Single(
         SingleTermsEnum::new(
           terms_enum,
           automaton.term.clone().ok_or_else(|| {
@@ -149,7 +141,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
           })?,
         ),
       )),
-      AutomatonType::Normal => Ok(TermsEnumWithUnsupportedFirstPostings4::Normal(
+      AutomatonType::Normal => Ok(TermsEnumWithUnsupportedFirstPostings::Normal(
         AutomatonTermsEnum::new(terms_enum, automaton)?,
       )),
     }

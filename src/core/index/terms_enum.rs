@@ -16,13 +16,16 @@
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::BytesRef;
+use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
+use crate::core::index::filtered_terms_enum::FilteredTermsEnum;
 use crate::core::index::impacts_enum::{ImpactsEnum, ImpactsEnumEnum2};
 use crate::core::index::postings_enum::{FREQS, PostingsEnum, PostingsEnumEnum2};
+use crate::core::index::single_terms_enum::SingleTermsEnum;
 use crate::core::index::terms::{Terms, TermsPosting};
+use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::attribute_source::AttributeSourceEnum2;
-use crate::core::util::attribute_source::{AttributeSource, AttributeSourceEnum3};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -1035,19 +1038,16 @@ where
   }
 }
 
-pub enum TermsEnumWithUnsupportedFirstPostings4<A, B, C, D> {
-  None(A),
-  All(B),
-  Single(C),
-  Normal(D),
+pub enum TermsEnumWithUnsupportedFirstPostings<T> {
+  None(EmptyTermsEnum),
+  All(T),
+  Single(FilteredTermsEnum<T, SingleTermsEnum>),
+  Normal(FilteredTermsEnum<T, AutomatonTermsEnum>),
 }
 
-impl<A, B, C, D> BytesRefIterator for TermsEnumWithUnsupportedFirstPostings4<A, B, C, D>
+impl<T> BytesRefIterator for TermsEnumWithUnsupportedFirstPostings<T>
 where
-  A: TermsEnum,
-  B: TermsEnum,
-  C: TermsEnum,
-  D: TermsEnum,
+  T: TermsEnum,
 {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     match self {
@@ -1068,41 +1068,34 @@ where
   }
 }
 
-impl<A, B, C, D> TermsEnum for TermsEnumWithUnsupportedFirstPostings4<A, B, C, D>
+impl<T> TermsEnum for TermsEnumWithUnsupportedFirstPostings<T>
 where
-  A: TermsEnum,
-  B: TermsEnum,
-  C: TermsEnum<PostingsEnum = B::PostingsEnum, ImpactsEnum = B::ImpactsEnum>,
-  D: TermsEnum<PostingsEnum = B::PostingsEnum, ImpactsEnum = B::ImpactsEnum>,
+  T: TermsEnum,
 {
   type AttributeSource<'a>
-    = AttributeSourceEnum3<B::AttributeSource<'a>, C::AttributeSource<'a>, D::AttributeSource<'a>>
+    = T::AttributeSource<'a>
   where
     Self: 'a;
   type AttributeSourceMut<'a>
-    = AttributeSourceEnum3<
-    B::AttributeSourceMut<'a>,
-    C::AttributeSourceMut<'a>,
-    D::AttributeSourceMut<'a>,
-  >
+    = T::AttributeSourceMut<'a>
   where
     Self: 'a;
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
       Self::None(_) => Err(LuceneError::unsupported_operation("")),
-      Self::All(terms) => terms.attributes().map(AttributeSourceEnum3::A),
-      Self::Single(terms) => terms.attributes().map(AttributeSourceEnum3::B),
-      Self::Normal(terms) => terms.attributes().map(AttributeSourceEnum3::C),
+      Self::All(terms) => terms.attributes(),
+      Self::Single(terms) => terms.attributes(),
+      Self::Normal(terms) => terms.attributes(),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
       Self::None(_) => Err(LuceneError::unsupported_operation("")),
-      Self::All(terms) => terms.attributes_mut().map(AttributeSourceEnum3::A),
-      Self::Single(terms) => terms.attributes_mut().map(AttributeSourceEnum3::B),
-      Self::Normal(terms) => terms.attributes_mut().map(AttributeSourceEnum3::C),
+      Self::All(terms) => terms.attributes_mut(),
+      Self::Single(terms) => terms.attributes_mut(),
+      Self::Normal(terms) => terms.attributes_mut(),
     }
   }
 
@@ -1200,7 +1193,7 @@ where
     }
   }
 
-  type PostingsEnum = B::PostingsEnum;
+  type PostingsEnum = T::PostingsEnum;
 
   fn postings(&mut self, reuse: Option<Self::PostingsEnum>) -> Result<Self::PostingsEnum> {
     match self {
@@ -1224,7 +1217,7 @@ where
     }
   }
 
-  type ImpactsEnum = B::ImpactsEnum;
+  type ImpactsEnum = T::ImpactsEnum;
 
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     match self {
