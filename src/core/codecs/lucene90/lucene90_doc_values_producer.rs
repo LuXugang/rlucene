@@ -47,9 +47,7 @@ use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocVa
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::terms_enum::{
-  SeekStatus, TermsEnum, TermsEnumWithUnsupportedPostingsAndAttributes2,
-};
+use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
@@ -3679,6 +3677,157 @@ where
   Multi(BaseSortedSetDocValues<I>),
 }
 
+pub enum Lucene90SortedSetTermsEnum<A, B> {
+  Single(A),
+  Multi(B),
+}
+
+impl<A, B> BytesRefIterator for Lucene90SortedSetTermsEnum<A, B>
+where
+  A: TermsEnum,
+  B: TermsEnum,
+{
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Single(terms) => terms.next(),
+      Self::Multi(terms) => terms.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::Single(terms) => terms.set_next(),
+      Self::Multi(terms) => terms.set_next(),
+    }
+  }
+}
+
+impl<A, B> TermsEnum for Lucene90SortedSetTermsEnum<A, B>
+where
+  A: TermsEnum,
+  B: TermsEnum,
+{
+  type AttributeSource<'a>
+    = A::AttributeSource<'a>
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = A::AttributeSourceMut<'a>
+  where
+    Self: 'a;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::Single(terms) => terms.attributes(),
+      Self::Multi(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::Single(terms) => terms.attributes_mut(),
+      Self::Multi(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Single(terms) => terms.seek_exact(term),
+      Self::Multi(terms) => terms.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::Single(terms) => terms.prepare_seek_exact(text),
+      Self::Multi(terms) => terms.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Single(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::Multi(terms) => terms.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::Single(terms) => terms.seek_ceil(term),
+      Self::Multi(terms) => terms.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::Single(terms) => terms.seek_exact_with_ord(ord),
+      Self::Multi(terms) => terms.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::Single(terms) => terms.seek_exact_with_state(term, state),
+      Self::Multi(terms) => terms.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Single(terms) => terms.term(),
+      Self::Multi(terms) => terms.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::Single(terms) => terms.ord(),
+      Self::Multi(terms) => terms.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::Single(terms) => terms.doc_freq(),
+      Self::Multi(terms) => terms.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::Single(terms) => terms.total_term_freq(),
+      Self::Multi(terms) => terms.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum = DummyPostingsEnum;
+
+  fn postings_with_flags(
+    &mut self,
+    _reuse: Option<Self::PostingsEnum>,
+    _flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  type ImpactsEnum = DummyImpactsEnum;
+
+  fn impacts(&mut self, _flags: i32) -> Result<Self::ImpactsEnum> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::Single(terms) => terms.term_state(),
+      Self::Multi(terms) => terms.term_state(),
+    }
+  }
+}
+
 impl<I> DocValuesIterator for Lucene90SortedSetDocValuesEnum<I>
 where
   I: IndexInput,
@@ -3777,7 +3926,7 @@ where
   }
 
   type TermsEnum<'a>
-    = TermsEnumWithUnsupportedPostingsAndAttributes2<
+    = Lucene90SortedSetTermsEnum<
     <SingletonSortedSetDocValues<BaseSortedDocValues<I>> as SortedSetDocValues>::TermsEnum<'a>,
     <BaseSortedSetDocValues<I> as SortedSetDocValues>::TermsEnum<'a>,
   >
@@ -3786,12 +3935,8 @@ where
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     match self {
-      Self::Single(values) => values
-        .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithPostingsAndAttributes),
-      Self::Multi(values) => values
-        .terms_enum()
-        .map(TermsEnumWithUnsupportedPostingsAndAttributes2::WithoutPostingsAndAttributes),
+      Self::Single(values) => values.terms_enum().map(Lucene90SortedSetTermsEnum::Single),
+      Self::Multi(values) => values.terms_enum().map(Lucene90SortedSetTermsEnum::Multi),
     }
   }
 
