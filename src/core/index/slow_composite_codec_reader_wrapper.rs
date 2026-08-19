@@ -31,7 +31,7 @@ use crate::core::index::codec_reader::{
   CRDocValuesProducer, CRFieldsProducer, CRKnnVectorReader, CRNormsProducer, CRPointsReader,
   CRStoredFieldsReader, CRTermVectorsReader, CodecReader, SlowCompositeCodecReader,
 };
-use crate::core::index::doc_values::DocValues;
+use crate::core::index::doc_values::{DocValues, SortedDocValuesWithEmpty};
 use crate::core::index::dummy::dummy_byte_vector_values::DummyByteVectorValues;
 use crate::core::index::dummy::dummy_cache_helper::DummyCacheHelper;
 use crate::core::index::field_info::FieldInfo;
@@ -1580,12 +1580,12 @@ where
         match LeafReader::get_sorted_doc_values(reader, &field.name)? {
           Some(v) => {
             total_cost += v.cost()?;
-            values.push(SortedDocValuesEnum2::A(v));
+            values.push(SortedDocValuesWithEmpty::A(v));
           },
           None => {
             let v = DocValues::empty_sorted();
             total_cost += v.cost()?;
-            values.push(SortedDocValuesEnum2::B(v));
+            values.push(SortedDocValuesWithEmpty::B(v));
           },
         }
       }

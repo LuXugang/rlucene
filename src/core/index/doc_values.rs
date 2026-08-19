@@ -25,13 +25,14 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
 use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
-use crate::core::index::sorted_doc_values::{SortedDocValues, SortedDocValuesEnum2};
+use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_numeric_doc_values::{
   SortedNumericDocValues, SortedNumericDocValuesEnum3,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::index::terms_enum::TermsEnumWithUnsupportedSecondPostings2;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -177,10 +178,10 @@ impl DocValues {
     LR: LeafReader,
   {
     match reader.get_sorted_doc_values(field)? {
-      Some(dv) => Ok(SortedDocValuesEnum2::A(dv)),
+      Some(dv) => Ok(SortedDocValuesWithEmpty::A(dv)),
       None => {
         Self::check_field(reader, field, &[DocValuesType::Sorted])?;
-        Ok(SortedDocValuesEnum2::B(Self::empty_sorted()))
+        Ok(SortedDocValuesWithEmpty::B(Self::empty_sorted()))
       },
     }
   }
@@ -229,14 +230,14 @@ impl DocValues {
       Some(dv) => Ok(SortedSetDocValuesEnum2::A(dv)),
       None => {
         let sorted = match reader.get_sorted_doc_values(field)? {
-          Some(sorted) => SortedDocValuesEnum2::A(sorted),
+          Some(sorted) => SortedDocValuesWithEmpty::A(sorted),
           None => {
             Self::check_field(
               reader,
               field,
               &[DocValuesType::Sorted, DocValuesType::SortedSet],
             )?;
-            SortedDocValuesEnum2::B(Self::empty_sorted())
+            SortedDocValuesWithEmpty::B(Self::empty_sorted())
           },
         };
         Ok(SortedSetDocValuesEnum2::B(Self::singleton_sorted(sorted)?))
@@ -261,7 +262,7 @@ impl DocValues {
 }
 pub type Numeric<LR> = NumericDocValuesEnum2<<LR as LeafReader>::NumericDocValues, EmptyNumeric>;
 pub type Binary<LR> = BinaryDocValuesEnum2<<LR as LeafReader>::BinaryDocValues, EmptyBinary>;
-pub type Sorted<LR> = SortedDocValuesEnum2<<LR as LeafReader>::SortedDocValues, EmptySorted>;
+pub type Sorted<LR> = SortedDocValuesWithEmpty<<LR as LeafReader>::SortedDocValues>;
 pub type SortedNumeric<LR> = SortedNumericDocValuesEnum3<
   <LR as LeafReader>::SortedNumericDocValues,
   SingletonSortedNumericDocValues<<LR as LeafReader>::NumericDocValues>,
@@ -269,9 +270,7 @@ pub type SortedNumeric<LR> = SortedNumericDocValuesEnum3<
 >;
 pub type SortedSet<LR> = SortedSetDocValuesEnum2<
   <LR as LeafReader>::SortedSetDocValues,
-  SingletonSortedSetDocValues<
-    SortedDocValuesEnum2<<LR as LeafReader>::SortedDocValues, EmptySorted>,
-  >,
+  SingletonSortedSetDocValues<SortedDocValuesWithEmpty<<LR as LeafReader>::SortedDocValues>>,
 >;
 /// An empty [`BinaryDocValues`] which returns no documents  */
 pub struct EmptyBinary {
@@ -450,5 +449,121 @@ impl SortedDocValues for EmptySorted {
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
     self.default_terms_enum()
+  }
+}
+
+pub enum SortedDocValuesWithEmpty<A> {
+  A(A),
+  B(EmptySorted),
+}
+
+impl<A> DocValuesIterator for SortedDocValuesWithEmpty<A>
+where
+  A: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(inner) => inner.advance_exact(target),
+      Self::B(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+
+impl<A> DocIdSetIterator for SortedDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(inner) => inner.doc_id(),
+      Self::B(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.next_doc(),
+      Self::B(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.advance(target),
+      Self::B(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.slow_advance(target),
+      Self::B(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.cost(),
+      Self::B(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<A> SortedDocValues for SortedDocValuesWithEmpty<A>
+where
+  A: SortedDocValues,
+{
+  fn ord_value(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.ord_value(),
+      Self::B(inner) => inner.ord_value(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::A(inner) => inner.lookup_ord(ord),
+      Self::B(inner) => inner.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.get_value_count(),
+      Self::B(inner) => inner.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.lookup_term(key),
+      Self::B(inner) => inner.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a>
+    = TermsEnumWithUnsupportedSecondPostings2<
+    A::TermsEnum<'a>,
+    SortedDocValuesTermsEnum<&'a mut EmptySorted>,
+  >
+  where
+    A: 'a;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    match self {
+      Self::A(inner) => inner
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedSecondPostings2::WithPostings),
+      Self::B(inner) => inner
+        .terms_enum()
+        .map(TermsEnumWithUnsupportedSecondPostings2::WithoutPostings),
+    }
   }
 }

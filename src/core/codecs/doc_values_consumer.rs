@@ -23,6 +23,7 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::binary_doc_values::BinaryDocValues;
+use crate::core::index::doc_values::SortedDocValuesWithEmpty;
 use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
@@ -239,12 +240,12 @@ pub trait DocValuesConsumer: Closeable {
           merge_state.field_infos()[i].field_info_by_name(&field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
-        values = Some(SortedDocValuesEnum2::A(
+        values = Some(SortedDocValuesWithEmpty::A(
           doc_values_producer.get_sorted(&reader_field_info)?,
         ));
       }
       if values.is_none() {
-        values = Some(SortedDocValuesEnum2::B(DocValues::empty_sorted()));
+        values = Some(SortedDocValuesWithEmpty::B(DocValues::empty_sorted()));
       }
       to_merge.push(values.unwrap());
     }
@@ -1028,10 +1029,7 @@ where
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = SortedDocValuesMerge<
-    SortedDocValuesEnum2<
-      <MS::DocValuesProducer as DocValuesProducer>::SortedDocValues,
-      EmptySorted,
-    >,
+    SortedDocValuesWithEmpty<<MS::DocValuesProducer as DocValuesProducer>::SortedDocValues>,
     MS::DocMap,
   >;
 
@@ -1051,12 +1049,12 @@ where
           self.merge_state.field_infos()[i].field_info_by_name(&self.field_info.name)?
         && *reader_field_info.get_doc_values_type() == DocValuesType::Sorted
       {
-        values = Some(SortedDocValuesEnum2::A(
+        values = Some(SortedDocValuesWithEmpty::A(
           doc_values_producer.get_sorted(&reader_field_info)?,
         ));
       }
       if values.is_none() {
-        values = Some(SortedDocValuesEnum2::B(DocValues::empty_sorted()));
+        values = Some(SortedDocValuesWithEmpty::B(DocValues::empty_sorted()));
       }
 
       let doc_map = self.merge_state.doc_maps()[i].clone();

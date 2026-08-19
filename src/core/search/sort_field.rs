@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 #![allow(deprecated)]
-use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted};
+use crate::core::index::doc_values::SortedDocValuesWithEmpty;
+use crate::core::index::doc_values::{DocValues, EmptyNumeric};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_sorter::{
   CPEnumType1, ComparableProviderEnum5, DocComparatorImpl, DoubleSorter, FloatSorter, IndexSorter,
@@ -25,7 +26,6 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::ordinal_map::OrdinalMap;
 use crate::core::index::sort_field_provider::SortFieldProvider;
-use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::search::comparators::doc_comparator::DocComparator;
 use crate::core::search::comparators::double_comparator::DoubleComparator;
 use crate::core::search::comparators::float_comparator::FloatComparator;
@@ -1003,7 +1003,7 @@ impl SProviderImpl2 {
 }
 impl SortedDocValuesProvider for SProviderImpl2 {
   type SortedDocValues<LR>
-    = SortedDocValuesEnum2<LR::SortedDocValues, EmptySorted>
+    = SortedDocValuesWithEmpty<LR::SortedDocValues>
   where
     LR: LeafReader;
 

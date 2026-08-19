@@ -18,7 +18,8 @@ use crate::core::codecs::dummy::dummy_numeric_doc_values::DummyNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::index::BytesRef;
 use crate::core::index::binary_doc_values::{BinaryDocValues, BinaryDocValuesEnum2};
-use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySorted, EmptySortedSet};
+use crate::core::index::doc_values::SortedDocValuesWithEmpty;
+use crate::core::index::doc_values::{DocValues, EmptyNumeric, EmptySortedSet};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_reader::{CacheHelper, IndexReader, IndexReaderContextType};
@@ -79,7 +80,7 @@ pub type MultiSortedNumericDocValues<IR> = SingletonOrMultiSortedNumericDocValue
 pub type MultiSortedDocValuesType<IR> = SortedDocValuesEnum2<
   LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>,
   MultiSortedDocValues<
-    SortedDocValuesEnum2<LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>, EmptySorted>,
+    SortedDocValuesWithEmpty<LRSortedDocValues<IRCLeafReader<IndexReaderContextType<IR>>>>,
   >,
 >;
 pub type MultiSortedSetDocValuesType<IR> = SingletonOrMultiSortedSetDocValuesEnum<
@@ -286,9 +287,9 @@ impl MultiDocValues {
         Some(s) => {
           any_real = true;
           total_cost += s.cost()?;
-          SortedDocValuesEnum2::A(s)
+          SortedDocValuesWithEmpty::A(s)
         },
-        None => SortedDocValuesEnum2::B(DocValues::empty_sorted()),
+        None => SortedDocValuesWithEmpty::B(DocValues::empty_sorted()),
       };
 
       values.push(v);
