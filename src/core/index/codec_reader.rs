@@ -561,19 +561,12 @@ macro_rules! either_codec_reader {
                 }
             }
 
-            type ReaderCacheHelper = CacheHelperEnum2<
-                <$A as IndexReader>::ReaderCacheHelper,
-                <$B as IndexReader>::ReaderCacheHelper,
-            >;
+            type ReaderCacheHelper = <$A as IndexReader>::ReaderCacheHelper;
 
             fn get_reader_cache_helper(&self) -> Result<Option<Self::ReaderCacheHelper>> {
                 match self {
-                    Self::A(inner) => Ok(inner
-                        .get_reader_cache_helper()?
-                        .map(CacheHelperEnum2::A)),
-                    Self::B(inner) => Ok(inner
-                        .get_reader_cache_helper()?
-                        .map(CacheHelperEnum2::B)),
+                    Self::A(inner) => inner.get_reader_cache_helper(),
+                    Self::B(_) => Ok(None),
                 }
             }
 
@@ -626,19 +619,12 @@ macro_rules! either_codec_reader {
             $A: LeafReader,
             $B: LeafReader,
         {
-            type CacheHelper = CacheHelperEnum2<
-                <$A as LeafReader>::CacheHelper,
-                <$B as LeafReader>::CacheHelper,
-            >;
+            type CacheHelper = <$A as LeafReader>::CacheHelper;
 
             fn get_core_cache_helper(&self) -> Result<Option<Self::CacheHelper>> {
                 match self {
-                    Self::A(inner) => Ok(inner
-                        .get_core_cache_helper()?
-                        .map(CacheHelperEnum2::A)),
-                    Self::B(inner) => Ok(inner
-                        .get_core_cache_helper()?
-                        .map(CacheHelperEnum2::B)),
+                    Self::A(inner) => inner.get_core_cache_helper(),
+                    Self::B(_) => Ok(None),
                 }
             }
 
