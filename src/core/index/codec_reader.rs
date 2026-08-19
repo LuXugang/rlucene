@@ -46,6 +46,7 @@ use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
 use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
 use crate::core::index::sorting_codec_reader::{
+  ReorderedMergeByteVectorValues, ReorderedMergeFloatVectorValues, ReorderedMergePointValues,
   SortingCodecReaderKnnVectorsReader, SortingCodecReaderPointsReader,
 };
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
@@ -972,9 +973,9 @@ either_codec_reader!(
         >,
     }
     return_types {
-      FloatVectorValues: FloatVectorValuesEnum2,
-      ByteVectorValues: ByteVectorValuesEnum2,
-      PointValues: PointValuesEnum2,
+      FloatVectorValues: ReorderedMergeFloatVectorValues,
+      ByteVectorValues: ReorderedMergeByteVectorValues,
+      PointValues: ReorderedMergePointValues,
       PointsReader: SortingCodecReaderPointsReader,
       KnnVectorsReader: SortingCodecReaderKnnVectorsReader,
     }

@@ -48,7 +48,7 @@ use crate::core::index::index_reader::{
   Identity, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
 use crate::core::index::knn_vector_values::{
-  BitsImpl, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues,
+  BitsImpl, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues, KnnVectorValuesEnm2,
 };
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -108,6 +108,7 @@ pub enum CachedObject {
   SortedNumeric(LongValues),
   SortedSet(DocOrds),
 }
+
 /// An [`CodecReader`] which supports sorting documents by a given `Sort`. This can be used to
 /// re-sort an index after it has been created by wrapping all readers of the index with this reader
 /// and adding it to a fresh [`IndexWriter`](crate::core::index::index_writer::IndexWriter) via
@@ -3925,5 +3926,367 @@ impl Supplier<SortingValuesIterator> for SortingIteratorSupplier {
       self.doc_to_ord.clone(),
       self.size as i32,
     )
+  }
+}
+/// Float vector values returned by the reordered merge reader.
+///
+/// The sorting branch cannot create a vector scorer, so its scorer result does
+/// not need a second enum layer.  The other associated return types still vary
+/// by branch and remain explicitly enumerated below.
+pub(crate) enum ReorderedMergeFloatVectorValues<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> KnnVectorValues for ReorderedMergeFloatVectorValues<T, U>
+where
+  T: FloatVectorValues,
+  U: FloatVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::A(values) => values.dimension(),
+      Self::B(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::A(values) => values.size(),
+      Self::B(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::A(values) => values.ord_to_doc(ord),
+      Self::B(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = KnnVectorValuesEnm2<T::KnnVectorValues, U::KnnVectorValues>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::A(values) => values.copy().map(KnnVectorValuesEnm2::A),
+      Self::B(values) => values.copy().map(KnnVectorValuesEnm2::B),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::A(values) => values.get_vector_byte_length(),
+      Self::B(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => KnnVectorValues::get_encoding(values),
+      Self::B(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B1>
+    = BitsEnum2<T::Bits<'a, B1>, U::Bits<'a, B1>>
+  where
+    B1: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
+  where
+    B1: Bits,
+  {
+    match self {
+      Self::A(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::A),
+      Self::B(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::B),
+    }
+  }
+
+  type DocIndexIterator = DocIndexIteratorEnum2<T::DocIndexIterator, U::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::A(values) => values.iterator().map(DocIndexIteratorEnum2::A),
+      Self::B(values) => values.iterator().map(DocIndexIteratorEnum2::B),
+    }
+  }
+}
+
+impl<T, U> FloatVectorValues for ReorderedMergeFloatVectorValues<T, U>
+where
+  T: FloatVectorValues,
+  U: FloatVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.vector_value(ord),
+      Self::B(values) => values.vector_value(ord),
+    }
+  }
+
+  type FloatVectorValues =
+    ReorderedMergeFloatVectorValues<T::FloatVectorValues, U::FloatVectorValues>;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    match self {
+      Self::A(values) => values
+        .float_copy()
+        .map(|values| values.map(ReorderedMergeFloatVectorValues::A)),
+      Self::B(values) => values
+        .float_copy()
+        .map(|values| values.map(ReorderedMergeFloatVectorValues::B)),
+    }
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::A(values) => values.scorer(target),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => FloatVectorValues::get_encoding(values),
+      Self::B(values) => FloatVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.get_vectors_mut(),
+      Self::B(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::A(values) => values.get_vectors(),
+      Self::B(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_vectors_capacity(),
+      Self::B(values) => values.get_vectors_capacity(),
+    }
+  }
+}
+
+/// Byte vector values returned by the reordered merge reader.
+pub(crate) enum ReorderedMergeByteVectorValues<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> KnnVectorValues for ReorderedMergeByteVectorValues<T, U>
+where
+  T: ByteVectorValues,
+  U: ByteVectorValues,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::A(values) => values.dimension(),
+      Self::B(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::A(values) => values.size(),
+      Self::B(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::A(values) => values.ord_to_doc(ord),
+      Self::B(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = KnnVectorValuesEnm2<T::KnnVectorValues, U::KnnVectorValues>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::A(values) => values.copy().map(KnnVectorValuesEnm2::A),
+      Self::B(values) => values.copy().map(KnnVectorValuesEnm2::B),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::A(values) => values.get_vector_byte_length(),
+      Self::B(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => KnnVectorValues::get_encoding(values),
+      Self::B(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B1>
+    = BitsEnum2<T::Bits<'a, B1>, U::Bits<'a, B1>>
+  where
+    B1: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B1>(&'a self, accept_docs: Option<B1>) -> Option<Self::Bits<'a, B1>>
+  where
+    B1: Bits,
+  {
+    match self {
+      Self::A(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::A),
+      Self::B(values) => values.get_accept_ords(accept_docs).map(BitsEnum2::B),
+    }
+  }
+
+  type DocIndexIterator = DocIndexIteratorEnum2<T::DocIndexIterator, U::DocIndexIterator>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::A(values) => values.iterator().map(DocIndexIteratorEnum2::A),
+      Self::B(values) => values.iterator().map(DocIndexIteratorEnum2::B),
+    }
+  }
+}
+
+impl<T, U> ByteVectorValues for ReorderedMergeByteVectorValues<T, U>
+where
+  T: ByteVectorValues,
+  U: ByteVectorValues,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.vector_value(ord),
+      Self::B(values) => values.vector_value(ord),
+    }
+  }
+
+  type ByteVectorValues = ReorderedMergeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    match self {
+      Self::A(values) => values
+        .byte_copy()
+        .map(|values| values.map(ReorderedMergeByteVectorValues::A)),
+      Self::B(values) => values
+        .byte_copy()
+        .map(|values| values.map(ReorderedMergeByteVectorValues::B)),
+    }
+  }
+
+  type VectorScorer = T::VectorScorer;
+
+  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::A(values) => values.scorer(target),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::A(values) => ByteVectorValues::get_encoding(values),
+      Self::B(values) => ByteVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::A(values) => values.get_vectors_mut(),
+      Self::B(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::A(values) => values.get_vectors(),
+      Self::B(values) => values.get_vectors(),
+    }
+  }
+}
+
+/// Point values returned by the reordered merge reader.
+pub(crate) enum ReorderedMergePointValues<T, U> {
+  A(T),
+  B(U),
+}
+
+impl<T, U> PointValues for ReorderedMergePointValues<T, U>
+where
+  T: PointValues,
+  U: PointValues,
+{
+  fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    match self {
+      Self::A(values) => values.get_min_packed_value(),
+      Self::B(values) => values.get_min_packed_value(),
+    }
+  }
+
+  fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
+    match self {
+      Self::A(values) => values.get_max_packed_value(),
+      Self::B(values) => values.get_max_packed_value(),
+    }
+  }
+
+  fn get_num_dimensions(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_num_dimensions(),
+      Self::B(values) => values.get_num_dimensions(),
+    }
+  }
+
+  fn get_num_index_dimensions(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_num_index_dimensions(),
+      Self::B(values) => values.get_num_index_dimensions(),
+    }
+  }
+
+  fn get_bytes_per_dimension(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.get_bytes_per_dimension(),
+      Self::B(values) => values.get_bytes_per_dimension(),
+    }
+  }
+
+  fn size(&self) -> Result<usize> {
+    match self {
+      Self::A(values) => values.size(),
+      Self::B(values) => values.size(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.get_doc_count(),
+      Self::B(values) => values.get_doc_count(),
+    }
+  }
+
+  type PointTree = PointTreeEnum2<T::PointTree, U::PointTree>;
+  type MutablePointTree = T::MutablePointTree;
+
+  fn get_point_tree(&self) -> Result<PointTreeEnum<Self>> {
+    match self {
+      Self::A(values) => match values.get_point_tree()? {
+        PointTreeEnum::Mutable(tree) => Ok(PointTreeEnum::Mutable(tree)),
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::A(tree))),
+      },
+      Self::B(values) => match values.get_point_tree()? {
+        PointTreeEnum::Mutable(_) => Err(LuceneError::unsupported_operation("")),
+        PointTreeEnum::Other(tree) => Ok(PointTreeEnum::Other(PointTreeEnum2::B(tree))),
+      },
+    }
   }
 }
