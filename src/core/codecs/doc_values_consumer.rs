@@ -23,8 +23,9 @@ use crate::core::codecs::dummy::dummy_sorted_doc_values::DummySortedDocValues;
 use crate::core::codecs::dummy::dummy_sorted_numeric_doc_values::DummySortedNumericDocValues;
 use crate::core::codecs::dummy::dummy_sorted_set_doc_values::DummySortedSetDocValues;
 use crate::core::index::binary_doc_values::BinaryDocValues;
-use crate::core::index::doc_values::SortedDocValuesWithEmpty;
-use crate::core::index::doc_values::{DocValues, EmptyNumeric};
+use crate::core::index::doc_values::{
+  DocValues, NumericDocValuesWithEmpty, SortedDocValuesWithEmpty, SortedNumericDocValuesWithEmpty,
+};
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
@@ -34,7 +35,7 @@ use crate::core::index::filtered_terms_enum::{
   AcceptStatus, FilteredTermsEnum, FilteredTermsEnumBase,
 };
 use crate::core::index::merge_state::{DocMap, MergeStateAccess};
-use crate::core::index::numeric_doc_values::{NumericDocValues, NumericDocValuesEnum2};
+use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::ordinal_map::{OrdinalMap, SegmentToGlobalOrds};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -42,7 +43,7 @@ use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNume
 use crate::core::index::singleton_sorted_set_doc_values::SingletonSortedSetDocValues;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_numeric_doc_values::{
-  SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues, SortedNumericDocValuesEnum2,
+  SingletonOrMultiSortedNumericDocValuesEnum, SortedNumericDocValues,
 };
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
 use crate::core::index::sorted_set_doc_values_writer::{
@@ -868,15 +869,12 @@ where
   type SortedNumericDocValues = SingletonOrMultiSortedNumericDocValuesEnum<
     SingletonSortedNumericDocValues<
       NumericDocValuesMerge<
-        NumericDocValuesEnum2<MergeNumeric<MS::DocValuesProducer>, EmptyNumeric>,
+        NumericDocValuesWithEmpty<MergeNumeric<MS::DocValuesProducer>>,
         MS::DocMap,
       >,
     >,
     SortedNumericDocValuesMerge<
-      SortedNumericDocValuesEnum2<
-        MergeSortedNumeric<MS::DocValuesProducer>,
-        SingletonSortedNumericDocValues<EmptyNumeric>,
-      >,
+      SortedNumericDocValuesWithEmpty<MergeSortedNumeric<MS::DocValuesProducer>>,
       MS::DocMap,
     >,
   >;
@@ -902,14 +900,14 @@ where
         if let Some(reader_field_info) = reader_field_info
           && *reader_field_info.get_doc_values_type() == DocValuesType::SortedNumeric
         {
-          values = Some(SortedNumericDocValuesEnum2::A(
+          values = Some(SortedNumericDocValuesWithEmpty::A(
             doc_values_producer.get_sorted_numeric(&reader_field_info)?,
           ));
         }
       }
 
       if values.is_none() {
-        values = Some(SortedNumericDocValuesEnum2::B(
+        values = Some(SortedNumericDocValuesWithEmpty::B(
           DocValues::empty_sorted_numeric()?,
         ));
       }

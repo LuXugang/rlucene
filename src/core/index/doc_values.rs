@@ -736,6 +736,109 @@ where
   }
 }
 
+pub enum SortedNumericDocValuesWithEmpty<A> {
+  A(A),
+  B(SingletonSortedNumericDocValues<EmptyNumeric>),
+}
+
+impl<A> DocValuesIterator for SortedNumericDocValuesWithEmpty<A>
+where
+  A: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(inner) => inner.advance_exact(target),
+      Self::B(inner) => inner.advance_exact(target),
+    }
+  }
+}
+
+impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+
+impl<A> DocIdSetIterator for SortedNumericDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(inner) => inner.doc_id(),
+      Self::B(inner) => inner.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.next_doc(),
+      Self::B(inner) => inner.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.advance(target),
+      Self::B(inner) => inner.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.slow_advance(target),
+      Self::B(inner) => inner.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.cost(),
+      Self::B(inner) => inner.cost(),
+    }
+  }
+}
+
+impl<A> SortedNumericDocValues for SortedNumericDocValuesWithEmpty<A>
+where
+  A: SortedNumericDocValues,
+{
+  fn next_value(&mut self) -> Result<i64> {
+    match self {
+      Self::A(inner) => inner.next_value(),
+      Self::B(inner) => inner.next_value(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::A(inner) => inner.doc_value_count(),
+      Self::B(inner) => inner.doc_value_count(),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::A(inner) => inner.is_single_valued(),
+      Self::B(inner) => inner.is_single_valued(),
+    }
+  }
+
+  type NumericDocValues = NumericDocValuesWithEmpty<A::NumericDocValues>;
+
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::A(inner) => inner
+        .get_numeric_doc_values()
+        .map(NumericDocValuesWithEmpty::A),
+      Self::B(inner) => inner
+        .get_numeric_doc_values()
+        .map(NumericDocValuesWithEmpty::B),
+    }
+  }
+}
+
 /// An empty SortedDocValues which returns empty [`BytesRef`] for every
 /// document.
 pub struct EmptySorted {
