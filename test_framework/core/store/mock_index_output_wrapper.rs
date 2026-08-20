@@ -22,6 +22,7 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::util::failure_context::FailurePoint;
 use parking_lot::Mutex;
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
@@ -112,9 +113,6 @@ where
     handle_id: usize,
     handle: &MockIndexOutputHandle<D::IndexOutput>,
   ) -> Result<()> {
-    #[cfg(test)]
-    let _call_stack_marker =
-      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("close");
     let (result, close_result) = {
       let mut state = handle.state.lock();
       if state.closed {
@@ -124,7 +122,7 @@ where
       state.closed = true;
 
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        dir.maybe_throw_deterministic_exception()
+        dir.maybe_throw_deterministic_exception(FailurePoint::CloseOutput)
       }));
       let close_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| state.out.close()));
@@ -281,7 +279,9 @@ where
         .write_bytes_range(b, offset, len)?;
     }
 
-    self.dir.maybe_throw_deterministic_exception()?;
+    self
+      .dir
+      .maybe_throw_deterministic_exception(FailurePoint::WriteOutput)?;
 
     if self.first {
       // Maybe throw random exception; only do this on first write to a new
@@ -317,7 +317,9 @@ where
     })?;
 
     self.handle.state.lock().out.copy_bytes(input, num_bytes)?;
-    self.dir.maybe_throw_deterministic_exception()
+    self
+      .dir
+      .maybe_throw_deterministic_exception(FailurePoint::CopyBytes)
   }
 }
 

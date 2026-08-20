@@ -37,6 +37,10 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, IOUtils, TryIntoInt};
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use std::cmp::Ordering;
 use std::sync::Arc;
 
@@ -231,6 +235,11 @@ where
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
   ) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::TermVectorsConsumer,
+      ExecutionMethod::FinishDocument,
+    );
     if !self.has_vectors {
       return Ok(());
     }
@@ -315,6 +324,11 @@ where
   }
 
   fn init_term_vectors_writer<D1>(&mut self, info: &SegmentInfo<D1>) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::TermVectorsConsumer,
+      ExecutionMethod::InitTermVectorsWriter,
+    );
     self.hook.init_term_vectors_writer(
       &self.directory,
       &self.codec,

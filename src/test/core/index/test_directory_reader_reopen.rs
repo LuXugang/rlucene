@@ -59,8 +59,9 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper,
 };
+use crate::test_framework::core::util::failure_context::{ExecutionMethod, FailureContext};
 use crate::test_framework::core::util::lucene_test_case::{
-  call_stack_contains_any_of, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
+  get_only_leaf_reader, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_mock_directory, new_string_field, random,
   random_from_seed,
@@ -1586,8 +1587,12 @@ impl<D> Failure<D> for FailOnReadLiveDocs
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if !self.failed && call_stack_contains_any_of(&["read_live_docs"]) {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if !self.failed && context.contains_method(ExecutionMethod::ReadLiveDocs) {
       if cfg!(feature = "test_log_verbose") {
         println!("TEST: now fail; exc:");
       }

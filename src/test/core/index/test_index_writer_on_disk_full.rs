@@ -38,10 +38,11 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::merge_policy::KeepFullyDeletedSegmentsMergePolicy;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::util::failure_context::{ExecutionMethod, FailureContext};
 use crate::test_framework::core::util::lucene_test_case::{
-  call_stack_contains_any_of, is_night_mode, new_directory_shared,
-  new_index_writer_config_with_analyzer, new_log_merge_policy_with_cfs, new_mock_directory,
-  new_searcher_with_reader, new_text_field, random,
+  is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_cfs, new_mock_directory, new_searcher_with_reader, new_text_field,
+  random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -493,18 +494,24 @@ impl<D> Failure<D> for FailTwiceDuringMerge
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if !self.do_fail.load(Ordering::Relaxed) {
       return Ok(());
     }
-    if call_stack_contains_any_of(&["merge_terms"]) && !self.did_fail1.load(Ordering::Relaxed) {
+    if context.contains_method(ExecutionMethod::MergeTerms)
+      && !self.did_fail1.load(Ordering::Relaxed)
+    {
       self.did_fail1.store(true, Ordering::Relaxed);
       return Err(LuceneError::io(Error::other(
         "fake disk full during mergeTerms",
       )));
     }
-    if call_stack_contains_any_of(&["write_live_docs"])
-      && call_stack_contains_any_of(&["merge"])
+    if context.contains_method(ExecutionMethod::WriteLiveDocs)
+      && context.contains_method(ExecutionMethod::Merge)
       && !self.did_fail2.load(Ordering::Relaxed)
     {
       self.did_fail2.store(true, Ordering::Relaxed);

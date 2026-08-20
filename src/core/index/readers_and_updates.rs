@@ -58,6 +58,10 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::function::Function;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
@@ -277,10 +281,10 @@ where
     info: &SegmentCommitInfo<D>,
   ) -> Result<Option<DefaultLeafReader<D>>> {
     #[cfg(test)]
-    let _call_stack_marker =
-      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new(
-        "get_read_only_clone",
-      );
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::ReadersAndUpdates,
+      ExecutionMethod::GetReadOnlyClone,
+    );
     let mut inner = self.inner.lock();
     if inner.reader.is_none() {
       get_reader(context, info, &mut inner, self.index_created_version_major)?.dec_ref()?;

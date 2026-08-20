@@ -56,13 +56,14 @@ use crate::test_framework::core::index::mock_random_merge_policy::MockRandomMerg
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::util::failure_context::{ExecutionMethod, FailureContext};
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::slow_file_exists;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains_any_of, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_log_merge_policy, new_mock_directory,
-  new_searcher_with_reader, new_string_field, new_text_field, random,
+  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_log_merge_policy, new_mock_directory, new_searcher_with_reader, new_string_field,
+  new_text_field, random,
 };
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -1040,7 +1041,11 @@ where
     self.failed = false;
   }
 
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if thread::current().id() != self.thread {
       // don't fail during merging
       return Ok(());
@@ -1049,7 +1054,8 @@ where
       println!("FAIL EVAL:");
     }
     if self.saw_maybe && !self.failed {
-      let seen = call_stack_contains_any_of(&["apply_all_deletes_and_updates", "slow_file_exists"]);
+      let seen = context.contains_method(ExecutionMethod::ApplyAllDeletesAndUpdates)
+        || context.contains_method(ExecutionMethod::SlowFileExists);
       if !seen {
         // Only fail once we are no longer in applyDeletes
         self.failed = true;
@@ -1059,7 +1065,7 @@ where
         return Err(LuceneError::illegal_state("fail after applyDeletes"));
       }
     }
-    if !self.failed && call_stack_contains_any_of(&["apply_all_deletes_and_updates"]) {
+    if !self.failed && context.contains_method(ExecutionMethod::ApplyAllDeletesAndUpdates) {
       if cfg!(feature = "test_log_verbose") {
         println!("TEST: mock failure: saw applyDeletes");
       }

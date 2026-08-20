@@ -44,11 +44,13 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::suppressing_concurrent_merge_scheduler::SuppressingConcurrentMergeScheduler;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, FailureContext,
+};
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains, call_stack_contains_any_of, is_night_mode, new_directory_shared,
-  new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor,
-  new_mock_directory, random, random_from_seed, rarely,
+  at_least, is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_log_merge_policy_with_merge_factor, new_mock_directory, random, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -451,15 +453,21 @@ impl<D> Failure<D> for FailOnlyOnAbortOrFlush
 where
   D: Directory,
 {
-  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     // Since we throw exc during abort, eg when IW is
     // attempting to delete files, we will leave
     // leftovers:
     dir.set_assert_no_unrefenced_files_on_close(false);
 
     if self.do_fail.load(Ordering::SeqCst)
-      && call_stack_contains_any_of(&["abort", "finish_document"])
-      && !call_stack_contains_any_of(&["merge", "close"])
+      && (context.contains_method(ExecutionMethod::Abort)
+        || context.contains_method(ExecutionMethod::FinishDocument))
+      && !context.contains_method(ExecutionMethod::Merge)
+      && !context.contains_method(ExecutionMethod::Close)
     {
       if self.only_once {
         self.do_fail.store(false, Ordering::SeqCst);
@@ -526,8 +534,14 @@ impl<D> Failure<D> for FailOnlyInWriteSegment
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.enabled.load(Ordering::SeqCst) && call_stack_contains::<IndexingChain<D>>("flush") {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst)
+      && context.contains(ExecutionOwner::IndexingChain, ExecutionMethod::Flush)
+    {
       if self.only_once {
         self.enabled.store(false, Ordering::SeqCst);
       }

@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::backtrace::Backtrace;
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::io::ErrorKind;
@@ -86,6 +85,9 @@ use crate::test_framework::core::store::mock_directory_wrapper::{
   MockDirectoryWrapper, Throttling,
 };
 use crate::test_framework::core::store::raw_directory_wrapper::RawDirectoryWrapper;
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use crate::test_framework::core::util::lucene_test_case::EnvConfig::{
   LightMode, Multiplier, NightMode, TestSeed,
 };
@@ -101,26 +103,6 @@ pub struct LuceneTestCase;
 
 thread_local! {
   static EXPECTED_PANIC_DEPTH: Cell<usize> = const { Cell::new(0) };
-  static CALL_STACK_MARKERS: RefCell<Vec<&'static str>> = const { RefCell::new(Vec::new()) };
-}
-
-/// Preserves logical call-stack markers when optimized test builds inline the
-/// corresponding Rust methods and remove them from [`Backtrace`].
-pub(crate) struct CallStackMarker;
-
-impl CallStackMarker {
-  pub(crate) fn new(marker: &'static str) -> Self {
-    CALL_STACK_MARKERS.with_borrow_mut(|markers| markers.push(marker));
-    Self
-  }
-}
-
-impl Drop for CallStackMarker {
-  fn drop(&mut self) {
-    CALL_STACK_MARKERS.with_borrow_mut(|markers| {
-      markers.pop();
-    });
-  }
 }
 
 static INSTALL_EXPECTED_PANIC_HOOK: Once = Once::new();
@@ -1379,66 +1361,11 @@ where
   }
 }
 
-/// Inspects the stack trace to figure out if a method of a specific type
-/// called us.
-#[inline(never)]
-pub(crate) fn call_stack_contains<T>(method_name: &str) -> bool {
-  if CALL_STACK_MARKERS.with_borrow(|markers| markers.contains(&method_name)) {
-    return true;
-  }
-  let type_name = std::any::type_name::<T>();
-  let type_name = type_name.split('<').next().unwrap_or(type_name);
-  let method_name = format!("::{method_name}");
-  let helper_name = concat!(module_path!(), "::call_stack_contains");
-  Backtrace::force_capture().to_string().lines().any(|frame| {
-    !frame.contains(helper_name)
-      && frame.contains(type_name)
-      && frame.match_indices(&method_name).any(|(index, _)| {
-        let suffix = &frame[index + method_name.len()..];
-        suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
-      })
-  })
-}
-
-/// Inspects the stack trace to figure out if one of the given method names (no
-/// type restriction) called us.
-#[inline(never)]
-pub(crate) fn call_stack_contains_any_of(method_names: &[&str]) -> bool {
-  if CALL_STACK_MARKERS.with_borrow(|markers| {
-    method_names
-      .iter()
-      .any(|method_name| markers.contains(method_name))
-  }) {
-    return true;
-  }
-  let backtrace = Backtrace::force_capture().to_string();
-  let helper_name = concat!(module_path!(), "::call_stack_contains");
-  method_names.iter().any(|method_name| {
-    let method_name = format!("::{method_name}");
-    backtrace.lines().any(|frame| {
-      !frame.contains(helper_name)
-        && frame.match_indices(&method_name).any(|(index, _)| {
-          let suffix = &frame[index + method_name.len()..];
-          suffix.is_empty() || suffix.starts_with("::<") || suffix.starts_with("::{closure")
-        })
-    })
-  })
-}
-
-/// Inspects the stack trace to figure out if a method of a specific type
-/// called us.
-#[inline(never)]
-pub(crate) fn call_stack_contains_type<T>() -> bool {
-  let type_name = std::any::type_name::<T>();
-  let type_name = type_name.split('<').next().unwrap_or(type_name);
-  let helper_name = concat!(module_path!(), "::call_stack_contains");
-  Backtrace::force_capture()
-    .to_string()
-    .lines()
-    .any(|frame| !frame.contains(helper_name) && frame.contains(type_name))
-}
-
 pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
+  let _execution_scope = ExecutionScope::enter(
+    ExecutionOwner::LuceneTestCase,
+    ExecutionMethod::SlowFileExists,
+  );
   match dir.open_input(name, &IOContext::read_once_io_context()?) {
     Ok(input) => {
       input.close()?;

@@ -31,6 +31,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 #[cfg(test)]
 use crate::test_framework::core::index::test_stored_fields_consumer::TestStoredFieldsConsumerHook;
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 
 pub(crate) struct StoredFieldsConsumer<D>
 where
@@ -132,6 +136,11 @@ where
   }
 
   pub(crate) fn finish_document(&mut self) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::StoredFieldsConsumer,
+      ExecutionMethod::FinishDocument,
+    );
     self.hook.finish_document()
   }
 

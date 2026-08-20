@@ -27,6 +27,10 @@ use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::file_deleter::{FileDeleter, Messenger, MsgType};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -309,6 +313,11 @@ where
   }
   /// Remove the CommitPoints in the commitsToDelete List by DecRef'ing all files from each SegmentInfos.
   fn delete_commits(&mut self) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::IndexFileDeleter,
+      ExecutionMethod::DeleteCommits,
+    );
     if !self.commits_to_delete.load(SeqCst) {
       return Ok(());
     }
@@ -440,6 +449,11 @@ where
   where
     P: IndexDeletionPolicy<Arc<CommitPoint<D>>>,
   {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::IndexFileDeleter,
+      ExecutionMethod::Checkpoint,
+    );
     // In Java Lucene, this method should be called while synchronized on IndexWriter instance.
     // In Rust Lucene, IndexFileDeleter under IndexWriter's Inner Mutex, So it is similar to Java Lucene's `assert Thread.holdsLock(IndexWriter);`
     let t0 = std::time::Instant::now();
@@ -508,6 +522,9 @@ where
   where
     I: IntoIterator<Item = &'a String>,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexFileDeleter, ExecutionMethod::DecRef);
     self.file_deleter.dec_ref(files)
   }
   pub(crate) fn dec_ref_from_segment(&mut self, segment_infos: &SegmentInfos<D>) -> Result<()> {

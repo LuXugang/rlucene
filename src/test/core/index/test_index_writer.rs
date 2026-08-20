@@ -116,13 +116,16 @@ use crate::test_framework::core::index::test_index_writer::{
 };
 use crate::test_framework::core::store::base_directory_test_case::EXTRA_FILE_NAME;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope, FailureContext,
+};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains, create_temp_dir, get_only_leaf_reader, new_directory,
-  new_directory_shared, new_field, new_fs_directory, new_fs_directory_with_lock_factory,
-  new_index_writer_config, new_index_writer_config_with_analyzer, new_io_context,
-  new_log_merge_policy, new_log_merge_policy_with_merge_factor, new_merge_policy,
-  new_mock_directory, new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field,
-  new_text_field, random, random_from_seed, rarely, slow_file_exists,
+  at_least, create_temp_dir, get_only_leaf_reader, new_directory, new_directory_shared, new_field,
+  new_fs_directory, new_fs_directory_with_lock_factory, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_io_context, new_log_merge_policy,
+  new_log_merge_policy_with_merge_factor, new_merge_policy, new_mock_directory,
+  new_searcher_with_reader, new_snapshot_index_writer_config, new_string_field, new_text_field,
+  random, random_from_seed, rarely, slow_file_exists,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -3970,8 +3973,15 @@ impl<D> Failure<D> for FlushFailure
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if call_stack_contains::<DocumentsWriterPerThread<D>>("flush") {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if context.contains(
+      ExecutionOwner::DocumentsWriterPerThread,
+      ExecutionMethod::Flush,
+    ) {
       self
         .flushing_threads
         .lock()
@@ -4416,7 +4426,7 @@ where
   type IndexOutput = D::IndexOutput;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-    if call_stack_contains::<IndexingChain<D>>("flush") {
+    if ExecutionScope::contains(ExecutionOwner::IndexingChain, ExecutionMethod::Flush) {
       self.in_flush.count_down();
       self.latch.wait();
     }

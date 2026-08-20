@@ -56,9 +56,10 @@ use crate::test_framework::core::index::test_index_writer_reader::{count, create
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper,
 };
+use crate::test_framework::core::util::failure_context::{ExecutionMethod, FailureContext};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains_any_of, is_night_mode, new_directory_shared,
-  new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
+  at_least, is_night_mode, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_mock_directory, new_text_field, random,
   random_from_seed,
 };
@@ -1316,9 +1317,13 @@ impl<D> Failure<D> for FailOnGetReadOnlyClone
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.should_fail.load(AtomicOrdering::SeqCst)
-      && call_stack_contains_any_of(&["get_read_only_clone"])
+      && context.contains_method(ExecutionMethod::GetReadOnlyClone)
     {
       if cfg!(feature = "test_log_verbose") {
         println!("TEST: now fail; exc:");

@@ -24,6 +24,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::store::mock_directory_wrapper::MockDirectoryWrapper;
+use crate::test_framework::core::util::failure_context::FailurePoint;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -169,7 +170,9 @@ where
       if self.parent.is_none() {
         self.dir.remove_index_input(self.handle_id, &self.name);
       }
-      self.dir.maybe_throw_deterministic_exception()
+      self
+        .dir
+        .maybe_throw_deterministic_exception(FailurePoint::CloseInput)
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.in_.close()));
 

@@ -35,9 +35,11 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, FailureContext,
+};
 use crate::test_framework::core::util::lucene_test_case::{
-  call_stack_contains, new_directory_shared, new_index_writer_config_with_analyzer,
-  new_mock_directory, random,
+  new_directory_shared, new_index_writer_config_with_analyzer, new_mock_directory, random,
 };
 
 #[allow(dead_code)] // for quick search
@@ -61,10 +63,17 @@ impl<D> Failure<D> for FailOnPersist
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.do_fail
       && self.fail_on_persist.load(Ordering::SeqCst)
-      && call_stack_contains::<PersistentSnapshotDeletionPolicy<D>>("persist")
+      && context.contains(
+        ExecutionOwner::PersistentSnapshotDeletionPolicy,
+        ExecutionMethod::Persist,
+      )
     {
       return Err(LuceneError::io(Error::other("now fail on purpose")));
     }

@@ -45,6 +45,10 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::{IOUtils, LATEST, StringHelper};
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -199,8 +203,8 @@ where
     segment_read_state: &SegmentReadState<&D2>,
   ) -> Result<()> {
     #[cfg(test)]
-    let _call_stack_marker =
-      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("merge_terms");
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::SegmentMerger, ExecutionMethod::MergeTerms);
     let mut norms = if self.merge_state.merge_field_infos.has_norms() {
       Some(
         self
@@ -398,6 +402,9 @@ where
   ///
   /// Returns an error if the index is corrupt or if there is a low-level I/O error.
   pub(crate) fn merge(&mut self) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::SegmentMerger, ExecutionMethod::Merge);
     if !self.should_merge()? {
       return Err(LuceneError::illegal_state(
         "Merge would result in 0 document segment",

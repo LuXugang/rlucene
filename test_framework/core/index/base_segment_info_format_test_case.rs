@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains_any_of, new_directory_shared, new_mock_directory, random,
+  at_least, new_directory_shared, new_mock_directory, random,
 };
 use std::collections::{HashMap, HashSet};
 use std::io::Error;
@@ -50,6 +50,7 @@ use crate::test_framework::core::index::base_index_file_format_test_case::{
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper,
 };
+use crate::test_framework::core::util::failure_context::{FailureContext, FailurePoint};
 use crate::test_framework::core::util::test_util::TestUtil;
 
 pub struct BaseSegmentInfoFormatTestCaseDefaults;
@@ -892,8 +893,12 @@ impl<D> Failure<D> for FailOnCreateOutput
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["create_output"]) {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && context.point() == FailurePoint::CreateOutput {
       return Err(LuceneError::io(Error::other(FakeIOException)));
     }
     Ok(())
@@ -916,8 +921,12 @@ impl<D> Failure<D> for FailOnCloseOutput
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["close"]) {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && context.point() == FailurePoint::CloseOutput {
       return Err(LuceneError::io(Error::other(FakeIOException)));
     }
     Ok(())
@@ -940,8 +949,12 @@ impl<D> Failure<D> for FailOnOpenInput
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["open_input"]) {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && context.point() == FailurePoint::OpenInput {
       return Err(LuceneError::io(Error::other(FakeIOException)));
     }
     Ok(())
@@ -964,8 +977,12 @@ impl<D> Failure<D> for FailOnCloseInput
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.enabled.load(Ordering::SeqCst) && call_stack_contains_any_of(&["close"]) {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if self.enabled.load(Ordering::SeqCst) && context.point() == FailurePoint::CloseInput {
       return Err(LuceneError::io(Error::other(FakeIOException)));
     }
     Ok(())

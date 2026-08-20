@@ -31,6 +31,10 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::{FixedBit, FixedBitSet};
 use crate::core::util::io_utils::IOUtils;
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 
 /// Lucene 9.0 live docs format
 ///
@@ -109,6 +113,11 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     info: &SegmentCommitInfo<D>,
     _context: &IOContext,
   ) -> Result<Self::Bits> {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::Lucene90LiveDocsFormat,
+      ExecutionMethod::ReadLiveDocs,
+    );
     let gen_ = info.get_del_gen();
     let name = IndexFileNames::file_name_from_generation(
       &info.info.name,
@@ -166,8 +175,10 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     context: &IOContext,
   ) -> Result<()> {
     #[cfg(test)]
-    let _call_stack_marker =
-      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("write_live_docs");
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::Lucene90LiveDocsFormat,
+      ExecutionMethod::WriteLiveDocs,
+    );
     let gen_ = info.get_next_del_gen();
     let name = IndexFileNames::file_name_from_generation(
       &info.info.name,

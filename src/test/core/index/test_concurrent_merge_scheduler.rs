@@ -53,9 +53,9 @@ use crate::test_framework::core::index::test_index_writer::assert_no_unreference
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, MockDirectoryWrapper, Throttling,
 };
+use crate::test_framework::core::util::failure_context::{ExecutionMethod, FailureContext};
 use crate::test_framework::core::util::lucene_test_case::{
-  call_stack_contains_any_of, is_night_mode, new_directory_shared,
-  new_index_writer_config_with_analyzer, new_log_merge_policy,
+  is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_mock_directory, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -91,11 +91,15 @@ impl<D> Failure<D> for FailOnlyOnFlush
 where
   D: Directory,
 {
-  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.do_fail.load(Ordering::SeqCst)
       && thread::current().id() == self.test_thread
-      && call_stack_contains_any_of(&["flush"])
-      && !call_stack_contains_any_of(&["close"])
+      && context.contains_method(ExecutionMethod::Flush)
+      && !context.contains_method(ExecutionMethod::Close)
       && dir.state.random_state.lock().random_bool(0.5)
     {
       self.hit_exc.store(true, Ordering::SeqCst);

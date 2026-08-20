@@ -43,10 +43,12 @@ use crate::test_framework::core::analysis::mock_variable_length_payload_filter::
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, MockDirectoryWrapper, Throttling,
 };
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, FailureContext,
+};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains, call_stack_contains_type, is_night_mode, new_field,
-  new_index_writer_config_with_analyzer, new_mock_directory, new_string_field, new_text_field,
-  random, random_from_seed,
+  at_least, is_night_mode, new_field, new_index_writer_config_with_analyzer, new_mock_directory,
+  new_string_field, new_text_field, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -419,9 +421,13 @@ impl<D> Failure<D> for OomFailure
 where
   D: Directory + 'static,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.random.lock().random_range(0..3000) == 0
-      && call_stack_contains_type::<IndexWriter<MockDirectoryWrapper<D>>>()
+      && context.contains_owner(ExecutionOwner::IndexWriter)
       && !std::thread::panicking()
     {
       panic!("Fake OutOfMemoryError");
@@ -458,9 +464,13 @@ impl<D> Failure<D> for UnknownErrorFailure
 where
   D: Directory + 'static,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.random.lock().random_range(0..3000) == 0
-      && call_stack_contains_type::<IndexWriter<MockDirectoryWrapper<D>>>()
+      && context.contains_owner(ExecutionOwner::IndexWriter)
       && !std::thread::panicking()
     {
       panic!("Fake UnknownError");
@@ -497,9 +507,13 @@ impl<D> Failure<D> for LinkageErrorFailure
 where
   D: Directory + 'static,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.random.lock().random_range(0..3000) == 0
-      && call_stack_contains_type::<IndexWriter<MockDirectoryWrapper<D>>>()
+      && context.contains_owner(ExecutionOwner::IndexWriter)
       && !std::thread::panicking()
     {
       panic!("Fake LinkageError");
@@ -536,9 +550,13 @@ impl<D> Failure<D> for IoErrorFailure
 where
   D: Directory + 'static,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.random.lock().random_range(0..3000) == 0
-      && call_stack_contains_type::<IndexWriter<MockDirectoryWrapper<D>>>()
+      && context.contains_owner(ExecutionOwner::IndexWriter)
       && !std::thread::panicking()
     {
       panic!("Fake IOError");
@@ -577,9 +595,16 @@ impl<D> Failure<D> for CheckpointFailure
 where
   D: Directory + 'static,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.random.lock().random_range(0..4) == 0
-      && call_stack_contains::<IndexFileDeleter<MockDirectoryWrapper<D>>>("checkpoint")
+      && context.contains(
+        ExecutionOwner::IndexFileDeleter,
+        ExecutionMethod::Checkpoint,
+      )
       && !std::thread::panicking()
     {
       panic!("Fake OutOfMemoryError");

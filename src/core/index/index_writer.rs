@@ -38,6 +38,10 @@ use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, Luce
 use crate::core::util::long_supplier::LongSupplier;
 #[cfg(test)]
 use crate::test_framework::core::index::test_tragic_index_writer_deadlock::TragicIndexWriter;
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
 use std::cell::{Cell, RefCell};
 use std::sync::{Arc, OnceLock, Weak};
@@ -764,6 +768,9 @@ where
   where
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Close);
     if self.config.get_commit_on_close() {
       self.shut_down()?;
     } else {
@@ -814,6 +821,9 @@ where
   where
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     self.do_ensure_open(true)?;
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
       let seq = self.maybe_process_events(self.doc_writer.delete_terms(&self.config, terms)?)?;
@@ -1002,6 +1012,9 @@ where
     DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     self.do_ensure_open(true)?;
     let mut success = false;
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
@@ -1259,6 +1272,9 @@ where
     F: Into<String>,
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     let field = field.into();
     self.do_ensure_open(true)?;
 
@@ -1332,6 +1348,9 @@ where
     F: Into<String>,
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     let field = field.into();
     self.do_ensure_open(true)?;
 
@@ -2526,6 +2545,11 @@ where
   where
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::IndexWriter,
+      ExecutionMethod::RollbackInternal,
+    );
     // Make sure no commit is running, else e.g. we can close while another thread is still
     // fsync'ing.
     match commit_lock {
@@ -2548,6 +2572,11 @@ where
   where
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::IndexWriter,
+      ExecutionMethod::RollbackInternalNoCommit,
+    );
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message("IW", "rollback")?;
     }
@@ -4680,6 +4709,11 @@ where
   where
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::IndexWriter,
+      ExecutionMethod::ApplyAllDeletesAndUpdates,
+    );
     self.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(
@@ -5172,6 +5206,9 @@ where
   where
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Merge);
     #[cfg(test)]
     if let Some(s) = &self.hooks {
       s.do_before_merge(&merge.stat)?;
@@ -6703,6 +6740,9 @@ where
   where
     D: 'static,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     self.do_ensure_open(true)?;
 
     if write_all_deletes && !apply_all_deletes {
@@ -7142,6 +7182,9 @@ where
   /// The `sequence number` of the last operation in the commit.
   /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
   fn prepare_commit(&self) -> Result<i64> {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     self.ensure_open()?;
     self
       .pending_seq_no
@@ -7180,6 +7223,9 @@ where
   /// The `sequence number` of the last operation in the commit.
   /// All sequence numbers `<=` this value will be reflected in the commit, and all others will not.
   fn commit(&self) -> Result<i64> {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     self.ensure_open()?;
     self.commit_internal(self.config.get_merge_policy())
   }

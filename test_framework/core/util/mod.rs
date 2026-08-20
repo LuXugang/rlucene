@@ -35,6 +35,7 @@ use tempfile::TempDir;
 pub mod automaton;
 pub mod english;
 pub mod fail_on_non_bulk_merges_info_stream;
+pub(crate) mod failure_context;
 pub mod fst_tester;
 pub mod hnsw;
 pub mod index_package_access;

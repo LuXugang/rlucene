@@ -34,6 +34,7 @@ use crate::test_framework::core::store::mock_index_input_wrapper::{
 use crate::test_framework::core::store::mock_index_output_wrapper::{
   MockIndexOutputHandle, MockIndexOutputWrapper,
 };
+use crate::test_framework::core::util::failure_context::{FailureContext, FailurePoint};
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_io_context, new_io_context_with_default, slow_file_exists,
 };
@@ -216,6 +217,15 @@ where
   /// Called at each potential failure point.
   fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
     Ok(())
+  }
+
+  /// Called with the stable logical context of the potential failure point.
+  fn eval_with_context(
+    &mut self,
+    dir: &MockDirectoryWrapper<D>,
+    _context: &FailureContext,
+  ) -> Result<()> {
+    self.eval(dir)
   }
 
   /// reset should set the state of the failure to its default (freshly
@@ -997,10 +1007,13 @@ where
 
   /// Iterate through the failures list, giving each object a chance to throw
   /// an IOE
-  pub fn maybe_throw_deterministic_exception(&self) -> Result<()> {
+  pub fn maybe_throw_deterministic_exception(&self, point: FailurePoint) -> Result<()> {
+    let context = FailureContext::new(point);
     let mut failures = self.state.failures.lock();
     for failure in failures.iter_mut() {
-      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| failure.eval(self)));
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        failure.eval_with_context(self, &context)
+      }));
       if !matches!(&result, Ok(Ok(()))) {
         if cfg!(feature = "test_log_verbose") {
           eprintln!("MockDirectoryWrapper: throw exc");
@@ -1185,7 +1198,7 @@ where
 {
   fn sync(&self, names: &[String]) -> Result<()> {
     self.maybe_yield();
-    self.maybe_throw_deterministic_exception()?;
+    self.maybe_throw_deterministic_exception(FailurePoint::Sync)?;
     if self.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io(Error::other("cannot sync after crash")));
     }
@@ -1207,7 +1220,7 @@ where
 
   fn rename(&self, source: &str, dest: &str) -> Result<()> {
     self.maybe_yield();
-    self.maybe_throw_deterministic_exception()?;
+    self.maybe_throw_deterministic_exception(FailurePoint::Rename)?;
 
     if self.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io(Error::other("cannot rename after crash")));
@@ -1251,7 +1264,7 @@ where
 
   fn sync_metadata(&self) -> Result<()> {
     self.maybe_yield();
-    self.maybe_throw_deterministic_exception()?;
+    self.maybe_throw_deterministic_exception(FailurePoint::SyncMetadata)?;
     if self.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io(Error::other(
         "cannot sync metadata after crash",
@@ -1263,7 +1276,7 @@ where
   fn delete_file(&self, name: &str) -> Result<()> {
     self.maybe_yield();
 
-    self.maybe_throw_deterministic_exception()?;
+    self.maybe_throw_deterministic_exception(FailurePoint::DeleteFile)?;
 
     if self.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io_with_path(
@@ -1299,11 +1312,11 @@ where
   type IndexOutput = MockDirectoryIndexOutput<D>;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-    self.maybe_throw_deterministic_exception()?;
+    self.maybe_throw_deterministic_exception(FailurePoint::CreateOutput)?;
     self.maybe_throw_io_exception_on_open(name)?;
     self.maybe_yield();
     if self.state.fail_on_create_output.load(Ordering::SeqCst) {
-      self.maybe_throw_deterministic_exception()?;
+      self.maybe_throw_deterministic_exception(FailurePoint::CreateOutput)?;
     }
     if self.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io_with_path(
@@ -1363,11 +1376,11 @@ where
     suffix: &str,
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
-    self.maybe_throw_deterministic_exception()?;
+    self.maybe_throw_deterministic_exception(FailurePoint::CreateTempOutput)?;
     self.maybe_throw_io_exception_on_open(&format!("temp: prefix={prefix} suffix={suffix}"))?;
     self.maybe_yield();
     if self.state.fail_on_create_output.load(Ordering::SeqCst) {
-      self.maybe_throw_deterministic_exception()?;
+      self.maybe_throw_deterministic_exception(FailurePoint::CreateTempOutput)?;
     }
     if self.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io(Error::other(
@@ -1407,11 +1420,11 @@ where
   type IndexInput = MockDirectoryIndexInput<D>;
 
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
-    self.maybe_throw_deterministic_exception()?;
+    self.maybe_throw_deterministic_exception(FailurePoint::OpenInput)?;
     self.maybe_throw_io_exception_on_open(name)?;
     self.maybe_yield();
     if self.state.fail_on_open_input.load(Ordering::SeqCst) {
-      self.maybe_throw_deterministic_exception()?;
+      self.maybe_throw_deterministic_exception(FailurePoint::OpenInput)?;
     }
     if !slow_file_exists(self.state.base.lock().get_delegate(), name)? {
       return Err(LuceneError::io_with_path(

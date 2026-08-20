@@ -41,6 +41,10 @@ use crate::core::util::output_enum::OutputEnum;
 use crate::core::util::{
   HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper, TryIntoInt, Version,
 };
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use num_bigint::BigInt;
 use std::io::{Error, ErrorKind, Write};
 
@@ -854,6 +858,9 @@ impl<D> SegmentInfos<D> {
   /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
   /// this method if changes have been made to this [`SegmentInfos`] instance.
   pub fn prepare_commit(&mut self, directory: &impl Directory) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::SegmentInfos, ExecutionMethod::PrepareCommit);
     if self.pending_commit {
       return Err(LuceneError::illegal_state(
         "prepare_commit was already called",
@@ -882,6 +889,9 @@ impl<D> SegmentInfos<D> {
   }
   /// Returns the committed `segments_N` filename.
   pub fn finish_commit(&mut self, directory: &impl Directory) -> Result<String> {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::SegmentInfos, ExecutionMethod::FinishCommit);
     if !self.pending_commit {
       return Err(LuceneError::illegal_state("prepare_commit was not called"));
     }

@@ -24,6 +24,10 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{
   CaughtResult, LuceneError, PanicWithSuppressed, Result, SuppressedFailure,
 };
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 
 enum CloseFailure {
   Panic(Box<dyn std::any::Any + Send>),
@@ -298,6 +302,9 @@ impl IOUtils {
     T: IntoIterator<Item = &'a String>,
     D: Directory + ?Sized,
   {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IOUtils, ExecutionMethod::DeleteFiles);
     Self::close(names, |name| dir.delete_file(name))
   }
 

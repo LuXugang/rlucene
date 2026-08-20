@@ -55,6 +55,10 @@ use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{LATEST, LUCENE_10_0_0, StringHelper, TryIntoInt};
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use parking_lot::{Condvar, Mutex};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -172,6 +176,11 @@ where
     self.state.is_aborted()
   }
   pub(crate) fn abort(&mut self) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::DocumentsWriterPerThread,
+      ExecutionMethod::Abort,
+    );
     self.state.aborted.store(true, Ordering::SeqCst);
     self.pending_num_docs.fetch_add(
       -(self.state.num_docs_in_ram.load(SeqCst) as i64),
@@ -515,6 +524,11 @@ where
   where
     FN: FlushNotifications,
   {
+    #[cfg(test)]
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::DocumentsWriterPerThread,
+      ExecutionMethod::Flush,
+    );
     debug_assert_eq!(self.state.flush_pending.get(), Some(&true));
     debug_assert!(self.state.num_docs_in_ram.load(SeqCst) > 0);
     debug_assert!(

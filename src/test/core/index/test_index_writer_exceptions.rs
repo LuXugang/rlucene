@@ -83,11 +83,13 @@ use crate::test_framework::core::analysis::mock_tokenizer::{
 use crate::test_framework::core::index::random_index_writer::{RandomIndexWriter, TestPoint};
 use crate::test_framework::core::internal::index_writer_access::IndexWriterAccess;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, FailureContext, FailurePoint,
+};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains, call_stack_contains_any_of, get_only_leaf_reader, is_night_mode,
-  new_directory_shared, new_field, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_mock_directory, new_searcher, new_string_field, new_text_field, random, random_from_seed,
-  random_multiplier,
+  at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_mock_directory, new_searcher,
+  new_string_field, new_text_field, random, random_from_seed, random_multiplier,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -809,10 +811,14 @@ where
     self.do_fail.store(false, Ordering::SeqCst);
   }
 
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.do_fail.load(Ordering::SeqCst)
-      && call_stack_contains_any_of(&["flush"])
-      && !call_stack_contains_any_of(&["finish_document"])
+      && context.contains_method(ExecutionMethod::Flush)
+      && !context.contains_method(ExecutionMethod::FinishDocument)
     {
       *self.count.lock() += 1;
       self.do_fail.store(false, Ordering::SeqCst);
@@ -833,9 +839,12 @@ impl<D> Failure<D> for FailOnlyInSync
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if self.do_fail.load(Ordering::SeqCst) && call_stack_contains::<MockDirectoryWrapper<D>>("sync")
-    {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if self.do_fail.load(Ordering::SeqCst) && context.point() == FailurePoint::Sync {
       self.did_fail.store(true, Ordering::SeqCst);
       return Err(LuceneError::io(Error::other(
         "now failing on purpose during sync",
@@ -870,7 +879,7 @@ struct FailOnlyInCommit {
   fail_on_sync_metadata: Arc<AtomicBool>,
   dont_fail_during_global_field_map: bool,
   dont_fail_during_sync_metadata: bool,
-  stage: &'static str,
+  stage: ExecutionMethod,
   do_fail: bool,
 }
 
@@ -890,13 +899,13 @@ impl TestPoint for TestPoint4 {
 }
 
 impl FailOnlyInCommit {
-  const PREPARE_STAGE: &'static str = "prepare_commit";
-  const FINISH_STAGE: &'static str = "finish_commit";
+  const PREPARE_STAGE: ExecutionMethod = ExecutionMethod::PrepareCommit;
+  const FINISH_STAGE: ExecutionMethod = ExecutionMethod::FinishCommit;
 
   fn new(
     dont_fail_during_global_field_map: bool,
     dont_fail_during_sync_metadata: bool,
-    stage: &'static str,
+    stage: ExecutionMethod,
   ) -> Self {
     Self {
       fail_on_commit: Arc::new(AtomicBool::new(false)),
@@ -914,11 +923,18 @@ impl<D> Failure<D> for FailOnlyInCommit
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    let mut is_commit = call_stack_contains::<SegmentInfos<D>>(self.stage);
-    let is_delete = call_stack_contains::<MockDirectoryWrapper<D>>("delete_file");
-    let is_sync_metadata = call_stack_contains::<MockDirectoryWrapper<D>>("sync_metadata");
-    let is_in_global_field_map = call_stack_contains::<SegmentInfos<D>>("write_global_field_map");
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    let mut is_commit = context.contains(ExecutionOwner::SegmentInfos, self.stage);
+    let is_delete = context.point() == FailurePoint::DeleteFile;
+    let is_sync_metadata = context.point() == FailurePoint::SyncMetadata;
+    let is_in_global_field_map = context.contains(
+      ExecutionOwner::SegmentInfos,
+      ExecutionMethod::WriteGlobalFieldMap,
+    );
     if is_in_global_field_map && self.dont_fail_during_global_field_map {
       is_commit = false;
     }
@@ -957,7 +973,7 @@ where
 
 #[derive(Clone)]
 struct FailOnTermVectors {
-  stage: &'static str,
+  stage: ExecutionMethod,
   do_fail: bool,
 }
 
@@ -1022,9 +1038,13 @@ impl<D> Failure<D> for RandomRollbackFailure
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.random.lock().random_range(0..10) == 0
-      && call_stack_contains_any_of(&["rollback_internal"])
+      && context.contains_method(ExecutionMethod::RollbackInternal)
     {
       return Err(LuceneError::io(Error::other("a fake IOException")));
     }
@@ -1052,11 +1072,15 @@ impl<D> Failure<D> for MergeFailure
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.random.lock().random_range(0..10) != 0 || self.did_fail.load(Ordering::SeqCst) {
       return Ok(());
     }
-    if call_stack_contains_any_of(&["merge"]) {
+    if context.contains_method(ExecutionMethod::Merge) {
       self.did_fail.store(true, Ordering::SeqCst);
       return Err(LuceneError::io(Error::other("a fake IOException")));
     }
@@ -1108,16 +1132,23 @@ impl<D> Failure<D> for SyncMetadataFailure
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if call_stack_contains::<MockDirectoryWrapper<D>>("sync_metadata")
-      && call_stack_contains::<SegmentInfos<D>>("finish_commit")
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if context.point() == FailurePoint::SyncMetadata
+      && context.contains(ExecutionOwner::SegmentInfos, ExecutionMethod::FinishCommit)
     {
       return Err(LuceneError::illegal_state("boom"));
     }
     if self.maybe_fail_delete.load(Ordering::SeqCst)
       && self.random.lock().random()
-      && call_stack_contains::<IndexWriter<D>>("rollback_internal_no_commit")
-      && call_stack_contains_any_of(&["delete_files"])
+      && context.contains(
+        ExecutionOwner::IndexWriter,
+        ExecutionMethod::RollbackInternalNoCommit,
+      )
+      && context.contains_method(ExecutionMethod::DeleteFiles)
     {
       return Err(LuceneError::illegal_state("bang"));
     }
@@ -1134,11 +1165,11 @@ where
 }
 
 impl FailOnTermVectors {
-  const INIT_STAGE: &'static str = "init_term_vectors_writer";
-  const AFTER_INIT_STAGE: &'static str = "finish_document";
+  const INIT_STAGE: ExecutionMethod = ExecutionMethod::InitTermVectorsWriter;
+  const AFTER_INIT_STAGE: ExecutionMethod = ExecutionMethod::FinishDocument;
   const EXC_MSG: &'static str = "FOTV";
 
-  fn new(stage: &'static str) -> Self {
+  fn new(stage: ExecutionMethod) -> Self {
     Self {
       stage,
       do_fail: false,
@@ -1150,8 +1181,12 @@ impl<D> Failure<D> for FailOnTermVectors
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
-    if call_stack_contains::<TermVectorsConsumer<D>>(self.stage) {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
+    if context.contains(ExecutionOwner::TermVectorsConsumer, self.stage) {
       return Err(LuceneError::illegal_state(Self::EXC_MSG));
     }
     Ok(())

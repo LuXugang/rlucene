@@ -18,10 +18,9 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, call_stack_contains, new_directory_shared, new_index_writer_config,
-  new_index_writer_config_with_analyzer, new_io_context,
-  new_log_merge_policy_with_merge_factor_cfs, new_mock_directory, new_string_field, new_text_field,
-  random, slow_file_exists,
+  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
+  new_io_context, new_log_merge_policy_with_merge_factor_cfs, new_mock_directory, new_string_field,
+  new_text_field, random, slow_file_exists,
 };
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
@@ -53,6 +52,9 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_index_file_deleter::FakeFailConcurrentMergeScheduler;
 use crate::test_framework::core::store::mock_directory_wrapper::{
   Failure, FakeIOException, MockDirectoryWrapper, Throttling,
+};
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, FailureContext, FailurePoint,
 };
 #[allow(dead_code)] // for quick search
 struct TestIndexFileDeleter;
@@ -654,10 +656,14 @@ impl<D> Failure<D> for FailInDecRef
 where
   D: Directory,
 {
-  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.do_fail_exc.load(Ordering::SeqCst)
       && dir.state.random_state.lock().random_range(0..4) == 1
-      && call_stack_contains::<IndexFileDeleter<D>>("dec_ref")
+      && context.contains(ExecutionOwner::IndexFileDeleter, ExecutionMethod::DecRef)
     {
       return Err(LuceneError::illegal_state("fake fail"));
     }
@@ -682,10 +688,14 @@ impl<D> Failure<D> for FailInDeleteFile
 where
   D: Directory,
 {
-  fn eval(&mut self, dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.do_fail_exc.load(Ordering::SeqCst)
       && dir.state.random_state.lock().random_range(0..4) == 1
-      && call_stack_contains::<MockDirectoryWrapper<D>>("delete_file")
+      && context.point() == FailurePoint::DeleteFile
     {
       return Err(LuceneError::io(Error::other(FakeIOException)));
     }
@@ -766,11 +776,18 @@ impl<D> Failure<D> for FailOnDeleteCommits
 where
   D: Directory,
 {
-  fn eval(&mut self, _dir: &MockDirectoryWrapper<D>) -> Result<()> {
+  fn eval_with_context(
+    &mut self,
+    _dir: &MockDirectoryWrapper<D>,
+    context: &FailureContext,
+  ) -> Result<()> {
     if self.do_fail
       && self.fail_on_delete_commits.load(Ordering::SeqCst)
-      && call_stack_contains::<IndexFileDeleter<D>>("delete_commits")
-      && call_stack_contains::<MockDirectoryWrapper<D>>("delete_file")
+      && context.contains(
+        ExecutionOwner::IndexFileDeleter,
+        ExecutionMethod::DeleteCommits,
+      )
+      && context.point() == FailurePoint::DeleteFile
       && _dir.state.random_state.lock().random_range(0..4) == 1
     {
       return Err(LuceneError::io(Error::other(FakeIOException)));

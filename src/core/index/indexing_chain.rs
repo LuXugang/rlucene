@@ -119,6 +119,10 @@ use crate::core::util::{
   AtomicCounter, ByteBlockPool, CoreHelper, Counter, IOUtils, LUCENE_10_0_0, SharedCounter,
   TryIntoInt,
 };
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -329,6 +333,9 @@ where
     index_writer_config: &impl LiveIndexWriterConfig,
     field_info: &mut Builder,
   ) -> Result<Option<Arc<DocMapImpl>>> {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexingChain, ExecutionMethod::Flush);
     // NOTE: caller (DocumentsWriterPerThread) handles
     // aborting on any error from this method
     let sort_map = self.maybe_sort_segment(state, segment_info, field_info)?;
@@ -679,6 +686,9 @@ where
   }
 
   pub(crate) fn abort(&mut self) -> Result<()> {
+    #[cfg(test)]
+    let _execution_scope =
+      ExecutionScope::enter(ExecutionOwner::IndexingChain, ExecutionMethod::Abort);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       self.stored_fields_consumer.abort()?;
       self.vector_values_consumer.abort();

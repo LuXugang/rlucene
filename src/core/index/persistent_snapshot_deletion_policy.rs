@@ -32,6 +32,10 @@ use crate::core::store::{DataInput, DataOutput, IO_CONTEXT_DEFAULT};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
+#[cfg(test)]
+use crate::test_framework::core::util::failure_context::{
+  ExecutionMethod, ExecutionOwner, ExecutionScope,
+};
 
 /// A [`SnapshotDeletionPolicy`] which adds a persistence layer so that snapshots can be
 /// maintained across the life of an application. The snapshots are persisted in a [`Directory`]
@@ -180,8 +184,10 @@ where
 
   fn persist(&self, op_lock: &SnapshotDeletionPolicyLock<'_>) -> Result<()> {
     #[cfg(test)]
-    let _call_stack_marker =
-      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("persist");
+    let _execution_scope = ExecutionScope::enter(
+      ExecutionOwner::PersistentSnapshotDeletionPolicy,
+      ExecutionMethod::Persist,
+    );
     let mut next_write_gen = self.next_write_gen.lock();
     let file_name = format!("{SNAPSHOTS_PREFIX}{}", *next_write_gen);
     let mut success = false;
