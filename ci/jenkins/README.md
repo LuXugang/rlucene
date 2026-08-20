@@ -49,16 +49,24 @@ Pipeline disables concurrent builds. Do not clean the controller's global
 
 ## Tests, timeouts, and diagnostics
 
-The main test command is:
+The main release test command is run with debug assertions enabled:
 
 ```sh
-cargo nextest run --profile ci --workspace
+CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true \
+  cargo nextest run --release --profile ci --workspace
 ```
+
+Jenkins sets `CARGO_TARGET_DIR` to the persistent
+`/var/jenkins_home/cargo-target/rlucene-ci` directory. Builds must not run
+`cargo clean` or otherwise remove this directory: Cargo keeps release
+artifacts there and reuses them when the commit is unchanged or when source
+dependencies are unchanged.
 
 Because nextest does not run Rust doctests, Jenkins also runs:
 
 ```sh
-cargo test --workspace --doc -q
+CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true \
+  cargo test --release --workspace --doc -q
 ```
 
 `.config/nextest.toml` marks an individual test as slow after 60 seconds. A slow
