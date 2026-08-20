@@ -20,11 +20,10 @@ pipeline {
     RUSTUP_UPDATE_ROOT = 'https://rsproxy.cn/rustup'
     RUSTUP_HOME = '/opt/rustup'
     CARGO_HOME = '/opt/cargo'
-    // Keep release artifacts across builds; release compilation is expensive.
     CARGO_TARGET_DIR = '/var/jenkins_home/cargo-target/rlucene-ci'
     CI_STATE_ROOT = '/var/jenkins_home/ci-state/rlucene-ci'
     LAST_SUCCESSFUL_SHA_FILE = '/var/jenkins_home/ci-state/rlucene-ci/last-successful-sha'
-    CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = 'true'
+    CARGO_PROFILE_TEST_DEBUG = '0'
     CARGO_TERM_COLOR = 'never'
     RUST_BACKTRACE = 'full'
     NO_COLOR = '1'
@@ -133,8 +132,7 @@ pipeline {
             currentBuild.description =
               "${checkedOutSha.take(12)}: unchanged, direct nextest"
             echo """${checkedOutSha} already passed once.
-Skipping dependency preflight and reusing the persistent release target before
-running cargo nextest directly."""
+Skipping dependency preflight and running cargo nextest directly."""
           }
         }
       }
@@ -185,7 +183,7 @@ running cargo nextest directly."""
 
               set +e
               timeout --kill-after=30s 20m \
-                cargo nextest run --release --profile ci --workspace \
+                cargo nextest run --profile ci --workspace \
                 >> nextest.log 2>&1 &
               nextest_launcher_pid=$!
               bash ci/jenkins/capture-slow-test-diagnostics.sh \
@@ -256,7 +254,7 @@ running cargo nextest directly."""
               set -uo pipefail
               set +e
               timeout --kill-after=30s 4m \
-                cargo test --release --workspace --doc -q \
+                cargo test --workspace --doc -q \
                 > doctest.log 2>&1
               test_status=$?
               cat doctest.log
