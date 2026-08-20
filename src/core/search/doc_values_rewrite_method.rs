@@ -394,9 +394,9 @@ where
     MultiTermQuerySet::Automaton(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
     )),
-    MultiTermQuerySet::Fuzzy(q) => Ok(MultiTermQueryDocValuesTermsEnum::Fuzzy(Box::new(
+    MultiTermQuerySet::Fuzzy(q) => Ok(MultiTermQueryDocValuesTermsEnum::Fuzzy(
       q.get_terms_enum(terms)?,
-    ))),
+    )),
     MultiTermQuerySet::Prefix(q) => Ok(MultiTermQueryDocValuesTermsEnum::Automaton(
       q.get_terms_enum(terms)?,
     )),
@@ -580,12 +580,13 @@ where
   }
 }
 
+#[allow(clippy::large_enum_variant)] // Keep doc-values terms iteration allocation-free.
 pub enum MultiTermQueryDocValuesTermsEnum<S>
 where
   S: SortedSetDocValues,
 {
   Automaton(<AutomatonQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
-  Fuzzy(Box<<FuzzyQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>>),
+  Fuzzy(<FuzzyQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
   TermInSet(<TermInSetQuery as MultiTermQuery>::TermsEnum<DocValuesTerms<S>>),
   #[cfg(test)]
   BoostChecking(

@@ -106,12 +106,13 @@ impl<T, DM> MappedMultiTerms<T, DM> {
     }
   }
 }
+#[allow(clippy::large_enum_variant)] // Keep mapped terms iteration allocation-free.
 pub enum MappedMultiTermsTE<T, DM>
 where
   T: Terms,
 {
   A(EmptyTermsEnum),
-  B(Box<MappedMultiTermsEnum<T::TermsEnum, DM>>),
+  B(MappedMultiTermsEnum<T::TermsEnum, DM>),
 }
 
 impl<T, DM> BytesRefIterator for MappedMultiTermsTE<T, DM>
@@ -281,8 +282,8 @@ where
     match iterator {
       IteratorType::<T>::B(empty) => Ok(MappedMultiTermsTE::<T, DM>::A(empty)),
       IteratorType::<T>::A(v) => {
-        let v = MappedMultiTermsEnum::new(self.field.clone(), self.merge_state.clone(), *v);
-        Ok(MappedMultiTermsTE::<T, DM>::B(Box::new(v)))
+        let v = MappedMultiTermsEnum::new(self.field.clone(), self.merge_state.clone(), v);
+        Ok(MappedMultiTermsTE::<T, DM>::B(v))
       },
     }
   }

@@ -112,7 +112,7 @@ where
     if self.queue.q.size() == 0 {
       Ok(MultiTermsEnumType::B(EmptyTermsEnum))
     } else {
-      Ok(MultiTermsEnumType::A(Box::new(self)))
+      Ok(MultiTermsEnumType::A(self))
     }
   }
   fn pull_top(&mut self) -> Result<()> {
@@ -516,11 +516,12 @@ where
   }
 }
 
+#[allow(clippy::large_enum_variant)] // Keep multi-segment terms iteration allocation-free.
 pub enum MultiTermsEnumType<TE>
 where
   TE: TermsEnum,
 {
-  A(Box<MultiTermsEnum<TE>>),
+  A(MultiTermsEnum<TE>),
   B(EmptyTermsEnum),
 }
 
