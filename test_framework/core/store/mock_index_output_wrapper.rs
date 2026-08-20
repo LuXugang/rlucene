@@ -112,6 +112,9 @@ where
     handle_id: usize,
     handle: &MockIndexOutputHandle<D::IndexOutput>,
   ) -> Result<()> {
+    #[cfg(test)]
+    let _call_stack_marker =
+      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("close");
     let (result, close_result) = {
       let mut state = handle.state.lock();
       if state.closed {

@@ -179,6 +179,9 @@ where
   }
 
   fn persist(&self, op_lock: &SnapshotDeletionPolicyLock<'_>) -> Result<()> {
+    #[cfg(test)]
+    let _call_stack_marker =
+      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("persist");
     let mut next_write_gen = self.next_write_gen.lock();
     let file_name = format!("{SNAPSHOTS_PREFIX}{}", *next_write_gen);
     let mut success = false;

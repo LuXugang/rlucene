@@ -198,6 +198,9 @@ where
     segment_write_state: &SegmentWriteState<&D2>,
     segment_read_state: &SegmentReadState<&D2>,
   ) -> Result<()> {
+    #[cfg(test)]
+    let _call_stack_marker =
+      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("merge_terms");
     let mut norms = if self.merge_state.merge_field_infos.has_norms() {
       Some(
         self

@@ -276,6 +276,11 @@ where
     context: &IOContext,
     info: &SegmentCommitInfo<D>,
   ) -> Result<Option<DefaultLeafReader<D>>> {
+    #[cfg(test)]
+    let _call_stack_marker =
+      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new(
+        "get_read_only_clone",
+      );
     let mut inner = self.inner.lock();
     if inner.reader.is_none() {
       get_reader(context, info, &mut inner, self.index_created_version_major)?.dec_ref()?;

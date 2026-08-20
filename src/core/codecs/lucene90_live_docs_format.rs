@@ -165,6 +165,9 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     new_del_count: i32,
     context: &IOContext,
   ) -> Result<()> {
+    #[cfg(test)]
+    let _call_stack_marker =
+      crate::test_framework::core::util::lucene_test_case::CallStackMarker::new("write_live_docs");
     let gen_ = info.get_next_del_gen();
     let name = IndexFileNames::file_name_from_generation(
       &info.info.name,
