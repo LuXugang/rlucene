@@ -277,8 +277,8 @@ fn test_circle_opto() -> Result<()> {
         lon_bounds[max_lon_col + 1],
       );
 
-      debug_assert!(lat_max >= lat_min);
-      debug_assert!(lon_max >= lon_min);
+      assert!(lat_max >= lat_min);
+      assert!(lon_max >= lon_min);
 
       if is_disjoint(
         center_lat, center_lon, radius, axis_lat, lat_min, lat_max, lon_min, lon_max,

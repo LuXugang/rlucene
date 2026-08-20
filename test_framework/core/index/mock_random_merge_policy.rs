@@ -187,7 +187,7 @@ where
       upto += inc;
     }
 
-    debug_assert!(merge_spec.merges.iter().all(|merge| {
+    assert!(merge_spec.merges.iter().all(|merge| {
       merge
         .stat
         .segments

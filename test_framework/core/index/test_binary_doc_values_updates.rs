@@ -25,7 +25,7 @@ pub(crate) fn get_value(
 ) -> crate::core::util::error::lucene_error::Result<i64> {
   let term = bdv.binary_value()?;
   let mut idx = term.offset;
-  debug_assert!(term.length > 0);
+  assert!(term.length > 0);
   let mut b = term.bytes[idx];
   idx += 1;
 

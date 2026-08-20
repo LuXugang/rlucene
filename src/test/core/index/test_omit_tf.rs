@@ -255,7 +255,7 @@ fn test_basic() -> Result<()> {
 
   let pq = PhraseQuery::from_bytes_no_slop(a.field(), vec![a.bytes().clone(), c.bytes().clone()])?;
   let err = searcher.search(pq, 10);
-  debug_assert!(err.is_err());
+  assert!(err.is_err());
 
   let collector_manager = CollectorManagerImpl;
   searcher.search_with_collector_manager(q1.clone(), &collector_manager)?;

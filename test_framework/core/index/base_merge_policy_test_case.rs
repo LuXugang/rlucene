@@ -673,7 +673,7 @@ where
   let mut new_infos = SegmentInfos::new(LATEST.major)?;
 
   for i in 0..infos.size() {
-    debug_assert!(num_deletes >= 0);
+    assert!(num_deletes >= 0);
 
     let sci = infos.info(i).unwrap();
     let live_docs = sci.info.max_doc()? - sci.get_del_count();
@@ -687,7 +687,7 @@ where
 
     let new_del_count = sci.get_del_count() + seg_deletes;
 
-    debug_assert!(new_del_count <= sci.info.max_doc()?);
+    assert!(new_del_count <= sci.info.max_doc()?);
 
     if new_del_count < sci.info.max_doc()? {
       let dummy = SegmentInfo::new(
@@ -720,7 +720,7 @@ where
     num_deletes -= seg_deletes;
   }
 
-  debug_assert!(num_deletes == 0);
+  assert!(num_deletes == 0);
 
   Ok(new_infos)
 }

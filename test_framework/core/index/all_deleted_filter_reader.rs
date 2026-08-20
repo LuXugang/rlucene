@@ -45,7 +45,7 @@ where
       live_docs,
       index_base,
     };
-    debug_assert!(result.max_doc()? == 0 || result.has_deletions()?);
+    assert!(result.max_doc()? == 0 || result.has_deletions()?);
     Ok(result)
   }
 }

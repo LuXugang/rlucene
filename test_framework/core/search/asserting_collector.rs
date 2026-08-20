@@ -75,7 +75,7 @@ where
     W: Weight<IRC> + ?Sized,
   {
     assert!(self.weight_set.get(), "Set the weight first");
-    debug_assert!(context.doc_base <= i32::MAX as usize);
+    assert!(context.doc_base <= i32::MAX as usize);
     let doc_base = context.doc_base as i32;
     assert!(doc_base >= self.previous_leaf_max_doc);
     self.previous_leaf_max_doc = doc_base + context.reader().max_doc()?;

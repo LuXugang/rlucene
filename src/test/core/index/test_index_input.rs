@@ -133,7 +133,7 @@ where
   D: DataInput,
 {
   let count = ints.len();
-  debug_assert_eq!(count, longs.len());
+  assert_eq!(count, longs.len());
 
   for i in 0..count {
     assert_eq!(ints[i], input.read_vint()?);

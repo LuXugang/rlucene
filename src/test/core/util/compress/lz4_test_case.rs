@@ -174,7 +174,7 @@ pub(crate) trait LZ4TestCase {
     while i < data.len() as i32 && dict_len < LZ4::MAX_DISTANCE {
       let l = std::cmp::min(data.len() - i as usize, TestUtil::next_usize(random, 1, 32));
       let l = std::cmp::min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
-      debug_assert!(l <= i32::MAX as usize);
+      assert!(l <= i32::MAX as usize);
       copy.write_bytes_range(data, i as usize, l)?;
       dict_len += l as i32;
       i += l as i32;

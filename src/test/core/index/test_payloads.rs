@@ -381,7 +381,7 @@ where
   let s = TestUtil::random_fixed_byte_length_unicode_string(random, data.len());
   let b = s.as_bytes();
 
-  debug_assert_eq!(b.len(), data.len());
+  assert_eq!(b.len(), data.len());
   data.copy_from_slice(b)
 }
 fn generate_random_data_with_len<R>(random: &mut R, n: usize) -> Vec<u8>

@@ -145,7 +145,7 @@ where
             return Ok(self.doc_bases[seg] + doc_id);
           }
         }
-        debug_assert!(self.has_deletions);
+        assert!(self.has_deletions);
       }
     }
 

@@ -52,11 +52,11 @@ impl GeoTestUtil {
   where
     R: Rng + ?Sized,
   {
-    debug_assert!(low >= i32::MIN as f64);
-    debug_assert!(high <= i32::MAX as f64);
-    debug_assert!(low.is_finite());
-    debug_assert!(high.is_finite());
-    debug_assert!(high >= low, "low={low} high={high}");
+    assert!(low >= i32::MIN as f64);
+    assert!(high <= i32::MAX as f64);
+    assert!(low.is_finite());
+    assert!(high.is_finite());
+    assert!(high >= low, "low={low} high={high}");
 
     if low == high {
       return low;
@@ -83,8 +83,8 @@ impl GeoTestUtil {
       base_value = low + (high - low) * random.random::<f64>();
     }
 
-    debug_assert!(base_value >= low);
-    debug_assert!(base_value <= high);
+    assert!(base_value >= low);
+    assert!(base_value <= high);
 
     let adjust_me = random.random_range(0..17);
     if adjust_me == 0 {
@@ -163,7 +163,7 @@ impl GeoTestUtil {
   where
     R: Rng + ?Sized,
   {
-    debug_assert!(max_latitude >= min_latitude);
+    assert!(max_latitude >= min_latitude);
     GeoUtils::check_latitude(min_latitude)?;
     GeoUtils::check_latitude(max_latitude)?;
     if random.random_range(0..47) == 0 {
@@ -186,7 +186,7 @@ impl GeoTestUtil {
   where
     R: Rng + ?Sized,
   {
-    debug_assert!(max_longitude >= min_longitude);
+    assert!(max_longitude >= min_longitude);
     GeoUtils::check_longitude(min_longitude)?;
     GeoUtils::check_longitude(max_longitude)?;
     if random.random_range(0..47) == 0 {
@@ -544,7 +544,7 @@ impl GeoTestUtil {
   }
 
   fn box_polygon(box_: &Rectangle) -> Result<Polygon> {
-    debug_assert!(!box_.crosses_dateline());
+    assert!(!box_.crosses_dateline());
     let poly_lats = vec![
       box_.min_lat,
       box_.max_lat,
@@ -563,7 +563,7 @@ impl GeoTestUtil {
   }
 
   fn triangle_polygon(box_: &Rectangle) -> Result<Polygon> {
-    debug_assert!(!box_.crosses_dateline());
+    assert!(!box_.crosses_dateline());
     let poly_lats = vec![box_.min_lat, box_.max_lat, box_.max_lat, box_.min_lat];
     let poly_lons = vec![box_.min_lon, box_.min_lon, box_.max_lon, box_.min_lon];
     Polygon::new(poly_lats, poly_lons, vec![])

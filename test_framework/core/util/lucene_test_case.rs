@@ -312,7 +312,7 @@ pub(crate) fn at_least_usize<R>(random: &mut R, i: usize) -> usize
 where
   R: Rng + ?Sized,
 {
-  debug_assert!(i <= i32::MAX as usize);
+  assert!(i <= i32::MAX as usize);
   at_least(random, i as i32) as usize
 }
 /// Returns a number of at least `i`

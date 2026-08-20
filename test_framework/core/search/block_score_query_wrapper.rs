@@ -338,7 +338,7 @@ impl DocIdSetIterator for BlockScoreIterator<'_> {
 
   fn next_doc(&mut self) -> Result<i32> {
     let i = self.scorer.i.get();
-    debug_assert!(self.scorer.docs[i] != NO_MORE_DOCS);
+    assert!(self.scorer.docs[i] != NO_MORE_DOCS);
     self.scorer.i.set(i + 1);
     Ok(self.scorer.docs[i + 1])
   }
@@ -368,7 +368,7 @@ impl DocIdSetIterator for BlockScoreOwnedIterator {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    debug_assert!(self.docs[self.i] != NO_MORE_DOCS);
+    assert!(self.docs[self.i] != NO_MORE_DOCS);
     self.i += 1;
     Ok(self.docs[self.i])
   }

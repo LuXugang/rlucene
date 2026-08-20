@@ -92,7 +92,7 @@ impl ShapeTestUtil {
     while radius == 0f32 {
       radius = random.random::<f32>() * f32::MAX / 2.0;
     }
-    debug_assert!(radius != 0f32);
+    assert!(radius != 0f32);
     XYCircle::new(x, y, radius)
   }
 

@@ -103,7 +103,7 @@ fn test_random() -> Result<()> {
         w.delete_documents_with_terms(vec![Term::from_text("id", del_id.to_string())])?;
       }
 
-      debug_assert!(docs.contains_key(&term));
+      assert!(docs.contains_key(&term));
     }
 
     let reader = directory_reader::open_from_writer(&w)?;

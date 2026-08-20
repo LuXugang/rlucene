@@ -42,7 +42,7 @@ impl<'a> AssertingMatchesIterator<'a> {
 
 impl MatchesIterator for AssertingMatchesIterator<'_> {
   fn next(&mut self) -> Result<bool> {
-    debug_assert_ne!(self.state, State::Exhausted);
+    assert_ne!(self.state, State::Exhausted);
     let more = self.in_.next()?;
     self.state = if more {
       State::Iterating
@@ -53,32 +53,32 @@ impl MatchesIterator for AssertingMatchesIterator<'_> {
   }
 
   fn start_position(&self) -> Result<i32> {
-    debug_assert_eq!(self.state, State::Iterating);
+    assert_eq!(self.state, State::Iterating);
     self.in_.start_position()
   }
 
   fn end_position(&self) -> i32 {
-    debug_assert_eq!(self.state, State::Iterating);
+    assert_eq!(self.state, State::Iterating);
     self.in_.end_position()
   }
 
   fn start_offset(&self) -> Result<i32> {
-    debug_assert_eq!(self.state, State::Iterating);
+    assert_eq!(self.state, State::Iterating);
     self.in_.start_offset()
   }
 
   fn end_offset(&self) -> Result<i32> {
-    debug_assert_eq!(self.state, State::Iterating);
+    assert_eq!(self.state, State::Iterating);
     self.in_.end_offset()
   }
 
   fn get_sub_matches(&mut self) -> Result<Option<QueryWeightMatchesIterator<'_>>> {
-    debug_assert_eq!(self.state, State::Iterating);
+    assert_eq!(self.state, State::Iterating);
     self.in_.get_sub_matches()
   }
 
   fn get_query(&self) -> Arc<Query> {
-    debug_assert_eq!(self.state, State::Iterating);
+    assert_eq!(self.state, State::Iterating);
     self.in_.get_query()
   }
 }

@@ -229,7 +229,7 @@ fn test_does_not_load_norms() -> Result<()> {
 
   let weight = index_searcher.create_weight(term_query.clone(), ScoreMode::Complete, 1.0)?;
   let ctx = index_searcher.get_leaf_contexts()?;
-  debug_assert!(ctx.len() == 1);
+  assert!(ctx.len() == 1);
   let err = weight.scorer(&ctx[0], &index_searcher);
   assert!(matches!(err, Err(LuceneError::IllegalState(_))));
 

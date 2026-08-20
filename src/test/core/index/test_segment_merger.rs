@@ -147,7 +147,7 @@ fn test_merge() -> Result<()> {
     None,
     0,
   )?;
-  debug_assert!(term_docs.is_some());
+  assert!(term_docs.is_some());
   assert_ne!(NO_MORE_DOCS, term_docs.unwrap().next_doc()?);
 
   let mut tv_count = 0;

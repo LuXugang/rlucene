@@ -187,7 +187,7 @@ fn accepts(c: &mut CompiledAutomaton, b: &BytesRef<Vec<u8>>) -> Result<bool> {
   let mut state: i32 = 0;
 
   for idx in 0..b.length {
-    debug_assert!(state != -1);
+    assert!(state != -1);
     let byte = b.bytes[b.offset + idx];
     state = c.run_automaton.as_mut().unwrap().step(state, byte as i32)?;
   }

@@ -190,7 +190,7 @@ impl QueryUtils {
             }
           }
 
-          debug_assert!(
+          assert!(
             !more,
             "query's last doc was {} but advance({}) got to {}",
             collector.last_doc,
@@ -242,7 +242,7 @@ impl QueryUtils {
             d = iterator.next_doc()?;
           }
         }
-        debug_assert!(
+        assert!(
           !more,
           "query's last doc was {} but advance({}) got to {}",
           collector.last_doc,
@@ -280,7 +280,7 @@ impl QueryUtils {
         continue;
       } else if bulk_scorer.is_none() {
         let scorer = scorer.as_mut().unwrap();
-        debug_assert_eq!(scorer.iterator_mut().next_doc()?, NO_MORE_DOCS);
+        assert_eq!(scorer.iterator_mut().next_doc()?, NO_MORE_DOCS);
         continue;
       }
 
@@ -302,8 +302,8 @@ impl QueryUtils {
 
         let next = bulk_scorer.score(&mut collector, None::<&dyn Bits>, min, max)?;
 
-        debug_assert!(max <= next);
-        debug_assert!(next <= scorer.doc_id()?);
+        assert!(max <= next);
+        assert!(next <= scorer.doc_id()?);
 
         up_to = max;
 
@@ -439,8 +439,7 @@ impl Display for LeafCollectorImpl3 {
 
 impl LeafCollector for LeafCollectorImpl3 {
   fn collect(&mut self, _doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-    debug_assert!(false);
-    Ok(())
+    panic!();
   }
 }
 struct LeafCollectorImpl4<'a, S> {
@@ -471,11 +470,11 @@ where
   S: Scorer,
 {
   fn collect(&mut self, doc: i32, scorer2: &mut dyn Scorable) -> Result<()> {
-    debug_assert!(doc >= self.min);
-    debug_assert!(doc < self.max);
+    assert!(doc >= self.min);
+    assert!(doc < self.max);
 
-    debug_assert_eq!(self.scorer.doc_id()?, doc);
-    debug_assert!((self.scorer.score()? - scorer2.score()?).abs() <= 0.01);
+    assert_eq!(self.scorer.doc_id()?, doc);
+    assert!((self.scorer.score()? - scorer2.score()?).abs() <= 0.01);
 
     self.scorer.iterator_mut().next_doc()?;
     Ok(())
@@ -575,14 +574,14 @@ where
 
       let mut scorer = supplier.get(1, ctx, self.s)?;
 
-      debug_assert!(
+      assert!(
         scorer.iterator_mut().advance(i)? != NO_MORE_DOCS,
         "query collected {} but advance({}) says no more docs!",
         doc,
         i
       );
 
-      debug_assert_eq!(
+      assert_eq!(
         doc,
         scorer.doc_id()?,
         "query collected {} but advance({}) got to {}",
@@ -593,13 +592,13 @@ where
 
       let advance_score = scorer.score()?;
 
-      debug_assert!(
+      assert!(
         (advance_score - scorer.score()?).abs() <= self.max_diff,
         "unstable advance({}) score!",
         i
       );
 
-      debug_assert!(
+      assert!(
         (score - advance_score).abs() <= self.max_diff,
         "query assigned doc {} a score of <{}> but advance({}) has <{}>!",
         doc,
@@ -664,7 +663,7 @@ where
           }
         }
 
-        debug_assert!(
+        assert!(
           !more,
           "query's last doc was {} but advance({}) got to {}",
           self.last_doc,
@@ -815,10 +814,10 @@ where
     let score_diff = (score - scorer_score).abs();
     let scorer_diff = (scorer_score2 - scorer_score).abs();
 
-    debug_assert!(more);
-    debug_assert_eq!(scorer_doc, doc);
-    debug_assert!(score_diff <= self.max_diff);
-    debug_assert!(scorer_diff <= self.max_diff);
+    assert!(more);
+    assert_eq!(scorer_doc, doc);
+    assert!(score_diff <= self.max_diff);
+    assert!(scorer_diff <= self.max_diff);
 
     Ok(())
   }
@@ -872,7 +871,7 @@ where
           }
         }
 
-        debug_assert!(
+        assert!(
           !more,
           "query's last doc was {} but advance({}) got to {}",
           self.last_doc,
@@ -886,9 +885,7 @@ where
 
     self.last_reader_idx = Some(context.ord);
 
-    debug_assert!(
-      self.reader_context_array[self.leaf_ptr].base().identity == context.base().identity
-    );
+    assert!(self.reader_context_array[self.leaf_ptr].base().identity == context.base().identity);
     self.scorer = None;
     self.last_doc = -1;
 

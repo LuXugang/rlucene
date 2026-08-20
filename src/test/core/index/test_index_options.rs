@@ -77,7 +77,7 @@ fn do_test_change_index_options_via_add_document(
         assert_eq!(expected, msg.message);
       },
       other => {
-        debug_assert!(false, "Unexpected error type: {:?}", other);
+        panic!("Unexpected error type: {:?}", other);
       },
     }
   }

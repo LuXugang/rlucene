@@ -67,7 +67,7 @@ impl Decompressor for DummyDecompressor {
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
   ) -> Result<()> {
-    debug_assert!(offset + length <= original_length);
+    assert!(offset + length <= original_length);
     let original_length = original_length as usize;
     if bytes.bytes.len() < original_length {
       bytes.bytes = vec![0; ArrayUtil::oversize(original_length, 1)?];

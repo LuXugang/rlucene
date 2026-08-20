@@ -190,7 +190,7 @@ where
       let num_hits = TestUtil::next_usize(random, 1, reader.max_doc()? as usize);
 
       let after = if paging {
-        debug_assert!(searcher.get_index_reader().num_docs()? > 0);
+        assert!(searcher.get_index_reader().num_docs()? > 0);
         let mut td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort.clone())?;
         let len = td.score_docs().len() - 1;
         let v = std::mem::take(&mut td.base.take_score_docs()[len]);

@@ -71,7 +71,7 @@ fn test_alloc_known_size_slice() -> Result<()> {
         let buffer = block_pool.get_buffer_mut(buffer_upto);
         buffer.copy_from(&random_data[offset..offset + write_length], upto as usize);
         offset += write_length;
-        debug_assert!(write_length <= i32::MAX as usize);
+        assert!(write_length <= i32::MAX as usize);
         upto += write_length as i32;
       }
     }

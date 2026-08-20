@@ -747,7 +747,7 @@ pub trait BaseGeoPointTestCase {
           lats[id] = self.next_latitude(random);
           lons[id] = lons[old_id];
         } else {
-          debug_assert_eq!(2, x);
+          assert_eq!(2, x);
           // Fully identical point:
           lats[id] = lats[old_id];
           lons[id] = lons[old_id];
@@ -763,7 +763,7 @@ pub trait BaseGeoPointTestCase {
   }
 
   fn rect_contains_point(&self, rect: &Rectangle, lat: f64, lon: f64) -> bool {
-    debug_assert!(!lat.is_nan());
+    assert!(!lat.is_nan());
 
     if lat < rect.min_lat || lat > rect.max_lat {
       return false;

@@ -555,8 +555,8 @@ where
     let mut sims: Vec<Option<SimilaritySimScorer>> = (0..value_count).map(|_| None).collect();
 
     for clause in bq.clauses() {
-      debug_assert!(!clause.is_prohibited());
-      debug_assert!(!clause.is_required());
+      assert!(!clause.is_prohibited());
+      assert!(!clause.is_required());
 
       let Query::Term(term_query) = &clause.query else {
         panic!("SlowMinShouldMatchScorer only supports TermQuery clauses");
@@ -569,7 +569,7 @@ where
       }
 
       let success = ords.insert(ord);
-      debug_assert!(success);
+      assert!(success);
 
       let ts = build_term_states(searcher, term.clone(), true)?;
       let collection_stats = searcher.collection_statistics("field")?.unwrap();
@@ -595,7 +595,7 @@ where
   IRC: IndexReaderContext,
 {
   fn score(&mut self) -> Result<f32> {
-    debug_assert!(self.disi.score != 0.0, "{}", self.disi.current_matched);
+    assert!(self.disi.score != 0.0, "{}", self.disi.current_matched);
     Ok(self.disi.score as f32)
   }
 }
@@ -699,7 +699,7 @@ where
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    debug_assert!(self.current_doc != NO_MORE_DOCS);
+    assert!(self.current_doc != NO_MORE_DOCS);
 
     for doc in (self.current_doc + 1)..self.max_doc {
       self.current_doc = doc;

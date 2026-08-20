@@ -1277,7 +1277,7 @@ impl PostingsEnum for SeedPostings {
       return Ok(-1);
     }
 
-    debug_assert!(self.pos_upto < self.freq);
+    assert!(self.pos_upto < self.freq);
 
     if self.pos_upto == 0 && self.random.random_bool(0.5) {
     } else if self.pos_spacing == 1 {

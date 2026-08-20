@@ -705,7 +705,7 @@ fn test_and_not() -> Result<()> {
     let mut sorted: Vec<i32> = bits1
       .iter()
       .map(|&x| {
-        debug_assert!(x <= i32::MAX as usize);
+        assert!(x <= i32::MAX as usize);
         x as i32
       })
       .collect();

@@ -127,7 +127,7 @@ pub trait BaseSimilarityTestCase {
       },
       _ => {
         // random repetition
-        debug_assert!(sum_doc_freq - 1 + lower_bound <= upper_bound);
+        assert!(sum_doc_freq - 1 + lower_bound <= upper_bound);
         TestUtil::next_long(random, sum_doc_freq - 1 + lower_bound, upper_bound)
       },
     };

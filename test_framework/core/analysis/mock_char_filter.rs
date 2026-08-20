@@ -113,7 +113,7 @@ impl CharFilter for MockCharFilter {
       .range(..=current_off)
       .next_back()
       .map_or(current_off, |(_, diff)| current_off + *diff);
-    debug_assert!(
+    assert!(
       ret >= 0,
       "currentOff={current_off},diff={}",
       ret - current_off

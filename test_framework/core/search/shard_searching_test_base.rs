@@ -196,7 +196,7 @@ impl ShardSearchingState {
     let searcher = nodes[node_id].acquire_versions(node_versions)?;
     let body_result = catch_unwind(AssertUnwindSafe(|| -> Result<_> {
       if let Some(sort) = sort {
-        debug_assert!(search_after.is_none()); // not supported yet
+        assert!(search_after.is_none()); // not supported yet
         searcher
           .local_search_with_sort(query, num_hits, sort)
           .map(SearchNodeResult::Field)
@@ -404,7 +404,7 @@ where
       let node_total_term_freq = stats.get_total_term_freq();
       distributed_total_term_freq += node_total_term_freq;
     }
-    debug_assert!(distributed_doc_freq > 0);
+    assert!(distributed_doc_freq > 0);
     TermStatistics::new(term, distributed_doc_freq, distributed_total_term_freq)
   }
 
@@ -443,7 +443,7 @@ where
       doc_count += node_stats.get_doc_count();
       sum_total_term_freq += node_stats.get_sum_total_term_freq();
       sum_doc_freq += node_stats.get_sum_doc_freq();
-      debug_assert!(node_stats.get_max_doc() >= 0);
+      assert!(node_stats.get_max_doc() >= 0);
       max_doc += node_stats.get_max_doc();
     }
 

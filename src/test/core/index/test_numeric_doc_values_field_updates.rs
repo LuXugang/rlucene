@@ -972,7 +972,7 @@ impl Ord for OneSortDoc {
     let cmp = self.sort_value.cmp(&other.sort_value);
     if cmp == std::cmp::Ordering::Equal {
       let cmp = self.id.cmp(&other.id);
-      debug_assert_ne!(cmp, std::cmp::Ordering::Equal);
+      assert_ne!(cmp, std::cmp::Ordering::Equal);
       cmp
     } else {
       cmp

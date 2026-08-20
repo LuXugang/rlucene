@@ -113,12 +113,12 @@ where
   }
 
   fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
-    debug_assert!(self.is_index_input());
+    assert!(self.is_index_input());
     IndexInput::seek(self, pos)
   }
 
   fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    debug_assert!(self.is_index_input());
+    assert!(self.is_index_input());
     IndexInput::get_file_pointer(self)
   }
 }

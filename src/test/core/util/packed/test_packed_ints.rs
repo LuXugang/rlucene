@@ -1484,7 +1484,7 @@ fn test_block_reader_overflow() -> Result<()> {
   }
 
   let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
-  debug_assert!(block_size <= u32::MAX as usize);
+  assert!(block_size <= u32::MAX as usize);
   let mut reader =
     BlockPackedReaderIterator::new(PackedInts::VERSION_CURRENT, block_size, value_count)?;
 
