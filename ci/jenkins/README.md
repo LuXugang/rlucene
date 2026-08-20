@@ -10,7 +10,7 @@ disabled as `legency` so its historical build records remain available.
 - Pipeline, Git, SSH Credentials, and Email Extension plugins.
 - The SSH credential ID `github-ssh`, with read access to
   `Rustify-All/rlucene`.
-- Rust 1.97.0 with `rustfmt`, `clippy`, and `cargo-nextest` 0.9.140 available
+- Rust 1.97.1 with `rustfmt`, `clippy`, and `cargo-nextest` 0.9.140 available
   through `/opt/cargo/bin`.
 - The version-controlled controller image and Compose configuration under
   `ci/jenkins/deployment`. They install `eu-stack` and `gdb` and grant the
