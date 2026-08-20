@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
+use wide::f32x8;
+
 #[derive(Default)]
 pub struct DefaultVectorUtilSupport;
 impl VectorUtilSupport for DefaultVectorUtilSupport {
@@ -25,19 +27,19 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
     let mut i = 0;
 
     if a.len() > 32 {
-      let mut acc1 = 0.0f32;
-      let mut acc2 = 0.0f32;
-      let mut acc3 = 0.0f32;
-      let mut acc4 = 0.0f32;
-      let upper_bound = a.len() & !(4 - 1);
+      let mut acc1 = f32x8::splat(0.0);
+      let mut acc2 = f32x8::splat(0.0);
+      let mut acc3 = f32x8::splat(0.0);
+      let mut acc4 = f32x8::splat(0.0);
+      let upper_bound = a.len() & !(32 - 1);
       while i < upper_bound {
-        acc1 = fma_f32(a[i], b[i], acc1);
-        acc2 = fma_f32(a[i + 1], b[i + 1], acc2);
-        acc3 = fma_f32(a[i + 2], b[i + 2], acc3);
-        acc4 = fma_f32(a[i + 3], b[i + 3], acc4);
-        i += 4;
+        acc1 = f32x8::from(&a[i..i + 8]).mul_add(f32x8::from(&b[i..i + 8]), acc1);
+        acc2 = f32x8::from(&a[i + 8..i + 16]).mul_add(f32x8::from(&b[i + 8..i + 16]), acc2);
+        acc3 = f32x8::from(&a[i + 16..i + 24]).mul_add(f32x8::from(&b[i + 16..i + 24]), acc3);
+        acc4 = f32x8::from(&a[i + 24..i + 32]).mul_add(f32x8::from(&b[i + 24..i + 32]), acc4);
+        i += 32;
       }
-      res += acc1 + acc2 + acc3 + acc4;
+      res += acc1.reduce_add() + acc2.reduce_add() + acc3.reduce_add() + acc4.reduce_add();
     }
 
     while i < a.len() {
@@ -57,29 +59,33 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
     let mut i = 0;
 
     if a.len() > 32 {
-      let mut sum1 = 0.0f32;
-      let mut sum2 = 0.0f32;
-      let mut norm1_1 = 0.0f32;
-      let mut norm1_2 = 0.0f32;
-      let mut norm2_1 = 0.0f32;
-      let mut norm2_2 = 0.0f32;
+      let mut sum1 = f32x8::splat(0.0);
+      let mut sum2 = f32x8::splat(0.0);
+      let mut norm1_1 = f32x8::splat(0.0);
+      let mut norm1_2 = f32x8::splat(0.0);
+      let mut norm2_1 = f32x8::splat(0.0);
+      let mut norm2_2 = f32x8::splat(0.0);
 
-      let upper_bound = a.len() & !(2 - 1);
+      let upper_bound = a.len() & !(16 - 1);
       while i < upper_bound {
-        sum1 = fma_f32(a[i], b[i], sum1);
-        norm1_1 = fma_f32(a[i], a[i], norm1_1);
-        norm2_1 = fma_f32(b[i], b[i], norm2_1);
+        let a1 = f32x8::from(&a[i..i + 8]);
+        let b1 = f32x8::from(&b[i..i + 8]);
+        sum1 = a1.mul_add(b1, sum1);
+        norm1_1 = a1.mul_add(a1, norm1_1);
+        norm2_1 = b1.mul_add(b1, norm2_1);
 
-        sum2 = fma_f32(a[i + 1], b[i + 1], sum2);
-        norm1_2 = fma_f32(a[i + 1], a[i + 1], norm1_2);
-        norm2_2 = fma_f32(b[i + 1], b[i + 1], norm2_2);
+        let a2 = f32x8::from(&a[i + 8..i + 16]);
+        let b2 = f32x8::from(&b[i + 8..i + 16]);
+        sum2 = a2.mul_add(b2, sum2);
+        norm1_2 = a2.mul_add(a2, norm1_2);
+        norm2_2 = b2.mul_add(b2, norm2_2);
 
-        i += 2;
+        i += 16;
       }
 
-      sum += sum1 + sum2;
-      norm1 += norm1_1 + norm1_2;
-      norm2 += norm2_1 + norm2_2;
+      sum += sum1.reduce_add() + sum2.reduce_add();
+      norm1 += norm1_1.reduce_add() + norm1_2.reduce_add();
+      norm2 += norm2_1.reduce_add() + norm2_2.reduce_add();
     }
 
     while i < a.len() {
@@ -99,29 +105,29 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
     let mut i = 0;
 
     if a.len() > 32 {
-      let mut acc1 = 0.0f32;
-      let mut acc2 = 0.0f32;
-      let mut acc3 = 0.0f32;
-      let mut acc4 = 0.0f32;
-      let upper_bound = a.len() & !(4 - 1);
+      let mut acc1 = f32x8::splat(0.0);
+      let mut acc2 = f32x8::splat(0.0);
+      let mut acc3 = f32x8::splat(0.0);
+      let mut acc4 = f32x8::splat(0.0);
+      let upper_bound = a.len() & !(32 - 1);
 
       while i < upper_bound {
-        let diff1 = a[i] - b[i];
-        acc1 = fma_f32(diff1, diff1, acc1);
+        let diff1 = f32x8::from(&a[i..i + 8]) - f32x8::from(&b[i..i + 8]);
+        acc1 = diff1.mul_add(diff1, acc1);
 
-        let diff2 = a[i + 1] - b[i + 1];
-        acc2 = fma_f32(diff2, diff2, acc2);
+        let diff2 = f32x8::from(&a[i + 8..i + 16]) - f32x8::from(&b[i + 8..i + 16]);
+        acc2 = diff2.mul_add(diff2, acc2);
 
-        let diff3 = a[i + 2] - b[i + 2];
-        acc3 = fma_f32(diff3, diff3, acc3);
+        let diff3 = f32x8::from(&a[i + 16..i + 24]) - f32x8::from(&b[i + 16..i + 24]);
+        acc3 = diff3.mul_add(diff3, acc3);
 
-        let diff4 = a[i + 3] - b[i + 3];
-        acc4 = fma_f32(diff4, diff4, acc4);
+        let diff4 = f32x8::from(&a[i + 24..i + 32]) - f32x8::from(&b[i + 24..i + 32]);
+        acc4 = diff4.mul_add(diff4, acc4);
 
-        i += 4;
+        i += 32;
       }
 
-      res += acc1 + acc2 + acc3 + acc4;
+      res += acc1.reduce_add() + acc2.reduce_add() + acc3.reduce_add() + acc4.reduce_add();
     }
 
     while i < a.len() {
