@@ -17,6 +17,8 @@
 
 use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
+use wide::i32x8;
+
 /// Utility struct to decode postings.
 pub struct PostingDecodingUtil<I> {
   /// The wrapped [`IndexInput`].
@@ -54,7 +56,24 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
     let count = count as usize;
     let c_index = c_index as usize;
     let max_iter = (b_shift - 1) / dec;
-    for i in 0..count {
+    let mask = i32x8::splat(b_mask);
+    let c_mask_simd = i32x8::splat(c_mask);
+    let mut i = 0;
+    while i + 8 <= count {
+      let values = i32x8::from(&b_and_c[c_index + i..c_index + i + 8]);
+      for j in 0..=max_iter {
+        let shift = b_shift - j * dec;
+        if shift > 0 {
+          let values: [i32; 8] = ((values >> shift as u32) & mask).into();
+          let start = count * j as usize + i;
+          b_and_c[start..start + 8].copy_from_slice(&values);
+        }
+      }
+      let values: [i32; 8] = (values & c_mask_simd).into();
+      b_and_c[c_index + i..c_index + i + 8].copy_from_slice(&values);
+      i += 8;
+    }
+    while i < count {
       for j in 0..=max_iter {
         let shift = b_shift - j * dec;
         if shift > 0 {
@@ -63,6 +82,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
         }
       }
       b_and_c[c_index + i] &= c_mask;
+      i += 1;
     }
 
     Ok(())
@@ -84,7 +104,24 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
     let c_index = c_index as usize;
     self.input.read_ints(c, c_index, count)?;
     let max_iter = (b_shift - 1) / dec;
-    for i in 0..count {
+    let mask = i32x8::splat(b_mask);
+    let c_mask_simd = i32x8::splat(c_mask);
+    let mut i = 0;
+    while i + 8 <= count {
+      let values = i32x8::from(&c[c_index + i..c_index + i + 8]);
+      for j in 0..=max_iter {
+        let shift = b_shift - j * dec;
+        if shift > 0 {
+          let values: [i32; 8] = ((values >> shift as u32) & mask).into();
+          let start = count * j as usize + i;
+          b[start..start + 8].copy_from_slice(&values);
+        }
+      }
+      let values: [i32; 8] = (values & c_mask_simd).into();
+      c[c_index + i..c_index + i + 8].copy_from_slice(&values);
+      i += 8;
+    }
+    while i < count {
       for j in 0..=max_iter {
         let shift = b_shift - j * dec;
         if shift > 0 {
@@ -92,6 +129,7 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
         }
       }
       c[c_index + i] &= c_mask;
+      i += 1;
     }
 
     Ok(())
