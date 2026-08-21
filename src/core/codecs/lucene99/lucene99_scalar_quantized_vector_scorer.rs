@@ -54,7 +54,7 @@ where
     vector_values: V,
   ) -> Result<ScalarQuantizedRandomVectorScorerSupplier<V>>
   where
-    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>,
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V> + Send,
   {
     ScalarQuantizedRandomVectorScorerSupplier::new(vector_values, similarity_function)
   }
@@ -89,7 +89,7 @@ where
 pub trait ScalarQuantizedVectorsScorer: FlatVectorsScorer + Clone {
   type QuantizedRandomVectorScorerSupplier<V>: RandomVectorScorerSupplier
   where
-    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>;
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V> + Send;
 
   fn get_random_vector_scorer_supplier_quantized<V>(
     &self,
@@ -97,7 +97,7 @@ pub trait ScalarQuantizedVectorsScorer: FlatVectorsScorer + Clone {
     vector_values: V,
   ) -> Result<Self::QuantizedRandomVectorScorerSupplier<V>>
   where
-    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>;
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V> + Send;
 
   type QuantizedRandomVectorScorer<V>: RandomVectorScorer
   where
@@ -120,7 +120,7 @@ where
   type QuantizedRandomVectorScorerSupplier<V>
     = ScalarQuantizedRandomVectorScorerSupplier<V>
   where
-    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>;
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V> + Send;
 
   fn get_random_vector_scorer_supplier_quantized<V>(
     &self,
@@ -128,7 +128,7 @@ where
     vector_values: V,
   ) -> Result<Self::QuantizedRandomVectorScorerSupplier<V>>
   where
-    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>,
+    V: QuantizedByteVectorValues<QuantizedByteVectorValues = V> + Send,
   {
     self.get_random_vector_scorer_supplier(similarity_function, vector_values)
   }
@@ -171,8 +171,10 @@ where
   type RandomVectorScorerSupplier<B, FV>
     = F::RandomVectorScorerSupplier<B, FV>
   where
-    B: ByteVectorValues + TryClone,
-    FV: FloatVectorValues + TryClone;
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    FV: FloatVectorValues + TryClone + Send,
+    FV::FloatVectorValues: Send;
 
   fn get_random_vector_scorer_supplier<B, FV>(
     &self,
@@ -180,8 +182,10 @@ where
     vector_values: FlatVectorValuesEnum<B, FV>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, FV>>
   where
-    B: ByteVectorValues + TryClone,
-    FV: FloatVectorValues + TryClone,
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    FV: FloatVectorValues + TryClone + Send,
+    FV::FloatVectorValues: Send,
   {
     // It is possible to get to this branch during initial indexing and flush.
     self
@@ -667,7 +671,7 @@ where
 
 impl<V> RandomVectorScorerSupplier for ScalarQuantizedRandomVectorScorerSupplier<V>
 where
-  V: QuantizedByteVectorValues<QuantizedByteVectorValues = V>,
+  V: QuantizedByteVectorValues<QuantizedByteVectorValues = V> + Send,
 {
   type Scorer<'a>
     = ScalarQuantizedRandomVectorScorerEnum<V>

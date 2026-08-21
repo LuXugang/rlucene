@@ -34,8 +34,10 @@ pub enum FlatVectorValuesEnum<B, F> {
 pub trait FlatVectorsScorer: Display {
   type RandomVectorScorerSupplier<B, F>: RandomVectorScorerSupplier
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone;
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send;
   /// Returns a `RandomVectorScorerSupplier` that can be used to score vectors
   ///
   /// # Parameters
@@ -53,8 +55,10 @@ pub trait FlatVectorsScorer: Display {
     vector_values: FlatVectorValuesEnum<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone;
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send;
 
   type RandomVectorScorerF32<T>: RandomVectorScorer
   where
@@ -112,8 +116,10 @@ where
   type RandomVectorScorerSupplier<B, F>
     = FV::RandomVectorScorerSupplier<B, F>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone;
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send;
 
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
@@ -121,8 +127,10 @@ where
     vector_values: FlatVectorValuesEnum<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone,
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send,
   {
     (**self).get_random_vector_scorer_supplier(similarity_function, vector_values)
   }

@@ -50,7 +50,7 @@ pub struct HnswConcurrentMergeBuilder<S>
 where
   S: RandomVectorScorerSupplier,
 {
-  workers: Vec<ConcurrentMergeWorker<MergeWorkerScorerSupplier<S::RandomVectorScorerSupplier>>>,
+  workers: Vec<ConcurrentMergeWorker<S::RandomVectorScorerSupplier>>,
   info_stream: InfoStreamMT,
   frozen: bool,
 }
@@ -79,7 +79,7 @@ where
     let mut workers = Vec::with_capacity(num_workers);
     for _ in 0..num_workers {
       workers.push(ConcurrentMergeWorker::new(
-        MergeWorkerScorerSupplier(scorer_supplier.copy()?),
+        scorer_supplier.copy()?,
         m,
         beam_width,
         RAND_SEED,
@@ -205,53 +205,6 @@ where
     }
     self.workers.truncate(1);
     Ok(self.workers[0].base.get_graph_mut())
-  }
-}
-
-/// `RandomVectorScorerSupplier::copy` promises an independent supplier that is
-/// safe to use on another thread. This wrapper records that existing API
-/// contract in Rust's type system; each value is moved to and exclusively used
-/// by one worker.
-struct MergeWorkerScorerSupplier<S>(S);
-
-// SAFETY: `RandomVectorScorerSupplier::copy` explicitly requires its result to
-// be safe for use in another thread. The wrapper is never shared, and each
-// copied supplier is moved into exactly one scoped worker.
-unsafe impl<S> Send for MergeWorkerScorerSupplier<S> where S: RandomVectorScorerSupplier {}
-
-impl<S> RandomVectorScorerSupplier for MergeWorkerScorerSupplier<S>
-where
-  S: RandomVectorScorerSupplier,
-{
-  type Scorer<'a>
-    = S::Scorer<'a>
-  where
-    Self: 'a;
-
-  fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
-    self.0.scorer(ord)
-  }
-
-  type RandomVectorScorerSupplier = MergeWorkerScorerSupplier<S::RandomVectorScorerSupplier>;
-
-  fn copy(&self) -> Result<Self::RandomVectorScorerSupplier> {
-    self.0.copy().map(MergeWorkerScorerSupplier)
-  }
-
-  fn get_vector(
-    &self,
-  ) -> Result<&[crate::core::codecs::knn_field_vectors_writer::VectorValueEnum]> {
-    self.0.get_vector()
-  }
-
-  fn get_vector_mut(
-    &mut self,
-  ) -> Result<&mut Vec<crate::core::codecs::knn_field_vectors_writer::VectorValueEnum>> {
-    self.0.get_vector_mut()
-  }
-
-  fn ram_bytes_used(&self) -> Result<i64> {
-    self.0.ram_bytes_used()
   }
 }
 

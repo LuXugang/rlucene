@@ -40,8 +40,10 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
   type RandomVectorScorerSupplier<B, F>
     = BitRandomVectorScorerSupplier<B>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone;
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send;
 
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
@@ -49,8 +51,10 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
     vector_values: FlatVectorValuesEnum<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone,
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send,
   {
     match vector_values {
       FlatVectorValuesEnum::Byte(byte_vector_values) => {
@@ -191,7 +195,8 @@ where
 
 impl<B> RandomVectorScorerSupplier for BitRandomVectorScorerSupplier<B>
 where
-  B: ByteVectorValues + TryClone,
+  B: ByteVectorValues + TryClone + Send,
+  B::ByteVectorValues: Send,
 {
   type Scorer<'a>
     = BitRandomVectorScorer<

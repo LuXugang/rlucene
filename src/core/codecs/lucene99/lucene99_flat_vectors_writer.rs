@@ -451,7 +451,7 @@ where
 impl<O, F> FlatVectorsWriter for Lucene99FlatVectorsWriter<O, F>
 where
   O: IndexOutput,
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer + Clone + Send,
 {
   type IndexOutput = O;
   type FlatVectorsScorer = F;

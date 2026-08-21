@@ -49,8 +49,10 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
   type RandomVectorScorerSupplier<B, F>
     = RandomVectorScorerSupplierEnum2<ByteScoringSupplier<B>, FloatScoringSupplier<F>>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone;
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send;
 
   fn get_random_vector_scorer_supplier<B, F>(
     &self,
@@ -58,8 +60,10 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
     vector_values: FlatVectorValuesEnum<B, F>,
   ) -> Result<Self::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone,
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send,
   {
     let v = match vector_values {
       FlatVectorValuesEnum::Byte(b) => {
@@ -162,7 +166,8 @@ where
 
 impl<BV> RandomVectorScorerSupplier for ByteScoringSupplier<BV>
 where
-  BV: ByteVectorValues + TryClone,
+  BV: ByteVectorValues + TryClone + Send,
+  BV::ByteVectorValues: Send,
 {
   type Scorer<'a>
     = RandomVectorScorerByteImpl<'a, BV>
@@ -307,7 +312,8 @@ where
 }
 impl<FV> RandomVectorScorerSupplier for FloatScoringSupplier<FV>
 where
-  FV: FloatVectorValues + TryClone,
+  FV: FloatVectorValues + TryClone + Send,
+  FV::FloatVectorValues: Send,
 {
   type Scorer<'a>
     = RandomVectorScorerF32Impl<'a, FV>

@@ -155,8 +155,10 @@ where
     _random: &mut R,
   ) -> Result<<DefaultFlatVectorScorer as FlatVectorsScorer>::RandomVectorScorerSupplier<B, F>>
   where
-    B: ByteVectorValues + TryClone,
-    F: FloatVectorValues + TryClone,
+    B: ByteVectorValues + TryClone + Send,
+    B::ByteVectorValues: Send,
+    F: FloatVectorValues + TryClone + Send,
+    F::FloatVectorValues: Send,
     R: Rng + ?Sized,
   {
     let v = self.similarity_function();

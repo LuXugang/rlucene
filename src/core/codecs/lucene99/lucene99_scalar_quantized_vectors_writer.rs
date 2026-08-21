@@ -345,7 +345,7 @@ where
 impl<R, S> Lucene99ScalarQuantizedVectorsWriter<R, Lucene99ScalarQuantizedVectorScorer<S>>
 where
   R: FlatVectorsWriter,
-  S: FlatVectorsScorer + Clone,
+  S: FlatVectorsScorer + Clone + Send,
 {
   fn merge_one_field_to_index_with_quantization_state<'a, D1, D2, CR>(
     &'a mut self,
@@ -509,7 +509,7 @@ impl<R, S> KnnVectorsWriter<R::IndexOutput>
   for Lucene99ScalarQuantizedVectorsWriter<R, Lucene99ScalarQuantizedVectorScorer<S>>
 where
   R: FlatVectorsWriter,
-  S: FlatVectorsScorer + Clone,
+  S: FlatVectorsScorer + Clone + Send,
 {
   fn add_field<D1, D2>(
     &mut self,
@@ -660,7 +660,7 @@ impl<R, S> FlatVectorsWriter
   for Lucene99ScalarQuantizedVectorsWriter<R, Lucene99ScalarQuantizedVectorScorer<S>>
 where
   R: FlatVectorsWriter,
-  S: FlatVectorsScorer + Clone,
+  S: FlatVectorsScorer + Clone + Send,
 {
   type IndexOutput = R::IndexOutput;
   type FlatVectorsScorer = Lucene99ScalarQuantizedVectorScorer<S>;

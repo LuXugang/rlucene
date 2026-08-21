@@ -104,7 +104,7 @@ impl<F> HasIdentity for Lucene99FlatVectorsFormat<F> {
 
 impl<F> KnnVectorsFormat for Lucene99FlatVectorsFormat<F>
 where
-  F: Clone + FlatVectorsScorer,
+  F: Clone + FlatVectorsScorer + Send,
 {
   fn get_name(&self) -> &str {
     NAME
@@ -149,7 +149,7 @@ where
 
 impl<F> FlatVectorsFormat for Lucene99FlatVectorsFormat<F>
 where
-  F: FlatVectorsScorer + Clone,
+  F: FlatVectorsScorer + Clone + Send,
 {
   type FlatVectorsWriter<T: IndexOutput> = Lucene99FlatVectorsWriter<T, F>;
 
