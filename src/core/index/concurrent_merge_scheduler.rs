@@ -1420,9 +1420,18 @@ where
 
     if !matches!(&merge_result, Ok(Ok(()))) {
       let mut inner = merge_scheduler.inner.lock();
-      ConcurrentMergeScheduler::remove_merge_thread(&mut inner);
-      merge_scheduler.update_merge_threads(&mut inner)?;
-      merge_scheduler.changed.notify_all();
+      // `run_on_merge_finished` removes the current merge thread in its cleanup path before
+      // returning an error. Only perform this cleanup here when the failure happened before
+      // `run_on_merge_finished` was entered.
+      if inner
+        .merge_threads
+        .iter()
+        .any(|merge_thread| merge_thread.is_current_thread())
+      {
+        ConcurrentMergeScheduler::remove_merge_thread(&mut inner);
+        merge_scheduler.update_merge_threads(&mut inner)?;
+        merge_scheduler.changed.notify_all();
+      }
       drop(inner);
       if matches!(&merge_result, Ok(Err(LuceneError::MergeAborted(_)))) {
         // OK to ignore.
