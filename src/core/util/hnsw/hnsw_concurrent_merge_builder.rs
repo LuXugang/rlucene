@@ -34,9 +34,7 @@ use crate::core::util::hnsw::hnsw_graph_searcher::{
 };
 use crate::core::util::hnsw::hnsw_lock::HnswLock;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
-use crate::core::util::hnsw::on_heap_hnsw_graph::{
-  ConcurrentOnHeapHnswGraph, OnHeapHnswGraph, OnHeapHnswGraphEnum,
-};
+use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
 
@@ -71,7 +69,7 @@ where
       return Err(LuceneError::illegal_argument("numWorker must be positive"));
     }
 
-    let hnsw = Arc::new(ConcurrentOnHeapHnswGraph::new(hnsw));
+    let hnsw = Arc::new(hnsw);
     let hnsw_lock = HnswLock::new();
     let work_progress = Arc::new(AtomicUsize::new(0));
     let initialized_nodes = initialized_nodes.map(Arc::new);
@@ -100,6 +98,7 @@ where
   }
 
   fn finish(&mut self) -> Result<()> {
+    self.workers.truncate(1);
     self.workers[0].base.finish()
   }
 
@@ -172,8 +171,7 @@ where
 
     self.finish()?;
     self.frozen = true;
-    self.workers.truncate(1);
-    Ok(self.workers[0].base.get_graph_mut())
+    self.workers[0].base.get_completed_graph()
   }
 
   fn add_graph_node(&mut self, _node: usize) -> Result<()> {
@@ -193,18 +191,13 @@ where
     self.workers[0].base.get_graph()
   }
 
-  fn get_graph_mut(&mut self) -> &mut OnHeapHnswGraph {
-    self.workers[0].base.get_graph_mut()
-  }
-
   fn get_completed_graph(&mut self) -> Result<&mut OnHeapHnswGraph> {
     if !self.frozen {
       // This should already have been called in build(), but just in case.
       self.finish()?;
       self.frozen = true;
     }
-    self.workers.truncate(1);
-    Ok(self.workers[0].base.get_graph_mut())
+    self.workers[0].base.get_completed_graph()
   }
 }
 
@@ -248,7 +241,7 @@ where
     m: usize,
     beam_width: usize,
     seed: u64,
-    hnsw: Arc<ConcurrentOnHeapHnswGraph>,
+    hnsw: Arc<OnHeapHnswGraph>,
     hnsw_lock: HnswLock,
     initialized_nodes: Option<Arc<FixedBitSet>>,
     work_progress: Arc<AtomicUsize>,
@@ -267,7 +260,7 @@ where
       m,
       beam_width,
       seed,
-      OnHeapHnswGraphEnum::Concurrent(hnsw),
+      hnsw,
       Some(hnsw_lock),
       graph_searcher,
       hook,

@@ -141,7 +141,6 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 #[cfg(test)]
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 #[cfg(test)]
-use crate::core::util::hnsw::neighbor_array::NeighborArray;
 #[cfg(test)]
 use crate::core::util::iterator::VecIter;
 #[cfg(test)]
@@ -3675,14 +3674,6 @@ impl<I: IndexInput> HnswGraph for CodecHnswGraph<I> {
       .0
       .get_nodes_on_level(level)
       .map(CodecHnswGraphNodesIterator)
-  }
-
-  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
-    self.0.get_neighbors_mut(level, node)
-  }
-
-  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
-    self.0.get_neighbors(level, node)
   }
 }
 

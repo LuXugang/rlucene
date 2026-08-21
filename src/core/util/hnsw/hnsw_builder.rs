@@ -43,8 +43,6 @@ pub trait HnswBuilder {
   /// Returns a reference to the current graph under construction.
   fn get_graph(&self) -> &OnHeapHnswGraph;
 
-  /// Returns a mutable reference to the current graph under construction.
-  fn get_graph_mut(&mut self) -> &mut OnHeapHnswGraph;
   /// Once this method is called, no further updates to the graph are
   /// accepted.
   ///

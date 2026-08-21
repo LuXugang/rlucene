@@ -42,7 +42,6 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, EmptyHnswGraph, HnswGraph};
 use crate::core::util::hnsw::hnsw_graph_searcher::search;
-use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::ordinal_translated_knn_collector::OrdinalTranslatedKnnCollector;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::long_values::LongValues;
@@ -123,20 +122,6 @@ where
     match self {
       Self::Disk(graph) => graph.get_nodes_on_level(level),
       Self::Empty(graph) => graph.get_nodes_on_level(level),
-    }
-  }
-
-  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
-    match self {
-      Self::Disk(graph) => graph.get_neighbors_mut(level, node),
-      Self::Empty(graph) => graph.get_neighbors_mut(level, node),
-    }
-  }
-
-  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
-    match self {
-      Self::Disk(graph) => graph.get_neighbors(level, node),
-      Self::Empty(graph) => graph.get_neighbors(level, node),
     }
   }
 }

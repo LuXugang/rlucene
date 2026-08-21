@@ -20,7 +20,6 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
-use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::ram_usage_estimator::size_of_vec;
@@ -110,29 +109,24 @@ impl NeighborArray {
   /// # Arguments
   ///
   /// * `node_id` - Node ID of the owner of this `NeighborArray`.
-  pub(crate) fn add_and_ensure_diversity<G>(
-    hnsw: &mut G,
-    level: usize,
+  pub(crate) fn add_and_ensure_diversity(
+    &mut self,
     new_node: usize,
     new_score: f32,
     node_id: usize,
     scorer_supplier: &impl RandomVectorScorerSupplier,
-  ) -> Result<()>
-  where
-    G: HnswGraph,
-  {
-    let neighbor_array = hnsw.get_neighbors_mut(level, node_id)?;
-    neighbor_array.add_out_of_order(new_node, new_score)?;
+  ) -> Result<()> {
+    self.add_out_of_order(new_node, new_score)?;
 
-    if neighbor_array.size < neighbor_array.nodes.len() {
+    if self.size < self.nodes.len() {
       return Ok(());
     }
 
     // We're oversize, need to drop the least diverse neighbor
-    let worst_idx = neighbor_array.find_worst_non_diverse(node_id, scorer_supplier)?;
-    neighbor_array.remove_index(worst_idx);
+    let worst_idx = self.find_worst_non_diverse(node_id, scorer_supplier)?;
+    self.remove_index(worst_idx);
 
-    debug_assert!(neighbor_array.size == neighbor_array.nodes.len() - 1);
+    debug_assert!(self.size == self.nodes.len() - 1);
 
     Ok(())
   }

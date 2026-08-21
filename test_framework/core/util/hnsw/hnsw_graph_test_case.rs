@@ -330,7 +330,7 @@ where
         .get_vector_reader()?
         .expect("vector reader should exist");
       let mut graph_values = vector_reader.get_graph("field")?;
-      assert_graph_equal(builder.get_graph_mut(), &mut graph_values)?;
+      assert_graph_equal(builder.get_completed_graph()?, &mut graph_values)?;
     }
     reader.close()?;
     dir.close()
@@ -708,7 +708,7 @@ where
     )?;
 
     assert_graph_initialized_from_graph(
-      final_builder.get_graph_mut(),
+      final_builder.get_graph(),
       initializer_graph,
       &initializer_ord_map,
     )?;
@@ -1179,12 +1179,13 @@ where
     self.delegate.get_nodes_on_level(level)
   }
 
-  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
-    self.delegate.get_neighbors_mut(level, node)
-  }
-
-  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
-    self.delegate.get_neighbors(level, node)
+  fn with_neighbors<R>(
+    &self,
+    level: usize,
+    node: usize,
+    action: impl FnOnce(&NeighborArray) -> Result<R>,
+  ) -> Result<R> {
+    self.delegate.with_neighbors(level, node, action)
   }
 }
 #[derive(Clone)]
@@ -1429,13 +1430,12 @@ where
   Ok(())
 }
 
-pub fn assert_graph_initialized_from_graph<G, H>(
-  graph: &mut G,
+pub fn assert_graph_initialized_from_graph<H>(
+  graph: &OnHeapHnswGraph,
   initializer: &mut H,
   new_ordinals: &[usize],
 ) -> Result<()>
 where
-  G: HnswGraph,
   H: HnswGraph,
 {
   assert_eq!(
@@ -1452,15 +1452,18 @@ where
   for level in 0..graph.num_levels()? {
     let nodes_on_level = nodes_iterator_to_array(initializer.get_nodes_on_level(level)?);
     for node in nodes_on_level {
-      graph.seek(level, new_ordinals[node])?;
       initializer.seek(level, node)?;
       let expected_neighbors: HashSet<usize> = get_neighbor_nodes(initializer)?
         .into_iter()
         .map(|neighbor| new_ordinals[neighbor])
         .collect();
+      let neighbors = graph.get_neighbors(level, new_ordinals[node])?;
+      let actual_neighbors: HashSet<usize> = neighbors.nodes()[..neighbors.size()]
+        .iter()
+        .copied()
+        .collect();
       assert_eq!(
-        get_neighbor_nodes(graph)?,
-        expected_neighbors,
+        actual_neighbors, expected_neighbors,
         "arcs differ for node {node}"
       );
     }

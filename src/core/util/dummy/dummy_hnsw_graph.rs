@@ -16,7 +16,6 @@
  */
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, HnswGraph};
-use crate::core::util::hnsw::neighbor_array::NeighborArray;
 
 pub struct DummyHnswGraph;
 impl HnswGraph for DummyHnswGraph {
@@ -47,14 +46,6 @@ impl HnswGraph for DummyHnswGraph {
   type NodeIterator = ArrayNodesIterator;
 
   fn get_nodes_on_level(&mut self, _level: usize) -> Result<Self::NodeIterator> {
-    dummy_unreachable!()
-  }
-
-  fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
-    dummy_unreachable!()
-  }
-
-  fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
     dummy_unreachable!()
   }
 }

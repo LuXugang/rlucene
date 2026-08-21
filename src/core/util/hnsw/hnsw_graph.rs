@@ -87,32 +87,21 @@ pub trait HnswGraph {
   /// An iterator over nodes where `next_int()` returns the next node on the
   /// level.
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator>;
-  /// Returns the [`NeighborArray`] connected to the given node.
+  /// Executes an action with the [`NeighborArray`] connected to the given
+  /// node.
   ///
   /// # Arguments
   ///
   /// * `level` - The level of the graph.
   /// * `node` - The node whose neighbors are returned, represented as an
   ///   ordinal on level 0.
-  fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-  fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  /// Executes an action while the graph's neighbor view remains valid.
-  ///
-  /// The default implementation delegates to [`get_neighbors`](Self::get_neighbors).
-  /// Concurrent graph implementations can override this method to hold their
-  /// read lock for the duration of the action.
   fn with_neighbors<T>(
     &self,
-    level: usize,
-    node: usize,
-    action: impl FnOnce(&NeighborArray) -> Result<T>,
+    _level: usize,
+    _node: usize,
+    _action: impl FnOnce(&NeighborArray) -> Result<T>,
   ) -> Result<T> {
-    action(self.get_neighbors(level, node)?)
+    Err(LuceneError::unsupported_operation(""))
   }
 }
 impl<T> HnswGraph for Box<T>
@@ -149,12 +138,13 @@ where
     (**self).get_nodes_on_level(level)
   }
 
-  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
-    (**self).get_neighbors_mut(level, node)
-  }
-
-  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
-    (**self).get_neighbors(level, node)
+  fn with_neighbors<R>(
+    &self,
+    level: usize,
+    node: usize,
+    action: impl FnOnce(&NeighborArray) -> Result<R>,
+  ) -> Result<R> {
+    (**self).with_neighbors(level, node, action)
   }
 }
 pub struct EmptyHnswGraph;

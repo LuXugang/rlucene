@@ -304,9 +304,8 @@ impl IncrementalHnswGraphMergerDefaults {
           max_ord,
         )?;
         builder.set_info_stream(info_stream);
-        builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
-          builder.get_graph_mut(),
+          builder.build(max_ord as usize)?,
           OnHeapHnswGraph::new(m, 0),
         ))
       },
@@ -314,9 +313,8 @@ impl IncrementalHnswGraphMergerDefaults {
         let mut builder =
           create_with_graph_size(scorer_supplier, m, beam_width, RAND_SEED, max_ord)?;
         builder.set_info_stream(info_stream);
-        builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
-          builder.get_graph_mut(),
+          builder.build(max_ord as usize)?,
           OnHeapHnswGraph::new(m, 0),
         ))
       },

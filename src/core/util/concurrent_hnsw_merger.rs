@@ -106,9 +106,8 @@ where
       initialized_nodes,
     )?;
     builder.set_info_stream(info_stream);
-    builder.build(max_ord as usize)?;
     Ok(std::mem::replace(
-      builder.get_graph_mut(),
+      builder.build(max_ord as usize)?,
       OnHeapHnswGraph::new(m, 0),
     ))
   }

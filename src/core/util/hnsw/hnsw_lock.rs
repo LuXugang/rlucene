@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::sync::Arc;
+
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+
 /// Provide (read-and-write) striped locks for access to nodes of an
 /// [`OnHeapHnswGraph`](crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph).
 /// Used by [`HnswConcurrentMergeBuilder`](crate::core::util::hnsw::hnsw_concurrent_merge_builder::HnswConcurrentMergeBuilder) and its `HnswGraphBuilders`.
@@ -26,6 +28,7 @@ pub struct HnswLock {
 
 impl HnswLock {
   const NUM_LOCKS: usize = 512;
+
   pub fn new() -> Self {
     let mut locks = Vec::with_capacity(Self::NUM_LOCKS);
     for _ in 0..Self::NUM_LOCKS {
