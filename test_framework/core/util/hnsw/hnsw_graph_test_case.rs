@@ -67,7 +67,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_concurrent_merge_builder::HnswConcurrentMergeBuilder;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
-use crate::core::util::hnsw::hnsw_graph_builder::RAND_SEED;
+use crate::core::util::hnsw::hnsw_graph_builder::TestRandSeedGuard;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -207,6 +207,7 @@ where
     let num_vectors = segment_sizes.iter().sum();
     let m = random.random_range(2..=5);
     let beam_width = random.random_range(5..=14);
+    let _rand_seed_guard = TestRandSeedGuard::new(random.random::<u64>());
     let vectors = self.vector_values(num_vectors, dim, random);
 
     let dir = new_directory_shared(random)?;
@@ -270,18 +271,19 @@ where
     let n_doc = random.random_range(1..=100);
     let m = random.random_range(2..=5);
     let beam_width = random.random_range(5..=14);
+    let seed = random.random::<u64>();
     let vectors = self.vector_values(n_doc, dim, random);
     let v2 = vectors.copy_()?;
     let v3 = vectors.copy_()?;
     let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
-    // Rust's index writer uses this fixed seed instead of Java's mutable test-only randSeed.
-    let mut builder = hnsw_graph_builder::create(scorer_supplier, m, beam_width, RAND_SEED)?;
+    let mut builder = hnsw_graph_builder::create(scorer_supplier, m, beam_width, seed)?;
     builder.build(n_doc)?;
     assert!(matches!(
       builder.add_graph_node(0),
       Err(LuceneError::IllegalState(_))
     ));
 
+    let _rand_seed_guard = TestRandSeedGuard::new(seed);
     let dir = new_directory_shared(random)?;
     let mut config = IndexWriterConfig::new()?;
     config.set_codec(TestUtil::always_knn_vectors_format(
@@ -347,6 +349,7 @@ where
     let m = random.random_range(5..=14);
     let beam_width = random.random_range(10..=19);
     let similarity_function = VectorSimilarityFunction::random(random);
+    let _rand_seed_guard = TestRandSeedGuard::new(random.random::<u64>());
 
     let mut config = IndexWriterConfig::new()?;
     config.set_codec(TestUtil::always_knn_vectors_format(
@@ -976,7 +979,7 @@ where
   where
     R: Rng + ?Sized,
     Self: Sync,
-    T: Send,
+    T: Send + Sync,
   {
     let size = at_least_usize(random, 100);
     let dim = at_least_usize(random, 10);
@@ -1007,26 +1010,30 @@ where
     }
 
     let actuals = thread::scope(|scope| -> Result<Vec<TopKnnCollector>> {
-      let mut futures = Vec::new();
-      for query in queries {
+      let queries_per_worker = queries.len().div_ceil(4);
+      let mut futures = Vec::with_capacity(4);
+      for queries in queries.chunks(queries_per_worker) {
         let vectors = vectors.try_clone()?;
         let accept_ords = accept_ords.as_ref();
-        futures.push(scope.spawn(move || -> Result<TopKnnCollector> {
-          let scorer = self.build_scorer(vectors, query)?;
-          let actual = hnsw_graph_searcher::search_with_top_k(
-            &scorer,
-            100,
-            hnsw,
-            accept_ords,
-            i32::MAX as usize,
-          )?;
-          Ok(actual)
+        futures.push(scope.spawn(move || -> Result<Vec<TopKnnCollector>> {
+          let mut actuals = Vec::with_capacity(queries.len());
+          for query in queries {
+            let scorer = self.build_scorer(vectors.try_clone()?, query.clone())?;
+            actuals.push(hnsw_graph_searcher::search_with_top_k(
+              &scorer,
+              100,
+              hnsw,
+              accept_ords,
+              i32::MAX as usize,
+            )?);
+          }
+          Ok(actuals)
         }));
       }
 
-      let mut actuals = Vec::new();
+      let mut actuals = Vec::with_capacity(queries.len());
       for future in futures {
-        actuals.push(
+        actuals.extend(
           future
             .join()
             .map_err(|_| LuceneError::illegal_state("onHeapHnswSearch panicked"))??,
@@ -1067,6 +1074,7 @@ where
     let dim = at_least_usize(random, 10);
     let vectors = self.vector_values(size, dim, random);
     let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    let _rand_seed_guard = TestRandSeedGuard::new(random.random::<u64>());
     let mut builder = HnswConcurrentMergeBuilder::new(
       4,
       scorer_supplier,

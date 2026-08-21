@@ -29,7 +29,7 @@ use crate::core::util::concurrent_hnsw_merger::ConcurrentHnswMerger;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
-use crate::core::util::hnsw::hnsw_graph_builder::{RAND_SEED, create_with_graph_size};
+use crate::core::util::hnsw::hnsw_graph_builder::{create_with_graph_size, rand_seed};
 use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMerger;
 use crate::core::util::hnsw::initialized_hnsw_graph_builder::from_graph;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -297,7 +297,7 @@ impl IncrementalHnswGraphMergerDefaults {
           scorer_supplier,
           m,
           beam_width,
-          RAND_SEED,
+          rand_seed(),
           &mut initializer_graph,
           &old_to_new_ordinal_map,
           initialized_nodes,
@@ -311,7 +311,7 @@ impl IncrementalHnswGraphMergerDefaults {
       },
       None => {
         let mut builder =
-          create_with_graph_size(scorer_supplier, m, beam_width, RAND_SEED, max_ord)?;
+          create_with_graph_size(scorer_supplier, m, beam_width, rand_seed(), max_ord)?;
         builder.set_info_stream(info_stream);
         Ok(std::mem::replace(
           builder.build(max_ord as usize)?,

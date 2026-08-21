@@ -47,6 +47,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
+use crate::core::util::hnsw::hnsw_graph_builder::TestRandSeedGuard;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -63,6 +64,7 @@ const KNN_GRAPH_FIELD: &str = "vector";
 
 /// Tests indexing of a knn-graph.
 struct TestKnnGraph {
+  _rand_seed_guard: TestRandSeedGuard,
   m: usize,
   codec: AssertingCodec,
   float32_codec: AssertingCodec,
@@ -75,6 +77,7 @@ impl TestKnnGraph {
   where
     R: Rng + ?Sized,
   {
+    let rand_seed_guard = TestRandSeedGuard::new(random.random::<u64>());
     let m = if random.random_bool(0.5) {
       random.random_range(3..259)
     } else {
@@ -106,6 +109,7 @@ impl TestKnnGraph {
       Lucene99HnswVectorsFormat::with_graph_para(m, DEFAULT_BEAM_WIDTH)?,
     );
     Ok(Self {
+      _rand_seed_guard: rand_seed_guard,
       m,
       codec,
       float32_codec,

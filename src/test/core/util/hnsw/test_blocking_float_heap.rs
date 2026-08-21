@@ -19,9 +19,8 @@ use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
 
-use parking_lot::Mutex;
-use rand::RngExt;
-use rand::rng;
+use rand::rngs::StdRng;
+use rand::{Rng, RngExt, SeedableRng};
 
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
@@ -77,32 +76,29 @@ fn test_basic_operations2() -> Result<()> {
 #[test]
 fn test_multiple_threads() -> Result<()> {
   let mut random = random();
-  let thread_count = random.random_range(3..=5);
-  let heap = Arc::new(Mutex::new(BlockingFloatHeap::new(1)));
+  let thread_count = random.random_range(3..=20);
+  let seeds = (0..thread_count)
+    .map(|_| random.random::<u64>())
+    .collect::<Vec<_>>();
+  let heap = Arc::new(BlockingFloatHeap::new(1));
   let barrier = Arc::new(Barrier::new(thread_count + 1));
   let mut handles = vec![];
 
-  for _ in 0..thread_count {
+  for seed in seeds {
     let heap = heap.clone();
     let barrier = barrier.clone();
     handles.push(thread::spawn(move || {
       barrier.wait();
 
-      let mut rng = rng();
+      let mut random = StdRng::seed_from_u64(seed);
       let mut bottom_value = 0.0;
 
-      for _ in 0..rng.random_range(10..100) {
-        bottom_value += rng.random_range(0..=5) as f32;
-        {
-          let heap = heap.lock();
-          let _ = heap.offer(bottom_value);
-        }
-        thread::sleep(Duration::from_millis(rng.random_range(0..50)));
+      for _ in 0..random.random_range(10..=100) {
+        bottom_value += random.random_range(0..=5) as f32;
+        heap.offer(bottom_value);
+        thread::sleep(Duration::from_millis(random.random_range(0..=50)));
 
-        let global_bottom = {
-          let heap = heap.lock();
-          heap.peek()
-        };
+        let global_bottom = heap.peek();
 
         assert!(global_bottom >= bottom_value);
         bottom_value = global_bottom;

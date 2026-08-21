@@ -875,6 +875,39 @@ pub const HNSW_COMPONENT: &str = "HNSW";
 /// Random seed for level generation; public to expose for testing *
 pub const RAND_SEED: u64 = DEFAULT_RAND_SEED;
 
+#[cfg(test)]
+std::thread_local! {
+  static TEST_RAND_SEED: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+}
+
+pub(crate) fn rand_seed() -> u64 {
+  #[cfg(test)]
+  if let Some(seed) = TEST_RAND_SEED.get() {
+    return seed;
+  }
+  RAND_SEED
+}
+
+#[cfg(test)]
+pub(crate) struct TestRandSeedGuard {
+  previous: Option<u64>,
+}
+
+#[cfg(test)]
+impl TestRandSeedGuard {
+  pub(crate) fn new(seed: u64) -> Self {
+    let previous = TEST_RAND_SEED.replace(Some(seed));
+    Self { previous }
+  }
+}
+
+#[cfg(test)]
+impl Drop for TestRandSeedGuard {
+  fn drop(&mut self) {
+    TEST_RAND_SEED.set(self.previous);
+  }
+}
+
 pub fn create<S>(
   scorer_supplier: S,
   m: usize,

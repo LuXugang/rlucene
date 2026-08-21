@@ -27,7 +27,7 @@ use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::{
   HNSW_COMPONENT, HnswGraphBuilder, HnswGraphBuilderBase, HnswGraphBuilderDefaults,
-  HnswGraphBuilderHook, RAND_SEED,
+  HnswGraphBuilderHook, rand_seed,
 };
 use crate::core::util::hnsw::hnsw_graph_searcher::{
   HnswGraphSearcher, HnswGraphSearcherBase, HnswGraphSearcherHook,
@@ -80,7 +80,7 @@ where
         scorer_supplier.copy()?,
         m,
         beam_width,
-        RAND_SEED,
+        rand_seed(),
         Arc::clone(&hnsw),
         hnsw_lock.clone(),
         initialized_nodes.clone(),

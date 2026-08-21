@@ -53,7 +53,7 @@ use crate::core::util::hnsw::hnsw_graph::{
   ArrayNodesIterator, CollectionNodesIterator, HnswGraph, NodesIterator, NodesIteratorEnum2,
   get_sorted_nodes,
 };
-use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, RAND_SEED, create};
+use crate::core::util::hnsw::hnsw_graph_builder::{DefaultHnswGraphBuilder, create, rand_seed};
 use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMerger;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
@@ -822,7 +822,7 @@ where
         )?
       },
     };
-    let mut hnsw_graph_builder = create(scorer_supplier, m, beam_width, RAND_SEED)?;
+    let mut hnsw_graph_builder = create(scorer_supplier, m, beam_width, rand_seed())?;
     hnsw_graph_builder.set_info_stream(info_stream);
 
     Ok(Self {
