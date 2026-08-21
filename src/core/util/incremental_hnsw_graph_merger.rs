@@ -25,6 +25,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
+use crate::core::util::concurrent_hnsw_merger::ConcurrentHnswMerger;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
@@ -37,6 +38,114 @@ use crate::core::util::info_stream::InfoStreamMT;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[derive(Default)]
+pub(crate) enum HnswGraphMergerHook {
+  #[default]
+  Default,
+  Concurrent(ConcurrentHnswMerger),
+}
+
+pub(crate) struct IncrementalHnswGraphMergerDefaults;
+
+pub(crate) trait IncrementalHnswGraphMergerBase<S>
+where
+  S: RandomVectorScorerSupplier,
+{
+  #[allow(clippy::too_many_arguments)]
+  fn create_builder<KV, R, D>(
+    &self,
+    field_info: &FieldInfo,
+    scorer_supplier: S,
+    m: usize,
+    beam_width: usize,
+    init_reader: Option<usize>,
+    init_doc_map: Option<usize>,
+    init_graph_size: usize,
+    merged_vector_values: &mut KV,
+    max_ord: i32,
+    readers: &[Option<R>],
+    doc_maps: &[D],
+    info_stream: InfoStreamMT,
+  ) -> Result<OnHeapHnswGraph>
+  where
+    KV: KnnVectorValues,
+    R: KnnVectorsReader,
+    D: DocMap,
+  {
+    IncrementalHnswGraphMergerDefaults::create_builder(
+      field_info,
+      scorer_supplier,
+      m,
+      beam_width,
+      init_reader,
+      init_doc_map,
+      init_graph_size,
+      merged_vector_values,
+      max_ord,
+      readers,
+      doc_maps,
+      info_stream,
+    )
+  }
+}
+
+impl<S> IncrementalHnswGraphMergerBase<S> for HnswGraphMergerHook
+where
+  S: RandomVectorScorerSupplier,
+{
+  fn create_builder<KV, R, D>(
+    &self,
+    field_info: &FieldInfo,
+    scorer_supplier: S,
+    m: usize,
+    beam_width: usize,
+    init_reader: Option<usize>,
+    init_doc_map: Option<usize>,
+    init_graph_size: usize,
+    merged_vector_values: &mut KV,
+    max_ord: i32,
+    readers: &[Option<R>],
+    doc_maps: &[D],
+    info_stream: InfoStreamMT,
+  ) -> Result<OnHeapHnswGraph>
+  where
+    KV: KnnVectorValues,
+    R: KnnVectorsReader,
+    D: DocMap,
+  {
+    match self {
+      Self::Default => IncrementalHnswGraphMergerDefaults::create_builder(
+        field_info,
+        scorer_supplier,
+        m,
+        beam_width,
+        init_reader,
+        init_doc_map,
+        init_graph_size,
+        merged_vector_values,
+        max_ord,
+        readers,
+        doc_maps,
+        info_stream,
+      ),
+      Self::Concurrent(hook) => hook.create_builder(
+        field_info,
+        scorer_supplier,
+        m,
+        beam_width,
+        init_reader,
+        init_doc_map,
+        init_graph_size,
+        merged_vector_values,
+        max_ord,
+        readers,
+        doc_maps,
+        info_stream,
+      ),
+    }
+  }
+}
+
 /// This selects the biggest Hnsw graph from the provided merge state and initializes a new
 /// HnswGraphBuilder with that graph as a starting point.
 pub struct IncrementalHnswGraphMerger<S> {
@@ -47,6 +156,7 @@ pub struct IncrementalHnswGraphMerger<S> {
   init_reader: Option<usize>,
   init_doc_map: Option<usize>,
   init_graph_size: usize,
+  hook: HnswGraphMergerHook,
 }
 
 impl<S> IncrementalHnswGraphMerger<S> {
@@ -59,6 +169,28 @@ impl<S> IncrementalHnswGraphMerger<S> {
       init_reader: None,
       init_doc_map: None,
       init_graph_size: 0,
+      hook: HnswGraphMergerHook::Default,
+    }
+  }
+}
+
+impl<S> IncrementalHnswGraphMerger<S> {
+  pub(crate) fn new_with_hook(
+    field_info: Arc<FieldInfo>,
+    scorer_supplier: S,
+    m: usize,
+    beam_width: usize,
+    hook: HnswGraphMergerHook,
+  ) -> Self {
+    Self {
+      field_info,
+      scorer_supplier: Some(scorer_supplier),
+      m,
+      beam_width,
+      init_reader: None,
+      init_doc_map: None,
+      init_graph_size: 0,
+      hook,
     }
   }
 }
@@ -95,36 +227,76 @@ where
     R: KnnVectorsReader,
     D: DocMap,
   {
-    match self.init_reader.as_ref() {
+    let scorer_supplier = self
+      .scorer_supplier
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("scorer supplier has already been consumed"))?;
+    self.hook.create_builder(
+      self.field_info.as_ref(),
+      scorer_supplier,
+      self.m,
+      self.beam_width,
+      self.init_reader,
+      self.init_doc_map,
+      self.init_graph_size,
+      merged_vector_values,
+      max_ord,
+      readers,
+      doc_maps,
+      info_stream,
+    )
+  }
+}
+
+impl IncrementalHnswGraphMergerDefaults {
+  #[allow(clippy::too_many_arguments)]
+  fn create_builder<KV, R, D>(
+    field_info: &FieldInfo,
+    scorer_supplier: impl RandomVectorScorerSupplier,
+    m: usize,
+    beam_width: usize,
+    init_reader: Option<usize>,
+    init_doc_map: Option<usize>,
+    init_graph_size: usize,
+    merged_vector_values: &mut KV,
+    max_ord: i32,
+    readers: &[Option<R>],
+    doc_maps: &[D],
+    info_stream: InfoStreamMT,
+  ) -> Result<OnHeapHnswGraph>
+  where
+    KV: KnnVectorValues,
+    R: KnnVectorsReader,
+    D: DocMap,
+  {
+    match init_reader {
       Some(init_reader_idx) => {
-        let init_reader = readers[*init_reader_idx].as_ref().ok_or_else(|| {
+        let init_reader = readers[init_reader_idx].as_ref().ok_or_else(|| {
           LuceneError::illegal_state(format!(
-            "Reader at index {} is not available",
-            init_reader_idx
+            "Reader at index {init_reader_idx} is not available"
           ))
         })?;
-        let mut initializer_graph = init_reader.get_graph(self.field_info.name.as_str())?;
-
+        let mut initializer_graph = init_reader.get_graph(field_info.name.as_str())?;
         let mut initialized_nodes = FixedBitSet::new(max_ord as usize);
-        let doc_map = doc_maps
-          .as_ref()
-          .get(self.init_doc_map.unwrap())
-          .ok_or_else(|| {
-            LuceneError::illegal_state(format!(
-              "DocMap at index {} is not available",
-              self.init_doc_map.unwrap()
-            ))
-          })?;
-        let old_to_new_ordinal_map = self.get_new_ord_mapping(
+        let init_doc_map_idx = init_doc_map
+          .ok_or_else(|| LuceneError::illegal_state("initializer reader has no document map"))?;
+        let doc_map = doc_maps.get(init_doc_map_idx).ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "DocMap at index {init_doc_map_idx} is not available"
+          ))
+        })?;
+        let old_to_new_ordinal_map = get_new_ord_mapping(
+          field_info,
+          init_graph_size,
           merged_vector_values,
           &mut initialized_nodes,
           init_reader,
           doc_map,
         )?;
         let mut builder = from_graph(
-          self.scorer_supplier.take().unwrap(),
-          self.m,
-          self.beam_width,
+          scorer_supplier,
+          m,
+          beam_width,
           RAND_SEED,
           &mut initializer_graph,
           &old_to_new_ordinal_map,
@@ -135,94 +307,79 @@ where
         builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
           builder.get_graph_mut(),
-          OnHeapHnswGraph::new(self.m, 0),
+          OnHeapHnswGraph::new(m, 0),
         ))
       },
       None => {
-        let mut builder = create_with_graph_size(
-          self.scorer_supplier.take().unwrap(),
-          self.m,
-          self.beam_width,
-          RAND_SEED,
-          max_ord,
-        )?;
+        let mut builder =
+          create_with_graph_size(scorer_supplier, m, beam_width, RAND_SEED, max_ord)?;
         builder.set_info_stream(info_stream);
         builder.build(max_ord as usize)?;
         Ok(std::mem::replace(
           builder.get_graph_mut(),
-          OnHeapHnswGraph::new(self.m, 0),
+          OnHeapHnswGraph::new(m, 0),
         ))
       },
     }
   }
-  /// Creates a new mapping from old ordinals to new ordinals and returns the total number of vectors
-  /// in the newly merged segment.
-  ///
-  /// # Arguments
-  ///
-  /// * `merged_vector_values` - vector values in the merged segment
-  /// * `initialized_nodes` - track what nodes have been initialized
-  ///
-  /// # Returns
-  ///
-  /// The mapping from old ordinals to new ordinals.
-  ///
-  /// # Errors
-  ///
-  /// Returns an error if reading from the merge state fails.
-  fn get_new_ord_mapping<KV, R, D>(
-    &self,
-    merged_vector_values: &mut KV,
-    initialized_nodes: &mut FixedBitSet,
-    reader: &R,
-    init_doc_map: &D,
-  ) -> Result<Vec<usize>>
-  where
-    KV: KnnVectorValues,
-    R: KnnVectorsReader,
-    D: DocMap,
-  {
-    let mut initializer_iterator = match self.field_info.get_vector_encoding() {
-      VectorEncoding::BYTE(_) => DocIndexIteratorEnum2::A(
-        reader
-          .get_byte_vector_values(&self.field_info.name)?
-          .iterator()?,
-      ),
-      VectorEncoding::FLOAT32(_) => DocIndexIteratorEnum2::B(
-        reader
-          .get_float_vector_values(&self.field_info.name)?
-          .iterator()?,
-      ),
-    };
+}
 
-    let mut new_id_to_old_ordinal = HashMap::with_capacity(self.init_graph_size);
-    let mut max_new_doc_id = -1;
-    let mut doc_id = initializer_iterator.next_doc()?;
-    while doc_id != NO_MORE_DOCS {
-      let new_id = init_doc_map.get(doc_id)?;
-      max_new_doc_id = max_new_doc_id.max(new_id);
-      new_id_to_old_ordinal.insert(new_id, initializer_iterator.index()? as usize);
-      doc_id = initializer_iterator.next_doc()?;
-    }
+/// Creates a new mapping from old ordinals to new ordinals and returns the total number of vectors
+/// in the newly merged segment.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn get_new_ord_mapping<KV, R, D>(
+  field_info: &FieldInfo,
+  init_graph_size: usize,
+  merged_vector_values: &mut KV,
+  initialized_nodes: &mut FixedBitSet,
+  reader: &R,
+  init_doc_map: &D,
+) -> Result<Vec<usize>>
+where
+  KV: KnnVectorValues,
+  R: KnnVectorsReader,
+  D: DocMap,
+{
+  let mut initializer_iterator = match field_info.get_vector_encoding() {
+    VectorEncoding::BYTE(_) => DocIndexIteratorEnum2::A(
+      reader
+        .get_byte_vector_values(&field_info.name)?
+        .iterator()?,
+    ),
+    VectorEncoding::FLOAT32(_) => DocIndexIteratorEnum2::B(
+      reader
+        .get_float_vector_values(&field_info.name)?
+        .iterator()?,
+    ),
+  };
 
-    if max_new_doc_id == -1 {
-      return Ok(Vec::new());
-    }
-
-    let mut old_to_new_ordinal_map = vec![0; self.init_graph_size];
-    let mut merged_vector_iterator = merged_vector_values.iterator()?;
-    let mut new_doc_id = merged_vector_iterator.next_doc()?;
-    while new_doc_id != NO_MORE_DOCS && new_doc_id <= max_new_doc_id {
-      if let Some(&old_ordinal) = new_id_to_old_ordinal.get(&new_doc_id) {
-        let new_ord = merged_vector_iterator.index()? as usize;
-        initialized_nodes.set(new_ord);
-        old_to_new_ordinal_map[old_ordinal] = new_ord;
-      }
-      new_doc_id = merged_vector_iterator.next_doc()?;
-    }
-
-    Ok(old_to_new_ordinal_map)
+  let mut new_id_to_old_ordinal = HashMap::with_capacity(init_graph_size);
+  let mut max_new_doc_id = -1;
+  let mut doc_id = initializer_iterator.next_doc()?;
+  while doc_id != NO_MORE_DOCS {
+    let new_id = init_doc_map.get(doc_id)?;
+    max_new_doc_id = max_new_doc_id.max(new_id);
+    new_id_to_old_ordinal.insert(new_id, initializer_iterator.index()? as usize);
+    doc_id = initializer_iterator.next_doc()?;
   }
+
+  if max_new_doc_id == -1 {
+    return Ok(Vec::new());
+  }
+
+  let mut old_to_new_ordinal_map = vec![0; init_graph_size];
+  let mut merged_vector_iterator = merged_vector_values.iterator()?;
+  let mut new_doc_id = merged_vector_iterator.next_doc()?;
+  while new_doc_id != NO_MORE_DOCS && new_doc_id <= max_new_doc_id {
+    if let Some(&old_ordinal) = new_id_to_old_ordinal.get(&new_doc_id) {
+      let new_ord = merged_vector_iterator.index()? as usize;
+      initialized_nodes.set(new_ord);
+      old_to_new_ordinal_map[old_ordinal] = new_ord;
+    }
+    new_doc_id = merged_vector_iterator.next_doc()?;
+  }
+
+  Ok(old_to_new_ordinal_map)
 }
 
 impl<S> HnswGraphMerger for IncrementalHnswGraphMerger<S>

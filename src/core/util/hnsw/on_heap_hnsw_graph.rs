@@ -18,7 +18,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::accountable::Accountable;
@@ -435,5 +435,347 @@ struct EntryNode {
 impl EntryNode {
   pub fn new(node: Option<usize>, level: usize) -> Self {
     Self { node, level }
+  }
+}
+
+/// Builder-specific operations on an HNSW graph.
+///
+/// The public graph interface is kept in [`HnswGraph`].  This trait contains
+/// the additional operations required while building a graph.
+pub(crate) trait HnswGraphBuilderGraph: HnswGraph {
+  fn add_node(&mut self, level: usize, node: usize) -> Result<()>;
+
+  fn try_set_new_entry_node(&self, node: usize, level: usize) -> bool;
+
+  fn try_promote_new_entry_node(
+    &self,
+    node: usize,
+    level: usize,
+    expected_old_level: usize,
+  ) -> bool;
+}
+
+impl HnswGraphBuilderGraph for OnHeapHnswGraph {
+  fn add_node(&mut self, level: usize, node: usize) -> Result<()> {
+    OnHeapHnswGraph::add_node(self, level, node)
+  }
+
+  fn try_set_new_entry_node(&self, node: usize, level: usize) -> bool {
+    OnHeapHnswGraph::try_set_new_entry_node(self, node, level)
+  }
+
+  fn try_promote_new_entry_node(
+    &self,
+    node: usize,
+    level: usize,
+    expected_old_level: usize,
+  ) -> bool {
+    OnHeapHnswGraph::try_promote_new_entry_node(self, node, level, expected_old_level)
+  }
+}
+/// The graph representation used by the HNSW graph builder.
+///
+/// The enum provides one builder-facing graph type while keeping dispatch
+/// static.  The single-threaded on-heap representation is the first variant;
+/// a concurrent on-heap representation can be added without changing the
+/// builder's public graph abstraction.
+pub(crate) enum OnHeapHnswGraphEnum {
+  SingleThreaded(OnHeapHnswGraph),
+  Concurrent(Arc<ConcurrentOnHeapHnswGraph>),
+}
+
+impl From<OnHeapHnswGraph> for OnHeapHnswGraphEnum {
+  fn from(graph: OnHeapHnswGraph) -> Self {
+    Self::SingleThreaded(graph)
+  }
+}
+
+impl From<ConcurrentOnHeapHnswGraph> for OnHeapHnswGraphEnum {
+  fn from(graph: ConcurrentOnHeapHnswGraph) -> Self {
+    Self::Concurrent(Arc::new(graph))
+  }
+}
+
+impl HnswGraph for OnHeapHnswGraphEnum {
+  type NodeIterator = <OnHeapHnswGraph as HnswGraph>::NodeIterator;
+
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    match self {
+      Self::SingleThreaded(graph) => graph.seek(level, target),
+      Self::Concurrent(graph) => graph.seek(level, target),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::SingleThreaded(graph) => graph.size(),
+      Self::Concurrent(graph) => graph.size(),
+    }
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    match self {
+      Self::SingleThreaded(graph) => graph.max_node_id(),
+      Self::Concurrent(graph) => graph.max_node_id(),
+    }
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    match self {
+      Self::SingleThreaded(graph) => graph.next_neighbor(),
+      Self::Concurrent(graph) => graph.next_neighbor(),
+    }
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    match self {
+      Self::SingleThreaded(graph) => graph.num_levels(),
+      Self::Concurrent(graph) => graph.num_levels(),
+    }
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    match self {
+      Self::SingleThreaded(graph) => graph.entry_node(),
+      Self::Concurrent(graph) => graph.entry_node(),
+    }
+  }
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    match self {
+      Self::SingleThreaded(graph) => graph.get_nodes_on_level(level),
+      Self::Concurrent(graph) => graph.get_nodes_on_level(level),
+    }
+  }
+
+  fn get_neighbors_mut(&mut self, level: usize, node: usize) -> Result<&mut NeighborArray> {
+    match self {
+      Self::SingleThreaded(graph) => graph.get_neighbors_mut(level, node),
+      Self::Concurrent(graph) => graph.get_neighbors_mut(level, node),
+    }
+  }
+
+  fn get_neighbors(&self, level: usize, node: usize) -> Result<&NeighborArray> {
+    match self {
+      Self::SingleThreaded(graph) => graph.get_neighbors(level, node),
+      Self::Concurrent(graph) => graph.get_neighbors(level, node),
+    }
+  }
+
+  fn with_neighbors<T>(
+    &self,
+    level: usize,
+    node: usize,
+    action: impl FnOnce(&NeighborArray) -> Result<T>,
+  ) -> Result<T> {
+    match self {
+      Self::SingleThreaded(graph) => graph.with_neighbors(level, node, action),
+      Self::Concurrent(graph) => graph.with_neighbors(level, node, action),
+    }
+  }
+}
+
+impl HnswGraphBuilderGraph for OnHeapHnswGraphEnum {
+  fn add_node(&mut self, level: usize, node: usize) -> Result<()> {
+    match self {
+      Self::SingleThreaded(graph) => graph.add_node(level, node),
+      Self::Concurrent(graph) => graph.add_node(level, node),
+    }
+  }
+
+  fn try_set_new_entry_node(&self, node: usize, level: usize) -> bool {
+    match self {
+      Self::SingleThreaded(graph) => graph.try_set_new_entry_node(node, level),
+      Self::Concurrent(graph) => graph.try_set_new_entry_node(node, level),
+    }
+  }
+
+  fn try_promote_new_entry_node(
+    &self,
+    node: usize,
+    level: usize,
+    expected_old_level: usize,
+  ) -> bool {
+    match self {
+      Self::SingleThreaded(graph) => {
+        graph.try_promote_new_entry_node(node, level, expected_old_level)
+      },
+      Self::Concurrent(graph) => graph.try_promote_new_entry_node(node, level, expected_old_level),
+    }
+  }
+}
+
+/// Concurrent on-heap HNSW graph placeholder.
+pub(crate) struct ConcurrentOnHeapHnswGraph {
+  hnsw: RwLock<OnHeapHnswGraph>,
+}
+
+impl ConcurrentOnHeapHnswGraph {
+  pub(crate) fn new(hnsw: OnHeapHnswGraph) -> Self {
+    Self {
+      hnsw: RwLock::new(hnsw),
+    }
+  }
+
+  pub(crate) fn read(&self) -> RwLockReadGuard<'_, OnHeapHnswGraph> {
+    self.hnsw.read()
+  }
+
+  pub(crate) fn write(&self) -> RwLockWriteGuard<'_, OnHeapHnswGraph> {
+    self.hnsw.write()
+  }
+
+  pub(crate) fn into_inner(self) -> OnHeapHnswGraph {
+    self.hnsw.into_inner()
+  }
+}
+
+impl HnswGraph for ConcurrentOnHeapHnswGraph {
+  type NodeIterator = <OnHeapHnswGraph as HnswGraph>::NodeIterator;
+
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    self.write().seek(level, target)
+  }
+
+  fn size(&self) -> usize {
+    self.read().size()
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    self.read().max_node_id()
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    self.write().next_neighbor()
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    self.read().num_levels()
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    self.read().entry_node()
+  }
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    self.write().get_nodes_on_level(level)
+  }
+
+  fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
+    Err(LuceneError::unsupported_operation(
+      "ConcurrentOnHeapHnswGraph cannot return neighbors beyond its write lock scope",
+    ))
+  }
+
+  fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
+    Err(LuceneError::unsupported_operation(
+      "ConcurrentOnHeapHnswGraph cannot return neighbors beyond its read lock scope",
+    ))
+  }
+
+  fn with_neighbors<T>(
+    &self,
+    level: usize,
+    node: usize,
+    action: impl FnOnce(&NeighborArray) -> Result<T>,
+  ) -> Result<T> {
+    let hnsw = self.read();
+    action(hnsw.get_neighbors(level, node)?)
+  }
+}
+
+impl HnswGraphBuilderGraph for ConcurrentOnHeapHnswGraph {
+  fn add_node(&mut self, level: usize, node: usize) -> Result<()> {
+    self.write().add_node(level, node)
+  }
+
+  fn try_set_new_entry_node(&self, node: usize, level: usize) -> bool {
+    self.write().try_set_new_entry_node(node, level)
+  }
+
+  fn try_promote_new_entry_node(
+    &self,
+    node: usize,
+    level: usize,
+    expected_old_level: usize,
+  ) -> bool {
+    self
+      .write()
+      .try_promote_new_entry_node(node, level, expected_old_level)
+  }
+}
+
+impl HnswGraph for Arc<ConcurrentOnHeapHnswGraph> {
+  type NodeIterator = <OnHeapHnswGraph as HnswGraph>::NodeIterator;
+
+  fn seek(&mut self, level: usize, target: usize) -> Result<()> {
+    self.write().seek(level, target)
+  }
+
+  fn size(&self) -> usize {
+    self.read().size()
+  }
+
+  fn max_node_id(&self) -> Option<usize> {
+    self.read().max_node_id()
+  }
+
+  fn next_neighbor(&mut self) -> Result<usize> {
+    self.write().next_neighbor()
+  }
+
+  fn num_levels(&self) -> Result<usize> {
+    self.read().num_levels()
+  }
+
+  fn entry_node(&self) -> Result<Option<usize>> {
+    self.read().entry_node()
+  }
+
+  fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator> {
+    self.write().get_nodes_on_level(level)
+  }
+
+  fn get_neighbors_mut(&mut self, _level: usize, _node: usize) -> Result<&mut NeighborArray> {
+    Err(LuceneError::unsupported_operation(
+      "ConcurrentOnHeapHnswGraph cannot return neighbors beyond its write lock scope",
+    ))
+  }
+
+  fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
+    Err(LuceneError::unsupported_operation(
+      "ConcurrentOnHeapHnswGraph cannot return neighbors beyond its read lock scope",
+    ))
+  }
+
+  fn with_neighbors<T>(
+    &self,
+    level: usize,
+    node: usize,
+    action: impl FnOnce(&NeighborArray) -> Result<T>,
+  ) -> Result<T> {
+    let hnsw = self.read();
+    action(hnsw.get_neighbors(level, node)?)
+  }
+}
+
+impl HnswGraphBuilderGraph for Arc<ConcurrentOnHeapHnswGraph> {
+  fn add_node(&mut self, level: usize, node: usize) -> Result<()> {
+    self.write().add_node(level, node)
+  }
+
+  fn try_set_new_entry_node(&self, node: usize, level: usize) -> bool {
+    self.write().try_set_new_entry_node(node, level)
+  }
+
+  fn try_promote_new_entry_node(
+    &self,
+    node: usize,
+    level: usize,
+    expected_old_level: usize,
+  ) -> bool {
+    self
+      .write()
+      .try_promote_new_entry_node(node, level, expected_old_level)
   }
 }

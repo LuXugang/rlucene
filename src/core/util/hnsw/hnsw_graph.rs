@@ -87,7 +87,7 @@ pub trait HnswGraph {
   /// An iterator over nodes where `next_int()` returns the next node on the
   /// level.
   fn get_nodes_on_level(&mut self, level: usize) -> Result<Self::NodeIterator>;
-  /// Returns the [`NeighborQueue`] connected to the given node.
+  /// Returns the [`NeighborArray`] connected to the given node.
   ///
   /// # Arguments
   ///
@@ -99,6 +99,20 @@ pub trait HnswGraph {
   }
   fn get_neighbors(&self, _level: usize, _node: usize) -> Result<&NeighborArray> {
     Err(LuceneError::unsupported_operation(""))
+  }
+
+  /// Executes an action while the graph's neighbor view remains valid.
+  ///
+  /// The default implementation delegates to [`get_neighbors`](Self::get_neighbors).
+  /// Concurrent graph implementations can override this method to hold their
+  /// read lock for the duration of the action.
+  fn with_neighbors<T>(
+    &self,
+    level: usize,
+    node: usize,
+    action: impl FnOnce(&NeighborArray) -> Result<T>,
+  ) -> Result<T> {
+    action(self.get_neighbors(level, node)?)
   }
 }
 impl<T> HnswGraph for Box<T>

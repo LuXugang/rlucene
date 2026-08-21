@@ -109,7 +109,11 @@ pub struct Lucene99HnswVectorsFormat {
 impl Lucene99HnswVectorsFormat {
   /// Constructs a format using default graph construction parameters
   pub fn new() -> Result<Self> {
-    Self::with_graph_para_with_threads(DEFAULT_MAX_CONN, DEFAULT_BEAM_WIDTH, DEFAULT_BEAM_WIDTH)
+    Self::with_graph_para_with_threads(
+      DEFAULT_MAX_CONN,
+      DEFAULT_BEAM_WIDTH,
+      DEFAULT_NUM_MERGE_WORKER,
+    )
   }
   pub fn with_graph_para(max_conn: usize, beam_width: usize) -> Result<Self> {
     Self::with_graph_para_with_threads(max_conn, beam_width, DEFAULT_NUM_MERGE_WORKER)
@@ -120,8 +124,7 @@ impl Lucene99HnswVectorsFormat {
   ///
   /// - `max_conn`: the maximum number of connections to a node in the HNSW graph
   /// - `beam_width`: the size of the queue maintained during graph construction.
-  /// - `num_merge_workers`: number of workers (threads) that will be used when doing merge. If
-  ///   larger than 1, a present `ExecutorService` must be passed as `merge_exec`
+  /// - `num_merge_workers`: number of workers (threads) that will be used when doing merge.
   ///
   /// # Errors
   ///
@@ -130,7 +133,6 @@ impl Lucene99HnswVectorsFormat {
     max_conn: usize,
     beam_width: usize,
     num_merge_workers: usize,
-    // TODO IMPORTANT 多线程不支持
   ) -> Result<Self> {
     if max_conn == 0 || max_conn > MAXIMUM_MAX_CONN {
       return Err(LuceneError::illegal_argument(format!(

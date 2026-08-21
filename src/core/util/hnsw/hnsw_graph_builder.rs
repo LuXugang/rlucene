@@ -29,6 +29,7 @@ use crate::core::util::bits::{Bits, MatchNoBits};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
+use crate::core::util::hnsw::hnsw_concurrent_merge_builder::ConcurrentMergeWorkerHook;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_searcher::HnswGraphSearcher;
 use crate::core::util::hnsw::hnsw_lock::HnswLock;
@@ -36,7 +37,9 @@ use crate::core::util::hnsw::hnsw_util::HnswUtil;
 use crate::core::util::hnsw::initialized_hnsw_graph_builder::InitializedHnswGraphBuilder;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
-use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
+use crate::core::util::hnsw::on_heap_hnsw_graph::{
+  HnswGraphBuilderGraph, OnHeapHnswGraph, OnHeapHnswGraphEnum,
+};
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
@@ -50,7 +53,7 @@ pub struct HnswGraphBuilder<B, S, BS> {
   graph_searcher: HnswGraphSearcher<BS>,
   entry_candidates: GraphBuilderKnnCollector,
   beam_candidates: GraphBuilderKnnCollector,
-  hnsw: OnHeapHnswGraph,
+  hnsw: OnHeapHnswGraphEnum,
   hnsw_lock: Option<HnswLock>,
   info_stream: InfoStreamMT,
   frozen: bool,
@@ -58,10 +61,11 @@ pub struct HnswGraphBuilder<B, S, BS> {
 }
 
 #[derive(Default)]
-pub enum HnswGraphBuilderHook<B> {
+pub(crate) enum HnswGraphBuilderHook<B> {
   #[default]
   Default,
   Initialized(InitializedHnswGraphBuilder<B>),
+  Concurrent(ConcurrentMergeWorkerHook),
 }
 
 pub(crate) struct HnswGraphBuilderDefaults;
@@ -104,7 +108,7 @@ where
     )
   }
 
-  pub fn from_hnsw(
+  pub(crate) fn from_hnsw(
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
@@ -122,7 +126,7 @@ where
       m,
       beam_width,
       random,
-      hnsw,
+      hnsw.into(),
       None,
       searcher,
       hook,
@@ -151,12 +155,12 @@ where
   ///   construction. Provide this to ensure repeatable construction.
   /// * `hnsw` - The graph to build. Can be previously initialized.
   #[allow(clippy::too_many_arguments)]
-  pub fn new(
+  pub(crate) fn new(
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
     seed: u64,
-    hnsw: OnHeapHnswGraph,
+    hnsw: OnHeapHnswGraphEnum,
     hnsw_lock: Option<HnswLock>,
     graph_searcher: HnswGraphSearcher<BS>,
     hook: HnswGraphBuilderHook<B>,
@@ -231,7 +235,7 @@ where
     Ok(now)
   }
   fn add_diverse_neighbors(
-    hnsw: &mut OnHeapHnswGraph,
+    hnsw: &mut OnHeapHnswGraphEnum,
     scorer_supplier: &impl RandomVectorScorerSupplier,
     m: usize,
     hnsw_lock: Option<&HnswLock>,
@@ -239,22 +243,39 @@ where
     node: usize,
     candidates: &NeighborArray,
   ) -> Result<()> {
+    let max_conn_on_level = if level == 0 { m * 2 } else { m };
     /* For each of the beamWidth nearest candidates (going from best to worst),
      * select it only if it is closer to target than it is to any of the
      * already-selected neighbors (ie selected in this method,
      * since the node is new and has no prior neighbors).
      */
-    let neighbors = hnsw.get_neighbors(level, node)?;
-    debug_assert_eq!(neighbors.size(), 0); // new node
-    let max_conn_on_level = if level == 0 { m * 2 } else { m };
-    let mask = Self::select_and_link_diverse(
-      hnsw,
-      scorer_supplier,
-      candidates,
-      max_conn_on_level,
-      level,
-      node,
-    )?;
+    let mask = match hnsw {
+      OnHeapHnswGraphEnum::SingleThreaded(hnsw) => {
+        let neighbors = hnsw.get_neighbors(level, node)?;
+        debug_assert_eq!(neighbors.size(), 0); // new node
+        Self::select_and_link_diverse(
+          hnsw,
+          scorer_supplier,
+          candidates,
+          max_conn_on_level,
+          level,
+          node,
+        )?
+      },
+      OnHeapHnswGraphEnum::Concurrent(hnsw) => {
+        let mut graph = hnsw.write();
+        let neighbors = graph.get_neighbors(level, node)?;
+        debug_assert_eq!(neighbors.size(), 0); // new node
+        Self::select_and_link_diverse(
+          &mut *graph,
+          scorer_supplier,
+          candidates,
+          max_conn_on_level,
+          level,
+          node,
+        )?
+      },
+    };
 
     // Link the selected nodes to the new node, and the new node to the selected
     // nodes (again applying diversity heuristic)
@@ -269,22 +290,32 @@ where
       }
       let nbr = candidates.nodes()[i];
       let score = candidates.scores()[i];
-
-      if let Some(lock) = hnsw_lock {
-        let guard = lock.write(level, nbr);
-        NeighborArray::add_and_ensure_diversity(hnsw, level, node, score, nbr, scorer_supplier)?;
-        drop(guard);
-      } else {
-        NeighborArray::add_and_ensure_diversity(hnsw, level, node, score, nbr, scorer_supplier)?;
+      let guard = hnsw_lock.map(|lock| lock.write(level, nbr));
+      match hnsw {
+        OnHeapHnswGraphEnum::SingleThreaded(hnsw) => {
+          NeighborArray::add_and_ensure_diversity(hnsw, level, node, score, nbr, scorer_supplier)?;
+        },
+        OnHeapHnswGraphEnum::Concurrent(hnsw) => {
+          let mut graph = hnsw.write();
+          NeighborArray::add_and_ensure_diversity(
+            &mut *graph,
+            level,
+            node,
+            score,
+            nbr,
+            scorer_supplier,
+          )?;
+        },
       }
+      drop(guard);
     }
 
     Ok(())
   }
   ///  This method will select neighbors to add and return a mask telling the
   /// caller which candidates are selected
-  fn select_and_link_diverse(
-    hnsw: &mut OnHeapHnswGraph,
+  pub(crate) fn select_and_link_diverse(
+    hnsw: &mut impl HnswGraphBuilderGraph,
     scorer_supplier: &impl RandomVectorScorerSupplier,
     candidates: &NeighborArray,
     max_conn_on_level: usize,
@@ -322,7 +353,7 @@ where
 
     Ok(mask)
   }
-  fn pop_to_scratch(
+  pub(crate) fn pop_to_scratch(
     candidates: &mut GraphBuilderKnnCollector,
     scratch: &mut NeighborArray,
   ) -> Result<()> {
@@ -360,7 +391,7 @@ where
     }
     Ok(true)
   }
-  fn get_random_graph_level(ml: f64, random: &mut impl Rng) -> usize {
+  pub(crate) fn get_random_graph_level(ml: f64, random: &mut impl Rng) -> usize {
     loop {
       let rand_double: f64 = random.random();
       if rand_double > 0.0 {
@@ -369,11 +400,11 @@ where
     }
   }
   pub(crate) fn finish(&mut self) -> Result<()> {
-    self.connect_all_components()?;
+    self.connect_components()?;
     self.frozen = true;
     Ok(())
   }
-  fn connect_all_components(&mut self) -> Result<()> {
+  fn connect_components(&mut self) -> Result<()> {
     let start = Instant::now();
 
     for level in 0..self.hnsw.num_levels()? {
@@ -512,42 +543,48 @@ where
   // Try to link two nodes bidirectionally; the forward connection will always be
   // made. Update notFullyConnected.
   fn link(
-    hnsw: &mut OnHeapHnswGraph,
+    hnsw: &mut OnHeapHnswGraphEnum,
     level: usize,
     n0: usize,
     n1: usize,
     score: f32,
     not_fully_connected: &mut FixedBitSet,
   ) -> Result<()> {
-    let nbr0 = hnsw.get_neighbors_mut(level, n0)?;
-    // must subtract 1 here since the nodes array is one larger than the configured
-    // max neighbors (M / 2M).
-    // We should have taken care of this check by searching for not-full nodes
-    let max_conn = nbr0.nodes().len() - 1;
+    let mut link = |hnsw: &mut OnHeapHnswGraph| -> Result<()> {
+      let nbr0 = hnsw.get_neighbors_mut(level, n0)?;
+      // must subtract 1 here since the nodes array is one larger than the configured
+      // max neighbors (M / 2M).
+      // We should have taken care of this check by searching for not-full nodes
+      let max_conn = nbr0.nodes().len() - 1;
 
-    debug_assert!(not_fully_connected.get(n0)?);
-    debug_assert!(
-      nbr0.size() < max_conn,
-      "node {} is full, has {} friends",
-      n0,
-      nbr0.size()
-    );
+      debug_assert!(not_fully_connected.get(n0)?);
+      debug_assert!(
+        nbr0.size() < max_conn,
+        "node {} is full, has {} friends",
+        n0,
+        nbr0.size()
+      );
 
-    nbr0.add_out_of_order(n1, score)?;
+      nbr0.add_out_of_order(n1, score)?;
 
-    if nbr0.size() == max_conn {
-      not_fully_connected.clear_with_index(n0);
-    }
-
-    let nbr1 = hnsw.get_neighbors_mut(level, n1)?;
-    if nbr1.size() < max_conn {
-      nbr1.add_out_of_order(n0, score)?;
-      if nbr1.size() == max_conn {
-        not_fully_connected.clear_with_index(n1);
+      if nbr0.size() == max_conn {
+        not_fully_connected.clear_with_index(n0);
       }
-    }
 
-    Ok(())
+      let nbr1 = hnsw.get_neighbors_mut(level, n1)?;
+      if nbr1.size() < max_conn {
+        nbr1.add_out_of_order(n0, score)?;
+        if nbr1.size() == max_conn {
+          not_fully_connected.clear_with_index(n1);
+        }
+      }
+      Ok(())
+    };
+
+    match hnsw {
+      OnHeapHnswGraphEnum::SingleThreaded(hnsw) => link(hnsw),
+      OnHeapHnswGraphEnum::Concurrent(hnsw) => link(&mut hnsw.write()),
+    }
   }
   pub(crate) fn get_scorer_supplier_mut(&mut self) -> &mut S {
     &mut self.scorer_supplier
@@ -593,11 +630,31 @@ where
   }
 
   fn get_graph(&self) -> &OnHeapHnswGraph {
-    &self.hnsw
+    match &self.hnsw {
+      OnHeapHnswGraphEnum::SingleThreaded(graph) => graph,
+      OnHeapHnswGraphEnum::Concurrent(_) => {
+        unreachable!("HnswGraphBuilder does not yet construct a concurrent graph")
+      },
+    }
   }
 
   fn get_graph_mut(&mut self) -> &mut OnHeapHnswGraph {
-    &mut self.hnsw
+    if matches!(self.hnsw, OnHeapHnswGraphEnum::Concurrent(_)) {
+      let hnsw = match std::mem::replace(
+        &mut self.hnsw,
+        OnHeapHnswGraphEnum::SingleThreaded(OnHeapHnswGraph::new(self.m, 0)),
+      ) {
+        OnHeapHnswGraphEnum::Concurrent(hnsw) => Arc::try_unwrap(hnsw)
+          .unwrap_or_else(|_| panic!("concurrent graph is still shared"))
+          .into_inner(),
+        OnHeapHnswGraphEnum::SingleThreaded(_) => unreachable!(),
+      };
+      self.hnsw = OnHeapHnswGraphEnum::SingleThreaded(hnsw);
+    }
+    match &mut self.hnsw {
+      OnHeapHnswGraphEnum::SingleThreaded(graph) => graph,
+      OnHeapHnswGraphEnum::Concurrent(_) => unreachable!(),
+    }
   }
 
   fn get_completed_graph(&mut self) -> Result<&mut OnHeapHnswGraph> {
@@ -774,6 +831,7 @@ where
     match self {
       Self::Default => HnswGraphBuilderDefaults::add_graph_node(builder, node),
       Self::Initialized(hook) => hook.add_graph_node(builder, node),
+      Self::Concurrent(hook) => hook.add_graph_node(builder, node),
     }
   }
 }

@@ -65,6 +65,7 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
+use crate::core::util::hnsw::hnsw_concurrent_merge_builder::HnswConcurrentMergeBuilder;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 use crate::core::util::hnsw::hnsw_graph_builder::RAND_SEED;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
@@ -1051,11 +1052,45 @@ where
     Ok(())
   }
 
-  fn test_concurrent_merge_builder<R>(&self, _random: &mut R) -> Result<()>
+  /*
+   * A very basic test ensuring the concurrent merge does not throw exceptions. It by no means
+   * guarantees the true correctness of the concurrent merge; that must be checked manually by
+   * running a KNN benchmark and comparing recall.
+   */
+  fn test_concurrent_merge_builder<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO 多线程未实现
+    let size = at_least_usize(random, 1000);
+    let dim = at_least_usize(random, 10);
+    let vectors = self.vector_values(size, dim, random);
+    let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    let mut builder = HnswConcurrentMergeBuilder::new(
+      4,
+      scorer_supplier,
+      10,
+      30,
+      OnHeapHnswGraph::new(10, size as i32),
+      None,
+    )?;
+    builder.set_batch_size(100)?;
+    builder.build(size)?;
+
+    {
+      let graph = builder.get_completed_graph()?;
+      assert!(graph.entry_node()?.is_some());
+      assert_eq!(size, graph.size());
+      assert_eq!(Some(size - 1), graph.max_node_id());
+      for level in 0..graph.num_levels()? {
+        graph.get_nodes_on_level(level)?;
+      }
+    }
+
+    // Cannot build twice.
+    assert!(matches!(
+      builder.build(size),
+      Err(LuceneError::IllegalState(_))
+    ));
     Ok(())
   }
 

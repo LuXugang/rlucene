@@ -45,6 +45,7 @@ use crate::core::store::{DataOutput, IndexOutput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::close::Closeable;
+use crate::core::util::concurrent_hnsw_merger::ConcurrentHnswMerger;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
@@ -57,7 +58,9 @@ use crate::core::util::hnsw::hnsw_graph_merger::HnswGraphMerger;
 use crate::core::util::hnsw::neighbor_array::NeighborArray;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use crate::core::util::incremental_hnsw_graph_merger::IncrementalHnswGraphMerger;
+use crate::core::util::incremental_hnsw_graph_merger::{
+  HnswGraphMergerHook, IncrementalHnswGraphMerger,
+};
 use crate::core::util::info_stream::InfoStreamMT;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter;
@@ -74,16 +77,14 @@ where
   m: usize,
   beam_width: usize,
   pub(crate) flat_vector_writer: F,
-  #[allow(dead_code)]
-  // TODO IMPORTANT Used by Java's concurrent merge path, which Rust has not implemented yet.
   num_merge_workers: usize,
-  // TODO IMPORTANT 多线程未实现
   finished: bool,
   info_stream: InfoStreamMT,
   fields: Vec<FieldWriter<DefaultRandomVectorScorerSupplier<F>>>,
 }
 pub type DefaultRandomVectorScorerSupplier<F> =
   FlatVectorsWriterSs<F, ByteVectorValuesImpl, FloatVectorValuesImpl>;
+
 impl<F> Lucene99HnswVectorsWriter<F>
 where
   F: FlatVectorsWriter,
@@ -533,17 +534,27 @@ where
     Ok(())
   }
 
-  // TODO IMPORTANT 多线程未实现
   fn create_graph_merger<S>(
     field_info: Arc<FieldInfo>,
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
+    num_merge_workers: usize,
   ) -> IncrementalHnswGraphMerger<S>
   where
     S: RandomVectorScorerSupplier,
   {
-    IncrementalHnswGraphMerger::new(field_info.clone(), scorer_supplier, m, beam_width)
+    if num_merge_workers > 1 {
+      IncrementalHnswGraphMerger::new_with_hook(
+        field_info,
+        scorer_supplier,
+        m,
+        beam_width,
+        HnswGraphMergerHook::Concurrent(ConcurrentHnswMerger::new(num_merge_workers)),
+      )
+    } else {
+      IncrementalHnswGraphMerger::new(field_info, scorer_supplier, m, beam_width)
+    }
   }
 }
 
@@ -652,6 +663,7 @@ where
           &scorer_supplier,
           self.m,
           self.beam_width,
+          self.num_merge_workers,
         );
 
         for i in 0..merge_state.live_docs.len() {

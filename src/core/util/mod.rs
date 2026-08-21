@@ -44,6 +44,7 @@ pub mod clone;
 pub mod close;
 pub mod collection_util;
 pub mod compress;
+pub mod concurrent_hnsw_merger;
 pub mod constants;
 pub mod consumer;
 pub mod core_helper;

@@ -19,6 +19,7 @@ use std::sync::Arc;
 /// Provide (read-and-write) striped locks for access to nodes of an
 /// [`OnHeapHnswGraph`](crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph).
 /// Used by [`HnswConcurrentMergeBuilder`](crate::core::util::hnsw::hnsw_concurrent_merge_builder::HnswConcurrentMergeBuilder) and its `HnswGraphBuilders`.
+#[derive(Clone)]
 pub struct HnswLock {
   locks: Arc<Vec<RwLock<()>>>,
 }

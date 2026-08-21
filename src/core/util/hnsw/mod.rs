@@ -19,6 +19,7 @@ pub mod closeable_random_vector_scorer_supplier;
 pub(crate) mod dummy;
 pub mod float_heap;
 pub(crate) mod hnsw_builder;
+pub mod hnsw_concurrent_merge_builder;
 pub mod hnsw_graph;
 pub mod hnsw_graph_builder;
 pub mod hnsw_graph_merger;

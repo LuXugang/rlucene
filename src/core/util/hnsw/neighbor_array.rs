@@ -21,7 +21,6 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
-use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::ram_usage_estimator::size_of_vec;
@@ -111,14 +110,17 @@ impl NeighborArray {
   /// # Arguments
   ///
   /// * `node_id` - Node ID of the owner of this `NeighborArray`.
-  pub fn add_and_ensure_diversity(
-    hnsw: &mut OnHeapHnswGraph,
+  pub(crate) fn add_and_ensure_diversity<G>(
+    hnsw: &mut G,
     level: usize,
     new_node: usize,
     new_score: f32,
     node_id: usize,
     scorer_supplier: &impl RandomVectorScorerSupplier,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    G: HnswGraph,
+  {
     let neighbor_array = hnsw.get_neighbors_mut(level, node_id)?;
     neighbor_array.add_out_of_order(new_node, new_score)?;
 

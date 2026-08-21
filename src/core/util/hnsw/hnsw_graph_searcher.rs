@@ -20,6 +20,7 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::hnsw::hnsw_concurrent_merge_builder::MergeSearcher;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 use crate::core::util::hnsw::hnsw_graph_builder::GraphBuilderKnnCollector;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
@@ -41,6 +42,7 @@ pub(crate) enum HnswGraphSearcherHook {
   #[default]
   Default,
   OnHeap(OnHeapHnswGraphSearcher),
+  Merge(MergeSearcher),
 }
 
 pub(crate) struct HnswGraphSearcherDefaults;
@@ -340,6 +342,7 @@ impl HnswGraphSearcherBase for HnswGraphSearcherHook {
     match self {
       Self::Default => HnswGraphSearcherDefaults::graph_seek(graph, level, target_node),
       Self::OnHeap(hook) => hook.graph_seek(graph, level, target_node),
+      Self::Merge(hook) => hook.graph_seek(graph, level, target_node),
     }
   }
 
@@ -347,6 +350,7 @@ impl HnswGraphSearcherBase for HnswGraphSearcherHook {
     match self {
       Self::Default => HnswGraphSearcherDefaults::graph_next_neighbor(graph),
       Self::OnHeap(hook) => hook.graph_next_neighbor(graph),
+      Self::Merge(hook) => hook.graph_next_neighbor(graph),
     }
   }
 }

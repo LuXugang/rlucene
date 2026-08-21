@@ -18,12 +18,22 @@ use crate::core::codecs::Codecs;
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::{
   Lucene99HnswVectorsFormat, MAXIMUM_BEAM_WIDTH, MAXIMUM_MAX_CONN,
 };
+use crate::core::document::document::Document;
+use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
+use crate::core::index::composite_reader::CompositeReader;
+use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_writer::IndexWriter;
+use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::base_index_file_format_test_case::BaseIndexFileFormatTestCase;
 use crate::test_framework::core::index::base_knn_vectors_format_test_case::{
   BaseKnnVectorsFormatTestCase, BaseKnnVectorsFormatTestCaseState,
 };
-use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::{
+  new_directory_shared, new_index_writer_config, random,
+};
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::prelude::StdRng;
@@ -66,6 +76,39 @@ fn test_limits() -> Result<()> {
   // TODO: The Rust format does not expose Java's executor constructor, so its executor validation
   // case cannot be expressed yet.
   Ok(())
+}
+
+#[test]
+fn test_concurrent_merge() -> Result<()> {
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let mut config = new_index_writer_config(&mut random)?;
+  config.set_codec(TestUtil::always_knn_vectors_format(
+    Lucene99HnswVectorsFormat::with_graph_para_with_threads(10, 30, 4)?,
+  ));
+  let writer = IndexWriter::new(dir.clone(), config)?;
+
+  for segment in 0..2 {
+    for doc_id in 0..64 {
+      let value = (segment * 64 + doc_id) as f32;
+      let mut document = Document::new();
+      document.add(KnnFloatVectorField::new(
+        "field",
+        vec![value, value + 1.0, value + 2.0, value + 3.0],
+      )?);
+      writer.add_document(document)?;
+    }
+    writer.commit()?;
+  }
+
+  writer.force_merge(1)?;
+  writer.close()?;
+
+  let reader = directory_reader::open(dir.clone())?;
+  assert_eq!(128, reader.num_docs()?);
+  assert_eq!(1, reader.get_sequential_sub_readers().len());
+  reader.close()?;
+  dir.close()
 }
 
 mod base_knn_vectors_format_test_case_test {
