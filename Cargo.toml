@@ -8,34 +8,34 @@ version = "0.1.0"
 doctest = false
 
 [dependencies]
-bit-set = "0.10.0"
+bit-set = "0.11.1"
 byteorder = "1.5.0"
-chrono = { default-features = false, features = ["clock", "std"], version = "0.4.44" }
+chrono = { default-features = false, features = ["clock", "std"], version = "0.4.45" }
 crossbeam = "0.8.4"
 crc32fast = "1.5.0"
 flate2 = { default-features = false, features = ["zlib-rs"], version = "1.1.9" }
 fs2 = "0.4.3"
 linked-hash-map = "0.5.6"
-libc = "0.2.186"
-log = "0.4.30"
-memmap2 = "0.9.10"
-num-bigint = "0.4.6"
+libc = "0.2.189"
+log = "0.4.33"
+memmap2 = "0.9.11"
+num-bigint = "0.5.1"
 num-traits = "0.2.19"
 os_info = "3.15.0"
 parking_lot = "0.12.5"
-rand = "0.10.1"
+rand = "0.10.2"
 rand_chacha = "0.10.0"
-regex = { default-features = false, features = ["std", "unicode"], version = "1.12.3" }
+regex = { default-features = false, features = ["std", "unicode"], version = "1.13.1" }
 strum = "0.28.0"
 strum_macros = "0.28.0"
-sysinfo = "0.39.3"
-thiserror = "2.0.18"
-thread_local = "1.1.9"
+sysinfo = "0.39.6"
+thiserror = "2.0.20"
+thread_local = "1.1.10"
 wide = "1.6.1"
 
 
 [dev-dependencies]
-num-integer = "0.1.46"
+num-integer = "0.1.47"
 rand_xoshiro = "0.8.1"
 tempfile = "3.27.0"
 chrono-tz = "0.10.4"
