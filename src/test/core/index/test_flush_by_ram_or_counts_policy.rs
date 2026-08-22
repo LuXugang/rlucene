@@ -364,6 +364,7 @@ where
   D: Directory + 'static,
 {
   let mut random = random_from_seed(seed);
+  let mut ram_size = 0;
   loop {
     let remaining = pending_docs.fetch_sub(1, Ordering::SeqCst) - 1;
     if remaining < 0 {
@@ -371,6 +372,10 @@ where
     }
     let doc = docs.lock().next_doc()?;
     writer.add_document(doc)?;
+    let new_ram_size = writer.ram_bytes_used()?;
+    if new_ram_size != ram_size {
+      ram_size = new_ram_size;
+    }
     if do_random_commit && rarely(&mut random) {
       writer.commit()?;
     }
