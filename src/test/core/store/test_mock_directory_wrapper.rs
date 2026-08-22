@@ -84,11 +84,11 @@ impl BaseDirectoryTestCase for TestMockDirectoryWrapper {
     match dir {
       DirectoryEnum2::A(dir) => {
         let mut base = dir.state.base.lock();
-        let raw_dir = match &mut base.in_ {
-          MaybeNrtDirEnum::Raw(raw_dir) => raw_dir,
-          MaybeNrtDirEnum::Nrt(dir) => dir.get_delegate_mut(),
+        let (raw_dir, is_nrt_caching_directory) = match &mut base.in_ {
+          MaybeNrtDirEnum::Raw(raw_dir) => (raw_dir, false),
+          MaybeNrtDirEnum::Nrt(dir) => (dir.get_delegate_mut(), true),
         };
-        match raw_dir {
+        let is_mmap_directory = match raw_dir {
           RawDirEnum::MMap(dir) => {
             dir.set_preload(MMapDirectory::ALL_FILES);
             true
@@ -101,7 +101,9 @@ impl BaseDirectoryTestCase for TestMockDirectoryWrapper {
             _ => false,
           },
           _ => false,
-        }
+        };
+        // NRTCachingDirectory may return index inputs from cache and this depends on segment size.
+        !is_nrt_caching_directory && is_mmap_directory
       },
       DirectoryEnum2::B(dir) => {
         let mut base = dir.state.base.lock();

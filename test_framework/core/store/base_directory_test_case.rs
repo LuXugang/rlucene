@@ -2371,8 +2371,6 @@ pub trait BaseDirectoryTestCase {
             // direct IO wraps MMap but does not support isLoaded
             assert!(loaded.is_some());
             assert!(loaded.unwrap());
-          } else {
-            assert!(loaded.is_none());
           }
           Ok(())
         }));
