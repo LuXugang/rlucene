@@ -22,8 +22,8 @@ use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_searcher_with_reader, new_string_field, new_text_field, random,
-  random_multiplier,
+  new_log_merge_policy, new_search_executor, new_searcher_with_reader, new_string_field,
+  new_text_field, random, random_multiplier,
 };
 
 use crate::core::index::directory_reader;
@@ -401,7 +401,7 @@ fn test_de_morgan() -> Result<()> {
   let searcher = new_searcher_with_reader(multi_reader.clone())?;
   assert_eq!(0, searcher.search(query.clone(), 10)?.total_hits.value());
 
-  let searcher = index_searcher::from_reader_with_threads(multi_reader, 2)?;
+  let searcher = index_searcher::from_reader_with_executor(multi_reader, new_search_executor(2)?)?;
   assert_eq!(0, searcher.search(query, 10)?.total_hits.value());
   Ok(())
 }

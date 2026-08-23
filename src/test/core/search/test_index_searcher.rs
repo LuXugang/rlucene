@@ -50,7 +50,7 @@ use crate::test_framework::core::search::test_index_searcher::{
   SlicesOffloadedToExecutorIndexSearcher,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_light_mode, new_directory_shared, new_string_field, random,
+  at_least, is_light_mode, new_directory_shared, new_search_executor, new_string_field, random,
 };
 use rand::RngExt;
 use std::collections::HashMap;
@@ -139,7 +139,7 @@ fn test_huge_n() -> Result<()> {
   let reader = Arc::new(reader);
   let searchers = vec![
     index_searcher::from_reader(reader.clone())?,
-    index_searcher::from_reader_with_threads(reader.clone(), 4)?,
+    index_searcher::from_reader_with_executor(reader.clone(), new_search_executor(4)?)?,
   ];
   let queries: Vec<Query> = vec![
     MatchAllDocsQuery::new().into(),
@@ -320,7 +320,8 @@ fn test_get_slices_no_leaves_no_executor() -> Result<()> {
 }
 #[test]
 fn test_get_slices_no_leaves_with_executor() -> Result<()> {
-  let searcher = index_searcher::from_reader(MultiReader::empty()?)?;
+  let searcher =
+    index_searcher::from_reader_with_executor(MultiReader::empty()?, new_search_executor(1)?)?;
   let slices = searcher.get_slices()?;
   assert_eq!(0, slices.len());
   Ok(())
@@ -348,7 +349,7 @@ fn test_get_slices() -> Result<()> {
   assert_eq!(leaves_len, slices[0].partitions.len());
 
   let context = r.get_context()?;
-  let searcher = IndexSearcher::with_threads(context, 2)?
+  let searcher = IndexSearcher::with_executor(context, new_search_executor(2)?)?
     .with_hook(IndexSearcherHook::GetSlices(GetSlicesIndexSearcher));
   let slices = searcher.get_slices()?;
   for slice in slices.iter() {
@@ -366,23 +367,25 @@ fn test_slices_offloaded_to_the_executor() -> Result<()> {
 
   let context = reader.get_context()?;
   let leaves_len = context.leaves()?.len();
-  let mut searcher = IndexSearcher::with_threads(context, leaves_len.max(1))?.with_hook(
-    IndexSearcherHook::SlicesOffloadedToExecutor(SlicesOffloadedToExecutorIndexSearcher),
-  );
+  let mut searcher =
+    IndexSearcher::with_executor(context, new_search_executor(leaves_len.max(1))?)?.with_hook(
+      IndexSearcherHook::SlicesOffloadedToExecutor(SlicesOffloadedToExecutorIndexSearcher),
+    );
   let num_executions = Arc::new(AtomicUsize::new(0));
   searcher.set_offloaded_slice_counter(num_executions.clone());
 
   searcher.search(MatchAllDocsQuery::new(), 10)?;
-  let expected_executions = if leaves_len > 1 { leaves_len } else { 0 };
+  let expected_executions = leaves_len.saturating_sub(1);
   assert_eq!(expected_executions, num_executions.load(Ordering::SeqCst));
 
   Ok(())
 }
 
 #[test]
-#[ignore = "Java-only: Rust constructor types cannot represent a null Executor with a separate non-null TaskExecutor"]
 fn test_null_executor_non_null_task_executor() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  let searcher = index_searcher::from_reader(MultiReader::empty()?)?;
+  let _ = searcher.get_task_executor();
+  Ok(())
 }
 
 #[test]
@@ -391,7 +394,7 @@ fn test_segment_partitions_same_slice() -> Result<()> {
   let TestIndexSearcher { dir: _dir, reader } = TestIndexSearcher::set_up(&mut random)?;
 
   let context = reader.get_context()?;
-  let searcher = IndexSearcher::with_threads(context, 2)?.with_hook(
+  let searcher = IndexSearcher::with_executor(context, new_search_executor(2)?)?.with_hook(
     IndexSearcherHook::SegmentPartitionsSameSlice(SegmentPartitionsSameSliceIndexSearcher),
   );
 

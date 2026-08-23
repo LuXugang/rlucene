@@ -53,13 +53,14 @@ use crate::test_framework::core::util::fail_on_non_bulk_merges_info_stream::Fail
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
   ensure_sane_iwc_on_nightly, is_night_mode, new_index_writer_config_with_analyzer,
-  new_mock_fs_directory, new_searcher_with_wrap, new_string_field, new_text_field,
-  random_from_seed, random_multiplier,
+  new_mock_fs_directory, new_search_executor, new_searcher_with_wrap, new_string_field,
+  new_text_field, random_from_seed, random_multiplier,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::{Mutex, RwLock};
 use rand::prelude::StdRng;
 use rand::{RngExt, SeedableRng};
+use rayon::ThreadPool;
 use std::collections::{HashMap, HashSet};
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
@@ -367,7 +368,11 @@ where
     Ok(())
   }
 
-  fn do_after_writer(&self, _random: &mut StdRng, _search_threads: Option<usize>) -> Result<()> {
+  fn do_after_writer(
+    &self,
+    _random: &mut StdRng,
+    _executor: Option<Arc<ThreadPool>>,
+  ) -> Result<()> {
     Ok(())
   }
 
@@ -415,12 +420,12 @@ where
     TestUtil::reduce_open_files(writer.as_ref())?;
     *self.state().writer.write() = Some(writer.clone());
 
-    let search_threads = if random.random_bool(0.5) {
+    let executor = if random.random_bool(0.5) {
       None
     } else {
-      Some(2)
+      Some(new_search_executor(2)?)
     };
-    self.do_after_writer(random, search_threads)?;
+    self.do_after_writer(random, executor)?;
 
     let num_index_threads = TestUtil::next_int(random, 2, 4);
     let max_iterations = if is_night_mode() {

@@ -43,6 +43,7 @@ use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
 use crate::core::search::similarities_impl::similarities::{IntoSimilarityArc, SimilarityEnum};
 use crate::core::search::sort::Sort;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::time_limiting_bulk_scorer::TimeLimitingBulkScorer;
 use crate::core::search::top_docs::{TopDocs, TopDocsLike};
@@ -55,8 +56,8 @@ use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQuery
 use crate::core::search::weight::Weight;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::bits::Bits;
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
-use crate::core::util::{HasIdentity, IOUtils, TryIntoInt};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 #[cfg(test)]
@@ -79,6 +80,7 @@ use crate::test_framework::core::search::test_index_searcher::{
 use parking_lot::Mutex;
 #[cfg(not(test))]
 use parking_lot::RwLock;
+use rayon::ThreadPool;
 #[cfg(test)]
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -198,9 +200,8 @@ pub struct IndexSearcher<IRC: 'static> {
   query_timeout: Option<Arc<QueryTimeoutEnum>>,
   query_caching_policy: Arc<QueryCachingPolicyEnum>,
   query_cache: Option<QueryCacheEnum<IRC>>,
-  search_threads: usize,
-  #[cfg(test)]
-  offloaded_slice_counter: Option<Arc<AtomicUsize>>,
+  // Used internally for load balancing threads executing for the query.
+  task_executor: TaskExecutor,
   // partialResult may be set on one of the threads of the executor. It may be correct to not make
   // Joining these threads establishes the required happens-before relationship, but using an atomic
   // value also makes cross-thread visibility explicit.
@@ -217,14 +218,31 @@ where
   IRC: IndexReaderContext,
 {
   pub fn new(context: IRC) -> Result<Self> {
+    Self::new_with_executor(context, None)
+  }
+
+  /// Runs searches for each segment separately, using the provided executor.
+  pub fn with_executor(context: IRC, executor: Arc<ThreadPool>) -> Result<Self> {
+    Self::new_with_executor(context, Some(executor))
+  }
+
+  fn new_with_executor(context: IRC, executor: Option<Arc<ThreadPool>>) -> Result<Self> {
     debug_assert!(
       context.base().is_top_level,
       "IndexSearcher's ReaderContext must be topLevel for reader {}",
       context.reader()
     );
 
-    let leaf_slices = Some(single_threaded_slices(&context)?);
+    let leaf_slices = if executor.is_none() {
+      Some(single_threaded_slices(&context)?)
+    } else {
+      None
+    };
     let inner = Mutex::new(Inner { leaf_slices });
+    let task_executor = match executor {
+      Some(executor) => TaskExecutor::new(executor),
+      None => TaskExecutor::direct(),
+    };
     Ok(Self {
       hook: IndexSearcherHook::Default,
       reader_context: context,
@@ -233,17 +251,9 @@ where
       query_timeout: None,
       query_caching_policy: default_caching_policy(),
       query_cache: default_query_cache().map(Into::into),
-      search_threads: 1,
-      #[cfg(test)]
-      offloaded_slice_counter: None,
+      task_executor,
       partial_result: AtomicBool::new(false),
     })
-  }
-
-  pub fn with_threads(context: IRC, search_threads: usize) -> Result<Self> {
-    let mut searcher = Self::new(context)?;
-    searcher.set_threads(search_threads)?;
-    Ok(searcher)
   }
 }
 pub fn from_reader<IR>(reader: IR) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
@@ -253,16 +263,14 @@ where
   IndexSearcher::new(reader.get_context()?)
 }
 
-pub fn from_reader_with_threads<IR>(
+pub fn from_reader_with_executor<IR>(
   reader: IR,
-  thread_num: usize,
+  executor: Arc<ThreadPool>,
 ) -> Result<DefaultIndexSearcher<IndexReaderContextType<IR>>>
 where
   IR: IndexReader,
 {
-  let mut searcher = IndexSearcher::new(reader.get_context()?)?;
-  searcher.set_threads(thread_num)?;
-  Ok(searcher)
+  IndexSearcher::with_executor(reader.get_context()?, executor)
 }
 
 pub fn get_default_similarity() -> Result<SimilarityEnum> {
@@ -276,9 +284,6 @@ where
   #[cfg(test)]
   pub(crate) fn with_hook(mut self, hook: IndexSearcherHook) -> Self {
     self.hook = hook;
-    if self.search_threads > 1 {
-      self.inner.lock().leaf_slices = None;
-    }
     self
   }
 
@@ -293,35 +298,14 @@ where
     self.similarity = similarity.into_similarity_arc();
   }
 
-  /// Configure how many worker threads the explicit parallel search methods may use.
-  ///
-  /// `1` keeps the searcher in its single-slice, single-threaded mode. Values greater than `1`
-  /// make [`Self::get_slices`] compute Java-style leaf slices that can be searched concurrently by
-  /// [`Self::search_with_collector_manager`].
-  pub fn set_threads(&mut self, search_threads: usize) -> Result<()> {
-    if search_threads == 0 {
-      return Err(LuceneError::illegal_argument(
-        "search_threads must be at least 1",
-      ));
-    }
-
-    self.search_threads = search_threads;
-    let mut inner = self.inner.lock();
-    if search_threads == 1 {
-      inner.leaf_slices = Some(single_threaded_slices(&self.reader_context)?);
-    } else {
-      inner.leaf_slices = None;
-    }
-    Ok(())
-  }
-
-  pub fn search_threads(&self) -> usize {
-    self.search_threads
+  /// Returns the [`TaskExecutor`] that this searcher relies on to execute concurrent operations.
+  pub fn get_task_executor(&self) -> &TaskExecutor {
+    &self.task_executor
   }
 
   #[cfg(test)]
   pub fn set_offloaded_slice_counter(&mut self, counter: Arc<AtomicUsize>) {
-    self.offloaded_slice_counter = Some(counter);
+    self.task_executor.set_offloaded_task_counter(counter);
   }
 
   pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
@@ -573,7 +557,7 @@ where
     }
 
     let mut collectors = Vec::with_capacity(leaf_slices.len());
-    collectors.push(Some(first_collector));
+    collectors.push(first_collector);
     for _ in 1..leaf_slices.len() {
       let collector = collector_manager.new_collector()?;
       if score_mode != collector.score_mode() {
@@ -581,82 +565,22 @@ where
           "CollectorManager does not always produce collectors with the same score mode",
         ));
       }
-      collectors.push(Some(collector));
+      collectors.push(collector);
     }
-
-    if self.search_threads <= 1 || leaf_slices.len() <= 1 {
-      let mut list_tasks = Vec::with_capacity(leaf_slices.len());
-      for i in 0..leaf_slices.len() {
-        let leaves = leaf_slices[i].partitions.as_slice();
-        let mut collector = collectors[i].take().unwrap();
-        self.search_partitions(leaves, &weight, &mut collector)?;
-        list_tasks.push(collector)
-      }
-      return collector_manager.reduce(list_tasks);
-    }
-    // concurrent search
-    let worker_count = self.search_threads.min(leaf_slices.len());
-    let mut groups = (0..worker_count).map(|_| Vec::new()).collect::<Vec<_>>();
-    for (i, collector) in collectors.into_iter().enumerate() {
-      groups[i % worker_count].push((i, &leaf_slices[i], collector.unwrap()));
-    }
-
-    let mut ordered_collectors = std::iter::repeat_with(|| None)
-      .take(leaf_slices.len())
-      .collect::<Vec<Option<CM::C>>>();
-    #[allow(clippy::type_complexity)]
-    let mut first_failure: Option<CaughtResult<Vec<(usize, CM::C)>>> = None;
 
     let weight = weight.as_ref();
-    std::thread::scope(|scope| {
-      let mut handles = Vec::with_capacity(worker_count);
-      for group in groups {
-        if group.is_empty() {
-          continue;
+    let list_tasks = leaf_slices
+      .iter()
+      .zip(collectors)
+      .map(|(leaf_slice, mut collector)| {
+        move || {
+          self.search_partitions(leaf_slice.partitions.as_slice(), weight, &mut collector)?;
+          Ok(collector)
         }
-        handles.push(scope.spawn(move || -> Result<Vec<(usize, CM::C)>> {
-          let mut results = Vec::with_capacity(group.len());
-          for (i, leaf_slice, mut collector) in group {
-            #[cfg(test)]
-            if let Some(counter) = &self.offloaded_slice_counter {
-              counter.fetch_add(1, Ordering::SeqCst);
-            }
-            self.search_partitions(leaf_slice.partitions.as_slice(), weight, &mut collector)?;
-            results.push((i, collector));
-          }
-          Ok(results)
-        }));
-      }
-
-      for handle in handles {
-        match handle.join() {
-          Ok(Ok(results)) => {
-            for (i, collector) in results {
-              ordered_collectors[i] = Some(collector);
-            }
-          },
-          failure => match first_failure.as_mut() {
-            Some(first_failure) => {
-              first_failure.add_suppressed(failure, "panic while executing a search task")
-            },
-            None => first_failure = Some(failure),
-          },
-        }
-      }
-    });
-
-    if let Some(first_failure) = first_failure {
-      return IOUtils::rethrow_always(first_failure);
-    }
-
-    collector_manager.reduce(
-      ordered_collectors
-        .into_iter()
-        .map(|collector| {
-          collector.ok_or_else(|| LuceneError::illegal_state("parallel search lost a collector"))
-        })
-        .collect::<Result<Vec<_>>>()?,
-    )
+      })
+      .collect::<Vec<_>>();
+    let results = self.task_executor.invoke_all(list_tasks)?;
+    collector_manager.reduce(results)
   }
 
   pub(crate) fn search_partitions<W, C>(

@@ -27,6 +27,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_searcher_with_wrap, random_from_seed,
 };
 use parking_lot::Mutex;
+use rayon::ThreadPool;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
@@ -35,14 +36,14 @@ struct TestSearcherManager;
 
 pub struct WarmingSearcherFactory {
   warm_called: Arc<AtomicBool>,
-  search_threads: Option<usize>,
+  executor: Option<Arc<ThreadPool>>,
 }
 
 impl WarmingSearcherFactory {
-  pub fn new(warm_called: Arc<AtomicBool>, search_threads: Option<usize>) -> Self {
+  pub fn new(warm_called: Arc<AtomicBool>, executor: Option<Arc<ThreadPool>>) -> Self {
     Self {
       warm_called,
-      search_threads,
+      executor,
     }
   }
 }
@@ -59,8 +60,8 @@ where
     _previous_reader: Option<&Arc<IR>>,
   ) -> Result<IndexSearcher<IndexReaderContextType<Arc<IR>>>> {
     let context = reader.get_context()?;
-    let searcher = if let Some(search_threads) = self.search_threads {
-      IndexSearcher::with_threads(context, search_threads)?
+    let searcher = if let Some(executor) = &self.executor {
+      IndexSearcher::with_executor(context, executor.clone())?
     } else {
       IndexSearcher::new(context)?
     };
@@ -74,7 +75,7 @@ pub struct BlockingSearcherFactory {
   tried_reopen: Arc<AtomicBool>,
   await_enter_warm: CountDownLatch,
   await_close: CountDownLatch,
-  search_threads: Option<usize>,
+  executor: Option<Arc<ThreadPool>>,
 }
 
 impl BlockingSearcherFactory {
@@ -82,13 +83,13 @@ impl BlockingSearcherFactory {
     tried_reopen: Arc<AtomicBool>,
     await_enter_warm: CountDownLatch,
     await_close: CountDownLatch,
-    search_threads: Option<usize>,
+    executor: Option<Arc<ThreadPool>>,
   ) -> Self {
     Self {
       tried_reopen,
       await_enter_warm,
       await_close,
-      search_threads,
+      executor,
     }
   }
 }
@@ -109,8 +110,8 @@ where
       self.await_close.wait();
     }
     let context = reader.get_context()?;
-    if let Some(search_threads) = self.search_threads {
-      IndexSearcher::with_threads(context, search_threads)
+    if let Some(executor) = &self.executor {
+      IndexSearcher::with_executor(context, executor.clone())
     } else {
       IndexSearcher::new(context)
     }

@@ -31,6 +31,7 @@ use crate::test_framework::core::util::lucene_test_case::random;
 use parking_lot::RwLock;
 use rand::RngExt;
 use rand::prelude::StdRng;
+use rayon::ThreadPool;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -123,7 +124,11 @@ impl ThreadedIndexingAndSearchingTestCase for TestNRTThreads {
     directory
   }
 
-  fn do_after_writer(&self, _random: &mut StdRng, _search_threads: Option<usize>) -> Result<()> {
+  fn do_after_writer(
+    &self,
+    _random: &mut StdRng,
+    _executor: Option<Arc<ThreadPool>>,
+  ) -> Result<()> {
     // Force writer to do reader pooling, always, so that
     // all merged segments, even for merges before
     // doSearching is called, are warmed:

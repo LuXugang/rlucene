@@ -96,6 +96,7 @@ use chrono_tz::{TZ_VARIANTS, Tz, UTC};
 use parking_lot::MutexGuard;
 use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
+use rayon::{ThreadPool, ThreadPoolBuilder};
 use tempfile::TempDir;
 
 #[allow(dead_code)] // for quick search
@@ -1320,11 +1321,26 @@ where
 {
   let irc = reader.get_context()?;
   if use_threads {
-    let threads = random.random_range(2..=5);
-    IndexSearcher::with_threads(irc, threads)
+    let executor = new_search_executor(random.random_range(2..=5))?;
+    IndexSearcher::with_executor(irc, executor)
   } else {
     IndexSearcher::new(irc)
   }
+}
+
+pub fn new_search_executor(num_threads: usize) -> Result<Arc<ThreadPool>> {
+  if num_threads == 0 {
+    return Err(LuceneError::illegal_argument(
+      "num_threads must be at least 1",
+    ));
+  }
+  ThreadPoolBuilder::new()
+    .num_threads(num_threads)
+    .build()
+    .map(Arc::new)
+    .map_err(|error| {
+      LuceneError::illegal_state(format!("failed to create search executor: {error}"))
+    })
 }
 
 /// What level of concurrency is supported by the searcher being created
@@ -1350,13 +1366,15 @@ where
   let context = reader.get_context()?;
   match concurrency {
     Concurrency::None => IndexSearcher::new(context),
-    Concurrency::InterSegment => IndexSearcher::with_threads(context, random.random_range(2..=5)),
+    Concurrency::InterSegment => {
+      let executor = new_search_executor(random.random_range(2..=5))?;
+      IndexSearcher::with_executor(context, executor)
+    },
     Concurrency::IntraSegment => Ok(
-      IndexSearcher::with_threads(context, random.random_range(2..=5))?.with_hook(
-        IndexSearcherHook::IntraSliceDocIdOrderWithPartitions(
+      IndexSearcher::with_executor(context, new_search_executor(random.random_range(2..=5))?)?
+        .with_hook(IndexSearcherHook::IntraSliceDocIdOrderWithPartitions(
           IntraSliceDocIdOrderWithPartitionsIndexSearcher,
-        ),
-      ),
+        )),
     ),
   }
 }

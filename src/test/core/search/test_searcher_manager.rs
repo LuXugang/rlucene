@@ -60,12 +60,14 @@ use crate::test_framework::core::search::test_searcher_manager::{
 };
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, ensure_sane_iwc_on_nightly, is_night_mode, new_directory_shared, new_fs_directory,
-  new_index_writer_config, new_index_writer_config_with_analyzer, new_text_field, random,
+  new_index_writer_config, new_index_writer_config_with_analyzer, new_search_executor,
+  new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::{Mutex, RwLock};
 use rand::prelude::StdRng;
 use rand::{RngExt, SeedableRng};
+use rayon::ThreadPool;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
@@ -144,9 +146,9 @@ impl ThreadedIndexingAndSearchingTestCase for TestSearcherManager {
     mgr.acquire()
   }
 
-  fn do_after_writer(&self, random: &mut StdRng, search_threads: Option<usize>) -> Result<()> {
+  fn do_after_writer(&self, random: &mut StdRng, executor: Option<Arc<ThreadPool>>) -> Result<()> {
     let factory = SearcherFactory::with_hook(SearcherFactoryHook::Warming(
-      WarmingSearcherFactory::new(self.warm_called.clone(), search_threads),
+      WarmingSearcherFactory::new(self.warm_called.clone(), executor),
     ));
     let mgr = if random.random_bool(0.5) {
       self.is_nrt.store(true, Ordering::Relaxed);
@@ -358,17 +360,17 @@ fn test_intermediate_close() -> Result<()> {
   let await_enter_warm = CountDownLatch::new(1);
   let await_close = CountDownLatch::new(1);
   let tried_reopen = Arc::new(AtomicBool::new(false));
-  let search_threads = if random.random_bool(0.5) {
+  let executor = if random.random_bool(0.5) {
     None
   } else {
-    Some(2)
+    Some(new_search_executor(2)?)
   };
   let factory =
     SearcherFactory::with_hook(SearcherFactoryHook::Blocking(BlockingSearcherFactory::new(
       tried_reopen.clone(),
       await_enter_warm.clone(),
       await_close.clone(),
-      search_threads,
+      executor,
     )));
   let searcher_manager = Arc::new(if random.random_bool(0.5) {
     SearcherManager::from_directory(directory.clone(), Some(factory))?

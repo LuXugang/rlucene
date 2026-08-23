@@ -41,7 +41,9 @@ use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
-use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
+use crate::test_framework::core::util::lucene_test_case::{
+  new_directory_shared, new_search_executor, random,
+};
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::SliceRandom;
@@ -529,7 +531,7 @@ fn test_intra_slice_doc_id_order_with_partitions() -> Result<()> {
   w.close(&mut random)?;
 
   let context = r.get_context()?;
-  let s = IndexSearcher::with_threads(context, 2)?.with_hook(
+  let s = IndexSearcher::with_executor(context, new_search_executor(2)?)?.with_hook(
     IndexSearcherHook::IntraSliceDocIdOrderWithPartitions(
       IntraSliceDocIdOrderWithPartitionsIndexSearcher,
     ),

@@ -31,7 +31,8 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::lucene_test_case::{
-  is_light_mode, new_directory_shared, new_index_writer_config, new_log_merge_policy, random,
+  is_light_mode, new_directory_shared, new_index_writer_config, new_log_merge_policy,
+  new_search_executor, random,
 };
 use rand::{Rng, RngExt};
 use std::sync::{Arc, LazyLock};
@@ -122,8 +123,14 @@ fn test_multiple_slices_of_same_index_searcher() -> Result<()> {
   let mut random = random();
   let (reader1, reader2) = set_up_readers(&mut random)?;
 
-  let searcher1 = index_searcher::from_reader_with_threads(reader1, random.random_range(2..=5))?;
-  let searcher2 = index_searcher::from_reader_with_threads(reader2, random.random_range(2..=5))?;
+  let searcher1 = index_searcher::from_reader_with_executor(
+    reader1,
+    new_search_executor(random.random_range(2..=5))?,
+  )?;
+  let searcher2 = index_searcher::from_reader_with_executor(
+    reader2,
+    new_search_executor(random.random_range(2..=5))?,
+  )?;
 
   let query = MatchAllDocsQuery::new();
 
@@ -139,8 +146,14 @@ fn test_multiple_slices_of_multiple_index_searchers() -> Result<()> {
   let mut random = random();
   let (reader1, reader2) = set_up_readers(&mut random)?;
 
-  let searcher1 = index_searcher::from_reader_with_threads(reader1, random.random_range(2..=5))?;
-  let searcher2 = index_searcher::from_reader_with_threads(reader2, random.random_range(2..=5))?;
+  let searcher1 = index_searcher::from_reader_with_executor(
+    reader1,
+    new_search_executor(random.random_range(2..=5))?,
+  )?;
+  let searcher2 = index_searcher::from_reader_with_executor(
+    reader2,
+    new_search_executor(random.random_range(2..=5))?,
+  )?;
 
   let query = MatchAllDocsQuery::new();
 
