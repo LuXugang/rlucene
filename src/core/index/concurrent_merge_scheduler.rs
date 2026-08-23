@@ -145,6 +145,10 @@ pub(crate) enum ConcurrentMergeSchedulerHook {
   #[default]
   Default,
   #[cfg(test)]
+  AlwaysParallelIntraMerge,
+  #[cfg(test)]
+  AssertSmallMergesUseDirectExecutor,
+  #[cfg(test)]
   MaxMergeCount(MaxMergeCountConcurrentMergeScheduler),
   #[cfg(test)]
   Tracking(TrackingConcurrentMergeScheduler),
@@ -177,6 +181,18 @@ pub(crate) enum ConcurrentMergeSchedulerHook {
 pub(crate) struct ConcurrentMergeSchedulerDefaults;
 
 pub(crate) trait ConcurrentMergeSchedulerBase {
+  fn get_intra_merge_executor<D, CR>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge: &OneMerge<D, CR>,
+  ) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    ConcurrentMergeSchedulerDefaults::get_intra_merge_executor(scheduler, merge)
+  }
+
   fn update_merge_threads(
     &self,
     scheduler: &ConcurrentMergeScheduler,
@@ -262,6 +278,54 @@ pub(crate) trait ConcurrentMergeSchedulerBase {
 }
 
 impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
+  fn get_intra_merge_executor<D, CR>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    merge: &OneMerge<D, CR>,
+  ) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      Self::Default => ConcurrentMergeSchedulerDefaults::get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::get_intra_merge_executor(scheduler, merge)
+      },
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge => scheduler.get_parallel_merge_executor(),
+      #[cfg(test)]
+      Self::MaxMergeCount(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::Tracking(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::LiveMaxMergeCount(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::MaybeStallCalled(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::HangDuringRollback(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::NoStallMergeThreads(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::MergeThreadMessages(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::CloseWhileMergeIsRunning(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::Suppressing(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::TestIndexFileDeleter(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnGetReader(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::MergeDvUpdateFileOnCommit(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::StalledMerges(hook) => hook.get_intra_merge_executor(scheduler, merge),
+      #[cfg(test)]
+      Self::LuceneTestCaseAlwaysProceed(hook) => hook.get_intra_merge_executor(scheduler, merge),
+    }
+  }
+
   fn update_merge_threads(
     &self,
     scheduler: &ConcurrentMergeScheduler,
@@ -269,6 +333,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   ) -> Result<()> {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::update_merge_threads(scheduler, inner),
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::update_merge_threads(scheduler, inner)
+      },
       #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.update_merge_threads(scheduler, inner),
       #[cfg(test)]
@@ -303,6 +371,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   fn close(&self, scheduler: &ConcurrentMergeScheduler) -> Result<()> {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::close(scheduler),
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::close(scheduler)
+      },
       #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.close(scheduler),
       #[cfg(test)]
@@ -347,6 +419,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::merge(scheduler, merge_source, trigger),
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::merge(scheduler, merge_source, trigger)
+      },
       #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.merge(scheduler, merge_source, trigger),
       #[cfg(test)]
@@ -393,6 +469,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
         ConcurrentMergeSchedulerDefaults::maybe_stall(scheduler, inner, merge_source)
       },
       #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::maybe_stall(scheduler, inner, merge_source)
+      },
+      #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.maybe_stall(scheduler, inner, merge_source),
       #[cfg(test)]
       Self::Tracking(hook) => hook.maybe_stall(scheduler, inner, merge_source),
@@ -426,6 +506,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   fn do_stall(&self, scheduler: &ConcurrentMergeScheduler, inner: &mut MutexGuard<'_, Inner>) {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::do_stall(scheduler, inner),
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::do_stall(scheduler, inner)
+      },
       #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.do_stall(scheduler, inner),
       #[cfg(test)]
@@ -469,6 +553,15 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::do_merge(scheduler, merge_source, merge),
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge => {
+        ConcurrentMergeSchedulerDefaults::do_merge(scheduler, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::AssertSmallMergesUseDirectExecutor => {
+        assert!(scheduler.get_intra_merge_executor(&merge)?.is_direct());
+        ConcurrentMergeSchedulerDefaults::do_merge(scheduler, merge_source, merge)
+      },
       #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.do_merge(scheduler, merge_source, merge),
       #[cfg(test)]
@@ -514,6 +607,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   {
     match self {
       Self::Default => {
+        ConcurrentMergeSchedulerDefaults::get_merge_thread(scheduler, inner, merge_source, merge)
+      },
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
         ConcurrentMergeSchedulerDefaults::get_merge_thread(scheduler, inner, merge_source, merge)
       },
       #[cfg(test)]
@@ -571,6 +668,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, result),
       #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::handle_merge_exception(scheduler, result)
+      },
+      #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.handle_merge_exception(scheduler, result),
       #[cfg(test)]
       Self::Tracking(hook) => hook.handle_merge_exception(scheduler, result),
@@ -604,6 +705,10 @@ impl ConcurrentMergeSchedulerBase for ConcurrentMergeSchedulerHook {
   fn target_mb_per_sec_changed(&self, scheduler: &ConcurrentMergeScheduler) {
     match self {
       Self::Default => ConcurrentMergeSchedulerDefaults::target_mb_per_sec_changed(scheduler),
+      #[cfg(test)]
+      Self::AlwaysParallelIntraMerge | Self::AssertSmallMergesUseDirectExecutor => {
+        ConcurrentMergeSchedulerDefaults::target_mb_per_sec_changed(scheduler)
+      },
       #[cfg(test)]
       Self::MaxMergeCount(hook) => hook.target_mb_per_sec_changed(scheduler),
       #[cfg(test)]
@@ -845,7 +950,7 @@ impl ConcurrentMergeScheduler {
     self.hook.update_merge_threads(self, inner)
   }
 
-  fn get_parallel_merge_executor(&self) -> Result<Arc<TaskExecutor>> {
+  pub(crate) fn get_parallel_merge_executor(&self) -> Result<Arc<TaskExecutor>> {
     let num_threads = cmp::max(1, self.inner.lock().max_thread_count) as usize;
     let mut cached = self.intra_merge_executor.lock();
     if let Some((cached_num_threads, executor)) = cached.as_ref()
@@ -868,6 +973,23 @@ impl ConcurrentMergeScheduler {
 }
 
 impl ConcurrentMergeSchedulerDefaults {
+  pub(crate) fn get_intra_merge_executor<D, CR>(
+    scheduler: &ConcurrentMergeScheduler,
+    merge: &OneMerge<D, CR>,
+  ) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    // Don't do multithreaded merges for small merges.
+    if merge.estimated_merge_bytes.load(Ordering::SeqCst) < (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
+    {
+      Ok(Arc::new(TaskExecutor::direct()))
+    } else {
+      scheduler.get_parallel_merge_executor()
+    }
+  }
+
   pub(crate) fn update_merge_threads(
     _scheduler: &ConcurrentMergeScheduler,
     inner: &mut Inner,
@@ -1061,13 +1183,7 @@ impl MergeScheduler for ConcurrentMergeScheduler {
     D: Directory,
     CR: CodecReader,
   {
-    // Don't do multithreaded merges for small merges.
-    if merge.estimated_merge_bytes.load(Ordering::SeqCst) < (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
-    {
-      Ok(Arc::new(TaskExecutor::direct()))
-    } else {
-      self.get_parallel_merge_executor()
-    }
+    self.hook.get_intra_merge_executor(self, merge)
   }
 
   fn initialize<D>(&mut self, info_stream: InfoStreamMT, directory: &D) -> Result<()>

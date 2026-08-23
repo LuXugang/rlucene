@@ -30,11 +30,10 @@ use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
-use crate::core::index::merge_policy::{OneMerge, OneMergeSR};
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum};
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
-use crate::core::index::tiered_merge_policy::{SegmentDocAndID, TieredMergePolicy};
+use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -141,7 +140,7 @@ fn test_flush_exceptions() -> Result<()> {
   if matches!(iwc.get_merge_scheduler(), MergeSchedulerEnum::Concurrent(_)) {
     let merge_scheduler =
       ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::Suppressing(
-        SuppressingConcurrentMergeScheduler::writer_closed_or_tragic(),
+        SuppressingConcurrentMergeScheduler::writer_closed_or_tragic_with_parallel_executor(),
       ));
     iwc.set_merge_scheduler(merge_scheduler);
   }
@@ -316,8 +315,12 @@ fn test_no_wait_close() -> Result<()> {
   iwc
     .set_max_buffered_docs(2)
     .set_merge_policy(new_log_merge_policy_with_merge_factor(&mut random, 100)?)
-    .set_commit_on_close(false)
-    .set_merge_scheduler(ConcurrentMergeScheduler::new());
+    .set_commit_on_close(false);
+  if matches!(iwc.get_merge_scheduler(), MergeSchedulerEnum::Concurrent(_)) {
+    iwc.set_merge_scheduler(ConcurrentMergeScheduler::with_hook(
+      ConcurrentMergeSchedulerHook::AlwaysParallelIntraMerge,
+    ));
+  }
 
   let mut writer = IndexWriter::new(directory.clone(), iwc)?;
 
@@ -381,7 +384,6 @@ fn test_no_wait_close() -> Result<()> {
     // Force excessive merging:
     iwc.set_max_buffered_docs(2);
     iwc.set_commit_on_close(false);
-    iwc.set_merge_scheduler(ConcurrentMergeScheduler::new());
     writer = IndexWriter::new(directory.clone(), iwc)?;
   }
   writer.close()?;
@@ -436,13 +438,23 @@ fn test_max_merge_count() -> Result<()> {
 
 #[test]
 fn test_small_merges_don_not_get_threads() -> Result<()> {
-  let merge_scheduler = ConcurrentMergeScheduler::new();
-  let merge: OneMergeSR<DirEnum> = OneMerge::new(vec![SegmentDocAndID::new("test".into(), 0)])?;
-  assert!(
-    merge_scheduler
-      .get_intra_merge_executor(&merge)?
-      .is_direct()
-  );
+  let mut random = random();
+  let dir = new_directory_shared(&mut random)?;
+  let analyzer = MockAnalyzer::new(&mut random);
+  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+  iwc.set_max_buffered_docs(2);
+  iwc.set_merge_scheduler(ConcurrentMergeScheduler::with_hook(
+    ConcurrentMergeSchedulerHook::AssertSmallMergesUseDirectExecutor,
+  ));
+  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  for i in 0..10 {
+    let mut doc = Document::new();
+    doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
+    writer.add_document(doc)?;
+  }
+  writer.force_merge(1)?;
+  writer.close()?;
+  dir.as_ref().close()?;
   Ok(())
 }
 

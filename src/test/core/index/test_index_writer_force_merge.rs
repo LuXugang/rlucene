@@ -22,7 +22,9 @@ use crate::core::document::field::Store;
 use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
 use crate::core::index::BytesRef;
-use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
+use crate::core::index::concurrent_merge_scheduler::{
+  ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
+};
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
@@ -305,15 +307,15 @@ fn test_background_force_merge() -> Result<()> {
   Ok(())
 }
 #[test]
+#[ignore = "Java @AwaitsFix: https://github.com/apache/lucene/issues/13478"]
 fn test_merge_per_field() -> Result<()> {
   let mut random = random();
   let mut config = IndexWriterConfig::new()?;
-  let merge_scheduler = ConcurrentMergeScheduler::new();
+  let merge_scheduler =
+    ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::AlwaysParallelIntraMerge);
   merge_scheduler.set_max_merges_and_threads(4, 4)?;
   config.set_merge_scheduler(merge_scheduler);
-  // Rust does not yet expose Java's intra-merge executor, so a single participant exercises the
-  // blocking merge wrappers without deadlocking the sequential per-field merge path.
-  let barrier = Arc::new(Barrier::new(1));
+  let barrier = Arc::new(Barrier::new(2));
   config.set_codec(MergePerFieldCodec::new(barrier));
 
   let directory = new_directory_shared(&mut random)?;

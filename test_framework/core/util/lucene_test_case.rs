@@ -29,6 +29,7 @@ use crate::core::codecs::lucene99::lucene99_hnsw_scalar_quantized_vectors_format
 use crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat;
 use crate::core::document::field::{Field, FieldDataEnum, Store};
 use crate::core::document::field_type::FieldType;
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::concurrent_merge_scheduler::{
   ConcurrentMergeScheduler, ConcurrentMergeSchedulerBase, ConcurrentMergeSchedulerHook, Inner,
 };
@@ -39,7 +40,7 @@ use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase};
-use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum};
+use crate::core::index::merge_policy::{MergePolicy, MergePolicyEnum, OneMerge};
 use crate::core::index::merge_scheduler::MergeSource;
 use crate::core::index::no_deletion_policy::NoDeletionPolicy;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
@@ -53,6 +54,7 @@ use crate::core::search::index_searcher::IndexSearcherHook;
 use crate::core::search::index_searcher::{DefaultIndexSearcher, IndexSearcher};
 use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::directory::{
   CoreDirEnum, DirEnum, Directory, DirectoryEnum3, MaybeNrtDirEnum, MockDirWrapper, RawDirEnum,
   SharedLockFactory,
@@ -399,9 +401,7 @@ where
     config.set_merge_scheduler(SerialMergeScheduler::new());
   } else if rarely(random) {
     let concurrent_merge_scheduler = if random.random_bool(0.5) {
-      // Java's TestConcurrentMergeScheduler only overrides the unsupported
-      // intra-merge executor, so it maps to the default Rust scheduler.
-      ConcurrentMergeScheduler::new()
+      ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::AlwaysParallelIntraMerge)
     } else {
       ConcurrentMergeScheduler::with_hook(
         ConcurrentMergeSchedulerHook::LuceneTestCaseAlwaysProceed(
@@ -420,11 +420,12 @@ where
     config.set_merge_scheduler(concurrent_merge_scheduler);
   } else {
     // Always use consistent settings, else CMS's dynamic (SSD or not)
-    // defaults can change, hurting reproducibility. Java randomly chooses
-    // TestConcurrentMergeScheduler here, but its only override is the unsupported
-    // intra-merge executor, so both choices map to the default Rust scheduler.
-    let _ = random.random_bool(0.5);
-    let concurrent_merge_scheduler = ConcurrentMergeScheduler::new();
+    // defaults can change, hurting reproducibility:
+    let concurrent_merge_scheduler = if random.random_bool(0.5) {
+      ConcurrentMergeScheduler::with_hook(ConcurrentMergeSchedulerHook::AlwaysParallelIntraMerge)
+    } else {
+      ConcurrentMergeScheduler::new()
+    };
 
     // Only 1 thread can run at once (should maybe help reproducibility),
     // with up to 3 pending merges before segment-producing threads are
@@ -487,6 +488,18 @@ where
 pub(crate) struct AlwaysProceedConcurrentMergeScheduler;
 
 impl ConcurrentMergeSchedulerBase for AlwaysProceedConcurrentMergeScheduler {
+  fn get_intra_merge_executor<D, CR>(
+    &self,
+    scheduler: &ConcurrentMergeScheduler,
+    _merge: &OneMerge<D, CR>,
+  ) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    scheduler.get_parallel_merge_executor()
+  }
+
   fn maybe_stall<MS, D>(
     &self,
     _scheduler: &ConcurrentMergeScheduler,
