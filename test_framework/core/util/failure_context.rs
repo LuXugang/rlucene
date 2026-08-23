@@ -126,9 +126,8 @@ impl ExecutionScope {
 
 impl Drop for ExecutionScope {
   fn drop(&mut self) {
-    EXECUTION_STACK.with_borrow_mut(|stack| {
-      debug_assert_eq!(Some(self.frame), stack.pop());
-    });
+    let popped = EXECUTION_STACK.with_borrow_mut(|stack| stack.pop());
+    debug_assert_eq!(Some(self.frame), popped);
   }
 }
 
