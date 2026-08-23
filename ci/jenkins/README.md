@@ -69,15 +69,15 @@ CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true \
   cargo test --release --workspace --doc -q
 ```
 
-`.config/nextest.toml` marks an individual test as slow after 60 seconds. A slow
-status is a warning and does not fail the build if the test eventually passes.
-After 300 seconds, the Pipeline asks nextest to report all running test process
-IDs, elapsed times, and captured output. It also writes system load, the process
-tree, per-thread `/proc` state, kernel wait stacks, and a best-effort userspace
-backtrace from `eu-stack`, `gdb`, or `pstack` to
-`nextest-diagnostics.log`. If no debugger is installed or Linux ptrace policy
-blocks attachment, the nextest status, process tree, resource usage, and
-readable `/proc` diagnostics are still preserved.
+The release-only `ci` profile in `.config/nextest.toml` marks an individual test
+as slow after 30 seconds. A slow status is a warning and does not fail the build
+if the test eventually passes. At 30 seconds, the Pipeline also asks nextest to
+report all running test process IDs, elapsed times, and captured output. It
+writes system load, the process tree, per-thread `/proc` state, kernel wait
+stacks, and a best-effort userspace backtrace from `eu-stack`, `gdb`, or
+`pstack` to `nextest-diagnostics.log`. If no debugger is installed or Linux
+ptrace policy blocks attachment, the nextest status, process tree, resource
+usage, and readable `/proc` diagnostics are still preserved.
 
 The diagnostics helper recognizes a nextest test process by the `--exact`
 argument used for a test-harness invocation. Cargo, Git, and other child
@@ -87,11 +87,12 @@ tests and never cause the helper to send `SIGUSR1` to nextest.
 The deployed container configuration and its verification procedure are
 documented in `ci/jenkins/deployment/README.md`.
 
-An individual test is terminated and reported as `TIMEOUT` only after 360
-seconds. Nextest first sends `SIGTERM`, waits for a 30-second grace period, and
-then sends `SIGKILL` if necessary. The Pipeline adds a 20-minute outer timeout
-for the complete nextest run, a 4-minute timeout for doctests, and a 30-minute
-timeout for the complete build.
+An individual Jenkins release test is terminated and reported as `TIMEOUT`
+after 60 seconds. Nextest first sends `SIGTERM`, waits for a 30-second grace
+period, and then sends `SIGKILL` if necessary. Non-release runs keep the default
+60-second slow threshold and 360-second timeout. The Pipeline adds a 20-minute
+outer timeout for the complete nextest run, a 4-minute timeout for doctests, and
+a 30-minute timeout for the complete build.
 
 Jenkins archives `nextest.log`, `nextest-junit.xml`,
 `nextest-diagnostics.log`, and `doctest.log`. Failure emails include the commit
