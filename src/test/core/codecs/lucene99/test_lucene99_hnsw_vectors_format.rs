@@ -32,7 +32,7 @@ use crate::test_framework::core::index::base_knn_vectors_format_test_case::{
   BaseKnnVectorsFormatTestCase, BaseKnnVectorsFormatTestCaseState,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  new_directory_shared, new_index_writer_config, random,
+  new_directory_shared, new_index_writer_config, new_search_executor, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
@@ -73,8 +73,15 @@ fn test_limits() -> Result<()> {
     Lucene99HnswVectorsFormat::with_graph_para(20, MAXIMUM_BEAM_WIDTH + 1),
     Err(LuceneError::IllegalArgument(_))
   ));
-  // TODO: The Rust format does not expose Java's executor constructor, so its executor validation
-  // case cannot be expressed yet.
+  assert!(matches!(
+    Lucene99HnswVectorsFormat::with_graph_para_with_threads(
+      20,
+      100,
+      1,
+      Some(new_search_executor(1)?),
+    ),
+    Err(LuceneError::IllegalArgument(_))
+  ));
   Ok(())
 }
 
@@ -84,7 +91,12 @@ fn test_concurrent_merge() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut config = new_index_writer_config(&mut random)?;
   config.set_codec(TestUtil::always_knn_vectors_format(
-    Lucene99HnswVectorsFormat::with_graph_para_with_threads(10, 30, 4)?,
+    Lucene99HnswVectorsFormat::with_graph_para_with_threads(
+      10,
+      30,
+      4,
+      Some(new_search_executor(4)?),
+    )?,
   ));
   let writer = IndexWriter::new(dir.clone(), config)?;
 

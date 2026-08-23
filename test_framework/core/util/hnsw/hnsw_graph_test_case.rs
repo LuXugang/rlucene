@@ -55,6 +55,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::query::Query;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::store::directory::DirEnum;
 use crate::core::util::accountable::Accountable;
@@ -79,12 +80,14 @@ use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::util::hnsw::mock_byte_vector_values::MockByteVectorValues;
 use crate::test_framework::core::util::hnsw::mock_vector_values::MockVectorValues;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least_usize, new_directory_shared, new_merge_policy, new_searcher_with_reader,
+  at_least_usize, new_directory_shared, new_merge_policy, new_search_executor,
+  new_searcher_with_reader,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::thread;
 
 pub trait HnswGraphTestCase<T>
@@ -1074,8 +1077,10 @@ where
     let dim = at_least_usize(random, 10);
     let vectors = self.vector_values(size, dim, random);
     let scorer_supplier = self.build_scorer_supplier(vectors, random)?;
+    let task_executor = Arc::new(TaskExecutor::new(new_search_executor(4)?));
     let _rand_seed_guard = TestRandSeedGuard::new(random.random::<u64>());
     let mut builder = HnswConcurrentMergeBuilder::new(
+      task_executor,
       4,
       scorer_supplier,
       10,

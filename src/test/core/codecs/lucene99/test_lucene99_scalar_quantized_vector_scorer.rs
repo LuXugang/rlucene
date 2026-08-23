@@ -80,6 +80,7 @@ fn get_codec(bits: i32, compress: bool) -> Result<AssertingCodec> {
         bits,
         compress,
         Some(0.0),
+        None,
       )?,
   ))
 }

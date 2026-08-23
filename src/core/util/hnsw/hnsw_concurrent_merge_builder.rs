@@ -14,14 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::{Bits, MatchNoBits};
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
 use crate::core::util::hnsw::hnsw_graph::HnswGraph;
@@ -42,12 +42,13 @@ use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, N
 const DEFAULT_BATCH_SIZE: usize = 2048;
 
 /// A graph builder that manages multiple workers. It only supports adding the
-/// whole graph at once. It spawns a thread for each worker, and the workers
-/// pick work in batches.
+/// whole graph at once. It creates a task for each worker, and the workers pick
+/// work in batches.
 pub struct HnswConcurrentMergeBuilder<S>
 where
   S: RandomVectorScorerSupplier,
 {
+  task_executor: Arc<TaskExecutor>,
   workers: Vec<ConcurrentMergeWorker<S::RandomVectorScorerSupplier>>,
   info_stream: InfoStreamMT,
   frozen: bool,
@@ -58,6 +59,7 @@ where
   S: RandomVectorScorerSupplier,
 {
   pub fn new(
+    task_executor: Arc<TaskExecutor>,
     num_workers: usize,
     scorer_supplier: S,
     m: usize,
@@ -91,6 +93,7 @@ where
     }
 
     Ok(Self {
+      task_executor,
       workers,
       info_stream,
       frozen: false,
@@ -134,40 +137,12 @@ where
       )?;
     }
 
-    let outcomes = std::thread::scope(|scope| {
-      let mut handles = Vec::with_capacity(self.workers.len());
-      for worker in &mut self.workers {
-        handles.push(scope.spawn(move || catch_unwind(AssertUnwindSafe(|| worker.run(max_ord)))));
-      }
-      handles
-        .into_iter()
-        .map(|handle| handle.join())
-        .collect::<Vec<_>>()
-    });
-
-    let mut first_failure: Option<CaughtResult<()>> = None;
-    for outcome in outcomes {
-      let outcome = match outcome {
-        Ok(outcome) => outcome,
-        Err(payload) => Err(payload),
-      };
-      if matches!(outcome, Ok(Ok(()))) {
-        continue;
-      }
-      if let Some(first_failure) = first_failure.as_mut() {
-        first_failure.add_suppressed(outcome, "concurrent HNSW merge worker panicked");
-      } else {
-        first_failure = Some(outcome);
-      }
-    }
-
-    if let Some(failure) = first_failure {
-      match failure {
-        Ok(Ok(())) => unreachable!(),
-        Ok(Err(error)) => return Err(error),
-        Err(payload) => resume_unwind(payload),
-      }
-    }
+    let tasks = self
+      .workers
+      .iter_mut()
+      .map(|worker| move || worker.run(max_ord))
+      .collect();
+    self.task_executor.invoke_all(tasks)?;
 
     self.finish()?;
     self.frozen = true;

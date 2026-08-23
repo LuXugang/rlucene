@@ -53,8 +53,8 @@ use crate::test_framework::core::index::base_knn_vectors_format_test_case::{
   BaseKnnVectorsFormatTestCase, BaseKnnVectorsFormatTestCaseState,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
-  random,
+  get_only_leaf_reader, new_directory_shared, new_index_writer_config, new_search_executor,
+  new_searcher_with_reader, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
@@ -105,6 +105,7 @@ impl TestLucene99HnswQuantizedVectorsFormat {
         bits,
         bits == 4 && random.random_bool(0.5),
         confidence_interval,
+        None,
       )
   }
 }
@@ -237,6 +238,7 @@ fn test_quantization_scoring_edge_case() -> Result<()> {
         7,
         false,
         Some(0.9),
+        None,
       )?,
   ));
   let writer = IndexWriter::new(dir.clone(), config)?;
@@ -379,6 +381,7 @@ fn test_to_string() -> Result<()> {
       4,
       false,
       Some(0.9),
+      None,
     )?;
   let expected = "Lucene99HnswScalarQuantizedVectorsFormat(name=Lucene99HnswScalarQuantizedVectorsFormat, maxConn=10, beamWidth=20, flatVectorFormat=Lucene99ScalarQuantizedVectorsFormat(name=Lucene99ScalarQuantizedVectorsFormat, confidenceInterval=0.9, bits=4, compress=false, flatVectorScorer=ScalarQuantizedVectorScorer(nonQuantizedDelegate=DefaultFlatVectorScorer()), rawVectorFormat=Lucene99FlatVectorsFormat(vectorsScorer=DefaultFlatVectorScorer())))";
   assert_eq!(expected, format.to_string());
@@ -414,20 +417,21 @@ fn test_limits() -> Result<()> {
         7,
         false,
         Some(1.1),
+        None,
       ),
     Err(LuceneError::IllegalArgument(_))
   ));
   assert!(matches!(
     Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
-        20, 100, 0, -1, false, None,
+        20, 100, 0, -1, false, None, None,
       ),
     Err(LuceneError::IllegalArgument(_))
   ));
   assert!(matches!(
     Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
-        20, 100, 0, 5, false, None,
+        20, 100, 0, 5, false, None, None,
       ),
     Err(LuceneError::IllegalArgument(_))
   ));
@@ -435,7 +439,7 @@ fn test_limits() -> Result<()> {
   assert!(matches!(
     Lucene99HnswScalarQuantizedVectorsFormat::
       with_graph_para_with_threads_bits_compress_confidence_interval(
-        20, 100, 0, 9, false, None,
+        20, 100, 0, 9, false, None, None,
       ),
     Err(LuceneError::IllegalArgument(_))
   ));
@@ -448,11 +452,23 @@ fn test_limits() -> Result<()> {
         7,
         false,
         Some(0.8),
+        None,
       ),
     Err(LuceneError::IllegalArgument(_))
   ));
-  // TODO: The Rust constructor has no executor argument corresponding to Java's
-  // SameThreadExecutorService rejection case.
+  assert!(matches!(
+    Lucene99HnswScalarQuantizedVectorsFormat::
+      with_graph_para_with_threads_bits_compress_confidence_interval(
+        20,
+        100,
+        1,
+        7,
+        false,
+        None,
+        Some(new_search_executor(1)?),
+      ),
+    Err(LuceneError::IllegalArgument(_))
+  ));
   Ok(())
 }
 

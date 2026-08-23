@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::sync::Arc;
+
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::merge_state::DocMap;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::hnsw::hnsw_builder::HnswBuilder;
@@ -32,12 +35,16 @@ use crate::core::util::info_stream::InfoStreamMT;
 
 /// This merger merges graphs in a concurrent manner by using [`HnswConcurrentMergeBuilder`].
 pub(crate) struct ConcurrentHnswMerger {
+  task_executor: Arc<TaskExecutor>,
   num_workers: usize,
 }
 
 impl ConcurrentHnswMerger {
-  pub(crate) fn new(num_workers: usize) -> Self {
-    Self { num_workers }
+  pub(crate) fn new(task_executor: Arc<TaskExecutor>, num_workers: usize) -> Self {
+    Self {
+      task_executor,
+      num_workers,
+    }
   }
 }
 
@@ -98,6 +105,7 @@ where
     };
 
     let mut builder = HnswConcurrentMergeBuilder::new(
+      Arc::clone(&self.task_executor),
       self.num_workers,
       scorer_supplier,
       m,

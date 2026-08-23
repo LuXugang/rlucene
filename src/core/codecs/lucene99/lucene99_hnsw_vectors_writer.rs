@@ -40,6 +40,7 @@ use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
 use crate::core::util::TryIntoInt;
@@ -78,6 +79,7 @@ where
   beam_width: usize,
   pub(crate) flat_vector_writer: F,
   num_merge_workers: usize,
+  merge_exec: Option<Arc<TaskExecutor>>,
   finished: bool,
   info_stream: InfoStreamMT,
   fields: Vec<FieldWriter<DefaultRandomVectorScorerSupplier<F>>>,
@@ -95,6 +97,7 @@ where
     beam_width: usize,
     mut flat_vector_writer: F,
     num_merge_workers: usize,
+    merge_exec: Option<Arc<TaskExecutor>>,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<Self>
   where
@@ -174,6 +177,7 @@ where
       beam_width,
       flat_vector_writer,
       num_merge_workers,
+      merge_exec,
       finished: false,
       info_stream: state.info_stream.clone(),
       fields: Vec::new(),
@@ -539,18 +543,32 @@ where
     scorer_supplier: S,
     m: usize,
     beam_width: usize,
+    merge_exec: Option<Arc<TaskExecutor>>,
     num_merge_workers: usize,
+    parallel_merge_task_executor: Option<Arc<TaskExecutor>>,
+    num_parallel_merge_workers: usize,
   ) -> IncrementalHnswGraphMerger<S>
   where
     S: RandomVectorScorerSupplier,
   {
-    if num_merge_workers > 1 {
+    if let Some(merge_exec) = merge_exec {
       IncrementalHnswGraphMerger::new_with_hook(
         field_info,
         scorer_supplier,
         m,
         beam_width,
-        HnswGraphMergerHook::Concurrent(ConcurrentHnswMerger::new(num_merge_workers)),
+        HnswGraphMergerHook::Concurrent(ConcurrentHnswMerger::new(merge_exec, num_merge_workers)),
+      )
+    } else if let Some(parallel_merge_task_executor) = parallel_merge_task_executor {
+      IncrementalHnswGraphMerger::new_with_hook(
+        field_info,
+        scorer_supplier,
+        m,
+        beam_width,
+        HnswGraphMergerHook::Concurrent(ConcurrentHnswMerger::new(
+          parallel_merge_task_executor,
+          num_parallel_merge_workers,
+        )),
       )
     } else {
       IncrementalHnswGraphMerger::new(field_info, scorer_supplier, m, beam_width)
@@ -645,6 +663,8 @@ where
     D2: Directory<IndexOutput = F::IndexOutput>,
     CR: CodecReader,
   {
+    let merge_exec = self.merge_exec.clone();
+    let num_merge_workers = self.num_merge_workers;
     let mut scorer_supplier = self.flat_vector_writer.merge_one_field_to_index(
       field_info.as_ref(),
       merge_state,
@@ -663,7 +683,10 @@ where
           &scorer_supplier,
           self.m,
           self.beam_width,
-          self.num_merge_workers,
+          merge_exec.clone(),
+          num_merge_workers,
+          None,
+          num_merge_workers,
         );
 
         for i in 0..merge_state.live_docs.len() {
