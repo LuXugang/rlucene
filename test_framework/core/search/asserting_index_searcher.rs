@@ -58,6 +58,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    IndexSearcher<IRC>: Sync,
   {
     // this adds assertions to the inner weights/scorers too
     let weight = IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)?;
@@ -68,7 +69,10 @@ where
     )))
   }
 
-  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
+  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     QueryUtils::check_from_query(&original);
     let rewritten = IndexSearcherDefaults::rewrite(searcher, original)?;
     QueryUtils::check_from_query(&rewritten);

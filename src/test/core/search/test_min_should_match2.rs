@@ -140,6 +140,7 @@ fn scorer<R, IRC>(
 where
   R: Rng + ?Sized,
   IRC: IndexReaderContext<IndexReader = IRCLeafReader<IRC>>,
+  IndexSearcher<IRC>: Sync,
 {
   let mut bq = Builder::new();
   for value in values {

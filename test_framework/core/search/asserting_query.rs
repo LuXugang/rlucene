@@ -106,6 +106,7 @@ impl QueryBase for AssertingQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     assert!(boost >= 0.0);
@@ -121,6 +122,7 @@ impl QueryBase for AssertingQuery {
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query_id = self.in_.identity().clone();

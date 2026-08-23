@@ -129,6 +129,7 @@ impl QueryBase for NamedQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let in_ = self.in_.create_weight(searcher, score_mode, boost)?;
@@ -141,6 +142,7 @@ impl QueryBase for NamedQuery {
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query_id = self.in_.identity().clone();

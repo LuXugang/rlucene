@@ -59,6 +59,7 @@ pub trait AbstractVectorSimilarityQuery: QueryBase {
   fn create_weight<IRC>(self, searcher: &IndexSearcher<IRC>, boost: f32) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Clone + Into<Query> + Send + Sync + Sized + 'static,
   {
     let filter_weight = match self.base().filter.as_ref() {

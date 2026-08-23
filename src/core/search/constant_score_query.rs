@@ -106,6 +106,7 @@ impl QueryBase for ConstantScoreQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let inner_score_mode = if score_mode.is_exhaustive() {
@@ -129,6 +130,7 @@ impl QueryBase for ConstantScoreQuery {
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     let query_id = self.query.identity().clone();
     let rewritten = self.query.rewrite(searcher)?;

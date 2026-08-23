@@ -220,6 +220,7 @@ impl QueryBase for ByteVectorSimilarityQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: crate::core::index::index_reader_context::IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     AbstractVectorSimilarityQuery::create_weight(self, searcher, boost)

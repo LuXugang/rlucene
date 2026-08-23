@@ -121,7 +121,7 @@ impl CheckHits {
   where
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync + 'static,
-    IRC::LeafReader: Clone,
+    IRC::LeafReader: Clone + Sync,
   {
     QueryUtils::check_from_searcher(random, query.clone(), searcher)?;
 
@@ -163,7 +163,7 @@ impl CheckHits {
   where
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync + 'static,
-    IRC::LeafReader: Clone,
+    IRC::LeafReader: Clone + Sync,
   {
     let hits = searcher
       .search(query.clone(), (10usize).max(results.len() * 2))?
@@ -450,6 +450,7 @@ impl CheckHits {
   ) -> Result<()>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     R: Rng + ?Sized,
   {
     query = searcher.rewrite(query)?;
@@ -683,6 +684,7 @@ where
 impl<'a, IRC> CollectorManager for ExplanationAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   type C = ExplanationAsserter<'a, IRC>;
   type T = ();
@@ -716,6 +718,7 @@ where
 impl<'a, IRC> CollectorManager for MatchesAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   type C = MatchesAsserter<'a, IRC>;
   type T = ();
@@ -770,6 +773,7 @@ where
 impl<IRC> Collector for ExplanationAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -799,6 +803,7 @@ where
 impl<IRC> LeafCollector for ExplanationAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
     let doc = doc + self.base;
@@ -818,6 +823,7 @@ where
 impl<IRC> SimpleCollector for ExplanationAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -877,6 +883,7 @@ where
 impl<IRC> Collector for MatchesAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -906,6 +913,7 @@ where
 impl<IRC> LeafCollector for MatchesAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
     let context = &self.searcher.get_leaf_contexts()?[self.context_ord];
@@ -937,6 +945,7 @@ where
 impl<IRC> SimpleCollector for MatchesAsserter<'_, IRC>
 where
   IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where

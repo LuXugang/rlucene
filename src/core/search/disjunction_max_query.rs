@@ -139,6 +139,7 @@ impl QueryBase for DisjunctionMaxQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     Ok(Box::new(DisjunctionMaxWeight::new(
@@ -152,6 +153,7 @@ impl QueryBase for DisjunctionMaxQuery {
   fn rewrite<IRC>(mut self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if self.ordered_queries.is_empty() {
@@ -255,7 +257,8 @@ pub struct DisjunctionMaxWeight<IRC> {
 }
 impl<IRC> DisjunctionMaxWeight<IRC>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   pub fn new(
     searcher: &IndexSearcher<IRC>,

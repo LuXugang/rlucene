@@ -136,6 +136,7 @@ impl QueryBase for BrokenExplainTermQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let inner_weight = self
@@ -304,6 +305,7 @@ impl QueryBase for TestRewriteQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     Err(LuceneError::unsupported_operation(""))
@@ -605,6 +607,7 @@ impl QueryBase for AssertNeedsScores {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     assert_eq!(
@@ -623,6 +626,7 @@ impl QueryBase for AssertNeedsScores {
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query_id = self.query.identity().clone();
@@ -1824,6 +1828,7 @@ impl QueryBase for MaxScoreWrapperQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
@@ -1837,6 +1842,7 @@ impl QueryBase for MaxScoreWrapperQuery {
   fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let rewritten = self.query.rewrite(searcher)?;
@@ -2019,6 +2025,7 @@ impl QueryBase for WANDScorerQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     Ok(Box::new(WANDScorerQueryWeight::new(
@@ -2078,7 +2085,8 @@ where
 
 impl<IRC> Weight<IRC> for WANDScorerQueryWeight
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
 {
   fn matches<'a>(
     &'a self,

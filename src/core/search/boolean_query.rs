@@ -187,6 +187,7 @@ impl BooleanQuery {
   ) -> Result<BooleanWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let similarity = searcher.get_similarity();
@@ -328,6 +329,7 @@ impl QueryBase for BooleanQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let weight = self.raw_weight(searcher, score_mode, boost)?;
@@ -336,6 +338,7 @@ impl QueryBase for BooleanQuery {
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if self.clauses.is_empty() {

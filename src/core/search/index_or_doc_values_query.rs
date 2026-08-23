@@ -120,6 +120,7 @@ impl QueryBase for IndexOrDocValuesQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query = self.clone();
@@ -137,6 +138,7 @@ impl QueryBase for IndexOrDocValuesQuery {
   fn rewrite<IRC>(mut self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let index_rewrite_id = self.index_query.identity().clone();

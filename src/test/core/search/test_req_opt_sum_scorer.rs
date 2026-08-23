@@ -526,6 +526,7 @@ fn req_opt_scorer<IRC, Q>(
 where
   Q: Into<Query>,
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
 {
   let req_q = req_q.into();
   let opt_q = opt_q.into();

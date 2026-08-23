@@ -90,6 +90,7 @@ impl QueryBase for BlockScoreQueryWrapper {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query = (*self.query).clone();
@@ -103,6 +104,7 @@ impl QueryBase for BlockScoreQueryWrapper {
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query_id = self.query.identity().clone();

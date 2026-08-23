@@ -919,6 +919,7 @@ impl QueryBase for CountingQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let delegate_weight = self

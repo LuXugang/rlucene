@@ -92,6 +92,7 @@ impl QueryBase for MultiTermQueryConstantScoreWrapper {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let sub = StandardRewritingWeight;
@@ -163,6 +164,7 @@ impl RewritingWeightBase for StandardRewritingWeight {
     T: Terms,
     TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     TermsPosting<T>: 'static,
   {
     let max_doc = context.reader().max_doc()?;

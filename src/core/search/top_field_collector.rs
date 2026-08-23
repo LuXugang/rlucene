@@ -236,6 +236,7 @@ pub fn populate_scores<IRC, T, S>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
   T: IntoQuery,
   S: ScoreDocLike,
 {

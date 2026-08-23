@@ -204,6 +204,7 @@ fn check_boolean_terms<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
 {
   let rewritten = searcher.rewrite(query)?;
 

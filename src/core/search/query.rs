@@ -353,11 +353,13 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized;
 
   fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized;
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
@@ -693,6 +695,7 @@ impl QueryBase for Query {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     dispatch_query!(self, |q| q.create_weight(searcher, score_mode, boost,))
@@ -701,6 +704,7 @@ impl QueryBase for Query {
   fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     dispatch_query!(self, |q| q.rewrite(searcher))
   }

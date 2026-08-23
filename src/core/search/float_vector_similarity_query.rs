@@ -230,6 +230,7 @@ impl QueryBase for FloatVectorSimilarityQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     AbstractVectorSimilarityQuery::create_weight(self, searcher, boost)

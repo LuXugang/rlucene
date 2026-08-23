@@ -187,6 +187,7 @@ impl QueryBase for KnnByteVectorQuery {
   fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     AbstractKnnVectorQuery::rewrite(self, searcher)

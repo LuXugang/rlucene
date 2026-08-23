@@ -528,6 +528,7 @@ where
   pub fn search_with_collector<C>(&self, query: impl IntoQuery, collector: &mut C) -> Result<()>
   where
     C: Collector,
+    Self: Sync,
   {
     self
       .hook
@@ -616,6 +617,7 @@ where
   pub fn rewrite<Q>(&self, query: Q) -> Result<Query>
   where
     Q: IntoQuery,
+    Self: Sync,
   {
     self.hook.rewrite(self, query.into_query())
   }
@@ -624,7 +626,10 @@ where
     &self,
     original: Query,
     needs_scores: bool,
-  ) -> Result<Query> {
+  ) -> Result<Query>
+  where
+    Self: Sync,
+  {
     if needs_scores {
       self.rewrite(original)
     } else {
@@ -641,6 +646,7 @@ where
   pub fn explain<T>(&self, query: T, doc: i32) -> Result<Explanation>
   where
     T: IntoQuery,
+    Self: Sync,
   {
     let query = self.rewrite(query.into_query())?;
     let weight = self.create_weight(query, ScoreMode::Complete, 1.0)?;
@@ -686,6 +692,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    Self: Sync,
   {
     self.hook.create_weight(self, query, score_mode, boost)
   }
@@ -1187,6 +1194,7 @@ where
     collector: &mut C,
   ) -> Result<()>
   where
+    IndexSearcher<IRC>: Sync,
     C: Collector,
   {
     IndexSearcherDefaults::search_with_collector(searcher, query, collector)
@@ -1249,7 +1257,10 @@ where
     IndexSearcherDefaults::search_leaf(searcher, ctx_ord, min_doc_id, max_doc_id, weight, collector)
   }
 
-  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
+  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     IndexSearcherDefaults::rewrite(searcher, original)
   }
 
@@ -1262,6 +1273,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    IndexSearcher<IRC>: Sync,
   {
     IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost)
   }
@@ -1430,6 +1442,7 @@ where
     collector: &mut C,
   ) -> Result<()>
   where
+    IndexSearcher<IRC>: Sync,
     C: Collector,
   {
     match self {
@@ -1658,7 +1671,10 @@ where
     }
   }
 
-  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query> {
+  fn rewrite(&self, searcher: &IndexSearcher<IRC>, original: Query) -> Result<Query>
+  where
+    IndexSearcher<IRC>: Sync,
+  {
     match self {
       Self::Default => IndexSearcherDefaults::rewrite(searcher, original),
       #[cfg(test)]
@@ -1693,6 +1709,7 @@ where
   ) -> Result<QueryWeight<IRC>>
   where
     T: QueryBase,
+    IndexSearcher<IRC>: Sync,
   {
     match self {
       Self::Default => IndexSearcherDefaults::create_weight(searcher, query, score_mode, boost),
@@ -1882,6 +1899,7 @@ impl IndexSearcherDefaults {
   ) -> Result<()>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     C: Collector,
   {
     let needs_scores = collector.score_mode().needs_scores();
@@ -2017,6 +2035,7 @@ impl IndexSearcherDefaults {
   pub(crate) fn rewrite<IRC>(searcher: &IndexSearcher<IRC>, mut query: Query) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     let mut query_id = query.identity().clone();
     loop {
@@ -2042,6 +2061,7 @@ impl IndexSearcherDefaults {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     T: QueryBase,
   {
     let mut weight = query.create_weight(searcher, &score_mode, boost)?;

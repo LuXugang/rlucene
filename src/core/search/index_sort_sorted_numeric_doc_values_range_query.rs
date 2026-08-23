@@ -134,6 +134,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query = self.clone();
@@ -152,6 +153,7 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
   fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if self.lower_value == i64::MIN && self.upper_value == i64::MAX {

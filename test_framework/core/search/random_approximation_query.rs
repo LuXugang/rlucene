@@ -97,6 +97,7 @@ impl QueryBase for RandomApproximationQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let weight = self.query.create_weight(searcher, score_mode, boost)?;
@@ -110,6 +111,7 @@ impl QueryBase for RandomApproximationQuery {
   fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let query_id = self.query.identity().clone();

@@ -58,7 +58,7 @@ impl QueryUtils {
   where
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync + 'static,
-    IRC::LeafReader: Clone,
+    IRC::LeafReader: Clone + Sync,
     T: Into<Query>,
   {
     Self::check_from_searcher_with_wrap(random, q1, s, true)
@@ -73,7 +73,7 @@ impl QueryUtils {
   where
     R: Rng + ?Sized,
     IRC: IndexReaderContext + Sync + 'static,
-    IRC::LeafReader: Clone,
+    IRC::LeafReader: Clone + Sync,
     T: Into<Query>,
   {
     let q = q.into();
@@ -131,7 +131,8 @@ impl QueryUtils {
   pub fn check_skip_to<IRC>(q: Query, s: &IndexSearcher<IRC>) -> Result<()>
   where
     IRC: IndexReaderContext + 'static,
-    IRC::LeafReader: Clone,
+    IRC::LeafReader: Clone + Sync,
+    IndexSearcher<IRC>: Sync,
   {
     let reader_context_array = s.get_leaf_contexts()?;
 
@@ -207,7 +208,8 @@ impl QueryUtils {
   pub fn check_first_skip_to<IRC>(q: Query, s: &IndexSearcher<IRC>) -> Result<()>
   where
     IRC: IndexReaderContext + 'static,
-    IRC::LeafReader: Clone,
+    IRC::LeafReader: Clone + Sync,
+    IndexSearcher<IRC>: Sync,
   {
     let max_diff: f32 = 1e-3f32;
     let rewritten = s.rewrite(q.clone())?;
@@ -261,6 +263,7 @@ impl QueryUtils {
   ) -> Result<()>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     R: Rng + ?Sized,
   {
     let query = searcher.rewrite(query)?;
@@ -321,6 +324,7 @@ impl QueryUtils {
   pub fn check_count<IRC>(query: Query, searcher: &IndexSearcher<IRC>) -> Result<()>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
   {
     let query = searcher.rewrite(query)?;
     let weight = searcher.create_weight(query, ScoreMode::CompleteNoScores, 1.0)?;
@@ -530,7 +534,8 @@ where
 impl<IRC> Collector for SimpleCollectorImp<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IRC::LeafReader: Clone,
+  IRC::LeafReader: Clone + Sync,
+  IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -560,7 +565,8 @@ where
 impl<IRC> LeafCollector for SimpleCollectorImp<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IRC::LeafReader: Clone,
+  IRC::LeafReader: Clone + Sync,
+  IndexSearcher<IRC>: Sync,
 {
   fn collect(&mut self, doc: i32, scorable: &mut dyn Scorable) -> Result<()> {
     let score = scorable.score()?;
@@ -620,7 +626,8 @@ where
 impl<IRC> SimpleCollector for SimpleCollectorImp<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IRC::LeafReader: Clone,
+  IRC::LeafReader: Clone + Sync,
+  IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, _context: &LeafReaderContext<LR>) -> Result<()>
   where
@@ -745,7 +752,8 @@ where
 impl<IRC> Collector for SimpleCollectorImpl2<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IRC::LeafReader: Clone,
+  IRC::LeafReader: Clone + Sync,
+  IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -775,7 +783,8 @@ where
 impl<IRC> LeafCollector for SimpleCollectorImpl2<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IRC::LeafReader: Clone,
+  IRC::LeafReader: Clone + Sync,
+  IndexSearcher<IRC>: Sync,
 {
   fn collect(&mut self, doc: i32, sc: &mut dyn Scorable) -> Result<()> {
     let score = sc.score()?;
@@ -826,7 +835,8 @@ where
 impl<IRC> SimpleCollector for SimpleCollectorImpl2<'_, IRC>
 where
   IRC: IndexReaderContext,
-  IRC::LeafReader: Clone,
+  IRC::LeafReader: Clone + Sync,
+  IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where

@@ -1813,6 +1813,7 @@ where
 impl<'a, IRC> CollectorManager for CollectorManagerImpl<'a, IRC>
 where
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
 {
   type C = SimpleCollectorImpl<'a, IRC>;
   type T = ();
@@ -1856,6 +1857,7 @@ where
 impl<IRC> Collector for SimpleCollectorImpl<'_, IRC>
 where
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
 {
   type LeafCollector<'a, IRC1>
     = &'a mut Self
@@ -1885,6 +1887,7 @@ where
 impl<IRC> LeafCollector for SimpleCollectorImpl<'_, IRC>
 where
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
 {
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
     let actual_score = scorer.score()?;
@@ -1913,6 +1916,7 @@ where
 impl<IRC> SimpleCollector for SimpleCollectorImpl<'_, IRC>
 where
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
 {
   fn do_set_next_reader<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where

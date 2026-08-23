@@ -186,6 +186,7 @@ impl QueryBase for SynonymQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext + 'static,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if score_mode.needs_scores() {

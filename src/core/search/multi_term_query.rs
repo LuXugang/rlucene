@@ -462,6 +462,7 @@ impl QueryBase for MultiTermQuerySet {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     dispatch_multi_term_query!(self, |q| q.create_weight(searcher, score_mode, boost))
@@ -470,6 +471,7 @@ impl QueryBase for MultiTermQuerySet {
   fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     dispatch_multi_term_query!(self, |q| q.rewrite(searcher))

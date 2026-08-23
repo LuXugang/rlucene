@@ -155,11 +155,12 @@ impl AbstractKnnVectorQueryDefaults {
 /// - If the filter cost is less than `k`, just execute an exact search
 /// - Otherwise run a kNN search subject to the filter
 /// - If the kNN search visits too many vectors without completing, stop and run an exact search
-pub trait AbstractKnnVectorQuery: QueryBase {
+pub trait AbstractKnnVectorQuery: QueryBase + Sync {
   fn base(&self) -> &AbstractKnnVectorQueryBase;
   fn rewrite<IRC>(self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let filter = self.base().filter.clone();
@@ -177,19 +178,25 @@ pub trait AbstractKnnVectorQuery: QueryBase {
     let knn_collector_manager =
       TimeLimitingKnnCollectorManager::new(kcm, index_searcher.get_timeout::<()>());
 
-    // TODO IMPORTANT 多线程查询不支持
     let leaf_reader_contexts = index_searcher.get_leaf_contexts()?;
-
-    let mut per_leaf_results = Vec::with_capacity(leaf_reader_contexts.len());
-    for ctx in leaf_reader_contexts {
-      let filter_weight = filter_weight.as_ref();
-      per_leaf_results.push(self.search_leaf(
-        ctx,
-        filter_weight,
-        &knn_collector_manager,
-        index_searcher,
-      )?)
-    }
+    let query = &self;
+    let tasks = leaf_reader_contexts
+      .iter()
+      .map(|ctx| ctx.ord)
+      .map(|ctx_ord| {
+        let filter_weight = filter_weight.as_ref();
+        let knn_collector_manager = &knn_collector_manager;
+        move || {
+          query.search_leaf(
+            &index_searcher.get_leaf_contexts()?[ctx_ord],
+            filter_weight,
+            knn_collector_manager,
+            index_searcher,
+          )
+        }
+      })
+      .collect::<Vec<_>>();
+    let per_leaf_results = index_searcher.get_task_executor().invoke_all(tasks)?;
 
     let top_k = merge_leaf_results(self.base().k, per_leaf_results)?;
 
@@ -294,7 +301,7 @@ pub trait AbstractKnnVectorQuery: QueryBase {
     }
   }
 
-  type KnnCollectorManager: KnnCollectorManager;
+  type KnnCollectorManager: KnnCollectorManager + Sync;
 
   fn get_knn_collector_manager<IRC>(
     &self,

@@ -133,7 +133,8 @@ where
 
 impl<IRC, Q> Weight<IRC> for RewritingWeight<Q>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
   Q: MultiTermQuery,
   <Q as MultiTermQuery>::TermsEnum<<<IRC as IndexReaderContext>::LeafReader as LeafReader>::Terms>:
     'static,
@@ -228,6 +229,7 @@ fn rewrite_as_boolean_query<IRC>(
 ) -> Result<WeightOrDocIdSetIterator<IRC, DummyDISI>>
 where
   IRC: IndexReaderContext,
+  IndexSearcher<IRC>: Sync,
 {
   let mut builder = Builder::new();
 
@@ -306,7 +308,8 @@ pub trait RewritingWeightBase {
   where
     T: Terms,
     TE: TermsEnum<PostingsEnum = <T::TermsEnum as TermsEnum>::PostingsEnum>,
-    IRC: IndexReaderContext;
+    IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync;
 }
 
 #[derive(Clone)]
@@ -359,7 +362,8 @@ impl<T, TE> ScorerSupplierImpl<T, TE> {
 
 impl<IRC, T, TE> ScorerSupplier<IRC> for ScorerSupplierImpl<T, TE>
 where
-  IRC: IndexReaderContext,
+  IRC: IndexReaderContext + 'static,
+  IndexSearcher<IRC>: Sync,
   T: Terms,
   TE: TermsEnum<PostingsEnum = TermsPosting<T>>,
   TermsPosting<T>: 'static,

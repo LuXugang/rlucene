@@ -103,6 +103,7 @@ impl QueryBase for NGramPhraseQuery {
   ) -> Result<QueryWeight<IRC>>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     self.phrase_query.create_weight(searcher, score_mode, boost)
@@ -111,6 +112,7 @@ impl QueryBase for NGramPhraseQuery {
   fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
+    IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     let terms = self.phrase_query.get_terms();

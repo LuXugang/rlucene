@@ -109,7 +109,7 @@ where
   IRC: IndexReaderContext + Sync,
   R: Rng + ?Sized,
   T: Into<Query>,
-  <IRC as IndexReaderContext>::LeafReader: Clone,
+  <IRC as IndexReaderContext>::LeafReader: Clone + Sync,
 {
   let q = q.into();
   let h = s.search(q.clone(), 1000)?.score_docs;
