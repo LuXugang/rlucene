@@ -54,6 +54,11 @@ impl TaskExecutor {
     }
   }
 
+  #[cfg(test)]
+  pub(crate) fn is_direct(&self) -> bool {
+    self.executor.is_none()
+  }
+
   /// Execute all the callables provided as an argument, wait for them to complete and return the
   /// obtained results. If an exception is thrown by more than one callable, the subsequent ones
   /// will be added as suppressed exceptions to the first one that was caught. Additionally, if one

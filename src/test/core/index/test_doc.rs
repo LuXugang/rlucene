@@ -38,6 +38,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::IOContext;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::merge_info::MergeInfo;
@@ -170,6 +171,7 @@ fn merge(
       &tracking_dir,
       field_numbers,
       &context,
+      Arc::new(TaskExecutor::direct()),
     )?;
     merger.merge()?;
   }

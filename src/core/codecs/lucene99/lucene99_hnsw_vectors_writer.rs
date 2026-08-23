@@ -538,6 +538,7 @@ where
     Ok(())
   }
 
+  #[allow(clippy::too_many_arguments)]
   fn create_graph_merger<S>(
     field_info: Arc<FieldInfo>,
     scorer_supplier: S,
@@ -685,7 +686,7 @@ where
           self.beam_width,
           merge_exec.clone(),
           num_merge_workers,
-          None,
+          Some(Arc::clone(&merge_state.intra_merge_task_executor)),
           num_merge_workers,
         );
 

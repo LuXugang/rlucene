@@ -14,12 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::merge_policy::OneMerge;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::sync::Arc;
 /// A [`MergeScheduler`] which never executes any merges.
 ///
 /// Use it if you want to prevent an [`IndexWriter`] from ever executing merges,
@@ -66,5 +69,15 @@ impl MergeScheduler for NoMergeScheduler {
     D: Directory,
   {
     Ok(in_)
+  }
+
+  fn get_intra_merge_executor<D, CR>(&self, _merge: &OneMerge<D, CR>) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    Err(LuceneError::unsupported_operation(
+      "NoMergeScheduler does not support merges",
+    ))
   }
 }

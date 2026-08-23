@@ -1776,6 +1776,11 @@ where
         new_merge_readers = v;
       }
 
+      let intra_merge_task_executor = self
+        .config
+        .get_merge_scheduler()
+        .get_intra_merge_executor(merge)?;
+
       let doc_maps = {
         merge.check_aborted()?;
         let sci = merge.info.as_mut().unwrap();
@@ -1791,6 +1796,7 @@ where
           &dir_wrapper,
           self.global_field_number_map.clone(),
           &context,
+          intra_merge_task_executor,
         )?;
         validate_soft_del_count(
           del_count,
@@ -3699,6 +3705,11 @@ where
       new_merge_readers = v;
     }
 
+    let intra_merge_task_executor = self
+      .config
+      .get_merge_scheduler()
+      .get_intra_merge_executor(merge)?;
+
     let mut merger = SegmentMerger::new(
       &new_merge_readers,
       &mut seg_info,
@@ -3706,6 +3717,7 @@ where
       &tracking_dir,
       self.global_field_number_map.clone(),
       &context,
+      intra_merge_task_executor,
     )?;
 
     if !merger.should_merge()? {

@@ -24,12 +24,14 @@ use std::thread::ThreadId;
 use std::time::{Duration, Instant};
 
 use parking_lot::{Condvar, Mutex, MutexGuard};
+use rayon::ThreadPoolBuilder;
 
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::merge_policy::{MergeStat, OneMerge};
 use crate::core::index::merge_rate_limiter::MergeRateLimiter;
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_trigger::MergeTrigger;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::directory::Directory;
 use crate::core::store::rate_limited_directory::RateLimitedDirectory;
 use crate::core::store::rate_limiter::RateLimiter;
@@ -113,6 +115,8 @@ pub struct ConcurrentMergeScheduler {
   inner: Arc<Mutex<Inner>>,
   changed: Arc<Condvar>,
   info_stream: Arc<Mutex<InfoStreamMT>>,
+  #[allow(clippy::type_complexity)]
+  intra_merge_executor: Arc<Mutex<Option<(usize, Arc<TaskExecutor>)>>>,
   hook: ConcurrentMergeSchedulerHook,
 }
 
@@ -659,6 +663,7 @@ impl ConcurrentMergeScheduler {
       inner,
       changed: Arc::new(Condvar::new()),
       info_stream: Arc::new(Mutex::new(get_default_info_stream())),
+      intra_merge_executor: Arc::new(Mutex::new(None)),
       hook,
     }
   }
@@ -839,6 +844,27 @@ impl ConcurrentMergeScheduler {
   fn update_merge_threads(&self, inner: &mut Inner) -> Result<()> {
     self.hook.update_merge_threads(self, inner)
   }
+
+  fn get_parallel_merge_executor(&self) -> Result<Arc<TaskExecutor>> {
+    let num_threads = cmp::max(1, self.inner.lock().max_thread_count) as usize;
+    let mut cached = self.intra_merge_executor.lock();
+    if let Some((cached_num_threads, executor)) = cached.as_ref()
+      && *cached_num_threads == num_threads
+    {
+      return Ok(Arc::clone(executor));
+    }
+
+    let pool = ThreadPoolBuilder::new()
+      .num_threads(num_threads)
+      .thread_name(|index| format!("Lucene Intra-Merge Thread #{index}"))
+      .build()
+      .map_err(|error| {
+        LuceneError::illegal_state(format!("failed to build intra-merge executor: {error}"))
+      })?;
+    let executor = Arc::new(TaskExecutor::new(Arc::new(pool)));
+    *cached = Some((num_threads, Arc::clone(&executor)));
+    Ok(executor)
+  }
 }
 
 impl ConcurrentMergeSchedulerDefaults {
@@ -945,7 +971,9 @@ impl CloseableRef for ConcurrentMergeScheduler {
 
 impl ConcurrentMergeSchedulerDefaults {
   pub(crate) fn close(scheduler: &ConcurrentMergeScheduler) -> Result<()> {
-    scheduler.sync()
+    scheduler.sync()?;
+    scheduler.intra_merge_executor.lock().take();
+    Ok(())
   }
 }
 
@@ -1026,6 +1054,20 @@ impl MergeScheduler for ConcurrentMergeScheduler {
     // and throttling is required, each thread will be throttled independently.
     // The implication of this, is that the total IO rate could be higher than the target rate.
     Ok(RateLimitedDirectory::new(in_, rate_limiter))
+  }
+
+  fn get_intra_merge_executor<D, CR>(&self, merge: &OneMerge<D, CR>) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    // Don't do multithreaded merges for small merges.
+    if merge.estimated_merge_bytes.load(Ordering::SeqCst) < (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
+    {
+      Ok(Arc::new(TaskExecutor::direct()))
+    } else {
+      self.get_parallel_merge_executor()
+    }
   }
 
   fn initialize<D>(&mut self, info_stream: InfoStreamMT, directory: &D) -> Result<()>

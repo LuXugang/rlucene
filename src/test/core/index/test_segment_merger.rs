@@ -37,6 +37,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::IOContext;
 use crate::core::store::merge_info::MergeInfo;
 use crate::core::util::bit_set::BitSet;
@@ -112,6 +113,7 @@ fn test_merge() -> Result<()> {
     merged_dir.as_ref(),
     Arc::new(Mutex::new(FieldNumbers::new::<String, String>(None, None)?)),
     &context,
+    Arc::new(TaskExecutor::direct()),
   )?;
 
   merger.merge()?;

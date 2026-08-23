@@ -38,6 +38,7 @@ use crate::core::index::merge_state::MergeState;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::Context::Merge;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
@@ -80,6 +81,7 @@ where
     directory: &'a D2,
     field_numbers: FieldNumbersLock,
     context: &'a IOContext,
+    intra_merge_task_executor: Arc<TaskExecutor>,
   ) -> Result<Self> {
     if *context.get_context() != Merge {
       return Err(LuceneError::illegal_argument(format!(
@@ -88,7 +90,12 @@ where
       )));
     }
 
-    let merge_state = MergeState::new(readers, segment_info, info_stream)?;
+    let merge_state = MergeState::new(
+      readers,
+      segment_info,
+      info_stream,
+      intra_merge_task_executor,
+    )?;
 
     let field_infos_builder = Builder::new(field_numbers);
 

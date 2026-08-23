@@ -30,6 +30,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::index_writer::is_congruent_sort;
 use crate::core::index::multi_sorter::MultiSorter;
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
@@ -77,6 +78,8 @@ where
   pub(crate) max_docs: Vec<i32>,
   /// [InfoStream] for debugging messages.
   pub(crate) info_stream: Arc<InfoStreamEnum>,
+  /// Executor for intra-merge activity.
+  pub(crate) intra_merge_task_executor: Arc<TaskExecutor>,
 }
 
 /// Access to the portion of a [`MergeState`] used by per-field codecs.
@@ -106,6 +109,8 @@ pub trait MergeStateAccess {
   fn needs_index_sort(&self) -> bool;
 
   fn max_docs(&self) -> &[i32];
+
+  fn intra_merge_task_executor(&self) -> &Arc<TaskExecutor>;
 
   fn get_meta(&self) -> MergeStateMeta<Self::DocMap>;
 }
@@ -151,6 +156,10 @@ where
     &self.max_docs
   }
 
+  fn intra_merge_task_executor(&self) -> &Arc<TaskExecutor> {
+    &self.intra_merge_task_executor
+  }
+
   fn get_meta(&self) -> MergeStateMeta<Self::DocMap> {
     MergeState::get_meta(self)
   }
@@ -165,6 +174,7 @@ where
     readers: &'a [CR],
     segment_info: &'a mut SegmentInfo<D>,
     info_stream: Arc<InfoStreamEnum>,
+    intra_merge_task_executor: Arc<TaskExecutor>,
   ) -> Result<Self>
   where
     CR: CodecReader,
@@ -293,6 +303,7 @@ where
       needs_index_sort: false,
       max_docs,
       info_stream,
+      intra_merge_task_executor,
     };
     merge_state.build_doc_maps(readers)?;
     Ok(merge_state)

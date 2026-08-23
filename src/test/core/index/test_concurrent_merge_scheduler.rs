@@ -30,10 +30,11 @@ use crate::core::index::index_writer_config::{IndexWriterConfig, OpenMode};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy;
 use crate::core::index::log_merge_policy::LogMergePolicy;
-use crate::core::index::merge_scheduler::MergeSchedulerEnum;
+use crate::core::index::merge_policy::{OneMerge, OneMergeSR};
+use crate::core::index::merge_scheduler::{MergeScheduler, MergeSchedulerEnum};
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::term::Term;
-use crate::core::index::tiered_merge_policy::TieredMergePolicy;
+use crate::core::index::tiered_merge_policy::{SegmentDocAndID, TieredMergePolicy};
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -435,13 +436,22 @@ fn test_max_merge_count() -> Result<()> {
 
 #[test]
 fn test_small_merges_don_not_get_threads() -> Result<()> {
-  // Rust Lucene does not implement Java Lucene's intra-merge executor selection API.
-  test_not_required_in_rust_lucene!();
+  let merge_scheduler = ConcurrentMergeScheduler::new();
+  let merge: OneMergeSR<DirEnum> = OneMerge::new(vec![SegmentDocAndID::new("test".into(), 0)])?;
+  assert!(
+    merge_scheduler
+      .get_intra_merge_executor(&merge)?
+      .is_direct()
+  );
+  Ok(())
 }
 
 #[test]
+#[ignore = "Java CachedExecutor dynamically subtracts active merge threads from its thread budget; a fixed Rayon pool cannot expose the same per-submission count"]
 fn test_intra_merge_thread_pool_is_limited_by_max_threads() -> Result<()> {
-  // Rust Lucene does not implement Java Lucene's intra-merge executor or its thread-pool limits.
+  // Java's test expects exactly one of four submissions to run on its cached pool and the other
+  // three to run on their merge threads. Rayon bounds the pool as a whole and does not expose that
+  // CachedExecutor admission policy.
   test_not_required_in_rust_lucene!();
 }
 

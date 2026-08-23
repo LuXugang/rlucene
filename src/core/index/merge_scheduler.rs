@@ -23,6 +23,7 @@ use crate::core::index::merge_rate_limiter::MergeRateLimiter;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
@@ -73,6 +74,16 @@ pub trait MergeScheduler: CloseableRef {
   fn wrap_for_merge<D>(&self, _in_: D) -> Result<Self::Directory<D>>
   where
     D: Directory;
+
+  /// Provides an executor for parallelism during a single merge operation. By default, all
+  /// intra-merge actions occur in their calling thread.
+  fn get_intra_merge_executor<D, CR>(&self, _merge: &OneMerge<D, CR>) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    Ok(Arc::new(TaskExecutor::direct()))
+  }
 
   /// [IndexWriter] calls this on init.
   fn initialize<D>(&mut self, _info_stream: InfoStreamMT, _directory: &D) -> Result<()>
@@ -397,6 +408,30 @@ impl MergeScheduler for MergeSchedulerEnum {
       MergeSchedulerEnum::CountingAddIndexes(s) => {
         Ok(MergeSchedulerDirectory::Direct(s.wrap_for_merge(in_)?))
       },
+    }
+  }
+
+  fn get_intra_merge_executor<D, CR>(&self, merge: &OneMerge<D, CR>) -> Result<Arc<TaskExecutor>>
+  where
+    D: Directory,
+    CR: CodecReader,
+  {
+    match self {
+      MergeSchedulerEnum::Serial(s) => s.get_intra_merge_executor(merge),
+      MergeSchedulerEnum::No(n) => n.get_intra_merge_executor(merge),
+      MergeSchedulerEnum::Concurrent(c) => c.get_intra_merge_executor(merge),
+      #[cfg(test)]
+      MergeSchedulerEnum::SerialTest(s) => s.get_intra_merge_executor(merge),
+      #[cfg(test)]
+      MergeSchedulerEnum::LatchedSerial(s) => s.get_intra_merge_executor(merge),
+      #[cfg(test)]
+      MergeSchedulerEnum::KnnMergeScheduler(s) => s.get_intra_merge_executor(merge),
+      #[cfg(test)]
+      MergeSchedulerEnum::IndexWriterMerging(s) => s.get_intra_merge_executor(merge),
+      #[cfg(test)]
+      MergeSchedulerEnum::PartialAddIndexes(s) => s.get_intra_merge_executor(merge),
+      #[cfg(test)]
+      MergeSchedulerEnum::CountingAddIndexes(s) => s.get_intra_merge_executor(merge),
     }
   }
 

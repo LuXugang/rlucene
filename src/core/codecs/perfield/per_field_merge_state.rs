@@ -21,6 +21,7 @@ use crate::core::index::field_infos::{FieldInfos, FieldInfosHook, FilterFieldInf
 use crate::core::index::fields::Fields;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::merge_state::{MergeStateAccess, MergeStateMeta};
+use crate::core::search::task_executor::TaskExecutor;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
@@ -154,6 +155,10 @@ where
 
   fn max_docs(&self) -> &[i32] {
     self.in_.max_docs()
+  }
+
+  fn intra_merge_task_executor(&self) -> &Arc<TaskExecutor> {
+    self.in_.intra_merge_task_executor()
   }
 
   fn get_meta(&self) -> MergeStateMeta<Self::DocMap> {
