@@ -1625,10 +1625,7 @@ where
   type ByteVectorValues = <OffsetCorrectedMergedValues<Q> as ByteVectorValues>::ByteVectorValues;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
-    match self {
-      Self::Requantized(_) => Err(LuceneError::unsupported_operation("")),
-      Self::OffsetCorrected(values) => values.byte_copy(),
-    }
+    Ok(None)
   }
 
   type VectorScorer = DummyVectorScorer;
@@ -1882,7 +1879,7 @@ where
   type ByteVectorValues = DummyByteVectorValues;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(None)
   }
 
   type VectorScorer = DummyVectorScorer;
@@ -2090,7 +2087,7 @@ where
   type ByteVectorValues = Self;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(None)
   }
 
   type VectorScorer = DummyVectorScorer;
@@ -2218,7 +2215,7 @@ where
   type ByteVectorValues = OffsetCorrectedQuantizedByteVectorValues<Q::QuantizedByteVectorValues>;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
-    QuantizedByteVectorValues::copy(self).map(Some)
+    Ok(None)
   }
 
   type VectorScorer = DummyVectorScorer;
