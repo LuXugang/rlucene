@@ -51,7 +51,7 @@ use crate::core::index::index_reader::{
   Identity, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
 use crate::core::index::knn_vector_values::{
-  BitsImpl, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues, KnnVectorValuesEnm2,
+  BitsImpl, DocIndexIterator, DocIndexIteratorEnum2, KnnVectorValues,
 };
 use crate::core::index::leaf_metadata::LeafMetaData;
 use crate::core::index::leaf_reader::LeafReader;
@@ -4510,12 +4510,12 @@ where
     }
   }
 
-  type KnnVectorValues = KnnVectorValuesEnm2<T::KnnVectorValues, U::KnnVectorValues>;
+  type KnnVectorValues = T::KnnVectorValues;
 
   fn copy(&self) -> Result<Self::KnnVectorValues> {
     match self {
-      Self::A(values) => values.copy().map(KnnVectorValuesEnm2::A),
-      Self::B(values) => values.copy().map(KnnVectorValuesEnm2::B),
+      Self::A(values) => values.copy(),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -4571,17 +4571,12 @@ where
     }
   }
 
-  type FloatVectorValues =
-    ReorderedMergeFloatVectorValues<T::FloatVectorValues, U::FloatVectorValues>;
+  type FloatVectorValues = T::FloatVectorValues;
 
   fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     match self {
-      Self::A(values) => values
-        .float_copy()
-        .map(|values| values.map(ReorderedMergeFloatVectorValues::A)),
-      Self::B(values) => values
-        .float_copy()
-        .map(|values| values.map(ReorderedMergeFloatVectorValues::B)),
+      Self::A(values) => values.float_copy(),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -4624,6 +4619,10 @@ where
 }
 
 /// Byte vector values returned by the reordered merge reader.
+///
+/// The sorting branch cannot create a copy or vector scorer, so those results
+/// do not need a second enum layer.  The other associated return types still
+/// vary by branch and remain explicitly enumerated below.
 pub(crate) enum ReorderedMergeByteVectorValues<T, U> {
   A(T),
   B(U),
@@ -4655,12 +4654,12 @@ where
     }
   }
 
-  type KnnVectorValues = KnnVectorValuesEnm2<T::KnnVectorValues, U::KnnVectorValues>;
+  type KnnVectorValues = T::KnnVectorValues;
 
   fn copy(&self) -> Result<Self::KnnVectorValues> {
     match self {
-      Self::A(values) => values.copy().map(KnnVectorValuesEnm2::A),
-      Self::B(values) => values.copy().map(KnnVectorValuesEnm2::B),
+      Self::A(values) => values.copy(),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
@@ -4716,16 +4715,12 @@ where
     }
   }
 
-  type ByteVectorValues = ReorderedMergeByteVectorValues<T::ByteVectorValues, U::ByteVectorValues>;
+  type ByteVectorValues = T::ByteVectorValues;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     match self {
-      Self::A(values) => values
-        .byte_copy()
-        .map(|values| values.map(ReorderedMergeByteVectorValues::A)),
-      Self::B(values) => values
-        .byte_copy()
-        .map(|values| values.map(ReorderedMergeByteVectorValues::B)),
+      Self::A(values) => values.byte_copy(),
+      Self::B(_) => Err(LuceneError::unsupported_operation("")),
     }
   }
 
