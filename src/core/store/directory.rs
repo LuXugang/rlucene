@@ -822,7 +822,196 @@ pub(crate) type MMapDir = FSDirectory<SharedLockFactory, MMapDirectory>;
 #[cfg(test)]
 pub(crate) type ByteBuffersDir = ByteBuffersDirectory<SharedLockFactory>;
 #[cfg(test)]
-pub(crate) type CoreDirEnum = DirectoryEnum3<NioDir, MMapDir, ByteBuffersDir>;
+type CoreDirIndexOutput =
+  IndexOutputEnum2<<NioDir as Directory>::IndexOutput, <ByteBuffersDir as Directory>::IndexOutput>;
+#[cfg(test)]
+type CoreDirIndexInput = IndexInputEnum3<
+  <NioDir as Directory>::IndexInput,
+  <MMapDir as Directory>::IndexInput,
+  <ByteBuffersDir as Directory>::IndexInput,
+>;
+#[cfg(test)]
+type CoreDirLock = <NioDir as Directory>::Lock;
+
+/// Built-in directories used by randomized tests.
+///
+/// NIOFS and MMap use the same output type, and all three implementations use
+/// the same lock type.  Keep only the input enum's three genuinely distinct
+/// variants.
+#[cfg(test)]
+pub(crate) enum CoreDirEnum {
+  A(NioDir),
+  B(MMapDir),
+  C(ByteBuffersDir),
+}
+
+#[cfg(test)]
+impl Display for CoreDirEnum {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::A(inner) => inner.fmt(f),
+      Self::B(inner) => inner.fmt(f),
+      Self::C(inner) => inner.fmt(f),
+    }
+  }
+}
+
+#[cfg(test)]
+impl HasIdentity for CoreDirEnum {
+  fn identity(&self) -> &Identity {
+    match self {
+      Self::A(inner) => inner.identity(),
+      Self::B(inner) => inner.identity(),
+      Self::C(inner) => inner.identity(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl CloseableRef for CoreDirEnum {
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.close(),
+      Self::B(inner) => inner.close(),
+      Self::C(inner) => inner.close(),
+    }
+  }
+}
+
+#[cfg(test)]
+impl Directory for CoreDirEnum {
+  fn list_all(&self) -> Result<Vec<String>> {
+    match self {
+      Self::A(inner) => inner.list_all(),
+      Self::B(inner) => inner.list_all(),
+      Self::C(inner) => inner.list_all(),
+    }
+  }
+
+  fn delete_file(&self, name: &str) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.delete_file(name),
+      Self::B(inner) => inner.delete_file(name),
+      Self::C(inner) => inner.delete_file(name),
+    }
+  }
+
+  fn file_length(&self, name: &str) -> Result<usize> {
+    match self {
+      Self::A(inner) => inner.file_length(name),
+      Self::B(inner) => inner.file_length(name),
+      Self::C(inner) => inner.file_length(name),
+    }
+  }
+
+  type IndexOutput = CoreDirIndexOutput;
+
+  fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
+    match self {
+      Self::A(inner) => inner.create_output(name, context).map(IndexOutputEnum2::A),
+      Self::B(inner) => inner.create_output(name, context).map(IndexOutputEnum2::A),
+      Self::C(inner) => inner.create_output(name, context).map(IndexOutputEnum2::B),
+    }
+  }
+
+  fn create_temp_output(
+    &self,
+    prefix: &str,
+    suffix: &str,
+    context: &IOContext,
+  ) -> Result<Self::IndexOutput> {
+    match self {
+      Self::A(inner) => inner
+        .create_temp_output(prefix, suffix, context)
+        .map(IndexOutputEnum2::A),
+      Self::B(inner) => inner
+        .create_temp_output(prefix, suffix, context)
+        .map(IndexOutputEnum2::A),
+      Self::C(inner) => inner
+        .create_temp_output(prefix, suffix, context)
+        .map(IndexOutputEnum2::B),
+    }
+  }
+
+  fn sync(&self, names: &[String]) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.sync(names),
+      Self::B(inner) => inner.sync(names),
+      Self::C(inner) => inner.sync(names),
+    }
+  }
+
+  fn sync_metadata(&self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.sync_metadata(),
+      Self::B(inner) => inner.sync_metadata(),
+      Self::C(inner) => inner.sync_metadata(),
+    }
+  }
+
+  fn rename(&self, source: &str, dest: &str) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.rename(source, dest),
+      Self::B(inner) => inner.rename(source, dest),
+      Self::C(inner) => inner.rename(source, dest),
+    }
+  }
+
+  type IndexInput = CoreDirIndexInput;
+
+  fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    match self {
+      Self::A(inner) => inner.open_input(name, context).map(IndexInputEnum3::A),
+      Self::B(inner) => inner.open_input(name, context).map(IndexInputEnum3::B),
+      Self::C(inner) => inner.open_input(name, context).map(IndexInputEnum3::C),
+    }
+  }
+
+  type Lock = CoreDirLock;
+
+  fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
+    match self {
+      Self::A(inner) => inner.obtain_lock(name),
+      Self::B(inner) => inner.obtain_lock(name),
+      Self::C(inner) => inner.obtain_lock(name),
+    }
+  }
+
+  fn copy_from<D>(&self, from: &D, src: &str, dest: &str, context: &IOContext) -> Result<()>
+  where
+    D: Directory + ?Sized,
+  {
+    match self {
+      Self::A(inner) => inner.copy_from(from, src, dest, context),
+      Self::B(inner) => inner.copy_from(from, src, dest, context),
+      Self::C(inner) => inner.copy_from(from, src, dest, context),
+    }
+  }
+
+  fn get_pending_deletions(&self) -> Result<HashSet<String>> {
+    match self {
+      Self::A(inner) => inner.get_pending_deletions(),
+      Self::B(inner) => inner.get_pending_deletions(),
+      Self::C(inner) => inner.get_pending_deletions(),
+    }
+  }
+
+  fn is_fs_directory(&self) -> bool {
+    match self {
+      Self::A(inner) => inner.is_fs_directory(),
+      Self::B(inner) => inner.is_fs_directory(),
+      Self::C(inner) => inner.is_fs_directory(),
+    }
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    match self {
+      Self::A(inner) => inner.ensure_open(),
+      Self::B(inner) => inner.ensure_open(),
+      Self::C(inner) => inner.ensure_open(),
+    }
+  }
+}
 #[cfg(test)]
 pub(crate) type FileSwitchDir = FileSwitchDirectory<CoreDirEnum>;
 #[cfg(test)]
@@ -1754,9 +1943,9 @@ impl Directory for RawDirEnum {
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
     match self {
-      Self::Nio(inner) => Ok(IndexOutputEnum3::A(inner.create_output(name, context)?)),
-      Self::MMap(inner) => Ok(IndexOutputEnum3::B(inner.create_output(name, context)?)),
-      Self::ByteBuffers(inner) => Ok(IndexOutputEnum3::C(inner.create_output(name, context)?)),
+      Self::Nio(inner) => Ok(IndexOutputEnum2::A(inner.create_output(name, context)?)),
+      Self::MMap(inner) => Ok(IndexOutputEnum2::A(inner.create_output(name, context)?)),
+      Self::ByteBuffers(inner) => Ok(IndexOutputEnum2::B(inner.create_output(name, context)?)),
       Self::FileSwitch(inner) => inner.create_output(name, context),
     }
   }
@@ -1768,13 +1957,13 @@ impl Directory for RawDirEnum {
     context: &IOContext,
   ) -> Result<Self::IndexOutput> {
     match self {
-      Self::Nio(inner) => Ok(IndexOutputEnum3::A(
+      Self::Nio(inner) => Ok(IndexOutputEnum2::A(
         inner.create_temp_output(prefix, suffix, context)?,
       )),
-      Self::MMap(inner) => Ok(IndexOutputEnum3::B(
+      Self::MMap(inner) => Ok(IndexOutputEnum2::A(
         inner.create_temp_output(prefix, suffix, context)?,
       )),
-      Self::ByteBuffers(inner) => Ok(IndexOutputEnum3::C(
+      Self::ByteBuffers(inner) => Ok(IndexOutputEnum2::B(
         inner.create_temp_output(prefix, suffix, context)?,
       )),
       Self::FileSwitch(inner) => inner.create_temp_output(prefix, suffix, context),
@@ -1823,9 +2012,9 @@ impl Directory for RawDirEnum {
 
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock> {
     match self {
-      Self::Nio(inner) => Ok(LockEnum3::A(inner.obtain_lock(name)?)),
-      Self::MMap(inner) => Ok(LockEnum3::B(inner.obtain_lock(name)?)),
-      Self::ByteBuffers(inner) => Ok(LockEnum3::C(inner.obtain_lock(name)?)),
+      Self::Nio(inner) => inner.obtain_lock(name),
+      Self::MMap(inner) => inner.obtain_lock(name),
+      Self::ByteBuffers(inner) => inner.obtain_lock(name),
       Self::FileSwitch(inner) => inner.obtain_lock(name),
     }
   }

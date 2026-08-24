@@ -56,8 +56,7 @@ use crate::core::search::query::Query;
 use crate::core::search::query_caching_policy::QueryCachingPolicy;
 use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::directory::{
-  CoreDirEnum, DirEnum, Directory, DirectoryEnum3, MaybeNrtDirEnum, MockDirWrapper, RawDirEnum,
-  SharedLockFactory,
+  CoreDirEnum, DirEnum, Directory, MaybeNrtDirEnum, MockDirWrapper, RawDirEnum, SharedLockFactory,
 };
 use crate::core::store::file_switch_directory::FileSwitchDirectory;
 use crate::core::store::flush_info::FlushInfo;
@@ -1165,17 +1164,17 @@ where
         DirectoryImpl::ByteBuffersDirectory
       };
       let dir1 = match new_directory_impl_with_lock_factory(random, directory_impl1, lf.clone())? {
-        RawDirEnum::Nio(directory) => DirectoryEnum3::A(directory),
-        RawDirEnum::MMap(directory) => DirectoryEnum3::B(directory),
-        RawDirEnum::ByteBuffers(directory) => DirectoryEnum3::C(directory),
+        RawDirEnum::Nio(directory) => CoreDirEnum::A(directory),
+        RawDirEnum::MMap(directory) => CoreDirEnum::B(directory),
+        RawDirEnum::ByteBuffers(directory) => CoreDirEnum::C(directory),
         RawDirEnum::FileSwitch(_) => {
           unreachable!("CORE_DIRECTORIES must not create a FileSwitchDirectory")
         },
       };
       let dir2 = match new_directory_impl_with_lock_factory(random, directory_impl2, lf)? {
-        RawDirEnum::Nio(directory) => DirectoryEnum3::A(directory),
-        RawDirEnum::MMap(directory) => DirectoryEnum3::B(directory),
-        RawDirEnum::ByteBuffers(directory) => DirectoryEnum3::C(directory),
+        RawDirEnum::Nio(directory) => CoreDirEnum::A(directory),
+        RawDirEnum::MMap(directory) => CoreDirEnum::B(directory),
+        RawDirEnum::ByteBuffers(directory) => CoreDirEnum::C(directory),
         RawDirEnum::FileSwitch(_) => {
           unreachable!("CORE_DIRECTORIES must not create a FileSwitchDirectory")
         },
