@@ -405,7 +405,7 @@ where
   pub(crate) fn drop_all(&self, segment_infos: &mut SegmentInfos<D>) -> Result<()> {
     let mut inner = self.inner.lock();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close(inner.reader_map.drain(), |(info_id, rld)| {
+      IOUtils::close_with(inner.reader_map.drain(), |(info_id, rld)| {
         rld.drop_readers()?;
         if rld.ref_count() == 0 {
           segment_infos.remove_dropped_segment_commit_info(&info_id);

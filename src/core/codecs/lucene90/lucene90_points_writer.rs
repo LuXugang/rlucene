@@ -182,10 +182,7 @@ where
   O: IndexOutput,
 {
   fn close(&mut self) -> Result<()> {
-    IOUtils::close(
-      [&mut self.meta_out, &mut self.index_out, &mut self.data_out],
-      Closeable::close,
-    )
+    IOUtils::close([&mut self.meta_out, &mut self.index_out, &mut self.data_out])
   }
 }
 

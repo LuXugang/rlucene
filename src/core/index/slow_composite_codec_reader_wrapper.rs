@@ -1186,7 +1186,7 @@ where
   SFR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(self.readers.iter().flatten())
+    IOUtils::close_with(self.readers.iter().flatten(), |reader| reader.close())
   }
 }
 
@@ -1421,7 +1421,7 @@ where
   TVR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(self.readers.iter().flatten())
+    IOUtils::close_with(self.readers.iter().flatten(), |reader| reader.close())
   }
 }
 
@@ -1473,7 +1473,7 @@ where
   CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(self.producers.iter().flatten())
+    IOUtils::close_with(self.producers.iter().flatten(), |producer| producer.close())
   }
 }
 
@@ -1535,7 +1535,7 @@ where
   CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(self.producers.iter().flatten())
+    IOUtils::close_with(self.producers.iter().flatten(), |producer| producer.close())
   }
 }
 
@@ -1727,7 +1727,7 @@ where
   FP: Fields + CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(self.fields.subs.iter())
+    IOUtils::close_with(self.fields.subs.iter(), |field| field.close())
   }
 }
 
@@ -1808,7 +1808,7 @@ where
   CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(self.readers.iter().flatten())
+    IOUtils::close_with(self.readers.iter().flatten(), |reader| reader.close())
   }
 }
 
@@ -2356,7 +2356,7 @@ where
   CR: CodecReader,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(self.readers.iter().flatten())
+    IOUtils::close_with(self.readers.iter().flatten(), |reader| reader.close())
   }
 }
 

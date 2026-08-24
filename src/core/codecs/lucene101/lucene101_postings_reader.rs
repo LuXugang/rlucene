@@ -390,15 +390,11 @@ where
   I: IndexInput,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs(
-      [
-        Some(&self.doc_in),
-        self.pos_in.as_ref(),
-        self.pay_in.as_ref(),
-      ]
-      .into_iter()
-      .flatten(),
-    )
+    IOUtils::close([
+      Some(&self.doc_in),
+      self.pos_in.as_ref(),
+      self.pay_in.as_ref(),
+    ])
   }
 }
 

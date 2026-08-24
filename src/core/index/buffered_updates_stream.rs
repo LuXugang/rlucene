@@ -340,10 +340,9 @@ where
     writer: &IndexWriter<D>,
     inner: &mut crate::core::index::index_writer::Inner<D>,
   ) -> Result<()> {
-    IOUtils::close(0..2, |operation| match operation {
+    IOUtils::close_with(0..2, |operation| match operation {
       0 => self.rld.release(self.reader.as_ref(), None),
-      1 => writer.release(self.rld.as_ref(), inner),
-      _ => unreachable!(),
+      _ => writer.release(self.rld.as_ref(), inner),
     })
   }
 }

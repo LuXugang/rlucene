@@ -2692,10 +2692,9 @@ where
       // below that sets closed:
       self.closed.store(true, Ordering::SeqCst);
 
-      IOUtils::close(0..2, |operation| match operation {
-        0 => IOUtils::close_one_ref(self.writer_lock()),
-        1 => cleanup_and_notify(),
-        _ => unreachable!(),
+      IOUtils::close_with(0..2, |operation| match operation {
+        0 => IOUtils::close(self.writer_lock()),
+        _ => cleanup_and_notify(),
       })?;
       Ok(())
     }));
@@ -2726,7 +2725,7 @@ where
           IOUtils::close_while_handling_exception_with(0..4, |operation| match operation {
             0 => self.reader_pool.close(&mut inner.segment_infos),
             1 => inner.deleter.close(),
-            2 => IOUtils::close_one_ref(self.writer_lock()),
+            2 => IOUtils::close(self.writer_lock()),
             _ => cleanup_and_notify(),
           })
         },
@@ -2865,7 +2864,7 @@ where
 
     // Abort all pending & running merges:
     let mut pending_merges = std::mem::take(&mut inner.pending_merges);
-    IOUtils::close(pending_merges.make_contiguous().iter_mut(), |merge| {
+    IOUtils::close_with(pending_merges.make_contiguous().iter_mut(), |merge| {
       if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
           "IW",
@@ -3323,7 +3322,7 @@ where
       unwrap_caught_result!(result)
     }));
     if success_top {
-      IOUtils::close_refs(&locks)?;
+      IOUtils::close_with(&locks, CloseableRef::close)?;
     } else {
       IOUtils::close_while_handling_exception_with(&locks, CloseableRef::close)?;
     }
@@ -6580,7 +6579,7 @@ where
       Ok(())
     }));
 
-    IOUtils::close(seg_states.iter_mut(), |state| state.close(self, inner))?;
+    IOUtils::close_with(seg_states.iter_mut(), |state| state.close(self, inner))?;
     unwrap_caught_result!(res)?;
 
     if self.info_stream.is_enabled("BD") {
@@ -6682,7 +6681,7 @@ where
 
     if !matches!(&result, Ok(Ok(()))) {
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        IOUtils::close(seg_states.iter_mut(), |state| state.close(self, inner))
+        IOUtils::close_with(seg_states.iter_mut(), |state| state.close(self, inner))
       }));
       IOUtils::use_or_suppress_caught_result(result, close_result)?;
       unreachable!();
@@ -6909,7 +6908,7 @@ where
                         let mut inner = writer.inner.lock();
                         stop_collecting_merged_readers.store(true, Ordering::SeqCst);
                         let merged_readers = merged_readers.lock();
-                        IOUtils::close(merged_readers.values(), |reader| {
+                        IOUtils::close_with(merged_readers.values(), |reader| {
                           let dec_ref_result =
                             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                               reader
@@ -7044,7 +7043,7 @@ where
     )?;
     {
       let mut merged_readers = merged_readers.lock();
-      IOUtils::close(merged_readers.values(), |reader| reader.close())?;
+      IOUtils::close_with(merged_readers.values(), |reader| reader.close())?;
       merged_readers.clear();
     }
     Ok(reader)
@@ -8535,7 +8534,7 @@ where
       let mut pending_merges = self.pending_merges.lock();
       std::mem::take(&mut *pending_merges)
     };
-    let result = IOUtils::close(pending_merges.make_contiguous().iter_mut(), |merge| {
+    let result = IOUtils::close_with(pending_merges.make_contiguous().iter_mut(), |merge| {
       if self.writer().info_stream.is_enabled("IW") {
         self
           .writer()
@@ -9153,7 +9152,7 @@ where
   {
     let registered_merge_count = self.registered_merges.len();
     let merge_count = registered_merge_count + self.rejected_merges.len();
-    IOUtils::close(0..merge_count, |index| {
+    IOUtils::close_with(0..merge_count, |index| {
       if index < registered_merge_count {
         let merge_stat = &self.registered_merges[index];
         let position = inner

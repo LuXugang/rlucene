@@ -260,16 +260,15 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
       Ok(())
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close(0..2, |operation| match operation {
+      IOUtils::close_with(0..2, |operation| match operation {
         0 => match output.as_mut() {
           Some(output) => output.close(),
           None => Ok(()),
         },
-        1 => match input.as_mut() {
+        _ => match input.as_mut() {
           Some(input) => input.close(),
           None => Ok(()),
         },
-        _ => unreachable!(),
       })
     }));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

@@ -332,7 +332,7 @@ where
   O: IndexOutput,
 {
   fn close(&mut self) -> Result<()> {
-    IOUtils::close(self.formats.values_mut(), Closeable::close)
+    IOUtils::close_with(self.formats.values_mut(), Closeable::close)
   }
 }
 
@@ -567,7 +567,7 @@ where
   KVR: CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.fields.values(), |reader| reader.close())
+    IOUtils::close_with(self.fields.values(), |reader| reader.close())
   }
 }
 

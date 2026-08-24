@@ -400,7 +400,7 @@ where
 {
   fn close(&mut self) -> Result<()> {
     // Close all subs.
-    IOUtils::close(self.formats.values_mut(), Closeable::close)
+    IOUtils::close_with(self.formats.values_mut(), Closeable::close)
   }
 }
 
@@ -560,7 +560,7 @@ where
   DVP: CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.formats.values(), |format| format.close())
+    IOUtils::close_with(self.formats.values(), |format| format.close())
   }
 }
 

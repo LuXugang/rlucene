@@ -457,12 +457,11 @@ where
       Ok(())
     }));
     if success {
-      IOUtils::close(0..4, |operation| match operation {
+      IOUtils::close_with(0..4, |operation| match operation {
         0 => self.meta_out.close(),
         1 => self.terms_out.close(),
         2 => self.index_out.close(),
-        3 => self.postings_writer.close(),
-        _ => unreachable!(),
+        _ => self.postings_writer.close(),
       })?;
     } else {
       IOUtils::close_while_handling_exception((

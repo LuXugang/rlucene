@@ -324,7 +324,7 @@ where
   O: Closeable,
 {
   fn close(&mut self) -> Result<()> {
-    IOUtils::close([&mut self.meta, &mut self.vector_data], Closeable::close)
+    IOUtils::close([&mut self.meta, &mut self.vector_data])
   }
 }
 
@@ -543,7 +543,7 @@ where
           },
         };
         CodecUtil::write_footer(&mut temp_vector_data)?;
-        IOUtils::close_one(&mut temp_vector_data)?;
+        IOUtils::close(&mut temp_vector_data)?;
 
         let random_context = segment_write_state
           .context

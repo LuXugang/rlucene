@@ -598,11 +598,10 @@ where
   F: FlatVectorsWriter,
 {
   fn close(&mut self) -> Result<()> {
-    IOUtils::close(0..3, |operation| match operation {
+    IOUtils::close_with(0..3, |operation| match operation {
       0 => self.meta.close(),
       1 => self.vector_index.close(),
-      2 => self.flat_vector_writer.close(),
-      _ => unreachable!(),
+      _ => self.flat_vector_writer.close(),
     })
   }
 }

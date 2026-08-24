@@ -1402,10 +1402,9 @@ where
       Ok(())
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close(0..2, |operation| match operation {
+      IOUtils::close_with(0..2, |operation| match operation {
         0 => writer.close(),
-        1 => reader.close(),
-        _ => unreachable!(),
+        _ => reader.close(),
       })
     }));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

@@ -557,7 +557,7 @@ where
       if let Some(ref mut pay_out) = self.pay_out {
         outputs.push(pay_out);
       }
-      IOUtils::close(outputs, Closeable::close)?;
+      IOUtils::close(outputs)?;
     } else {
       IOUtils::close_while_handling_exception((
         &mut self.meta_out,

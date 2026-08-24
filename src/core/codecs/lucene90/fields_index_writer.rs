@@ -161,10 +161,7 @@ where
     CodecUtil::write_footer(&mut self.file_pointers_out)?;
     let docs_out_file_name = self.docs_out.get_name().to_string();
     let file_pointers_out_file_name = self.file_pointers_out.get_name().to_string();
-    let close_result = IOUtils::close(
-      [&mut self.docs_out, &mut self.file_pointers_out],
-      Closeable::close,
-    );
+    let close_result = IOUtils::close([&mut self.docs_out, &mut self.file_pointers_out]);
     if close_result.is_ok() {
       self.temp_outputs_closed = true;
     }
@@ -297,8 +294,8 @@ where
         Ok(())
       } else {
         match file_pointers_out.as_deref_mut() {
-          Some(out) => IOUtils::close([&mut *docs_out, out], Closeable::close),
-          None => IOUtils::close(std::iter::once(&mut *docs_out), Closeable::close),
+          Some(out) => IOUtils::close([&mut *docs_out, out]),
+          None => IOUtils::close(&mut *docs_out),
         }
       }
     }));

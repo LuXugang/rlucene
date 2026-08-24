@@ -87,7 +87,7 @@ where
   PR: PostingsReaderBase,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs_tuple((Some(&self.terms_in), Some(&self.postings_reader)))
+    IOUtils::close((Some(&self.terms_in), Some(&self.postings_reader)))
   }
 }
 
@@ -389,7 +389,7 @@ where
 {
   fn close(&self) -> Result<()> {
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close_refs_tuple((
+      IOUtils::close((
         Some(self.index_in.as_ref()),
         Some(self.terms_reader.as_ref()),
       ))

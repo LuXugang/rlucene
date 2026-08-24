@@ -5081,7 +5081,7 @@ fn test_refresh_and_rollback_concurrently() -> Result<()> {
     Ok(())
   });
 
-  let close_result = IOUtils::close_refs_tuple((Some(&sm), Some(dir.as_ref())));
+  let close_result = IOUtils::close((Some(&sm), Some(dir.as_ref())));
   IOUtils::use_or_suppress_result(body_result, close_result)
 }
 

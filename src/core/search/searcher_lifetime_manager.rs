@@ -226,7 +226,7 @@ where
       }
     }
 
-    IOUtils::close(&to_close, |tracker| tracker.close())?;
+    IOUtils::close_with(&to_close, |tracker| tracker.close())?;
 
     // Make some effort to catch misuse.
     if !self.searchers.read().is_empty() {

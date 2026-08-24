@@ -135,10 +135,9 @@ where
         Ok(())
       }));
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        IOUtils::close(0..2, |operation| match operation {
+        IOUtils::close_with(0..2, |operation| match operation {
           0 => input.close(),
-          1 => tmp_out.close(),
-          _ => unreachable!(),
+          _ => tmp_out.close(),
         })
       }));
       IOUtils::use_or_suppress_caught_result(body_result, close_result)?;

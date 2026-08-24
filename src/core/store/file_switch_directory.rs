@@ -153,7 +153,7 @@ where
   fn close(&self) -> Result<()> {
     let mut do_close = self.do_close.lock();
     if *do_close {
-      IOUtils::close_refs_tuple((Some(&self.primary_dir), Some(&self.secondary_dir)))?;
+      IOUtils::close((Some(&self.primary_dir), Some(&self.secondary_dir)))?;
       *do_close = false;
     }
     Ok(())

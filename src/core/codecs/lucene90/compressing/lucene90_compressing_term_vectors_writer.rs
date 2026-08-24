@@ -952,11 +952,10 @@ where
     }
 
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close(0..3, |operation| match operation {
+      IOUtils::close_with(0..3, |operation| match operation {
         0 => self.meta_stream.close(),
         1 => self.vectors_stream.close(),
-        2 => self.index_writer.close(),
-        _ => unreachable!(),
+        _ => self.index_writer.close(),
       })
     }));
     self.closed = true;

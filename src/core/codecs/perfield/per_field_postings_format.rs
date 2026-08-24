@@ -566,7 +566,7 @@ where
   FP: CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close(self.formats.values(), |format| format.close())
+    IOUtils::close_with(self.formats.values(), |format| format.close())
   }
 }
 

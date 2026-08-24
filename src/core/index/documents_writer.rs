@@ -379,16 +379,15 @@ where
   }
   pub(crate) fn close(&self) -> Result<()> {
     self.closed.store(true, Ordering::SeqCst);
-    IOUtils::close(0..2, |operation| match operation {
+    IOUtils::close_with(0..2, |operation| match operation {
       0 => {
         self.flush_control.close();
         Ok(())
       },
-      1 => {
+      _ => {
         self.flush_control.per_thread_pool.close();
         Ok(())
       },
-      _ => unreachable!(),
     })
   }
   /// Called if we hit an error at a bad time (when updating the index files) and must discard

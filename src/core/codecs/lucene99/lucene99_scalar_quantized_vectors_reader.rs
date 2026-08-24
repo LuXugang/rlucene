@@ -312,7 +312,7 @@ where
   R: CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs_tuple((
+    IOUtils::close((
       Some(&self.quantized_vector_data),
       Some(&self.raw_vectors_reader),
     ))

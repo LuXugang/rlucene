@@ -264,10 +264,9 @@ where
 
     let finally_result =
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-        IOUtils::close(0..2, |operation| match operation {
+        IOUtils::close_with(0..2, |operation| match operation {
           0 => reader.close(),
-          1 => writer.close(),
-          _ => unreachable!(),
+          _ => writer.close(),
         })?;
 
         let file_names: Vec<String> = self

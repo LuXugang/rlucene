@@ -963,7 +963,7 @@ where
       Ok(())
     }));
     if success {
-      IOUtils::close([&mut self.data, &mut self.meta], Closeable::close)?;
+      IOUtils::close([&mut self.data, &mut self.meta])?;
     } else {
       IOUtils::close_while_handling_exception((&mut self.data, &mut self.meta));
     }

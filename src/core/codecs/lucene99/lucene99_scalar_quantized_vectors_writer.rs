@@ -397,7 +397,7 @@ where
           self.compress,
         )?;
         CodecUtil::write_footer(&mut temp_quantized_vector_data)?;
-        IOUtils::close_one(&mut temp_quantized_vector_data)?;
+        IOUtils::close(&mut temp_quantized_vector_data)?;
 
         quantization_data_input = Some(
           segment_write_state
@@ -496,11 +496,10 @@ where
   R: FlatVectorsWriter,
 {
   fn close(&mut self) -> Result<()> {
-    IOUtils::close(0..3, |operation| match operation {
+    IOUtils::close_with(0..3, |operation| match operation {
       0 => self.meta.close(),
       1 => self.quantized_vector_data.close(),
-      2 => self.raw_vector_delegate.close(),
-      _ => unreachable!(),
+      _ => self.raw_vector_delegate.close(),
     })
   }
 }

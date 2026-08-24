@@ -186,7 +186,7 @@ where
     };
 
     if !success {
-      IOUtils::close_refs_tuple((
+      IOUtils::close((
         fields.as_ref(),
         term_vectors_reader_orig.as_ref(),
         fields_reader_orig.as_ref(),
@@ -200,7 +200,7 @@ where
     let fields_reader_orig = match fields_reader_orig.take() {
       Some(fields_reader_orig) => fields_reader_orig,
       None => {
-        IOUtils::close_refs_tuple((
+        IOUtils::close((
           fields.as_ref(),
           term_vectors_reader_orig.as_ref(),
           cfs_reader.as_ref(),
@@ -258,8 +258,8 @@ where
   pub(crate) fn dec_ref(&self) -> Result<()> {
     let count = self.ref_.fetch_sub(1, Ordering::SeqCst) - 1;
     if count == 0 {
-      IOUtils::close(0..2, |operation| match operation {
-        0 => IOUtils::close_refs_tuple((
+      IOUtils::close_with(0..2, |operation| match operation {
+        0 => IOUtils::close((
           self.fields.as_ref(),
           self.term_vectors_reader_orig.as_ref(),
           Some(&self.fields_reader_orig),
@@ -268,8 +268,7 @@ where
           self.points_reader.as_ref(),
           self.knn_vectors_reader.as_ref(),
         )),
-        1 => self.cache_helper.notify_core_closed_listeners(),
-        _ => unreachable!(),
+        _ => self.cache_helper.notify_core_closed_listeners(),
       })?;
     }
     Ok(())

@@ -281,7 +281,7 @@ fn test_double_close() -> Result<()> {
   // the original reader once (as per Closeable.close() contract that close() is
   // idempotent).
   let close_wrapped_first = random.random_bool(0.5);
-  IOUtils::close(0..2, |index| {
+  IOUtils::close_with(0..2, |index| {
     if (index == 0) == close_wrapped_first {
       wrapped.close()
     } else {

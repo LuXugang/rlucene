@@ -455,7 +455,7 @@ where
   /// Close the underlying [`IndexInput`]s.
   fn close(&self) -> Result<()> {
     if !self.closed.load(Ordering::Relaxed) {
-      IOUtils::close_refs_tuple((Some(&self.index_reader), Some(&self.vectors_stream)))?;
+      IOUtils::close((Some(&self.index_reader), Some(&self.vectors_stream)))?;
       self.closed.store(true, Ordering::Relaxed);
     }
     Ok(())

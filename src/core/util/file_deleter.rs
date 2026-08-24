@@ -85,7 +85,7 @@ where
   {
     let mut to_delete = HashSet::new();
     let dec_ref_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close(file_names, |file_name| {
+      IOUtils::close_with(file_names, |file_name| {
         if self.dec_ref_single(file_name.as_str())? {
           to_delete.insert(file_name);
         }

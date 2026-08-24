@@ -139,11 +139,10 @@ pub trait IndexReader: Display {
     let rc = base.state.ref_count.fetch_sub(1, Ordering::SeqCst) - 1;
     if rc == 0 {
       base.state.closed.store(true, Ordering::SeqCst);
-      IOUtils::close(0..3, |operation| match operation {
+      IOUtils::close_with(0..3, |operation| match operation {
         0 => self.do_close(),
         1 => self.notify_reader_closed_listeners(),
-        2 => self.report_close_to_parent_readers(),
-        _ => unreachable!(),
+        _ => self.report_close_to_parent_readers(),
       })?;
     } else if rc < 0 {
       return Err(LuceneError::illegal_state(format!(

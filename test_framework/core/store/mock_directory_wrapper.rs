@@ -583,10 +583,9 @@ where
                 Ok(temp_file_name)
               }));
             let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-              IOUtils::close(0..2, |operation| match operation {
+              IOUtils::close_with(0..2, |operation| match operation {
                 0 => ii.close(),
-                1 => temp_out.close(),
-                _ => unreachable!(),
+                _ => temp_out.close(),
               })
             }));
             IOUtils::use_or_suppress_caught_result(result, close_result)
@@ -621,10 +620,9 @@ where
                 out.copy_bytes(&mut ii, length)
               }));
             let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-              IOUtils::close(0..2, |operation| match operation {
+              IOUtils::close_with(0..2, |operation| match operation {
                 0 => ii.close(),
-                1 => out.close(),
-                _ => unreachable!(),
+                _ => out.close(),
               })
             }));
             IOUtils::use_or_suppress_caught_result(result, close_result)
@@ -693,10 +691,9 @@ where
                 Ok(temp_file_name)
               }));
             let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-              IOUtils::close(0..2, |operation| match operation {
+              IOUtils::close_with(0..2, |operation| match operation {
                 0 => ii.close(),
-                1 => temp_out.close(),
-                _ => unreachable!(),
+                _ => temp_out.close(),
               })
             }));
             IOUtils::use_or_suppress_caught_result(result, close_result)
@@ -731,10 +728,9 @@ where
                 out.copy_bytes(&mut ii, length)
               }));
             let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-              IOUtils::close(0..2, |operation| match operation {
+              IOUtils::close_with(0..2, |operation| match operation {
                 0 => ii.close(),
-                1 => out.close(),
-                _ => unreachable!(),
+                _ => out.close(),
               })
             }));
             IOUtils::use_or_suppress_caught_result(result, close_result)

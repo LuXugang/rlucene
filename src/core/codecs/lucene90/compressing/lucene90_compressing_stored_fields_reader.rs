@@ -452,7 +452,7 @@ where
       return Ok(());
     }
 
-    IOUtils::close_refs_tuple((Some(&self.index_reader), Some(&self.state.fields_stream)))?;
+    IOUtils::close((Some(&self.index_reader), Some(&self.state.fields_stream)))?;
     self.closed.store(true, Ordering::Relaxed);
     Ok(())
   }

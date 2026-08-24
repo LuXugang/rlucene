@@ -406,7 +406,7 @@ where
   I: CloseableRef,
 {
   fn close(&self) -> Result<()> {
-    IOUtils::close_refs_tuple((Some(&self.flat_vectors_reader), Some(&self.vector_index)))
+    IOUtils::close((Some(&self.flat_vectors_reader), Some(&self.vector_index)))
   }
 }
 

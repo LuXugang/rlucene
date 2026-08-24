@@ -192,7 +192,7 @@ impl CompoundFormat for Lucene90CompoundFormat {
       CodecUtil::write_footer(&mut entries)
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close([&mut entries, &mut data], Closeable::close)
+      IOUtils::close([&mut entries, &mut data])
     }));
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }

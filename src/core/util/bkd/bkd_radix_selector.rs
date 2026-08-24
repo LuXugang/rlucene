@@ -206,9 +206,7 @@ impl BKDRadixSelector {
           )
         }));
         let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          IOUtils::close([&mut right_writer, &mut left_writer], |writer| {
-            writer.close()
-          })
+          IOUtils::close([&mut right_writer, &mut left_writer])
         }));
         let partition = IOUtils::use_or_suppress_caught_result(partition_result, close_result)?;
 

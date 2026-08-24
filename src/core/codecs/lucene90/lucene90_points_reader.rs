@@ -231,7 +231,7 @@ where
   fn close(&self) -> Result<()> {
     {
       let data_in = self.data_in.lock();
-      IOUtils::close_refs([self.index_in.as_ref(), &*data_in])?;
+      IOUtils::close([self.index_in.as_ref(), &*data_in])?;
     }
     // Free up heap:
     self.readers.write().clear();

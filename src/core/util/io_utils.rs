@@ -99,22 +99,78 @@ macro_rules! finish_close_result {
   }};
 }
 
-pub(crate) trait CloseableRefTuple {
-  fn close_refs(self) -> Result<()>;
+/// One or more resources that can be passed directly to [`IOUtils::close`].
+///
+/// This trait is an implementation detail of `IOUtils`; callers should use
+/// [`IOUtils::close`] rather than invoking it directly.
+#[doc(hidden)]
+pub trait CloseResources {
+  fn close_resources(self) -> Result<()>;
 }
 
-macro_rules! impl_closeable_ref_tuple {
+impl<T> CloseResources for &mut T
+where
+  T: Closeable + ?Sized,
+{
+  fn close_resources(self) -> Result<()> {
+    Closeable::close(self)
+  }
+}
+
+impl<T> CloseResources for &T
+where
+  T: CloseableRef + ?Sized,
+{
+  fn close_resources(self) -> Result<()> {
+    CloseableRef::close(self)
+  }
+}
+
+impl<T> CloseResources for Option<T>
+where
+  T: CloseResources,
+{
+  fn close_resources(self) -> Result<()> {
+    self.map_or(Ok(()), CloseResources::close_resources)
+  }
+}
+
+impl<T, const N: usize> CloseResources for [T; N]
+where
+  T: CloseResources,
+{
+  fn close_resources(self) -> Result<()> {
+    let mut failures = Vec::new();
+    for resource in self {
+      record_close_result!(resource.close_resources(), failures);
+    }
+    finish_close_result!(failures)
+  }
+}
+
+impl<T> CloseResources for Vec<T>
+where
+  T: CloseResources,
+{
+  fn close_resources(self) -> Result<()> {
+    let mut failures = Vec::new();
+    for resource in self {
+      record_close_result!(resource.close_resources(), failures);
+    }
+    finish_close_result!(failures)
+  }
+}
+
+macro_rules! impl_close_resources_tuple {
   ($(($T:ident, $index:tt)),+) => {
-    impl<'a, $($T),+> CloseableRefTuple for ($(Option<&'a $T>,)+)
+    impl<$($T),+> CloseResources for ($($T,)+)
     where
-      $($T: CloseableRef + ?Sized + 'a),+
+      $($T: CloseResources),+
     {
-      fn close_refs(self) -> Result<()> {
+      fn close_resources(self) -> Result<()> {
         let mut failures = Vec::new();
         $(
-          if let Some(object) = self.$index {
-            record_close_result!(object.close(), failures);
-          }
+          record_close_result!(self.$index.close_resources(), failures);
         )+
         finish_close_result!(failures)
       }
@@ -122,13 +178,13 @@ macro_rules! impl_closeable_ref_tuple {
   };
 }
 
-impl_closeable_ref_tuple!((A, 0), (B, 1));
-impl_closeable_ref_tuple!((A, 0), (B, 1), (C, 2));
-impl_closeable_ref_tuple!((A, 0), (B, 1), (C, 2), (D, 3));
-impl_closeable_ref_tuple!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4));
-impl_closeable_ref_tuple!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5));
-impl_closeable_ref_tuple!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5), (G, 6));
-impl_closeable_ref_tuple!(
+impl_close_resources_tuple!((A, 0), (B, 1));
+impl_close_resources_tuple!((A, 0), (B, 1), (C, 2));
+impl_close_resources_tuple!((A, 0), (B, 1), (C, 2), (D, 3));
+impl_close_resources_tuple!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4));
+impl_close_resources_tuple!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5));
+impl_close_resources_tuple!((A, 0), (B, 1), (C, 2), (D, 3), (E, 4), (F, 5), (G, 6));
+impl_close_resources_tuple!(
   (A, 0),
   (B, 1),
   (C, 2),
@@ -272,7 +328,7 @@ impl IOUtils {
     I: IntoIterator<Item = P>,
     P: AsRef<Path>,
   {
-    Self::close(files, |file| {
+    Self::close_with(files, |file| {
       let path = file.as_ref();
       match fs::remove_file(path) {
         Ok(()) => Ok(()),
@@ -305,22 +361,36 @@ impl IOUtils {
     #[cfg(test)]
     let _execution_scope =
       ExecutionScope::enter(ExecutionOwner::IOUtils, ExecutionMethod::DeleteFiles);
-    Self::close(names, |name| dir.delete_file(name))
+    Self::close_with(names, |name| dir.delete_file(name))
   }
 
-  /// Closes the given object.
-  pub fn close_one<T>(object: &mut T) -> Result<()>
-  where
-    T: Closeable,
-  {
-    Self::close(std::iter::once(object), Closeable::close)
-  }
-
-  /// Closes all given objects.
+  /// Closes one or more resources.
   ///
-  /// After everything is closed, the method either returns the first failure it
-  /// hit while closing, or completes normally if there were no failures.
-  pub fn close<I, F>(objects: I, mut close: F) -> Result<()>
+  /// Pass a resource directly, or pass an array, vector, or tuple when closing
+  /// multiple resources. Tuple elements may have different concrete types and
+  /// are closed from left to right. `None` resources are ignored, like `null`
+  /// elements in Java.
+  ///
+  /// After everything is closed, the method returns or resumes the first
+  /// failure and retains later failures as suppressed failures.
+  pub fn close<T>(resources: T) -> Result<()>
+  where
+    T: CloseResources,
+  {
+    resources.close_resources()
+  }
+
+  /// Closes every item yielded by `objects` using the supplied `close`
+  /// operation.
+  ///
+  /// This is the iterator/custom-operation form of Java's `IOUtils.close`. Use
+  /// it for an arbitrary-length iterator or when the cleanup operation is not
+  /// the resource's standard `close` method. For resources that can be passed
+  /// directly, use [`Self::close`] instead.
+  ///
+  /// After everything is closed, the method returns or resumes the first
+  /// failure and retains later failures as suppressed failures.
+  pub fn close_with<I, F>(objects: I, mut close: F) -> Result<()>
   where
     I: IntoIterator,
     F: FnMut(I::Item) -> Result<()>,
@@ -330,38 +400,6 @@ impl IOUtils {
       record_close_result!(close(object), failures);
     }
     finish_close_result!(failures)
-  }
-
-  /// Closes the given object by shared reference.
-  pub fn close_one_ref<T>(object: &T) -> Result<()>
-  where
-    T: CloseableRef,
-  {
-    Self::close_refs(std::iter::once(object))
-  }
-
-  /// Closes all given objects by shared reference.
-  ///
-  /// After everything is closed, the method either returns the first error it hit
-  /// while closing, or completes normally if there were no errors.
-  pub fn close_refs<I>(objects: I) -> Result<()>
-  where
-    I: IntoIterator,
-    I::Item: CloseableRef,
-  {
-    Self::close(objects, |object| object.close())
-  }
-
-  /// Closes a tuple of different concrete types by shared reference.
-  ///
-  /// `None` elements are ignored. After everything is closed, the method either
-  /// returns the first failure it hit while closing, or completes normally if
-  /// there were no failures.
-  pub(crate) fn close_refs_tuple<T>(objects: T) -> Result<()>
-  where
-    T: CloseableRefTuple,
-  {
-    objects.close_refs()
   }
 
   /// Closes every item yielded by `objects` using the supplied `close`
@@ -557,6 +595,6 @@ impl IOUtils {
   where
     F: FnMut(&T) -> Result<()>,
   {
-    Self::close(collection, consumer)
+    Self::close_with(collection, consumer)
   }
 }

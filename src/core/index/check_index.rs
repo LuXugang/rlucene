@@ -4910,10 +4910,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       checker.do_check(&mut options)
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close(0..2, |operation| match operation {
+      IOUtils::close_with(0..2, |operation| match operation {
         0 => checker.close(),
-        1 => directory.close(),
-        _ => unreachable!(),
+        _ => directory.close(),
       })
     }));
     IOUtils::use_or_suppress_caught_result(result, close_result)

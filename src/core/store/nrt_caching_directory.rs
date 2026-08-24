@@ -393,7 +393,7 @@ where
   fn close(&self) -> Result<()> {
     // Technically IndexWriter should already have synced all files, but do this
     // defensively and for applications that create outputs directly.
-    IOUtils::close(0..3, |operation| match operation {
+    IOUtils::close_with(0..3, |operation| match operation {
       0 => {
         if !self.closed.swap(true, Ordering::SeqCst) {
           for file_name in self.cache_directory.list_all()? {
@@ -403,8 +403,7 @@ where
         Ok(())
       },
       1 => self.cache_directory.close(),
-      2 => self.delegate.close(),
-      _ => unreachable!(),
+      _ => self.delegate.close(),
     })
   }
 }
