@@ -44,7 +44,9 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::fields::Fields;
 use crate::core::index::float_vector_values::FloatVectorValues;
-use crate::core::index::freq_prox_terms_writer::SortingTerms;
+use crate::core::index::freq_prox_terms_writer::{
+  SortingPostingsEnumType, SortingTerms, SortingTermsEnum,
+};
 use crate::core::index::index_reader::{
   Identity, IndexReader, IndexReaderBase, LeafReaderContextKind,
 };
@@ -58,6 +60,7 @@ use crate::core::index::numeric_doc_values_writer::{NumericDVs, SortingNumericDo
 use crate::core::index::point_values::{
   IntersectVisitor, PointTree, PointTreeEnum, PointTreeEnum2, PointValues, Relation,
 };
+use crate::core::index::postings_enum::PostingsEnumEnum2;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_doc_values_terms_enum::SortedDocValuesTermsEnum;
 use crate::core::index::sorted_doc_values_writer::SortingSortedDocValues;
@@ -75,7 +78,7 @@ use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::term::Term;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
-use crate::core::index::terms::TermsEnum2;
+use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -84,6 +87,7 @@ use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::sort::Sort;
 use crate::core::util::HasIdentity;
+use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::{Bits, BitsEnum2};
@@ -3312,6 +3316,293 @@ where
   }
 }
 
+pub enum SortingCodecReaderTerms<T, DM> {
+  Original(T),
+  Sorting(SortingTerms<T, DM>),
+}
+
+impl<T, DM> Terms for SortingCodecReaderTerms<T, DM>
+where
+  T: Terms,
+  DM: DocMap + Clone,
+{
+  type TermsEnum = SortingCodecReaderTermsEnum<T::TermsEnum, DM>;
+
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    match self {
+      Self::Original(terms) => terms.iterator().map(SortingCodecReaderTermsEnum::Original),
+      Self::Sorting(terms) => terms.iterator().map(SortingCodecReaderTermsEnum::Sorting),
+    }
+  }
+
+  type IntersectIter = SortingCodecReaderTermsEnum<T::IntersectIter, DM>;
+
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    match self {
+      Self::Original(terms) => terms
+        .intersect(compiled, start_term)
+        .map(SortingCodecReaderTermsEnum::Original),
+      Self::Sorting(terms) => terms
+        .intersect(compiled, start_term)
+        .map(SortingCodecReaderTermsEnum::Sorting),
+    }
+  }
+
+  fn size(&self) -> Result<i64> {
+    match self {
+      Self::Original(terms) => terms.size(),
+      Self::Sorting(terms) => terms.size(),
+    }
+  }
+
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    match self {
+      Self::Original(terms) => terms.get_sum_total_term_freq(),
+      Self::Sorting(terms) => terms.get_sum_total_term_freq(),
+    }
+  }
+
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    match self {
+      Self::Original(terms) => terms.get_sum_doc_freq(),
+      Self::Sorting(terms) => terms.get_sum_doc_freq(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::Original(terms) => terms.get_doc_count(),
+      Self::Sorting(terms) => terms.get_doc_count(),
+    }
+  }
+
+  fn has_freqs(&self) -> bool {
+    match self {
+      Self::Original(terms) => terms.has_freqs(),
+      Self::Sorting(terms) => terms.has_freqs(),
+    }
+  }
+
+  fn has_offsets(&self) -> bool {
+    match self {
+      Self::Original(terms) => terms.has_offsets(),
+      Self::Sorting(terms) => terms.has_offsets(),
+    }
+  }
+
+  fn has_positions(&self) -> bool {
+    match self {
+      Self::Original(terms) => terms.has_positions(),
+      Self::Sorting(terms) => terms.has_positions(),
+    }
+  }
+
+  fn has_payloads(&self) -> bool {
+    match self {
+      Self::Original(terms) => terms.has_payloads(),
+      Self::Sorting(terms) => terms.has_payloads(),
+    }
+  }
+
+  fn get_min(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Original(terms) => terms.get_min(),
+      Self::Sorting(terms) => terms.get_min(),
+    }
+  }
+
+  fn get_max(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Original(terms) => terms.get_max(),
+      Self::Sorting(terms) => terms.get_max(),
+    }
+  }
+
+  fn get_stats(&self) -> Result<String> {
+    match self {
+      Self::Original(terms) => terms.get_stats(),
+      Self::Sorting(terms) => terms.get_stats(),
+    }
+  }
+}
+
+pub enum SortingCodecReaderTermsEnum<T, DM> {
+  Original(T),
+  Sorting(SortingTermsEnum<T, DM>),
+}
+
+impl<T, DM> BytesRefIterator for SortingCodecReaderTermsEnum<T, DM>
+where
+  T: TermsEnum,
+  DM: DocMap,
+{
+  fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    match self {
+      Self::Original(terms) => terms.next(),
+      Self::Sorting(terms) => terms.next(),
+    }
+  }
+
+  fn set_next(&mut self) -> Result<bool> {
+    match self {
+      Self::Original(terms) => terms.set_next(),
+      Self::Sorting(terms) => terms.set_next(),
+    }
+  }
+}
+
+impl<T, DM> TermsEnum for SortingCodecReaderTermsEnum<T, DM>
+where
+  T: TermsEnum,
+  DM: DocMap,
+{
+  type AttributeSource<'a>
+    = T::AttributeSource<'a>
+  where
+    Self: 'a;
+  type AttributeSourceMut<'a>
+    = T::AttributeSourceMut<'a>
+  where
+    Self: 'a;
+
+  fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
+    match self {
+      Self::Original(terms) => terms.attributes(),
+      Self::Sorting(terms) => terms.attributes(),
+    }
+  }
+
+  fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
+    match self {
+      Self::Original(terms) => terms.attributes_mut(),
+      Self::Sorting(terms) => terms.attributes_mut(),
+    }
+  }
+
+  fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Original(terms) => terms.seek_exact(term),
+      Self::Sorting(terms) => terms.seek_exact(term),
+    }
+  }
+
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::Original(terms) => terms.prepare_seek_exact(text),
+      Self::Sorting(terms) => terms.prepare_seek_exact(text),
+    }
+  }
+
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Original(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::Sorting(terms) => terms.get_prepare_seek_exact_status(target),
+    }
+  }
+
+  fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
+    match self {
+      Self::Original(terms) => terms.seek_ceil(term),
+      Self::Sorting(terms) => terms.seek_ceil(term),
+    }
+  }
+
+  fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
+    match self {
+      Self::Original(terms) => terms.seek_exact_with_ord(ord),
+      Self::Sorting(terms) => terms.seek_exact_with_ord(ord),
+    }
+  }
+
+  fn seek_exact_with_state(
+    &mut self,
+    term: &BytesRef<Vec<u8>>,
+    state: &TermStateEnum,
+  ) -> Result<()> {
+    match self {
+      Self::Original(terms) => terms.seek_exact_with_state(term, state),
+      Self::Sorting(terms) => terms.seek_exact_with_state(term, state),
+    }
+  }
+
+  fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::Original(terms) => terms.term(),
+      Self::Sorting(terms) => terms.term(),
+    }
+  }
+
+  fn ord(&self) -> Result<i64> {
+    match self {
+      Self::Original(terms) => terms.ord(),
+      Self::Sorting(terms) => terms.ord(),
+    }
+  }
+
+  fn doc_freq(&mut self) -> Result<i32> {
+    match self {
+      Self::Original(terms) => terms.doc_freq(),
+      Self::Sorting(terms) => terms.doc_freq(),
+    }
+  }
+
+  fn total_term_freq(&mut self) -> Result<i64> {
+    match self {
+      Self::Original(terms) => terms.total_term_freq(),
+      Self::Sorting(terms) => terms.total_term_freq(),
+    }
+  }
+
+  type PostingsEnum = PostingsEnumEnum2<T::PostingsEnum, SortingPostingsEnumType<T::PostingsEnum>>;
+
+  fn postings_with_flags(
+    &mut self,
+    reuse: Option<Self::PostingsEnum>,
+    flags: i32,
+  ) -> Result<Self::PostingsEnum> {
+    match self {
+      Self::Original(terms) => {
+        let reuse = match reuse {
+          Some(PostingsEnumEnum2::A(reuse)) => Some(reuse),
+          _ => None,
+        };
+        terms
+          .postings_with_flags(reuse, flags)
+          .map(PostingsEnumEnum2::A)
+      },
+      Self::Sorting(terms) => {
+        let reuse = match reuse {
+          Some(PostingsEnumEnum2::B(reuse)) => Some(reuse),
+          _ => None,
+        };
+        terms
+          .postings_with_flags(reuse, flags)
+          .map(PostingsEnumEnum2::B)
+      },
+    }
+  }
+
+  type ImpactsEnum = T::ImpactsEnum;
+
+  fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
+    match self {
+      Self::Original(terms) => terms.impacts(flags),
+      Self::Sorting(terms) => terms.impacts(flags),
+    }
+  }
+
+  fn term_state(&mut self) -> Result<TermStateEnum> {
+    match self {
+      Self::Original(terms) => terms.term_state(),
+      Self::Sorting(terms) => terms.term_state(),
+    }
+  }
+}
+
 pub enum SortingCodecReaderFieldsProducer<FP, DM> {
   Original(FP),
   Sorting(FieldsProducerImpl<FP, DM>),
@@ -3346,12 +3637,16 @@ where
     }
   }
 
-  type Terms = TermsEnum2<FP::Terms, SortingTerms<FP::Terms, DM>>;
+  type Terms = SortingCodecReaderTerms<FP::Terms, DM>;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match self {
-      Self::Original(producer) => producer.terms(field).map(|terms| terms.map(TermsEnum2::A)),
-      Self::Sorting(producer) => producer.terms(field).map(|terms| terms.map(TermsEnum2::B)),
+      Self::Original(producer) => producer
+        .terms(field)
+        .map(|terms| terms.map(SortingCodecReaderTerms::Original)),
+      Self::Sorting(producer) => producer
+        .terms(field)
+        .map(|terms| terms.map(SortingCodecReaderTerms::Sorting)),
     }
   }
 
