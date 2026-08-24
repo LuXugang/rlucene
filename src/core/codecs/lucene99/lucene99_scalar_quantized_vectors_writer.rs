@@ -1622,7 +1622,7 @@ where
     }
   }
 
-  type ByteVectorValues = <OffsetCorrectedMergedValues<Q> as ByteVectorValues>::ByteVectorValues;
+  type ByteVectorValues = DummyByteVectorValues;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Ok(None)
@@ -2084,7 +2084,7 @@ where
     )))
   }
 
-  type ByteVectorValues = Self;
+  type ByteVectorValues = DummyByteVectorValues;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Ok(None)
@@ -2212,7 +2212,7 @@ where
     self.in_.vector_value(ord)
   }
 
-  type ByteVectorValues = OffsetCorrectedQuantizedByteVectorValues<Q::QuantizedByteVectorValues>;
+  type ByteVectorValues = DummyByteVectorValues;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     Ok(None)
