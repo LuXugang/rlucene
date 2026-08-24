@@ -17,9 +17,11 @@
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::search::collector::Collector;
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::filter_scorable::FilterScorable;
 use crate::core::search::index_searcher::IndexSearcher;
-use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum2, LeafCollectorEnum3};
+use crate::core::search::leaf_collector::{LeafCollector, LeafCollectorEnum3};
 use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
 use crate::core::search::score_caching_wrapping_scorer::ScoreCachingWrappingLeafCollector;
 use crate::core::search::score_mode::ScoreMode;
@@ -211,15 +213,83 @@ pub enum OneOrMultiCollector<C> {
   Multi(MultiCollector<C>),
 }
 
+pub enum OneOrMultiLeafCollector<LC> {
+  One(LC),
+  MultiSingle(LC),
+  Multi(MultiLeafCollector<LC>),
+  MultiCached(ScoreCachingWrappingLeafCollector<MultiLeafCollector<LC>>),
+}
+
+impl<LC> Display for OneOrMultiLeafCollector<LC>
+where
+  LC: LeafCollector,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::One(collector) | Self::MultiSingle(collector) => Display::fmt(collector, f),
+      Self::Multi(collector) => Display::fmt(collector, f),
+      Self::MultiCached(collector) => Display::fmt(collector, f),
+    }
+  }
+}
+
+impl<LC> LeafCollector for OneOrMultiLeafCollector<LC>
+where
+  LC: LeafCollector,
+{
+  fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
+    match self {
+      Self::One(collector) | Self::MultiSingle(collector) => collector.set_scorer(scorer),
+      Self::Multi(collector) => collector.set_scorer(scorer),
+      Self::MultiCached(collector) => collector.set_scorer(scorer),
+    }
+  }
+
+  fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
+    match self {
+      Self::One(collector) | Self::MultiSingle(collector) => collector.collect(doc, scorer),
+      Self::Multi(collector) => collector.collect(doc, scorer),
+      Self::MultiCached(collector) => collector.collect(doc, scorer),
+    }
+  }
+
+  fn collect_stream(
+    &mut self,
+    stream: &mut dyn DocIdStream,
+    scorer: &mut dyn Scorable,
+  ) -> Result<()> {
+    match self {
+      Self::One(collector) | Self::MultiSingle(collector) => {
+        collector.collect_stream(stream, scorer)
+      },
+      Self::Multi(collector) => collector.collect_stream(stream, scorer),
+      Self::MultiCached(collector) => collector.collect_stream(stream, scorer),
+    }
+  }
+
+  fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
+    match self {
+      Self::One(collector) | Self::MultiSingle(collector) => collector.competitive_iterator(),
+      Self::Multi(collector) => collector.competitive_iterator(),
+      Self::MultiCached(collector) => collector.competitive_iterator(),
+    }
+  }
+
+  fn finish(&mut self) -> Result<()> {
+    match self {
+      Self::One(collector) | Self::MultiSingle(collector) => collector.finish(),
+      Self::Multi(collector) => collector.finish(),
+      Self::MultiCached(collector) => collector.finish(),
+    }
+  }
+}
+
 impl<C> Collector for OneOrMultiCollector<C>
 where
   C: Collector,
 {
   type LeafCollector<'a, IRC>
-    = LeafCollectorEnum2<
-    C::LeafCollector<'a, IRC>,
-    <MultiCollector<C> as Collector>::LeafCollector<'a, IRC>,
-  >
+    = OneOrMultiLeafCollector<C::LeafCollector<'a, IRC>>
   where
     Self: 'a,
     IRC: IndexReaderContext + 'a;
@@ -237,10 +307,15 @@ where
     match self {
       Self::One(collector) => collector
         .get_leaf_collector(context, weight, searcher)
-        .map(LeafCollectorEnum2::A),
-      Self::Multi(collector) => collector
-        .get_leaf_collector(context, weight, searcher)
-        .map(LeafCollectorEnum2::B),
+        .map(OneOrMultiLeafCollector::One),
+      Self::Multi(collector) => {
+        let collector = collector.get_leaf_collector(context, weight, searcher)?;
+        Ok(match collector {
+          LeafCollectorEnum3::A(collector) => OneOrMultiLeafCollector::MultiSingle(collector),
+          LeafCollectorEnum3::B(collector) => OneOrMultiLeafCollector::Multi(collector),
+          LeafCollectorEnum3::C(collector) => OneOrMultiLeafCollector::MultiCached(collector),
+        })
+      },
     }
   }
 
