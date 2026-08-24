@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 use crate::codec::bitvectors::hnsw_bit_vectors_format::HnswBitVectorsFormat;
-use crate::codec::memory::direct_postings_format::DirectPostingsFormat;
+use crate::codec::memory::direct_postings_format::{
+  DirectFieldsProducer, DirectFieldsTerms, DirectPostingsFormat,
+};
 use crate::core::codecs::Codec;
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::fields_consumer::FieldsConsumer;
-use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::hnsw::hnsw_graph_provider::HnswGraphProvider;
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
@@ -49,7 +51,6 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
-use crate::core::index::terms::TermsEnum2;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
@@ -243,14 +244,14 @@ where
 {
   pub(crate) fn default(in_: DefaultAssertingCodecFieldsProducer<I>) -> Self {
     Self {
-      in_: FieldsProducerEnum2::A(in_),
+      in_: DirectFieldsProducer::Lucene101(in_),
       hook: AssertingCodecFieldsProducerHook::Default,
     }
   }
 
   fn asserting(in_: DefaultAssertingCodecFieldsProducer<I>) -> Self {
     Self {
-      in_: FieldsProducerEnum2::A(in_),
+      in_: DirectFieldsProducer::Lucene101(in_),
       hook: AssertingCodecFieldsProducerHook::Asserting,
     }
   }
@@ -293,13 +294,13 @@ where
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match (&self.hook, &self.in_) {
-      (AssertingCodecFieldsProducerHook::Asserting, FieldsProducerEnum2::A(in_)) => Ok(
+      (AssertingCodecFieldsProducerHook::Asserting, DirectFieldsProducer::Lucene101(in_)) => Ok(
         in_
           .terms(field)?
-          .map(TermsEnum2::A)
+          .map(DirectFieldsTerms::Lucene101)
           .map(AssertingTerms::new),
       ),
-      (AssertingCodecFieldsProducerHook::Asserting, FieldsProducerEnum2::B(_)) => {
+      (AssertingCodecFieldsProducerHook::Asserting, DirectFieldsProducer::Direct(_)) => {
         unreachable!("asserting hook must wrap the default postings producer")
       },
       (AssertingCodecFieldsProducerHook::Default, _) => {

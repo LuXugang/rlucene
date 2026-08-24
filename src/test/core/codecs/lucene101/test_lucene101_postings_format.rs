@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::codec::memory::direct_postings_format::DirectFieldsTerms;
 use crate::core::codecs::Codecs;
 use crate::core::codecs::competitive_impact_accumulator::CompetitiveImpactAccumulator;
 use crate::core::codecs::lucene90::block_tree::field_reader::FieldReader;
@@ -33,7 +34,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
-use crate::core::index::terms::{Terms, TermsEnum2};
+use crate::core::index::terms::Terms;
 use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput,
@@ -72,14 +73,14 @@ where
   }
 }
 
-impl<A, B> BlockTreeStats for TermsEnum2<A, B>
+impl<T> BlockTreeStats for DirectFieldsTerms<T>
 where
-  A: BlockTreeStats,
+  T: BlockTreeStats,
 {
   fn block_stats(&self) -> Result<Stats> {
     match self {
-      Self::A(inner) => inner.block_stats(),
-      Self::B(_) => Err(LuceneError::unsupported_operation(
+      Self::Lucene101(inner) => inner.block_stats(),
+      Self::Direct(_) => Err(LuceneError::unsupported_operation(
         "block statistics are only available for the BlockTree terms variant",
       )),
     }

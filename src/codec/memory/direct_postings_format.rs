@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 use crate::core::codecs::block_term_state::TermStateEnum;
-use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
+use crate::core::codecs::fields_producer::FieldsProducer;
 use crate::core::codecs::lucene101::lucene101_postings_format::Lucene101PostingsFormat;
 use crate::core::codecs::postings_format::PostingsFormat;
 use crate::core::index::BytesRef;
-use crate::core::index::fields::Fields;
+use crate::core::index::fields::{FieldIterEnum2, Fields};
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::Identity;
 use crate::core::index::ord_term_state::OrdTermState;
@@ -29,7 +29,9 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::index::terms::Terms;
-use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::index::terms_enum::{
+  SeekStatus, TermsEnum, TermsEnumWithUnsupportedSecondAttributes2,
+};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::directory::Directory;
 use crate::core::store::io_context::Context;
@@ -69,6 +71,176 @@ pub struct DirectPostingsFormat {
   min_skip_count: i32,
   low_freq_cutoff: i32,
   identity: Identity,
+}
+
+pub enum DirectFieldsProducer<P> {
+  Lucene101(P),
+  Direct(DirectFields),
+}
+
+impl<P> CloseableRef for DirectFieldsProducer<P>
+where
+  P: FieldsProducer,
+{
+  fn close(&self) -> Result<()> {
+    match self {
+      Self::Lucene101(producer) => producer.close(),
+      Self::Direct(producer) => producer.close(),
+    }
+  }
+}
+
+impl<P> Fields for DirectFieldsProducer<P>
+where
+  P: FieldsProducer,
+{
+  type FieldIter<'a>
+    = FieldIterEnum2<P::FieldIter<'a>, <DirectFields as Fields>::FieldIter<'a>>
+  where
+    Self: 'a;
+
+  fn iterator(&self) -> Result<Self::FieldIter<'_>> {
+    match self {
+      Self::Lucene101(producer) => producer.iterator().map(FieldIterEnum2::A),
+      Self::Direct(producer) => producer.iterator().map(FieldIterEnum2::B),
+    }
+  }
+
+  type Terms = DirectFieldsTerms<P::Terms>;
+
+  fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
+    match self {
+      Self::Lucene101(producer) => producer
+        .terms(field)
+        .map(|terms| terms.map(DirectFieldsTerms::Lucene101)),
+      Self::Direct(producer) => producer
+        .terms(field)
+        .map(|terms| terms.map(DirectFieldsTerms::Direct)),
+    }
+  }
+
+  fn size(&self) -> Result<i32> {
+    match self {
+      Self::Lucene101(producer) => producer.size(),
+      Self::Direct(producer) => producer.size(),
+    }
+  }
+}
+
+impl<P> FieldsProducer for DirectFieldsProducer<P>
+where
+  P: FieldsProducer,
+{
+  fn check_integrity(&self) -> Result<()> {
+    match self {
+      Self::Lucene101(producer) => producer.check_integrity(),
+      Self::Direct(producer) => producer.check_integrity(),
+    }
+  }
+
+  fn get_merge_instance(&self) -> Result<Option<Self>> {
+    match self {
+      Self::Lucene101(producer) => Ok(producer.get_merge_instance()?.map(Self::Lucene101)),
+      Self::Direct(producer) => Ok(producer.get_merge_instance()?.map(Self::Direct)),
+    }
+  }
+}
+
+pub enum DirectFieldsTerms<T> {
+  Lucene101(T),
+  Direct(DirectField),
+}
+
+impl<T> Terms for DirectFieldsTerms<T>
+where
+  T: Terms,
+{
+  type TermsEnum = TermsEnumWithUnsupportedSecondAttributes2<T::TermsEnum, DirectTermsEnum>;
+
+  fn iterator(&self) -> Result<Self::TermsEnum> {
+    match self {
+      Self::Lucene101(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithAttributes),
+      Self::Direct(terms) => terms
+        .iterator()
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithoutAttributes),
+    }
+  }
+
+  type IntersectIter =
+    TermsEnumWithUnsupportedSecondAttributes2<T::IntersectIter, DirectIntersectTermsEnum>;
+
+  fn intersect(
+    &self,
+    compiled: &CompiledAutomaton,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<Self::IntersectIter> {
+    match self {
+      Self::Lucene101(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithAttributes),
+      Self::Direct(terms) => terms
+        .intersect(compiled, start_term)
+        .map(TermsEnumWithUnsupportedSecondAttributes2::WithoutAttributes),
+    }
+  }
+
+  fn size(&self) -> Result<i64> {
+    match self {
+      Self::Lucene101(terms) => terms.size(),
+      Self::Direct(terms) => terms.size(),
+    }
+  }
+
+  fn get_sum_total_term_freq(&self) -> Result<i64> {
+    match self {
+      Self::Lucene101(terms) => terms.get_sum_total_term_freq(),
+      Self::Direct(terms) => terms.get_sum_total_term_freq(),
+    }
+  }
+
+  fn get_sum_doc_freq(&self) -> Result<i64> {
+    match self {
+      Self::Lucene101(terms) => terms.get_sum_doc_freq(),
+      Self::Direct(terms) => terms.get_sum_doc_freq(),
+    }
+  }
+
+  fn get_doc_count(&self) -> Result<i32> {
+    match self {
+      Self::Lucene101(terms) => terms.get_doc_count(),
+      Self::Direct(terms) => terms.get_doc_count(),
+    }
+  }
+
+  fn has_freqs(&self) -> bool {
+    match self {
+      Self::Lucene101(terms) => terms.has_freqs(),
+      Self::Direct(terms) => terms.has_freqs(),
+    }
+  }
+
+  fn has_offsets(&self) -> bool {
+    match self {
+      Self::Lucene101(terms) => terms.has_offsets(),
+      Self::Direct(terms) => terms.has_offsets(),
+    }
+  }
+
+  fn has_positions(&self) -> bool {
+    match self {
+      Self::Lucene101(terms) => terms.has_positions(),
+      Self::Direct(terms) => terms.has_positions(),
+    }
+  }
+
+  fn has_payloads(&self) -> bool {
+    match self {
+      Self::Lucene101(terms) => terms.has_payloads(),
+      Self::Direct(terms) => terms.has_payloads(),
+    }
+  }
 }
 
 const DEFAULT_MIN_SKIP_COUNT: i32 = 8;
@@ -122,10 +294,8 @@ impl PostingsFormat for DirectPostingsFormat {
     Lucene101PostingsFormat::new().fields_consumer(state, segment_info)
   }
 
-  type FieldsProducer<I: IndexInput> = FieldsProducerEnum2<
-    <Lucene101PostingsFormat as PostingsFormat>::FieldsProducer<I>,
-    DirectFields,
-  >;
+  type FieldsProducer<I: IndexInput> =
+    DirectFieldsProducer<<Lucene101PostingsFormat as PostingsFormat>::FieldsProducer<I>>;
 
   fn fields_producer<D1, D2>(
     &self,
@@ -143,10 +313,10 @@ impl PostingsFormat for DirectPostingsFormat {
       }));
       let close_result = postings.close();
       close_result?;
-      unwrap_caught_result!(load_result).map(FieldsProducerEnum2::B)
+      unwrap_caught_result!(load_result).map(DirectFieldsProducer::Direct)
     } else {
       // Don't load postings for merge:
-      Ok(FieldsProducerEnum2::A(postings))
+      Ok(DirectFieldsProducer::Lucene101(postings))
     }
   }
 
