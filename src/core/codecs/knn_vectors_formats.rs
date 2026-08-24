@@ -465,6 +465,10 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
 type Lucene99HnswByteVectorValues<I> =
   <Lucene99HnswVectorsReader<I> as KnnVectorsReader>::ByteVectorValues;
 type HnswBitByteVectorValues<I> = <HnswBitVectorsReader<I> as KnnVectorsReader>::ByteVectorValues;
+type Lucene99HnswByteVectorValuesCopy<I> =
+  <Lucene99HnswByteVectorValues<I> as KnnVectorValues>::KnnVectorValues;
+type HnswBitByteVectorValuesCopy<I> =
+  <HnswBitByteVectorValues<I> as KnnVectorValues>::KnnVectorValues;
 
 type Lucene99HnswByteVectorScorer<I> =
   <Lucene99HnswByteVectorValues<I> as ByteVectorValues>::VectorScorer;
@@ -513,7 +517,12 @@ pub enum KnnVectorsFormatsByteVectorValues<I: IndexInput> {
   HnswBit(HnswBitByteVectorValues<I>),
 }
 
-impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValues<I> {
+pub enum KnnVectorsFormatsByteVectorValuesCopy<I: IndexInput> {
+  Lucene99Hnsw(Lucene99HnswByteVectorValuesCopy<I>),
+  HnswBit(HnswBitByteVectorValuesCopy<I>),
+}
+
+impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I> {
   fn dimension(&self) -> usize {
     match self {
       Self::Lucene99Hnsw(values) => values.dimension(),
@@ -541,6 +550,143 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.copy().map(Self::Lucene99Hnsw),
       Self::HnswBit(values) => values.copy().map(Self::HnswBit),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vector_byte_length(),
+      Self::HnswBit(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    match self {
+      Self::Lucene99Hnsw(values) => KnnVectorValues::get_encoding(values),
+      Self::HnswBit(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B>
+    = <Lucene99HnswByteVectorValuesCopy<I> as KnnVectorValues>::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_accept_ords(accept_docs),
+      Self::HnswBit(values) => values.get_accept_ords(accept_docs),
+    }
+  }
+
+  type DocIndexIterator =
+    <Lucene99HnswByteVectorValuesCopy<I> as KnnVectorValues>::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.iterator(),
+      Self::HnswBit(values) => values.iterator(),
+    }
+  }
+}
+
+impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValuesCopy<I> {
+  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.vector_value(ord),
+      Self::HnswBit(values) => values.vector_value(ord),
+    }
+  }
+
+  type ByteVectorValues = Self;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values
+        .byte_copy()
+        .map(|values| values.map(Self::Lucene99Hnsw)),
+      Self::HnswBit(values) => values.byte_copy().map(|values| values.map(Self::HnswBit)),
+    }
+  }
+
+  type VectorScorer = KnnVectorsFormatsByteVectorScorer<I>;
+
+  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values
+        .scorer(target)
+        .map(|scorer| scorer.map(KnnVectorsFormatsByteVectorScorer::Lucene99Hnsw)),
+      Self::HnswBit(values) => values
+        .scorer(target)
+        .map(|scorer| scorer.map(KnnVectorsFormatsByteVectorScorer::HnswBit)),
+    }
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    match self {
+      Self::Lucene99Hnsw(values) => ByteVectorValues::get_encoding(values),
+      Self::HnswBit(values) => ByteVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
+      Self::HnswBit(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vectors(),
+      Self::HnswBit(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vectors_capacity(),
+      Self::HnswBit(values) => values.get_vectors_capacity(),
+    }
+  }
+}
+
+impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsByteVectorValues<I> {
+  fn dimension(&self) -> usize {
+    match self {
+      Self::Lucene99Hnsw(values) => values.dimension(),
+      Self::HnswBit(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Lucene99Hnsw(values) => values.size(),
+      Self::HnswBit(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.ord_to_doc(ord),
+      Self::HnswBit(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = KnnVectorsFormatsByteVectorValuesCopy<I>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::Lucene99Hnsw(values) => values
+        .copy()
+        .map(KnnVectorsFormatsByteVectorValuesCopy::Lucene99Hnsw),
+      Self::HnswBit(values) => values
+        .copy()
+        .map(KnnVectorsFormatsByteVectorValuesCopy::HnswBit),
     }
   }
 
@@ -592,14 +738,16 @@ impl<I: IndexInput> ByteVectorValues for KnnVectorsFormatsByteVectorValues<I> {
     }
   }
 
-  type ByteVectorValues = Self;
+  type ByteVectorValues = KnnVectorsFormatsByteVectorValuesCopy<I>;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     match self {
       Self::Lucene99Hnsw(values) => values
         .byte_copy()
-        .map(|values| values.map(Self::Lucene99Hnsw)),
-      Self::HnswBit(values) => values.byte_copy().map(|values| values.map(Self::HnswBit)),
+        .map(|values| values.map(KnnVectorsFormatsByteVectorValuesCopy::Lucene99Hnsw)),
+      Self::HnswBit(values) => values
+        .byte_copy()
+        .map(|values| values.map(KnnVectorsFormatsByteVectorValuesCopy::HnswBit)),
     }
   }
 

@@ -671,6 +671,145 @@ where
   Sparse(SparseOffHeapVectorValues<I, F>),
 }
 
+pub enum OffHeapByteVectorValuesCopy<I, F>
+where
+  I: IndexInput,
+{
+  Dense(DenseOffHeapVectorValues<I::IndexInput, F>),
+  Sparse(SparseOffHeapVectorValues<I, F>),
+}
+
+impl<I, F> KnnVectorValues for OffHeapByteVectorValuesCopy<I, F>
+where
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
+{
+  fn dimension(&self) -> usize {
+    match self {
+      Self::Dense(values) => values.dimension(),
+      Self::Sparse(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Dense(values) => values.size(),
+      Self::Sparse(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Dense(values) => values.ord_to_doc(ord),
+      Self::Sparse(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = Self;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::Dense(values) => KnnVectorValues::copy(values).map(Self::Dense),
+      Self::Sparse(values) => KnnVectorValues::copy(values).map(Self::Sparse),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::Dense(values) => values.get_vector_byte_length(),
+      Self::Sparse(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Dense(values) => KnnVectorValues::get_encoding(values),
+      Self::Sparse(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B>
+    = OffHeapVectorValueBits<I::RandomAccessSlice, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    match self {
+      Self::Dense(values) => values
+        .get_accept_ords(accept_docs)
+        .map(OffHeapVectorValueBits::Dense),
+      Self::Sparse(values) => values
+        .get_accept_ords(accept_docs)
+        .map(OffHeapVectorValueBits::Sparse),
+    }
+  }
+
+  type DocIndexIterator = IndexedDISIDocIndexIterator<I>;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::Dense(values) => values.iterator().map(IndexedDISIDocIndexIterator::Dense),
+      Self::Sparse(values) => values.iterator().map(IndexedDISIDocIndexIterator::Sparse),
+    }
+  }
+}
+
+impl<I, F> ByteVectorValues for OffHeapByteVectorValuesCopy<I, F>
+where
+  I: IndexInput + Clone,
+  F: FlatVectorsScorer + Clone,
+{
+  fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::Dense(values) => values.vector_value(ord),
+      Self::Sparse(values) => values.vector_value(ord),
+    }
+  }
+
+  type ByteVectorValues = Self;
+
+  fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
+    match self {
+      Self::Dense(values) => Ok(values.byte_copy()?.map(Self::Dense)),
+      Self::Sparse(values) => Ok(values.byte_copy()?.map(Self::Sparse)),
+    }
+  }
+
+  type VectorScorer = VectorScorerEnum<I, F>;
+
+  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::Dense(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Dense)),
+      Self::Sparse(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Sparse)),
+    }
+  }
+
+  fn get_encoding(&self) -> VectorEncoding {
+    match self {
+      Self::Dense(values) => ByteVectorValues::get_encoding(values),
+      Self::Sparse(values) => ByteVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::Dense(values) => values.get_vectors_mut(),
+      Self::Sparse(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::Dense(values) => values.get_vectors(),
+      Self::Sparse(values) => values.get_vectors(),
+    }
+  }
+}
+
 impl<I, F> KnnVectorValues for OffHeapByteVectorValuesEnum<I, F>
 where
   I: IndexInput + Clone,
@@ -700,13 +839,13 @@ where
     }
   }
 
-  type KnnVectorValues = Self;
+  type KnnVectorValues = OffHeapByteVectorValuesCopy<I, F>;
 
   fn copy(&self) -> Result<Self::KnnVectorValues> {
     match self {
       Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
-      Self::Dense(e) => KnnVectorValues::copy(e).map(Self::Dense),
-      Self::Sparse(e) => KnnVectorValues::copy(e).map(Self::Sparse),
+      Self::Dense(e) => KnnVectorValues::copy(e).map(OffHeapByteVectorValuesCopy::Dense),
+      Self::Sparse(e) => KnnVectorValues::copy(e).map(OffHeapByteVectorValuesCopy::Sparse),
     }
   }
 
@@ -771,13 +910,13 @@ where
     }
   }
 
-  type ByteVectorValues = Self;
+  type ByteVectorValues = OffHeapByteVectorValuesCopy<I, F>;
 
   fn byte_copy(&self) -> Result<Option<Self::ByteVectorValues>> {
     match self {
-      Self::Empty(e) => Ok(e.byte_copy()?.map(Self::Empty)),
-      Self::Dense(e) => Ok(e.byte_copy()?.map(Self::Dense)),
-      Self::Sparse(e) => Ok(e.byte_copy()?.map(Self::Sparse)),
+      Self::Empty(_) => Err(LuceneError::unsupported_operation("")),
+      Self::Dense(e) => Ok(e.byte_copy()?.map(OffHeapByteVectorValuesCopy::Dense)),
+      Self::Sparse(e) => Ok(e.byte_copy()?.map(OffHeapByteVectorValuesCopy::Sparse)),
     }
   }
 
