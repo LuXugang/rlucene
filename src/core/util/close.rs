@@ -44,7 +44,22 @@ impl CloseableWrite for File {
   }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+impl CloseableWrite for File {
+  fn close(self) -> Result<()> {
+    use std::os::windows::io::IntoRawHandle;
+    use windows_sys::Win32::Foundation::CloseHandle;
+
+    let handle = self.into_raw_handle();
+    if unsafe { CloseHandle(handle) } == 0 {
+      Err(std::io::Error::last_os_error().into())
+    } else {
+      Ok(())
+    }
+  }
+}
+
+#[cfg(not(any(unix, windows)))]
 impl CloseableWrite for File {
   fn close(self) -> Result<()> {
     drop(self);

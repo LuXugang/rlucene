@@ -310,7 +310,9 @@ impl SegmentCoreReadersCacheHelperImpl {
   fn notify_core_closed_listeners(&self) -> Result<()> {
     let mut core_closed_listeners = self.core_closed_listeners.lock();
     let listeners = core_closed_listeners.take().unwrap_or_default();
-    IOUtils::apply_to_all(&listeners, |listener| listener.on_close(&self.cache_key))
+    IOUtils::apply_to_all(listeners.iter().map(Some), |listener| {
+      listener.on_close(&self.cache_key)
+    })
   }
 }
 impl CacheHelper for SegmentCoreReadersCacheHelperImpl {

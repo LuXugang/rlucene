@@ -354,7 +354,7 @@ where
     }));
 
     if success {
-      IOUtils::delete_files(&first, &to_delete)?;
+      IOUtils::delete_files(&first, to_delete.iter().map(Some))?;
     } else {
       IOUtils::close_while_handling_exception(&mut out);
       IOUtils::delete_files_ignoring_exceptions(&first, &to_delete);

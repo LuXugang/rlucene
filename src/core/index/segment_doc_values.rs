@@ -120,7 +120,7 @@ where
   pub(crate) fn dec_ref(&self, gens: &[i64]) -> Result<()> {
     let mut inner = self.inner.lock();
 
-    IOUtils::apply_to_all(gens, |&gen_| {
+    IOUtils::apply_to_all(gens.iter().map(Some), |&gen_| {
       if let Some(dvp) = inner.gen_dv_producers.get_mut(&gen_) {
         if dvp.dec_ref(|| dvp.get().close())? {
           inner.gen_dv_producers.remove(&gen_);

@@ -59,6 +59,7 @@ use crate::core::store::fs_lock_factory;
 use crate::core::util::LATEST;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::doc_helper;
 use crate::test_framework::core::index::doc_helper::{DATA, DocHelper};
@@ -618,7 +619,7 @@ fn test_files_open_close() -> Result<()> {
   dir.close()?;
 
   // Try to erase the data - this ensures that the writer closed all files
-  std::fs::remove_dir_all(&path)?;
+  IOUtils::rm([Some(&path)])?;
   let dir = Arc::new(new_fs_directory_with_lock_factory(
     &mut random,
     path.clone(),
@@ -645,7 +646,7 @@ fn test_files_open_close() -> Result<()> {
   dir.close()?;
 
   // The following will fail if reader did not close all files
-  std::fs::remove_dir_all(path)?;
+  IOUtils::rm([Some(&path)])?;
   Ok(())
 }
 #[test]
@@ -665,7 +666,7 @@ fn test_open_reader_after_delete() -> Result<()> {
     Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
   }
 
-  std::fs::remove_dir_all(path)?;
+  IOUtils::rm([Some(&path)])?;
 
   // Make sure we still get an index-not-found error (not a panic):
   match directory_reader::open(dir.clone()) {

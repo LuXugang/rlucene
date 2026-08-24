@@ -271,7 +271,7 @@ where
     Ok(reader)
   }));
   let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-    IOUtils::apply_to_all(&readers, IndexReader::dec_ref)
+    IOUtils::apply_to_all(readers.iter().map(Some), IndexReader::dec_ref)
   }));
   IOUtils::use_or_suppress_caught_result(result, close_result)
 }
@@ -510,7 +510,10 @@ where
     // Try to close each reader, even if one returns an error.
     let sequential_sub_readers = self.get_sequential_sub_readers();
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::apply_to_all(sequential_sub_readers, IndexReader::dec_ref)
+      IOUtils::apply_to_all(
+        sequential_sub_readers.iter().map(Some),
+        IndexReader::dec_ref,
+      )
     }));
     let dec_ref_deleter_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       match &self.writer {
@@ -669,7 +672,9 @@ impl CacheHelperImpl {
   fn notify_reader_closed_listeners(&self) -> Result<()> {
     let mut reader_closed_listeners = self.reader_closed_listeners.lock();
     let listeners = reader_closed_listeners.take().unwrap_or_default();
-    IOUtils::apply_to_all(&listeners, |listener| listener.on_close(&self.cache_key))
+    IOUtils::apply_to_all(listeners.iter().map(Some), |listener| {
+      listener.on_close(&self.cache_key)
+    })
   }
 }
 impl CacheHelper for CacheHelperImpl {
@@ -776,7 +781,7 @@ where
       readers.clear();
       Ok(reader)
     }));
-    IOUtils::close_while_handling_exception_with(readers.iter().flatten(), IndexReader::dec_ref)?;
+    IOUtils::close_while_handling_exception_with(readers.iter().flatten(), IndexReader::dec_ref);
     unwrap_caught_result!(result)
   }
 }

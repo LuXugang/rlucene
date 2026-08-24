@@ -2328,7 +2328,7 @@ where
       Ok(())
     }));
     let merge_readers = std::mem::take(&mut self.merge_readers);
-    IOUtils::apply_to_all(&merge_readers, |merge_reader| {
+    IOUtils::apply_to_all(merge_readers.iter().map(Some), |merge_reader| {
       reader_consumer(inner, merge_reader)
     })?;
     unwrap_caught_result!(result)
@@ -2356,7 +2356,7 @@ where
       return Err(LuceneError::illegal_state("merge has already finished"));
     }
     let merge_readers = std::mem::take(&mut self.merge_readers);
-    IOUtils::apply_to_all(&merge_readers, reader_consumer)
+    IOUtils::apply_to_all(merge_readers.iter().map(Some), reader_consumer)
   }
 }
 

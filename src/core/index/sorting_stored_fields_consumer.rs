@@ -169,7 +169,7 @@ where
           .values()
           .cloned()
           .collect();
-        IOUtils::delete_files(&self.tmp_directory, &file_names)?;
+        IOUtils::delete_files(&self.tmp_directory, file_names.iter().map(Some))?;
         Ok(())
       }));
     IOUtils::finally_caught_result(result, finally_result)

@@ -508,7 +508,7 @@ where
     }));
 
     if !success {
-      IOUtils::close_while_handling_exception_with(formats.values(), |format| format.close())?;
+      IOUtils::close_while_handling_exception_with(formats.values(), |format| format.close());
     }
     unwrap_caught_result!(result)?;
 

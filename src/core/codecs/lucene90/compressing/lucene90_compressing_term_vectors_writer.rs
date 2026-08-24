@@ -215,7 +215,7 @@ where
         0 => meta_stream.as_mut().map_or(Ok(()), Closeable::close),
         1 => vectors_stream.as_mut().map_or(Ok(()), Closeable::close),
         _ => index_writer.as_mut().map_or(Ok(()), Closeable::close),
-      })?;
+      });
     }
     let (writer, positions_buf, start_offsets_buf, lengths_buf, payload_lengths_buf) =
       unwrap_caught_result!(result)?;

@@ -2727,9 +2727,11 @@ where
             1 => inner.deleter.close(),
             2 => IOUtils::close(self.writer_lock()),
             _ => cleanup_and_notify(),
-          })
+          });
+          Ok(())
         },
-      })
+      });
+      Ok(())
     }));
     throwable.add_suppressed(cleanup_result, "panic while cleaning up rollback");
 
@@ -3171,7 +3173,7 @@ where
         Ok(())
       }));
       if !success {
-        IOUtils::close_while_handling_exception_with(&locks, CloseableRef::close)?;
+        IOUtils::close_while_handling_exception_with(&locks, CloseableRef::close);
       }
       unwrap_caught_result!(result)?;
     }
@@ -3324,7 +3326,7 @@ where
     if success_top {
       IOUtils::close_with(&locks, CloseableRef::close)?;
     } else {
-      IOUtils::close_while_handling_exception_with(&locks, CloseableRef::close)?;
+      IOUtils::close_while_handling_exception_with(&locks, CloseableRef::close);
     }
     let seq_no = unwrap_caught_result!(result)?;
     self.maybe_merge()?;
@@ -6683,8 +6685,7 @@ where
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         IOUtils::close_with(seg_states.iter_mut(), |state| state.close(self, inner))
       }));
-      IOUtils::use_or_suppress_caught_result(result, close_result)?;
-      unreachable!();
+      return IOUtils::use_or_suppress_caught_result(result, close_result).map(|()| seg_states);
     }
 
     Ok(seg_states)
@@ -6990,18 +6991,20 @@ where
     ));
 
     if !success2 {
-      let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        IOUtils::close_while_handling_exception_with(0..2, |operation| match operation {
-          0 => match reader.take() {
-            Some(reader) => reader.close(),
-            None => Ok(()),
-          },
-          _ => match on_get_reader_merge_resources.as_mut() {
-            Some(resource) => resource(),
-            None => Ok(()),
-          },
-        })
-      }));
+      let close_result =
+        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          IOUtils::close_while_handling_exception_with(0..2, |operation| match operation {
+            0 => match reader.take() {
+              Some(reader) => reader.close(),
+              None => Ok(()),
+            },
+            _ => match on_get_reader_merge_resources.as_mut() {
+              Some(resource) => resource(),
+              None => Ok(()),
+            },
+          });
+          Ok(())
+        }));
       self.maybe_close_on_tragic_event(None)?;
       unwrap_caught_result!(close_result)?;
     } else if let Some(resource) = on_get_reader_merge_resources.as_mut() {

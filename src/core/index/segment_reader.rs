@@ -733,7 +733,9 @@ impl CacheHelperImpl {
   fn notify_reader_closed_listeners(&self) -> Result<()> {
     let mut reader_closed_listeners = self.reader_closed_listeners.lock();
     let listeners = reader_closed_listeners.take().unwrap_or_default();
-    IOUtils::apply_to_all(&listeners, |listener| listener.on_close(&self.cache_key))
+    IOUtils::apply_to_all(listeners.iter().map(Some), |listener| {
+      listener.on_close(&self.cache_key)
+    })
   }
 }
 impl CacheHelper for CacheHelperImpl {

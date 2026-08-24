@@ -308,7 +308,7 @@ where
       if file_pointers_out_pending_delete && let Some(out) = file_pointers_out.as_ref() {
         file_names.push(out.get_name().to_string());
       }
-      IOUtils::delete_files(dir, &file_names)
+      IOUtils::delete_files(dir, file_names.iter().map(Some))
     }));
     IOUtils::finally_caught_result(close_result, delete_result)
   }

@@ -34,6 +34,8 @@ thiserror = "2.0.20"
 thread_local = "1.1.10"
 wide = "1.6.1"
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { features = ["Win32_Foundation"], version = "0.61.2" }
 
 [dev-dependencies]
 num-integer = "0.1.47"
