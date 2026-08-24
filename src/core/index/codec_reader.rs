@@ -48,7 +48,9 @@ use crate::core::index::sorting_codec_reader::{
 };
 use crate::core::index::stored_field_visitor::StoredFieldVisitor;
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields, StoredFieldsEnum2};
-use crate::core::index::term_vectors::{OptionalTermVectors, RawTermVectors, TermVectorsEnum2};
+use crate::core::index::term_vectors::{
+  OptionalTermVectors, RawTermVectors, TermVectors, TermVectorsEnum2,
+};
 use crate::core::index::terms::TermsEnum2;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::knn_collector::KnnCollector;
@@ -821,6 +823,8 @@ macro_rules! either_codec_reader {
             >,
             <$B as CodecReader>::TermVectorsReader: RawTermVectors<
                 IndexInput = <<$A as CodecReader>::TermVectorsReader as RawTermVectors>::IndexInput,
+            > + TermVectors<
+                Fields = <<$A as CodecReader>::TermVectorsReader as TermVectors>::Fields,
             >,
         {
             type StoredFieldsReader =

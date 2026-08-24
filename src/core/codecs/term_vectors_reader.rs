@@ -16,9 +16,8 @@
  */
 use crate::core::codecs::DefaultTermVectorsFormat;
 use crate::core::codecs::term_vectors_format::TermVectorsFormat;
-use crate::core::index::fields::{Fields, FieldsEnum2};
+use crate::core::index::fields::Fields;
 use crate::core::index::term_vectors::{RawTermVectors, TermVectors};
-use crate::core::index::terms::TermsEnum2;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
@@ -47,8 +46,8 @@ pub trait TermVectorsReader: TermVectors + TryClone + CloseableRef {
 pub type DefaultTermVectorsReader<I> =
   <DefaultTermVectorsFormat as TermVectorsFormat>::TermVectorsReader<I>;
 
-macro_rules! either_term_vectors_reader {
-    ($vis:vis $name:ident => { fe: $fe:ident, te: $te:ident } { $Variant1:ident : $T1:ident, $( $Variant:ident : $T:ident ),+ $(,)? }) => {
+macro_rules! either_term_vectors_reader_with_same_fields {
+    ($vis:vis $name:ident { $Variant1:ident : $T1:ident, $( $Variant:ident : $T:ident ),+ $(,)? }) => {
         $vis enum $name<$T1, $( $T ),+> {
             $Variant1($T1),
             $( $Variant($T), )+
@@ -70,17 +69,12 @@ macro_rules! either_term_vectors_reader {
         impl<$T1, $( $T ),+> TermVectors for $name<$T1, $( $T ),+>
         where
             $T1: TermVectors,
-            $( $T: TermVectors + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
+            $( $T: TermVectors<Fields = <$T1 as TermVectors>::Fields>
+                + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
         {
-            type Fields = $fe<
-                <$T1 as TermVectors>::Fields,
-                $( <$T as TermVectors>::Fields ),+
-            >;
+            type Fields = <$T1 as TermVectors>::Fields;
 
-            type Terms = $te<
-                <<$T1 as TermVectors>::Fields as Fields>::Terms,
-                $( <<$T as TermVectors>::Fields as Fields>::Terms ),+
-            >;
+            type Terms = <<$T1 as TermVectors>::Fields as Fields>::Terms;
 
             fn prefetch(&mut self, doc_id: i32) -> Result<()> {
                 match self {
@@ -92,13 +86,11 @@ macro_rules! either_term_vectors_reader {
             fn get(&mut self, doc: i32) -> Result<Option<Self::Fields>> {
                 match self {
                     Self::$Variant1(inner) => {
-                        let fields = inner.get(doc)?;
-                        Ok(fields.map($fe::$Variant1))
+                        inner.get(doc)
                     }
                     $(
                         Self::$Variant(inner) => {
-                            let fields = inner.get(doc)?;
-                            Ok(fields.map($fe::$Variant))
+                            inner.get(doc)
                         }
                     ),+
                 }
@@ -111,13 +103,11 @@ macro_rules! either_term_vectors_reader {
             ) -> Result<Option<<Self::Fields as Fields>::Terms>> {
                 match self {
                     Self::$Variant1(inner) => {
-                        let terms = inner.get_field_terms(doc, field)?;
-                        Ok(terms.map($te::$Variant1))
+                        inner.get_field_terms(doc, field)
                     }
                     $(
                         Self::$Variant(inner) => {
-                            let terms = inner.get_field_terms(doc, field)?;
-                            Ok(terms.map($te::$Variant))
+                            inner.get_field_terms(doc, field)
                         }
                     ),+
                 }
@@ -143,7 +133,9 @@ macro_rules! either_term_vectors_reader {
         impl<$T1, $( $T ),+> TermVectorsReader for $name<$T1, $( $T ),+>
         where
             $T1: TermVectorsReader,
-            $( $T: TermVectorsReader + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
+            $( $T: TermVectorsReader
+                + TermVectors<Fields = <$T1 as TermVectors>::Fields>
+                + RawTermVectors<IndexInput = <$T1 as RawTermVectors>::IndexInput> ),+
         {
             fn check_integrity(&self) -> Result<()> {
                 match self {
@@ -171,8 +163,8 @@ macro_rules! either_term_vectors_reader {
     };
 }
 
-either_term_vectors_reader!(
-    pub TermVectorsReaderEnum2 => { fe: FieldsEnum2, te: TermsEnum2 } { A: A, B: B }
+either_term_vectors_reader_with_same_fields!(
+    pub TermVectorsReaderEnum2 { A: A, B: B }
 );
 
 impl<A, B> RawTermVectors for TermVectorsReaderEnum2<A, B>
