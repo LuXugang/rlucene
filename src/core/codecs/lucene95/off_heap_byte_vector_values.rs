@@ -618,6 +618,10 @@ impl KnnVectorValues for EmptyOffHeapVectorValues {
     0
   }
 
+  fn ord_to_doc(&self, _ord: usize) -> Result<usize> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+
   type KnnVectorValues = DummyKnnVectorsWriter;
 
   fn get_encoding(&self) -> VectorEncoding {
