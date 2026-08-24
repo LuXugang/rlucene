@@ -23,11 +23,17 @@ use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
 use crate::core::index::sorted_doc_values::SortedDocValues;
-use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
+use crate::core::index::sorted_doc_values::{
+  SortedDocValuesEnum2, SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes,
+};
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
+use crate::core::index::sorted_numeric_doc_values::{
+  SortedNumericDocValuesEnum2, SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric,
+};
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::index::sorted_set_doc_values_writer::{
+  SortedSetDocValuesEnum2, SortedSetDocValuesEnum2WithUnsupportedSecondSorted,
+};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
@@ -174,7 +180,11 @@ where
   }
 }
 macro_rules! either_docvaluesproducer_with_unsupported_second_skipper {
-    ($vis:vis $name:ident { A: $A:ident, B: $B:ident }) => {
+    ($vis:vis $name:ident { A: $A:ident, B: $B:ident } return_types {
+        SortedDocValues: $SortedDocValues:ident,
+        SortedNumericDocValues: $SortedNumericDocValues:ident,
+        SortedSetDocValues: $SortedSetDocValues:ident $(,)?
+    }) => {
         $vis enum $name<$A, $B> {
             A($A),
             B($B),
@@ -219,16 +229,16 @@ macro_rules! either_docvaluesproducer_with_unsupported_second_skipper {
             }
 
             type SortedDocValues =
-                SortedDocValuesEnum2<$A::SortedDocValues, $B::SortedDocValues>;
+                $SortedDocValues<$A::SortedDocValues, $B::SortedDocValues>;
 
             fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
                 match self {
-                    $name::A(inner) => inner.get_sorted(field).map(SortedDocValuesEnum2::A),
-                    $name::B(inner) => inner.get_sorted(field).map(SortedDocValuesEnum2::B),
+                    $name::A(inner) => inner.get_sorted(field).map($SortedDocValues::A),
+                    $name::B(inner) => inner.get_sorted(field).map($SortedDocValues::B),
                 }
             }
 
-            type SortedNumericDocValues = SortedNumericDocValuesEnum2<
+            type SortedNumericDocValues = $SortedNumericDocValues<
                 $A::SortedNumericDocValues,
                 $B::SortedNumericDocValues,
             >;
@@ -240,20 +250,20 @@ macro_rules! either_docvaluesproducer_with_unsupported_second_skipper {
                 match self {
                     $name::A(inner) => inner
                         .get_sorted_numeric(field)
-                        .map(SortedNumericDocValuesEnum2::A),
+                        .map($SortedNumericDocValues::A),
                     $name::B(inner) => inner
                         .get_sorted_numeric(field)
-                        .map(SortedNumericDocValuesEnum2::B),
+                        .map($SortedNumericDocValues::B),
                 }
             }
 
             type SortedSetDocValues =
-                SortedSetDocValuesEnum2<$A::SortedSetDocValues, $B::SortedSetDocValues>;
+                $SortedSetDocValues<$A::SortedSetDocValues, $B::SortedSetDocValues>;
 
             fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
                 match self {
-                    $name::A(inner) => inner.get_sorted_set(field).map(SortedSetDocValuesEnum2::A),
-                    $name::B(inner) => inner.get_sorted_set(field).map(SortedSetDocValuesEnum2::B),
+                    $name::A(inner) => inner.get_sorted_set(field).map($SortedSetDocValues::A),
+                    $name::B(inner) => inner.get_sorted_set(field).map($SortedSetDocValues::B),
                 }
             }
 
@@ -297,5 +307,18 @@ macro_rules! either_docvaluesproducer_with_unsupported_second_skipper {
     };
 }
 either_docvaluesproducer_with_unsupported_second_skipper!(
-    pub(crate) DocValuesProducerEnum2WithUnsupportedSecondSkipper { A: A, B: B }
+    pub(crate) SlowCompositeDocValuesProducerEnum2 { A: A, B: B }
+    return_types {
+        SortedDocValues: SortedDocValuesEnum2,
+        SortedNumericDocValues: SortedNumericDocValuesEnum2,
+        SortedSetDocValues: SortedSetDocValuesEnum2,
+    }
+);
+either_docvaluesproducer_with_unsupported_second_skipper!(
+    pub(crate) ReorderedMergeDocValuesProducerEnum2 { A: A, B: B }
+    return_types {
+        SortedDocValues: SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes,
+        SortedNumericDocValues: SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric,
+        SortedSetDocValues: SortedSetDocValuesEnum2WithUnsupportedSecondSorted,
+    }
 );

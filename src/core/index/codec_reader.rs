@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::doc_values_producer::{
-  DocValuesProducer, DocValuesProducerEnum2WithUnsupportedSecondSkipper,
+  DocValuesProducer, ReorderedMergeDocValuesProducerEnum2, SlowCompositeDocValuesProducerEnum2,
 };
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
@@ -40,9 +40,15 @@ use crate::core::index::slow_composite_codec_reader_wrapper::{
   SlowCompositeByteVectorValues, SlowCompositeFloatVectorValues, SlowCompositeKnnVectorsReader,
   SlowCompositePointValues, SlowCompositePointsReader,
 };
-use crate::core::index::sorted_doc_values::SortedDocValuesEnum2;
-use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValuesEnum2;
-use crate::core::index::sorted_set_doc_values_writer::SortedSetDocValuesEnum2;
+use crate::core::index::sorted_doc_values::{
+  SortedDocValuesEnum2, SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes,
+};
+use crate::core::index::sorted_numeric_doc_values::{
+  SortedNumericDocValuesEnum2, SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric,
+};
+use crate::core::index::sorted_set_doc_values_writer::{
+  SortedSetDocValuesEnum2, SortedSetDocValuesEnum2WithUnsupportedSecondSorted,
+};
 use crate::core::index::sorting_codec_reader::{
   ReorderedMergeByteVectorValues, ReorderedMergeFloatVectorValues, ReorderedMergePointValues,
   SortingCodecReaderKnnVectorsReader, SortingCodecReaderPointsReader,
@@ -485,7 +491,10 @@ macro_rules! either_codec_reader {
        PointValues: $PointValues:ident,
        PointsReader: $PointsReader:ident,
        KnnVectorsReader: $KnnVectorsReader:ident,
-       DocValuesProducer: $DocValuesProducer:ident $(,)?
+       DocValuesProducer: $DocValuesProducer:ident,
+       SortedDocValues: $SortedDocValues:ident,
+       SortedNumericDocValues: $SortedNumericDocValues:ident,
+       SortedSetDocValues: $SortedSetDocValues:ident $(,)?
      }) => {
         $vis enum $name<$($G),+>
         where
@@ -662,17 +671,17 @@ macro_rules! either_codec_reader {
             }
 
             type SortedDocValues =
-                SortedDocValuesEnum2<<$A as LeafReader>::SortedDocValues, <$B as LeafReader>::SortedDocValues>;
+                $SortedDocValues<<$A as LeafReader>::SortedDocValues, <$B as LeafReader>::SortedDocValues>;
 
             fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
                 match self {
-                    Self::A(inner) => LeafReader::get_sorted_doc_values(inner,field).map(|opt| opt.map(SortedDocValuesEnum2::A)),
-                    Self::B(inner) => LeafReader::get_sorted_doc_values(inner,field).map(|opt| opt.map(SortedDocValuesEnum2::B)),
+                    Self::A(inner) => LeafReader::get_sorted_doc_values(inner,field).map(|opt| opt.map($SortedDocValues::A)),
+                    Self::B(inner) => LeafReader::get_sorted_doc_values(inner,field).map(|opt| opt.map($SortedDocValues::B)),
                 }
             }
 
             type SortedNumericDocValues =
-                SortedNumericDocValuesEnum2<<$A as LeafReader>::SortedNumericDocValues, <$B as LeafReader>::SortedNumericDocValues>;
+                $SortedNumericDocValues<<$A as LeafReader>::SortedNumericDocValues, <$B as LeafReader>::SortedNumericDocValues>;
 
             fn get_sorted_numeric_doc_values(
                 &self,
@@ -681,15 +690,15 @@ macro_rules! either_codec_reader {
                 match self {
                     Self::A(inner) =>LeafReader::
                         get_sorted_numeric_doc_values(inner,field)
-                        .map(|opt| opt.map(SortedNumericDocValuesEnum2::A)),
+                        .map(|opt| opt.map($SortedNumericDocValues::A)),
                     Self::B(inner) => LeafReader::
                         get_sorted_numeric_doc_values(inner,field)
-                        .map(|opt| opt.map(SortedNumericDocValuesEnum2::B)),
+                        .map(|opt| opt.map($SortedNumericDocValues::B)),
                 }
             }
 
             type SortedSetDocValues =
-                SortedSetDocValuesEnum2<<$A as LeafReader>::SortedSetDocValues, <$B as LeafReader>::SortedSetDocValues>;
+                $SortedSetDocValues<<$A as LeafReader>::SortedSetDocValues, <$B as LeafReader>::SortedSetDocValues>;
 
             fn get_sorted_set_doc_values(
                 &self,
@@ -698,10 +707,10 @@ macro_rules! either_codec_reader {
                 match self {
                     Self::A(inner) => LeafReader::
                         get_sorted_set_doc_values(inner, field)
-                        .map(|opt| opt.map(SortedSetDocValuesEnum2::A)),
+                        .map(|opt| opt.map($SortedSetDocValues::A)),
                     Self::B(inner) =>LeafReader::
                         get_sorted_set_doc_values(inner,field)
-                        .map(|opt| opt.map(SortedSetDocValuesEnum2::B)),
+                        .map(|opt| opt.map($SortedSetDocValues::B)),
                 }
             }
 
@@ -940,7 +949,10 @@ either_codec_reader!(
       PointValues: SlowCompositePointValues,
       PointsReader: SlowCompositePointsReader,
       KnnVectorsReader: SlowCompositeKnnVectorsReader,
-      DocValuesProducer: DocValuesProducerEnum2WithUnsupportedSecondSkipper,
+      DocValuesProducer: SlowCompositeDocValuesProducerEnum2,
+      SortedDocValues: SortedDocValuesEnum2,
+      SortedNumericDocValues: SortedNumericDocValuesEnum2,
+      SortedSetDocValues: SortedSetDocValuesEnum2,
     }
 );
 
@@ -963,7 +975,10 @@ either_codec_reader!(
       PointValues: ReorderedMergePointValues,
       PointsReader: SortingCodecReaderPointsReader,
       KnnVectorsReader: SortingCodecReaderKnnVectorsReader,
-      DocValuesProducer: DocValuesProducerEnum2WithUnsupportedSecondSkipper,
+      DocValuesProducer: ReorderedMergeDocValuesProducerEnum2,
+      SortedDocValues: SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes,
+      SortedNumericDocValues: SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric,
+      SortedSetDocValues: SortedSetDocValuesEnum2WithUnsupportedSecondSorted,
     }
 );
 

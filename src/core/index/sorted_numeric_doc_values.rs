@@ -228,3 +228,111 @@ either_sorted_numeric_docvalues!(
         B: B
     }
 );
+
+pub enum SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> DocValuesIterator for SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric<A, B>
+where
+  A: DocValuesIterator,
+  B: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(values) => values.advance_exact(target),
+      Self::B(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+
+impl<A, B> DocIdSetIterator for SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(values) => values.doc_id(),
+      Self::B(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.next_doc(),
+      Self::B(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.advance(target),
+      Self::B(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.slow_advance(target),
+      Self::B(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.cost(),
+      Self::B(values) => values.cost(),
+    }
+  }
+}
+
+impl<A, B> SortedNumericDocValues for SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric<A, B>
+where
+  A: SortedNumericDocValues,
+  B: SortedNumericDocValues,
+{
+  fn next_value(&mut self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.next_value(),
+      Self::B(values) => values.next_value(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.doc_value_count(),
+      Self::B(values) => values.doc_value_count(),
+    }
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::A(values) => values.is_single_valued(),
+      Self::B(values) => values.is_single_valued(),
+    }
+  }
+
+  type NumericDocValues = A::NumericDocValues;
+
+  fn get_numeric_doc_values(&mut self) -> Result<Self::NumericDocValues> {
+    match self {
+      Self::A(values) => values.get_numeric_doc_values(),
+      Self::B(values) => match values.get_numeric_doc_values() {
+        Err(error) => Err(error),
+        Ok(_) => Err(LuceneError::illegal_state(
+          "the second SortedNumericDocValues unexpectedly returned numeric doc values",
+        )),
+      },
+    }
+  }
+}

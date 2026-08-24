@@ -1086,6 +1086,145 @@ where
   }
 }
 
+pub enum SortedSetDocValuesEnum2WithUnsupportedSecondSorted<A, B> {
+  A(A),
+  B(B),
+}
+
+impl<A, B> DocValuesIterator for SortedSetDocValuesEnum2WithUnsupportedSecondSorted<A, B>
+where
+  A: DocValuesIterator,
+  B: DocValuesIterator,
+{
+  fn advance_exact(&mut self, target: i32) -> Result<bool> {
+    match self {
+      Self::A(values) => values.advance_exact(target),
+      Self::B(values) => values.advance_exact(target),
+    }
+  }
+}
+
+impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedSetDocValuesEnum2WithUnsupportedSecondSorted<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+
+impl<A, B> DocIdSetIterator for SortedSetDocValuesEnum2WithUnsupportedSecondSorted<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::A(values) => values.doc_id(),
+      Self::B(values) => values.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.next_doc(),
+      Self::B(values) => values.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.advance(target),
+      Self::B(values) => values.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::A(values) => values.slow_advance(target),
+      Self::B(values) => values.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.cost(),
+      Self::B(values) => values.cost(),
+    }
+  }
+}
+
+impl<A, B> SortedSetDocValues for SortedSetDocValuesEnum2WithUnsupportedSecondSorted<A, B>
+where
+  A: SortedSetDocValues,
+  B: SortedSetDocValues,
+{
+  fn next_ord(&mut self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.next_ord(),
+      Self::B(values) => values.next_ord(),
+    }
+  }
+
+  fn doc_value_count(&mut self) -> Result<i32> {
+    match self {
+      Self::A(values) => values.doc_value_count(),
+      Self::B(values) => values.doc_value_count(),
+    }
+  }
+
+  fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
+    match self {
+      Self::A(values) => values.lookup_ord(ord),
+      Self::B(values) => values.lookup_ord(ord),
+    }
+  }
+
+  fn get_value_count(&self) -> Result<i64> {
+    match self {
+      Self::A(values) => values.get_value_count(),
+      Self::B(values) => values.get_value_count(),
+    }
+  }
+
+  fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
+    match self {
+      Self::A(values) => values.lookup_term(key),
+      Self::B(values) => values.lookup_term(key),
+    }
+  }
+
+  type TermsEnum<'a>
+    = SortedSetDocValuesTermsEnum<&'a mut Self>
+  where
+    A: 'a,
+    B: 'a;
+
+  fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
+    self.default_terms_enum()
+  }
+
+  fn is_single_valued(&self) -> bool {
+    match self {
+      Self::A(values) => values.is_single_valued(),
+      Self::B(values) => values.is_single_valued(),
+    }
+  }
+
+  type SortedDocValues = A::SortedDocValues;
+
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    match self {
+      Self::A(values) => values.get_sorted_doc_values(),
+      Self::B(values) => match values.get_sorted_doc_values() {
+        Err(error) => Err(error),
+        Ok(_) => Err(LuceneError::illegal_state(
+          "the second SortedSetDocValues unexpectedly returned sorted doc values",
+        )),
+      },
+    }
+  }
+}
+
 pub enum SortedSetDocValuesWithEmpty<A> {
   A(A),
   B(EmptySortedSet),
