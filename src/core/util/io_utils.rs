@@ -185,15 +185,15 @@ impl CloseWhileHandlingException {
 }
 
 pub(crate) trait CloseWhileHandlingResource {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException);
+  fn close_while_handling(self, failures: &mut CloseWhileHandlingException);
 }
 
 impl<T> CloseWhileHandlingResource for &mut T
 where
   T: Closeable + ?Sized,
 {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
-    error.close(|| self.close());
+  fn close_while_handling(self, failures: &mut CloseWhileHandlingException) {
+    failures.close(|| self.close());
   }
 }
 
@@ -201,8 +201,8 @@ impl<T> CloseWhileHandlingResource for &T
 where
   T: CloseableRef + ?Sized,
 {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
-    error.close(|| self.close());
+  fn close_while_handling(self, failures: &mut CloseWhileHandlingException) {
+    failures.close(|| self.close());
   }
 }
 
@@ -210,9 +210,9 @@ impl<T> CloseWhileHandlingResource for Option<T>
 where
   T: CloseWhileHandlingResource,
 {
-  fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
+  fn close_while_handling(self, failures: &mut CloseWhileHandlingException) {
     if let Some(resource) = self {
-      resource.close_while_handling_error(error);
+      resource.close_while_handling(failures);
     }
   }
 }
@@ -223,8 +223,8 @@ macro_rules! impl_close_while_handling_resource_tuple {
     where
       $($T: CloseWhileHandlingResource),+
     {
-      fn close_while_handling_error(self, error: &mut CloseWhileHandlingException) {
-        $(self.$index.close_while_handling_error(error);)+
+      fn close_while_handling(self, failures: &mut CloseWhileHandlingException) {
+        $(self.$index.close_while_handling(failures);)+
       }
     }
   };
@@ -364,37 +364,52 @@ impl IOUtils {
     objects.close_refs()
   }
 
-  /// Closes all given objects, suppressing all returned errors.
+  /// Closes every item yielded by `objects` using the supplied `close`
+  /// operation, suppressing all returned errors.
   ///
-  /// Even if a panic is raised, all given closeables are closed before the
-  /// first panic is resumed.
-  pub fn close_while_handling_error<I, F>(objects: I, mut close: F) -> Result<()>
+  /// This is the iterator/custom-operation form of Java's
+  /// `IOUtils.closeWhileHandlingException`. Use it for an arbitrary-length
+  /// collection whose items have one iterator item type, or when the cleanup
+  /// operation is not the resource's standard `close` method. For a single
+  /// closeable or a fixed tuple of possibly different closeable types, use
+  /// [`Self::close_while_handling_exception`] instead.
+  ///
+  /// All items are attempted even if a returned error or panic occurs. Returned
+  /// errors are suppressed. After every item has been attempted, the first
+  /// panic is resumed with later failures retained as suppressed failures.
+  pub fn close_while_handling_exception_with<I, F>(objects: I, mut close: F) -> Result<()>
   where
     I: IntoIterator,
     F: FnMut(I::Item) -> Result<()>,
   {
-    let mut error = CloseWhileHandlingException::new();
+    let mut failures = CloseWhileHandlingException::new();
     for object in objects {
-      error.close(|| close(object));
+      failures.close(|| close(object));
     }
-    error.finish();
+    failures.finish();
     Ok(())
   }
 
-  /// Closes one or more resources of different concrete types while handling
-  /// an exception, equivalent to Java's `IOUtils.closeWhileHandlingException`.
+  /// Closes one or more resources while handling an exception, equivalent to
+  /// Java's `IOUtils.closeWhileHandlingException(Closeable...)`.
   ///
-  /// `None` resources are ignored. Returned errors are suppressed. Even if a
-  /// panic is raised, all given resources are closed before the first panic is
-  /// resumed with subsequent panics and returned errors retained as suppressed
+  /// Pass a resource directly, or pass a tuple when closing multiple resources.
+  /// Tuple elements may have different concrete types and are closed from left
+  /// to right. `None` resources are ignored, like `null` elements in Java.
+  /// Use [`Self::close_while_handling_exception_with`] instead for an
+  /// arbitrary-length iterator or a custom cleanup operation.
+  ///
+  /// All resources are attempted even if a returned error or panic occurs.
+  /// Returned errors are suppressed. After every resource has been attempted,
+  /// the first panic is resumed with later failures retained as suppressed
   /// failures.
   pub(crate) fn close_while_handling_exception<T>(resources: T)
   where
     T: CloseWhileHandlingResource,
   {
-    let mut error = CloseWhileHandlingException::new();
-    resources.close_while_handling_error(&mut error);
-    error.finish()
+    let mut failures = CloseWhileHandlingException::new();
+    resources.close_while_handling(&mut failures);
+    failures.finish()
   }
 
   /// Rethrows a previously caught failure.

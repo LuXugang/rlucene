@@ -294,7 +294,7 @@ impl SearcherThread {
           return Err(error);
         }
         // release resources
-        IOUtils::close_while_handling_error(
+        IOUtils::close_while_handling_exception_with(
           [r1.as_ref(), r2.as_ref()].into_iter().flatten(),
           IndexReader::close,
         )?;
@@ -311,7 +311,7 @@ impl SearcherThread {
         r2.num_docs()?
       )));
     }
-    IOUtils::close_while_handling_error([&r1, &r2], IndexReader::close)?;
+    IOUtils::close_while_handling_exception_with([&r1, &r2], IndexReader::close)?;
     Ok(())
   }
 }

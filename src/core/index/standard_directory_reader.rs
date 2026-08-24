@@ -776,7 +776,7 @@ where
       readers.clear();
       Ok(reader)
     }));
-    IOUtils::close_while_handling_error(readers.iter().flatten(), IndexReader::dec_ref)?;
+    IOUtils::close_while_handling_exception_with(readers.iter().flatten(), IndexReader::dec_ref)?;
     unwrap_caught_result!(result)
   }
 }

@@ -2705,9 +2705,9 @@ where
     }
 
     let cleanup_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close_while_handling_error(0..2, |operation| match operation {
+      IOUtils::close_while_handling_exception_with(0..2, |operation| match operation {
         0 => self.config.get_merge_scheduler().close(),
-        1 => {
+        _ => {
           let mut inner = self.inner.lock();
 
           let mut pending_commit = commit_lock.pending_commit.borrow_mut();
@@ -2723,15 +2723,13 @@ where
             throwable.add_suppressed(pending_result, "panic while rolling back pending commit");
           }
 
-          IOUtils::close_while_handling_error(0..4, |operation| match operation {
+          IOUtils::close_while_handling_exception_with(0..4, |operation| match operation {
             0 => self.reader_pool.close(&mut inner.segment_infos),
             1 => inner.deleter.close(),
             2 => IOUtils::close_one_ref(self.writer_lock()),
-            3 => cleanup_and_notify(),
-            _ => unreachable!(),
+            _ => cleanup_and_notify(),
           })
         },
-        _ => unreachable!(),
       })
     }));
     throwable.add_suppressed(cleanup_result, "panic while cleaning up rollback");
@@ -3174,7 +3172,7 @@ where
         Ok(())
       }));
       if !success {
-        IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
+        IOUtils::close_while_handling_exception_with(&locks, CloseableRef::close)?;
       }
       unwrap_caught_result!(result)?;
     }
@@ -3327,7 +3325,7 @@ where
     if success_top {
       IOUtils::close_refs(&locks)?;
     } else {
-      IOUtils::close_while_handling_error(&locks, CloseableRef::close)?;
+      IOUtils::close_while_handling_exception_with(&locks, CloseableRef::close)?;
     }
     let seq_no = unwrap_caught_result!(result)?;
     self.maybe_merge()?;
@@ -6994,16 +6992,15 @@ where
 
     if !success2 {
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        IOUtils::close_while_handling_error(0..2, |operation| match operation {
+        IOUtils::close_while_handling_exception_with(0..2, |operation| match operation {
           0 => match reader.take() {
             Some(reader) => reader.close(),
             None => Ok(()),
           },
-          1 => match on_get_reader_merge_resources.as_mut() {
+          _ => match on_get_reader_merge_resources.as_mut() {
             Some(resource) => resource(),
             None => Ok(()),
           },
-          _ => unreachable!(),
         })
       }));
       self.maybe_close_on_tragic_event(None)?;
