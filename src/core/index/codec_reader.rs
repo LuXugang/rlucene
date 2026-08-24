@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::codecs::doc_values_producer::{DocValuesProducer, DocValuesProducerEnum2};
+use crate::core::codecs::doc_values_producer::{
+  DocValuesProducer, DocValuesProducerEnum2WithUnsupportedSecondSkipper,
+};
 use crate::core::codecs::fields_producer::{FieldsProducer, FieldsProducerEnum2};
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::{NormsProducer, NormsProducerEnum2};
@@ -26,7 +28,6 @@ use crate::core::codecs::stored_fields_writer::StoredFieldsWriter;
 use crate::core::codecs::term_vectors_reader::{TermVectorsReader, TermVectorsReaderEnum2};
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
-use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::fields::Fields;
@@ -483,7 +484,8 @@ macro_rules! either_codec_reader {
        ByteVectorValues: $ByteVectorValues:ident,
        PointValues: $PointValues:ident,
        PointsReader: $PointsReader:ident,
-       KnnVectorsReader: $KnnVectorsReader:ident $(,)?
+       KnnVectorsReader: $KnnVectorsReader:ident,
+       DocValuesProducer: $DocValuesProducer:ident $(,)?
      }) => {
         $vis enum $name<$($G),+>
         where
@@ -713,16 +715,20 @@ macro_rules! either_codec_reader {
                 }
             }
 
-            type DocValuesSkipper =
-                DocValuesSkipperEnum2<<$A as LeafReader>::DocValuesSkipper, <$B as LeafReader>::DocValuesSkipper>;
+            type DocValuesSkipper = <$A as LeafReader>::DocValuesSkipper;
 
             fn get_doc_values_skipper(
                 &self,
                 field: &str,
             ) -> Result<Option<Self::DocValuesSkipper>> {
                 match self {
-                    Self::A(inner) => LeafReader::get_doc_values_skipper(inner,field).map(|opt| opt.map(DocValuesSkipperEnum2::A)),
-                    Self::B(inner) => LeafReader::get_doc_values_skipper(inner,field).map(|opt| opt.map(DocValuesSkipperEnum2::B)),
+                    Self::A(inner) => LeafReader::get_doc_values_skipper(inner,field),
+                    Self::B(inner) => match LeafReader::get_doc_values_skipper(inner, field)? {
+                        None => Ok(None),
+                        Some(_) => Err(LuceneError::illegal_state(
+                            "the second LeafReader unexpectedly returned a doc-values skipper",
+                        )),
+                    },
                 }
             }
 
@@ -834,7 +840,7 @@ macro_rules! either_codec_reader {
             type NormsProducer =
                 NormsProducerEnum2<<$A as CodecReader>::NormsProducer, <$B as CodecReader>::NormsProducer>;
             type DocValuesProducer =
-                DocValuesProducerEnum2<<$A as CodecReader>::DocValuesProducer, <$B as CodecReader>::DocValuesProducer>;
+                $DocValuesProducer<<$A as CodecReader>::DocValuesProducer, <$B as CodecReader>::DocValuesProducer>;
             type FieldsProducer =
                 FieldsProducerEnum2<<$A as CodecReader>::FieldsProducer, <$B as CodecReader>::FieldsProducer>;
             type PointsReader =
@@ -878,10 +884,10 @@ macro_rules! either_codec_reader {
                 match self {
                     Self::A(inner) => inner
                         .get_doc_values_reader()
-                        .map(|opt| opt.map(DocValuesProducerEnum2::A)),
+                        .map(|opt| opt.map($DocValuesProducer::A)),
                     Self::B(inner) => inner
                         .get_doc_values_reader()
-                        .map(|opt| opt.map(DocValuesProducerEnum2::B)),
+                        .map(|opt| opt.map($DocValuesProducer::B)),
                 }
             }
 
@@ -934,6 +940,7 @@ either_codec_reader!(
       PointValues: SlowCompositePointValues,
       PointsReader: SlowCompositePointsReader,
       KnnVectorsReader: SlowCompositeKnnVectorsReader,
+      DocValuesProducer: DocValuesProducerEnum2WithUnsupportedSecondSkipper,
     }
 );
 
@@ -956,6 +963,7 @@ either_codec_reader!(
       PointValues: ReorderedMergePointValues,
       PointsReader: SortingCodecReaderPointsReader,
       KnnVectorsReader: SortingCodecReaderKnnVectorsReader,
+      DocValuesProducer: DocValuesProducerEnum2WithUnsupportedSecondSkipper,
     }
 );
 

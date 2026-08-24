@@ -19,7 +19,6 @@ use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::index::binary_doc_values::BinaryDocValues;
 use crate::core::index::binary_doc_values::BinaryDocValuesEnum2;
 use crate::core::index::doc_values_skipper::DocValuesSkipper;
-use crate::core::index::doc_values_skipper::DocValuesSkipperEnum2;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::numeric_doc_values::NumericDocValuesEnum2;
@@ -174,7 +173,7 @@ where
     Ok(Some(v))
   }
 }
-macro_rules! either_docvaluesproducer {
+macro_rules! either_docvaluesproducer_with_unsupported_second_skipper {
     ($vis:vis $name:ident { A: $A:ident, B: $B:ident }) => {
         $vis enum $name<$A, $B> {
             A($A),
@@ -258,15 +257,19 @@ macro_rules! either_docvaluesproducer {
                 }
             }
 
-            type DocValuesSkipper =
-                DocValuesSkipperEnum2<$A::DocValuesSkipper, $B::DocValuesSkipper>;
+            type DocValuesSkipper = $A::DocValuesSkipper;
 
             fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
                 match self {
-                    $name::A(inner) => inner.get_skipper(field).map(|opt| opt.map(DocValuesSkipperEnum2::A)),
-                    $name::B(inner) => inner.get_skipper(field).map(|opt| opt.map(DocValuesSkipperEnum2::B)),
-    }
-}
+                    $name::A(inner) => inner.get_skipper(field),
+                    $name::B(inner) => match inner.get_skipper(field)? {
+                        None => Ok(None),
+                        Some(_) => Err(LuceneError::illegal_state(
+                            "the second DocValuesProducer unexpectedly returned a skipper",
+                        )),
+                    },
+                }
+            }
 
             fn check_integrity(&self) -> Result<()> {
                 match self {
@@ -293,4 +296,6 @@ macro_rules! either_docvaluesproducer {
         }
     };
 }
-either_docvaluesproducer!(pub DocValuesProducerEnum2 { A: A, B: B });
+either_docvaluesproducer_with_unsupported_second_skipper!(
+    pub(crate) DocValuesProducerEnum2WithUnsupportedSecondSkipper { A: A, B: B }
+);
