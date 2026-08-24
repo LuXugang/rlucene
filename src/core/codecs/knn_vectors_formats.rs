@@ -131,6 +131,10 @@ type Lucene99HnswFloatVectorValues<I> =
   <Lucene99HnswVectorsReader<I> as KnnVectorsReader>::FloatVectorValues;
 type Lucene99ScalarQuantizedFloatVectorValues<I> =
   <Lucene99ScalarQuantizedVectorsReader<I> as KnnVectorsReader>::FloatVectorValues;
+type Lucene99HnswFloatVectorValuesCopy<I> =
+  <Lucene99HnswFloatVectorValues<I> as KnnVectorValues>::KnnVectorValues;
+type Lucene99ScalarQuantizedFloatVectorValuesCopy<I> =
+  <Lucene99ScalarQuantizedFloatVectorValues<I> as KnnVectorValues>::KnnVectorValues;
 
 type Lucene99HnswFloatVectorScorer<I> =
   <Lucene99HnswFloatVectorValues<I> as FloatVectorValues>::VectorScorer;
@@ -180,7 +184,12 @@ pub enum KnnVectorsFormatsFloatVectorValues<I: IndexInput> {
   Lucene99ScalarQuantized(Lucene99ScalarQuantizedFloatVectorValues<I>),
 }
 
-impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
+pub enum KnnVectorsFormatsFloatVectorValuesCopy<I: IndexInput> {
+  Lucene99Hnsw(Lucene99HnswFloatVectorValuesCopy<I>),
+  Lucene99ScalarQuantized(Lucene99ScalarQuantizedFloatVectorValuesCopy<I>),
+}
+
+impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValuesCopy<I> {
   fn dimension(&self) -> usize {
     match self {
       Self::Lucene99Hnsw(values) => values.dimension(),
@@ -208,6 +217,145 @@ impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
     match self {
       Self::Lucene99Hnsw(values) => values.copy().map(Self::Lucene99Hnsw),
       Self::Lucene99ScalarQuantized(values) => values.copy().map(Self::Lucene99ScalarQuantized),
+    }
+  }
+
+  fn get_vector_byte_length(&self) -> usize {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vector_byte_length(),
+      Self::Lucene99ScalarQuantized(values) => values.get_vector_byte_length(),
+    }
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    match self {
+      Self::Lucene99Hnsw(values) => KnnVectorValues::get_encoding(values),
+      Self::Lucene99ScalarQuantized(values) => KnnVectorValues::get_encoding(values),
+    }
+  }
+
+  type Bits<'a, B>
+    = <Lucene99HnswFloatVectorValuesCopy<I> as KnnVectorValues>::Bits<'a, B>
+  where
+    B: Bits,
+    Self: 'a;
+
+  fn get_accept_ords<'a, B>(&'a self, accept_docs: Option<B>) -> Option<Self::Bits<'a, B>>
+  where
+    B: Bits,
+  {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_accept_ords(accept_docs),
+      Self::Lucene99ScalarQuantized(values) => values.get_accept_ords(accept_docs),
+    }
+  }
+
+  type DocIndexIterator =
+    <Lucene99HnswFloatVectorValuesCopy<I> as KnnVectorValues>::DocIndexIterator;
+
+  fn iterator(&self) -> Result<Self::DocIndexIterator> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.iterator(),
+      Self::Lucene99ScalarQuantized(values) => values.iterator(),
+    }
+  }
+}
+
+impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValuesCopy<I> {
+  fn vector_value(&self, ord: usize) -> Result<std::borrow::Cow<'_, VectorValueEnum>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.vector_value(ord),
+      Self::Lucene99ScalarQuantized(values) => values.vector_value(ord),
+    }
+  }
+
+  type FloatVectorValues = Self;
+
+  fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values
+        .float_copy()
+        .map(|values| values.map(Self::Lucene99Hnsw)),
+      Self::Lucene99ScalarQuantized(values) => values
+        .float_copy()
+        .map(|values| values.map(Self::Lucene99ScalarQuantized)),
+    }
+  }
+
+  type VectorScorer = KnnVectorsFormatsFloatVectorScorer<I>;
+
+  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values
+        .scorer(target)
+        .map(|scorer| scorer.map(KnnVectorsFormatsFloatVectorScorer::Lucene99Hnsw)),
+      Self::Lucene99ScalarQuantized(values) => values
+        .scorer(target)
+        .map(|scorer| scorer.map(KnnVectorsFormatsFloatVectorScorer::Lucene99ScalarQuantized)),
+    }
+  }
+
+  fn get_encoding(&self) -> crate::core::index::vector_encoding::VectorEncoding {
+    match self {
+      Self::Lucene99Hnsw(values) => FloatVectorValues::get_encoding(values),
+      Self::Lucene99ScalarQuantized(values) => FloatVectorValues::get_encoding(values),
+    }
+  }
+
+  fn get_vectors_mut(&mut self) -> Result<&mut Vec<VectorValueEnum>> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vectors_mut(),
+      Self::Lucene99ScalarQuantized(values) => values.get_vectors_mut(),
+    }
+  }
+
+  fn get_vectors(&self) -> Result<&[VectorValueEnum]> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vectors(),
+      Self::Lucene99ScalarQuantized(values) => values.get_vectors(),
+    }
+  }
+
+  fn get_vectors_capacity(&self) -> Result<usize> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.get_vectors_capacity(),
+      Self::Lucene99ScalarQuantized(values) => values.get_vectors_capacity(),
+    }
+  }
+}
+
+impl<I: IndexInput> KnnVectorValues for KnnVectorsFormatsFloatVectorValues<I> {
+  fn dimension(&self) -> usize {
+    match self {
+      Self::Lucene99Hnsw(values) => values.dimension(),
+      Self::Lucene99ScalarQuantized(values) => values.dimension(),
+    }
+  }
+
+  fn size(&self) -> usize {
+    match self {
+      Self::Lucene99Hnsw(values) => values.size(),
+      Self::Lucene99ScalarQuantized(values) => values.size(),
+    }
+  }
+
+  fn ord_to_doc(&self, ord: usize) -> Result<usize> {
+    match self {
+      Self::Lucene99Hnsw(values) => values.ord_to_doc(ord),
+      Self::Lucene99ScalarQuantized(values) => values.ord_to_doc(ord),
+    }
+  }
+
+  type KnnVectorValues = KnnVectorsFormatsFloatVectorValuesCopy<I>;
+
+  fn copy(&self) -> Result<Self::KnnVectorValues> {
+    match self {
+      Self::Lucene99Hnsw(values) => values
+        .copy()
+        .map(KnnVectorsFormatsFloatVectorValuesCopy::Lucene99Hnsw),
+      Self::Lucene99ScalarQuantized(values) => values
+        .copy()
+        .map(KnnVectorsFormatsFloatVectorValuesCopy::Lucene99ScalarQuantized),
     }
   }
 
@@ -259,16 +407,16 @@ impl<I: IndexInput> FloatVectorValues for KnnVectorsFormatsFloatVectorValues<I> 
     }
   }
 
-  type FloatVectorValues = Self;
+  type FloatVectorValues = KnnVectorsFormatsFloatVectorValuesCopy<I>;
 
   fn float_copy(&self) -> Result<Option<Self::FloatVectorValues>> {
     match self {
       Self::Lucene99Hnsw(values) => values
         .float_copy()
-        .map(|values| values.map(Self::Lucene99Hnsw)),
+        .map(|values| values.map(KnnVectorsFormatsFloatVectorValuesCopy::Lucene99Hnsw)),
       Self::Lucene99ScalarQuantized(values) => values
         .float_copy()
-        .map(|values| values.map(Self::Lucene99ScalarQuantized)),
+        .map(|values| values.map(KnnVectorsFormatsFloatVectorValuesCopy::Lucene99ScalarQuantized)),
     }
   }
 
