@@ -20,7 +20,7 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::reader_util::ReaderUtil;
 use crate::core::search::collector::Collector;
-use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
+use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_stream::DocIdStream;
 use crate::core::search::dummy::dummy_leaf_collector::DummyLeafCollector;
 use crate::core::search::field_comparator::{
@@ -1331,12 +1331,8 @@ where
     comparators: &mut [FieldComparatorEnum],
   ) -> Result<Option<TopFieldLeafComparatorEnumIterRef<'_, LR>>> {
     match self {
-      Self::Multi(inner) => inner
-        .competitive_iterator(comparators)
-        .map(|opt| opt.map(DocIdSetIteratorEnum2::A)),
-      Self::Single(inner) => inner
-        .competitive_iterator(&mut comparators[0])
-        .map(|opt| opt.map(DocIdSetIteratorEnum2::B)),
+      Self::Multi(inner) => inner.competitive_iterator(comparators),
+      Self::Single(inner) => inner.competitive_iterator(&mut comparators[0]),
     }
   }
 
@@ -1350,7 +1346,4 @@ where
     }
   }
 }
-pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = DocIdSetIteratorEnum2<
-  LeafFieldComparatorDocIdSetIteratorRef<'a, LR>,
-  <LeafFieldComparatorEnum<LR> as LeafFieldComparator>::DocIdSetIteratorRef<'a>,
->;
+pub type TopFieldLeafComparatorEnumIterRef<'a, LR> = LeafFieldComparatorDocIdSetIteratorRef<'a, LR>;
