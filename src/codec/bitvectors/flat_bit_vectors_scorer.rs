@@ -16,7 +16,7 @@
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
 use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
-use crate::core::index::byte_vector_values::{ByteVectorValues, ByteVectorValuesEnum2};
+use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::KnnVectorValues;
 use crate::core::index::vector_encoding::VectorEncoding;
@@ -25,7 +25,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
-use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
+use crate::core::util::hnsw::random_vector_scorer::{RandomVectorScorer, RandomVectorScorerEnum2};
 use crate::core::util::hnsw::random_vector_scorer_supplier::{
   RandomVectorScorerSupplier, vector_values_ram_bytes_used,
 };
@@ -199,8 +199,9 @@ where
   B::ByteVectorValues: Send,
 {
   type Scorer<'a>
-    = BitRandomVectorScorer<
-    ByteVectorValuesEnum2<&'a B, &'a <B as ByteVectorValues>::ByteVectorValues>,
+    = RandomVectorScorerEnum2<
+    BitRandomVectorScorer<&'a B>,
+    BitRandomVectorScorer<&'a <B as ByteVectorValues>::ByteVectorValues>,
   >
   where
     Self: 'a,
@@ -211,17 +212,17 @@ where
     match (&self.vector_values1, &self.vector_values2) {
       (Some(vector_values1), Some(vector_values2)) => {
         let query = vector_values1.vector_value(ord)?;
-        Ok(BitRandomVectorScorer::new(
-          ByteVectorValuesEnum2::B(vector_values2),
+        Ok(RandomVectorScorerEnum2::B(BitRandomVectorScorer::new(
+          vector_values2,
           query.as_bytes()?.to_vec(),
-        ))
+        )))
       },
       (None, None) => {
         let query = self.vector_values.vector_value(ord)?;
-        Ok(BitRandomVectorScorer::new(
-          ByteVectorValuesEnum2::A(&self.vector_values),
+        Ok(RandomVectorScorerEnum2::A(BitRandomVectorScorer::new(
+          &self.vector_values,
           query.as_bytes()?.to_vec(),
-        ))
+        )))
       },
       _ => Err(LuceneError::illegal_state(
         "ByteVectorValues copy must consistently return a value",
