@@ -422,11 +422,13 @@ where
     let mut result = true;
 
     if components.len() > 1 {
-      let (c0_index, c0) = components
-        .iter()
-        .enumerate()
-        .max_by_key(|(_, c)| c.size)
-        .unwrap();
+      let mut c0_index = 0;
+      for index in 1..components.len() {
+        if components[index].size >= components[c0_index].size {
+          c0_index = index;
+        }
+      }
+      let c0 = &components[c0_index];
 
       if c0.start == NO_MORE_DOCS as usize {
         // the component is already fully connected - no room for new connections
