@@ -41,7 +41,7 @@ pub struct LongPoint {
 }
 
 impl LongPoint {
-  /// Creates a new `LongPoint` with the given name and `i64` values.
+  /// Creates a new [`LongPoint`] with the given name and `i64` values.
   pub fn new<T, P>(name: T, point: P) -> Result<LongPoint>
   where
     T: Into<String>,
@@ -128,7 +128,7 @@ impl LongPoint {
   }
 
   /// Create a query matching any of the specified 1D values. This is the points equivalent of
-  /// `TermsQuery`.
+  /// [`TermInSetQuery`](crate::core::search::term_in_set_query::TermInSetQuery).
   ///
   /// # Arguments
   ///

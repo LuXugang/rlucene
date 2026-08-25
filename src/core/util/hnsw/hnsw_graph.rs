@@ -61,13 +61,13 @@ pub trait HnswGraph {
   }
   /// Iterates over the neighbor list.
   ///
-  /// It is illegal to call this method after it returns `NO_MORE_DOCS`
+  /// It is illegal to call this method after it returns [`NO_MORE_DOCS`]
   /// without calling [`seek(level, target)`](Self::seek), which resets the
   /// iterator.
   ///
   /// # Returns
   ///
-  /// A node ordinal in the graph, or `NO_MORE_DOCS` if the iteration is
+  /// A node ordinal in the graph, or [`NO_MORE_DOCS`] if the iteration is
   /// complete.
   fn next_neighbor(&mut self) -> Result<usize>;
   /// Returns the number of levels of the graph

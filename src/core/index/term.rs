@@ -23,7 +23,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ram_usage_estimator::{size_of_string, size_of_vec};
-/// A `Term` represents a word from text. This is the unit of search.
+/// A [`Term`] represents a word from text. This is the unit of search.
 /// It is composed of two elements:
 /// - the text of the word, as a string,
 /// - and the name of the field that the text occurred in.
@@ -36,8 +36,8 @@ pub struct Term {
   pub bytes: BytesRef<Vec<u8>>,
 }
 impl Term {
-  /// Constructs a `Term` with the given field and bytes.
-  /// The provided `BytesRef` is copied when it is non-`None`.
+  /// Constructs a [`Term`] with the given field and bytes.
+  /// The provided [`BytesRef`] is copied when it is non-`None`.
   pub fn new<T>(fld: T, bytes: BytesRef<Vec<u8>>) -> Self
   where
     T: Into<String>,

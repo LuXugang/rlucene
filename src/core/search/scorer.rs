@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Expert: Common scoring functionality for different types of queries.
 ///
-/// A `Scorer` exposes an `iterator_mut()` over documents matching a query in
+/// A [`Scorer`] exposes an `iterator_mut()` over documents matching a query in
 /// increasing order of doc id.
 pub trait Scorer: Scorable {
   /// Returns the doc ID that is currently being scored.
@@ -33,7 +33,7 @@ pub trait Scorer: Scorable {
   /// Return a [`DocIdSetIterator`] over matching documents.
   ///
   /// The returned iterator will either be positioned on `-1` if no documents
-  /// have been scored yet, `NO_MORE_DOCS` if all documents have been scored already,
+  /// have been scored yet, [`NO_MORE_DOCS`] if all documents have been scored already,
   /// or the last document id that has been scored otherwise.
   /// # Warning
   /// The returned iterator is a *view*: calling this method several times must
@@ -90,14 +90,14 @@ pub trait Scorer: Scorable {
   /// Advance to the block of documents that contains `target` in order to get
   /// scoring information about this block.
   ///
-  /// This method is implicitly called by `DocIdSetIterator::advance` and
-  /// `DocIdSetIterator::next_doc` on the returned doc ID. Calling this method
+  /// This method is implicitly called by [`DocIdSetIterator::advance`] and
+  /// [`DocIdSetIterator::next_doc`] on the returned doc ID. Calling this method
   /// doesn't modify the current `doc_id()`. It returns a number that is greater
   /// than or equal to all documents contained in the current block, but less than
   /// any doc IDs of the next block. `target` must be `>= doc_id()` as well as all
   /// targets that have been passed to `advance_shallow` so far.
   ///
-  /// The default implementation returns `NO_MORE_DOCS`.
+  /// The default implementation returns [`NO_MORE_DOCS`].
   fn advance_shallow(&mut self, _target: i32) -> Result<i32> {
     Ok(NO_MORE_DOCS)
   }

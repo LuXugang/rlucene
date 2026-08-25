@@ -37,7 +37,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 const IPV4_PREFIX: [u8; 12] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff];
 
-/// An indexed 128-bit `InetAddress` field.
+/// An indexed 128-bit [`IpAddr`] field.
 ///
 /// Finding all documents within a range at search time is efficient. Multiple values for the same
 /// field in one document is allowed.
@@ -69,7 +69,7 @@ impl InetAddressPoint {
     0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff,
   ));
 
-  /// Return the `InetAddress` that compares immediately greater than `address`.
+  /// Return the [`IpAddr`] that compares immediately greater than `address`.
   ///
   /// # Errors
   ///
@@ -94,7 +94,7 @@ impl InetAddressPoint {
     Ok(decode_address(&next_up_bytes))
   }
 
-  /// Return the `InetAddress` that compares immediately less than `address`.
+  /// Return the [`IpAddr`] that compares immediately less than `address`.
   ///
   /// # Errors
   ///
@@ -252,11 +252,11 @@ impl InetAddressPoint {
 
   /// Create a range query for network addresses.
   ///
-  /// You can have half-open ranges (which are in fact `<`/`<=` or `>`/`>=` queries) by setting
-  /// `lower_value = InetAddressPoint::MIN_VALUE` or `upper_value = InetAddressPoint::MAX_VALUE`.
+  /// You can have half-open ranges (which are in fact `<`/`<=` or `>`/`>=` queries) by using
+  /// [`Self::MIN_VALUE`] for `lower_value` or [`Self::MAX_VALUE`] for `upper_value`.
   ///
-  /// Ranges are inclusive. For exclusive ranges, pass `InetAddressPoint::next_up(lower_value)` or
-  /// `InetAddressPoint::next_down(upper_value)`.
+  /// Ranges are inclusive. For exclusive ranges, transform the bound with [`Self::next_up`] or
+  /// [`Self::next_down`].
   ///
   /// # Arguments
   ///
@@ -290,7 +290,7 @@ impl InetAddressPoint {
   }
 
   /// Create a query matching any of the specified 1D values. This is the points equivalent of
-  /// `TermsQuery`.
+  /// [`TermInSetQuery`](crate::core::search::term_in_set_query::TermInSetQuery).
   ///
   /// # Arguments
   ///

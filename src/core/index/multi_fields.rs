@@ -26,12 +26,12 @@ use std::rc::Rc;
 /// Provides a single [`Fields`] term index view over an [`IndexReader`](crate::core::index::index_reader::IndexReader).
 ///
 /// This is useful when interacting with an [`IndexReader`](crate::core::index::index_reader::IndexReader) implementation that consists of
-/// sequential sub-readers (for example, `DirectoryReader` or `MultiReader`) and you must treat it
+/// sequential sub-readers (for example, [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader) or [`MultiReader`](crate::core::index::multi_reader::MultiReader)) and you must treat it
 /// as a [`LeafReader`](crate::core::index::leaf_reader::LeafReader).
 ///
 /// **NOTE**: For composite readers, you will generally get better performance by gathering the
 /// sub-readers via `IndexReader::get_context()` to obtain the atomic leaves and then operating
-/// per-`LeafReader`, instead of using this type.
+/// per-[`LeafReader`](crate::core::index::leaf_reader::LeafReader), instead of using this type.
 pub struct MultiFields<F>
 where
   F: Fields,

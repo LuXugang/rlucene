@@ -20,7 +20,7 @@ use crate::core::util::access::ByteSourceMut;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 
-/// `DataOutput` backed by a byte array.
+/// [`DataOutput`] backed by a byte array.
 ///
 /// # Warning
 /// This struct omits most low-level checks, so be sure to test thoroughly with

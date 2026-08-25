@@ -45,7 +45,7 @@ pub struct XYLine {
 }
 
 impl XYLine {
-  /// Creates a new `XYLine` from the supplied X/Y array.
+  /// Creates a new [`XYLine`] from the supplied X/Y array.
   pub fn new(x: Vec<f32>, y: Vec<f32>) -> Result<Self> {
     if x.len() != y.len() {
       return Err(LuceneError::illegal_argument(

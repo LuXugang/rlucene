@@ -76,13 +76,13 @@ where
   }
 }
 
-/// An `IndexWriter` creates and maintains an index.
+/// An [`IndexWriter`] creates and maintains an index.
 ///
 /// The [`OpenMode`] option on [`IndexWriterConfig::set_open_mode`] determines whether a new index
 /// is created, or whether an existing index is opened. Note that you can open an index with
 /// [`OpenMode::Create`] even while readers are using the index. The old readers will continue to
 /// search the "point in time" snapshot they had opened, and won't see the newly created index until
-/// they re-open. If [`OpenMode::CreateOrAppend`] is used `IndexWriter` will create a new index if
+/// they re-open. If [`OpenMode::CreateOrAppend`] is used [`IndexWriter`] will create a new index if
 /// there is not already an index at the provided path and otherwise open the existing index.
 ///
 /// In either case, documents are added with [`Self::add_document`] and removed with
@@ -94,7 +94,7 @@ where
 /// Each method that changes the index returns an `i64` sequence number, which expresses the
 /// effective order in which each change was applied. [`Self::commit`] also returns a sequence
 /// number, describing which changes are in the commit point and which are not. Sequence numbers are
-/// transient (not saved into the index in any way) and only valid within a single `IndexWriter`
+/// transient (not saved into the index in any way) and only valid within a single [`IndexWriter`]
 /// instance. <a id="flush"></a>
 ///
 /// These changes are buffered in memory and periodically flushed to the [`Directory`] (during the
@@ -107,16 +107,16 @@ where
 /// by RAM usage with a large RAM buffer. In contrast to the other flush options
 /// [`IndexWriterConfig::set_ram_buffer_size_mb`] and
 /// [`IndexWriterConfig::set_max_buffered_docs`], deleted terms won't trigger a segment flush. Note
-/// that flushing just moves the internal buffered state in `IndexWriter` into the index, but these
-/// changes are not visible to `IndexReader` until either [`Self::commit`] or [`Self::close`] is
+/// that flushing just moves the internal buffered state in [`IndexWriter`] into the index, but these
+/// changes are not visible to [`IndexReader`] until either [`Self::commit`] or [`Self::close`] is
 /// called. A flush may also trigger one or more segment merges which by default run with a
 /// background thread so as not to block the `add_document` calls (see
 /// <a href="#mergePolicy">below</a> for changing the [`MergeScheduler`]).
 ///
-/// Opening an `IndexWriter` creates a lock file for the directory in use. Trying to open another
-/// `IndexWriter` on the same directory returns a [`LuceneError::LockObtainFailed`] error.
+/// Opening an [`IndexWriter`] creates a lock file for the directory in use. Trying to open another
+/// [`IndexWriter`] on the same directory returns a [`LuceneError::LockObtainFailed`] error.
 ///
-/// Expert: `IndexWriter` allows an optional
+/// Expert: [`IndexWriter`] allows an optional
 /// [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy)
 /// implementation to be specified.
 /// You can use this to control when prior commits are deleted from the index. The default policy is
@@ -126,13 +126,13 @@ where
 /// commits alive in the index for some time, either because this is useful for your application, or
 /// to give readers enough time to refresh to the new commit without having the old commit deleted
 /// out from under them. The latter is necessary when multiple computers take turns opening their
-/// own `IndexWriter` and `IndexReader`s against a single shared index mounted via remote
+/// own [`IndexWriter`] and [`IndexReader`]s against a single shared index mounted via remote
 /// filesystems like NFS which do not support "delete on last close" semantics. A single computer
 /// accessing an index via NFS is fine with the default deletion policy since NFS clients emulate
 /// "delete on last close" locally. That said, accessing an index via NFS will likely result in poor
 /// performance compared to a local IO device. <a id="mergePolicy"></a>
 ///
-/// Expert: `IndexWriter` allows you to separately change the [`MergePolicy`] and the
+/// Expert: [`IndexWriter`] allows you to separately change the [`MergePolicy`] and the
 /// [`MergeScheduler`]. The [`MergePolicy`] is invoked whenever there are changes to the segments in
 /// the index. Its role is to select which merges to do, if any, and return a
 /// [`MergeSpecification`] describing the merges. The default is
@@ -142,30 +142,30 @@ where
 /// [`ConcurrentMergeScheduler`](crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler).
 /// <a id="OOME"></a>
 ///
-/// **NOTE**: if you hit an Error, or disaster strikes during a checkpoint then `IndexWriter`
+/// **NOTE**: if you hit an Error, or disaster strikes during a checkpoint then [`IndexWriter`]
 /// will close itself. This is a defensive measure in case any internal state (buffered documents,
 /// deletions, reference counts) were corrupted. Any subsequent calls will return an
 /// [`LuceneError::AlreadyClosed`]. <a id="thread-safety"></a>
 ///
 /// **NOTE**: [`IndexWriter`] instances are completely thread safe, meaning multiple threads can
 /// call any of its methods, concurrently. If your application requires external synchronization,
-/// you should **not** synchronize on the `IndexWriter` instance as this may cause deadlock; use
+/// you should **not** synchronize on the [`IndexWriter`] instance as this may cause deadlock; use
 /// your own (non-Lucene) objects instead.
 ///
 /// **NOTE**: Rust does not expose Java-style thread interruption. Callers should use explicit
-/// cancellation or timeout mechanisms when coordinating work performed by `IndexWriter`.
+/// cancellation or timeout mechanisms when coordinating work performed by [`IndexWriter`].
 ///
 /// Clarification: Check Points (and commits)
 ///
-/// `IndexWriter` writes new index files to the directory without writing a new `segments_N`
+/// [`IndexWriter`] writes new index files to the directory without writing a new `segments_N`
 /// file which references these new files. It also means that the state of the in memory
-/// `SegmentInfos` object is different than the most recent `segments_N` file written to the
+/// [`SegmentInfos`] object is different than the most recent `segments_N` file written to the
 /// directory.
 ///
-/// Each time the `SegmentInfos` is changed, and matches the (possibly modified) directory files,
+/// Each time the [`SegmentInfos`] is changed, and matches the (possibly modified) directory files,
 /// we have a new "check point".
-/// If the modified/new `SegmentInfos` is written to disk - as a new (generation of)
-/// `segments_N` file - this check point is also an `IndexCommit`.
+/// If the modified/new [`SegmentInfos`] is written to disk - as a new (generation of)
+/// `segments_N` file - this check point is also an [`IndexCommit`].
 ///
 /// A new checkpoint always replaces the previous checkpoint and becomes the new "front" of the
 /// index. This allows the `IndexFileDeleter` to delete files that are referenced only by stale
@@ -758,8 +758,8 @@ where
   /// In this case, note that:
   ///
   /// - If you called `prepare_commit` but failed to call `commit`, this method returns
-  ///   [`LuceneError::IllegalState`] and the `IndexWriter` is not closed.
-  /// - If this method returns any other error, the `IndexWriter` is closed, but
+  ///   [`LuceneError::IllegalState`] and the [`IndexWriter`] is not closed.
+  /// - If this method returns any other error, the [`IndexWriter`] is closed, but
   ///   changes may have been lost.
   ///
   /// Note that this may be a costly operation, so try to re-use a single writer instead of
@@ -879,7 +879,7 @@ where
   /// but this document may not have been added. Furthermore, it’s possible the index will have one
   /// segment in non-compound format even when using compound files (when a merge has partially succeeded).
   ///
-  /// This method periodically flushes pending documents to the `Directory` (see [flush](Self::flush), and
+  /// This method periodically flushes pending documents to the [`Directory`] (see [flush](Self::flush), and
   /// also periodically triggers segment merges in the index according to the [`MergePolicy`] in use.
   ///
   /// Merges temporarily consume space in the directory. The amount of space required is up to 1× the
@@ -919,11 +919,11 @@ where
   /// documents (for example, perhaps to obtain better index compression). In that case you may need
   /// to fully re-index your documents at that time.
   ///
-  /// See [`add_document(Iterable)`](Self::add_document) for details on index and `IndexWriter` state after an error,
+  /// See [`add_document(Iterable)`](Self::add_document) for details on index and [`IndexWriter`] state after an error,
   /// and flushing/merging temporary free space requirements.
   ///
   /// **NOTE**: tools that do offline splitting of an index (for example, `IndexSplitter` in contrib)
-  /// or re-sorting of documents (for example, `IndexSorter` in contrib) are not aware of these
+  /// or re-sorting of documents (for example, [`IndexSorter`](crate::core::index::index_sorter::IndexSorter) in contrib) are not aware of these
   /// atomically added documents and will likely break them up. Use such tools at your own risk!
   ///
   /// # Returns
@@ -1590,7 +1590,7 @@ where
     self.flush_deletes_count.load(Ordering::SeqCst)
   }
 
-  /// Performs the time-consuming merge work without holding the `IndexWriter` lock.
+  /// Performs the time-consuming merge work without holding the [`IndexWriter`](crate::core::index::index_writer::IndexWriter) lock.
   fn merge_middle<P>(&self, merge: &mut OneMergeSR<D>, merge_policy: &P) -> Result<i32>
   where
     P: MergePolicy<D> + ?Sized,
@@ -2085,7 +2085,7 @@ where
   /// (will no longer be changed).
   ///
   /// Note that this requires free space that is proportional to the size of the
-  /// index in your `Directory`: **2×** if you are not using compound file format,
+  /// index in your [`Directory`]: **2×** if you are not using compound file format,
   /// and **3×** if you are. For example, if your index size is 10 MB then you need
   /// an additional 20 MB free for this to complete (30 MB if you're using compound
   /// file format). This is also affected by the [`Codec`] that is used to execute
@@ -2135,7 +2135,7 @@ where
   }
 
   /// Forces merging of all segments that have deleted documents. The actual merges to be executed
-  /// are determined by the `MergePolicy`. For example, the default `TieredMergePolicy`
+  /// are determined by the [`MergePolicy`]. For example, the default [`TieredMergePolicy`](crate::core::index::tiered_merge_policy::TieredMergePolicy)
   /// will only pick a segment if the percentage of deleted docs is over 10%.
   ///
   /// This is often a horribly costly operation; rarely is it warranted.
@@ -2225,7 +2225,7 @@ where
 
     Ok(())
   }
-  /// Just like `IndexWriter::force_merge`, except you can specify whether the call
+  /// Just like [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge), except you can specify whether the call
   /// should block until all merging completes.
   ///
   /// This is only meaningful with a [`MergeScheduler`] that is able to run merges
@@ -2770,7 +2770,7 @@ where
   ///
   /// NOTE: this method will forcefully abort all merges in progress. If other threads are running
   /// `force_merge`, `add_indexes` or `force_merge_deletes` methods,
-  /// they may receive `MergeAbortedError` errors.
+  /// they may receive [`MergeAbortedError`](crate::core::util::error::MergeAbortedError) errors.
   ///
   /// Returns the sequence number for this operation.
   pub fn delete_all(&self) -> Result<i64>
@@ -3391,14 +3391,14 @@ where
 
   /// Merges the provided indexes into this index.
   ///
-  /// The provided `IndexReader`s are not closed.
+  /// The provided [`IndexReader`]s are not closed.
   ///
-  /// See `Self::add_indexes` for details on transactional semantics, temporary free space
-  /// required in the `Directory`, and non-CFS segments on an error.
+  /// See [`Self::add_indexes_from_directory`] for details on transactional semantics, temporary free space
+  /// required in the [`Directory`], and non-CFS segments on an error.
   ///
   /// **NOTE:** empty segments are dropped by this method and not added to this index.
   ///
-  /// **NOTE:** provided `LeafReader`s are merged as specified by the
+  /// **NOTE:** provided [`LeafReader`]s are merged as specified by the
   /// `MergePolicy::find_merges(CodecReader...)` API. Default behavior is to merge all provided
   /// readers into a single segment. Customize this by implementing the `find_merge` API in your
   /// custom merge policy.
@@ -3412,7 +3412,7 @@ where
   /// Returns:
   /// - [`LuceneError::CorruptIndex`] if the index is corrupt
   /// - an error if there is a low-level IO error
-  /// - [`LuceneError::IllegalArgument`] if `add_indexes` would cause the index to exceed `MAX_DOCS`
+  /// - [`LuceneError::IllegalArgument`] if `add_indexes` would cause the index to exceed [`MAX_DOCS`]
   pub fn add_indexes_from_codec_readers<CR>(&self, readers: Vec<CR>) -> Result<i64>
   where
     D: 'static,
@@ -3583,7 +3583,7 @@ where
 
   /// Runs a single merge operation for [`IndexWriter::add_indexes(CodecReader...)`].
   ///
-  /// Merges and creates a `SegmentInfo`, for the readers grouped together in provided `OneMerge`.
+  /// Merges and creates a [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo), for the readers grouped together in provided [`OneMerge`](crate::core::index::merge_policy::OneMerge).
   ///
   /// # Arguments
   ///
@@ -3883,7 +3883,7 @@ where
   ///
   /// Note: this method is best-effort and might not flush any segments to disk. If there is a
   /// full flush happening concurrently multiple segments might have been flushed. Users of this API
-  /// can access the [`IndexWriter`]'s current memory consumption via `Self::ram_bytes_used`.
+  /// can access the [`IndexWriter`]'s current memory consumption via [`Self::ram_bytes_used`].
   ///
   /// Returns `true` iff this method flushed at least one segment to disk.
   pub fn flush_next_buffer(&self) -> Result<bool>
@@ -4386,15 +4386,15 @@ where
       Ok(del_count)
     }
   }
-  /// Used internally to return an [`AlreadyClosedError`] if this `IndexWriter` has been closed
+  /// Used internally to return an [`AlreadyClosedError`] if this [`IndexWriter`](crate::core::index::index_writer::IndexWriter) has been closed
   /// or is in the process of closing.
   ///
   /// # Parameters
-  /// * `fail_if_closing` - if true, also fail when `IndexWriter` is in the process of closing
+  /// * `fail_if_closing` - if true, also fail when [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is in the process of closing
   ///   (`closing=true`) but not yet done closing (`closed=false`).
   ///
   /// # Errors
-  /// Returns an [`AlreadyClosedError`] if this `IndexWriter` is closed or in the process of
+  /// Returns an [`AlreadyClosedError`] if this [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is closed or in the process of
   /// closing.
   pub(crate) fn do_ensure_open(&self, fail_if_closing: bool) -> Result<()> {
     if self.closed.load(Ordering::SeqCst)
@@ -4605,7 +4605,7 @@ where
   {
     self.flush_with_apply_merge_deletes(true, true)
   }
-  /// Flushes all in-memory buffered updates (adds and deletes) to the `Directory`.
+  /// Flushes all in-memory buffered updates (adds and deletes) to the [`Directory`](crate::core::store::directory::Directory).
   ///
   /// # Arguments
   ///
@@ -5408,7 +5408,7 @@ where
     merge.stat.register_done.store(true, Ordering::Release);
     Ok(true)
   }
-  /// Performs fast initial merge setup while holding the `IndexWriter` lock.
+  /// Performs fast initial merge setup while holding the [`IndexWriter`](crate::core::index::index_writer::IndexWriter) lock.
   pub(crate) fn merge_init(&self, merge: &mut OneMergeSR<D>) -> Result<()>
   where
     D: 'static,
@@ -5530,7 +5530,7 @@ where
     Ok(())
   }
 
-  /// Performs fast merge finalization while holding the `IndexWriter` lock.
+  /// Performs fast merge finalization while holding the [`IndexWriter`](crate::core::index::index_writer::IndexWriter) lock.
   fn merge_finish(&self, merge: &MergeStat, inner: Option<&mut Inner<D>>) {
     let inner = match inner {
       Some(i) => i,
@@ -5938,7 +5938,7 @@ where
     self.tragedy.clone()
   }
 
-  /// Returns `true` if this `IndexWriter` is still open.
+  /// Returns `true` if this [`IndexWriter`] is still open.
   pub fn is_open(&self) -> bool {
     !self.closing.load(Ordering::SeqCst) && !self.closed.load(Ordering::SeqCst)
   }
@@ -6626,7 +6626,7 @@ where
   /// Returns accurate [`DocStats`] for this writer.
   /// The `num_docs` for instance can change after `max_doc` is fetched
   /// that causes `num_docs` to be greater than `max_doc` which makes it
-  /// hard to get accurate document stats from `IndexWriter`.
+  /// hard to get accurate document stats from [`IndexWriter`].
   pub fn get_doc_stats(&self) -> Result<DocStats> {
     let inner = self.inner.lock();
     self.ensure_open()?;
@@ -6711,7 +6711,7 @@ where
   }
   /// Expert: returns a readonly reader, covering all committed as well as un-committed changes to
   /// the index. This provides "near real-time" searching, in that changes made during an
-  /// `IndexWriter` session can be quickly made available for searching without closing the writer nor
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) session can be quickly made available for searching without closing the writer nor
   /// calling [`Self::commit`].
   ///
   /// Note that this is functionally equivalent to calling [`Self::flush`] and then opening a new
@@ -6721,7 +6721,7 @@ where
   /// You must close the [`IndexReader`] returned by this method once you are done using it.
   ///
   /// It's *near* real-time because there is no hard guarantee on how quickly you can get a new reader
-  /// after making changes with `IndexWriter`. You'll have to experiment in your situation to determine
+  /// after making changes with [`IndexWriter`](crate::core::index::index_writer::IndexWriter). You'll have to experiment in your situation to determine
   /// if it's fast enough. As this is a new and experimental feature, please report back on your
   /// findings so we can learn, improve and iterate.
   ///
@@ -6744,7 +6744,7 @@ where
   /// you attempt to reopen any of those readers, you'll return an [`AlreadyClosedError`].
   ///
   /// # Returns
-  /// `IndexReader` that covers entire index plus all changes made so far by this `IndexWriter`
+  /// [`IndexReader`](crate::core::index::index_reader::IndexReader) that covers entire index plus all changes made so far by this [`IndexWriter`](crate::core::index::index_writer::IndexWriter)
   /// instance.
   ///
   /// # Errors
@@ -7227,8 +7227,8 @@ where
   /// Note that this does not wait for any running background merges to finish.
   /// This may be a costly operation, so you should test the cost in your application and do it only when necessary.
   ///
-  /// This operation calls `Directory::sync` on the index files. That call should not return until the
-  /// file contents and metadata are on stable storage. For `FSDirectory`, this calls the OS’s `fsync`.
+  /// This operation calls [`Directory::sync`] on the index files. That call should not return until the
+  /// file contents and metadata are on stable storage. For [`FSDirectory`](crate::core::store::fs_directory::FSDirectory), this calls the OS’s `fsync`.
   /// However, beware: some hardware devices may cache writes even during `fsync` and return before the
   /// bits are actually on stable storage, to give the appearance of faster performance.
   /// If you have such a device, and it does not have a battery backup (for example), then on power loss
@@ -7251,7 +7251,7 @@ where
     self.ensure_open()?;
     self.commit_internal(self.config.get_merge_policy())
   }
-  /// Close the `IndexWriter` without committing any changes that have occurred since the last
+  /// Close the [`IndexWriter`] without committing any changes that have occurred since the last
   /// commit, or since it was opened if commit hasn't been called.
   fn rollback(&self) -> Result<()> {
     // don't call ensureOpen here: this acts like "close()" in closeable.
@@ -7506,7 +7506,7 @@ where
   /// being merged.
   ///
   /// The returned collection is **not cloned**, and thus is only safe to access if you
-  /// hold `IndexWriter`'s lock (which you do when `IndexWriter` invokes the `MergePolicy`).
+  /// hold [`IndexWriter`]'s lock (which you do when [`IndexWriter`] invokes the [`MergePolicy`]).
   ///
   /// The returned set is **unmodifiable**.
   fn get_merging_segments(&self, inner: Option<&Inner<D>>) -> HashSet<String> {
@@ -8086,7 +8086,7 @@ where
   }
 }
 /// NOTE: this method creates a compound file for all files returned by `info.files()`. While,
-/// generally, this may include separate norms and deletion files, this `SegmentInfo` must not
+/// generally, this may include separate norms and deletion files, this [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo) must not
 /// reference such files when this method is called, because they are not allowed within a compound
 /// file.
 pub(crate) fn create_compound_file<D, T, D2>(
@@ -8627,7 +8627,7 @@ where
     unwrap_caught_result!(result)
   }
 }
-/// Applies an `IndexWriter` document modification through static dispatch.
+/// Applies an [`IndexWriter`](crate::core::index::index_writer::IndexWriter) document modification through static dispatch.
 pub(crate) trait DocModifier {
   fn run<D>(
     &self,

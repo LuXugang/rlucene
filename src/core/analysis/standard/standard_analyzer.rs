@@ -30,7 +30,7 @@ use std::sync::Arc;
 
 /// Default maximum allowed token length
 pub const DEFAULT_MAX_TOKEN_LENGTH: usize = 255;
-/// Filters `StandardTokenizer` with `LowerCaseFilter` and `StopFilter`,
+/// Filters [`StandardTokenizer`] with `LowerCaseFilter` and `StopFilter`,
 /// using a configurable list of stop words.
 pub struct StandardAnalyzer {
   max_token_length: usize,
@@ -58,7 +58,7 @@ impl StandardAnalyzer {
   /// Tokens longer than this value will be split at this length and emitted as
   /// multiple tokens. To skip such large tokens instead, you can increase this
   /// limit and then use `LengthFilter` to remove long tokens. The default value
-  /// is `StandardAnalyzer::DEFAULT_MAX_TOKEN_LENGTH`.
+  /// is [`DEFAULT_MAX_TOKEN_LENGTH`].
   pub fn set_max_token_length(&mut self, length: usize) -> Result<()> {
     if length < 1 {
       return Err(LuceneError::illegal_argument(

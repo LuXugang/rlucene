@@ -60,7 +60,7 @@ use std::vec;
 /// A [`Collector`] that sorts by [`SortField`] using [`FieldComparator`]s.
 ///
 /// See [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) for creating a
-/// `TopFieldCollectorManager` with support for concurrency in `IndexSearcher`.
+/// [`TopFieldCollectorManager`](crate::core::search::top_field_collector_manager::TopFieldCollectorManager) with support for concurrency in [`IndexSearcher`].
 pub struct TopFieldCollector {
   base: TopDocsCollectorBase<TopFieldScoreDoc, FieldValueHitQueueComparator>,
   num_hits: usize,

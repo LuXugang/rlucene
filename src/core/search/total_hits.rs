@@ -64,11 +64,11 @@ impl fmt::Display for TotalHits {
     }
   }
 }
-/// How the `TotalHits::value` should be interpreted.
+/// How the [`TotalHits::value`](crate::core::search::total_hits::TotalHits::value) should be interpreted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Relation {
-  /// The total hit count is equal to `TotalHits::value`.
+  /// The total hit count is equal to [`TotalHits::value`](crate::core::search::total_hits::TotalHits::value).
   EqualTo,
-  /// The total hit count is greater than or equal to `TotalHits::value`.
+  /// The total hit count is greater than or equal to [`TotalHits::value`](crate::core::search::total_hits::TotalHits::value).
   GreaterThanOrEqualTo,
 }

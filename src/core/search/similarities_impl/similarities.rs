@@ -52,7 +52,7 @@ use std::sync::Arc;
 /// may be appropriate for your model.
 ///
 /// Many scoring formulas require average document length, which you can compute via
-/// [`CollectionStatistics::sum_total_term_freq()`](CollectionStatistics::get_sum_total_term_freq) and [`CollectionStatistics::doc_count()`](CollectionStatistics::get_doc_count).
+/// [`CollectionStatistics::get_sum_total_term_freq`] and [`CollectionStatistics::get_doc_count`].
 ///
 /// Additional, field-custom scoring factors can be stored in named
 /// [`NumericDocValuesField`](crate::core::document::numeric_doc_values_field::NumericDocValuesField)s and accessed at query time via
@@ -62,7 +62,7 @@ use std::sync::Arc;
 /// Instead of using index-time boosts (folded into the norm byte or DocValues) for
 /// constant per-field boosts, you can simply expose a constant boost parameter `c`
 /// in your implementation and use [`PerFieldSimilarityWrapper`](crate::core::search::similarities_impl::per_field_similarity_wrapper::PerFieldSimilarityWrapper) to return
-/// different `Similarity` instances per field name.
+/// different [`Similarity`] instances per field name.
 ///
 /// ## Query Time
 ///
@@ -94,7 +94,7 @@ pub trait Similarity: Display {
   /// into a single byte.
   ///
   /// **Warning:** The default implementation is used by Lucene's supplied similarity implementations,
-  /// allowing you to swap in a different `Similarity` at runtime without reindexing. If you
+  /// allowing you to swap in a different [`Similarity`] at runtime without reindexing. If you
   /// provide a different implementation, you **must** reindex documents for the change to take effect.
   ///
   /// Matches in longer fields are less precise, so implementations typically emit smaller norm
@@ -146,7 +146,7 @@ pub trait Similarity: Display {
   ///
   /// # Returns
   ///
-  /// A `SimWeight` instance containing all information this `Similarity` needs to score the query.
+  /// A `SimWeight` instance containing all information this [`Similarity`] needs to score the query.
   fn scorer(
     &self,
     boost: f32,
@@ -305,7 +305,7 @@ impl<T: ?Sized + Similarity> Similarity for Box<T> {
 /// Stores the weight for a query across the indexed collection.
 ///
 /// This trait is a marker for query‐weight implementations. The base implementation is empty;
-/// your `Similarity` should define a concrete `SimWeight` type that captures whatever statistics
+/// your [`Similarity`] should define a concrete `SimWeight` type that captures whatever statistics
 /// it needs (e.g., IDF, average field length, etc.).
 ///
 /// # Usage
@@ -343,7 +343,7 @@ pub trait SimScorer {
   /// # Arguments
   ///
   /// - `freq`: Explanation of how the sloppy term frequency was computed (`&Explanation`).
-  /// - `norm`: Encoded normalization factor (as returned by `Similarity::compute_norm`), or `1` if norms are disabled (`u8`).
+  /// - `norm`: Encoded normalization factor (as returned by [`Similarity::compute_norm`]), or `1` if norms are disabled (`u8`).
   ///
   /// # Returns
   ///

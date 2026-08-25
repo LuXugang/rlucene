@@ -437,7 +437,7 @@ impl Table for TableEnum {
   }
 }
 
-/// Simple lossy `HashTable` that only stores the last occurrence for each hash
+/// Simple lossy [`HashTable`] that only stores the last occurrence for each hash
 /// on `2^14` bytes of memory.
 pub struct FastCompressionHashTable {
   base: i32,
@@ -545,7 +545,7 @@ impl HashTable for FastCompressionHashTable {
     true
   }
 }
-/// A higher-precision `HashTable`. It stores up to 256 occurrences of 4-bytes
+/// A higher-precision [`HashTable`]. It stores up to 256 occurrences of 4-bytes
 /// sequences in the last 2^16 bytes, which makes it much more likely to find
 /// matches than FastCompressionHashTable.
 pub struct HighCompressionHashTable {

@@ -47,8 +47,8 @@ use std::sync::atomic::AtomicBool;
 use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::util::comparator::Comparator;
 
-/// Holds all configuration used by `IndexWriter`, with a small set of setters
-/// for settings that can be changed on an `IndexWriter` instance live.
+/// Holds all configuration used by [`IndexWriter`](crate::core::index::index_writer::IndexWriter), with a small set of setters
+/// for settings that can be changed on an [`IndexWriter`](crate::core::index::index_writer::IndexWriter) instance live.
 pub trait LiveIndexWriterConfig: Display {
   type Directory: Directory;
 
@@ -56,7 +56,7 @@ pub trait LiveIndexWriterConfig: Display {
   fn get_analyzer(&self) -> &AnalyzerEnum;
 
   /// Expert: returns the [`SimilarityEnum`] implementation used by this
-  /// `IndexWriter`.
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter).
   fn get_similarity(&self) -> &SimilarityEnum;
 
   /// Returns the [`MergeSchedulerEnum`] set on this configuration.
@@ -126,7 +126,7 @@ pub trait LiveIndexWriterConfig: Display {
   fn get_index_deletion_policy(&self) -> &IndexDeletionPolicyEnum<Self::Directory>;
 
   /// Expert: returns the amount of time to wait for merges returned by
-  /// `MergePolicy::find_full_flush_merges`.
+  /// [`MergePolicy::find_full_flush_merges`](crate::core::index::merge_policy::MergePolicy::find_full_flush_merges).
   ///
   /// If this time is reached, commit proceeds based on segments merged up to
   /// that point. The merges are not cancelled and may still run to completion
@@ -134,22 +134,22 @@ pub trait LiveIndexWriterConfig: Display {
   fn get_max_full_flush_merge_wait_millis(&self) -> i64;
 
   /// Returns the [`IndexWriterEventListenerEnum`] callback that tracks the key
-  /// `IndexWriter` operations.
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) operations.
   fn get_index_writer_event_listener(&self) -> &IndexWriterEventListenerEnum;
 
   /// Returns the current merged segment warmer.
   fn get_merged_segment_warmer(&self) -> Option<&IndexReaderWarmerEnum<Self::Directory>>;
 
-  /// Returns `true` if `IndexWriter::close` should first commit before closing.
+  /// Returns `true` if [`IndexWriter::close`](crate::core::index::index_writer::IndexWriter::close) should first commit before closing.
   fn get_commit_on_close(&self) -> bool;
 
-  /// Returns the [`OpenMode`] that `IndexWriter` is opened with.
+  /// Returns the [`OpenMode`] that [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is opened with.
   fn get_open_mode(&self) -> &OpenMode;
 
   /// Returns the compatibility version to use for this index.
   fn get_index_created_version_major(&self) -> i32;
 
-  /// Returns `true` if `IndexWriter` should pool readers even if opening a
+  /// Returns `true` if [`IndexWriter`](crate::core::index::index_writer::IndexWriter) should pool readers even if opening a
   /// reader from the writer has not been called.
   fn get_reader_pooling(&self) -> bool;
 
@@ -163,12 +163,12 @@ pub trait LiveIndexWriterConfig: Display {
   /// usage instead of document count and use as large a RAM buffer as possible.
   ///
   /// When this is set, the writer will flush whenever buffered documents and
-  /// deletions use this much RAM. Pass `DISABLE_AUTO_FLUSH` to prevent
+  /// deletions use this much RAM. Pass [`DISABLE_AUTO_FLUSH`](crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH) to prevent
   /// triggering a flush due to RAM usage. If flushing by document count is also
   /// enabled, the flush is triggered by whichever limit comes first.
   ///
   /// The maximum RAM limit is inherently determined by available memory. An
-  /// `IndexWriter` session can consume significantly more memory than this
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) session can consume significantly more memory than this
   /// limit, since the limit only indicates when to flush memory-resident
   /// documents. Flushes may happen concurrently while other threads add
   /// documents, so available memory should be significantly larger than the RAM
@@ -184,7 +184,7 @@ pub trait LiveIndexWriterConfig: Display {
   /// a subset of buffered documents may be flushed and only part of the RAM
   /// buffer released.
   ///
-  /// The default value is `DEFAULT_RAM_BUFFER_SIZE_MB`.
+  /// The default value is [`DEFAULT_RAM_BUFFER_SIZE_MB`].
   ///
   /// Takes effect immediately, but only the next time a document is added,
   /// updated, or deleted.
@@ -198,7 +198,7 @@ pub trait LiveIndexWriterConfig: Display {
   ///
   /// Large values generally give faster indexing. When this is set, the writer
   /// flushes every `max_buffered_docs` added documents. Pass
-  /// `DISABLE_AUTO_FLUSH` to prevent triggering a flush due to the number of
+  /// [`DISABLE_AUTO_FLUSH`](crate::core::index::index_writer_config::DISABLE_AUTO_FLUSH) to prevent triggering a flush due to the number of
   /// buffered documents. If flushing by RAM usage is also enabled, the flush is
   /// triggered by whichever limit comes first.
   ///
@@ -211,7 +211,7 @@ pub trait LiveIndexWriterConfig: Display {
     self
   }
 
-  /// Sets whether the `IndexWriter` should pack newly written segments in a
+  /// Sets whether the [`IndexWriter`](crate::core::index::index_writer::IndexWriter) should pack newly written segments in a
   /// compound file.
   ///
   /// The default is `true`. Use `false` for batch indexing with very large RAM
@@ -273,8 +273,7 @@ pub trait LiveIndexWriterConfig: Display {
   }
 }
 
-/// Leaf sorter for sorting leaf readers, equivalent to Java's
-/// `Comparator<LeafReader>`.
+/// Leaf sorter for sorting leaf readers.
 ///
 /// Implements [`Comparator<DefaultLeafReader<D>>`] via a closure held in
 /// the `Custom` variant.
@@ -316,7 +315,7 @@ impl<D> LeafSorter<D>
 where
   D: Directory,
 {
-  /// Creates a new `LeafSorter` with a custom comparator.
+  /// Creates a new [`LeafSorter`] with a custom comparator.
   pub fn custom(comparator: Arc<LeafReaderComparator<D>>) -> Self {
     LeafSorter::Custom(comparator)
   }
@@ -326,7 +325,7 @@ type LeafReaderComparator<D> =
   dyn Fn(&DefaultLeafReader<D>, &DefaultLeafReader<D>) -> Result<i32> + Send + Sync;
 /// Storage for live index writer configuration values.
 ///
-/// These fields mirror the live configuration state that an `IndexWriter` reads
+/// These fields mirror the live configuration state that an [`IndexWriter`](crate::core::index::index_writer::IndexWriter) reads
 /// while indexing and merging.
 pub struct LiveIndexWriterConfigBase<D>
 where
@@ -342,7 +341,7 @@ where
   pub index_deletion_policy: IndexDeletionPolicyEnum<D>,
   /// True if newly written segment flushes should use compound file format.
   pub use_compound_file: bool,
-  /// [`OpenMode`] that `IndexWriter` is opened with.
+  /// [`OpenMode`] that [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is opened with.
   pub open_mode: OpenMode,
   /// [`SimilarityEnum`] to use when encoding norms.
   pub similarity: Arc<SimilarityEnum>,
@@ -365,11 +364,11 @@ where
   pub soft_deletes_field: Option<String>,
   /// Amount of time to wait for merges returned by full-flush merge selection.
   pub max_full_flush_merge_wait_millis: i64,
-  /// [`IndexWriterEventListenerEnum`] for recording key `IndexWriter` events.
+  /// [`IndexWriterEventListenerEnum`] for recording key [`IndexWriter`](crate::core::index::index_writer::IndexWriter) events.
   pub event_listener: IndexWriterEventListenerEnum,
   /// Warmer called for newly merged segments before they are committed.
   pub merged_segment_warmer: Option<IndexReaderWarmerEnum<D>>,
-  /// True if calls to `IndexWriter::close` should first do a commit.
+  /// True if calls to [`IndexWriter::close`](crate::core::index::index_writer::IndexWriter::close) should first do a commit.
   pub commit_on_close: bool,
   /// True if an indexing thread should check for pending flushes on update in
   /// order to help with a full flush.

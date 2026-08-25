@@ -28,12 +28,12 @@ use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
 use parking_lot::Mutex;
 
-/// Implements [`LockFactory`] using `Files::create_file`.
+/// Implements [`LockFactory`] using [`OpenOptions::create_new`](std::fs::OpenOptions::create_new).
 ///
 /// The main downside with using this API for locking is that the Lucene write lock may not be
 /// released when the process exits abnormally.
 ///
-/// When this happens, a `LockObtainFailedError` is hit when trying to create a writer,
+/// When this happens, a [`LockObtainFailedError`](crate::core::util::error::LockObtainFailedError) is hit when trying to create a writer,
 /// in which case you may need to explicitly clear the lock file first by manually removing the file.
 /// But, first be certain that no writer is in fact writing to the index otherwise you can easily
 /// corrupt your index.
@@ -44,11 +44,9 @@ use parking_lot::Mutex;
 /// starting the new configuration for the first time. Different implementations can not work
 /// together!
 ///
-/// If you suspect that this or any other [`LockFactory`] is not working properly in your environment,
-/// you can easily test it by using `VerifyingLockFactory`, `LockVerifyServer` and
-/// `LockStressTest`.
-///
-/// This is a singleton, you have to use `INSTANCE`.
+/// If you suspect that this or another [`LockFactory`] is not working properly in your environment,
+/// use [`VerifyingLockFactory`](crate::core::store::verifying_lock_factory::VerifyingLockFactory)
+/// to verify lock ownership.
 ///
 /// See also: [`LockFactory`].
 pub struct SimpleFSLockFactory;

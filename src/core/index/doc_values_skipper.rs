@@ -42,7 +42,7 @@ pub trait DocValuesSkipper {
   /// Return the minimum doc ID of the interval on the given level, inclusive.
   ///
   /// This returns `-1` if [`advance(target)`](DocValuesSkipper::advance) has
-  /// not been called yet and `NO_MORE_DOCS` if the iterator is exhausted.
+  /// not been called yet and [`NO_MORE_DOCS`] if the iterator is exhausted.
   /// This method is non-increasing when `level` increases.
   /// In other words: `min_doc_id(level+1) <= min_doc_id(level)`.
   fn min_doc_id_with_level(&self, level: usize) -> i32;

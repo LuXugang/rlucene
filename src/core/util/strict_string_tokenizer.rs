@@ -16,8 +16,7 @@
  */
 use crate::core::util::error::IllegalStateError;
 
-/// Used for parsing version strings so we don't have to use the overkill of
-/// `String.split` or `StringTokenizer` (which silently skips empty tokens).
+/// Parses version strings while preserving the empty-token behavior required by Lucene.
 pub struct StrictStringTokenizer<'a> {
   s: &'a str,
   delimiter: char,

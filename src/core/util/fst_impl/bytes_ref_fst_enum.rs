@@ -22,7 +22,7 @@ use crate::core::util::fst_impl::fst_enum::{FSTEnum, FSTEnumBase, InputOutput};
 use crate::core::util::fst_impl::fst_reader::FstReader;
 use crate::core::util::fst_impl::outputs::Outputs;
 
-/// Enumerates all input (`BytesRef`) + output pairs in an FST.
+/// Enumerates all input ([`BytesRef`]) + output pairs in an FST.
 pub struct BytesRefFSTEnum<O, F>
 where
   O: Outputs,

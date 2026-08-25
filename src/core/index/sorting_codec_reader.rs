@@ -114,7 +114,7 @@ pub enum CachedObject {
   SortedSet(DocOrds),
 }
 
-/// An [`CodecReader`] which supports sorting documents by a given `Sort`. This can be used to
+/// An [`CodecReader`] which supports sorting documents by a given [`Sort`]. This can be used to
 /// re-sort an index after it has been created by wrapping all readers of the index with this reader
 /// and adding it to a fresh [`IndexWriter`](crate::core::index::index_writer::IndexWriter) via
 /// `IndexWriter::add_indexes(CodecReader...)`.

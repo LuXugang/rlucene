@@ -222,7 +222,7 @@ impl HalfFloatPoint {
     Ok(BytesRef::from_bytes(packed))
   }
 
-  /// Creates a new `HalfFloatPoint`, indexing the provided N-dimensional float point.
+  /// Creates a new [`HalfFloatPoint`], indexing the provided N-dimensional float point.
   ///
   /// # Arguments
   ///
@@ -341,7 +341,8 @@ impl HalfFloatPoint {
   }
 
   /// Create a query matching any of the specified 1D values. This is the points equivalent of
-  /// `TermsQuery`. Values will be rounded to the closest half-float if they cannot be represented
+  /// [`TermInSetQuery`](crate::core::search::term_in_set_query::TermInSetQuery). Values will be
+  /// rounded to the closest half-float if they cannot be represented
   /// accurately as a half-float.
   ///
   /// # Arguments

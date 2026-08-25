@@ -22,7 +22,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 
-/// A `DataOutput` for appending data to a file in a `Directory`.
+/// A [`DataOutput`] for appending data to a file in a [`Directory`](crate::core::store::directory::Directory).
 ///
 /// # Note
 /// Writes require exclusive mutable access. Use external synchronization if an
@@ -38,7 +38,7 @@ pub trait IndexOutput: DataOutput + Display + Closeable + Send + Sync {
   fn get_file_pointer(&self) -> Result<usize>;
   /// Returns the current checksum of bytes written so far.
   fn get_checksum(&mut self) -> Result<u64>;
-  /// Returns the name used to create this `IndexOutput`. This is especially
+  /// Returns the name used to create this [`IndexOutput`]. This is especially
   /// useful when using
   /// [`Directory::create_temp_output`](crate::core::store::directory::Directory::create_temp_output).
   fn get_name(&self) -> &str;

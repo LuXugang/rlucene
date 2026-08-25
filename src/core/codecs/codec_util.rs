@@ -63,11 +63,11 @@ impl CodecUtil {
   /// - `out`: The output stream to write to.
   /// - `codec`: A string to identify this file. It should be simple ASCII and
   ///   less than 128 characters in length.
-  /// - `Version`: The version number.
+  /// - `version`: The version number.
   ///
   /// # Errors
-  /// - `IoError`: If there is an I/O error writing to the underlying medium.
-  /// - `IllegalArgumentError`: If the codec name is not simple ASCII or is
+  /// - [`LuceneError::Io`]: If there is an I/O error writing to the underlying medium.
+  /// - [`IllegalArgumentError`](crate::core::util::error::IllegalArgumentError): If the codec name is not simple ASCII or is
   ///   more than 127 characters in length.
   ///
   /// # See Also
@@ -111,7 +111,7 @@ impl CodecUtil {
   /// - `out`: The output stream.
   /// - `codec`: A string to identify this file. It should be simple ASCII and
   ///   less than 128 characters in length.
-  /// - `Version`: The version number.
+  /// - `version`: The version number.
   ///
   /// # Errors
   /// - Returns an error if there is an I/O error writing to the underlying
@@ -191,13 +191,15 @@ impl CodecUtil {
   /// max_version`. Otherwise, an error is returned.
   ///
   /// # Errors
-  /// - `CorruptIndexError`: If the first four bytes are not
+  /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the first four bytes are not
   ///   [`CodecUtil::CODEC_MAGIC`] or if the codec does not match `codec`.
-  /// - `IndexFormatTooOldError`: If the actual version is less than
+  /// - [`IndexFormatTooOldError`](crate::core::util::error::IndexFormatTooOldError): If the actual
+  ///   version is less than
   ///   `min_version`.
-  /// - `IndexFormatTooNewError`: If the actual version is greater than
+  /// - [`IndexFormatTooNewError`](crate::core::util::error::IndexFormatTooNewError): If the actual
+  ///   version is greater than
   ///   `max_version`.
-  /// - `IoError`: If there is an I/O error reading from the underlying
+  /// - [`LuceneError::Io`]: If there is an I/O error reading from the underlying
   ///   medium.
   ///
   /// # See Also
@@ -277,14 +279,16 @@ impl CodecUtil {
   /// satisfying `min_version <= actual <= max_version`.
   ///
   /// # Errors
-  /// - `CorruptIndexError`: If the first four bytes are not
+  /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the first four bytes are not
   ///   [`CodecUtil::CODEC_MAGIC`], the codec does not match `codec`, or
   ///   `expected_id` or `expected_suffix` do not match.
-  /// - `IndexFormatTooOldError`: If the actual version is less than
+  /// - [`IndexFormatTooOldError`](crate::core::util::error::IndexFormatTooOldError): If the actual
+  ///   version is less than
   ///   `min_version`.
-  /// - `IndexFormatTooNewError`: If the actual version is greater than
+  /// - [`IndexFormatTooNewError`](crate::core::util::error::IndexFormatTooNewError): If the actual
+  ///   version is greater than
   ///   `max_version`.
-  /// - `IoError`: If there is an I/O error reading from the underlying
+  /// - [`LuceneError::Io`]: If there is an I/O error reading from the underlying
   ///   medium.
   ///
   /// # See Also
@@ -316,9 +320,9 @@ impl CodecUtil {
   /// - `expected_id`: The expected segment ID.
   ///
   /// # Errors
-  /// - `CorruptIndexError`: If the first four bytes are not
+  /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the first four bytes are not
   ///   [`CodecUtil::CODEC_MAGIC`] or if the `expected_id` does not match.
-  /// - `IoError`: If there is an I/O error reading from the underlying
+  /// - [`LuceneError::Io`]: If there is an I/O error reading from the underlying
   ///   medium.
   ///
   /// # Internal
@@ -362,7 +366,7 @@ impl CodecUtil {
   /// Retrieves the full index header from the provided [`IndexInput`].
   ///
   /// # Errors
-  /// - `CorruptIndexError`: If the file does not appear to be a valid index
+  /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the file does not appear to be a valid index
   ///   file.
   pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
     data_input.seek(0)?;
@@ -389,7 +393,7 @@ impl CodecUtil {
   /// Retrieves the full footer from the provided [`IndexInput`].
   ///
   /// # Errors
-  /// - `CorruptIndexError`: If the file does not have a valid footer.
+  /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the file does not have a valid footer.
   pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
     let length = data_input.length()?;
     if length < Self::footer_length() {
@@ -463,7 +467,7 @@ impl CodecUtil {
   /// - `out`: The output stream to write to.
   ///
   /// # Errors
-  /// - `IoError`: If there is an I/O error writing to the underlying medium.
+  /// - [`LuceneError::Io`]: If there is an I/O error writing to the underlying medium.
   pub fn write_footer(out: &mut impl IndexOutput) -> Result<()> {
     Self::write_be_int(out, CodecUtil::FOOTER_MAGIC)?;
     Self::write_be_int(out, 0)?;
@@ -489,7 +493,7 @@ impl CodecUtil {
   /// The actual checksum value.
   ///
   /// # Errors
-  /// - `IoError`: If the footer is invalid, the checksum does not match, or
+  /// - [`LuceneError::Io`]: If the footer is invalid, the checksum does not match, or
   ///   the input is not properly positioned before the footer at the end of
   ///   the stream.
   pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<i64> {
@@ -520,7 +524,7 @@ impl CodecUtil {
   ///   occurred error or panic.
   ///
   /// # Errors
-  /// - `IoError`: If the footer is invalid, the checksum does not match, or
+  /// - [`LuceneError::Io`]: If the footer is invalid, the checksum does not match, or
   ///   the input is not properly positioned before the footer at the end of
   ///   the stream.
   /// - `prior_result`: If a prior failure is provided, it is propagated after
@@ -607,7 +611,7 @@ impl CodecUtil {
   /// The actual checksum value.
   ///
   /// # Errors
-  /// - `IoError`: If the footer is invalid.
+  /// - [`LuceneError::Io`]: If the footer is invalid.
   pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64> {
     let length = input.length()?;
     if length < Self::footer_length() {
@@ -630,7 +634,7 @@ impl CodecUtil {
   /// The actual checksum value.
   ///
   /// # Errors
-  /// - `IoError`: If the footer is invalid.
+  /// - [`LuceneError::Io`]: If the footer is invalid.
   pub(crate) fn retrieve_checksum_with_expected(
     input: &mut impl IndexInput,
     expected_length: usize,
@@ -738,9 +742,9 @@ impl CodecUtil {
   /// Reads the CRC32 value as a 64-bit integer from the input.
   ///
   /// # Errors
-  /// - `CorruptIndexError`: If the CRC is formatted incorrectly (wrong bits
+  /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the CRC is formatted incorrectly (wrong bits
   ///   set).
-  /// - `IoError`: If an I/O error occurs.
+  /// - [`LuceneError::Io`]: If an I/O error occurs.
   pub fn read_crc(input: &mut impl IndexInput) -> Result<i64> {
     let value = Self::read_be_long(input)?;
     if (value as u64) & 0xFFFFFFFF00000000 != 0 {
@@ -754,9 +758,9 @@ impl CodecUtil {
   /// Writes the CRC32 value as a 64-bit integer to the output.
   ///
   /// # Errors
-  /// - `IllegalStateError`: If the CRC is formatted incorrectly (wrong bits
+  /// - [`IllegalStateError`](crate::core::util::error::IllegalStateError): If the CRC is formatted incorrectly (wrong bits
   ///   set).
-  /// - `IoError`: If an I/O error occurs.
+  /// - [`LuceneError::Io`]: If an I/O error occurs.
   pub fn write_crc(out: &mut impl IndexOutput) -> Result<()> {
     let value = out.get_checksum()?;
     if value & 0xFFFFFFFF00000000 != 0 {

@@ -47,8 +47,8 @@ pub fn get_extension(name: &str) -> &str {
   ext
 }
 
-/// Expert: A `Directory` instance that switches files between two other
-/// `Directory` instances.
+/// Expert: A [`Directory`] instance that switches files between two other
+/// [`Directory`] instances.
 ///
 /// Files with the specified extensions are placed in the primary directory;
 /// others are placed in the secondary directory. The provided set must not
@@ -57,7 +57,7 @@ pub fn get_extension(name: &str) -> &str {
 ///
 /// Locks with a name having the specified extensions are delegated to the
 /// primary directory; others are delegated to the secondary directory. Ideally,
-/// both `Directory` instances should use the same lock factory.
+/// both [`Directory`] instances should use the same lock factory.
 ///
 /// @lucene.experimental
 pub struct FileSwitchDirectory<D>

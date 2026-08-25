@@ -36,7 +36,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// **Note:** When mixing collectors that want to skip low-scoring hits
 /// ([`ScoreMode::TopScores`]) with ones that require seeing all hits, such as mixing a
-/// `TopScoreDocCollector` and a `TotalHitCountCollector`, it should be faster to run the query
+/// `TopScoreDocCollector` and a [`TotalHitCountCollector`](crate::core::search::total_hit_count_collector::TotalHitCountCollector), it should be faster to run the query
 /// twice, once for each collector, rather than using this wrapper on a single search.
 pub struct MultiCollector<C> {
   cache_scores: bool,

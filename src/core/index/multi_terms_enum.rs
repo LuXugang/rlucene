@@ -84,7 +84,9 @@ where
     })
   }
 
-  /// The terms array must be newly created TermsEnum, ie [`TermsEnum.next`](TermsEnum::next) has not yet been called.
+  /// The terms array must contain newly created [`TermsEnum`] instances, meaning
+  /// [`BytesRefIterator::next`](crate::core::util::bytes_ref_iterator::BytesRefIterator::next) has
+  /// not yet been called.
   pub fn reset(
     mut self,
     terms_enums_index: Vec<TermsEnumIndex<TE>>,

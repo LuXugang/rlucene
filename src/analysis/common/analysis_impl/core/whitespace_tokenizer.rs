@@ -31,29 +31,29 @@ impl WhitespaceTokenizer {
   pub fn with_att(att: Attributes) -> Result<CharTokenizer<WhitespaceTokenizer>> {
     CharTokenizer::with_att(att, WhitespaceTokenizer)
   }
-  /// Constructs a new `WhitespaceTokenizer` using a given maximum token length.
+  /// Constructs a new [`WhitespaceTokenizer`] using a given maximum token length.
   ///
   /// # Arguments
   ///
   /// * `max_token_len` — maximum token length the tokenizer will emit.
-  ///   Must be greater than 0 and less than `MAX_TOKEN_LENGTH_LIMIT` (1024 * 1024).
+  ///   Must be greater than 0 and less than [`MAX_TOKEN_LENGTH_LIMIT`](crate::core::analysis::standard::standard_tokenizer::MAX_TOKEN_LENGTH_LIMIT) (1024 * 1024).
   ///
   /// # Errors
   ///
-  /// Returns `LuceneError::IllegalArgument` if `max_token_len` is invalid.
+  /// Returns [`LuceneError::IllegalArgument`](crate::core::util::error::lucene_error::LuceneError::IllegalArgument) if `max_token_len` is invalid.
   pub fn with_max_token_len(max_token_len: usize) -> Result<CharTokenizer<WhitespaceTokenizer>> {
     CharTokenizer::with_max_token_len(default_attribute(), max_token_len, WhitespaceTokenizer)
   }
-  /// Constructs a new `WhitespaceTokenizer` using a given [`Attributes`].
+  /// Constructs a new [`WhitespaceTokenizer`] using a given [`Attributes`].
   ///
   /// # Arguments
   ///
   /// * `max_token_len` — maximum token length the tokenizer will emit.
-  ///   Must be greater than 0 and less than `MAX_TOKEN_LENGTH_LIMIT` (1024 * 1024).
+  ///   Must be greater than 0 and less than [`MAX_TOKEN_LENGTH_LIMIT`](crate::core::analysis::standard::standard_tokenizer::MAX_TOKEN_LENGTH_LIMIT) (1024 * 1024).
   ///
   /// # Errors
   ///
-  /// Returns `LuceneError::IllegalArgument` if `max_token_len` is invalid.
+  /// Returns [`LuceneError::IllegalArgument`](crate::core::util::error::lucene_error::LuceneError::IllegalArgument) if `max_token_len` is invalid.
   pub fn with_max_token_len_and_att(
     att: Attributes,
     max_token_len: usize,

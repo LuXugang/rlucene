@@ -21,7 +21,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 
 /// Collector manager based on [`TotalHitCountCollector`] that allows users to parallelize
-/// counting the number of hits, expected to be used mostly wrapped in `MultiCollectorManager`.
+/// counting the number of hits, expected to be used mostly wrapped in [`MultiCollectorManager`](crate::core::search::multi_collector_manager::MultiCollectorManager).
 ///
 /// For cases when this is the only collector manager used, [`IndexSearcher::count(query)`](crate::core::search::index_searcher::IndexSearcher::count)
 /// should be called instead of `IndexSearcher::search(query, CollectorManager)` as the former is

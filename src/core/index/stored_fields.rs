@@ -62,7 +62,7 @@ pub trait StoredFields: RawStoredFieldsReader {
     Ok(())
   }
 
-  /// Returns the stored fields of the `n`th `Document` in this index. This is
+  /// Returns the stored fields of the `n`th [`Document`] in this index. This is
   /// just sugar for using [`DocumentStoredFieldVisitor`].
   ///
   /// **NOTE:** for performance reasons, this method does not check if the
@@ -102,7 +102,7 @@ pub trait StoredFields: RawStoredFieldsReader {
 
   /// Like [`document`](Document) but only loads the specified fields. Note
   /// that this is simply sugar
-  /// for [`DocumentStoredFieldVisitor::new_fields`](DocumentStoredFieldVisitor::needs_field).
+  /// for [`DocumentStoredFieldVisitor::with_fields`].
   fn document_with_fields(
     &mut self,
     doc_id: i32,

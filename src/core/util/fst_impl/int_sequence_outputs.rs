@@ -31,7 +31,7 @@ static NO_OUTPUT: LazyLock<IntsRef<Arc<Vec<i32>>>> = LazyLock::new(IntsRef::new)
 
 pub static SINGLETON: LazyLock<IntSequenceOutputs> = LazyLock::new(|| IntSequenceOutputs);
 
-/// An FST `Outputs` implementation where each output is a sequence of ints.
+/// An FST [`Outputs`] implementation where each output is a sequence of ints.
 #[derive(Clone, Default)]
 pub struct IntSequenceOutputs;
 

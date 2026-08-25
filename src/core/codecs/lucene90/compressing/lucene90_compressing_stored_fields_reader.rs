@@ -286,7 +286,8 @@ where
   ///
   /// # Errors
   ///
-  /// Returns `LuceneError::AlreadyClosed` if this `FieldsReader` is closed.
+  /// Returns [`LuceneError::AlreadyClosed`] if this
+  /// [`Lucene90CompressingStoredFieldsReader`] is closed.
   pub fn ensure_open(&self) -> Result<()> {
     if self.closed.load(Ordering::Relaxed) {
       Err(LuceneError::already_closed("this FieldsReader is closed"))
@@ -828,7 +829,7 @@ type DataInputs<'a, I> = DataInputEnum3<
   ByteArrayDataInput<Arc<Vec<u8>>>,
 >;
 /// A serialized document. You need to decode its input to get an actual
-/// `Document`.
+/// [`Document`](crate::core::document::document::Document).
 pub struct SerializedDocument<'a, I> {
   /// The serialized data input.
   pub(crate) input: DataInputs<'a, I>,

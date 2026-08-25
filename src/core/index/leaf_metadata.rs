@@ -34,7 +34,7 @@ pub struct LeafMetaData {
 }
 
 impl LeafMetaData {
-  /// Constructs a new `LeafMetaData` instance.
+  /// Constructs a new [`LeafMetaData`] instance.
   pub fn new(
     created_version_major: i32,
     min_version: Option<Version>,

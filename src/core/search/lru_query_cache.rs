@@ -83,14 +83,14 @@ const LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
 /// only cache on "large" segments. It is advised to not share this cache across too many indices.
 ///
 ///
-/// A default query cache and policy instance is used in `IndexSearcher`.
+/// A default query cache and policy instance is used in [`IndexSearcher`].
 /// If you want to replace those defaults it is typically done like this:
 ///
 /// This cache exposes some global statistics:
 /// - [`get_hit_count()`](LRUQueryCache::get_hit_count): hit count
 /// - [`get_miss_count()`](LRUQueryCache::get_miss_count): miss count
 /// - [`get_cache_size()`](LRUQueryCache::get_cache_size): number of cache entries
-/// - [`get_cache_count()`](LRUQueryCache::get_cache_count): total number of `DocIdSet`s that have ever been cached
+/// - [`get_cache_count()`](LRUQueryCache::get_cache_count): total number of [`DocIdSet`]s that have ever been cached
 /// - [`get_eviction_count()`](LRUQueryCache::get_eviction_count): number of evicted entries
 ///
 ///

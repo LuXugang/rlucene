@@ -18,18 +18,18 @@ use crate::core::util::automation::transition::Transition;
 
 /// Trait for accessing an automaton's transitions.
 pub trait TransitionAccessor {
-  /// Initialize the provided `Transition` to iterate through all transitions
+  /// Initialize the provided [`Transition`] to iterate through all transitions
   /// leaving the specified state. Returns the number of transitions
   /// leaving this state.
   fn init_transition(&self, state: i32, t: &mut Transition) -> i32;
 
-  /// Advance the provided `Transition` to the next transition.
+  /// Advance the provided [`Transition`] to the next transition.
   fn get_next_transition(&self, t: &mut Transition);
 
   /// How many transitions this state has.
   fn get_num_transitions_with_state(&self, state: i32) -> i32;
 
-  /// Fill the provided `Transition` with the index‑th transition leaving the
+  /// Fill the provided [`Transition`] with the index‑th transition leaving the
   /// specified state.
   fn get_transition(&self, state: i32, index: i32, t: &mut Transition);
 }

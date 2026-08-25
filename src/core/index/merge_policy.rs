@@ -86,26 +86,26 @@ pub(crate) const DEFAULT_NO_CFS_RATIO: f64 = 1.0;
 /// Default max segment size in order to use compound file system.
 /// Set to `i64::MAX`.
 pub(crate) const DEFAULT_MAX_CFS_SEGMENT_SIZE: i64 = i64::MAX;
-/// Expert: a `MergePolicy` determines the sequence of primitive merge operations.
+/// Expert: a [`MergePolicy`] determines the sequence of primitive merge operations.
 ///
 /// Whenever the segments in an index have been altered by [`IndexWriter`](crate::core::index::index_writer::IndexWriter), either by:
 /// - the addition of a newly flushed segment,
 /// - the addition of many segments from `addIndexes*` calls, or
 /// - a previous merge that may now need to cascade,
 ///
-/// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) invokes [`Self::find_merges`] to give the `MergePolicy` a chance to
+/// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) invokes [`Self::find_merges`] to give the [`MergePolicy`] a chance to
 /// select merges that are now required.
 ///
 /// This method returns a [`MergeSpecification`] describing the set of merges
 /// that should be executed, or `None` if no merges are necessary.
 ///
-/// When `IndexWriter::force_merge`(crate::core::index::index_writer::IndexWriter::force_merge) is called, it invokes
-/// [`Self::find_forced_merges`] and the `MergePolicy` should then return the merges
+/// When [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge) is called, it invokes
+/// [`Self::find_forced_merges`] and the [`MergePolicy`] should then return the merges
 /// required to satisfy that request.
 ///
 /// Note that a policy may return more than one merge at a time.
 /// - When using [`SerialMergeScheduler`](crate::core::index::serial_merge_scheduler::SerialMergeScheduler), these merges are run sequentially.
-/// - When using `ConcurrentMergeScheduler`, they may run concurrently.
+/// - When using [`ConcurrentMergeScheduler`](crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler), they may run concurrently.
 ///
 /// The default merge policy is [`TieredMergePolicy`].
 pub trait MergePolicy<D>: Display
@@ -121,7 +121,7 @@ where
   ///
   /// * `merge_trigger` — the event that triggered the merge  
   /// * `segment_infos` — the total set of segments in the index  
-  /// * `merge_context` — the `MergeContext` to find merges on
+  /// * `merge_context` — the [`MergeContext`] to find merges on
   fn find_merges<MC>(
     &self,
     merge_trigger: MergeTrigger,
@@ -133,7 +133,7 @@ where
     MC: MergeContext<D>;
 
   /// Define the set of merge operations to perform on provided codec readers in
-  /// `IndexWriter::add_indexes`.
+  /// [`IndexWriter::add_indexes_from_directory`](crate::core::index::index_writer::IndexWriter::add_indexes_from_directory).
   ///
   /// The merge operation is required to convert provided readers into segments
   /// that can be added to the writer. This API can be overridden in custom merge
@@ -160,9 +160,9 @@ where
   ///
   /// * `segment_infos` — the total set of segments in the index  
   /// * `max_segment_count` — requested maximum number of segments  
-  /// * `segments_to_merge` — map of `SegmentCommitInfo` → `bool` indicating
+  /// * `segments_to_merge` — map of [`SegmentCommitInfo`] → `bool` indicating
   ///   which segments must be merged away  
-  /// * `merge_context` — the `MergeContext` to find merges on
+  /// * `merge_context` — the [`MergeContext`] to find merges on
   fn find_forced_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
@@ -178,7 +178,7 @@ where
   /// from the index.
   ///
   /// * `segment_infos` — the total set of segments in the index  
-  /// * `merge_context` — the `MergeContext` to find merges on
+  /// * `merge_context` — the [`MergeContext`] to find merges on
   fn find_forced_deletes_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,
@@ -193,12 +193,12 @@ where
   /// `max_full_flush_merge_size` (the max segment size for full flushes).
   ///
   /// Any merges returned here will make:
-  /// - `IndexWriter::commit`,
-  /// - `IndexWriter::prepare_commit` or
-  /// - `IndexWriter::get_reader`
+  /// - [`TwoPhaseCommit::commit`](crate::core::index::two_phase_commit::TwoPhaseCommit::commit),
+  /// - [`TwoPhaseCommit::prepare_commit`](crate::core::index::two_phase_commit::TwoPhaseCommit::prepare_commit) or
+  /// - [`directory_reader::open_from_writer`](crate::core::index::directory_reader::open_from_writer)
   ///
   /// block until the merges complete, or until
-  /// `IndexWriterConfig::get_max_full_flush_merge_wait_millis` has elapsed.
+  /// [`LiveIndexWriterConfig::get_max_full_flush_merge_wait_millis`](crate::core::index::live_index_writer_config::LiveIndexWriterConfig::get_max_full_flush_merge_wait_millis) has elapsed.
   ///
   /// This may be used to merge small segments that have just been flushed,
   /// reducing the number of segments in the point-in-time snapshot. If a merge
@@ -208,7 +208,7 @@ where
   ///
   /// If a [`OneMerge`] in the returned [`MergeSpecification`] includes a segment
   /// that is already included in a registered merge, then
-  /// `IndexWriter::commit` or `IndexWriter::prepare_commit` will return an
+  /// [`TwoPhaseCommit::commit`](crate::core::index::two_phase_commit::TwoPhaseCommit::commit) or [`TwoPhaseCommit::prepare_commit`](crate::core::index::two_phase_commit::TwoPhaseCommit::prepare_commit) will return an
   /// error. Use [`MergeContext::get_merging_segments`] to determine which
   /// segments are currently registered to merge.
   ///
@@ -350,7 +350,7 @@ where
         && self.use_compound_file(infos, info, merge_context)? == info.info.get_use_compound_file(),
     )
   }
-  /// Returns `true` if the segment represented by the given `CodecReader`
+  /// Returns `true` if the segment represented by the given [`CodecReader`]
   /// should be kept even if it is fully deleted.
   ///
   /// This is useful for testing, or for merge policies that implement
@@ -416,7 +416,7 @@ where
 
   /// Returns `true` if the info-stream is in verbose mode.
   ///
-  /// See `message`.
+  /// See [`Self::message`].
   fn verbose<MC>(&self, merge_context: &MC) -> bool
   where
     MC: MergeContext<D>,
@@ -1864,7 +1864,7 @@ pub struct MergeStat {
   completion: Arc<MergeCompletion>,
   merge_progress: Arc<OneMergeProgress>,
   /// Segments to be merged.
-  /// `SegmentInfo::name` and `SegmentInfo::id`.
+  /// [`SegmentInfo::name`](crate::core::index::segment_info::SegmentInfo::name) and [`SegmentInfo::id`](crate::core::index::segment_info::SegmentInfo::id).
   pub(crate) segments: Vec<String>,
   pub(crate) merge_gen: i64,
 }
@@ -2192,7 +2192,7 @@ where
 
   /// Returns the total size in bytes of this merge. Note that this does not indicate the size of
   /// the merged segment, but the input total size. This is only set once the merge is initialized
-  /// by `IndexWriter`.
+  /// by [`IndexWriter`](crate::core::index::index_writer::IndexWriter).
   pub fn total_bytes_size(&self) -> i64 {
     self.total_merge_bytes.load(Ordering::SeqCst)
   }
@@ -3034,7 +3034,7 @@ impl OneMergeProgress {
     };
   }
   /// Request a wakeup for any threads stalled in
-  /// [`pauseNanos`](OneMergeProgress::pause_nanos).
+  /// [`OneMergeProgress::pause_nanos`].
   pub fn wakeup(&self) {
     let _lock = self.pause_lock.lock();
     self.pausing.notify_all();

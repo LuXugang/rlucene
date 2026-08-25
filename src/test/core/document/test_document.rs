@@ -47,7 +47,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 #[allow(dead_code)] // for quick search
 struct TestDocument;
 
-/// Tests the [`Document::remove_field`] method for a brand-new `Document`
+/// Tests the [`Document::remove_field`] method for a brand-new [`Document`]
 /// that has not been indexed yet.
 ///
 /// # Errors
@@ -111,7 +111,7 @@ fn test_binary_field() -> Result<()> {
   assert_eq!(doc.get_fields().len(), 0);
   Ok(())
 }
-/// Tests the [`Document::remove_field`] method for a brand-new `Document`
+/// Tests the [`Document::remove_field`] method for a brand-new [`Document`]
 /// that has not been indexed yet.
 ///
 /// # Errors

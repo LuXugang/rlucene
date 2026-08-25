@@ -868,7 +868,7 @@ impl FieldNumbers {
     )?;
     Ok(())
   }
-  /// This function is called from `IndexWriter` to verify if doc values of
+  /// This function is called from [`IndexWriter`](crate::core::index::index_writer::IndexWriter) to verify if doc values of
   /// the field can be updated. If a field with this name already exists,
   /// it verifies that it is a doc-values-only field. If the field does
   /// not exist and `field_must_exist` is `false`, a new field is created in
@@ -958,7 +958,7 @@ impl FieldNumbers {
     Ok(())
   }
 
-  /// Constructs a new `FieldInfo` based on the options in global field
+  /// Constructs a new [`FieldInfo`](crate::core::index::field_info::FieldInfo) based on the options in global field
   /// numbers. This method needs no lock because all options it uses are immutable.
   ///
   /// # Parameters
@@ -969,7 +969,7 @@ impl FieldNumbers {
   /// # Returns
   /// - `None` if `field_name` does not exist in the map or is not of the same
   ///   `dv_type`.
-  /// - Otherwise, returns a new `FieldInfo` based on the options in global
+  /// - Otherwise, returns a new [`FieldInfo`](crate::core::index::field_info::FieldInfo) based on the options in global
   ///   field numbers.
   pub fn construct_field_info(
     &self,

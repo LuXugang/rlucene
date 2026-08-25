@@ -17,7 +17,7 @@
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_heap::LongHeap;
 use crate::core::util::numeric_utils::NumericUtils;
-/// `NeighborQueue` uses a [`LongHeap`] to store lists of arcs in an HNSW graph,
+/// [`NeighborQueue`] uses a [`LongHeap`] to store lists of arcs in an HNSW graph,
 /// represented as a neighbor node ID with an associated score packed together
 /// as a sortable `i64`, which is sorted primarily by score.
 ///

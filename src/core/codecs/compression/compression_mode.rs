@@ -67,9 +67,9 @@ impl CompressionMode {
 }
 
 pub(crate) trait CompressionModeBase: Display + Clone {
-  /// Create a new `Compressor` instance.
+  /// Create a new [`Compressor`](crate::core::codecs::compression::compressor::Compressor) instance.
   fn new_compressor(&self) -> CompressorEnum;
-  /// Create a new `Decompressor` instance.
+  /// Create a new [`Decompressor`](crate::core::codecs::compression::decompressor::Decompressor) instance.
   fn new_decompressor(&self) -> DecompressorEnum;
 }
 /// A compression mode that trades compression ratio for speed. Although the

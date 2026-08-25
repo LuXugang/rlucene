@@ -17,13 +17,14 @@
 use crate::core::util::attribute::Attribute;
 
 /// Add this [`Attribute`] to a [`TermsEnum`](crate::core::index::terms_enum::TermsEnum) returned by
-/// `MultiTermQuery::get_terms_enum` and update the boost on each returned term.
+/// [`MultiTermQuery::get_terms_enum`](crate::core::search::multi_term_query::MultiTermQuery::get_terms_enum) and update the boost on each returned term.
 /// This enables to control the boost factor for each matching term in
-/// `MultiTermQuery::SCORING_BOOLEAN_REWRITE` or `TopTermsRewrite` mode.
-/// `FuzzyQuery` is using this to take the edit distance into account.
+/// [`SCORING_BOOLEAN_REWRITE`](crate::core::search::multi_term_query::SCORING_BOOLEAN_REWRITE) or
+/// a top-terms rewrite mode.
+/// [`FuzzyQuery`](crate::core::search::fuzzy_query::FuzzyQuery) is using this to take the edit distance into account.
 ///
-/// **Please note:** This attribute is intended to be added only by the `TermsEnum`
-/// to itself when created and consumed by the `MultiTermQuery::RewriteMethod`.
+/// **Please note:** This attribute is intended to be added only by the [`TermsEnum`](crate::core::index::terms_enum::TermsEnum)
+/// to itself when created and consumed by the [`RewriteMethod`](crate::core::search::multi_term_query::RewriteMethod).
 ///
 /// @lucene.internal
 pub trait BoostAttribute: Attribute {

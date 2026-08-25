@@ -26,7 +26,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{HasIdentity, TryIntoInt};
 use std::hash::{Hash, Hasher};
 
-/// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`)
+/// [`BitSet`] of fixed length (`num_bits`), backed by accessible (`get_bits`)
 /// an `i64` slice, accessed with a `usize` index, implementing [`Bits`] and
 /// [`DocIdSet`](crate::core::search::doc_id_set). If you need to manage more than
 /// 2.1B bits, use [`LongBitSet`](crate::core::util::long_bit_set::LongBitSet).
@@ -133,7 +133,7 @@ impl FixedBitSet {
     }
     tot as i64
   }
-  /// Creates a new `FixedBitSet`. The internally allocated `Vec<u64>` array
+  /// Creates a new [`FixedBitSet`]. The internally allocated `Vec<u64>` array
   /// will be exactly the size needed to accommodate the `num_bits`
   /// specified.
   ///
@@ -150,7 +150,7 @@ impl FixedBitSet {
       id: Identity::new(),
     }
   }
-  /// Creates a new `FixedBitSet` using the provided `Vec<u64>` array as the
+  /// Creates a new [`FixedBitSet`] using the provided `Vec<u64>` array as the
   /// backing store. The `stored_bits` array must be large enough to
   /// accommodate the `num_bits` specified, but may be larger. In that
   /// case, the 'extra' or 'ghost' bits must be clear (or they may provoke

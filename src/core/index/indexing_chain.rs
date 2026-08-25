@@ -1895,7 +1895,7 @@ impl AllocatorI32 for IntBlockAllocator {
 /// A schema of the field in the current document. With every new document this schema is reset.
 /// As the document’s fields are processed, we update the schema with any options encountered in
 /// this document. Once processing for the document is complete, we compare the built schema of
-/// the current document with the corresponding `FieldInfo` (constructed from the first document
+/// the current document with the corresponding [`FieldInfo`](crate::core::index::field_info::FieldInfo) (constructed from the first document
 /// in the segment where this field appeared). If there is any inconsistency, we return an error.
 /// This ensures that a field’s data structures remain consistent across all documents.
 pub(crate) struct FieldSchema {

@@ -78,8 +78,8 @@ impl StringHelper {
   ///
   /// # Arguments
   ///
-  /// * `prior_term` - The first `BytesRef` to compare
-  /// * `current_term` - The second `BytesRef` to compare
+  /// * `prior_term` - The first [`BytesRef`] to compare
+  /// * `current_term` - The second [`BytesRef`] to compare
   ///
   /// # Returns
   ///
@@ -101,7 +101,7 @@ impl StringHelper {
   /// # Arguments
   ///
   /// * `ref_bytes` - The byte slice to test.
-  /// * `prefix` - The expected prefix as `BytesRef`
+  /// * `prefix` - The expected prefix as [`BytesRef`]
   ///
   /// # Returns
   ///
@@ -125,8 +125,8 @@ impl StringHelper {
   ///
   /// # Arguments
   ///
-  /// * `ref_bytes` - The `BytesRef` to test
-  /// * `prefix` - The expected prefix as `BytesRef`
+  /// * `ref_bytes` - The [`BytesRef`] to test
+  /// * `prefix` - The expected prefix as [`BytesRef`]
   ///
   /// # Returns
   ///
@@ -175,12 +175,12 @@ impl StringHelper {
   ///
   /// # Arguments
   ///
-  /// * `ref` - The `BytesRef` to test
-  /// * `suffix` - The expected suffix as `BytesRef`
+  /// * `ref` - The [`BytesRef`] to test
+  /// * `suffix` - The expected suffix as [`BytesRef`]
   ///
   /// # Returns
   ///
-  /// `True` if `ref` ends with the given `suffix`, otherwise `false`.
+  /// `true` if `reference` ends with the given `suffix`, otherwise `false`.
   pub fn ends_with<AV>(ref_bytes: &BytesRef<AV>, suffix: &BytesRef<AV>) -> bool
   where
     AV: SharedAccessVec<u8>,

@@ -264,7 +264,7 @@ where
     self.docs_seen.set(doc_id as usize);
     Ok(())
   }
-  /// Write a field from a `MutablePointTree`. This way of writing points is
+  /// Write a field from a [`MutablePointTree`](crate::core::codecs::mutable_point_tree::MutablePointTree). This way of writing points is
   /// faster than regular writes with `BKDWriter::add` since there is
   /// opportunity for reordering points before writing them to disk. This
   /// method does not use transient disk in order to reorder points.
@@ -451,7 +451,7 @@ where
     reader.visit_doc_values(&mut intersect_visitor)?;
     intersect_visitor.one_dim_writer.finish()
   }
-  /// More efficient bulk-add for incoming implementations of `PointValues`.
+  /// More efficient bulk-add for incoming implementations of [`PointValues`](crate::core::index::point_values::PointValues).
   /// This does a merge sort of the already sorted values and currently only
   /// works when num_dims==1. This returns `None` if all documents
   /// containing dimensional values were deleted.
@@ -543,7 +543,7 @@ where
     }
     Ok(())
   }
-  /// Writes the BKD tree to the provided `IndexOutput`s and returns an
+  /// Writes the BKD tree to the provided [`IndexOutput`](crate::core::store::index_output::IndexOutput)s and returns an
   /// `IORunnable` that writes the index of the tree if at least one point
   /// has been added, or `None` otherwise.
   pub fn finish(&mut self, data_out: &mut impl IndexOutput) -> Result<Option<IORunnable>> {

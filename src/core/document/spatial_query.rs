@@ -52,7 +52,7 @@ use std::sync::Arc;
 
 /// Base query data for spatial geometries.
 ///
-/// Java uses `SpatialQuery` as an abstract `Query` subclass. In this port the common immutable
+/// Java uses `SpatialQuery` as an abstract [`Query`](crate::core::search::query::Query) subclass. In this port the common immutable
 /// state and scorer/visitor machinery live here, while concrete shape queries provide their own
 /// [`SpatialVisitor`] implementation.
 #[derive(Clone)]

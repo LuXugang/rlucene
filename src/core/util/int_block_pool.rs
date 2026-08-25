@@ -17,7 +17,7 @@
 use crate::core::index::indexing_chain::IntBlockAllocator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// # Internal
-/// A pool for int blocks similar to `ByteBlockPool`.
+/// A pool for int blocks similar to [`ByteBlockPool`](crate::core::util::byte_block_pool::ByteBlockPool).
 pub struct IntBlockPool {
   /// array of buffers currently used in the pool. Buffers are allocated if
   /// needed don't modify this outside of this struct
@@ -38,14 +38,14 @@ impl Default for IntBlockPool {
 }
 
 impl IntBlockPool {
-  /// Creates a new `IntBlockPool` with a default `Allocator`.
+  /// Creates a new [`IntBlockPool`] with a default `Allocator`.
   ///
   /// See `IntBlockPool::next_buffer()` for more details.
   pub fn new() -> Self {
     let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
     Self::with_allocator(allocator)
   }
-  /// Creates a new `IntBlockPool` with the given `Allocator`.
+  /// Creates a new [`IntBlockPool`] with the given `Allocator`.
   ///
   /// See `IntBlockPool::next_buffer()` for more details.
   pub fn with_allocator(allocator: AllocatorIntEnum) -> Self {
@@ -59,7 +59,7 @@ impl IntBlockPool {
   }
   /// Expert: Resets the pool to its initial state, while optionally reusing
   /// the first buffer. Buffers that are not reused are reclaimed by
-  /// `ByteBlockPool::Allocator::recycle_byte_blocks`.
+  /// [`AllocatorByte::recycle_byte_blocks`](crate::core::util::allocator_byte::AllocatorByte::recycle_byte_blocks).
   /// Buffers can be filled with zeros before recycling them. This is useful
   /// if a slice pool works on top of this int pool and relies on the
   /// buffers being filled with zeros to find the non-zero end of slices.
@@ -100,7 +100,7 @@ impl IntBlockPool {
   }
   /// Advances the pool to its next buffer. This method should be called once
   /// after creation to initialize the pool. In contrast to initialization,
-  /// `IntBlockPool::reset`
+  /// [`IntBlockPool::reset`](crate::core::util::int_block_pool::IntBlockPool::reset)
   /// call will advance the pool to its first buffer immediately.
   pub fn next_buffer(&mut self) -> Result<()> {
     if self.buffer_upto + 1 == self.buffers.len() as i32 {
@@ -134,7 +134,7 @@ pub trait AllocatorI32 {
   fn get_block_size(&self) -> usize;
 }
 
-/// A simple `AllocatorByte` that never recycles.  */
+/// A simple [`AllocatorByte`](crate::core::util::allocator_byte::AllocatorByte) that never recycles.  */
 pub struct DirectAllocatorI32 {
   block_size: usize,
 }

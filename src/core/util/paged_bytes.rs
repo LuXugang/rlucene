@@ -108,7 +108,7 @@ impl PagedBytes {
     }
     Ok(())
   }
-  /// Copy `BytesRef` into the pool, setting the output `BytesRef` to the
+  /// Copy [`BytesRef`] into the pool, setting the output [`BytesRef`] to the
   /// result.
   ///
   /// Do **not** use this method if `freeze(true)` will be called afterward.

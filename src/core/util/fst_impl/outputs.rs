@@ -86,7 +86,7 @@ pub trait Outputs: Display + Clone + Default {
 
   /// Return memory usage for the provided output.
   ///
-  /// See also: `Accountable`
+  /// See also: [`Accountable`](crate::core::util::accountable::Accountable)
   fn ram_bytes_used(&self, output: &Self::V) -> i64;
 }
 

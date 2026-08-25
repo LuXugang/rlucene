@@ -25,7 +25,7 @@ use crate::core::util::packed::{FormatBehavior, PackedImpl, PackedInts};
 /// [`Directory`](crate::core::store::directory::Directory) via
 /// [`DirectReader`](crate::core::util::packed::direct_reader::DirectReader).
 ///
-/// Unlike `PackedInts`, this optimizes for read I/O operations and supports
+/// Unlike [`PackedInts`], this optimizes for read I/O operations and supports
 /// values exceeding 2^31 (2 billion).
 ///
 ///

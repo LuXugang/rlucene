@@ -31,7 +31,7 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 
-/// Implementation of `BytesTermAttribute`.
+/// Implementation of [`BytesTermAttribute`].
 pub struct BytesTermAttributeImpl {
   bytes: Option<BytesRef<Vec<u8>>>,
   #[cfg(test)]

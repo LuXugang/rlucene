@@ -30,7 +30,7 @@ impl<TS> LowerCaseFilter<TS> {
   ///
   /// # Parameters
   ///
-  /// - `in_`: `TokenStream` to filter.
+  /// - `in_`: [`TokenStream`](crate::core::analysis::token_stream::TokenStream) to filter.
   pub fn new(input: TS) -> Self {
     let token_filter_base = TokenFilterBase::new(input);
     Self { token_filter_base }

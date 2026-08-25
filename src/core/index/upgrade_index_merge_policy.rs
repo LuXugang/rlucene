@@ -32,7 +32,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
 /// This [`MergePolicy`] is used for upgrading all existing segments of an index when calling
-/// `IndexWriter::force_merge`.
+/// [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge).
 ///
 /// All other methods delegate to the base [`MergePolicy`] supplied at creation. This allows
 /// for an as-cheap-as possible upgrade of an older index by only upgrading segments that are
@@ -40,7 +40,7 @@ use std::fmt::{Display, Formatter};
 /// used to "force_merge" older segment versions away.
 ///
 /// In general one would use `IndexUpgrader`, but for a fully customizable upgrade, you can use
-/// this like any other [`MergePolicy`] and call `IndexWriter::force_merge`:
+/// this like any other [`MergePolicy`] and call [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge):
 ///
 /// ```ignore
 /// let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;

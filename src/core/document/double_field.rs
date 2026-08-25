@@ -59,7 +59,7 @@ pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
 
 /// Field that stores a per-document `f64` value for scoring, sorting or value retrieval and
 /// indexes the field for fast range filters. If you need more fine-grained control, use
-/// [`DoublePoint`], `DoubleDocValuesField` and `StoredField`.
+/// [`DoublePoint`], [`DoubleDocValuesField`](crate::core::document::double_doc_values_field::DoubleDocValuesField) and [`StoredField`](crate::core::document::stored_field::StoredField).
 ///
 /// This field defines static factory methods for creating common queries:
 ///
@@ -67,14 +67,14 @@ pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
 /// * [`new_range_query`](Self::new_range_query) for matching a 1D range.
 /// * [`new_set_query`](Self::new_set_query) for matching a 1D set.
 ///
-/// See also `PointValues`.
+/// See also [`PointValues`](crate::core::index::point_values::PointValues).
 pub struct DoubleField {
   parent_field: Field,
   stored_value: Option<FieldDataEnum>,
 }
 
 impl DoubleField {
-  /// Creates a new `DoubleField`, indexing the provided value,
+  /// Creates a new [`DoubleField`], indexing the provided value,
   /// storing it as a DocValue, and optionally as a stored field.
   ///
   /// # Arguments

@@ -26,7 +26,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
-/// This trait provides access to per-document floating point vector values indexed as `KnnFloatVectorField`.
+/// This trait provides access to per-document floating point vector values indexed as [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
 pub trait FloatVectorValues: KnnVectorValues {
   /// Returns the vector value for an ordinal in `0..size()`.
   /// Returns an out-of-bounds error for an invalid ordinal. The returned array may be shared across calls.

@@ -42,7 +42,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// - [`set_bottom`](LeafFieldComparator::set_bottom) This method is called by
 ///   [`FieldValueHitQueue`](crate::core::search::field_value_hit_queue::FieldValueHitQueue)
-///   to notify the `FieldComparator` of the current weakest ("bottom") slot.
+///   to notify the [`FieldComparator`] of the current weakest ("bottom") slot.
 ///   Note that this slot may not hold the weakest value according to your
 ///   comparator, in cases where your comparator is not the primary one (i.e.,
 ///   is only used to break ties from the comparators before it).

@@ -26,7 +26,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 ///
 ///
 /// # See also
-/// `DirectMonotonicWriter`
+/// [`DirectMonotonicWriter`](crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter)
 pub struct DirectMonotonicReader<R> {
   block_shift: i32,
   block_mask: usize,
@@ -223,7 +223,7 @@ use crate::core::util::TryIntoInt;
 /// Load metadata from the given [`IndexInput`].
 ///
 /// # See also
-/// `DirectMonotonicReader::getInstance(Meta, RandomAccessInput)`
+/// [`DirectMonotonicReader::get_instance`]
 pub fn load_meta(meta_in: &mut impl IndexInput, num_values: i64, block_shift: i32) -> Result<Meta> {
   let mut all_values_zero = true;
   let mut meta = Meta::new(num_values, block_shift);

@@ -168,7 +168,7 @@ where
     unwrap_caught_result!(result)?;
     Ok(segment_reader)
   }
-  /// Creates a new `SegmentReader` sharing a core with a previous reader and using the provided `live_docs`.
+  /// Creates a new [`SegmentReader`](crate::core::index::segment_reader::SegmentReader) sharing a core with a previous reader and using the provided `live_docs`.
   /// and recording whether those liveDocs were carried in ram (isNRT=true).
   pub(crate) fn new_from_reader(
     si: &SegmentCommitInfo<D>,

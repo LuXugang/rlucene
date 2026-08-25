@@ -51,7 +51,7 @@ use std::sync::LazyLock;
 /// trie](https://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.18.3499), but with added logic to break
 /// up too-large blocks of all terms sharing a given prefix into smaller ones.
 ///
-/// Use `CheckIndex` with the `-verbose` option to see summary statistics on the
+/// Use [`CheckIndex`](crate::core::index::check_index::CheckIndex) with the `-verbose` option to see summary statistics on the
 /// blocks in the dictionary.
 ///
 /// See [`Lucene90BlockTreeTermsWriter`](crate::core::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::Lucene90BlockTreeTermsWriter).

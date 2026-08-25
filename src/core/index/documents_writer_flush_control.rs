@@ -647,7 +647,7 @@ where
     self.flush_deletes.swap(false, Ordering::SeqCst)
   }
   /// Check whether deletes need to be applied. This can be used as a pre-flight check before calling
-  /// [`getAndResetApplyAllDeletes()`](Self::get_and_reset_apply_all_deletes) to make sure that a single thread applies deletes.
+  /// [`Self::get_and_reset_apply_all_deletes`] to make sure that a single thread applies deletes.
   pub(crate) fn get_apply_all_deletes(&self) -> bool {
     self.flush_deletes.load(Ordering::SeqCst)
   }

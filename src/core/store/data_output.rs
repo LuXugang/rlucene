@@ -26,7 +26,7 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 /// data types.
 ///
 /// # Note
-/// `DataOutput` is not thread-safe as it maintains internal state (e.g., file
+/// [`DataOutput`] is not thread-safe as it maintains internal state (e.g., file
 /// position), and therefore should only be used from a single thread.
 pub trait DataOutput {
   /// Writes a single byte.
@@ -115,8 +115,8 @@ pub trait DataOutput {
   ///   numbers are supported but should be avoided.
   ///
   /// # Errors
-  /// Returns an `IOError` if there is an error writing to the underlying
-  /// medium.
+  /// Returns [`LuceneError::Io`] if
+  /// there is an error writing to the underlying medium.
   ///
   /// # See Also
   /// [`DataInput::read_vint`]

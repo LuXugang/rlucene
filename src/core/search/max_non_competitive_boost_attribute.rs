@@ -17,16 +17,15 @@
 use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 
-/// Add this `Attribute` to a fresh `AttributeSource` before calling
-/// `MultiTermQuery::get_terms_enum`. `FuzzyQuery` is using this to control
+/// Add this [`Attribute`] to a fresh [`AttributeSource`](crate::core::util::attribute_source::AttributeSource) before calling
+/// [`MultiTermQuery::get_terms_enum`](crate::core::search::multi_term_query::MultiTermQuery::get_terms_enum). [`FuzzyQuery`](crate::core::search::fuzzy_query::FuzzyQuery) is using this to control
 /// its internal behaviour to only return competitive terms.
 ///
-/// **Please note:** This attribute is intended to be added by the
-/// `MultiTermQueryRewriteMethod` to an empty `AttributeSource` that is shared
-/// for all segments during query rewrite. This attribute source is passed to all
-/// segment enums on `MultiTermQuery::get_terms_enum`. `TopTermsRewrite` uses
-/// this attribute to inform all enums about the current boost, that is not
-/// competitive.
+/// **Please note:** A [`RewriteMethod`](crate::core::search::multi_term_query::RewriteMethod)
+/// adds this attribute to an empty [`AttributeSource`](crate::core::util::attribute_source::AttributeSource)
+/// shared by all segments during query rewriting. The attribute source is passed to each segment's
+/// [`MultiTermQuery::get_terms_enum`](crate::core::search::multi_term_query::MultiTermQuery::get_terms_enum)
+/// call. Top-terms rewrite implementations use it to publish the current non-competitive boost.
 ///
 /// @lucene.internal
 pub trait MaxNonCompetitiveBoostAttribute: Attribute {

@@ -32,13 +32,13 @@ use std::sync::Arc;
 /// Provides random-access input operations for files within a
 /// [`Directory`](crate::core::store::directory::Directory).
 ///
-/// `IndexInput` supports reading data from a file and maintains its own
+/// [`IndexInput`] supports reading data from a file and maintains its own
 /// internal state, such as the current file position.
 ///
 /// # Thread Safety
 ///
-/// `IndexInput` is **not thread-safe**. If you need to use it in multiple
-/// threads, you must **clone** the `IndexInput` instance. Each clone operates
+/// [`IndexInput`] is **not thread-safe**. If you need to use it in multiple
+/// threads, you must **clone** the [`IndexInput`] instance. Each clone operates
 /// on the same underlying resource but maintains an independent position.
 ///
 ///
@@ -57,7 +57,8 @@ pub trait IndexInput: DataInput + TryClone + CloseableRef {
 
   /// Sets the current position in this file, where the next read will occur.
   /// If this position is beyond the end of the file, it will return an
-  /// `EOFError`, and the stream will be in an undetermined state.
+  /// [`LuceneError::Io`], and the stream
+  /// will be in an undetermined state.
   ///
   /// # See Also
   /// [`get_file_pointer`](IndexInput::get_file_pointer)
@@ -102,12 +103,12 @@ pub trait IndexInput: DataInput + TryClone + CloseableRef {
   /// compound file.
   ///
   /// # Note
-  /// It is only legal to call this method if this `IndexInput` has been
-  /// opened with `ReadAdvice::NORMAL`. However, this method accepts any
-  /// `ReadAdvice` value except `None` for the slice.
+  /// It is only legal to call this method if this [`IndexInput`] has been
+  /// opened with [`ReadAdvice::Normal`]. However, this method accepts any
+  /// [`ReadAdvice`] value except `None` for the slice.
   ///
   /// The default implementation delegates to [`slice`](IndexInput::slice) and
-  /// ignores the `ReadAdvice`.
+  /// ignores the [`ReadAdvice`].
   fn slice_with_read_advice(
     &self,
     description: &str,
@@ -128,7 +129,7 @@ pub trait IndexInput: DataInput + TryClone + CloseableRef {
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice>;
 
   /// Optional method: Gives a hint to this input that some bytes will be read
-  /// soon. `IndexInput` implementations may take advantage of this hint
+  /// soon. [`IndexInput`] implementations may take advantage of this hint
   /// to start fetching pages of data immediately from storage.
   ///
   /// # Arguments
@@ -471,7 +472,7 @@ impl IndexInput for IndexInputEnum {
 }
 
 /// Implementations call this to build the resource description for a slice of
-/// this `IndexInput`.
+/// this [`IndexInput`].
 pub fn get_full_slice_description(slice_description: &str) -> String {
   format!(" [slice={slice_description}] ")
 }

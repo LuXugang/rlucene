@@ -32,7 +32,7 @@ pub struct IntArrayDocIdSet {
   docs: Rc<Vec<i32>>,
   length: i32,
 }
-/// Builds an `IntArrayDocIdSet` from an `i32` array and its length.
+/// Builds an [`IntArrayDocIdSet`] from an `i32` array and its length.
 ///
 /// # Arguments
 /// * `docs` - A docs array whose length must be greater than the `len`

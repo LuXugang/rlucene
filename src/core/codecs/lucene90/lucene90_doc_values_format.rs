@@ -74,7 +74,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// (Numeric,Binary,Sorted,SortedSet,SortedNumeric) are encoded using the
 /// following strategies:
 ///
-/// [`DocValuesType::NUMERIC`](crate::core::index::doc_values_type::DocValuesType::Numeric):
+/// [`DocValuesType::Numeric`](crate::core::index::doc_values_type::DocValuesType::Numeric):
 ///
 /// - Delta-compressed: per-document integers written as deltas from the minimum
 ///   value, compressed with bitpacking. For more information, see
@@ -98,7 +98,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// 16384 values. In that case, a jump-table with block offsets is appended to
 /// the blocks for O(1) access to the needed block.
 ///
-/// [`DocValuesType::BINARY`](crate::core::index::doc_values_type::DocValuesType::Binary):
+/// [`DocValuesType::Binary`](crate::core::index::doc_values_type::DocValuesType::Binary):
 ///
 /// - Fixed-width Binary: one large concatenated byte sequence is written, along with
 ///   the fixed length. Each document's value can be addressed directly with
@@ -111,13 +111,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///   addresses are written as Monotonic-compressed numerics. A reverse lookup
 ///   index is written from a portion of every 1024th term.
 ///
-/// [`DocValuesType::SORTED`](crate::core::index::doc_values_type::DocValuesType::Sorted):
+/// [`DocValuesType::Sorted`](crate::core::index::doc_values_type::DocValuesType::Sorted):
 ///
 /// - Sorted: a mapping of ordinals to deduplicated terms is written as
 ///   Prefix-compressed Binary, along with the per-document ordinals written
 ///   using one of the numeric strategies above.
 ///
-/// [`DocValuesType::SORTED_SET`](crate::core::index::doc_values_type::DocValuesType::SortedSet):
+/// [`DocValuesType::SortedSet`](crate::core::index::doc_values_type::DocValuesType::SortedSet):
 ///
 /// - Single: if all documents have 0 or 1 value, then data are written like
 ///   SORTED.
@@ -125,7 +125,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///   Binary, an ordinal list and per-document index into this list are written
 ///   using the numeric strategies above.
 ///
-/// [`DocValuesType::SORTED_NUMERIC`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric):
+/// [`DocValuesType::SortedNumeric`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric):
 ///
 /// - Single: if all documents have 0 or 1 value, then data are written like
 ///   NUMERIC.

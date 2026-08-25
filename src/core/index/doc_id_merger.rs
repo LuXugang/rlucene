@@ -282,7 +282,7 @@ where
   S: SubBase,
 {
   /// Like `next_doc()` but skips over unmapped docs and returns the next
-  /// mapped doc ID, or `DocIdSetIterator::NO_MORE_DOCS` when exhausted.
+  /// mapped doc ID, or [`NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::NO_MORE_DOCS) when exhausted.
   /// This method sets `mapped_doc_id` as a side effect.
   fn next_mapped_doc(&mut self) -> Result<i32> {
     loop {
@@ -301,7 +301,7 @@ where
 }
 pub trait SubBase {
   /// Returns the next document ID from this sub reader,
-  /// and `DocIdSetIterator::NO_MORE_DOCS` when done
+  /// and [`NO_MORE_DOCS`] when done
   fn next_doc(&mut self) -> Result<i32>;
   type DocMap: DocMap;
   fn get_doc_map(&self) -> Result<&Self::DocMap>;

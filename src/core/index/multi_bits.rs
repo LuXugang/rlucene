@@ -24,7 +24,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::{HasIdentity, TryIntoInt};
 use std::fmt::{Display, Formatter};
 
-/// Concatenates multiple `Bits` together on every lookup.
+/// Concatenates multiple [`Bits`] together on every lookup.
 ///
 /// **NOTE:** This is very costly, as every lookup must perform a binary search
 /// to locate the correct sub-reader.
@@ -188,11 +188,11 @@ where
     write!(f, " end={}", self.starts[self.subs.len()])
   }
 }
-/// Returns a single `Bits` instance for this reader, merging live documents on the fly.
+/// Returns a single [`Bits`] instance for this reader, merging live documents on the fly.
 /// This method will return `None` if the reader has no deletions.
 ///
 /// **NOTE:** this is a very slow way to access live docs.
-/// For example, each `Bits` access will require a binary search.
+/// For example, each [`Bits`] access will require a binary search.
 /// It's better to get the sub-readers and iterate through them yourself.
 pub fn get_live_docs<IR>(reader: IR) -> Result<Option<BitsType<IR>>>
 where

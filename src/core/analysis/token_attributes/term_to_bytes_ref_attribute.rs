@@ -24,7 +24,7 @@ pub trait TermToBytesRefAttribute: Attribute {
   #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;
 
-  /// Retrieve this attribute’s `BytesRef`. The bytes are updated from the current term.
+  /// Retrieve this attribute’s [`BytesRef`]. The bytes are updated from the current term.
   /// The implementation may return a new instance or keep the previous one.
   /// The returned reference stays valid only until the next call to
   /// `increment_token()`.

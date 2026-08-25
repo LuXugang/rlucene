@@ -17,7 +17,7 @@
 use crate::core::util::packed::abstract_paged_mutable::AbstractPagedMutableBase;
 use crate::core::util::packed::mutable_enum::MutableEnum;
 use crate::core::util::packed::{Format, FormatAndBits, PackedInts, fastest_format_and_bits};
-/// A `PagedMutable`. This structure slices data into fixed-size blocks which
+/// A [`PagedMutable`]. This structure slices data into fixed-size blocks which
 /// have the same number of bits per value. It can be a useful replacement for
 /// `PackedIntsMutable` to store more than 2 billion values.
 ///

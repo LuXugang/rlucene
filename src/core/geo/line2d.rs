@@ -26,7 +26,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// 2D geo line implementation represented as a balanced interval tree of edges.
 ///
-/// `Line2D` construction takes `O(n log n)` time for sorting and tree construction.
+/// [`Line2D`] construction takes `O(n log n)` time for sorting and tree construction.
 /// [`Self::relate`] is `O(n)`, but for most practical lines is much faster than brute force.
 pub struct Line2D {
   /// Minimum Y of this geometry's bounding box area.

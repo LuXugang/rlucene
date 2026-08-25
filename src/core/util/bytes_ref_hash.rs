@@ -29,14 +29,14 @@ use crate::core::util::{
   Sorter, StringHelper, StringSorter, StringSorterBase,
 };
 
-/// `BytesRefHash` is a special purpose hash-map like data structure optimized
-/// for `BytesRef` instances. `BytesRefHash` maintains mappings of byte arrays
+/// [`BytesRefHash`] is a special purpose hash-map like data structure optimized
+/// for [`BytesRef`] instances. [`BytesRefHash`] maintains mappings of byte arrays
 /// to `i32` IDs, storing the hashed bytes efficiently in
 /// continuous storage. The mapping to the ID is encapsulated inside
-/// `BytesRefHash` and is guaranteed to be increased for each added `BytesRef`.
+/// [`BytesRefHash`] and is guaranteed to be increased for each added [`BytesRef`].
 ///
 /// # Note
-/// - The maximum capacity `BytesRef` instance passed to
+/// - The maximum capacity [`BytesRef`] instance passed to
 ///   [`add`](BytesRefHash::add) must not be longer than
 ///   [`BYTE_BLOCK_SIZE`](crate::core::util::byte_block_pool::BYTE_BLOCK_SIZE) - 2.
 /// - The internal storage is limited to 2GB total byte storage.
@@ -127,7 +127,7 @@ where
   ///
   /// # Note
   /// This is a destructive operation. `Clear()` must be called to reuse this
-  /// `BytesRefHash` instance.
+  /// [`BytesRefHash`] instance.
   pub fn compact(&mut self) -> &Vec<i32> {
     debug_assert!(
       self.bytes_start_array.len() > 0,
@@ -217,7 +217,7 @@ where
     self.clear_with_reset_pool(true, byte_block_pool)
   }
 
-  /// Closes the `BytesRefHash` and releases all internally used memory.
+  /// Closes the [`BytesRefHash`] and releases all internally used memory.
   pub fn close(&mut self, byte_block_pool: &mut ByteBlockPool) {
     self.clear_with_reset_pool(true, byte_block_pool);
     self.bytes_used.add_and_get(-size_of_vec(&self.ids));
@@ -285,7 +285,7 @@ where
   /// Returns the id of the given [`BytesRef`].
   ///
   /// # Arguments
-  /// - `bytes`: The `BytesRef` to look for.
+  /// - `bytes`: The [`BytesRef`] to look for.
   ///
   /// # Returns
   /// The id of the given bytes, or `-1` if there is no mapping for the given
@@ -329,12 +329,12 @@ where
     debug_assert!(hash_pos >= 0);
     hash_pos as usize
   }
-  /// Adds an "arbitrary" integer offset instead of a `BytesRef` term.
+  /// Adds an "arbitrary" integer offset instead of a [`BytesRef`] term.
   ///
   /// This is used in the indexer to hold the hash for term vectors, because
   /// they do not redundantly store the term bytes directly and instead
   /// reference the term bytes already stored by the postings
-  /// `BytesRefHash`.
+  /// [`BytesRefHash`].
   pub fn add_by_pool_offset(
     &mut self,
     offset: i32,
@@ -460,8 +460,8 @@ where
   /// Returns the retained heap used by this hash and the byte pool that stores
   /// its terms.
   ///
-  /// The `ByteBlockPool` is passed separately because the Rust port keeps it
-  /// outside `BytesRefHash`. Callers should only use this when this hash is the
+  /// The [`ByteBlockPool`] is passed separately because the Rust port keeps it
+  /// outside [`BytesRefHash`]. Callers should only use this when this hash is the
   /// accounting owner of `byte_block_pool`.
   pub fn ram_bytes_used_with_pool(&self, byte_block_pool: &ByteBlockPool) -> Result<i64> {
     Ok(
@@ -646,11 +646,11 @@ pub trait BytesStartArray {
   /// The cleared instance, this might be `None`.
   fn clear(&mut self);
 
-  /// A reference holding the number of bytes used by this `BytesStartArray`.
+  /// A reference holding the number of bytes used by this [`BytesStartArray`].
   /// The [`BytesRefHash`] uses this reference to track its memory usage.
   ///
   /// # Returns
-  /// A reference holding the number of bytes used by this `BytesStartArray`.
+  /// A reference holding the number of bytes used by this [`BytesStartArray`].
   fn bytes_used(&mut self) -> SharedCounter;
   fn get_value(&self, index: usize) -> i32;
   fn set_value(&mut self, index: usize, value: i32);
@@ -659,7 +659,7 @@ pub trait BytesStartArray {
   fn ram_bytes_used(&self) -> Result<i64>;
 }
 /// A simple [`BytesStartArray`] that tracks memory allocation using a private
-/// `Counter` instance.
+/// [`Counter`] instance.
 pub struct DirectBytesStartArray {
   init_size: usize,
   pub(crate) bytes_start: Vec<i32>,

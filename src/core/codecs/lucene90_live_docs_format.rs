@@ -44,11 +44,11 @@ use crate::test_framework::core::util::failure_context::{
 /// Although per-segment, this file is maintained exterior to compound segment
 /// files.
 ///
-/// Deletions (`.liv`) -> `IndexHeader`, `Generation`, `Bits`
+/// Deletions (`.liv`) -> `IndexHeader`, `Generation`, [`Bits`]
 ///
 /// - `SegmentHeader` ->
 ///   [`CodecUtil::write_index_header`](CodecUtil::write_index_header)
-/// - `Bits` -> <[`Int64`](crate::core::store::data_output::DataOutput::write_long)>
+/// - [`Bits`] -> <[`Int64`](crate::core::store::data_output::DataOutput::write_long)>
 ///   <sup>LongCount</sup>
 ///
 /// [`CodecUtil::write_index_header`](CodecUtil::write_index_header)

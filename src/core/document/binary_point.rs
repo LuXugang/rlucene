@@ -39,7 +39,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 /// An indexed binary field for fast range filters. If you also need to store the value, you should
-/// add a separate `StoredField` instance.
+/// add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
 /// Finding all documents within an N-dimensional shape or range at search time is efficient.
 /// Multiple values for the same field in one document is allowed.
@@ -52,13 +52,13 @@ use std::fmt::Formatter;
 /// * [`new_range_query_multi_dim`](Self::new_range_query_multi_dim) for matching points/ranges in
 ///   n-dimensional space.
 ///
-/// See also `PointValues`.
+/// See also [`PointValues`](crate::core::index::point_values::PointValues).
 pub struct BinaryPoint {
   parent_field: Field,
 }
 
 impl BinaryPoint {
-  /// General purpose API: creates a new `BinaryPoint`, indexing the provided N-dimensional binary
+  /// General purpose API: creates a new [`BinaryPoint`], indexing the provided N-dimensional binary
   /// point.
   ///
   /// # Arguments
@@ -248,7 +248,7 @@ impl BinaryPoint {
   }
 
   /// Create a query matching any of the specified 1D values. This is the points equivalent of
-  /// `TermsQuery`.
+  /// [`TermInSetQuery`](crate::core::search::term_in_set_query::TermInSetQuery).
   ///
   /// # Arguments
   ///

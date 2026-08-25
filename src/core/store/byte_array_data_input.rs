@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::{SliceCopyOps, TryIntoInt};
 
-/// `DataInput` backed by a byte array.
+/// [`DataInput`] backed by a byte array.
 ///
 /// # Warning
 /// This struct omits all low-level checks.

@@ -19,7 +19,7 @@ use crate::core::analysis::token_stream::{TokenStream, TokenStreamBase};
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-/// A `Tokenizer` is a `TokenStream` whose input is a `Reader`.
+/// A [`Tokenizer`] is a [`TokenStream`] whose input is a [`ReaderEnum`].
 pub trait Tokenizer: TokenStream {
   fn get_tokenizer_base_mut(&mut self) -> &mut TokenizerBase;
   fn get_tokenizer_base(&self) -> &TokenizerBase;

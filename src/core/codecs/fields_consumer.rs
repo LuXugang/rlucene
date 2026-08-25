@@ -46,9 +46,11 @@ pub trait FieldsConsumer: Closeable {
   /// - You must compute index statistics, including each Term’s `doc_freq` and `total_term_freq`, as
   ///   well as the summary `sum_total_term_freq`, `sum_total_doc_freq` and `doc_count`.
   /// - You must skip terms that have no docs and fields that have no terms, even though the
-  ///   provided `Fields` API will expose them; this typically requires lazily writing the field or
+  ///   provided [`Fields`] API will expose them; this typically
+  ///   requires lazily writing the field or
   ///   term until you’ve actually seen the first term or document.
-  /// - The provided `Fields` instance is limited: you cannot call any methods that return
+  /// - The provided [`Fields`] instance is limited: you cannot
+  ///   call any methods that return
   ///   statistics/counts; you cannot pass a present live docs when pulling docs/positions enums.
   ///
   /// `state` and `segment_info` must describe the segment being written.

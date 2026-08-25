@@ -33,12 +33,12 @@ use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
-/// A `Query` that matches documents whose terms fall within a specified range.
+/// A [`Query`] that matches documents whose terms fall within a specified range.
 ///
 /// This query matches documents containing terms that fall within the given
-/// range according to `BytesRef::compare`.
+/// range according to [`BytesRef`].
 ///
-/// **NOTE**: `TermRangeQuery` is significantly slower than point-based ranges
+/// **NOTE**: [`TermRangeQuery`] is significantly slower than point-based ranges
 /// see [`PointRangeQuery`](crate::core::search::point_range_query::PointRangeQuery) because it must visit all terms that match the range
 /// and merge their matches.
 ///
@@ -139,10 +139,10 @@ impl TermRangeQuery {
       id: Identity::default(),
     })
   }
-  /// Factory that creates a new `TermRangeQuery` using `String` values
+  /// Factory that creates a new [`TermRangeQuery`] using `String` values
   /// for term text.
   ///
-  /// Uses `ConstantScoreBlendedRewrite` as the default rewrite method.
+  /// Uses [`ConstantScoreBlendedRewrite`] as the default rewrite method.
   pub fn new_string_range<F>(
     field: F,
     lower_term: Option<impl AsRef<str>>,
@@ -163,7 +163,7 @@ impl TermRangeQuery {
     )
   }
 
-  /// Factory that creates a new `TermRangeQuery` using `String` values
+  /// Factory that creates a new [`TermRangeQuery`] using `String` values
   /// for term text.
   pub fn new_string_range_with_rewrite<F, R>(
     field: F,

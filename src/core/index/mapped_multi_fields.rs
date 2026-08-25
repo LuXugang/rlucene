@@ -32,7 +32,8 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
-/// A [`Fields`] implementation that merges multiple `Fields` into one,
+/// A [`Fields`] implementation that merges multiple
+/// [`Fields`](crate::core::index::fields::Fields) instances into one,
 /// while accounting for deleted documents.
 ///
 /// This implementation is used during index merging.

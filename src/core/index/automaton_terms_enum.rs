@@ -134,7 +134,7 @@ impl AutomatonTermsEnum {
   /// Sets the enum to operate in linear fashion after detecting a looping
   /// transition at a given position.
   ///
-  /// This sets an upper bound and behaves like a `TermRangeQuery` for this
+  /// This sets an upper bound and behaves like a [`TermRangeQuery`](crate::core::search::term_range_query::TermRangeQuery) for this
   /// portion of the term space.
   fn set_linear(&mut self, position: usize) -> Result<()> {
     debug_assert!(!self.linear);

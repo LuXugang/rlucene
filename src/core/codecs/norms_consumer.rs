@@ -35,7 +35,7 @@ use std::sync::Arc;
 ///
 /// # Lifecycle
 ///
-/// 1. `NormsConsumer` is created by
+/// 1. [`NormsConsumer`] is created by
 ///    [`NormsFormat::norms_consumer`](crate::core::codecs::norms_format::NormsFormat::norms_consumer).
 /// 2. [`add_norms_field`](NormsConsumer::add_norms_field) is called for each
 ///    field with normalization values. The API is *pull*-based rather than

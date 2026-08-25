@@ -17,7 +17,7 @@
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::Result;
-/// Decorator trait for a `DocIdSetIterator` that filters or validates documents on demand.
+/// Decorator trait for a [`DocIdSetIterator`] that filters or validates documents on demand.
 pub trait FilteredDocIdSetIterator: DocIdSetIterator {
   type DocIdSetIterator: DocIdSetIterator;
   fn base(&self) -> &FilteredDocIdSetIteratorBase<Self::DocIdSetIterator>;

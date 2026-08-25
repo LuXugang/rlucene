@@ -105,10 +105,10 @@ use std::sync::Arc;
 ///   TermStats?<sup>EntryCount</sup>, MetaLength,
 ///   TermMetadata?<sup>EntryCount</sup>
 /// - TermStats → DocFreq, TotalTermFreq
-/// - Header → `CodecUtil::write_header`
+/// - Header → [`CodecUtil::write_header`](crate::core::codecs::codec_util::CodecUtil::write_header)
 /// - EntryCount, SuffixLength, StatsLength, DocFreq, MetaLength → `write_vint`
 /// - TotalTermFreq → `write_vlong`
-/// - Footer → `CodecUtil::write_footer`
+/// - Footer → [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 ///
 /// Notes:
 ///
@@ -142,11 +142,11 @@ use std::sync::Arc;
 /// - MinTerm, MaxTerm → `write_vint` + Bytes
 /// - NumFields, FieldNumber, RootCodeLength, DocCount → `write_vint`
 /// - NumTerms, SumTotalTermFreq, SumDocFreq, IndexStartFP → `write_vlong`
-/// - Footer → `CodecUtil::write_footer`
+/// - Footer → [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 ///
 /// Notes:
 ///
-/// - `FieldNumber` comes from `.fnm` (`FieldInfos`)
+/// - `FieldNumber` comes from `.fnm` ([`FieldInfos`])
 /// - `NumTerms` is the number of unique terms for the field
 /// - `RootCode` points to the root block of the field
 /// - `SumDocFreq` counts the number of term-document pairs
@@ -165,9 +165,9 @@ use std::sync::Arc;
 /// Structure:
 ///
 /// - TermsIndex (.tip) → Header, FSTIndex<sup>NumFields</sup>, Footer
-/// - Header → `CodecUtil::write_header`
+/// - Header → [`CodecUtil::write_header`](crate::core::codecs::codec_util::CodecUtil::write_header)
 /// - FSTIndex → `FST<BytesRef>`
-/// - Footer → `CodecUtil::write_footer`
+/// - Footer → [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 ///
 /// Notes:
 /// - The .tip file contains a separate FST for each field. The FST maps a term
@@ -337,7 +337,7 @@ where
       closed: false,
     })
   }
-  /// Returns `IllegalArgumentError` if any setting is invalid.
+  /// Returns [`IllegalArgumentError`](crate::core::util::error::IllegalArgumentError) if any setting is invalid.
   pub fn validate_settings(min_items_in_block: i32, max_items_in_block: i32) -> Result<()> {
     if min_items_in_block <= 1 {
       return Err(LuceneError::illegal_argument(format!(

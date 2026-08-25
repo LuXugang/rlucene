@@ -23,7 +23,7 @@ use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVecto
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-/// `NeighborArray` encodes the neighbors of a node and their mutual scores in
+/// [`NeighborArray`] encodes the neighbors of a node and their mutual scores in
 /// the HNSW graph as a pair of growable arrays. Nodes are arranged in the
 /// sorted order of their scores in:
 ///
@@ -49,7 +49,7 @@ impl NeighborArray {
       nodes: vec![0; max_size],
     }
   }
-  /// Add a new node to the `NeighborArray`.
+  /// Add a new node to the [`NeighborArray`].
   /// The new node must be worse than all previously stored nodes.
   /// This cannot be called after [`Self::add_out_of_order`].
   pub fn add_in_order(&mut self, new_node: usize, new_score: f32) -> Result<()> {
@@ -107,7 +107,7 @@ impl NeighborArray {
   ///
   /// # Arguments
   ///
-  /// * `node_id` - Node ID of the owner of this `NeighborArray`.
+  /// * `node_id` - Node ID of the owner of this [`NeighborArray`](crate::core::util::hnsw::neighbor_array::NeighborArray).
   pub(crate) fn add_and_ensure_diversity(
     &mut self,
     new_node: usize,

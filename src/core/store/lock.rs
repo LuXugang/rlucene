@@ -44,7 +44,7 @@ pub trait Lock: Display + CloseableRef + Send + Sync {
   /// use.
   ///
   /// # Errors
-  /// Returns an `LuceneError` if the lock is no longer valid.
+  /// Returns an [`LuceneError`](crate::core::util::error::lucene_error::LuceneError) if the lock is no longer valid.
   fn ensure_valid(&self) -> Result<()>;
 }
 

@@ -290,7 +290,7 @@ fn test_copy_jdk_set() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
-/// Tests the special case of copying `CharArraySet::EMPTY_SET`.
+/// Tests the Java-only shared `EMPTY_SET` case; Rust uses [`CharArraySet::empty_set`].
 #[test]
 #[ignore = "Java-only: Rust exposes an owned empty value instead of Java's shared EMPTY_SET singleton"]
 fn test_copy_empty_set() -> Result<()> {

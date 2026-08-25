@@ -63,7 +63,7 @@ pub trait CollectorManager {
 
   /// Reduce the results of individual collectors into a meaningful result.
   ///
-  /// For instance, a `TopDocsCollector` would compute the `top_docs()` of each collector
+  /// For instance, a [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) would compute the `top_docs()` of each collector
   /// and then merge them, similar to `TopDocs::merge(...)`. This **must be called after**
   /// collection is finished on all provided collectors.
   fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T>;

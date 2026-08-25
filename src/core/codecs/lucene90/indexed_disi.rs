@@ -35,7 +35,7 @@ use std::sync::Arc;
 /// (roaring bitmaps) and encodes ranges of `65536` documents independently,
 /// picking between 3 encodings depending on the density of the range:
 ///
-/// - `ALL`: if the range contains exactly 65536 documents,
+/// - [`Method::ALL`]: if the range contains exactly 65536 documents,
 /// - `DENSE`: if the range contains 4096 documents or more; in that case
 ///   documents are stored in a bit set,
 /// - `SPARSE`: otherwise, and the lower 16 bits of the doc IDs are stored as
@@ -67,7 +67,7 @@ use std::sync::Arc;
 ///
 /// The cache overhead is `num_docs / 1024` bytes.
 ///
-/// Note: There are 4 types of blocks: `ALL`, `DENSE`, `SPARSE`, and
+/// Note: There are 4 types of blocks: [`Method::ALL`], [`Method::Dense`], [`Method::Sparse`], and
 /// non-existing (0 set bits). In the case of non-existing blocks, the entry in
 /// the lookup table has the same index as the previous entry and the offset
 /// points to the next non-empty block.
@@ -129,7 +129,7 @@ where
   I: IndexInput,
   R: RandomAccessInput,
 {
-  /// Constructs a new `IndexedDISI` instance by reading from the backing
+  /// Constructs a new [`IndexedDISI`] instance by reading from the backing
   /// input data.
   ///
   /// This method always creates a new `block_slice` and a new
@@ -178,7 +178,7 @@ where
   I: IndexInput,
   R: RandomAccessInput,
 {
-  /// Constructs an `IndexedDISI` using the provided block slice and jump
+  /// Constructs an [`IndexedDISI`] using the provided block slice and jump
   /// table, allowing reuse of existing data structures.  
   ///
   /// This is useful in cases like Lucene80 norms producer's merge instance,
@@ -958,7 +958,7 @@ pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
 /// The caller must keep track of:
 /// - The number of jump-table entries (returned by this method),
 /// - The `dense_rank_power` (9 in this method), and provide them when
-///   constructing an `IndexedDISI` for reading.
+///   constructing an [`IndexedDISI`](crate::core::codecs::lucene90::indexed_disi::IndexedDISI) for reading.
 ///
 /// # Parameters
 /// - `it`: the document ID iterator (monotonically increasing, no gaps).
@@ -967,7 +967,7 @@ pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
 /// # Returns
 /// The number of jump-table entries that follow the blocks, or `-1` if
 /// there are no entries. This value should be stored in metadata and
-/// used when creating an `IndexedDISI` instance.
+/// used when creating an [`IndexedDISI`](crate::core::codecs::lucene90::indexed_disi::IndexedDISI) instance.
 ///
 /// # Errors
 /// Returns an error if writing to the output fails.
@@ -985,7 +985,7 @@ where
 /// The caller must keep track of:
 /// - The number of jump-table entries (returned by this method),
 /// - The `dense_rank_power`, and provide them when constructing an
-///   `IndexedDISI` for reading.
+///   [`IndexedDISI`] for reading.
 ///
 /// # Parameters
 /// - `it`: The iterator over document IDs (must be sorted, gap-less,
@@ -1002,7 +1002,7 @@ where
 /// # Returns
 /// The number of jump-table entries that follow the blocks, or `-1` if
 /// there are no entries. This value should be stored in metadata and
-/// used when creating an instance of `IndexedDISI`.
+/// used when creating an instance of [`IndexedDISI`].
 ///
 /// # Errors
 /// Returns an error if writing to the output fails.
@@ -1098,14 +1098,14 @@ where
   flush_block_jumps(&jumps, last_block + 1, out)
 }
 /// Helper method for using [`IndexedDISIImpl::from_components`].
-/// Creates a `disi_slice` for the `IndexedDISI` data blocks, excluding the
+/// Creates a `disi_slice` for the [`IndexedDISI`] data blocks, excluding the
 /// jump table.
 ///
 /// # Parameters
 /// - `slice`: Backing data containing both blocks and the jump table.
 /// - `slice_description`: Human-readable description of the slice.
 /// - `offset`: Offset relative to the backing data.
-/// - `length`: Total length of the `IndexedDISI`, including blocks and
+/// - `length`: Total length of the [`IndexedDISI`], including blocks and
 ///   jump-table data.
 /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
 ///
@@ -1114,7 +1114,7 @@ where
 /// exists.
 ///
 /// # Errors
-/// Returns an error if a `RandomAccessInput` could not be created from the
+/// Returns an error if a [`RandomAccessInput`] could not be created from the
 /// slice.
 pub fn create_block_slice<I>(
   slice: &I,
@@ -1134,22 +1134,22 @@ where
   slice.slice(slice_description, offset, length - jump_table_bytes)
 }
 /// Helper method for using [`IndexedDISIImpl::from_components`].
-/// Creates a `RandomAccessInput` covering only the jump-table data, or
+/// Creates a [`RandomAccessInput`] covering only the jump-table data, or
 /// returns `None` if no such table exists.
 ///
 /// # Parameters
 /// - `slice`: Backing data containing both blocks and the jump table.
 /// - `offset`: Offset relative to the backing data.
-/// - `length`: Total length of the `IndexedDISI`, including blocks and
+/// - `length`: Total length of the [`IndexedDISI`], including blocks and
 ///   jump-table data.
 /// - `jump_table_entry_count`: Number of blocks covered by the jump table.
 ///
 /// # Returns
-/// A `RandomAccessInput` covering the jump-table section, or `None` if the
+/// A [`RandomAccessInput`] covering the jump-table section, or `None` if the
 /// table doesn't exist.
 ///
 /// # Errors
-/// Returns an error if a `RandomAccessInput` could not be created from the
+/// Returns an error if a [`RandomAccessInput`] could not be created from the
 /// slice.
 pub fn create_jump_table<I>(
   slice: &I,

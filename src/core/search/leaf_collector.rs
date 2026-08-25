@@ -24,7 +24,8 @@ pub trait LeafCollector: Display {
   /// Called before successive calls to [`LeafCollector::collect`].
   ///
   /// Implementations that need the score of the current document (passed in
-  /// to `collect`) should save the passed-in `Scorer`(crate::core::search::scorer::Scorer) and call
+  /// to `collect`) should save the passed-in
+  /// [`Scorer`](crate::core::search::scorer::Scorer) and call
   /// `scorer.score()` when needed.
   fn set_scorer(&mut self, _scorer: &mut dyn Scorable) -> Result<()> {
     Ok(())
@@ -34,7 +35,7 @@ pub trait LeafCollector: Display {
   /// # Notes
   ///
   /// - The collection of the current segment can be terminated by returning an
-  ///   error such as `LuceneError::CollectionTerminated`. In this case, the last
+  ///   error such as [`LuceneError::CollectionTerminated`](crate::core::util::error::lucene_error::LuceneError::CollectionTerminated). In this case, the last
   ///   docs of the current [`LeafReaderContext`](crate::core::index::leaf_reader_context::LeafReaderContext) will be skipped and
   ///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) will swallow the error and continue collection with
   ///   the next leaf.

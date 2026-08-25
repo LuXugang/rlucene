@@ -25,7 +25,7 @@ use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 
-/// `TopKnnCollector` is a specific [`KnnCollector`] implementation.
+/// [`TopKnnCollector`] is a specific [`KnnCollector`] implementation.
 /// A min-heap is used to keep track of the currently collected vectors,
 /// allowing for efficient updates as better vectors are collected.
 pub struct TopKnnCollector {

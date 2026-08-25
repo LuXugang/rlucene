@@ -55,7 +55,7 @@ pub struct AutomatonQuery {
   pub(crate) rewrite_method: RewriteMethodEnum,
 }
 impl AutomatonQuery {
-  /// Create a new `AutomatonQuery` from an [`Automaton`].
+  /// Create a new [`AutomatonQuery`] from an [`Automaton`].
   ///
   /// - `term`: [`Term`] containing field and possibly some pattern structure. The term text is
   ///   ignored.
@@ -64,7 +64,7 @@ impl AutomatonQuery {
     Self::from_automaton_with_binary(term, automaton, false)
   }
 
-  /// Create a new `AutomatonQuery` from an [`Automaton`].
+  /// Create a new [`AutomatonQuery`] from an [`Automaton`].
   ///
   /// - `term`: [`Term`] containing field and possibly some pattern structure. The term text is
   ///   ignored.
@@ -78,7 +78,7 @@ impl AutomatonQuery {
   ) -> Result<Self> {
     Self::new(term, automaton, is_binary, ConstantScoreBlendedRewrite)
   }
-  /// Create a new `AutomatonQuery` from an [`Automaton`].
+  /// Create a new [`AutomatonQuery`] from an [`Automaton`].
   ///
   /// - `term`: [`Term`] containing field and possibly some pattern structure. The term text is
   ///   ignored.

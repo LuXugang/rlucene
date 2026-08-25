@@ -54,11 +54,11 @@ use crate::core::util::packed::PackedInts;
 use std::borrow::Cow;
 use std::sync::Arc;
 
-/// A wrapper for `CompositeIndexReader` providing access to `DocValues`.
+/// A wrapper for `CompositeIndexReader` providing access to [`DocValues`].
 ///
 /// **NOTE**: for multi readers, you'll get better performance by gathering the
-/// sub readers using `IndexReader::get_context` to get the atomic leaves and
-/// then operate per-`LeafReader` instead of using this type.
+/// sub readers using [`IndexReader::get_context`] to get the atomic leaves and
+/// then operate per-[`LeafReader`] instead of using this type.
 ///
 /// **NOTE**: This is very costly.
 pub struct MultiDocValues;

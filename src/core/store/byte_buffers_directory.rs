@@ -176,10 +176,10 @@ fn output_as_byte_array(
   output_as_one_buffer(file_name, output)
 }
 
-/// A `ByteBuffer`-based [`Directory`] implementation that can be used to store
+/// An in-memory byte-buffer-based [`Directory`] implementation that can be used to store
 /// index files on the heap.
 ///
-/// Important: Note that `MMapDirectory` is nearly always a better choice as it
+/// Important: Note that [`MMapDirectory`](crate::core::store::mmap_directory::MMapDirectory) is nearly always a better choice as it
 /// uses OS caches more effectively (through memory-mapped buffers). A
 /// heap-based directory like this one can have the advantage in case of
 /// ephemeral, small, short-lived indexes when disk syncs provide an additional

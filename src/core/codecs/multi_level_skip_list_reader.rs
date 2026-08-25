@@ -65,7 +65,7 @@ pub struct MultiLevelSkipListReader<I> {
   skip_multiplier: i32,
 }
 impl<I: IndexInput> MultiLevelSkipListReader<I> {
-  /// Creates a new `MultiLevelSkipListReader` with the given skip stream,
+  /// Creates a new [`MultiLevelSkipListReader`] with the given skip stream,
   /// maximum skip levels, base skip interval, and skip multiplier.
   pub fn new(
     first_skip_stream: I,
@@ -229,7 +229,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
     Ok(())
   }
   /// read the length of the current level written via
-  /// [`MultiLevelSkipListWriter::writeLevelLength`](crate::core::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_level_length).
+  /// [`MultiLevelSkipListWriter::write_level_length`](crate::core::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_level_length).
   ///
   ///
   /// Parameters:
@@ -246,7 +246,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
   ///
   ///
   /// Parameters:
-  /// - `skip_stream`: the `IndexInput` from which to read the child pointer
+  /// - `skip_stream`: the [`IndexInput`](crate::core::store::index_input::IndexInput) from which to read the child pointer
   ///
   /// Returns:
   /// - child pointer

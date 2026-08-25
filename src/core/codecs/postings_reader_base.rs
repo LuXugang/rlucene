@@ -46,13 +46,13 @@ pub trait PostingsReaderBase: Display + CloseableRef {
   where
     D1: Directory;
 
-  /// Return a newly created empty `TermState`.
+  /// Return a newly created empty [`TermState`](crate::core::index::term_state::TermState).
   fn new_term_state(&self) -> Result<TermStateEnum>;
 
   /// Actually decode metadata for next term
   ///
   /// See also:
-  /// - [`PostingsWriterBase::encodeTerm`](crate::core::codecs::postings_writer_base::PostingsWriterBase::encode_term)
+  /// - [`PostingsWriterBase::encode_term`](crate::core::codecs::postings_writer_base::PostingsWriterBase::encode_term)
   fn decode_term(
     &self,
     input: &mut impl DataInput,
@@ -61,7 +61,7 @@ pub trait PostingsReaderBase: Display + CloseableRef {
     absolute: bool,
   ) -> Result<()>;
 
-  /// Must fully consume `state`, since after this call that `TermState` may
+  /// Must fully consume `state`, since after this call that [`TermState`](crate::core::index::term_state::TermState) may
   /// be reused.
   type PostingsEnum: PostingsEnum;
   fn postings(

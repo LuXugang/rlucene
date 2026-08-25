@@ -207,7 +207,7 @@ pub trait DocMap {
   fn new_to_old(&self, doc_id: i32) -> Result<i32>;
 
   /// Return the number of documents in this map.
-  /// This must equal the number of documents in the sorted `LeafReader`.
+  /// This must equal the number of documents in the sorted [`LeafReader`].
   fn size(&self) -> i32;
 }
 impl<T> DocMap for Arc<T>

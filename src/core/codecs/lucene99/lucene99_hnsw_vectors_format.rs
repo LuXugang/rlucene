@@ -54,7 +54,8 @@ pub const MAXIMUM_MAX_CONN: usize = 512;
 pub const DEFAULT_MAX_CONN: usize = OtherDEFAULT_MAX_CONN;
 
 /// The maximum size of the queue to maintain while searching during graph construction. This
-/// maximum value preserves the ratio of the `DEFAULT_BEAM_WIDTH`/`DEFAULT_MAX_CONN` (i.e. `6.25 * 16 = 3200`).
+/// maximum value preserves the ratio of [`DEFAULT_BEAM_WIDTH`] / [`DEFAULT_MAX_CONN`] (i.e.
+/// `6.25 * 16 = 3200`).
 pub const MAXIMUM_BEAM_WIDTH: usize = 3200;
 
 /// Default number of the size of the queue maintained while searching during a graph construction.
@@ -72,7 +73,7 @@ pub static FLAT_VECTORS_FORMAT: LazyLock<Lucene99FlatVectorsFormat<DefaultFlatVe
 pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// Lucene 9.9 vector format, which encodes numeric vector values into an associated graph connecting
 /// the documents having values. The graph is used to power HNSW search. The format consists of two
-/// files, and requires a `FlatVectorsFormat` to store the actual vectors:
+/// files, and requires a [`FlatVectorsFormat`](crate::core::codecs::hnsw::flat_vectors_format::FlatVectorsFormat) to store the actual vectors:
 ///
 /// ## .vex (vector index)
 ///
@@ -84,7 +85,7 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 ///     - **`vint`** the number of neighbor nodes
 ///     - **``array`vint```** the delta encoded neighbor ordinals
 /// - After all levels are encoded, memory offsets for each node's neighbor nodes are appended to
-///   the end of the file. The offsets are encoded by `DirectMonotonicWriter`.
+///   the end of the file. The offsets are encoded by [`DirectMonotonicWriter`](crate::core::util::packed::direct_monotonic_writer::DirectMonotonicWriter).
 ///
 /// ## .vem (vector metadata) file
 ///

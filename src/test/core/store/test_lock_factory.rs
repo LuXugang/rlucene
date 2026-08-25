@@ -105,7 +105,7 @@ fn test_directory_no_locking() -> Result<()> {
   Ok(())
 }
 
-/// A mock `Lock` that does nothing.
+/// A mock [`Lock`](crate::core::store::lock::Lock) that does nothing.
 struct MockLock;
 
 impl Display for MockLock {
@@ -126,7 +126,8 @@ impl Lock for MockLock {
   }
 }
 
-/// A mock `LockFactory` that tracks created lock names.
+/// A mock [`LockFactory`](crate::core::store::lock_factory::LockFactory) that tracks created lock
+/// names.
 #[derive(Clone)]
 struct MockLockFactory {
   locks_created: Arc<Mutex<HashMap<String, ()>>>,

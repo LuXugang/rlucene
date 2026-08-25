@@ -47,12 +47,12 @@ pub trait Terms {
   /// be accepted by the automaton.
   ///
   /// This is an expert-level, low-level API that only works for
-  /// [`AutomatonType::NORMAL`](crate::core::util::automation::compiled_automaton::AutomatonType::Normal) compiled automata. To handle any type of
+  /// [`AutomatonType::Normal`](crate::core::util::automation::compiled_automaton::AutomatonType::Normal) compiled automata. To handle any type of
   /// compiled automaton, use
-  /// [`CompiledAutomaton::get_terms_enum`](CompiledAutomaton::get_automaton)
+  /// [`CompiledAutomaton::get_terms_enum`]
   /// instead.
   ///
-  /// **Note**: The returned `TermsEnum` does **not** support seeking.
+  /// **Note**: The returned [`TermsEnum`] does **not** support seeking.
   fn intersect(
     &self,
     compiled: &CompiledAutomaton,
@@ -352,7 +352,7 @@ where
 /// has none.
 ///
 /// Returns:
-/// - A `Terms` instance, or an empty instance if the field does not exist
+/// - A [`Terms`](crate::core::index::terms::Terms) instance, or an empty instance if the field does not exist
 ///   in this reader.
 ///
 /// Errors:

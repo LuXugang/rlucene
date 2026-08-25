@@ -45,7 +45,7 @@ use crate::core::index::standard_directory_reader::{ReaderCommit, StandardDirect
 /// **NOTE:** [`IndexReader`](crate::core::index::index_reader::IndexReader) instances are completely thread-safe, meaning multiple threads
 /// can invoke any of its methods concurrently.
 /// If your application requires external synchronization, you should **not** synchronize
-/// on the `IndexReader` instance itself; instead, use your own (non-Lucene) synchronization
+/// on the [`IndexReader`](crate::core::index::index_reader::IndexReader) instance itself; instead, use your own (non-Lucene) synchronization
 /// objects.
 pub trait DirectoryReader:
   BaseCompositeReader<SubReader = <Self as CompositeReader>::LeafReader>
@@ -101,15 +101,15 @@ pub trait DirectoryReader:
     writer: &Arc<IndexWriter<Self::Directory>>,
     apply_deletes: bool,
   ) -> Result<Option<Self::DirectoryReader>>;
-  /// Version number when this `IndexReader` was opened.
+  /// Version number when this [`IndexReader`](crate::core::index::index_reader::IndexReader) was opened.
   ///
   /// This method returns the version recorded in the commit that the reader opened.
   /// The version number is advanced every time a change is made using an [`IndexWriter`].
   fn get_version(&self) -> Result<i64>;
   /// Check whether any new changes have occurred to the index since this reader was opened.
   ///
-  /// If this reader was created by calling `open`, then this method checks if any
-  /// further commits (see `IndexWriter::commit`) have occurred in the directory.
+  /// If this reader was created by calling [`open`], then this method checks if any
+  /// further commits (see [`TwoPhaseCommit::commit`](crate::core::index::two_phase_commit::TwoPhaseCommit::commit)) have occurred in the directory.
   ///
   /// If instead this reader is a near real-time reader (ie, obtained by a call to
   /// [`open_from_writer`], or by calling [`open_if_changed`] on a near real-time reader), then this method checks
@@ -169,7 +169,7 @@ where
 {
   StandardDirectoryReader::open::<DummyIndexCommit<D>>(directory, None, leaf_sorter)
 }
-/// Opens a near real-time `IndexReader` from the given [`IndexWriter`].
+/// Opens a near real-time [`IndexReader`](crate::core::index::index_reader::IndexReader) from the given [`IndexWriter`].
 ///
 /// # Arguments
 ///
@@ -177,7 +177,7 @@ where
 ///
 /// # Returns
 ///
-/// The newly created `IndexReader`.
+/// The newly created [`IndexReader`](crate::core::index::index_reader::IndexReader).
 ///
 /// # Errors
 ///
@@ -190,7 +190,7 @@ where
   open_with_writer_deletes(writer, true, false)
 }
 
-/// Expert: Opens a near real-time `IndexReader` from the given [`IndexWriter`],
+/// Expert: Opens a near real-time [`IndexReader`](crate::core::index::index_reader::IndexReader) from the given [`IndexWriter`],
 /// controlling whether past deletions should be applied.
 ///
 /// # Arguments
@@ -198,7 +198,7 @@ where
 /// * `writer` - The [`IndexWriter`] to open from.
 /// * `apply_all_deletes` - If `true`, all buffered deletes will be applied (made visible)
 ///   in the returned reader.
-///   If `false`, the deletes remain buffered in the `IndexWriter` and will be applied later.
+///   If `false`, the deletes remain buffered in the [`IndexWriter`] and will be applied later.
 ///   Applying deletes can be costly, so if your application can tolerate deleted documents
 ///   being returned, you may gain some performance by passing `false`.
 /// * `write_all_deletes` - If `true`, new deletes will be written down to index files instead of
@@ -222,7 +222,7 @@ where
   writer.get_reader(apply_all_deletes, write_all_deletes)
 }
 
-/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given `IndexCommit`.
+/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index in the given [`IndexCommit`].
 ///
 /// # Parameters
 ///
@@ -239,7 +239,7 @@ where
   StandardDirectoryReader::open(commit.get_directory(), Some(commit), None)
 }
 
-/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given `IndexCommit`.
+/// Expert: returns an [`IndexReader`](crate::core::index::index_reader::IndexReader) reading the index on the given [`IndexCommit`].
 ///
 /// This method allows opening indices that were created with a Lucene version older than N-1,
 /// provided that all codecs for this index are available in the classpath and the segment file
@@ -304,7 +304,7 @@ where
   old_reader.do_open_if_changed()
 }
 
-/// If the `IndexCommit` differs from what the provided reader is searching, open and return a new
+/// If the [`IndexCommit`] differs from what the provided reader is searching, open and return a new
 /// reader; otherwise, return `None`.
 ///
 /// # Errors
@@ -387,15 +387,15 @@ where
 }
 
 /// Returns all commit points that exist in the [`Directory`]. Normally, because the default is
-/// `KeepOnlyLastCommitDeletionPolicy`, there would be only one commit point. But if you're using a
-/// custom `IndexDeletionPolicy` then there could be many commits. Once you have a given commit, you
-/// can open a reader on it by calling `DirectoryReader::open`. There must be at least one commit in
-/// the [`Directory`], else this method returns `IndexNotFound`. Note that if a commit is in progress
+/// [`KeepOnlyLastCommitDeletionPolicy`](crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy), there would be only one commit point. But if you're using a
+/// custom [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy) then there could be many commits. Once you have a given commit, you
+/// can open a reader on it by calling [`directory_reader::open`](crate::core::index::directory_reader::open). There must be at least one commit in
+/// the [`Directory`], else this method returns [`IndexNotFound`](crate::core::util::error::IndexNotFound). Note that if a commit is in progress
 /// while this method is running, that commit may or may not be returned.
 ///
 /// # Returns
 ///
-/// A sorted list of `IndexCommit`s, from oldest to latest.
+/// A sorted list of [`IndexCommit`]s, from oldest to latest.
 pub fn list_commits<D>(dir: Arc<D>) -> Result<Vec<ReaderCommit<D>>>
 where
   D: Directory,

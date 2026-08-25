@@ -59,13 +59,13 @@ impl OrdToDocDISIReaderConfiguration {
   /// - **`int8`** if equals to -2, empty - no vector values. If equals to -1, dense – all
   ///   documents have values for a field. If equals to 0, sparse – some documents missing
   ///   values.
-  /// - DocIds were encoded by `IndexedDISI::writeBitSet`
+  /// - DocIds were encoded by [`IndexedDISI`]
   /// - OrdToDoc was encoded by [`DirectMonotonicWriter`], note
   ///   that only in sparse case
   ///
   /// Within the vectorData the format is as follows:
   ///
-  /// - DocIds encoded by `IndexedDISI::writeBitSet`,
+  /// - DocIds encoded by [`IndexedDISI`],
   ///   note that only in sparse case
   /// - OrdToDoc was encoded by [`DirectMonotonicWriter`],
   ///   note that only in sparse case

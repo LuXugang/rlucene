@@ -33,7 +33,7 @@ pub trait Decompressor: Clone {
   /// - `offset`: Bytes before this offset do not need to be decompressed.
   /// - `length`: Bytes after `offset + length` do not need to be
   ///   decompressed.
-  /// - `bytes`: A reference to a `BytesRef` where to store the decompressed
+  /// - `bytes`: A reference to a [`BytesRef`] where to store the decompressed
   ///   data.
   fn decompress(
     &mut self,

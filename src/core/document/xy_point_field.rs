@@ -69,12 +69,12 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 ///   geometry collection.
 ///
 /// If you also need per-document operations such as sort by distance, add a separate
-/// `XYDocValuesField` instance. If you also need to store the value, you should add a separate
-/// `StoredField` instance.
+/// [`XYDocValuesField`](crate::core::document::xy_doc_values_field::XYDocValuesField) instance. If you also need to store the value, you should add a separate
+/// [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
-/// See `PointValues`.
+/// See [`PointValues`](crate::core::index::point_values::PointValues).
 ///
-/// See `XYDocValuesField`.
+/// See [`XYDocValuesField`](crate::core::document::xy_doc_values_field::XYDocValuesField).
 pub struct XYPointField {
   parent_field: Field,
 }
@@ -133,7 +133,7 @@ impl XYPointField {
     Ok(field)
   }
 
-  /// Checks field information and returns an error if it is definitely not an `XYPoint`.
+  /// Checks field information and returns an error if it is definitely not an [`XYPoint`](crate::core::geo::xy_point::XYPoint).
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     if field_info.get_point_dimension_count() != 0
       && field_info.get_point_dimension_count() != TYPE.point_dimension_count()
@@ -225,7 +225,7 @@ impl XYPointField {
   ///
   /// Returns an error if `polygons` is empty.
   ///
-  /// See `Polygon`.
+  /// See [`Polygon`](crate::core::geo::polygon::Polygon).
   pub fn new_polygon_query<T>(field: T, polygons: Vec<XYPolygon>) -> Result<Query>
   where
     T: Into<String>,
@@ -247,7 +247,7 @@ impl XYPointField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `xy_geometries` is empty or contains an unsupported `XYLine` geometry.
+  /// Returns an error if `xy_geometries` is empty or contains an unsupported [`XYLine`](crate::core::geo::xy_line::XYLine) geometry.
   ///
   /// See [`XYGeometry`].
   pub fn new_geometry_query<S, T>(field: S, xy_geometries: Vec<T>) -> Result<Query>

@@ -71,10 +71,10 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 /// - `new_distance_sort` for ordering documents by distance from a
 ///   specified location.
 ///
-/// If you also need query operations, you should add a separate `XYPointField` instance. If
-/// you also need to store the value, you should add a separate `StoredField` instance.
+/// If you also need query operations, you should add a separate [`XYPointField`](crate::core::document::xy_point_field::XYPointField) instance. If
+/// you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
-/// See `XYPointField`.
+/// See [`XYPointField`](crate::core::document::xy_point_field::XYPointField).
 pub struct XYDocValuesField {
   parent_field: Field,
 }
@@ -129,7 +129,7 @@ impl XYDocValuesField {
     Ok(())
   }
 
-  /// Checks field information and returns an error if it is definitely not an `XYDocValuesField`.
+  /// Checks field information and returns an error if it is definitely not an [`XYDocValuesField`](crate::core::document::xy_doc_values_field::XYDocValuesField).
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     if *field_info.get_doc_values_type() != DocValuesType::None
       && field_info.get_doc_values_type() != TYPE.doc_values_type()
@@ -147,7 +147,7 @@ impl XYDocValuesField {
   /// Creates a SortField for sorting by distance from a location.
   ///
   /// This sort orders documents by ascending distance from the location. The value returned in
-  /// `FieldDoc` for the hits contains a Double instance with the distance in meters.
+  /// [`FieldDoc`](crate::core::search::field_doc::FieldDoc) for the hits contains a Double instance with the distance in meters.
   ///
   /// If a document is missing the field, then by default it is treated as having
   /// [`f64::INFINITY`] distance (missing values sort last).
@@ -177,8 +177,8 @@ impl XYDocValuesField {
 
   /// Create a query for matching a bounding box using doc values. This query is usually slow as it
   /// does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
-  /// `XYPointField::new_box_query`.
+  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a
+  /// [`XYPointField::new_box_query`](crate::core::document::xy_point_field::XYPointField::new_box_query).
   pub fn new_slow_box_query<T>(
     field: T,
     min_x: f32,
@@ -196,7 +196,7 @@ impl XYDocValuesField {
   /// Create a query for matching points within the specified distance of the supplied location. This
   /// query is usually slow as it does not use an index structure and needs to verify documents
   /// one-by-one in order to know whether they match. It is best used wrapped in an
-  /// `IndexOrDocValuesQuery` alongside a `XYPointField::new_distance_query`.
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a [`XYPointField::new_distance_query`](crate::core::document::xy_point_field::XYPointField::new_distance_query).
   ///
   /// # Parameters
   ///
@@ -223,8 +223,8 @@ impl XYDocValuesField {
 
   /// Create a query for matching points within the supplied polygons. This query is usually slow as
   /// it does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
-  /// `XYPointField::new_polygon_query`.
+  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a
+  /// [`XYPointField::new_polygon_query`](crate::core::document::xy_point_field::XYPointField::new_polygon_query).
   ///
   /// # Parameters
   ///
@@ -248,7 +248,7 @@ impl XYDocValuesField {
   /// Create a query for matching points within the supplied geometries. XYLine geometries are not
   /// supported. This query is usually slow as it does not use an index structure and needs to verify
   /// documents one-by-one in order to know whether they match. It is best used wrapped in an
-  /// `IndexOrDocValuesQuery` alongside a `XYPointField::new_geometry_query`.
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a [`XYPointField::new_geometry_query`](crate::core::document::xy_point_field::XYPointField::new_geometry_query).
   ///
   /// # Parameters
   ///
@@ -261,7 +261,7 @@ impl XYDocValuesField {
   ///
   /// # Errors
   ///
-  /// Returns an error if `geometries` is empty or contains an unsupported `XYLine` geometry.
+  /// Returns an error if `geometries` is empty or contains an unsupported [`XYLine`](crate::core::geo::xy_line::XYLine) geometry.
   pub fn new_slow_geometry_query<S, T>(field: S, geometries: Vec<T>) -> Result<Query>
   where
     S: Into<String>,

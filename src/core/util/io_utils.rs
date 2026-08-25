@@ -103,7 +103,7 @@ macro_rules! finish_close_result {
 
 /// One or more resources that can be passed directly to [`IOUtils::close`].
 ///
-/// This trait is an implementation detail of `IOUtils`; callers should use
+/// This trait is an implementation detail of [`IOUtils`](crate::core::util::io_utils::IOUtils); callers should use
 /// [`IOUtils::close`] rather than invoking it directly.
 #[doc(hidden)]
 pub trait CloseResources {
@@ -246,7 +246,7 @@ impl CloseWhileHandlingException {
 /// One or more resources that can be passed directly to
 /// [`IOUtils::close_while_handling_exception`].
 ///
-/// This trait is an implementation detail of `IOUtils`; callers should use
+/// This trait is an implementation detail of [`IOUtils`](crate::core::util::io_utils::IOUtils); callers should use
 /// [`IOUtils::close_while_handling_exception`] rather than invoking it
 /// directly.
 #[doc(hidden)]

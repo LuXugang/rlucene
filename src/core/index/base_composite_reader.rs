@@ -33,8 +33,8 @@ use std::sync::atomic::{AtomicI32, Ordering};
 
 /// Base trait for implementing [`CompositeReader`]s based on an array of sub-readers.
 ///
-/// User code will most likely use `MultiReader` to build a composite reader
-/// on a set of sub-readers (such as several `DirectoryReader`s).
+/// User code will most likely use [`MultiReader`](crate::core::index::multi_reader::MultiReader) to build a composite reader
+/// on a set of sub-readers (such as several [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)s).
 ///
 /// For efficiency, in this API documents are often referred to via *document numbers*,
 /// non-negative integers that uniquely identify documents in the index.
@@ -48,11 +48,11 @@ use std::sync::atomic::{AtomicI32, Ordering};
 /// **NOTE:** [`IndexReader`] instances are completely thread-safe, meaning multiple
 /// threads can call any of its methods concurrently.
 /// If your application requires external synchronization, you should **not**
-/// synchronize on the `IndexReader` instance itself; instead, use your own (non-Lucene)
+/// synchronize on the [`IndexReader`] instance itself; instead, use your own (non-Lucene)
 /// synchronization objects.
 ///
 ///
-/// See also: `MultiReader`
+/// See also: [`MultiReader`](crate::core::index::multi_reader::MultiReader)
 ///
 /// *Lucene internal API*
 pub trait BaseCompositeReader: CompositeReader {}

@@ -211,7 +211,7 @@ impl BigIntegerPoint {
   }
 
   /// Create a query matching any of the specified 1D values. This is the points equivalent of
-  /// `TermsQuery`.
+  /// [`TermInSetQuery`](crate::core::search::term_in_set_query::TermInSetQuery).
   ///
   /// # Arguments
   ///

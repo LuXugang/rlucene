@@ -45,7 +45,7 @@ pub trait DataInput: Display {
   /// Reads a specified number of bytes into an array at the specified offset,
   /// with control over whether the read should be buffered. Callers who
   /// have their own buffer should pass `false` for `use_buffer`.
-  /// Currently, only `BufferedIndexInput` respects this parameter.
+  /// Currently, only [`BufferedIndexInput`](crate::core::store::buffered_index_input::BufferedIndexInput) respects this parameter.
   ///
   /// # Arguments
   /// * `b` - The array to read bytes into.
@@ -272,7 +272,7 @@ pub trait DataInput: Display {
   /// bytes.
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()>;
 
-  /// Reports whether this input supports the `IndexInput`-specific seek path.
+  /// Reports whether this input supports the [`IndexInput`](crate::core::store::index_input::IndexInput)-specific seek path.
   /// This avoids runtime downcasting through a trait object.
   fn is_index_input(&self) -> bool {
     false

@@ -51,7 +51,7 @@ pub struct SegmentInfo<D> {
   /// Null indicates an older than 3.0 index, and it's used to detect a
   /// too-old index. The format expected is "x.y" - "2.x" for pre-3.0
   /// indexes (or None), and specific versions afterward ("3.0.0",
-  /// "3.1.0" etc.). See `Version` for details.
+  /// "3.1.0" etc.). See [`Version`](crate::core::util::version::Version) for details.
   pub(crate) version: Option<Version>,
   /// Tracks the minimum version that contributed documents to a segment.
   /// For flush segments, that is the version that wrote it.
@@ -95,7 +95,7 @@ pub const NO: i32 = -1; // e.g. no norms; no deletes;
 /// Used by some member fields to mean present (e.g., norms, deletions).
 pub const YES: i32 = 1; // e.g. have norms; have deletes;
 impl<D> SegmentInfo<D> {
-  /// Constructs a new complete `SegmentInfo` instance from input.
+  /// Constructs a new complete [`SegmentInfo`] instance from input.
   ///
   /// # Arguments
   ///
@@ -109,7 +109,7 @@ impl<D> SegmentInfo<D> {
   ///   format.
   /// * `has_blocks` - Indicates if the segment has blocks.
   /// * `codec` - Codec that wrote this segment, or `None` while reading the
-  ///   segment info file before `SegmentInfos` fills it in.
+  ///   segment info file before [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos) fills it in.
   /// * `diagnostics` - Diagnostic information related to the segment.
   /// * `id` - Unique identifier for this segment.
   /// * `attributes` - Additional attributes for the segment.
@@ -223,7 +223,7 @@ impl<D> SegmentInfo<D> {
   /// Returns `true` if this segment contains documents written as blocks.
   ///
   /// # See Also
-  /// [`LeafMetaData::has_blocks`](crate::core::index::leaf_metadata::LeafMetaData::get_has_blocks)
+  /// [`LeafMetaData::get_has_blocks`](crate::core::index::leaf_metadata::LeafMetaData::get_has_blocks)
   pub fn get_has_blocks(&self) -> bool {
     self.has_blocks
   }

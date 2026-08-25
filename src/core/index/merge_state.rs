@@ -84,7 +84,7 @@ where
 
 /// Access to the portion of a [`MergeState`] used by per-field codecs.
 ///
-/// Java's per-field codecs create a new `MergeState` whose field infos and
+/// Java's per-field codecs create a new [`MergeState`] whose field infos and
 /// fields producers are restricted to one format's fields. Rust represents
 /// that restricted view with another implementation of this trait so the
 /// producer type can remain statically dispatched.

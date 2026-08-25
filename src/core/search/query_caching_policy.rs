@@ -24,7 +24,7 @@ use std::sync::Arc;
 ///
 /// Implementations of this trait must be thread-safe.
 ///
-/// See also: [`UsageTrackingQueryCachingPolicy`], `LRUQueryCache`.
+/// See also: [`UsageTrackingQueryCachingPolicy`], [`LRUQueryCache`](crate::core::search::lru_query_cache::LRUQueryCache).
 pub trait QueryCachingPolicy {
   /// Callback that is called every time that a cached filter is used.
   /// This is typically useful if the policy wants to track usage statistics
@@ -33,7 +33,8 @@ pub trait QueryCachingPolicy {
 
   /// Whether the given [`Query`] is worth caching.
   ///
-  /// This method will be called by the `QueryCache` to know whether to cache.
+  /// This method will be called by the
+  /// [`QueryCache`](crate::core::search::query_cache::QueryCache) to know whether to cache.
   /// It will first attempt to load a [`DocIdSet`](crate::core::search::doc_id_set::DocIdSet) from the cache. If it is not cached yet
   /// and this method returns `true` then a cache entry will be generated.
   /// Otherwise an uncached scorer will be returned.

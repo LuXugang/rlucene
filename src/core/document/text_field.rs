@@ -72,11 +72,11 @@ impl Clone for TextField {
   }
 }
 impl TextField {
-  /// Creates a new un-stored `TextField` with a `ReaderEnum` value.
+  /// Creates a new un-stored [`TextField`] with a [`ReaderEnum`] value.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `reader`: `ReaderEnum` value.
+  /// - `reader`: [`ReaderEnum`] value.
   pub fn from_reader<T, R>(name: T, reader: R) -> Result<Self>
   where
     T: Into<String>,
@@ -88,12 +88,12 @@ impl TextField {
       has_stored_value: false,
     })
   }
-  /// Creates a new `TextField` with a string value.
+  /// Creates a new [`TextField`] with a string value.
   ///
   /// # Parameters
   /// - `name`: Field name.
   /// - `value`: String value.
-  /// - `store`: `Store::Yes` if the content should also be stored.
+  /// - `store`: [`Store::Yes`] if the content should also be stored.
   pub fn from_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
   where
     T1: Into<String>,
@@ -111,11 +111,11 @@ impl TextField {
       has_stored_value,
     })
   }
-  /// Creates a new un-stored `TextField` with a `TokenStreamEnum` value.
+  /// Creates a new un-stored [`TextField`] with a [`TokenStreamEnum`](crate::core::analysis::token_stream::TokenStreamEnum) value.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `stream`: `TokenStream` value.
+  /// - `stream`: [`TokenStream`](crate::core::analysis::token_stream::TokenStream) value.
   pub fn from_token_stream<T, V>(name: T, stream: V) -> Result<Self>
   where
     T: Into<String>,

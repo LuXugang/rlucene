@@ -22,16 +22,16 @@ use crate::core::util::fst_impl::fst::BytesReader;
 /// Abstraction for reading bytes necessary for FST.
 pub trait FstReader: Accountable {
   type FstBytesReader: BytesReader;
-  /// Get the reverse `BytesReader` for this FST.
+  /// Get the reverse [`BytesReader`] for this FST.
   ///
   /// # Returns
-  /// The reverse `BytesReader`.
+  /// The reverse [`BytesReader`].
   fn get_reverse_bytes_reader(&self) -> Result<Self::FstBytesReader>;
 
-  /// Write this FST to another `DataOutput`.
+  /// Write this FST to another [`DataOutput`].
   ///
   /// # Parameters
-  /// - `out`: The `DataOutput` to write to.
+  /// - `out`: The [`DataOutput`] to write to.
   ///
   /// # Errors
   /// Returns an error if writing fails.

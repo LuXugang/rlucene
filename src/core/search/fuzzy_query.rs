@@ -50,17 +50,17 @@ use std::hash::{Hash, Hasher};
 ///
 /// This query uses [`TopTermsBlendedFreqScoringRewrite`] as default. So terms will be collected and
 /// scored according to their edit distance. Only the top terms are used for building the
-/// `BooleanQuery`. It is not recommended to change the rewrite mode for fuzzy queries.
+/// [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery). It is not recommended to change the rewrite mode for fuzzy queries.
 ///
 /// At most, this query will match terms up to
-/// `LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE` edits. Higher distances (especially with
+/// [`LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`](crate::core::util::automation::levenshtein_automata::LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE) edits. Higher distances (especially with
 /// transpositions enabled), are generally not useful and will match a significant amount of the term
 /// dictionary. If you really want this, consider using an n-gram indexing technique instead.
 ///
 /// NOTE: terms of length 1 or 2 will sometimes not match because of how the scaled distance between
 /// two terms is computed. For a term to match, the edit distance between the terms must be less than
-/// the minimum length term (either the input term, or the candidate term). For example, `FuzzyQuery`
-/// on term `"abcd"` with `maxEdits=2` will not match an indexed term `"ab"`, and `FuzzyQuery` on
+/// the minimum length term (either the input term, or the candidate term). For example, [`FuzzyQuery`]
+/// on term `"abcd"` with `maxEdits=2` will not match an indexed term `"ab"`, and [`FuzzyQuery`] on
 /// term `"a"` with `maxEdits=2` will not match an indexed term `"abc"`.
 #[derive(Clone)]
 pub struct FuzzyQuery {
@@ -121,16 +121,16 @@ impl FuzzyQuery {
       Self::default_rewrite_method(max_expansions),
     )
   }
-  /// Create a new `FuzzyQuery` that will match terms with an edit distance of at most `max_edits` to
+  /// Create a new [`FuzzyQuery`] that will match terms with an edit distance of at most `max_edits` to
   /// `term`. If a `prefix_length` > 0 is specified, a common prefix of that length is also required.
   ///
   /// # Parameters
   ///
   /// - `term`: the term to search for.
-  /// - `max_edits`: must be `>= 0` and `<=` `LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`.
+  /// - `max_edits`: must be `>= 0` and `<=` [`LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`](crate::core::util::automation::levenshtein_automata::LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE).
   /// - `prefix_length`: length of common (non-fuzzy) prefix.
   /// - `max_expansions`: the maximum number of terms to match. If this number is greater than
-  ///   `IndexSearcher::get_max_clause_count` when the query is rewritten, then the
+  ///   [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count) when the query is rewritten, then the
   ///   `max_clause_count` will be used instead.
   /// - `transpositions`: `true` if transpositions should be treated as a primitive edit operation.
   ///   If this is `false`, comparisons will implement the classic Levenshtein algorithm.
@@ -200,7 +200,7 @@ impl FuzzyQuery {
   ///
   /// - `term`: the term to search for.
   /// - `max_edits`: must be `>= 0` and `<=`
-  ///   `LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`.
+  ///   [`LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE`](crate::core::util::automation::levenshtein_automata::LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE).
   /// - `prefix_length`: length of common (non-fuzzy) prefix.
   /// - `transpositions`: `true` if transpositions should be treated as a primitive edit operation.
   ///   If this is `false`, comparisons will implement the classic Levenshtein algorithm.

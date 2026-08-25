@@ -38,10 +38,10 @@ use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ints_ref_builder::IntsRefBuilder;
 use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 
-/// Builds a minimal FST (maps an `IntsRef` term to an arbitrary output) from
+/// Builds a minimal FST (maps an [`IntsRef`] term to an arbitrary output) from
 /// pre-sorted terms with outputs. The FST becomes an FSA if you use
-/// `NoOutputs`. The FST is written on-the-fly into a compact serialized format
-/// byte array, which can be saved to / loaded from a `Directory` or used
+/// [`NoOutputs`](crate::core::util::fst_impl::no_outputs::NoOutputs). The FST is written on-the-fly into a compact serialized format
+/// byte array, which can be saved to / loaded from a [`Directory`](crate::core::store::directory::Directory) or used
 /// directly for traversal. The FST is always finite (no cycles).
 ///
 ///
@@ -50,7 +50,7 @@ use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 ///
 ///
 /// The parameterized type `T` is the output type. See the implementations of
-/// `Outputs`.
+/// [`Outputs`].
 ///
 ///
 /// FSTs larger than 2.1GB are now possible (as of Lucene 4.2). FSTs containing
@@ -61,10 +61,10 @@ use crate::core::util::{OutputIdentity, SliceCopyOps, TryIntoInt};
 ///
 /// - Build FST and use it immediately entirely in RAM and then discard it
 /// - Build FST and use it immediately entirely in RAM and also save it to other
-///   `DataOutput`, and load it later and use it
+///   [`DataOutput`], and load it later and use it
 /// - Build FST but stream it immediately to disk (except the `FSTMetaData`, to
 ///   be saved at the end). In order to use it, you need to construct the
-///   corresponding `DataInput` and use the FST loading method to read it.
+///   corresponding [`DataInput`](crate::core::store::data_input::DataInput) and use the FST loading method to read it.
 pub struct FSTCompiler<O, DO>
 where
   O: Outputs,
@@ -232,7 +232,7 @@ where
   /// Add the next input/output pair. The provided input must be sorted after
   /// the previous one according to [`IntsRef::cmp`]. It's also OK to add
   /// the same input twice in a row with different outputs, as long as
-  /// `Outputs` implements the [`Outputs::merge`] method. Note
+  /// [`Outputs`] implements the [`Outputs::merge`] method. Note
   /// that input is fully consumed after this method returns (so the caller is
   /// free to reuse), but output is not. So if your outputs are changeable
   /// (e.g. [`ByteSequenceOutputs`](crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs)
@@ -585,7 +585,7 @@ where
     Ok(self.num_bytes_written - 1)
   }
   /// Get the respective [`DataOutputEnum`]. To call this method, you need
-  /// to use the default `DataOutput` or
+  /// to use the default [`DataOutput`] or
   /// [`get_on_heap_reader_writer`],
   /// otherwise an error will be returned.
   pub fn get_fst_reader(&mut self) -> Result<DataOutputEnum<DO>> {
@@ -1057,7 +1057,7 @@ where
   ///
   /// - `outputs`: The output type for each input sequence. Applies only when
   ///   building an FST. For FSA, use
-  ///   [`NoOutputs::singleton()`](crate::core::util::fst_impl::no_outputs::NoOutputs::get_singleton)
+  ///   [`NoOutputs::get_singleton`](crate::core::util::fst_impl::no_outputs::NoOutputs::get_singleton)
   ///   and `NoOutputs::no_output()`
   ///   as the singleton output.
   pub fn new(input_type: InputType, outputs: O) -> Self {
@@ -1121,7 +1121,7 @@ where
   ///
   /// # Arguments
   ///
-  /// * `data_output` - the `DataOutput`
+  /// * `data_output` - the [`DataOutput`]
   ///
   /// # Returns
   ///
@@ -1160,7 +1160,7 @@ where
     self.version = version;
     Ok(())
   }
-  /// Creates a new `FSTCompiler`.
+  /// Creates a new [`FSTCompiler`].
   pub fn build(mut self) -> Result<FSTCompiler<O, DO>> {
     if self.data_output.is_none() {
       self.data_output = Some(DataOutputEnum::ReadWriter(get_on_heap_reader_writer(15)?));

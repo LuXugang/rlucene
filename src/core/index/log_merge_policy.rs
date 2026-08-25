@@ -37,11 +37,11 @@ use std::fmt::{Display, Formatter};
 /// [`LogMergePolicy::get_merge_factor()`] and [`LogMergePolicy::set_merge_factor()`] respectively.
 ///
 /// Implementations define the [`LogMergePolicy::size`] method,
-/// which specifies how a segment's size is determined. `LogDocMergePolicy` is one implementation that
-/// measures size by document count in the segment. `LogByteSizeMergePolicy` is another
+/// which specifies how a segment's size is determined. [`LogDocMergePolicy`](crate::core::index::log_doc_merge_policy::LogDocMergePolicy) is one implementation that
+/// measures size by document count in the segment. [`LogByteSizeMergePolicy`](crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy) is another
 /// implementation that measures size as the total byte size of the segment's files.
 ///
-/// **NOTE**: This policy returns natural merges whose size is below the `LogMergePolicy::min_merge_size`
+/// **NOTE**: This policy returns natural merges whose size is below the [`LogByteSizeMergePolicy::set_min_merge_mb`](crate::core::index::log_merge_policy::LogMergePolicy::set_min_merge_mb)
 /// minimum merge size for [`LogMergePolicy::find_full_flush_merges`] full-flush merges.
 #[derive(Clone)]
 pub struct LogMergePolicy<T> {
@@ -80,7 +80,7 @@ impl<T> LogMergePolicy<T> {
   /// Default noCFSRatio. If a merge's size is `>= 10%` of the index, then we disable compound
   /// file for it.
   ///
-  /// See `MergePolicyBase::set_no_cfs_ratio`.
+  /// See [`MergePolicyBase::set_no_cfs_ratio`](crate::core::index::merge_policy::MergePolicyBase::set_no_cfs_ratio).
   pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
   /// Returns the number of segments that are merged at once and also controls the total number of
   /// segments allowed to accumulate in the index.
@@ -362,8 +362,8 @@ impl<T> LogMergePolicy<T> {
   ///
   /// The default value is [`i32::MAX`].
   ///
-  /// The default merge policy (`LogByteSizeMergePolicy`) also allows you to set this limit
-  /// by net size (in MB) of the segment, using `LogByteSizeMergePolicy::set_max_merge_mb`.
+  /// The default merge policy ([`LogByteSizeMergePolicy`](crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy)) also allows you to set this limit
+  /// by net size (in MB) of the segment, using [`LogMergePolicy::set_max_merge_mb`](crate::core::index::log_merge_policy::LogMergePolicy::set_max_merge_mb).
   pub fn set_max_merge_docs(&mut self, max_merge_docs: i32) {
     self.max_merge_docs = max_merge_docs;
   }
@@ -477,7 +477,7 @@ where
   /// Checks if any merges are now necessary and returns a [`MergeSpecification`] if
   /// so. A merge is necessary when there are more than [`LogMergePolicy::set_merge_factor`] segments
   /// at a given level. When multiple levels have too many segments, this method will return multiple
-  /// merges, allowing the `MergeScheduler` to use concurrency.
+  /// merges, allowing the [`MergeScheduler`](crate::core::index::merge_scheduler::MergeScheduler) to use concurrency.
   fn find_merges<MC>(
     &self,
     _merge_trigger: MergeTrigger,
@@ -645,11 +645,11 @@ where
     Ok(spec)
   }
   /// Returns the merges necessary to merge the index down to a specified number of segments. This
-  /// respects the `LogMergePolicy::max_merge_size_for_forced_merge` setting. By default, and assuming
+  /// respects the [`LogMergePolicy::set_max_merge_mb_for_forced_merge`](crate::core::index::log_merge_policy::LogMergePolicy::set_max_merge_mb_for_forced_merge) setting. By default, and assuming
   /// `maxNumSegments=1`, only one segment will be left in the index, where that segment has no
   /// deletions pending nor separate norms, and it is in compound file format if the current
   /// useCompoundFile setting is true. This method returns multiple merges (mergeFactor at a time) so
-  /// the `MergeScheduler` in use may make use of concurrency.
+  /// the [`MergeScheduler`](crate::core::index::merge_scheduler::MergeScheduler) in use may make use of concurrency.
   fn find_forced_merges<MC>(
     &self,
     segment_infos: &SegmentInfos<D>,

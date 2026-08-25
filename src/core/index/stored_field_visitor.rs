@@ -24,17 +24,17 @@ use std::sync::Arc;
 /// an index.
 ///
 /// # NOTE
-/// a `StoredFieldVisitor` implementation should not try to load or visit other
+/// a [`StoredFieldVisitor`] implementation should not try to load or visit other
 /// stored documents in the same reader because the implementation of stored
 /// fields for most codecs is not reentrant and you will see strange errors
 /// as a result.
 ///
-/// See [`DocumentStoredFieldVisitor`](crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor), which is a `StoredFieldVisitor` that builds the [`Document`](crate::core::document::document::Document)
+/// See [`DocumentStoredFieldVisitor`](crate::core::document::document_stored_field_visitor::DocumentStoredFieldVisitor), which is a [`StoredFieldVisitor`] that builds the [`Document`](crate::core::document::document::Document)
 /// containing all stored fields.
 pub trait StoredFieldVisitor {
   /// Expert: Process a binary field directly from the DataInput.
   /// Implementors of this method must read `length` bytes from the given
-  /// `DataInput`. Default implementation reads into a byte array and
+  /// [`DataInput`]. Default implementation reads into a byte array and
   /// delegates to `binary_field`.
   fn binary_field_with_input<S>(
     &mut self,

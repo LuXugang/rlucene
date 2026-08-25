@@ -322,7 +322,7 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///       contribute more to the score.
 /// </ol>
 ///
-/// See also `IndexWriterConfig::set_similarity` and `IndexSearcher::set_similarity`.
+/// See also [`IndexWriterConfig::set_similarity`](crate::core::index::index_writer_config::IndexWriterConfig::set_similarity) and [`IndexSearcher::set_similarity`](crate::core::search::index_searcher::IndexSearcher::set_similarity).
 #[derive(Clone)]
 pub struct TFIDFSimilarity {
   sub: TFIDFSubEnum,
@@ -651,7 +651,7 @@ pub trait TFIDFSimilarityBase {
   /// # Arguments
   ///
   /// * `length` - the number of terms in the field, optionally
-  ///   `Self::get_discount_overlaps` discounting overlaps
+  ///   [`Similarity::get_discount_overlaps`] discounting overlaps
   ///
   /// # Returns
   ///

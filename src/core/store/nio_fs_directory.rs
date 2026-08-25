@@ -35,7 +35,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ReadableCursorExt, TryIntoInt};
 
 /// An implementation of
-/// `FSDirectory` that uses
+/// [`FSDirectory`] that uses
 /// `std::fs::File` for positional reads, allowing multiple threads to read from
 /// the same file without sharing a mutable file cursor.
 ///
@@ -221,7 +221,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
   ///
   /// # Errors
   ///
-  /// This method returns a `LuceneError` in the following cases:
+  /// This method returns a [`LuceneError`] in the following cases:
   ///
   /// * [`LuceneError::Eof`] - If the requested read range exceeds the file's
   ///   bounds or if the file unexpectedly reaches EOF during a read.

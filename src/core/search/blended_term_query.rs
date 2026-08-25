@@ -276,7 +276,7 @@ impl Builder {
 }
 impl Builder {
   /// Set the [`RewriteMethod`]. Default is to use
-  /// `BlendedTermQuery::DISJUNCTION_MAX_REWRITE`.
+  /// [`DisjunctionMaxRewrite`].
   ///
   /// See also:
   /// - [`RewriteMethod`]
@@ -374,7 +374,7 @@ impl RewriteMethod for DisjunctionMaxRewrite {
 /// @lucene.experimental
 ///
 /// See also:
-/// - `BlendedTermQuery::BOOLEAN_REWRITE`
+/// - [`BooleanRewrite`]
 /// - [`DisjunctionMaxRewrite`]
 pub trait RewriteMethod {
   /// Merge the provided sub queries into a single [`Query`] object.
@@ -417,7 +417,8 @@ impl Hash for RewriteMethodEnum {
 }
 
 impl Eq for RewriteMethodEnum {}
-/// A `RewriteMethod` that adds all sub queries to a `BooleanQuery`. This `RewriteMethod` is
+/// A [`RewriteMethod`] that adds all sub queries to a
+/// [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery). This [`RewriteMethod`] is
 /// useful when matching on several fields is considered better than having a good match on a single
 /// field.
 #[derive(Default, Clone, Hash)]

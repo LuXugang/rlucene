@@ -89,8 +89,9 @@ pub trait ScoringRewrite: TermCollectingRewrite {
 /// always better to use [`MultiTermQuery::CONSTANT_SCORE_BLENDED_REWRITE`] or
 /// [`MultiTermQuery::CONSTANT_SCORE_REWRITE`] instead.
 ///
-/// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
-/// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+/// **NOTE**: This rewrite method will return
+/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses)
+/// if the number of terms exceeds [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ScoringBooleanRewrite;
 impl TermCollectingRewrite for ScoringBooleanRewrite {
@@ -136,11 +137,12 @@ impl ScoringRewrite for ScoringBooleanRewrite {
     Ok(())
   }
 }
-/// Like [`Self::SCORING_BOOLEAN_REWRITE`] except scores are not computed. Instead, each matching
+/// Like [`SCORING_BOOLEAN_REWRITE`](crate::core::search::multi_term_query::SCORING_BOOLEAN_REWRITE) except scores are not computed. Instead, each matching
 /// document receives a constant score equal to the query's boost.
 ///
-/// **NOTE**: This rewrite method will hit [`IndexSearcherError::TooManyClauses`] if the number
-/// of terms exceeds [`IndexSearcher::get_max_clause_count`].
+/// **NOTE**: This rewrite method will return
+/// [`LuceneError::TooManyClauses`](crate::core::util::error::lucene_error::LuceneError::TooManyClauses)
+/// if the number of terms exceeds [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count).
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBooleanRewrite;
 impl RewriteMethod for ConstantScoreBooleanRewrite {

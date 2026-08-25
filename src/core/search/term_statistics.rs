@@ -46,15 +46,15 @@ use std::sync::Arc;
 ///   This is the document-frequency for the term: the count of documents where the term appears  
 ///   at least one time.  
 ///   This value is always a positive number, and never exceeds `total_term_freq`.  
-///   It also cannot exceed [`CollectionStatistics::sum_doc_freq()`](crate::core::search::collection_statistics::CollectionStatistics::get_sum_doc_freq).
+///   It also cannot exceed [`CollectionStatistics::get_sum_doc_freq`](crate::core::search::collection_statistics::CollectionStatistics::get_sum_doc_freq).
 ///   See also: [`TermsEnum::doc_freq()`](crate::core::index::terms_enum::TermsEnum::doc_freq)
 ///
 /// - **total_term_freq**: number of occurrences of the term in the collection, in the range  
-///   `[doc_freq() .. CollectionStatistics::sum_total_term_freq()]`.  
+///   `[doc_freq() .. CollectionStatistics::get_sum_total_term_freq()]`.
 ///   This is the token count for the term: the number of times it appears in the field across  
 ///   all documents.  
 ///   This value is always a positive number, always at least `doc_freq()`,  
-///   and never exceeds [`CollectionStatistics::sum_total_term_freq()`](crate::core::search::collection_statistics::CollectionStatistics::get_sum_total_term_freq).
+///   and never exceeds [`CollectionStatistics::get_sum_total_term_freq`](crate::core::search::collection_statistics::CollectionStatistics::get_sum_total_term_freq).
 ///   See also: [`TermsEnum::total_term_freq()`](crate::core::index::terms_enum::TermsEnum::total_term_freq)
 #[derive(Debug)]
 pub struct TermStatistics {
@@ -64,7 +64,7 @@ pub struct TermStatistics {
 }
 
 impl TermStatistics {
-  /// Creates a new `TermStatistics` instance for a term.
+  /// Creates a new [`TermStatistics`] instance for a term.
   ///
   /// # Error
   ///

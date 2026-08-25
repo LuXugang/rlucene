@@ -33,7 +33,7 @@ pub trait DocIdSetIteratorExtensions {
     None
   }
 
-  /// Returns Java's `DocBaseBitSetIterator` specialization as its document
+  /// Returns Java's [`DocBaseBitSetIterator`](crate::core::util::doc_base_bit_set_iterator::DocBaseBitSetIterator) specialization as its document
   /// base and backing bit set.
   fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
     None

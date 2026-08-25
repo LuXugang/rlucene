@@ -37,14 +37,14 @@ pub static IO_CONTEXT_DEFAULT: LazyLock<IOContext> =
 /// in the same thread as the thread that opens the underlying storage.
 pub static IO_CONTEXT_READ_ONCE: LazyLock<IOContext> =
   LazyLock::new(|| IOContext::read_once_io_context().unwrap());
-/// `IOContext` holds additional details on the merge/search context. An
-/// `IOContext` object can never be passed as a `None` parameter to either
+/// [`IOContext`] holds additional details on the merge/search context. An
+/// [`IOContext`] object can never be passed as a `None` parameter to either
 /// [`Directory::open_input`](crate::core::store::directory::Directory::open_input) or
 /// [`Directory::create_output`](crate::core::store::directory::Directory::create_output).
 ///
 ///
 /// # Arguments
-/// * `context` - An object of an enumerator `Context` type.
+/// * `context` - An object of an enumerator [`Context`] type.
 /// * `merge_info` - Must be provided when `context == MERGE`.
 /// * `flush_info` - Must be provided when `context == FLUSH`.
 /// * `read_advice` - Advice regarding the read access pattern.
@@ -112,7 +112,7 @@ impl IOContext {
     Self::new(Some(Context::Default), Some(read_advice), None, None)
   }
 
-  ///  Creates an `IOContext` for flushing.
+  ///  Creates an [`IOContext`] for flushing.
   pub fn with_flush(flush_info: FlushInfo) -> Result<IOContext> {
     Self::new(
       Some(Context::Flush),
@@ -121,7 +121,7 @@ impl IOContext {
       Some(flush_info),
     )
   }
-  ///  Creates an `IOContext` for merging.
+  ///  Creates an [`IOContext`] for merging.
   pub fn with_merge(merge_info: MergeInfo) -> Result<IOContext> {
     Self::new(
       Some(Context::Merge),

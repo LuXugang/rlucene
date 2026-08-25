@@ -41,7 +41,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// **NOTE**: [`IndexReader`] instances are completely thread safe, meaning multiple
 /// threads can call any of its methods concurrently. If your application requires
-/// external synchronization, you should **not** synchronize on the `IndexReader`
+/// external synchronization, you should **not** synchronize on the [`IndexReader`]
 /// instance; instead, use your own (non-Lucene) objects.
 pub struct MultiReader<R> {
   base_composite_reader_base: BaseCompositeReaderBase<R>,

@@ -56,7 +56,8 @@ impl BlockPackedReaderIterator {
   ///
   /// # Errors
   ///
-  /// Returns an `IoError` if the reading fails.
+  /// Returns [`LuceneError::Io`] if the
+  /// read fails.
   fn read_vlong(data_input: &mut impl DataInput) -> Result<i64> {
     let mut l = 0u64;
     for shift in (0..56).step_by(7) {
@@ -104,7 +105,7 @@ impl BlockPackedReaderIterator {
   ///
   /// # Errors
   ///
-  /// Returns a `LuceneError` if `count` is invalid or if there is an issue
+  /// Returns a [`LuceneError`] if `count` is invalid or if there is an issue
   /// reading the input.
   pub fn skip(&mut self, mut count: usize, data_input: &mut impl DataInput) -> Result<()> {
     // debug_assert!(count >= 0);
@@ -179,8 +180,8 @@ impl BlockPackedReaderIterator {
   ///
   /// # Errors
   ///
-  /// Returns an `EOFError` if the reader has reached the end of the value
-  /// stream.
+  /// Returns [`LuceneError::Io`] if the
+  /// reader has reached the end of the value stream.
   ///
   /// # Behavior
   /// - If the current block is exhausted (`off == block_size`), it will
@@ -209,13 +210,13 @@ impl BlockPackedReaderIterator {
   ///
   /// # Returns
   ///
-  /// A `LongsRef` containing a reference to the values read and their offset
+  /// A [`LongsRef`] containing a reference to the values read and their offset
   /// and length.
   ///
   /// # Errors
   ///
-  /// Returns an `EOFError` if the reader has reached the end of the value
-  /// stream.
+  /// Returns [`LuceneError::Io`] if the
+  /// reader has reached the end of the value stream.
   pub fn next_batch(
     &mut self,
     mut count: usize,

@@ -38,7 +38,7 @@ const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be
 ///
 /// This struct maintains all snapshots in-memory, and so the information is not persisted and not
 /// protected against system failures. If persistence is important, you can use
-/// `PersistentSnapshotDeletionPolicy`.
+/// [`PersistentSnapshotDeletionPolicy`](crate::core::index::persistent_snapshot_deletion_policy::PersistentSnapshotDeletionPolicy).
 ///
 /// # Experimental
 pub struct SnapshotDeletionPolicy<D> {

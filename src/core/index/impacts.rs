@@ -38,8 +38,8 @@ pub trait Impacts {
   /// norm, and only valid until the doc ID returned by
   /// `get_doc_id_upto(level)` (inclusive).
   ///
-  /// The returned list is never empty and should behave like `RandomAccess`
-  /// if it contains more than one element.
+  /// The returned list is never empty and supports efficient random access when it contains more
+  /// than one element.
   ///
   /// NOTE: There is no guarantee that these impacts actually appear in
   /// postings, only that they trigger scores that are greater than or

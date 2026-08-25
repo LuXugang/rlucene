@@ -101,10 +101,10 @@ impl PhraseQuery {
     Self::from_bytes(0, field, terms)
   }
 
-  /// Return the slop for this `PhraseQuery`.
+  /// Return the slop for this [`PhraseQuery`].
   ///
   /// The slop is an edit distance between the respective positions of terms as
-  /// defined in this `PhraseQuery` and the actual positions of these terms in
+  /// defined in this [`PhraseQuery`] and the actual positions of these terms in
   /// a document.
   ///
   /// For instance, when searching for `"quick fox"`, it is expected that the
@@ -381,7 +381,7 @@ impl Builder {
   /// stopwords).
   ///
   /// If the position is equal, you most likely should be using
-  /// `MultiPhraseQuery` instead, which only requires one term at each position
+  /// [`MultiPhraseQuery`](crate::core::search::multi_phrase_query::MultiPhraseQuery) instead, which only requires one term at each position
   /// to match; this query requires all of them.
   pub fn add(&mut self, term: Term, position: usize) -> Result<&mut Self> {
     if let Some(&last_position) = self.positions.last()

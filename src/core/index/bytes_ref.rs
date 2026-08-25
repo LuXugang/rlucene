@@ -134,7 +134,7 @@ where
     )
   }
   /// Performs internal consistency checks. Always returns `true` (or returns
-  /// `IllegalStateError`).
+  /// [`IllegalStateError`](crate::core::util::error::IllegalStateError)).
   pub fn is_valid(&self) -> Result<bool> {
     self.bytes.access(|bytes| {
       if self.length > bytes.len() {

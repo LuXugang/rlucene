@@ -154,7 +154,7 @@ impl Document {
     self.fields.iter_mut().find(|field| field.name() == name)
   }
 
-  /// Returns an array of `IndexableField`s with the given name. This method
+  /// Returns an array of [`IndexableField`]s with the given name. This method
   /// returns an empty array when there are no matching fields. It never
   /// returns `None`.
   ///
@@ -185,7 +185,7 @@ impl Document {
   }
   /// Returns an array of values of the field specified by the `name`. This
   /// method returns an empty array when there are no matching fields. It
-  /// never returns `None`. For a numeric `StoredField`, it returns the
+  /// never returns `None`. For a numeric [`StoredField`](crate::core::document::stored_field::StoredField), it returns the
   /// string representation of the number. To get the actual numeric field
   /// instances, use `getFields`.
   ///
@@ -212,7 +212,7 @@ impl Document {
   /// in this document, or `None`. If multiple fields exist with this
   /// name, this method returns the first value added. If only binary
   /// fields with this name exist, returns `None`. For a numeric
-  /// `StoredField`, it returns the string value of the number. To get the
+  /// [`StoredField`](crate::core::document::stored_field::StoredField), it returns the string value of the number. To get the
   /// actual numeric field instance, use `getField`.
   ///
   /// # Parameters

@@ -241,7 +241,7 @@ impl Accountable for PrefixCodedTerms<Arc<Vec<u8>>> {
   }
 }
 
-/// Builder for `PrefixCodedTerms`: call `add` repeatedly, then `finish`.
+/// Builder for [`PrefixCodedTerms`]: call `add` repeatedly, then `finish`.
 pub struct PrefixCodedTermsBuilder {
   output: ByteBuffersDataOutput,
   last_term: Term,

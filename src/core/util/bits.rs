@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::sync::Arc;
 
-/// Trait for `BitSet`-like structures.
+/// Trait for [`BitSet`]-like structures.
 ///
 /// # Note
 /// This is an experimental API.

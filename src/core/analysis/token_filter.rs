@@ -19,7 +19,7 @@ use crate::core::analysis::token_stream::TokenStream;
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::close::Closeable;
 use crate::core::util::error::lucene_error::Result;
-/// A `TokenFilter` is a `TokenStream` whose input is another `TokenStream`.
+/// A [`TokenFilter`] is a [`TokenStream`] whose input is another [`TokenStream`].
 /// See also: [`TokenStream`].
 pub trait TokenFilter: TokenStream {}
 

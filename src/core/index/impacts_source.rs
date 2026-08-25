@@ -17,7 +17,7 @@
 use crate::core::index::impacts::Impacts;
 use crate::core::util::error::lucene_error::Result;
 
-/// Source of `Impacts`.
+/// Source of [`Impacts`].
 ///
 /// NOTE: Advancing the iterator may invalidate the returned impacts,
 /// so they should not be used after the iterator has been advanced.

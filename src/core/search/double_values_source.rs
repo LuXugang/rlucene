@@ -29,9 +29,9 @@ use std::fmt::Display;
 /// To obtain a [`DoubleValues`] object for a leaf reader, clients should call
 /// [`DoubleValuesSource::rewrite`] against the top-level searcher, and then
 /// call [`DoubleValuesSource::get_values`] on the resulting
-/// `DoubleValuesSource`.
+/// [`DoubleValuesSource`].
 ///
-/// `DoubleValuesSource` objects for `NumericDocValues` fields can be obtained
+/// [`DoubleValuesSource`] objects for [`NumericDocValues`](crate::core::index::numeric_doc_values::NumericDocValues) fields can be obtained
 /// from field-specific implementations when special `i64`-to-`f64` encoding is
 /// required.
 ///
@@ -77,14 +77,14 @@ where
     todo!()
   }
 
-  /// Return a `DoubleValuesSource` specialized for the given
+  /// Return a [`DoubleValuesSource`] specialized for the given
   /// [`IndexSearcher`].
   ///
   /// Implementations should assume that this will only be called once.
   /// IndexReader-independent implementations can just return themselves.
   ///
-  /// Queries that use `DoubleValuesSource` objects should call `rewrite`
-  /// during `Query::create_weight` rather than during `Query::rewrite` to
+  /// Queries that use [`DoubleValuesSource`] objects should call `rewrite`
+  /// during [`QueryBase::create_weight`](crate::core::search::query::QueryBase::create_weight) rather than during [`QueryBase::rewrite`](crate::core::search::query::QueryBase::rewrite) to
   /// avoid IndexReader reference leakage.
   ///
   /// For the same reason, implementations that cache references to the

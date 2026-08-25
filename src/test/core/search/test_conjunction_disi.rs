@@ -60,7 +60,8 @@ where
   TwoPhaseIteratorImpl::new(v, confirmed)
 }
 
-/// Returns an anonymous implementation so `ConjunctionDISI` cannot optimize it as a `BitSetIterator`.
+/// Returns an anonymous implementation so `ConjunctionDISI` cannot optimize it as a
+/// [`BitSetIterator`](crate::core::util::bit_set_iterator::BitSetIterator).
 fn anonymize_iterator<D>(it: D) -> DocIdSetIteratorImpl<D>
 where
   D: DocIdSetIterator,

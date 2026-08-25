@@ -38,11 +38,11 @@ use std::marker::PhantomData;
 /// [`doc_freq`](TermsEnum::doc_freq), [`PostingsEnum`] or [`ImpactsEnum`] for
 /// the current term [`postings`](TermsEnum::postings).
 ///
-/// Term enumerations are always ordered by `BytesRef::compare_to`, which is
+/// Term enumerations are always ordered by [`BytesRef`], which is
 /// Unicode sort order if the terms are UTF-8 bytes. Each term in the
 /// enumeration is greater than the one before it.
 ///
-/// The `TermsEnum` is unpositioned when you first obtain it, and you must first
+/// The [`TermsEnum`] is unpositioned when you first obtain it, and you must first
 /// successfully call [`next()`](BytesRefIterator::next) or one of the `seek`
 /// methods.
 pub trait TermsEnum: BytesRefIterator {
@@ -80,37 +80,37 @@ pub trait TermsEnum: BytesRefIterator {
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool>;
 
   /// Seeks to the specified term, if it exists, or to the next (ceiling)
-  /// term. Returns `SeekStatus` to indicate whether the exact term was
+  /// term. Returns [`SeekStatus`] to indicate whether the exact term was
   /// found, a different term was found, or EOF was hit.
   /// The target term may be before or after the current term.
-  /// If this returns `SeekStatus::End`, the enum is unpositioned.
+  /// If this returns [`SeekStatus::End`], the enum is unpositioned.
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus>;
 
   /// Seeks to the specified term by ordinal (position) as previously returned
   /// by [`ord()`](TermsEnum::ord). The target ordinal may be before or
   /// after the current ordinal, and must be within bounds.
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()>;
-  /// Expert: Seeks a specific position by `TermState` previously obtained
+  /// Expert: Seeks a specific position by [`TermState`](crate::core::index::term_state::TermState) previously obtained
   /// from [`term_state()`](TermsEnum::term_state). Callers should
-  /// maintain the `TermState` to use this method.
+  /// maintain the [`TermState`](crate::core::index::term_state::TermState) to use this method.
   /// Low-level implementations may position the [`TermsEnum`] without
   /// re-seeking the term dictionary.
   ///
-  /// Seeking by `TermState` should only be used if the state was obtained
+  /// Seeking by [`TermState`](crate::core::index::term_state::TermState) should only be used if the state was obtained
   /// from the same [`TermsEnum`] instance.
   ///
-  /// **NOTE**: Using this method with an incompatible `TermState` might
+  /// **NOTE**: Using this method with an incompatible [`TermState`](crate::core::index::term_state::TermState) might
   /// leave this [`TermsEnum`] in an undefined state. On a segment level,
-  /// `TermState` instances are compatible only if the source and target
+  /// [`TermState`](crate::core::index::term_state::TermState) instances are compatible only if the source and target
   /// [`TermsEnum`] operate on the same field. If operating on segment level,
-  /// `TermState` instances must not be used across segments.
+  /// [`TermState`](crate::core::index::term_state::TermState) instances must not be used across segments.
   ///
-  /// **NOTE**: A seek by `TermState` might not restore the
+  /// **NOTE**: A seek by [`TermState`](crate::core::index::term_state::TermState) might not restore the
   /// [`AttributeSource`]'s state. [`AttributeSource`] states must be
   /// maintained separately if this method is used.
   ///
-  /// - `term`: the term the `TermState` corresponds to
-  /// - `state`: the `TermState`
+  /// - `term`: the term the [`TermState`](crate::core::index::term_state::TermState) corresponds to
+  /// - `state`: the [`TermState`](crate::core::index::term_state::TermState)
   fn seek_exact_with_state(
     &mut self,
     term: &BytesRef<Vec<u8>>,
@@ -170,7 +170,7 @@ pub trait TermsEnum: BytesRefIterator {
     _flags: i32,
   ) -> Result<Self::PostingsEnum>;
   type ImpactsEnum: ImpactsEnum;
-  /// Return an `ImpactsEnum`.
+  /// Return an [`ImpactsEnum`].
   ///
   /// See also: [`postings_with_flags`](TermsEnum::postings_with_flags).
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum>;
@@ -178,11 +178,11 @@ pub trait TermsEnum: BytesRefIterator {
   /// Expert: Returns the [`TermsEnum`]'s internal state to position the enum
   /// without re-seeking the term dictionary.
   ///
-  /// **NOTE**: A seek by `TermState` might not capture the
+  /// **NOTE**: A seek by [`TermState`](crate::core::index::term_state::TermState) might not capture the
   /// [`AttributeSource`]'s state. Callers must maintain
   /// [`AttributeSource`] states separately.
   ///
-  /// See also: `TermState`,
+  /// See also: [`TermState`](crate::core::index::term_state::TermState),
   /// [`seek_exact_with_state`](TermsEnum::seek_exact_with_state).
   fn term_state(&mut self) -> Result<TermStateEnum>;
 }

@@ -43,7 +43,7 @@ pub trait TermVectors: RawTermVectors {
   fn prefetch(&mut self, _doc_id: i32) -> Result<()> {
     Ok(())
   }
-  /// The associated `Fields` type.
+  /// The associated [`Fields`] type.
   type Fields: Fields;
   /// Returns term vectors for this document, or `None` if term vectors were not indexed.
   ///

@@ -24,7 +24,7 @@ pub enum ScoreMode {
   CompleteNoScores,
 
   /// Produced scorers will optionally allow skipping over non-competitive hits
-  /// using the `Scorer::set_min_competitive_score`(crate::core::search::scorable::Scorable::set_min_competitive_score) API.
+  /// using the [`Scorable::set_min_competitive_score`](crate::core::search::scorable::Scorable::set_min_competitive_score) API.
   TopScores,
 
   /// ScoreMode for top field collectors that can provide their own iterators,

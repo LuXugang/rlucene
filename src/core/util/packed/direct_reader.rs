@@ -19,7 +19,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::{LongValues, Zeroes};
 
-/// Retrieves an instance previously written by `DirectWriter`.
+/// Retrieves an instance previously written by [`DirectWriter`](crate::core::util::packed::direct_writer::DirectWriter).
 ///
 /// # See also
 /// [`DirectWriter`](crate::core::util::packed::direct_writer::DirectWriter)

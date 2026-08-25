@@ -67,7 +67,7 @@ pub trait IndexSorter {
   type DocComparator: DocComparator;
   /// Get a comparator that determines the sort order of documents within a single reader.
   ///
-  /// **NB**: We cannot simply use the `FieldComparator` API because it requires
+  /// **NB**: We cannot simply use the [`FieldComparator`](crate::core::search::field_comparator::FieldComparator) API because it requires
   /// document IDs to be provided in-order. The default implementations allocate
   /// an array of size `max_doc` to store native values for comparison, but:
   ///
@@ -85,7 +85,7 @@ pub trait IndexSorter {
 }
 
 // DoubleSorter
-/// Sorts documents based on `f64` values from a `NumericDocValues` instance.
+/// Sorts documents based on `f64` values from a [`NumericDocValues`] instance.
 pub struct DoubleSorter<NP> {
   provider_name: String,
   missing_value: Option<f64>,
@@ -367,7 +367,7 @@ where
 }
 
 // LongSorter
-/// Sorts documents based on `i64` values from a `NumericDocValues` instance.
+/// Sorts documents based on `i64` values from a [`NumericDocValues`] instance.
 pub struct LongSorter<NP> {
   provider_name: String,
   missing_value: Option<i64>,
@@ -510,7 +510,7 @@ where
 }
 
 // FloatSorter
-/// Sorts documents based on `f32` values from a `NumericDocValues` instance.
+/// Sorts documents based on `f32` values from a [`NumericDocValues`] instance.
 pub struct FloatSorter<NP> {
   provider_name: String,
   missing_value: Option<f32>,
@@ -659,7 +659,7 @@ where
 }
 
 // StringSorter
-/// Sorts documents based on `i16` values from a `NumericDocValues` instance.
+/// Sorts documents based on `i16` values from a [`NumericDocValues`] instance.
 pub struct StringSorter<SP> {
   provider_name: String,
   missing_value: Option<MissingValueEnum>,

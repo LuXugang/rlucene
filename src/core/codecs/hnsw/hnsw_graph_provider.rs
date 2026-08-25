@@ -22,7 +22,7 @@ use crate::core::util::hnsw::hnsw_graph::HnswGraph;
 pub trait HnswGraphProvider {
   type HnswGraph: HnswGraph;
 
-  /// Whether this reader corresponds to Java's `HnswGraphProvider` capability.
+  /// Whether this reader corresponds to Java's [`HnswGraphProvider`] capability.
   fn is_hnsw_graph_provider(&self, _field: &str) -> bool {
     false
   }

@@ -54,7 +54,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 /// The `SegmentMerger` struct combines two or more segments represented by
-/// `IndexReader`s, into a single segment. Call the `merge` method to combine
+/// [`IndexReader`](crate::core::index::index_reader::IndexReader)s, into a single segment. Call the `merge` method to combine
 /// the segments.
 ///
 /// See [`SegmentMerger::merge`].

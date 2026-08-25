@@ -147,7 +147,9 @@ impl AbstractKnnVectorQueryDefaults {
     Ok(TopDocs::new(total_hits, top_score_docs))
   }
 }
-/// Uses `KnnVectorsReader::search` to perform nearest neighbour search.
+/// Uses [`KnnVectorsReader::search_f32`](crate::core::codecs::knn_vectors_reader::KnnVectorsReader::search_f32)
+/// or [`KnnVectorsReader::search_u8`](crate::core::codecs::knn_vectors_reader::KnnVectorsReader::search_u8)
+/// to perform nearest neighbour search, depending on the vector encoding.
 ///
 /// This query also allows for performing a kNN search subject to a filter. In this case, it first
 /// executes the filter for each leaf, then chooses a strategy dynamically:

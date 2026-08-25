@@ -32,9 +32,9 @@ use std::borrow::Cow;
 use std::fmt;
 use std::net::IpAddr;
 
-/// An indexed InetAddress Range Field.
+/// An indexed IP-address range field.
 ///
-/// This field indexes an `InetAddress` range defined as a min/max pairs. It is single
+/// This field indexes an [`IpAddr`] range defined as a min/max pair. It is single
 /// dimension only (indexed as two 16 byte paired values).
 ///
 /// Multiple values are supported.
@@ -58,13 +58,13 @@ impl InetAddressRange {
   /// The number of bytes per dimension: sync with InetAddressPoint.
   pub const BYTES: usize = 16;
 
-  /// Create a new InetAddressRange from min/max value.
+  /// Create a new [`InetAddressRange`] from minimum and maximum values.
   ///
   /// # Arguments
   ///
   /// - `name` - Field name.
-  /// - `min` - Range min value; defined as an `InetAddress`.
-  /// - `max` - Range max value; defined as an `InetAddress`.
+  /// - `min` - Range minimum value, represented as an [`IpAddr`].
+  /// - `max` - Range maximum value, represented as an [`IpAddr`].
   pub fn new<T>(name: T, min: IpAddr, max: IpAddr) -> Result<Self>
   where
     T: Into<String>,
@@ -84,8 +84,8 @@ impl InetAddressRange {
   ///
   /// # Arguments
   ///
-  /// - `min` - Range min value; defined as an `InetAddress`.
-  /// - `max` - Range max value; defined as an `InetAddress`.
+  /// - `min` - Range minimum value, represented as an [`IpAddr`].
+  /// - `max` - Range maximum value, represented as an [`IpAddr`].
   pub fn set_range_values(&mut self, min: IpAddr, max: IpAddr) -> Result<()> {
     Self::set_range_values_internal(&mut self.parent_field, min, max)
   }
@@ -113,8 +113,8 @@ impl InetAddressRange {
   /// # Arguments
   ///
   /// - `field` - Field name.
-  /// - `min` - Range min value; provided as an `InetAddress`.
-  /// - `max` - Range max value; provided as an `InetAddress`.
+  /// - `min` - Range minimum value, provided as an [`IpAddr`].
+  /// - `max` - Range maximum value, provided as an [`IpAddr`].
   ///
   /// # Returns
   ///
@@ -135,8 +135,8 @@ impl InetAddressRange {
   /// # Arguments
   ///
   /// - `field` - Field name.
-  /// - `min` - Range min value; provided as an `InetAddress`.
-  /// - `max` - Range max value; provided as an `InetAddress`.
+  /// - `min` - Range minimum value, provided as an [`IpAddr`].
+  /// - `max` - Range maximum value, provided as an [`IpAddr`].
   ///
   /// # Returns
   ///
@@ -157,8 +157,8 @@ impl InetAddressRange {
   /// # Arguments
   ///
   /// - `field` - Field name.
-  /// - `min` - Range min value; provided as an `InetAddress`.
-  /// - `max` - Range max value; provided as an `InetAddress`.
+  /// - `min` - Range minimum value, provided as an [`IpAddr`].
+  /// - `max` - Range maximum value, provided as an [`IpAddr`].
   ///
   /// # Returns
   ///
@@ -178,8 +178,8 @@ impl InetAddressRange {
   /// # Arguments
   ///
   /// - `field` - Field name.
-  /// - `min` - Range min value; provided as an `InetAddress`.
-  /// - `max` - Range max value; provided as an `InetAddress`.
+  /// - `min` - Range minimum value, provided as an [`IpAddr`].
+  /// - `max` - Range maximum value, provided as an [`IpAddr`].
   ///
   /// # Returns
   ///

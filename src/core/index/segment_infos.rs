@@ -50,7 +50,7 @@ use std::io::{Error, ErrorKind, Write};
 
 static INFO_STREAM: LazyLock<Mutex<Option<OutputEnum>>> = LazyLock::new(|| Mutex::new(None));
 
-/// A collection of `SegmentInfo` objects with methods for operating on those
+/// A collection of [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo) objects with methods for operating on those
 /// segments in relation to the file system.
 ///
 /// The active segments in the index are stored in the segment info file,
@@ -74,28 +74,29 @@ static INFO_STREAM: LazyLock<Mutex<Option<OutputEnum>>> = LazyLock::new(|| Mutex
 /// - `Header` -> [`IndexHeader`](CodecUtil::write_index_header)
 /// - `LuceneVersion` -> Which Lucene code [`Version`] was used for this commit,
 ///   written as three
-///   [`DataOutput::writeVInt`](crate::core::store::data_output::DataOutput::write_vint):
+///   [`DataOutput::write_vint`](crate::core::store::data_output::DataOutput::write_vint):
 ///   major, minor, bugfix
 /// - `MinSegmentLuceneVersion` -> Lucene code [`Version`] of the oldest
 ///   segment, written as three
-///   [`DataOutput::writeVInt`](crate::core::store::data_output::DataOutput::write_vint):
+///   [`DataOutput::write_vint`](crate::core::store::data_output::DataOutput::write_vint):
 ///   major, minor, bugfix; this is only written only if there's at least one
 ///   segment
 /// - `NameCounter`, `SegCount`, `DeletionCount` ->
-///   [`DataOutput::writeInt`](crate::core::store::data_output::DataOutput::write_int)
-/// - `Generation`, `Version`, `DelGen`, `Checksum`, `FieldInfosGen`,
+///   [`DataOutput::write_int`](crate::core::store::data_output::DataOutput::write_int)
+/// - `Generation`, `Version`, `DelGen`, [`Checksum`](crate::core::store::checksum::Checksum),
+///   `FieldInfosGen`,
 ///   `DocValuesGen` ->
-///   [`DataOutput::writeLong`](crate::core::store::data_output::DataOutput::write_long)
+///   [`DataOutput::write_long`](crate::core::store::data_output::DataOutput::write_long)
 /// - `SegID` ->
-///   [`DataOutput::writeByte`](crate::core::store::data_output::DataOutput::write_byte)
+///   [`DataOutput::write_byte`](crate::core::store::data_output::DataOutput::write_byte)
 /// - `SegName`, `SegCodec` ->
-///   [`DataOutput::writeString`](crate::core::store::data_output::DataOutput::write_string)
+///   [`DataOutput::write_string`](crate::core::store::data_output::DataOutput::write_string)
 /// - `CommitUserData` ->
-///   [`DataOutput::writeMapOfStrings`](crate::core::store::data_output::DataOutput::write_map_of_strings)
+///   [`DataOutput::write_map_of_strings`](crate::core::store::data_output::DataOutput::write_map_of_strings)
 /// - `UpdatesFiles` ->
-///   Map<[`DataOutput::writeInt`](crate::core::store::data_output::DataOutput::write_int),
-///   [`DataOutput::writeSetOfStrings`](crate::core::store::data_output::DataOutput::write_set_of_strings)>
-/// - `Footer` -> [`CodecUtil::writeFooter`](CodecUtil::write_footer)
+///   Map<[`DataOutput::write_int`](crate::core::store::data_output::DataOutput::write_int),
+///   [`DataOutput::write_set_of_strings`](crate::core::store::data_output::DataOutput::write_set_of_strings)>
+/// - `Footer` -> [`CodecUtil::write_footer`]
 ///
 /// Field Descriptions:
 ///
@@ -108,12 +109,11 @@ static INFO_STREAM: LazyLock<Mutex<Option<OutputEnum>>> = LazyLock::new(|| Mutex
 ///   there are no deletes. Anything above zero means there are deletes stored
 ///   by [`LiveDocsFormat`](crate::core::codecs::live_docs_format).
 /// - `DeletionCount` records the number of deleted documents in this segment.
-/// - `SegCodec` is the [`Codec::getName`](Codec::get_name) of the Codec that
-///   encoded this segment.
+/// - `SegCodec` is the [`Codec::get_name`] of the codec that encoded this segment.
 /// - `SegID` is the identifier of the Codec that encoded this segment.
-/// - `CommitUserData` stores an optional user-supplied opaque
-///   `Map<String,String>` that was passed to
-///   `IndexWriter::setLiveCommitData`.
+/// - `CommitUserData` stores optional user-supplied opaque
+///   [`HashMap<String, String>`] data that was passed to
+///   [`IndexWriter::set_live_commit_data`](crate::core::index::index_writer::IndexWriter::set_live_commit_data).
 /// - `FieldInfosGen` is the generation count of the fieldInfos file. If this is
 ///   `-1`, there are no updates to the fieldInfos in that segment. Anything
 ///   above zero means there are updates to fieldInfos stored by
@@ -139,9 +139,9 @@ pub struct SegmentInfos<D> {
   /// Opaque `HashMap<String, String>` that user can specify during
   /// `IndexWriter.commit`.
   pub user_data: HashMap<String, String>,
-  /// List of `SegmentCommitInfo` objects.
+  /// List of [`SegmentCommitInfo`](crate::core::index::segment_commit_info::SegmentCommitInfo) objects.
   pub(crate) segments: Vec<SegmentCommitInfo<D>>,
-  /// `SegmentCommitInfo`s removed from `segments` but still needed by
+  /// [`SegmentCommitInfo`](crate::core::index::segment_commit_info::SegmentCommitInfo)s removed from `segments` but still needed by
   /// concurrent reader-pool work.
   pub(crate) dropped_segment_commit_infos: HashMap<String, SegmentCommitInfo<D>>,
   /// ID for this commit; only written starting with Lucene 5.0.
@@ -192,7 +192,7 @@ impl<D> SegmentInfos<D> {
     })
   }
   /// Returns [`SegmentCommitInfo`] at the provided index.
-  /// Returns the `SegmentCommitInfo` for the given ID, looking in live
+  /// Returns the [`SegmentCommitInfo`] for the given ID, looking in live
   /// segments first and then in segments retained after being dropped.
   pub fn index_of(&self, seg_id: &str) -> Option<&SegmentCommitInfo<D>> {
     self
@@ -202,7 +202,7 @@ impl<D> SegmentInfos<D> {
       .or_else(|| self.dropped_segment_commit_infos.get(seg_id))
   }
 
-  /// Returns the live `SegmentCommitInfo` for the given ID.
+  /// Returns the live [`SegmentCommitInfo`](crate::core::index::segment_commit_info::SegmentCommitInfo) for the given ID.
   pub(crate) fn index_of_live(&self, seg_id: &str) -> Option<&SegmentCommitInfo<D>> {
     self
       .segments
@@ -216,7 +216,7 @@ impl<D> SegmentInfos<D> {
   pub fn info_idx_mut(&mut self, i: usize) -> Option<&mut SegmentCommitInfo<D>> {
     self.segments.get_mut(i)
   }
-  /// Returns the mutable `SegmentCommitInfo` for the given ID, looking in live
+  /// Returns the mutable [`SegmentCommitInfo`] for the given ID, looking in live
   /// segments first and then in segments retained after being dropped.
   pub fn index_of_mut(&mut self, seg_id: &str) -> Option<&mut SegmentCommitInfo<D>> {
     if let Some(index) = self
@@ -254,13 +254,13 @@ impl<D> SegmentInfos<D> {
   ///
   /// # Arguments
   ///
-  /// - `Directory`: Directory containing the segment file.
+  /// - [`Directory`]: Directory containing the segment file.
   /// - `Segment_file_name`: The segment file to load.
   ///
   /// # Errors
   ///
-  /// - Returns `LuceneError::CorruptIndex` if the index is corrupt.
-  /// - Returns `LuceneError` for any low-level IO error.
+  /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
+  /// - Returns [`LuceneError`] for any low-level IO error.
   pub fn read_commit(directory: Arc<D>, segment_file_name: &str) -> Result<SegmentInfos<D>>
   where
     D: Directory,
@@ -586,7 +586,7 @@ impl<D> SegmentInfos<D> {
     }
   }
   /// Find the latest commit (`segments_N` file) and load all
-  /// `SegmentCommitInfo`s.
+  /// [`SegmentCommitInfo`]s.
   pub fn read_latest_commit(directory: Arc<D>) -> Result<SegmentInfos<D>>
   where
     D: Directory,
@@ -595,7 +595,7 @@ impl<D> SegmentInfos<D> {
   }
 
   /// Find the latest commit (`segments_N` file) with a minimum supported
-  /// major version and load all `SegmentCommitInfo`s.
+  /// major version and load all [`SegmentCommitInfo`]s.
   pub fn read_latest_commit_with_min_version(
     directory: Arc<D>,
     min_supported_major_version: i32,
@@ -646,11 +646,11 @@ impl<D> SegmentInfos<D> {
     unwrap_caught_result!(result)
   }
 
-  /// Write the current `SegmentInfos` to the provided `IndexOutput`.
+  /// Write the current [`SegmentInfos`] to the provided [`IndexOutput`].
   ///
   /// # Errors
   ///
-  /// Returns a `LuceneError` if there is an issue writing the segment
+  /// Returns a [`LuceneError`] if there is an issue writing the segment
   /// information.
   pub fn write(&self, out: &mut impl IndexOutput) -> Result<()> {
     let v = BigInt::from(self.generation).to_str_radix(36).to_string();
@@ -788,7 +788,7 @@ impl<D> SegmentInfos<D> {
     }
     Ok(cloned)
   }
-  /// Returns the version number when this `SegmentInfos` was generated.
+  /// Returns the version number when this [`SegmentInfos`] was generated.
   pub fn get_version(&self) -> i64 {
     self.version
   }
@@ -802,14 +802,14 @@ impl<D> SegmentInfos<D> {
   pub fn get_last_generation(&self) -> i64 {
     self.last_generation
   }
-  /// Carry over generation numbers from another `SegmentInfos`.
+  /// Carry over generation numbers from another [`SegmentInfos`].
   pub fn update_generation<D1>(&mut self, other: &SegmentInfos<D1>) {
     self.last_generation = other.last_generation;
     self.generation = other.generation;
   }
 
   /// Carry over generation numbers, and version/counter, from another
-  /// `SegmentInfos`.
+  /// [`SegmentInfos`].
   pub fn update_generation_version_and_counter<D1>(&mut self, other: &SegmentInfos<D1>) {
     self.update_generation(other);
     self.version = other.version;
@@ -871,7 +871,7 @@ impl<D> SegmentInfos<D> {
     Ok(())
   }
 
-  /// Returns all file names referenced by `SegmentInfo`. The returned
+  /// Returns all file names referenced by [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo). The returned
   /// collection is recomputed on each invocation.
   pub fn files(&self, include_segments_file: bool) -> Result<HashSet<String>> {
     let mut files = HashSet::new();
@@ -1004,7 +1004,7 @@ impl<D> SegmentInfos<D> {
     self.version = new_version;
     Ok(())
   }
-  /// Applies all changes caused by committing a merge to this `SegmentInfos`
+  /// Applies all changes caused by committing a merge to this [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos)
   pub(crate) fn apply_merge_changes<CR>(
     &mut self,
     merge: &mut OneMerge<D, CR>,
@@ -1074,12 +1074,12 @@ impl<D> SegmentInfos<D> {
     self.segments.as_slice()
   }
 
-  /// Returns the number of `SegmentCommitInfo`s.
+  /// Returns the number of [`SegmentCommitInfo`]s.
   pub fn size(&self) -> usize {
     self.segments.len()
   }
 
-  /// Appends the provided `SegmentCommitInfo` to the `segments` list.
+  /// Appends the provided [`SegmentCommitInfo`] to the `segments` list.
   pub fn add(&mut self, si: SegmentCommitInfo<D>) -> Result<()> {
     if self.index_created_version_major >= 7 && si.info.min_version.is_none() {
       return Err(LuceneError::illegal_argument(format!(
@@ -1099,7 +1099,7 @@ impl<D> SegmentInfos<D> {
     Ok(())
   }
 
-  /// Clears all `SegmentCommitInfo`s.
+  /// Clears all [`SegmentCommitInfo`]s.
   pub fn clear(&mut self) {
     for info in self.segments.drain(..) {
       self
@@ -1108,7 +1108,7 @@ impl<D> SegmentInfos<D> {
     }
   }
 
-  /// Removes the provided `SegmentCommitInfo`.
+  /// Removes the provided [`SegmentCommitInfo`].
   pub fn remove_with_id(&mut self, si_id: &str) -> Option<SegmentCommitInfo<D>> {
     let idx = self
       .segments
@@ -1121,7 +1121,7 @@ impl<D> SegmentInfos<D> {
     Some(info)
   }
 
-  /// Removes the `SegmentCommitInfo` at the provided index.
+  /// Removes the [`SegmentCommitInfo`] at the provided index.
   pub fn remove(&mut self, index: usize) -> Option<SegmentCommitInfo<D>> {
     if index >= self.segments.len() {
       return None;
@@ -1140,17 +1140,17 @@ impl<D> SegmentInfos<D> {
     self.dropped_segment_commit_infos.remove(si_id)
   }
 
-  /// Returns true if the provided `SegmentCommitInfo` is contained.
+  /// Returns true if the provided [`SegmentCommitInfo`] is contained.
   pub fn contains(&self, si_id: &str) -> bool {
     self.index_of_live(si_id).is_some()
   }
 
-  /// Returns the `Version` of the Lucene commit.
+  /// Returns the [`Version`] of the Lucene commit.
   pub fn get_commit_lucene_version(&self) -> Option<&Version> {
     self.lucene_version.as_ref()
   }
 
-  /// Returns the `Version` of the oldest segment, or `None` if there are no
+  /// Returns the [`Version`] of the oldest segment, or `None` if there are no
   /// segments.
   pub fn get_min_segment_lucene_version(&self) -> Option<&Version> {
     self.min_segment_lucene_version.as_ref()
@@ -1314,7 +1314,7 @@ pub const VERSION_86: i32 = 10;
 pub(crate) const VERSION_CURRENT: i32 = VERSION_86;
 /// Name of the generation reference file name.
 pub(crate) const OLD_SEGMENTS_GEN: &str = "segments.gen";
-/// Sets the global INFO_STREAM to the given optional `OutputEnum`.
+/// Sets the global INFO_STREAM to the given optional [`OutputEnum`].
 pub fn set_info_stream(output: impl Into<Option<OutputEnum>>) -> Result<()> {
   let mut info_stream = INFO_STREAM.lock();
   *info_stream = output.into();

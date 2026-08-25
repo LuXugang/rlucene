@@ -54,7 +54,7 @@ pub trait PhraseMatcher {
 
   /// An estimate of the average cost of finding all matches on a document.
   ///
-  /// See `TwoPhaseIterator::match_cost`.
+  /// See [`TwoPhaseIterator::match_cost`](crate::core::search::two_phase_iterator::TwoPhaseIterator::match_cost).
   fn get_match_cost(&self) -> f32;
 }
 pub enum PhraseMatcherEnum<IE, SS> {

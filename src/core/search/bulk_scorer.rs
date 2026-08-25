@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// Only queries that have a more optimized means of scoring across a range of
 /// documents need to provide this method. Otherwise, a default implementation is
-/// wrapped around the `Scorer` returned by [`Weight::scorer`](crate::core::search::weight::Weight::bulk_scorer).
+/// wrapped around the [`Scorer`](crate::core::search::scorer::Scorer) returned by [`Weight::scorer`](crate::core::search::weight::Weight::scorer).
 pub trait BulkScorer {
   /// Collects matching documents in a range and returns an estimation of the
   /// next matching document which is on or after `max`.

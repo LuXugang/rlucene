@@ -46,8 +46,8 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-/// A `Query` that matches documents that contain either a `KnnFloatVectorField`,
-/// `KnnByteVectorField`, or a field that indexes norms
+/// A [`Query`] that matches documents that contain either a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField),
+/// [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField), or a field that indexes norms
 /// or doc values.
 #[derive(Debug, Clone)]
 pub struct FieldExistsQuery {

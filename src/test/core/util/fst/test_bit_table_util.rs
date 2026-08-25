@@ -154,7 +154,8 @@ where
   bits
 }
 
-/// Creates a `BytesReader` for the given byte slice.
+/// Creates a [`BytesReader`](crate::core::util::fst_impl::fst::BytesReader) for the given byte
+/// slice.
 fn reader(bits: &[u8]) -> BytesReaderImpl<'_> {
   BytesReaderImpl::new(bits)
 }

@@ -27,7 +27,7 @@ pub trait InfoStream: Send + Sync + CloseableRef {
   /// Prints a message.
   fn message(&self, component: &str, message: &str) -> Result<()>;
 
-  /// Returns true if messages are enabled and should be posted to `message`.
+  /// Returns true if messages are enabled and should be posted to [`Self::message`].
   fn is_enabled(&self, component: &str) -> bool;
 }
 
@@ -44,7 +44,7 @@ where
   }
 }
 
-/// A global, thread-safe reference to a default `InfoStream`,
+/// A global, thread-safe reference to a default [`InfoStream`](crate::core::util::info_stream::InfoStream),
 /// mirroring `private static InfoStream defaultInfoStream` in Java.
 static DEFAULT_INFO_STREAM: LazyLock<Arc<InfoStreamEnum>> =
   LazyLock::new(|| Arc::new(InfoStreamEnum::NoOutput(NoOutput)));
@@ -74,7 +74,7 @@ impl InfoStream for NoOutput {
   }
 }
 
-/// The default `InfoStream` used by newly created types.
+/// The default [`InfoStream`] used by newly created types.
 pub fn get_default_info_stream() -> Arc<InfoStreamEnum> {
   DEFAULT_INFO_STREAM.clone()
 }

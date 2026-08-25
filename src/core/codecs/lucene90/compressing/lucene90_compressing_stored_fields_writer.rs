@@ -942,7 +942,7 @@ pub(crate) fn write_zdouble(out: &mut impl DataOutput, d: f64) -> Result<()> {
 ///   encoded value. In order to reconstruct the   value, you need to
 ///   combine the 5 lower bits of the header with a vLong in the next bytes
 ///   (if the continuation bit is set to 1). Then
-///   [`BitUtil::zig_zag_decode`](BitUtil::zig_zag_decode_i64) it and
+///   [`BitUtil::zig_zag_decode_i64`] it and
 ///   finally multiply by the multiple corresponding to the compression
 ///   scheme.
 ///

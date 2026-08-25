@@ -22,13 +22,13 @@ use crate::core::util::info_stream::InfoStreamMT;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
 
-/// A wrapper around the IndexWriter `MergeContext`.
+/// A wrapper around the IndexWriter [`MergeContext`](crate::core::index::merge_policy::MergeContext).
 ///
 /// Attempts to cache the result of [`MergeContext::num_deletes_to_merge`], in order to avoid
 /// duplicate calculations during the merge phase.
 ///
 /// This helps prevent repeated computation of delete counts for the same
-/// `SegmentCommitInfo`.
+/// [`SegmentCommitInfo`](crate::core::index::segment_commit_info::SegmentCommitInfo).
 pub(crate) struct CachingMergeContext<'a, T> {
   merge_context: &'a T,
   pub(crate) cached_num_deletes_to_merge: Mutex<HashMap<String, i32>>,

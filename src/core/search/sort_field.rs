@@ -80,7 +80,7 @@ impl SortField {
   ///
   /// # Arguments
   ///
-  /// - `Field`: Name of the field to sort by. Can be `None` if `field_type`
+  /// - `field`: Name of the field to sort by. Can be `None` if `field_type`
   ///   is `SCORE` or `DOC`.
   /// - `field_type`: Type of values in the terms.
   /// - `sub_sort_field`: Provides additional (or customized) sorting
@@ -103,7 +103,7 @@ impl SortField {
   ///
   /// # Arguments
   ///
-  /// - `Field`: Name of the field to sort by. Can be `None` if `field_type`
+  /// - `field`: Name of the field to sort by. Can be `None` if `field_type`
   ///   is `SCORE` or `DOC`.
   /// - `field_type`: Type of values in the terms.
   /// - `reverse`: `true` if natural order should be reversed.
@@ -128,7 +128,7 @@ impl SortField {
   ///
   /// # Arguments
   ///
-  /// - `Field`: Name of the field to sort by.
+  /// - `field`: Name of the field to sort by.
   /// - `comparator`: A source that returns a comparator for sorting hits;
   ///   cannot be `None`
   /// - `sub_sort_field`: An additional sorting criterion or a custom
@@ -156,7 +156,7 @@ impl SortField {
   ///
   /// # Arguments
   ///
-  /// - `Field`: Name of the field to sort by.
+  /// - `field`: Name of the field to sort by.
   /// - `comparator`: A source that returns a comparator for sorting hits.
   ///   cannot be `None`
   /// - `reverse`: `true` if natural order should be reversed.
@@ -740,7 +740,7 @@ impl SortFieldProvider for Provider {
 }
 
 /// Specifies the type of the terms to be sorted, or special types such as
-/// `CUSTOM`.
+/// [`Self::Custom`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum SortFieldType {
   /// Sort by document score (relevance). Sort values are `f32` and higher
@@ -757,34 +757,33 @@ pub enum SortFieldType {
 
   /// Sort using term values as encoded `i32`. Sort values are `i32` and
   /// lower values are at the front. Fields must either be not indexed or
-  /// indexed with `IntPoint`.
+  /// indexed with [`IntPoint`](crate::core::document::int_point::IntPoint).
   Int,
 
   /// Sort using term values as encoded `f32`. Sort values are `f32` and
   /// lower values are at the front. Fields must either be not indexed or
-  /// indexed with `FloatPoint`.
+  /// indexed with [`FloatPoint`](crate::core::document::float_point::FloatPoint).
   Float,
 
   /// Sort using term values as encoded `i64`. Sort values are `i64` and
   /// lower values are at the front. Fields must either be not indexed or
-  /// indexed with `LongPoint`.
+  /// indexed with [`LongPoint`](crate::core::document::long_point::LongPoint).
   Long,
 
   /// Sort using term values as encoded `f64`. Sort values are `f64` and
   /// lower values are at the front. Fields must either be not indexed or
-  /// indexed with `DoublePoint`.
+  /// indexed with [`DoublePoint`](crate::core::document::double_point::DoublePoint).
   Double,
 
-  /// Sort using a custom comparator. Sort values are any `Comparable` and
-  /// sorting is done according to natural order.
+  /// Sort using a custom comparator. Sort values are ordered by the comparator's Rust
+  /// [`Ord`] semantics.
   Custom,
 
-  /// Sort using term values as `String`, but comparing by value (using
-  /// `String::cmp`) for all comparisons. This is typically slower than
-  /// `STRING`, which uses ordinals to do the sorting.
+  /// Sort using term values as `String`, but comparing by value (using [`str::cmp`]) for all
+  /// comparisons. This is typically slower than [`Self::String`], which uses ordinals.
   StringVal,
 
-  /// Force rewriting of `SortField` using `SortField::rewrite` before it can
+  /// Force rewriting of [`SortField`] using [`SortField::rewrite`] before it can
   /// be used for sorting.
   Rewritable,
 }
@@ -1166,9 +1165,9 @@ pub trait SortFiledBase: Display {
   /// Whether the relevance score is needed to sort documents.
   fn needs_scores(&self) -> bool;
   type IndexSort: IndexSorter;
-  /// Returns an [`IndexSorter`] used for sorting index segments by this `SortField`.
+  /// Returns an [`IndexSorter`] used for sorting index segments by this [`SortField`].
   ///
-  /// If this `SortField` cannot be used for index sorting (for example, if it uses scores or other
+  /// If this [`SortField`] cannot be used for index sorting (for example, if it uses scores or other
   /// query-dependent values), returns `None`.
   ///
   /// SortFields that implement this method should also implement a companion [`SortFieldProvider`] to

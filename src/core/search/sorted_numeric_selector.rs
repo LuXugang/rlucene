@@ -27,11 +27,11 @@ use crate::core::util::numeric_utils::NumericUtils;
 #[derive(Clone)]
 /// Selects a value from the document’s list to use as the representative value.
 ///
-/// This provides a [`NumericDocValues`] view over the `SortedNumeric`, for use with sorting,
+/// This provides a [`NumericDocValues`] view over the [`SortedNumeric`](crate::core::index::doc_values::SortedNumeric), for use with sorting,
 /// expressions, function queries, etc.
 pub struct SortedNumericSelector;
 impl SortedNumericSelector {
-  /// Wraps a multi-valued `SortedNumericDocValues` as a single-valued view,
+  /// Wraps a multi-valued [`SortedNumericDocValues`] as a single-valued view,
   /// using the specified `selector` and `numeric_type`.
   pub fn wrap<S>(
     mut sorted_numeric: S,

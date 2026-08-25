@@ -57,7 +57,7 @@ impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator> {
   }
 }
 impl<TPI> ConstantScoreScorer<DummyDISI, TPI> {
-  /// Creates an instance based on a [`TwoPhaseIterator`]. In this case the `Scorer` will
+  /// Creates an instance based on a [`TwoPhaseIterator`]. In this case the [`Scorer`] will
   /// support two-phase iteration.
   ///
   /// # Parameters

@@ -44,9 +44,9 @@ where
   LR: LeafReader,
 {
   type LeafReader1: LeafReader;
-  /// Wraps a list of `LeafReader`s.
+  /// Wraps a list of [`LeafReader`]s.
   ///
-  /// Returns an array of wrapped `LeafReader`s. The returned array might contain fewer elements
+  /// Returns an array of wrapped [`LeafReader`]s. The returned array might contain fewer elements
   /// compared to the given reader list if an entire reader is filtered out.
   fn wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader1>>;
   fn default_wrap_readers(&self, readers: Vec<LR>) -> Result<Vec<Self::LeafReader2>> {
@@ -59,11 +59,11 @@ where
   }
 
   type LeafReader2: LeafReader;
-  /// Wrap one of the parent `DirectoryReader`'s sub readers.
+  /// Wrap one of the parent [`DirectoryReader`]'s sub readers.
   ///
   /// * `reader` - the sub reader to wrap
   ///
-  /// Returns a wrapped/filtered `LeafReader`.
+  /// Returns a wrapped/filtered [`LeafReader`].
   fn wrap(&self, reader: LR) -> Result<Self::LeafReader2>;
 }
 #[derive(Clone)]

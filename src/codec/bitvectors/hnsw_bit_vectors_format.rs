@@ -52,7 +52,7 @@ use std::sync::{Arc, OnceLock};
 /// graph is used to power HNSW search. The format consists of two files, and uses
 /// [`Lucene99FlatVectorsFormat`] to store the actual vectors, but with a custom scorer
 /// implementation: For details on graph storage and file extensions, see
-/// `Lucene99HnswVectorsFormat`.
+/// [`Lucene99HnswVectorsFormat`](crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat).
 pub struct HnswBitVectorsFormat {
   max_conn: usize,
   beam_width: usize,

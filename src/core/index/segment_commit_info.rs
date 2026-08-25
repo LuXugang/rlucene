@@ -67,7 +67,7 @@ impl<D> SegmentCommitInfo<D> {
   /// Creates a new instance.
   ///
   /// # Arguments
-  /// - `info`: The `SegmentInfo` that this wraps.
+  /// - `info`: The [`SegmentInfo`] that this wraps.
   /// - `del_count`: Number of deleted documents in this segment.
   /// - `Soft_del_count`: Number of soft-deleted documents not also
   ///   hard-deleted.
@@ -426,7 +426,7 @@ pub fn validate_soft_del_count(del_count: i32, max_doc: i32, soft_del_count: i32
   );
   Ok(())
 }
-/// Implement `Display` for `SegmentCommitInfo`.
+/// Implement `Display` for [`SegmentCommitInfo`].
 impl<D> std::fmt::Display for SegmentCommitInfo<D> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", self.to_string_with_pending_del_count(0))

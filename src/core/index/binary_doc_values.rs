@@ -23,7 +23,7 @@ use std::borrow::Cow;
 pub trait BinaryDocValues: DocValuesIterator {
   /// Returns the binary value for the current document ID.
   /// It is illegal to call this method after
-  /// [`advanceExact`](DocValuesIterator::advance_exact) returned `false`.
+  /// [`DocValuesIterator::advance_exact`] returned `false`.
   ///
   /// # Returns
   /// The binary value for the current document ID.

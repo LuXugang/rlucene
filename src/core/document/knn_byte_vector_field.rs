@@ -36,7 +36,7 @@ use std::fmt::{Display, Formatter};
 /// A field that contains a single byte numeric vector (or none) for each document. Vectors are dense
 /// that is, every dimension of a vector contains an explicit value, stored packed into an array
 /// (as a byte slice) whose length is the vector dimension. Values can be retrieved using
-/// `ByteVectorValues`, which is a forward-only docID-based iterator and also offers random-access by
+/// [`ByteVectorValues`](crate::core::index::byte_vector_values::ByteVectorValues), which is a forward-only docID-based iterator and also offers random-access by
 /// dense ordinal (not docId). [`VectorSimilarityFunction`] may be used to compare vectors at
 /// query time (for example as part of result ranking). A [`KnnByteVectorField`] may be associated with a
 /// search similarity function defining the metric used for nearest-neighbor search among vectors of
@@ -97,7 +97,7 @@ impl KnnByteVectorField {
 
   /// Creates a numeric vector field. Fields are single-valued: each document has either one value or
   /// no value. Vectors of a single field share the same dimension and similarity function. Note that
-  /// some vector similarities (like `VectorSimilarityFunction::DOT_PRODUCT`) require values to
+  /// some vector similarities (like [`VectorSimilarityFunction::DotProduct`]) require values to
   /// be constant-length.
   ///
   /// # Arguments

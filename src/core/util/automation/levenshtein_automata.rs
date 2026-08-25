@@ -55,7 +55,7 @@ impl LevenshteinAutomata {
   /// Maximum edit distance this type can generate an automaton for.
   pub const MAXIMUM_SUPPORTED_DISTANCE: i32 = 2;
 
-  /// Create a new `LevenshteinAutomata` for some input string. Optionally count transpositions as a
+  /// Create a new [`LevenshteinAutomata`] for some input string. Optionally count transpositions as a
   /// primitive edit.
   pub fn new(input: &str, with_transpositions: bool) -> Result<Self> {
     Self::from_word(

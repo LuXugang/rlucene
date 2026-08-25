@@ -25,7 +25,7 @@ use std::sync::Arc;
 /// A trait that produces field normalization values.
 pub trait NormsProducer: CloseableRef {
   type NumericDocValues: NumericDocValues;
-  /// Returns `NumericDocValues` for the given field.
+  /// Returns [`NumericDocValues`] for the given field.
   ///
   /// The returned instance is not required to be thread-safe:
   /// it will only be used by a single thread.

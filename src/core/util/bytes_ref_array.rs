@@ -202,7 +202,7 @@ impl BytesRefArray {
 /// Appends a copy of the given [`BytesRef`] to this [`BytesRefArray`].
 ///
 /// # Parameters
-/// - `bytes`: The `BytesRef` to append.
+/// - `bytes`: The [`BytesRef`] to append.
 ///
 /// # Returns
 /// The index of the appended bytes.
@@ -237,7 +237,7 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
   /// far.
   ///
   /// # Parameters
-  /// - `comp`: An optional `Comparator` to specify the order of iteration.
+  /// - `comp`: An optional [`Comparator`](crate::core::util::comparator::Comparator) to specify the order of iteration.
   ///   the iterator will iterate the byte values in the order specified by
   ///   the comparator.
   ///

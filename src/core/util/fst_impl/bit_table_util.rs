@@ -18,7 +18,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::fst::BytesReader;
 
-/// Static helper methods for `FST::Arc::BitTable`.
+/// Static helper methods for [`FST::Arc::BitTable`](crate::core::util::fst_impl::fst::FST::Arc::BitTable).
 ///
 /// # Experimental
 pub(crate) struct BitTableUtil;

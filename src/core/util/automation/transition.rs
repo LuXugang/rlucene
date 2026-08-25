@@ -36,11 +36,11 @@ pub struct Transition {
   /// `init_transition`.
   pub transition_upto: i32,
 }
-/// Inline size of a `Transition` instance.
+/// Inline size of a [`Transition`] instance.
 pub const BYTES_USED: usize = size_of::<Transition>();
 
 impl Default for Transition {
-  /// Creates a `Transition` with zeroed fields and `transition_upto` set to
+  /// Creates a [`Transition`] with zeroed fields and `transition_upto` set to
   /// -1.
   fn default() -> Self {
     Transition {

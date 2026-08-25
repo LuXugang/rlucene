@@ -44,7 +44,7 @@ impl Default for LongsRef {
 }
 
 impl LongsRef {
-  /// Create a `LongsRef` with an empty vector.
+  /// Create a [`LongsRef`] with an empty vector.
   pub fn new() -> Self {
     Self {
       longs: Vec::new(),
@@ -53,7 +53,7 @@ impl LongsRef {
     }
   }
 
-  /// Create a `LongsRef` pointing to a new vector of the given capacity.
+  /// Create a [`LongsRef`] pointing to a new vector of the given capacity.
   ///
   /// Offset and length will both be zero.
   pub fn with_capacity(capacity: usize) -> Self {
@@ -80,19 +80,19 @@ impl LongsRef {
       length,
     }
   }
-  /// Creates a new `LongsRef` that points to a copy of the longs from
+  /// Creates a new [`LongsRef`] that points to a copy of the longs from
   /// `other`.
   ///
-  /// The returned `LongsRef` will have a length of `other.length` and an
+  /// The returned [`LongsRef`] will have a length of `other.length` and an
   /// offset of zero.
   ///
   /// # Arguments
   ///
-  /// * `other` - The `LongsRef` to copy.
+  /// * `other` - The [`LongsRef`] to copy.
   ///
   /// # Returns
   ///
-  /// A new `LongsRef` that is a deep copy of the provided `other`.
+  /// A new [`LongsRef`] that is a deep copy of the provided `other`.
   pub fn deep_copy_of(other: &LongsRef) -> Result<LongsRef> {
     if (other.offset + other.length) > other.longs.len() {
       return Err(LuceneError::array_index_out_of_bounds(
@@ -198,12 +198,12 @@ pub struct LongsRefComparator;
 impl Comparator<LongsRef> for LongsRefComparator {
   const TYPE: &'static str = "LongsRefComparator";
 
-  /// Compares two `LongsRef` instances.
+  /// Compares two [`LongsRef`] instances.
   ///
   /// # Arguments
   ///
-  /// * `a` - The first `LongsRef` to compare.
-  /// * `b` - The second `LongsRef` to compare.
+  /// * `a` - The first [`LongsRef`] to compare.
+  /// * `b` - The second [`LongsRef`] to compare.
   ///
   /// # Returns
   ///

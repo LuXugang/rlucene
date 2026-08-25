@@ -29,10 +29,10 @@ pub trait LiveDocsFormat {
   /// # Arguments
   /// - `dir`: The directory to read from.
   /// - `info`: The segment commit info for the segment.
-  /// - `Context`: The IO context.
+  /// - [`Context`](crate::core::store::io_context::Context): The IO context.
   ///
   /// # Returns
-  /// A `Bits` implementation representing the live docs.
+  /// A [`Bits`] implementation representing the live docs.
   fn read_live_docs<D>(
     &self,
     dir: &impl Directory,

@@ -47,7 +47,7 @@ use std::collections::VecDeque;
 /// [`TermValComparator`](crate::core::search::field_comparator::TermValComparator),
 /// but it first resolves the string to their relative ordinal positions
 /// (using the index returned by
-/// [`LeafReader::getSortedDocValues`](LeafReader::get_sorted_doc_values)),
+/// [`LeafReader::get_sorted_doc_values`]),
 /// and does most comparisons using the ordinals.
 ///
 /// For medium to large results, this comparator will be much faster than

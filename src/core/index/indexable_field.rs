@@ -31,8 +31,8 @@ use std::borrow::Cow;
 use std::cell::RefMut;
 use std::fmt::Display;
 
-/// Represents a single field for indexing. IndexWriter consumes
-/// `Iterable<IndexableField>` as a document.
+/// Represents a single field for indexing. [`IndexWriter`](crate::core::index::index_writer::IndexWriter)
+/// consumes a fallible iterator of [`Fields`](crate::core::document::fields::Fields) as a document.
 pub trait IndexableField: Display {
   /// Field name
   fn name(&self) -> &str;

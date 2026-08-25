@@ -59,7 +59,7 @@ use std::sync::Arc;
 ///
 /// 2. **Vector data file** (`.tvd`):
 ///    - Stores terms, frequencies, positions, offsets and payloads for every document
-///    - Accumulates data in memory until the buffer grows beyond 4 KB, then flushes using LZ4 for terms/payloads and `BlockPackedWriter` for positions
+///    - Accumulates data in memory until the buffer grows beyond 4 KB, then flushes using LZ4 for terms/payloads and [`BlockPackedWriter`](crate::core::util::packed::block_packed_writer::BlockPackedWriter) for positions
 ///    - **Detailed format**:
 ///      - VectorData (.tvd) → Header, Chunk^ChunkCount, Footer
 ///      - Header → [IndexHeader](crate::core::codecs::codec_util::CodecUtil::write_index_header)

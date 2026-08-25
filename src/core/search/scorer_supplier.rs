@@ -24,14 +24,14 @@ use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use std::any::Any;
 
-/// A supplier of `Scorer`.
+/// A supplier of [`Scorer`].
 ///
-/// This allows to get an estimate of the cost before building the `Scorer`.
+/// This allows to get an estimate of the cost before building the [`Scorer`].
 pub trait ScorerSupplier<IRC: IndexReaderContext> {
   type Scorer: Scorer;
   type BulkScorer: BulkScorer;
 
-  /// Get the `Scorer`.
+  /// Get the [`Scorer`].
   /// This must be called at most once.
   ///
   /// # Parameters
@@ -40,7 +40,7 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
   ///   This can be interpreted as an upper bound of the number of times that
   ///   [`DocIdSetIterator::next_doc`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::next_doc), [`DocIdSetIterator::advance`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::advance), and
   ///   [`TwoPhaseIterator::matches`](crate::core::search::two_phase_iterator::TwoPhaseIterator::matches) will be called.
-  ///   If in doubt, pass `i64::MAX`, which will produce a `Scorer` that has good iteration capabilities.
+  ///   If in doubt, pass `i64::MAX`, which will produce a [`Scorer`] that has good iteration capabilities.
   /// - `context`: The [`LeafReaderContext`] that this scorer supplier was created for.
   fn get(
     &mut self,
@@ -51,7 +51,7 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
 
   /// Optional: Get a bulk scorer that is optimized for bulk-scoring.
   ///
-  /// The default implementation wraps `get(i64::MAX)` in a `DefaultBulkScorer`,
+  /// The default implementation wraps `get(i64::MAX)` in a [`DefaultBulkScorer`],
   /// which iterates matches from the scorer. Some queries can have more efficient
   /// approaches for matching all hits.
   fn bulk_scorer(
@@ -68,7 +68,7 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
     Ok(DefaultBulkScorer::new(scorer))
   }
 
-  /// Get an estimate of the `Scorer` that would be returned by [`ScorerSupplier::get`].
+  /// Get an estimate of the [`Scorer`] that would be returned by [`ScorerSupplier::get`].
   /// This may be a costly operation, so it should only be called if necessary.
   ///
   /// Corresponds to [`DocIdSetIterator::cost`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::cost).
@@ -82,9 +82,9 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
   /// to the collector, as opposed to partial scores that then need to get combined (e.g. summed up).
   ///
   /// Note: This method also gets called if scores are not requested, e.g. because the score mode
-  /// is [`ScoreMode::COMPLETE_NO_SCORES`](crate::core::search::score_mode::ScoreMode::CompleteNoScores).
+  /// is [`ScoreMode::CompleteNoScores`](crate::core::search::score_mode::ScoreMode::CompleteNoScores).
   /// Implementations should look at both the score mode and this `bool` to know whether to prepare
-  /// for reacting to `Scorer::set_min_competitive_score` calls.
+  /// for reacting to [`Scorable::set_min_competitive_score`](crate::core::search::scorable::Scorable::set_min_competitive_score) calls.
   fn set_top_level_scoring_clause(&mut self) -> Result<()> {
     Ok(())
   }

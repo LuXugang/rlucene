@@ -41,7 +41,7 @@ use std::fmt;
 /// tesseract.
 ///
 /// Multiple values for the same field in one document is supported, and open ended ranges can be
-/// defined using `Long::MIN_VALUE` and `Long::MAX_VALUE`.
+/// defined using [`i64::MIN`] and [`i64::MAX`].
 ///
 /// This field defines the following static factory methods for common search operations over long
 /// ranges:

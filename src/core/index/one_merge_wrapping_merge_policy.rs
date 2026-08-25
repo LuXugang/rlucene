@@ -32,7 +32,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-/// A wrapping merge policy that wraps the `OneMerge` objects returned by the
+/// A wrapping merge policy that wraps the [`OneMerge`](crate::core::index::merge_policy::OneMerge) objects returned by the
 /// wrapped merge policy.
 ///
 /// # Experimental

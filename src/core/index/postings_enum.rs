@@ -26,12 +26,12 @@ pub trait PostingsEnum: DocIdSetIterator {
   /// Returns term frequency in the current document, or 1 if the field was
   /// indexed with [`DOCS`](crate::core::index::index_options::IndexOptions::Docs)
   /// only.  Do not call this before
-  /// [`nextDoc`](DocIdSetIterator::next_doc) is first called, nor after
-  /// [`nextDoc`](DocIdSetIterator::next_doc) returns
+  /// [`DocIdSetIterator::next_doc`] is first called, nor after
+  /// [`DocIdSetIterator::next_doc`] returns
   /// [`DocIdSetIterator#
   /// NO_MORE_DOCS`](crate::core::search::doc_id_set_iterator::NO_MORE_DOCS)
   ///
-  /// NOTE: if this enum was obtained with `NONE`, the result of this method
+  /// NOTE: if this enum was obtained with [`NONE`], the result of this method
   /// is undefined.
   fn freq(&mut self) -> Result<i32>;
 

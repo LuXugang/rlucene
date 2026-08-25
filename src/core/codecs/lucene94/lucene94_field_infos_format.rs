@@ -80,17 +80,17 @@ pub(crate) const SIMILARITY_FUNCTIONS: [VectorSimilarityFunction; 4] = [
 ///   - `4`: Indexed as `DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS`.
 /// - **DocValuesBits**: A byte containing per-document value types:
 ///   - High-order bits represent `norms` options.
-///   - Low-order bits represent `DocValues` options:
+///   - Low-order bits represent [`DocValues`](crate::core::index::doc_values::DocValues) options:
 ///     - `0`: No DocValues.
-///     - `1`: `NumericDocValues` (`DocValuesType::NUMERIC`).
-///     - `2`: `BinaryDocValues` (`DocValuesType::BINARY`).
-///     - `3`: `SortedDocValues` (`DocValuesType::SORTED`).
-/// - **DocValuesGen**: The generation count of the field's `DocValues`.
-///   - `-1`: No `DocValues` updates.
-///   - `>0`: Updates stored by `DocValuesFormat`.
+///     - `1`: [`NumericDocValues`](crate::core::index::numeric_doc_values::NumericDocValues) ([`DocValuesType::Numeric`]).
+///     - `2`: [`BinaryDocValues`](crate::core::index::binary_doc_values::BinaryDocValues) ([`DocValuesType::Binary`]).
+///     - `3`: [`SortedDocValues`](crate::core::index::sorted_doc_values::SortedDocValues) ([`DocValuesType::Sorted`]).
+/// - **DocValuesGen**: The generation count of the field's [`DocValues`](crate::core::index::doc_values::DocValues).
+///   - `-1`: No [`DocValues`](crate::core::index::doc_values::DocValues) updates.
+///   - `>0`: Updates stored by [`DocValuesFormat`](crate::core::codecs::doc_values_format::DocValuesFormat).
 /// - **Attributes**: A key-value map of codec-private attributes.
 /// - **PointDimensionCount, PointNumBytes**: Non-zero if the field is indexed
-///   as points (e.g., using `LongPoint`).
+///   as points (e.g., using [`LongPoint`](crate::core::document::long_point::LongPoint)).
 /// - **VectorDimension**: Non-zero if the field is indexed as vectors.
 /// - **VectorEncoding**: A byte indicating the encoding of vector values:
 ///   - `0`: `BYTE` (samples stored as signed bytes).
@@ -98,13 +98,13 @@ pub(crate) const SIMILARITY_FUNCTIONS: [VectorSimilarityFunction; 4] = [
 /// - **VectorSimilarityFunction**: A byte representing the similarity function
 ///   used:
 ///   - `0`: `EUCLIDEAN`
-///     [`VectorSimilarityFunction::EUCLIDEAN`](VectorSimilarityFunction::Euclidean).
+///     [`VectorSimilarityFunction::Euclidean`].
 ///   - `1`: `DOT_PRODUCT`
-///     [`VectorSimilarityFunction::DOT_PRODUCT`](VectorSimilarityFunction::DotProduct).
+///     [`VectorSimilarityFunction::DotProduct`].
 ///   - `2`: `COSINE`
-///     [`VectorSimilarityFunction::COSINE`](VectorSimilarityFunction::Cosine).
+///     [`VectorSimilarityFunction::Cosine`].
 ///   - `3`: `MAXIMUM_INNER_PRODUCT`
-///     [`VectorSimilarityFunction::MAXIMUM_INNER_PRODUCT`](VectorSimilarityFunction::MaximumInnerProduct).
+///     [`VectorSimilarityFunction::MaximumInnerProduct`].
 ///
 /// # Experimental
 pub struct Lucene94FieldInfosFormat;

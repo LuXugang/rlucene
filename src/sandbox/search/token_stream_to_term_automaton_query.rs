@@ -19,8 +19,8 @@ use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::sandbox::search::term_automaton_query::TermAutomatonQuery;
 
-/// Consumes a `TokenStream` and creates a `TermAutomatonQuery` where the transition labels are
-/// tokens from the `TermToBytesRefAttribute`.
+/// Consumes a [`TokenStream`] and creates a [`TermAutomatonQuery`] where the transition labels are
+/// tokens from the [`TermToBytesRefAttribute`](crate::core::analysis::token_attributes::term_to_bytes_ref_attribute::TermToBytesRefAttribute).
 ///
 /// This code is very new and likely has exciting bugs!
 ///
@@ -48,7 +48,7 @@ impl TokenStreamToTermAutomatonQuery {
     self.preserve_position_increments = enable_position_increments;
   }
 
-  /// Pulls the graph (including `PositionLengthAttribute`) from the provided `TokenStream`, and
+  /// Pulls the graph (including [`PositionLengthAttribute`](crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute)) from the provided [`TokenStream`], and
   /// creates the corresponding automaton where arcs are bytes from each term.
   pub fn to_query<TS>(&self, field: &str, input: &mut TS) -> Result<TermAutomatonQuery>
   where

@@ -22,7 +22,8 @@ use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::util::error::lucene_error::Result;
 use rand::Rng;
 use std::slice;
-/// Base test support for encoding tessellated `XYShape` and `LatLonShape` values.
+/// Base test support for encoding tessellated `XYShape` and
+/// [`LatLonShape`](crate::core::document::lat_lon_shape::LatLonShape) values.
 pub trait BaseShapeEncodingTestCase {
   fn encode_x(&self, x: f64) -> Result<i32>;
 

@@ -30,14 +30,13 @@ use std::sync::Arc;
 /// [`IndexReaderContext::leaves`](crate::core::index::index_reader_context::IndexReaderContext::leaves).
 ///
 /// [`IndexReader`] instances for indexes on disk are usually constructed with a
-/// call to one of the `DirectoryReader::open` methods, for example
+/// call to one of the [`directory_reader::open`](crate::core::index::directory_reader::open) methods, for example
 /// [`directory_reader::open`](crate::core::index::directory_reader::open).
 /// [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)
 /// implements the [`CompositeReader`] trait, so it is not possible to
 /// directly get postings from it.
 ///
-/// Concrete implementations are usually constructed with a call to one of the
-/// static `open` methods, for example
+/// Concrete implementations are usually constructed with an opening function such as
 /// [`directory_reader::open`](crate::core::index::directory_reader::open).
 ///
 /// For efficiency, this API often refers to documents via document numbers:

@@ -21,7 +21,7 @@ use crate::core::geo::line2d::{Line2D, create_from_line};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-/// Represents a line on the earth's surface. You can construct the `Line` directly with
+/// Represents a line on the earth's surface. You can construct the [`Line`] directly with
 /// `Vec<f64>` coordinates.
 ///
 /// NOTES:
@@ -51,7 +51,7 @@ pub struct Line {
 }
 
 impl Line {
-  /// Creates a new `Line` from the supplied latitude/longitude array.
+  /// Creates a new [`Line`] from the supplied latitude/longitude array.
   pub fn new(lats: Vec<f64>, lons: Vec<f64>) -> Result<Self> {
     if lats.len() != lons.len() {
       return Err(LuceneError::illegal_argument(

@@ -30,7 +30,7 @@ use crate::core::util::error::lucene_error::Result;
 /// # Note
 /// This is considered experimental and may change in future versions.
 pub trait SegmentInfoFormat {
-  /// Read `SegmentInfo` data from a directory.
+  /// Read [`SegmentInfo`] data from a directory.
   ///
   /// # Arguments
   ///

@@ -34,9 +34,9 @@ pub static EMPTY_TOP_DOCS: LazyLock<TopDocs<ScoreDoc>> =
 /// In that case, provide all relevant methods to avoid inconsistent behavior.
 ///
 /// # Notes
-/// - This trait defines the shared `TopDocsCollector` behavior.
+/// - This trait defines the shared [`TopDocsCollector`] behavior.
 /// - The associated [`TopDocs`] represents the search results (hits + metadata).
-/// - The `total_hits` counter and the `PriorityQueue` are the common state shared by all implementations.
+/// - The `total_hits` counter and the [`PriorityQueue`] are the common state shared by all implementations.
 pub trait TopDocsCollector: Collector {
   type Item: ScoreDocLike + Default;
   type Cmp: Compare<Self::Item>;

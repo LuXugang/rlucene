@@ -40,17 +40,17 @@ use crate::core::util::error::lucene_error::Result;
 ///
 /// - `field`: Field’s name. This value is never `None`.  
 /// - `max_doc`: Total number of documents in the range `[1 .. i64::MAX]`, regardless of whether they all contain values for this field.  
-///   This value is always positive. See [`IndexReader::max_doc()`](crate::core::index::index_reader::IndexReader::max_doc).
-/// - `doc_count`: Total number of documents that have at least one term for this field, in the range `[1 .. Max_doc()]`.  
-///   This value is always positive and never exceeds `max_doc()`. See [`Terms::doc_count()`](crate::core::index::terms::Terms::get_doc_count).
+///   This value is always positive. See [`IndexReader::max_doc`](crate::core::index::index_reader::IndexReader::max_doc).
+/// - `doc_count`: Total number of documents that have at least one term for this field, in the range `[1 .. max_doc()]`.
+///   This value is always positive and never exceeds `max_doc()`. See [`Terms::get_doc_count`](crate::core::index::terms::Terms::get_doc_count).
 /// - `sum_total_term_freq`: Total number of tokens for this field, in the range `[sum_doc_freq() .. i64::MAX]`.  
-///   This is the “word count” for this field across all documents—the sum of [`TermStatistics::total_term_freq()`](crate::core::search::term_statistics::TermStatistics::get_total_term_freq) across all terms,
+///   This is the “word count” for this field across all documents—the sum of [`TermStatistics::get_total_term_freq`](crate::core::search::term_statistics::TermStatistics::get_total_term_freq) across all terms,
 ///   and also the sum of each document’s field length. Always positive and at least `sum_doc_freq()`.  
-///   See [`Terms::sum_total_term_freq()`](crate::core::index::terms::Terms::get_sum_total_term_freq).
-/// - `sum_doc_freq`: Total number of posting-list entries for this field, in the range `[doc_count() .. Sum_total_term_freq()]`.  
-///   This is the sum of term-document pairs—the sum of [`TermStatistics::doc_freq()`](crate::core::search::term_statistics::TermStatistics::get_doc_freq) across all terms,
+///   See [`Terms::get_sum_total_term_freq`](crate::core::index::terms::Terms::get_sum_total_term_freq).
+/// - `sum_doc_freq`: Total number of posting-list entries for this field, in the range `[doc_count() .. sum_total_term_freq()]`.
+///   This is the sum of term-document pairs—the sum of [`TermStatistics::get_doc_freq`](crate::core::search::term_statistics::TermStatistics::get_doc_freq) across all terms,
 ///   and also the sum of each document’s unique term count. Always positive, at least `doc_count()`,  
-///   and never exceeds `sum_total_term_freq()`. See [`Terms::sum_doc_freq()`](crate::core::index::terms::Terms::get_sum_doc_freq).
+///   and never exceeds `sum_total_term_freq()`. See [`Terms::get_sum_doc_freq`](crate::core::index::terms::Terms::get_sum_doc_freq).
 pub struct CollectionStatistics {
   field: String,
   max_doc: i64,

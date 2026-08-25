@@ -31,7 +31,7 @@ pub trait IndexCommit: PartialEq + Eq + PartialOrd + Ord + Display {
   /// Returns the [`Directory`] for the index.
   fn get_directory(&self) -> Self::Directory;
   /// Delete this commit point. This only applies when using the commit point in the context of
-  /// `IndexWriter`’s `IndexDeletionPolicy`.
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter)’s [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy).
   ///
   /// Upon calling this, the writer is notified that this commit point should be deleted.
   ///

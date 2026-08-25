@@ -20,7 +20,7 @@ use std::fmt::Display;
 
 /// Random Access Index API. Unlike [`IndexInput`],
 /// this has no concept of file position; all reads are absolute. However, like
-/// `IndexInput`, it is only intended for use by a single thread.
+/// [`IndexInput`], it is only intended for use by a single thread.
 pub trait RandomAccessInput {
   /// The number of bytes in the file.
   fn length(&self) -> Result<usize>;

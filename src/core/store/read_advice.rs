@@ -28,14 +28,14 @@ pub enum ReadAdvice {
   ///Data is expected to be read in a random-access fashion, either by
   /// `IndexInput::seek(i64)` seeking often and reading relatively i16
   /// sequences of bytes at once, or by reading data through the
-  /// `RandomAccessInput` abstraction in random order.
+  /// [`RandomAccessInput`](crate::core::store::random_access_input::RandomAccessInput) abstraction in random order.
   Random,
   /// Data is expected to be read sequentially with very little seeking at
   /// most. The system may read ahead aggressively and free pages soon
   /// after they are accessed.
   Sequential,
   ///
-  ///Data is treated as random-access memory in practice. `Directory`
+  ///Data is treated as random-access memory in practice. [`Directory`](crate::core::store::directory::Directory)
   /// implementations may explicitly load the content of the file in
   /// memory, or provide hints to the system so that it loads the content
   /// of the file into the page cache at open time. This should only be used

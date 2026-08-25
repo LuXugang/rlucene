@@ -20,7 +20,7 @@ use crate::core::index::BytesRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub trait BytesRefIterator {
-  /// The returned `BytesRef` may be re-used across calls to `next`. After
+  /// The returned [`BytesRef`] may be re-used across calls to `next`. After
   /// this method returns `None`, do not call it again as the results are
   /// undefined.
   ///
@@ -29,7 +29,7 @@ pub trait BytesRefIterator {
   /// iterator is reached.
   ///
   /// # Note
-  /// In some scenarios, we need to return a reference to the `BytesRef` to
+  /// In some scenarios, we need to return a reference to the [`BytesRef`] to
   /// avoid frequent copying operations.
   /// Like in [`TermsDict`](crate::core::codecs::lucene90::lucene90_doc_values_producer::TermsDict), this method can be used
   /// when reusing internal buffers to reduce allocations and improve

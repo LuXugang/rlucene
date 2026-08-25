@@ -36,7 +36,7 @@ use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::packed::paged_mutable::PagedMutable;
 use std::mem::size_of_val;
 
-/// A `DocValuesFieldUpdates` which holds updates of documents, of a single `NumericDocValuesField`.
+/// A `DocValuesFieldUpdates` which holds updates of documents, of a single [`NumericDocValuesField`](crate::core::document::numeric_doc_values_field::NumericDocValuesField).
 pub(crate) struct NumericDocValuesFieldUpdates {
   values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
   min_value: i64,

@@ -48,7 +48,7 @@ type CacheDirectory = ByteBuffersDirectory<SingleInstanceLockFactory>;
 /// the segments produced by merging them, as long as they are small enough)
 /// in RAM.
 ///
-/// This is safe to use: when an application calls `IndexWriter::commit`, all
+/// This is safe to use: when an application calls [`TwoPhaseCommit::commit`](crate::core::index::two_phase_commit::TwoPhaseCommit::commit), all
 /// cached files will be flushed from the cache and synced.
 ///
 /// # Example

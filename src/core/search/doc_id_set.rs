@@ -20,7 +20,7 @@ use crate::core::util::bits::{Bits, MatchAllBits};
 use crate::core::util::dummy::dummy_bits::DummyBits;
 use crate::core::util::error::lucene_error::Result;
 
-/// A `DocIdSet` contains a set of document IDs.
+/// A [`DocIdSet`] contains a set of document IDs.
 /// Implementing types must provide an [`iterator`](DocIdSet::iterator) method
 /// to access the set.
 pub trait DocIdSet: Accountable {
@@ -31,7 +31,7 @@ pub trait DocIdSet: Accountable {
   /// documents.
   ///
   /// # Returns
-  /// * `None` if this `DocIdSet` does not support random access.
+  /// * `None` if this [`DocIdSet`] does not support random access.
   ///
   /// Note that, unlike [`iterator`](DocIdSet::iterator), a return value of
   /// `None` **does not** imply that no documents match the filter!
@@ -70,7 +70,7 @@ pub fn all(max_doc: i32) -> All {
   All::new(max_doc)
 }
 
-/// A `DocIdSet` that matches all doc ids up to a specified doc (exclusive).
+/// A [`DocIdSet`] that matches all doc ids up to a specified doc (exclusive).
 impl DocIdSet for All {
   type DocIdSetIterator = AllDISI;
 

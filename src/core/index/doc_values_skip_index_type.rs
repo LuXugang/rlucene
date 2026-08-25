@@ -25,10 +25,10 @@ pub enum DocValuesSkipIndexType {
   /// No skip index should be created.
   None,
   /// Record range of values. Suitable for:
-  /// - `Numeric`
-  /// - `SortedNumeric`
-  /// - `Sorted`
-  /// - `SortedSet`
+  /// - [`Numeric`](crate::core::index::doc_values::Numeric)
+  /// - [`SortedNumeric`](crate::core::index::doc_values::SortedNumeric)
+  /// - [`Sorted`](crate::core::index::doc_values::Sorted)
+  /// - [`SortedSet`](crate::core::index::doc_values::SortedSet)
   ///
   /// Records min/max values per range of doc IDs.
   Range,

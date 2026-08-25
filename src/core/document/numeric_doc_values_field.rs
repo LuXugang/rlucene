@@ -111,7 +111,7 @@ impl NumericDocValuesField {
   ///
   /// Note: such queries cannot efficiently advance to the next match, which makes them slow if
   /// they are not ANDed with a selective query. As a consequence, they are best used wrapped in an
-  /// `IndexOrDocValuesQuery`, alongside a range query that executes on points, such as
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery), alongside a range query that executes on points, such as
   /// [`LongPoint::new_range_query`](crate::core::document::long_point::LongPoint::new_range_query).
   pub fn new_slow_range_query<T>(
     field: T,
@@ -129,7 +129,7 @@ impl NumericDocValuesField {
   ///
   /// Note: such queries cannot efficiently advance to the next match, which makes them slow if
   /// they are not ANDed with a selective query. As a consequence, they are best used wrapped in an
-  /// `IndexOrDocValuesQuery`, alongside a set query that executes on points, such as
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery), alongside a set query that executes on points, such as
   /// [`LongPoint::new_set_query`](crate::core::document::long_point::LongPoint::new_set_query).
   pub fn new_slow_set_query<T>(field: T, values: Vec<i64>) -> Result<SortedNumericDocValuesSetQuery>
   where

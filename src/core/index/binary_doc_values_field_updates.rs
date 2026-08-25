@@ -33,7 +33,7 @@ use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::mem::size_of_val;
 
-/// A [`DocValuesFieldUpdates`](crate::core::index::doc_values_field_updates::DocValuesFieldUpdates) which holds updates for documents of a single `BinaryDocValuesField`.
+/// A [`DocValuesFieldUpdates`](crate::core::index::doc_values_field_updates::DocValuesFieldUpdates) which holds updates for documents of a single [`BinaryDocValuesField`](crate::core::document::binary_doc_values_field::BinaryDocValuesField).
 ///
 /// # Note
 /// This API is experimental and may change in future versions.

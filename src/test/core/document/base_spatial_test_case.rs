@@ -55,7 +55,7 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-/// Name of the `LatLonShape` indexed field.
+/// Name of the [`LatLonShape`](crate::core::document::lat_lon_shape::LatLonShape) indexed field.
 pub(crate) const FIELD_NAME: &str = "shape";
 
 const QUERY_RELATIONS: [QueryRelation; 4] = [
@@ -177,7 +177,8 @@ pub trait BaseSpatialTestCase {
   #[allow(dead_code)]
   fn get_encoder(&self) -> Self::Encoder;
 
-  /// Creates the array of `LatLonShape::Triangle` values that are used to index the shape.
+  /// Creates the array of [`Triangle`](crate::core::document::shape_field::Triangle) values used
+  /// to index the shape.
   fn create_indexable_fields(&self, field: &str, shape: &Self::Shape) -> Result<Vec<Fields>>;
 
   /// Adds a shape to a provided document.

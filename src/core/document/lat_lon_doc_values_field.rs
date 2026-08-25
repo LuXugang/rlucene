@@ -42,7 +42,7 @@ use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
-/// Type for a `LatLonDocValuesField`.
+/// Type for a [`LatLonDocValuesField`](crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField).
 ///
 /// Each value stores an `i64` where the upper 32 bits are the encoded latitude, and the
 /// lower 32 bits are the encoded longitude.
@@ -68,15 +68,15 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 /// - [`new_distance_sort`](Self::new_distance_sort) for ordering documents by distance from a specified
 ///   location.
 ///
-/// If you also need query operations, you should add a separate `LatLonPoint` instance. If you
-/// also need to store the value, you should add a separate `StoredField` instance.
+/// If you also need query operations, you should add a separate [`LatLonPoint`](crate::core::document::lat_lon_point::LatLonPoint) instance. If you
+/// also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
 /// **WARNING**: Values are indexed with some loss of precision from the original `f64` values
 /// (4.190951585769653E-8 for the latitude component and 8.381903171539307E-8 for longitude).
 ///
 /// # See also
 ///
-/// `LatLonPoint`
+/// [`LatLonPoint`](crate::core::document::lat_lon_point::LatLonPoint)
 pub struct LatLonDocValuesField {
   parent_field: Field,
 }
@@ -91,7 +91,7 @@ impl Clone for LatLonDocValuesField {
 }
 
 impl LatLonDocValuesField {
-  /// Creates a new `LatLonDocValuesField` with the specified latitude and longitude.
+  /// Creates a new [`LatLonDocValuesField`] with the specified latitude and longitude.
   ///
   /// # Parameters
   ///
@@ -128,7 +128,7 @@ impl LatLonDocValuesField {
     Ok(())
   }
 
-  /// Checks field information and returns an error if it is definitely not a `LatLonDocValuesField`.
+  /// Checks field information and returns an error if it is definitely not a [`LatLonDocValuesField`](crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField).
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     if *field_info.get_doc_values_type() != DocValuesType::None
       && field_info.get_doc_values_type() != TYPE.doc_values_type()
@@ -142,13 +142,13 @@ impl LatLonDocValuesField {
     }
     Ok(())
   }
-  /// Creates a `SortField` for sorting by distance from a location.
+  /// Creates a [`SortField`](crate::core::search::sort_field::SortField) for sorting by distance from a location.
   ///
   /// This sort orders documents by ascending distance from the location. The value returned in
-  /// `FieldDoc` for the hits contains a `Double` instance with the distance in meters.
+  /// [`FieldDoc`](crate::core::search::field_doc::FieldDoc) for the hits contains an `f64` distance in meters.
   ///
   /// If a document is missing the field, then by default it is treated as having
-  /// `Double::POSITIVE_INFINITY` distance (missing values sort last).
+  /// [`f64::INFINITY`] distance (missing values sort last).
   ///
   /// If a document contains multiple values for the field, the *closest* distance to the location is
   /// used.
@@ -161,7 +161,7 @@ impl LatLonDocValuesField {
   ///
   /// # Returns
   ///
-  /// A `SortField` ordering documents by distance.
+  /// A [`SortField`](crate::core::search::sort_field::SortField) ordering documents by distance.
   ///
   /// # Errors
   ///
@@ -178,8 +178,8 @@ impl LatLonDocValuesField {
   }
   /// Create a query for matching a bounding box using doc values. This query is usually slow as it
   /// does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
-  /// `LatLonPoint::newBoxQuery`.
+  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a
+  /// [`LatLonPoint::new_box_query`](crate::core::document::lat_lon_point::LatLonPoint::new_box_query).
   pub fn new_slow_box_query(
     field: &str,
     min_latitude: f64,
@@ -219,7 +219,7 @@ impl LatLonDocValuesField {
   /// Create a query for matching points within the specified distance of the supplied location. This
   /// query is usually slow as it does not use an index structure and needs to verify documents
   /// one-by-one in order to know whether they match. It is best used wrapped in an
-  /// `IndexOrDocValuesQuery` alongside a `LatLonPoint::newDistanceQuery`.
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a [`LatLonPoint::new_distance_query`](crate::core::document::lat_lon_point::LatLonPoint::new_distance_query).
   ///
   /// # Parameters
   ///
@@ -247,8 +247,8 @@ impl LatLonDocValuesField {
   }
   /// Create a query for matching points within the supplied polygons. This query is usually slow as
   /// it does not use an index structure and needs to verify documents one-by-one in order to know
-  /// whether they match. It is best used wrapped in an `IndexOrDocValuesQuery` alongside a
-  /// `LatLonPoint::newPolygonQuery`.
+  /// whether they match. It is best used wrapped in an [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a
+  /// [`LatLonPoint::new_polygon_query`](crate::core::document::lat_lon_point::LatLonPoint::new_polygon_query).
   ///
   /// # Parameters
   ///
@@ -266,16 +266,16 @@ impl LatLonDocValuesField {
     Self::new_slow_geometry_query(field, QueryRelation::Intersects, polygons)
   }
   /// Create a query for matching one or more geometries against the provided
-  /// `ShapeField::QueryRelation`. Line geometries are not supported for the `WITHIN` relationship.
+  /// [`QueryRelation`]. Line geometries are not supported for the `WITHIN` relationship.
   /// This query is usually slow as it does not use an index structure and needs to verify documents
   /// one-by-one in order to know whether they match. It is best used wrapped in an
-  /// `IndexOrDocValuesQuery` alongside a `LatLonPoint::newGeometryQuery`.
+  /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery) alongside a [`LatLonPoint::new_geometry_query`](crate::core::document::lat_lon_point::LatLonPoint::new_geometry_query).
   ///
   /// # Parameters
   ///
   /// - `field`: field name.
   /// - `query_relation`: relation the points must satisfy with the provided geometries.
-  /// - `lat_lon_geometries`: array of `LatLonGeometry` values. must not be empty.
+  /// - `lat_lon_geometries`: array of [`LatLonGeometry`] values. must not be empty.
   ///
   /// # Returns
   ///

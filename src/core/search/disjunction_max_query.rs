@@ -67,7 +67,7 @@ impl DisjunctionMaxQuery {
   ///
   /// # Parameters
   ///
-  /// - `disjuncts`: a `Collection<Query>` of all the disjuncts to add
+  /// - `disjuncts`: a [`Vec<Query>`] containing all disjuncts to add
   /// - `tie_breaker_multiplier`: the score of each non-maximum disjunct for a document is multiplied
   ///   by this weight and added into the final score. If non-zero, the value should be small, on
   ///   the order of 0.1, which says that 10 occurrences of word in a lower-scored field that is

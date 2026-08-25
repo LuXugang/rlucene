@@ -350,7 +350,7 @@ impl ByteBuffersDataOutput {
     }
   }
 
-  /// Returns a `ByteBuffersDataInput` backed by references to internal
+  /// Returns a [`ByteBuffersDataInput`] backed by references to internal
   /// buffers.
   ///
   /// This method borrows the internal buffer data as `&[u8]`,
@@ -362,7 +362,7 @@ impl ByteBuffersDataOutput {
     ByteBuffersDataInput::new(data, length)
   }
 
-  /// Returns a `ByteBuffersDataInput` that owns its internal buffers.
+  /// Returns a [`ByteBuffersDataInput`] that owns its internal buffers.
   ///
   /// This method consumes the written buffer content into owned `[u8]`
   /// vectors, and constructs a self-contained input stream that can

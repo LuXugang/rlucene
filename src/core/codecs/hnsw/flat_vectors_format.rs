@@ -26,7 +26,7 @@ use crate::core::util::error::lucene_error::Result;
 /// Encodes and decodes per-document vectors and provides a scoring API for flat stored vectors.
 pub trait FlatVectorsFormat: KnnVectorsFormat {
   type FlatVectorsWriter<T: IndexOutput>: FlatVectorsWriter;
-  /// Returns a `KnnVectorsWriter` to write the vectors to the index.
+  /// Returns a [`KnnVectorsWriter`](crate::core::codecs::knn_vectors_writer::KnnVectorsWriter) to write the vectors to the index.
   fn fields_writer<D1, D2>(
     &self,
     state: &SegmentWriteState<D1>,
@@ -35,7 +35,7 @@ pub trait FlatVectorsFormat: KnnVectorsFormat {
   where
     D1: Directory;
   type FlatVectorsReader<T: IndexInput>: FlatVectorsReader;
-  /// Returns a `KnnVectorsReader` to write the vectors to the index.
+  /// Returns a [`KnnVectorsReader`](crate::core::codecs::knn_vectors_reader::KnnVectorsReader) to write the vectors to the index.
   fn fields_reader<D1, D2>(
     &self,
     state: &SegmentReadState<D1>,

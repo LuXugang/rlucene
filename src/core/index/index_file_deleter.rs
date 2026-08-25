@@ -38,21 +38,21 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::SeqCst;
 
-/// This struct keeps track of each `SegmentInfos` instance that is still "live", either because it
-/// corresponds to a `segments_N` file in the `Directory` (a "commit", i.e. a committed
-/// `SegmentInfos`) or because it's an in-memory `SegmentInfos` that a writer is actively
+/// This struct keeps track of each [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos) instance that is still "live", either because it
+/// corresponds to a `segments_N` file in the [`Directory`](crate::core::store::directory::Directory) (a "commit", i.e. a committed
+/// [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos)) or because it's an in-memory [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos) that a writer is actively
 /// updating but has not yet committed. This struct uses simple reference counting to map the live
-/// `SegmentInfos` instances to individual files in the `Directory`.
+/// [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos) instances to individual files in the [`Directory`](crate::core::store::directory::Directory).
 ///
-/// The same directory file may be referenced by more than one `IndexCommit`, i.e. more than one
-/// `SegmentInfos`. Therefore we count how many commits reference each file. When all the commits
+/// The same directory file may be referenced by more than one [`IndexCommit`](crate::core::index::index_commit::IndexCommit), i.e. more than one
+/// [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos). Therefore we count how many commits reference each file. When all the commits
 /// referencing a certain file have been deleted, the refcount for that file becomes zero, and the
 /// file is deleted.
 ///
-/// A separate deletion policy trait (`IndexDeletionPolicy`) is consulted on creation.
+/// A separate deletion policy trait ([`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy)) is consulted on creation.
 /// (`on_init`) and once per commit (`on_commit`), to decide when a commit should be removed.
 ///
-/// It is the business of the `IndexDeletionPolicy` to choose when to delete commit points. The
+/// It is the business of the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy) to choose when to delete commit points. The
 /// actual mechanics of file deletion, retrying, etc., derived from the deletion of commit points is
 /// the business of the `IndexFileDeleter`.
 ///
@@ -406,7 +406,7 @@ where
     }
     true
   }
-  /// Revisits the `IndexDeletionPolicy` by calling its [`IndexDeletionPolicy::on_commit()`] again with the known commits.
+  /// Revisits the [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy) by calling its [`IndexDeletionPolicy::on_commit()`] again with the known commits.
   /// This is useful when using a deletion policy that holds onto index commits.
   /// The application may know that some commits are no longer held by the policy and call `IndexWriter::delete_unused_files()`,
   /// which will attempt to delete those unused commits again.
@@ -428,14 +428,14 @@ where
 
     Ok(())
   }
-  /// For definition of “check point” see `IndexWriter` comments: “Clarification: Check Points (and commits)”.
+  /// For definition of “check point” see [`IndexWriter`](crate::core::index::index_writer::IndexWriter) comments: “Clarification: Check Points (and commits)”.
   ///
   /// Writer calls this when it has made a “consistent change” to the index, meaning new files are
-  /// written to the index and the in-memory `SegmentInfos` have been modified to point to those files.
+  /// written to the index and the in-memory [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos) have been modified to point to those files.
   ///
   /// This may or may not be a commit (`segments_N` may or may not have been written).
   ///
-  /// We simply incref the files referenced by the new `SegmentInfos` and decref the files we had
+  /// We simply incref the files referenced by the new [`SegmentInfos`](crate::core::index::segment_infos::SegmentInfos) and decref the files we had
   /// previously seen (if any).
   ///
   /// If this is a commit, we also call the policy to give it a chance to remove other commits. If
@@ -710,7 +710,7 @@ use crate::core::index::index_writer::WRITE_LOCK_NAME;
 use crate::core::index::segment_infos::generation_from_segments_file_name;
 
 /// Set all gens beyond what we currently see in the directory, to avoid double-write in cases
-/// where the previous `IndexWriter` did not gracefully close/rollback (e.g. OS/machine crashed or
+/// where the previous [`IndexWriter`](crate::core::index::index_writer::IndexWriter) did not gracefully close/rollback (e.g. OS/machine crashed or
 /// lost power).
 pub(crate) fn inflate_gens<'a, D, I>(
   infos: &mut SegmentInfos<D>,

@@ -208,7 +208,7 @@ where
 pub trait CharTokenizerBase {
   fn is_token_char(&self, c: &char) -> bool;
 }
-/// Creates a new instance of `CharTokenizer` using a custom predicate, supplied as a method
+/// Creates a new instance of [`CharTokenizer`] using a custom predicate, supplied as a method
 /// reference or lambda expression.
 /// The predicate should return `true` for all valid token characters.
 pub fn from_token_char_predicate(

@@ -81,7 +81,7 @@ impl<T, C> PriorityQueue<T, C> {
   ///
   /// # Description
   /// Those sentinel values should always compare worse than any non-sentinel
-  /// value (i.e., [`lessThan`](Compare::less_than) should always favor
+  /// value (i.e., [`Compare::less_than`] should always favor
   /// the non-sentinel values).
   ///
   /// By default, the supplier returns `None`, which means the queue will not
@@ -108,7 +108,7 @@ impl<T, C> PriorityQueue<T, C> {
   /// Therefore, you should ensure any call to this method creates a new
   /// instance and behaves consistently, e.g., it cannot return `None` if it
   /// previously returned a present value, and all returned instances
-  /// must be comparable using [`lessThan`](Compare::less_than).
+  /// must be comparable using [`Compare::less_than`].
   pub fn with_sentinel_object<F>(
     max_size: usize,
     sentinel_object_supplier: F,

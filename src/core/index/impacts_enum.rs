@@ -22,7 +22,7 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::util::error::lucene_error::Result;
 use std::borrow::Cow;
 
-/// Extension of `PostingsEnum` which also provides information about upcoming
+/// Extension of [`PostingsEnum`] which also provides information about upcoming
 /// impacts.
 pub trait ImpactsEnum: PostingsEnum + ImpactsSource {}
 macro_rules! define_impacts_enum_enum {

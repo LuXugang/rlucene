@@ -103,8 +103,8 @@ where
 {
   type Reader: CodecReader;
 
-  /// The `MergeScheduler` calls this method to retrieve the next merge
-  /// requested by the `MergePolicy`.
+  /// The [`MergeScheduler`] calls this method to retrieve the next merge
+  /// requested by the [`MergePolicy`](crate::core::index::merge_policy::MergePolicy).
   fn get_next_merge(&self) -> Result<Option<OneMerge<D, Self::Reader>>>;
 
   /// Does finishing for a merge.

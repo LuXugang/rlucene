@@ -22,7 +22,8 @@ use std::cell::Cell;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
-/// A `Scorer`(crate::core::search::scorer::Scorer) that wraps another scorer and caches the score of the current document.
+/// A [`Scorer`](crate::core::search::scorer::Scorer) that wraps another scorer and caches the score
+/// of the current document.
 ///
 /// Successive calls to `score()` will return the same result and will not invoke
 /// the wrapped scorer’s `score()` method, unless the current document has changed.
@@ -31,7 +32,8 @@ use std::rc::Rc;
 /// is not computed for a document by default—only if the collector explicitly requests it.
 ///
 /// Some collectors may need to use the score in multiple places, but they only have a
-/// `Scorer`(crate::core::search::scorer::Scorer) reference and could otherwise end up computing the score of the same
+/// [`Scorer`](crate::core::search::scorer::Scorer) reference and could otherwise end up computing
+/// the score of the same
 /// document more than once.
 pub struct ScoreCachingWrappingScorer<S> {
   cache: ScoreCachingWrappingScorerCache,

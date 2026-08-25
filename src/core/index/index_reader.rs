@@ -61,7 +61,7 @@ use std::sync::{Arc, Weak};
 ///   [`CompositeReader::get_sequential_sub_readers`].
 ///
 /// [`IndexReader`] instances for indexes on disk are usually constructed with a
-/// call to one of the `DirectoryReader::open` methods, for example
+/// call to one of the [`directory_reader::open`](crate::core::index::directory_reader::open) methods, for example
 /// [`directory_reader::open`](crate::core::index::directory_reader::open).
 /// [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)
 /// implements the
@@ -220,7 +220,7 @@ pub trait IndexReader: Display {
   /// [`CompositeReaderContext`] holding a view of the reader tree's atomic leaf
   /// contexts. All contexts referenced from this reader's top-level context are
   /// private to this reader and are not shared with another context tree. For
-  /// example, `IndexSearcher` uses this API to drive searching one atomic leaf
+  /// example, [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) uses this API to drive searching one atomic leaf
   /// reader at a time. If this reader is not composed of child readers, this
   /// method returns a [`LeafReaderContext`].
   fn get_context(self) -> Result<IndexReaderContextType<Self>>
@@ -748,7 +748,8 @@ where
 struct IdentityTag;
 /// An identity wrapper whose equality and hashing are based on pointer identity.
 ///
-/// Two `Identity` values are considered equal **if and only if** they point to
+/// Two [`Identity`] values are considered equal **if and
+/// only if** they point to
 /// the same underlying allocation (i.e. they represent the same instance),
 /// regardless of any external semantics.
 ///

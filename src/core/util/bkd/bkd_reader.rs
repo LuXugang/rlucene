@@ -66,7 +66,7 @@ impl<I: IndexInput> BKDReader<I>
 where
   I: IndexInput,
 {
-  /// Caller must pre-seek the provided `IndexInput` to the index location
+  /// Caller must pre-seek the provided [`IndexInput`] to the index location
   /// that `BKDWriter::finish()` returned. BKD tree is always stored off-heap.
   pub fn new<I1>(meta_in: &mut I1, index_in: &mut I, data_in: Arc<Mutex<I>>) -> Result<Self>
   where

@@ -57,7 +57,7 @@ pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
 });
 /// Field that stores a per-document `i32` value for scoring, sorting or value retrieval and
 /// indexes the field for fast range filters. If you need more fine-grained control, use
-/// [`IntPoint`], `NumericDocValuesField` or [`SortedNumericDocValuesField`], and `StoredField`.
+/// [`IntPoint`], [`NumericDocValuesField`](crate::core::document::numeric_doc_values_field::NumericDocValuesField) or [`SortedNumericDocValuesField`], and [`StoredField`](crate::core::document::stored_field::StoredField).
 ///
 /// This field defines static factory methods for creating common queries:
 ///
@@ -65,14 +65,14 @@ pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
 /// * [`new_range_query`](Self::new_range_query) for matching a 1D range.
 /// * [`new_set_query`](Self::new_set_query) for matching a 1D set.
 ///
-/// See also `PointValues`.
+/// See also [`PointValues`](crate::core::index::point_values::PointValues).
 pub struct IntField {
   parent_field: Field,
   stored_value: Option<FieldDataEnum>,
 }
 
 impl IntField {
-  /// Creates a new `IntField`, indexing the provided value,
+  /// Creates a new [`IntField`], indexing the provided value,
   /// storing it as a DocValue, and optionally as a stored field.
   ///
   /// # Arguments

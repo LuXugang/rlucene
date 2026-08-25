@@ -66,7 +66,7 @@ pub trait MatchesIterator {
   /// Returns the [`Query`] causing the current match.
   ///
   /// If this [`MatchesIterator`] has been returned from a [`MatchesIterator::get_sub_matches`] call,
-  /// then returns a `TermQuery` equivalent to the current match.
+  /// then returns a [`TermQuery`](crate::core::search::term_query::TermQuery) equivalent to the current match.
   ///
   /// Should only be called after [`MatchesIterator::next`] has returned `true`.
   fn get_query(&self) -> Arc<Query>;

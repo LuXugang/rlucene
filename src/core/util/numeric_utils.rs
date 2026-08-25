@@ -97,7 +97,7 @@ impl NumericUtils {
     bits ^ ((bits >> 31) & 0x7fff_ffff)
   }
 
-  /// Result = a - b, where a >= b, else `LuceneError` is returned.
+  /// Result = a - b, where a >= b, else [`LuceneError`] is returned.
   pub fn subtract(
     bytes_per_dim: usize,
     dim: usize,
@@ -128,7 +128,7 @@ impl NumericUtils {
     Ok(())
   }
   /// Result = a + b, where a and b are unsigned. If there is an overflow,
-  /// `LuceneError` is returned.
+  /// [`LuceneError`] is returned.
   pub fn add(bytes_per_dim: u32, dim: u32, a: &[u8], b: &[u8], result: &mut [u8]) -> Result<()> {
     let start = (dim * bytes_per_dim) as usize;
     let end = start + bytes_per_dim as usize;

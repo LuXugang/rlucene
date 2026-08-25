@@ -42,10 +42,10 @@ use std::sync::Arc;
 pub struct PushPostingsWriterBase<S> {
   enum_flags: i32,
 
-  /// `FieldInfo` of current field being written.
+  /// [`FieldInfo`](crate::core::index::field_info::FieldInfo) of current field being written.
   pub(crate) field_info: Option<Arc<FieldInfo>>,
 
-  /// `IndexOptions` of current field being written.
+  /// [`IndexOptions`](crate::core::index::index_options::IndexOptions) of current field being written.
   pub(crate) index_options: IndexOptions,
 
   options: FieldWriteOptions,

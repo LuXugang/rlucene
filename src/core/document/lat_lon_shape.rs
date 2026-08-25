@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::Result;
 /// A geo shape utility type for indexing and searching GIS geometries whose vertices are
 /// latitude, longitude values (in decimal degrees).
 ///
-/// **WARNING**: Like `LatLonPoint`, vertex values are indexed with some loss of precision from
+/// **WARNING**: Like [`LatLonPoint`](crate::core::document::lat_lon_point::LatLonPoint), vertex values are indexed with some loss of precision from
 /// the original `f64` values (4.190951585769653E-8 for the latitude component and
 /// 8.381903171539307E-8 for longitude).
 pub struct LatLonShape {

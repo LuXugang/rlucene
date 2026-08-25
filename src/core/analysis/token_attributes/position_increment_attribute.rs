@@ -17,7 +17,7 @@
 use crate::core::util::attribute::Attribute;
 use crate::core::util::error::lucene_error::Result;
 
-/// Determines the position of this token relative to the previous `Token` in a `TokenStream`,  
+/// Determines the position of this token relative to the previous `Token` in a [`TokenStream`](crate::core::analysis::token_stream::TokenStream),
 /// used in phrase searching.
 ///
 /// The default value is `1`.

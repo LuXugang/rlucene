@@ -51,14 +51,14 @@ impl ArrayUtil {
   ///
   /// # Errors
   ///
-  /// Returns a `LuceneError::NumberFormat` if it can't parse the chars into
+  /// Returns a [`LuceneError::NumberFormat`] if it can't parse the chars into
   /// an integer.
   pub fn parse_int_default(chars: &[char], offset: i32, len: i32) -> Result<i32> {
     Self::parse_int(chars, offset, len, 10)
   }
 
   /// Parses the string argument as if it were an `i32` value and returns the
-  /// result. Returns an `LuceneError::NumberFormat` if the string does not
+  /// result. Returns an [`LuceneError::NumberFormat`] if the string does not
   /// represent an `i32` quantity. The second argument specifies the radix
   /// to use when parsing the value.
   pub fn parse_int(chars: &[char], mut offset: i32, mut len: i32, radix: i32) -> Result<i32> {

@@ -246,7 +246,7 @@ pub struct EnumWithSlice {
   pub(crate) slice: Rc<ReaderSlice>,
 }
 impl EnumWithSlice {
-  /// Creates a new `EnumWithSlice`.
+  /// Creates a new [`EnumWithSlice`].
   pub fn new() -> Self {
     Self {
       postings_enum_idx: 0,

@@ -23,9 +23,9 @@ use std::time::Duration;
 /// Controls the health status of [`DocumentsWriter`](crate::core::index::documents_writer::DocumentsWriter) sessions. This struct blocks
 /// incoming indexing threads if flushing is significantly slower than indexing to ensure the
 /// [`DocumentsWriter`](crate::core::index::documents_writer::DocumentsWriter)’s healthiness. If flushing is significantly slower than indexing, the net
-/// memory used within an `IndexWriter` session can increase quickly and exhaust available memory.
+/// memory used within an [`IndexWriter`](crate::core::index::index_writer::IndexWriter) session can increase quickly and exhaust available memory.
 ///
-/// To prevent OOM errors and ensure `IndexWriter`’s stability, this struct blocks incoming threads
+/// To prevent OOM errors and ensure [`IndexWriter`](crate::core::index::index_writer::IndexWriter)’s stability, this struct blocks incoming threads
 /// from indexing once 2× the number of available [`DocumentsWriterPerThread`](crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread)s in
 /// [`DocumentsWriterPerThreadPool`](crate::core::index::documents_writer_per_thread_pool::DocumentsWriterPerThreadPool) is exceeded. Once flushing catches up and the number of flushing
 /// DWPTs is equal to or lower than the number of active `DocumentsWriterPerThread`s, threads are

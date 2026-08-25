@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 use crate::core::util::error::lucene_error::Result;
-/// A trait for implementations that support two-phase commit. You can use
-/// `TwoPhaseCommitTool` to execute a 2-phase commit algorithm over several
-/// [`TwoPhaseCommit`]s.
+/// A trait for implementations that support two-phase commit. Callers can coordinate
+/// [`TwoPhaseCommit::prepare_commit`], [`TwoPhaseCommit::commit`], and
+/// [`TwoPhaseCommit::rollback`] across several participants.
 pub trait TwoPhaseCommit {
   /// The first stage of a 2-phase commit. Implementations should do as much
   /// work as possible in this method, but avoid actual committing changes. If

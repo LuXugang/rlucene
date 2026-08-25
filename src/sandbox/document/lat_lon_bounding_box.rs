@@ -63,7 +63,7 @@ pub struct LatLonBoundingBox {
 }
 
 impl LatLonBoundingBox {
-  /// Uses same encoding as `LatLonPoint` so numBytes is the same.
+  /// Uses same encoding as [`LatLonPoint`] so numBytes is the same.
   pub const BYTES: usize = LatLonPoint::BYTES;
 
   /// Create a new 2D GeoBoundingBoxField representing a 2 dimensional geospatial bounding box.

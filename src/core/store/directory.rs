@@ -64,7 +64,7 @@ use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
-/// A `Directory` provides an abstraction layer for storing a list of files.
+/// A [`Directory`] provides an abstraction layer for storing a list of files.
 /// A directory contains only files (no subfolder hierarchy).
 ///
 /// # Implementation Notes
@@ -74,11 +74,11 @@ use std::sync::Arc;
 ///   until the corresponding [`IndexOutput`] is closed.
 /// - Once a file is created, it must only be opened for input `open_input` or
 ///   deleted `delete_file`. Calling `create_output` on an existing file must
-///   return an error similar to `FileAlreadyExistsError`.
+///   return an [`std::io::Error`] with [`std::io::ErrorKind::AlreadyExists`].
 ///
 /// # Note
 /// If your application requires external synchronization,
-/// you should **not** synchronize on the `Directory` implementation instance
+/// you should **not** synchronize on the [`Directory`] implementation instance
 /// as this may cause deadlock.
 /// Instead, use your own synchronization primitives.
 ///
@@ -118,7 +118,7 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
   /// # Arguments
   /// * `name` - The name of an existing file.
   fn file_length(&self, name: &str) -> Result<usize>;
-  /// Creates a new, empty file in the directory and returns an `IndexOutput`
+  /// Creates a new, empty file in the directory and returns an [`IndexOutput`]
   /// instance for appending data to this file.
   ///
   /// # Errors
@@ -132,9 +132,9 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput>;
 
   /// Creates a new, empty, temporary file in the directory and returns an
-  /// `IndexOutput` instance for appending data to this file.
+  /// [`IndexOutput`] instance for appending data to this file.
   ///
-  /// The temporary file name (accessible via `IndexOutput::get_name`) will
+  /// The temporary file name (accessible via [`IndexOutput::get_name`]) will
   /// start with `prefix`, end with `suffix`, and have a reserved file
   /// extension `.tmp`.
   ///
@@ -173,7 +173,7 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
   /// for readers, the entire content of the previous `source` must be
   /// visible.
   ///
-  /// This method is used by `IndexWriter` to publish commits.
+  /// This method is used by [`IndexWriter`](crate::core::index::index_writer::IndexWriter) to publish commits.
   ///
   /// # Arguments
   /// * `source` - The file to rename.
@@ -217,10 +217,10 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
   }
 
   type Lock: Lock;
-  /// Acquires and returns a `Lock` for a file with the given name.
+  /// Acquires and returns a [`Lock`] for a file with the given name.
   ///
   /// # Errors
-  /// - Returns a `LockObtainFailedError` (optional specific error) if
+  /// - Returns a [`LockObtainFailedError`](crate::core::util::error::LockObtainFailedError) (optional specific error) if
   ///   the lock could not be obtained because it is currently held elsewhere.
   /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
   ///   the lock.
@@ -229,7 +229,7 @@ pub trait Directory: Display + CloseableRef + HasIdentity + Send + Sync {
   /// * `name` - The name of the lock file.
   fn obtain_lock(&self, name: &str) -> Result<Self::Lock>;
   /// Copies an existing `src` file from directory `from` to a non-existent
-  /// file `dest` in this directory. The given `IOContext` is only used
+  /// file `dest` in this directory. The given [`IOContext`] is only used
   /// for opening the destination file.
   ///
   /// # Arguments

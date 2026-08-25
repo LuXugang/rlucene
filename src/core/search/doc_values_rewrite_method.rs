@@ -68,7 +68,8 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// Rewrites `MultiTermQueries` into a filter, using DocValues for term enumeration.
+/// Rewrites [`MultiTermQuery`] implementations into a filter, using doc values for term
+/// enumeration.
 ///
 /// This can be used to perform these queries against an unindexed docvalues field.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]

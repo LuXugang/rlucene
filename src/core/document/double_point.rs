@@ -55,7 +55,7 @@ pub struct DoublePoint {
   parent_field: Field,
 }
 impl DoublePoint {
-  /// Creates a new `DoublePoint`, indexing the provided N-dimensional `f64` point.
+  /// Creates a new [`DoublePoint`], indexing the provided N-dimensional `f64` point.
   ///
   /// # Arguments
   ///
@@ -117,7 +117,7 @@ impl DoublePoint {
     Ok(())
   }
 
-  /// Packs an `f64` point into a `BytesRef`.
+  /// Packs an `f64` point into a [`BytesRef`](crate::core::index::bytes_ref::BytesRef).
   ///
   /// # Arguments
   ///
@@ -194,7 +194,7 @@ impl DoublePoint {
   }
 
   /// Create a query matching any of the specified 1D values. This is the points equivalent of
-  /// `TermsQuery`.
+  /// [`TermInSetQuery`](crate::core::search::term_in_set_query::TermInSetQuery).
   ///
   /// # Arguments
   ///

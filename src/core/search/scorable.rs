@@ -48,7 +48,7 @@ pub trait Scorable: FixedScore {
   ///
   /// # Note
   /// This method may only be called from collectors that use
-  /// [`ScoreMode::TOP_SCORES`](crate::core::search::score_mode::ScoreMode::TopScores),
+  /// [`ScoreMode::TopScores`](crate::core::search::score_mode::ScoreMode::TopScores),
   /// and successive calls may only set increasing values of `min_score`.
   fn set_min_competitive_score(&mut self, _min_score: f32) -> Result<()> {
     Ok(())
@@ -59,8 +59,8 @@ pub trait Scorable: FixedScore {
     Ok(vec![])
   }
 
-  /// Implementations that also implement `Scorer` should delegate this method
-  /// to `Scorer::default_cost` for consistent cost reporting.
+  /// Implementations that also implement [`Scorer`](crate::core::search::scorer::Scorer) should delegate this method
+  /// to [`Scorer::default_cost`](crate::core::search::scorer::Scorer::default_cost) for consistent cost reporting.
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::unsupported_operation(""))
   }
@@ -95,7 +95,7 @@ where
 /// The relationship can be any string that makes sense to the parent scorer.
 ///
 /// # Fields
-/// - `child`: The child `Scorable`. (This is typically a direct child and may
+/// - `child`: The child [`Scorable`]. (This is typically a direct child and may
 ///   itself also have children.)
 /// - `relationship`: An arbitrary string relating this scorer to the parent.
 #[derive(Debug, Clone)]

@@ -62,7 +62,7 @@ pub trait CharTermAttribute: Attribute + Display {
 
   /// Resets the term buffer to zero length.
   ///
-  /// Use before appending through the `Appendable` API.
+  /// Use before calling this attribute's append methods.
   ///
   /// # Returns
   ///
@@ -90,7 +90,7 @@ pub trait CharTermAttribute: Attribute + Display {
   /// `self` for chaining.
   fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self>;
 
-  /// Appends the contents of another `CharTermAttribute` to this term.
+  /// Appends the contents of another [`CharTermAttribute`] to this term.
   ///
   /// # Returns
   ///

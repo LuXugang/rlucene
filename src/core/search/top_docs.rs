@@ -36,7 +36,7 @@ pub struct TopDocs<S> {
   pub score_docs: Vec<S>,
 }
 impl<S> TopDocs<S> {
-  /// Constructs a new `TopDocs`.
+  /// Constructs a new [`TopDocs`].
   pub fn new(total_hits: TotalHits, score_docs: Vec<S>) -> Self {
     Self {
       total_hits,
@@ -45,9 +45,9 @@ impl<S> TopDocs<S> {
   }
 }
 
-/// Returns a new `TopFieldDocs`, containing topN results across the provided `TopFieldDocs`,
-/// sorting by the specified `Sort`. Each of the [`TopDocs`] must have been sorted by the same
-/// `Sort`, and sort field values must have been filled.
+/// Returns a new [`TopFieldDocs`], containing topN results across the provided [`TopFieldDocs`],
+/// sorting by the specified [`Sort`]. Each of the [`TopDocs`] must have been sorted by the same
+/// [`Sort`], and sort field values must have been filled.
 ///
 /// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
 ///

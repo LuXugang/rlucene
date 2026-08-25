@@ -31,11 +31,14 @@ use crate::core::search::weight::Weight;
 ///   docs, according to some criteria, after collection is done.
 /// - `TopScoreDocCollector` implements [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts
 ///   according to score + docID. This is used internally by the [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search
-///   methods that do not take an explicit `Sort`(crate::core::index::sort::Sort). It is likely the most frequently used
+///   methods that do not take an explicit [`Sort`](crate::core::search::sort::Sort). It is likely
+///   the most frequently used
 ///   collector.
 /// - [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector) implements [`TopDocsCollector`](crate::core::search::top_docs_collector::TopDocsCollector) and sorts according to a
-///   specified `Sort`(crate::core::index::sort::Sort) object (sort by field). This is used internally by the
-///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search methods that take an explicit `Sort`(crate::core::index::sort::Sort).
+///   specified [`Sort`](crate::core::search::sort::Sort) object (sort by field). This is used
+///   internally by the
+///   [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher) search methods that take
+///   an explicit [`Sort`](crate::core::search::sort::Sort).
 /// - [`PositiveScoresOnlyCollector`](crate::core::search::positive_scores_only_collector::PositiveScoresOnlyCollector) wraps any other Collector and prevents collection of
 ///   hits whose score is <= 0.0
 use crate::core::util::error::lucene_error::Result;

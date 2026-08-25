@@ -83,7 +83,7 @@ pub struct CompiledAutomaton {
   transition: Transition,
 }
 impl CompiledAutomaton {
-  /// Creates a `CompiledAutomaton` with `finite = false` and `simplify =
+  /// Creates a [`CompiledAutomaton`] with `finite = false` and `simplify =
   /// true`.
   pub fn from_automaton(automaton: Automaton) -> Result<Self> {
     Self::with_binary(automaton, false, true, false)

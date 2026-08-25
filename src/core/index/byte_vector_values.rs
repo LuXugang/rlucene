@@ -26,7 +26,7 @@ use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 
-/// This trait provides access to per-document byte vector values indexed as `KnnByteVectorField`.
+/// This trait provides access to per-document byte vector values indexed as [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
 pub trait ByteVectorValues: KnnVectorValues {
   /// Returns the vector value for an ordinal in `0..size()`.
   /// Returns an out-of-bounds error for an invalid ordinal. The returned array may be shared across calls.

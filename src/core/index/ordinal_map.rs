@@ -169,7 +169,7 @@ impl OrdinalMap {
   ///
   ///    `(segmentIndex, TermsEnum::ord()) -> globalTermOrdinal - TermsEnum::ord()`
   ///
-  ///    We then call `TermsEnum::next` and update the PQ to iterate（remember the PQ maintains
+  ///    We then call [`BytesRefIterator::next`](crate::core::util::bytes_ref_iterator::BytesRefIterator::next) and update the PQ to iterate（remember the PQ maintains
   ///    an order based on [`TermsEnum::term`] which changes on the `next()` calls）。If the current
   ///    term exists in some other segment, the top of the queue will contain that segment.
   ///    If not, the top of the queue will contain a segment with the next term in the index and the

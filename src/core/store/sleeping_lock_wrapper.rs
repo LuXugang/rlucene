@@ -71,7 +71,7 @@ impl<D> SleepingLockWrapper<D> {
     })
   }
 
-  /// Return the wrapped `Directory`.
+  /// Return the wrapped [`Directory`].
   pub fn get_delegate(&self) -> &D {
     &self.in_
   }

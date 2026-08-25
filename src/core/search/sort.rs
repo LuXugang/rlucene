@@ -24,7 +24,7 @@ use std::fmt::Display;
 use std::hash::Hash;
 /// Encapsulates sort criteria for returned hits.
 ///
-/// A `Sort` can be created with no fields, yielding a value
+/// A [`Sort`] can be created with no fields, yielding a value
 /// that instructs searches to return hits sorted by relevance; or it can be
 /// created with one or more [`SortField`]s.
 ///
@@ -60,7 +60,7 @@ impl Sort {
 impl Sort {
   /// Sorts by computed relevance.
   ///
-  /// This is the same sort criteria as calling `IndexSearcher::search`
+  /// This is the same sort criteria as calling [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher::search)
   /// without a sort criteria, only with slightly more overhead.
   pub fn new() -> Result<Self> {
     let sort_field = SortFieldEnum::Sorter(SortField::get_field_score()?);
@@ -69,13 +69,13 @@ impl Sort {
 
   /// Sets the sort to the given criteria in succession.
   ///
-  /// The first `SortField` is checked first, but if it produces a tie, then
-  /// the second `SortField` is used to break the tie, and so on. Finally,
-  /// if there is still a tie after all `SortField`s are checked, the
+  /// The first [`SortField`] is checked first, but if it produces a tie, then
+  /// the second [`SortField`] is used to break the tie, and so on. Finally,
+  /// if there is still a tie after all [`SortField`]s are checked, the
   /// internal Lucene doc ID is used to break it.
   ///
   /// # Arguments
-  /// - `fields`: A vector of `SortField` to define the sorting order.
+  /// - `fields`: A vector of [`SortField`] to define the sorting order.
   ///
   /// # Errors
   /// Returns an error if the provided `fields` vector is empty.
@@ -96,7 +96,7 @@ impl Sort {
   /// Representation of the sort criteria.
   ///
   /// # Returns
-  /// Array (Vec) of `SortField` objects used in this sort criteria.
+  /// Array (Vec) of [`SortField`] objects used in this sort criteria.
   pub fn get_sort(&self) -> &[SortFieldEnum] {
     &self.fields
   }

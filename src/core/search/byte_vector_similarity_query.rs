@@ -56,7 +56,7 @@ impl ByteVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnByteVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
   /// * `target` - the target vector of the search.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
@@ -95,7 +95,7 @@ impl ByteVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnByteVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
   /// * `target` - the target vector of the search.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
@@ -125,7 +125,7 @@ impl ByteVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnByteVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
   /// * `target` - the target vector of the search.
   /// * `result_similarity` - similarity score for result collection.
   /// * `filter` - a filter applied before the vector search.
@@ -151,7 +151,7 @@ impl ByteVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnByteVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
   /// * `target` - the target vector of the search.
   /// * `result_similarity` - similarity score for result collection.
   pub fn new<T>(field: T, target: Vec<u8>, result_similarity: f32) -> Result<Self>

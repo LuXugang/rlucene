@@ -45,7 +45,8 @@ use rand::{Rng, RngExt};
 use std::fmt::Debug;
 use std::sync::Arc;
 
-/// Base test case for testing geospatial indexing and search functionality for `LatLonPoint`.
+/// Base test case for testing geospatial indexing and search functionality for
+/// [`LatLonPoint`](crate::core::document::lat_lon_point::LatLonPoint).
 pub trait BaseLatLonPointTestCase: BaseLatLonSpatialTestCase {
   fn test_bounding_box_queries_equivalence<R>(&self, random: &mut R) -> Result<()>
   where

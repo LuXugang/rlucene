@@ -1177,7 +1177,7 @@ where
 }
 /// A merged [`TermsEnum`]. This helps avoid relying on the default terms enum, which calls
 /// [`SortedDocValues::lookup_ord`] or [`SortedSetDocValues::lookup_ord`] on every call to
-/// `TermsEnum::next`.
+/// [`BytesRefIterator::next`].
 pub struct MergedTermsEnum<TE> {
   subs: Vec<TE>,
   ordinal_map: Rc<OrdinalMap>,

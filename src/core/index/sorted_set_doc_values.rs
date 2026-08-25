@@ -35,7 +35,7 @@ use std::rc::Rc;
 /// A multi-valued version of
 /// [`SortedDocValues`].
 ///
-/// Per-Document values in a `SortedSetDocValues` are deduplicated,
+/// Per-Document values in a [`SortedSetDocValues`] are deduplicated,
 /// dereferenced, and sorted into a dictionary of unique values. A pointer to
 /// the dictionary value (ordinal) can be retrieved for each document. Ordinals
 /// are dense and in increasing sorted order.
@@ -72,7 +72,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
   /// Returns the number of unique values.
   ///
   /// # Returns
-  /// Number of unique values in this `SortedDocValues`. This is also
+  /// Number of unique values in this [`SortedDocValues`]. This is also
   /// equivalent to one plus the maximum ordinal.
   fn get_value_count(&self) -> Result<i64> {
     Err(LuceneError::need_implemented("this method not implement"))

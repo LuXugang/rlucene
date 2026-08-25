@@ -51,7 +51,7 @@ use std::hash::{Hash, Hasher};
 /// customized.
 ///
 /// Like sorting by string, this also supports sorting missing values as first or last, via
-/// [`setMissingValue`](SortFiledBase::set_missing_value).
+/// [`SortFiledBase::set_missing_value`].
 ///
 /// See also: [`SortedNumericSelector`]
 #[derive(Clone)]

@@ -19,7 +19,7 @@ use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::top_docs::{TopDocs, TopDocsLike};
 use crate::core::search::total_hits::TotalHits;
 
-/// Represents sorted hits returned by an `IndexSearcher`.
+/// Represents sorted hits returned by an [`IndexSearcher`](crate::core::search::index_searcher::IndexSearcher).
 #[derive(Default)]
 pub struct TopFieldDocs {
   pub base: TopDocs<TopFieldScoreDoc>,

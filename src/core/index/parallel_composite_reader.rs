@@ -65,18 +65,18 @@ impl<R> ParallelCompositeReader<R>
 where
   R: CompositeReader,
 {
-  /// Creates a `ParallelCompositeReader` based on the provided readers and
+  /// Creates a [`ParallelCompositeReader`] based on the provided readers and
   /// automatically closes them when this reader is closed.
   pub fn new(readers: Vec<R>) -> Result<Self> {
     Self::new_with_close_sub_readers(true, readers)
   }
 
-  /// Creates a `ParallelCompositeReader` based on the provided readers.
+  /// Creates a [`ParallelCompositeReader`] based on the provided readers.
   pub fn new_with_close_sub_readers(close_sub_readers: bool, readers: Vec<R>) -> Result<Self> {
     Self::new_internal(close_sub_readers, readers, None)
   }
 
-  /// Expert: creates a `ParallelCompositeReader` based on the provided readers
+  /// Expert: creates a [`ParallelCompositeReader`] based on the provided readers
   /// and stored-fields readers. When a document is loaded, only
   /// `stored_fields_readers` are used.
   pub fn new_with_stored_fields(

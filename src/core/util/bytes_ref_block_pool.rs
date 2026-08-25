@@ -42,7 +42,7 @@ impl BytesRefBlockPool {
     byte_block_pool.reset(false, false)
   }
 
-  /// Populates the given `BytesRef` with the term starting at `start`.
+  /// Populates the given [`BytesRef`] with the term starting at `start`.
   pub fn fill_bytes_ref(
     &self,
     term: &mut BytesRef<Vec<u8>>,
@@ -72,7 +72,7 @@ impl BytesRefBlockPool {
     Ok(())
   }
   /// Add a term, returning the start position on the underlying
-  /// `ByteBlockPool`. This can be used to read back the value using
+  /// [`ByteBlockPool`]. This can be used to read back the value using
   /// `fill_bytes_ref`.
   ///
   /// # See Also

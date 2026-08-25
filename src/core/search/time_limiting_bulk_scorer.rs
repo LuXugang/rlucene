@@ -24,8 +24,6 @@ pub(crate) const INTERVAL: i32 = 100;
 /// The [`TimeLimitingBulkScorer`] is used to timeout search requests that take longer than the
 /// maximum allowed search time limit. After this time is exceeded, the search thread is stopped by
 /// return a [`TimeLimitingBulkError`](crate::core::util::error::TimeExceededError).
-///
-/// See also `ExitableDirectoryReader`.
 pub struct TimeLimitingBulkScorer<'a, BS, QT> {
   in_: BS,
   query_timeout: &'a QT,

@@ -45,7 +45,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// Returns [`NumericDocValues`] for this field. The returned instance need
   /// not be thread-safe: it will only be used by a single thread. The
   /// behavior is undefined if the doc values type of the given field is
-  /// not [`DocValuesType::NUMERIC`](crate::core::index::doc_values_type::DocValuesType::Numeric).
+  /// not [`DocValuesType::Numeric`](crate::core::index::doc_values_type::DocValuesType::Numeric).
   fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
     Err(LuceneError::need_implemented(""))
   }
@@ -54,7 +54,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// not be thread-safe: it will only be used by a single thread. The
   /// behavior is undefined if the doc values type of the given field is
   /// not
-  /// [`DocValuesType::BINARY`](crate::core::index::doc_values_type::DocValuesType::Binary).
+  /// [`DocValuesType::Binary`](crate::core::index::doc_values_type::DocValuesType::Binary).
   /// A value is always returned on success.
   fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     Err(LuceneError::need_implemented(""))
@@ -64,7 +64,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// not be thread-safe: it will only be used by a single thread. The
   /// behavior is undefined if the doc values type of the given field is
   /// not
-  /// [`DocValuesType::SORTED`](crate::core::index::doc_values_type::DocValuesType::Sorted).
+  /// [`DocValuesType::Sorted`](crate::core::index::doc_values_type::DocValuesType::Sorted).
   /// A value is always returned on success.
   fn get_sorted(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
     Err(LuceneError::need_implemented(""))
@@ -73,7 +73,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// Returns [`SortedNumericDocValues`] for this field. The returned instance
   /// need not be thread-safe: it will only be used by a single thread.
   /// The behavior is undefined if the doc values type of the given field
-  /// is not [`DocValuesType::SORTED_NUMERIC`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric).
+  /// is not [`DocValuesType::SortedNumeric`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric).
   /// A value is always returned on success.
   fn get_sorted_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
     Err(LuceneError::need_implemented(""))
@@ -84,7 +84,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// need not be thread-safe: it will only be used by a single thread.
   /// The behavior is undefined if the doc values type of the given field
   /// is not
-  /// [`DocValuesType::SORTED_SET`](crate::core::index::doc_values_type::DocValuesType::SortedSet).
+  /// [`DocValuesType::SortedSet`](crate::core::index::doc_values_type::DocValuesType::SortedSet).
   /// A value is always returned on success.
   fn get_sorted_set(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     Err(LuceneError::need_implemented(""))
@@ -94,7 +94,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// need not be thread-safe: it will only be used by a single thread.
   /// The return value is undefined if
   /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
-  /// [`DocValuesSkipIndexType::NONE`](crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
+  /// [`DocValuesSkipIndexType::None`](crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
   fn get_skipper(&self, _field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
     Err(LuceneError::need_implemented(""))
   }

@@ -39,7 +39,7 @@ use std::sync::{Arc, OnceLock};
 /// Lucene 9.9 vector format, which encodes numeric vector values into an associated graph connecting
 /// the documents having values. The graph is used to power HNSW search. The format consists of two
 /// files, and uses [`Lucene99ScalarQuantizedVectorsFormat`] to store the actual vectors: For
-/// details on graph storage and file extensions, see `Lucene99HnswVectorsFormat`.
+/// details on graph storage and file extensions, see [`Lucene99HnswVectorsFormat`](crate::core::codecs::lucene99::lucene99_hnsw_vectors_format::Lucene99HnswVectorsFormat).
 pub struct Lucene99HnswScalarQuantizedVectorsFormat {
   max_conn: usize,
   beam_width: usize,

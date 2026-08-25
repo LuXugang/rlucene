@@ -60,7 +60,7 @@ use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
-/// Type for an indexed `LatLonPoint`.
+/// Type for an indexed [`LatLonPoint`](crate::core::document::lat_lon_point::LatLonPoint).
 ///
 /// Each point stores two dimensions with 4 bytes per dimension.
 pub(crate) static TYPE_: LazyLock<FieldType> = LazyLock::new(|| {
@@ -83,15 +83,15 @@ pub(crate) static TYPE_: LazyLock<FieldType> = LazyLock::new(|| {
 /// * [`Self::new_geometry_query`] for matching points within an arbitrary geometry collection.
 ///
 /// If you also need per-document operations such as sort by distance, add a separate
-/// `LatLonDocValuesField` instance. If you also need to store the value, you should add a
-/// separate `StoredField` instance.
+/// [`LatLonDocValuesField`](crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField) instance. If you also need to store the value, you should add a
+/// separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
 /// **WARNING**: Values are indexed with some loss of precision from the original `f64` values
 /// (`4.190951585769653E-8` for the latitude component and `8.381903171539307E-8` for
 /// longitude).
 ///
 /// See also [`PointValues`].
-/// See also `LatLonDocValuesField`.
+/// See also [`LatLonDocValuesField`](crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField).
 pub struct LatLonPoint {
   parent_field: Field,
 }
@@ -106,7 +106,7 @@ impl Clone for LatLonPoint {
 }
 
 impl LatLonPoint {
-  /// `LatLonPoint` is encoded as integer values, so the number of bytes is 4.
+  /// [`LatLonPoint`] is encoded as integer values, so the number of bytes is 4.
   pub const BYTES: usize = BitUtil::INT_BYTES;
   /// Creates a new LatLonPoint with the specified latitude and longitude
   ///
@@ -127,7 +127,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if latitude or longitude are out of bounds.
+  /// Returns [`LuceneError::IllegalArgument`] if latitude or longitude are out of bounds.
   pub fn set_location_value(&mut self, latitude: f64, longitude: f64) -> Result<()> {
     if matches!(self.parent_field.fields_data, FieldDataEnum::Dummy(_)) {
       self.parent_field.fields_data = FieldDataEnum::Binary(BytesRef::from_bytes(vec![0u8; 8]));
@@ -176,7 +176,7 @@ impl LatLonPoint {
     Ok(bytes)
   }
 
-  /// Checks field information and returns an error if it is definitely not a `LatLonPoint`.
+  /// Checks field information and returns an error if it is definitely not a [`LatLonPoint`](crate::core::document::lat_lon_point::LatLonPoint).
   pub(crate) fn check_compatible(field_info: &FieldInfo) -> Result<()> {
     // point/dv properties could be "unset", if you e.g. used only StoredField with this same name
     // in the segment.
@@ -218,7 +218,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if the box has invalid coordinates.
+  /// Returns [`LuceneError::IllegalArgument`] if the box has invalid coordinates.
   pub fn new_box_query(
     field: &str,
     min_latitude: f64,
@@ -281,7 +281,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if the location has invalid coordinates or radius is invalid.
+  /// Returns [`LuceneError::IllegalArgument`] if the location has invalid coordinates or radius is invalid.
   pub fn new_distance_query(
     field: &str,
     latitude: f64,
@@ -299,7 +299,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `polygons` is empty.
+  /// Returns [`LuceneError::IllegalArgument`] if `polygons` is empty.
   ///
   /// See also [`Polygon`].
   pub fn new_polygon_query(field: &str, polygons: Vec<Polygon>) -> Result<Query> {
@@ -307,7 +307,7 @@ impl LatLonPoint {
   }
 
   /// Create a query for matching one or more geometries against the provided
-  /// `ShapeField::QueryRelation`. Line geometries are not supported for WITHIN relationship.
+  /// [`QueryRelation`]. Line geometries are not supported for WITHIN relationship.
   ///
   /// * `field` - field name.
   /// * `query_relation` - The relation the points needs to satisfy with the provided geometries,
@@ -318,7 +318,7 @@ impl LatLonPoint {
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `lat_lon_geometries` is empty.
+  /// Returns [`LuceneError::IllegalArgument`] if `lat_lon_geometries` is empty.
   ///
   /// See also [`LatLonGeometry`].
   pub fn new_geometry_query<T>(
@@ -391,14 +391,14 @@ impl LatLonPoint {
   }
 
   /// Given a field that indexes point values into a [`LatLonPoint`] and doc values into
-  /// `LatLonDocValuesField`, this returns a query that scores documents based on their haversine
+  /// [`LatLonDocValuesField`](crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField), this returns a query that scores documents based on their haversine
   /// distance in meters to `(origin_lat, origin_lon)`: `score = weight * pivot_distance_meters /
   /// (pivot_distance_meters + distance)`, ie. score is in the `[0, weight]` range, is equal to
   /// `weight` when the document's value is equal to `(origin_lat, origin_lon)` and is equal to
   /// `weight / 2` when the document's value is distant of `pivot_distance_meters` from
   /// `(origin_lat, origin_lon)`. In case of multi-valued fields, only the closest point to
   /// `(origin_lat, origin_lon)` will be considered. This query is typically useful to boost results
-  /// based on distance by adding this query to a `Occur::Should` clause of a `BooleanQuery`.
+  /// based on distance by adding this query to a [`Occur::Should`] clause of a [`BooleanQuery`](crate::core::search::boolean_query::BooleanQuery).
   pub fn new_distance_feature_query(
     field: &str,
     weight: f32,
@@ -421,8 +421,8 @@ impl LatLonPoint {
 
   /// Finds the `n` nearest indexed points to the provided point, according to Haversine distance.
   ///
-  /// This is functionally equivalent to running `MatchAllDocsQuery` with a
-  /// `LatLonDocValuesField::new_distance_sort`, but is far more efficient since it takes
+  /// This is functionally equivalent to running [`MatchAllDocsQuery`](crate::core::search::match_all_docs_query::MatchAllDocsQuery) with a
+  /// [`LatLonDocValuesField::new_distance_sort`](crate::core::document::lat_lon_doc_values_field::LatLonDocValuesField::new_distance_sort), but is far more efficient since it takes
   /// advantage of properties the indexed BKD tree. Multi-valued fields are currently not
   /// de-duplicated, so if a document had multiple instances of the specified field that make it
   /// into the top n, that document will appear more than once.
@@ -436,12 +436,12 @@ impl LatLonPoint {
   /// * `longitude` - longitude at the center: must be within standard +/-180 coordinate bounds.
   /// * `n` - the number of nearest neighbors to retrieve.
   ///
-  /// Returns `TopFieldDocs` containing documents ordered by distance, where the field value for each
+  /// Returns [`TopFieldDocs`] containing documents ordered by distance, where the field value for each
   /// [`FieldDoc`] is the distance in meters.
   ///
   /// # Errors
   ///
-  /// Returns `IllegalArgument` if `latitude`, `longitude` or `n` are out-of-bounds.
+  /// Returns [`LuceneError::IllegalArgument`] if `latitude`, `longitude` or `n` are out-of-bounds.
   ///
   /// Returns an error if an I/O error occurs while finding the points.
   pub fn nearest<IRC>(

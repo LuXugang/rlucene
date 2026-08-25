@@ -61,12 +61,12 @@ use std::fmt::{Debug, Display};
 ///   value for retrieving in summary results.
 ///
 /// A field is a section of a document. Each field has three parts: name, type,
-/// and value. Values may be text (`String`, `Reader`, or a pre-analyzed
-/// `TokenStream`), binary (`&[u8]`), or numeric (`Number`). Fields are
+/// and value. Values may be text (`String`, [`ReaderEnum`], or a pre-analyzed
+/// [`TokenStream`]), binary (`&[u8]`), or numeric ([`Number`]). Fields are
 /// optionally stored in the index so they can be returned with document hits.
 ///
 /// # Note
-/// The field type is an `IndexableFieldType`. Modifying the state of the
+/// The field type is an [`IndexableFieldType`]. Modifying the state of the
 /// [`IndexableFieldType`] will affect any field using it. It is strongly
 /// recommended not to make changes after field instantiation.
 pub struct Field {
@@ -107,7 +107,7 @@ impl Field {
       indexable_field_type,
     }
   }
-  /// Creates a field with a `Reader` value.
+  /// Creates a field with a [`ReaderEnum`] value.
   ///
   /// # Parameters
   /// - `name`: Field name.
@@ -138,11 +138,11 @@ impl Field {
       fields_data: reader.into().into(),
     })
   }
-  /// Creates a field with a `TokenStream` value.
+  /// Creates a field with a [`TokenStream`] value.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `token_stream`: `TokenStream` value.
+  /// - `token_stream`: [`TokenStream`] value.
   /// - `field_type`: Field type.
   ///
   /// # Errors
@@ -227,12 +227,12 @@ impl Field {
   /// Creates a field with a binary value.
   ///
   /// # Note
-  /// The provided `BytesRef` is **not copied**, so ensure that it is not
+  /// The provided [`BytesRef`] is **not copied**, so ensure that it is not
   /// modified until you are done using this field.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `bytes`: `BytesRef` pointing to binary content (**not copied**).
+  /// - `bytes`: [`BytesRef`] pointing to binary content (**not copied**).
   /// - `field_type`: Field type.
   ///
   /// # Errors
@@ -306,8 +306,8 @@ impl Field {
       fields_data: FieldDataEnum::String(value.into()),
     })
   }
-  /// Returns the `TokenStream` for this field to be used when indexing, or
-  /// `None` if not set. If `None`, the `Reader` value or `String` value
+  /// Returns the [`TokenStream`] for this field to be used when indexing, or
+  /// `None` if not set. If `None`, the [`ReaderEnum`] value or `String` value
   /// is analyzed to produce the indexed tokens.
   pub fn token_stream_value(&mut self) -> Result<Option<&mut FieldTokenStreamEnum>> {
     match self.fields_data {
@@ -316,14 +316,14 @@ impl Field {
     }
   }
   /// Expert: changes the value of this field. This can be used during
-  /// indexing to re-use a single `Field` instance to improve indexing
+  /// indexing to re-use a single [`Field`] instance to improve indexing
   /// speed by reducing GC overhead from creating and reclaiming
-  /// `Field` instances. Typically, a single `Document` instance is also
+  /// [`Field`] instances. Typically, a single [`Document`](crate::core::document::document::Document) instance is also
   /// re-used, which is especially beneficial for small documents.
   ///
   /// # Note
-  /// Each `Field` instance should only be used once within a single
-  /// `Document` instance. See [ImproveIndexingSpeed](http://wiki.apache.org/lucene-java/ImproveIndexingSpeed) for details.
+  /// Each [`Field`] instance should only be used once within a single
+  /// [`Document`](crate::core::document::document::Document) instance. See [ImproveIndexingSpeed](http://wiki.apache.org/lucene-java/ImproveIndexingSpeed) for details.
   pub fn set_string_value<T>(&mut self, value: T) -> Result<()>
   where
     T: Into<String>,
@@ -599,7 +599,7 @@ impl IndexableField for Field {
   }
 
   /// Returns the value of the field as a `String`, or `None` if not set.
-  /// If `None`, the `Reader` value or binary value is used.
+  /// If `None`, the [`ReaderEnum`] value or binary value is used.
   ///
   /// Exactly one of `string_value()`, `reader_value()`, or `binary_value()`
   /// must be set.
@@ -632,7 +632,7 @@ impl IndexableField for Field {
     }
   }
 
-  /// Returns the value of the field as a `Reader`, or `None` if not set.
+  /// Returns the value of the field as a [`ReaderEnum`], or `None` if not set.
   /// If `None`, the `String` value or binary value is used.
   ///
   /// Exactly one of `string_value()`, `reader_value()`, or `binary_value()`

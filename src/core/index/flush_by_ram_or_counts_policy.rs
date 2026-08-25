@@ -24,7 +24,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::MutexGuard;
 /// Default flushing implementation that writes new segments based on RAM usage and document count,
-/// depending on the `IndexWriter`'s
+/// depending on the [`IndexWriter`](crate::core::index::index_writer::IndexWriter)'s
 /// [`IndexWriterConfig`](crate::core::index::index_writer_config::IndexWriterConfig).
 /// It also applies pending deletes based on the number of buffered delete terms.
 ///

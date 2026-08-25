@@ -67,7 +67,7 @@ pub trait PointValues {
   }
 
   /// Estimate the number of points that would be visited by `intersect`
-  /// with the given `IntersectVisitor`. This should run many times faster
+  /// with the given [`IntersectVisitor`]. This should run many times faster
   /// than `intersect(IntersectVisitor)`.
   fn estimate_point_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
     let mut point_tree = self.get_point_tree()?;
@@ -77,10 +77,10 @@ pub trait PointValues {
   }
 
   /// Estimate the number of documents that would be matched by `intersect`
-  /// with the given `IntersectVisitor`. This should run many times faster
+  /// with the given [`IntersectVisitor`]. This should run many times faster
   /// than `intersect(IntersectVisitor)`.
   ///
-  /// See also: `DocIdSetIterator::cost`
+  /// See also: [`DocIdSetIterator::cost`]
   fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
     let estimated_point_count = self.estimate_point_count(visitor)?;
     let doc_count = self.get_doc_count()?;
@@ -247,7 +247,7 @@ where
 }
 
 /// Estimate if the point count that would be matched by `intersect`
-/// with the given `IntersectVisitor` is greater than or equal to the
+/// with the given [`IntersectVisitor`](crate::core::index::point_values::IntersectVisitor) is greater than or equal to the
 /// `upper_bound`.
 pub(crate) fn is_estimated_point_count_greater_than_or_equal_to(
   visitor: &impl IntersectVisitor,
@@ -426,7 +426,7 @@ pub trait IntersectVisitor {
 
   /// Similar to `visit(doc_id)`, but a bulk visit and implementations may
   /// have their optimizations. Default implementation that iterates over
-  /// the provided `DocIdSetIterator`.
+  /// the provided [`DocIdSetIterator`].
   fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
     loop {
       let doc_id = iterator.next_doc()?;

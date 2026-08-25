@@ -118,11 +118,11 @@ impl DocValues {
     }
     Ok(())
   }
-  /// Returns `NumericDocValues` for the field, or [`Self::empty_numeric()`] if it has none.
+  /// Returns [`NumericDocValues`] for the field, or [`Self::empty_numeric()`] if it has none.
   ///
   /// # Returns
   ///
-  /// A `NumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  /// A [`NumericDocValues`] instance, or an empty instance if `field` does not exist in this reader.
   ///
   /// # Error
   ///
@@ -140,11 +140,11 @@ impl DocValues {
       },
     }
   }
-  /// Returns `BinaryDocValues` for the field, or [`Self::empty_binary()`] if it has none.
+  /// Returns [`BinaryDocValues`] for the field, or [`Self::empty_binary()`] if it has none.
   ///
   /// # Returns
   ///
-  /// A `BinaryDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  /// A [`BinaryDocValues`] instance, or an empty instance if `field` does not exist in this reader.
   ///
   /// # Error
   ///
@@ -162,11 +162,11 @@ impl DocValues {
       },
     }
   }
-  /// Returns `SortedDocValues` for the field, or [`Self::empty_sorted()`] if it has none.
+  /// Returns [`SortedDocValues`] for the field, or [`Self::empty_sorted()`] if it has none.
   ///
   /// # Returns
   ///
-  /// A `SortedDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  /// A [`SortedDocValues`] instance, or an empty instance if `field` does not exist in this reader.
   ///
   /// # Error
   ///
@@ -184,11 +184,11 @@ impl DocValues {
       },
     }
   }
-  /// Returns `SortedNumericDocValues` for the field, or [`Self::empty_sorted_numeric()`] if it has none.
+  /// Returns [`SortedNumericDocValues`] for the field, or [`Self::empty_sorted_numeric()`] if it has none.
   ///
   /// # Returns
   ///
-  /// A `SortedNumericDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  /// A [`SortedNumericDocValues`] instance, or an empty instance if `field` does not exist in this reader.
   ///
   /// # Error
   ///
@@ -213,11 +213,11 @@ impl DocValues {
       },
     }
   }
-  /// Returns `SortedSetDocValues` for the field, or [`Self::empty_sorted_set()`] if it has none.
+  /// Returns [`SortedSetDocValues`] for the field, or [`Self::empty_sorted_set()`] if it has none.
   ///
   /// # Returns
   ///
-  /// A `SortedSetDocValues` instance, or an empty instance if `field` does not exist in this reader.
+  /// A [`SortedSetDocValues`] instance, or an empty instance if `field` does not exist in this reader.
   ///
   /// # Error
   ///

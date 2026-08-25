@@ -22,14 +22,14 @@ pub trait TwoPhaseIterator {
   /// Return the approximation [`DocIdSetIterator`].
   ///
   /// The returned iterator must advance synchronously with this
-  /// `TwoPhaseIterator`.
+  /// [`TwoPhaseIterator`].
   fn approximation_mut(&mut self) -> Box<dyn DocIdSetIterator + '_>;
   fn approximation(&self) -> Box<dyn DocIdSetIterator + '_>;
 
   /// Return whether the current doc ID that `approximation()` is on matches.
   ///
   /// This method should only be called when the iterator is positioned
-  /// (i.e. not when `doc_id()` is `-1` or `NO_MORE_DOCS`) and at most once.
+  /// (i.e. not when `doc_id()` is `-1` or [`NO_MORE_DOCS`]) and at most once.
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs.

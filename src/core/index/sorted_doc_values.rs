@@ -34,7 +34,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// over the `i32` ordinals per document, with random-access APIs to resolve an
 /// `i32` ordinal to [`BytesRef`].
 ///
-/// Per-document values in a `SortedDocValues` are deduplicated, dereferenced,
+/// Per-document values in a [`SortedDocValues`] are deduplicated, dereferenced,
 /// and sorted into a dictionary of unique values. A pointer to the dictionary
 /// value (ordinal) can be retrieved for each document. Ordinals are dense and
 /// in increasing sorted order.
@@ -50,7 +50,7 @@ pub trait SortedDocValues: DocValuesIterator {
 
   /// Resolves the provided ordinal to the associated dictionary value.
   ///
-  /// The returned `BytesRef` may be reused across calls,
+  /// The returned [`BytesRef`] may be reused across calls,
   /// so if you want to keep it, make sure to deep-copy the value.
   ///
   /// # Arguments

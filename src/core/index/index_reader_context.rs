@@ -23,7 +23,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
-/// Represents a hierarchical relationship between `IndexReader` instances.
+/// Represents a hierarchical relationship between [`IndexReader`] instances.
 pub trait IndexReaderContext {
   type IndexReader: IndexReader;
   /// Returns the [`IndexReader`], this context represents.
@@ -33,8 +33,7 @@ pub trait IndexReaderContext {
   ///
   /// # Error
   ///
-  /// Returns `LuceneError::UnsupportedOperation` if this is not a top-level context.
-  /// `IndexReaderContext::children`
+  /// Returns [`LuceneError::UnsupportedOperation`](crate::core::util::error::lucene_error::LuceneError::UnsupportedOperation) if this is not a top-level context.
   fn leaves(&self) -> Result<&[LeafReaderContext<Self::LeafReader>]>;
 
   fn base(&self) -> &IndexReaderContextBase;

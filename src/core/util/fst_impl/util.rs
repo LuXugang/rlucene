@@ -359,7 +359,7 @@ impl Util {
   }
 
   /// Decodes the Unicode codepoints from the provided string and places them
-  /// in the provided scratch `IntsRef`, which must not be `None`, returning it.
+  /// in the provided scratch [`IntsRef`], which must not be `None`, returning it.
   pub fn to_utf32<AV>(s: &str, scratch: &mut IntsRefBuilder<AV>) -> Result<()>
   where
     AV: SharedAccessVec<i32> + WritableVec<i32>,
@@ -368,7 +368,7 @@ impl Util {
     Self::to_utf32_with_slice(s, 0, len, scratch)
   }
   /// Decodes the Unicode codepoints from the provided `char[]` and places
-  /// them into the provided scratch `IntsRef`, which must not be `None`,
+  /// them into the provided scratch [`IntsRef`], which must not be `None`,
   /// and returns it.
   pub fn to_utf32_with_slice<AV>(
     s: &str,
@@ -388,7 +388,7 @@ impl Util {
     scratch.set_length(int_idx);
     Ok(())
   }
-  /// Takes `u8` values from the `BytesRef` and converts them into an
+  /// Takes `u8` values from the [`BytesRef`] and converts them into an
   /// IntsRef.
   pub fn to_ints_ref<AV1, AV2>(
     input: &BytesRef<AV1>,
@@ -408,7 +408,7 @@ impl Util {
     scratch.set_length(input.length);
     Ok(())
   }
-  /// Converts `IntsRef` to `BytesRef`; all `i32` values must fit
+  /// Converts [`IntsRef`] to [`BytesRef`]; all `i32` values must fit
   /// into a byte.
   pub fn to_bytes_ref<AV1, AV2>(
     input: &IntsRef<AV1>,
@@ -437,7 +437,7 @@ impl Util {
   /// * `fst` - the FST to operate on
   /// * `follow` - the arc to follow reading the label from
   /// * `arc` - the arc to read into in place
-  /// * `in_reader` - the FST's `BytesReader`
+  /// * `in_reader` - the FST's [`BytesReader`]
   pub fn read_ceil_arc<O, F>(
     label: i32,
     fst: &FST<O, F>,
@@ -992,7 +992,7 @@ impl<T> TopResult<T> {
 /// Holds the results for a top N search using TopNSearcher.
 pub struct TopResults<T> {
   /// `true` iff this is a complete result ie. if the specified queue size was large enough to find
-  /// the complete list of results. This might be `false` if the `TopNSearcher` rejected too many
+  /// the complete list of results. This might be `false` if the [`TopNSearcher`] rejected too many
   /// results.
   pub is_complete: bool,
   /// The top results.

@@ -17,7 +17,7 @@
 use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::scorer::Scorer;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-/// A priority queue of `DocIdSetIterator`s that orders by the current doc ID.
+/// A priority queue of [`DocIdSetIterator`](crate::core::search::doc_id_set_iterator::DocIdSetIterator)s that orders by the current doc ID.
 #[derive(Default)] // for std::mem::take
 pub struct DisiPriorityQueue {
   size: usize,

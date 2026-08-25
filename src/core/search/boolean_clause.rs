@@ -74,7 +74,7 @@ pub enum Occur {
   /// For a BooleanQuery with no `MUST` clauses one or more `SHOULD` clauses must match
   /// a document for the BooleanQuery to match.
   ///
-  /// See also: `BooleanQuery::Builder::set_minimum_number_should_match`.
+  /// See also: [`Builder::set_minimum_number_should_match`](crate::core::search::boolean_query::Builder::set_minimum_number_should_match).
   Should,
 
   /// Use this operator for clauses that *must not* appear in the matching documents.
@@ -96,7 +96,7 @@ impl core::fmt::Display for Occur {
 }
 
 impl Occur {
-  /// Convenience mirror of Java helpers if you ever want them on `Occur` directly.
+  /// Convenience mirror of Java helpers if you ever want them on [`Occur`] directly.
   pub fn is_required(self) -> bool {
     matches!(self, Occur::Must | Occur::Filter)
   }

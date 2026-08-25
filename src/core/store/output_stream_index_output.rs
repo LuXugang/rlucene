@@ -50,7 +50,7 @@ where
   ///   internally.
   ///
   /// # Errors
-  /// Returns an `IllegalArgumentError` if the given buffer size is less than
+  /// Returns an [`IllegalArgumentError`](crate::core::util::error::IllegalArgumentError) if the given buffer size is less than
   /// [`BitUtil::LONG_BYTES`].
   pub fn new(
     resource_description: &str,

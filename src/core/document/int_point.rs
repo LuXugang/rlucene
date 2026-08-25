@@ -37,7 +37,7 @@ use std::borrow::Cow;
 use std::fmt;
 
 /// An indexed `i32` field for fast range filters. If you also need to store the value, you should
-/// add a separate `StoredField` instance.
+/// add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
 /// Finding all documents within an N-dimensional shape or range at search time is efficient.
 /// Multiple values for the same field in one document is allowed.
@@ -50,13 +50,13 @@ use std::fmt;
 /// * [`new_range_query_n`](Self::new_range_query_n) for matching points/ranges in n-dimensional
 ///   space.
 ///
-/// See also `PointValues`.
+/// See also [`PointValues`](crate::core::index::point_values::PointValues).
 pub struct IntPoint {
   parent_field: Field,
 }
 
 impl IntPoint {
-  /// Creates a new `IntPoint`, indexing the provided N-dimensional integer point.
+  /// Creates a new [`IntPoint`], indexing the provided N-dimensional integer point.
   ///
   /// # Arguments
   ///
@@ -96,7 +96,7 @@ impl IntPoint {
     Ok(())
   }
 
-  /// Pack an integer point into a `BytesRef`.
+  /// Pack an integer point into a [`BytesRef`].
   ///
   /// # Arguments
   ///
@@ -170,7 +170,7 @@ impl IntPoint {
     Self::new_range_query_n(field, [lower_value], [upper_value])
   }
   /// Create a query matching any of the specified 1D values. This is the points equivalent of
-  /// `TermsQuery`.
+  /// [`TermInSetQuery`](crate::core::search::term_in_set_query::TermInSetQuery).
   ///
   /// # Arguments
   ///

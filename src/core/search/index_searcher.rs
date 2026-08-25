@@ -352,12 +352,12 @@ where
       .hook
       .search_after_score(self, after, query.into_query(), num_hits)
   }
-  /// Get the configured `QueryTimeout` for all searches that run through this `IndexSearcher`,
+  /// Get the configured [`QueryTimeout`](crate::core::index::query_timeout::QueryTimeout) for all searches that run through this [`IndexSearcher`],
   /// or `None` if not set.
   pub fn get_timeout<T>(&self) -> Option<Arc<QueryTimeoutEnum>> {
     self.query_timeout.clone()
   }
-  /// Set a `QueryTimeout` for all searches that run through this `IndexSearcher`.
+  /// Set a [`QueryTimeout`](crate::core::index::query_timeout::QueryTimeout) for all searches that run through this [`IndexSearcher`].
   pub fn set_timeout<T>(&mut self, query_timeout: T)
   where
     T: Into<QueryTimeoutEnum>,
@@ -396,10 +396,10 @@ where
   ///
   /// * `query` — The query to search for
   /// * `n` — Return only the top `n` results
-  /// * `sort` — The `Sort` object
+  /// * `sort` — The [`Sort`] object
   ///
   /// # Returns
-  /// The top docs, sorted according to the supplied `Sort` instance.
+  /// The top docs, sorted according to the supplied [`Sort`] instance.
   ///
   /// # Errors
   /// Returns an error if a low-level I/O error occurs.
@@ -665,7 +665,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns an error if a query would exceed `IndexSearcher::get_max_clause_count` clauses.
+  /// Returns an error if a query would exceed [`index_searcher::get_max_clause_count`](crate::core::search::index_searcher::get_max_clause_count) clauses.
   pub fn explain_from_weight(&self, weight: &QueryWeight<IRC>, doc: i32) -> Result<Explanation> {
     let leaf_contexts = self.reader_context.leaves()?;
     let n = ReaderUtil::sub_index_with_leaves(doc, leaf_contexts);
@@ -766,7 +766,7 @@ where
 ///
 /// Adding more than the permitted number of clauses returns a [`TooManyClauses`] error.
 ///
-/// Tests can change this value with `set_max_clause_count`.
+/// Tests can change this value with [`set_max_clause_count`].
 pub fn get_max_clause_count() -> usize {
   #[cfg(test)]
   {
@@ -983,8 +983,8 @@ fn enforce_distinct_leaves(leaf_slice: &LeafSlice) -> Result<()> {
 }
 /// Returned when an attempt is made to add more than [`get_max_clause_count()`] clauses.
 ///
-/// This typically happens if a `PrefixQuery`, `FuzzyQuery`, `WildcardQuery`,
-/// or `TermRangeQuery` is expanded to many terms during search.
+/// This typically happens if a [`PrefixQuery`](crate::core::search::prefix_query::PrefixQuery), [`FuzzyQuery`](crate::core::search::fuzzy_query::FuzzyQuery), [`WildcardQuery`](crate::core::search::wildcard_query::WildcardQuery),
+/// or [`TermRangeQuery`](crate::core::search::term_range_query::TermRangeQuery) is expanded to many terms during search.
 pub struct TooManyClauses;
 pub fn new() -> LuceneError {
   with_msg(format!(

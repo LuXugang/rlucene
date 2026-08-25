@@ -68,7 +68,7 @@ impl Packed64 {
   ///
   /// # Returns
   ///
-  /// A new instance of `Packed64`.
+  /// A new instance of [`Packed64`].
   pub fn new(value_count: i32, bits_per_value: i32) -> Self {
     debug_assert!(
       bits_per_value > 0 && bits_per_value <= 64,

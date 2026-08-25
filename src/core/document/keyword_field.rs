@@ -109,7 +109,7 @@ impl KeywordField {
       has_stored_value,
     })
   }
-  /// Create a new `SortField` for `BytesRef` values.
+  /// Create a new [`SortField`](crate::core::search::sort_field::SortField) for [`BytesRef`] values.
   ///
   /// * `field` - Field name.
   /// * `reverse` - true if natural order should be reversed.
@@ -126,7 +126,7 @@ impl KeywordField {
   }
 
   /// Create a query that matches any of the specified values. This is the keyword equivalent of
-  /// `PointInSetQuery` for point fields.
+  /// [`PointInSetQuery`](crate::core::search::point_in_set_query::PointInSetQuery) for point fields.
   ///
   /// # Arguments
   ///

@@ -129,7 +129,7 @@ where
   ///   newly read bytes.
   ///
   /// # Errors
-  /// * Returns `LuceneError::eof` if no new data can be read from the
+  /// * Returns [`LuceneError::eof`](crate::core::util::error::lucene_error::LuceneError::eof) if no new data can be read from the
   ///   underlying input.
   fn refill(&mut self, remain_unaligned_bytes: usize, start: usize) -> Result<()> {
     // After the last read, some unaligned bytes remain in the buffer.
@@ -275,7 +275,7 @@ where
   ///
   /// # Errors
   /// This method may return the following errors:
-  /// * `LuceneError::eof` - If attempting to read beyond the end of the file
+  /// * [`LuceneError::eof`](crate::core::util::error::lucene_error::LuceneError::eof) - If attempting to read beyond the end of the file
   ///   or stream.
   ///
   /// # Note
@@ -782,12 +782,12 @@ where
   }
 }
 
-/// Default buffer size set to `BUFFER_SIZE`.
+/// Default buffer size set to [`BUFFER_SIZE`].
 pub const BUFFER_SIZE: usize = 1024;
 /// Minimum buffer size allowed
 pub const MIN_BUFFER_SIZE: usize = 8;
 
-/// A buffer size for merges set to `MERGE_BUFFER_SIZE`.  */
+/// A buffer size for merges set to [`MERGE_BUFFER_SIZE`].  */
 /// The normal read buffer size defaults to 1024, but
 /// increasing this during merging seems to yield
 /// performance gains.  However, we don't want to increase

@@ -45,7 +45,7 @@ impl<T> MultiTerms<T>
 where
   T: Terms,
 {
-  /// Creates a new instance. Use `Self::get_terms` instead if possible.
+  /// Creates a new instance. Use [`get_terms`] instead if possible.
   ///
   /// # Parameters
   /// * `subs` – The [`Terms`] instances of all sub-readers.
@@ -383,11 +383,11 @@ where
     )?)))
   }
 }
-/// Returns `PostingsEnum` for the specified field and term.
+/// Returns [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum) for the specified field and term.
 ///
 /// This returns `None` if the field or term does not exist, or if positions were not indexed.
 ///
-/// See `get_term_postings_enum` with flags.
+/// See [`get_term_postings_enum_with_flag`] to control the requested postings features.
 pub fn get_term_postings_enum<IR>(
   reader: IR,
   field: &str,
@@ -399,11 +399,11 @@ where
   get_term_postings_enum_with_flag(reader, field, term, ALL as i32)
 }
 
-/// Returns `PostingsEnum` for the specified field and term, with control over whether freqs,
+/// Returns [`PostingsEnum`](crate::core::index::postings_enum::PostingsEnum) for the specified field and term, with control over whether freqs,
 /// positions, offsets or payloads are required.
 ///
 /// This returns `None` if the field or term does not exist.
-/// See `TermsEnum::postings`.
+/// See [`TermsEnum::postings`].
 pub fn get_term_postings_enum_with_flag<IR>(
   reader: IR,
   field: &str,

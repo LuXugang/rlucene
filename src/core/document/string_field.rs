@@ -69,13 +69,13 @@ pub struct StringField {
 }
 
 impl StringField {
-  /// Creates a new textual `StringField`, indexing the provided string value
+  /// Creates a new textual [`StringField`], indexing the provided string value
   /// as a single token.
   ///
   /// # Parameters
   /// - `name`: Field name.
   /// - `value`: String value.
-  /// - `stored`: `Store::Yes` if the content should also be stored.
+  /// - `stored`: [`Store::Yes`] if the content should also be stored.
   pub fn from_string<T1, T2>(name: T1, value: T2, store: Store) -> Result<Self>
   where
     T1: Into<String>,
@@ -97,15 +97,15 @@ impl StringField {
       has_stored_value,
     })
   }
-  /// Creates a new binary `StringField`, indexing the provided binary
-  /// (`BytesRef`) value as a single token.
+  /// Creates a new binary [`StringField`], indexing the provided binary
+  /// ([`BytesRef`]) value as a single token.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `value`: `BytesRef` value. The provided value is **not cloned**, so it
+  /// - `value`: [`BytesRef`] value. The provided value is **not cloned**, so it
   ///   must not be modified until the document(s) holding it have been
   ///   indexed.
-  /// - `stored`: `Store::Yes` if the content should also be stored.
+  /// - `stored`: [`Store::Yes`] if the content should also be stored.
   pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
   where
     T: Into<String>,

@@ -39,7 +39,7 @@ use std::sync::atomic::Ordering::SeqCst;
 use std::sync::atomic::{AtomicU32, AtomicU64};
 use std::{fs, io};
 
-/// Base trait for `Directory` implementations that store index files in the
+/// Base trait for [`Directory`] implementations that store index files in the
 /// file system. There are currently two core implementations:
 ///
 /// - [`MMapDirectory`]: Reserved for a
@@ -49,7 +49,7 @@ use std::{fs, io};
 ///   shared seek position.
 ///
 /// The default locking implementation is [`NativeFSLockFactory`],
-/// but it can be replaced with a custom `LockFactory`.
+/// but it can be replaced with a custom [`LockFactory`].
 ///
 /// # See Also
 /// [`Directory`]
@@ -64,7 +64,7 @@ where
   pending_deletes: Arc<Mutex<HashSet<String>>>,
   ops_since_last_delete: AtomicU32,
   /// Used to generate temp file names in
-  /// [`createTempOutput`](Directory::create_temp_output).
+  /// [`Directory::create_temp_output`].
   next_temp_file_counter: AtomicU64,
   pub(crate) sub_fs_directory: T,
   base: BaseDirectoryBase<D>,
@@ -141,7 +141,7 @@ where
   ///
   /// # Errors
   ///
-  /// Returns a `LuceneError` if the file cannot be found or synchronized.
+  /// Returns a [`LuceneError`] if the file cannot be found or synchronized.
   pub fn fsync(&self, name: &str) -> Result<()> {
     IOUtils::fsync(&self.directory.join(name), false)
   }

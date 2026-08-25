@@ -114,7 +114,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
   /// LUCENE-1282.
   fn finish(&mut self, num_docs: i32) -> Result<()>;
 
-  /// Called by `IndexWriter` when writing new segments.
+  /// Called by [`IndexWriter`](crate::core::index::index_writer::IndexWriter) when writing new segments.
   ///
   /// This is an expert API that allows the codec to consume positions and
   /// offsets directly from the indexer.

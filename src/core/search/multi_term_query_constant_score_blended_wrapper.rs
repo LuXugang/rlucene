@@ -50,7 +50,7 @@ use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
-/// This struct implements the logic behind `MultiTermQuery::ConstantScoreBlendedRewrite`.
+/// This struct implements the logic behind [`MultiTermQuery::ConstantScoreBlendedRewrite`](crate::core::search::multi_term_query::MultiTermQuery::ConstantScoreBlendedRewrite).
 ///
 /// It behaves similarly to a boolean-query-style rewrite for a limited number of the
 /// highest-cost terms, while rewriting the remaining lower-cost terms into a filter bitset.
@@ -276,13 +276,13 @@ impl RewritingWeightBase for BlendedRewritingWeight {
     Ok(v)
   }
 }
-/// Wrap a DISI with a "dummy" scorer so we can directly reuse `DisiWrapper` and
-/// `DisjunctionDISIApproximation` without modification.
+/// Wrap a DISI with a "dummy" scorer so we can directly reuse [`DisiWrapper`](crate::core::search::disi_wrapper::DisiWrapper) and
+/// [`DisjunctionDISIApproximation`](crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation) without modification.
 ///
 /// This is merely a convenient vehicle to place the DISI into the priority queue
-/// consumed by `DisjunctionDISIApproximation`.
+/// consumed by [`DisjunctionDISIApproximation`](crate::core::search::disjunction_disi_approximation::DisjunctionDISIApproximation).
 ///
-/// The actual `Scorer` ultimately returned by the weight provides the real constant
+/// The actual [`Scorer`](crate::core::search::scorer::Scorer) ultimately returned by the weight provides the real constant
 /// boost and reflects the effective score mode.
 fn wrap_with_dummy_scorer<D>(disi: D) -> ConstantScoreScorer<D, DummyTwoPhaseIterator>
 where

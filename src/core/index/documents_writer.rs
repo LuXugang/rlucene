@@ -49,7 +49,7 @@ use std::thread;
 ///
 /// Once we have used our allowed RAM buffer, or the number of added docs is large enough (in the
 /// case we are flushing by doc count instead of RAM usage), we create a real segment and flush it to
-/// the `Directory`.
+/// the [`Directory`](crate::core::store::directory::Directory).
 ///
 /// Threads:
 ///
@@ -60,7 +60,7 @@ use std::thread;
 /// DWPT fills up enough RAM or holds enough documents in memory, the DWPT is checked out for flush and
 /// all changes are written to the directory. Each DWPT corresponds to one segment being written.
 ///
-/// When `flush` is called by `IndexWriter`, we check out all DWPTs associated with the
+/// When `flush` is called by [`IndexWriter`](crate::core::index::index_writer::IndexWriter), we check out all DWPTs associated with the
 /// current [`DocumentsWriterDeleteQueue`] out of the [`DocumentsWriterPerThreadPool`] and
 /// write them to disk. The flush process can piggyback on incoming indexing threads or even block
 /// them from adding documents if flushing can’t keep up with new documents being added. Unless the

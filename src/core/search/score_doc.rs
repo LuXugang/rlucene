@@ -28,17 +28,17 @@ pub struct ScoreDoc {
   /// See [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document).
   pub doc: i32,
 
-  /// Only set by `TopDocs::merge`.
+  /// Only set by [`merge_top_docs`](crate::core::search::top_docs::merge_top_docs).
   pub shard_index: i32,
 }
 
 impl ScoreDoc {
-  /// Constructs a `ScoreDoc`.
+  /// Constructs a [`ScoreDoc`].
   pub fn new(doc: i32, score: f32) -> Self {
     Self::with_shard_index(doc, score, -1)
   }
 
-  /// Constructs a `ScoreDoc` with a given `shard_index`.
+  /// Constructs a [`ScoreDoc`] with a given `shard_index`.
   pub fn with_shard_index(doc: i32, score: f32, shard_index: i32) -> Self {
     Self {
       doc,

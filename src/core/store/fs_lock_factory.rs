@@ -22,8 +22,8 @@ use crate::core::util::error::lucene_error::Result;
 
 /// Base trait for file-system-based locking implementations.
 ///
-/// The Rust `LockFactory` API receives a filesystem path directly, so it does
-/// not need Java's runtime `Directory`-to-`FSDirectory` type check.
+/// The Rust [`LockFactory`] API receives a filesystem path directly, so it does
+/// not need Java's runtime [`Directory`](crate::core::store::directory::Directory)-to-[`FSDirectory`](crate::core::store::fs_directory::FSDirectory) type check.
 pub trait FSLockFactory: LockFactory {
   /// Returns the default locking implementation for this platform.
   ///

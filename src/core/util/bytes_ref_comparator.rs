@@ -18,7 +18,7 @@ use crate::core::index::BytesRef;
 use crate::core::util::comparator::Comparator;
 use crate::core::util::error::lucene_error::Result;
 
-/// Specialized [`BytesRef`] comparator that `StringSorter` has optimizations
+/// Specialized [`BytesRef`] comparator that [`StringSorter`](crate::core::index::index_sorter::StringSorter) has optimizations
 /// for.
 ///
 /// # Note

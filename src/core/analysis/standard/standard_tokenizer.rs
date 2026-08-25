@@ -101,7 +101,7 @@ impl StandardTokenizer {
   /// Tokens longer than this value will be split at this length and emitted as
   /// multiple tokens. To skip such large tokens instead, you can increase this
   /// limit and then use `LengthFilter` to remove long tokens. The default value
-  /// is `StandardAnalyzer::DEFAULT_MAX_TOKEN_LENGTH`.
+  /// is [`DEFAULT_MAX_TOKEN_LENGTH`].
   ///
   /// # Errors
   ///

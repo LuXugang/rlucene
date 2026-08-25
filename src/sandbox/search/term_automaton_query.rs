@@ -64,9 +64,9 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// A proximity query that lets you express an automaton, whose transitions are terms, to match
-/// documents. This is a generalization of other proximity queries like `PhraseQuery`,
-/// `MultiPhraseQuery` and `SpanNearQuery`. It is likely slow, since it visits any document having
-/// any of the terms (i.e. it acts like a disjunction, not a conjunction like `PhraseQuery`), and
+/// documents. This is a generalization of other proximity queries like [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery),
+/// [`MultiPhraseQuery`](crate::core::search::multi_phrase_query::MultiPhraseQuery) and `SpanNearQuery`. It is likely slow, since it visits any document having
+/// any of the terms (i.e. it acts like a disjunction, not a conjunction like [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery)), and
 /// then it must merge-sort all positions within each document to test whether/how many times the
 /// automaton matches.
 ///
@@ -151,7 +151,7 @@ impl TermAutomatonQuery {
   ///
   /// `determinize_work_limit` is the maximum effort to spend determinizing the automaton. Higher
   /// numbers allow this operation to consume more memory but allow more complex automatons. Use
-  /// `Operations::DEFAULT_DETERMINIZE_WORK_LIMIT` as a decent default if you don't otherwise know
+  /// [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`](crate::core::util::automation::operations::Operations::DEFAULT_DETERMINIZE_WORK_LIMIT) as a decent default if you don't otherwise know
   /// what to specify.
   pub fn finish_with_work_limit(&mut self, determinize_work_limit: usize) -> Result<()> {
     let mut automaton = self.builder.finish()?;

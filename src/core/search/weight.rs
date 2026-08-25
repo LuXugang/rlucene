@@ -45,19 +45,19 @@ use std::sync::Arc;
 /// The purpose of [`Weight`] is to ensure searching does not modify a [`Query`],
 /// so that a [`Query`] instance can be reused.
 ///
-/// - `IndexSearcher`-dependent state of the query should reside in the `Weight`.
-/// - [`LeafReader`]-dependent state should reside in the `Scorer`.
+/// - [`IndexSearcher`]-dependent state of the query should reside in the [`Weight`].
+/// - [`LeafReader`]-dependent state should reside in the [`Scorer`].
 ///
-/// Since [`Weight`] creates `Scorer` instances for a given [`LeafReaderContext`]
+/// Since [`Weight`] creates [`Scorer`] instances for a given [`LeafReaderContext`]
 /// (via [`Weight::scorer`]), callers must maintain the relationship between the
-/// searcher's top-level `IndexReaderContext` and the context used to create a
-/// `Scorer`.
+/// searcher's top-level [`IndexReaderContext`] and the context used to create a
+/// [`Scorer`].
 ///
-/// A `Weight` is used in the following way:
+/// A [`Weight`] is used in the following way:
 ///
-/// 1. A `Weight` is constructed by a top-level query, given an `IndexSearcher`
-///    (see `Query::create_weight`).
-/// 2. A `Scorer` is constructed by [`Weight::scorer`].
+/// 1. A [`Weight`] is constructed by a top-level query, given an [`IndexSearcher`]
+///    (see [`QueryBase::create_weight`](crate::core::search::query::QueryBase::create_weight)).
+/// 2. A [`Scorer`] is constructed by [`Weight::scorer`].
 pub trait Weight<IRC>: SegmentCacheable<IRC>
 where
   IRC: IndexReaderContext,
@@ -67,7 +67,7 @@ where
   ///
   /// A query match that contains no position information (for example, a
   /// Point or DocValues query) will return
-  /// `MatchesUtils::MATCH_WITH_NO_TERMS`.
+  /// [`MATCH_WITH_NO_TERMS`](crate::core::search::matches_utils::MATCH_WITH_NO_TERMS).
   ///
   /// # Parameters
   /// - `context`: the reader's context to create the
@@ -112,23 +112,23 @@ where
 
   /// Optional method that delegates to [`Weight::scorer_supplier`].
   ///
-  /// Returns a `Scorer` which can iterate in order over all matching documents
+  /// Returns a [`Scorer`] which can iterate in order over all matching documents
   /// and assign them a score. A scorer for the same [`LeafReaderContext`] instance
   /// may be requested multiple times as part of a single search call.
   ///
   /// # Notes
   ///
   /// - May return `None` if no documents will be scored by this query.
-  /// - The returned `Scorer` does **not** have [`LeafReader::get_live_docs`]
+  /// - The returned [`Scorer`] does **not** have [`LeafReader::get_live_docs`]
   ///   applied; callers must check live docs on top.
   ///
   /// # Parameters
   ///
-  /// - `context`: the [`LeafReaderContext`] for which to return the `Scorer`.
+  /// - `context`: the [`LeafReaderContext`] for which to return the [`Scorer`].
   ///
   /// # Returns
   ///
-  /// An optional `Scorer` which scores documents in/out-of-order.
+  /// An optional [`Scorer`] which scores documents in/out-of-order.
   ///
   /// # Errors
   ///
@@ -146,7 +146,7 @@ where
   }
 
   type ScorerSupplier: ScorerSupplier<IRC>;
-  /// Get a [`ScorerSupplier`], which allows knowing the cost of the `Scorer`
+  /// Get a [`ScorerSupplier`], which allows knowing the cost of the [`Scorer`]
   /// before building it.
   ///
   /// A scorer supplier for the same [`LeafReaderContext`] instance may be requested
@@ -170,7 +170,7 @@ where
   ///
   /// # See also
   ///
-  /// - `Scorer`
+  /// - [`Scorer`]
   /// - [`DefaultScorerSupplier`]
   fn scorer_supplier(
     &self,
@@ -207,7 +207,7 @@ where
   ///
   /// - Specific query types should implement this to provide other accurate
   ///   sub-linear implementations (that actually return the count).
-  ///   For example, see how `MatchAllDocsQuery::create_weight` does it.
+  ///   For example, see how [`QueryBase::create_weight`](crate::core::search::query::QueryBase::create_weight) does it.
   /// - This method is used by [`IndexSearcher::count`](crate::core::search::index_searcher::IndexSearcher::count) to count hits.
   ///
   /// # Parameters

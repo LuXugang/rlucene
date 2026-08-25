@@ -16,12 +16,12 @@
  */
 use crate::core::util::attribute::Attribute;
 
-/// This attribute can be used to pass different flags down the `Tokenizer` chain, e.g. from
-/// one `TokenFilter` to another one.
+/// This attribute can be used to pass different flags down the [`Tokenizer`](crate::core::analysis::tokenizer::Tokenizer) chain, e.g. from
+/// one [`TokenFilter`](crate::core::analysis::token_filter::TokenFilter) to another one.
 ///
 /// This is completely distinct from [`TypeAttribute`](crate::core::analysis::token_attributes::type_attribute::TypeAttribute), although they do share similar
 /// purposes. The flags can be used to encode information about the token for use by other
-/// `TokenFilter`s.
+/// [`TokenFilter`](crate::core::analysis::token_filter::TokenFilter)s.
 pub trait FlagsAttribute: Attribute {
   #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;

@@ -252,8 +252,8 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
   }
   /// Given a queue [`Entry`], creates a corresponding [`FieldDoc`] that contains the values used to sort the
   /// given document. These values are not the raw values out of the index, but the internal
-  /// representation of them. This is so the given search hit can be collated by a `MultiSearcher` with
-  /// other search hits.
+  /// representation of them. This allows the search hit to be collated with hits from other
+  /// searchers.
   ///
   /// # Arguments
   ///

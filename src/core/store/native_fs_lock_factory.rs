@@ -266,7 +266,7 @@ impl Lock for NativeFSLock {
   /// Ensures the validity of the current lock.
   ///
   /// # Errors
-  /// - Returns `LuceneError::illegal_state` if:
+  /// - Returns [`LuceneError::illegal_state`](crate::core::util::error::lucene_error::LuceneError::illegal_state) if:
   ///   - The lock file is no longer in the global lock map.
   ///   - The file lock is no longer valid.
   ///   - The lock file size is not 0.

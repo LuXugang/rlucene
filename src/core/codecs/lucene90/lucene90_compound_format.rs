@@ -204,7 +204,7 @@ pub struct SizedFile {
 }
 
 impl SizedFile {
-  /// Creates a new `SizedFile` instance.
+  /// Creates a new [`SizedFile`] instance.
   pub fn new(name: String, length: i64) -> Self {
     SizedFile { name, length }
   }

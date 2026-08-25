@@ -40,7 +40,7 @@ impl BKDConfig {
   pub const MAX_DIMS: usize = 16;
   /// Maximum number of index dimensions.
   pub const MAX_INDEX_DIMS: usize = 8;
-  /// Creates a new `BKDConfig` instance after validating the inputs.
+  /// Creates a new [`BKDConfig`] instance after validating the inputs.
   ///
   /// # Errors
   ///

@@ -25,15 +25,15 @@ use crate::core::util::error::lucene_error::Result;
 #[derive(Clone)]
 pub struct LogByteSizeMergePolicy;
 impl LogByteSizeMergePolicy {
-  /// Default minimum segment size. See `LogMergePolicy::set_min_merge_mb`.
+  /// Default minimum segment size. See [`LogMergePolicy::set_min_merge_mb`](crate::core::index::log_merge_policy::LogMergePolicy::set_min_merge_mb).
   pub const DEFAULT_MIN_MERGE_MB: f64 = 1.6;
 
   /// Default maximum segment size. A segment of this size or larger will never be merged.
-  /// See `LogMergePolicy::set_max_merge_mb`.
+  /// See [`LogMergePolicy::set_max_merge_mb`](crate::core::index::log_merge_policy::LogMergePolicy::set_max_merge_mb).
   pub const DEFAULT_MAX_MERGE_MB: f64 = 2048.0;
 
   /// Default maximum segment size. A segment of this size or larger will never be merged during
-  /// force merge. See `LogMergePolicy::set_max_merge_mb_for_forced_merge`.
+  /// force merge. See [`LogMergePolicy::set_max_merge_mb_for_forced_merge`](crate::core::index::log_merge_policy::LogMergePolicy::set_max_merge_mb_for_forced_merge).
   pub const DEFAULT_MAX_MERGE_MB_FOR_FORCED_MERGE: f64 = i64::MAX as f64;
 }
 impl LogMergePolicyBase for LogByteSizeMergePolicy {
@@ -94,7 +94,7 @@ impl LogMergePolicy<LogByteSizeMergePolicy> {
 
   /// Determines the largest segment (measured by total byte size of the segment's files, in MB) that
   /// may be merged with other segments during forceMerge. Setting it low will leave the index with
-  /// more than 1 segment, even if `IndexWriter::force_merge` is called.
+  /// more than 1 segment, even if [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge) is called.
   pub fn set_max_merge_mb_for_forced_merge(&mut self, mb: f64) {
     self.max_merge_size_for_forced_merge = (mb * 1024.0 * 1024.0) as i64;
   }

@@ -33,7 +33,7 @@ pub(crate) trait SliceCopyOps<T> {
   ///
   /// # Safety
   /// This function uses `unsafe` code to call
-  /// `std::ptr::copy_nonoverlapping`, which performs unchecked memory
+  /// [`std::ptr::copy_nonoverlapping`], which performs unchecked memory
   /// operations. You must ensure that:
   /// - The destination slice has enough space to accommodate the copied
   ///   elements.

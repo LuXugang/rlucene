@@ -91,7 +91,7 @@ impl GroupVIntUtil {
 
   /// Default implementation of reading a single group. For optimal
   /// performance, you should use
-  /// [`GroupVIntUtil::read_group_vints`](GroupVIntUtil::read_group_vints_i64)
+  /// [`GroupVIntUtil::read_group_vints_i64`]
   /// instead.
   ///
   /// # Arguments
@@ -121,7 +121,7 @@ impl GroupVIntUtil {
   }
   /// Default implementation of reading a single group. For optimal
   /// performance, you should use
-  /// [`GroupVIntUtil::read_group_vints`](GroupVIntUtil::read_group_vints_i64)
+  /// [`GroupVIntUtil::read_group_vints_i64`]
   /// instead.
   ///
   /// # Arguments

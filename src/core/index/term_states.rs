@@ -135,7 +135,7 @@ impl TermStates {
   }
   /// Returns a [`PrepareState`] for a [`TermState`] for the given [`LeafReaderContext`].
   /// This may return `None` if some cheap checks help figure out that this term
-  /// doesn't exist in this leaf. The `Supplier` may then also return `None`
+  /// doesn't exist in this leaf. The [`Supplier`](crate::core::util::supplier::Supplier) may then also return `None`
   /// if the term doesn't exist.
   ///
   /// Calling this method typically schedules some I/O in the background, so it is

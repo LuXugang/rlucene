@@ -31,7 +31,7 @@ use crate::test_framework::core::search::test_searcher_manager::{
   BlockingSearcherFactory, EvilSearcherFactory, TrackingSearcherFactory, WarmingSearcherFactory,
 };
 
-/// Factory used by `SearcherManager` to create new [`IndexSearcher`] instances. The default
+/// Factory used by [`SearcherManager`](crate::core::search::searcher_manager::SearcherManager) to create new [`IndexSearcher`] instances. The default
 /// implementation just creates an [`IndexSearcher`] with no custom behavior:
 ///
 /// ```text
@@ -52,7 +52,7 @@ use crate::test_framework::core::search::test_searcher_manager::{
 ///
 /// - Setting a custom scoring model: [`IndexSearcher::set_similarity`]
 /// - Parallel per-segment search
-/// - Returning custom subclasses of `IndexSearcher`, for example for distributed scoring
+/// - Returning custom subclasses of [`IndexSearcher`], for example for distributed scoring
 /// - Running queries to warm your [`IndexSearcher`] before it is used. Note: when using
 ///   near-realtime search you may also want to warm newly merged segments in the background,
 ///   outside of the reopen path.

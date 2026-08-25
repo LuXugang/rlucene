@@ -585,7 +585,7 @@ where
   // Reads an arc.
   ///
   /// Precondition: The arc flags byte has already been read and set;
-  /// the given `BytesReader` is positioned just after the arc flags byte.
+  /// the given [`BytesReader`] is positioned just after the arc flags byte.
   pub fn read_arc(&self, arc: &mut Arc<O::V>, reader: &mut impl BytesReader) -> Result<()> {
     if arc.node_flags == ARCS_FOR_DIRECT_ADDRESSING || arc.node_flags == ARCS_FOR_CONTINUOUS {
       arc.label = arc.first_label() + arc.arc_idx();
@@ -1102,7 +1102,7 @@ impl<O: Outputs> FSTMetadata<O> {
   }
 
   /// Returns the version constant of the binary format this FST was written
-  /// in. See the static version constants in `FST` such as
+  /// in. See the static version constants in [`FST`] such as
   /// [`VERSION_CONTINUOUS_ARCS`].
   pub fn version(&self) -> i32 {
     self.version
@@ -1115,11 +1115,11 @@ impl<O: Outputs> FSTMetadata<O> {
   pub fn num_bytes(&self) -> i64 {
     self.num_bytes
   }
-  /// Save the metadata to a `DataOutput`.
+  /// Save the metadata to a [`DataOutput`].
   ///
   /// # Arguments
   ///
-  /// * `meta_out` - The `DataOutput` to write the metadata to.
+  /// * `meta_out` - The [`DataOutput`] to write the metadata to.
   pub fn save(&self, meta_out: &mut impl DataOutput) -> Result<()> {
     CodecUtil::write_header(meta_out, FILE_FORMAT_NAME, VERSION_CURRENT)?;
 

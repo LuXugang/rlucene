@@ -809,7 +809,7 @@ where
     }
     Ok(sorted_live_docs)
   }
-  /// Seals the `SegmentInfo` for the new flushed segment and persists the deleted documents [`FixedBitSet`].
+  /// Seals the [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo) for the new flushed segment and persists the deleted documents [`FixedBitSet`].
   pub(crate) fn seal_flushed_segment<FN, DM>(
     &mut self,
     flushed_segment: &mut FlushedSegment<D>,

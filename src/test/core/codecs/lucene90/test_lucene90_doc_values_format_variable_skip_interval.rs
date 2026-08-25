@@ -40,7 +40,9 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 
-/// Tests `Lucene90DocValuesFormat` with a custom skipper interval size.
+/// Tests
+/// [`Lucene90DocValuesFormat`](crate::core::codecs::lucene90::lucene90_doc_values_format::Lucene90DocValuesFormat)
+/// with a custom skipper interval size.
 #[allow(dead_code)] // for quick search
 struct TestLucene90DocValuesFormatVariableSkipInterval {
   skip_index_interval_size: i32,

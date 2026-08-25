@@ -58,7 +58,7 @@ impl FloatVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnFloatVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
   /// * `target` - the target vector of the search.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
@@ -98,7 +98,7 @@ impl FloatVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnFloatVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
   /// * `target` - the target vector of the search.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
@@ -128,7 +128,7 @@ impl FloatVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnFloatVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
   /// * `target` - the target vector of the search.
   /// * `result_similarity` - similarity score for result collection.
   /// * `filter` - a filter applied before the vector search.
@@ -154,7 +154,7 @@ impl FloatVectorSimilarityQuery {
   ///
   /// # Arguments
   ///
-  /// * `field` - a field that has been indexed as a `KnnFloatVectorField`.
+  /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
   /// * `target` - the target vector of the search.
   /// * `result_similarity` - similarity score for result collection.
   pub fn new<T>(field: T, target: Vec<f32>, result_similarity: f32) -> Result<Self>

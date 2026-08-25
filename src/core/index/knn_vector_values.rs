@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{HasIdentity, TryIntoInt};
 
 /// This struct abstracts addressing of document vector values indexed as
-/// `KnnFloatVectorField` or `KnnByteVectorField`.
+/// [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField) or [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
 pub trait KnnVectorValues {
   /// Return the dimension of the vectors
   fn dimension(&self) -> usize;

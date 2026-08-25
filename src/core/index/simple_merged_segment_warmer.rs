@@ -32,9 +32,9 @@ pub struct SimpleMergedSegmentWarmer {
 }
 
 impl SimpleMergedSegmentWarmer {
-  /// Creates a new `SimpleMergedSegmentWarmer`.
+  /// Creates a new [`SimpleMergedSegmentWarmer`].
   ///
-  /// * `info_stream` - `InfoStream` to log statistics about warming.
+  /// * `info_stream` - [`InfoStream`] to log statistics about warming.
   pub fn new(info_stream: InfoStreamMT) -> Self {
     Self { info_stream }
   }

@@ -49,7 +49,7 @@ use crate::core::util::io_utils::IOUtils;
 ///   In VInt blocks, integers are encoded as [`DataOutput::writeVInt` VInt]: the block size is variable.
 ///
 /// - **Block structure**:
-///   When the postings are long enough, `Lucene101PostingsFormat` will try to encode most integer data as a
+///   When the postings are long enough, [`Lucene101PostingsFormat`] will try to encode most integer data as a
 ///   packed block.
 ///   Take a term with 259 documents as an example, the first 256 document ids are encoded as two packed
 ///   blocks, while the remaining 3 are encoded as one VInt block.
@@ -88,7 +88,7 @@ use crate::core::util::io_utils::IOUtils;
 ///
 /// The `.tim` file contains the list of terms in each field along with per-term statistics
 /// (such as `docfreq`) and pointers to the frequencies, positions, payload and skip data in the
-/// `.doc`, `.pos`, and `.pay` files. See `Lucene90BlockTreeTermsWriter` for more details on
+/// `.doc`, `.pos`, and `.pay` files. See [`Lucene90BlockTreeTermsWriter`] for more details on
 /// the format.
 ///
 /// **NOTE**: The term dictionary can plug into different postings implementations: the postings
@@ -97,20 +97,20 @@ use crate::core::util::io_utils::IOUtils;
 ///
 /// - **PostingsHeader** → Header, PackedBlockSize
 /// - **TermMetadata** → (DocFPDelta \| SingletonDocID), PosFPDelta?, PosVIntBlockFPDelta?, PayFPDelta?
-/// - **Header** → `CodecUtil::write_index_header`
-/// - **PackedBlockSize**, **SingletonDocID** → `DataOutput::write_vint`
-/// - **DocFPDelta**, **PosFPDelta**, **PayFPDelta**, **PosVIntBlockFPDelta** → `DataOutput::write_vlong`
-/// - **Footer** → `CodecUtil::write_footer`
+/// - **Header** → [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header)
+/// - **PackedBlockSize**, **SingletonDocID** → [`DataOutput::write_vint`](crate::core::store::data_output::DataOutput::write_vint)
+/// - **DocFPDelta**, **PosFPDelta**, **PayFPDelta**, **PosVIntBlockFPDelta** → [`DataOutput::write_vlong`](crate::core::store::data_output::DataOutput::write_vlong)
+/// - **Footer** → [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 ///
 /// Notes:
 ///
-/// - Header is a `CodecUtil::write_index_header` storing the version information for the postings.
+/// - Header is a [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header) storing the version information for the postings.
 /// - PackedBlockSize is the fixed block size for packed blocks. In packed blocks, bit width is
 ///   determined by the largest integer. Smaller block sizes result in smaller variance among
 ///   widths of integers hence smaller indexes. Larger block sizes result in more efficient bulk
 ///   I/O hence better acceleration. This value should always be a multiple of 64, currently fixed
 ///   at 128 as a tradeoff. It is also the skip interval used to accelerate
-///   `PostingsEnum::advance`.
+///   [`DocIdSetIterator::advance`](crate::core::search::doc_id_set_iterator::DocIdSetIterator::advance).
 /// - DocFPDelta determines the position of this term’s TermFreqs within the `.doc` file. In
 ///   particular, it is the difference of file offset between this term’s data and the previous
 ///   term’s data (or zero, for the first term in the block). On disk it is stored as the
@@ -133,26 +133,26 @@ use crate::core::util::io_utils::IOUtils;
 /// # Term Index
 ///
 /// The `.tip` file contains an index into the term dictionary, so that it can be accessed
-/// randomly. See `Lucene90BlockTreeTermsWriter` for more details on the format.
+/// randomly. See [`Lucene90BlockTreeTermsWriter`] for more details on the format.
 ///
 /// # Frequencies and Skip Data
 ///
 /// The `.doc` file contains the lists of documents which contain each term, along with the
-/// frequency of the term in that document (except when frequencies are omitted: `IndexOptions::DOCS`).
+/// frequency of the term in that document (except when frequencies are omitted: [`IndexOptions::Docs`](crate::core::index::index_options::IndexOptions::Docs)).
 /// Skip data is saved at the end of each term’s postings. The skip data is saved once for the entire
 /// postings list.
 ///
 /// - `docFile(.doc)` → Header, `<TermFreqs>`^TermCount, Footer
-/// - Header → `CodecUtil::write_index_header`
+/// - Header → [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header)
 /// - TermFreqs → `<PackedBlock32>` ^(PackedDocBlockNum/32), VIntBlock?
 /// - PackedBlock32 → Level1SkipData, `<PackedBlock>` ^32
 /// - PackedBlock → Level0SkipData, PackedDocDeltaBlock, PackedFreqBlock?
 /// - VIntBlock → `<DocDelta[,Freq?]>` ^(DocFreq − PackedBlockSize*PackedDocBlockNum)
 /// - Level1SkipData → DocDelta, DocFPDelta, Skip1NumBytes?, ImpactLength?, Impacts?, PosFPDelta?, NextPosUpto?, PayFPDelta?, NextPayByteUpto?
 /// - Level0SkipData → Skip0NumBytes, DocDelta, DocFPDelta, PackedBlockLength, ImpactLength?, Impacts?, PosFPDelta?, NextPosUpto?, PayFPDelta?, NextPayByteUpto?
-/// - PackedFreqBlock → `PackedInts`, uses patching
-/// - PackedDocDeltaBlock → `PackedInts`, does not use patching
-/// - Footer → `CodecUtil::write_footer`
+/// - PackedFreqBlock → [`PackedInts`](crate::core::util::packed::packed_ints::PackedInts), uses patching
+/// - PackedDocDeltaBlock → [`PackedInts`](crate::core::util::packed::packed_ints::PackedInts), does not use patching
+/// - Footer → [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 ///
 /// Notes:
 ///
@@ -169,7 +169,7 @@ use crate::core::util::io_utils::IOUtils;
 ///
 ///   15, 8, 3
 ///
-///   If frequencies were omitted (`IndexOptions::DOCS`) it would be this sequence of VInts instead:
+///   If frequencies were omitted ([`IndexOptions::Docs`](crate::core::index::index_options::IndexOptions::Docs)) it would be this sequence of VInts instead:
 ///
 ///   7, 4
 ///
@@ -192,13 +192,13 @@ use crate::core::util::io_utils::IOUtils;
 /// It also sometimes stores part of payloads and offsets for speedup.
 ///
 /// - **PosFile(.pos)** → Header, `<TermPositions>`^TermCount, Footer
-/// - **Header** → `CodecUtil::write_index_header`
+/// - **Header** → [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header)
 /// - **TermPositions** → `<PackedPosDeltaBlock>`^PackedPosBlockNum, VIntBlock?
 /// - **VIntBlock** → `<PositionDelta[, PayloadLength?], PayloadData?, OffsetDelta?, OffsetLength?>`^PosVIntCount
-/// - **PackedPosDeltaBlock** → `PackedInts`
-/// - **PositionDelta**, **OffsetDelta**, **OffsetLength** → `DataOutput::write_vint`
-/// - **PayloadData** → `DataOutput::write_byte`^PayLength
-/// - **Footer** → `CodecUtil::write_footer`
+/// - **PackedPosDeltaBlock** → [`PackedInts`](crate::core::util::packed::packed_ints::PackedInts)
+/// - **PositionDelta**, **OffsetDelta**, **OffsetLength** → [`DataOutput::write_vint`](crate::core::store::data_output::DataOutput::write_vint)
+/// - **PayloadData** → [`DataOutput::write_byte`](crate::core::store::data_output::DataOutput::write_byte)^PayLength
+/// - **Footer** → [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 ///
 /// Notes:
 /// - TermPositions are ordered by term (terms are implicit, from the term dictionary), and position values for each term–document pair are incremental and ordered by document number.
@@ -210,7 +210,7 @@ use crate::core::util::io_utils::IOUtils;
 ///
 ///   `4, 5, 4`
 /// - PayloadData is metadata associated with the current term position. If `PayloadLength` is stored at the current position, then it indicates the length of this payload. If `PayloadLength` is not stored, then this payload has the same length as the payload at the previous position.
-/// - `OffsetDelta / 2` is the difference between this position’s `startOffset` and the previous occurrence (or zero, if this is the first occurrence in this document). If `OffsetDelta` is odd, then the length (`endOffset - startOffset`) differs from the previous occurrence and an `OffsetLength` follows. Offset data is only written for `IndexOptions::DOCS_AND_FREQS_AND_POSITIONS_AND_OFFSETS`.
+/// - `OffsetDelta / 2` is the difference between this position’s `startOffset` and the previous occurrence (or zero, if this is the first occurrence in this document). If `OffsetDelta` is odd, then the length (`endOffset - startOffset`) differs from the previous occurrence and an `OffsetLength` follows. Offset data is only written for [`IndexOptions::DocsAndFreqsAndPositionsAndOffsets`](crate::core::index::index_options::IndexOptions::DocsAndFreqsAndPositionsAndOffsets).
 /// # Payloads and Offsets
 ///
 /// The `.pay` file will store payloads and offsets associated with certain term-document
@@ -218,13 +218,13 @@ use crate::core::util::io_utils::IOUtils;
 /// reasons.
 ///
 /// - **PayFile(.pay):** → Header, `<TermPayloads?, TermOffsets?>`^TermCount, Footer
-/// - **Header** → `CodecUtil::write_index_header`
+/// - **Header** → [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header)
 /// - **TermPayloads** → `<PackedPayLengthBlock, SumPayLength, PayData>`^PackedPayBlockNum
 /// - **TermOffsets** → `<PackedOffsetStartDeltaBlock, PackedOffsetLengthBlock>`^PackedPayBlockNum
-/// - **PackedPayLengthBlock, PackedOffsetStartDeltaBlock, PackedOffsetLengthBlock** → `PackedInts`
-/// - **SumPayLength** → `DataOutput::write_vint`
-/// - **PayData** → `DataOutput::write_byte`^SumPayLength
-/// - **Footer** → `CodecUtil::write_footer`
+/// - **PackedPayLengthBlock, PackedOffsetStartDeltaBlock, PackedOffsetLengthBlock** → [`PackedInts`](crate::core::util::packed::packed_ints::PackedInts)
+/// - **SumPayLength** → [`DataOutput::write_vint`](crate::core::store::data_output::DataOutput::write_vint)
+/// - **PayData** → [`DataOutput::write_byte`](crate::core::store::data_output::DataOutput::write_byte)^SumPayLength
+/// - **Footer** → [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer)
 ///
 /// Notes:
 /// - The order of TermPayloads/TermOffsets will be the same as TermPositions; note that
@@ -292,7 +292,7 @@ impl Lucene101PostingsFormat {
   pub fn new() -> Self {
     Self::with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE).unwrap()
   }
-  /// Creates a `Lucene101PostingsFormat` with custom values for `min_block_size` and `max_block_size`
+  /// Creates a [`Lucene101PostingsFormat`] with custom values for `min_block_size` and `max_block_size`
   /// passed to the block terms dictionary.
   ///
   /// See [`Lucene90BlockTreeTermsWriter::new`](Lucene90BlockTreeTermsWriter)

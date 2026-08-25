@@ -38,9 +38,9 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
-/// Holds all configuration that is used to create an `IndexWriter`.
+/// Holds all configuration that is used to create an [`IndexWriter`](crate::core::index::index_writer::IndexWriter).
 ///
-/// Once an `IndexWriter` has been created with this object, changes to this
+/// Once an [`IndexWriter`](crate::core::index::index_writer::IndexWriter) has been created with this object, changes to this
 /// object will not affect that writer instance. For live changes, use the
 /// [`LiveIndexWriterConfig`] returned from the writer configuration API.
 ///
@@ -82,7 +82,7 @@ where
     })
   }
 
-  /// Sets if calls to `IndexWriter::close` should first commit before closing.
+  /// Sets if calls to [`IndexWriter::close`](crate::core::index::index_writer::IndexWriter::close) should first commit before closing.
   ///
   /// Use `true` to match the behavior of Lucene 4.x.
   pub fn set_commit_on_close(&mut self, commit_on_close: bool) -> &mut Self {
@@ -109,9 +109,9 @@ where
   }
 
   /// Expert: sets the [`SimilarityEnum`] implementation used by this
-  /// `IndexWriter`.
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter).
   ///
-  /// Only takes effect when `IndexWriter` is first created.
+  /// Only takes effect when [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is first created.
   pub fn set_similarity<T>(&mut self, similarity: T)
   where
     T: Into<SimilarityEnum>,
@@ -121,7 +121,7 @@ where
 
   /// Set the [`Codec`](crate::core::codecs::Codec).
   ///
-  /// Only takes effect when `IndexWriter` is first created.
+  /// Only takes effect when [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is first created.
   pub fn set_codec(&mut self, codec: impl Into<Codecs>) -> &mut Self {
     self.base.codec = codec.into();
     self
@@ -181,7 +181,7 @@ where
   /// This is necessary on filesystems that do not support delete-on-last-close
   /// semantics, which point-in-time search normally relies on.
   ///
-  /// Only takes effect when `IndexWriter` is first created.
+  /// Only takes effect when [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is first created.
   pub fn set_index_deletion_policy<T>(&mut self, deletion_policy: T) -> &mut Self
   where
     T: Into<IndexDeletionPolicyEnum<D>>,
@@ -217,7 +217,7 @@ where
 
   /// Expert: sets the merge scheduler used by this writer.
   ///
-  /// Only takes effect when `IndexWriter` is first created.
+  /// Only takes effect when [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is first created.
   pub fn set_merge_scheduler<T>(&mut self, merge_scheduler: T) -> &mut Self
   where
     T: Into<MergeSchedulerEnum>,
@@ -232,7 +232,7 @@ where
   /// A soft delete field is a doc-values field that marks a document as
   /// soft-deleted if the document has at least one value in that field. A
   /// soft-deleted document is treated as if it has been hard-deleted through the
-  /// `IndexWriter` API. Merges reclaim soft-deleted as well as hard-deleted
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) API. Merges reclaim soft-deleted as well as hard-deleted
   /// documents, and index readers obtained from the writer reflect all deleted
   /// documents in their live docs.
   ///
@@ -255,7 +255,7 @@ where
     self
   }
 
-  /// Set event listener to record key events in `IndexWriter`.
+  /// Set event listener to record key events in [`IndexWriter`](crate::core::index::index_writer::IndexWriter).
   pub fn set_index_writer_event_listener<T>(&mut self, event_listener: T) -> &mut Self
   where
     T: Into<IndexWriterEventListenerEnum>,
@@ -282,7 +282,7 @@ where
 
   /// Sets the parent document field.
   ///
-  /// If this optional property is set, `IndexWriter` adds an internal field to
+  /// If this optional property is set, [`IndexWriter`](crate::core::index::index_writer::IndexWriter) adds an internal field to
   /// every root document added to the index writer. A document is considered a
   /// parent document if it is the last document in a document block indexed via
   /// block document APIs, and individual documents added via single-document
@@ -290,7 +290,7 @@ where
   ///
   /// This property is optional for indexes that do not use document blocks in
   /// combination with index sorting. In order to maintain the API guarantee that
-  /// document order within a block is not altered by `IndexWriter`, a marker for
+  /// document order within a block is not altered by [`IndexWriter`](crate::core::index::index_writer::IndexWriter), a marker for
   /// parent documents is required.
   pub fn set_parent_field<T>(&mut self, parent_field: T) -> &mut Self
   where
@@ -301,19 +301,19 @@ where
     self
   }
 
-  /// Sets whether `IndexWriter` should pool readers without requiring a
+  /// Sets whether [`IndexWriter`](crate::core::index::index_writer::IndexWriter) should pool readers without requiring a
   /// near-real-time reader to have been opened from the writer.
   ///
-  /// If set to `false`, `IndexWriter` will still pool readers once a reader is
+  /// If set to `false`, [`IndexWriter`](crate::core::index::index_writer::IndexWriter) will still pool readers once a reader is
   /// opened from the writer.
   ///
-  /// Only takes effect when `IndexWriter` is first created.
+  /// Only takes effect when [`IndexWriter`](crate::core::index::index_writer::IndexWriter) is first created.
   pub fn set_reader_pooling(&mut self, reader_pooling: bool) -> &mut Self {
     self.base.reader_pooling = reader_pooling;
     self
   }
-  /// Set the comparator for sorting leaf readers. A `DirectoryReader` opened
-  /// from an `IndexWriter` with this configuration will have its leaf readers
+  /// Set the comparator for sorting leaf readers. A [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader) opened
+  /// from an [`IndexWriter`](crate::core::index::index_writer::IndexWriter) with this configuration will have its leaf readers
   /// sorted with the provided leaf sorter.
   pub fn set_leaf_sorter(&mut self, leaf_sorter: Option<LeafSorter<D>>) -> &mut Self {
     self.base.leaf_sorter = leaf_sorter;
@@ -497,7 +497,7 @@ pub const DEFAULT_RAM_PER_THREAD_HARD_LIMIT_MB: i32 = 1945;
 /// For batch indexing with very large ram buffers use `false`.
 pub const DEFAULT_USE_COMPOUND_FILE_SYSTEM: bool = true;
 
-/// Default value for whether calls to `IndexWriter::close` include a commit.
+/// Default value for whether calls to [`IndexWriter::close`](crate::core::index::index_writer::IndexWriter::close) include a commit.
 pub const DEFAULT_COMMIT_ON_CLOSE: bool = true;
 
 /// Default value for time to wait for merges on commit or getReader (when using a

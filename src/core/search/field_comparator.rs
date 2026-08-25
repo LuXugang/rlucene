@@ -43,10 +43,10 @@ use crate::impl_from_for_enum;
 use std::borrow::Cow;
 use std::cmp::Ordering;
 
-/// Expert: a `FieldComparator` compares hits so as to determine their sort order when collecting the
+/// Expert: a [`FieldComparator`] compares hits so as to determine their sort order when collecting the
 /// top results with [`TopFieldCollector`](crate::core::search::top_field_collector::TopFieldCollector).
-/// The concrete public `FieldComparator` implementations
-/// correspond to the `SortField` types.
+/// The concrete public [`FieldComparator`] implementations
+/// correspond to the [`SortField`](crate::core::search::sort_field::SortField) types.
 ///
 /// The document IDs passed to these methods must only move forwards, since they are using doc
 /// values iterators to retrieve sort values.
@@ -123,7 +123,7 @@ pub trait FieldComparator {
   ///
   /// The default implementation requires [`Ord`] and invokes [`Ord::cmp`].
   ///
-  /// Provide this method if the `FieldComparator` value type does not implement ordering.
+  /// Provide this method if the [`FieldComparator`] value type does not implement ordering.
   /// or if values may sometimes be absent ([`Option::None`]).
   fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
     match (first, second) {
@@ -159,7 +159,7 @@ pub trait FieldComparator {
 /// NOTE: if you are sorting only by descending relevance and then
 /// secondarily by ascending docID, performance is faster using
 /// `TopScoreDocCollector` directly (which [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher) uses
-/// when no `Sort` is specified).
+/// when no [`Sort`](crate::core::search::sort::Sort) is specified).
 pub struct RelevanceComparator {
   pub(crate) scores: Vec<f32>,
   pub(crate) bottom: f32,
@@ -850,7 +850,7 @@ impl FieldComparator for FieldComparatorEnum {
 }
 /// Sorts by field's natural Term sort order.
 ///
-/// All comparisons are done using `BytesRef::compareTo`,
+/// All comparisons are done using [`BytesRef`],
 /// which is slow for medium to large result sets but possibly
 /// very fast for very small result sets.
 pub struct TermValComparator {

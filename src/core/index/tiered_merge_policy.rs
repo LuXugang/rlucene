@@ -31,7 +31,7 @@ use std::fmt::{Display, Formatter};
 /// Default noCFSRatio. If a merge's size is >= 10% of the index, then we disable compound file for it.
 pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
 /// Merges segments of approximately equal size, subject to an allowed number of segments per tier.
-/// This is similar to `LogByteSizeMergePolicy`, except this merge policy is able to merge
+/// This is similar to [`LogByteSizeMergePolicy`](crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy), except this merge policy is able to merge
 /// non-adjacent segment, and separates how many segments are merged at once
 /// ([`TieredMergePolicy::set_max_merge_at_once`]) from how many segments are allowed per tier
 /// ([`TieredMergePolicy::set_segments_per_tier`]). This merge policy also does not over-merge
@@ -49,17 +49,17 @@ pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
 /// (down to 1 at once, if that one has deletions) to keep the segment size under budget.
 ///
 /// **NOTE**: this policy freely merges non-adjacent segments; if this is a problem, use
-/// `LogMergePolicy`.
+/// [`LogMergePolicy`](crate::core::index::log_merge_policy::LogMergePolicy).
 ///
 /// **NOTE**: This policy always merges by byte size of the segments, always pro-rates by
 /// percent deletes.
 ///
-/// **NOTE** Starting with Lucene 7.5, if you call `IndexWriter::force_merge` with
+/// **NOTE** Starting with Lucene 7.5, if you call [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge) with
 /// this (default) merge policy, if [`TieredMergePolicy::set_max_merged_segment_mb`] is in conflict
-/// with `maxNumSegments` passed to `IndexWriter::force_merge` then `maxNumSegments` wins. For
+/// with `maxNumSegments` passed to [`IndexWriter::force_merge`](crate::core::index::index_writer::IndexWriter::force_merge) then `maxNumSegments` wins. For
 /// example, if your index has 50 1 GB segments, and you have
 /// [`TieredMergePolicy::set_max_merged_segment_mb`] at 1024 (1 GB), and you call `force_merge(10)`,
-/// the two settings are clearly in conflict. `TieredMergePolicy` will choose to break the
+/// the two settings are clearly in conflict. [`TieredMergePolicy`] will choose to break the
 /// [`TieredMergePolicy::set_max_merged_segment_mb`] constraint and try to merge down to at most ten
 /// segments, each up to 5 * 1.25 GB in size (since an extra 25% buffer increase in the expected
 /// segment size is targetted).

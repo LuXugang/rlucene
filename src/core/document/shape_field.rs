@@ -34,7 +34,7 @@ use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 /// Shape utilities used for both LatLon (spherical) and XY (cartesian) shape fields.
 ///
-/// `Polygon`'s and `Line`'s are decomposed into a triangular mesh using the `Tessellator`
+/// [`Polygon`](crate::core::geo::polygon::Polygon)'s and [`Line`](crate::core::geo::line::Line)'s are decomposed into a triangular mesh using the [`Tessellator`](crate::core::geo::tessellator::Tessellator)
 /// utility. Each [`Triangle`] is encoded by this type and indexed as a seven-dimensional
 /// multi-value field.
 ///
@@ -507,7 +507,7 @@ pub fn resolve_triangle_type(triangle: &mut DecodedTriangle) {
     triangle.type_ = DecodedTriangleType::Triangle;
   }
 }
-/// Represents a encoded triangle using `ShapeField::decode_triangle`.
+/// Represents a encoded triangle using [`decode_triangle`].
 #[derive(Clone, Debug, Default)]
 pub struct DecodedTriangle {
   /// x coordinate, vertex one

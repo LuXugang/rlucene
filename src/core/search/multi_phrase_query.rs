@@ -50,7 +50,7 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-/// A generalized version of `PhraseQuery`, with the possibility of adding
+/// A generalized version of [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery), with the possibility of adding
 /// more than one term at the same position that are treated as a disjunction (OR).
 #[derive(Debug, Clone)]
 pub struct MultiPhraseQuery {

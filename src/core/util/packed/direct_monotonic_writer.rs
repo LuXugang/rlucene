@@ -21,10 +21,10 @@ use crate::core::util::packed::direct_writer::{DirectWriter, unsigned_bits_requi
 /// Write monotonically-increasing sequences of integers. This writer splits
 /// data into blocks and then for each block, computes the average slope, the
 /// minimum value, and encodes only the delta from the expected value using a
-/// `DirectWriter`.
+/// [`DirectWriter`].
 ///
 /// # See also
-/// `DirectMonotonicReader`
+/// [`DirectMonotonicReader`](crate::core::util::packed::direct_monotonic_reader::DirectMonotonicReader)
 ///
 /// # Internal
 pub struct DirectMonotonicWriter<'a, I1, I2> {

@@ -92,7 +92,7 @@ impl PackedInts {
   /// Expert: Restore a [`ReaderIterator`] from a stream without reading
   /// metadata at the beginning of the stream. This method is useful to
   /// restore data from streams which have been created using
-  /// `PackedInts::get_writer_no_header`.
+  /// [`PackedInts`].
   ///
   /// # Arguments
   /// - `input`: The stream to read data from, positioned at the beginning of
@@ -105,7 +105,7 @@ impl PackedInts {
   ///   (likely to speed up iteration).
   ///
   /// # Returns
-  /// A `ReaderIterator`.
+  /// A [`ReaderIterator`].
   ///
   /// # Errors
   /// Returns an error if the version is invalid.
@@ -216,7 +216,7 @@ impl PackedInts {
   ///   serialization.
   ///
   /// # Returns
-  /// A `Writer` instance.
+  /// A [`Writer`](crate::core::util::packed::packed_ints::Writer) instance.
   pub(crate) fn get_writer_no_header<T>(
     out: &mut T,
     format: Format,
@@ -414,7 +414,7 @@ impl PackedInts {
 ///
 /// # Errors
 ///
-/// Returns an `IllegalArgumentError` if the version is out of bounds.
+/// Returns an [`IllegalArgumentError`](crate::core::util::error::IllegalArgumentError) if the version is out of bounds.
 pub fn check_version(version: i32) -> Result<()> {
   if version < PackedInts::VERSION_START {
     return Err(LuceneError::illegal_argument(format!(
@@ -464,7 +464,7 @@ pub struct FormatAndBits {
 ///
 /// # Returns
 ///
-/// A `FormatAndBits` struct containing the selected format and bits per value.
+/// A [`FormatAndBits`] struct containing the selected format and bits per value.
 // `value_count` is not used in Java Lucene
 pub fn fastest_format_and_bits(
   // TODO
@@ -785,7 +785,7 @@ pub trait ReaderIterator: Display {
   /// Returns the current position.
   fn ord(&self) -> i32;
 }
-/// A base implementation of the `ReaderIterator` trait.
+/// A base implementation of the [`ReaderIterator`] trait.
 pub struct ReaderIteratorImpl<C> {
   bits_per_value: i32,
   value_count: i32,
@@ -793,7 +793,7 @@ pub struct ReaderIteratorImpl<C> {
 }
 
 impl<C> ReaderIteratorImpl<C> {
-  /// Creates a new `ReaderIteratorImpl`.
+  /// Creates a new [`ReaderIteratorImpl`].
   ///
   /// # Arguments
   ///

@@ -29,28 +29,28 @@ use crate::core::store::simple_fs_lock_factory::SimpleFSLockFactory;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::error::lucene_error::Result;
 
-/// Base trait for locking implementations. `Directory` uses instances of this
+/// Base trait for locking implementations. [`Directory`](crate::core::store::directory::Directory) uses instances of this
 /// trait to implement locking.
 ///
 /// # Default Implementation
 /// Lucene uses [`NativeFSLockFactory`] by
-/// default for `FSDirectory`-based index directories.
+/// default for [`FSDirectory`](crate::core::store::fs_directory::FSDirectory)-based index directories.
 ///
 /// # Note
 /// Special care needs to be taken if you change the locking implementation:
 /// First, ensure that no writer is actively writing to the index, as doing so
-/// could corrupt the index. Be sure to change the `LockFactory` on all Lucene
+/// could corrupt the index. Be sure to change the [`LockFactory`] on all Lucene
 /// instances and clean up any leftover lock files before starting with the new
 /// configuration. Different implementations cannot work together.
 pub trait LockFactory: Display + Send + Sync {
   type Lock: Lock;
-  /// Returns a new got `Lock` instance identified by `lock_name`.
+  /// Returns a new got [`Lock`] instance identified by `lock_name`.
   ///
   /// # Arguments
   /// * `lock_name` - The name of the lock to be created.
   ///
   /// # Errors
-  /// - Returns a `LockObtainFailedError` (optional specific error) if
+  /// - Returns a [`LockObtainFailedError`](crate::core::util::error::LockObtainFailedError) (optional specific error) if
   ///   the lock could not be obtained because it is currently held elsewhere.
   /// - Returns an `std::io::Error` if any I/O error occurs attempting to gain
   ///   the lock.

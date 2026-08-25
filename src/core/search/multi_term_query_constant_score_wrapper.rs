@@ -42,11 +42,11 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
-/// This struct implements the logic behind `MultiTermQuery::ConstantScoreRewrite`.
+/// This struct implements the logic behind [`MultiTermQuery::ConstantScoreRewrite`](crate::core::search::multi_term_query::MultiTermQuery::ConstantScoreRewrite).
 ///
 /// It attempts to rewrite per-segment into a boolean query that produces a
 /// constant score. If that is not possible, it falls back to accumulating
-/// matches into a bit set and building a `Scorer` on top of that bit set.
+/// matches into a bit set and building a [`Scorer`](crate::core::search::scorer::Scorer) on top of that bit set.
 #[derive(Clone)]
 pub struct MultiTermQueryConstantScoreWrapper {
   q: MultiTermQuerySet,

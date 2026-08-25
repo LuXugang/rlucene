@@ -122,7 +122,7 @@ impl GeoUtils {
 
   /// Placeholder for Lucene's `relate`.
   ///
-  /// This depends on `SloppyMath` and `Rectangle::AXISLAT_ERROR`, which are
+  /// This depends on [`SloppyMath`] and [`Rectangle::AXISLAT_ERROR`], which are
   /// not available in the Rust port yet.
   #[allow(clippy::too_many_arguments)]
   pub fn relate(
