@@ -24,14 +24,8 @@ use crate::core::search::term_statistics::TermStatistics;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
-#[cfg(test)]
-use crate::test_framework::core::search::similarity::SimpleSimilarity;
-#[cfg(test)]
-use crate::test_framework::core::search::similarity::SimpleSimilarity1;
-#[cfg(test)]
-use crate::test_framework::core::search::similarity::TestSimilarity;
 use std::fmt::{Display, Formatter};
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
 static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
   let mut table = [0i32; 256];
@@ -477,23 +471,21 @@ impl SimScorer for TFIDFScorer {
 #[derive(Clone)]
 pub enum TFIDFSubEnum {
   Classic(ClassicSimilarity),
-  #[cfg(test)]
-  Simple(SimpleSimilarity),
-  #[cfg(test)]
-  Test(TestSimilarity),
-  #[cfg(test)]
-  Simple1(SimpleSimilarity1),
+  Custom(Arc<dyn TFIDFSimilarityBase + Send + Sync>),
+}
+impl TFIDFSubEnum {
+  pub fn custom<T>(similarity: T) -> Self
+  where
+    T: TFIDFSimilarityBase + Send + Sync + 'static,
+  {
+    Self::Custom(Arc::new(similarity))
+  }
 }
 impl TFIDFSimilarityBase for TFIDFSubEnum {
   fn tf(&self, freq: f32) -> f32 {
     match self {
       TFIDFSubEnum::Classic(classic) => classic.tf(freq),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple(simple) => simple.tf(freq),
-      #[cfg(test)]
-      TFIDFSubEnum::Test(test) => test.tf(freq),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple1(test) => test.tf(freq),
+      TFIDFSubEnum::Custom(custom) => custom.tf(freq),
     }
   }
 
@@ -504,12 +496,7 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
   ) -> Explanation {
     match self {
       TFIDFSubEnum::Classic(classic) => classic.idf_explain(collection_stats, term_stats),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple(simple) => simple.idf_explain(collection_stats, term_stats),
-      #[cfg(test)]
-      TFIDFSubEnum::Test(test) => test.idf_explain(collection_stats, term_stats),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple1(test) => test.idf_explain(collection_stats, term_stats),
+      TFIDFSubEnum::Custom(custom) => custom.idf_explain(collection_stats, term_stats),
     }
   }
 
@@ -522,38 +509,23 @@ impl TFIDFSimilarityBase for TFIDFSubEnum {
       TFIDFSubEnum::Classic(classic) => {
         classic.idf_explain_from_multi_ts(collection_stats, term_stats)
       },
-      #[cfg(test)]
-      TFIDFSubEnum::Simple(simple) => {
-        simple.idf_explain_from_multi_ts(collection_stats, term_stats)
+      TFIDFSubEnum::Custom(custom) => {
+        custom.idf_explain_from_multi_ts(collection_stats, term_stats)
       },
-      #[cfg(test)]
-      TFIDFSubEnum::Test(test) => test.idf_explain_from_multi_ts(collection_stats, term_stats),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple1(test) => test.idf_explain_from_multi_ts(collection_stats, term_stats),
     }
   }
 
   fn idf(&self, doc_freq: i64, doc_count: i64) -> f32 {
     match self {
       TFIDFSubEnum::Classic(classic) => classic.idf(doc_freq, doc_count),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple(simple) => simple.idf(doc_freq, doc_count),
-      #[cfg(test)]
-      TFIDFSubEnum::Test(test) => test.idf(doc_freq, doc_count),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple1(test) => test.idf(doc_freq, doc_count),
+      TFIDFSubEnum::Custom(custom) => custom.idf(doc_freq, doc_count),
     }
   }
 
   fn length_norm(&self, length: i32) -> f32 {
     match self {
       TFIDFSubEnum::Classic(classic) => classic.length_norm(length),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple(simple) => simple.length_norm(length),
-      #[cfg(test)]
-      TFIDFSubEnum::Test(test) => test.length_norm(length),
-      #[cfg(test)]
-      TFIDFSubEnum::Simple1(test) => test.length_norm(length),
+      TFIDFSubEnum::Custom(custom) => custom.length_norm(length),
     }
   }
 }

@@ -26,7 +26,7 @@ use crate::core::search::term_statistics::TermStatistics;
 pub struct SimpleSimilarity1;
 
 pub fn new_simple_similarity1() -> TFIDFSimilarity {
-  let v = TFIDFSubEnum::Simple1(SimpleSimilarity1);
+  let v = TFIDFSubEnum::custom(SimpleSimilarity1);
   TFIDFSimilarity::new(v)
 }
 
@@ -56,7 +56,7 @@ impl TFIDFSimilarityBase for SimpleSimilarity1 {
 pub struct SimpleSimilarity;
 
 pub fn new_simple_similarity() -> TFIDFSimilarity {
-  let v = TFIDFSubEnum::Simple(SimpleSimilarity);
+  let v = TFIDFSubEnum::custom(SimpleSimilarity);
   TFIDFSimilarity::new(v)
 }
 
@@ -94,7 +94,7 @@ impl TFIDFSimilarityBase for SimpleSimilarity {
 pub struct TestSimilarity;
 
 pub fn new_test_similarity() -> TFIDFSimilarity {
-  let v = TFIDFSubEnum::Test(TestSimilarity);
+  let v = TFIDFSubEnum::custom(TestSimilarity);
   TFIDFSimilarity::new(v)
 }
 
