@@ -29,17 +29,9 @@ use crate::core::index::segment_reader::DefaultLeafReader;
 use crate::core::index::soft_deletes_retention_merge_policy::SoftDeletesRetentionOneMergeUnaryOperator;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
-#[cfg(test)]
-use crate::test_framework::core::index::test_index_writer::{
-  AbortOnMergeCompleteOneMergeUnaryOperator, MergeFinishedOnceOneMergeUnaryOperator,
-  SoftUpdatesConcurrentlyOneMergeUnaryOperator,
-};
-#[cfg(test)]
-use crate::test_framework::core::index::test_index_writer_merge_policy::ForceMergeDvUpdateOneMergeUnaryOperator;
-#[cfg(test)]
-use crate::test_framework::core::index::test_one_merge_wrapping_merge_policy::WrappedOneMergeUnaryOperator;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 /// A wrapping merge policy that wraps the `OneMerge` objects returned by the
 /// wrapped merge policy.
 ///
@@ -104,18 +96,21 @@ where
   Identity(IdentityOneMergeUnaryOperator),
   PointInTime(Box<PointInTimeOneMerge<D, DefaultLeafReader<D>>>),
   SoftDeletesRetention(SoftDeletesRetentionOneMergeUnaryOperator<D>),
-  #[cfg(test)]
-  NewOneMerge(NewOneMergeUnaryOperator),
-  #[cfg(test)]
-  MergeFinishedOnce(MergeFinishedOnceOneMergeUnaryOperator),
-  #[cfg(test)]
-  AbortOnMergeComplete(AbortOnMergeCompleteOneMergeUnaryOperator),
-  #[cfg(test)]
-  ForceMergeDvUpdate(ForceMergeDvUpdateOneMergeUnaryOperator),
-  #[cfg(test)]
-  SoftUpdatesConcurrently(SoftUpdatesConcurrentlyOneMergeUnaryOperator),
-  #[cfg(test)]
-  Wrapped(WrappedOneMergeUnaryOperator),
+  Custom(CustomOneMergeUnaryOperator<D>),
+}
+
+pub type CustomOneMergeUnaryOperator<D> = Arc<dyn OneMergeUnaryOperatorBase<D> + Send + Sync>;
+
+impl<D> OneMergeUnaryOperator<D>
+where
+  D: Directory,
+{
+  pub fn custom<T>(operator: T) -> Self
+  where
+    T: OneMergeUnaryOperatorBase<D> + Send + Sync + 'static,
+  {
+    Self::Custom(Arc::new(operator))
+  }
 }
 
 impl<D> Clone for OneMergeUnaryOperator<D>
@@ -127,18 +122,7 @@ where
       Self::Identity(operator) => Self::Identity(operator.clone()),
       Self::PointInTime(operator) => Self::PointInTime(operator.clone()),
       Self::SoftDeletesRetention(operator) => Self::SoftDeletesRetention(operator.clone()),
-      #[cfg(test)]
-      Self::NewOneMerge(operator) => Self::NewOneMerge(operator.clone()),
-      #[cfg(test)]
-      Self::MergeFinishedOnce(operator) => Self::MergeFinishedOnce(operator.clone()),
-      #[cfg(test)]
-      Self::AbortOnMergeComplete(operator) => Self::AbortOnMergeComplete(operator.clone()),
-      #[cfg(test)]
-      Self::ForceMergeDvUpdate(operator) => Self::ForceMergeDvUpdate(operator.clone()),
-      #[cfg(test)]
-      Self::SoftUpdatesConcurrently(operator) => Self::SoftUpdatesConcurrently(operator.clone()),
-      #[cfg(test)]
-      Self::Wrapped(operator) => Self::Wrapped(operator.clone()),
+      Self::Custom(operator) => Self::Custom(operator.clone()),
     }
   }
 }
@@ -159,18 +143,7 @@ where
       Self::Identity(operator) => operator.apply(merge),
       Self::PointInTime(operator) => operator.apply(merge),
       Self::SoftDeletesRetention(operator) => operator.apply(merge),
-      #[cfg(test)]
-      Self::NewOneMerge(operator) => operator.apply(merge),
-      #[cfg(test)]
-      Self::MergeFinishedOnce(operator) => operator.apply(merge),
-      #[cfg(test)]
-      Self::AbortOnMergeComplete(operator) => operator.apply(merge),
-      #[cfg(test)]
-      Self::ForceMergeDvUpdate(operator) => operator.apply(merge),
-      #[cfg(test)]
-      Self::SoftUpdatesConcurrently(operator) => operator.apply(merge),
-      #[cfg(test)]
-      Self::Wrapped(operator) => operator.apply(merge),
+      Self::Custom(operator) => operator.apply(merge),
     }
   }
 }
@@ -208,66 +181,6 @@ where
 #[cfg(test)]
 #[derive(Clone)]
 pub struct NewOneMergeUnaryOperator;
-
-#[cfg(test)]
-impl<D> From<NewOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
-  fn from(value: NewOneMergeUnaryOperator) -> Self {
-    Self::NewOneMerge(value)
-  }
-}
-
-#[cfg(test)]
-impl<D> From<MergeFinishedOnceOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
-  fn from(value: MergeFinishedOnceOneMergeUnaryOperator) -> Self {
-    Self::MergeFinishedOnce(value)
-  }
-}
-
-#[cfg(test)]
-impl<D> From<AbortOnMergeCompleteOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
-  fn from(value: AbortOnMergeCompleteOneMergeUnaryOperator) -> Self {
-    Self::AbortOnMergeComplete(value)
-  }
-}
-
-#[cfg(test)]
-impl<D> From<ForceMergeDvUpdateOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
-  fn from(value: ForceMergeDvUpdateOneMergeUnaryOperator) -> Self {
-    Self::ForceMergeDvUpdate(value)
-  }
-}
-
-#[cfg(test)]
-impl<D> From<SoftUpdatesConcurrentlyOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
-  fn from(value: SoftUpdatesConcurrentlyOneMergeUnaryOperator) -> Self {
-    Self::SoftUpdatesConcurrently(value)
-  }
-}
-
-#[cfg(test)]
-impl<D> From<WrappedOneMergeUnaryOperator> for OneMergeUnaryOperator<D>
-where
-  D: Directory,
-{
-  fn from(value: WrappedOneMergeUnaryOperator) -> Self {
-    Self::Wrapped(value)
-  }
-}
 
 #[cfg(test)]
 impl<D> OneMergeUnaryOperatorBase<D> for NewOneMergeUnaryOperator

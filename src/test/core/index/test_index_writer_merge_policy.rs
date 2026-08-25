@@ -43,7 +43,7 @@ use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::one_merge_wrapping_merge_policy::{
-  NewOneMergeUnaryOperator, OneMergeWrappingMergePolicy,
+  NewOneMergeUnaryOperator, OneMergeUnaryOperator, OneMergeWrappingMergePolicy,
 };
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
@@ -1028,10 +1028,10 @@ fn test_force_merge_dv_update_file_with_concurrent_flush() -> Result<()> {
       || Ok(MatchAllDocsQuery::new().into()),
       ForceMergeDvUpdateMergePolicy::new(),
     ),
-    ForceMergeDvUpdateOneMergeUnaryOperator::new(
+    OneMergeUnaryOperator::custom(ForceMergeDvUpdateOneMergeUnaryOperator::new(
       wait_for_init_merge_reader.clone(),
       wait_for_dv_update.clone(),
-    ),
+    )),
   );
   let mut config = new_index_writer_config(&mut random)?;
   config
@@ -1296,7 +1296,7 @@ fn test_force_merge_with_pending_hard_and_soft_delete_file() -> Result<()> {
 
   let mock_merge_policy = OneMergeWrappingMergePolicy::new(
     OnlyForceMergeMergePolicy::new(TieredMergePolicy::new()),
-    NewOneMergeUnaryOperator,
+    OneMergeUnaryOperator::custom(NewOneMergeUnaryOperator),
   );
   let mut config = new_index_writer_config(&mut random)?;
   config.set_merge_policy(mock_merge_policy);

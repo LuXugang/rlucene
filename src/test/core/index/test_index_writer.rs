@@ -67,7 +67,9 @@ use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::merge_policy::MergePolicy;
 use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::numeric_doc_values::NumericDocValues;
-use crate::core::index::one_merge_wrapping_merge_policy::OneMergeWrappingMergePolicy;
+use crate::core::index::one_merge_wrapping_merge_policy::{
+  OneMergeUnaryOperator, OneMergeWrappingMergePolicy,
+};
 use crate::core::index::postings_enum::{ALL, FREQS, NONE, PostingsEnum};
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
@@ -4161,7 +4163,9 @@ fn soft_updates_concurrently(mix_deletes: bool) -> Result<()> {
     index_writer_config.set_merge_policy(SoftUpdatesConcurrentlyMergePolicy::new(
       OneMergeWrappingMergePolicy::new(
         merge_policy,
-        SoftUpdatesConcurrentlyOneMergeUnaryOperator::new(merge_away_soft_deletes.clone()),
+        OneMergeUnaryOperator::custom(SoftUpdatesConcurrentlyOneMergeUnaryOperator::new(
+          merge_away_soft_deletes.clone(),
+        )),
       ),
       merge_away_soft_deletes.clone(),
     ));
@@ -4870,7 +4874,9 @@ fn test_abort_fully_deleted_segment() -> Result<()> {
   let mut random = random();
   let merge_policy = OneMergeWrappingMergePolicy::new(
     new_merge_policy(&mut random)?,
-    AbortOnMergeCompleteOneMergeUnaryOperator::new(abort_merge_before_commit.clone()),
+    OneMergeUnaryOperator::custom(AbortOnMergeCompleteOneMergeUnaryOperator::new(
+      abort_merge_before_commit.clone(),
+    )),
   );
   let merge_policy = KeepFullyDeletedSegmentsMergePolicy::new(merge_policy);
 
@@ -5723,8 +5729,10 @@ fn test_segment_commit_info_id() -> Result<()> {
 fn test_merge_zero_docs_merge_is_closed_once() -> Result<()> {
   let keep_all_segments =
     KeepFullyDeletedSegmentsMergePolicy::new(LogMergePolicy::<LogDocMergePolicy>::log_doc());
-  let merge_policy =
-    OneMergeWrappingMergePolicy::new(keep_all_segments, MergeFinishedOnceOneMergeUnaryOperator);
+  let merge_policy = OneMergeWrappingMergePolicy::new(
+    keep_all_segments,
+    OneMergeUnaryOperator::custom(MergeFinishedOnceOneMergeUnaryOperator),
+  );
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mut config = IndexWriterConfig::new()?;

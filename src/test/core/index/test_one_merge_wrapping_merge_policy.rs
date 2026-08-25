@@ -17,7 +17,9 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::index::merge_policy::{DefaultMergeSpecification, MergePolicy, OneMerge};
 use crate::core::index::merge_trigger::MergeTrigger;
-use crate::core::index::one_merge_wrapping_merge_policy::OneMergeWrappingMergePolicy;
+use crate::core::index::one_merge_wrapping_merge_policy::{
+  OneMergeUnaryOperator, OneMergeWrappingMergePolicy,
+};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_infos::SegmentInfos;
@@ -75,7 +77,10 @@ fn test_segments_are_wrapped() -> Result<()> {
     let original_mp = PredeterminedMergePolicy::new(ms_m, ms_f, ms_d);
     // Thirdly wrap the predetermined merge policy.
     let operator = WrappedOneMergeUnaryOperator::new();
-    let one_merge_wrapping_mp = OneMergeWrappingMergePolicy::new(original_mp, operator.clone());
+    let one_merge_wrapping_mp = OneMergeWrappingMergePolicy::new(
+      original_mp,
+      OneMergeUnaryOperator::custom(operator.clone()),
+    );
     // Finally, ask for merges and check what we got.
     let segment_infos = SegmentInfos::new(LATEST.major)?;
     let merge_context =
