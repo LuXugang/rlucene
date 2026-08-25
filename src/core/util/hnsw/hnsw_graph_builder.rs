@@ -424,7 +424,7 @@ where
     if components.len() > 1 {
       let mut c0_index = 0;
       for index in 1..components.len() {
-        if components[index].size >= components[c0_index].size {
+        if components[index].size > components[c0_index].size {
           c0_index = index;
         }
       }
