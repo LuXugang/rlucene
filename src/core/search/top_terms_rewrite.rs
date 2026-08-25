@@ -52,7 +52,8 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
       query,
       &mut collector,
     )?;
-    let keys = collector.st_queue.take_heap_array();
+    let mut keys = collector.st_queue.take_heap_array();
+    keys.sort();
 
     let mut visited_terms = collector.st_queue.compare.visited_terms;
 
@@ -63,8 +64,6 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
         .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
       score_terms.push((key, st));
     }
-
-    score_terms.sort_by(|(a, _), (b, _)| a.cmp(b));
 
     for (bytes, st) in score_terms {
       let term = Term::new(query.get_field(), bytes);

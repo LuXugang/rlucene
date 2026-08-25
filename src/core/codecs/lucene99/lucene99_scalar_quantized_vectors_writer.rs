@@ -1782,7 +1782,10 @@ where
       Some(sub) => sub.sub.values.dimension(),
       None => return Err(LuceneError::illegal_state("no sub-vectors to merge")),
     };
-    let size = subs.iter().map(|sub| sub.sub.values.size()).sum();
+    let mut size = 0;
+    for sub in &subs {
+      size += sub.sub.values.size();
+    }
     let doc_id_merger = of(subs, merge_state.needs_index_sort)?;
     Ok(Self {
       state: RefCell::new(Some(MergedQuantizedVectorValuesState {

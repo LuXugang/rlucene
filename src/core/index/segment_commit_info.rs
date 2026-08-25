@@ -125,10 +125,10 @@ impl<D> SegmentCommitInfo<D> {
   pub fn set_doc_values_updates_files(&mut self, dv_updates_files: HashMap<i32, HashSet<String>>) {
     self.dv_updates_files.clear();
     for (key, file_set) in dv_updates_files {
-      let renamed_set: HashSet<String> = file_set
-        .into_iter()
-        .map(|file| named_for_this_segment(&self.info.name, file))
-        .collect();
+      let mut renamed_set = HashSet::with_capacity(file_set.len());
+      for file in file_set {
+        renamed_set.insert(named_for_this_segment(&self.info.name, file));
+      }
       self.dv_updates_files.insert(key, renamed_set);
     }
   }

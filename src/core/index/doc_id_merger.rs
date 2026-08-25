@@ -137,22 +137,22 @@ where
     // caller may not have fully consumed the queue:
     self.queue.clear();
     self.current = None;
-    let mut first = true;
     let mut to_add = Vec::new();
-    for (i, sub) in self.queue.compare.subs.iter_mut().enumerate() {
-      if first {
-        // by setting mappedDocID = -1, this entry is guaranteed to be
-        // the top of the queue so the first call to
-        // next() will advance it
-        sub.mapped_doc_id = -1;
-        self.current = Some(i);
-        first = false;
-      } else {
-        let next_mapped_doc = sub.next_mapped_doc()?;
+    if !self.queue.compare.subs.is_empty() {
+      // by setting mappedDocID = -1, this entry is guaranteed to be
+      // the top of the queue so the first call to
+      // next() will advance it
+      self.queue.compare.subs[0].mapped_doc_id = -1;
+      self.current = Some(0);
+
+      let mut i = 1;
+      while i < self.queue.compare.subs.len() {
+        let next_mapped_doc = self.queue.compare.subs[i].next_mapped_doc()?;
         if next_mapped_doc != NO_MORE_DOCS {
           to_add.push(i);
         } // else all docs in this sub were deleted; do not add it to the
         // queue!
+        i += 1;
       }
     }
     for i in to_add {

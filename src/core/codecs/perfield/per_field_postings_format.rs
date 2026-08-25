@@ -266,12 +266,11 @@ where
       );
     }
 
-    Ok(
-      format_to_group_builders
-        .into_iter()
-        .map(|(identity, (format, builder))| (identity, (format, builder.build())))
-        .collect(),
-    )
+    let mut format_to_groups = HashMap::with_capacity(format_to_group_builders.len());
+    for (identity, (format, builder)) in format_to_group_builders {
+      format_to_groups.insert(identity, (format, builder.build()));
+    }
+    Ok(format_to_groups)
   }
 }
 

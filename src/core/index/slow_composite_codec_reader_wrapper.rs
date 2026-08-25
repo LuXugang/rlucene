@@ -1836,7 +1836,9 @@ where
     let mut subs = Vec::with_capacity(self.codec_readers.len());
     let mut dimension = None;
     let mut size = 0;
-    for (i, reader) in self.codec_readers.iter().enumerate() {
+    let mut i = 0;
+    while i < self.codec_readers.len() {
+      let reader = &self.codec_readers[i];
       let values = CodecReader::get_float_vector_values(reader, field)?;
       let ord_start = size;
       if let Some(values) = &values {
@@ -1850,6 +1852,7 @@ where
         self.doc_starts[i] as i32,
         ord_start as i32,
       ));
+      i += 1;
     }
     MergedFloatVectorValues::new(
       dimension.ok_or_else(|| LuceneError::illegal_state("field has no float vector values"))?,
@@ -1865,7 +1868,9 @@ where
     let mut subs = Vec::with_capacity(self.codec_readers.len());
     let mut dimension = None;
     let mut size = 0;
-    for (i, reader) in self.codec_readers.iter().enumerate() {
+    let mut i = 0;
+    while i < self.codec_readers.len() {
+      let reader = &self.codec_readers[i];
       let values = CodecReader::get_byte_vector_values(reader, field)?;
       let ord_start = size;
       if let Some(values) = &values {
@@ -1879,6 +1884,7 @@ where
         self.doc_starts[i] as i32,
         ord_start as i32,
       ));
+      i += 1;
     }
     MergedByteVectorValues::new(
       dimension.ok_or_else(|| LuceneError::illegal_state("field has no byte vector values"))?,

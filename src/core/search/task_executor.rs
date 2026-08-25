@@ -69,7 +69,10 @@ impl TaskExecutor {
     T: Send,
     F: FnOnce() -> Result<T> + Send,
   {
-    let tasks = callables.into_iter().map(Task::new).collect::<Vec<_>>();
+    let mut tasks = Vec::with_capacity(callables.len());
+    for callable in callables {
+      tasks.push(Task::new(callable));
+    }
     let count = tasks.len();
     let task_id = AtomicUsize::new(0);
 

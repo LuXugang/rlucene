@@ -133,7 +133,9 @@ impl<T, C> PriorityQueue<T, C> {
       max_size + 1
     };
     let mut heap: Vec<Option<T>> = Vec::with_capacity(heap_size);
-    heap.resize_with(heap_size, || None);
+    while heap.len() < heap_size {
+      heap.push(None);
+    }
     if let Some(sentinel) = sentinel_object_supplier() {
       heap[1] = Some(sentinel);
       #[allow(clippy::needless_range_loop)]

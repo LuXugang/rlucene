@@ -443,13 +443,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         for v in &sorted {
           self.meta.write_long(*v)?;
         }
-        encode = Some(
-          sorted
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| (v, i as i32))
-            .collect::<HashMap<_, _>>(),
-        );
+        let mut value_to_ord = HashMap::with_capacity(sorted.len());
+        for (i, &value) in sorted.iter().enumerate() {
+          value_to_ord.insert(value, i as i32);
+        }
+        encode = Some(value_to_ord);
         min = 0;
         gcd = 1;
       } else {

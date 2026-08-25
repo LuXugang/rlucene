@@ -180,22 +180,20 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
 
     let leaf_reader_contexts = index_searcher.get_leaf_contexts()?;
     let query = &self;
-    let tasks = leaf_reader_contexts
-      .iter()
-      .map(|ctx| ctx.ord)
-      .map(|ctx_ord| {
-        let filter_weight = filter_weight.as_ref();
-        let knn_collector_manager = &knn_collector_manager;
-        move || {
-          query.search_leaf(
-            &index_searcher.get_leaf_contexts()?[ctx_ord],
-            filter_weight,
-            knn_collector_manager,
-            index_searcher,
-          )
-        }
-      })
-      .collect::<Vec<_>>();
+    let mut tasks = Vec::with_capacity(leaf_reader_contexts.len());
+    for ctx in leaf_reader_contexts {
+      let ctx_ord = ctx.ord;
+      let filter_weight = filter_weight.as_ref();
+      let knn_collector_manager = &knn_collector_manager;
+      tasks.push(move || {
+        query.search_leaf(
+          &index_searcher.get_leaf_contexts()?[ctx_ord],
+          filter_weight,
+          knn_collector_manager,
+          index_searcher,
+        )
+      });
+    }
     let per_leaf_results = index_searcher.get_task_executor().invoke_all(tasks)?;
 
     let top_k = merge_leaf_results(self.base().k, per_leaf_results)?;

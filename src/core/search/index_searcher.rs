@@ -570,16 +570,18 @@ where
     }
 
     let weight = weight.as_ref();
-    let list_tasks = leaf_slices
-      .iter()
-      .zip(collectors)
-      .map(|(leaf_slice, mut collector)| {
-        move || {
-          self.search_partitions(leaf_slice.partitions.as_slice(), weight, &mut collector)?;
-          Ok(collector)
-        }
-      })
-      .collect::<Vec<_>>();
+    let mut collectors = collectors.into_iter();
+    let mut list_tasks = Vec::with_capacity(leaf_slices.len());
+    for leaf_slice in leaf_slices.iter() {
+      let mut collector = collectors
+        .next()
+        .expect("each leaf slice must have a collector");
+      list_tasks.push(move || {
+        self.search_partitions(leaf_slice.partitions.as_slice(), weight, &mut collector)?;
+        Ok(collector)
+      });
+    }
+    debug_assert!(collectors.next().is_none());
     let results = self.task_executor.invoke_all(list_tasks)?;
     collector_manager.reduce(results)
   }

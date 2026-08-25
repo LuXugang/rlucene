@@ -330,20 +330,20 @@ where
       if node_id == self.my_node_id {
         continue;
       }
-      let missing = terms
-        .iter()
-        .filter(|term| {
-          !local_node
-            .term_stats_cache
-            .lock()
-            .contains_key(&TermAndShardVersion {
-              node_id,
-              version: self.node_versions[node_id],
-              term: (*term).clone(),
-            })
-        })
-        .cloned()
-        .collect::<HashSet<_>>();
+      let mut missing = HashSet::new();
+      for term in &terms {
+        if !local_node
+          .term_stats_cache
+          .lock()
+          .contains_key(&TermAndShardVersion {
+            node_id,
+            version: self.node_versions[node_id],
+            term: term.clone(),
+          })
+        {
+          missing.insert(term.clone());
+        }
+      }
       if !missing.is_empty() {
         for (term, stats) in
           state.get_node_term_stats(&missing, node_id, self.node_versions[node_id])?

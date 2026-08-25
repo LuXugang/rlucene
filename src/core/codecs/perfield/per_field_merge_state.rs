@@ -45,20 +45,17 @@ where
 {
   /// Creates a new merge-state view from `in_` that only exposes `fields`.
   pub(crate) fn restrict_fields(in_: &'a MS, fields: &[String]) -> Result<Self> {
-    let field_infos = in_
-      .field_infos()
-      .iter()
-      .map(|field_infos| Self::new_filter(field_infos, fields))
-      .collect::<Result<Vec<_>>>()?;
-    let fields_producers = in_
-      .fields_producers()
-      .iter()
-      .map(|producer| {
-        producer
-          .as_ref()
-          .map(|producer| FilterFieldsProducer::new(producer, fields.to_vec()))
-      })
-      .collect();
+    let mut field_infos = Vec::with_capacity(in_.field_infos().len());
+    for info in in_.field_infos() {
+      field_infos.push(Self::new_filter(info, fields)?);
+    }
+    let mut fields_producers = Vec::with_capacity(in_.fields_producers().len());
+    for producer in in_.fields_producers() {
+      fields_producers.push(match producer {
+        Some(producer) => Some(FilterFieldsProducer::new(producer, fields.to_vec())),
+        None => None,
+      });
+    }
 
     Ok(Self {
       in_,

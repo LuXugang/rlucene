@@ -92,9 +92,12 @@ where
   fn iterator(&self) -> Result<Self::TermsEnum> {
     let mut terms_enums = Vec::new();
 
-    for (i, sub) in self.subs.iter().enumerate() {
+    let mut i = 0;
+    while i < self.subs.len() {
+      let sub = &self.subs[i];
       let terms_enum = sub.iterator()?;
       terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i));
+      i += 1;
     }
 
     if !terms_enums.is_empty() {
@@ -114,9 +117,12 @@ where
   ) -> Result<Self::IntersectIter> {
     let mut terms_enums = Vec::new();
 
-    for (i, sub) in self.subs.iter().enumerate() {
+    let mut i = 0;
+    while i < self.subs.len() {
+      let sub = &self.subs[i];
       let terms_enum = sub.intersect(compiled, start_term)?;
       terms_enums.push(TermsEnumIndex::new(Some(terms_enum), i));
+      i += 1;
     }
     if !terms_enums.is_empty() {
       let v = MultiTermsEnum::new(self.sub_slices.clone())?;

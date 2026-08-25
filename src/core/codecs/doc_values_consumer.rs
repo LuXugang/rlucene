@@ -256,7 +256,10 @@ pub trait DocValuesConsumer: Closeable {
     let mut live_terms = Vec::with_capacity(num_readers);
     let mut weights: Vec<i64> = vec![0; num_readers];
 
-    for (sub, dvs) in to_merge.iter_mut().enumerate() {
+    let mut remaining = to_merge.as_mut_slice();
+    let mut sub = 0;
+    while let Some((dvs, rest)) = remaining.split_first_mut() {
+      remaining = rest;
       let live_docs_opt = merge_state.live_docs()[sub].as_ref();
 
       match live_docs_opt {
@@ -289,6 +292,7 @@ pub trait DocValuesConsumer: Closeable {
           live_terms.push(terms_enum);
         },
       }
+      sub += 1;
     }
     // step 2: create ordinal map (this conceptually does the "merging")
     let ordinal_map = OrdinalMap::build(None, live_terms, &weights, PackedInts::COMPACT)?;

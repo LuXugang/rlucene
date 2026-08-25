@@ -236,11 +236,11 @@ where
       None => Ok(None),
       Some(merge_spec) => {
         let mut new_merge_spec = None;
-        let segment_infos_by_id: HashMap<_, _> = segment_infos
-          .iter()
-          .iter()
-          .map(|info| (info.info.get_id_key(), info))
-          .collect();
+        let infos = segment_infos.iter();
+        let mut segment_infos_by_id = HashMap::with_capacity(infos.len());
+        for info in infos {
+          segment_infos_by_id.insert(info.info.get_id_key(), info);
+        }
 
         for one_merge in merge_spec.merges.into_iter() {
           let mut below_max_full_flush_size = true;

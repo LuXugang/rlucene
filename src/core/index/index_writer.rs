@@ -6541,13 +6541,15 @@ where
 
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       if success {
-        let infos_by_id: HashMap<_, _> = inner
-          .segment_infos
-          .iter()
-          .iter()
-          .chain(inner.segment_infos.dropped_segment_commit_infos.values())
-          .map(|info| (info.info.get_id_key(), info))
-          .collect();
+        let infos = inner.segment_infos.iter();
+        let dropped_infos = inner.segment_infos.dropped_segment_commit_infos.values();
+        let mut infos_by_id = HashMap::with_capacity(infos.len() + dropped_infos.len());
+        for info in infos {
+          infos_by_id.insert(info.info.get_id_key(), info);
+        }
+        for info in dropped_infos {
+          infos_by_id.insert(info.info.get_id_key(), info);
+        }
         for seg_state in seg_states.iter_mut() {
           let info_id = &seg_state.rld.info_id;
           let info = match infos_by_id.get(info_id.as_str()).copied() {
@@ -9198,7 +9200,9 @@ where
     let mut merge_states =
       Vec::with_capacity(self.registered_merges.len() + self.rejected_merges.len());
     merge_states.extend(self.registered_merges.iter().cloned());
-    merge_states.extend(self.rejected_merges.iter().map(|merge| merge.stat.clone()));
+    for merge in &self.rejected_merges {
+      merge_states.push(merge.stat.clone());
+    }
     merge_states
   }
 }

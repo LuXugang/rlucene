@@ -245,12 +245,9 @@ where
     {
       let mut recording = self.state.lock().unwrap();
       recording.nb_merge_calls += 1;
-      recording.field_names.extend(
-        merge_state
-          .merge_field_infos()
-          .iter()
-          .map(|field_info| field_info.name.clone()),
-      );
+      for field_info in merge_state.merge_field_infos().iter() {
+        recording.field_names.push(field_info.name.clone());
+      }
     }
     self.consumer.merge(state, segment_info, merge_state, norms)
   }

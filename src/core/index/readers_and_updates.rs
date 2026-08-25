@@ -227,11 +227,11 @@ where
 
   pub(crate) fn get_num_dv_updates(&self) -> i64 {
     let inner = self.inner.lock();
-    inner
-      .pending_dv_updates
-      .values()
-      .map(|v| v.len() as i64)
-      .sum()
+    let mut count = 0i64;
+    for updates in inner.pending_dv_updates.values() {
+      count += updates.len() as i64;
+    }
+    count
   }
 
   pub fn release(&self, sr: &SegmentReader<D>, inner: Option<&Inner<D>>) -> Result<()> {
