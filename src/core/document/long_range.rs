@@ -46,9 +46,9 @@ use std::fmt;
 /// This field defines the following static factory methods for common search operations over long
 /// ranges:
 ///
-/// - [`new_intersects_query`] matches ranges that intersect the defined search range.
-/// - [`new_within_query`] matches ranges that are within the defined search range.
-/// - [`new_contains_query`] matches ranges that contain the defined search range.
+/// - [`Self::new_intersects_query`] matches ranges that intersect the defined search range.
+/// - [`Self::new_within_query`] matches ranges that are within the defined search range.
+/// - [`Self::new_contains_query`] matches ranges that contain the defined search range.
 pub struct LongRange {
   parent_field: Field,
 }

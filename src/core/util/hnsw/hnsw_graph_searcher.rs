@@ -427,7 +427,7 @@ where
     accept_ords,
   )
 }
-/// Search [`OnHeapHnswGraph`], this method is thread-safe.
+/// Searches an [`OnHeapHnswGraph`]; this function is thread-safe.
 ///
 /// # Arguments
 ///

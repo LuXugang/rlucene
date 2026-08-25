@@ -29,8 +29,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 const MIN_BLOCK_SIZE: i32 = 1 << 6;
 const MAX_BLOCK_SIZE: i32 = 1 << 30;
 /// Base implementation for
-/// [`PagedMutable`](PagedMutable) and
-/// [`PagedGrowableWriter`](PagedGrowableWriter).
+/// [`PagedMutable`] and [`PagedGrowableWriter`].
 ///
 ///
 /// # Lucene Internal

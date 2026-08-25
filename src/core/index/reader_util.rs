@@ -17,8 +17,9 @@
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::{LeafReaderContext, TopParentMeta};
 
-/// Common util methods for dealing with [IndexReader]s and
-/// [IndexReaderContext]s.
+/// Common utility methods for dealing with
+/// [`IndexReader`](crate::core::index::index_reader::IndexReader)s and
+/// [`IndexReaderContext`](crate::core::index::index_reader_context::IndexReaderContext)s.
 ///
 /// @lucene.internal
 pub struct ReaderUtil;

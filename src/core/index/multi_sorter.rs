@@ -26,7 +26,8 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{LUCENE_10_0_0, ToInt};
-/// Does a merge sort of the leaves of the incoming readers, returning [`DocMap`]s
+/// Does a merge sort of the leaves of the incoming readers, returning
+/// [`DocMap`](crate::core::index::sorter::DocMap) implementations
 /// to map each leaf's documents into the merged segment.
 ///
 /// The documents for each incoming leaf reader must already be sorted by the same

@@ -371,7 +371,7 @@ where
   /// ```
   ///
   /// - If a non-FSTReader DataOutput was used, such as
-  ///   [`IndexOutput`](crate::core::store::index_output::IndexOutput), you need to
+  ///   [`IndexOutput`], you need to
   ///   first create the corresponding
   ///   [`DataInput`](crate::core::store::data_input::DataInput), such as
   ///   [`IndexInput`](crate::core::store::data_input::DataInput) then pass it to

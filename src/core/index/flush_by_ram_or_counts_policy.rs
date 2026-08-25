@@ -23,16 +23,19 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use parking_lot::MutexGuard;
-/// Default [`FlushPolicy`] implementation that flushes new segments based on RAM usage and
-/// document count, depending on the `IndexWriter`'s [`IndexWriterConfig`](crate::core::index::index_writer_config::IndexWriterConfig).
+/// Default flushing implementation that writes new segments based on RAM usage and document count,
+/// depending on the `IndexWriter`'s
+/// [`IndexWriterConfig`](crate::core::index::index_writer_config::IndexWriterConfig).
 /// It also applies pending deletes based on the number of buffered delete terms.
 ///
-/// All [`IndexWriterConfig`](crate::core::index::index_writer_config::IndexWriterConfig) settings are used to mark [`DocumentsWriterPerThread`] as
-/// flush-pending during indexing with respect to their live updates.
+/// All [`IndexWriterConfig`](crate::core::index::index_writer_config::IndexWriterConfig) settings
+/// are used to mark [`IndexWriter`](crate::core::index::index_writer::IndexWriter) per-thread
+/// indexing buffers as flush-pending with respect to their live updates.
 ///
-/// If [`IndexWriterConfig::set_ram_buffer_size_mb`](crate::core::index::index_writer_config::IndexWriterConfig::set_ram_buffer_size_mb) is enabled, the largest RAM-consuming
-/// [`DocumentsWriterPerThread`] will be marked as pending **iff** the global active RAM consumption
-/// is `>=` the configured max RAM buffer.
+/// If
+/// [`IndexWriterConfig::set_ram_buffer_size_mb`](crate::core::index::index_writer_config::IndexWriterConfig::set_ram_buffer_size_mb)
+/// is enabled, the largest per-thread indexing buffer is marked as pending **iff** global active
+/// RAM consumption is `>=` the configured maximum RAM buffer.
 pub struct FlushByRamOrCountsPolicy;
 impl Default for FlushByRamOrCountsPolicy {
   fn default() -> Self {
@@ -88,7 +91,7 @@ impl FlushByRamOrCountsPolicy {
     }
     Ok(())
   }
-  /// Returns `true` if this [`FlushPolicy`](crate::core::index::flush_policy::FlushPolicy) flushes on
+  /// Returns `true` if this [`FlushByRamOrCountsPolicy`] flushes on
   /// [`LiveIndexWriterConfig::get_max_buffered_docs`], otherwise `false`.
   pub(crate) fn flush_on_doc_count<L>(&self, index_writer_config: &L) -> bool
   where
@@ -97,7 +100,7 @@ impl FlushByRamOrCountsPolicy {
     index_writer_config.get_max_buffered_docs() != DISABLE_AUTO_FLUSH
   }
 
-  /// Returns `true` if this [`FlushPolicy`](crate::core::index::flush_policy::FlushPolicy) flushes on
+  /// Returns `true` if this [`FlushByRamOrCountsPolicy`] flushes on
   /// [`LiveIndexWriterConfig::get_ram_buffer_size_mb`], otherwise `false`.
   pub(crate) fn flush_on_ram<L>(&self, index_writer_config: &L) -> bool
   where

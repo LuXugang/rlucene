@@ -64,7 +64,7 @@ where
   ///
   /// The writer locates all index commits present in the index directory and calls this method. The
   /// policy may choose to delete some of the commit points, doing so by calling method
-  /// [`IndexCommit::delete`] of [`IndexCommit`].
+  /// [`IndexCommit::delete`] on a commit point.
   ///
   /// **Note:** the last commit point is the most recent one, i.e. the "front index state". Be
   /// careful not to delete it, unless you know for sure what you are doing, and unless you can
@@ -72,7 +72,7 @@ where
   ///
   /// # Parameters
   ///
-  /// * `commits` - List of current [`IndexCommit`] point-in-time commits, sorted by age (the 0th
+  /// * `commits` - Current [`IndexCommit`] point-in-time commits, sorted by age (the 0th
   ///   one is the oldest commit). Note that for a new index this method is invoked with an empty
   ///   list.
   fn on_init(&self, commits: &[IC]) -> Result<()>;
@@ -80,14 +80,14 @@ where
   /// This is called each time the writer completed a commit. This gives the policy a chance to
   /// remove old commit points with each commit.
   ///
-  /// The policy may now choose to delete old commit points by calling method [`IndexCommit::delete`]
-  /// of [`IndexCommit`].
+  /// The policy may now choose to delete old commit points by calling [`IndexCommit::delete`].
   ///
   /// This method is only called when
-  /// [`IndexWriter::commit`](crate::core::index::index_writer::IndexWriter::commit) or
+  /// [`TwoPhaseCommit::commit`](crate::core::index::two_phase_commit::TwoPhaseCommit::commit) or
   /// [`IndexWriter::close`](crate::core::index::index_writer::IndexWriter::close) is called, or
   /// possibly not at all if the
-  /// [`IndexWriter::rollback`](crate::core::index::index_writer::IndexWriter::rollback) is called.
+  /// [`TwoPhaseCommit::rollback`](crate::core::index::two_phase_commit::TwoPhaseCommit::rollback) is
+  /// called.
   ///
   /// **Note:** the last commit point is the most recent one, i.e. the "front index state". Be
   /// careful not to delete it, unless you know for sure what you are doing, and unless you can
@@ -95,7 +95,7 @@ where
   ///
   /// # Parameters
   ///
-  /// * `commits` - List of [`IndexCommit`], sorted by age (the 0th one is the oldest commit).
+  /// * `commits` - [`IndexCommit`] values sorted by age (the 0th one is the oldest commit).
   fn on_commit(&self, commits: &[IC]) -> Result<()>;
 }
 

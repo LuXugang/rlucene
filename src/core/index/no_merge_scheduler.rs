@@ -25,7 +25,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 /// A [`MergeScheduler`] which never executes any merges.
 ///
-/// Use it if you want to prevent an [`IndexWriter`] from ever executing merges,
+/// Use it if you want to prevent an
+/// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) from ever executing merges,
 /// regardless of the [`MergePolicy`](crate::core::index::merge_policy::MergePolicy) used.
 ///
 /// Note that you can achieve the same thing by using [`NoMergePolicy`](crate::core::index::no_merge_policy::NoMergePolicy).

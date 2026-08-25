@@ -108,7 +108,7 @@ pub trait PointValues {
     }
   }
 }
-/// Return the cumulated number of points across all leaves of the given [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// Return the cumulated number of points across all leaves of the given [`IndexReader`].
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::size`].
@@ -131,7 +131,7 @@ where
 }
 
 /// Return the cumulated number of docs that have points across all leaves of the given
-/// [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// [`IndexReader`].
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::get_doc_count`].
@@ -152,7 +152,7 @@ where
   Ok(count)
 }
 
-/// Return the minimum packed values across all leaves of the given [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// Return the minimum packed values across all leaves of the given [`IndexReader`].
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::get_min_packed_value`].
@@ -198,7 +198,7 @@ where
 
   Ok(min_value)
 }
-/// Return the maximum packed values across all leaves of the given [`IndexReader`](crate::core::index::index_reader::IndexReader).
+/// Return the maximum packed values across all leaves of the given [`IndexReader`].
 /// Leaves that do not have points for the given field are ignored.
 ///
 /// See [`PointValues::get_max_packed_value`].

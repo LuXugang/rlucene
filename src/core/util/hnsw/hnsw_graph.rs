@@ -31,7 +31,9 @@ use crate::core::util::hnsw::neighbor_array::NeighborArray;
 ///
 /// ## Hyperparameters
 ///
-/// - `beam_width` in [`HnswGraphBuilder`] corresponds to `efConst` in the
+/// - `beam_width` in
+///   [`HnswGraphBuilder`](crate::core::util::hnsw::hnsw_graph_builder::HnswGraphBuilder)
+///   corresponds to `efConst` in the
 ///   paper: it is the number of nearest neighbor candidates tracked while
 ///   searching the graph for each newly inserted node.
 ///

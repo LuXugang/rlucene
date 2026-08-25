@@ -102,7 +102,8 @@ where
 /// flush. Flushing is triggered either by RAM usage of the documents (see
 /// [`IndexWriterConfig::set_ram_buffer_size_mb`]) or the number of added documents (see
 /// [`IndexWriterConfig::set_max_buffered_docs`]). The default is to flush when RAM usage hits
-/// [`IndexWriterConfig::DEFAULT_RAM_BUFFER_SIZE_MB`] MB. For best indexing speed you should flush
+/// [`DEFAULT_RAM_BUFFER_SIZE_MB`](crate::core::index::index_writer_config::DEFAULT_RAM_BUFFER_SIZE_MB)
+/// MB. For best indexing speed you should flush
 /// by RAM usage with a large RAM buffer. In contrast to the other flush options
 /// [`IndexWriterConfig::set_ram_buffer_size_mb`] and
 /// [`IndexWriterConfig::set_max_buffered_docs`], deleted terms won't trigger a segment flush. Note
@@ -115,9 +116,12 @@ where
 /// Opening an `IndexWriter` creates a lock file for the directory in use. Trying to open another
 /// `IndexWriter` on the same directory returns a [`LuceneError::LockObtainFailed`] error.
 ///
-/// Expert: `IndexWriter` allows an optional [`IndexDeletionPolicy`] implementation to be specified.
+/// Expert: `IndexWriter` allows an optional
+/// [`IndexDeletionPolicy`](crate::core::index::index_deletion_policy::IndexDeletionPolicy)
+/// implementation to be specified.
 /// You can use this to control when prior commits are deleted from the index. The default policy is
-/// [`KeepOnlyLastCommitDeletionPolicy`] which removes all prior commits as soon as a new commit is
+/// [`KeepOnlyLastCommitDeletionPolicy`](crate::core::index::keep_only_last_commit_deletion_policy::KeepOnlyLastCommitDeletionPolicy)
+/// which removes all prior commits as soon as a new commit is
 /// done. Creating your own policy can allow you to explicitly keep previous "point in time"
 /// commits alive in the index for some time, either because this is useful for your application, or
 /// to give readers enough time to refresh to the new commit without having the old commit deleted
@@ -131,15 +135,17 @@ where
 /// Expert: `IndexWriter` allows you to separately change the [`MergePolicy`] and the
 /// [`MergeScheduler`]. The [`MergePolicy`] is invoked whenever there are changes to the segments in
 /// the index. Its role is to select which merges to do, if any, and return a
-/// [`MergePolicy::MergeSpecification`] describing the merges. The default is
-/// [`LogByteSizeMergePolicy`]. Then, the [`MergeScheduler`] is invoked with the requested merges
+/// [`MergeSpecification`] describing the merges. The default is
+/// [`LogByteSizeMergePolicy`](crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy).
+/// Then, the [`MergeScheduler`] is invoked with the requested merges
 /// and it decides when and how to run the merges. The default is
-/// [`ConcurrentMergeScheduler`]. <a id="OOME"></a>
+/// [`ConcurrentMergeScheduler`](crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler).
+/// <a id="OOME"></a>
 ///
 /// **NOTE**: if you hit an Error, or disaster strikes during a checkpoint then `IndexWriter`
 /// will close itself. This is a defensive measure in case any internal state (buffered documents,
 /// deletions, reference counts) were corrupted. Any subsequent calls will return an
-/// [`AlreadyClosedError`]. <a id="thread-safety"></a>
+/// [`LuceneError::AlreadyClosed`]. <a id="thread-safety"></a>
 ///
 /// **NOTE**: [`IndexWriter`] instances are completely thread safe, meaning multiple threads can
 /// call any of its methods, concurrently. If your application requires external synchronization,
@@ -1083,7 +1089,8 @@ where
     self.update_documents(Some(Arc::new(node)), docs)
   }
   /// Expert: attempts to delete by document ID, as long as the provided reader is a near-real-time
-  /// reader (from [`DirectoryReader::open`]). If the provided reader is an NRT reader obtained from
+  /// reader (from [`directory_reader::open`]). If the
+  /// provided reader is an NRT reader obtained from
   /// this writer, and its segment has not been merged away, then the delete succeeds and this method
   /// returns a valid (> 0) sequence number; else, it returns -1 and the caller must then separately
   /// delete by [`Term`] or [`Query`].
@@ -1101,7 +1108,8 @@ where
   }
 
   /// Expert: attempts to update doc values by document ID, as long as the provided reader is a
-  /// near-real-time reader (from [`DirectoryReader::open`]). If the provided reader is an NRT
+  /// near-real-time reader (from
+  /// [`directory_reader::open`]). If the provided reader is an NRT
   /// reader obtained from this writer, and its segment has not been merged away, then the update
   /// succeeds and this method returns a valid (> 0) sequence number; else, it returns -1 and the
   /// caller must then either retry the update and resolve the document again. If a doc values

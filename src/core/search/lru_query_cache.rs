@@ -94,15 +94,6 @@ const LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY: i64 =
 /// - [`get_eviction_count()`](LRUQueryCache::get_eviction_count): number of evicted entries
 ///
 ///
-/// In case you would like to have more fine-grained statistics, such as per-index or
-/// per-query-type statistics, customize the following callbacks:
-/// [`on_hit`](LRUQueryCache::on_hit), [`on_miss`](LRUQueryCache::on_miss), [`on_query_cache`](LRUQueryCache::on_query_cache), [`on_query_eviction`](LRUQueryCache::on_query_eviction),
-/// [`on_docidset_cache`](LRUQueryCache::on_doc_id_set_cache), [`on_docidset_eviction`](LRUQueryCache::on_doc_id_set_eviction) and [`on_clear`](LRUQueryCache::on_clear).
-///
-/// It is better to not perform heavy computations in these methods since they are called
-/// synchronously and under a lock.
-///
-///
 /// # See also
 /// [`QueryCachingPolicy`]
 ///
@@ -767,7 +758,7 @@ where
       .unwrap_or(QUERY_DEFAULT_RAM_BYTES_USED);
     LINKED_HASHTABLE_RAM_BYTES_PER_ENTRY.saturating_add(query_ram_bytes_used)
   }
-  /// Return the total number of times that a [`Query`](crate::core::search::query::Query) has been looked up in this [`QueryCache`](crate::core::search::query_cache::QueryCache).
+  /// Return the total number of times that a [`Query`] has been looked up in this [`QueryCache`].
   /// Note that this number is incremented once per segment, so running a cached query only once
   /// will increment this counter by the number of segments that are wrapped by the searcher.
   /// By definition, [`get_total_count()`](Self::get_total_count) is the sum of [`get_hit_count()`](Self::get_hit_count) and [`get_miss_count()`](Self::get_miss_count).

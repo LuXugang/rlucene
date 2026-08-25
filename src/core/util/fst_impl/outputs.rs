@@ -44,29 +44,29 @@ pub trait Outputs: Display + Clone + Default {
   fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()>;
 
   /// Encode a final node output value into a `Write` stream.
-  /// By default this just calls [`write`].
+  /// By default this just calls [`Self::write`].
   fn write_final_output(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
     self.write(output, out)
   }
 
-  /// Decode an output value previously written with [`write`].
+  /// Decode an output value previously written with [`Self::write`].
   fn read(&self, input: &mut impl DataInput) -> Result<Self::V>;
 
-  /// Skip the output; defaults to just calling [`read`] and discarding the
+  /// Skip the output; defaults to just calling [`Self::read`] and discarding the
   /// result.
   fn skip_output(&self, input: &mut impl DataInput) -> Result<()> {
     let _ = self.read(input)?;
     Ok(())
   }
 
-  /// Decode an output value previously written with [`write_final_output`].
-  /// By default this just calls [`read`].
+  /// Decode an output value previously written with [`Self::write_final_output`].
+  /// By default this just calls [`Self::read`].
   fn read_final_output(&self, input: &mut impl DataInput) -> Result<Self::V> {
     self.read(input)
   }
 
-  /// Skip the output previously written with [`write_final_output`];
-  /// defaults to just calling [`read_final_output`] and discarding the
+  /// Skip the output previously written with [`Self::write_final_output`];
+  /// defaults to just calling [`Self::read_final_output`] and discarding the
   /// result.
   fn skip_final_output(&self, input: &mut impl DataInput) -> Result<()> {
     self.skip_output(input)?;

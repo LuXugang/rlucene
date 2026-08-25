@@ -28,8 +28,9 @@ const MIN_PAUSE_CHECK_MSEC: i64 = 25;
 const MIN_PAUSE_NS: i64 = 2_000_000; // 2 milliseconds in nanoseconds.
 const MAX_PAUSE_NS: i64 = 250_000_000; // 250 milliseconds in nanoseconds.
 
-/// This is the [`RateLimiter`] that [`IndexWriter`] assigns to each running merge, to give
-/// [`MergeScheduler`]s ionice like control.
+/// This is the [`RateLimiter`] that
+/// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) assigns to each running merge,
+/// giving merge schedulers I/O-priority-like control.
 ///
 /// @lucene.internal
 pub struct MergeRateLimiter {

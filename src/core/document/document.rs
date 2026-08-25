@@ -175,7 +175,8 @@ impl Document {
   ///
   /// # Note
   /// Fields that are not stored are not available in documents retrieved from
-  /// the index, for example when using [`StoredFields::document`].
+  /// the index, for example when using
+  /// [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document).
   ///
   /// # Returns
   /// An immutable `Vec<Arc>` containing all fields in the document.

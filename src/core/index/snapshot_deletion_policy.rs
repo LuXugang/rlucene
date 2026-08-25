@@ -255,7 +255,7 @@ where
     inner.ref_counts.values().sum()
   }
 
-  /// Retrieve an [`IndexCommit`] from its generation; returns `None` if this IndexCommit is not
+  /// Retrieve an [`IndexCommit`] from its generation; returns `None` if this commit is not
   /// currently snapshotted.
   pub fn get_index_commit(&self, generation: i64) -> Option<Arc<CommitPoint<D>>> {
     let op_lock = self.lock();

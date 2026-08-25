@@ -27,7 +27,7 @@ use std::sync::Arc;
 
 use crate::core::index::live_index_writer_config::LeafSorter;
 use crate::core::index::standard_directory_reader::{ReaderCommit, StandardDirectoryReader};
-/// [`DirectoryReader`] is an implementation of [`CompositeReader`](crate::core::index::composite_reader::CompositeReader) that can read indexes
+/// [`DirectoryReader`] is an implementation of [`CompositeReader`] that can read indexes
 /// from a [`Directory`].
 ///
 /// [`DirectoryReader`] instances are usually constructed by calling one of the static

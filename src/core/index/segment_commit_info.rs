@@ -133,13 +133,13 @@ impl<D> SegmentCommitInfo<D> {
     }
   }
   /// Returns a reference to the FieldInfos file names.
-  /// Returns the [FieldInfos] file names.
+  /// Returns the [`FieldInfos`](crate::core::index::field_infos::FieldInfos) file names.
   pub fn get_field_infos_files(&self) -> &HashSet<String> {
     &self.field_infos_files
   }
 
   /// Sets the FieldInfos file names.
-  /// Sets the [FieldInfos] file names.
+  /// Sets the [`FieldInfos`](crate::core::index::field_infos::FieldInfos) file names.
   pub fn set_field_infos_files(&mut self, field_infos_files: HashSet<String>) {
     self.field_infos_files.clear();
     for file in field_infos_files {

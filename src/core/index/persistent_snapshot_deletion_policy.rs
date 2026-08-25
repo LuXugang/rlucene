@@ -48,7 +48,7 @@ use crate::test_framework::core::util::failure_context::{
 /// It is OK to use the same Directory that holds the index.
 ///
 /// This struct adds a [`Self::release_gen`] method to release commits from a previous snapshot's
-/// [`IndexCommit::get_generation`].
+/// [`IndexCommit::get_generation`](crate::core::index::index_commit::IndexCommit::get_generation).
 ///
 /// # Experimental
 pub struct PersistentSnapshotDeletionPolicy<D> {
@@ -173,7 +173,7 @@ where
   ///
   /// # See Also
   ///
-  /// [`IndexCommit::get_generation`]
+  /// [`IndexCommit::get_generation`](crate::core::index::index_commit::IndexCommit::get_generation)
   pub fn release_gen(&self, generation: i64) -> Result<()> {
     let op_lock = self.base.lock();
     self
@@ -267,8 +267,8 @@ where
     self.base.get_snapshot_count()
   }
 
-  /// Retrieve an [`IndexCommit`] from its generation; returns `None` if this IndexCommit is not
-  /// currently snapshotted.
+  /// Retrieve an [`IndexCommit`](crate::core::index::index_commit::IndexCommit) from its generation;
+  /// returns `None` if this commit is not currently snapshotted.
   pub fn get_index_commit(&self, generation: i64) -> Option<Arc<CommitPoint<D>>> {
     self.base.get_index_commit(generation)
   }

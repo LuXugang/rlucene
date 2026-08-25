@@ -28,21 +28,21 @@ pub trait Spans: DocIdSetIterator {
   /// Returns the next start position for the current doc.
   /// There is always at least one start/end position per doc.
   /// After the last start/end position at the current doc this returns
-  /// [`NO_MORE_POSITIONS`](Spans::NO_MORE_POSITIONS).
+  /// [`NO_MORE_POSITIONS`].
   fn next_start_position(&mut self) -> Result<i32>;
 
   /// Returns the start position in the current doc, or -1 when
   /// [`next_start_position`](Spans::next_start_position) was not yet
   /// called on the current doc. After the last start/end position at the
   /// current doc this returns
-  /// [`NO_MORE_POSITIONS`](Spans::NO_MORE_POSITIONS).
+  /// [`NO_MORE_POSITIONS`].
   fn start_position(&self) -> i32;
 
   /// Returns the end position for the current start position, or -1 when
   /// [`next_start_position`](Spans::next_start_position) was not yet
   /// called on the current doc. After the last start/end position at the
   /// current doc this returns
-  /// [`NO_MORE_POSITIONS`](Spans::NO_MORE_POSITIONS).
+  /// [`NO_MORE_POSITIONS`].
   fn end_position(&self) -> i32;
 
   /// Return the width of the match, which is typically used to sloppy
@@ -55,7 +55,7 @@ pub trait Spans: DocIdSetIterator {
   ///
   /// This method should only be called after
   /// [`next_start_position`](Spans::next_start_position), and before
-  /// [`NO_MORE_POSITIONS`](Spans::NO_MORE_POSITIONS) has been reached.
+  /// [`NO_MORE_POSITIONS`] has been reached.
   ///
   /// * `collector` a SpanCollector
   fn collect(&self, collector: &mut impl SpanCollector) -> Result<()>;
@@ -89,4 +89,4 @@ pub trait Spans: DocIdSetIterator {
     Ok(())
   }
 }
-pub(crate) const NO_MORE_POSITIONS: i32 = i32::MAX;
+pub const NO_MORE_POSITIONS: i32 = i32::MAX;

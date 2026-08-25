@@ -82,7 +82,7 @@ pub mod impact;
 pub mod impacts;
 pub mod impacts_enum;
 pub mod impacts_source;
-pub(crate) mod index_commit;
+pub mod index_commit;
 pub mod index_deletion_policy;
 pub(crate) mod index_file_deleter;
 pub mod index_file_names;

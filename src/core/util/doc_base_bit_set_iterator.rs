@@ -55,8 +55,8 @@ impl DocBaseBitSetIterator {
       doc: -1,
     })
   }
-  /// Gets the [`FixedBitSet`](FixedBitSet). A `docId` will exist in this
-  /// [`DocIdSetIterator`](DocIdSetIterator) if the bitset
+  /// Gets the [`FixedBitSet`]. A `docId` will exist in this
+  /// [`DocIdSetIterator`] if the bitset
   /// contains `(docId - get_doc_base())`.
   ///
   /// # Returns

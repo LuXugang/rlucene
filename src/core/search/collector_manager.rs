@@ -41,13 +41,16 @@ use crate::core::util::error::lucene_error::Result;
 ///   collections into a meaningful result. This method is only called after all leaves have been
 ///   fully collected.
 ///
-/// **Note:** Multiple [`LeafCollector`]s may be requested for the same [`LeafReaderContext`] via
+/// **Note:** Multiple
+/// [`LeafCollector`](crate::core::search::leaf_collector::LeafCollector)s may be requested for the
+/// same [`LeafReaderContext`](crate::core::index::leaf_reader_context::LeafReaderContext) via
 /// [`Collector::get_leaf_collector`] across the different [`Collector`]s returned by
 /// [`CollectorManager::new_collector`]. Any computation or logic that needs to happen once per
 /// segment requires specific handling in the collector manager implementation, because the
 /// collection of an entire segment may be split across threads.
 ///
-/// See also [`IndexSearcher::search`].
+/// See also
+/// [`IndexSearcher::search`](crate::core::search::index_searcher::IndexSearcher::search).
 pub trait CollectorManager {
   /// The per-shard/per-task collector type to create.
   type C: Collector;

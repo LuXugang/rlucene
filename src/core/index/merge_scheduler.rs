@@ -51,16 +51,17 @@ use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-/// Expert: [IndexWriter] uses an instance implementing this
-/// trait to execute the merges selected by a [MergePolicy].
-/// The default MergeScheduler is [ConcurrentMergeScheduler].
+/// Expert: [`IndexWriter`](crate::core::index::index_writer::IndexWriter) uses an instance
+/// implementing this trait to execute the merges selected by a
+/// [`MergePolicy`](crate::core::index::merge_policy::MergePolicy).
+/// The default merge scheduler is [`ConcurrentMergeScheduler`].
 ///
 /// @lucene.experimental
 pub trait MergeScheduler: CloseableRef {
-  /// Run the merges provided by [MergeSource::get_next_merge()].
+  /// Run the merges provided by [`MergeSource::get_next_merge`].
   ///
-  /// * `merge_source` - the [IndexWriter] to obtain the merges from.
-  /// * `trigger` - the [MergeTrigger] that caused this merge to happen
+  /// * `merge_source` - the source from which to obtain merges.
+  /// * `trigger` - the [`MergeTrigger`] that caused this merge to happen
   fn merge<MS, D>(&self, merge_source: MS, trigger: MergeTrigger) -> Result<()>
   where
     MS: MergeSource<D> + Clone + 'static,
@@ -69,8 +70,8 @@ pub trait MergeScheduler: CloseableRef {
   type Directory<D>: Directory
   where
     D: Directory;
-  /// Wraps the incoming [Directory] so that we can
-  /// merge-throttle it using [RateLimitedIndexOutput].
+  /// Wraps the incoming [`Directory`] so that merge I/O can be throttled with
+  /// [`RateLimitedIndexOutput`](crate::core::store::rate_limited_index_output::RateLimitedIndexOutput).
   fn wrap_for_merge<D>(&self, _in_: D) -> Result<Self::Directory<D>>
   where
     D: Directory;
@@ -85,7 +86,8 @@ pub trait MergeScheduler: CloseableRef {
     Ok(Arc::new(TaskExecutor::direct()))
   }
 
-  /// [IndexWriter] calls this on init.
+  /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) calls this during
+  /// initialization.
   fn initialize<D>(&mut self, _info_stream: InfoStreamMT, _directory: &D) -> Result<()>
   where
     D: Directory,

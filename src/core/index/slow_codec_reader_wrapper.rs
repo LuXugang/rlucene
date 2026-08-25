@@ -47,7 +47,8 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 /// Wraps arbitrary readers for merging. Note that this can cause slow
-/// and memory-intensive merges. Consider using [FilterCodecReader]
+/// and memory-intensive merges. Consider using
+/// [`FilterCodecReader`](crate::core::index::filter_codec_reader::FilterCodecReader)
 /// instead.
 pub struct SlowCodecReaderWrapper;
 impl SlowCodecReaderWrapper {

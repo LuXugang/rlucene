@@ -38,10 +38,9 @@ use crate::core::util::{
 /// # Note
 /// - The maximum capacity `BytesRef` instance passed to
 ///   [`add`](BytesRefHash::add) must not be longer than
-///   [`BYTE_BLOCK_SIZE`](ByteBlockPool) - 2.
+///   [`BYTE_BLOCK_SIZE`](crate::core::util::byte_block_pool::BYTE_BLOCK_SIZE) - 2.
 /// - The internal storage is limited to 2GB total byte storage.
 ///
-/// [`BYTE_BLOCK_SIZE`]: BYTE_BLOCK_SIZE
 pub struct BytesRefHash<BSA> {
   pool: BytesRefBlockPool,
   hash_size: i32,
@@ -236,8 +235,10 @@ where
   /// hashed before.
   ///
   /// # Errors
-  /// Returns [`LuceneError::MaxBytesLengthExceeded`] if the given bytes are greater
-  /// than 2 + [`BYTE_BLOCK_SIZE`].
+  /// Returns
+  /// [`LuceneError::MaxBytesLengthExceeded`](crate::core::util::error::lucene_error::LuceneError::MaxBytesLengthExceeded)
+  /// if the given bytes are greater than 2 +
+  /// [`BYTE_BLOCK_SIZE`](crate::core::util::byte_block_pool::BYTE_BLOCK_SIZE).
   pub fn add(
     &mut self,
     bytes: &BytesRef<Vec<u8>>,

@@ -36,7 +36,8 @@ use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
 /// An indexed `f64` field for fast range filters. If you also need to store the value, you
-/// should add a separate [`StoredField`] instance.
+/// should add a separate
+/// [`StoredField`](crate::core::document::stored_field::StoredField) instance.
 ///
 /// Finding all documents within an N-dimensional shape or range at search time is efficient.
 /// Multiple values for the same field in one document is allowed.
@@ -49,7 +50,7 @@ use std::fmt;
 /// * [`new_range_query`](Self::new_range_query) for matching points/ranges in
 ///   n-dimensional space.
 ///
-/// See also [`PointValues`].
+/// See also [`PointValues`](crate::core::index::point_values::PointValues).
 pub struct DoublePoint {
   parent_field: Field,
 }

@@ -79,7 +79,7 @@ impl SortedSetDocValuesField {
   }
 
   /// Creates a new [`SortedSetDocValuesField`] that also creates a
-  /// [`FieldType::doc_values_skip_index_type`](crate::core::document::field_type::FieldType::doc_values_skip_index_type) skip index.
+  /// doc-values skip index configured on its [`FieldType`].
   pub fn indexed_field<T>(name: T, bytes: BytesRef<Vec<u8>>) -> Self
   where
     T: Into<String>,

@@ -18,7 +18,7 @@ use crate::core::store::IndexInput;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::Display;
 
-/// Random Access Index API. Unlike [`IndexInput`](crate::core::store::IndexInput),
+/// Random Access Index API. Unlike [`IndexInput`],
 /// this has no concept of file position; all reads are absolute. However, like
 /// `IndexInput`, it is only intended for use by a single thread.
 pub trait RandomAccessInput {

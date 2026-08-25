@@ -33,7 +33,7 @@ use crate::core::util::error::lucene_error::Result;
 /// trait to implement locking.
 ///
 /// # Default Implementation
-/// Lucene uses [`NativeFSLockFactory`](crate::core::store::NativeFSLockFactory) by
+/// Lucene uses [`NativeFSLockFactory`] by
 /// default for `FSDirectory`-based index directories.
 ///
 /// # Note

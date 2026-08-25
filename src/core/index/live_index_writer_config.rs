@@ -62,7 +62,7 @@ pub trait LiveIndexWriterConfig: Display {
   /// Returns the [`MergeSchedulerEnum`] set on this configuration.
   fn get_merge_scheduler(&self) -> &MergeSchedulerEnum;
 
-  /// Returns the current [`Codec`].
+  /// Returns the current [`Codecs`] implementation.
   fn get_codec(&self) -> &Codecs;
 
   /// Gets the index-time [`Sort`] order applied to all flushed and merged
@@ -89,7 +89,8 @@ pub trait LiveIndexWriterConfig: Display {
   /// Returns mutable access to the current [`MergePolicyEnum`].
   fn get_merge_policy_mut(&mut self) -> &mut MergePolicyEnum<Self::Directory>;
 
-  /// Returns the [`FlushPolicyEnum`] used to control when segments are flushed.
+  /// Returns the configured flushing behavior. The default is
+  /// [`FlushByRamOrCountsPolicy`].
   fn get_flush_policy(&self) -> &FlushPolicyEnum;
 
   /// Returns the RAM buffer size in MB if enabled.
@@ -241,7 +242,7 @@ pub trait LiveIndexWriterConfig: Display {
     self
   }
 
-  /// Sets the [`FlushPolicyEnum`] used to control when segments are flushed.
+  /// Sets the flushing behavior. The default is [`FlushByRamOrCountsPolicy`].
   fn set_flush_policy<T>(&mut self, flush_policy: T) -> &mut Self
   where
     T: Into<FlushPolicyEnum>,
@@ -345,13 +346,13 @@ where
   pub open_mode: OpenMode,
   /// [`SimilarityEnum`] to use when encoding norms.
   pub similarity: Arc<SimilarityEnum>,
-  /// [`Codec`] used to write new segments.
+  /// [`Codecs`] implementation used to write new segments.
   pub codec: Codecs,
   /// [`InfoStreamMT`] for debugging messages.
   pub info_stream: InfoStreamMT,
   /// [`MergePolicyEnum`] for selecting merges.
   pub merge_policy: MergePolicyEnum<D>,
-  /// [`FlushPolicyEnum`] to control when segments are flushed.
+  /// Flushing behavior; the default is [`FlushByRamOrCountsPolicy`].
   pub flush_policy: Arc<FlushPolicyEnum>,
   /// True if readers should be pooled.
   pub reader_pooling: bool,

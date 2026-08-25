@@ -20,11 +20,14 @@ use crate::core::util::error::lucene_error::Result;
 /// Reports the positions and optionally offsets of all matching terms
 /// in a query for a single document.
 ///
-/// To obtain a [`MatchesIterator`] for a particular field, call
+/// To obtain a
+/// [`MatchesIterator`](crate::core::search::matches_iterator::MatchesIterator) for a particular
+/// field, call
 /// [`Matches::get_matches`]. Note that you can call this method multiple
 /// times to retrieve new iterators, but it is not thread-safe.
 pub trait Matches {
-  /// Returns a [`MatchesIterator`] over the matches for a single field,
+  /// Returns a [`MatchesIterator`](crate::core::search::matches_iterator::MatchesIterator) over the
+  /// matches for a single field,
   /// or `None` if there are no matches in that field.
   fn get_matches(&self, field: &str) -> Result<Option<QueryWeightMatchesIterator<'_>>>;
 

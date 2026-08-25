@@ -42,7 +42,7 @@ use std::{fs, io};
 /// Base trait for `Directory` implementations that store index files in the
 /// file system. There are currently two core implementations:
 ///
-/// - [`MMapDirectory`](crate::core::store::mmap_directory::MMapDirectory): Reserved for a
+/// - [`MMapDirectory`]: Reserved for a
 ///   memory-mapped directory implementation.
 /// - [`NIOFSDirectory`](crate::core::store::nio_fs_directory::NIOFSDirectory): Uses
 ///   `std::fs::File` positional reads so multiple threads can read from the same file without a

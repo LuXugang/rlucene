@@ -62,8 +62,7 @@ where
   N: NumericDocValues,
 {
   /// Score the current doc. The default implementation scores the doc
-  /// with the similarity using the slop-adjusted
-  /// [`freq`](SpanScorer::freq).
+  /// with the similarity using a slop-adjusted frequency derived from [`Spans::width`].
   pub fn score_current_doc(&mut self) -> Result<f32> {
     let mut norm: i64 = 1;
     if let Some(ref mut norms) = self.norms

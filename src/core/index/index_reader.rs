@@ -48,24 +48,24 @@ use std::sync::{Arc, Weak};
 ///
 /// There are two different types of index readers:
 ///
-/// - [`LeafReader`](crate::core::index::leaf_reader::LeafReader): atomic readers
+/// - [`LeafReader`]: atomic readers
 ///   that do not consist of several sub-readers.
 ///   They support retrieval of stored fields, doc values, terms, and postings.
-/// - [`CompositeReader`](crate::core::index::composite_reader::CompositeReader):
+/// - [`CompositeReader`]:
 ///   instances, such as
 ///   [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader),
 ///   can only be used to get stored fields from the underlying
-///   [`LeafReader`](crate::core::index::leaf_reader::LeafReader)s. It is not
+///   [`LeafReader`]s. It is not
 ///   possible to directly retrieve postings from a composite reader; to do that,
 ///   get the sub-readers via
-///   [`CompositeReader::get_sequential_sub_readers`](crate::core::index::composite_reader::CompositeReader::get_sequential_sub_readers).
+///   [`CompositeReader::get_sequential_sub_readers`].
 ///
 /// [`IndexReader`] instances for indexes on disk are usually constructed with a
 /// call to one of the `DirectoryReader::open` methods, for example
 /// [`directory_reader::open`](crate::core::index::directory_reader::open).
 /// [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)
 /// implements the
-/// [`CompositeReader`](crate::core::index::composite_reader::CompositeReader)
+/// [`CompositeReader`]
 /// trait, so it is not possible to directly get postings from it.
 ///
 /// For efficiency, this API often refers to documents via document numbers:
