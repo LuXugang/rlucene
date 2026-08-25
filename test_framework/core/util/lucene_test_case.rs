@@ -37,6 +37,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{IndexReader, IndexReaderContextType};
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer_config::IndexWriterConfig;
+use crate::core::index::index_writer_event_listener::IndexWriterEventListenerEnum;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase};
@@ -457,7 +458,9 @@ where
   }
 
   if rarely(random) {
-    config.set_index_writer_event_listener(MockIndexWriterEventListener::new());
+    config.set_index_writer_event_listener(IndexWriterEventListenerEnum::custom(
+      MockIndexWriterEventListener::new(),
+    ));
   }
   match random.random_range(0..3) {
     0 => {

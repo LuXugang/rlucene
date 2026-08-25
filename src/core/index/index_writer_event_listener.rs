@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 use crate::core::index::merge_policy::MergeStat;
-#[cfg(test)]
-use crate::test_framework::core::index::mock_index_writer_event_listener::MockIndexWriterEventListener;
 use std::fmt::{Display, Formatter};
 
 /// A callback event listener for recording key events happened inside
@@ -61,8 +59,6 @@ pub type CustomIndexWriterEventListener = Box<DynIndexWriterEventListener>;
 pub enum IndexWriterEventListenerEnum {
   NoOp(NoOpIndexWriterEventListener),
   Custom(CustomIndexWriterEventListener),
-  #[cfg(test)]
-  Mock(MockIndexWriterEventListener),
 }
 
 impl IndexWriterEventListenerEnum {
@@ -92,20 +88,11 @@ impl From<CustomIndexWriterEventListener> for IndexWriterEventListenerEnum {
   }
 }
 
-#[cfg(test)]
-impl From<MockIndexWriterEventListener> for IndexWriterEventListenerEnum {
-  fn from(value: MockIndexWriterEventListener) -> Self {
-    Self::Mock(value)
-  }
-}
-
 impl Display for IndexWriterEventListenerEnum {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::NoOp(listener) => write!(f, "{}", listener),
       Self::Custom(listener) => write!(f, "{}", listener),
-      #[cfg(test)]
-      Self::Mock(listener) => write!(f, "{}", listener),
     }
   }
 }
@@ -115,8 +102,6 @@ impl IndexWriterEventListener for IndexWriterEventListenerEnum {
     match self {
       Self::NoOp(listener) => listener.begin_merge_on_full_flush(merge_states),
       Self::Custom(listener) => listener.begin_merge_on_full_flush(merge_states),
-      #[cfg(test)]
-      Self::Mock(listener) => listener.begin_merge_on_full_flush(merge_states),
     }
   }
 
@@ -124,8 +109,6 @@ impl IndexWriterEventListener for IndexWriterEventListenerEnum {
     match self {
       Self::NoOp(listener) => listener.end_merge_on_full_flush(merge_states),
       Self::Custom(listener) => listener.end_merge_on_full_flush(merge_states),
-      #[cfg(test)]
-      Self::Mock(listener) => listener.end_merge_on_full_flush(merge_states),
     }
   }
 }
