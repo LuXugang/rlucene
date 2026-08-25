@@ -37,8 +37,6 @@ use crate::core::util::counter::{Counter, new_counter};
 use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use crate::core::util::long_supplier::LongSupplier;
 #[cfg(test)]
-use crate::test_framework::core::index::test_tragic_index_writer_deadlock::TragicIndexWriter;
-#[cfg(test)]
 use crate::test_framework::core::util::failure_context::{
   ExecutionMethod, ExecutionOwner, ExecutionScope,
 };
@@ -7726,8 +7724,6 @@ pub type CustomIndexWriterHooks = Box<dyn IndexWriterHooks + Send + Sync>;
 pub enum IndexWriterHooksEnum {
   EmptyIndexWriterHooks(EmptyIndexWriterHooks),
   Custom(CustomIndexWriterHooks),
-  #[cfg(test)]
-  TestTragicIndexWriterDeadlock(TragicIndexWriter),
 }
 impl IndexWriterHooksEnum {
   pub fn custom<B>(base: B) -> Self
@@ -7748,7 +7744,6 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.do_before_merge(merge),
       Self::Custom(inner) => inner.do_before_merge(merge),
-      Self::TestTragicIndexWriterDeadlock(inner) => inner.do_before_merge(merge),
     }
   }
 
@@ -7757,7 +7752,6 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.merge_success(merge),
       Self::Custom(inner) => inner.merge_success(merge),
-      Self::TestTragicIndexWriterDeadlock(inner) => inner.merge_success(merge),
     }
   }
 
@@ -7765,8 +7759,6 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.do_after_flush(),
       Self::Custom(inner) => inner.do_after_flush(),
-      #[cfg(test)]
-      Self::TestTragicIndexWriterDeadlock(inner) => inner.do_after_flush(),
     }
   }
 
@@ -7774,8 +7766,6 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.do_before_flush(),
       Self::Custom(inner) => inner.do_before_flush(),
-      #[cfg(test)]
-      Self::TestTragicIndexWriterDeadlock(inner) => inner.do_before_flush(),
     }
   }
 
@@ -7783,8 +7773,6 @@ impl IndexWriterHooks for IndexWriterHooksEnum {
     match self {
       Self::EmptyIndexWriterHooks(inner) => inner.is_enable_test_points(),
       Self::Custom(inner) => inner.is_enable_test_points(),
-      #[cfg(test)]
-      Self::TestTragicIndexWriterDeadlock(inner) => inner.is_enable_test_points(),
     }
   }
 }

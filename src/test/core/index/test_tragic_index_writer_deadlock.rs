@@ -157,9 +157,7 @@ fn do_test_deadlock_stalled_merges(merge_on_flush: bool, random: &mut StdRng) ->
   let w = IndexWriter::with_hooks(
     dir.clone(),
     iwc,
-    Some(IndexWriterHooksEnum::TestTragicIndexWriterDeadlock(
-      TragicIndexWriter,
-    )),
+    Some(IndexWriterHooksEnum::custom(TragicIndexWriter)),
   )?;
 
   w.add_document(Document::new())?;
