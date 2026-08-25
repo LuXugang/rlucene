@@ -181,11 +181,11 @@ fn test() -> Result<()> {
         )
       {
         if cfg!(feature = "test_log_verbose") {
-          println!("TEST: iter={iter}: exception");
+          println!("TEST: iter={iter}: error");
           eprintln!("{error:?}");
         }
         if let Some(w) = writer {
-          // NOTE: leave random IO exceptions enabled here,
+          // NOTE: leave random IO errors enabled here,
           // to verify that rollback does not try to write
           // anything:
           w.rollback()?;

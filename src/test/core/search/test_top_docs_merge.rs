@@ -309,7 +309,7 @@ fn test_sort(use_from: bool) -> Result<()> {
           let manager = TopScoreDocCollectorManager::new(num_hits, i32::MAX as usize)?;
           let temp_top_hits = searcher.search_with_collector_manager(query.clone(), &manager)?;
           if (from as usize) < temp_top_hits.score_docs.len() {
-            // Can't use TopDocs#topDocs(start, howMany), since it has different behaviour when
+            // Cannot use `TopDocs::top_docs(start, how_many)`, since it behaves differently when
             // start >= hitCount than TopDocs#merge currently has.
             let end = std::cmp::min(
               from as usize + size as usize,
@@ -345,7 +345,7 @@ fn test_sort(use_from: bool) -> Result<()> {
           from = TestUtil::next_int(&mut random, 0, num_hits as i32 - 1);
           size = num_hits as i32 - from;
           if (from as usize) < top_field_docs.base.score_docs.len() {
-            // Can't use TopDocs#topDocs(start, howMany), since it has different behaviour when
+            // Cannot use `TopDocs::top_docs(start, how_many)`, since it behaves differently when
             // start >= hitCount than TopDocs#merge currently has.
             let end = std::cmp::min(
               from as usize + size as usize,

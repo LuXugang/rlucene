@@ -407,7 +407,7 @@ fn test_ensure_capacity() -> Result<()> {
   assert!(new_bits.get(1));
   assert!(new_bits.get(4));
   new_bits.clear(1);
-  // we grew the long[], so it's not shared
+  // We grew the backing vector, so it is not shared.
   assert!(!bits.get(1));
   assert!(!new_bits.get(1));
   Ok(())

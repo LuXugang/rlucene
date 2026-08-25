@@ -78,7 +78,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsFormat.vectorsWriter()",
+        "Fake I/O error from TermVectorsFormat::vectors_writer()",
       )));
     }
     Ok(CrankyTermVectorsWriter::new(
@@ -108,7 +108,7 @@ where
   fn start_document(&mut self, num_vector_fields: i32) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.startDocument()",
+        "Fake I/O error from TermVectorsWriter::start_document()",
       )));
     }
     self.delegate.start_document(num_vector_fields)
@@ -117,7 +117,7 @@ where
   fn finish_document(&mut self) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.finishDocument()",
+        "Fake I/O error from TermVectorsWriter::finish_document()",
       )));
     }
     self.delegate.finish_document()
@@ -133,7 +133,7 @@ where
   ) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.startField()",
+        "Fake I/O error from TermVectorsWriter::start_field()",
       )));
     }
     self
@@ -144,7 +144,7 @@ where
   fn finish_field(&mut self) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.finishField()",
+        "Fake I/O error from TermVectorsWriter::finish_field()",
       )));
     }
     self.delegate.finish_field()
@@ -153,7 +153,7 @@ where
   fn start_term(&mut self, term: &BytesRef<Vec<u8>>, freq: i32) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.startTerm()",
+        "Fake I/O error from TermVectorsWriter::start_term()",
       )));
     }
     self.delegate.start_term(term, freq)
@@ -162,7 +162,7 @@ where
   fn finish_term(&mut self) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.finishTerm()",
+        "Fake I/O error from TermVectorsWriter::finish_term()",
       )));
     }
     self.delegate.finish_term()
@@ -177,7 +177,7 @@ where
   ) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.addPosition()",
+        "Fake I/O error from TermVectorsWriter::add_position()",
       )));
     }
     self
@@ -188,7 +188,7 @@ where
   fn finish(&mut self, num_docs: i32) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.finish()",
+        "Fake I/O error from TermVectorsWriter::finish()",
       )));
     }
     self.delegate.finish(num_docs)
@@ -202,7 +202,7 @@ where
   ) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.addProx()",
+        "Fake I/O error from TermVectorsWriter::add_prox()",
       )));
     }
     TermVectorsWriterDefaults::add_prox(self, num_prox, positions, offsets)
@@ -214,7 +214,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.merge()",
+        "Fake I/O error from TermVectorsWriter::merge()",
       )));
     }
     TermVectorsWriterDefaults::merge(self, merge_state)
@@ -229,7 +229,7 @@ where
     self.delegate.close()?;
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TermVectorsWriter.close()",
+        "Fake I/O error from TermVectorsWriter::close()",
       )));
     }
     Ok(())

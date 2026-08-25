@@ -216,7 +216,7 @@ where
       )?;
 
       // pre-encode our box to our integer encoding, so we don't have to decode
-      // to double values for uncompetitive hits. This has some cost!
+      // to `f64` values for uncompetitive hits. This has some cost!
       comparator.min_lat = GeoEncodingUtils::encode_latitude(box_.min_lat)?;
       comparator.max_lat = GeoEncodingUtils::encode_latitude(box_.max_lat)?;
       if box_.crosses_dateline() {

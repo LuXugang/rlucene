@@ -43,11 +43,11 @@ use std::sync::Arc;
 /// dictionaries for a better ratio at the expense of slower performance. These
 /// two options can be configured like this:
 ///
-/// ```java
+/// ```text
 /// // the default: for high performance
-/// indexWriterConfig.setCodec(new Lucene100Codec(Mode.BEST_SPEED));
+/// index_writer_config.set_codec(Lucene101Codec::with_mode(Mode::BestSpeed));
 /// // instead for higher compression (but slower):
-/// indexWriterConfig.setCodec(new Lucene100Codec(Mode.BEST_COMPRESSION));
+/// index_writer_config.set_codec(Lucene101Codec::with_mode(Mode::BestCompression));
 /// ```
 ///
 /// # File formats
@@ -56,7 +56,7 @@ use std::sync::Arc;
 ///
 /// 1. A fields data file (extension `.fdt`). This file stores a compact representation of documents
 ///    in compressed blocks of 8KB or more. When writing a segment, documents are appended to an
-///    in-memory `byte[]` buffer. When its size reaches 80KB or more, some metadata about the
+///    in-memory byte buffer. When its size reaches 80KB or more, some metadata about the
 ///    documents is flushed to disk, immediately followed by a compressed representation of the
 ///    buffer using the [LZ4 compression format](https://github.com/lz4/lz4).
 ///

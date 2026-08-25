@@ -107,7 +107,7 @@ fn test() -> Result<()> {
         let _ = barrier.wait();
 
         loop {
-          // Check if the queue is empty (equivalent to Java's ConcurrentLinkedQueue.isEmpty())
+          // Check whether the concurrent queue is empty.
           {
             let queue = postings.lock().unwrap();
             if queue.is_empty() {

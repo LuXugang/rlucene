@@ -67,13 +67,13 @@ impl Clone for NumericDocValuesField {
 }
 
 impl NumericDocValuesField {
-  /// Creates a new [`NumericDocValuesField`] with the specified 64-bit long value that also
+  /// Creates a new [`NumericDocValuesField`] with the specified `i64` value that also
   /// creates a skip index.
   ///
   /// # Arguments
   ///
   /// * `name` - Field name.
-  /// * `value` - 64-bit long value.
+  /// * `value` - An `i64` value.
   pub fn indexed_field<T>(name: T, value: i64) -> Self
   where
     T: Into<String>,
@@ -81,12 +81,12 @@ impl NumericDocValuesField {
     Self::with_type(name, value, INDEXED_TYPE.clone())
   }
 
-  /// Creates a new DocValues field with the specified 64-bit long value.
+  /// Creates a new doc-values field with the specified `i64` value.
   ///
   /// # Arguments
   ///
   /// * `name` - Field name.
-  /// * `value` - 64-bit long value.
+  /// * `value` - An `i64` value.
   pub fn new<T>(name: T, value: i64) -> Self
   where
     T: Into<String>,

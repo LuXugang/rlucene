@@ -61,12 +61,12 @@ where
     }
   }
 
-  /// Returns a mutable reference to the underlying int buffer.
+  /// Returns the underlying `i32` buffer.
   pub fn ints(&mut self) -> AV {
     self.ints_ref.ints.clone()
   }
 
-  /// Returns the number of ints in this buffer.
+  /// Returns the number of `i32` values in this buffer.
   pub fn length(&self) -> usize {
     self.ints_ref.length
   }
@@ -80,19 +80,19 @@ where
   pub fn clear(&mut self) {
     self.set_length(0);
   }
-  /// Returns the int at the given offset.
+  /// Returns the `i32` at the given offset.
   pub fn int_at(&self, offset: usize) -> i32 {
     self.ints_ref.ints.access(|ints_bytes| ints_bytes[offset])
   }
 
-  /// Sets the int at the given offset.
+  /// Sets the `i32` at the given offset.
   pub fn set_int_at(&mut self, offset: usize, value: i32) {
     self.ints_ref.ints.access_mut(|ints_bytes| {
       ints_bytes[offset] = value;
     })
   }
 
-  /// Appends the provided int to this buffer.
+  /// Appends the provided `i32` to this buffer.
   pub fn append(&mut self, i: i32) -> Result<()> {
     let mut len = self.ints_ref.length;
     self.grow(len + 1)?;

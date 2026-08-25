@@ -270,7 +270,7 @@ pub struct SegmentInfoStatus {
   /// Status of soft deletes.
   pub soft_deletes_status: Option<SoftDeletesStatus>,
 
-  /// Error thrown during the segment test, or None on success.
+  /// Error returned by the segment test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -310,7 +310,7 @@ pub struct LiveDocStatus {
   /// Number of deleted documents.
   pub num_deleted: i32,
 
-  /// Error thrown during the live docs test, or None on success.
+  /// Error returned by the live docs test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -320,7 +320,7 @@ pub struct FieldInfoStatus {
   /// Number of fields successfully tested.
   pub tot_fields: i64,
 
-  /// Error thrown during the field infos test, or None on success.
+  /// Error returned by the field infos test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -330,7 +330,7 @@ pub struct FieldNormStatus {
   /// Number of fields successfully tested.
   pub tot_fields: i64,
 
-  /// Error thrown during the field norms test, or None on success.
+  /// Error returned by the field norms test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -349,7 +349,7 @@ pub struct TermIndexStatus {
   /// Total number of positions.
   pub tot_pos: i64,
 
-  /// Error thrown during the term index test, or None on success.
+  /// Error returned by the term index test, or `None` on success.
   pub error: Option<CaughtResult>,
 
   /// Details of block allocations in the block tree terms dictionary. This is
@@ -366,7 +366,7 @@ pub struct StoredFieldStatus {
   /// Total number of stored fields tested.
   pub tot_fields: i64,
 
-  /// Error thrown during the stored fields test, or None on success.
+  /// Error returned by the stored fields test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -379,7 +379,7 @@ pub struct TermVectorStatus {
   /// Total number of term vectors tested.
   pub tot_vectors: i64,
 
-  /// Error thrown during the term vector test, or None on success.
+  /// Error returned by the term vector test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -407,7 +407,7 @@ pub struct DocValuesStatus {
   /// Total number of skipping indexes tested.
   pub total_skipping_index: i64,
 
-  /// Error thrown during the DocValues test, or None on success.
+  /// Error returned by the DocValues test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -420,7 +420,7 @@ pub struct PointsStatus {
   /// Total number of fields with points.
   pub total_value_fields: i32,
 
-  /// Error thrown during the PointValues test, or None on success.
+  /// Error returned by the PointValues test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -433,21 +433,21 @@ pub struct VectorValuesStatus {
   /// Total number of fields with vectors.
   pub total_knn_vector_fields: i32,
 
-  /// Error thrown during the vector values test, or None on success.
+  /// Error returned by the vector values test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
 /// Status from testing index sort.
 #[derive(Default)]
 pub struct IndexSortStatus {
-  /// Error thrown during the index sort test, or None on success.
+  /// Error returned by the index sort test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
 /// Status from testing soft deletes.
 #[derive(Default)]
 pub struct SoftDeletesStatus {
-  /// Error thrown during the soft deletes test, or None on success.
+  /// Error returned by the soft deletes test, or `None` on success.
   pub error: Option<CaughtResult>,
 }
 
@@ -624,7 +624,7 @@ where
     // referenced ONLY by these older commit points, because such corruption would not
     // prevent a new IndexWriter from opening on the newest commit point. But it is still
     // corruption, e.g. a reader opened on those old commit points can hit corruption
-    // exceptions which we (still) will not detect here. Progress not perfection!
+    // errors that we still will not detect here. Progress, not perfection.
 
     let mut all_segments_files = Vec::new();
     for file_name in &files {
@@ -832,7 +832,7 @@ where
           Err(error) if error.is_io_error() => {
             sort_error = Self::msg(
               self.info_stream.as_mut(),
-              "ERROR: IOException occurred when comparing SegmentCommitInfo file sizes",
+              "ERROR: I/O error occurred when comparing SegmentCommitInfo file sizes",
             )
             .err()
             .or_else(|| Self::msg(self.info_stream.as_mut(), &format!("{error:?}")).err());
@@ -848,7 +848,7 @@ where
           Err(error) if error.is_io_error() => {
             sort_error = Self::msg(
               self.info_stream.as_mut(),
-              "ERROR: IOException occurred when comparing SegmentCommitInfo file sizes",
+              "ERROR: I/O error occurred when comparing SegmentCommitInfo file sizes",
             )
             .err()
             .or_else(|| Self::msg(self.info_stream.as_mut(), &format!("{error:?}")).err());
@@ -1188,7 +1188,7 @@ where
 
       if opened_reader.max_doc()? != info.info.max_doc()? {
         return Err(LuceneError::corrupt_index(format!(
-          "SegmentReader.maxDoc() {} != SegmentInfo.maxDoc {}",
+          "SegmentReader::max_doc() {} != SegmentInfo::max_doc {}",
           opened_reader.max_doc()?,
           info.info.max_doc()?
         )));
@@ -1331,7 +1331,7 @@ where
           );
         }
 
-        // Rethrow the first exception we encountered
+        // Return the first error encountered.
         //  This will cause stats for failed segments to be incremented properly
         // We won't be able to (easily) stop check running in another thread, so we may as well
         // wait for all of them to complete before we proceed, and that we don't return the
@@ -1485,7 +1485,7 @@ where
           Self::msg(info_stream.as_deref_mut(), "FAILED")?;
           Self::msg(
             info_stream.as_deref_mut(),
-            "    WARNING: exorciseIndex() would remove reference to this segment; full exception:",
+            "    WARNING: exorcising would remove the reference to this segment; full error:",
           )?;
           Self::msg(info_stream.as_deref_mut(), &error_display)?;
           Self::msg(info_stream, "")?;
@@ -1659,7 +1659,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         )?;
       } else {
         if let Some(live_docs) = reader.get_live_docs()? {
-          // it's ok for it to be non-null here, as long as none are set right?
+          // It is fine for live docs to be present here as long as every bit is set.
           for j in 0..live_docs.length() {
             if !live_docs.get(j)? {
               return Err(LuceneError::corrupt_index(format!(
@@ -1779,7 +1779,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         if info.has_norms() {
           let norms_reader = norms_reader.as_ref().ok_or_else(|| {
             LuceneError::corrupt_index(format!(
-              "field \"{}\" has norms but reader.getNormsReader() is null",
+              "field \"{}\" has norms but reader.get_norms_reader() is missing",
               info.name
             ))
           })?;
@@ -1978,9 +1978,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           break;
         };
         let term = term.into_owned();
-        // System.out.println("CI: field=" + field + " check term=" + term + " docFreq=" +
-        // termsEnum.docFreq());
-
         debug_assert!(term.is_valid()?);
 
         // make sure terms arrive in order according to
@@ -2035,7 +2032,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           let terms_enum_doc_freq = terms_enum.doc_freq()?;
           if total_term_freq != i64::from(terms_enum_doc_freq) {
             return Err(LuceneError::corrupt_index(format!(
-              "field \"{field}\" hasFreqs is false, but TermsEnum.totalTermFreq()={total_term_freq} (should be {terms_enum_doc_freq})"
+              "field \"{field}\" has_freqs is false, but TermsEnum::total_term_freq()={total_term_freq} (should be {terms_enum_doc_freq})"
             )));
           }
         }
@@ -2085,7 +2082,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
               // 1:
               if postings.freq()? != 1 {
                 return Err(LuceneError::corrupt_index(format!(
-                  "term {term}: doc {doc}: freq {freq} != 1 when Terms.hasFreqs() is false"
+                  "term {term}: doc {doc}: freq {freq} != 1 when Terms::has_freqs() is false"
                 )));
               }
             }
@@ -2697,7 +2694,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         Self::check_terms_intersect(&terms, automaton, Some(&start_term))?;
       } else {
         // Unusual: the FieldsEnum returned a field but
-        // the Terms for that field is null; this should
+        // `Terms` for that field is absent; this should
         // only happen if it's a ghost field (field with
         // no terms, e.g. there used to be terms but all
         // docs got deleted and then merged away):
@@ -2975,7 +2972,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         points_reader = reader.get_points_reader()?;
         let points_reader = points_reader.as_ref().ok_or_else(|| {
           LuceneError::corrupt_index(
-            "there are fields with points, but reader.getPointsReader() is null",
+            "there are fields with points, but reader.get_points_reader() is missing",
           )
         })?;
         for field_info in field_infos.iter() {
@@ -3666,7 +3663,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       stored_fields_reader = reader.get_fields_reader()?;
       let fields_reader = stored_fields_reader
         .as_ref()
-        .ok_or_else(|| LuceneError::corrupt_index("reader.getFieldsReader() is null"))?;
+        .ok_or_else(|| LuceneError::corrupt_index("reader.get_fields_reader() is missing"))?;
       merge_stored_fields_reader = fields_reader.get_merge_instance()?;
       let stored_fields = merge_stored_fields_reader
         .as_mut()
@@ -3765,7 +3762,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           status.total_value_fields += 1;
           let doc_values_reader = doc_values_reader.ok_or_else(|| {
             LuceneError::corrupt_index(format!(
-              "field \"{}\" has doc values but reader.getDocValuesReader() is null",
+              "field \"{}\" has doc values but reader.get_doc_values_reader() is missing",
               field_info.name
             ))
           })?;
@@ -4586,7 +4583,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                       }
 
                       // Call the methods to at least make
-                      // sure they don't throw exc:
+                      // sure they do not return an error:
                       let start_offset = postings
                         .as_ref()
                         .expect("term-vector postings are present")
@@ -4595,16 +4592,6 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                         .as_ref()
                         .expect("term-vector postings are present")
                         .end_offset()?;
-                      /*
-                      if (endOffset < startOffset) {
-                      throw new RuntimeException("vector startOffset=" + startOffset + " is > endOffset=" + endOffset);
-                      }
-                      if (startOffset < lastStartOffset) {
-                      throw new RuntimeException("vector startOffset=" + startOffset + " is < prior startOffset=" + lastStartOffset);
-                      }
-                      lastStartOffset = startOffset;
-                       */
-
                       if start_offset != -1 && end_offset != -1 && postings_terms.has_offsets() {
                         let postings_start_offset = postings_docs
                           .as_ref()
@@ -4756,7 +4743,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
   /// restricts checking to the named segments and cannot be combined with `-exorcise`.
   ///
   /// Make a complete backup before using `-exorcise`, and do not run it while the index is being
-  /// written. Without `-exorcise`, this reports version information, exceptions, and the action
+  /// written. Without `-exorcise`, this reports version information, errors, and the action
   /// that an exorcise would take. The process exits with code 1 if the index cannot be opened or
   /// has corruption, and 0 otherwise.
   pub fn main(args: &[String]) -> Result<()> {
@@ -5045,7 +5032,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
     if options.index_path.is_none() {
       return Err(LuceneError::illegal_argument(
-        "\nERROR: index path not specified\nUsage: java org.apache.lucene.index.CheckIndex pathToIndex [-exorcise] [-level X] [-segment X] [-segment Y] [-threadCount X] [-dir-impl X]\n\n  -exorcise: actually write a new segments_N file, removing any problematic segments\n  -level X: sets the detail level of the check. The higher the value, the more checks are done.\n         1 - (Default) Checksum checks only.\n         2 - All level 1 checks + logical integrity checks.\n         3 - All level 2 checks + slow checks.\n  -codec X: when exorcising, codec to write the new segments_N file with\n  -verbose: print additional details\n  -segment X: only check the specified segments.  This can be specified multiple\n              times, to check more than one segment, e.g. '-segment _2 -segment _a'.\n              You can't use this with the -exorcise option\n  -threadCount X: number of threads used to check index concurrently.\n                  When not specified, this will default to the number of CPU cores.\n                  When '-threadCount 1' is used, index checking will be performed sequentially.\n  -dir-impl X: use a specific FSDirectory implementation.\nCheckIndex only verifies file checksums as default.\nUse -level with value of '2' or higher if you also want to check segment file contents.\n\n**WARNING**: -exorcise *LOSES DATA*. This should only be used on an emergency basis as it will cause\ndocuments (perhaps many) to be permanently removed from the index.  Always make\na backup copy of your index before running this!  Do not run this tool on an index\nthat is actively being written to.  You have been warned!\n\nRun without -exorcise, this tool will open the index, report version information\nand report any exceptions it hits and what action it would take if -exorcise were\nspecified.  With -exorcise, this tool will remove any segments that have issues and\nwrite a new segments_N file.  This means all documents contained in the affected\nsegments will be removed.\n\nThis tool exits with exit code 1 if the index cannot be opened or has any\ncorruption, else 0.\n",
+        "\nERROR: index path not specified\nUsage: CheckIndex pathToIndex [-exorcise] [-level X] [-segment X] [-segment Y] [-threadCount X] [-dir-impl X]\n\n  -exorcise: actually write a new segments_N file, removing any problematic segments\n  -level X: sets the detail level of the check. The higher the value, the more checks are done.\n         1 - (Default) Checksum checks only.\n         2 - All level 1 checks + logical integrity checks.\n         3 - All level 2 checks + slow checks.\n  -codec X: when exorcising, codec to write the new segments_N file with\n  -verbose: print additional details\n  -segment X: only check the specified segments.  This can be specified multiple\n              times, to check more than one segment, e.g. '-segment _2 -segment _a'.\n              You can't use this with the -exorcise option\n  -threadCount X: number of threads used to check index concurrently.\n                  When not specified, this will default to the number of CPU cores.\n                  When '-threadCount 1' is used, index checking will be performed sequentially.\n  -dir-impl X: use a specific FSDirectory implementation.\nCheckIndex only verifies file checksums as default.\nUse -level with value of '2' or higher if you also want to check segment file contents.\n\n**WARNING**: -exorcise *LOSES DATA*. This should only be used on an emergency basis as it will cause\ndocuments (perhaps many) to be permanently removed from the index.  Always make\na backup copy of your index before running this!  Do not run this tool on an index\nthat is actively being written to.  You have been warned!\n\nRun without -exorcise, this tool will open the index, report version information\nand report any errors it encounters and what action it would take if -exorcise were\nspecified.  With -exorcise, this tool will remove any segments that have issues and\nwrite a new segments_N file.  This means all documents contained in the affected\nsegments will be removed.\n\nThis tool exits with exit code 1 if the index cannot be opened or has any\ncorruption, else 0.\n",
       ));
     }
 

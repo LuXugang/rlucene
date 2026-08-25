@@ -42,7 +42,6 @@ fn test_random_finite_strings() -> Result<()> {
     let result = get_finite_strings(&mut v);
     // NOTE: cannot do this, because the method is not
     // guaranteed to detect cycles when you have a limit
-    // assertTrue(AutomatonTestUtil.isFinite(a));
     if result.is_err() {
       assert!(!AutomatonTestUtil::is_finite(&a)?);
     }

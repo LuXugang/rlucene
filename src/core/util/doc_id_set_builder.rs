@@ -37,7 +37,7 @@ use crate::core::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSet
 pub struct DocIdSetBuilder {
   max_doc: i32,
   threshold: i32,
-  // pkg-private for testing
+  // Crate-visible for testing.
   pub(crate) multi_valued: bool,
   pub(crate) num_values_per_doc: f64,
 
@@ -83,7 +83,7 @@ impl DocIdSetBuilder {
       num_values_per_doc >= 1f64,
       "value_count = {value_count} doc_count = {doc_count}"
     );
-    // For ridiculously small sets, we'll just use a sorted int[]
+    // For very small sets, use a sorted `Vec<i32>`.
     // maxDoc >>> 7 is a good value if you want to save memory, lower values
     // such as maxDoc >>> 11 should provide faster building but at the
     // expense of using a full bitset even for quite sparse data

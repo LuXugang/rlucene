@@ -63,7 +63,7 @@ where
   ) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from FieldInfosFormat.getFieldInfosWriter()",
+        "Fake I/O error from FieldInfosFormat::get_field_infos_writer()",
       )));
     }
     self

@@ -21,8 +21,8 @@ use crate::core::geo::xy_geometry::XYGeometry;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-/// Represents a line in cartesian space. You can construct the line directly with `float[]`,
-/// `float[]` x, y arrays coordinates.
+/// Represents a line in Cartesian space. You can construct the line directly from `f32` x and y
+/// coordinate slices.
 #[derive(Debug, Clone)]
 pub struct XYLine {
   /// Array of x coordinates.

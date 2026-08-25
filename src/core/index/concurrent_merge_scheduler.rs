@@ -776,12 +776,12 @@ impl ConcurrentMergeScheduler {
   /**
    * Expert: directly set the maximum number of merge threads and simultaneous merges allowed.
    *
-   * @param max_merge_count the max # simultaneous merges that are allowed. If a merge is necessary
-   *     yet we already have this many threads running, the incoming thread (that is calling
-   *     add/updateDocument) will block until a merge thread has completed. Note that we will only
-   *     run the smallest `max_thread_count` merges at a time.
-   * @param max_thread_count the max # simultaneous merge threads that should be running at once.
-   *     This must be <= `max_merge_count`.
+   * - `max_merge_count`: the maximum number of simultaneous merges. If a merge is necessary
+   *   yet we already have this many threads running, the incoming thread (calling
+   *   `add_document` or `update_document`) blocks until a merge thread completes. Only the
+   *   smallest `max_thread_count` merges run at a time.
+   * - `max_thread_count`: the maximum number of simultaneous merge threads running at once.
+   *   This must be <= `max_merge_count`.
    */
   pub fn set_max_merges_and_threads(
     &self,
@@ -825,8 +825,8 @@ impl ConcurrentMergeScheduler {
   /**
    * Sets max merges and threads to proper defaults for rotational or non-rotational storage.
    *
-   * @param spins true to set defaults best for traditional rotatational storage (spinning disks),
-   *     else false (e.g. for solid-state disks)
+   * - `spins`: `true` selects defaults for rotational storage; `false` selects defaults for
+   *   non-rotational storage such as solid-state drives.
    */
   pub fn set_default_max_merges_and_threads(&self, spins: bool) {
     let mut inner = self.inner.lock();
@@ -886,7 +886,7 @@ impl ConcurrentMergeScheduler {
   /**
    * Turn off auto IO throttling.
    *
-   * @see #enableAutoIOThrottle
+   * See [`Self::enable_auto_io_throttle`].
    */
   pub fn disable_auto_io_throttle(&self) -> Result<()> {
     let mut inner = self.inner.lock();
@@ -915,7 +915,7 @@ impl ConcurrentMergeScheduler {
   /**
    * Returns `max_thread_count`.
    *
-   * @see #setMaxMergesAndThreads
+   * See [`Self::set_max_merges_and_threads`].
    */
   pub fn get_max_thread_count(&self) -> i32 {
     self.inner.lock().max_thread_count
@@ -1642,7 +1642,7 @@ where
 }
 
 impl ConcurrentMergeScheduler {
-  /** Called when an exception is hit in a background merge thread. */
+  /** Called when a background merge thread returns an error. */
   fn handle_merge_exception(&self, result: CaughtResult) -> Result<()> {
     self.hook.handle_merge_exception(self, result)
   }

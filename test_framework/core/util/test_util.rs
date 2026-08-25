@@ -428,7 +428,7 @@ impl TestUtil {
     Self::check_index_with_options(random, Arc::new(dir), level, false, true, None)
   }
 
-  /// If `fail_fast` is true, then throw the first exception when index corruption is hit, instead
+  /// If `fail_fast` is true, return the first error when index corruption is hit, instead
   /// of moving on to other fields/segments to look for any other corruption.
   pub fn check_index_with_options<R, D>(
     random: &mut R,

@@ -121,11 +121,10 @@ pub trait FieldComparator {
   /// Returns a negative integer if `first` is less than `second`, `0` if they are equal,
   /// and a positive integer otherwise.
   ///
-  /// Default implementation assumes the type implements [`Ord`] (like Java's `Comparable`)
-  /// and invokes `.cmp`.
+  /// The default implementation requires [`Ord`] and invokes [`Ord::cmp`].
   ///
   /// Provide this method if the `FieldComparator` value type does not implement ordering.
-  /// or if your values may sometimes be `null` (represented as [`Option::None`] in Rust).
+  /// or if values may sometimes be absent ([`Option::None`]).
   fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
     match (first, second) {
       (None, None) => 0,

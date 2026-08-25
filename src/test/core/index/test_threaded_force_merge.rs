@@ -166,7 +166,7 @@ impl TestThreadedForceMerge {
           },
           Err(_) => {
             self.set_failed();
-            return Err(LuceneError::illegal_state("thread hit exception"));
+            return Err(LuceneError::illegal_state("thread hit error"));
           },
         }
       }

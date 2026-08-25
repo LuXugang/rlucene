@@ -1305,7 +1305,7 @@ fn test_delete_unused_files() -> Result<()> {
 
 #[test]
 fn test_delete_unused_files2() -> Result<()> {
-  // Validates that iw.deleteUnusedFiles() also deletes unused index commits
+  // Validates that `iw.delete_unused_files()` also deletes unused index commits.
   // in case a deletion policy which holds onto commits is used.
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -2709,7 +2709,7 @@ fn test_corrupt_first_commit() -> Result<()> {
     })();
 
     if let Err(error) = result {
-      // OpenMode.APPEND should throw an exception since no index exists:
+      // `OpenMode::Append` should return an error since no index exists:
       if mode == 0 {
         return Err(error);
       }
@@ -3488,7 +3488,7 @@ fn test_leftover_temp_files() -> Result<()> {
 
   assert!(
     dir.open_input(&temp_name, &io_context).is_err(),
-    "did not hit exception"
+    "did not hit error"
   );
   writer.close()?;
   Ok(())

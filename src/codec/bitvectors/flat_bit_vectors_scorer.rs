@@ -84,7 +84,7 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
     K: FloatVectorValues,
   {
     Err(LuceneError::illegal_argument(
-      "bit vectors do not support float[] targets",
+      "bit vectors do not support f32 slice targets",
     ))
   }
 

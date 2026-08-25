@@ -83,7 +83,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from DocValuesFormat.fieldsConsumer()",
+        "Fake I/O error from DocValuesFormat::fields_consumer()",
       )));
     }
     Ok(CrankyDocValuesConsumer::new(
@@ -131,7 +131,7 @@ where
     self.delegate.close()?;
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from DocValuesConsumer.close()",
+        "Fake I/O error from DocValuesConsumer::close()",
       )));
     }
     Ok(())
@@ -157,7 +157,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from DocValuesConsumer.addNumericField()",
+        "Fake I/O error from DocValuesConsumer::add_numeric_field()",
       )));
     }
     self
@@ -178,7 +178,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from DocValuesConsumer.addBinaryField()",
+        "Fake I/O error from DocValuesConsumer::add_binary_field()",
       )));
     }
     self
@@ -199,7 +199,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from DocValuesConsumer.addSortedField()",
+        "Fake I/O error from DocValuesConsumer::add_sorted_field()",
       )));
     }
     self
@@ -220,7 +220,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from DocValuesConsumer.addSortedNumericField()",
+        "Fake I/O error from DocValuesConsumer::add_sorted_numeric_field()",
       )));
     }
     self
@@ -241,7 +241,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from DocValuesConsumer.addSortedSetField()",
+        "Fake I/O error from DocValuesConsumer::add_sorted_set_field()",
       )));
     }
     self

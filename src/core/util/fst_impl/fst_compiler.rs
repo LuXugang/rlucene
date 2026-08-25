@@ -83,7 +83,7 @@ where
   /// Used for the BIT_TARGET_NEXT optimization (whereby
   /// instead of storing the address of the target node for
   /// a given arc, we mark a single bit noting that the next
-  /// node in the byte[] is the target node):
+  /// node in the byte buffer is the target node):
   pub(crate) last_frozen_node: i64,
   /// Reused temporarily while building the FST:
   pub(crate) num_bytes_per_arc: Vec<i32>,
@@ -361,12 +361,13 @@ where
   ///
   /// To create the FST, you need to:
   ///
-  /// - If a FSTReader DataOutput was used, such as the one returned by
-  ///   [`getOnHeapReaderWriter`](get_on_heap_reader_writer)
+  /// - If an FST reader data output was used, such as the one returned by
+  ///   [`get_on_heap_reader_writer`]
   ///
   /// ```text
-  ///     fstMetadata = fstCompiler.compile();
-  ///     fst = FST.fromFSTReader(fstMetadata, fstCompiler.getFSTReader());
+  /// let fst_metadata = fst_compiler.compile()?.expect("FST must accept at least one input");
+  /// let fst = FST::from_fst_reader(fst_metadata, fst_compiler.get_fst_reader()?)
+  ///     .expect("FST metadata must describe a non-empty FST");
   /// ```
   ///
   /// - If a non-FSTReader DataOutput was used, such as
@@ -399,7 +400,7 @@ where
   }
 
   // serializes new node by appending its bytes to the end
-  // of the current byte[]
+  // of the current byte buffer
   pub(crate) fn add_node(&mut self, node_in_idx: usize) -> Result<i64> {
     let node_in = self.frontier[node_in_idx].as_ref().unwrap();
     if node_in.num_arcs == 0 {
@@ -773,7 +774,7 @@ where
       bytes.swap(i, j);
     }
   }
-  /// Write bytes from a source `byte[]` to the scratch bytes. The written
+  /// Write bytes from a source slice to the scratch bytes. The written
   /// bytes must fit within what was already written in the scratch bytes.
   ///
   ///
@@ -1288,12 +1289,12 @@ where
 /// Not many instances of Node or CompiledNode are in
 /// memory while the FST is being built; it's only the
 /// current "frontier":
-#[allow(dead_code)] // Mirrors Java's retained Node interface and isCompiled implementations, which have no current callers.
+#[allow(dead_code)] // Retained Node trait and is_compiled implementations currently have no callers.
 pub(crate) trait Node {
   fn is_compiled(&self) -> bool;
 }
 pub(crate) enum NodeEnum {
-  // Rust only needs to distinguish Java's uncompiled-node reference until the arc is compiled.
+  // Distinguish an uncompiled-node reference until the arc is compiled.
   UnCompiledNode,
   CompiledNode(CompiledNode),
 }

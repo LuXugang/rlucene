@@ -33,7 +33,7 @@ use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
-/// Field that stores per-document `long` values for scoring, sorting, or value retrieval.
+/// Field that stores per-document `i64` values for scoring, sorting, or value retrieval.
 /// Note that if you want to encode `f64` or `f32` values with proper sort order,  
 /// you should encode them using [`NumericUtils`](crate::core::util::numeric_utils::NumericUtils):
 /// If you also need to store the value, you should add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.

@@ -58,7 +58,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from NormsFormat.normsConsumer()",
+        "Fake I/O error from NormsFormat::norms_consumer()",
       )));
     }
     Ok(CrankyNormsConsumer::new(
@@ -100,7 +100,7 @@ where
     self.delegate.close()?;
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from NormsConsumer.close()",
+        "Fake I/O error from NormsConsumer::close()",
       )));
     }
     Ok(())
@@ -118,7 +118,7 @@ where
   ) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from NormsConsumer.addNormsField()",
+        "Fake I/O error from NormsConsumer::add_norms_field()",
       )));
     }
     self.delegate.add_norms_field(field, values_producer)

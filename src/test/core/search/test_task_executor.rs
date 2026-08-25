@@ -57,12 +57,12 @@ fn test_unwrap_io_exception_from_execution_exception() -> Result<()> {
   let task_executor = TaskExecutor::new(EXECUTOR.clone());
   let error = task_executor
     .invoke_all(vec![|| -> Result<()> {
-      Err(LuceneError::io(std::io::Error::other("io exception")))
+      Err(LuceneError::io(std::io::Error::other("io error")))
     }])
     .expect_err("the callable must fail");
   match error {
     LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
-      assert_eq!("io exception", source.to_string());
+      assert_eq!("io error", source.to_string());
     },
     error => panic!("expected an I/O error, got {error}"),
   }
@@ -210,7 +210,7 @@ fn test_invoke_all_does_not_leave_tasks_behind() -> Result<()> {
       move || -> Result<()> {
         tasks_executed.fetch_add(1, Ordering::SeqCst);
         if index == 0 {
-          Err(LuceneError::illegal_state("exception"))
+          Err(LuceneError::illegal_state("error"))
         } else {
           panic!("must not be called since the first task failing cancels all subsequent tasks")
         }
@@ -225,13 +225,13 @@ fn test_invoke_all_does_not_leave_tasks_behind() -> Result<()> {
   Ok(())
 }
 
-/// Ensures that invoke_all catches all exceptions thrown by callables and adds subsequent ones as
-/// suppressed exceptions to the first one caught.
+/// Ensures that `invoke_all` catches all errors returned by callables and adds subsequent ones as
+/// suppressed errors to the first one caught.
 #[test]
 fn test_invoke_all_catches_multiple_exceptions() -> Result<()> {
   let task_executor = TaskExecutor::new(new_search_executor(2)?);
   let barrier = Arc::new(Barrier::new(2));
-  let tasks = ["exception A", "exception B"]
+  let tasks = ["error A", "error B"]
     .into_iter()
     .map(|message| {
       let barrier = barrier.clone();
@@ -247,12 +247,12 @@ fn test_invoke_all_catches_multiple_exceptions() -> Result<()> {
     .expect_err("both callables must fail");
   let suppressed = error
     .get_suppressed()?
-    .expect("the second exception must be suppressed");
-  if error.to_string().contains("exception A") {
-    assert!(suppressed.to_string().contains("exception B"));
+    .expect("the second error must be suppressed");
+  if error.to_string().contains("error A") {
+    assert!(suppressed.to_string().contains("error B"));
   } else {
-    assert!(error.to_string().contains("exception B"));
-    assert!(suppressed.to_string().contains("exception A"));
+    assert!(error.to_string().contains("error B"));
+    assert!(suppressed.to_string().contains("error A"));
   }
   Ok(())
 }
@@ -273,7 +273,7 @@ fn test_cancel_tasks_on_exception() -> Result<()> {
           if error {
             panic!("error");
           }
-          return Err(LuceneError::illegal_state("exception"));
+          return Err(LuceneError::illegal_state("error"));
         }
         assert!(index < throwing_task, "task should not have started");
         executed_tasks.fetch_add(1, Ordering::SeqCst);

@@ -78,7 +78,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsFormat.fieldsWriter()",
+        "Fake I/O error from StoredFieldsFormat::fields_writer()",
       )));
     }
     Ok(CrankyStoredFieldsWriter::new(
@@ -108,7 +108,7 @@ where
   fn start_document(&mut self) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.startDocument()",
+        "Fake I/O error from StoredFieldsWriter::start_document()",
       )));
     }
     self.delegate.start_document()
@@ -117,7 +117,7 @@ where
   fn finish_document(&mut self) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.finishDocument()",
+        "Fake I/O error from StoredFieldsWriter::finish_document()",
       )));
     }
     self.delegate.finish_document()
@@ -126,7 +126,7 @@ where
   fn write_field_i32(&mut self, field_info: &FieldInfo, value: i32) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.writeField()",
+        "Fake I/O error from StoredFieldsWriter::write_field_i32()",
       )));
     }
     self.delegate.write_field_i32(field_info, value)
@@ -135,7 +135,7 @@ where
   fn write_field_i64(&mut self, field_info: &FieldInfo, value: i64) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.writeField()",
+        "Fake I/O error from StoredFieldsWriter::write_field_i64()",
       )));
     }
     self.delegate.write_field_i64(field_info, value)
@@ -144,7 +144,7 @@ where
   fn write_field_f32(&mut self, field_info: &FieldInfo, value: f32) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.writeField()",
+        "Fake I/O error from StoredFieldsWriter::write_field_f32()",
       )));
     }
     self.delegate.write_field_f32(field_info, value)
@@ -153,7 +153,7 @@ where
   fn write_field_f64(&mut self, field_info: &FieldInfo, value: f64) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.writeField()",
+        "Fake I/O error from StoredFieldsWriter::write_field_f64()",
       )));
     }
     self.delegate.write_field_f64(field_info, value)
@@ -167,7 +167,7 @@ where
   ) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.writeField()",
+        "Fake I/O error from StoredFieldsWriter::write_field_with_input()",
       )));
     }
     self
@@ -178,7 +178,7 @@ where
   fn write_field_bytes(&mut self, field_info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.writeField()",
+        "Fake I/O error from StoredFieldsWriter::write_field_bytes()",
       )));
     }
     self.delegate.write_field_bytes(field_info, value)
@@ -187,7 +187,7 @@ where
   fn write_field_str(&mut self, field_info: &FieldInfo, value: &str) -> Result<()> {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.writeField()",
+        "Fake I/O error from StoredFieldsWriter::write_field_str()",
       )));
     }
     self.delegate.write_field_str(field_info, value)
@@ -199,7 +199,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.finish()",
+        "Fake I/O error from StoredFieldsWriter::finish()",
       )));
     }
     self.delegate.finish(num_docs, dir)
@@ -212,7 +212,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.merge()",
+        "Fake I/O error from StoredFieldsWriter::merge()",
       )));
     }
     StoredFieldsWriterDefaults::merge(self, merge_state, dir)
@@ -227,7 +227,7 @@ where
     self.delegate.close()?;
     if self.random.lock().random_range(0..1000) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from StoredFieldsWriter.close()",
+        "Fake I/O error from StoredFieldsWriter::close()",
       )));
     }
     Ok(())

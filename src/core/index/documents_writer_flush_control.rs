@@ -331,7 +331,7 @@ where
   }
   fn checkout<L>(
     &self,
-    inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+    inner: &mut Inner<D>, // The mutable borrow proves exclusive access to the writer state.
     per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
     mark_pending: bool,
     config: &L,
@@ -533,7 +533,7 @@ where
   fn check_out_for_flush<L>(
     &self,
     per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
-    inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+    inner: &mut Inner<D>, // The mutable borrow proves exclusive access to the writer state.
     config: &L,
   ) -> Result<Arc<DwptWrapper<D>>>
   where
@@ -809,7 +809,7 @@ where
   fn prune_blocked_queue(
     &self,
     flushing_queue: &Arc<DocumentsWriterDeleteQueue>,
-    inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+    inner: &mut Inner<D>, // The mutable borrow proves exclusive access to the writer state.
   ) {
     let mut idxs = Vec::new();
     for (i, dwpt) in inner.blocked_flushes.iter().enumerate() {

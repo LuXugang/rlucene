@@ -1061,7 +1061,7 @@ where
       stats_writer.finish()?;
       debug_assert!(!sub_indices.is_empty());
     }
-    // Write suffixes byte[] blob to terms dict output, either uncompressed,
+    // Write the suffix byte blob to the terms dictionary output, either uncompressed,
     // compressed with LZ4 or with LowercaseAsciiCompression.
     let mut compression_alg = CompressionAlgorithm::NoCompression;
     let suffix_len = self.suffix_writer.length();
@@ -1374,7 +1374,7 @@ pub fn encode_output(fp: i64, has_terms: bool, is_floor: bool) -> i64 {
       0
     }
 }
-/// Encodes long value to variable length byte[], in MSB order.
+/// Encodes an `i64` value into variable-length bytes in MSB order.
 pub(crate) fn write_msb_vlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
   debug_assert!(l >= 0);
   // Keep zero bits on most significant byte to have more chance to get prefix

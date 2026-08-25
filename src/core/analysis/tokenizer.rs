@@ -101,8 +101,8 @@ impl Reader for IllegalStateReader {
   fn read_range(&mut self, _buf: &mut [char], _off: usize, _len: usize) -> Result<i32> {
     Err(LuceneError::illegal_state(
       "TokenStream contract violation: reset()/close() call missing, \
-reset() called multiple times, or subclass does not call super.reset(). \
-Please see docs of TokenStream class for more information about the correct consuming workflow.",
+reset() called multiple times, or the Tokenizer implementation does not delegate reset() to TokenizerBase. \
+Please see the TokenStream trait documentation for the correct consuming workflow.",
     ))
   }
 

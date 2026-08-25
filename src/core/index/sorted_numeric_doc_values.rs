@@ -28,7 +28,7 @@ pub trait SortedNumericDocValues: DocValuesIterator {
 
   /// Retrieves the number of values for the current document. This must
   /// always be greater than zero. It is illegal to call this method after
-  /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
+  /// [`advance_exact`](DocValuesIterator::advance_exact) returned
   /// `false`.
   fn doc_value_count(&mut self) -> Result<i32>;
 

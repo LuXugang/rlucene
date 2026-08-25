@@ -32,9 +32,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Calls check index on close.
 ///
-/// This mirrors Java's `BaseDirectoryWrapper extends FilterDirectory` by
-/// directly implementing `Directory` and forwarding the common operations to
-/// the wrapped directory.
+/// Implements [`Directory`] by forwarding common operations to the wrapped
+/// directory.
 pub struct BaseDirectoryWrapper<D> {
   pub(crate) in_: D,
   check_index_on_close: AtomicBool,

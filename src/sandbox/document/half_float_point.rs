@@ -88,12 +88,12 @@ impl HalfFloatPoint {
     r
   }
 
-  /// Convert a half-float to a short value that maintains ordering.
+  /// Convert a half-float to an `i16` value that maintains ordering.
   pub fn half_float_to_sortable_short(v: f32) -> i16 {
     Self::sortable_short_bits(Self::half_float_to_short_bits(v))
   }
 
-  /// Convert short bits to a half-float value that maintains ordering.
+  /// Convert `i16` bits to a half-float value that maintains ordering.
   pub fn sortable_short_to_half_float(bits: i16) -> f32 {
     Self::short_bits_to_half_float(Self::sortable_short_bits(bits))
   }

@@ -497,7 +497,7 @@ pub fn fastest_format_and_bits(
 /// A decoder for packed integers.
 pub trait Decoder {
   /// The minimum number of long blocks to encode in a single iteration, when
-  /// using long encoding.
+  /// using `i64` encoding.
   fn long_block_count(&self) -> i32 {
     unimplemented!("long_block_count() must be implemented if it needs to be used")
   }
@@ -607,7 +607,7 @@ pub trait Decoder {
 /// An encoder for packed integers.
 pub trait Encoder {
   /// The minimum number of long blocks to encode in a single iteration, when
-  /// using long encoding.
+  /// using `i64` encoding.
   fn long_block_count(&self) -> i32 {
     unimplemented!("long_block_count() must be implemented if it needs to be used")
   }

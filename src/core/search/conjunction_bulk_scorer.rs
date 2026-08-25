@@ -106,7 +106,7 @@ where
     };
     collector.set_scorer(&mut ScorableImpl::new(self))?;
 
-    // In the main for loop, we want to be able to rely on the invariant that lead1.docID() >
+    // In the main loop, we rely on the invariant that `lead1.doc_id()` is greater than
     // lead2.doc(). However it's possible that these two are equal on the first document in a
     // scoring window. So we treat this case separately here.
     if lead1_doc_id == lead2_doc_id {
@@ -176,7 +176,7 @@ where
           doc = lead1.next_doc()?;
           continue;
         }
-        // We maintain the invariant that lead2.docID() < lead1.docID() so that we don't need to check
+        // We maintain `lead2.doc_id() < lead1.doc_id()` so that we do not need to check
         // if lead2 is already on the same doc as lead1 here.
         let next2 = lead2.advance(doc)?;
         if next2 != doc {

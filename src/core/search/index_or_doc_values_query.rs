@@ -42,9 +42,9 @@ use std::sync::Arc;
 /// created by doing:
 ///
 /// ```text
-/// let pointQuery = LongPoint::new_range_query(field, minValue, maxValue);
-/// let dvQuery = SortedNumericDocValuesField.new_slow_range_query(field, minValue, maxValue);
-/// let query = new IndexOrDocValuesQuery(pointQuery, dvQuery);
+/// let point_query = LongPoint::new_range_query(field, min_value, max_value)?;
+/// let dv_query = SortedNumericDocValuesField::new_slow_range_query(field, min_value, max_value);
+/// let query = IndexOrDocValuesQuery::new(point_query, dv_query);
 /// ```
 ///
 /// The above query will be efficient as it will use points in the case that they perform better,

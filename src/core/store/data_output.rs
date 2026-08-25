@@ -61,7 +61,7 @@ pub trait DataOutput {
   /// [`DataInput::read_bytes`].
   fn write_bytes_range(&mut self, b: &[u8], offset: usize, length: usize) -> Result<()>;
 
-  /// Writes an `int` as four bytes (little-endian byte order).
+  /// Writes an `i32` as four bytes (little-endian byte order).
   ///
   /// # See Also
   /// [`DataInput::read_int`]
@@ -74,7 +74,7 @@ pub trait DataOutput {
     Ok(())
   }
 
-  /// Writes a `short` as two bytes (little-endian byte order).
+  /// Writes an `i16` as two bytes (little-endian byte order).
   ///
   /// # See Also
   /// [`DataInput::read_short`]
@@ -85,7 +85,7 @@ pub trait DataOutput {
     Ok(())
   }
 
-  /// Writes an `int` in a variable-length format. Writes between one and five
+  /// Writes an `i32` in a variable-length format. Writes between one and five
   /// bytes, with smaller values taking fewer bytes. Negative numbers are
   /// supported but should be avoided.
   ///
@@ -141,7 +141,7 @@ pub trait DataOutput {
     self.write_vint(BitUtil::zig_zag_encode_i32(i))
   }
 
-  /// Writes a `long` as eight bytes (little-endian byte order).
+  /// Writes an `i64` as eight bytes (little-endian byte order).
   ///
   /// # See Also
   /// [`DataInput::read_long`]
@@ -152,7 +152,7 @@ pub trait DataOutput {
     Ok(())
   }
 
-  /// Writes a `long` in a variable-length format. Writes between one and nine
+  /// Writes an `i64` in a variable-length format. Writes between one and nine
   /// bytes, with smaller values taking fewer bytes. Negative numbers are
   /// not supported.
   ///
@@ -266,9 +266,9 @@ where
 const COPY_BUFFER_SIZE: usize = 16384;
 
 /// Encodes integers using group-varint encoding. Tail values that do not fit
-/// into a group are encoded using [`DataOutput::write_vint`]. Note: A `long[]`
-/// is used because it aligns with posting requirements, but all longs are
-/// actually expected to be integers.
+/// into a group are encoded using [`DataOutput::write_vint`]. An `i64` slice is
+/// used because it aligns with posting requirements, but every value is
+/// expected to fit in an `i32`.
 ///
 /// # Arguments
 /// * `values` - The values to write.
@@ -286,9 +286,8 @@ where
 }
 
 /// Encodes integers using group-varint encoding. Tail values that do not fit
-/// into a group are encoded using [`DataOutput::write_vint`]. Note: A `long[]`
-/// is used because it aligns with posting requirements, but all longs are
-/// actually expected to be integers.
+/// into a group are encoded using [`DataOutput::write_vint`]. Values are
+/// supplied as an `i32` slice.
 ///
 /// # Arguments
 /// * `values` - The values to write.

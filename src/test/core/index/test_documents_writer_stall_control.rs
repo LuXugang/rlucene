@@ -113,7 +113,7 @@ fn test_acquire_release_race() -> Result<()> {
     num_stallers + num_releasers,
     num_stallers + num_releasers + num_waiters,
   ));
-  let exceptions = Arc::new(Mutex::new(Vec::new()));
+  let errors = Arc::new(Mutex::new(Vec::new()));
   let mut threads = Vec::with_capacity(num_releasers + num_stallers + num_waiters);
   for _ in 0..num_releasers {
     threads.push(Updater::new(
@@ -122,7 +122,7 @@ fn test_acquire_release_race() -> Result<()> {
       ctrl.clone(),
       sync.clone(),
       true,
-      exceptions.clone(),
+      errors.clone(),
     ));
   }
   for _ in num_releasers..num_releasers + num_stallers {
@@ -132,7 +132,7 @@ fn test_acquire_release_race() -> Result<()> {
       ctrl.clone(),
       sync.clone(),
       false,
-      exceptions.clone(),
+      errors.clone(),
     ));
   }
   for _ in num_releasers + num_stallers..num_releasers + num_stallers + num_waiters {
@@ -141,7 +141,7 @@ fn test_acquire_release_race() -> Result<()> {
       check_point.clone(),
       ctrl.clone(),
       sync.clone(),
-      exceptions.clone(),
+      errors.clone(),
     ));
   }
 
@@ -158,8 +158,8 @@ fn test_acquire_release_race() -> Result<()> {
         sync.await_update_join(Duration::from_secs(10)),
         "timed out waiting for update threads - deadlock?"
       );
-      if !exceptions.lock().is_empty() {
-        unreachable!("got exceptions in threads: {:?}", exceptions.lock());
+      if !errors.lock().is_empty() {
+        unreachable!("got errors in threads: {:?}", errors.lock());
       }
 
       if ctrl.has_blocked() && ctrl.is_healthy() {
@@ -244,13 +244,13 @@ impl Waiter {
     check_point: Arc<AtomicBool>,
     ctrl: Arc<DocumentsWriterStallControl>,
     sync: Arc<Synchronizer>,
-    exceptions: Arc<Mutex<Vec<String>>>,
+    errors: Arc<Mutex<Vec<String>>>,
   ) -> TestThread {
     TestThread::spawn(true, move || {
       while !stop.load(Ordering::SeqCst) {
         ctrl.wait_if_stalled();
         if check_point.load(Ordering::SeqCst) && !sync.await_waiter(Duration::from_secs(10)) {
-          exceptions.lock().push(format!(
+          errors.lock().push(format!(
             "[Waiter] timed out - wait count: {}",
             sync.waiter_get_count()
           ));
@@ -270,7 +270,7 @@ impl Updater {
     ctrl: Arc<DocumentsWriterStallControl>,
     sync: Arc<Synchronizer>,
     release: bool,
-    exceptions: Arc<Mutex<Vec<String>>>,
+    errors: Arc<Mutex<Vec<String>>>,
   ) -> TestThread {
     TestThread::spawn(false, move || {
       let mut random = rng();
@@ -286,7 +286,7 @@ impl Updater {
         if check_point.load(Ordering::SeqCst) {
           sync.update_join_count_down();
           if !sync.await_waiter(Duration::from_secs(10)) {
-            exceptions.lock().push(format!(
+            errors.lock().push(format!(
               "[Updater] timed out - wait count: {}",
               sync.waiter_get_count()
             ));

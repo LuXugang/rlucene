@@ -30,9 +30,9 @@ use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-/// A per-document `byte[]` with presorted values. This is fundamentally an
-/// iterator over the `int` ord values per document, with random access APIs to
-/// resolve an `int` ord to `BytesRef`.
+/// Per-document bytes with presorted values. This is fundamentally an iterator
+/// over the `i32` ordinals per document, with random-access APIs to resolve an
+/// `i32` ordinal to [`BytesRef`].
 ///
 /// Per-document values in a `SortedDocValues` are deduplicated, dereferenced,
 /// and sorted into a dictionary of unique values. A pointer to the dictionary
@@ -69,7 +69,7 @@ pub trait SortedDocValues: DocValuesIterator {
     Err(LuceneError::need_implemented("this method not implement"))
   }
   /// If `key` exists, returns its ordinal, else returns `-insertion_point -
-  /// 1`, like `Arrays.binarySearch`.
+  /// 1`, like `[T]::binary_search`.
   ///
   /// # Arguments
   /// * `key` - Key to look up

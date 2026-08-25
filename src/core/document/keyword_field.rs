@@ -111,7 +111,7 @@ impl KeywordField {
   }
   /// Create a new `SortField` for `BytesRef` values.
   ///
-  /// * `field` - field name. must not be `null`.
+  /// * `field` - Field name.
   /// * `reverse` - true if natural order should be reversed.
   /// * `selector` - custom selector type for choosing the sort value from the set.
   pub fn new_sort_field<T>(

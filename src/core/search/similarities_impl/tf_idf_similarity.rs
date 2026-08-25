@@ -235,7 +235,7 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///       <span style="font-size: larger">(</span>
 ///       <A HREF="#formula_tf"><span style="color: #993399">tf(t in d)</span></A> &nbsp;&middot;&nbsp;
 ///       <A HREF="#formula_idf"><span style="color: #993399">idf(t)</span></A><sup>2</sup> &nbsp;&middot;&nbsp;
-///       <A HREF="#formula_termBoost"><span style="color: #CCCC00">t.getBoost()</span></A>&nbsp;&middot;&nbsp;
+///       <A HREF="#formula_termBoost"><span style="color: #CCCC00">term boost</span></A>&nbsp;&middot;&nbsp;
 ///       <A HREF="#formula_norm"><span style="color: #3399FF">norm(t,d)</span></A>
 ///       <span style="font-size: larger">)</span>
 ///     </td>
@@ -280,7 +280,7 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///       <br>
 ///       &nbsp;<br>
 ///   <li><a id="formula_idf"></A> <b><i>idf(t)</i></b> stands for Inverse Document Frequency. This
-///       value correlates to the inverse of <i>docFreq</i> (the number of documents in which the
+///       value correlates to the inverse of <i>doc_freq</i> (the number of documents in which the
 ///       term <i>t</i> appears). This means rarer terms give higher contribution to the total score.
 ///       <i>idf(t)</i> appears for <i>t</i> in both the query and the document, hence it is squared
 ///       in the equation. The default computation for <i>idf(t)</i> in [`ClassicSimilarity::idf`] is:
@@ -300,7 +300,7 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///               <caption>inverse document frequency computation</caption>
 ///               <tr><td style="text-align: center"><small>docCount+1</small></td></tr>
 ///               <tr><td style="text-align: center">&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;&ndash;</td></tr>
-///               <tr><td style="text-align: center"><small>docFreq+1</small></td></tr>
+///               <tr><td style="text-align: center"><small>doc_freq+1</small></td></tr>
 ///            </table>
 ///          </td>
 ///          <td style="vertical-align: middle; text-align: center">
@@ -310,12 +310,12 @@ static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
 ///      </table>
 ///       <br>
 ///       &nbsp;<br>
-///   <li><a id="formula_termBoost"></A> <b><i>t.getBoost()</i></b> is a search-time boost of term
+///   <li><a id="formula_termBoost"></A> The <b><i>term boost</i></b> is a search-time boost of term
 ///       <i>t</i> in query <i>q</i>, as specified by the query syntax or by wrapping with
 ///       [`BoostQuery`]. There is no direct API for accessing the boost of one term in
 ///       a multi term query, but rather multi terms are represented in a query as multi [`TermQuery`]
 ///       objects, and so the boost of a term in the query is accessible by calling the sub-query
-///       [`BoostQuery::get_boost`] getBoost(). <br>
+///       [`BoostQuery::get_boost`]. <br>
 ///       &nbsp;<br>
 ///   <li><a id="formula_norm"></A> <b><i>norm(t,d)</i></b> is an index-time boost factor that solely
 ///       depends on the number of tokens of this field in the document, so that shorter fields
@@ -534,9 +534,9 @@ pub trait TFIDFSimilarityBase {
   /// multiplied by the [`Self::idf`] factor for each term in the query and these products
   /// are then summed to form the initial score for a document.
   ///
-  /// <p>Terms and phrases repeated in a document indicate the topic of the document, so
-  /// implementations of this method usually return larger values when <code>freq</code> is large,
-  /// and smaller values when <code>freq</code> is small.
+  /// Terms and phrases repeated in a document indicate the topic of the document, so
+  /// implementations of this method usually return larger values when `freq` is large,
+  /// and smaller values when `freq` is small.
   ///
   /// # Arguments
   ///
@@ -548,11 +548,11 @@ pub trait TFIDFSimilarityBase {
   fn tf(&self, freq: f32) -> f32;
   /// Computes a score factor for a simple term and returns an explanation for that score factor.
   ///
-  /// <p>The default implementation uses:
+  /// The default implementation uses:
   ///
-  /// <pre class="prettyprint">
-  /// idf(docFreq, docCount);
-  /// </pre>
+  /// ```text
+  /// idf(doc_freq, doc_count)
+  /// ```
   ///
   /// Note that [`CollectionStatistics::get_doc_count`] is used instead of
   /// `IndexReader::num_docs()` because also [`TermStatistics::get_doc_freq`] is used,
@@ -580,22 +580,22 @@ pub trait TFIDFSimilarityBase {
 
     Explanation::match_(
       idf,
-      "idf(docFreq, docCount)".to_string(),
+      "idf(doc_freq, doc_count)".to_string(),
       vec![
         Explanation::match_no_details(
           df,
-          "docFreq, number of documents containing term".to_string(),
+          "doc_freq, number of documents containing term".to_string(),
         ),
         Explanation::match_no_details(
           doc_count,
-          "docCount, total number of documents with field".to_string(),
+          "doc_count, total number of documents with field".to_string(),
         ),
       ],
     )
   }
   /// Computes a score factor for a phrase.
   ///
-  /// <p>The default implementation sums the idf factor for each term in the phrase.
+  /// The default implementation sums the idf factor for each term in the phrase.
   ///
   /// # Arguments
   ///

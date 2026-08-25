@@ -204,7 +204,7 @@ pub(crate) struct FakeIOException;
 
 impl Display for FakeIOException {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "a fake IOException")
+    write!(f, "a fake I/O error")
   }
 }
 
@@ -298,7 +298,7 @@ where
 ///
 /// * Instances created by `LuceneTestCase::newDirectory()` are tracked to
 ///   ensure they are closed by the test.
-/// * When a MockDirectoryWrapper is closed, it will throw an exception if it
+/// * When a MockDirectoryWrapper is closed, it returns an error if it
 ///   has any open files against it (with a stacktrace indicating where they
 ///   were opened from).
 /// * When a MockDirectoryWrapper is closed, it runs CheckIndex to test if the
@@ -410,7 +410,7 @@ where
     self.state.base.lock().get_level_for_check_on_close()
   }
 
-  /// If set to true, we print a fake exception with filename and stacktrace on
+  /// If set to true, we print a fake error with filename and stacktrace on
   /// every indexinput clone()
   #[allow(unused)]
   pub fn set_verbose_clone(&self, v: bool) {
@@ -421,9 +421,8 @@ where
     self.state.track_disk_usage.store(v, Ordering::SeqCst);
   }
 
-  /// If set to true (the default), when we throw random IOException on
-  /// openInput or createOutput, we may sometimes throw FileNotFoundException or
-  /// NoSuchFileException.
+  /// If set to true (the default), random I/O errors from `open_input` or
+  /// `create_output` may use [`std::io::ErrorKind::NotFound`].
   #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub fn set_allow_random_file_not_found_exception(&self, value: bool) {
     self
@@ -834,8 +833,8 @@ where
     self.state.assert_no_delete_open_file.load(Ordering::SeqCst)
   }
 
-  /// If 0.0, no exceptions will be thrown. Else this should be a double 0.0 -
-  /// 1.0. We will randomly throw an IOException on the first write to an
+  /// If 0.0, no errors will be returned. Otherwise, this should be an f64 from 0.0 to
+  /// 1.0. We will randomly return an I/O error on the first write to an
   /// OutputStream based on this probability.
   pub fn set_random_io_exception_rate(&self, rate: f64) {
     *self.state.random_io_exception_rate.lock() = rate;
@@ -846,9 +845,9 @@ where
     *self.state.random_io_exception_rate.lock()
   }
 
-  /// If 0.0, no exceptions will be thrown during openInput and createOutput.
-  /// Else this should be a double 0.0 - 1.0 and we will randomly throw an
-  /// IOException in openInput and createOutput with this probability.
+  /// If 0.0, no errors will be returned during `open_input` and `create_output`.
+  /// Otherwise, this should be an f64 from 0.0 to 1.0 and we will randomly return an
+  /// I/O error from `open_input` and `create_output` with this probability.
   pub fn set_random_io_exception_rate_on_open(&self, rate: f64) {
     *self.state.random_io_exception_rate_on_open.lock() = rate;
   }
@@ -862,11 +861,11 @@ where
     if self.state.random_state.lock().random::<f64>() < *self.state.random_io_exception_rate.lock()
     {
       let message = format!(
-        "a random IOException{}",
+        "a random I/O error{}",
         message.map(|m| format!(" ({m})")).unwrap_or_default()
       );
       if cfg!(feature = "test_log_verbose") {
-        eprintln!("MockDirectoryWrapper: now throw random exception");
+        eprintln!("MockDirectoryWrapper: returning a random error");
       }
       return Err(LuceneError::io(Error::other(message)));
     }
@@ -878,7 +877,7 @@ where
       < *self.state.random_io_exception_rate_on_open.lock()
     {
       if cfg!(feature = "test_log_verbose") {
-        eprintln!("MockDirectoryWrapper: now throw random exception during open file={name}");
+        eprintln!("MockDirectoryWrapper: returning a random error while opening file={name}");
       }
       if !self
         .state
@@ -887,15 +886,12 @@ where
         || self.state.random_state.lock().random_bool(0.5)
       {
         Err(LuceneError::io(Error::other(format!(
-          "a random IOException ({name})"
+          "a random I/O error ({name})"
         ))))
       } else {
         Err(LuceneError::io_with_path(
           name,
-          Error::new(
-            ErrorKind::NotFound,
-            format!("a random IOException ({name})"),
-          ),
+          Error::new(ErrorKind::NotFound, format!("a random I/O error ({name})")),
         ))
       }
     } else {
@@ -1001,8 +997,8 @@ where
     self.state.failures.lock().push(fail);
   }
 
-  /// Iterate through the failures list, giving each object a chance to throw
-  /// an IOE
+  /// Iterate through the failures list, giving each object a chance to return
+  /// an I/O error.
   pub fn maybe_throw_deterministic_exception(&self, point: FailurePoint) -> Result<()> {
     let context = FailureContext::new(point);
     let mut failures = self.state.failures.lock();
@@ -1012,7 +1008,7 @@ where
       }));
       if !matches!(&result, Ok(Ok(()))) {
         if cfg!(feature = "test_log_verbose") {
-          eprintln!("MockDirectoryWrapper: throw exc");
+          eprintln!("MockDirectoryWrapper: returning an injected failure");
         }
         return IOUtils::rethrow_always(result);
       }

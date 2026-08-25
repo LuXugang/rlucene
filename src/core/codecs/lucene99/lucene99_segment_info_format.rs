@@ -44,7 +44,7 @@ use crate::core::util::{IOUtils, StringHelper, Version};
 /// - **SegSize** --> [`DataOutput::write_int`] (Int32)
 /// - **SegVersion** --> [`DataOutput::write_string`] (String)
 /// - **SegMinVersion** --> [`DataOutput::write_string`] (String)
-/// - **Files** --> [`DataOutput::write_set_of_strings`] (Set\<String>)
+/// - **Files** --> [`DataOutput::write_set_of_strings`] (`HashSet<String>`)
 /// - **Diagnostics**, **Attributes** --> [`DataOutput::write_map_of_strings`]
 ///   (Map<String, String>)
 /// - **IsCompoundFile** --> [`DataOutput::write_byte`] (Int8)
@@ -119,7 +119,7 @@ impl Lucene99SegmentInfoFormat {
       },
       _ => {
         return Err(LuceneError::corrupt_index(format!(
-          "Illegal boolean value : {has_min_version} (resource={input})"
+          "invalid bool value: {has_min_version} (resource={input})"
         )));
       },
     };

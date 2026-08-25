@@ -55,9 +55,8 @@ where
   }
 }
 
-/// Used to create an output stream that will throw an IOException on fake disk
-/// full, track max disk space actually used, and maybe throw random
-/// IOExceptions.
+/// Used to create an output stream that returns an I/O error on fake disk
+/// full, track max disk space actually used, and maybe return random I/O errors.
 pub(crate) struct MockIndexOutputWrapper<D>
 where
   D: Directory,
@@ -215,7 +214,7 @@ where
       }
       message.push(')');
       if cfg!(feature = "test_log_verbose") {
-        eprintln!("MDW: now throw fake disk full");
+        eprintln!("MDW: returning a fake disk-full error");
       }
       return Err(LuceneError::io_with_path(&self.name, Error::other(message)));
     }
@@ -284,7 +283,7 @@ where
       .maybe_throw_deterministic_exception(FailurePoint::WriteOutput)?;
 
     if self.first {
-      // Maybe throw random exception; only do this on first write to a new
+      // Maybe return a random error; only do this on the first write to a new
       // file:
       self.first = false;
       self.dir.maybe_throw_io_exception(Some(&self.name))?;

@@ -83,7 +83,7 @@ pub trait ScorerSupplier<IRC: IndexReaderContext> {
   ///
   /// Note: This method also gets called if scores are not requested, e.g. because the score mode
   /// is [`ScoreMode::COMPLETE_NO_SCORES`](crate::core::search::score_mode::ScoreMode::CompleteNoScores).
-  /// Implementations should look at both the score mode and this boolean to know whether to prepare
+  /// Implementations should look at both the score mode and this `bool` to know whether to prepare
   /// for reacting to `Scorer::set_min_competitive_score` calls.
   fn set_top_level_scoring_clause(&mut self) -> Result<()> {
     Ok(())

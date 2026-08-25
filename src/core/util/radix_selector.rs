@@ -127,7 +127,7 @@ where
     v.try_convert()
   }
 
-  /// Build a histogram of the number of values per `get_bucket(int, int)` and
+  /// Build a histogram of the number of values per [`Self::get_bucket`] and
   /// return a common prefix length for all visited values.
   fn compute_common_prefix_length_and_build_histogram(
     &mut self,

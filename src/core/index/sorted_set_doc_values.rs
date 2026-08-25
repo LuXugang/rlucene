@@ -42,7 +42,7 @@ use std::rc::Rc;
 pub trait SortedSetDocValues: DocValuesIterator {
   /// Returns the next ordinal for the current document. It is illegal to call
   /// this method after
-  /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
+  /// [`advance_exact`](DocValuesIterator::advance_exact) returned
   /// `false`. It is illegal to call this more than
   /// [`doc_value_count()`](SortedSetDocValues::doc_value_count) times for the
   /// currently-positioned doc.
@@ -54,7 +54,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
 
   /// Retrieves the number of unique ords for the current document. This must
   /// always be greater than zero. It is illegal to call this method after
-  /// [`advance_exact(int)`](DocValuesIterator::advance_exact) returned
+  /// [`advance_exact`](DocValuesIterator::advance_exact) returned
   /// `false`.
   fn doc_value_count(&mut self) -> Result<i32>;
 
@@ -78,7 +78,7 @@ pub trait SortedSetDocValues: DocValuesIterator {
     Err(LuceneError::need_implemented("this method not implement"))
   }
   /// If `key` exists, returns its ordinal, else returns `-insertion_point -
-  /// 1`, like `Arrays.binarySearch`.
+  /// 1`, like `[T]::binary_search`.
   ///
   /// # Arguments
   /// * `key` - Key to look up

@@ -60,11 +60,11 @@ pub(crate) struct FieldUpdatesBuffer {
   // since by definition we store them in order.
   term_values: BytesRefArray,
   term_sort_state: Arc<SortState>,
-  byte_values: Option<BytesRefArray>, /* this will be null if we are
-                                       * buffering numerics  */
+  // `None` when buffering numeric values.
+  byte_values: Option<BytesRefArray>,
   docs_upto: Vec<i32>,
-  numeric_values: Option<Vec<i64>>, /* this will be null if we are
-                                     * buffering binaries  */
+  // `None` when buffering binary values.
+  numeric_values: Option<Vec<i64>>,
   has_values: Option<FixedBitSet>,
   max_numeric: i64,
   min_numeric: i64,

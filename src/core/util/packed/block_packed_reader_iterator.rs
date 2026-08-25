@@ -44,7 +44,7 @@ pub struct BlockPackedReaderIterator {
 }
 
 impl BlockPackedReaderIterator {
-  /// Reads a variable-length long value (supports negative values).
+  /// Reads a variable-length `i64` value (supports negative values).
   ///
   /// # Arguments
   ///
@@ -52,7 +52,7 @@ impl BlockPackedReaderIterator {
   ///
   /// # Returns
   ///
-  /// A signed long value.
+  /// A signed `i64` value.
   ///
   /// # Errors
   ///

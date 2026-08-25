@@ -192,7 +192,6 @@ fn test_change_codec_and_merge() -> Result<()> {
       MockAssertingCodec::new(),
     )));
   iwconf.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
-  // ((LogMergePolicy) iwconf.getMergePolicy()).setMergeFactor(10);
   let writer = new_writer(dir.clone(), iwconf)?;
   let mut field_to_type = HashMap::new();
 
@@ -216,8 +215,6 @@ fn test_change_codec_and_merge() -> Result<()> {
     .set_codec(AssertingCodec::with_hook(AssertingCodecHook::MockPostings(
       MockAssertingCodec::new(),
     )));
-  // ((LogMergePolicy) iwconf.getMergePolicy()).setNoCFSRatio(0.0);
-  // ((LogMergePolicy) iwconf.getMergePolicy()).setMergeFactor(10);
   iwconf.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
 
   iwconf.set_codec(AssertingCodec::with_hook(AssertingCodecHook::MockPostings(

@@ -220,7 +220,7 @@ pub trait Analyzer: Closeable + Send + Sync {
 
     match result {
       Err(error) if error.is_io_error() => {
-        let mut wrapped = LuceneError::illegal_state("Normalization threw an unexpected exception");
+        let mut wrapped = LuceneError::illegal_state("normalization returned an unexpected error");
         wrapped.add_suppressed(error);
         Err(wrapped)
       },

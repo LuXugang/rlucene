@@ -125,7 +125,7 @@ fn test_delete_by_term_is_current() -> Result<()> {
   Ok(())
 }
 
-/** Testcase for example to show that writer.deleteAll() is working as expected */
+/** Test case showing that `writer.delete_all()` works as expected. */
 #[test]
 fn test_delete_all_is_current() -> Result<()> {
   let mut random = random();

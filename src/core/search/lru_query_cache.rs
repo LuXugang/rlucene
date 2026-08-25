@@ -692,7 +692,7 @@ where
           return Err(LuceneError::concurrent_modification(format!(
             "Removal from the cache failed! This \
              is probably due to a query which has been modified after having been put into \
-             the cache or a badly implemented clone(). Query class: [{}], query: [{}]",
+             the cache or a badly implemented clone(). Query type: [{}], query: [{}]",
             query.name(),
             query.to_string("").unwrap_or_else(|_| format!("{query:?}"))
           )));

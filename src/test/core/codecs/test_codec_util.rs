@@ -108,11 +108,11 @@ fn test_check_footer_valid() -> Result<()> {
   output.close()?;
 
   let mut input = BufferedChecksumIndexInput::new(ByteBuffersIndexInput::new(input_data, "temp"));
-  let mine = LuceneError::illegal_argument("fake exception");
+  let mine = LuceneError::illegal_argument("fake error");
   let result =
     CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   assert!(matches!(result, LuceneError::IllegalArgument(_)));
-  assert!(result.to_string().contains("fake exception"));
+  assert!(result.to_string().contains("fake error"));
   match result.get_suppressed()? {
     Some(suppressed) => {
       let suppressed_message = suppressed.to_string();
@@ -136,11 +136,11 @@ fn test_check_footer_valid_at_footer() -> Result<()> {
   CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
   let read_data = input.read_string()?;
   assert_eq!(read_data, "this is the data");
-  let mine = LuceneError::illegal_argument("fake exception");
+  let mine = LuceneError::illegal_argument("fake error");
   let result =
     CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   let err_message = result.to_string();
-  assert!(err_message.contains("fake exception"));
+  assert!(err_message.contains("fake error"));
   match result.get_suppressed()? {
     Some(suppressed) => {
       let suppressed_message = suppressed.to_string();
@@ -168,7 +168,7 @@ fn test_check_footer_valid_past_footer() -> Result<()> {
   // Bogusly read a byte too far
   input.read_byte()?;
 
-  let mine = LuceneError::illegal_argument("fake exception");
+  let mine = LuceneError::illegal_argument("fake error");
   let result =
     CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   let err_message = result.to_string();
@@ -176,7 +176,7 @@ fn test_check_footer_valid_past_footer() -> Result<()> {
   match result.get_suppressed()? {
     Some(suppressed) => {
       let suppressed_message = suppressed.to_string();
-      assert!(suppressed_message.contains("fake exception"));
+      assert!(suppressed_message.contains("fake error"));
     },
     None => unreachable!(""),
   }
@@ -197,7 +197,7 @@ fn test_check_footer_invalid() -> Result<()> {
   CodecUtil::check_header(&mut input, "FooBar", 5, 5)?;
   let read_data = input.read_string()?;
   assert_eq!(read_data, "this is the data");
-  let mine = LuceneError::illegal_argument("fake exception");
+  let mine = LuceneError::illegal_argument("fake error");
   let result =
     CodecUtil::check_footer_with_error::<()>(&mut input, Some(Ok(Err(mine)))).unwrap_err();
   assert!(result.source().is_some());
@@ -206,7 +206,7 @@ fn test_check_footer_invalid() -> Result<()> {
   match result.get_suppressed()? {
     Some(suppressed) => {
       let suppressed_message = suppressed.to_string();
-      assert!(suppressed_message.contains("fake exception"));
+      assert!(suppressed_message.contains("fake error"));
     },
     None => {
       unreachable!("suppressed is None");
@@ -375,17 +375,17 @@ fn test_retrieve_checksum() -> Result<()> {
     let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let result = (|| -> Result<()> {
       let length = input.length()?;
-      CodecUtil::retrieve_checksum_with_expected(&mut input, length)?; // no exception
+      CodecUtil::retrieve_checksum_with_expected(&mut input, length)?; // no error
 
-      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length - 1)
+      let error = CodecUtil::retrieve_checksum_with_expected(&mut input, length - 1)
         .expect_err("expected file-too-long corruption");
-      assert!(exception.to_string().contains("too long"));
-      assert!(exception.get_suppressed()?.is_none());
+      assert!(error.to_string().contains("too long"));
+      assert!(error.get_suppressed()?.is_none());
 
-      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length + 1)
+      let error = CodecUtil::retrieve_checksum_with_expected(&mut input, length + 1)
         .expect_err("expected truncated-file corruption");
-      assert!(exception.to_string().contains("truncated"));
-      assert!(exception.get_suppressed()?.is_none());
+      assert!(error.to_string().contains("truncated"));
+      assert!(error.get_suppressed()?.is_none());
       Ok(())
     })();
     IOUtils::use_or_suppress_result(result, input.close())?;
@@ -405,18 +405,18 @@ fn test_retrieve_checksum() -> Result<()> {
     let mut input = dir.open_input("bar", &IOContext::default_io_context()?)?;
     let result = (|| -> Result<()> {
       let length = input.length()?;
-      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length)
+      let error = CodecUtil::retrieve_checksum_with_expected(&mut input, length)
         .expect_err("expected codec-footer mismatch");
-      assert!(exception.to_string().contains("codec footer mismatch"));
-      assert!(exception.get_suppressed()?.is_none());
+      assert!(error.to_string().contains("codec footer mismatch"));
+      assert!(error.get_suppressed()?.is_none());
 
-      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length - 1)
+      let error = CodecUtil::retrieve_checksum_with_expected(&mut input, length - 1)
         .expect_err("expected file-too-long corruption");
-      assert!(exception.to_string().contains("too long"));
+      assert!(error.to_string().contains("too long"));
 
-      let exception = CodecUtil::retrieve_checksum_with_expected(&mut input, length + 1)
+      let error = CodecUtil::retrieve_checksum_with_expected(&mut input, length + 1)
         .expect_err("expected truncated-file corruption");
-      assert!(exception.to_string().contains("truncated"));
+      assert!(error.to_string().contains("truncated"));
       Ok(())
     })();
     IOUtils::use_or_suppress_result(result, input.close())?;

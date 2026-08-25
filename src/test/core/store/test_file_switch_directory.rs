@@ -132,7 +132,7 @@ impl TestFileSwitchDirectory {
     FileSwitchDirectory::new(primary_extensions, a, b, true)
   }
 
-  // LUCENE-3380 -- make sure we get exception if the directory really does not exist.
+  // LUCENE-3380 -- make sure we get error if the directory really does not exist.
   fn test_no_dir<R>(&self, _random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -224,10 +224,10 @@ impl TestFileSwitchDirectory {
         broken_name = out.get_name().to_string();
         out.close()?;
       }
-      let exception = directory
+      let error = directory
         .rename(&broken_name, "foo.bar")
         .expect_err("source and dest should be in different directories");
-      match exception {
+      match error {
         LuceneError::Io { source, .. } | LuceneError::IoWithPath { source, .. } => {
           assert_eq!(
             "foo_bar_0.tmp -> foo.bar: source and dest are in different directories",

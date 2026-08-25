@@ -870,7 +870,7 @@ impl<T> Arc<T> {
     self.flags
   }
 
-  /// Address (into the byte[]) of the next arc - only for list of variable
+  /// Address in the byte buffer of the next arc; only used for lists of variable
   /// length arc. Or ord/address to the next node if label ==
   /// [`END_LABEL`].
   pub fn next_arc(&self) -> i64 {

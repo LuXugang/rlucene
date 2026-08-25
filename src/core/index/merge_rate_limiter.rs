@@ -25,8 +25,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 const MIN_PAUSE_CHECK_MSEC: i64 = 25;
 
-const MIN_PAUSE_NS: i64 = 2_000_000; // TimeUnit.MILLISECONDS.toNanos(2)
-const MAX_PAUSE_NS: i64 = 250_000_000; // TimeUnit.MILLISECONDS.toNanos(250)
+const MIN_PAUSE_NS: i64 = 2_000_000; // 2 milliseconds in nanoseconds.
+const MAX_PAUSE_NS: i64 = 250_000_000; // 250 milliseconds in nanoseconds.
 
 /// This is the [`RateLimiter`] that [`IndexWriter`] assigns to each running merge, to give
 /// [`MergeScheduler`]s ionice like control.
@@ -87,7 +87,7 @@ impl MergeRateLimiter {
   }
 
   /**
-   * Returns the number of nanoseconds spent in a paused state or <code>-1</code> if no pause was
+   * Returns the number of nanoseconds spent in a paused state or `-1` if no pause was
    * applied. If the thread needs pausing, this method delegates to the linked [`OneMergeProgress`].
    */
   fn maybe_pause(&self, bytes: i64) -> Result<i64> {
@@ -169,7 +169,7 @@ impl RateLimiter for MergeRateLimiter {
       .mb_per_sec
       .store(mb_per_sec.to_bits(), Ordering::SeqCst);
 
-    // NOTE: Double.POSITIVE_INFINITY casts to Long.MAX_VALUE
+    // `f64::INFINITY` saturates to `i64::MAX` when cast to `i64`.
     let min_check = ((MIN_PAUSE_CHECK_MSEC as f64 / 1000.0) * mb_per_sec * 1024.0 * 1024.0) as i64;
     self
       .min_pause_check_bytes
@@ -212,7 +212,7 @@ impl RateLimiter for MergeRateLimiter {
 }
 
 /// Returns the current value of the high-resolution time source, in nanoseconds.
-/// Equivalent to Java's `System.nanoTime()`.
+/// Returns elapsed monotonic time in nanoseconds.
 fn nano_time() -> i64 {
   static BASE: OnceLock<Instant> = OnceLock::new();
   let base = BASE.get_or_init(Instant::now);

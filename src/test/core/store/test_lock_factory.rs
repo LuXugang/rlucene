@@ -99,10 +99,7 @@ fn test_directory_no_locking() -> Result<()> {
     },
     Err(e) => {
       writer.close()?;
-      panic!(
-        "Should not have hit an IOException with no locking: {:?}",
-        e
-      );
+      panic!("Should not have hit an I/O error with no locking: {:?}", e);
     },
   }
   Ok(())

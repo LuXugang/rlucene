@@ -223,7 +223,7 @@ impl SegmentTermsEnumFrame {
   /* Does initial decode of next block of terms; this
   doesn't actually decode the docFreq, totalTermFreq,
   postings details (frq/prx offset, etc.) metadata;
-  it just loads them as byte[] blobs which are then
+  it just loads them as byte blobs which are then
   decoded on-demand if the metadata is ever requested
   for any term in this block.  This enables terms-only
   intensive consumes (eg certain MTQs, respelling) to

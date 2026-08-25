@@ -213,7 +213,7 @@ impl IndexableField for IntField {
         Ok(Some(Cow::Owned(BytesRef::from_bytes(bytes))))
       },
       _ => Err(LuceneError::illegal_state(
-        "parent_field`s fields_data does not have an int value",
+        "parent_field's fields_data does not contain an i32 value",
       )),
     }
   }

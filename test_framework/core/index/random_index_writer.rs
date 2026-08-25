@@ -87,7 +87,7 @@ where
     R: Rng + ?Sized,
     D: Directory,
   {
-    // Randomly calls Thread.yield so we mixup thread scheduling.
+    // Randomly yields the current thread to vary scheduling.
     let random = StdRng::seed_from_u64(r.random());
     Self::mock_index_writer_with_test_point(r, dir, conf, YieldTestPoint::new(random))
   }

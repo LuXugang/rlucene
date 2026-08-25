@@ -283,7 +283,7 @@ fn test_copy_char_array_set() {
   }
 }
 
-/// Tests copying a JDK `Set` source.
+/// Tests copying from a standard-library set.
 #[test]
 #[ignore = "Java-only: Rust has no JDK Set implementation or Java collection-copy overload"]
 fn test_copy_jdk_set() -> Result<()> {
@@ -312,7 +312,7 @@ fn test_empty_set() {
   assert!(!empty_set.contains_key(&foo, 0, 3));
 }
 
-/// Tests null handling.
+/// Tests absent-value handling.
 #[test]
 #[ignore = "Java-only: Rust references cannot represent Java null arguments"]
 fn test_contains_with_null() -> Result<()> {

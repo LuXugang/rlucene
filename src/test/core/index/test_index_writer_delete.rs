@@ -702,7 +702,7 @@ fn test_updates_on_disk_full() -> Result<()> {
 }
 
 /// Make sure if modifier tries to commit but hits disk full that modifier
-/// remains consistent and usable. Similar to TestIndexReader.testDiskFull().
+/// remains consistent and usable. Similar to `test_disk_full` in the index-reader tests.
 #[cfg(feature = "nightly")]
 fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
   let mut random = random();
@@ -753,8 +753,8 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
     let modifier = IndexWriter::new(dir.clone(), config)?;
 
     // For each disk size, first try to commit against dir that will hit random
-    // IOExceptions & disk full; after, give it infinite disk space & turn off
-    // random IOExceptions & retry w/ same reader:
+    // I/O errors and disk full; afterward, give it infinite disk space, turn off
+    // random I/O errors, and retry with the same reader:
     let mut success = false;
 
     for x in 0..2 {
@@ -831,14 +831,14 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
           err = Some(error);
           if x == 1 {
             return Err(LuceneError::illegal_state(format!(
-              "{test_name} hit IOException after disk space was freed up"
+              "{test_name} hit an I/O error after disk space was freed up"
             )));
           }
         },
         Err(error) => return Err(error),
       }
 
-      // prevent throwing a random exception here!!
+      // Prevent a random error here.
       let random_io_exception_rate = dir.get_random_io_exception_rate();
       let max_size_in_bytes = dir.get_max_size_in_bytes();
       dir.set_random_io_exception_rate(0.0);
@@ -862,36 +862,36 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
       // changed (transactional semantics):
       let new_reader = directory_reader::open(dir.clone()).map_err(|error| {
         LuceneError::illegal_state(format!(
-          "{test_name}:exception when creating IndexReader after disk full during close: {error}"
+          "{test_name}:error when creating IndexReader after disk full during close: {error}"
         ))
       })?;
       let searcher = new_searcher_with_reader(new_reader)?;
       let hits = searcher
         .search(TermQuery::new(search_term.clone()), 1000)
         .map_err(|error| {
-          LuceneError::illegal_state(format!("{test_name}: exception when searching: {error}"))
+          LuceneError::illegal_state(format!("{test_name}: error when searching: {error}"))
         })?
         .score_docs;
       let result2 = hits.len() as i64;
       if success {
         if x == 0 && result2 != END_COUNT {
           return Err(LuceneError::illegal_state(format!(
-            "{test_name}: method did not throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {END_COUNT}"
+            "{test_name}: method returned no error but the hit count for term 'aaa' is {result2} instead of expected {END_COUNT}"
           )));
         } else if x == 1 && result2 != START_COUNT && result2 != END_COUNT {
-          // It's possible that the first exception was "recoverable" wrt
+          // It's possible that the first error was "recoverable" wrt
           // pending deletes, in which case the pending deletes are retained
           // and then re-flushing (with plenty of disk space) will succeed in
           // flushing the deletes:
           return Err(LuceneError::illegal_state(format!(
-            "{test_name}: method did not throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {START_COUNT} or {END_COUNT}"
+            "{test_name}: method returned no error but the hit count for term 'aaa' is {result2} instead of expected {START_COUNT} or {END_COUNT}"
           )));
         }
       } else {
-        // On hitting exception we still may have added all docs:
+        // On hitting error we still may have added all docs:
         if result2 != START_COUNT && result2 != END_COUNT {
           return Err(LuceneError::illegal_state(format!(
-            "{test_name}: method did throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {START_COUNT} or {END_COUNT}: {err:?}"
+            "{test_name}: method returned an error but the hit count for term 'aaa' is {result2} instead of expected {START_COUNT} or {END_COUNT}: {err:?}"
           )));
         }
       }
@@ -912,7 +912,7 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
 #[test]
 fn test_error_after_apply_deletes() -> Result<()> {
   // This test tests that buffered deletes are cleared when
-  // an Exception is hit during flush.
+  // an error occurs during flush.
   let mut random = random();
   let dir = Arc::new(new_mock_directory(&mut random)?);
   let mut failure: Box<dyn Failure<_>> = Box::new(FailAfterApplyDeletes {

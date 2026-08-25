@@ -61,7 +61,7 @@ where
     self.token_filter_base.close()?;
     if self.thing_to_do == 3 && self.random.lock().random_bool(0.5) {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TokenStream.close()",
+        "Fake I/O error from TokenStream::close()",
       )));
     }
     Ok(())
@@ -75,7 +75,7 @@ where
   fn increment_token(&mut self) -> Result<bool> {
     if self.thing_to_do == 0 && self.random.lock().random_bool(0.5) {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TokenStream.incrementToken()",
+        "Fake I/O error from TokenStream::increment_token()",
       )));
     }
     self.token_filter_base.input.increment_token()
@@ -85,7 +85,7 @@ where
     self.token_filter_base.end()?;
     if self.thing_to_do == 1 && self.random.lock().random_bool(0.5) {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TokenStream.end()",
+        "Fake I/O error from TokenStream::end()",
       )));
     }
     Ok(())
@@ -97,7 +97,7 @@ where
     self.thing_to_do = random.random_range(0..100);
     if self.thing_to_do == 2 && random.random_bool(0.5) {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from TokenStream.reset()",
+        "Fake I/O error from TokenStream::reset()",
       )));
     }
     Ok(())

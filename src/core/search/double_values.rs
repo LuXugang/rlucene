@@ -16,10 +16,10 @@
  */
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-/// Per-segment, per-document double values, which can be calculated at
+/// Per-segment, per-document `f64` values, which can be calculated at
 /// search-time.
 pub trait DoubleValues {
-  /// Get the double value for the current document.
+  /// Get the `f64` value for the current document.
   fn double_value(&mut self) -> Result<f64>;
 
   /// Advance this instance to the given document id.

@@ -219,9 +219,9 @@ impl CloseWhileHandlingException {
   {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(close)) {
       Ok(Ok(())) => {},
-      // Java's catch (Throwable) branch suppresses non-Error exceptions.
+      // Preserve returned errors and caught panics as suppressed failures.
       Ok(Err(error)) => self.suppressed_exceptions.push(error),
-      // A Rust panic maps to Java Error: remember the first one and keep closing.
+      // Remember the first panic and keep closing the remaining resources.
       Err(payload) if self.first_panic.is_none() => {
         self.first_panic = Some(payload);
       },
@@ -340,8 +340,7 @@ impl IOUtils {
   ///
   /// Pass a resource directly, or pass an array, vector, or tuple when closing
   /// multiple resources. Tuple elements may have different concrete types and
-  /// are closed from left to right. `None` resources are ignored, like `null`
-  /// elements in Java.
+  /// are closed from left to right. `None` resources are ignored.
   ///
   /// After everything is closed, the method returns or resumes the first
   /// failure and retains later failures as suppressed failures.
@@ -374,13 +373,12 @@ impl IOUtils {
     finish_close_result!(failures)
   }
 
-  /// Closes one or more resources while handling an exception, equivalent to
-  /// Java's `IOUtils.closeWhileHandlingException(Closeable...)`.
+  /// Closes one or more resources while preserving an error already in flight.
   ///
   /// Pass a resource directly, or pass an array, vector, or tuple when closing
   /// multiple resources. Tuple elements may have different concrete types and
-  /// are closed from left to right. `None` resources are ignored, like `null`
-  /// elements in Java. Use [`Self::close_while_handling_exception_with`]
+  /// are closed from left to right. `None` resources are ignored. Use
+  /// [`Self::close_while_handling_exception_with`]
   /// instead for an arbitrary iterator or a custom cleanup operation.
   ///
   /// All resources are attempted even if a returned error or panic occurs.
@@ -399,8 +397,8 @@ impl IOUtils {
   /// Closes every item yielded by `objects` using the supplied `close`
   /// operation, suppressing all returned errors.
   ///
-  /// This is the iterator/custom-operation form of Java's
-  /// `IOUtils.closeWhileHandlingException`. Use it for an arbitrary-length
+  /// This is the iterator/custom-operation form of
+  /// [`Self::close_while_handling_exception`]. Use it for an arbitrary-length
   /// collection whose items have one iterator item type, or when the cleanup
   /// operation is not the resource's standard `close` method. For resources
   /// that can be passed directly, use [`Self::close_while_handling_exception`]
@@ -579,7 +577,7 @@ impl IOUtils {
     }
   }
 
-  /// Rethrows a previously caught failure.
+  /// Returns a previously caught failure.
   ///
   /// This method never returns a successful value. A returned error is
   /// propagated as a [`Result::Err`], while a panic is resumed with its
@@ -589,7 +587,7 @@ impl IOUtils {
     match result {
       Ok(Err(error)) => Err(error),
       Err(payload) => std::panic::resume_unwind(payload),
-      Ok(Ok(_)) => panic!("rethrow argument must contain a failure"),
+      Ok(Ok(_)) => panic!("argument must contain a failure"),
     }
   }
 
@@ -641,7 +639,7 @@ impl IOUtils {
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         debug_assert!(
           false,
-          "On Linux and macOS, syncing a directory should not throw an error. Got: {error}"
+          "On Linux and macOS, syncing a directory should not return an error. Got: {error}"
         );
       }
       Ok(())

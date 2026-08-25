@@ -50,16 +50,16 @@ use std::sync::Arc;
 /// two lookup tables are used: a lookup table for block offset and index, and a
 /// rank structure for DENSE block index lookups.
 ///
-/// The lookup table is an array of `int` pairs, one pair per block. It allows
+/// The lookup table contains `i32` pairs, one pair per block. It allows
 /// for direct jumping to the block, rather than iterating forward from the
 /// current position block-by-block.
 ///
-/// Each `int` pair entry consists of two logical parts:
+/// Each `i32` pair entry consists of two logical parts:
 ///
-/// - The first 32-bit `int` holds the index (number of set bits in the blocks)
+/// - The first `i32` holds the index (number of set bits in the blocks)
 ///   up to just before the wanted block. The maximum number of set bits is the
 ///   maximum number of documents, which is less than 2^31.
-/// - The second `int` holds the byte offset into the underlying slice. Since
+/// - The second `i32` holds the byte offset into the underlying slice. Since
 ///   there is a maximum of 2^16 blocks, the maximum size of any block must not
 ///   exceed 2^15 bytes to avoid overflow (2^16 if treated as unsigned). This is
 ///   currently safe, with the largest block being DENSE and using 2^13 + 36
@@ -315,7 +315,7 @@ where
         self.block_end = self.dense_bitmap_offset + (1 << 13);
         // Performance consideration: All rank (default 128 * 16 bits) are
         // loaded up front. This should be fast with the
-        // reusable byte[] buffer, but it is still wasted if the DENSE block
+        // reusable byte buffer, but it is still wasted if the DENSE block
         // is iterated in small steps.
         // If this results in too great a performance regression, a
         // heuristic strategy might work where the rank data
@@ -942,7 +942,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 // there is much to gain here. The number of docIDs that a single block
 // represents
 const BLOCK_SIZE: i32 = 65536;
-// Long.SIZE = 64 bits
+// One `i64` contains `i64::BITS` bits.
 const DENSE_BLOCK_LONGS: i32 = BLOCK_SIZE / i64::BITS as i32;
 // Every 512 docIDs / 8 longs
 pub const DEFAULT_DENSE_RANK_POWER: i8 = 9;
@@ -1214,7 +1214,7 @@ where
 
 // Creates a DENSE rank-entry (the number of set bits up to a given point)
 // for the buffer. One rank entry for every `2^dense_rank_power`.
-// bits, with each rank-entry using 2 bytes. Represented as a byte[] for
+// bits, with each rank entry using 2 bytes. Represented as bytes for
 // fast flushing and mirroring of the retrieval representation.
 fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {
   let longs_per_rank = 1 << (dense_rank_power - 6);
@@ -1277,7 +1277,7 @@ where
     out.write_int(jumps[i * 2 + 1])?;
   }
   // As there are at most 32k blocks, the count is a short
-  // The jumpTableOffset will be at lastPos - (blockCount * Long.BYTES)
+  // `jump_table_offset` will be at `last_pos - (block_count * LONG_BYTES)`.
   Ok(block_count as i16)
 }
 /// If the distance between the current position and the target is greater

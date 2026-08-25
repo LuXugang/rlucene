@@ -42,7 +42,7 @@ fn test_dont_delete_file_ignoring_exceptions() -> Result<()> {
   let dir = create_temp_dir()?;
   let file1 = dir.path().join("file1");
   IOUtils::delete_paths_ignoring_exceptions([Some(&file1)]);
-  // no exception
+  // no error
   Ok(())
 }
 
@@ -55,7 +55,7 @@ fn test_delete_two_files_ignoring_exceptions() -> Result<()> {
   File::create(&file2)?;
   IOUtils::delete_paths_ignoring_exceptions([Some(&file1), Some(&file2)]);
   assert!(!file2.exists());
-  // no exception
+  // no error
   // actually deletes file2
   Ok(())
 }
@@ -76,7 +76,7 @@ fn test_dont_delete_doesnt_exist() -> Result<()> {
   let dir = create_temp_dir()?;
   let file1 = dir.path().join("file1");
   IOUtils::delete_files_if_exist([Some(&file1)])?;
-  // no exception
+  // no error
   Ok(())
 }
 
@@ -89,7 +89,7 @@ fn test_delete_two_files_if_exist() -> Result<()> {
   File::create(&file2)?;
   IOUtils::delete_files_if_exist([Some(&file1), Some(&file2)])?;
   assert!(!file2.exists());
-  // no exception
+  // no error
   // actually deletes file2
   Ok(())
 }
@@ -101,7 +101,7 @@ fn test_fsync_directory() -> Result<()> {
   let dev_dir = dir_path.join("dev");
   create_dir_all(&dev_dir)?;
   IOUtils::fsync(&dev_dir, true)?;
-  // no exception
+  // no error
   Ok(())
 }
 
@@ -160,7 +160,7 @@ fn test_fsync_file() -> Result<()> {
   output.flush()?;
   output.close()?;
   IOUtils::fsync(&file_path, false)?;
-  // no exception
+  // no error
   Ok(())
 }
 

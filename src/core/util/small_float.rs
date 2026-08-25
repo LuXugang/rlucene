@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 
 pub struct SmallFloat;
 impl SmallFloat {
-  /// Converts a 32-bit float to an 8-bit float.
+  /// Converts an `f32` to an 8-bit floating-point representation.
   ///
   /// Values less than zero are all mapped to zero.
   /// Values are truncated (rounded down) to the nearest 8-bit value.
@@ -30,7 +30,7 @@ impl SmallFloat {
   ///
   /// # Arguments
   ///
-  /// * `f` - The 32-bit float to be converted to an 8-bit float (u8)
+  /// * `f` - The `f32` value to convert to an 8-bit representation (`u8`).
   /// * `num_mantissa_bits` - The number of mantissa bits to use in the byte,
   ///   with the remainder to be used in the exponent
   /// * `zero_exp` - The zero-point in the range of exponent values
@@ -56,7 +56,7 @@ impl SmallFloat {
       (smallfloat - fzero) as u8
     }
   }
-  /// Converts an 8-bit float to a 32-bit float.
+  /// Converts an 8-bit floating-point representation to `f32`.
   pub fn byte_to_float(b: u8, num_mantissa_bits: i32, zero_exp: i32) -> f32 {
     // Prebuilding a decoding array and using a
     // lookup is only a little bit faster (anywhere from 0% to 7%)

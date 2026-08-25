@@ -291,7 +291,7 @@ impl BitUtil {
   const SHIFT3: u32 = 8;
   const SHIFT4: u32 = 16;
 
-  /// Interleaves the first 32 bits of each long value
+  /// Interleaves the low 32 bits of each `i32` value.
   ///
   /// Adapted from: <http://graphics.stanford.edu/~seander/bithacks.html#InterleaveBMN>
   pub fn interleave(even: i32, odd: i32) -> i64 {

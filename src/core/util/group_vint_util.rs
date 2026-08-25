@@ -19,7 +19,7 @@ use crate::core::store::data_output::DataOutput;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-/// Provides an abstraction for reading `int` values, so that decoding logic can
+/// Provides an abstraction for reading `i32` values, so that decoding logic can
 /// be reused in different [`DataInput`] implementations.
 pub trait IntReader {
   fn read(&mut self, pos: usize) -> Result<i32>;
@@ -29,15 +29,15 @@ pub trait IntReader {
 pub struct GroupVIntUtil;
 
 impl GroupVIntUtil {
-  // we use long array instead of int array to make negative integer to be
-  // read as positive long.
+  // Decode into `i64` values so negative `i32` bit patterns can be represented
+  // as positive values.
   const LONG_MASKS: [u64; 4] = [0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF];
   const INT_MASKS: [u32; 4] = [0xFF, 0xFFFF, 0xFFFFFF, !0];
   // the maximum length of a single group-varint is 4 integers + 1 byte flag.
   pub const MAX_LENGTH_PER_GROUP: usize = 17;
   /// Reads all the group varints, including the tail vints. We need a
-  /// `Vec<i64>` because this is what postings are using, and all longs
-  /// are actually required to be integers.
+  /// `Vec<i64>` because this is what postings use, even though every decoded
+  /// value fits in 32 bits.
   ///
   /// # Arguments
   /// * `dst` - The array to read `i64` values into.

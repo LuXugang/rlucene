@@ -72,7 +72,7 @@ pub struct TermOrdValComparator {
   pub(crate) bottom_value: Option<usize>,
   /* Bottom slot, or -1 if queue isn't full yet */
   pub(crate) bottom_slot: i32,
-  /// Set by setTopValue.
+  /// Set by `set_top_value`.
   pub(crate) top_value: Option<BytesRef<Vec<u8>>>,
   /// -1 if missing values are sorted first, 1 if they are sorted last
   pub(crate) missing_sort_cmp: i32,

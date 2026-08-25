@@ -113,9 +113,8 @@ fn test_data_input_output() -> Result<()> {
 
   Ok(())
 }
-// Writes random byte/s into PagedBytes via
-// .getDataOutput(), then verifies with
-// PagedBytes.getDataInput():
+// Writes random bytes into `PagedBytes` via `get_data_output`, then verifies
+// them with `get_data_input`.
 #[test]
 fn test_data_input_output_2() -> Result<()> {
   let mut random = random();

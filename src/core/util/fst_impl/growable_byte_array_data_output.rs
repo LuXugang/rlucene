@@ -20,8 +20,8 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-// Storing a single contiguous byte[] for the current node of the FST we are
-// writing. The byte[] will only grow, never shrink.
+// Store one contiguous byte buffer for the current FST node. The buffer only
+// grows; it never shrinks.
 // Note: This is only safe for usage that is bounded in the number of bytes
 // written. Do not make this public! Public users should instead use
 // ByteBuffersDataOutput

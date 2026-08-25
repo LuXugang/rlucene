@@ -27,7 +27,7 @@ use crate::core::util::{HasIdentity, TryIntoInt};
 use std::hash::{Hash, Hasher};
 
 /// `BitSet` of fixed length (`num_bits`), backed by accessible (`get_bits`)
-/// `long[]`, accessed with an `int` index, implementing [`Bits`] and
+/// an `i64` slice, accessed with a `usize` index, implementing [`Bits`] and
 /// [`DocIdSet`](crate::core::search::doc_id_set). If you need to manage more than
 /// 2.1B bits, use [`LongBitSet`](crate::core::util::long_bit_set::LongBitSet).
 ///
@@ -35,11 +35,11 @@ use std::hash::{Hash, Hasher};
 /// This is an internal API.
 #[derive(Default, Debug)]
 pub struct FixedBitSet {
-  // Array of longs holding the bits
+  // `i64` words holding the bits.
   bits: Vec<i64>,
   // The number of bits in use
   num_bits: usize,
-  // The exact number of longs needed to hold numBits (<= bits.length)
+  // The exact number of words needed to hold `num_bits` (`<= bits.len()`).
   num_words: usize,
   id: Identity,
 }
@@ -80,7 +80,7 @@ impl Clone for FixedBitSet {
 /// requested number of bits.
 ///
 /// # Note
-/// The returned bitset reuses the underlying `long[]` of the given `bits` if
+/// The returned bitset reuses the underlying `Vec<i64>` of the given `bits` if
 /// possible. Also, calling `length()` on the returned bits may return a value
 /// greater than `num_bits`.
 impl FixedBitSet {

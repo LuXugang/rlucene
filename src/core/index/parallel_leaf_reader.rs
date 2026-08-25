@@ -81,7 +81,7 @@ where
 pub(crate) enum ParallelLeafReaderHook {
   Default,
   // Represents the anonymous ParallelLeafReader in
-  // ParallelCompositeReader.prepareLeafReaders() whose doClose() is empty.
+  // The synthetic leaf readers prepared by `ParallelCompositeReader` have a no-op close.
   ParallelCompositeReader,
 }
 

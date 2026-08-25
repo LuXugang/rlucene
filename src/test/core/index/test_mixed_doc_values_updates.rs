@@ -899,11 +899,11 @@ fn test_update_field_with_no_previous_doc_values_throws_error() -> Result<()> {
   } else if random.random_bool(0.5) {
     writer.commit()?;
   }
-  let exception = writer.update_doc_values(
+  let error = writer.update_doc_values(
     Term::from_text("id", "1"),
     vec![NumericDocValuesField::new("id", 1).into()],
   );
-  match exception {
+  match error {
     Err(LuceneError::IllegalArgument(msg)) => {
       assert!(msg.message.contains("Can't update [Numeric] doc values"));
       assert!(msg.message.contains("field [id]"));

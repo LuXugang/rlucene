@@ -125,7 +125,7 @@ pub trait BaseFieldInfoFormatTestCase:
     Ok(())
   }
 
-  /// Test field infos write that hits exception immediately on open. make sure we get our exception
+  /// Test field infos write that hits error immediately on open. make sure we get our error
   /// back, no file handle leaks, etc.
   fn test_exception_on_create_output<R>(&self, random: &mut R) -> Result<()>
   where
@@ -170,7 +170,7 @@ pub trait BaseFieldInfoFormatTestCase:
     dir.as_ref().close()?;
     Ok(())
   }
-  /// Test field infos write that hits exception on close. make sure we get our exception back, no
+  /// Test field infos write that hits error on close. make sure we get our error back, no
   /// file handle leaks, etc.
   fn test_exception_on_close_output<R>(&self, random: &mut R) -> Result<()>
   where
@@ -215,7 +215,7 @@ pub trait BaseFieldInfoFormatTestCase:
     dir.as_ref().close()?;
     Ok(())
   }
-  /// Test field infos read that hits exception immediately on open. make sure we get our exception
+  /// Test field infos read that hits error immediately on open. make sure we get our error
   /// back, no file handle leaks, etc.
   fn test_exception_on_open_input<R>(&self, random: &mut R) -> Result<()>
   where
@@ -267,7 +267,7 @@ pub trait BaseFieldInfoFormatTestCase:
     dir.as_ref().close()?;
     Ok(())
   }
-  /// Test field infos read that hits exception on close. make sure we get our exception back, no
+  /// Test field infos read that hits error on close. make sure we get our error back, no
   /// file handle leaks, etc.
   fn test_exception_on_close_input<R>(&self, random: &mut R) -> Result<()>
   where

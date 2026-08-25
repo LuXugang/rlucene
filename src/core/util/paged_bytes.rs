@@ -28,8 +28,8 @@ use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;
 
-/// Represents a logical byte[] as a series of pages. You can write-once into
-/// the logical byte[] (append only), using copy, and then retrieve slices
+/// Represents a logical byte buffer as a series of pages. You can write once into
+/// the logical buffer (append only), using copy, and then retrieve slices
 /// (BytesRef) into it using fill.
 #[derive(Default)]
 pub struct PagedBytes {
@@ -124,7 +124,7 @@ impl PagedBytes {
       "PagedBytes::copy_with_bytes_ref is not implemented",
     ))
   }
-  /// Commits final byte[], trimming it if necessary and if trim=true
+  /// Commits the final byte buffer, trimming it when requested.
   pub fn freeze(&mut self, trim: bool) -> Result<Reader> {
     if self.frozen {
       return Err(LuceneError::illegal_state("already frozen"));

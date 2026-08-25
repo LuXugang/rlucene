@@ -91,7 +91,7 @@ where
 /// document). When finished adding, deleting and updating documents, [`Self::close`] should be
 /// called. <a id="sequence_numbers"></a>
 ///
-/// Each method that changes the index returns a `long` sequence number, which expresses the
+/// Each method that changes the index returns an `i64` sequence number, which expresses the
 /// effective order in which each change was applied. [`Self::commit`] also returns a sequence
 /// number, describing which changes are in the commit point and which are not. Sequence numbers are
 /// transient (not saved into the index in any way) and only valid within a single `IndexWriter`
@@ -640,7 +640,7 @@ where
       Ok(iw)
     }));
     if !success && info_stream.is_enabled("IW") {
-      info_stream.message("IW", "init: hit exception on init; releasing write lock")?;
+      info_stream.message("IW", "init: encountered an error; releasing write lock")?;
     }
     if !success && let Some(directory) = directory_for_cleanup.as_ref() {
       IOUtils::close_while_handling_exception(&directory.write_lock);
@@ -879,7 +879,7 @@ where
   /// Merges temporarily consume space in the directory. The amount of space required is up to 1× the
   /// size of all segments being merged when no readers/searchers are open against the index, and up
   /// to 2× the size of all segments being merged when readers/searchers are open against the index
-  /// (see [`force_merge(int)`](Self::force_merge) for details). The sequence of primitive merge operations performed is
+  /// (see [`force_merge`](Self::force_merge) for details). The sequence of primitive merge operations performed is
   /// governed by the merge policy.
   ///
   /// Each term in the document can be no longer than [`MAX_TERM_LENGTH`] bytes; otherwise this
@@ -1033,7 +1033,7 @@ where
       if self.info_stream.is_enabled("IW") {
         self
           .info_stream
-          .message("IW", "hit exception updating document")?;
+          .message("IW", "encountered an error while updating a document")?;
       }
       self.maybe_close_on_tragic_event(None)?;
     }
@@ -1896,7 +1896,7 @@ where
                 if self.info_stream.is_enabled("IW") {
                   self.info_stream.message(
                     "IW",
-                    "hit merge abort exception creating compound file during merge",
+                    "encountered a merge-abort error while creating a compound file",
                   )?;
                 }
                 cfs_aborted = true;
@@ -1910,9 +1910,10 @@ where
         let finally_result = (|| -> Result<()> {
           if !success {
             if self.info_stream.is_enabled("IW") {
-              self
-                .info_stream
-                .message("IW", "hit exception creating compound file during merge")?;
+              self.info_stream.message(
+                "IW",
+                "encountered an error while creating a compound file during merge",
+              )?;
             }
             // Safe: these files must exist
             let files = merge.info.as_ref().unwrap().files()?;
@@ -2308,19 +2309,19 @@ where
         }
 
         if !inner.merge_exceptions.is_empty() {
-          // Forward any exceptions in background merge
+          // Forward any errors from the background merge.
           // threads to the current thread:
           for merge in &inner.merge_exceptions {
             if merge.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS {
               let mut error = LuceneError::from(std::io::Error::other(format!(
-                "background merge hit exception: {}",
+                "background merge returned an error: {}",
                 Self::segment_ids_to_string(&merge.segments)
               )));
-              if let Some(exception) = merge
+              if let Some(merge_error) = merge
                 .get_exception()
                 .and_then(|result| result.caught_failure("panic from a background merge"))
               {
-                error.add_suppressed(exception);
+                error.add_suppressed(merge_error);
               }
               return Err(error);
             }
@@ -2751,7 +2752,8 @@ where
   /// This change will not be visible until `commit` has been called. This method can be
   /// rolled back using `rollback`.
   ///
-  /// NOTE: this method is much faster than using `delete_documents(new MatchAllDocsQuery())`. Yet,
+  /// NOTE: this method is much faster than using
+  /// `delete_documents_with_queries(vec![MatchAllDocsQuery::new().into()])`. Yet,
   /// this method also has different semantics compared to `delete_documents` since
   /// internal data-structures are cleared as well as all segment information is forcefully dropped
   /// anti-viral semantics like omitting norms are reset or doc value types are cleared. Essentially
@@ -2843,7 +2845,7 @@ where
           if !success && self.info_stream.is_enabled("IW") {
             self
               .info_stream
-              .message("IW", "hit exception during deleteAll")?;
+              .message("IW", "encountered an error during delete_all")?;
           }
           unwrap_caught_result!(operation_result)
         }));
@@ -4031,7 +4033,7 @@ where
           if !success && self.info_stream.is_enabled("IW") {
             self
               .info_stream
-              .message("IW", "hit exception during prepareCommit")?;
+              .message("IW", "encountered an error during prepare_commit")?;
           }
           // Done: finish the full flush!
           self
@@ -4565,7 +4567,7 @@ where
       {
         self.info_stream.message(
           "IW",
-          &format!("hit exception during finishCommit: {}", failure),
+          &format!("encountered an error during finish_commit: {}", failure),
         )?;
       }
       if commit_completed {
@@ -4707,7 +4709,7 @@ where
       if self.info_stream.is_enabled("IW") {
         self
           .info_stream
-          .message("IW", "hit exception during flush")?;
+          .message("IW", "encountered an error during flush")?;
       }
       self.maybe_close_on_tragic_event(None)?;
     }
@@ -5178,28 +5180,28 @@ where
       self.info_stream.message(
         "IW",
         &format!(
-          "handleMergeException: merge={} exc={}",
+          "handle_merge_exception: merge={} error={}",
           Self::segment_ids_to_string(&merge.stat.segments),
           result.display()
         ),
       )?;
     }
 
-    // Set the exception on the merge, so if
+    // Store the error on the merge, so if
     // forceMerge is waiting on us it sees the root
-    // cause exception:
+    // root-cause error:
     merge.set_exception(result);
     self.add_merge_exception(merge, inner);
     let result = merge
       .get_exception()
-      .ok_or_else(|| LuceneError::illegal_state("merge exception must be present"))?;
+      .ok_or_else(|| LuceneError::illegal_state("merge error must be present"))?;
 
     if matches!(&result, Ok(Err(LuceneError::MergeAborted(_)))) {
-      // We can ignore this exception (it happens when
+      // We can ignore this error (it happens when
       // deleteAll or rollback is called), unless the
       // merge involves segments from external directories,
-      // in which case we must throw it so, for example, the
-      // rollbackTransaction code in addIndexes* is
+      // in which case we must return it so, for example, the
+      // rollback transaction code in `add_indexes` is
       // executed.
       if merge.is_external {
         return unwrap_caught_result!(result);
@@ -5256,7 +5258,7 @@ where
             if self.info_stream.is_enabled("IW") {
               self
                 .info_stream
-                .message("IW", "hit exception during merge")?;
+                .message("IW", "encountered an error during merge")?;
             }
           } else if !merge.is_aborted()
             && (merge.stat.max_num_segments() != UNBOUNDED_MAX_MERGE_SEGMENTS
@@ -5418,7 +5420,7 @@ where
       if self.info_stream.is_enabled("IW") {
         self
           .info_stream
-          .message("IW", "hit exception in mergeInit")?;
+          .message("IW", "encountered an error in merge_init")?;
       }
       self.merge_finish(&merge.stat, None);
     }
@@ -5598,7 +5600,7 @@ where
       );
       debug_assert!(
         suppress_error,
-        "can't be done and not suppressing exceptions"
+        "cannot be done while errors are not being suppressed"
       )
     }
     Ok(())
@@ -5821,9 +5823,10 @@ where
         let mut inner = self.inner.lock();
         let message_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
           if self.info_stream.is_enabled("IW") {
-            self
-              .info_stream
-              .message("IW", "hit exception committing segments file")?;
+            self.info_stream.message(
+              "IW",
+              "encountered an error while committing the segments file",
+            )?;
           }
           Ok(())
         }));
@@ -6193,7 +6196,7 @@ where
     &self,
     readers_and_updates: &ReadersAndUpdates<D>,
     info: &SegmentCommitInfo<D>,
-    _inner: &Inner<D>, // Same to Java's Thread.holdsLock(this)
+    _inner: &Inner<D>, // The borrow proves access is guarded by the writer state lock.
   ) -> Result<bool> {
     if readers_and_updates.is_fully_deleted(info)? {
       return Ok(
@@ -6206,7 +6209,7 @@ where
   pub(crate) fn release(
     &self,
     readers_and_updates: &ReadersAndUpdates<D>,
-    inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+    inner: &mut Inner<D>, // The mutable borrow proves exclusive access to the writer state.
   ) -> Result<()> {
     self.release_with_assert(readers_and_updates, true, inner, None)
   }
@@ -6215,7 +6218,7 @@ where
     &self,
     readers_and_updates: &ReadersAndUpdates<D>,
     assert_live_info: bool,
-    inner: &mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+    inner: &mut Inner<D>, // The mutable borrow proves exclusive access to the writer state.
     merge_info: Option<&mut SegmentCommitInfo<D>>,
   ) -> Result<()> {
     if self.reader_pool.release(
@@ -6810,13 +6813,13 @@ where
              - prevent flushes and applying deletes of concurrently indexing DWPTs to be applied
              - open an SDR on the updated SIS
 
-            In order to prevent concurrent flushes, we call DocumentsWriter#flushAllThreads that swaps out the deleteQueue
+            In order to prevent concurrent flushes, we call `DocumentsWriter::flush_all_threads`, which swaps out the delete queue
             (this enforces a happened before relationship between this and the subsequent full flush) and informs the
-            FlushControl (#markForFullFlush()) that it should prevent any new DWPTs from flushing until we are done
-            (DocumentsWriter#finishFullFlush(boolean)). All this is guarded by the fullFlushLock to prevent multiple
+            flush control (`DocumentsWriterFlushControl::mark_for_full_flush`) that it should prevent any new DWPTs from flushing until we are done
+            (`DocumentsWriter::finish_full_flush(bool)`). All this is guarded by the full-flush lock to prevent multiple
             full flushes from happening concurrently. Once the DocWriter has initiated a full flush, we can sequentially flush
             and apply deletes & updates to the written segments without worrying about concurrently indexing DWPTs. The important
-            aspect is that it all happens between DocumentsWriter#flushAllThread() and DocumentsWriter#finishFullFlush(boolean)
+            aspect is that it all happens between `DocumentsWriter::flush_all_threads` and `DocumentsWriter::finish_full_flush`
             since once the flush is marked as done deletes start to be applied to the segments on disk without guarantees that
             the corresponding added documents (in the update case) are flushed and visible when opening an SDR.
             */
@@ -6880,7 +6883,7 @@ where
                       // while we hold the fullFlushLock since the merge might hit a tragic event and that
                       // must not be reported
                       // while holding that lock. Merging outside of the lock ie. after calling
-                      // docWriter.finishFullFlush(boolean) would
+                      // `DocumentsWriter::finish_full_flush(bool)` would
                       // yield wrong results because deletes might sneak in during the merge
                       let r = reader.as_ref().ok_or_else(|| {
                         LuceneError::illegal_state("near-real-time reader is missing")
@@ -6935,7 +6938,7 @@ where
               } else if self.info_stream.is_enabled("IW") {
                 self
                   .info_stream
-                  .message("IW", "hit exception during NRT reader")?;
+                  .message("IW", "encountered an error while opening the NRT reader")?;
               }
               unwrap_caught_result!(flush_result)?;
             }
@@ -7089,7 +7092,7 @@ where
   /// Counts soft-deleted and hard-deleted documents in the given reader.
   /// Updates the provided counters.
   ///
-  /// Corresponds to Java: IndexWriter.countSoftDeletes(CodecReader, Bits, Bits, Counter, Counter)
+  /// Counts soft deletes for a codec reader and updates the supplied counters.
   fn count_soft_deletes<L>(
     &self,
     reader: &L,
@@ -7139,7 +7142,7 @@ where
 
   /// Asserts that the soft delete count in the given reader matches the expected count.
   ///
-  /// Corresponds to Java: IndexWriter.assertSoftDeletesCount(CodecReader, int)
+  /// Verifies the soft-delete count for a codec reader.
   fn assert_soft_deletes_count<L>(&self, reader: &L, expected_count: i32) -> Result<bool>
   where
     L: LeafReader,
@@ -8616,8 +8619,7 @@ where
     unwrap_caught_result!(result)
   }
 }
-/// DocModifier trait — equivalent to Java's private interface `DocModifier`
-/// in `IndexWriter`.
+/// Applies an `IndexWriter` document modification through static dispatch.
 pub(crate) trait DocModifier {
   fn run<D>(
     &self,

@@ -166,7 +166,7 @@ where
   fn on_aborting_exception(&mut self, throwable: CaughtResult) {
     debug_assert!(
       self.aborting_exception.get().is_none(),
-      "aborting exception has already been set"
+      "aborting error has already been set"
     );
     debug_assert!(!matches!(&throwable, Ok(Ok(()))));
     let _ = self.aborting_exception.set(throwable);
@@ -333,7 +333,7 @@ where
       self.test_point("DocumentsWriterPerThread addDocuments start")?;
       debug_assert!(
         self.aborting_exception.get().is_none(),
-        "DWPT has hit aborting exception but is still indexing"
+        "DWPT encountered an aborting error but is still indexing"
       );
 
       if self.info_stream.is_enabled("DWPT") {
@@ -753,7 +753,7 @@ where
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
       || -> Result<Option<FlushedSegment<D>>> {
         if let Some(throwable) =
-          body_result.clone_caught_failure("panic while handling an aborting flush exception")
+          body_result.clone_caught_failure("panic while handling an aborting flush error")
         {
           self.on_aborting_exception(throwable);
         }
@@ -786,9 +786,9 @@ where
     let event = self
       .aborting_exception
       .get()
-      .ok_or_else(|| LuceneError::illegal_state("aborting exception must be present"))?
-      .clone_caught_failure("panic from an aborting exception")
-      .ok_or_else(|| LuceneError::illegal_state("aborting exception must contain a failure"))?;
+      .ok_or_else(|| LuceneError::illegal_state("aborting error must be present"))?
+      .clone_caught_failure("panic from an aborting error")
+      .ok_or_else(|| LuceneError::illegal_state("aborting error must contain a failure"))?;
     let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.abort()));
     flush_notifications.on_tragic_event(&event, location, writer)?;
     unwrap_caught_result!(abort_result)
@@ -919,7 +919,7 @@ where
         self.info_stream.message(
           "DWPT",
           &format!(
-            "hit exception creating compound file for newly flushed segment {}",
+            "encountered an error creating a compound file for newly flushed segment {}",
             new_segment.info.name
           ),
         )?;

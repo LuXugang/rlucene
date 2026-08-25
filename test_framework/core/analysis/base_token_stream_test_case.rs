@@ -1220,11 +1220,11 @@ where
           LuceneError::IllegalState(_) => {
             // ok
           },
-          _ => unreachable!("got wrong exception when reset() not called"),
+          _ => unreachable!("got wrong error when reset() not called"),
         }
       },
       Ok(true) => {
-        unreachable!("didn't get expected exception when reset() not called")
+        unreachable!("didn't get expected error when reset() not called")
       },
       Ok(false) => {},
     }
@@ -1238,7 +1238,7 @@ where
   }
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
     let _ts = a.token_stream(field, ReaderEnum::from(input))?;
-    unreachable!("didn't get expected exception when close() not called")
+    unreachable!("didn't get expected error when close() not called")
   }));
   let finally_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
     a.stored_value()
@@ -1255,10 +1255,10 @@ where
         LuceneError::IllegalState(_) => {
           // ok
         },
-        _ => unreachable!("didn't get expected exception"),
+        _ => unreachable!("didn't get expected error"),
       }
     },
-    Ok(()) => unreachable!("didn't get expected exception when close() not called"),
+    Ok(()) => unreachable!("didn't get expected error when close() not called"),
   }
   Ok(())
 }

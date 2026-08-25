@@ -73,7 +73,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from PostingsFormat.fieldsConsumer()",
+        "Fake I/O error from PostingsFormat::fields_consumer()",
       )));
     }
     Ok(CrankyFieldsConsumer::new(
@@ -131,7 +131,7 @@ where
   {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from FieldsConsumer.write()",
+        "Fake I/O error from FieldsConsumer::write()",
       )));
     }
     self.delegate.write(state, segment_info, fields, norms)
@@ -146,7 +146,7 @@ where
     self.delegate.close()?;
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from FieldsConsumer.close()",
+        "Fake I/O error from FieldsConsumer::close()",
       )));
     }
     Ok(())

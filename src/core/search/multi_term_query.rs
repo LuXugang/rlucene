@@ -42,7 +42,7 @@ use crate::test_framework::core::search::multi_term::DumbPrefixQuery;
 #[cfg(test)]
 use crate::test_framework::core::search::multi_term::DumbRegexpQuery;
 use std::fmt::Debug;
-/// An abstract [`Query`] that matches documents containing a subset of terms provided by a
+/// A [`Query`] trait that matches documents containing a subset of terms provided by a
 /// `FilteredTermsEnum` enumeration.
 ///
 /// This query cannot be used directly; implement the trait and define

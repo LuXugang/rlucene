@@ -867,7 +867,7 @@ impl TestStressNRT {
                 Ok(Err(error)) => {
                   operations.store(-1, Ordering::SeqCst);
                   println!(
-                    "{}: FAILED: unexpected exception",
+                    "{}: FAILED: unexpected error",
                     std::thread::current().name().unwrap_or("unknown")
                   );
                   println!("{error:?}");
@@ -876,7 +876,7 @@ impl TestStressNRT {
                 Err(payload) => {
                   operations.store(-1, Ordering::SeqCst);
                   println!(
-                    "{}: FAILED: unexpected exception",
+                    "{}: FAILED: unexpected error",
                     std::thread::current().name().unwrap_or("unknown")
                   );
                   std::panic::resume_unwind(payload);

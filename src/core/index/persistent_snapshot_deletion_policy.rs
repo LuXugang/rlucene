@@ -226,7 +226,7 @@ where
 
     if *next_write_gen > 0 {
       let last_save_file = format!("{SNAPSHOTS_PREFIX}{}", *next_write_gen - 1);
-      // exception OK: likely it didn't exist
+      // The error is acceptable: the snapshot likely did not exist.
       IOUtils::delete_files_ignoring_exceptions(
         self.dir.as_ref(),
         std::iter::once(&last_save_file),

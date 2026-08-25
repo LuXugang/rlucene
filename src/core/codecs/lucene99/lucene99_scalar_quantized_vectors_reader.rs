@@ -563,7 +563,7 @@ impl FieldEntry {
       if version_meta < VERSION_ADD_BITS {
         let float_bits = input.read_int()?; // confidenceInterval, unused
         if float_bits == -1 {
-          // indicates a null confidence interval
+          // Indicates a missing confidence interval.
           return Err(LuceneError::corrupt_index(
             "Missing confidence interval for scalar quantizer",
           ));

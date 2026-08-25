@@ -55,7 +55,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// behavior is undefined if the doc values type of the given field is
   /// not
   /// [`DocValuesType::BINARY`](crate::core::index::doc_values_type::DocValuesType::Binary).
-  /// The return value is never `null`.
+  /// A value is always returned on success.
   fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
     Err(LuceneError::need_implemented(""))
   }
@@ -65,7 +65,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// behavior is undefined if the doc values type of the given field is
   /// not
   /// [`DocValuesType::SORTED`](crate::core::index::doc_values_type::DocValuesType::Sorted).
-  /// The return value is never `null`.
+  /// A value is always returned on success.
   fn get_sorted(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
     Err(LuceneError::need_implemented(""))
   }
@@ -74,7 +74,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// need not be thread-safe: it will only be used by a single thread.
   /// The behavior is undefined if the doc values type of the given field
   /// is not [`DocValuesType::SORTED_NUMERIC`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric).
-  /// The return value is never `null`.
+  /// A value is always returned on success.
   fn get_sorted_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
     Err(LuceneError::need_implemented(""))
   }
@@ -85,7 +85,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// The behavior is undefined if the doc values type of the given field
   /// is not
   /// [`DocValuesType::SORTED_SET`](crate::core::index::doc_values_type::DocValuesType::SortedSet).
-  /// The return value is never `null`.
+  /// A value is always returned on success.
   fn get_sorted_set(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
     Err(LuceneError::need_implemented(""))
   }

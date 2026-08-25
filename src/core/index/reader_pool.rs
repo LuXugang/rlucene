@@ -196,8 +196,8 @@ where
   }
   /// Enables reader pooling for this pool. This should be called once the readers in this pool are
   /// shared with an outside resource like an NRT reader. Once reader pooling is enabled a `ReadersAndUpdates`
-  /// will be kept around in the reader pool on calling [`release(ReadersAndUpdates, boolean)`](Self::release) until the
-  /// segment get dropped via calls to [`drop(SegmentCommitInfo)`](Self::drop) or `dropAll()` or `close()`. Reader pooling
+  /// will be kept around in the reader pool on calling [`release`](Self::release) until the
+  /// segment gets dropped via calls to [`drop`](Self::drop), `drop_all`, or `close`. Reader pooling
   /// is disabled upon construction but can't be disabled again once it's enabled.
   pub(crate) fn enable_reader_pooling(&self) {
     self

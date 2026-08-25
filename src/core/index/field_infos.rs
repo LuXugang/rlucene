@@ -234,7 +234,7 @@ impl FieldInfosHook {
       Self::Default => FieldInfosDefaults::field_info_by_name(in_, field_name),
       Self::Filter(hook) => {
         if !hook.filtered_names.contains(field_name) {
-          // Throw IAE to be consistent with fieldInfo(int) which throws it as well on invalid numbers
+          // Return `IllegalArgument` to match `field_info_by_number` for invalid numbers.
           let available_fields = hook
             .filtered_names
             .iter()

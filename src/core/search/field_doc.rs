@@ -24,8 +24,8 @@ pub type FieldsValue = FieldComparatorValue;
 /// document from the field(s) used to sort. For example, if the sort criteria was to sort by fields
 /// `"a"`, `"b"` then `"c"`, the `fields` object array will have three elements, corresponding
 /// respectively to the term values for the document in fields `"a"`, `"b"` and `"c"`. The type of
-/// each element in the array will be either `Integer`, `Float` or `String` depending on the type of
-/// values in the terms of each field.
+/// each element in the array will be a corresponding [`FieldComparatorValue`] variant depending
+/// on the value type of each field.
 ///
 /// See also:
 /// - [`ScoreDoc`]

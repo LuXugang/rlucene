@@ -49,8 +49,8 @@ pub trait KnnVectorsReader: HnswGraphProvider + CloseableRef {
 
   type QuantizedByteVectorValues: QuantizedByteVectorValues;
 
-  /// Returns quantized vector values when this reader implements Java's
-  /// `QuantizedVectorsReader`; ordinary vector readers return `None`.
+  /// Returns quantized vector values when this reader supports them; ordinary
+  /// vector readers return `None`.
   fn get_quantized_vector_values(
     &self,
     _field: &str,

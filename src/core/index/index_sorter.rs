@@ -85,7 +85,7 @@ pub trait IndexSorter {
 }
 
 // DoubleSorter
-/// Sorts documents based on double values from a NumericDocValues instance.
+/// Sorts documents based on `f64` values from a `NumericDocValues` instance.
 pub struct DoubleSorter<NP> {
   provider_name: String,
   missing_value: Option<f64>,
@@ -367,7 +367,7 @@ where
 }
 
 // LongSorter
-/// Sorts documents based on long values from a NumericDocValues instance
+/// Sorts documents based on `i64` values from a `NumericDocValues` instance.
 pub struct LongSorter<NP> {
   provider_name: String,
   missing_value: Option<i64>,
@@ -510,7 +510,7 @@ where
 }
 
 // FloatSorter
-/// Sorts documents based on float values from a NumericDocValues instance
+/// Sorts documents based on `f32` values from a `NumericDocValues` instance.
 pub struct FloatSorter<NP> {
   provider_name: String,
   missing_value: Option<f32>,
@@ -659,7 +659,7 @@ where
 }
 
 // StringSorter
-/// Sorts documents based on short values from a NumericDocValues instance
+/// Sorts documents based on `i16` values from a `NumericDocValues` instance.
 pub struct StringSorter<SP> {
   provider_name: String,
   missing_value: Option<MissingValueEnum>,
@@ -818,7 +818,7 @@ impl DocComparator for DocComparatorImplString {
 
 /// Used for sorting documents across segments
 pub trait ComparableProvider {
-  /// Returns a long so that the natural ordering of long values matches the ordering of doc IDs for the given comparator
+  /// Returns an `i64` whose natural ordering matches the document-ID ordering for the comparator.
   fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64>;
 }
 macro_rules! either_comparable_provider {

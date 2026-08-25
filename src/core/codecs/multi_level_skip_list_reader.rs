@@ -242,12 +242,11 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
   }
 
   /// read the child pointer written via
-  /// [`MultiLevelSkipListWriter::writeChildPointer(long,
-  /// DataOutput)`](crate::core::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_child_pointer).
+  /// [`MultiLevelSkipListWriter::write_child_pointer`](crate::core::codecs::multi_level_skip_list_writer::MultiLevelSkipListWriter::write_child_pointer).
   ///
   ///
   /// Parameters:
-  /// - `skipStream`: the IndexInput the child pointer shall be read from
+  /// - `skip_stream`: the `IndexInput` from which to read the child pointer
   ///
   /// Returns:
   /// - child pointer

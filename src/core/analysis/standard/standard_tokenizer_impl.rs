@@ -613,7 +613,7 @@ impl StandardTokenizerImpl {
   }
   /// Reports an error that occurred while scanning.
   ///
-  /// In a well-formed scanner, with no misuse of `yypushback(int)` and with a
+  /// In a well-formed scanner, with no misuse of `yypushback(i32)` and with a
   /// match-all fallback rule, this method should only be called for cases that
   /// "can't possibly happen".
   ///

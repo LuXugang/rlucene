@@ -65,7 +65,7 @@ pub trait DataInput: Display {
     self.read_bytes(b, offset, len)
   }
 
-  /// Reads two bytes and returns a `short` (little-endian byte order).
+  /// Reads two bytes and returns an `i16` (little-endian byte order).
   ///
   /// # See Also
   /// [`DataOutput::write_short`](crate::core::store::data_output::DataOutput::write_short)
@@ -75,7 +75,7 @@ pub trait DataInput: Display {
     let b2 = self.read_byte()?;
     Ok(i16::from_le_bytes([b1, b2]))
   }
-  /// Reads four bytes and returns an `int` (little-endian byte order).
+  /// Reads four bytes and returns an `i32` (little-endian byte order).
   ///
   /// # See Also
   /// [`DataOutput::write_int`](crate::core::store::data_output::DataOutput::write_int)
@@ -92,7 +92,7 @@ pub trait DataInput: Display {
   /// In general, this is when the input supports
   /// random access.
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()>;
-  /// Reads an `int` stored in a variable-length format. Reads between one and
+  /// Reads an `i32` stored in a variable-length format. Reads between one and
   /// five bytes, with smaller values taking fewer bytes. Negative numbers
   /// are supported but should be avoided.
   ///
@@ -124,7 +124,7 @@ pub trait DataInput: Display {
     Ok(BitUtil::zig_zag_decode_i32(self.read_vint()? as u32))
   }
 
-  /// Reads eight bytes and returns a `long` (little-endian byte order).
+  /// Reads eight bytes and returns an `i64` (little-endian byte order).
   ///
   /// # See Also
   /// [`DataOutput::write_long`](crate::core::store::data_output::DataOutput::write_long)
@@ -134,7 +134,7 @@ pub trait DataInput: Display {
     let b2 = (self.read_int()? as u64) << 32;
     Ok((b2 | b1) as i64)
   }
-  /// Reads a specified number of `long` values.
+  /// Reads a specified number of `i64` values.
   ///
   /// # Note
   /// This is an experimental API.
@@ -148,13 +148,13 @@ pub trait DataInput: Display {
     }
     Ok(())
   }
-  /// Reads a specified number of `int` values into an array at the specified
+  /// Reads a specified number of `i32` values into a slice at the specified
   /// offset.
   ///
   /// # Arguments
-  /// * `dst` - The array to read values into.
-  /// * `offset` - The offset in the array to start storing `int` values.
-  /// * `length` - The number of `int` values to read.
+  /// * `dst` - The slice to read values into.
+  /// * `offset` - The offset in the slice to start storing `i32` values.
+  /// * `length` - The number of `i32` values to read.
   fn read_ints(&mut self, dst: &mut [i32], offset: usize, len: usize) -> Result<()> {
     CoreHelper::check_from_index_size(offset, len, dst.len())?;
     let mut i = 0;
@@ -165,13 +165,13 @@ pub trait DataInput: Display {
     Ok(())
   }
 
-  /// Reads a specified number of `float` values into an array at the
+  /// Reads a specified number of `f32` values into a slice at the
   /// specified offset.
   ///
   /// # Arguments
-  /// * `floats` - The array to read values into.
-  /// * `offset` - The offset in the array to start storing `float` values.
-  /// * `len` - The number of `float` values to read.
+  /// * `dst` - The slice to read values into.
+  /// * `offset` - The offset in the slice to start storing `f32` values.
+  /// * `len` - The number of `f32` values to read.
   fn read_floats(&mut self, dst: &mut [f32], offset: usize, len: usize) -> Result<()> {
     CoreHelper::check_from_index_size(offset, len, dst.len())?;
     let mut i = 0;
@@ -182,7 +182,7 @@ pub trait DataInput: Display {
     Ok(())
   }
 
-  /// Reads a `long` stored in a variable-length format. Reads between one and
+  /// Reads an `i64` stored in a variable-length format. Reads between one and
   /// nine bytes, with smaller values taking fewer bytes. Negative numbers
   /// are not supported.
   ///
@@ -227,29 +227,8 @@ pub trait DataInput: Display {
   /// Reads a `HashMap<String, String>` previously written with
   /// [`DataOutput::write_map_of_strings`](crate::core::store::data_output::DataOutput::write_map_of_strings).
   ///
-  /// # Returns
-  /// An immutable map containing the written contents.
-  /// Read a set of strings from the input.
-  /// The set is immutable in the context of the caller.
-  ///
-  /// # Behavior in Rust
-  ///
-  /// Rust does not have built-in "unmodifiable" collections like Java's
-  /// `Collections.unmodifiableSet()`. Instead, the immutability of a
-  /// collection is enforced through ownership and borrowing rules:
-  ///
-  /// - By returning an immutable reference to the collection, it cannot be
-  ///   modified by the caller.
-  /// - To ensure the collection is truly immutable, it is typically wrapped
-  ///   in an `Arc` or `Rc` if shared ownership is required, preventing
-  ///   mutation while still allowing access.
-  ///
-  /// In this implementation:
-  /// - For a count of `0`, an empty `HashSet` is returned.
-  /// - For a count of `1`, a SINGLETON `HashSet` is created.
-  /// - For larger sets, a `HashSet` is created and populated.
-  /// - Ownership is transferred to the caller, and immutability is guaranteed
-  ///   by not exposing mutable references.
+  /// Returns an owned map containing the decoded entries. The caller may
+  /// mutate the returned map.
   fn read_map_of_strings(&mut self) -> Result<HashMap<String, String>> {
     let count = self.read_vint()?;
 
@@ -270,27 +249,8 @@ pub trait DataInput: Display {
   /// Reads a `HashSet<String>` previously written with
   /// [`DataOutput::write_set_of_strings`](crate::core::store::data_output::DataOutput::write_set_of_strings).
   ///
-  /// Reads a set of strings from the input. The set is immutable in the
-  /// context of the caller.
-  ///
-  /// # Behavior in Rust
-  ///
-  /// Rust does not have built-in "unmodifiable" collections like Java's
-  /// `Collections.unmodifiableSet()`. Instead, the immutability of a
-  /// collection is enforced through ownership and borrowing rules:
-  ///
-  /// - By returning an immutable reference to the collection, it cannot be
-  ///   modified by the caller.
-  /// - To ensure the collection is truly immutable, it is typically wrapped
-  ///   in an `Arc` or `Rc` if shared ownership is required, preventing
-  ///   mutation while still allowing access.
-  ///
-  /// In this implementation:
-  /// - For a count of `0`, an empty `HashSet` is returned.
-  /// - For a count of `1`, a SINGLETON `HashSet` is created.
-  /// - For larger sets, a `HashSet` is created and populated.
-  /// - Ownership is transferred to the caller, and immutability is guaranteed
-  ///   by not exposing mutable references.
+  /// Returns an owned set containing the decoded entries. The caller may
+  /// mutate the returned set.
   fn read_set_of_strings(&mut self) -> Result<HashSet<String>> {
     let count = self.read_vint()?;
     if count == 0 {
@@ -312,11 +272,8 @@ pub trait DataInput: Display {
   /// bytes.
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()>;
 
-  /// To determine at compile time whether the current struct implements the
-  /// IndexInput trait. In Java Lucene, could cast to IndexInput, though
-  /// this is possible in Rust but needs dyn. We do not accept any dyn
-  /// things
-  //TODO: is there a better way to do this?
+  /// Reports whether this input supports the `IndexInput`-specific seek path.
+  /// This avoids runtime downcasting through a trait object.
   fn is_index_input(&self) -> bool {
     false
   }

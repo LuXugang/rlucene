@@ -298,7 +298,7 @@ fn test_merge_sort_stability() -> Result<()> {
   if cfg!(feature = "test_log_verbose") {
     println!("Before: {:?}", items);
   }
-  // if you replace this with ArrayUtil.quickSort(), test should fail:
+  // Replacing this with `ArrayUtil::quick_sort` should make the test fail.
   ArrayUtil::tim_sort(&mut items)?;
 
   if cfg!(feature = "test_log_verbose") {

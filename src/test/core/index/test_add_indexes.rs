@@ -1890,7 +1890,7 @@ fn test_add_index_missing_codec() -> Result<()> {
     &mut random,
     Arc::new(ByteBuffersDirectory::new()),
   ));
-  // Disable checkIndex, else we get an exception because
+  // Disable checkIndex, else we get an error because
   // of the unregistered codec:
   to_add.set_check_index_on_close(false);
   {

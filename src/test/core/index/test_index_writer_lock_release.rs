@@ -61,10 +61,7 @@ fn test_index_writer_lock_release() -> Result<()> {
         },
         Some(_) => false,
       };
-      assert!(
-        expected,
-        "expected FileNotFoundException or NoSuchFileException, got {error:?}"
-      );
+      assert!(expected, "expected a not-found I/O error, got {error:?}");
     }
     Ok(())
   }));

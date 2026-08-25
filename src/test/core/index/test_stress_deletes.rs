@@ -122,7 +122,7 @@ fn test() -> Result<()> {
     match thread_result {
       Ok(Ok(())) => {},
       Ok(Err(err)) => return Err(err),
-      Err(_) => return Err(LuceneError::illegal_state("thread hit exception")),
+      Err(_) => return Err(LuceneError::illegal_state("thread hit error")),
     }
   }
 

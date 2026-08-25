@@ -398,7 +398,7 @@ fn test_big_int_n_dims() -> Result<()> {
   }
   Ok(())
 }
-/// Make sure we close open files, delete temp files, etc., on exception.
+/// Make sure we close open files, delete temp files, etc., on error.
 #[test]
 fn test_with_exceptions() -> Result<()> {
   let mut random = random();
@@ -450,7 +450,7 @@ fn test_with_exceptions() -> Result<()> {
         max_mb_heap *= 1.25;
       },
       Err(ioe) => {
-        if ioe.to_string().contains("a random IOException") {
+        if ioe.to_string().contains("a random I/O error") {
           // BKDWriter should fully clean up after itself:
           done = true;
         } else {
@@ -1476,7 +1476,7 @@ fn test_bit_flipped_on_partition1() -> Result<()> {
       assert!(e.message.contains("checksum failed (hardware problem?)"));
       Ok(())
     },
-    Ok(()) => panic!("expected CorruptIndexException"),
+    Ok(()) => panic!("expected a corrupt-index error"),
     Err(e) => Err(e),
   }
 }
@@ -1506,16 +1506,8 @@ fn test_bit_flippedon_partition2() -> Result<()> {
 
   let dir0 = new_mock_directory(&mut random)?;
   let result = {
-    let dir = CorruptingTempOutputDirectory::new(&dir0, 22072, |_prefix, suffix| {
-      // System.out.println("prefix=" + prefix + " suffix=" + suffix);
-      if suffix == "bkd_left0" {
-        // System.out.println("now corrupt byte=" + x + " prefix=" + prefix +
-        // " suffix=" + suffix);
-        true
-      } else {
-        false
-      }
-    });
+    let dir =
+      CorruptingTempOutputDirectory::new(&dir0, 22072, |_prefix, suffix| suffix == "bkd_left0");
 
     verify_with_max_mb(
       &mut random,
@@ -1532,7 +1524,7 @@ fn test_bit_flippedon_partition2() -> Result<()> {
   dir0.close()?;
   match result {
     Err(t) => assert_corruption_detected(&t),
-    Ok(()) => panic!("expected CorruptIndexException"),
+    Ok(()) => panic!("expected a corrupt-index error"),
   }
 }
 
@@ -1549,7 +1541,7 @@ fn assert_corruption_detected(t: &LuceneError) -> Result<()> {
     return Ok(());
   }
 
-  panic!("did not see a suppressed CorruptIndexException");
+  panic!("did not see a suppressed corrupt-index error");
 }
 
 struct IntersectVisitorMock2 {
@@ -2229,7 +2221,7 @@ fn test_too_many_points() -> Result<()> {
   random.fill_bytes(&mut point_value);
   let err = w
     .add(&point_value, num_values as i32)
-    .expect_err("expected IllegalStateException");
+    .expect_err("expected LuceneError::IllegalState");
   assert_eq!(
     err.to_string(),
     format!(

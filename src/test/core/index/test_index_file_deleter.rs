@@ -622,14 +622,14 @@ fn test_exc_in_delete_file() -> Result<()> {
     }
     if let Err(error) = w.close(&mut random) {
       assert!(
-        error.to_string().contains("a fake IOException"),
+        error.to_string().contains("a fake I/O error"),
         "unexpected error: {error}"
       );
       if cfg!(feature = "test_log_verbose") {
-        eprintln!("TEST: got expected exception: {error:?}");
+        eprintln!("TEST: got expected error: {error:?}");
       }
     } else if cfg!(feature = "test_log_verbose") {
-      println!("TEST: no exception (ok)");
+      println!("TEST: no error (ok)");
     }
     do_fail_exc.store(false, Ordering::SeqCst);
     assert!(!w.w.is_open());

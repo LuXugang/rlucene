@@ -41,7 +41,7 @@ pub trait Sorter {
     ))
   }
 
-  /// Swap values at slots <code>i</code> and `j`.
+  /// Swap values at slots `i` and `j`.
   fn swap(&mut self, _i: usize, _j: usize) -> Result<()> {
     Err(LuceneError::illegal_state(
       "swap() must be implemented if it needs to be used",

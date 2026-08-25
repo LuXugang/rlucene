@@ -239,7 +239,7 @@ where
     }
   }
   /// Sorts 3 entries starting at from (inclusive). This specialized method is
-  /// more efficient than calling `insertionSort(int, int)`.
+  /// more efficient than calling the general insertion-sort path.
   pub fn sort3(&mut self, from: usize) -> Result<()> {
     let mid = from + 1;
     let last = from + 2;

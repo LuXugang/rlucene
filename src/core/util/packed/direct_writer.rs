@@ -240,7 +240,7 @@ fn round_bits(bits_required: i32) -> i32 {
 /// The amount of bits needed to represent values from 0 to `max_value`.
 ///
 /// # See also
-/// `PackedInts::bits_required(long)`
+/// [`PackedInts::bits_required`]
 pub fn bits_required(max_value: i64) -> Result<i32> {
   Ok(round_bits(PackedInts::bits_required(max_value)?))
 }
@@ -257,6 +257,6 @@ pub fn unsigned_bits_required(max_value: i64) -> i32 {
 /// The amount of bits needed to represent values from 0 to `max_value`.
 ///
 /// # See also
-/// `PackedInts::unsigned_bits_required(long)`
+/// [`PackedInts::unsigned_bits_required`]
 pub(crate) const SUPPORTED_BITS_PER_VALUE: [i32; 14] =
   [1, 2, 4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64];

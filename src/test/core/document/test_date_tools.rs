@@ -167,7 +167,7 @@ fn test_round() -> Result<()> {
   let date_millisecond = DateTools::round_date(date, Resolution::MILLISECOND)?;
   assert_eq!("2004-02-03 22:08:56:333", iso_format(date_millisecond));
 
-  // long parameter.
+  // `i64` parameter.
   let date_year_long = DateTools::round(date.timestamp_millis(), Resolution::YEAR)?;
   assert_eq!(
     "2004-01-01 00:00:00:000",

@@ -177,7 +177,7 @@ where
 {
   fn un_cache(&self, file_name: &str) -> Result<()> {
     // Must synchronize here because other methods use an
-    // if (cache.fileNameExists(name)) { ... } else { ... } sequence.
+    // `cache.file_name_exists(name)` check and the subsequent action.
     let _guard = self.lock.lock();
     if !self.cache_directory.file_exists(file_name)? {
       // Another thread beat us.
@@ -334,7 +334,7 @@ where
       )
     };
 
-    // If this first creation fails, the Java finally block only closes null and
+    // If this first creation fails, cleanup has no output to close and
     // deletes an empty set, so there is no cleanup to perform.
     let mut out = first.create_temp_output(prefix, suffix, context)?;
     let body_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {

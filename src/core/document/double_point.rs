@@ -35,7 +35,7 @@ use crate::core::util::number::Number;
 use crate::core::util::numeric_utils::NumericUtils;
 use std::borrow::Cow;
 use std::fmt;
-/// An indexed `double` field for fast range filters. If you also need to store the value, you
+/// An indexed `f64` field for fast range filters. If you also need to store the value, you
 /// should add a separate [`StoredField`] instance.
 ///
 /// Finding all documents within an N-dimensional shape or range at search time is efficient.
@@ -54,7 +54,7 @@ pub struct DoublePoint {
   parent_field: Field,
 }
 impl DoublePoint {
-  /// Creates a new `DoublePoint`, indexing the provided N-dimensional double point.
+  /// Creates a new `DoublePoint`, indexing the provided N-dimensional `f64` point.
   ///
   /// # Arguments
   ///
@@ -116,7 +116,7 @@ impl DoublePoint {
     Ok(())
   }
 
-  /// Pack a double point into a `BytesRef`.
+  /// Packs an `f64` point into a `BytesRef`.
   ///
   /// # Arguments
   ///
@@ -151,7 +151,7 @@ impl DoublePoint {
     NumericUtils::sortable_long_to_double(NumericUtils::sortable_bytes_to_long(value, offset))
   }
 
-  /// Create a query for matching an exact double value.
+  /// Create a query for matching an exact `f64` value.
   ///
   /// This is for simple one-dimension points. For multidimensional points, use
   /// [`new_range_query_n`](Self::new_range_query_n) instead.
@@ -167,7 +167,7 @@ impl DoublePoint {
     Self::new_range_query(field, value, value)
   }
 
-  /// Create a range query for double values.
+  /// Create a range query for `f64` values.
   ///
   /// This is for simple one-dimension ranges. For multidimensional ranges, use
   /// [`new_range_query_n`](Self::new_range_query_n) instead.
@@ -216,7 +216,7 @@ impl DoublePoint {
     )
   }
 
-  /// Create a range query for n-dimensional double values.
+  /// Create a range query for n-dimensional `f64` values.
   ///
   /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
   /// `lower_value[i] = f64::NEG_INFINITY` or `upper_value[i] = f64::INFINITY`.

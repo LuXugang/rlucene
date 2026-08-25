@@ -388,7 +388,7 @@ impl Util {
     scratch.set_length(int_idx);
     Ok(())
   }
-  /// Just takes unsigned byte values from the BytesRef and converts into an
+  /// Takes `u8` values from the `BytesRef` and converts them into an
   /// IntsRef.
   pub fn to_ints_ref<AV1, AV2>(
     input: &BytesRef<AV1>,
@@ -408,7 +408,7 @@ impl Util {
     scratch.set_length(input.length);
     Ok(())
   }
-  /// Just converts IntsRef to BytesRef; you must ensure the int values fit
+  /// Converts `IntsRef` to `BytesRef`; all `i32` values must fit
   /// into a byte.
   pub fn to_bytes_ref<AV1, AV2>(
     input: &IntsRef<AV1>,

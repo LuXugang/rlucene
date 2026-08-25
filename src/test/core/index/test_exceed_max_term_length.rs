@@ -95,27 +95,27 @@ fn test_token_stream() -> Result<()> {
 
       assert!(
         error_msg.contains("immense term"),
-        "IllegalArgumentException didn't mention 'immense term': {}",
+        "LuceneError::IllegalArgument didn't mention 'immense term': {}",
         error_msg
       );
 
       assert!(
         error_msg.contains(&max_len),
-        "IllegalArgumentException didn't mention max length ({}): {}",
+        "LuceneError::IllegalArgument didn't mention max length ({}): {}",
         max_len,
         error_msg
       );
 
       assert!(
         error_msg.contains(&name),
-        "IllegalArgumentException didn't mention field name ({}): {}",
+        "LuceneError::IllegalArgument didn't mention field name ({}): {}",
         name,
         error_msg
       );
 
       assert!(
         error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
-        "IllegalArgumentException didn't mention original message: {}",
+        "LuceneError::IllegalArgument didn't mention original message: {}",
         error_msg
       );
     },
@@ -186,27 +186,27 @@ fn test_binary_value() -> Result<()> {
 
       assert!(
         error_msg.contains("immense term"),
-        "IllegalArgumentException didn't mention 'immense term': {}",
+        "LuceneError::IllegalArgument didn't mention 'immense term': {}",
         error_msg
       );
 
       assert!(
         error_msg.contains(&max_len),
-        "IllegalArgumentException didn't mention max length ({}): {}",
+        "LuceneError::IllegalArgument didn't mention max length ({}): {}",
         max_len,
         error_msg
       );
 
       assert!(
         error_msg.contains(&name),
-        "IllegalArgumentException didn't mention field name ({}): {}",
+        "LuceneError::IllegalArgument didn't mention field name ({}): {}",
         name,
         error_msg
       );
 
       assert!(
         error_msg.contains("bytes can be at most") && error_msg.contains("in length; got"),
-        "IllegalArgumentException didn't mention original message: {}",
+        "LuceneError::IllegalArgument didn't mention original message: {}",
         error_msg
       );
     },

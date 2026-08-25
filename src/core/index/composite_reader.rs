@@ -33,7 +33,7 @@ use std::sync::Arc;
 /// call to one of the `DirectoryReader::open` methods, for example
 /// [`directory_reader::open`](crate::core::index::directory_reader::open).
 /// [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)
-/// implements the [`CompositeReader`] interface, so it is not possible to
+/// implements the [`CompositeReader`] trait, so it is not possible to
 /// directly get postings from it.
 ///
 /// Concrete implementations are usually constructed with a call to one of the

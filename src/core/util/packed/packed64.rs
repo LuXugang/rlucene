@@ -332,7 +332,7 @@ impl Mutable for Packed64 {
     }
     debug_assert_eq!(from_index % n_aligned_values, 0);
 
-    // Compute the long[] blocks for nAlignedValues consecutive values and
+    // Compute the `i64` blocks for `n_aligned_values` consecutive values and
     // use them to set as many values as possible without applying any mask
     // or shift
     let n_aligned_blocks = (n_aligned_values * self.bits_per_value) >> 6;

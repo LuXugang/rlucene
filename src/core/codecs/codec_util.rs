@@ -584,7 +584,7 @@ impl CodecUtil {
       },
       footer_result => {
         let mut suppressed = LuceneError::corrupt_index(format!(
-          "checksum status indeterminate: unexpected exception: {checksum_in}"
+          "checksum status indeterminate: unexpected error: {checksum_in}"
         ));
         if let Some(footer_error) =
           footer_result.caught_failure("panic while checking the codec footer")
@@ -779,7 +779,7 @@ impl CodecUtil {
     out.write_bytes_range(&bytes, 0, 4)?;
     Ok(())
   }
-  /// Writes a long value to the header or footer in big-endian order.
+  /// Writes an `i64` value to the header or footer in big-endian order.
   pub fn write_be_long(out: &mut impl DataOutput, i: i64) -> Result<()> {
     let bytes = [
       ((i >> 56) & 0xFF) as u8,
@@ -804,7 +804,7 @@ impl CodecUtil {
     Ok((byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4)
   }
 
-  /// Reads a long value from the header or footer in big-endian order.
+  /// Reads an `i64` value from the header or footer in big-endian order.
   pub fn read_be_long(out: &mut impl DataInput) -> Result<i64> {
     let mut buffer = [0u8; 8];
     out.read_bytes(&mut buffer, 0, 8)?;

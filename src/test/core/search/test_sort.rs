@@ -51,21 +51,7 @@ use rand::Rng;
 use std::hash::DefaultHasher;
 use std::sync::Arc;
 use std::vec;
-/*
- * Very simple tests of sorting.
- *
- * THE RULES:
- * 1. keywords like 'abstract' and 'static' should not appear in this file.
- * 2. each test method should be self-contained and understandable.
- * 3. no test methods should share code with other test methods.
- * 4. no testing of things unrelated to sorting.
- * 5. no tracers.
- * 6. keyword 'class' should appear only once in this file, here ----
- *                                                                  |
- *        -----------------------------------------------------------
- *        |
- *       \./
- */
+/// Very simple sorting tests.
 #[allow(dead_code)] // for quick search
 struct TestSort;
 fn assert_equals_sort(a: &Sort, b: &Sort) {
@@ -468,7 +454,7 @@ fn test_int_missing() -> Result<()> {
 
   Ok(())
 }
-/// Tests sorting on type int, specifying the missing value should be treated as Integer.MAX_VALUE
+/// Tests sorting on `i32`, specifying the missing value should be treated as `i32::MAX`.
 #[test]
 fn test_int_missing_last() -> Result<()> {
   let mut random = random();
@@ -670,7 +656,7 @@ fn test_long_missing() -> Result<()> {
 
   Ok(())
 }
-/// Tests sorting on type long, specifying the missing value should be treated as Long.MAX_VALUE
+/// Tests sorting on `i64`, specifying the missing value should be treated as `i64::MAX`.
 #[test]
 fn test_long_missing_last() -> Result<()> {
   let mut random = random();
@@ -876,7 +862,7 @@ fn test_float_missing() -> Result<()> {
 
   Ok(())
 }
-/// Tests sorting on type float, specifying the missing value should be treated as Float.MAX_VALUE
+/// Tests sorting on `f32`, specifying the missing value should be treated as `f32::MAX`.
 #[test]
 fn test_float_missing_last() -> Result<()> {
   let mut random = random();
@@ -910,7 +896,7 @@ fn test_float_missing_last() -> Result<()> {
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
   assert_eq!(3, td.total_hits().value);
 
-  // None → Float.MAX_VALUE
+  // `None` maps to `f32::MAX`.
   let v0 = searcher
     .stored_fields()?
     .document(td.score_docs()[0].doc())?;
@@ -1184,7 +1170,7 @@ fn test_double_missing() -> Result<()> {
   Ok(())
 }
 
-/// Tests sorting on type double, specifying the missing value should be treated as Double.MAX_VALUE
+/// Tests sorting on `f64`, specifying the missing value should be treated as `f64::MAX`.
 #[test]
 fn test_double_missing_last() -> Result<()> {
   let mut random = random();

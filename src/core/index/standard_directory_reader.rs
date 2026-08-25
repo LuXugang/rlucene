@@ -310,7 +310,7 @@ where
         && commit_info.info.get_id() != old_reader.get_segment_info().info.get_id()
       {
         return Err(LuceneError::illegal_state(format!(
-          "same segment {} has invalid doc count change; likely you are re-opening a reader after illegally removing index files yourself and building a new index in their place.  Use IndexWriter.deleteAll or open a new IndexWriter using OpenMode.CREATE instead",
+          "same segment {} has invalid doc count change; likely you are re-opening a reader after illegally removing index files yourself and building a new index in their place. Use IndexWriter::delete_all or open a new IndexWriter using OpenMode::Create instead",
           commit_info.info.name
         )));
       }

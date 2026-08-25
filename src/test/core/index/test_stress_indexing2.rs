@@ -218,7 +218,7 @@ where
     match thread_result {
       Ok(Ok(thread_docs)) => docs.extend(thread_docs),
       Ok(Err(err)) => return Err(err),
-      Err(_) => return Err(LuceneError::illegal_state("thread hit exception")),
+      Err(_) => return Err(LuceneError::illegal_state("thread hit error")),
     }
   }
 
@@ -279,7 +279,7 @@ where
     match thread_result {
       Ok(Ok(thread_docs)) => docs.extend(thread_docs),
       Ok(Err(err)) => return Err(err),
-      Err(_) => return Err(LuceneError::illegal_state("thread hit exception")),
+      Err(_) => return Err(LuceneError::illegal_state("thread hit error")),
     }
   }
 

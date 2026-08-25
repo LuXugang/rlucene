@@ -36,10 +36,10 @@ use std::sync::Arc;
 /// Values may include statistics on deleted documents that have not yet been merged away.
 ///
 /// Be careful when performing calculations on these values because they are represented as 64-bit
-/// integer values, you may need to cast to `double` for your use.
+/// integer values, you may need to cast to `f64` for your use.
 ///
 /// - **term**: Term bytes.  
-///   This value is never `null`.
+///   This value is always present.
 ///
 /// - **doc_freq**: number of documents containing the term in the collection, in the range  
 ///   `[1 .. total_term_freq()]`.  

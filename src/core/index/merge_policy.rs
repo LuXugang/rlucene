@@ -160,7 +160,7 @@ where
   ///
   /// * `segment_infos` — the total set of segments in the index  
   /// * `max_segment_count` — requested maximum number of segments  
-  /// * `segments_to_merge` — map of `SegmentCommitInfo` → boolean indicating
+  /// * `segments_to_merge` — map of `SegmentCommitInfo` → `bool` indicating
   ///   which segments must be merged away  
   /// * `merge_context` — the `MergeContext` to find merges on
   fn find_forced_merges<MC>(
@@ -2037,7 +2037,7 @@ impl MergeStat {
       .lock()
       .error
       .as_ref()
-      .and_then(|error| error.clone_caught_failure("panic while retrieving a merge exception"))
+      .and_then(|error| error.clone_caught_failure("panic while retrieving a merge error"))
   }
 
   pub(crate) fn max_num_segments(&self) -> i32 {

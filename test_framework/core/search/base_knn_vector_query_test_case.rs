@@ -1366,7 +1366,7 @@ where
   }
 }
 
-/// A version of [`AbstractKnnVectorQuery`] that throws an error when an exact search is run.
+/// A version of [`AbstractKnnVectorQuery`] that returns an error when an exact search is run.
 /// This allows us to check what search strategy is being used.
 struct NoLiveDocsDirectoryReader<DR>
 where

@@ -38,7 +38,7 @@ use crate::core::util::{
 pub struct BKDRadixSelector {
   // histogram array
   histogram: Vec<usize>,
-  // number of bytes to be sorted: config.bytesPerDim() + Integer.BYTES
+  // Number of bytes to sort: `config.bytes_per_dim() + INT_BYTES`.
   bytes_sorted: usize,
   // flag to when we are moving to sort on heap
   max_points_sort_in_heap: usize,

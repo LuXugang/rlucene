@@ -1926,7 +1926,7 @@ where
         assert!(*exists);
         assert!(
           *value_upto < in_.doc_value_count()?,
-          "valueUpto={} in.docValueCount()={}",
+          "value_upto={} input.doc_value_count()={}",
           *value_upto,
           in_.doc_value_count()?
         );

@@ -129,7 +129,7 @@ where
 }
 
 // LUCENE-1130: make sure immediate disk full on creating
-// an IndexWriter (hit during DWPT#updateDocuments()), with
+// an `IndexWriter` (hit during `DocumentsWriterPerThread::update_documents`), with
 // multiple threads, is OK:
 #[test]
 fn test_immediate_disk_full_with_threads() -> Result<()> {
@@ -278,7 +278,7 @@ fn test_close_with_threads() -> Result<()> {
 }
 
 // Runs test, with multiple threads, using the specific
-// failure to trigger an IOException
+// Failure used to trigger an I/O error.
 fn test_multiple_threads_failure<F>(mut failure: F) -> Result<()>
 where
   F: Failure<MockDirectoryDelegate> + Clone + 'static,
@@ -371,7 +371,7 @@ where
 }
 
 // Runs test, with one thread, using the specific failure
-// to trigger an IOException
+// to trigger an I/O error
 fn test_single_thread_failure<F>(mut failure: F) -> Result<()>
 where
   F: Failure<MockDirectoryDelegate> + Clone + 'static,
@@ -414,7 +414,7 @@ where
   })();
   assert!(
     matches!(&result, Err(error) if error.is_io_error()),
-    "expected IOException, got {result:?}"
+    "expected I/O error, got {result:?}"
   );
 
   failure.clear_do_fail();
@@ -433,7 +433,7 @@ where
   Ok(())
 }
 
-// Throws IOException during FieldsWriter.flushDocument and during DocumentsWriter.abort
+// Returns I/O errors from `FieldsWriter::flush_document` and `DocumentsWriter::abort`.
 #[derive(Clone)]
 struct FailOnlyOnAbortOrFlush {
   only_once: bool,
@@ -458,7 +458,7 @@ where
     dir: &MockDirectoryWrapper<D>,
     context: &FailureContext,
   ) -> Result<()> {
-    // Since we throw exc during abort, eg when IW is
+    // Since abort returns an error, for example when the writer is
     // attempting to delete files, we will leave
     // leftovers:
     dir.set_assert_no_unrefenced_files_on_close(false);
@@ -486,35 +486,35 @@ where
   }
 }
 
-// LUCENE-1130: make sure initial IOException, and then 2nd
-// IOException during rollback(), is OK:
+// LUCENE-1130: make sure an initial I/O error followed by another during
+// `rollback()` is handled correctly.
 #[test]
 fn test_io_exception_during_abort() -> Result<()> {
   test_single_thread_failure(FailOnlyOnAbortOrFlush::new(false))
 }
 
-// LUCENE-1130: make sure initial IOException, and then 2nd
-// IOException during rollback(), is OK:
+// LUCENE-1130: make sure an initial I/O error followed by another during
+// `rollback()` is handled correctly.
 #[test]
 fn test_io_exception_during_abort_only_once() -> Result<()> {
   test_single_thread_failure(FailOnlyOnAbortOrFlush::new(true))
 }
 
-// LUCENE-1130: make sure initial IOException, and then 2nd
-// IOException during rollback(), with multiple threads, is OK:
+// LUCENE-1130: make sure an initial I/O error followed by another during
+// `rollback()` with multiple threads is handled correctly.
 #[test]
 fn test_io_exception_during_abort_with_threads() -> Result<()> {
   test_multiple_threads_failure(FailOnlyOnAbortOrFlush::new(false))
 }
 
-// LUCENE-1130: make sure initial IOException, and then 2nd
-// IOException during rollback(), with multiple threads, is OK:
+// LUCENE-1130: make sure an initial I/O error followed by another during
+// `rollback()` with multiple threads is handled correctly.
 #[test]
 fn test_io_exception_during_abort_with_threads_only_once() -> Result<()> {
   test_multiple_threads_failure(FailOnlyOnAbortOrFlush::new(true))
 }
 
-// Throws IOException during DocumentsWriter.writeSegment
+// Returns an I/O error from `DocumentsWriter::write_segment`.
 #[derive(Clone)]
 struct FailOnlyInWriteSegment {
   only_once: bool,
@@ -559,25 +559,25 @@ where
   }
 }
 
-// LUCENE-1130: test IOException in writeSegment
+// LUCENE-1130: test an I/O error in `write_segment`.
 #[test]
 fn test_io_exception_during_write_segment() -> Result<()> {
   test_single_thread_failure(FailOnlyInWriteSegment::new(false))
 }
 
-// LUCENE-1130: test IOException in writeSegment
+// LUCENE-1130: test an I/O error in `write_segment`.
 #[test]
 fn test_io_exception_during_write_segment_only_once() -> Result<()> {
   test_single_thread_failure(FailOnlyInWriteSegment::new(true))
 }
 
-// LUCENE-1130: test IOException in writeSegment, with threads
+// LUCENE-1130: test an I/O error in `write_segment` with threads.
 #[test]
 fn test_io_exception_during_write_segment_with_threads() -> Result<()> {
   test_multiple_threads_failure(FailOnlyInWriteSegment::new(false))
 }
 
-// LUCENE-1130: test IOException in writeSegment, with threads
+// LUCENE-1130: test an I/O error in `write_segment` with threads.
 #[test]
 fn test_io_exception_during_write_segment_with_threads_only_once() -> Result<()> {
   test_multiple_threads_failure(FailOnlyInWriteSegment::new(true))

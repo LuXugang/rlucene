@@ -19,7 +19,7 @@ use crate::core::analysis::util::char_tokenizer::{CharTokenizer, CharTokenizerBa
 use crate::core::util::attribute_source::Attributes;
 use crate::core::util::error::lucene_error::Result;
 /// A tokenizer that divides text at whitespace characters as defined by
-/// `Char::is_whitespace(int)`.
+/// [`char::is_whitespace`].
 /// Note: That definition explicitly excludes the non-breaking space.
 /// Adjacent sequences of non-whitespace characters form tokens.
 pub struct WhitespaceTokenizer;

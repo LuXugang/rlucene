@@ -32,7 +32,7 @@ use std::fmt::Display;
 /// `DoubleValuesSource`.
 ///
 /// `DoubleValuesSource` objects for `NumericDocValues` fields can be obtained
-/// from field-specific implementations when special long-to-double encoding is
+/// from field-specific implementations when special `i64`-to-`f64` encoding is
 /// required.
 ///
 /// Scores may be used as a source for value calculations by wrapping a scorer

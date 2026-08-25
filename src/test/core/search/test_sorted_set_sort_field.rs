@@ -348,7 +348,7 @@ fn test_missing_last() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("2", doc1.get("id")?.unwrap().as_ref());
 
-  // null comes last
+  // `None` comes last.
   let doc2 = searcher
     .stored_fields()?
     .document(td.score_docs()[2].doc())?;

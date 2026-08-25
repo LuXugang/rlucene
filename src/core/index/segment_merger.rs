@@ -429,7 +429,7 @@ where
     debug_assert_eq!(
       num_merged,
       self.merge_state.segment_info.max_doc()?,
-      "numMerged={} vs mergeState.segmentInfo.maxDoc()={}",
+      "num_merged={} vs merge_state.segment_info.max_doc()={}",
       num_merged,
       self.merge_state.segment_info.max_doc()?
     );

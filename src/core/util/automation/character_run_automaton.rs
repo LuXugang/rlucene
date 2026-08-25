@@ -47,7 +47,7 @@ impl CharacterRunAutomaton {
     self.run_chars(utf16_vec.as_slice(), 0, length)
   }
 
-  /// Returns true if the given UTF-16 `char` buffer is accepted.
+  /// Returns true if the given UTF-16 code-unit slice is accepted.
   pub fn run_chars(&self, chars: &[u16], offset: usize, length: usize) -> Result<bool> {
     let mut state: i32 = 0;
 

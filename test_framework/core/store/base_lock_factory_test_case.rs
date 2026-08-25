@@ -87,7 +87,7 @@ where
 
     let l = dir.obtain_lock("commit")?;
     l.close()?;
-    l.close()?; // close again, should be no exception
+    l.close()?; // close again, should be no error
 
     Ok(())
   }
@@ -100,7 +100,7 @@ where
     let temp_path = create_temp_dir()?;
     let dir = self.get_directory(random, temp_path.path().to_path_buf())?;
     let l = dir.obtain_lock("commit")?;
-    l.ensure_valid()?; // no exception
+    l.ensure_valid()?; // no error
     l.close()?;
     Ok(())
   }
@@ -208,13 +208,10 @@ where
     let writer_hit_exception = writer_handle.join().expect("writer thread panicked")?;
     let searcher_hit_exception = searcher_handle.join().expect("searcher thread panicked")?;
 
-    assert!(
-      !writer_hit_exception,
-      "IndexWriter hit unexpected exceptions"
-    );
+    assert!(!writer_hit_exception, "IndexWriter hit unexpected errors");
     assert!(
       !searcher_hit_exception,
-      "IndexSearcher hit unexpected exceptions"
+      "IndexSearcher hit unexpected errors"
     );
     Ok(())
   }

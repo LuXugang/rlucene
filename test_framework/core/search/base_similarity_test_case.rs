@@ -402,7 +402,7 @@ pub trait BaseSimilarityTestCase {
   ///   work)
   /// - Scoring works for reasonably large 64-bit statistic values (e.g. distributed search will
   ///   work)
-  /// - Scoring works for reasonably large boost values (0 .. Integer.MAX_VALUE, e.g. query
+  /// - Scoring works for reasonably large boost values (0 .. `i32::MAX`, e.g. query
   ///   boosts will work)
   /// - Scoring works for parameters randomized within valid ranges (see [`get_similarity`])
   fn test_random_scoring<R>(&self, random: &mut R) -> Result<()>

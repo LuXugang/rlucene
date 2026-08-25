@@ -32,7 +32,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::{Arc, Weak};
 
-/// Provides an interface for accessing a point-in-time view of an index.
+/// Provides a trait for accessing a point-in-time view of an index.
 ///
 /// Any changes made to the index via an
 /// [`IndexWriter`](crate::core::index::index_writer::IndexWriter) will not be
@@ -43,8 +43,8 @@ use std::sync::{Arc, Weak};
 /// When reopening is needed in order to see changes to the index, it is best to
 /// use [`directory_reader::open_if_changed`](crate::core::index::directory_reader::open_if_changed),
 /// since the new reader will share resources with the previous one when
-/// possible. Searching an index is done entirely through this abstract
-/// interface, so that any implementation is searchable.
+/// possible. Searching an index is done entirely through this trait, so that
+/// any implementation is searchable.
 ///
 /// There are two different types of index readers:
 ///
@@ -66,7 +66,7 @@ use std::sync::{Arc, Weak};
 /// [`DirectoryReader`](crate::core::index::directory_reader::DirectoryReader)
 /// implements the
 /// [`CompositeReader`](crate::core::index::composite_reader::CompositeReader)
-/// interface, so it is not possible to directly get postings from it.
+/// trait, so it is not possible to directly get postings from it.
 ///
 /// For efficiency, this API often refers to documents via document numbers:
 /// non-negative integers that each name a unique document in the index. These
@@ -383,7 +383,7 @@ impl IndexReaderBase {
     for parent in parent_readers.iter().filter_map(Weak::upgrade) {
       parent.closed_by_child.store(true, Ordering::Relaxed);
       // Cross the memory barrier with a fake write, matching
-      // AtomicInteger.addAndGet(0) in Java.
+      // A zero delta performs an atomic read without changing the count.
       parent.ref_count.fetch_add(0, Ordering::SeqCst);
       Self { state: parent }.report_close_to_parent_readers();
     }

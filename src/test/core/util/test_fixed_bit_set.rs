@@ -594,7 +594,7 @@ fn test_ensure_capacity() -> Result<()> {
   assert!(new_bits.get(1)?);
   assert!(new_bits.get(4)?);
   new_bits.clear_with_index(1);
-  // we grew the long[], so it's not shared
+  // We grew the backing vector, so it is not shared.
   assert!(!bits.get(1)?);
   assert!(!new_bits.get(1)?);
   Ok(())
@@ -646,8 +646,6 @@ fn test_intersection_count() {
   let fixed_bit_set2 = make_fixed_bitset(&mut random, &bits2, num_bits2);
   // If ghost bits are present, these may fail too, but that's not what we
   // want to demonstrate here
-  // assertTrue(fixedBitSet1.cardinality() <= bits1.length);
-  // assertTrue(fixedBitSet2.cardinality() <= bits2.length);
   let intersection_count =
     FixedBitSet::intersection_count(fixed_bit_set1.unwrap(), fixed_bit_set2.unwrap());
 
@@ -655,8 +653,6 @@ fn test_intersection_count() {
   let bit_set2 = make_bitset(&bits2);
   // If ghost bits are present, these may fail too, but that's not what we
   // want to demonstrate here
-  // assertEquals(bitSet1.cardinality(), fixedBitSet1.cardinality());
-  // assertEquals(bitSet2.cardinality(), fixedBitSet2.cardinality());
 
   bit_set1.intersect_with(&bit_set2);
   assert_eq!(bit_set1.count(), intersection_count as usize);

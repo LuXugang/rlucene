@@ -864,7 +864,7 @@ pub(crate) const DAY_ENCODING: i32 = 0xC0;
 ///   (Uint8). When it is equal to `0xFF` then the value is negative and
 ///   stored in the next 4 bytes. Otherwise, if the first bit is set, then
 ///   the other bits in the header encode the value plus one and no other
-///   bytes are read. Otherwise, the value is a positive float value whose
+///   bytes are read. Otherwise, the value is a positive `f32` whose
 ///   first byte is the header, and 3 bytes need to be read to complete it.
 /// - Bytes --> Potential additional bytes to read depending on the header.
 pub(crate) fn write_zfloat(out: &mut impl DataOutput, f: f32) -> Result<()> {

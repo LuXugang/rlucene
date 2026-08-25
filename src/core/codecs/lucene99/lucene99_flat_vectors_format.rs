@@ -63,7 +63,7 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// - **`vlong`** offset to this field's vectors in the .vec file
 /// - **`vlong`** length of this field's vectors, in bytes
 /// - **`vint`** dimension of this field's vectors
-/// - **`int`** the number of documents having values for this field
+/// - **`i32`** the number of documents having values for this field
 /// - **`int8`** if equals to -2, empty - no vector values. If equals to -1, dense – all
 ///   documents have values for a field. If equals to 0, sparse – some documents missing values.
 /// - DocIds were encoded by `IndexedDISI::write_bit_set`

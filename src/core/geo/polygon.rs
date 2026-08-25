@@ -25,7 +25,7 @@ use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 
 /// Represents a closed polygon on the earth's surface. You can either construct the Polygon directly
-/// yourself with `double[]` coordinates, or use `Polygon::from_geo_json` if you have a
+/// yourself with `f64` coordinate slices, or use `Polygon::from_geo_json` if you have a
 /// polygon already encoded as a [GeoJSON](http://geojson.org/geojson-spec.html) string.
 ///
 /// NOTES:

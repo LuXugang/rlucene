@@ -780,7 +780,7 @@ fn test_norms_query_matches_count() -> Result<()> {
   assert!(searcher.count(q).is_err());
   // docs that have a text field that analyzes to an empty token
   // stream still have a recorded norm value but don't show up in
-  // Reader.getDocCount(field), so we can't use the shortcut for
+  // `IndexReader::get_doc_count(field)`, so we cannot use the shortcut for
   // these fields
   assert_norms_count_without_shortcut(&searcher, "text_s", random_num_docs)?;
 

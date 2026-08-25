@@ -35,8 +35,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Documents that have a value for the field are encoded in a way that it is
 /// always possible to know the ordinal of the current document in the set of
 /// documents that have a value. For instance, say the set of documents that
-/// have a value for the field is <code>{1, 5, 6, 11}</code>. When the
-/// iterator is on <code>6</code>, it knows that this is the 3rd item of the
+/// have a value for the field is `{1, 5, 6, 11}`. When the
+/// iterator is on `6`, it knows that this is the 3rd item of the
 /// set. This way, values can be stored densely and accessed based on their
 /// index at search time. If all documents in a segment have a value for the
 /// field, the index is the same as the doc ID, so this case is encoded
@@ -100,10 +100,10 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// [`DocValuesType::BINARY`](crate::core::index::doc_values_type::DocValuesType::Binary):
 ///
-/// - Fixed-width Binary: one large concatenated `byte[]` is written, along with
+/// - Fixed-width Binary: one large concatenated byte sequence is written, along with
 ///   the fixed length. Each document's value can be addressed directly with
 ///   multiplication (`docID * length`).
-/// - Variable-width Binary: one large concatenated `byte[]` is written, along
+/// - Variable-width Binary: one large concatenated byte sequence is written, along
 ///   with end addresses for each document. The addresses are written as
 ///   Monotonic-compressed numerics.
 /// - Prefix-compressed Binary: values are written in chunks of 16, with the

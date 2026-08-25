@@ -64,7 +64,7 @@ pub const EMOJI: i32 = 7;
 
 /// Absolute maximum sized token
 pub const MAX_TOKEN_LENGTH_LIMIT: usize = 1024 * 1024;
-/// String token types that correspond to token type int constants
+/// String token types corresponding to `i32` token-type constants.
 pub const TOKEN_TYPES: [&str; 8] = [
   "<ALPHANUM>",
   "<NUM>",

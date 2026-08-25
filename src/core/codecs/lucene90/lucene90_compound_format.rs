@@ -122,7 +122,7 @@ impl Lucene90CompoundFormat {
         // copying
         let checksum = CodecUtil::check_footer(&mut file_input)?;
         // this is poached from CodecUtil.writeFooter, but we need to use
-        // our own checksum, not data.getChecksum(), but I think
+        // our own checksum, not `data.get_checksum()`, but I think
         // adding a public method to CodecUtil to do that is somewhat
         // dangerous:
         CodecUtil::write_be_int(data, CodecUtil::FOOTER_MAGIC)?;

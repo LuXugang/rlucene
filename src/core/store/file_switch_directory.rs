@@ -186,7 +186,7 @@ where
     // LUCENE-3380: either or both of our dirs could be FSDirs,
     // but if one underlying delegate is an FSDir and mkdirs() has not
     // yet been called, because so far everything is written to the other,
-    // in this case, we don't want to throw a NoSuchFileException
+    // In this case, we do not want to return a not-found I/O error.
     let mut exc = None;
     match self.primary_dir.list_all() {
       Ok(primary_files) => {
@@ -218,12 +218,12 @@ where
         }
       },
       Err(err) if Self::is_no_such_file(&err) => {
-        // we got NoSuchFileException from both dirs
-        // rethrow the first.
+        // Both directories returned a not-found I/O error.
+        // Return the first error.
         if let Some(exc) = exc {
           return Err(exc);
         }
-        // we got NoSuchFileException from the secondary,
+        // The secondary directory returned a not-found I/O error,
         // and the primary is empty.
         if files.is_empty() {
           return Err(err);
@@ -231,7 +231,7 @@ where
       },
       Err(err) => return Err(err),
     }
-    // we got NoSuchFileException from the primary,
+    // The primary directory returned a not-found I/O error,
     // and the secondary is empty.
     if let Some(exc) = exc
       && files.is_empty()

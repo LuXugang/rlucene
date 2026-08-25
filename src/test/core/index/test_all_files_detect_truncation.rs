@@ -190,8 +190,7 @@ where
       dir_copy.sync(std::slice::from_ref(&name))?;
     }
 
-    // There needs to be an exception thrown, but we don't care about its type, it's too heroic to
-    // ensure that a specific exception type gets throws upon opening an index.
+    // Opening the truncated index must return an error, but the exact type depends on the file.
     // NOTE: we .close so that if the test fails (truncation not detected) we don't also get all
     // these confusing errors about open files:
     let open_result = directory_reader::open(dir_copy.clone()).and_then(|reader| reader.close());

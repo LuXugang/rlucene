@@ -918,7 +918,7 @@ where
   }
 }
 pub(crate) fn create_new_reader_with_latest_live_docs<'a, D>(
-  inner: &'a mut Inner<D>, // Same to Java's Thread.holdsLock(this)
+  inner: &'a mut Inner<D>, // The mutable borrow proves exclusive access to the writer state.
   reader: Option<&'a SegmentReader<D>>,
   info: &SegmentCommitInfo<D>,
 ) -> Result<SegmentReader<D>>

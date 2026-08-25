@@ -60,9 +60,9 @@ impl TaskExecutor {
   }
 
   /// Execute all the callables provided as an argument, wait for them to complete and return the
-  /// obtained results. If an exception is thrown by more than one callable, the subsequent ones
-  /// will be added as suppressed exceptions to the first one that was caught. Additionally, if one
-  /// task throws an exception, all other tasks from the same group are cancelled, to avoid needless
+  /// obtained results. If more than one callable returns an error, the subsequent errors
+  /// will be added as suppressed errors to the first one that was caught. Additionally, if one
+  /// task returns an error, all other tasks from the same group are cancelled, to avoid needless
   /// computation as their results would not be exposed anyways.
   pub fn invoke_all<T, F>(&self, callables: Vec<F>) -> Result<Vec<T>>
   where

@@ -51,8 +51,7 @@ impl NeighborArray {
   }
   /// Add a new node to the `NeighborArray`.
   /// The new node must be worse than all previously stored nodes.
-  /// This cannot be called after [`add_out_of_order(int,
-  /// float)`](Self::add_out_of_order).
+  /// This cannot be called after [`Self::add_out_of_order`].
   pub fn add_in_order(&mut self, new_node: usize, new_score: f32) -> Result<()> {
     debug_assert!(
       self.size == self.sorted_node_size,
@@ -86,7 +85,7 @@ impl NeighborArray {
 
     Ok(())
   }
-  /// Add node and newScore but do not insert as sorted
+  /// Adds `new_node` and `new_score` without inserting them in sorted order.
   pub fn add_out_of_order(&mut self, new_node: usize, new_score: f32) -> Result<()> {
     if self.size == self.nodes.len() {
       return Err(LuceneError::illegal_state("No growth is allowed"));
@@ -98,7 +97,7 @@ impl NeighborArray {
 
     Ok(())
   }
-  /// In addition to [`add_out_of_order(int, float)`](Self::add_out_of_order),
+  /// In addition to [`Self::add_out_of_order`],
   /// this function will also remove the least-diverse node if the node
   /// array is full after insertion.
   ///

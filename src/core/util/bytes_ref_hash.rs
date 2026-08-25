@@ -31,7 +31,7 @@ use crate::core::util::{
 
 /// `BytesRefHash` is a special purpose hash-map like data structure optimized
 /// for `BytesRef` instances. `BytesRefHash` maintains mappings of byte arrays
-/// to IDs (`Map<BytesRef, int>`), storing the hashed bytes efficiently in
+/// to `i32` IDs, storing the hashed bytes efficiently in
 /// continuous storage. The mapping to the ID is encapsulated inside
 /// `BytesRefHash` and is guaranteed to be increased for each added `BytesRef`.
 ///
@@ -331,8 +331,8 @@ where
   /// Adds an "arbitrary" integer offset instead of a `BytesRef` term.
   ///
   /// This is used in the indexer to hold the hash for term vectors, because
-  /// they do not redundantly store the byte[] term directly and instead
-  /// reference the byte[] term already stored by the postings
+  /// they do not redundantly store the term bytes directly and instead
+  /// reference the term bytes already stored by the postings
   /// `BytesRefHash`.
   pub fn add_by_pool_offset(
     &mut self,

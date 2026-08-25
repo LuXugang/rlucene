@@ -2854,7 +2854,7 @@ fn test_invalid_point_in_set_binary_query() -> Result<()> {
   assert!(matches!(err, LuceneError::IllegalArgument(_)));
   if let LuceneError::IllegalArgument(msg) = err {
     assert_eq!(
-      "all byte[] must be the same length, but saw 1 and 0",
+      "all byte slices must be the same length, but saw 1 and 0",
       msg.to_string()
     );
   }

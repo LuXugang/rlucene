@@ -187,7 +187,7 @@ fn test_scalar_with_sampling() -> Result<()> {
   let num_vecs = random.random_range(0..128) + 5;
   let dims = 64;
   let floats = random_floats(&mut random, num_vecs, dims);
-  // Should not throw
+  // Should not return an error.
   {
     let num_deleted = random.random_range(0..num_vecs - 1) + 1;
     let float_vector_values =

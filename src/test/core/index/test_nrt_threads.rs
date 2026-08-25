@@ -89,12 +89,9 @@ impl ThreadedIndexingAndSearchingTestCase for TestNRTThreads {
           eprintln!("OBD files: {open_deleted_files:?}");
         }
         any_open_del_files |= !open_deleted_files.is_empty();
-        // assertEquals("open but deleted: " + openDeletedFiles, 0, openDeletedFiles.size());
         reader = Arc::new(directory_reader::open_from_writer(&writer)?);
       }
 
-      // System.out.println("numDocs=" + r.numDocs() + "
-      // openDelFileCount=" + dir.openDeleteFileCount());
       if reader.num_docs()? > 0 {
         let searcher = Arc::new(IndexSearcher::new(reader.clone().get_context()?)?);
         *self.fixed_searcher.write() = Some(searcher.clone());
@@ -105,8 +102,6 @@ impl ThreadedIndexingAndSearchingTestCase for TestNRTThreads {
     *self.fixed_searcher.write() = None;
     reader.close()?;
 
-    // System.out.println("numDocs=" + r.numDocs() + " openDelFileCount=" +
-    // dir.openDeleteFileCount());
     let open_deleted_files = self.state.directory().get_open_deleted_files();
     if !open_deleted_files.is_empty() {
       eprintln!("OBD files: {open_deleted_files:?}");

@@ -24,16 +24,16 @@ use std::collections::HashSet;
 use std::fmt;
 
 const MISSING: i64 = i64::MIN;
-/// Set of longs, optimized for docvalues usage
+/// Set of `i64` values optimized for doc-values usage.
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub(crate) struct DocValuesLongHashSet {
   pub(crate) table: Vec<i64>,
   pub(crate) mask: i32,
   pub(crate) has_missing_value: bool,
   pub(crate) size: i32,
-  /// minimum value in the set, or Long.MAX_VALUE for an empty set
+  /// Minimum value in the set, or `i64::MAX` for an empty set.
   pub(crate) min_value: i64,
-  /// maximum value in the set, or Long.MIN_VALUE for an empty set
+  /// Maximum value in the set, or `i64::MIN` for an empty set.
   pub(crate) max_value: i64,
 }
 impl DocValuesLongHashSet {

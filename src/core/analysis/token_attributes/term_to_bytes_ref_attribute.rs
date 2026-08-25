@@ -19,7 +19,7 @@ use crate::core::util::attribute::Attribute;
 use std::borrow::Cow;
 
 /// This attribute is requested by `TermsHashPerField` to index the contents. It can be used to
-/// customize the final `byte[]` encoding of terms.
+/// customize the final byte-slice encoding of terms.
 pub trait TermToBytesRefAttribute: Attribute {
   #[cfg(any(test, debug_assertions))]
   const ATTRIBUTE_NAME: &'static str = NAME;

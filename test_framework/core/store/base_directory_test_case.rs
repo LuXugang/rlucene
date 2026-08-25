@@ -856,7 +856,7 @@ pub trait BaseDirectoryTestCase {
     dir.close()
   }
 
-  /// Make sure directory throws `AlreadyClosed` if you try to create an output after closing.
+  /// Make sure the directory returns `AlreadyClosed` if an output is created after closing.
   fn test_detect_close<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -2066,7 +2066,8 @@ pub trait BaseDirectoryTestCase {
     let size = 32;
     let mut values = vec![0i64; size];
     let mut restore = vec![0i64; size];
-    values[0] = 1i64 << 31; // values[0] = 2147483648 as long, but as int it is -2147483648
+    // The value is positive as `i64`, but its low 32 bits represent `i32::MIN`.
+    values[0] = 1i64 << 31;
 
     for i in 0..size {
       if random.random_bool(0.5) {

@@ -1192,7 +1192,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   // One query matches all docs, the count of the disjunction is the number of docs
   assert_eq!(2, weight.count(leaf, &searcher)?);
 
-  // Unknown count query on 3D long point range
+  // Unknown-count query on a 3D `i64` point range.
   let lower = [4i64, 5i64, 6i64];
   let upper = [9i64, 10i64, 11i64];
   let unknown_count_query = LongPoint::new_range_query_n("long3dim", &lower, &upper)?;

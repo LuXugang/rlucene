@@ -840,7 +840,7 @@ fn test_mixed_types_different_threads() -> Result<()> {
   });
 
   for thread_result in thread_results {
-    thread_result.map_err(|_| LuceneError::illegal_state("thread hit exception"))??;
+    thread_result.map_err(|_| LuceneError::illegal_state("thread hit error"))??;
   }
 
   assert!(hit_exc.load(Ordering::SeqCst));

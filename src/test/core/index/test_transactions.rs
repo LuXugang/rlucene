@@ -289,7 +289,7 @@ impl SearcherThread {
         Ok(())
       })();
       if let Err(error) = open_result {
-        // can be rethrown as RuntimeException if it happens during a close listener
+        // In Java this can be rethrown as `RuntimeException` when it happens in a close listener.
         if !error.to_string().contains("on purpose") {
           return Err(error);
         }
@@ -361,7 +361,7 @@ fn test_transactions() -> Result<()> {
   dir1.set_fail_on_open_input(false);
   dir2.set_fail_on_open_input(false);
 
-  // We throw exceptions in deleteFile, which creates
+  // We return errors from `delete_file`, which creates
   // leftover files:
   dir1.set_assert_no_unrefenced_files_on_close(false);
   dir2.set_assert_no_unrefenced_files_on_close(false);

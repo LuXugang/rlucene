@@ -40,7 +40,7 @@ pub trait RateLimiter: Send + Sync {
   /**
    * Pauses, if necessary, to keep the instantaneous IO rate at or below the target.
    *
-   * <p>Note: the implementation is thread-safe
+   * Note: the implementation is thread-safe.
    *
    * Returns the pause time in nanoseconds.
    */
@@ -86,7 +86,7 @@ pub struct SimpleRateLimiter {
 }
 
 impl SimpleRateLimiter {
-  /** mbPerSec is the MB/sec max IO rate */
+  /** `mb_per_sec` is the maximum I/O rate in MB/s. */
   pub fn new(mb_per_sec: f64) -> Self {
     let limiter = Self {
       mb_per_sec: AtomicU64::new(0),
@@ -160,13 +160,8 @@ impl RateLimiter for SimpleRateLimiter {
 
     let mut cur = start;
 
-    // While loop because Thread.sleep doesn't always sleep
-    // enough:
-    // NOTE: using park_timeout instead of sleep so that the thread can be
-    // interrupted by another thread calling unpark(), analogous to Java's
-    // Thread.interrupt() which interrupts Thread.sleep(). In Java this returns
-    // Java reports thread interruption; Rust's `park_timeout` returns early without
-    // error, and the loop re-checks the condition.
+    // `park_timeout` may return before the deadline when another thread calls
+    // `unpark`, so keep checking the remaining duration in a loop.
     loop {
       match target.checked_duration_since(cur) {
         Some(pause_dur) if pause_dur > Duration::ZERO => {

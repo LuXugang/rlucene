@@ -215,7 +215,7 @@ impl BigIntegerPoint {
   ///
   /// # Arguments
   ///
-  /// * `field` - Field name. must not be `null`.
+  /// * `field` - Field name.
   /// * `values` - All values to match.
   pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
   where

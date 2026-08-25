@@ -3974,7 +3974,7 @@ where
   )?;
   if reader.max_doc()? != doc_map.size() {
     return Err(LuceneError::illegal_argument(format!(
-      "reader.maxDoc() should be equal to docMap.size(), got {} != {}",
+      "reader.max_doc() should equal doc_map.len(), got {} != {}",
       reader.max_doc()?,
       doc_map.size()
     )));

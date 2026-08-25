@@ -40,12 +40,12 @@ pub trait DocIdSetIteratorExtensions {
   }
 }
 
-/// This abstract struct defines methods to iterate over a set of non-decreasing
-/// document IDs. Note that this struct assumes it iterates on document IDs, and
+/// This trait defines methods to iterate over a set of non-decreasing document
+/// IDs. It assumes implementations iterate on document IDs, and
 /// therefore [`NO_MORE_DOCS`] is set to its constant value to be used as a
 /// sentinel object.
 ///
-/// Implementations of this struct are expected to treat `i32::MAX` as an
+/// Implementations of this trait are expected to treat `i32::MAX` as an
 /// invalid value.
 pub trait DocIdSetIterator: DocIdSetIteratorExtensions {
   /// Returns the following:

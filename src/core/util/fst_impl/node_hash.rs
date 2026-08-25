@@ -69,7 +69,7 @@ where
     }
 
     let ram_limit_bytes = if ram_limit_mb >= (i64::MAX as f64) / 1024.0 / 1024.0 {
-      // quietly truncate to Long.MAX_VALUE in bytes too
+      // Quietly truncate to `i64::MAX` bytes too.
       i64::MAX
     } else {
       (ram_limit_mb * 1024.0 * 1024.0) as i64
@@ -598,7 +598,7 @@ where
         },
         _ => {
           return Err(LuceneError::illegal_state(format!(
-            "unhandled scratchArc.nodeFlag() {}",
+            "unhandled scratch_arc.node_flag() {}",
             self.scratch_arc.node_flags()
           )));
         },

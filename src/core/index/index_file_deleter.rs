@@ -290,7 +290,7 @@ where
     let error = tragic_arc.get();
     if let Some(e) = error {
       let mut error = LuceneError::already_closed(
-        "refusing to delete any files: this IndexWriter hit an unrecoverable exception",
+        "refusing to delete any files: this IndexWriter encountered an unrecoverable error",
       );
       error.add_suppressed(e.clone());
       return Err(error);
@@ -311,7 +311,7 @@ where
       },
     }
   }
-  /// Remove the CommitPoints in the commitsToDelete List by DecRef'ing all files from each SegmentInfos.
+  /// Removes pending commit points by decrementing every referenced segment file.
   fn delete_commits(&mut self) -> Result<()> {
     #[cfg(test)]
     let _execution_scope = ExecutionScope::enter(
@@ -455,7 +455,7 @@ where
       ExecutionMethod::Checkpoint,
     );
     // In Java Lucene, this method should be called while synchronized on IndexWriter instance.
-    // In Rust Lucene, IndexFileDeleter under IndexWriter's Inner Mutex, So it is similar to Java Lucene's `assert Thread.holdsLock(IndexWriter);`
+    // `IndexFileDeleter` runs while the writer's inner mutex is held.
     let t0 = std::time::Instant::now();
 
     {

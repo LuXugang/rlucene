@@ -261,7 +261,7 @@ fn test_big_int_special_values() -> Result<()> {
     let offset = encoded[i].offset;
     NumericUtils::big_int_to_sortable_bytes(
       value,
-      4, // Integer.BYTES = 4
+      4, // `INT_BYTES` is 4.
       encoded[i].bytes.as_mut_slice(),
       offset,
     )?;

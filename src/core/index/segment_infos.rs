@@ -1262,7 +1262,7 @@ pub trait FindSegmentsFile {
 
             if get_info_stream().is_some() {
               message(&format!(
-                "primary Exception on '{}': {}; will retry: gen = {}",
+                "primary error on '{}': {}; will retry: gen = {}",
                 segment_file_name, error_message, gen_
               ))
               .unwrap_or_default();

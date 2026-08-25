@@ -370,7 +370,7 @@ where
   Ok(())
 }
 
-/// Port of Java TestIndexWriterMergePolicy.assertSetters(MergePolicy)
+/// Verifies the merge-policy setter behavior.
 const EPSILON: f64 = 1e-14;
 
 fn assert_setters<D, P>(lmp: &mut P) -> Result<()>

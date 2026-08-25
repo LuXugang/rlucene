@@ -277,7 +277,7 @@ mod compression_numeric_encoding_tests {
       out.reset()?;
     }
 
-    // round-trip random double values
+    // Round-trip random `f64` values.
     let mut rng = random();
     for _ in 0..100_000 {
       let x = rng.random::<f64>() * (rng.random_range(0..100) as f64 - 50.0);

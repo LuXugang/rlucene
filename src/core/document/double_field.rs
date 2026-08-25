@@ -80,7 +80,7 @@ impl DoubleField {
   /// # Arguments
   ///
   /// * `name` - Field name.
-  /// * `value` - The double value.
+  /// * `value` - The `f64` value.
   /// * `stored` - Whether to store the field.
   pub fn new<T>(name: T, value: f64, stored: Store) -> Result<DoubleField>
   where
@@ -115,7 +115,7 @@ impl DoubleField {
     }
   }
 
-  /// Create a query for matching an exact double value.
+  /// Create a query for matching an exact `f64` value.
   ///
   /// # Arguments
   ///
@@ -128,7 +128,7 @@ impl DoubleField {
     Self::new_range_query(field, value, value)
   }
 
-  /// Create a range query for double values.
+  /// Create a range query for `f64` values.
   ///
   /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
   /// `lower_value = f64::NEG_INFINITY` or `upper_value = f64::INFINITY`.

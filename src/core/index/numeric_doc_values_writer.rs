@@ -48,7 +48,7 @@ use std::cell::Cell;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-/// Buffers up pending long per doc, then flushes when segment flushes.
+/// Buffers pending `i64` values per document, then writes them during segment flush.
 pub(crate) struct NumericDocValuesWriter {
   pending: Builder,
   final_values: Option<PackedLongValues>,

@@ -42,9 +42,9 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
-/// Provides an interface for accessing an index leaf.
+/// Provides a trait for accessing an index leaf.
 ///
-/// Search of an index is done entirely through this abstract interface, so that
+/// Search of an index is done entirely through this trait, so that
 /// any implementation is searchable. Index readers implemented by this trait do
 /// not consist of several sub-readers; they are atomic. They support retrieval
 /// of stored fields, doc values, terms, and postings.

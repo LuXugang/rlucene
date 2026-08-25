@@ -53,7 +53,7 @@ use std::rc::Rc;
 /// less. Leaf nodes may straddle the two bottom levels of the binary tree.
 /// Values that fall exactly on a cell boundary may be in either cell.
 ///
-/// The number of dimensions can be 1 to 8, but every `byte[]` value is fixed
+/// The number of dimensions can be 1 to 8, but every byte-slice value is fixed
 /// length.
 ///
 /// This consumes heap during writing: it allocates a `Vec<i64>` (`num_leaves`
@@ -537,7 +537,7 @@ where
     if (self.config.bytes_per_dim as u64) * (num_leaves as u64) > ArrayUtil::MAX_ARRAY_LENGTH as u64
     {
       return Err(LuceneError::illegal_state(format!(
-        "too many nodes; increase config.maxPointsInLeafNode() (currently {}) and reindex",
+        "too many nodes; increase config.max_points_in_leaf_node() (currently {}) and reindex",
         self.config.max_points_in_leaf_node
       )));
     }
@@ -590,7 +590,7 @@ where
     // Make sure the math above "worked":
     debug_assert!(
       self.point_count / num_leaves as i64 <= self.config.max_points_in_leaf_node as i64,
-      "point_count={} numLeaves={} config.maxPointsInLeafNode()={}",
+      "point_count={} num_leaves={} config.max_points_in_leaf_node()={}",
       self.point_count,
       num_leaves,
       self.config.max_points_in_leaf_node
@@ -688,12 +688,12 @@ where
     }))
   }
   /// Packs the two arrays, representing a semi-balanced binary tree, into a
-  /// compact byte[] structure.
+  /// compact byte structure.
   fn pack_index(&self, leaf_nodes: &BKDTreeLeafNodesEnum) -> Result<Vec<u8>> {
     // Reused while packing the index
     let mut write_buffer = ByteBuffersDataOutput::new_resettable_instance();
 
-    // This is the "file" we append the byte[] to:
+    // This is the "file" to which the bytes are appended.
     let mut blocks: Vec<Option<Vec<u8>>> = Vec::new();
     let mut last_split_values = vec![0u8; self.config.bytes_per_dim * self.config.num_index_dims];
 
@@ -710,7 +710,7 @@ where
       leaf_nodes.num_leaves(),
     )?;
 
-    // Compact the byte[] blocks into single byte index:
+    // Compact the byte blocks into a single byte index.
     let mut index = vec![0u8; total_size];
     let mut upto = 0;
     for block in &blocks {
@@ -742,7 +742,7 @@ where
     block_len
   }
   /// lastSplitValues is per-dimension split value previously seen; we use
-  /// this to prefix-code the split byte[] on each inner node
+  /// this to prefix-code the split bytes on each inner node
   #[allow(clippy::too_many_arguments)]
   fn recurse_pack_index(
     &self,
@@ -2104,7 +2104,7 @@ where
   pub fn new(data_out: &'a mut O, bkd_writer: &'a mut BKDWriter<D>) -> Result<Self> {
     if bkd_writer.config.num_index_dims != 1 {
       return Err(LuceneError::unsupported_operation(format!(
-        "config.numIndexDims() must be 1 but got {}",
+        "config.num_index_dims() must be 1 but got {}",
         bkd_writer.config.num_index_dims
       )));
     }

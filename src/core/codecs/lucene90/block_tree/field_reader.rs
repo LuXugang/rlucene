@@ -313,7 +313,7 @@ where
   }
 }
 
-/// Decodes a variable-length `byte[]` in MSB order back to a `long`,
+/// Decodes variable-length bytes in MSB order back to an `i64`,
 /// as written by
 /// [`Lucene90BlockTreeTermsWriter::write_msb_vlong`](crate::core::codecs::lucene90::block_tree::lucene90_block_tree_terms_writer::write_msb_vlong).
 ///

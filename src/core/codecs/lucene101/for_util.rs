@@ -20,11 +20,11 @@ use crate::core::store::{DataOutput, IndexInput};
 use crate::core::util::error::lucene_error::Result;
 /// Inspired by [bitpacking](https://fulmicoton.com/posts/bitpacking/)
 ///
-/// Encodes multiple integers into a `long` to achieve SIMD-like speedups.
+/// Encodes multiple integers into an `i64` to achieve SIMD-like speedups.
 ///
-/// - If `bits_per_value <= 8`, then 8 integers are packed into each `long`.
-/// - If `bits_per_value <= 16`, then 4 integers per `long`.
-/// - Otherwise, 2 integers per `long`.
+/// - If `bits_per_value <= 8`, then 8 integers are packed into each `i64`.
+/// - If `bits_per_value <= 16`, then 4 integers per `i64`.
+/// - Otherwise, 2 integers per `i64`.
 pub struct ForUtil {
   tmp: Vec<i32>,
 }

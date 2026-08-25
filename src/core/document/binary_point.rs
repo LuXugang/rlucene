@@ -85,7 +85,7 @@ impl BinaryPoint {
     let expected = field_type.point_dimension_count() * field_type.point_num_bytes();
     if packed_point.len() != expected {
       return Err(LuceneError::illegal_argument(format!(
-        "packedPoint is length={} but type.pointDimensionCount()={} and type.pointNumBytes()={}",
+        "packed_point has length={} but field_type.point_dimension_count()={} and field_type.point_num_bytes()={}",
         packed_point.len(),
         field_type.point_dimension_count(),
         field_type.point_num_bytes()
@@ -268,7 +268,7 @@ impl BinaryPoint {
         None => bytes_per_dim = Some(value.len()),
         Some(bytes_per_dim) if value.len() != bytes_per_dim => {
           return Err(LuceneError::illegal_argument(format!(
-            "all byte[] must be the same length, but saw {} and {}",
+            "all byte slices must be the same length, but saw {} and {}",
             bytes_per_dim,
             value.len()
           )));
@@ -339,7 +339,7 @@ impl FieldBase for BinaryPoint {
 
   fn set_int_value(&mut self, _value: i32) -> Result<()> {
     Err(LuceneError::illegal_argument(
-      "cannot set int value on BinaryPoint".to_string(),
+      "cannot set an i32 value on BinaryPoint".to_string(),
     ))
   }
 }

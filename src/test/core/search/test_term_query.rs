@@ -146,7 +146,7 @@ fn test_create_weight_does_not_seek_if_scores_are_not_needed() -> Result<()> {
     no_seek_searcher.rewrite(query.clone())?,
     ScoreMode::CompleteNoScores,
     1.0,
-  )?; // no exception
+  )?; // no error
 
   let searcher = IndexSearcher::new(reader.clone().get_context()?)?;
   // Use a collector rather than searcher.count(), which would just read the

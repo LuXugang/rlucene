@@ -136,7 +136,7 @@ fn test_rolling_updates() -> Result<()> {
         assert_eq!(
           size,
           reader.num_docs()?,
-          "applyDeletions={} r.numDocs()={} vs SIZE={}",
+          "apply_deletions={} reader.num_docs()={} vs size={}",
           apply_deletions,
           reader.num_docs()?,
           size

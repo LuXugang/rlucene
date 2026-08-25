@@ -94,7 +94,7 @@ where
     let last_commit_segment_count = last_commit.get_segment_count();
     assert_eq!(
       reader_segment_count, last_commit_segment_count,
-      "lastCommit.segmentCount()={} vs IndexReader.segmentCount={}",
+      "last_commit.segment_count()={} vs IndexReader segment count={}",
       last_commit_segment_count, reader_segment_count
     );
     r.close()?;

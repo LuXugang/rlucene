@@ -24,7 +24,7 @@ use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use std::sync::Arc;
 
-/** A `ConcurrentMergeScheduler` hook that ignores expected merge exceptions. */
+/** A `ConcurrentMergeScheduler` hook that ignores expected merge errors. */
 #[derive(Clone)]
 pub struct SuppressingConcurrentMergeScheduler {
   expected: ExpectedMergeException,

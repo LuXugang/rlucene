@@ -45,7 +45,7 @@ use std::sync::Arc;
 struct TestParallelReaderEmptyIndex;
 
 /// Creates two empty indexes and wraps a ParallelReader around. Adding this reader to a new index
-/// should not throw any exception.
+/// should not return an error.
 #[test]
 fn test_empty_index() -> Result<()> {
   let mut random = random();
@@ -96,7 +96,7 @@ fn test_empty_index() -> Result<()> {
 }
 
 /// This method creates an empty index (numFields=0, numDocs=0) but is marked to have TermVectors.
-/// Adding this index to another index should not throw any exception.
+/// Adding this index to another index should not return an error.
 #[test]
 fn test_empty_index_with_vectors() -> Result<()> {
   let mut random = random();

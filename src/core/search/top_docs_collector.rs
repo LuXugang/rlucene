@@ -34,7 +34,7 @@ pub static EMPTY_TOP_DOCS: LazyLock<TopDocs<ScoreDoc>> =
 /// In that case, provide all relevant methods to avoid inconsistent behavior.
 ///
 /// # Notes
-/// - This trait is analogous to Lucene's `TopDocsCollector` abstract base class.
+/// - This trait defines the shared `TopDocsCollector` behavior.
 /// - The associated [`TopDocs`] represents the search results (hits + metadata).
 /// - The `total_hits` counter and the `PriorityQueue` are the common state shared by all implementations.
 pub trait TopDocsCollector: Collector {
@@ -64,7 +64,7 @@ pub trait TopDocsCollector: Collector {
   /// - or because the arguments to [`TopDocsCollector::top_docs`] were invalid.
   ///
   /// # Notes
-  /// This method is the Rust equivalent of Lucene's `TopDocsCollector.newTopDocs(ScoreDoc[] results, int start)`.
+  /// Builds top docs from a score-doc slice and a starting offset.
   fn new_top_docs(&self, results: Option<Vec<Self::Item>>, _start: i32) -> Self::TopDocsLike
   where
     Self: Sized;

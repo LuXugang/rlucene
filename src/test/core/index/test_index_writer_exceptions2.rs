@@ -60,7 +60,7 @@ use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
 
 /**
- * Causes a bunch of non-aborting and aborting exceptions and checks that no index corruption is
+ * Causes a bunch of non-aborting and aborting errors and checks that no index corruption is
  * ever created.
  */
 #[allow(dead_code)] // for quick search
@@ -126,14 +126,14 @@ fn test_basics() -> Result<()> {
   dir.set_throttling(Throttling::Never);
   dir.set_use_slow_open_closers(false);
 
-  // log all exceptions we hit, in case we fail (for debugging)
+  // log all errors we hit, in case we fail (for debugging)
   let mut exception_log = String::new();
 
-  // create lots of non-aborting exceptions with a broken analyzer
+  // create lots of non-aborting errors with a broken analyzer
   let analyzer_seed = random.random();
   let analyzer = Arc::new(Exceptions2Analyzer::new(analyzer_seed));
 
-  // create lots of aborting exceptions with a broken codec
+  // create lots of aborting errors with a broken codec
   // we don't need a random codec, as we aren't trying to find bugs in the codec here.
   let codec_seed = random.random();
   let codec: Codecs = if random_multiplier() > 1 {
@@ -261,7 +261,7 @@ fn test_basics() -> Result<()> {
               },
               _ => error.to_string(),
             };
-            if message.starts_with("Fake IOException") {
+            if message.starts_with("Fake I/O error") {
               let _ = writeln!(
                 exception_log,
                 "\nTEST: got expected fake exc:{message}\n{error:?}"
@@ -335,7 +335,7 @@ fn test_basics() -> Result<()> {
               },
               _ => error.to_string(),
             };
-            if message.starts_with("Fake IOException") {
+            if message.starts_with("Fake I/O error") {
               let _ = writeln!(
                 exception_log,
                 "\nTEST: got expected fake exc:{message}\n{error:?}"
@@ -355,7 +355,7 @@ fn test_basics() -> Result<()> {
             let reader =
               directory_reader::open_with_writer_deletes(&writer, random.random_bool(0.5), false)?;
             let check_result = TestUtil::check_reader(&reader);
-            // Java's closeWhileHandlingException swallows close failures here.
+            // The close helper suppresses close failures here.
             let _ = reader.close();
             check_result?;
           } else {
@@ -387,7 +387,7 @@ fn test_basics() -> Result<()> {
               },
               _ => error.to_string(),
             };
-            if message.starts_with("Fake IOException") {
+            if message.starts_with("Fake I/O error") {
               let _ = writeln!(
                 exception_log,
                 "\nTEST: got expected fake exc:{message}\n{error:?}"
@@ -410,7 +410,7 @@ fn test_basics() -> Result<()> {
           },
           _ => error.to_string(),
         };
-        if message.starts_with("Fake IOException") {
+        if message.starts_with("Fake I/O error") {
           let _ = writeln!(
             exception_log,
             "\nTEST: got expected fake exc:{message}\n{error:?}"
@@ -427,19 +427,19 @@ fn test_basics() -> Result<()> {
   match result {
     Ok(Ok(())) => {},
     Ok(Err(error)) => {
-      println!("Unexpected exception: dumping fake-exception-log:...");
+      println!("Unexpected error: dumping fake-error-log:...");
       println!("{exception_log}");
       return Err(error);
     },
     Err(payload) => {
-      println!("Unexpected exception: dumping fake-exception-log:...");
+      println!("Unexpected error: dumping fake-error-log:...");
       println!("{exception_log}");
       resume_unwind(payload);
     },
   }
 
   if std::env::var("tests.verbose").is_ok_and(|value| value == "true") {
-    println!("TEST PASSED: dumping fake-exception-log:...");
+    println!("TEST PASSED: dumping fake-error-log:...");
     println!("{exception_log}");
   }
   Ok(())

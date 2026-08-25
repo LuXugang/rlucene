@@ -882,7 +882,7 @@ impl RegExp {
   /// Creates a node that will compute the complement of an arbitrary
   /// expression.
   ///
-  /// @deprecated Will be removed in Lucene 11
+  /// Deprecated and scheduled for removal in Lucene 11.
   #[deprecated(note = "Will be removed in Lucene 11")]
   fn make_deprecated_complement(flags: i32, exp: RegExp) -> RegExp {
     RegExp::new_container_node(flags, RegExpKind::DeprecatedComplement, Some(exp), None)
@@ -1336,7 +1336,7 @@ pub enum RegExpKind {
   DeprecatedComplement,
 }
 /// Custom callback trait for methods with the signature:
-/// `RegExp(int int1, RegExp exp1, RegExp exp2)`
+/// `fn(i32, RegExp, RegExp) -> RegExp`
 trait MakeRegexGroup {
   fn get(&self, int1: i32, exp1: RegExp, exp2: RegExp) -> RegExp;
 }

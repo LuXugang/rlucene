@@ -248,7 +248,8 @@ impl SortedSetDocValues for SortedSetDocValuesWriterDocIdSetIterator {
   type SortedDocValues = DummySortedDocValues;
 }
 
-/// Buffers up pending `[u8]`s per doc, deref and sorting via int ord, then flushes when segment flushes.
+/// Buffers pending byte slices per document, sorts them by `i32` ordinal, then writes them during
+/// segment flush.
 pub(crate) struct SortedSetDocValuesWriter {
   hash: DirectBytesRefHash,
   frozen_hash: Option<Arc<DirectBytesRefHash>>,

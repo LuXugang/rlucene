@@ -59,7 +59,7 @@ pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
   ft
 });
 
-/// Create a new sort field for long values.
+/// Create a new sort field for `i64` values.
 ///
 /// # Arguments
 ///
@@ -100,7 +100,7 @@ impl LongField {
   /// # Arguments
   ///
   /// * `name` - Field name.
-  /// * `value` - The long value.
+  /// * `value` - The `i64` value.
   /// * `stored` - Whether to store the field.
   pub fn new<T>(name: T, value: i64, stored: Store) -> Result<LongField>
   where
@@ -119,7 +119,7 @@ impl LongField {
     })
   }
 
-  /// Create a query for matching an exact long value.
+  /// Create a query for matching an exact `i64` value.
   ///
   /// # Arguments
   ///
@@ -135,7 +135,7 @@ impl LongField {
     Self::new_range_query(field, value, value)
   }
 
-  /// Create a range query for long values.
+  /// Create a range query for `i64` values.
   ///
   /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
   /// `lower_value = i64::MIN` or `upper_value = i64::MAX`.
@@ -228,7 +228,7 @@ impl IndexableField for LongField {
         Ok(Some(Cow::Owned(BytesRef::from_bytes(bytes))))
       },
       _ => Err(LuceneError::illegal_state(
-        "parent_field`s fields_data does not have a long value",
+        "parent_field's fields_data does not contain an i64 value",
       )),
     }
   }

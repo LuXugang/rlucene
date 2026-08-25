@@ -42,7 +42,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
 
-/// Buffers up pending byte[][] value(s) per doc, then flushes when segment flushes.
+/// Buffers pending byte values per document, then writes them during a segment flush.
 pub(crate) struct PointValuesWriter {
   field_info: Arc<FieldInfo>,
   bytes_out: PagedBytesDataOutput,

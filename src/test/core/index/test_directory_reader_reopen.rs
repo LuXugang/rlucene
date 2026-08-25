@@ -1078,9 +1078,7 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
   let r = directory_reader::open(dir.clone())?;
 
   // Delete 1 doc from the segment:
-  // System.out.println("TEST: now delete");
   w.delete_documents_with_terms(vec![Term::from_text("id", "id")])?;
-  // System.out.println("TEST: now commit");
   w.commit()?;
 
   // Fail when reopen tries to open the live docs file:
@@ -1090,7 +1088,6 @@ fn test_over_dec_ref_during_reopen() -> Result<()> {
   }));
 
   // Now reopen:
-  // System.out.println("TEST: now reopen");
   match directory_reader::open_if_changed(&r) {
     Ok(_) => panic!("expected FakeIOException"),
     Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {

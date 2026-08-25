@@ -19,16 +19,16 @@ use std::hash::Hash;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-/// BitSet of fixed length (`numBits`), backed by accessible
-/// ([`get_bits`](LongBitSet::get_bits)) `&[i64]`, accessed with a `long` index.
+/// BitSet of fixed length (`num_bits`), backed by an accessible
+/// ([`get_bits`](LongBitSet::get_bits)) `&[i64]`, accessed with a `usize` index.
 /// Use it only if you intend to store more than 2.1B bits, otherwise you should
 /// use [`FixedBitSet`](crate::core::util::fixed_bit_set::FixedBitSet).
 #[derive(Debug)]
 pub struct LongBitSet {
-  bits: Vec<i64>,  // Array of longs holding the bits
+  bits: Vec<i64>,  // `i64` words holding the bits.
   num_bits: usize, // The number of bits in use
-  num_words: i32,  /* The exact number of longs needed to hold numBits (<=
-                    * bits.length)  */
+  // The exact number of words needed to hold `num_bits` (`<= bits.len()`).
+  num_words: i32,
 }
 impl LongBitSet {
   pub const MAX_NUM_BITS: usize = 64 * ArrayUtil::MAX_ARRAY_LENGTH;
@@ -36,7 +36,7 @@ impl LongBitSet {
   /// returns the given bitset, otherwise returns a new [`LongBitSet`]
   /// which can hold the requested number of bits.
   ///
-  /// **NOTE:** the returned bitset reuses the underlying `long[]` of the
+  /// **NOTE:** the returned bitset reuses the underlying `Vec<i64>` of the
   /// given `bits` if possible. Also, calling
   /// [`length()`](LongBitSet::length) on the returned bitset may return a
   /// value greater than `num_bits`.
@@ -83,14 +83,14 @@ impl LongBitSet {
       num_words,
     })
   }
-  /// Creates a new [`LongBitSet`] using the provided `long[]` array as
-  /// backing store. The `stored_bits` array must be large enough to
+  /// Creates a new [`LongBitSet`] using the provided `Vec<i64>` as
+  /// backing storage. `stored_bits` must be large enough to
   /// accommodate the `num_bits` specified, but may be larger. In that
   /// case the 'extra' or 'ghost' bits must be clear (or they may provoke
   /// spurious side-effects).
   ///
   /// # Arguments
-  /// * `stored_bits` - the array to use as backing store
+  /// * `stored_bits` - The vector to use as backing storage.
   /// * `num_bits` - the number of bits actually needed
   pub fn from_bits(stored_bits: Vec<i64>, num_bits: usize) -> Result<Self> {
     let num_words = Self::bits2words(num_bits)?;

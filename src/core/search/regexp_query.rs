@@ -104,7 +104,7 @@ impl RegexpQuery {
   /// - `syntax_flags`: optional RegExp syntax features from [`RegExp`]. The automaton for the regexp
   ///   can result in. Set higher to allow more complex queries and lower to prevent memory
   ///   exhaustion.
-  /// - `match_flags`: boolean 'or' of match behavior options such as case insensitivity
+  /// - `match_flags`: bitwise OR of match behavior options such as case insensitivity
   /// - `determinize_work_limit`: maximum effort to spend while compiling the automaton from this
   ///   regexp. Set higher to allow more complex queries and lower to prevent memory exhaustion.
   ///   Use [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`] as a decent default if you don't
@@ -157,7 +157,7 @@ impl RegexpQuery {
   ///
   /// - `term`: regular expression.
   /// - `syntax_flags`: optional RegExp features from [`RegExp`]
-  /// - `match_flags`: boolean 'or' of match behavior options such as case insensitivity
+  /// - `match_flags`: bitwise OR of match behavior options such as case insensitivity
   /// - `provider`: custom AutomatonProvider for named automata
   /// - `determinize_work_limit`: maximum effort to spend while compiling the automaton from this
   ///   regexp. Set higher to allow more complex queries and lower to prevent memory exhaustion.
@@ -191,7 +191,7 @@ impl RegexpQuery {
   ///
   /// - `term`: regular expression.
   /// - `syntax_flags`: optional RegExp features from [`RegExp`]
-  /// - `match_flags`: boolean 'or' of match behavior options such as case insensitivity
+  /// - `match_flags`: bitwise OR of match behavior options such as case insensitivity
   /// - `provider`: custom AutomatonProvider for named automata
   /// - `determinize_work_limit`: maximum effort to spend while compiling the automaton from this
   ///   regexp. Set higher to allow more complex queries and lower to prevent memory exhaustion.

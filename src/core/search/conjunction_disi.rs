@@ -90,7 +90,7 @@ where
       debug_assert_eq!(doc, self.all_disi[self.lead1].doc_id());
       // find agreement between the two iterators with the lower costs
       // we special case them because they do not need the
-      // 'other.docID() < doc' check that the 'others' iterators need
+      // `other.doc_id() < doc` check that the remaining iterators need.
       let next2 = self.all_disi[self.lead2].advance(doc)?;
       if next2 != doc {
         doc = self.all_disi[self.lead1].advance(next2)?;

@@ -59,12 +59,8 @@ pub trait Scorable: FixedScore {
     Ok(vec![])
   }
 
-  /// In Java Lucene, some methods define their parameters as [`Scorable`],
-  /// but internally use a runtime type check to cast them to `Scorer`,
-  /// then call `Scorer::default_cost`.
-  /// Therefore, when implementing in Rust, if a struct implements Scorer,
-  /// it must also implement the Scorable trait’s cost method,
-  /// and the implementation should delegate to Scorer’s default_cost() method for consistency.
+  /// Implementations that also implement `Scorer` should delegate this method
+  /// to `Scorer::default_cost` for consistent cost reporting.
   fn cost(&self) -> Result<i64> {
     Err(LuceneError::unsupported_operation(""))
   }

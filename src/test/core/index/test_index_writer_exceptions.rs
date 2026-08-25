@@ -135,8 +135,6 @@ impl Iterator for DocCopyIterator {
   }
 }
 
-/* private field types */
-/* private field types */
 static CUSTOM_1: LazyLock<FieldType> = LazyLock::new(|| {
   let mut field_type =
     FieldType::from_ref(&*TEXT_NOT_STORED).expect("copying TextField type should succeed");
@@ -361,9 +359,9 @@ where
 
       DO_FAIL.with(|do_fail| do_fail.set(false));
 
-      // After a possible exception (above) I should be able
+      // After a possible error (above) I should be able
       // to add a new document without hitting an
-      // exception:
+      // error:
       self
         .writer
         .update_document_with_term(Some(id_term), doc.clone())?;
@@ -828,7 +826,7 @@ where
   }
 }
 
-// Throws IOException during MockDirectoryWrapper.sync
+// Returns an I/O error from `MockDirectoryWrapper::sync`.
 #[derive(Clone, Default)]
 struct FailOnlyInSync {
   do_fail: Arc<AtomicBool>,
@@ -1046,7 +1044,7 @@ where
     if self.random.lock().random_range(0..10) == 0
       && context.contains_method(ExecutionMethod::RollbackInternal)
     {
-      return Err(LuceneError::io(Error::other("a fake IOException")));
+      return Err(LuceneError::io(Error::other("a fake I/O error")));
     }
     Ok(())
   }
@@ -1082,7 +1080,7 @@ where
     }
     if context.contains_method(ExecutionMethod::Merge) {
       self.did_fail.store(true, Ordering::SeqCst);
-      return Err(LuceneError::io(Error::other("a fake IOException")));
+      return Err(LuceneError::io(Error::other("a fake I/O error")));
     }
     Ok(())
   }
@@ -1246,7 +1244,7 @@ fn test_random_exceptions() -> Result<()> {
     writer.rollback()?;
   }
 
-  // Confirm that when doc hits exception partway through tokenization, it's deleted:
+  // Confirm that when doc hits error partway through tokenization, it's deleted:
   let reader = directory_reader::open(dir.clone())?;
   let count = reader.doc_freq(&Term::from_text("content4", "aaa"))?;
   let count2 = reader.doc_freq(&Term::from_text("content4", "ddd"))?;
@@ -1300,7 +1298,7 @@ fn test_random_exceptions_threads() -> Result<()> {
     writer.rollback()?;
   }
 
-  // Confirm that when doc hits exception partway through tokenization, it's deleted:
+  // Confirm that when doc hits error partway through tokenization, it's deleted:
   let reader = directory_reader::open(dir.clone())?;
   let count = reader.doc_freq(&Term::from_text("content4", "aaa"))?;
   let count2 = reader.doc_freq(&Term::from_text("content4", "ddd"))?;
@@ -1465,7 +1463,7 @@ fn test_exception_from_token_stream() -> Result<()> {
   let term = Term::from_text("content", "aa");
   assert_eq!(3, reader.doc_freq(&term)?);
 
-  // Make sure the doc that hit the exception was marked
+  // Make sure the doc that hit the error was marked
   // as deleted:
   let mut term_docs =
     TestUtil::docs_with_reader(&mut random, &reader, term.field(), term.bytes(), None, 0)?
@@ -2209,7 +2207,7 @@ fn test_term_vector_exceptions() -> Result<()> {
               error.to_string().contains(FailOnTermVectors::EXC_MSG),
               "unexpected error: {error:?}"
             );
-            // This is an aborting exception, so writer is closed:
+            // This is an aborting error, so writer is closed:
             assert!(writer.is_deleter_closed()?);
             assert!(INDEX_WRITER_ACCESS.is_closed(&writer));
             dir.as_ref().close()?;
@@ -2361,7 +2359,7 @@ fn test_update_docs_non_aborting_exception() -> Result<()> {
     writer.add_document(&mut random, doc)?;
   }
 
-  // Use addDocs (no exception) to get docs in the index:
+  // Use addDocs (no error) to get docs in the index:
   let mut docs = Vec::new();
   let num_docs2 = random.random_range(0..25);
   for doc_count in 0..num_docs2 {
@@ -2548,10 +2546,10 @@ fn test_exception_on_ctor() -> Result<()> {
 #[test]
 fn test_too_many_file_exception() -> Result<()> {
   let mut random = random();
-  // Create failure that throws Too many open files exception randomly
+  // Create a failure that randomly returns a "too many open files" I/O error.
   let failure = TooManyFilesFailure::new(random.random());
   let dir = Arc::new(new_mock_directory(&mut random)?);
-  // The exception is only thrown on open input
+  // The error is only returned while opening input.
   dir.set_fail_on_open_input(true);
   dir.fail_on(Box::new(failure.clone()));
 
@@ -2633,7 +2631,7 @@ fn test_exception_during_rollback() -> Result<()> {
     "rollback before checkpoint"
   };
 
-  // infostream that throws exception during rollback
+  // Info stream that returns an error during rollback.
   let dir = Arc::new(new_mock_directory(&mut random)?); // we want to ensure we don't leak any locks or file handles
   let mut config = IndexWriterConfig::new()?;
   config.set_info_stream(InfoStreamEnum::Custom(Box::new(EvilRollbackInfoStream {
@@ -2663,12 +2661,12 @@ fn test_exception_during_rollback() -> Result<()> {
 
   let error = writer
     .rollback()
-    .expect_err("rollback test point must throw");
+    .expect_err("rollback test point must return an error");
   assert_eq!("BOOM!", error.to_string());
 
   reader.close()?;
 
-  // even though we hit exception: we are closed, no locks or files held, index in good state
+  // even though we hit error: we are closed, no locks or files held, index in good state
   assert!(INDEX_WRITER_ACCESS.is_closed(&writer));
   let lock = dir.obtain_lock(WRITE_LOCK_NAME)?;
   lock.close()?;
@@ -2712,7 +2710,7 @@ fn test_random_exception_during_rollback() -> Result<()> {
     let _ = writer.rollback();
     reader.close()?;
 
-    // even though we hit exception: we are closed, no locks or files held, index in good state
+    // even though we hit error: we are closed, no locks or files held, index in good state
     assert!(INDEX_WRITER_ACCESS.is_closed(&writer));
     let lock = dir.obtain_lock(WRITE_LOCK_NAME)?;
     lock.close()?;

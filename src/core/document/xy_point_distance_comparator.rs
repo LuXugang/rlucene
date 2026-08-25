@@ -200,7 +200,7 @@ where
         comparator.bottom as f32,
       )?;
       // pre-encode our box to our integer encoding, so we don't have to decode
-      // to double values for uncompetitive hits. This has some cost!
+      // to `f64` values for uncompetitive hits. This has some cost!
       comparator.min_x = XYEncodingUtils::encode(rectangle.min_x)?;
       comparator.max_x = XYEncodingUtils::encode(rectangle.max_x)?;
       comparator.min_y = XYEncodingUtils::encode(rectangle.min_y)?;

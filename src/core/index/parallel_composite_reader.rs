@@ -200,8 +200,8 @@ where
         .map(|leaves| leaves[leaf_index].clone())
         .collect();
 
-      // Pass true for closeSubs and prevent the synthetic throw-away readers
-      // from touching their sub-readers in doClose(). This makes them
+      // Close sub-readers and prevent the synthetic disposable readers
+      // from touching their sub-readers in `close()`. This makes them
       // completely invisible to ref-counting.
       wrapped_leaves.push(ParallelLeafReader::new_with_stored_fields_and_hook(
         true,
@@ -298,7 +298,7 @@ where
       }
     }
 
-    // Finally close our own synthetic readers. Their doClose() implementation
+    // Finally close our own synthetic readers. Their `close()` implementation
     // is intentionally empty, so they never touch the real leaf readers.
     for reader in self.base_composite_reader_base.get_sequential_sub_readers() {
       match reader.close() {

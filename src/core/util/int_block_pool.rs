@@ -59,7 +59,7 @@ impl IntBlockPool {
   }
   /// Expert: Resets the pool to its initial state, while optionally reusing
   /// the first buffer. Buffers that are not reused are reclaimed by
-  /// `ByteBlockPool::Allocator::recycleByteBlocks(byte[][], int, int)`.
+  /// `ByteBlockPool::Allocator::recycle_byte_blocks`.
   /// Buffers can be filled with zeros before recycling them. This is useful
   /// if a slice pool works on top of this int pool and relies on the
   /// buffers being filled with zeros to find the non-zero end of slices.

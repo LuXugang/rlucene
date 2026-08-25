@@ -86,7 +86,7 @@ pub(crate) static TYPE_: LazyLock<FieldType> = LazyLock::new(|| {
 /// `LatLonDocValuesField` instance. If you also need to store the value, you should add a
 /// separate `StoredField` instance.
 ///
-/// **WARNING**: Values are indexed with some loss of precision from the original `double` values
+/// **WARNING**: Values are indexed with some loss of precision from the original `f64` values
 /// (`4.190951585769653E-8` for the latitude component and `8.381903171539307E-8` for
 /// longitude).
 ///

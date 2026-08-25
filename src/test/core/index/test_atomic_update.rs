@@ -165,7 +165,7 @@ impl TestAtomicUpdate {
       match thread_result {
         Ok(Ok(())) => {},
         Ok(Err(err)) => return Err(err),
-        Err(_) => return Err(LuceneError::illegal_state("hit exception from thread")),
+        Err(_) => return Err(LuceneError::illegal_state("hit error from thread")),
       }
     }
 

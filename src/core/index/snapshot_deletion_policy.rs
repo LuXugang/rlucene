@@ -27,7 +27,7 @@ use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be sure to use the instance returned from writer.getConfig().getIndexDeletionPolicy()";
+const MISUSE_MESSAGE: &str = "this instance is not being used by IndexWriter; be sure to use the instance returned from writer.get_config().get_index_deletion_policy()";
 
 /// An [`IndexDeletionPolicy`] that wraps any other [`IndexDeletionPolicy`] and adds the ability to
 /// hold and later release snapshots of an index. While a snapshot is held, the

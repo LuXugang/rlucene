@@ -304,7 +304,6 @@ where
   }
 
   fn init_simple(&mut self) -> Result<()> {
-    // System.err.println("initSimple: doc: "+min.doc);
     self.pq.clear();
 
     // position pps and build queue from list
@@ -325,7 +324,6 @@ where
 
   /// with repeats: not so simple.
   fn init_complex(&mut self) -> Result<bool> {
-    // System.err.println("initComplex: doc: "+min.doc);
     self.place_first_positions()?;
     if !self.advance_repeat_groups()? {
       return Ok(false); // PPs exhausted

@@ -37,7 +37,7 @@ use rand::RngExt;
 use std::io::Cursor;
 use std::sync::{Arc, LazyLock};
 
-/** Test adding to the info stream when there's an exception thrown during field analysis. */
+/** Test adding to the info stream when field analysis returns an error. */
 #[allow(dead_code)] // for quick
 struct TestDocInverterPerFieldErrorInfo;
 
@@ -91,7 +91,7 @@ fn test_no_extra_noise() -> Result<()> {
     "aaa ",
     STORED_TEXT_TYPE.clone(),
   ));
-  // should not throw BadNews
+  // Should not return `BadNews`.
   writer.add_document(doc)?;
   let info_stream = info_bytes_to_string(&print_stream_info_stream);
   assert!(!info_stream.contains("boringFieldName"));

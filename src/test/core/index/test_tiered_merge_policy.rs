@@ -882,8 +882,8 @@ where
 //
 // finally, there are some cases of forceMerge where the expectation is that there be exactly no
 // differences.
-// this should be called after forceDeletesMerges with the boolean always false,
-// Depending on the state, forceMerge may call with the boolean true or false.
+// This should be called after `force_deletes_merges` with the `bool` always false.
+// Depending on the state, `force_merge` may call with either true or false.
 fn check_segments_in_expectations<D>(
   w: &IndexWriter<D>,
   seg_names_before: &[String],

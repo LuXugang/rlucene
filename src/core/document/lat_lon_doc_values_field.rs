@@ -44,13 +44,13 @@ use std::sync::LazyLock;
 
 /// Type for a `LatLonDocValuesField`.
 ///
-/// Each value stores a 64-bit `long` where the upper 32 bits are the encoded latitude, and the
+/// Each value stores an `i64` where the upper 32 bits are the encoded latitude, and the
 /// lower 32 bits are the encoded longitude.
 ///
 /// # See also
 ///
-/// - [`org.apache.lucene.geo.GeoEncodingUtils::decodeLatitude`]
-/// - [`org.apache.lucene.geo.GeoEncodingUtils::decodeLongitude`]
+/// - [`GeoEncodingUtils::decode_latitude`]
+/// - [`GeoEncodingUtils::decode_longitude`]
 pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
   ft.set_doc_values_type(DocValuesType::SortedNumeric)
@@ -71,7 +71,7 @@ pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
 /// If you also need query operations, you should add a separate `LatLonPoint` instance. If you
 /// also need to store the value, you should add a separate `StoredField` instance.
 ///
-/// **WARNING**: Values are indexed with some loss of precision from the original `double` values
+/// **WARNING**: Values are indexed with some loss of precision from the original `f64` values
 /// (4.190951585769653E-8 for the latitude component and 8.381903171539307E-8 for longitude).
 ///
 /// # See also

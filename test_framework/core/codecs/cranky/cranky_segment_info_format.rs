@@ -64,7 +64,7 @@ where
   ) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
-        "Fake IOException from SegmentInfoFormat.write()",
+        "Fake I/O error from SegmentInfoFormat::write()",
       )));
     }
     self.delegate.write(directory, info, context)

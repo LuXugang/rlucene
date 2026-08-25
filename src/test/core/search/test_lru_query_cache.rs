@@ -1796,7 +1796,7 @@ fn test_reader_not_suited_for_caching() -> Result<()> {
   dir.close()
 }
 
-// A query that returns null from Weight.getCacheHelper
+// A query whose weight returns `None` from its cache helper.
 fn no_cache_query() -> Query {
   TestLRUQuery::no_cache().into()
 }

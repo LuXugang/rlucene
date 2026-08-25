@@ -34,8 +34,7 @@ use crate::core::util::error::{
   UnsupportedOperationError,
 };
 
-/// A panic payload that preserves the failures Java would attach to an
-/// `Error` with `Throwable.addSuppressed`.
+/// A panic payload that preserves failures suppressed during cleanup.
 pub(crate) struct PanicWithSuppressed {
   primary: Box<dyn Any + Send>,
   suppressed: Vec<SuppressedFailure>,
@@ -58,16 +57,16 @@ impl PanicWithSuppressed {
     suppressed_panics: Vec<Box<dyn Any + Send>>,
     suppressed_exceptions: Vec<LuceneError>,
   ) -> Self {
-    let mut exceptions = suppressed_exceptions.into_iter();
+    let mut errors = suppressed_exceptions.into_iter();
     let mut suppressed = suppressed_panics
       .into_iter()
       .map(SuppressedFailure::Panic)
       .collect::<Vec<_>>();
-    if let Some(primary) = exceptions.next() {
+    if let Some(primary) = errors.next() {
       suppressed.push(SuppressedFailure::ExceptionWithSuppressed(
         ExceptionWithSuppressed {
           primary,
-          suppressed: exceptions.collect(),
+          suppressed: errors.collect(),
         },
       ));
     }
@@ -241,7 +240,7 @@ impl fmt::Debug for SuppressedFailure {
         .debug_tuple("Panic")
         .field(&LuceneError::panic_payload_message(payload.as_ref()))
         .finish(),
-      Self::Exception(error) => formatter.debug_tuple("Exception").field(error).finish(),
+      Self::Exception(error) => formatter.debug_tuple("Error").field(error).finish(),
       Self::ExceptionWithSuppressed(error) => error.fmt(formatter),
     }
   }
@@ -590,7 +589,7 @@ impl LuceneError {
     Self::io_with_path("", err)
   }
 
-  /// Returns whether this error corresponds to a Java `IOException` subtype.
+  /// Returns whether this is an I/O-related error.
   pub fn is_io_error(&self) -> bool {
     matches!(
       self,

@@ -112,7 +112,7 @@ where
     D1: Directory,
   {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self
       .delegate
@@ -121,11 +121,11 @@ where
 
   fn finish(&mut self) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.finish()?;
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     Ok(())
   }
@@ -136,11 +136,11 @@ where
     CR: CodecReader,
   {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.merge(merge_state, dir)?;
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     Ok(())
   }
@@ -153,7 +153,7 @@ where
   fn close(&mut self) -> Result<()> {
     self.delegate.close()?;
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     Ok(())
   }
@@ -177,7 +177,7 @@ where
   fn close(&self) -> Result<()> {
     self.delegate.close()?;
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     Ok(())
   }
@@ -189,11 +189,11 @@ where
 {
   fn check_integrity(&self) -> Result<()> {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.check_integrity()?;
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     Ok(())
   }
@@ -227,35 +227,35 @@ where
 {
   fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.get_min_packed_value()
   }
 
   fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.get_max_packed_value()
   }
 
   fn get_num_dimensions(&self) -> Result<usize> {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.get_num_dimensions()
   }
 
   fn get_num_index_dimensions(&self) -> Result<usize> {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.get_num_index_dimensions()
   }
 
   fn get_bytes_per_dimension(&self) -> Result<usize> {
     if self.random.lock().random_range(0..100) == 0 {
-      return Err(LuceneError::io(Error::other("Fake IOException")));
+      return Err(LuceneError::io(Error::other("Fake I/O error")));
     }
     self.delegate.get_bytes_per_dimension()
   }
@@ -347,11 +347,11 @@ where
     match self {
       Self::Cranky { delegate, random } => {
         if random.lock().random_range(0..100) == 0 {
-          return Err(LuceneError::io(Error::other("Fake IOException")));
+          return Err(LuceneError::io(Error::other("Fake I/O error")));
         }
         delegate.visit_doc_ids(visitor)?;
         if random.lock().random_range(0..100) == 0 {
-          return Err(LuceneError::io(Error::other("Fake IOException")));
+          return Err(LuceneError::io(Error::other("Fake I/O error")));
         }
         Ok(())
       },
@@ -366,11 +366,11 @@ where
     match self {
       Self::Cranky { delegate, random } => {
         if random.lock().random_range(0..100) == 0 {
-          return Err(LuceneError::io(Error::other("Fake IOException")));
+          return Err(LuceneError::io(Error::other("Fake I/O error")));
         }
         delegate.visit_doc_values(visitor)?;
         if random.lock().random_range(0..100) == 0 {
-          return Err(LuceneError::io(Error::other("Fake IOException")));
+          return Err(LuceneError::io(Error::other("Fake I/O error")));
         }
         Ok(())
       },

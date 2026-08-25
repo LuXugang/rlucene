@@ -100,7 +100,7 @@ impl StringHelper {
   ///
   /// # Arguments
   ///
-  /// * `ref_bytes` - The `byte[]` to test
+  /// * `ref_bytes` - The byte slice to test.
   /// * `prefix` - The expected prefix as `BytesRef`
   ///
   /// # Returns
@@ -301,7 +301,7 @@ impl StringHelper {
   /// returned [`BytesRef`].
   ///
   /// Returns an [`IllegalArgument`](crate::core::util::error::IllegalArgumentError)
-  /// if any int value is out of bounds for a byte.
+  /// if any `i32` value is out of bounds for a `u8`.
   pub fn ints_ref_to_bytes_ref<AV, AV1>(ints: &IntsRef<AV>) -> Result<BytesRef<AV1>>
   where
     AV: SharedAccessVec<i32>,

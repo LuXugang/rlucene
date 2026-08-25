@@ -27,8 +27,7 @@ use std::collections::HashSet;
 
 /// Codec API for reading stored fields.
 ///
-/// You need to implement [`document(int,
-/// StoredFieldVisitor)`](StoredFields::document_with_visitor) to read the
+/// Implement [`StoredFields::document_with_visitor`] to read the
 /// stored fields for a document, implement `try_clone()`(creating clones of any
 /// IndexInputs used, etc), and [`CloseableRef::close`].
 ///

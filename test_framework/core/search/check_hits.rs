@@ -390,7 +390,6 @@ impl CheckHits {
         value
       };
 
-      // assertEquals(combined, value, maxError)
       let diff = (combined as f64 - value as f64).abs();
       if diff > max_error {
         unreachable!(

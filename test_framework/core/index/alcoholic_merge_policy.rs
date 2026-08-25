@@ -86,7 +86,6 @@ impl AlcoholicMergePolicy {
 }
 
 impl LogMergePolicyBase for AlcoholicMergePolicy {
-  // @BlackMagic(level=Voodoo);
   #[allow(clippy::manual_range_contains)]
   fn size<D, MC>(
     &self,

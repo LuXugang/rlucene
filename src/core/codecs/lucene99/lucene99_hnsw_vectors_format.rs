@@ -95,7 +95,7 @@ pub(crate) const DIRECT_MONOTONIC_BLOCK_SHIFT: i32 = 16;
 /// - **`vlong`** offset to this field's index in the .vex file
 /// - **`vlong`** length of this field's index data, in bytes
 /// - **`vint`** dimension of this field's vectors
-/// - **`int`** the number of documents having values for this field
+/// - **`i32`** the number of documents having values for this field
 /// - **`vint`** the maximum number of connections (neighbours) that each node can have
 /// - **`vint`** number of levels in the graph
 /// - Graph nodes by level. For each level:

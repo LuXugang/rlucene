@@ -266,7 +266,7 @@ fn test_merge_with_payloads() -> Result<()> {
   Ok(())
 }
 
-/// A generator for token streams with optional null payloads.
+/// A generator for token streams with optional payloads.
 struct TokenStreamGenerator {
   terms: Vec<String>,
   term_bytes: Vec<BytesRef<Vec<u8>>>,

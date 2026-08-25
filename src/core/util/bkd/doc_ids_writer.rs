@@ -34,11 +34,9 @@ pub struct DocIdsWriter {
   /// length fields need to be reset each use.
   ///
   /// The main reason for existing is to be able to call the
-  /// [`IntersectVisitor#
-  /// visit_with_ints_ref`](IntersectVisitor::visit_with_ints_ref)
+  /// [`IntersectVisitor::visit_with_ints_ref`]
   /// method rather than the
-  /// [`IntersectVisitor#
-  /// visit(int)`](IntersectVisitor::visit)
+  /// [`IntersectVisitor::visit`]
   /// method. This seems to make a difference in performance, probably due to
   /// fewer virtual calls then happening (once per read call rather than
   /// once per doc).

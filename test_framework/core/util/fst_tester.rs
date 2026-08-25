@@ -85,8 +85,8 @@ where
     }
   }
   // runs the term, returning the output, or None if term
-  // isn't accepted.  if prefixLength is present it must be
-  // length 1 int array; prefixLength[0] is set to the length
+  // isn't accepted. If `prefix_length` is present, it must be
+  // a one-element `i32` slice; element 0 is set to the length
   // of the term prefix that matches
   pub fn run<F, AV>(
     fst: &FST<O, F>,

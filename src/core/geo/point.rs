@@ -21,7 +21,7 @@ use crate::core::geo::point2d;
 use crate::core::geo::point2d::Point2D;
 use crate::core::util::error::lucene_error::Result;
 /// Represents a point on the earth's surface. You can construct the point directly
-/// with `double` coordinates.
+/// with `f64` coordinates.
 ///
 /// NOTES:
 ///

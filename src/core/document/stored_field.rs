@@ -170,7 +170,7 @@ impl StoredField {
     let parent_field = Field::new(name, value, stored_field_type::TYPE.clone());
     Ok(Self { parent_field })
   }
-  /// Creates a stored-only field with the given long value.
+  /// Creates a stored-only field with the given `i64` value.
   ///
   /// # Parameters
   /// - `name`: Field name.

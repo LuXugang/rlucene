@@ -67,10 +67,10 @@ impl EdgeTree {
    * 0x01 if the point crosses this edge subtree an odd number of times. Returns byte 0x02 if the
    * point is on one of the edges.
    *
-   * <p>See <a href="https://www.ecse.rpi.edu/~wrf/Research/Short_Notes/pnpoly.html">
-   * https://www.ecse.rpi.edu/~wrf/Research/Short_Notes/pnpoly.html</a> for more information.
+   * See the [PNPOLY description](https://www.ecse.rpi.edu/~wrf/Research/Short_Notes/pnpoly.html)
+   * for more information.
    */
-  // ported to java from https://www.ecse.rpi.edu/~wrf/Research/Short_Notes/pnpoly.html
+  // Ported from https://www.ecse.rpi.edu/~wrf/Research/Short_Notes/pnpoly.html.
   // original code under the BSD license
   // (https://www.ecse.rpi.edu/~wrf/Research/Short_Notes/pnpoly.html#License%20to%20Use)
   //

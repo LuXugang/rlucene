@@ -46,7 +46,7 @@ use std::sync::Arc;
 ///
 /// The generic `AccessVec` trait provides unified access for all three
 /// modes, abstracting over access, mutation, cloning, and construction.
-/// Represents int[], as a slice (offset + length) into an existing int[].
+/// Represents an `i32` slice as an offset and length into an existing buffer.
 #[derive(Debug)]
 pub struct IntsRef<AV> {
   /// The contents of the IntsRef

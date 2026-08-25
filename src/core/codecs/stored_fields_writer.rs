@@ -36,11 +36,11 @@ use std::sync::Arc;
 /// Codec API for writing stored fields:
 ///
 /// 1. For every document,
-///    [`startDocument()`](StoredFieldsWriter::start_document) is called,
+///    [`start_document`](StoredFieldsWriter::start_document) is called,
 ///    informing the Codec that a new document has started.
-/// 2. `writeField` is called for each field in the document.
+/// 2. `write_field_*` is called for each field in the document.
 /// 3. After all documents have been written,
-///    [`finish(int)`](StoredFieldsWriter::finish) is called for
+///    [`finish`](StoredFieldsWriter::finish) is called for
 ///    verification/sanity-checks.
 /// 4. Finally, the writer is closed.
 pub trait StoredFieldsWriter: Accountable + Closeable {
@@ -54,16 +54,16 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
     Ok(())
   }
 
-  /// Writes a stored int value.
+  /// Writes a stored `i32` value.
   fn write_field_i32(&mut self, field_info: &FieldInfo, value: i32) -> Result<()>;
 
-  /// Writes a stored long value.
+  /// Writes a stored `i64` value.
   fn write_field_i64(&mut self, field_info: &FieldInfo, value: i64) -> Result<()>;
 
-  /// Writes a stored float value.
+  /// Writes a stored `f32` value.
   fn write_field_f32(&mut self, field_info: &FieldInfo, value: f32) -> Result<()>;
 
-  /// Writes a stored double value.
+  /// Writes a stored `f64` value.
   fn write_field_f64(&mut self, field_info: &FieldInfo, value: f64) -> Result<()>;
 
   /// Writes a stored binary value from a [`DataInput`] and a `length`.
@@ -89,18 +89,18 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
    * Called before `Drop`, passing in the number of documents that were
    * written. Note that this is intentionally redundant (equivalent to
    * the number of calls to
-   * [`startDocument`](StoredFieldsWriter::start_document),
-   * but a Codec should check that this is the case to detect the JRE bug
+   * [`start_document`](StoredFieldsWriter::start_document),
+   * but a codec should check that this is the case to detect the runtime bug
    * described in LUCENE-1282.
    */
   fn finish<D>(&mut self, num_docs: i32, dir: &D) -> Result<()>
   where
     D: Directory;
 
-  /// Merges in the stored fields from the readers in `mergeState`. The
+  /// Merges in the stored fields from the readers in `merge_state`. The
   /// default implementation skips over deleted documents, and uses
-  /// [`startDocument()`](StoredFieldsWriter::start_document), `writeField`,
-  /// and [`finish(int)`](StoredFieldsWriter::finish), returning the number of
+  /// [`start_document`](StoredFieldsWriter::start_document), `write_field_*`,
+  /// and [`finish`](StoredFieldsWriter::finish), returning the number of
   /// documents that were written. Implementations can provide this
   /// method for more sophisticated merging (bulk-byte copying, etc.).
   fn merge<D, D1, CR>(&mut self, merge_state: &mut MergeState<D, CR>, dir: &D1) -> Result<i32>

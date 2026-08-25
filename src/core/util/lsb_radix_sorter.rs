@@ -19,7 +19,7 @@ use crate::core::util::SliceCopyOps;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 
-/// A LSB Radix sorter for unsigned int values.
+/// An LSB radix sorter for values interpreted as `u32`.
 pub struct LSBRadixSorter {
   histogram: [i32; HISTOGRAM_SIZE],
   buffer: Vec<i32>,

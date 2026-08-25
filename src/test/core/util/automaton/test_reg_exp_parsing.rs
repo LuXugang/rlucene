@@ -315,7 +315,7 @@ fn test_regexp_no_stack_overflow() -> Result<()> {
 /// Tests the deprecated complement flag.
 /// Keep the simple test only—no random tests to avoid instability.
 ///
-/// @deprecated Remove in Lucene 11
+/// Deprecated and scheduled for removal in Lucene 11.
 #[test]
 fn test_deprecated_complement() -> Result<()> {
   let expected = {

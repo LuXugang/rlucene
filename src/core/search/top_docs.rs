@@ -96,14 +96,14 @@ where
 /// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],
 /// sorting by score. Each [`TopDocs`] instance must be sorted.
 ///
-/// See also: [`merge_top_docs_with_start(int, int, TopDocs[])`](merge_top_docs_with_start)
+/// See also: [`merge_top_docs_with_start`].
 pub fn merge_top_docs<S>(top_n: usize, shard_hits: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
 where
   S: ScoreDocLike,
 {
   merge_top_docs_with_start(0, top_n, shard_hits)
 }
-/// Same as [`merge_top_docs(int, TopDocs[])`](merge_top_docs) but also ignores the top `start` top docs.
+/// Same as [`merge_top_docs`] but also ignores the first `start` top docs.
 /// This is typically useful for pagination.
 ///
 /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
@@ -245,7 +245,7 @@ where
   Ok(value < 0)
 }
 /// Auxiliary method used by the `merge` implementations.
-/// A sort value of `null` is used to indicate that docs should be sorted by score.
+/// A sort value of `None` indicates that documents should be sorted by score.
 fn merge_aux<C, S>(
   mut queue: PriorityQueue<ShardRef, C>,
   start: usize,

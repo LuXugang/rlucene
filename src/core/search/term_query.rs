@@ -221,7 +221,7 @@ impl TermWeight {
       (collection_stats, term_stats)
     };
 
-    // Assigning a dummy simScorer in case score is not needed to avoid unnecessary float[]
+    // Assign a dummy similarity scorer when scores are not needed to avoid an unnecessary `Vec<f32>`.
     // allocations in case default BM25Scorer is used.
     // See: https://github.com/apache/lucene/issues/12297
     let sim_scorer = if let Some(term_stats) = term_stats {

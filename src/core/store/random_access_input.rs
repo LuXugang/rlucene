@@ -34,11 +34,11 @@ pub trait RandomAccessInput {
     }
     Ok(())
   }
-  ///  Reads an i16 (LE byte order) at the given position in the file.
+  /// Reads an `i16` (little-endian byte order) at the given file position.
   fn read_short(&mut self, pos: usize) -> Result<i16>;
-  /// Reads an i32 (LE byte order) at the given position in the file.
+  /// Reads an `i32` (little-endian byte order) at the given file position.
   fn read_int(&mut self, pos: usize) -> Result<i32>;
-  /// Reads a long (LE byte order) at the given position in the file.
+  /// Reads an `i64` (little-endian byte order) at the given file position.
   fn read_long(&mut self, pos: usize) -> Result<i64>;
   ///  Prefetch data in the background.
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()>;

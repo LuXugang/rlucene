@@ -1659,7 +1659,7 @@ impl PerField {
                 )))
               } else {
                 Err(LuceneError::illegal_argument(format!(
-                  "position overflowed Integer.MAX_VALUE (got posIncr={} last_position={} position={}) for field '{}'",
+                  "position overflowed i32::MAX (got pos_incr={} last_position={} position={}) for field '{}'",
                   pos_incr, invert_state.last_position, invert_state.position, field_name
                 )))
               };
@@ -1754,7 +1754,7 @@ impl PerField {
     if !succeeded_in_processing_field && info_stream.is_enabled("DW") {
       info_stream.message(
         "DW",
-        &format!("exception in invert_token_stream for {}", field_name),
+        &format!("error in invert_token_stream for {}", field_name),
       )?;
     }
     unwrap_caught_result!(result)?;

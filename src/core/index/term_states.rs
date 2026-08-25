@@ -219,11 +219,11 @@ impl TermStates {
   }
 
   /// Returns the accumulated document frequency of all [`TermState`] instances
-  /// passed to [`register(TermState, int, int, long)`].
+  /// passed to [`register`](Self::register).
   ///
   /// # Returns
   /// The accumulated document frequency of all [`TermState`] instances passed
-  /// to [`register(TermState, int, int, long)`].
+  /// to [`register`](Self::register).
   pub fn doc_freq(&self) -> Result<i32> {
     if self.term.is_some() {
       return Err(LuceneError::illegal_state(

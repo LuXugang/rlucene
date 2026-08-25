@@ -307,8 +307,8 @@ pub trait BasePointsFormatTestCase:
     let mut current: Option<&(dyn std::error::Error + 'static)> = Some(&e);
     while let Some(err) = current {
       let message = err.to_string();
-      if message.contains("a random IOException")
-        || message.contains("background merge hit exception")
+      if message.contains("a random I/O error")
+        || message.contains("background merge returned an error")
       {
         return Ok(true);
       }
@@ -1173,7 +1173,7 @@ pub trait BasePointsFormatTestCase:
           .map(|_| ())
       } else {
         if cfg!(feature = "test_log_verbose") {
-          println!("TEST: now use TestUtil.addIndexesSlowly(DirectoryReader[]) to switch writers");
+          println!("TEST: now use TestUtil::add_indexes_slowly to switch writers");
         }
         TestUtil::add_indexes_slowly(&save_w.w, std::slice::from_ref(&reader))
       };

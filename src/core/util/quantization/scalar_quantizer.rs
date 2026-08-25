@@ -47,7 +47,7 @@ use std::sync::LazyLock;
 /// float = (max_quantile - min_quantile)/127 * byte + min_quantile
 /// ```
 ///
-/// This then means to multiply two float values together (e.g. dot product) we can do the
+/// This means that when multiplying two `f32` values (for example, in a dot product), we can
 /// following:
 ///
 /// ```text

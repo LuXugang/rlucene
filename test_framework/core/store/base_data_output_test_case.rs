@@ -97,7 +97,7 @@ impl DataInputAction {
         assert_eq!(
           read[*off..*off + *length],
           bytes[*off..*off + *length],
-          "readBytes(byte[], off)",
+          "read_bytes(&mut [u8], offset)",
         );
       },
       DataInputAction::ReadInt(value) => {

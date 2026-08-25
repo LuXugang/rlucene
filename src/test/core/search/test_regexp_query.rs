@@ -262,7 +262,7 @@ fn test_slow_common_suffix() -> Result<()> {
     LuceneError::TooComplexToDeterminize(_) => {},
     _ => {
       return Err(LuceneError::illegal_state(
-        "expected TooComplexToDeterminizeException",
+        "expected a too-complex-to-determinize error",
       ));
     },
   }

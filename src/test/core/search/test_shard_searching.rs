@@ -388,7 +388,7 @@ where
     (false, None, None)
   };
 
-  // Must rebase so assertEquals passes:
+  // Must rebase so the equality assertion passes:
   for score_doc in &mut shard_hits.score_docs {
     let shard_index = score_doc.shard_index() as usize;
     score_doc.score_doc_mut().doc += base[shard_index];

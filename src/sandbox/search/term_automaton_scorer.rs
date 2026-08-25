@@ -41,8 +41,8 @@ pub(crate) struct TermAutomatonScorer<PE, SS, N> {
   positions: Vec<PosState>,
   pos_shift: i32,
 
-  // This is -1 if wildcard (null) terms were not used, else it's the id
-  // of the wildcard term:
+  // This is -1 if wildcard (`None`) terms were not used; otherwise it is the
+  // wildcard term ID.
   any_term_id: i32,
   scorer: Arc<SS>,
   norms: Option<N>,

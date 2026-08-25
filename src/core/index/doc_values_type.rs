@@ -25,22 +25,22 @@ pub enum DocValuesType {
   None,
   /// A per-document Number.
   Numeric,
-  /// A per-document byte[].
+  /// Per-document bytes.
   /// Values may be larger than 32,766 bytes, but different codecs may
   /// enforce their own limits.
   Binary,
-  /// A pre-sorted byte[]. Fields with this type only store distinct byte
+  /// Pre-sorted bytes. Fields with this type only store distinct byte
   /// values and store an additional offset pointer per document to
-  /// dereference the shared byte[]. The stored byte[] is presorted and
+  /// dereference the shared bytes. The stored bytes are presorted and
   /// allows access via document id, ordinal, and by-value. Values must be <=
   /// 32,766 bytes.
   Sorted,
   /// A pre-sorted Number[]. Fields with this type store numeric values in
   /// sorted order according to `i64::cmp`.
   SortedNumeric,
-  /// A pre-sorted Set of byte[]. Fields with this type only store distinct
+  /// A pre-sorted set of byte sequences. Fields with this type only store distinct
   /// byte values and store additional offset pointers per document to
-  /// dereference the shared byte[]. The stored byte[] is presorted and
+  /// dereference the shared bytes. The stored bytes are presorted and
   /// allows access via document id, ordinal, and by-value. Values must be <=
   /// 32,766 bytes.
   SortedSet,

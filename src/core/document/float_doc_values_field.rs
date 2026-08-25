@@ -40,12 +40,12 @@ pub struct FloatDocValuesField {
 }
 
 impl FloatDocValuesField {
-  /// Creates a new DocValues field with the specified 32-bit float value.
+  /// Creates a new doc-values field with the specified `f32` value.
   ///
   /// # Arguments
   ///
   /// * `name` - Field name.
-  /// * `value` - 32-bit float value.
+  /// * `value` - An `f32` value.
   pub fn new<T>(name: T, value: f32) -> Self
   where
     T: Into<String>,

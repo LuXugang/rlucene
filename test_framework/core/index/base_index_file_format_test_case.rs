@@ -1020,7 +1020,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
     IOUtils::use_or_suppress_result(close_result, dir.close())
   }
 
-  /// Tests exception handling on write and openInput/createOutput.
+  /// Tests error handling on write and openInput/createOutput.
   fn test_random_exceptions<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
@@ -1033,7 +1033,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
     dir.set_random_io_exception_rate(0.001); // More rare.
     let dir = std::sync::Arc::new(dir);
 
-    // Log all exceptions we hit, in case we fail (for debugging).
+    // Log all errors we hit, in case we fail (for debugging).
     let mut exception_log = Vec::new();
 
     let analyzer = MockAnalyzer::new(random);
@@ -1048,7 +1048,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
       let mut allow_already_closed = false;
       let mut field_to_type = HashMap::new();
       for i in 0..num_docs {
-        // Turn on exceptions for openInput/createOutput.
+        // Turn on errors for openInput/createOutput.
         dir.set_random_io_exception_rate_on_open(0.02);
 
         let mut document = Document::new();
@@ -1099,7 +1099,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
               Err(error) => Err(error),
             }
           } else {
-            // Disable exceptions on openInput until the next iteration, or slowExists can trip a
+            // Disable errors on openInput until the next iteration, or slowExists can trip a
             // scarier assertion.
             dir.set_random_io_exception_rate_on_open(0.0);
             writer.commit().map(|_| ())
@@ -1149,7 +1149,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
 
     if let Err(error) = result {
       eprintln!(
-        "Unexpected exception: dumping fake-exception-log:\n{}",
+        "Unexpected error: dumping fake-error-log:\n{}",
         exception_log.join("\n")
       );
       return Err(error);
@@ -1157,7 +1157,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
 
     if cfg!(feature = "test_log_verbose") {
       eprintln!(
-        "TEST PASSED: dumping fake-exception-log:\n{}",
+        "TEST PASSED: dumping fake-error-log:\n{}",
         exception_log.join("\n")
       );
     }
@@ -1170,12 +1170,12 @@ pub trait BaseIndexFileFormatTestCase: Sized {
     exception_log: &mut Vec<String>,
   ) -> Result<()> {
     let mut current: Option<&(dyn std::error::Error + 'static)> = Some(&error);
-    while let Some(exception) = current {
-      if exception.to_string().starts_with("a random IOException") {
+    while let Some(error) = current {
+      if error.to_string().starts_with("a random I/O error") {
         exception_log.push(format!("TEST: got expected fake exc: {error}"));
         return Ok(());
       }
-      current = exception.source();
+      current = error.source();
     }
 
     Err(error)

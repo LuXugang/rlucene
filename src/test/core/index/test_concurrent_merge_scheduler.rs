@@ -122,7 +122,7 @@ where
 }
 
 // Make sure running BG merges still work fine even when
-// we are hitting exceptions during flushing.
+// we are hitting errors during flushing.
 #[allow(clippy::never_loop)]
 #[test]
 fn test_flush_exceptions() -> Result<()> {
@@ -168,7 +168,7 @@ fn test_flush_exceptions() -> Result<()> {
 
     // must cycle here because sometimes the merge flushes
     // the doc we just added and so there's nothing to
-    // flush, and we don't hit the exception
+    // flush, and we don't hit the error
     loop {
       let mut doc = Document::new();
       doc.add(StringField::from_string("id", "", Store::Yes)?);
@@ -178,7 +178,7 @@ fn test_flush_exceptions() -> Result<()> {
       match writer.flush() {
         Ok(()) => {
           if failure.hit_exc.load(Ordering::SeqCst) {
-            return Err(LuceneError::illegal_state("failed to hit IOException"));
+            return Err(LuceneError::illegal_state("failed to hit an I/O error"));
           }
         },
         Err(error) if error.is_io_error() => {
@@ -188,7 +188,7 @@ fn test_flush_exceptions() -> Result<()> {
           failure.clear_do_fail();
           // make sure we are closed or closing - if we are unlucky a merge does
           // the actual closing for us. this is rare but might happen since the
-          // tragicEvent is checked by IFD and that might throw during a merge
+          // The tragic event is checked by the index file deleter and that might return an error during a merge.
           assert!(matches!(
             writer.ensure_open(),
             Err(LuceneError::AlreadyClosed(_))

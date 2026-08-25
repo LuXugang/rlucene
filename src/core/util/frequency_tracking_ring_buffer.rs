@@ -163,7 +163,7 @@ impl IntBag {
         break;
       }
       let key = self.keys[slot];
-      // the slot where <code>key</code> should be if there were no collisions
+      // the slot where `key` should be if there were no collisions
       let expected_slot = (key as usize) & self.mask;
       // if the free slot is between the expected slot and the slot where the
       // key is, then we can relocate there

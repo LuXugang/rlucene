@@ -35,7 +35,7 @@ use std::fmt::{Display, Formatter};
 
 /// A field that contains a single byte numeric vector (or none) for each document. Vectors are dense
 /// that is, every dimension of a vector contains an explicit value, stored packed into an array
-/// (of type `byte[]`) whose length is the vector dimension. Values can be retrieved using
+/// (as a byte slice) whose length is the vector dimension. Values can be retrieved using
 /// `ByteVectorValues`, which is a forward-only docID-based iterator and also offers random-access by
 /// dense ordinal (not docId). [`VectorSimilarityFunction`] may be used to compare vectors at
 /// query time (for example as part of result ranking). A [`KnnByteVectorField`] may be associated with a
@@ -48,7 +48,7 @@ pub struct KnnByteVectorField {
 impl KnnByteVectorField {
   /// A field that contains a single byte numeric vector (or none) for each document. Vectors are dense
   /// that is, every dimension of a vector contains an explicit value, stored packed into an array
-  /// (of type `byte[]`) whose length is the vector dimension. Values can be retrieved using
+  /// (as a byte slice) whose length is the vector dimension. Values can be retrieved using
   /// [`ByteVectorValues`], which is a forward-only docID-based iterator and also offers random-access by
   /// dense ordinal (not docId). [`VectorSimilarityFunction`] may be used to compare vectors at
   /// query time (for example as part of result ranking). A [`KnnByteVectorField`] may be associated with a
@@ -157,7 +157,7 @@ impl KnnByteVectorField {
   pub fn with_type(name: &str, vector: Vec<u8>, field_type: FieldType) -> Result<Self> {
     if *field_type.vector_encoding() != VectorEncoding::BYTE(1) {
       return Err(LuceneError::illegal_argument(format!(
-        "Attempt to create a vector for field {} using byte[] but the field encoding is {:?}",
+        "Attempt to create a vector for field {} using bytes but the field encoding is {:?}",
         name,
         field_type.vector_encoding()
       )));

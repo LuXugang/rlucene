@@ -56,7 +56,7 @@ pub struct FloatPoint {
 }
 
 impl FloatPoint {
-  /// Creates a new `FloatPoint`, indexing the provided N-dimensional float point.
+  /// Creates a new `FloatPoint`, indexing the provided N-dimensional `f32` point.
   ///
   /// # Arguments
   ///
@@ -118,7 +118,7 @@ impl FloatPoint {
     Ok(())
   }
 
-  /// Pack a float point into a `BytesRef`.
+  /// Packs an `f32` point into a `BytesRef`.
   ///
   /// # Arguments
   ///
@@ -152,7 +152,7 @@ impl FloatPoint {
     NumericUtils::sortable_int_to_float(int_val)
   }
 
-  /// Create a query for matching an exact float value.
+  /// Create a query for matching an exact `f32` value.
   ///
   /// This is for simple one-dimension points. For multidimensional points, use
   /// [`new_range_query_n`](Self::new_range_query_n) instead.
@@ -168,7 +168,7 @@ impl FloatPoint {
     Self::new_range_query(field, value, value)
   }
 
-  /// Create a range query for float values.
+  /// Create a range query for `f32` values.
   ///
   /// This is for simple one-dimension ranges. For multidimensional ranges, use
   /// [`new_range_query_n`](Self::new_range_query_n) instead.
@@ -217,7 +217,7 @@ impl FloatPoint {
     )
   }
 
-  /// Create a range query for n-dimensional float values.
+  /// Create a range query for n-dimensional `f32` values.
   ///
   /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
   /// `lower_value[i] = f32::NEG_INFINITY` or `upper_value[i] = f32::INFINITY`.

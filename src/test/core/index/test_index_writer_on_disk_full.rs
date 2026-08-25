@@ -75,13 +75,13 @@ fn test_add_document_on_disk_full() -> Result<()> {
         new_index_writer_config_with_analyzer(&mut random, analyzer)?,
       )?;
       if let MergeSchedulerEnum::Concurrent(ms) = writer.get_config().get_merge_scheduler() {
-        // This test intentionally produces exceptions
+        // This test intentionally produces errors
         // in the threads that CMS launches; we don't
         // want to pollute test output with these.
         ms.set_suppress_exceptions();
       }
 
-      let mut hit_error = false;
+      let mut hit_exception = false;
       let add_result = (|| -> Result<()> {
         for _ in 0..200 {
           add_doc(&mut random, &writer, &mut field_types)?;
@@ -98,17 +98,17 @@ fn test_add_document_on_disk_full() -> Result<()> {
                 LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_)
               ) =>
           {
-            hit_error = true;
+            hit_exception = true;
           },
           Err(error) => return Err(error),
         },
         Err(error) if error.is_io_error() => {
-          hit_error = true;
+          hit_exception = true;
         },
         Err(error) => return Err(error),
       }
 
-      if hit_error {
+      if hit_exception {
         if do_abort {
           writer.rollback()?;
         } else {
@@ -131,8 +131,6 @@ fn test_add_document_on_disk_full() -> Result<()> {
           }
         }
 
-        // _TestUtil.syncConcurrentMerges(ms);
-
         if index_exists {
           // Make sure reader can open the index:
           directory_reader::open(dir.clone())?.close()?;
@@ -147,7 +145,6 @@ fn test_add_document_on_disk_full() -> Result<()> {
           TestUtil::next_int(&mut random, 3000, 5000) as i64
         };
       } else {
-        // _TestUtil.syncConcurrentMerges(writer);
         dir.set_max_size_in_bytes(0);
         writer.close()?;
         dir.as_ref().close()?;
@@ -164,7 +161,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
 
 /*
 Test: make sure when we run out of disk space or hit
-random IOExceptions in any of the addIndexes(*) calls
+random I/O errors in any of the `add_indexes` calls
 that 1) index is not corrupt (searcher can open/search
 it) and 2) transactional semantics are followed:
 either all or none of the incoming documents were in
@@ -242,7 +239,6 @@ fn test_add_index_on_disk_full() -> Result<()> {
   // succeed and index should show all documents were
   // added.
 
-  // String[] files = startDir.listAll();
   let disk_usage = start_dir.size_in_bytes()? as i64;
 
   let mut start_disk_usage = 0_i64;
@@ -277,7 +273,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
 
       for x in 0..2 {
         if let MergeSchedulerEnum::Concurrent(ms) = writer.get_config().get_merge_scheduler() {
-          // This test intentionally produces exceptions
+          // This test intentionally produces errors
           // in the threads that CMS launches; we don't
           // want to pollute test output with these.
           if x == 0 {
@@ -288,7 +284,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
         }
 
         // Two loops: first time, limit disk space &
-        // throw random IOExceptions; second time, no
+        // return random I/O errors; second time, no
         // disk space limit:
         let mut rate = 0.05;
         let disk_ratio = disk_free as f64 / disk_usage as f64;
@@ -360,7 +356,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
             let is_merge_exception = matches!(error, LuceneError::Merge(_));
             if x == 1 && !is_merge_exception {
               return Err(LuceneError::illegal_state(format!(
-                "{method_name} hit IOException after disk space was freed up"
+                "{method_name} hit an I/O error after disk space was freed up"
               )));
             }
           },
@@ -387,19 +383,19 @@ fn test_add_index_on_disk_full() -> Result<()> {
         dir.set_random_io_exception_rate_on_open(0.0);
         let reader = directory_reader::open(dir.clone()).map_err(|error| {
           LuceneError::illegal_state(format!(
-            "{test_name}: exception when creating IndexReader: {error}"
+            "{test_name}: error when creating IndexReader: {error}"
           ))
         })?;
         let result = reader.doc_freq(&search_term)?;
         if success {
           if result != START_COUNT {
             return Err(LuceneError::illegal_state(format!(
-              "{test_name}: method did not throw exception but docFreq('aaa') is {result} instead of expected {START_COUNT}"
+              "{test_name}: method returned no error but doc_freq('aaa') is {result} instead of expected {START_COUNT}"
             )));
           }
         } else if result != START_COUNT && result != end_count {
           return Err(LuceneError::illegal_state(format!(
-            "{test_name}: method did throw exception but docFreq('aaa') is {result} instead of expected {START_COUNT} or {end_count}"
+            "{test_name}: method returned an error but doc_freq('aaa') is {result} instead of expected {START_COUNT} or {end_count}"
           )));
         }
 
@@ -407,19 +403,19 @@ fn test_add_index_on_disk_full() -> Result<()> {
         let result2 = searcher
           .search(TermQuery::new(search_term.clone()), end_count as usize)
           .map_err(|error| {
-            LuceneError::illegal_state(format!("{test_name}: exception when searching: {error}"))
+            LuceneError::illegal_state(format!("{test_name}: error when searching: {error}"))
           })?
           .score_docs
           .len() as i32;
         if success {
           if result2 != result {
             return Err(LuceneError::illegal_state(format!(
-              "{test_name}: method did not throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {result}"
+              "{test_name}: method returned no error but the hit count for term 'aaa' is {result2} instead of expected {result}"
             )));
           }
         } else if result2 != result {
           return Err(LuceneError::illegal_state(format!(
-            "{test_name}: method did throw exception but hits.length for search on term 'aaa' is {result2} instead of expected {result}"
+            "{test_name}: method returned an error but the hit count for term 'aaa' is {result2} instead of expected {result}"
           )));
         }
 
@@ -536,8 +532,6 @@ where
 fn test_corruption_after_disk_full_during_merge() -> Result<()> {
   let mut random = random();
   let dir = Arc::new(new_mock_directory(&mut random)?);
-  // IndexWriter w = new IndexWriter(dir, newIndexWriterConfig(new
-  // MockAnalyzer(random)).setReaderPooling(true));
   let mut mp = LogMergePolicy::log_doc();
   mp.set_merge_factor(2)?;
   let analyzer = MockAnalyzer::new(&mut random);
@@ -569,10 +563,10 @@ fn test_corruption_after_disk_full_during_merge() -> Result<()> {
     Err(error) if error.is_io_error() => {},
     Err(error) => {
       return Err(LuceneError::illegal_state(format!(
-        "expected IOException, got {error}"
+        "expected I/O error, got {error}"
       )));
     },
-    Ok(_) => return Err(LuceneError::illegal_state("expected IOException")),
+    Ok(_) => return Err(LuceneError::illegal_state("expected I/O error")),
   }
   assert!(ftdm.did_fail1.load(Ordering::Relaxed) || ftdm.did_fail2.load(Ordering::Relaxed));
 
@@ -593,7 +587,7 @@ fn test_corruption_after_disk_full_during_merge() -> Result<()> {
 }
 
 // LUCENE-1130: make sure immediate disk full on creating
-// an IndexWriter (hit during DWPT#updateDocuments()) is
+// an `IndexWriter` (hit during `DocumentsWriterPerThread::update_documents`) is
 // OK:
 #[test]
 fn test_immediate_disk_full() -> Result<()> {
@@ -618,10 +612,10 @@ fn test_immediate_disk_full() -> Result<()> {
     Err(error) if error.is_io_error() => {},
     Err(error) => {
       return Err(LuceneError::illegal_state(format!(
-        "expected IOException, got {error}"
+        "expected I/O error, got {error}"
       )));
     },
-    Ok(_) => return Err(LuceneError::illegal_state("expected IOException")),
+    Ok(_) => return Err(LuceneError::illegal_state("expected I/O error")),
   }
   assert!(writer.is_deleter_closed()?);
   assert!(writer.is_closed());

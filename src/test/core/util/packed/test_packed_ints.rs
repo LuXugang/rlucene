@@ -1041,7 +1041,7 @@ fn test_encode_decode() -> Result<()> {
         assert_eq!(blocks2, blocks3, "{}", msg);
       }
 
-      // 4. byte[] decoding
+      // 4. Byte-slice decoding.
       let mut byte_blocks = vec![0u8; 8 * blocks.len()];
       let mut values2 = vec![0i64; values_offset + (long_iterations * long_value_count) as usize];
       byte_blocks
@@ -1076,7 +1076,7 @@ fn test_encode_decode() -> Result<()> {
         );
         assert!(equals(&int_values2, &values2), "{}", msg);
       }
-      // 5. byte[] encoding
+      // 5. Byte-slice encoding.
       let mut blocks3 = vec![0u8; 8 * (blocks_offset2 + blocks_len)];
       encoder.encode_i64_to_u8(
         &values,

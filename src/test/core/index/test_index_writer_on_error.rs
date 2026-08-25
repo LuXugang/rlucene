@@ -60,7 +60,7 @@ use std::fmt::Write;
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
 use std::sync::Arc;
 
-/// Causes a bunch of fake VM errors and checks that no other exceptions are delivered instead, no
+/// Causes a bunch of fake VM errors and checks that no other errors are delivered instead, no
 /// index corruption is ever created.
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterOnError;
@@ -125,7 +125,7 @@ where
   F: Clone + Send + 'static,
   F: Failure<MaybeNrtDirEnum>,
 {
-  // log all exceptions we hit, in case we fail (for debugging)
+  // log all errors we hit, in case we fail (for debugging)
   let mut exception_log = String::new();
 
   let analyzer_seed = random.random();

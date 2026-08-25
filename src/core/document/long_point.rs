@@ -41,7 +41,7 @@ pub struct LongPoint {
 }
 
 impl LongPoint {
-  /// Create a new LongPoint with the given name and long values
+  /// Creates a new `LongPoint` with the given name and `i64` values.
   pub fn new<T, P>(name: T, point: P) -> Result<LongPoint>
   where
     T: Into<String>,
@@ -80,7 +80,7 @@ impl LongPoint {
     Ok(())
   }
 
-  /// Pack a long array into bytes
+  /// Packs an `i64` slice into bytes.
   pub fn pack<P>(point: P) -> Result<BytesRef<Vec<u8>>>
   where
     P: AsRef<[i64]>,
@@ -98,7 +98,7 @@ impl LongPoint {
     Ok(BytesRef::from_bytes(packed))
   }
 
-  /// Unpack bytes into a long array
+  /// Unpacks bytes into `i64` values.
   pub fn unpack(bytes_ref: &BytesRef<Vec<u8>>, start: usize, buf: &mut [i64]) {
     for (i, val) in buf.iter_mut().enumerate() {
       *val = Self::decode_dimension(&bytes_ref.bytes, start + i * BitUtil::LONG_BYTES);
@@ -132,7 +132,7 @@ impl LongPoint {
   ///
   /// # Arguments
   ///
-  /// * `field` - Field name. must not be `null`.
+  /// * `field` - Field name.
   /// * `values` - All values to match.
   pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
   where

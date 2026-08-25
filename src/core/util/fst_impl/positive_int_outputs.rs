@@ -26,8 +26,7 @@ use crate::core::util::fst_impl::outputs::Outputs;
 static NO_OUTPUT: LazyLock<Arc<i64>> = LazyLock::new(|| Arc::new(0));
 
 pub static SINGLETON: LazyLock<PositiveIntOutputs> = LazyLock::new(|| PositiveIntOutputs);
-/// An FST `Outputs` implementation where each output is a non-negative long
-/// value.
+/// An FST `Outputs` implementation where each output is a non-negative `i64`.
 #[derive(Clone, Default)]
 pub struct PositiveIntOutputs;
 

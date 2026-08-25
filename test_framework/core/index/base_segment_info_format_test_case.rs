@@ -165,8 +165,8 @@ pub trait BaseSegmentInfoFormatTestCase:
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(*info.files()?, *info2.files()?);
-    // In Rust Lucene, SegmentInfo::files return an immutable Set,
-    // so we do not need to verify this
+    // `SegmentInfo::files` returns an immutably borrowed `HashSet`, so mutation
+    // cannot be attempted through this reference.
     // let immutable_files = info2.files()?;
     // let add_result = immutable_files.insert("bogus".to_string());
     // assert!(
@@ -210,8 +210,8 @@ pub trait BaseSegmentInfoFormatTestCase:
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(diagnostics, *info2.get_diagnostics());
-    // In Rust Lucene, SegmentInfo::get_diagnostics return an immutable Set,
-    // so we do not need to verify this
+    // `SegmentInfo::get_diagnostics` returns an immutably borrowed `HashMap`,
+    // so mutation cannot be attempted through this reference.
     // let mut immutable_diagnostics = info2.get_diagnostics();
     // let insert_result = immutable_diagnostics.insert("bogus".to_string(),
     // "bogus".to_string()); assert!(
@@ -532,8 +532,8 @@ pub trait BaseSegmentInfoFormatTestCase:
     }
     Ok(())
   }
-  /// Test segment infos write that hits exception immediately on open. make sure we get our
-  /// exception back, no file handle leaks, etc.
+  /// Test segment infos write that hits error immediately on open. make sure we get our
+  /// error back, no file handle leaks, etc.
   fn test_exception_on_create_output(&self) -> Result<()> {
     let mut random = random();
     let enabled = Arc::new(AtomicBool::new(false));
@@ -581,7 +581,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     dir.as_ref().close()?;
     Ok(())
   }
-  /// Test segment infos write that hits exception on close. make sure we get our exception back, no
+  /// Test segment infos write that hits error on close. make sure we get our error back, no
   /// file handle leaks, etc.
   fn test_exception_on_close_output(&self) -> Result<()> {
     let mut random = random();
@@ -630,7 +630,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     dir.as_ref().close()?;
     Ok(())
   }
-  /// Test segment infos read that hits exception immediately on open. make sure we get our exception
+  /// Test segment infos read that hits error immediately on open. make sure we get our error
   /// back, no file handle leaks, etc.
   fn test_exception_on_open_input(&self) -> Result<()> {
     let mut random = random();
@@ -685,7 +685,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     dir.as_ref().close()?;
     Ok(())
   }
-  /// Test segment infos read that hits exception on close make sure we get our exception back, no
+  /// Test segment infos read that hits error on close make sure we get our error back, no
   /// file handle leaks, etc.
   fn test_exception_on_close_input(&self) -> Result<()> {
     let mut random = random();

@@ -191,7 +191,7 @@ where
 
     debug_assert!(
       self.bits_per_value <= 32,
-      "Cannot decode {}-bits values into an int[]",
+      "Cannot decode {}-bit values into an i32 slice",
       self.bits_per_value
     );
 

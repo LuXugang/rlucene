@@ -676,7 +676,7 @@ where
       w1.cost < w2.cost
     }
   }
-  // returns a boolean so that it can be called from assert
+  // Returns a `bool` so it can be called from an assertion.
   // the return value is useless: it always returns true
   fn ensure_consistent(&mut self) -> Result<bool> {
     if self.score_mode == ScoreMode::TopScores {

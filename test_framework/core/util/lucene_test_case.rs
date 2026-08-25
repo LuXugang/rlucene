@@ -140,7 +140,7 @@ pub(crate) fn expect_panic<T>(f: impl FnOnce() -> T) {
   let guard = ExpectedPanicGuard::new();
   let result = catch_unwind(AssertUnwindSafe(f));
   drop(guard);
-  assert!(result.is_err(), "Expected panic was not thrown");
+  assert!(result.is_err(), "Expected panic did not occur");
 }
 
 pub fn random_vector_format<R>(

@@ -38,7 +38,7 @@ use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::sync::Arc;
 
-/// Handles reading a block KD-tree in byte[] space previously written with
+/// Handles reading a block KD-tree in byte-slice space previously written with
 /// `BKDWriter`
 pub struct BKDReader<I>
 where

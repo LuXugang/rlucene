@@ -192,7 +192,7 @@ where
   ///
   /// This method prevents conditional calls to [`DocValuesFieldIterator::long_value`]
   /// or [`DocValuesFieldIterator::binary_value`], since the implementation knows
-  /// whether it is a long value iterator or a binary value iterator.
+  /// whether it is an `i64` value iterator or a binary value iterator.
   pub(crate) fn add_iterator<T>(&mut self, doc_id: i32, iterator: &mut T) -> Result<()>
   where
     T: DocValuesFieldIterator,
@@ -277,7 +277,7 @@ where
     debug_assert!(doc < self.max_doc, "doc must be less than max_doc");
     if size == i32::MAX as usize {
       return Err(LuceneError::illegal_state(
-        "cannot support more than Integer.MAX_VALUE doc/value entries",
+        "cannot support more than i32::MAX doc/value entries",
       ));
     }
     // grow the structures to have room for more elements
@@ -620,7 +620,7 @@ impl<D> IntroSorter for IntroSorterImpl<'_, D> where D: DocValuesFieldUpdatesBas
 /// Only documents with updates are returned by this iterator, and the documents
 /// are returned in increasing order.
 pub trait DocValuesFieldIterator: DocValuesIterator {
-  /// Returns a long value for the current document if this iterator is a long
+  /// Returns an `i64` value for the current document if this iterator is an `i64`
   /// iterator.
   fn long_value(&self) -> Result<i64>;
 

@@ -182,7 +182,7 @@ pub trait BaseCompoundFormatTestCase:
       .get_compound_reader(dir.as_ref(), &si)?;
     assert_eq!(1, cfs.list_all()?.len());
     cfs.close()?;
-    cfs.close()?; // second close should not throw exception
+    cfs.close()?; // A second close should not return an error.
     dir.close()
   }
 

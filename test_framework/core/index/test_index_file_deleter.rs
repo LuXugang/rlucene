@@ -34,7 +34,7 @@ impl ConcurrentMergeSchedulerBase for FakeFailConcurrentMergeScheduler {
     let error = result
       .caught_failure("panic in merge thread")
       .ok_or_else(|| LuceneError::illegal_argument("merge result must contain a failure"))?;
-    // suppress only FakeIOException:
+    // Suppress only errors whose source is FakeIOException:
     if matches!(&error, LuceneError::IllegalState(_)) && error.to_string() == "fake fail" {
       // ok to ignore
       Ok(())

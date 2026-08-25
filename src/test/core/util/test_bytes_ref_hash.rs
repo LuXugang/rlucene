@@ -458,7 +458,7 @@ fn test_large_value() -> Result<()> {
       },
       Err(e) => {
         if i < sizes.len() - 1 {
-          unreachable!("Unexpected exception at size: {}: {:?}", size, e);
+          unreachable!("Unexpected error at size: {}: {:?}", size, e);
         }
         assert!(matches!(e, LuceneError::MaxBytesLengthExceeded(_)));
       },

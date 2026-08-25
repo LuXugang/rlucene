@@ -64,7 +64,7 @@ pub trait CommonQueryParserConfiguration {
   /// By default query parsers use a constant-score blended rewrite method when
   /// creating prefix, wildcard or term range queries. This implementation is
   /// generally preferable because it runs faster, does not have the scarcity of
-  /// terms unduly influence score, and avoids too-many-clauses exceptions.
+  /// terms unduly influence score, and avoids too-many-clauses errors.
   ///
   /// Applications that need boolean expansion rewriting can change the rewrite
   /// method through this setting. As another alternative, all terms can be

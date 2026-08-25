@@ -82,8 +82,8 @@ fn test_with_random_regex() -> Result<()> {
 
     let generator = match RandomAcceptedStrings::new(&dfa) {
       Ok(g) => g,
-      Err(_) => continue, /* sometimes the automaton accept nothing and throw this
-                           * error  */
+      // Sometimes the automaton accepts nothing, so there is no string to generate.
+      Err(_) => continue,
     };
 
     for _ in 0..20 {

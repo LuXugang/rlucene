@@ -396,7 +396,7 @@ fn float_to_bytes(query: Vec<f32>) -> Vec<u8> {
     .map(|value| {
       assert!(
         value <= i8::MAX as f32 && value >= i8::MIN as f32 && value.fract() == 0.0,
-        "float value cannot be converted to byte; provided: {value}"
+        "f32 value cannot be converted to u8; provided: {value}"
       );
       (value as i8) as u8
     })

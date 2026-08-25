@@ -708,7 +708,7 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
   }
 
   match w.add_indexes_from_directory(&dirs) {
-    Ok(_) => return Err(LuceneError::illegal_state("didn't get expected exception")),
+    Ok(_) => return Err(LuceneError::illegal_state("didn't get expected error")),
     Err(LuceneError::IllegalArgument(_)) => {
       // pass
     },
@@ -753,7 +753,7 @@ fn test_add_too_many_indexes_codec_reader() -> Result<()> {
   let readers = vec![seg_reader; readers_len as usize];
 
   match w.add_indexes_from_codec_readers(readers) {
-    Ok(_) => return Err(LuceneError::illegal_state("didn't get expected exception")),
+    Ok(_) => return Err(LuceneError::illegal_state("didn't get expected error")),
     Err(LuceneError::IllegalArgument(_)) => {
       // pass
     },

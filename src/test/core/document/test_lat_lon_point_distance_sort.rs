@@ -175,7 +175,7 @@ fn test_random_huge() -> Result<()> {
 }
 
 // Test result containing an ID and distance.
-// we sort these with Arrays.sort and compare with lucene's results
+// Sort these with the slice API and compare with Lucene's results.
 #[derive(Clone, Debug)]
 struct ResultItem {
   id: i32,

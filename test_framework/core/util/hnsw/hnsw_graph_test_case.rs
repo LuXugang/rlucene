@@ -1065,7 +1065,7 @@ where
   }
 
   /*
-   * A very basic test ensuring the concurrent merge does not throw exceptions. It by no means
+   * A very basic test ensuring the concurrent merge does not return errors. It by no means
    * guarantees the true correctness of the concurrent merge; that must be checked manually by
    * running a KNN benchmark and comparing recall.
    */

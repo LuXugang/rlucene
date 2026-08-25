@@ -78,7 +78,7 @@ impl FloatField {
   /// # Arguments
   ///
   /// * `name` - Field name.
-  /// * `value` - The float value.
+  /// * `value` - The `f32` value.
   /// * `stored` - Whether to store the field.
   pub fn new<T>(name: T, value: f32, stored: Store) -> Result<FloatField>
   where
@@ -98,7 +98,7 @@ impl FloatField {
     })
   }
 
-  /// Create a query for matching an exact float value.
+  /// Create a query for matching an exact `f32` value.
   ///
   /// # Arguments
   ///
@@ -111,7 +111,7 @@ impl FloatField {
     Self::new_range_query(field, value, value)
   }
 
-  /// Create a range query for float values.
+  /// Create a range query for `f32` values.
   ///
   /// You can have half-open ranges (which are in fact `</<=` or `>/>=` queries) by setting
   /// `lower_value = f32::NEG_INFINITY` or `upper_value = f32::INFINITY`.

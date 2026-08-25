@@ -25,8 +25,8 @@ pub struct NumericUtils;
 impl NumericUtils {
   /// Converts an `f64` value to a sortable signed `i64`.
   ///
-  /// The value is converted by obtaining its IEEE 754 floating-point "double
-  /// format" bit layout and then swapping certain bits to allow the
+  /// The value is converted by obtaining its IEEE 754 `f64` bit layout and
+  /// then swapping certain bits to allow the
   /// result to be compared as an `i64`. This transformation preserves
   /// precision while making the value sortable as a signed integer.
   ///
@@ -36,7 +36,7 @@ impl NumericUtils {
   /// # WARN
   /// This implementation normalizes all `NaN` values to a canonical
   /// representation (`0x7ff8000000000000`) to ensure consistent sorting
-  /// and behavior, similar to Java's `Double.doubleToLongBits`.
+  /// and behavior.
   /// Non-standard `NaN` representations are not preserved.
   ///
   /// # See Also
@@ -59,8 +59,8 @@ impl NumericUtils {
   }
   /// Converts an `f32` value to a sortable signed `i32`.
   ///
-  /// The value is converted by obtaining its IEEE 754 floating-point "float
-  /// format" bit layout and then swapping certain bits to allow the
+  /// The value is converted by obtaining its IEEE 754 `f32` bit layout and
+  /// then swapping certain bits to allow the
   /// result to be compared as an `i32`. This transformation preserves
   /// precision while making the value sortable as a signed integer.
   ///

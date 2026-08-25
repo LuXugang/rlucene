@@ -166,12 +166,12 @@ where
       add_field(&mut doc, field);
     }
   }
-  let exception = writer.add_document(doc).unwrap_err();
+  let error = writer.add_document(doc).unwrap_err();
   assert!(
-    exception.to_string().contains(error_msg),
+    error.to_string().contains(error_msg),
     "'{}' not found in '{}'",
     error_msg,
-    exception
+    error
   );
   Ok(())
 }
@@ -188,12 +188,12 @@ where
   let mut doc = Document::new();
   add_field(&mut doc, existing);
   add_field(&mut doc, extra);
-  let exception = writer.add_document(doc).unwrap_err();
+  let error = writer.add_document(doc).unwrap_err();
   assert!(
-    exception.to_string().contains(error_msg),
+    error.to_string().contains(error_msg),
     "'{}' not found in '{}'",
     error_msg,
-    exception
+    error
   );
   Ok(())
 }

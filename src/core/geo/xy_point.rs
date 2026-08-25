@@ -20,7 +20,7 @@ use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry::XYGeometry;
 use crate::core::util::error::lucene_error::Result;
 /// Represents a point on the x/y plane. You can construct the point directly
-/// with `float` coordinates.
+/// with `f32` coordinates.
 ///
 /// NOTES:
 ///

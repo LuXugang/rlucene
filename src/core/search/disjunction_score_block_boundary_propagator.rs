@@ -51,7 +51,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
       lead_index: 0,
     })
   }
-  /// Equivalent to Lucene's `advanceShallow(int target)`.
+  /// Advances all scorers shallowly to `target`.
   pub(crate) fn advance_shallow<S>(
     &mut self,
     target: i32,

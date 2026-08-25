@@ -31,7 +31,7 @@ use rand::prelude::StdRng;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
-/// Codec for testing that throws random IOExceptions.
+/// Codec for testing random I/O errors.
 pub struct CrankyCodec<C> {
   delegate: C,
   random: Arc<Mutex<StdRng>>,

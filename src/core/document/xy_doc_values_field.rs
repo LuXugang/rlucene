@@ -42,7 +42,7 @@ use std::sync::LazyLock;
 
 /// Type for a XYDocValuesField
 ///
-/// Each value stores a 64-bit long where the upper 32 bits are the encoded x value, and the
+/// Each value stores an `i64` where the upper 32 bits are the encoded x value, and the
 /// lower 32 bits are the encoded y value.
 ///
 /// See [`XYEncodingUtils::decode`].

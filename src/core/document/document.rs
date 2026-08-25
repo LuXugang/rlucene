@@ -175,7 +175,7 @@ impl Document {
   ///
   /// # Note
   /// Fields that are not stored are not available in documents retrieved from
-  /// the index, e.g., when using `StoredFields::document(int)`.
+  /// the index, for example when using [`StoredFields::document`].
   ///
   /// # Returns
   /// An immutable `Vec<Arc>` containing all fields in the document.

@@ -56,7 +56,7 @@ pub struct CompiledAutomaton {
   /// For [`AutomatonType::Single`] this is the singleton term.
   pub term: Option<BytesRef<Vec<u8>>>,
 
-  /// Matcher for quickly determining if a byte[] is accepted. Only valid for
+  /// Matcher for quickly determining whether a byte slice is accepted. Only valid for
   /// [`AutomatonType::Normal`].
   pub run_automaton: Option<ByteRunAutomaton>,
 

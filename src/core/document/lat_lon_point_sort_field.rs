@@ -82,7 +82,7 @@ impl SortFiledBase for LatLonPointSortField {
     let missing_value = missing_value.into();
     if missing_value != MissingValueEnum::Double(f64::INFINITY) {
       return Err(LuceneError::illegal_argument(format!(
-        "Missing value can only be Double.POSITIVE_INFINITY (missing values last), but got {}",
+        "Missing value can only be f64::INFINITY (missing values last), but got {}",
         missing_value
       )));
     }

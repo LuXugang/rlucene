@@ -118,7 +118,7 @@ where
   pub(crate) fn base_ram_bytes_used(&self) -> i64 {
     self.sub_reader.base_ram_bytes_used_base()
   }
-  /// Create a new copy of size <code>newSize</code> based on the content of
+  /// Create a new copy of size `new_size` based on the content of
   /// this buffer. This is much more efficient than creating a new
   /// instance and copying values one by one.
   pub fn resize(&self, new_size: usize) -> Result<AbstractPagedMutable<T>> {

@@ -27,7 +27,7 @@ use std::sync::Arc;
 /// A [`StoredFieldVisitor`] that creates a [`Document`] from stored fields.
 ///
 /// This visitor supports loading all stored fields, or only specific requested
-/// fields provided from a `Set`.
+/// fields provided from a set.
 ///
 /// This is used by
 /// [`StoredFields::document`](crate::core::index::stored_fields::StoredFields::document)
