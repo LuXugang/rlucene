@@ -156,36 +156,38 @@ impl TermStates {
     LR: LeafReader,
   {
     let ctx_ord = ctx.ord;
-    debug_assert!(ctx_ord < self.states.len());
+    if ctx_ord >= self.states.len() {
+      return Err(LuceneError::illegal_argument(format!(
+        "leaf ordinal {ctx_ord} is out of bounds for {} states",
+        self.states.len()
+      )));
+    }
 
-    if self.term.is_none() {
+    let Some(term) = self.term.clone() else {
       return Ok(if self.states[ctx_ord].is_none() {
         None
       } else {
         Some(PrepareState::Ready(ctx_ord))
       });
-    }
+    };
 
     if self.states[ctx_ord].is_none() {
-      let terms_opt = ctx.reader().terms(self.term.as_ref().unwrap().field())?;
-      if terms_opt.is_none() {
+      let Some(terms) = ctx.reader().terms(term.field())? else {
         self.states[ctx_ord] = Some(Arc::new(EmptyTermState.into()));
         return Ok(None);
-      }
+      };
 
-      let mut te = terms_opt.unwrap().iterator()?;
-      let io_boolean_supplier = te.prepare_seek_exact(self.term.as_ref().unwrap().bytes())?;
+      let mut te = terms.iterator()?;
+      let io_boolean_supplier = te.prepare_seek_exact(term.bytes())?;
       if io_boolean_supplier.is_none() {
         self.states[ctx_ord] = Some(Arc::new(EmptyTermState.into()));
         return Ok(None);
       }
-      return Ok(Some(PrepareState::Pending(
-        self.term.as_ref().unwrap().clone(),
-        ctx_ord,
-        te,
-      )));
+      return Ok(Some(PrepareState::Pending(term, ctx_ord, te)));
     }
-    let state = self.states[ctx_ord].as_ref().unwrap();
+    let state = self.states[ctx_ord]
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("term state is missing"))?;
     if matches!(state.as_ref(), TermStateEnum::Empty(_)) {
       Ok(None)
     } else {
@@ -197,18 +199,31 @@ impl TermStates {
     TE: TermsEnum,
   {
     match state {
-      PrepareState::Ready(ord) => Ok(self.states[*ord].clone()),
+      PrepareState::Ready(ord) => self.states.get(*ord).cloned().ok_or_else(|| {
+        LuceneError::illegal_argument(format!(
+          "leaf ordinal {ord} is out of bounds for {} states",
+          self.states.len()
+        ))
+      }),
 
       PrepareState::Pending(term, ord, te) => {
-        if self.states[*ord].as_ref().is_none() {
+        let state_count = self.states.len();
+        let state_slot = self.states.get_mut(*ord).ok_or_else(|| {
+          LuceneError::illegal_argument(format!(
+            "leaf ordinal {ord} is out of bounds for {state_count} states"
+          ))
+        })?;
+        if state_slot.is_none() {
           if te.get_prepare_seek_exact_status(term.bytes())? {
             let state = te.term_state()?;
-            self.states[*ord] = Some(Arc::new(state))
+            *state_slot = Some(Arc::new(state))
           } else {
-            self.states[*ord] = Some(Arc::new(EmptyTermState.into()))
+            *state_slot = Some(Arc::new(EmptyTermState.into()))
           }
         }
-        let state = self.states[*ord].as_ref().unwrap();
+        let state = state_slot
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("resolved term state is missing"))?;
         if matches!(state.as_ref(), TermStateEnum::Empty(_)) {
           Ok(None)
         } else {

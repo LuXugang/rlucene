@@ -670,7 +670,10 @@ where
     0 => Err(LuceneError::illegal_argument(
       "Must take at least one reader, got 0",
     )),
-    1 => Ok(SlowCompositeCodecReader::A(readers.pop().unwrap())),
+    1 => readers
+      .pop()
+      .map(SlowCompositeCodecReader::A)
+      .ok_or_else(|| LuceneError::illegal_state("single codec reader is missing")),
     _ => Ok(SlowCompositeCodecReader::B(
       SlowCompositeCodecReaderWrapper::new(readers)?,
     )),
@@ -721,20 +724,22 @@ where
         return Err(LuceneError::illegal_argument(
           "Cannot combine leaf readers created with different major versions",
         ));
-      } else {
-        if reader_meta.get_min_version().is_none() {
-          return Err(LuceneError::illegal_state("min_version must be set"));
-        }
-        match &min_version {
-          None => min_version = reader_meta.get_min_version().clone(),
-          Some(v) if v.on_or_after(reader_meta.get_min_version().as_ref().unwrap()) => {
-            min_version = reader_meta.get_min_version().clone();
-          },
-          _ => {},
-        }
-
-        has_blocks |= reader_meta.get_has_blocks();
       }
+      match (&min_version, reader_meta.get_min_version()) {
+        (None, reader_min_version) => min_version = reader_min_version.clone(),
+        (Some(current_min_version), Some(reader_min_version))
+          if current_min_version.on_or_after(reader_min_version) =>
+        {
+          min_version = Some(reader_min_version.clone());
+        },
+        (Some(_), None) => {
+          return Err(LuceneError::illegal_state(
+            "cannot combine a reader without min_version after one with min_version",
+          ));
+        },
+        _ => {},
+      }
+      has_blocks |= reader_meta.get_has_blocks();
     }
 
     let meta = LeafMetaData::new(major_version, min_version, None, has_blocks)?;

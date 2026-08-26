@@ -535,14 +535,22 @@ impl<D> SegmentInfos<D> {
       si_per_commit.set_doc_values_updates_files(dv_update_files);
       infos.add(si_per_commit)?;
 
-      let segment_version = info.get_version_ref().unwrap();
-      if !segment_version.on_or_after(infos.min_segment_lucene_version.as_ref().unwrap()) {
+      let segment_version = info.get_version_ref().ok_or_else(|| {
+        LuceneError::corrupt_index(format!(
+          "segment {} does not record a Lucene version (resource={})",
+          info, input
+        ))
+      })?;
+      let min_segment_lucene_version =
+        infos.min_segment_lucene_version.as_ref().ok_or_else(|| {
+          LuceneError::corrupt_index(format!(
+            "segments file does not record minSegmentLuceneVersion (resource={input})"
+          ))
+        })?;
+      if !segment_version.on_or_after(min_segment_lucene_version) {
         return Err(LuceneError::corrupt_index(format!(
           "segments file recorded minSegmentLuceneVersion={} but segment={} has older version={} (resource={})",
-          infos.min_segment_lucene_version.as_ref().unwrap(),
-          info,
-          segment_version,
-          input
+          min_segment_lucene_version, info, segment_version, input
         )));
       }
 
@@ -617,8 +625,11 @@ impl<D> SegmentInfos<D> {
       "",
       next_generation,
     );
-    debug_assert!(segment_file_name_wrap.is_some());
-    let segment_file_name = segment_file_name_wrap.unwrap();
+    let segment_file_name = segment_file_name_wrap.ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "invalid pending segments generation: {next_generation}"
+      ))
+    })?;
 
     // Always advance the generation on writing
     self.generation = next_generation;
@@ -627,7 +638,9 @@ impl<D> SegmentInfos<D> {
     let mut segn_output = None;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       segn_output = Some(directory.create_output(&segment_file_name, &IO_CONTEXT_DEFAULT)?);
-      let segn_output = segn_output.as_mut().unwrap();
+      let segn_output = segn_output
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("pending segments output is missing"))?;
       self.write(segn_output)?;
       segn_output.close()?;
       let segment_files = vec![segment_file_name.clone()];
@@ -676,19 +689,23 @@ impl<D> SegmentInfos<D> {
       // minSegmentVersion before any SegmentInfo; this makes
       // it cleaner to return IndexFormatTooOldExc at read time:
       for si_per_commit in self.segments.iter() {
-        let segment_version = si_per_commit.info.version.clone();
-        debug_assert!(segment_version.is_some());
-        if min_segment_version.is_none()
-          || !segment_version
-            .as_ref()
-            .unwrap()
-            .on_or_after(min_segment_version.as_ref().unwrap())
+        let segment_version = si_per_commit.info.version.as_ref().ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "segment {} does not record a Lucene version",
+            si_per_commit.info.name
+          ))
+        })?;
+        if min_segment_version
+          .as_ref()
+          .is_none_or(|min_version| !segment_version.on_or_after(min_version))
         {
-          min_segment_version = segment_version;
+          min_segment_version = Some(segment_version.clone());
         }
       }
 
-      let min_version = min_segment_version.as_ref().unwrap();
+      let min_version = min_segment_version.as_ref().ok_or_else(|| {
+        LuceneError::illegal_state("cannot determine minimum segment Lucene version")
+      })?;
       out.write_vint(min_version.major)?;
       out.write_vint(min_version.minor)?;
       out.write_vint(min_version.bug_fix)?;
@@ -1035,7 +1052,11 @@ impl<D> SegmentInfos<D> {
       if merged_away.contains(&info_id) {
         self.dropped_segment_commit_infos.insert(info_id, info);
         if !inserted && !drop_segment {
-          new_segments.push(merge.info.take().unwrap());
+          let merged_info = merge
+            .info
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("merge output segment info is missing"))?;
+          new_segments.push(merged_info);
           inserted = true;
         }
       } else {
@@ -1044,7 +1065,11 @@ impl<D> SegmentInfos<D> {
     }
 
     if !inserted && !drop_segment {
-      new_segments.insert(0, merge.info.take().unwrap());
+      let merged_info = merge
+        .info
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("merge output segment info is missing"))?;
+      new_segments.insert(0, merged_info);
     }
 
     self.segments = new_segments;

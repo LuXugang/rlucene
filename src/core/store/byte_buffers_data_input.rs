@@ -129,7 +129,9 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
         return Err(LuceneError::eof(format!("{pos}")));
       }
 
-      let block = self.blocks.get(block_index).unwrap();
+      let block = self.blocks.get(block_index).ok_or_else(|| {
+        LuceneError::eof(format!("missing block {block_index} at position {pos}"))
+      })?;
       let block_bytes = block.get_ref().as_slice();
       let available = block_bytes.len().saturating_sub(block_offset);
 
@@ -184,7 +186,9 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
         return Err(LuceneError::eof(format!("{pos}")));
       }
 
-      let block = self.blocks.get(block_index).unwrap();
+      let block = self.blocks.get(block_index).ok_or_else(|| {
+        LuceneError::eof(format!("missing block {block_index} at position {pos}"))
+      })?;
       let block_bytes = block.get_ref().as_slice();
       let chunk = len.min(block_bytes.len().saturating_sub(block_offset));
       if chunk == 0 {

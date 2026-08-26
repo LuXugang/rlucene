@@ -126,7 +126,11 @@ pub trait CodecReader: LeafReader {
     self.ensure_open()?;
     let fi = self.get_field_infos()?.field_info_by_name(field)?;
 
-    if fi.is_none() || *fi.unwrap().get_index_options() == IndexOptions::None {
+    let Some(fi) = fi else {
+      // Field does not exist
+      return Ok(None);
+    };
+    if *fi.get_index_options() == IndexOptions::None {
       // Field does not exist or does not index postings
       return Ok(None);
     }

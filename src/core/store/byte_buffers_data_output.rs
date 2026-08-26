@@ -62,23 +62,19 @@ impl ByteBuffersDataOutput {
   pub const DEFAULT_MIN_BITS_PER_BLOCK: i32 = 10;
 
   pub fn new() -> Self {
-    let result = Self::with_reuse(
+    Self::with_validated_bits(
       Self::DEFAULT_MIN_BITS_PER_BLOCK,
       Self::DEFAULT_MAX_BITS_PER_BLOCK,
       false,
-    );
-    debug_assert!(result.is_ok());
-    result.unwrap()
+    )
   }
   ///Creates a new output with all defaults.
   pub fn new_resettable_instance() -> Self {
-    let result = Self::with_reuse(
+    Self::with_validated_bits(
       Self::DEFAULT_MIN_BITS_PER_BLOCK,
       Self::DEFAULT_MAX_BITS_PER_BLOCK,
       true,
-    );
-    debug_assert!(result.is_ok());
-    result.unwrap()
+    )
   }
   /// Expert: Creates a new output with custom parameters.
   ///
@@ -106,16 +102,24 @@ impl ByteBuffersDataOutput {
         "minBitsPerBlock ({min_bits_per_block}) cannot exceed maxBitsPerBlock ({max_bits_per_block})"
       )));
     }
+    Ok(Self::with_validated_bits(
+      min_bits_per_block,
+      max_bits_per_block,
+      reuse,
+    ))
+  }
+
+  fn with_validated_bits(min_bits_per_block: i32, max_bits_per_block: i32, reuse: bool) -> Self {
     let block = Cursor::new(vec![0u8; 1 << min_bits_per_block]);
     let mut blocks = VecDeque::new();
     blocks.push_back(block);
-    Ok(Self {
+    Self {
       max_bits_per_block,
       block_bits: min_bits_per_block,
       blocks,
       current_block_index: 0,
       reuse,
-    })
+    }
   }
   /// Creates a new output, suitable for writing a file of approximately
   /// `expected_size` bytes.
@@ -135,13 +139,17 @@ impl ByteBuffersDataOutput {
       && self.block_bits < self.max_bits_per_block
     {
       self.rewrite_to_block_size(self.block_bits + 1)?;
-      if self
+      let block_count = self.blocks.len();
+      let current_block = self
         .blocks
         .get_mut(self.current_block_index)
-        .unwrap()
-        .remain()?
-        > 0
-      {
+        .ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "current block index {} is out of bounds for {} blocks",
+            self.current_block_index, block_count
+          ))
+        })?;
+      if current_block.remain()? > 0 {
         return Ok(());
       }
     }
@@ -186,7 +194,7 @@ impl ByteBuffersDataOutput {
           new_block.remain()?,
           bytes_to_copy
         );
-        new_block.write_from_slice(old_data).unwrap();
+        new_block.write_from_slice(old_data)?;
         old_block.set_position((old_position + bytes_to_copy) as u64);
       }
       old_block_count -= 1;
@@ -383,15 +391,34 @@ impl ByteBuffersDataOutput {
         .push_back(Cursor::new(vec![0u8; 1 << self.block_bits]));
       self.current_block_index = 0;
     }
-    let mut last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+    let mut last_block = self
+      .blocks
+      .get_mut(self.current_block_index)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "current block index {} is out of bounds",
+          self.current_block_index
+        ))
+      })?;
     if last_block.remain()? == 0 {
       if self.reuse && self.current_block_index < self.blocks.len() - 1 {
         self.current_block_index += 1;
-        last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+        last_block = self
+          .blocks
+          .get_mut(self.current_block_index)
+          .ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+              "reused block index {} is out of bounds",
+              self.current_block_index
+            ))
+          })?;
       } else {
         self.append_block()?;
         // it is safe to get by `back_mut` because blocks are not reused
-        last_block = self.blocks.back_mut().unwrap();
+        last_block = self
+          .blocks
+          .back_mut()
+          .ok_or_else(|| LuceneError::illegal_state("appended block is missing"))?;
       }
     }
     last_block.remain()
@@ -409,7 +436,10 @@ impl ByteBuffersDataOutput {
 impl DataOutput for ByteBuffersDataOutput {
   fn write_byte(&mut self, b: u8) -> Result<()> {
     self.append_block_if_needed()?;
-    let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+    let last_block = self
+      .blocks
+      .get_mut(self.current_block_index)
+      .ok_or_else(|| LuceneError::illegal_state("current write block is missing"))?;
     Ok(last_block.write_u8(b)?)
   }
 
@@ -420,7 +450,10 @@ impl DataOutput for ByteBuffersDataOutput {
   fn write_bytes_range(&mut self, b: &[u8], mut offset: usize, mut length: usize) -> Result<()> {
     while length > 0 {
       let available_space = self.append_block_if_needed()?;
-      let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+      let last_block = self
+        .blocks
+        .get_mut(self.current_block_index)
+        .ok_or_else(|| LuceneError::illegal_state("current write block is missing"))?;
       let chunk = available_space.min(length);
       last_block.write_from(b, offset, chunk)?;
       length = length.checked_sub(chunk).ok_or_else(|| {
@@ -459,7 +492,10 @@ impl DataOutput for ByteBuffersDataOutput {
   {
     while num_bytes > 0 {
       let available_space = self.append_block_if_needed()?;
-      let last_block = self.blocks.get_mut(self.current_block_index).unwrap();
+      let last_block = self
+        .blocks
+        .get_mut(self.current_block_index)
+        .ok_or_else(|| LuceneError::illegal_state("current write block is missing"))?;
       let bytes_to_copy = available_space.min(num_bytes);
 
       let current_pos = last_block.position().try_convert()?;

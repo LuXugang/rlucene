@@ -53,6 +53,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{Counter, ToInt};
 use parking_lot::lock_api::ReentrantMutexGuard;
 use parking_lot::{RawMutex, RawThreadId, ReentrantMutex};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -303,10 +304,15 @@ impl FrozenBufferedUpdates {
       let mut dv_updates = None;
 
       while let Some(buffered_update) = iterator.next_value()? {
-        if let Some(doc_id_set_iterator) = term_docs_iterator.next_term(
-          buffered_update.term_field.as_str(),
-          buffered_update.term_value.as_ref().unwrap(),
-        )? {
+        let term_value = buffered_update.term_value.as_ref().ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "buffered update for field [{}] has no term value",
+            buffered_update.term_field
+          ))
+        })?;
+        if let Some(doc_id_set_iterator) =
+          term_docs_iterator.next_term(buffered_update.term_field.as_str(), term_value)?
+        {
           let limit = if del_gen == seg_state.del_gen {
             debug_assert!(segment_private_deletes);
             buffered_update.doc_upto
@@ -350,7 +356,14 @@ impl FrozenBufferedUpdates {
             dv_updates = Some(resolved_updates.len() - 1);
           }
 
-          let update = resolved_updates.get_mut(dv_updates.unwrap()).unwrap();
+          let update_index = dv_updates.ok_or_else(|| {
+            LuceneError::illegal_state("doc values update slot was not initialized")
+          })?;
+          let update = resolved_updates.get_mut(update_index).ok_or_else(|| {
+            LuceneError::illegal_state(format!(
+              "doc values update index {update_index} is out of bounds"
+            ))
+          })?;
           let mut doc_id_consumer = IntConsumerImpl::new(
             update,
             buffered_update.has_value,
@@ -657,7 +670,7 @@ where
     }
   }
   fn set_field(&mut self, field: &str) -> Result<()> {
-    if self.field.is_none() || self.field.as_ref().unwrap() != field {
+    if self.field.as_deref() != Some(field) {
       self.field = Some(field.to_string());
 
       match self.provider.terms(field)? {
@@ -667,7 +680,11 @@ where
             // need to reset otherwise we fail the assertSorted below since we sort per field
             #[cfg(debug_assertions)]
             debug_assert!(self.last_term.is_none());
-            self.reader_term = Option::from(terms_enum.next()?.unwrap().into_owned());
+            self.reader_term = terms_enum.next()?.map(Cow::into_owned);
+            if self.reader_term.is_none() {
+              self.terms_enum = None;
+              return Ok(());
+            }
           }
           self.terms_enum = Some(terms_enum);
         },
@@ -745,12 +762,16 @@ where
     }
   }
   fn get_docs(&mut self) -> Result<&mut Disi<P>> {
-    debug_assert!(self.terms_enum.is_some());
-
-    let terms_enum = self.terms_enum.as_mut().unwrap();
+    let terms_enum = self
+      .terms_enum
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("terms enum is missing"))?;
     let postings_enum = terms_enum.postings_with_flags(self.postings_enum.take(), NONE as i32)?;
     self.postings_enum = Some(postings_enum);
-    Ok(self.postings_enum.as_mut().unwrap())
+    self
+      .postings_enum
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("postings enum is missing"))
   }
 }
 type Disi<P> = <<<P as TermsProvider>::Terms as Terms>::TermsEnum as TermsEnum>::PostingsEnum;
@@ -829,9 +850,10 @@ impl<'a> IntConsumer for IntConsumerImpl<'a> {
     } else if self.is_numeric {
       self.update.add_value(doc, self.long_value)?;
     } else {
-      self
-        .update
-        .add_byte_ref(doc, self.binary_value.as_ref().unwrap())?;
+      let binary_value = self
+        .binary_value
+        .ok_or_else(|| LuceneError::illegal_state("binary doc values update has no value"))?;
+      self.update.add_byte_ref(doc, binary_value)?;
     }
     Ok(())
   }

@@ -811,29 +811,30 @@ impl FieldNumbers {
 
   fn verify_same_schema(&self, fi: &FieldInfo) -> Result<()> {
     let field_name = fi.get_name();
-    let field_properties = self.field_properties.get(field_name).unwrap();
+    let field_properties = self.field_properties.get(field_name).ok_or_else(|| {
+      LuceneError::illegal_state(format!("field properties are missing for [{field_name}]"))
+    })?;
     FieldInfo::verify_same_index_options(
       field_name,
       &field_properties.index_options,
       fi.get_index_options(),
     )?;
     if field_properties.index_options != IndexOptions::None {
-      debug_assert!(field_properties.index_options_properties.is_some());
-      let current_term_vector = field_properties
+      let index_options_properties = field_properties
         .index_options_properties
         .as_ref()
-        .unwrap()
-        .store_term_vectors;
+        .ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "index option properties are missing for indexed field [{field_name}]"
+          ))
+        })?;
+      let current_term_vector = index_options_properties.store_term_vectors;
       FieldInfo::verify_same_store_term_vectors(
         field_name,
         current_term_vector,
         fi.has_term_vectors(),
       )?;
-      let current_omit_norms = field_properties
-        .index_options_properties
-        .as_ref()
-        .unwrap()
-        .omit_norms;
+      let current_omit_norms = index_options_properties.omit_norms;
       FieldInfo::verify_same_omit_norms(field_name, current_omit_norms, fi.omits_norms())?;
     }
     FieldInfo::verify_same_doc_values_type(
@@ -927,7 +928,9 @@ impl FieldNumbers {
     } else {
       // verify that field is doc values only field with the give doc
       // values type
-      let field_props = self.field_properties.get(field_name).unwrap();
+      let field_props = self.field_properties.get(field_name).ok_or_else(|| {
+        LuceneError::illegal_state(format!("field properties are missing for [{field_name}]"))
+      })?;
       if *dv_type != field_props.doc_values_type {
         return Err(LuceneError::illegal_argument(format!(
           "Can't update [{:?}] doc values; the field [{}] has inconsistent doc values' type of [{:?}].",

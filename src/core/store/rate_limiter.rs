@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 /**
  * Base trait for rate-limiting I/O. Implementations are typically shared across multiple
@@ -138,7 +138,10 @@ impl RateLimiter for SimpleRateLimiter {
 
     // Sync'd to read + write last_instant:
     {
-      let mut last = self.last_instant.lock().unwrap();
+      let mut last = self
+        .last_instant
+        .lock()
+        .map_err(|_| LuceneError::illegal_state("rate limiter state lock is poisoned"))?;
 
       // Time we should sleep until; this is purely instantaneous
       // rate (just adds seconds onto the last time we had paused to);

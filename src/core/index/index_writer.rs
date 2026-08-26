@@ -332,7 +332,9 @@ where
     IC: IndexCommit<Directory = Arc<D>>,
     D: 'static,
   {
-    let enable_test_points = hooks.as_ref().unwrap().is_enable_test_points();
+    let enable_test_points = hooks
+      .as_ref()
+      .is_some_and(IndexWriterHooks::is_enable_test_points);
     let info_stream = conf.get_info_stream();
     let soft_deletes_enabled = conf.get_soft_deletes_field().is_some();
 
@@ -523,9 +525,9 @@ where
 
       let fields = global_field_number_map.get_field_names();
       if !create
-        && conf.get_parent_field().is_some()
         && !fields.is_empty()
-        && !fields.contains(conf.get_parent_field().unwrap())
+        && let Some(parent_field) = conf.get_parent_field()
+        && !fields.contains(parent_field)
       {
         return Err(LuceneError::illegal_argument(
           "can't add a parent field to an already existing index without a parent field",
@@ -671,14 +673,17 @@ where
       for info in segment_infos.iter() {
         let segment_index_sort = info.info.get_index_sort();
 
-        if segment_index_sort.is_none()
-          || !is_congruent_sort(&index_sort, segment_index_sort.as_ref().unwrap())
+        if segment_index_sort
+          .as_ref()
+          .is_none_or(|segment_sort| !is_congruent_sort(&index_sort, segment_sort))
         {
+          let segment_index_sort = match segment_index_sort {
+            Some(segment_sort) => segment_sort.to_string(),
+            None => "null".to_string(),
+          };
           return Err(LuceneError::illegal_argument(format!(
             "cannot change previous indexSort={} (from segment={}) to new indexSort={}",
-            segment_index_sort.as_ref().unwrap(),
-            info,
-            index_sort
+            segment_index_sort, info, index_sort
           )));
         }
       }

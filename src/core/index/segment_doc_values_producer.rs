@@ -85,7 +85,10 @@ where
             dv_producers.insert(IdentityArc::new(producer.clone()));
             base_producer = Some(producer);
           }
-          dv_producers_by_field.insert(fi.number, base_producer.as_ref().unwrap().clone());
+          let producer = base_producer.as_ref().ok_or_else(|| {
+            LuceneError::illegal_state("base doc values producer was not initialized")
+          })?;
+          dv_producers_by_field.insert(fi.number, producer.clone());
         } else {
           debug_assert!(!dv_gens.contains(&doc_values_gen));
           // otherwise, producer sees only the one fieldinfo it wrote
