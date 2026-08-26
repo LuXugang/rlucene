@@ -1629,35 +1629,40 @@ impl DirectPostingsEnum {
     if feature_requested(flags, POSITIONS) {
       return Ok(match term.as_ref() {
         TermAndSkip::LowFreq(_) if !has_freq => {
-          let mut docs_enum = match reuse {
-            Some(Self::LowFreqDocsNoTf(value)) => value,
-            _ => LowFreqDocsEnumNoTf::new(),
+          let docs_enum = match reuse {
+            Some(Self::LowFreqDocsNoTf(mut value)) => {
+              value.reset(term);
+              value
+            },
+            _ => LowFreqDocsEnumNoTf::new(term),
           };
-          docs_enum.reset(term);
           Self::LowFreqDocsNoTf(docs_enum)
         },
         TermAndSkip::LowFreq(_) if !has_pos => {
-          let mut docs_enum = match reuse {
-            Some(Self::LowFreqDocsNoPos(value)) => value,
-            _ => LowFreqDocsEnumNoPos::new(),
+          let docs_enum = match reuse {
+            Some(Self::LowFreqDocsNoPos(mut value)) => {
+              value.reset(term);
+              value
+            },
+            _ => LowFreqDocsEnumNoPos::new(term),
           };
-          docs_enum.reset(term);
           Self::LowFreqDocsNoPos(docs_enum)
         },
         TermAndSkip::LowFreq(_) => {
-          let mut postings_enum = LowFreqPostingsEnum::new(has_offsets, has_payloads);
-          postings_enum.reset(term);
-          Self::LowFreqPostings(postings_enum)
+          Self::LowFreqPostings(LowFreqPostingsEnum::new(term, has_offsets, has_payloads))
         },
         TermAndSkip::HighFreq(_) if !has_pos => {
-          let mut docs_enum = HighFreqDocsEnum::new();
-          docs_enum.reset(term);
+          let docs_enum = match reuse {
+            Some(Self::HighFreqDocs(mut value)) => {
+              value.reset(term);
+              value
+            },
+            _ => HighFreqDocsEnum::new(term),
+          };
           Self::HighFreqDocs(docs_enum)
         },
         TermAndSkip::HighFreq(_) => {
-          let mut postings_enum = HighFreqPostingsEnum::new(has_offsets);
-          postings_enum.reset(term);
-          Self::HighFreqPostings(postings_enum)
+          Self::HighFreqPostings(HighFreqPostingsEnum::new(term, has_offsets))
         },
       });
     }
@@ -1668,35 +1673,43 @@ impl DirectPostingsEnum {
         if has_payloads {
           pos_len += 1;
         }
-        let mut docs_enum = match reuse {
-          Some(Self::LowFreqDocs(value)) if value.can_reuse(pos_len) => value,
-          _ => LowFreqDocsEnum::new(pos_len),
+        let docs_enum = match reuse {
+          Some(Self::LowFreqDocs(mut value)) if value.can_reuse(pos_len) => {
+            value.reset(term);
+            value
+          },
+          _ => LowFreqDocsEnum::new(term, pos_len),
         };
-        docs_enum.reset(term);
         Self::LowFreqDocs(docs_enum)
       },
       TermAndSkip::LowFreq(_) if has_freq => {
-        let mut docs_enum = match reuse {
-          Some(Self::LowFreqDocsNoPos(value)) => value,
-          _ => LowFreqDocsEnumNoPos::new(),
+        let docs_enum = match reuse {
+          Some(Self::LowFreqDocsNoPos(mut value)) => {
+            value.reset(term);
+            value
+          },
+          _ => LowFreqDocsEnumNoPos::new(term),
         };
-        docs_enum.reset(term);
         Self::LowFreqDocsNoPos(docs_enum)
       },
       TermAndSkip::LowFreq(_) => {
-        let mut docs_enum = match reuse {
-          Some(Self::LowFreqDocsNoTf(value)) => value,
-          _ => LowFreqDocsEnumNoTf::new(),
+        let docs_enum = match reuse {
+          Some(Self::LowFreqDocsNoTf(mut value)) => {
+            value.reset(term);
+            value
+          },
+          _ => LowFreqDocsEnumNoTf::new(term),
         };
-        docs_enum.reset(term);
         Self::LowFreqDocsNoTf(docs_enum)
       },
       TermAndSkip::HighFreq(_) => {
-        let mut docs_enum = match reuse {
-          Some(Self::HighFreqDocs(value)) => value,
-          _ => HighFreqDocsEnum::new(),
+        let docs_enum = match reuse {
+          Some(Self::HighFreqDocs(mut value)) => {
+            value.reset(term);
+            value
+          },
+          _ => HighFreqDocsEnum::new(term),
         };
-        docs_enum.reset(term);
         Self::HighFreqDocs(docs_enum)
       },
     })
@@ -1809,25 +1822,22 @@ impl PostingsEnum for DirectPostingsEnum {
 
 // Docs only:
 pub struct LowFreqDocsEnumNoTf {
-  term: Option<Arc<TermAndSkip>>,
+  term: Arc<TermAndSkip>,
   upto: i32,
 }
 
 impl LowFreqDocsEnumNoTf {
-  fn new() -> Self {
-    Self {
-      term: None,
-      upto: -1,
-    }
+  fn new(term: Arc<TermAndSkip>) -> Self {
+    Self { term, upto: -1 }
   }
 
   fn reset(&mut self, term: Arc<TermAndSkip>) {
-    self.term = Some(term);
+    self.term = term;
     self.upto = -1;
   }
 
   fn postings(&self) -> &[i32] {
-    match self.term.as_ref().unwrap().as_ref() {
+    match self.term.as_ref() {
       TermAndSkip::LowFreq(term) => &term.postings,
       _ => unreachable!(),
     }
@@ -1884,25 +1894,22 @@ impl PostingsEnum for LowFreqDocsEnumNoTf {
 
 // Docs + freqs:
 pub struct LowFreqDocsEnumNoPos {
-  term: Option<Arc<TermAndSkip>>,
+  term: Arc<TermAndSkip>,
   upto: i32,
 }
 
 impl LowFreqDocsEnumNoPos {
-  fn new() -> Self {
-    Self {
-      term: None,
-      upto: -2,
-    }
+  fn new(term: Arc<TermAndSkip>) -> Self {
+    Self { term, upto: -2 }
   }
 
   fn reset(&mut self, term: Arc<TermAndSkip>) {
-    self.term = Some(term);
+    self.term = term;
     self.upto = -2;
   }
 
   fn postings(&self) -> &[i32] {
-    match self.term.as_ref().unwrap().as_ref() {
+    match self.term.as_ref() {
       TermAndSkip::LowFreq(term) => &term.postings,
       _ => unreachable!(),
     }
@@ -1959,16 +1966,16 @@ impl PostingsEnum for LowFreqDocsEnumNoPos {
 
 // Docs + freqs + positions/offsets:
 pub struct LowFreqDocsEnum {
-  term: Option<Arc<TermAndSkip>>,
+  term: Arc<TermAndSkip>,
   pos_mult: i32,
   upto: i32,
   freq: i32,
 }
 
 impl LowFreqDocsEnum {
-  fn new(pos_mult: i32) -> Self {
+  fn new(term: Arc<TermAndSkip>, pos_mult: i32) -> Self {
     Self {
-      term: None,
+      term,
       pos_mult,
       upto: -2,
       freq: 0,
@@ -1980,13 +1987,13 @@ impl LowFreqDocsEnum {
   }
 
   fn reset(&mut self, term: Arc<TermAndSkip>) {
-    self.term = Some(term);
+    self.term = term;
     self.upto = -2;
     self.freq = 0;
   }
 
   fn postings(&self) -> &[i32] {
-    match self.term.as_ref().unwrap().as_ref() {
+    match self.term.as_ref() {
       TermAndSkip::LowFreq(term) => &term.postings,
       _ => unreachable!(),
     }
@@ -2046,7 +2053,7 @@ impl PostingsEnum for LowFreqDocsEnum {
 }
 
 pub struct LowFreqPostingsEnum {
-  term: Option<Arc<TermAndSkip>>,
+  term: Arc<TermAndSkip>,
   pos_mult: i32,
   has_offsets: bool,
   has_payloads: bool,
@@ -2063,7 +2070,7 @@ pub struct LowFreqPostingsEnum {
 }
 
 impl LowFreqPostingsEnum {
-  fn new(has_offsets: bool, has_payloads: bool) -> Self {
+  fn new(term: Arc<TermAndSkip>, has_offsets: bool, has_payloads: bool) -> Self {
     let pos_mult = if has_offsets {
       if has_payloads { 4 } else { 3 }
     } else if has_payloads {
@@ -2072,7 +2079,7 @@ impl LowFreqPostingsEnum {
       1
     };
     Self {
-      term: None,
+      term,
       pos_mult,
       has_offsets,
       has_payloads,
@@ -2089,21 +2096,8 @@ impl LowFreqPostingsEnum {
     }
   }
 
-  fn reset(&mut self, term: Arc<TermAndSkip>) {
-    self.term = Some(term);
-    self.upto = 0;
-    self.skip_positions = 0;
-    self.pos = -1;
-    self.start_offset = -1;
-    self.end_offset = -1;
-    self.doc_id = -1;
-    self.payload_offset = 0;
-    self.payload_length = 0;
-    self.payload = None;
-  }
-
   fn low_term(&self) -> &LowFreqTerm {
-    match self.term.as_ref().unwrap().as_ref() {
+    match self.term.as_ref() {
       TermAndSkip::LowFreq(term) => term,
       _ => unreachable!(),
     }
@@ -2205,28 +2199,28 @@ impl PostingsEnum for LowFreqPostingsEnum {
 
 // Docs + freqs:
 pub struct HighFreqDocsEnum {
-  term: Option<Arc<TermAndSkip>>,
+  term: Arc<TermAndSkip>,
   upto: i32,
   doc_id: i32,
 }
 
 impl HighFreqDocsEnum {
-  fn new() -> Self {
+  fn new(term: Arc<TermAndSkip>) -> Self {
     Self {
-      term: None,
+      term,
       upto: -1,
       doc_id: -1,
     }
   }
 
   fn reset(&mut self, term: Arc<TermAndSkip>) {
-    self.term = Some(term);
+    self.term = term;
     self.doc_id = -1;
     self.upto = -1;
   }
 
   fn high_term(&self) -> &HighFreqTerm {
-    match self.term.as_ref().unwrap().as_ref() {
+    match self.term.as_ref() {
       TermAndSkip::HighFreq(term) => term,
       _ => unreachable!(),
     }
@@ -2332,7 +2326,7 @@ impl PostingsEnum for HighFreqDocsEnum {
 }
 
 pub struct HighFreqPostingsEnum {
-  term: Option<Arc<TermAndSkip>>,
+  term: Arc<TermAndSkip>,
   has_offsets: bool,
   pos_jump: i32,
   upto: i32,
@@ -2342,9 +2336,9 @@ pub struct HighFreqPostingsEnum {
 }
 
 impl HighFreqPostingsEnum {
-  fn new(has_offsets: bool) -> Self {
+  fn new(term: Arc<TermAndSkip>, has_offsets: bool) -> Self {
     Self {
-      term: None,
+      term,
       has_offsets,
       pos_jump: if has_offsets { 3 } else { 1 },
       upto: -1,
@@ -2354,14 +2348,8 @@ impl HighFreqPostingsEnum {
     }
   }
 
-  fn reset(&mut self, term: Arc<TermAndSkip>) {
-    self.term = Some(term);
-    self.upto = -1;
-    self.payload = None;
-  }
-
   fn high_term(&self) -> &HighFreqTerm {
-    match self.term.as_ref().unwrap().as_ref() {
+    match self.term.as_ref() {
       TermAndSkip::HighFreq(term) => term,
       _ => unreachable!(),
     }
