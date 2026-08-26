@@ -62,26 +62,24 @@ impl GeoTestUtil {
       return low;
     }
 
-    let base_value;
     let surprise_me = random.random_range(0..17);
-    if surprise_me == 0 {
+    let base_value = if surprise_me == 0 {
       let low_bits = NumericUtils::double_to_sortable_long(low);
       let high_bits = NumericUtils::double_to_sortable_long(high);
-      base_value =
-        NumericUtils::sortable_long_to_double(TestUtil::next_long(random, low_bits, high_bits));
+      NumericUtils::sortable_long_to_double(TestUtil::next_long(random, low_bits, high_bits))
     } else if surprise_me == 1 {
-      base_value = low;
+      low
     } else if surprise_me == 2 {
-      base_value = high;
+      high
     } else if surprise_me == 3 && low <= 0.0 && high >= 0.0 {
-      base_value = 0.0;
+      0.0
     } else if surprise_me == 4 {
       let delta = (high - low) / 360.0;
       let block = random.random_range(0..360) as f64;
-      base_value = low + delta * block;
+      low + delta * block
     } else {
-      base_value = low + (high - low) * random.random::<f64>();
-    }
+      low + (high - low) * random.random::<f64>()
+    };
 
     assert!(base_value >= low);
     assert!(base_value <= high);

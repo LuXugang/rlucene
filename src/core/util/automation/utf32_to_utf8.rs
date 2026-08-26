@@ -173,27 +173,25 @@ impl UTF32ToUTF8 {
       let mask = MASKS[self.end_utf8.num_bits(upto) as usize] as i32;
       self.utf8.add_transition(start, end, b & !mask, b)?;
     } else {
-      let start_code: i32;
-
       // GH-ISSUE#12472: UTF-8 special case for different start bytes for lengths
       // 2/3/4
-      if self.end_utf8.len == 2 && upto == 0 {
+      let start_code: i32 = if self.end_utf8.len == 2 && upto == 0 {
         // The first length=2 UTF-8 Unicode character is C2 80,
         // so we must special case 0xC2 as the 1st byte.
-        start_code = 0xC2;
+        0xC2
       } else if self.end_utf8.len == 3 && upto == 1 && self.end_utf8.byte_at(0) == 0xE0 {
         // The first length=3 UTF-8 Unicode character is E0 A0 80,
         // so we must special case 0xA0 as the 2nd byte when E0 was the first byte.
-        start_code = 0xA0;
+        0xA0
       } else if self.end_utf8.len == 4 && upto == 1 && self.end_utf8.byte_at(0) == 0xF0 {
         // The first length=4 UTF-8 Unicode character is F0 90 80 80,
         // so we must special case 0x90 as the 2nd byte when F0 was the first byte.
-        start_code = 0x90;
+        0x90
       } else {
         let b = self.end_utf8.byte_at(upto);
         let mask = MASKS[self.end_utf8.num_bits(upto) as usize] as i32;
-        start_code = b & !mask;
-      }
+        b & !mask
+      };
 
       let end_byte = self.end_utf8.byte_at(upto);
 

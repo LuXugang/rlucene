@@ -1045,9 +1045,11 @@ fn test_encode_decode() -> Result<()> {
       let mut byte_blocks = vec![0u8; 8 * blocks.len()];
       let mut values2 = vec![0i64; values_offset + (long_iterations * long_value_count) as usize];
       byte_blocks
-        .chunks_exact_mut(8)
+        .as_chunks_mut::<8>()
+        .0
+        .iter_mut()
         .zip(blocks.iter())
-        .for_each(|(chunk, &block)| chunk.copy_from(&block.to_be_bytes(), 0));
+        .for_each(|(chunk, &block)| chunk.copy_from_slice(&block.to_be_bytes()));
 
       decoder.decode_u8_to_i64(
         &byte_blocks,
@@ -1088,8 +1090,10 @@ fn test_encode_decode() -> Result<()> {
       assert_eq!(
         blocks2,
         blocks3
-          .chunks_exact(8)
-          .map(|chunk| u64::from_be_bytes(chunk.try_into().unwrap()))
+          .as_chunks::<8>()
+          .0
+          .iter()
+          .map(|chunk| u64::from_be_bytes(*chunk))
           .collect::<Vec<_>>(),
         "{}: Byte-encoded blocks mismatch original blocks",
         msg

@@ -932,7 +932,7 @@ impl JavaRandom {
 
   fn next_int(&mut self, bound: i32) -> i32 {
     debug_assert!(bound > 0);
-    if (bound & bound.wrapping_neg()) == bound {
+    if bound.isolate_lowest_one() == bound {
       return (((bound as i64) * (self.next(31) as i64)) >> 31) as i32;
     }
     loop {

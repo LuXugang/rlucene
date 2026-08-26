@@ -497,9 +497,9 @@ impl DataInput for MemorySegmentIndexInput {
     self.read_current_buffer(byte_len, |bytes| {
       for (value, chunk) in dst[offset..offset + len]
         .iter_mut()
-        .zip(bytes.chunks_exact(BitUtil::LONG_BYTES))
+        .zip(bytes.as_chunks::<{ BitUtil::LONG_BYTES }>().0)
       {
-        *value = i64::from_le_bytes(chunk.try_into().unwrap());
+        *value = i64::from_le_bytes(*chunk);
       }
     })?;
     Ok(())
@@ -514,9 +514,9 @@ impl DataInput for MemorySegmentIndexInput {
     self.read_current_buffer(byte_len, |bytes| {
       for (value, chunk) in dst[offset..offset + len]
         .iter_mut()
-        .zip(bytes.chunks_exact(BitUtil::INT_BYTES))
+        .zip(bytes.as_chunks::<{ BitUtil::INT_BYTES }>().0)
       {
-        *value = i32::from_le_bytes(chunk.try_into().unwrap());
+        *value = i32::from_le_bytes(*chunk);
       }
     })?;
     Ok(())
@@ -531,9 +531,9 @@ impl DataInput for MemorySegmentIndexInput {
     self.read_current_buffer(byte_len, |bytes| {
       for (value, chunk) in dst[offset..offset + len]
         .iter_mut()
-        .zip(bytes.chunks_exact(BitUtil::FLOAT_BYTES))
+        .zip(bytes.as_chunks::<{ BitUtil::FLOAT_BYTES }>().0)
       {
-        *value = f32::from_bits(u32::from_le_bytes(chunk.try_into().unwrap()));
+        *value = f32::from_bits(u32::from_le_bytes(*chunk));
       }
     })?;
     Ok(())

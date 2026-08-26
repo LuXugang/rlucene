@@ -190,12 +190,10 @@ fn update_by_chunk_of_longs<R: Rng + ?Sized>(
   let remaining = (input.len() - ix) % BitUtil::LONG_BYTES;
   let long_end = input.len() - remaining;
   let long_input: Vec<i64> = input[ix..long_end]
-    .chunks_exact(BitUtil::LONG_BYTES)
-    .map(|chunk| {
-      i64::from_le_bytes([
-        chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6], chunk[7],
-      ])
-    })
+    .as_chunks::<{ BitUtil::LONG_BYTES }>()
+    .0
+    .iter()
+    .map(|chunk| i64::from_le_bytes(*chunk))
     .collect();
 
   checksum.update_bytes(input, 0, ix);

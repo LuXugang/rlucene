@@ -201,9 +201,7 @@ impl AutomatonTermsEnum {
         if self.cur_gen == 0 {
           // Clear the visited states every time curGen wraps (so very infrequently to not
           // impact average perf).
-          for v in &mut self.visited {
-            *v = u16::MAX;
-          }
+          self.visited.fill(u16::MAX);
         }
       }
 
