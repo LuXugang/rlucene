@@ -101,8 +101,8 @@ where
   pub(crate) data_output: DataOutputEnum<DO>,
   pub(crate) scratch_bytes: GrowableByteArrayDataOutput,
   pub(crate) num_bytes_written: i64,
-  /// Current frontier. Entries use `Option` so the frontier can grow incrementally.
-  pub(crate) frontier: Vec<Option<UnCompiledNode<O::V>>>,
+  /// Current frontier. Every allocated slot contains a reusable node.
+  pub(crate) frontier: Vec<UnCompiledNode<O::V>>,
 }
 impl<O, DO> FSTCompiler<O, DO>
 where
@@ -137,7 +137,7 @@ where
     let fst = FST::new(fst_meta, NullFSTReader);
     let mut frontier = vec![];
     for i in 0..10 {
-      frontier.push(Some(UnCompiledNode::new(no_output.clone(), i)));
+      frontier.push(UnCompiledNode::new(no_output.clone(), i));
     }
     Ok(Self {
       dedup_hash,
@@ -165,12 +165,7 @@ where
     })
   }
   fn compile_node(&mut self, node_in_idx: usize) -> Result<(CompiledNode, usize)> {
-    let num_arcs = self
-      .frontier
-      .get(node_in_idx)
-      .and_then(Option::as_ref)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?
-      .num_arcs;
+    let num_arcs = self.frontier[node_in_idx].num_arcs;
 
     let bytes_pos_start = self.num_bytes_written;
 
@@ -197,12 +192,7 @@ where
     }
 
     let v = self.no_output.clone();
-    self
-      .frontier
-      .get_mut(node_in_idx)
-      .and_then(Option::as_mut)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?
-      .clear(v);
+    self.frontier[node_in_idx].clear(v);
 
     Ok((CompiledNode { node }, node_in_idx))
   }
@@ -211,11 +201,7 @@ where
 
     for idx in (down_to..=len).rev() {
       let (label, next_final_output, is_final, prev_idx) = {
-        let node = self
-          .frontier
-          .get(idx)
-          .and_then(Option::as_ref)
-          .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+        let node = &self.frontier[idx];
         let prev_idx = idx - 1;
 
         let next_final_output = node.output.clone();
@@ -229,11 +215,7 @@ where
         (label, next_final_output, is_final, prev_idx)
       };
       let (compiled, _) = self.compile_node(idx)?;
-      let parent = self
-        .frontier
-        .get_mut(prev_idx)
-        .and_then(Option::as_mut)
-        .ok_or_else(|| LuceneError::illegal_state("FST frontier parent is missing"))?;
+      let parent = &mut self.frontier[prev_idx];
       // this node makes it and we now compile it.  first,
       // compile any targets that were previously
       // undecided:
@@ -278,12 +260,7 @@ where
       // format cannot represent the empty input since
       // 'finalness' is stored on the incoming arc, not on
       // the node
-      self
-        .frontier
-        .get_mut(0)
-        .and_then(Option::as_mut)
-        .ok_or_else(|| LuceneError::illegal_state("FST root node is missing"))?
-        .is_final = true;
+      self.frontier[0].is_final = true;
       self.set_empty_output(output)?;
       return Ok(());
     }
@@ -301,10 +278,19 @@ where
     if self.frontier.len() < (input.length + 1) {
       let old_len = self.frontier.len();
       debug_assert!(old_len <= i32::MAX as usize);
-      ArrayUtil::grow_with_len(&mut self.frontier, input.length + 1)?;
-      debug_assert!(self.frontier.len() <= i32::MAX as usize);
-      for i in old_len..self.frontier.len() {
-        self.frontier[i] = Some(UnCompiledNode::new(self.no_output.clone(), i as i32));
+      let min_size = input.length + 1;
+      let available_capacity = self.frontier.capacity().min(ArrayUtil::MAX_ARRAY_LENGTH);
+      let new_len = if available_capacity >= min_size {
+        available_capacity
+      } else {
+        ArrayUtil::oversize(min_size, std::mem::size_of::<UnCompiledNode<O::V>>())?
+      };
+      debug_assert!(new_len <= i32::MAX as usize);
+      self.frontier.reserve_exact(new_len - old_len);
+      for i in old_len..new_len {
+        self
+          .frontier
+          .push(UnCompiledNode::new(self.no_output.clone(), i as i32));
       }
     }
     // minimize/compile states from previous input's
@@ -318,20 +304,11 @@ where
       let label = ints[offset + idx - 1];
       let un_compiled = NodeEnum::UnCompiledNode;
       let v = self.no_output.clone();
-      self
-        .frontier
-        .get_mut(idx - 1)
-        .and_then(Option::as_mut)
-        .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?
-        .add_arc(label, un_compiled, v)?;
+      self.frontier[idx - 1].add_arc(label, un_compiled, v)?;
     }
 
     let last_input_len = self.last_input.length();
-    let last_node = self
-      .frontier
-      .get_mut(input.length)
-      .and_then(Option::as_mut)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let last_node = &mut self.frontier[input.length];
     if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
       last_node.is_final = true;
       last_node.output = no_output.clone();
@@ -342,13 +319,7 @@ where
       let (last_output, label) = {
         let parent = &mut self.frontier[idx - 1];
         let label = ints[offset + idx - 1];
-        (
-          parent
-            .as_mut()
-            .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?
-            .get_last_output(label),
-          label,
-        )
+        (parent.get_last_output(label), label)
       };
 
       debug_assert!(self.valid_output(&last_output));
@@ -381,25 +352,10 @@ where
     if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
       // same input more than 1 time in a row,
       // mapping to multiple outputs
-      let output = self
-        .frontier
-        .get_mut(input.offset)
-        .and_then(Option::as_mut)
-        .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?
-        .output
-        .clone();
-      let last_node = self
-        .frontier
-        .get(input.length)
-        .and_then(Option::as_ref)
-        .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+      let output = self.frontier[input.offset].output.clone();
+      let last_node = &self.frontier[input.length];
       let v = self.fst.outputs.merge(&last_node.output, &output)?;
-      self
-        .frontier
-        .get_mut(input.length)
-        .and_then(Option::as_mut)
-        .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?
-        .output = v;
+      self.frontier[input.length].output = v;
     } else {
       // this new arc is private to this new input; set its
       // arc output to the leftover output:
@@ -434,14 +390,7 @@ where
   pub fn compile(&mut self) -> Result<Option<FSTMetadata<O>>> {
     // Minimize nodes in the last word's suffix
     self.freeze_tail(0)?;
-    if self
-      .frontier
-      .first()
-      .and_then(Option::as_ref)
-      .ok_or_else(|| LuceneError::illegal_state("FST root node is missing"))?
-      .num_arcs
-      == 0
-    {
+    if self.frontier[0].num_arcs == 0 {
       if self.fst.metadata.empty_output.is_none() {
         // return None for completely empty FST which accepts nothing
         return Ok(None);
@@ -464,11 +413,7 @@ where
   // serializes new node by appending its bytes to the end
   // of the current byte buffer
   pub(crate) fn add_node(&mut self, node_in_idx: usize) -> Result<i64> {
-    let node_in = self
-      .frontier
-      .get(node_in_idx)
-      .and_then(Option::as_ref)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let node_in = &self.frontier[node_in_idx];
     if node_in.num_arcs == 0 {
       return Ok(if node_in.is_final {
         FINAL_END_NODE
@@ -735,11 +680,7 @@ where
     label_range: i32,
   ) -> Result<bool> {
     // Anticipate precisely the size of the encodings.
-    let node_in = self
-      .frontier
-      .get(node_in_idx)
-      .and_then(Option::as_ref)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let node_in = &self.frontier[node_in_idx];
     let size_for_binary_search = num_bytes_per_arc * node_in.num_arcs;
     let size_for_direct_addressing = get_num_presence_bytes(label_range)
       + self.num_label_bytes_per_arc[0]
@@ -785,11 +726,7 @@ where
     self
       .fixed_length_arcs_buffer
       .write_byte(ARCS_FOR_BINARY_SEARCH)?;
-    let node_in = self
-      .frontier
-      .get(node_in_idx)
-      .and_then(Option::as_ref)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let node_in = &self.frontier[node_in_idx];
     self.fixed_length_arcs_buffer.write_vint(node_in.num_arcs)?;
     self
       .fixed_length_arcs_buffer
@@ -886,11 +823,7 @@ where
     };
 
     let mut src_pos = self.scratch_bytes.get_position() as i32;
-    let node_in = self
-      .frontier
-      .get(node_in_idx)
-      .and_then(Option::as_ref)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let node_in = &self.frontier[node_in_idx];
     let total_arc_bytes =
       self.num_label_bytes_per_arc[0] + node_in.num_arcs * max_bytes_per_arc_without_label;
 
@@ -985,11 +918,7 @@ where
   fn write_presence_bits(&mut self, node_in_idx: usize) -> Result<()> {
     let mut presence_bits: u8 = 1; // The first arc is always present.
     let mut presence_index = 0;
-    let node_in = self
-      .frontier
-      .get(node_in_idx)
-      .and_then(Option::as_ref)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let node_in = &self.frontier[node_in_idx];
     let mut previous_label = node_in.arcs[0].label;
 
     let byte_size = i8::BITS as i32;
@@ -1497,11 +1426,7 @@ where
     DO: IndexOutput,
   {
     debug_assert!(compiler.valid_output(&new_output));
-    let un_compile_node = compiler
-      .frontier
-      .get_mut(node_idx)
-      .and_then(Option::as_mut)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let un_compile_node = &mut compiler.frontier[node_idx];
     debug_assert!(un_compile_node.num_arcs > 0);
     let arc = &mut un_compile_node.arcs[un_compile_node.num_arcs as usize - 1];
     debug_assert_eq!(arc.label, label_to_match);
@@ -1520,11 +1445,7 @@ where
     DO: IndexOutput,
   {
     debug_assert!(compiler.valid_output(output_prefix));
-    let un_compiled_node = compiler
-      .frontier
-      .get_mut(node_index)
-      .and_then(Option::as_mut)
-      .ok_or_else(|| LuceneError::illegal_state("FST frontier node is missing"))?;
+    let un_compiled_node = &mut compiler.frontier[node_index];
     for i in 0..un_compiled_node.num_arcs as usize {
       let new_output = compiler
         .fst
