@@ -47,7 +47,7 @@ where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
-  pub(crate) input: Option<I>,
+  pub(crate) input: I,
   pub(crate) stack: Vec<IntersectTermsEnumFrame>,
   arcs: Vec<Arc<BytesRef<std::sync::Arc<Vec<u8>>>>>,
   /// use AutomatonEnum instead of ByteRunnable/TransitionAccessor in Java Lucene
@@ -56,7 +56,7 @@ where
   current_frame: usize,
   current_transition: usize,
   term: BytesRef<Vec<u8>>,
-  fst_reader: Option<ReverseRandomAccessReader<I::RandomAccessSlice>>,
+  fst_reader: ReverseRandomAccessReader<I::RandomAccessSlice>,
   pub(crate) fr: FieldReader<I, PR>,
   saved_start_term: Option<BytesRef<Vec<u8>>>,
   pub(crate) output_accumulator: OutputAccumulator,
@@ -72,13 +72,12 @@ where
     common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
     start_term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Self> {
-    let input = Some(
-      fr.parent
-        .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
-        .terms_in
-        .try_clone()?,
-    );
+    let input = fr
+      .parent
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
+      .terms_in
+      .try_clone()?;
 
     let mut stack = Vec::with_capacity(5);
     for idx in 0..5 {
@@ -90,19 +89,15 @@ where
       arcs.push(Arc::default());
     }
 
-    let fst_reader = Some(
-      fr.index
-        .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?
-        .get_bytes_reader()?,
-    );
+    let fr_index = fr
+      .index
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?;
+    let fst_reader = fr_index.get_bytes_reader()?;
 
     // get first arc
     let first_arc_idx = 0;
-    fr.index
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?
-      .get_first_arc(&mut arcs[first_arc_idx]);
+    fr_index.get_first_arc(&mut arcs[first_arc_idx]);
     debug_assert!(arcs[first_arc_idx].is_final());
 
     {
@@ -217,10 +212,7 @@ where
         .index
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?;
-      let reader = self
-        .fst_reader
-        .as_mut()
-        .ok_or_else(|| LuceneError::illegal_state("terms index reader is missing"))?;
+      let reader = &mut self.fst_reader;
 
       debug_assert!(arc_idx < next_idx);
       let (follow_arcs, next_arcs) = self.arcs.split_at_mut(next_idx);

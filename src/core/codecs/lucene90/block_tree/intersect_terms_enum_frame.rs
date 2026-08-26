@@ -266,10 +266,7 @@ impl IntersectTermsEnumFrame {
         }
       }
     }
-    let in_ = ite
-      .input
-      .as_mut()
-      .ok_or_else(|| LuceneError::number_format("input not initialized yey"))?;
+    let in_ = &mut ite.input;
     in_.seek(frame.fp as usize)?;
 
     let code = in_.read_vint()?;
