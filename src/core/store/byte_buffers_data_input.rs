@@ -396,7 +396,10 @@ where
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
     let block_index = self.block_index(self.pos);
     let block_offset = self.block_offset(self.pos);
-    let block = self.blocks.get(block_index).unwrap();
+    let block = self
+      .blocks
+      .get(block_index)
+      .ok_or_else(|| LuceneError::eof(format!("{}", self.pos)))?;
     let block_remain = block
       .get_ref()
       .as_slice()

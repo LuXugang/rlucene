@@ -134,49 +134,91 @@ where
   type NumericDocValues = CodecNumericDocValues<I>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    let dv_producer = self.dv_producers_by_field.get(&field.number);
-    debug_assert!(dv_producer.is_some());
-    dv_producer.as_ref().unwrap().get_numeric(field)
+    self
+      .dv_producers_by_field
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field {} ({})",
+          field.name, field.number
+        ))
+      })?
+      .get_numeric(field)
   }
 
   type BinaryDocValues = CodecBinaryDocValues<I>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    let dv_producer = self.dv_producers_by_field.get(&field.number);
-    debug_assert!(dv_producer.is_some());
-    dv_producer.as_ref().unwrap().get_binary(field)
+    self
+      .dv_producers_by_field
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field {} ({})",
+          field.name, field.number
+        ))
+      })?
+      .get_binary(field)
   }
 
   type SortedDocValues = CodecSortedDocValues<I>;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-    let dv_producer = self.dv_producers_by_field.get(&field.number);
-    debug_assert!(dv_producer.is_some());
-    dv_producer.as_ref().unwrap().get_sorted(field)
+    self
+      .dv_producers_by_field
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field {} ({})",
+          field.name, field.number
+        ))
+      })?
+      .get_sorted(field)
   }
 
   type SortedNumericDocValues = CodecSortedNumericDocValues<I>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-    let dv_producer = self.dv_producers_by_field.get(&field.number);
-    debug_assert!(dv_producer.is_some());
-    dv_producer.as_ref().unwrap().get_sorted_numeric(field)
+    self
+      .dv_producers_by_field
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field {} ({})",
+          field.name, field.number
+        ))
+      })?
+      .get_sorted_numeric(field)
   }
 
   type SortedSetDocValues = CodecSortedSetDocValues<I>;
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-    let dv_producer = self.dv_producers_by_field.get(&field.number);
-    debug_assert!(dv_producer.is_some());
-    dv_producer.as_ref().unwrap().get_sorted_set(field)
+    self
+      .dv_producers_by_field
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field {} ({})",
+          field.name, field.number
+        ))
+      })?
+      .get_sorted_set(field)
   }
 
   type DocValuesSkipper = CodecDocValuesSkipper<I>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-    let dv_producer = self.dv_producers_by_field.get(&field.number);
-    debug_assert!(dv_producer.is_some());
-    dv_producer.as_ref().unwrap().get_skipper(field)
+    self
+      .dv_producers_by_field
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field {} ({})",
+          field.name, field.number
+        ))
+      })?
+      .get_skipper(field)
   }
 
   fn check_integrity(&self) -> Result<()> {

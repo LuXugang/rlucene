@@ -18,6 +18,7 @@ use crate::core::index::index_writer::Inner;
 use crate::core::index::merge_policy::MergeContext;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamMT;
 use parking_lot::Mutex;
 use std::collections::{HashMap, HashSet};
@@ -62,7 +63,7 @@ where
     Ok(v)
   }
 
-  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32 {
+  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
     self.merge_context.num_deleted_docs(info)
   }
 

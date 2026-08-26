@@ -446,8 +446,8 @@ fn check_graph(graph: &[OnceLock<Vec<RwLock<NeighborArray>>>], level: usize, nod
 impl fmt::Display for OnHeapHnswGraph {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let size = self.size();
-    let num_levels = self.num_levels().unwrap_or(0);
     let entry_node = self.entry_node.read();
+    let num_levels = entry_node.level + 1;
 
     write!(
       f,

@@ -139,8 +139,7 @@ impl PointInSetQuery {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     sorted_packed_points.hash(&mut hasher);
     let sorted_packed_points_hash_code = hasher.finish();
-    let ram_bytes_used =
-      field.len() as i64 + sorted_packed_points.ram_bytes_used().unwrap_or_default();
+    let ram_bytes_used = field.len() as i64 + sorted_packed_points.ram_bytes_used()?;
 
     Ok(Self {
       id: Identity::new(),

@@ -100,8 +100,8 @@ where
     Ok(v)
   }
 
-  fn num_deleted_docs(&self, _info: &SegmentCommitInfo<D>) -> i32 {
-    0
+  fn num_deleted_docs(&self, _info: &SegmentCommitInfo<D>) -> Result<i32> {
+    Ok(0)
   }
 
   fn get_info_stream(&self) -> InfoStreamMT {

@@ -389,18 +389,16 @@ where
   }
 
   /// Builds a string representation of the given [`SegmentCommitInfo`] instances.
-  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> Result<String>
   where
     MC: MergeContext<D>,
   {
-    infos
-      .iter()
-      .map(|info| {
-        let del = merge_context.num_deleted_docs(info) - info.get_del_count();
-        info.to_string_with_pending_del_count(del)
-      })
-      .collect::<Vec<_>>()
-      .join(" ")
+    let mut segments = Vec::with_capacity(infos.len());
+    for info in infos {
+      let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
+      segments.push(info.to_string_with_pending_del_count(del));
+    }
+    Ok(segments.join(" "))
   }
 
   /// Print a debug message to the [`MergeContext`]’s `infoStream`.
@@ -1621,7 +1619,7 @@ where
     }
   }
 
-  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> Result<String>
   where
     MC: MergeContext<D>,
   {
@@ -3082,7 +3080,7 @@ where
   fn num_deletes_to_merge(&self, info: &SegmentCommitInfo<D>) -> Result<i32>;
 
   /// Returns the number of deleted documents in the given segment.
-  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32;
+  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32>;
 
   /// Returns the info stream that can be used to log messages.
   fn get_info_stream(&self) -> InfoStreamMT;

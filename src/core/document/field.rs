@@ -965,7 +965,11 @@ impl TokenStream for StringTokenStream {
 
   fn end(&mut self) -> Result<()> {
     self.default_end()?;
-    let final_offset = self.value.as_ref().unwrap().len() as i32;
+    let final_offset = self
+      .value
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("StringTokenStream value is not set"))?
+      .len() as i32;
     self
       .token_stream_base
       .att

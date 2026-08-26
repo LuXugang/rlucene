@@ -457,7 +457,7 @@ fn test_clear_filter() -> Result<()> {
   )?;
   assert_eq!(1, cached_queries(&query_cache).len());
 
-  query_cache.clear_query(&query2);
+  query_cache.clear_query(&query2)?;
 
   assert!(cached_queries(&query_cache).is_empty());
   query_cache.assert_consistent()?;
@@ -549,7 +549,7 @@ fn test_consistency_with_accountable_queries() -> Result<()> {
   );
   query_cache.assert_consistent()?;
 
-  query_cache.clear_query(&accountable_query);
+  query_cache.clear_query(&accountable_query)?;
   assert_eq!(HASHTABLE_RAM_BYTES_PER_ENTRY, query_cache.ram_bytes_used()?);
   query_cache.assert_consistent()?;
 
@@ -1269,7 +1269,7 @@ fn test_evict_empty_segment_cache() -> Result<()> {
   let query: Query = TestLRUQuery::dummy().into();
   searcher.count(query.clone())?;
   assert_eq!(vec![query.clone()], cached_queries(&query_cache));
-  query_cache.clear_query(&query);
+  query_cache.clear_query(&query)?;
 
   reader.close()?; // make sure this does not trigger eviction of segment caches with no entries
   w.close(&mut random)?;

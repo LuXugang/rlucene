@@ -950,7 +950,7 @@ where
   FN: FlushNotifications,
 {
   fn drop(&mut self) {
-    self.close().unwrap_or_default();
+    let _ = self.close();
   }
 }
 

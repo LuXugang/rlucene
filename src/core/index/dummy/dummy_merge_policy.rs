@@ -149,7 +149,7 @@ where
     dummy_unreachable!()
   }
 
-  fn seg_string<MC>(&self, _merge_context: &MC, _infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, _merge_context: &MC, _infos: &[SegmentCommitInfo<D>]) -> Result<String>
   where
     MC: MergeContext<D>,
   {

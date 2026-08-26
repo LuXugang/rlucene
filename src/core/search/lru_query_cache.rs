@@ -653,7 +653,7 @@ where
       },
     };
 
-    leaf_cache.put_if_absent(singleton.as_ref(), cached, self);
+    leaf_cache.put_if_absent(singleton.as_ref(), cached, self)?;
     self.evict_if_necessary(&mut inner)
   }
   pub(crate) fn evict_if_necessary(&self, guard: &mut RwLockWriteGuard<Inner>) -> Result<()> {
@@ -690,7 +690,7 @@ where
         }
         singleton
       };
-      self.on_eviction(singleton.as_ref(), guard);
+      self.on_eviction(singleton.as_ref(), guard)?;
     }
     Ok(())
   }
@@ -727,23 +727,29 @@ where
     }
   }
   /// Remove all cache entries for the given query.
-  pub fn clear_query(&self, query: &Query) {
+  pub fn clear_query(&self, query: &Query) -> Result<()> {
     let mut inner = self.inner.write();
     let v = {
       let mut unique_queries = inner.unique_queries.lock();
       unique_queries.remove(query)
     };
     if let Some(singleton) = v {
-      self.on_eviction(singleton.as_ref(), &mut inner);
+      self.on_eviction(singleton.as_ref(), &mut inner)?;
     }
+    Ok(())
   }
 
-  pub(crate) fn on_eviction(&self, singleton: &Query, guard: &mut RwLockWriteGuard<Inner>) {
+  pub(crate) fn on_eviction(
+    &self,
+    singleton: &Query,
+    guard: &mut RwLockWriteGuard<Inner>,
+  ) -> Result<()> {
     self.on_query_eviction(singleton, self.get_ram_bytes_used(singleton), guard);
 
     for leaf_cache in guard.cache.values_mut() {
-      leaf_cache.remove(singleton, self);
+      leaf_cache.remove(singleton, self)?;
     }
+    Ok(())
   }
   /// Clear the content of this cache.
   pub fn clear(&self) {
@@ -853,7 +859,7 @@ where
 
     for leaf_cache in inner.cache.values() {
       for cached in leaf_cache.cache.values() {
-        recomputed_ram_bytes_used += LeafCache::ram_bytes_used_for_cache_entry(cached.as_ref());
+        recomputed_ram_bytes_used += LeafCache::ram_bytes_used_for_cache_entry(cached.as_ref())?;
       }
     }
 
@@ -963,7 +969,8 @@ impl LeafCache {
     query: &Query,
     cached: CacheAndCountEnum,
     parent: &LRUQueryCache<P>,
-  ) where
+  ) -> Result<()>
+  where
     P: Predicate<TopParentMeta>,
   {
     debug_assert!({ !matches!(query, Query::Boost(_)) });
@@ -971,30 +978,34 @@ impl LeafCache {
     match self.cache.entry(query.identity().clone()) {
       Entry::Vacant(e) => {
         let cached = Arc::new(cached);
-        let ram_bytes_used = Self::ram_bytes_used_for_cache_entry(cached.as_ref());
+        let ram_bytes_used = Self::ram_bytes_used_for_cache_entry(cached.as_ref())?;
         e.insert(cached);
         self.on_doc_id_set_cache(ram_bytes_used, parent);
       },
       Entry::Occupied(_) => {},
     }
+    Ok(())
   }
 
-  pub(crate) fn remove<P>(&mut self, query: &Query, parent: &LRUQueryCache<P>)
+  pub(crate) fn remove<P>(&mut self, query: &Query, parent: &LRUQueryCache<P>) -> Result<()>
   where
     P: Predicate<TopParentMeta>,
   {
     if let Some(removed) = self.cache.remove(query.identity()) {
       self.on_doc_id_set_eviction(
-        Self::ram_bytes_used_for_cache_entry(removed.as_ref()),
+        Self::ram_bytes_used_for_cache_entry(removed.as_ref())?,
         parent,
       );
     }
+    Ok(())
   }
 
-  fn ram_bytes_used_for_cache_entry(cached: &CacheAndCountEnum) -> i64 {
-    LEAF_CACHE_HASHTABLE_RAM_BYTES_PER_ENTRY
-      .saturating_add(mem::size_of_val(cached) as i64)
-      .saturating_add(cached.ram_bytes_used().unwrap_or(0))
+  fn ram_bytes_used_for_cache_entry(cached: &CacheAndCountEnum) -> Result<i64> {
+    Ok(
+      LEAF_CACHE_HASHTABLE_RAM_BYTES_PER_ENTRY
+        .saturating_add(mem::size_of_val(cached) as i64)
+        .saturating_add(cached.ram_bytes_used()?),
+    )
   }
 }
 impl Accountable for LeafCache {

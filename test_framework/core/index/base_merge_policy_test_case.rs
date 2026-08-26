@@ -759,8 +759,8 @@ where
     (self.num_deletes_func)(info)
   }
 
-  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32 {
-    self.num_deletes_to_merge(info).unwrap()
+  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
+    self.num_deletes_to_merge(info)
   }
 
   fn get_info_stream(&self) -> InfoStreamMT {

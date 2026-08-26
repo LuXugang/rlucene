@@ -4368,24 +4368,6 @@ where
     }
     Ok(())
   }
-  /// Expert: obtains the number of deleted docs in the given segment, buffering deletes
-  /// for the segment if it hasn't been loaded yet.
-  pub fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
-    self.do_ensure_open(false)?;
-    self.validate(info)?;
-    if let Some(rld) = self.get_pooled_instance(info, false)? {
-      Ok(rld.get_del_count(info)) // get the full count from here since SCI might change concurrently
-    } else {
-      let del_count = info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
-      debug_assert!(
-        del_count <= info.info.max_doc()?,
-        "delCount: {} maxDoc: {}",
-        del_count,
-        info.info.max_doc()?
-      );
-      Ok(del_count)
-    }
-  }
   /// Used internally to return an [`AlreadyClosedError`] if this [`IndexWriter`](crate::core::index::index_writer::IndexWriter) has been closed
   /// or is in the process of closing.
   ///
@@ -7479,22 +7461,20 @@ where
   /// Obtain the number of deleted docs for a pooled reader.
   ///
   /// If the reader isn't being pooled, the segmentInfo's `delCount` is returned.
-  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> i32 {
-    self.do_ensure_open(false).unwrap();
-    self.validate(info).unwrap();
-
-    if let Some(rld) = self.get_pooled_instance(info, false).unwrap() {
-      // get the full count from here since SCI might change concurrently
-      rld.get_del_count(info)
+  fn num_deleted_docs(&self, info: &SegmentCommitInfo<D>) -> Result<i32> {
+    self.do_ensure_open(false)?;
+    self.validate(info)?;
+    if let Some(rld) = self.get_pooled_instance(info, false)? {
+      Ok(rld.get_del_count(info)) // get the full count from here since SCI might change concurrently
     } else {
       let del_count = info.get_del_count_with_soft_deletes(self.soft_deletes_enabled);
       debug_assert!(
-        del_count <= info.info.max_doc().unwrap(),
+        del_count <= info.info.max_doc()?,
         "delCount: {} maxDoc: {}",
         del_count,
-        info.info.max_doc().unwrap()
+        info.info.max_doc()?
       );
-      del_count
+      Ok(del_count)
     }
   }
 

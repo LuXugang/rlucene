@@ -1175,7 +1175,13 @@ impl<D> SegmentInfos<D> {
 impl<D> fmt::Display for SegmentInfos<D> {
   /// Returns a readable description of this segment.
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}: ", self.get_segments_file_name().unwrap_or_default())?;
+    write!(
+      f,
+      "{}: ",
+      self
+        .get_segments_file_name()
+        .unwrap_or_else(|| "null".to_string())
+    )?;
     for (i, segment_commit_info) in self.segments.iter().enumerate() {
       if i > 0 {
         write!(f, " ")?;
@@ -1250,7 +1256,7 @@ pub trait FindSegmentsFile {
         match self.do_body(&segment_file_name) {
           Ok(result) => {
             if get_info_stream().is_some() {
-              message(&format!("success on {segment_file_name}")).unwrap_or_default();
+              message(&format!("success on {segment_file_name}"))?;
             }
             return Ok(result);
           },
@@ -1264,8 +1270,7 @@ pub trait FindSegmentsFile {
               message(&format!(
                 "primary error on '{}': {}; will retry: gen = {}",
                 segment_file_name, error_message, gen_
-              ))
-              .unwrap_or_default();
+              ))?;
             }
           },
           Err(err) => return Err(err),

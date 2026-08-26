@@ -474,15 +474,13 @@ impl TieredMergePolicy {
 
         let score = self.score(&candidate, hit_too_large, &seg_infos_sizes)?;
         if self.verbose(merge_context) {
-          let candidate_string = candidate
-            .iter()
-            .map(|meta| {
-              let info = meta.seg_info;
-              let del = merge_context.num_deleted_docs(info) - info.get_del_count();
-              info.to_string_with_pending_del_count(del)
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
+          let mut candidate_segments = Vec::with_capacity(candidate.len());
+          for meta in &candidate {
+            let info = meta.seg_info;
+            let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
+            candidate_segments.push(info.to_string_with_pending_del_count(del));
+          }
+          let candidate_string = candidate_segments.join(" ");
           self.message(
             &format!(
               "  maybe={} score={} {} tooLarge={} size={:.3} MB",
@@ -518,15 +516,13 @@ impl TieredMergePolicy {
       if !have_one_large_merge || !best_too_large || merge_type == MergeType::ForceMergeDeletes {
         have_one_large_merge |= best_too_large;
 
-        let best_string = best
-          .iter()
-          .map(|meta| {
-            let info = meta.seg_info;
-            let del = merge_context.num_deleted_docs(info) - info.get_del_count();
-            info.to_string_with_pending_del_count(del)
-          })
-          .collect::<Vec<_>>()
-          .join(" ");
+        let mut best_segments = Vec::with_capacity(best.len());
+        for meta in &best {
+          let info = meta.seg_info;
+          let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
+          best_segments.push(info.to_string_with_pending_del_count(del));
+        }
+        let best_string = best_segments.join(" ");
         let spec_ref = spec.get_or_insert_with(MergeSpecification::new);
         let merge = OneMerge::from_meta(best.as_ref())?;
         spec_ref.add(merge);

@@ -491,7 +491,7 @@ where
       .num_deletes_to_merge(info, del_count, reader_supplier)
   }
 
-  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> Result<String>
   where
     MC: MergeContext<D>,
   {

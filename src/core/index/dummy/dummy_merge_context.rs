@@ -30,7 +30,10 @@ impl MergeContext<DummyDirectory> for DummyMergeContext {
     dummy_unreachable!()
   }
 
-  fn num_deleted_docs(&self, _info: &SegmentCommitInfo<DummyDirectory>) -> i32 {
+  fn num_deleted_docs(
+    &self,
+    _info: &SegmentCommitInfo<DummyDirectory>,
+  ) -> crate::core::util::error::lucene_error::Result<i32> {
     dummy_unreachable!()
   }
 

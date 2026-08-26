@@ -144,15 +144,16 @@ impl fmt::Display for IndexFormatTooOldError {
         "{}. This version of Lucene only supports indexes created with release {}.0 and later by default.",
         reason, *MIN_SUPPORTED_MAJOR
       )
-    } else {
+    } else if let (Some(version), Some(min_version), Some(max_version)) =
+      (self.version, self.min_version, self.max_version)
+    {
       write!(
         f,
         "{} (needs to be between {} and {}). This version of Lucene only supports indexes created with release {}.0 and later.",
-        self.version.unwrap(),
-        self.min_version.unwrap(),
-        self.max_version.unwrap(),
-        *MIN_SUPPORTED_MAJOR
+        version, min_version, max_version, *MIN_SUPPORTED_MAJOR
       )
+    } else {
+      write!(f, "unknown version")
     }
   }
 }

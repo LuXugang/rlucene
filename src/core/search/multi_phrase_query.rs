@@ -56,7 +56,7 @@ use std::sync::Arc;
 pub struct MultiPhraseQuery {
   id: Identity,
   slop: i32,
-  field: String,
+  field: Option<String>,
   term_arrays: Arc<Vec<Vec<Term>>>,
   positions: Arc<Vec<i32>>,
 }
@@ -144,7 +144,7 @@ impl Builder {
 
   pub fn from_query(query: &MultiPhraseQuery) -> Self {
     Builder {
-      field: Some(query.field.clone()),
+      field: query.field.clone(),
       term_arrays: query.term_arrays.to_vec(),
       positions: query.positions.to_vec(),
       slop: query.slop,
@@ -199,11 +199,10 @@ impl Builder {
   }
 
   pub fn build(self) -> MultiPhraseQuery {
-    let field = self.field.unwrap_or_default();
     MultiPhraseQuery {
       id: Identity::new(),
       slop: self.slop,
-      field,
+      field: self.field,
       term_arrays: Arc::new(self.term_arrays),
       positions: Arc::new(self.positions),
     }
@@ -213,9 +212,13 @@ impl Builder {
 impl QueryBase for MultiPhraseQuery {
   fn to_string(&self, f: &str) -> Result<String> {
     let mut buffer = String::new();
-    if self.field != f {
-      buffer.push_str(&self.field);
-      buffer.push(':');
+    match self.field.as_deref() {
+      Some(field) if field == f => {},
+      Some(field) => {
+        buffer.push_str(field);
+        buffer.push(':');
+      },
+      None => buffer.push_str("null:"),
     }
     buffer.push('"');
     let mut last_pos: i32 = -1;
@@ -261,7 +264,10 @@ impl QueryBase for MultiPhraseQuery {
     Self: Sized,
   {
     let similarity = searcher.get_similarity();
-    let field = self.field.clone();
+    let field = self
+      .field
+      .clone()
+      .ok_or_else(|| LuceneError::illegal_state("MultiPhraseQuery field is not set"))?;
     let base = PhraseWeightMeta::new(field, *score_mode, similarity, self.clone().into());
     let sub = MultiPhraseQueryWeightBase::new(self, boost, base);
     let weight = PhraseWeight::new(searcher, sub)?;
@@ -290,7 +296,10 @@ impl QueryBase for MultiPhraseQuery {
   where
     QV: QueryVisitor,
   {
-    if !visitor.accept_field(&self.field) {
+    let Some(field) = self.field.as_deref() else {
+      return Ok(());
+    };
+    if !visitor.accept_field(field) {
       return Ok(());
     }
     let query = self.into();

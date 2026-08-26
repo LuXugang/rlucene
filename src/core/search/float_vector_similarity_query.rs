@@ -33,7 +33,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
 use crate::core::util::bits::Bits;
-#[cfg(test)]
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::VectorUtil;
@@ -206,8 +205,7 @@ impl QueryBase for FloatVectorSimilarityQuery {
     let target = self
       .target
       .first()
-      .map(|value| value.to_string())
-      .unwrap_or_default();
+      .ok_or_else(|| LuceneError::array_index_out_of_bounds("target must not be empty"))?;
     Ok(format!(
       "{}[field={} target=[{}...] traversal_similarity={} result_similarity={} filter={}]",
       std::any::type_name::<Self>().rsplit("::").next().unwrap(),

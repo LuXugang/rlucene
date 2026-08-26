@@ -373,7 +373,7 @@ where
     }
   }
 
-  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> String
+  fn seg_string<MC>(&self, merge_context: &MC, infos: &[SegmentCommitInfo<D>]) -> Result<String>
   where
     MC: MergeContext<D>,
   {
