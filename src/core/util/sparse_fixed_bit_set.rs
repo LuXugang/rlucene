@@ -49,7 +49,7 @@ fn block_count(length: usize) -> usize {
 #[derive(Default)]
 pub struct SparseFixedBitSet {
   indices: Vec<usize>,
-  bits: Vec<Option<Vec<u64>>>,
+  bits: Vec<Vec<u64>>,
   length: usize,
   non_zero_long_count: usize,
   ram_bytes_used: i64,
@@ -63,7 +63,7 @@ impl SparseFixedBitSet {
     }
     let block_count = block_count(length);
     let indices = vec![0; block_count];
-    let bits = vec![None; block_count];
+    let bits = vec![Vec::new(); block_count];
     let ram_bytes_used = size_of_vec(&indices).saturating_add(size_of_vec(&bits));
     Ok(SparseFixedBitSet {
       indices,
@@ -85,10 +85,10 @@ impl SparseFixedBitSet {
   }
   fn insert_block(&mut self, i4096: usize, i64bit: usize, i: usize) {
     self.indices[i4096] = i64bit;
-    debug_assert!(self.bits[i4096].is_none());
+    debug_assert!(self.bits[i4096].is_empty());
     let block: Vec<u64> = vec![1_u64 << (i % 64)];
     self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_vec(&block));
-    self.bits[i4096] = Some(block);
+    self.bits[i4096] = block;
     self.non_zero_long_count += 1;
   }
   fn insert_long(&mut self, i4096: usize, i64bit: usize, i: usize, index: usize) {
@@ -96,7 +96,7 @@ impl SparseFixedBitSet {
     // we count the number of bits that are set on the right of i64
     // this gives us the index at which to perform the insertion
     let o = (index & (i64bit - 1)).count_ones() as usize;
-    let bit_array = self.bits[i4096].as_mut().unwrap();
+    let bit_array = &mut self.bits[i4096];
     if bit_array[bit_array.len() - 1] == 0 {
       // since we only store non-zero longs, if the last value is 0, it
       // means that we already have extra space, make use of
@@ -112,7 +112,7 @@ impl SparseFixedBitSet {
       new_bit_array[o] = 1_u64 << (i % 64);
       new_bit_array.copy_from(&bit_array[o..], o + 1);
       let new_bytes = size_of_vec(&new_bit_array);
-      self.bits[i4096] = Some(new_bit_array);
+      self.bits[i4096] = new_bit_array;
       self.ram_bytes_used = self
         .ram_bytes_used
         .saturating_sub(old_bytes)
@@ -125,11 +125,11 @@ impl SparseFixedBitSet {
     if index as u64 & (1_u64 << (i64 % 64)) != 0 {
       // offset of the long bits we are interested in in the array
       let o = (index as u64 & ((1_u64 << (i64 % 64)) - 1)).count_ones() as usize;
-      let bits = self.bits[i4096].as_ref().unwrap()[o] & mask as u64;
+      let bits = self.bits[i4096][o] & mask as u64;
       if bits == 0 {
         self.remove_long(i4096, i64, index, o);
       } else {
-        self.bits[i4096].as_mut().unwrap()[o] = bits;
+        self.bits[i4096][o] = bits;
       }
     }
   }
@@ -138,12 +138,11 @@ impl SparseFixedBitSet {
     index &= mask;
     self.indices[i4096] = index;
     if index == 0 {
-      if let Some(bit_array) = self.bits[i4096].take() {
-        self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
-      }
+      let bit_array = std::mem::take(&mut self.bits[i4096]);
+      self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
     } else {
       let length = index.count_ones() as usize;
-      let bit_array = self.bits[i4096].as_mut().unwrap();
+      let bit_array = &mut self.bits[i4096];
       bit_array.copy_within(o + 1..length + 1, o);
       bit_array[length] = 0;
     }
@@ -173,9 +172,7 @@ impl SparseFixedBitSet {
       index = self.indices[i4096];
       if index != 0 {
         let i64 = index.trailing_zeros() as usize;
-        return (i4096 << 12)
-          | (i64 << 6)
-          | self.bits[i4096].as_ref().unwrap()[0].trailing_zeros() as usize;
+        return (i4096 << 12) | (i64 << 6) | self.bits[i4096][0].trailing_zeros() as usize;
       }
       i4096 += 1;
     }
@@ -189,7 +186,7 @@ impl SparseFixedBitSet {
       index = self.indices[i4096 as usize];
       if index != 0 {
         let i64 = 63 - index.leading_zeros() as usize;
-        let bits = self.bits[i4096 as usize].as_ref().unwrap()[index.count_ones() as usize - 1];
+        let bits = self.bits[i4096 as usize][index.count_ones() as usize - 1];
         return Option::from(
           ((i4096 as usize) << 12) | (i64 << 6) | (63 - bits.leading_zeros() as usize),
         );
@@ -209,15 +206,15 @@ impl SparseFixedBitSet {
     );
     let i4096 = start >> 12;
     let index = self.indices[i4096];
-    let bit_array = self.bits[i4096].as_ref();
+    let bit_array = &self.bits[i4096];
     let mut i64 = start >> 6;
     let i64bit = 1_usize << (i64 % 64);
     let mut o = (index & (i64bit - 1)).count_ones() as usize;
     if index & i64bit != 0 {
       // There is at least one bit that is set in the current long, check
       // if one of them is after i
-      debug_assert!(bit_array.is_some());
-      let bits = bit_array.unwrap()[o] >> (start % 64);
+      debug_assert!(!bit_array.is_empty());
+      let bits = bit_array[o] >> (start % 64);
       if bits != 0 {
         return start + bits.trailing_zeros() as usize;
       }
@@ -236,8 +233,8 @@ impl SparseFixedBitSet {
     }
     // there are still set bits
     i64 += 1 + index_bits.trailing_zeros() as usize;
-    debug_assert!(bit_array.is_some());
-    let bits = bit_array.unwrap()[o];
+    debug_assert!(!bit_array.is_empty());
+    let bits = bit_array[o];
     (i64 << 6) | bits.trailing_zeros() as usize
   }
 
@@ -245,12 +242,7 @@ impl SparseFixedBitSet {
     for i in 0..other.indices.len() {
       let index = other.indices[i];
       if index != 0 {
-        self.or_impl(
-          i,
-          index,
-          other.bits[i].as_ref().unwrap(),
-          index.count_ones() as usize,
-        );
+        self.or_impl(i, index, &other.bits[i], index.count_ones() as usize);
       }
     }
   }
@@ -265,11 +257,11 @@ impl SparseFixedBitSet {
       self.indices[i4096] = index;
       let new_bits = bits[0..non_zero_long_count].to_vec();
       self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_vec(&new_bits));
-      self.bits[i4096] = Some(new_bits);
+      self.bits[i4096] = new_bits;
       self.non_zero_long_count += non_zero_long_count;
       return;
     }
-    let current_bits = self.bits[i4096].take().unwrap();
+    let current_bits = std::mem::take(&mut self.bits[i4096]);
     let new_index = current_index | index;
     let required_capacity = new_index.count_ones();
     let current_bytes = size_of_vec(&current_bits);
@@ -304,7 +296,7 @@ impl SparseFixedBitSet {
       new_o -= 1;
     }
     self.indices[i4096] = new_index as usize;
-    self.bits[i4096] = Some(new_bits);
+    self.bits[i4096] = new_bits;
     self.non_zero_long_count += non_zero_long_count - (current_index & index).count_ones() as usize;
   }
   /// [`or`](Self::or) implementation that works best when `it` is dense.
@@ -364,7 +356,7 @@ impl SparseFixedBitSet {
     &self.indices
   }
   #[cfg(test)]
-  pub fn get_bits(&self) -> &[Option<Vec<u64>>] {
+  pub fn get_bits(&self) -> &[Vec<u64>] {
     &self.bits
   }
   #[cfg(test)]
@@ -416,10 +408,10 @@ impl Bits for SparseFixedBitSet {
     // if it is set, then we count the number of bits that are set on the
     // right of i64, and that gives us the index of the long that
     // stores the bits we are interested in
-    let bits = self.bits[i4096]
-      .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("sparse bit block is missing"))?
-      [(index as u64 & (i64bit - 1)).count_ones() as usize];
+    let offset = (index as u64 & (i64bit - 1)).count_ones() as usize;
+    let bits = *self.bits[i4096]
+      .get(offset)
+      .ok_or_else(|| LuceneError::illegal_state("sparse bit block is missing"))?;
     Ok((bits & (1_u64 << (i % 64))) != 0)
   }
 
@@ -435,7 +427,7 @@ impl Accountable for SparseFixedBitSet {
 }
 impl BitSet for SparseFixedBitSet {
   fn clear(&mut self) {
-    self.bits.fill(None);
+    self.bits.fill(Vec::new());
     self.indices.fill(0);
     self.non_zero_long_count = 0;
     self.ram_bytes_used = size_of_vec(&self.indices).saturating_add(size_of_vec(&self.bits));
@@ -453,8 +445,7 @@ impl BitSet for SparseFixedBitSet {
       // long: the number of ones on the right of i64 gives us
       // the index of the long we need to update
       let o = (index as u64 & (i64bit - 1)).count_ones() as usize;
-      let bit = self.bits[i4096].as_ref().unwrap()[o] | (1_u64 << (i % 64));
-      self.bits[i4096].as_mut().unwrap()[o] = bit;
+      self.bits[i4096][o] |= 1_u64 << (i % 64);
     } else if index == 0 {
       // if the index is 0, it means that we just found a block of 4096
       // bits that has no bit that is set yet. So let's
@@ -481,9 +472,8 @@ impl BitSet for SparseFixedBitSet {
       // the index of the long we need to update
       let location = (index as u64 & (i64bit - 1)).count_ones() as usize;
       let bit = 1_u64 << (i % 64);
-      let v = self.bits[i4096].as_mut().unwrap()[location] & bit != 0;
-      let bits = self.bits[i4096].as_mut().unwrap()[location];
-      self.bits[i4096].as_mut().unwrap()[location] = bits | bit;
+      let v = self.bits[i4096][location] & bit != 0;
+      self.bits[i4096][location] |= bit;
       v
     } else if index == 0 {
       // if the index is 0, it means that we just found a block of 4096
@@ -521,9 +511,8 @@ impl BitSet for SparseFixedBitSet {
       for i in first_block + 1..last_block {
         self.non_zero_long_count -= self.indices[i].count_ones() as usize;
         self.indices[i] = 0;
-        if let Some(bit_array) = self.bits[i].take() {
-          self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
-        }
+        let bit_array = std::mem::take(&mut self.bits[i]);
+        self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
       }
       self.clear_within_block(last_block, 0, (to - 1) & MASK_4096);
     }
@@ -531,7 +520,7 @@ impl BitSet for SparseFixedBitSet {
 
   fn cardinality(&self) -> usize {
     let mut cardinality = 0;
-    for bit_array in self.bits.iter().flatten() {
+    for bit_array in &self.bits {
       for bits in bit_array {
         cardinality += bits.count_ones() as usize;
       }
@@ -557,15 +546,15 @@ impl BitSet for SparseFixedBitSet {
   fn prev_set_bit(&self, i: usize) -> Option<usize> {
     let i4096 = i >> 12;
     let index = self.indices[i4096];
-    let bit_array = self.bits[i4096].as_ref();
+    let bit_array = &self.bits[i4096];
     let mut i64 = i >> 6;
     let index_bits = index as u64 & ((1_u64 << (i64 % 64)) - 1);
     let o = index_bits.count_ones() as usize;
     if index as u64 & (1_u64 << (i64 % 64)) != 0 {
       // There is at least one bit that is set in the same long, check if
       // there is one bit that is set that is lower than i
-      debug_assert!(bit_array.is_some());
-      let bits = bit_array.unwrap()[o] & (1_u64 << (i % 64) << 1).wrapping_sub(1);
+      debug_assert!(!bit_array.is_empty());
+      let bits = bit_array[o] & (1_u64 << (i % 64) << 1).wrapping_sub(1);
       if bits != 0 {
         return Option::from((i64 << 6) | (63 - bits.leading_zeros()) as usize);
       }
@@ -577,8 +566,8 @@ impl BitSet for SparseFixedBitSet {
     }
     // go to the previous long
     i64 = 63 - index_bits.leading_zeros() as usize;
-    debug_assert!(bit_array.is_some());
-    let bits = bit_array.unwrap()[o - 1];
+    debug_assert!(!bit_array.is_empty());
+    let bits = bit_array[o - 1];
     Some((i4096 << 12) | (i64 << 6) | (63 - bits.leading_zeros() as usize))
   }
 

@@ -78,8 +78,8 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
       if n != 0 {
         non_zero_long_count += n;
         let mut j = n;
-        while j < sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap().len() as u32 {
-          let array = sparse_fixed_bit_set.get_bits()[i].as_ref().unwrap();
+        while j < sparse_fixed_bit_set.get_bits()[i].len() as u32 {
+          let array = &sparse_fixed_bit_set.get_bits()[i];
           assert_eq!(array[j as usize], 0);
           j += 1;
         }
