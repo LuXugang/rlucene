@@ -205,10 +205,12 @@ impl Lucene94FieldInfosFormat {
       })
   }
   fn dist_func_to_ord(func: &VectorSimilarityFunction) -> u8 {
-    SIMILARITY_FUNCTIONS
-      .iter()
-      .position(|value| value == func)
-      .expect("all VectorSimilarityFunction variants must be listed") as u8
+    match func {
+      VectorSimilarityFunction::Euclidean => 0,
+      VectorSimilarityFunction::DotProduct => 1,
+      VectorSimilarityFunction::Cosine => 2,
+      VectorSimilarityFunction::MaximumInnerProduct => 3,
+    }
   }
 
   fn index_options_byte(index_options: &IndexOptions) -> u8 {
