@@ -142,20 +142,27 @@ pub enum Codecs {
   MinimalCompound(MinimalCompoundCodec),
 }
 
-impl Default for Codecs {
-  fn default() -> Self {
-    Self::Lucene101(Lucene101Codec::default())
+impl Codecs {
+  /// Creates the built-in Lucene 10.1 codec.
+  pub fn new() -> Result<Self> {
+    Lucene101Codec::new().map(Self::Lucene101)
   }
 }
 
 #[cfg(not(test))]
-static DEFAULT_CODEC: LazyLock<RwLock<Codecs>> = LazyLock::new(|| RwLock::new(Codecs::default()));
+static DEFAULT_CODEC: LazyLock<RwLock<Codecs>> = LazyLock::new(|| match Codecs::new() {
+  Ok(codec) => RwLock::new(codec),
+  Err(error) => unreachable!("invalid built-in Lucene101 codec settings: {error}"),
+});
 
 // Rust tests run concurrently in the same process, so their defaults must not interfere with one
 // another. This preserves the per-test effect of Java's Codec.setDefault/getDefault lifecycle.
 #[cfg(test)]
 thread_local! {
-  static DEFAULT_CODEC: RefCell<Codecs> = RefCell::new(Codecs::default());
+  static DEFAULT_CODEC: RefCell<Codecs> = RefCell::new(match Codecs::new() {
+    Ok(codec) => codec,
+    Err(error) => unreachable!("invalid built-in Lucene101 codec settings: {error}"),
+  });
 }
 
 impl From<Lucene101Codec> for Codecs {
@@ -805,7 +812,7 @@ pub fn set_default(codec: impl Into<Codecs>) {
 /// This mirrors Java Lucene's `Codec.forName` entry point.
 pub fn for_name(name: &str) -> Result<Codecs> {
   match name {
-    "Lucene101" => Ok(Codecs::default()),
+    "Lucene101" => Codecs::new(),
     #[cfg(test)]
     "Asserting" => Ok(Codecs::Asserting(AssertingCodec::new())),
     #[cfg(test)]

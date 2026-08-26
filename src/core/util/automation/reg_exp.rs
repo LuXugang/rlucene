@@ -350,12 +350,12 @@ impl RegExp {
         let a1 = self
           .exp1
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("intersection expression is missing"))?
           .to_automaton_impl(automata, provider)?;
         let a2 = self
           .exp2
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("intersection expression is missing"))?
           .to_automaton_impl(automata, provider)?;
 
         match Operations::intersection(&a1, &a2)? {
@@ -374,7 +374,7 @@ impl RegExp {
         let a1 = self
           .exp1
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("optional expression is missing"))?
           .to_automaton_impl(automata, provider)?;
         match Operations::optional(&a1)? {
           Cow::Borrowed(_) => a1,
@@ -386,7 +386,7 @@ impl RegExp {
         let a1 = self
           .exp1
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("repeat expression is missing"))?
           .to_automaton_impl(automata, provider)?;
         match Operations::repeat(&a1)? {
           Cow::Borrowed(_) => a1,
@@ -398,7 +398,7 @@ impl RegExp {
         let a1 = self
           .exp1
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("repeat expression is missing"))?
           .to_automaton_impl(automata, provider)?;
         match Operations::repeat_count(&a1, self.min)? {
           Cow::Borrowed(_) => a1,
@@ -410,7 +410,7 @@ impl RegExp {
         let a1 = self
           .exp1
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("bounded repeat expression is missing"))?
           .to_automaton_impl(automata, provider)?;
         Operations::repeat_min_max(&a1, self.min, self.max)?
       },
@@ -421,7 +421,7 @@ impl RegExp {
         let a1 = self
           .exp1
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("complement expression is missing"))?
           .to_automaton_impl(automata, provider)?;
         Operations::complement(&a1, i32::MAX as usize)?
       },
@@ -432,7 +432,7 @@ impl RegExp {
         let a1 = self
           .exp1
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("complement expression is missing"))?
           .to_automaton_impl(automata, provider)?;
         Operations::complement(&a1, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
       },
@@ -935,7 +935,11 @@ impl RegExp {
   }
 
   fn peek(&self, s: &str) -> bool {
-    self.more() && s.contains(self.original_string[self.pos..].chars().next().unwrap())
+    self.more()
+      && self.original_string[self.pos..]
+        .chars()
+        .next()
+        .is_some_and(|ch| s.contains(ch))
   }
 
   fn match_char(&mut self, c: char) -> bool {
@@ -954,7 +958,10 @@ impl RegExp {
     if !self.more() {
       return Err(LuceneError::illegal_argument("unexpected end-of-string"));
     }
-    let ch = self.original_string[self.pos..].chars().next().unwrap();
+    let ch = self.original_string[self.pos..]
+      .chars()
+      .next()
+      .ok_or_else(|| LuceneError::illegal_state("parser position is not on a character"))?;
     self.pos += ch.len_utf8();
     Ok(ch as i32)
   }
@@ -1232,7 +1239,7 @@ impl RegExp {
             self.pos - 1
           )));
         }
-        if i == 0 || i == s.len() - 1 || i != s.rfind('-').unwrap() {
+        if i == 0 || i == s.len() - 1 || s.rfind('-') != Some(i) {
           return Err(LuceneError::illegal_argument(format!(
             "interval syntax error at position {}",
             self.pos - 1

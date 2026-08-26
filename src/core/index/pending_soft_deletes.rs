@@ -189,7 +189,11 @@ impl PendingDeletesBase for PendingSoftDeletes {
       if let Some(ref mut iter) = iterator {
         if iter.next_doc()? != NO_MORE_DOCS {
           iterator = get_doc_values_doc_id_set_iterator(&self.field, reader)?;
-          let mut iter = iterator.unwrap();
+          let mut iter = iterator.ok_or_else(|| {
+            LuceneError::illegal_state(
+              "doc values iterator disappeared while applying soft deletes",
+            )
+          })?;
           new_del_count =
             apply_soft_deletes(&mut iter, self.base.get_mutable_bits()?, |_| Ok(true))?;
         } else {

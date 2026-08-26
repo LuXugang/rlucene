@@ -17,7 +17,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::util::accountable::Accountable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::bulk_operation::of;
 use crate::core::util::packed::format_behavior::PackedSingleBlockImpl;
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
@@ -149,8 +149,8 @@ where
     self.value_count
   }
 }
-pub(crate) fn create(value_count: i32, bits_per_value: i32) -> MutablePacked64Enum {
-  match bits_per_value {
+pub(crate) fn create(value_count: i32, bits_per_value: i32) -> Result<MutablePacked64Enum> {
+  let mutable = match bits_per_value {
     1 => {
       let sub_reader =
         Packed64SingleBlock::new(bits_per_value, value_count, Packed64SingleBlock1 {});
@@ -222,9 +222,12 @@ pub(crate) fn create(value_count: i32, bits_per_value: i32) -> MutablePacked64En
       MutablePacked64Enum::P64SingleBlock32(sub_reader)
     },
     _ => {
-      unreachable!("should not be here")
+      return Err(LuceneError::illegal_argument(format!(
+        "Unsupported number of bits per value: {bits_per_value}"
+      )));
     },
-  }
+  };
+  Ok(mutable)
 }
 impl<T> Accountable for Packed64SingleBlock<T>
 where

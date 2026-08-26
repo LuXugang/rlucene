@@ -102,7 +102,7 @@ impl SegmentTermsEnumFrame {
     let mut state = fr
       .parent
       .as_ref()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("block-tree terms reader is missing"))?
       .postings_reader
       .new_term_state()?;
     state.get_block_term_state_mut()?.total_term_freq = -1;
@@ -217,7 +217,11 @@ impl SegmentTermsEnumFrame {
     // seekExact(TermState) don't pay this cost:
     ste.init_index_input()?;
 
-    ste.input.as_mut().unwrap().prefetch(fp as usize, 1)?;
+    ste
+      .input
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("segment terms input is not initialized"))?
+      .prefetch(fp as usize, 1)?;
     Ok(())
   }
   /* Does initial decode of next block of terms; this
@@ -247,7 +251,10 @@ impl SegmentTermsEnumFrame {
       return Ok(frame.is_leaf_block); // already loaded
     }
 
-    let input = ste.input.as_mut().unwrap();
+    let input = ste
+      .input
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("segment terms input is not initialized"))?;
 
     input.seek(frame.fp as usize)?;
     let code = input.read_vint()?;
@@ -577,7 +584,7 @@ impl SegmentTermsEnumFrame {
         .fr
         .parent
         .as_ref()
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("block-tree terms reader is missing"))?
         .postings_reader
         .decode_term(
           &mut frame.bytes_reader,

@@ -494,7 +494,9 @@ impl TieredMergePolicy {
           )?;
         }
 
-        if (best_score.is_none() || score.score() < best_score.as_ref().unwrap().score())
+        if best_score
+          .as_ref()
+          .is_none_or(|best_score| score.score() < best_score.score())
           && (!hit_too_large || !max_merge_is_running)
         {
           best = Some(candidate);
@@ -528,7 +530,9 @@ impl TieredMergePolicy {
         spec_ref.add(merge);
 
         if self.verbose(merge_context) {
-          let best_score = best_score.as_ref().unwrap();
+          let best_score = best_score
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("selected merge has no score"))?;
           self.message(
             &format!(
               "  add merge={} size={:.3} MB score={:.3} {}{}",
@@ -567,7 +571,7 @@ impl TieredMergePolicy {
     for info in candidate {
       let seg_bytes = segments_sizes
         .get(info.seg_info.info.get_id_key())
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("candidate segment size is missing"))?
         .size_in_bytes;
       tot_after_merge_bytes += seg_bytes;
       tot_after_merge_bytes_floored += self.floor_size(seg_bytes);
@@ -591,7 +595,7 @@ impl TieredMergePolicy {
       (self.floor_size(
         segments_sizes
           .get(candidate[0].seg_info.info.get_id_key())
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("candidate segment size is missing"))?
           .size_in_bytes,
       ) as f64)
         / (tot_after_merge_bytes_floored as f64)

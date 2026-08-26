@@ -304,21 +304,19 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
   {
     // `final_values` should always be `Some` here, because we call finish() before flush()
     // but we still keep the check here for consistent with Java Lucene.
-    let (values, value_counts) = if self.final_values.is_none() {
-      self.finish_current_doc()?;
-      let values = self.pending.build()?;
-      let value_counts = match &mut self.pending_counts {
-        Some(p) => Some(p.build()?),
-        None => None,
-      };
-      (values, value_counts)
-    } else {
-      (
-        self.final_values.take().unwrap(),
-        self.final_values_count.take(),
-      )
+    let (values, value_counts) = match self.final_values.take() {
+      Some(values) => (values, self.final_values_count.take()),
+      None => {
+        self.finish_current_doc()?;
+        let values = self.pending.build()?;
+        let value_counts = match &mut self.pending_counts {
+          Some(p) => Some(p.build()?),
+          None => None,
+        };
+        (values, value_counts)
+      },
     };
-    if value_counts.is_none() {
+    let Some(value_counts) = value_counts else {
       let single_value_producer = get_doc_values_producer(
         self.field_info.clone(),
         &values,
@@ -333,9 +331,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         &producer,
       )?;
       return Ok(());
-    }
-
-    let value_counts = value_counts.unwrap();
+    };
     let sorted = if let Some(sort_map) = sort_map {
       let mut v = BufferedSortedNumericDocValues::new(
         &values,
@@ -365,13 +361,13 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
   type DocIdSetIterator = SortedNumericDocValuesWriterValues;
 
   fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
-    if self.final_values.is_none() {
+    let Some(final_values) = self.final_values.as_ref() else {
       return Err(LuceneError::illegal_state(
         "must be finished before getting doc values",
       ));
-    }
+    };
     SortedNumericDocValuesWriter::get_values(
-      self.final_values.as_ref().unwrap(),
+      final_values,
       self.final_values_count.as_ref(),
       &self.docs_with_field,
     )

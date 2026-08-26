@@ -119,16 +119,15 @@ where
         self.do_seek = false;
         let t = self.next_seek_term()?.map(Cow::into_owned);
         debug_assert!(
-          self.actual_term.is_none()
-            || t.is_none()
-            || t
-              .as_ref()
-              .unwrap()
-              .cmp(self.actual_term.as_ref().unwrap())
-              .to_int()
-              > 0
+          self
+            .actual_term
+            .as_ref()
+            .is_none_or(|actual| t.as_ref().is_none_or(|term| term.cmp(actual).to_int() > 0))
         );
-        if t.is_none() || self.tenum.seek_ceil(t.as_ref().unwrap())? == SeekStatus::End {
+        let Some(t) = t else {
+          return Ok(None);
+        };
+        if self.tenum.seek_ceil(&t)? == SeekStatus::End {
           return Ok(None);
         }
         // TODO: avoid copy here?
@@ -156,18 +155,26 @@ where
       };
       let accept_status = match &mut self.hook {
         FilteredTermsEnumHook::Default => AcceptStatus::Yes,
-        FilteredTermsEnumHook::Filtered(sub) => {
-          sub.accept(self.actual_term.as_ref().unwrap(), ord)?
-        },
+        FilteredTermsEnumHook::Filtered(sub) => sub.accept(
+          self
+            .actual_term
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("filtered terms enum has no current term"))?,
+          ord,
+        )?,
       };
       match accept_status {
         AcceptStatus::YesAndSeek => {
           self.do_seek = true;
-          return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().unwrap())));
+          return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().ok_or_else(
+            || LuceneError::illegal_state("filtered terms enum has no current term"),
+          )?)));
         },
         // term accepted, but we need to seek so fall-through
         AcceptStatus::Yes => {
-          return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().unwrap())));
+          return Ok(Some(Cow::Borrowed(self.actual_term.as_ref().ok_or_else(
+            || LuceneError::illegal_state("filtered terms enum has no current term"),
+          )?)));
         },
         AcceptStatus::NoAndSeek => {
           // invalid term, seek next time

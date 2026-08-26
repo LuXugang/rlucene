@@ -476,7 +476,7 @@ impl TermAutomatonQueryDefaults {
         }
         multi_phrase_builder
           .as_mut()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("multi-phrase builder is missing"))?
           .add_terms_with_position(&terms, position)?;
         if let Some(builder) = &mut phrase_builder {
           if terms.len() == 1 {

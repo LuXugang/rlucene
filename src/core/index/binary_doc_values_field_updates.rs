@@ -116,10 +116,15 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     inner: DocValuesFieldInnerIter,
     del_gen: i64,
   ) -> Result<DocValuesFieldIteratorEnum> {
-    debug_assert!(self.offsets_iter.is_some() && self.lengths_iter.is_some());
+    let offsets_iter = self.offsets_iter.as_ref().ok_or_else(|| {
+      LuceneError::illegal_state("finished binary updates have no offsets iterator")
+    })?;
+    let lengths_iter = self.lengths_iter.as_ref().ok_or_else(|| {
+      LuceneError::illegal_state("finished binary updates have no lengths iterator")
+    })?;
     let base = AbstractIteratorBinary::new(
-      self.offsets_iter.as_ref().unwrap().clone(),
-      self.lengths_iter.as_ref().unwrap().clone(),
+      offsets_iter.clone(),
+      lengths_iter.clone(),
       // TODO: avoid copy here if iterator is called busy
       self.values.get_bytes_ref_copy(),
     );

@@ -72,7 +72,13 @@ where
     common_suffix: Option<std::sync::Arc<BytesRef<Vec<u8>>>>,
     start_term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Self> {
-    let input = Some(fr.parent.as_ref().unwrap().terms_in.try_clone()?);
+    let input = Some(
+      fr.parent
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
+        .terms_in
+        .try_clone()?,
+    );
 
     let mut stack = Vec::with_capacity(5);
     for idx in 0..5 {
@@ -84,13 +90,18 @@ where
       arcs.push(Arc::default());
     }
 
-    let fst_reader = Some(fr.index.as_ref().unwrap().get_bytes_reader()?);
+    let fst_reader = Some(
+      fr.index
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?
+        .get_bytes_reader()?,
+    );
 
     // get first arc
     let first_arc_idx = 0;
     fr.index
       .as_ref()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?
       .get_first_arc(&mut arcs[first_arc_idx]);
     debug_assert!(arcs[first_arc_idx].is_final());
 
@@ -201,8 +212,15 @@ where
     while idx < f_prefix {
       let target = self.term.bytes[idx] as i32;
       let next_idx = self.get_arc(idx + 1)?;
-      let fr_index = self.fr.index.as_ref().unwrap();
-      let reader = self.fst_reader.as_mut().unwrap();
+      let fr_index = self
+        .fr
+        .index
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?;
+      let reader = self
+        .fst_reader
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("terms index reader is missing"))?;
 
       debug_assert!(arc_idx < next_idx);
       let (follow_arcs, next_arcs) = self.arcs.split_at_mut(next_idx);
@@ -695,7 +713,7 @@ where
       .fr
       .parent
       .as_ref()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
       .postings_reader
       .postings(&self.fr.field_info, &current_frame.term_state, reuse, flags)?
       .ok_or_else(|| LuceneError::illegal_state("could not get postings enum"))?;
@@ -707,11 +725,13 @@ where
   fn impacts(&mut self, flags: i32) -> Result<Self::ImpactsEnum> {
     IntersectTermsEnumFrame::decode_meta_data(self, self.current_frame)?;
     let current_frame = &self.stack[self.current_frame];
-    self.fr.parent.as_ref().unwrap().postings_reader.impacts(
-      &self.fr.field_info,
-      &current_frame.term_state,
-      flags,
-    )
+    self
+      .fr
+      .parent
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
+      .postings_reader
+      .impacts(&self.fr.field_info, &current_frame.term_state, flags)
   }
 
   fn term_state(&mut self) -> Result<TermStateEnum> {

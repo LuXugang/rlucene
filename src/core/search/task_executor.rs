@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::IOUtils;
-use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, Result};
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, LuceneError, Result};
 use parking_lot::Mutex;
 use rayon::ThreadPool;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -194,7 +194,7 @@ fn collect_results<F, T>(tasks: Vec<Task<F, T>>) -> Result<Vec<T>> {
     let outcome = task
       .outcome
       .into_inner()
-      .expect("all tasks must be completed or cancelled");
+      .ok_or_else(|| LuceneError::illegal_state("all tasks must be completed or cancelled"))?;
     match outcome {
       TaskOutcome::Completed(Ok(Ok(result))) => results.push(result),
       TaskOutcome::Completed(failure) => match first_failure.as_mut() {

@@ -156,13 +156,11 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     F: Fields,
     DM: DocMap,
   {
-    if vectors.is_none() {
+    let Some(vectors) = vectors else {
       self.start_document(0)?;
       self.finish_document()?;
       return Ok(());
-    }
-
-    let vectors = vectors.unwrap();
+    };
 
     let mut num_fields = vectors.size()?;
     if num_fields == -1 {
@@ -182,8 +180,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     let mut field_count = 0;
 
     let mut fields_iter = vectors.iterator()?;
-    while fields_iter.has_next()? {
-      let field_name = fields_iter.next()?.unwrap();
+    while let Some(field_name) = fields_iter.next()? {
       field_count += 1;
 
       let field_info = merge_state
@@ -296,10 +293,7 @@ impl TermVectorsWriterDefaults {
         if code & 1 != 0 {
           let payload_len = pos_input.read_vint()? as usize;
 
-          if payload.is_none() {
-            payload = Some(BytesRefBuilder::new());
-          }
-          let builder = payload.as_mut().unwrap();
+          let builder = payload.get_or_insert_with(BytesRefBuilder::new);
           builder.grow_no_copy(payload_len)?;
           pos_input.read_bytes(&mut builder.bytes_ref.bytes, 0, payload_len)?;
           builder.set_length(payload_len);

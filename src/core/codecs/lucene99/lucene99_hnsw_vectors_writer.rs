@@ -184,7 +184,10 @@ where
     })
   }
   fn write_field(&mut self, field_data: usize) -> Result<()> {
-    let field_data = self.fields.get_mut(field_data).unwrap();
+    let field_data = self
+      .fields
+      .get_mut(field_data)
+      .ok_or_else(|| LuceneError::illegal_state("HNSW field data is missing"))?;
     let vector_index_offset = self.vector_index.get_file_pointer()?;
 
     let flat_field_vectors_writers = self.flat_vector_writer.get_fields_mut();
@@ -215,7 +218,10 @@ where
     DM: DocMap,
   {
     let flat_field_vectors_writers = self.flat_vector_writer.get_fields_mut();
-    let field_data = self.fields.get_mut(field_data_idx).unwrap();
+    let field_data = self
+      .fields
+      .get_mut(field_data_idx)
+      .ok_or_else(|| LuceneError::illegal_state("HNSW field data is missing"))?;
     let cardinality = field_data
       .get_docs_with_field_set(flat_field_vectors_writers)?
       .cardinality() as usize;

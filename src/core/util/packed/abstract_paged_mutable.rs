@@ -81,7 +81,7 @@ where
       };
       self.sub_mutables[i as usize] = self
         .sub_reader
-        .new_mutable(value_count, self.sub_reader.bits_per_value());
+        .new_mutable(value_count, self.sub_reader.bits_per_value())?;
     }
     Ok(())
   }
@@ -137,7 +137,7 @@ where
       } else {
         self.sub_reader.bits_per_value()
       };
-      copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv);
+      copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv)?;
 
       if i < num_common_pages {
         let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
@@ -212,7 +212,7 @@ where
   }
 }
 pub(crate) trait AbstractPagedMutableBase {
-  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum;
+  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum>;
   fn new_unfilled_copy(&self) -> Self
   where
     Self: Sized;
@@ -232,7 +232,7 @@ impl Default for AbstractPagedMutableBaseEnum {
   }
 }
 impl AbstractPagedMutableBase for AbstractPagedMutableBaseEnum {
-  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
+  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum> {
     match self {
       AbstractPagedMutableBaseEnum::Mutable(m) => m.new_mutable(value_count, bits_per_value),
       AbstractPagedMutableBaseEnum::GrowableWriter(g) => g.new_mutable(value_count, bits_per_value),

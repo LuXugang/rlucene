@@ -175,17 +175,26 @@ impl TestUtil {
 
   /// Returns the actual default codec for this version of Lucene.
   pub fn get_default_codec() -> DefaultCodec {
-    DefaultCodec::default()
+    match DefaultCodec::new() {
+      Ok(codec) => codec,
+      Err(error) => unreachable!("invalid default codec settings: {error}"),
+    }
   }
 
   /// Returns the actual default postings format for this version of Lucene.
   pub fn get_default_postings_format() -> DefaultPostingsFormat {
-    DefaultPostingsFormat::new()
+    match DefaultPostingsFormat::new() {
+      Ok(format) => format,
+      Err(error) => unreachable!("invalid default postings format settings: {error}"),
+    }
   }
 
   /// Returns the actual default doc values format for this version of Lucene.
   pub fn get_default_doc_values_format() -> DefaultDocValuesFormat {
-    DefaultDocValuesFormat::default()
+    match DefaultDocValuesFormat::new() {
+      Ok(format) => format,
+      Err(error) => unreachable!("invalid default doc values format settings: {error}"),
+    }
   }
 
   /// Returns the actual default vector format for this version of Lucene.

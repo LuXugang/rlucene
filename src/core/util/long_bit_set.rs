@@ -507,7 +507,10 @@ impl Accountable for LongBitSet {
 }
 impl Clone for LongBitSet {
   fn clone(&self) -> Self {
-    LongBitSet::from_bits(self.bits.clone(), self.num_bits).unwrap()
+    match Self::from_bits(self.bits.clone(), self.num_bits) {
+      Ok(bit_set) => bit_set,
+      Err(error) => panic!("invalid LongBitSet clone state: {error}"),
+    }
   }
 }
 impl PartialEq for LongBitSet {

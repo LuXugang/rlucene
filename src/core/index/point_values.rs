@@ -175,12 +175,13 @@ where
       None => continue,
     };
 
-    if min_value.is_none() {
-      min_value = Some(leaf_min_value.into_owned());
-      continue;
-    }
-
-    let min_value_ref = min_value.as_mut().unwrap();
+    let min_value_ref = match min_value.as_mut() {
+      Some(min_value) => min_value,
+      None => {
+        min_value = Some(leaf_min_value.into_owned());
+        continue;
+      },
+    };
 
     let num_dimensions = values.get_num_index_dimensions()?;
     let num_bytes_per_dimension = values.get_bytes_per_dimension()?;
@@ -221,12 +222,13 @@ where
       None => continue,
     };
 
-    if max_value.is_none() {
-      max_value = Some(leaf_max_value.into_owned());
-      continue;
-    }
-
-    let max_value_ref = max_value.as_mut().unwrap();
+    let max_value_ref = match max_value.as_mut() {
+      Some(max_value) => max_value,
+      None => {
+        max_value = Some(leaf_max_value.into_owned());
+        continue;
+      },
+    };
 
     let num_dimensions = values.get_num_index_dimensions()?;
     let num_bytes_per_dimension = values.get_bytes_per_dimension()?;

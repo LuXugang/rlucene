@@ -469,12 +469,13 @@ where
         self.subs.len()
       );
 
-      let sub_postings_enum = entry
+      let terms_enum = entry
         .base
         .terms_enum
         .as_mut()
-        .unwrap()
-        .postings_with_flags(docs_enum.sub_postings_enums[sub_index].take(), flags)?;
+        .ok_or_else(|| LuceneError::illegal_state("terms enum is not initialized"))?;
+      let sub_postings_enum =
+        terms_enum.postings_with_flags(docs_enum.sub_postings_enums[sub_index].take(), flags)?;
       docs_enum.sub_postings_enums[sub_index] = Some(sub_postings_enum);
       self.sub_docs[upto].postings_enum_idx = sub_index;
       self.sub_docs[upto].slice = entry.sub_slice.clone();

@@ -54,7 +54,10 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 /// [`StoredFieldsWriter`] implementation for
 /// [`Lucene90CompressingStoredFieldsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
 pub(crate) static TYPE_BITS: LazyLock<i32> =
-  LazyLock::new(|| PackedInts::bits_required(NUMERIC_DOUBLE as i64).unwrap());
+  LazyLock::new(|| match PackedInts::bits_required(NUMERIC_DOUBLE as i64) {
+    Ok(bits) => bits,
+    Err(error) => panic!("invalid built-in stored-fields type range: {error}"),
+  });
 
 pub(crate) static TYPE_MASK: LazyLock<i64> = LazyLock::new(|| PackedInts::max_value(*TYPE_BITS));
 pub struct Lucene90CompressingStoredFieldsWriter<D>
@@ -659,7 +662,10 @@ where
     let mut subs = Vec::with_capacity(merge_state.stored_fields_readers.len());
 
     for (i, reader) in merge_state.stored_fields_readers.iter().enumerate() {
-      reader.as_ref().unwrap().check_integrity()?;
+      reader
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("stored fields reader is missing"))?
+        .check_integrity()?;
       let strategy = self.get_merge_strategy(merge_state, &matching_readers, i)?;
       if strategy == MergeStrategy::Visitor {
         visitors[i] = Some(MergeVisitor::new(merge_state, i)?);
@@ -686,11 +692,14 @@ where
 
           loop {
             sub_opt = doc_id_merger.next()?;
-            if sub_opt.is_none() || sub_opt.unwrap() != current {
+            let Some(sub_idx) = sub_opt else {
+              break;
+            };
+            if sub_idx != current {
               break;
             }
             to_doc_id += 1;
-            debug_assert!(doc_id_merger.get_subs()[sub_opt.unwrap()].sub.doc_id == to_doc_id)
+            debug_assert!(doc_id_merger.get_subs()[sub_idx].sub.doc_id == to_doc_id)
           }
           to_doc_id += 1; // exclusive bound
           self.copy_chunks(

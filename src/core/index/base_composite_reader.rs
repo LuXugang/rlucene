@@ -404,12 +404,10 @@ where
   {
     let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
 
-    if self.sub_stored_fields[i].is_none() {
-      let sf = self.sub_reader[i].stored_fields()?;
-      self.sub_stored_fields[i] = Some(sf);
-    }
-
-    let sf = self.sub_stored_fields[i].as_mut().unwrap();
+    let sf = match &mut self.sub_stored_fields[i] {
+      Some(sf) => sf,
+      slot @ None => slot.insert(self.sub_reader[i].stored_fields()?),
+    };
     sf.document_with_visitor(doc_id - self.starts[i] as i32, visitor, writer)
   }
 }

@@ -39,7 +39,7 @@ use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::packed_long_values::PackedLongValues;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::Instant;
 
 /// Holds common state used during segment merging.
 ///
@@ -323,7 +323,7 @@ where
   {
     let v = if let Some(ref sort) = self.segment_info.index_sort {
       // do a merge sort of the incoming leaves:
-      let t0 = SystemTime::now();
+      let t0 = Instant::now();
       match MultiSorter::sort(sort, readers)? {
         None => {
           // already sorted, fall back to deletion-only mapping
@@ -332,9 +332,9 @@ where
         Some(result) => {
           self.needs_index_sort = true;
 
-          let t1 = SystemTime::now();
+          let t1 = Instant::now();
           if self.info_stream.is_enabled("SM") {
-            let elapsed = t1.duration_since(t0).unwrap().as_secs_f64() * 1000.0;
+            let elapsed = t1.duration_since(t0).as_secs_f64() * 1000.0;
             self.info_stream.message(
               "SM",
               &format!("{:.2} msec to build merge sorted DocMaps", elapsed),

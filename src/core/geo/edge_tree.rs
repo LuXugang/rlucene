@@ -16,7 +16,7 @@
  */
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Internal tree node: represents geometry edge from `[x1, y1]` to `[x2, y2]`.
 /// The sort value is `low`, which is the minimum y of the edge.
 /// `max` stores the maximum y of this edge or any children.
@@ -386,6 +386,17 @@ impl EdgeTree {
 }
 /// Creates an edge interval tree from a set of geometry vertices.
 pub(crate) fn create_tree(x: &[f64], y: &[f64]) -> Result<EdgeTree> {
+  if x.len() != y.len() {
+    return Err(LuceneError::illegal_argument(
+      "x and y must be equal length",
+    ));
+  }
+  if x.len() < 2 {
+    return Err(LuceneError::illegal_argument(
+      "at least 2 geometry points required",
+    ));
+  }
+
   let mut edges = Vec::with_capacity(x.len() - 1);
   for i in 1..x.len() {
     let x1 = x[i - 1];
@@ -405,7 +416,9 @@ pub(crate) fn create_tree(x: &[f64], y: &[f64]) -> Result<EdgeTree> {
   });
 
   let high = edges.len() - 1;
-  Ok(*create_tree_from_edges(&mut edges, 0, high).unwrap())
+  let root = create_tree_from_edges(&mut edges, 0, high)
+    .ok_or_else(|| LuceneError::illegal_state("edge tree root is missing"))?;
+  Ok(*root)
 }
 /// Creates tree from sorted edges (with range low and high inclusive)
 fn create_tree_from_edges(

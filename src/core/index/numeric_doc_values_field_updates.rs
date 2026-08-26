@@ -103,12 +103,11 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     inner: DocValuesFieldInnerIter,
     del_gen: i64,
   ) -> Result<DocValuesFieldIteratorEnum> {
-    debug_assert!(self.values_iter.is_some());
-    let base = AbstractIteratorNumeric::new(
-      self.values_iter.as_ref().unwrap().clone(),
-      0,
-      self.min_value,
-    );
+    let values_iter = self
+      .values_iter
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("numeric values iterator is not initialized"))?;
+    let base = AbstractIteratorNumeric::new(values_iter.clone(), 0, self.min_value);
     Ok(DocValuesFieldIteratorEnum::AbstractNumeric(
       AbstractIterator::new(inner, del_gen, base),
     ))

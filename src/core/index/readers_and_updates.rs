@@ -296,7 +296,10 @@ where
       let hard_live_docs = inner.pending_deletes.get_hard_live_docs();
       let sr = SegmentReader::new_from_reader(
         info,
-        inner.reader.as_ref().unwrap(),
+        inner
+          .reader
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("reader was not initialized"))?,
         Some(live_docs),
         hard_live_docs,
         inner.pending_deletes.num_docs(info)?,
@@ -306,7 +309,10 @@ where
     }
     {
       // liveDocs == None and reader != None. That can only be if there are no deletes
-      let r = inner.reader.as_ref().unwrap();
+      let r = inner
+        .reader
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("reader was not initialized"))?;
       debug_assert!(r.get_live_docs()?.is_none());
       r.inc_ref()?;
       Ok(inner.reader.clone())
@@ -711,7 +717,10 @@ where
     debug_assert!(bytes_now >= 0, "ram_bytes_used should not go negative");
     // writing field updates succeeded
     debug_assert!(field_infos_files.is_some());
-    info.set_field_infos_files(field_infos_files.take().unwrap());
+    let field_infos_files = field_infos_files
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("field infos files were not written"))?;
+    info.set_field_infos_files(field_infos_files);
     // update the doc-values updates files. the files map each field to its set
     // of files, hence we copy from the existing map all fields w/ updates that
     // were not updated in this session, and add new mappings for fields that
@@ -890,17 +899,24 @@ where
     }
     // we should take the reader out of the struct temporarily, cause borrow check
     // it is safe take reader under lock because we put it back right away
-    if inner
-      .pending_deletes
-      .needs_refresh(inner.reader.as_ref().unwrap(), info)?
-    {
+    let needs_refresh = {
+      let reader = inner
+        .reader
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("reader was not initialized"))?;
+      inner.pending_deletes.needs_refresh(reader, info)?
+    };
+    if needs_refresh {
       // we have a reader but its live-docs are out of sync. let's create a temporary one that we
       // never share
       swap_new_reader_with_latest_live_docs(inner, info)?;
     }
     // put reader back and return a clone
-    debug_assert!(inner.reader.is_some());
-    Ok(Arc::clone(inner.reader.as_ref().unwrap()))
+    let reader = inner
+      .reader
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("reader was not initialized"))?;
+    Ok(Arc::clone(reader))
   }
 }
 
@@ -927,7 +943,11 @@ where
 {
   let reader = match reader {
     Some(r) => r,
-    None => inner.reader.as_ref().unwrap().as_ref(),
+    None => inner
+      .reader
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("reader was not initialized"))?
+      .as_ref(),
   };
 
   let new_reader = SegmentReader::new_from_reader(
@@ -981,8 +1001,12 @@ where
     inner.reader = Some(Arc::new(reader));
   }
   // Ref for caller
-  inner.reader.as_ref().unwrap().inc_ref()?;
-  Ok(inner.reader.as_ref().unwrap().clone())
+  let reader = inner
+    .reader
+    .as_ref()
+    .ok_or_else(|| LuceneError::illegal_state("reader was not initialized"))?;
+  reader.inc_ref()?;
+  Ok(reader.clone())
 }
 
 enum CurrentSource {
@@ -1083,7 +1107,11 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.on_disk_doc_values.as_ref().unwrap().cost()
+    self
+      .on_disk_doc_values
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("on-disk doc values are not available"))?
+      .cost()
   }
 }
 

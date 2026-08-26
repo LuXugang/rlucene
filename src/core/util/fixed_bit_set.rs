@@ -69,8 +69,10 @@ impl PartialEq for FixedBitSet {
 
 impl Clone for FixedBitSet {
   fn clone(&self) -> Self {
-    let bits = self.bits.clone();
-    Self::with_capacity(bits, self.num_bits).unwrap()
+    match Self::with_capacity(self.bits.clone(), self.num_bits) {
+      Ok(bit_set) => bit_set,
+      Err(error) => panic!("invalid FixedBitSet clone state: {error}"),
+    }
   }
 }
 

@@ -181,19 +181,21 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     let mut doc = values.next_doc()?;
     while doc != NO_MORE_DOCS {
       let first_value = values.next_value()?;
-      let done = if let Some(ref acc) = accumulator {
-        acc.is_done(
-          self.skip_index_interval_size,
-          values.doc_value_count()?,
-          first_value,
-          doc,
-        )
-      } else {
-        false
+      let completed_accumulator = match accumulator.as_ref() {
+        Some(acc)
+          if acc.is_done(
+            self.skip_index_interval_size,
+            values.doc_value_count()?,
+            first_value,
+            doc,
+          ) =>
+        {
+          accumulator.take()
+        },
+        _ => None,
       };
 
-      if done {
-        let acc = accumulator.take().unwrap();
+      if let Some(acc) = completed_accumulator {
         global_max_value = global_max_value.max(acc.max_value);
         global_min_value = global_min_value.min(acc.min_value);
         global_doc_count += acc.doc_count;
@@ -204,16 +206,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         }
       }
 
-      if accumulator.is_none() {
-        accumulator = Some(SkipAccumulator::new(doc));
-      }
-      if let Some(ref mut acc) = accumulator {
-        acc.next_doc(doc);
-        acc.accumulate_value(first_value);
-      }
+      let acc = accumulator.get_or_insert_with(|| SkipAccumulator::new(doc));
+      acc.next_doc(doc);
+      acc.accumulate_value(first_value);
       for _ in 1..values.doc_value_count()? {
         let v = values.next_value()?;
-        accumulator.as_mut().unwrap().accumulate_value(v);
+        acc.accumulate_value(v);
       }
 
       doc = values.next_doc()?;
@@ -424,16 +422,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       num_bits_per_value = 0;
       self.meta.write_int(-1)?;
     } else {
-      let use_unique_encoding = unique_values
-        .as_ref()
-        .map(|set| {
-          set.len() > 1
-            && unsigned_bits_required(set.len() as i64 - 1)
-              < unsigned_bits_required(max.wrapping_sub(min) / gcd)
-        })
-        .unwrap_or(false);
-      if use_unique_encoding {
-        let set = unique_values.unwrap();
+      let unique_values = unique_values.filter(|set| {
+        set.len() > 1
+          && unsigned_bits_required(set.len() as i64 - 1)
+            < unsigned_bits_required(max.wrapping_sub(min) / gcd)
+      });
+      if let Some(set) = unique_values {
         let mut sorted: Vec<i64> = set.iter().cloned().collect();
         sorted.sort_unstable();
         debug_assert!(sorted.len() <= i32::MAX as usize);

@@ -118,6 +118,20 @@ impl<O> Lucene101PostingsWriter<O>
 where
   O: IndexOutput,
 {
+  fn pos_out(&self) -> Result<&O> {
+    self
+      .pos_out
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("positions output is missing"))
+  }
+
+  fn pay_out(&self) -> Result<&O> {
+    self
+      .pay_out
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))
+  }
+
   pub fn new<D1, D2>(state: &SegmentWriteState<D1>, segment_info: &SegmentInfo<D2>) -> Result<Self>
   where
     D1: Directory<IndexOutput = O>,
@@ -325,7 +339,7 @@ where
         self.scratch_output.reset();
 
         if options.write_positions {
-          let pos_out = self.pos_out.as_ref().unwrap();
+          let pos_out = self.pos_out()?;
           let pos_fp = pos_out.get_file_pointer()?;
           self
             .level0_output
@@ -334,7 +348,7 @@ where
           self.level0_last_pos_fp = pos_fp as i64;
 
           if options.write_offsets || options.write_payloads {
-            let pay_out = self.pay_out.as_ref().unwrap();
+            let pay_out = self.pay_out()?;
             let pay_fp = pay_out.get_file_pointer()?;
             self
               .level0_output
@@ -414,14 +428,14 @@ where
         self.max_impact_num_bytes_at_level1 = num_impact_bytes.try_convert()?;
       }
       if options.write_positions {
-        let pos_fp = self.pos_out.as_ref().unwrap().get_file_pointer()? as i64;
+        let pos_fp = self.pos_out()?.get_file_pointer()? as i64;
         self
           .scratch_output
           .write_vlong(pos_fp - self.level1_last_pos_fp)?;
         self.scratch_output.write_byte(self.pos_buffer_upto as u8)?;
         self.level1_last_pos_fp = pos_fp;
         if options.write_offsets || options.write_payloads {
-          let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer()? as i64;
+          let pay_fp = self.pay_out()?.get_file_pointer()? as i64;
           self
             .scratch_output
             .write_vlong(pay_fp - self.level1_last_pay_fp)?;
@@ -589,7 +603,7 @@ where
       self.level0_last_pos_fp = self.pos_start_fp;
       self.level1_last_pos_fp = self.pos_start_fp;
       if options.write_payloads || options.write_offsets {
-        let pay_fp = self.pay_out.as_ref().unwrap().get_file_pointer()? as i64;
+        let pay_fp = self.pay_out()?.get_file_pointer()? as i64;
         self.pay_start_fp = pay_fp;
         self.level0_last_pay_fp = pay_fp;
         self.level1_last_pay_fp = pay_fp;
@@ -629,7 +643,7 @@ where
       debug_assert!(state.base.total_term_freq != -1);
       let offset = if state.base.total_term_freq > Lucene101PostingsFormat::BLOCK_SIZE as i64 {
         // record file offset for last pos in last block
-        self.pos_out.as_ref().unwrap().get_file_pointer()? as i64 - self.pos_start_fp
+        self.pos_out()?.get_file_pointer()? as i64 - self.pos_start_fp
       } else {
         -1
       };
@@ -638,7 +652,10 @@ where
         let mut last_payload_length = -1;
         let mut last_offset_length = -1;
         let mut payload_bytes_read_upto: i32 = 0;
-        let po_out = self.pos_out.as_mut().unwrap();
+        let po_out = self
+          .pos_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("positions output is missing"))?;
         for i in 0..self.pos_buffer_upto as usize {
           let pos_delta = self.pos_delta_buffer[i];
           if options.write_payloads {
@@ -808,10 +825,16 @@ where
     self.last_position = position;
 
     if self.pos_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
-      let po = self.pos_out.as_mut().unwrap();
+      let po = self
+        .pos_out
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("positions output is missing"))?;
       self.pfor_util.encode(&mut self.pos_delta_buffer, po)?;
       if options.write_payloads {
-        let pay_out = self.pay_out.as_mut().unwrap();
+        let pay_out = self
+          .pay_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))?;
         self
           .pfor_util
           .encode(&mut self.payload_length_buffer, pay_out)?;
@@ -820,7 +843,10 @@ where
         self.payload_byte_upto = 0;
       }
       if options.write_offsets {
-        let pay_out = self.pay_out.as_mut().unwrap();
+        let pay_out = self
+          .pay_out
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("payload output is missing"))?;
         self
           .pfor_util
           .encode(&mut self.offset_start_delta_buffer, pay_out)?;

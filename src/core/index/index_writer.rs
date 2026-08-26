@@ -1794,7 +1794,10 @@ where
 
       let doc_maps = {
         merge.check_aborted()?;
-        let sci = merge.info.as_mut().unwrap();
+        let sci = merge
+          .info
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
         let soft_delete_count = soft_delete_count.get().try_convert()?;
         sci.set_soft_del_count_without_check(soft_delete_count);
         let del_count = sci.get_del_count();
@@ -1852,8 +1855,10 @@ where
         doc_maps
       };
 
-      debug_assert!(merge.info.is_some());
-      let sci = merge.info.as_mut().unwrap();
+      let sci = merge
+        .info
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
       max_doc = sci.info.max_doc()?;
       #[cfg(test)]
       merge.stat.set_max_doc(max_doc);
@@ -1869,7 +1874,11 @@ where
       }
       if use_compound_file {
         success = false;
-        let files_to_remove = merge.info.as_ref().unwrap().files()?;
+        let files_to_remove = merge
+          .info
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
+          .files()?;
 
         // NOTE: Creation of the CFS file must be performed with the original
         // directory rather than with the merging directory, so that it is not
@@ -1879,7 +1888,10 @@ where
         // We'll need a mutable view of SegmentInfo to pass into create_compound_file.
         // Keep this in a tight scope.
         let cfs_res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          let sci = merge.info.as_mut().unwrap();
+          let sci = merge
+            .info
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
           let segment_info = Arc::get_mut(&mut sci.info)
             .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
 
@@ -1929,7 +1941,11 @@ where
               )?;
             }
             // Safe: these files must exist
-            let files = merge.info.as_ref().unwrap().files()?;
+            let files = merge
+              .info
+              .as_ref()
+              .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
+              .files()?;
             self.delete_new_files(files.iter(), None)?;
           }
           Ok(())
@@ -1954,14 +1970,21 @@ where
                 .message("IW", "abort merge after building CFS")?;
             }
             // Safe: these files must exist
-            let files = merge.info.as_ref().unwrap().files()?;
+            let files = merge
+              .info
+              .as_ref()
+              .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
+              .files()?;
             self.delete_new_files(files.iter(), Some(&inner))?;
             return Ok(0);
           }
         }
 
         {
-          let sci = merge.info.as_mut().unwrap();
+          let sci = merge
+            .info
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
           let segment_info = Arc::get_mut(&mut sci.info)
             .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
           segment_info.set_use_compound_file(true);
@@ -1976,7 +1999,10 @@ where
       // and 2) .si reflects useCompoundFile=true change
       // above:
       let mut success2 = false;
-      let sci = merge.info.as_mut().unwrap();
+      let sci = merge
+        .info
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
       {
         let write_res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           let segment_info = Arc::get_mut(&mut sci.info)
@@ -2019,7 +2045,11 @@ where
             &mut inner,
             rld.index_created_version_major,
           )?;
-          inner.reader.as_ref().unwrap().clone()
+          inner
+            .reader
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("merged segment reader is missing"))?
+            .clone()
         };
         let warm_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
           merged_segment_warmer.warm(&sr)
@@ -2638,12 +2668,11 @@ where
       let mut inner = self.inner.lock();
 
       let mut pending_commit = commit_lock.pending_commit.borrow_mut();
-      if pending_commit.is_some() {
+      if let Some(pending_commit_ref) = pending_commit.as_mut() {
         let dec_result = {
-          let pending_commit = pending_commit.as_mut().unwrap();
-          pending_commit.rollback_commit(self.directory.as_ref());
+          pending_commit_ref.rollback_commit(self.directory.as_ref());
           std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            inner.deleter.dec_ref_from_segment(pending_commit)
+            inner.deleter.dec_ref_from_segment(pending_commit_ref)
           }))
         };
         *pending_commit = None;
@@ -2722,12 +2751,11 @@ where
           let mut inner = self.inner.lock();
 
           let mut pending_commit = commit_lock.pending_commit.borrow_mut();
-          if pending_commit.is_some() {
+          if let Some(pending_commit_ref) = pending_commit.as_mut() {
             let pending_result =
               std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-                let pending_commit = pending_commit.as_mut().unwrap();
-                pending_commit.rollback_commit(self.directory.as_ref());
-                inner.deleter.dec_ref_from_segment(pending_commit)?;
+                pending_commit_ref.rollback_commit(self.directory.as_ref());
+                inner.deleter.dec_ref_from_segment(pending_commit_ref)?;
                 Ok(())
               }));
             *pending_commit = None;
@@ -3062,7 +3090,10 @@ where
         None => false,
       };
       let next_gen = if packet_any {
-        self.publish_frozen_updates(packet.unwrap(), Some(&inner))?
+        self.publish_frozen_updates(
+          packet.ok_or_else(|| LuceneError::illegal_state("delete packet is missing"))?,
+          Some(&inner),
+        )?
       } else {
         // Since we don't have a delete packet to apply we can get a new
         // generation right away
@@ -3084,7 +3115,10 @@ where
       inner.segment_infos.add(new_segment)?;
       published = true;
       self.checkpoint(&mut *inner)?;
-      let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
+      let new_segment = inner
+        .segment_infos
+        .index_of(&new_segment_id)
+        .ok_or_else(|| LuceneError::illegal_state("newly published segment is missing"))?;
       if packet_any && let Some(sort_map) = sort_map {
         let _ = self.get_pooled_instance_with_sort_map(new_segment, true, sort_map)?;
       }
@@ -3112,24 +3146,23 @@ where
       if has_initial_soft_deleted || is_fully_hard_deleted {
         let rld = self.get_pooled_instance(new_segment, true)?;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-          match rld {
-            None => {
-              return Err(LuceneError::illegal_state(
-                "failed to open newly flushed segment",
-              ));
-            },
-            Some(ref rld) => {
-              let new_segment = inner.segment_infos.index_of(&new_segment_id).unwrap();
-              let is_fully_deleted = self.is_fully_deleted(rld, new_segment, &inner)?;
-              if is_fully_deleted {
-                self.drop_deleted_segment(&new_segment_id, &mut *inner)?;
-                self.checkpoint(&mut *inner)?;
-              }
-            },
+          let rld = rld
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("failed to open newly flushed segment"))?;
+          let new_segment = inner
+            .segment_infos
+            .index_of(&new_segment_id)
+            .ok_or_else(|| LuceneError::illegal_state("newly published segment is missing"))?;
+          let is_fully_deleted = self.is_fully_deleted(rld, new_segment, &inner)?;
+          if is_fully_deleted {
+            self.drop_deleted_segment(&new_segment_id, &mut *inner)?;
+            self.checkpoint(&mut *inner)?;
           }
           Ok(())
         }));
-        self.release(&rld.unwrap(), &mut *inner)?;
+        if let Some(rld) = rld.as_ref() {
+          self.release(rld, &mut *inner)?;
+        }
         unwrap_caught_result!(result)?;
       }
       Ok(())
@@ -3926,7 +3959,9 @@ where
     };
     let commit_lock = match commit_lock {
       Some(lock) => lock,
-      None => commit_guard.as_deref().unwrap(),
+      None => commit_guard
+        .as_deref()
+        .ok_or_else(|| LuceneError::illegal_state("commit lock is missing"))?,
     };
     commit_lock.start_commit_time.set(Instant::now());
 
@@ -4790,7 +4825,10 @@ where
     // started merging:
     let mut min_gen: i64 = i64::MAX;
 
-    let sci = merge.info.as_ref().unwrap();
+    let sci = merge
+      .info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
     // Lazy init (only when we find a delete or update to carry over):
     let merged_deletes_and_updates = self.get_pooled_instance(sci, true)?.ok_or_else(|| {
       LuceneError::illegal_state("failed to get pooled instance for a merged segment")
@@ -4851,7 +4889,7 @@ where
               DocValuesType::Numeric => {
                 let sub_update1 = NumericDocValuesFieldUpdates::new()?;
                 DocValuesFieldUpdates::new(
-                  merge.info.as_ref().unwrap().info.max_doc()?,
+                  sci.info.max_doc()?,
                   updates.del_gen,
                   updates.field.clone(),
                   sub_update1.sub_type(),
@@ -4861,7 +4899,7 @@ where
               DocValuesType::Binary => {
                 let sub_update2 = BinaryDocValuesFieldUpdates::new()?;
                 DocValuesFieldUpdates::new(
-                  merge.info.as_ref().unwrap().info.max_doc()?,
+                  sci.info.max_doc()?,
                   updates.del_gen,
                   updates.field.clone(),
                   sub_update2.sub_type(),
@@ -4876,7 +4914,9 @@ where
             };
             e.insert(v);
           }
-          let mapped_updates = mapped_field.get_mut(&updates.del_gen).unwrap();
+          let mapped_updates = mapped_field
+            .get_mut(&updates.del_gen)
+            .ok_or_else(|| LuceneError::illegal_state("mapped doc values updates are missing"))?;
 
           let mut it = updates.iterator()?;
           loop {
@@ -5030,7 +5070,14 @@ where
       return Ok(false);
     }
 
-    let merged_updates = if merge.info.as_ref().unwrap().info.max_doc()? == 0 {
+    let merged_updates = if merge
+      .info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
+      .info
+      .max_doc()?
+      == 0
+    {
       None
     } else {
       Some(self.commit_merged_deletes_and_updates(merge, doc_maps, &mut inner)?)
@@ -5039,13 +5086,18 @@ where
     // is in now compound format (but wasn't when we
     // started), then we will switch to the compound
     // format as well:
-    let sci = merge.info.as_ref().unwrap();
+    let sci = merge
+      .info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
     debug_assert!(!inner.segment_infos.contains(sci.info.get_id_key()));
 
     let all_deleted = merge.stat.segments.is_empty()
       || sci.info.max_doc()? == 0
-      || (merged_updates.is_some()
-        && self.is_fully_deleted(merged_updates.as_ref().unwrap().as_ref(), sci, &inner)?);
+      || match merged_updates.as_ref() {
+        Some(merged_updates) => self.is_fully_deleted(merged_updates.as_ref(), sci, &inner)?,
+        None => false,
+      };
 
     if self.info_stream.is_enabled("IW")
       && all_deleted
@@ -5079,7 +5131,12 @@ where
 
       if !success {
         merged_updates.drop_changes();
-        let info_id = merge.info.as_ref().unwrap().info.get_id_key();
+        let info_id = merge
+          .info
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
+          .info
+          .get_id_key();
         self.reader_pool.drop(info_id, &mut inner.segment_infos)?;
       }
       unwrap_caught_result!(res)?;
@@ -5089,7 +5146,13 @@ where
     // error is hit e.g. writing the live docs for the
     // merge segment, in which case we need to abort the
     // merge:
-    let merge_id = merge.info.as_ref().unwrap().info.get_id_key().to_string();
+    let merge_id = merge
+      .info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?
+      .info
+      .get_id_key()
+      .to_string();
     inner
       .segment_infos
       .apply_merge_changes(merge, drop_segment)?;
@@ -5729,13 +5792,19 @@ where
               .info_stream
               .message("IW", "  skip startCommit(): no changes pending")?;
           }
-          let files = commit_lock.files_to_commit.borrow_mut().take().unwrap();
+          let files = commit_lock
+            .files_to_commit
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("files to commit are missing"))?;
           inner.deleter.dec_ref(files.iter())?;
           return Ok(());
         }
 
         debug_assert!(Self::files_exist(
-          to_sync.as_ref().unwrap(),
+          to_sync
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("segments to sync are missing"))?,
           &inner.deleter
         )?);
       }
@@ -5751,7 +5820,11 @@ where
           let inner = self.inner.lock();
           debug_assert!(commit_lock.pending_commit.borrow().is_none());
           debug_assert!(
-            inner.segment_infos.get_generation() == to_sync.as_ref().unwrap().get_generation()
+            inner.segment_infos.get_generation()
+              == to_sync
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("segments to sync are missing"))?
+                .get_generation()
           );
           // Error here means nothing is prepared
           // (this method unwinds everything it did on
@@ -5759,13 +5832,16 @@ where
 
           to_sync
             .as_mut()
-            .unwrap()
+            .ok_or_else(|| LuceneError::illegal_state("segments to sync are missing"))?
             .prepare_commit(self.directory.as_ref())?;
           if self.info_stream.is_enabled("IW") {
             let file_name = IndexFileNames::file_name_from_generation(
               IndexFileNames::PENDING_SEGMENTS,
               "",
-              to_sync.as_ref().unwrap().get_generation(),
+              to_sync
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("segments to sync are missing"))?
+                .get_generation(),
             );
             self.info_stream.message(
               "IW",
@@ -5785,7 +5861,7 @@ where
             let pending_commit = commit_lock.pending_commit.borrow();
             pending_commit
               .as_ref()
-              .unwrap()
+              .ok_or_else(|| LuceneError::illegal_state("pending commit is missing"))?
               .files(false)?
               .into_iter()
               .collect()
@@ -5798,7 +5874,11 @@ where
         if !success {
           pending_commit_set = false;
           debug_assert!(commit_lock.pending_commit.borrow().is_some());
-          let mut pending_commit = commit_lock.pending_commit.borrow_mut().take().unwrap();
+          let mut pending_commit = commit_lock
+            .pending_commit
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("pending commit is missing"))?;
           pending_commit.rollback_commit(self.directory.as_ref());
           to_sync = Some(pending_commit);
         }
@@ -5826,7 +5906,11 @@ where
           Ok(())
         }));
         if matches!(&message_result, Ok(Ok(()))) {
-          let files = commit_lock.files_to_commit.borrow_mut().take().unwrap();
+          let files = commit_lock
+            .files_to_commit
+            .borrow_mut()
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("files to commit are missing"))?;
           let dec_ref_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             inner.deleter.dec_ref(files.iter())
           }));
@@ -5848,14 +5932,18 @@ where
         match pending_commit_set {
           true => {
             let pending_commit = commit_lock.pending_commit.borrow();
-            inner
-              .segment_infos
-              .update_generation(pending_commit.as_ref().unwrap());
+            inner.segment_infos.update_generation(
+              pending_commit
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("pending commit is missing"))?,
+            );
           },
           false => {
-            inner
-              .segment_infos
-              .update_generation(to_sync.as_ref().unwrap());
+            inner.segment_infos.update_generation(
+              to_sync
+                .as_ref()
+                .ok_or_else(|| LuceneError::illegal_state("segments to sync are missing"))?,
+            );
           },
         }
       }
@@ -6028,7 +6116,10 @@ where
             )?;
           }
           self.publish_flushed_segment(
-            seg.segment_info.take().unwrap(),
+            seg
+              .segment_info
+              .take()
+              .ok_or_else(|| LuceneError::illegal_state("segment info is missing"))?,
             seg.field_infos.clone(),
             seg.segment_updates.take(),
             buffered_updates,
@@ -6318,7 +6409,10 @@ where
         match &v {
           InfoFrom::None => break,
           InfoFrom::Updates => {
-            let info_id = updates.private_segment.as_deref().unwrap();
+            let info_id = updates
+              .private_segment
+              .as_deref()
+              .ok_or_else(|| LuceneError::illegal_state("private segment is missing"))?;
             let info = inner.segment_infos.index_of_live(info_id).ok_or_else(|| {
               LuceneError::illegal_state(format!("{} not in IndexWriter's segment_infos", info_id))
             })?;
@@ -6332,7 +6426,12 @@ where
         }
         let v = match v {
           InfoFrom::None => return Err(LuceneError::unreachable("")),
-          InfoFrom::Updates => Some(updates.private_segment.clone().unwrap()),
+          InfoFrom::Updates => Some(
+            updates
+              .private_segment
+              .clone()
+              .ok_or_else(|| LuceneError::illegal_state("private segment is missing"))?,
+          ),
           // all segments
           InfoFrom::All => None,
         };
@@ -8605,7 +8704,9 @@ where
       let mut inner = self.writer().inner.lock();
       let mut processed_merges = self.processed_merges.lock();
       processed_merges.push(merge);
-      let merge = processed_merges.last_mut().unwrap();
+      let merge = processed_merges
+        .last_mut()
+        .ok_or_else(|| LuceneError::illegal_state("processed merge was not retained"))?;
       merge.close(&mut inner, success, false, |_, _| Ok(()))?;
       self.on_merge_finished_locked(&merge.stat, &mut inner);
     }
@@ -8701,20 +8802,26 @@ impl DocModifier for DocModifierImpl2 {
             )));
           },
         };
-        let doc_values_field_updates = field_updates_map
-          .entry(update.field.clone())
-          .or_insert_with(|| {
-            DocValuesFieldUpdates::new(max_doc, next_gen, update.field.clone(), sub.sub_type(), sub)
-              .unwrap()
-          });
+        let doc_values_field_updates = match field_updates_map.entry(update.field.clone()) {
+          std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
+          std::collections::hash_map::Entry::Vacant(entry) => {
+            entry.insert(DocValuesFieldUpdates::new(
+              max_doc,
+              next_gen,
+              update.field.clone(),
+              sub.sub_type(),
+              sub,
+            )?)
+          },
+        };
 
         if update.has_value() {
           match &update.sub_update {
             DocValuesUpdateEnum::Numeric(n) => {
-              doc_values_field_updates.add_value(leaf_doc_id, n.get_value())?;
+              doc_values_field_updates.add_value(leaf_doc_id, n.get_value()?)?;
             },
             DocValuesUpdateEnum::Binary(b) => {
-              doc_values_field_updates.add_byte_ref(leaf_doc_id, b.get_value())?;
+              doc_values_field_updates.add_byte_ref(leaf_doc_id, b.get_value()?)?;
             },
           }
         } else {

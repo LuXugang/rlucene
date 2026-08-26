@@ -73,7 +73,7 @@ where
       let mut current = self.current.write();
       let old_reference = current
         .take()
-        .expect("ReferenceManager must be open after ensure_open");
+        .ok_or_else(|| LuceneError::already_closed(REFERENCE_MANAGER_IS_CLOSED_MSG.to_string()))?;
       *current = new_reference;
       old_reference
     };

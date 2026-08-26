@@ -266,16 +266,25 @@ where
     {
       Some(values) => {
         let iterator = match self.query.query_relation {
-          QueryRelation::Intersects => LatLonDocValuesTwoPhaseIterator::Intersects(
-            IntersectsTPI::new(values, component2d_predicate.unwrap()),
-          ),
+          QueryRelation::Intersects => {
+            LatLonDocValuesTwoPhaseIterator::Intersects(IntersectsTPI::new(
+              values,
+              component2d_predicate.ok_or_else(|| {
+                LuceneError::illegal_state("intersects query has no component predicate")
+              })?,
+            ))
+          },
           QueryRelation::Within => LatLonDocValuesTwoPhaseIterator::Within(WithinTPI::new(
             values,
-            component2d_predicate.unwrap(),
+            component2d_predicate.ok_or_else(|| {
+              LuceneError::illegal_state("within query has no component predicate")
+            })?,
           )),
           QueryRelation::Disjoint => LatLonDocValuesTwoPhaseIterator::Disjoint(DisjointTPI::new(
             values,
-            component2d_predicate.unwrap(),
+            component2d_predicate.ok_or_else(|| {
+              LuceneError::illegal_state("disjoint query has no component predicate")
+            })?,
           )),
           QueryRelation::Contains => LatLonDocValuesTwoPhaseIterator::Contains(ContainsTPI::new(
             values,

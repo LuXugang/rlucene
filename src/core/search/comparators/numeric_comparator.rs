@@ -253,22 +253,27 @@ where
     );
 
     let threshold = ((self.iterator_cost as u64) >> 3) as i64;
-    #[allow(clippy::unnecessary_unwrap)]
     if self.point_values.is_some() {
-      if is_estimated_point_count_greater_than_or_equal_to(
-        &visitor,
-        self.point_tree.as_mut().unwrap(),
-        threshold,
-      )? {
+      let point_tree = self
+        .point_tree
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("point tree is not initialized"))?;
+      if is_estimated_point_count_greater_than_or_equal_to(&visitor, point_tree, threshold)? {
         // the new range is not selective enough to be worth materializing, it doesn't reduce number
         // of docs at least 8x
         self.update_skip_interval(false);
 
-        let pv = self.point_values.as_ref().unwrap();
+        let pv = self
+          .point_values
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("point values are not initialized"))?;
         if (pv.get_doc_count()? as i64) < self.iterator_cost {
-          debug_assert!(self.skip_doc_values.is_some());
+          let skip_doc_values = self
+            .skip_doc_values
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("skip doc values are not initialized"))?;
           self.competitive_iterator = Some(CompetitiveIterator::new(CompetitiveIteratorType::B(
-            self.skip_doc_values.take().unwrap(),
+            skip_doc_values,
           )));
 
           self.iterator_cost = pv.get_doc_count()? as i64
@@ -278,7 +283,7 @@ where
       self
         .point_values
         .as_ref()
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("point values are not initialized"))?
         .intersect(&mut visitor)?;
     } else {
       return Err(LuceneError::illegal_state("point_values is None"));

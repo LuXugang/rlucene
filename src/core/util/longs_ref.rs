@@ -73,7 +73,10 @@ impl LongsRef {
   /// * `offset` - The offset where valid longs start.
   /// * `length` - The number of valid longs.
   pub fn from_slice(mut longs: Vec<i64>, offset: usize, length: usize) -> Self {
-    debug_assert!(Self::is_valid(longs.as_mut_slice(), offset, length).unwrap());
+    debug_assert!(matches!(
+      Self::is_valid(longs.as_mut_slice(), offset, length),
+      Ok(true)
+    ));
     Self {
       longs,
       offset,

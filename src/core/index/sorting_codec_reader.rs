@@ -1943,11 +1943,14 @@ where
     let new_object = supplier()?;
     inner.cached_field = Some(field.to_string());
     inner.cache_is_norms = norms;
-    inner.cached_object = Some(new_object);
+    inner.cached_object = Some(new_object.clone());
+    return Ok(new_object);
   }
-  debug_assert!(inner.cached_object.is_some());
-  let v = inner.cached_object.as_ref().unwrap().clone();
-  Ok(v)
+  inner
+    .cached_object
+    .as_ref()
+    .cloned()
+    .ok_or_else(|| LuceneError::illegal_state("cached object is missing"))
 }
 fn get_numeric_doc_values<N, DM>(
   old_numerics: &mut N,

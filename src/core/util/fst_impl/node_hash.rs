@@ -111,7 +111,9 @@ where
             // not found
             return Ok(0);
           } else {
-            let node = fst_compiler.frontier[node_in_index].as_ref().unwrap();
+            let node = fst_compiler.frontier[node_in_index]
+              .as_ref()
+              .ok_or_else(|| LuceneError::illegal_state("FST compiler frontier node is missing"))?;
             let fst = &fst_compiler.fst;
             let length = fallback_table.nodes_equal(node_address, hash_slot, fst, node)?;
             if length != -1 {
@@ -145,7 +147,9 @@ where
     let (mut hash_slot, mut c, hash) = {
       let node_hash = &mut fst_compiler.dedup_hash;
       let hash: usize = {
-        let node_in = fst_compiler.frontier[node_in_index].as_ref().unwrap();
+        let node_in = fst_compiler.frontier[node_in_index]
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("FST compiler frontier node is missing"))?;
         node_hash.hash(node_in)?.try_convert()?
       };
       (hash & node_hash.primary_table.mask, 0, hash)
@@ -169,10 +173,17 @@ where
           node_hash
             .primary_table
             .set_node_address(hash_slot, node_address);
+          let fallback_hash_slot = node_hash
+            .last_fallback_hash_slot
+            .ok_or_else(|| LuceneError::illegal_state("fallback FST hash slot is missing"))?;
+          let fallback_table = node_hash
+            .fallback_table
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("fallback FST hash table is missing"))?;
           node_hash.primary_table.copy_fallback_node_bytes(
             hash_slot,
-            node_hash.fallback_table.as_mut().unwrap(),
-            node_hash.last_fallback_hash_slot.unwrap(),
+            fallback_table,
+            fallback_hash_slot,
             node_hash.last_fallback_node_length,
           )?;
         } else {
@@ -252,15 +263,20 @@ where
         }
 
         return Ok(node_address);
-      } else if fst_compiler.dedup_hash.primary_table.nodes_equal(
-        node_address,
-        hash_slot,
-        &fst_compiler.fst,
-        fst_compiler.frontier[node_in_index].as_ref().unwrap(),
-      )? != -1
-      {
-        // same node (in frozen form) is already in primary table
-        return Ok(node_address);
+      } else {
+        let node = fst_compiler.frontier[node_in_index]
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("FST compiler frontier node is missing"))?;
+        if fst_compiler.dedup_hash.primary_table.nodes_equal(
+          node_address,
+          hash_slot,
+          &fst_compiler.fst,
+          node,
+        )? != -1
+        {
+          // same node (in frozen form) is already in primary table
+          return Ok(node_address);
+        }
       }
 
       c += 1;

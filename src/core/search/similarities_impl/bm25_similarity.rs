@@ -138,8 +138,7 @@ impl BM25Similarity {
 
     for stat in term_stats {
       let idf_expl = self.idf_explain(collection_stats, stat);
-      // it is ok to unwrap to f64 because idf is always a small number
-      idf_sum += idf_expl.get_value().to_f64().unwrap();
+      idf_sum += self.idf(stat.get_doc_freq(), collection_stats.get_doc_count()) as f64;
       details.push(idf_expl);
     }
 

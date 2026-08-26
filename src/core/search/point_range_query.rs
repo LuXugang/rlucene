@@ -530,13 +530,20 @@ where
     }
 
     if !reader.has_deletions()? {
-      let values = values.unwrap();
+      let values =
+        values.ok_or_else(|| LuceneError::illegal_state("validated point values are missing"))?;
+      let min_packed_value = values.get_min_packed_value()?.ok_or_else(|| {
+        LuceneError::illegal_state("non-empty point values have no minimum packed value")
+      })?;
+      let max_packed_value = values.get_max_packed_value()?.ok_or_else(|| {
+        LuceneError::illegal_state("non-empty point values have no maximum packed value")
+      })?;
 
       let relation = relate(
         query,
         &self.comparator,
-        values.get_min_packed_value()?.as_ref().unwrap().as_ref(),
-        values.get_max_packed_value()?.as_ref().unwrap().as_ref(),
+        min_packed_value.as_ref(),
+        max_packed_value.as_ref(),
       )?;
 
       if relation == Relation::CellInsideQuery {

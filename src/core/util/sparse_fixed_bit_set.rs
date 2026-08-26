@@ -416,8 +416,10 @@ impl Bits for SparseFixedBitSet {
     // if it is set, then we count the number of bits that are set on the
     // right of i64, and that gives us the index of the long that
     // stores the bits we are interested in
-    let bits =
-      self.bits[i4096].as_ref().unwrap()[(index as u64 & (i64bit - 1)).count_ones() as usize];
+    let bits = self.bits[i4096]
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("sparse bit block is missing"))?
+      [(index as u64 & (i64bit - 1)).count_ones() as usize];
     Ok((bits & (1_u64 << (i % 64))) != 0)
   }
 

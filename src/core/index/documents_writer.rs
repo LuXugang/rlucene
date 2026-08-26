@@ -300,18 +300,21 @@ where
       Ok(())
     }));
 
-    if matches!(&result, Ok(Ok(()))) {
-      Ok(finalizer)
-    } else {
-      if self.info_stream.is_enabled("DW") {
-        self
-          .info_stream
-          .message("DW", "finished lockAndAbortAll success=false")?;
-      }
-      let close_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| finalizer.close()));
-      IOUtils::use_or_suppress_caught_result(result, close_result)?;
-      unreachable!()
+    match result {
+      Ok(Ok(())) => Ok(finalizer),
+      result => {
+        if self.info_stream.is_enabled("DW") {
+          self
+            .info_stream
+            .message("DW", "finished lockAndAbortAll success=false")?;
+        }
+        let close_result =
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| finalizer.close()));
+        IOUtils::use_or_suppress_caught_result(result, close_result)?;
+        Err(LuceneError::illegal_state(
+          "lockAndAbortAll unexpectedly succeeded after an error",
+        ))
+      },
     }
   }
   /// Returns how many documents were aborted.
@@ -580,11 +583,10 @@ where
       let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         debug_assert!({
           let current_full_flush_del_queue = &self.inner.lock().current_full_flush_del_queue;
-          current_full_flush_del_queue.is_none()
-            || Arc::ptr_eq(
-              &flushing_dwpt.state.delete_queue,
-              current_full_flush_del_queue.as_ref().unwrap(),
-            )
+          match current_full_flush_del_queue.as_ref() {
+            Some(queue) => Arc::ptr_eq(&flushing_dwpt.state.delete_queue, queue),
+            None => true,
+          }
         });
 
         // Since with DWPT the flush process is concurrent and several DWPT
@@ -620,9 +622,10 @@ where
                     let v = dwpt.flush(&self.flush_notifications, writer)?;
                     match v {
                       Some(new_segment) => {
-                        self
-                          .ticket_queue
-                          .add_segment(has_ticket.as_ref().unwrap(), new_segment)?;
+                        let ticket = has_ticket
+                          .as_ref()
+                          .ok_or_else(|| LuceneError::illegal_state("flush ticket is missing"))?;
+                        self.ticket_queue.add_segment(ticket, new_segment)?;
                         dwpt_success = true;
                         Ok(())
                       },
@@ -799,11 +802,9 @@ where
     debug_assert!({
       let inner = self.inner.lock();
       let current_full_flush_del_queue = &inner.current_full_flush_del_queue;
-      current_full_flush_del_queue.is_some()
-        && !Arc::ptr_eq(
-          &self.flush_control.delete_queue.lock(),
-          current_full_flush_del_queue.as_ref().unwrap(),
-        )
+      current_full_flush_del_queue
+        .as_ref()
+        .is_some_and(|current| !Arc::ptr_eq(&self.flush_control.delete_queue.lock(), current))
     });
 
     let mut anything_flushed = false;
@@ -834,10 +835,10 @@ where
     }));
     debug_assert!({
       let inner = self.inner.lock();
-      Arc::ptr_eq(
-        &flushing_delete_queue,
-        inner.current_full_flush_del_queue.as_ref().unwrap(),
-      )
+      match inner.current_full_flush_del_queue.as_ref() {
+        Some(queue) => Arc::ptr_eq(&flushing_delete_queue, queue),
+        None => false,
+      }
     });
     // all DWPT have been processed and this queue has been fully flushed to the
     // ticket-queue

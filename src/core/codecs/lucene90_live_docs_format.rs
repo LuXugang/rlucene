@@ -125,8 +125,9 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
       gen_,
     );
     let length = info.info.max_doc()?.try_convert()?;
-    debug_assert!(name.is_some());
-    let name_str = name.as_ref().unwrap();
+    let name_str = name
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("live docs file name is missing"))?;
     let mut input = directory.open_checksum_input(name_str)?;
     let mut bits = None;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -185,10 +186,12 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
       Lucene90LiveDocsFormat::EXTENSION,
       gen_,
     );
-    debug_assert!(name.is_some());
+    let name = name
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("live docs file name is missing"))?;
     let del_count: i32;
     {
-      let mut output = directory.create_output(name.as_ref().unwrap().as_str(), context)?;
+      let mut output = directory.create_output(name.as_str(), context)?;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i32> {
         CodecUtil::write_index_header(
           &mut output,
@@ -226,8 +229,9 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
         Lucene90LiveDocsFormat::EXTENSION,
         info.get_del_gen(),
       );
-      debug_assert!(file_name.is_some());
-      files.insert(file_name.unwrap());
+      files.insert(
+        file_name.ok_or_else(|| LuceneError::illegal_state("live docs file name is missing"))?,
+      );
     }
     Ok(())
   }

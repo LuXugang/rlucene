@@ -39,10 +39,8 @@ where
       "geometries must not be empty",
     ));
   }
-  if xy_geometries.len() == 1 {
-    return Ok(XYGeometryType::A(
-      xy_geometries.iter().next().unwrap().to_component2d()?,
-    ));
+  if let [geometry] = xy_geometries {
+    return Ok(XYGeometryType::A(geometry.to_component2d()?));
   }
   let mut components = Vec::with_capacity(xy_geometries.len());
   for geometry in xy_geometries {

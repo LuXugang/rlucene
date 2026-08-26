@@ -151,8 +151,7 @@ where
 
       let meta_stream_fn =
         IndexFileNames::segment_file_name(segment, segment_suffix, VECTORS_META_EXTENSION);
-      meta_in = Some(dir.open_checksum_input(&meta_stream_fn)?);
-      let meta = meta_in.as_mut().unwrap();
+      let meta = meta_in.insert(dir.open_checksum_input(&meta_stream_fn)?);
 
       CodecUtil::check_index_header(
         meta,
@@ -1135,29 +1134,29 @@ impl Fields for TVFields {
         break;
       }
     }
-    if idx.is_none() || self.num_terms[idx.unwrap()] == 0 {
+    let Some(idx) = idx else {
+      return Ok(None);
+    };
+    if self.num_terms[idx] == 0 {
       // no term
       return Ok(None);
     }
 
     let mut field_off = 0;
-    let mut field_len = None;
     for (i, &len) in self.field_lengths.iter().enumerate() {
-      if i < idx.unwrap() {
+      if i < idx {
         field_off += len;
       } else {
-        field_len = Some(len);
         break;
       }
     }
-    debug_assert!(field_len.is_some());
+    let field_len = self.field_lengths[idx];
 
     let term_bytes = BytesRef::from_slice(
       self.suffix_bytes.bytes.clone(),
       self.suffix_bytes.offset + field_off,
-      field_len.unwrap(),
+      field_len,
     );
-    let idx = idx.unwrap();
     let tv_terms = TVTerms::new(
       self.num_terms[idx],
       self.field_flags[idx],
@@ -1615,12 +1614,12 @@ impl TVPostingsEnum {
       Ok(())
     }
   }
-  fn check_position(&self) -> Result<()> {
+  fn check_position(&self) -> Result<usize> {
     self.check_doc()?;
     match self.i {
       None => Err(LuceneError::illegal_state("Position enum not started")),
       Some(i) if i >= self.term_freq => Err(LuceneError::illegal_state("Read past last position")),
-      Some(_) => Ok(()),
+      Some(i) => Ok(i),
     }
   }
 }
@@ -1688,26 +1687,26 @@ impl PostingsEnum for TVPostingsEnum {
   }
 
   fn start_offset(&self) -> Result<i32> {
-    self.check_position()?;
+    let i = self.check_position()?;
     if self.start_offsets.is_empty() {
       Ok(-1)
     } else {
-      Ok(self.start_offsets[self.position_index + self.i.unwrap()])
+      Ok(self.start_offsets[self.position_index + i])
     }
   }
 
   fn end_offset(&self) -> Result<i32> {
-    self.check_position()?;
+    let i = self.check_position()?;
     if self.start_offsets.is_empty() {
       Ok(-1)
     } else {
-      let index = self.position_index + self.i.unwrap();
+      let index = self.position_index + i;
       Ok(self.start_offsets[index] + self.lengths[index])
     }
   }
 
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    self.check_position()?;
+    let _ = self.check_position()?;
     if self.payload_index.is_empty() || self.payload_length == 0 {
       Ok(None)
     } else {

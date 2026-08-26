@@ -148,15 +148,20 @@ impl DocValuesWriter for BinaryDocValuesWriter {
     DC: DocValuesConsumer,
   {
     self.bytes_out.paged_bytes.freeze(false)?;
-    // final_lengths should always be `Some` here, because we call finish() before flush()
-    // but we still keep the check here for consistent with Java Lucene.
+    // final_lengths should already be available because finish() runs before flush().
+    // Build them here when needed, as Java Lucene does.
     if self.final_lengths.is_none() {
       self.final_lengths = Some(self.lengths.build()?);
     }
     let sorted = match sort_map {
       Some(sort_map) => {
+        let Some(final_lengths) = self.final_lengths.as_ref() else {
+          return Err(LuceneError::illegal_state(
+            "final lengths are unavailable after they were built",
+          ));
+        };
         let mut buffered_binary_doc_values = BufferedBinaryDocValues::new(
-          self.final_lengths.as_ref().unwrap(),
+          final_lengths,
           self.max_length as usize,
           get_data_input(&self.bytes_out.paged_bytes)?,
           self.docs_with_field.iterator()?,
@@ -169,10 +174,15 @@ impl DocValuesWriter for BinaryDocValuesWriter {
       },
       None => None,
     };
+    let Some(final_lengths) = self.final_lengths.take() else {
+      return Err(LuceneError::illegal_state(
+        "final lengths are unavailable after they were built",
+      ));
+    };
 
     let producer = DocValuesProducerImpl::new(
       self.field_info.clone(),
-      self.final_lengths.take().unwrap(),
+      final_lengths,
       self.max_length,
       std::mem::take(&mut self.bytes_out.paged_bytes),
       std::mem::take(&mut self.docs_with_field),
@@ -184,13 +194,13 @@ impl DocValuesWriter for BinaryDocValuesWriter {
   type DocIdSetIterator = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;
 
   fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
-    if self.final_lengths.is_none() {
+    let Some(final_lengths) = self.final_lengths.as_ref() else {
       return Err(LuceneError::illegal_state(
         "must be finished before getting doc values".to_string(),
       ));
-    }
+    };
     BufferedBinaryDocValues::new(
-      self.final_lengths.as_ref().unwrap(),
+      final_lengths,
       self.max_length as usize,
       get_data_input(&self.bytes_out.paged_bytes)?,
       self.docs_with_field.iterator()?,

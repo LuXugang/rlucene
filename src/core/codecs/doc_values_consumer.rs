@@ -245,10 +245,11 @@ pub trait DocValuesConsumer: Closeable {
           doc_values_producer.get_sorted(&reader_field_info)?,
         ));
       }
-      if values.is_none() {
-        values = Some(SortedDocValuesWithEmpty::B(DocValues::empty_sorted()));
-      }
-      to_merge.push(values.unwrap());
+      let values = match values {
+        Some(values) => values,
+        None => SortedDocValuesWithEmpty::B(DocValues::empty_sorted()),
+      };
+      to_merge.push(values);
     }
 
     let num_readers = to_merge.len();
@@ -329,10 +330,11 @@ pub trait DocValuesConsumer: Closeable {
         ));
       }
 
-      if values.is_none() {
-        values = Some(SortedSetDocValuesEnum2::B(DocValues::empty_sorted_set()?));
-      }
-      to_merge.push(values.unwrap());
+      let values = match values {
+        Some(values) => values,
+        None => SortedSetDocValuesEnum2::B(DocValues::empty_sorted_set()?),
+      };
+      to_merge.push(values);
     }
 
     // step 1: iterate thru each sub and mark terms still in use
@@ -910,22 +912,16 @@ where
         }
       }
 
-      if values.is_none() {
-        values = Some(SortedNumericDocValuesWithEmpty::B(
-          DocValues::empty_sorted_numeric()?,
-        ));
+      let values = match values {
+        Some(values) => values,
+        None => SortedNumericDocValuesWithEmpty::B(DocValues::empty_sorted_numeric()?),
+      };
+      cost += values.cost()?;
+      if all_singletons && !values.is_single_valued() {
+        all_singletons = false;
       }
-      {
-        let values_ref = values.as_ref().unwrap();
-        cost += values_ref.cost()?;
-        if all_singletons && !values_ref.is_single_valued() {
-          all_singletons = false;
-        }
-      }
-      if let Some(values) = values {
-        let doc_map = self.merge_state.doc_maps()[i].clone();
-        subs.push(Sub::new(SortedNumericDocValuesSub::new(doc_map, values)));
-      }
+      let doc_map = self.merge_state.doc_maps()[i].clone();
+      subs.push(Sub::new(SortedNumericDocValuesSub::new(doc_map, values)));
     }
 
     if all_singletons {
@@ -1055,18 +1051,15 @@ where
           doc_values_producer.get_sorted(&reader_field_info)?,
         ));
       }
-      if values.is_none() {
-        values = Some(SortedDocValuesWithEmpty::B(DocValues::empty_sorted()));
-      }
+      let values = match values {
+        Some(values) => values,
+        None => SortedDocValuesWithEmpty::B(DocValues::empty_sorted()),
+      };
 
       let doc_map = self.merge_state.doc_maps()[i].clone();
       let map = self.map.get_global_ords(i).clone();
 
-      subs.push(Sub::new(SortedDocValuesSub::new(
-        doc_map,
-        values.unwrap(),
-        map,
-      )));
+      subs.push(Sub::new(SortedDocValuesSub::new(doc_map, values, map)));
     }
 
     merge_sorted_values(subs, self.merge_state.needs_index_sort(), self.map.clone())
@@ -1141,7 +1134,10 @@ where
   DM: DocMap,
 {
   fn ord_value(&mut self) -> Result<i32> {
-    let current = *self.current.as_ref().unwrap();
+    let current = *self
+      .current
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("current sorted-doc-values sub is missing"))?;
     let current_sub = &mut self.doc_id_merger.get_subs_mut()[current];
     let sub_ord = current_sub.sub.values.ord_value()?;
     debug_assert!(sub_ord != -1);
@@ -1438,7 +1434,10 @@ where
   DM: DocMap,
 {
   fn next_ord(&mut self) -> Result<i64> {
-    let current = *self.current_sub.as_ref().unwrap();
+    let current = *self
+      .current_sub
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("current sorted-set sub is missing"))?;
     let current_sub = &mut self.doc_id_merger.get_subs_mut()[current];
     let sub_ord = current_sub.sub.values.next_ord()?;
     current_sub.sub.map.get(sub_ord as usize)
@@ -1464,7 +1463,10 @@ where
   type SortedDocValues = DummySortedDocValues;
 
   fn doc_value_count(&mut self) -> Result<i32> {
-    let current = *self.current_sub.as_ref().unwrap();
+    let current = *self
+      .current_sub
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("current sorted-set sub is missing"))?;
     self.doc_id_merger.get_subs_mut()[current]
       .sub
       .values
@@ -1537,18 +1539,15 @@ where
         ));
       }
 
-      if values.is_none() {
-        values = Some(SortedSetDocValuesWithEmpty::B(
-          DocValues::empty_sorted_set()?
-        ));
-      }
-      if values_for_merge.is_none() {
-        values_for_merge = Some(SortedSetDocValuesWithEmpty::B(
-          DocValues::empty_sorted_set()?
-        ));
-      }
+      let values = match values {
+        Some(values) => values,
+        None => SortedSetDocValuesWithEmpty::B(DocValues::empty_sorted_set()?),
+      };
+      let values_for_merge = match values_for_merge {
+        Some(values) => values,
+        None => SortedSetDocValuesWithEmpty::B(DocValues::empty_sorted_set()?),
+      };
 
-      let values = values.unwrap();
       cost += values.cost()?;
 
       if all_singletons && !values.is_single_valued() {
@@ -1561,7 +1560,7 @@ where
       subs.push(Sub::new(SortedSetDocValuesSub::new(
         doc_map, values, seg_map,
       )));
-      to_merge.push(values_for_merge.unwrap());
+      to_merge.push(values_for_merge);
     }
 
     if all_singletons {

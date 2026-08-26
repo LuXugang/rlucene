@@ -269,10 +269,9 @@ where
     D: Directory,
   {
     let index_created_version_major = self.index_created_version_major;
-    let index_sort = segment_info.get_index_sort();
-    if index_sort.is_none() {
+    let Some(index_sort) = segment_info.get_index_sort() else {
       return Ok(None);
-    }
+    };
 
     let doc_values_reader = Self::get_doc_values_leaf_reader(self, field_info);
     let max_doc = segment_info.max_doc()?;
@@ -303,7 +302,7 @@ where
       )));
     }
     let mut comparators = Vec::new();
-    for sort_field in &index_sort.as_ref().unwrap().fields {
+    for sort_field in &index_sort.fields {
       let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
         LuceneError::unsupported_operation(format!(
           "Cannot sort index using sort field {sort_field}"
@@ -401,10 +400,15 @@ where
       while fp_idx >= 0 {
         let pf = &mut self.per_fields[fp_idx as usize];
         if pf.invert_state.is_some() {
-          fields_to_flush.insert(
-            pf.field_info.as_ref().unwrap().name.clone(),
-            pf.terms_hash_per_field.take().unwrap(),
-          );
+          let field_info = pf
+            .field_info
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+          let terms_hash = pf
+            .terms_hash_per_field
+            .take()
+            .ok_or_else(|| LuceneError::illegal_state("terms hash is missing"))?;
+          fields_to_flush.insert(field_info.name.clone(), terms_hash);
         }
         fp_idx = pf.next;
       }
@@ -506,7 +510,10 @@ where
         while per_field_index >= 0 {
           let per_field = &mut self.per_fields[per_field_index as usize];
           if let Some(point_values_writer) = per_field.point_values_writer.as_mut() {
-            let field_info = per_field.field_info.as_ref().unwrap();
+            let field_info = per_field
+              .field_info
+              .as_ref()
+              .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
             // We could have initialized pointValuesWriter, but failed to write even a single doc
             if field_info.get_point_dimension_count() > 0 {
               if points_writer.is_none() {
@@ -514,12 +521,10 @@ where
                 let fmt = index_writer_config.get_codec().points_format();
                 points_writer = Some(fmt.fields_writer(state, info)?);
               }
-              point_values_writer.flush(
-                state.directory,
-                sort_map,
-                points_writer.as_mut().unwrap(),
-                info,
-              )?;
+              let points_writer = points_writer
+                .as_mut()
+                .ok_or_else(|| LuceneError::illegal_state("points writer is missing"))?;
+              point_values_writer.flush(state.directory, sort_map, points_writer, info)?;
             }
           }
 
@@ -583,7 +588,10 @@ where
         while per_field_index >= 0 {
           let per_field = &mut self.per_fields[per_field_index as usize];
           if let Some(ref mut writer) = per_field.doc_values_writer {
-            let field_info = per_field.field_info.as_ref().unwrap();
+            let field_info = per_field
+              .field_info
+              .as_ref()
+              .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
             if *field_info.get_doc_values_type() == DocValuesType::None {
               return Err(LuceneError::illegal_state(format!(
                 "segment= {}: field={} has no docvalues but wrote them",
@@ -668,8 +676,16 @@ where
         // we must check the final value of omitNorms for the fieldinfo: it could have
         // changed for this field since the first time we added it.
         if !fi.omits_norms() && *fi.get_index_options() != IndexOptions::None {
-          let per_field = &mut self.per_fields[per_field_index.unwrap()];
-          let norms = per_field.norms.as_mut().unwrap();
+          let per_field_index = per_field_index
+            .ok_or_else(|| LuceneError::illegal_state("per-field entry is missing"))?;
+          let per_field = self
+            .per_fields
+            .get_mut(per_field_index)
+            .ok_or_else(|| LuceneError::illegal_state("per-field index is out of range"))?;
+          let norms = per_field
+            .norms
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("norms writer is missing"))?;
           norms.finish(max_doc);
           norms.flush(sort_map, &mut norms_consumer, segment_info)?;
         }
@@ -1065,9 +1081,12 @@ where
         &mut self.has_hit_aborting_exception,
         aborting_exception,
         "panic while writing stored field",
-        self
-          .stored_fields_consumer
-          .write_field(pf.field_info.as_ref().unwrap(), &stored_value)
+        self.stored_fields_consumer.write_field(
+          pf.field_info
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?,
+          &stored_value,
+        )
       )?;
     }
 
@@ -1083,7 +1102,7 @@ where
         .ok_or_else(|| LuceneError::illegal_argument("point field missing binary value"))?;
       pf.point_values_writer
         .as_mut()
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("point values writer is missing"))?
         .add_packed_value(doc_id, binary_value.as_ref())?;
     }
 
@@ -1257,16 +1276,19 @@ where
     field: &impl IndexableField,
     pool: &mut ByteBlockPool,
   ) -> Result<()> {
+    let field_name = fp
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?
+      .name
+      .clone();
     match fp.doc_values_writer.as_mut() {
       Some(DocValuesWriterEnum::Numeric(writer)) => {
         debug_assert_eq!(dv_type, DocValuesType::Numeric);
         let num = field
           .numeric_value()?
           .ok_or_else(|| {
-            LuceneError::illegal_argument(format!(
-              "field=\"{}\": null value not allowed",
-              fp.field_info.as_ref().unwrap().name
-            ))
+            LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
           })?
           .to_i64();
         match num {
@@ -1275,9 +1297,7 @@ where
           },
           _ => {
             return Err(LuceneError::illegal_argument(format!(
-              "field=\"{}\": numeric value out of range: {:?}",
-              fp.field_info.as_ref().unwrap().name,
-              num
+              "field=\"{field_name}\": numeric value out of range: {num:?}"
             )));
           },
         }
@@ -1285,20 +1305,14 @@ where
       Some(DocValuesWriterEnum::Binary(writer)) => {
         debug_assert_eq!(dv_type, DocValuesType::Binary);
         let bytes = field.binary_value()?.ok_or_else(|| {
-          LuceneError::illegal_argument(format!(
-            "field=\"{}\": null value not allowed",
-            fp.field_info.as_ref().unwrap().name
-          ))
+          LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
         })?;
         writer.add_value(doc_id, bytes.as_ref())?;
       },
       Some(DocValuesWriterEnum::Sorted(writer)) => {
         debug_assert_eq!(dv_type, DocValuesType::Sorted);
         let bytes = field.binary_value()?.ok_or_else(|| {
-          LuceneError::illegal_argument(format!(
-            "field=\"{}\": null value not allowed",
-            fp.field_info.as_ref().unwrap().name
-          ))
+          LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
         })?;
         writer.add_value(doc_id, bytes.as_ref(), pool)?;
       },
@@ -1307,10 +1321,7 @@ where
         let num = field
           .numeric_value()?
           .ok_or_else(|| {
-            LuceneError::illegal_argument(format!(
-              "field=\"{}\": null value not allowed",
-              fp.field_info.as_ref().unwrap().name
-            ))
+            LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
           })?
           .to_i64();
 
@@ -1320,9 +1331,7 @@ where
           },
           _ => {
             return Err(LuceneError::illegal_argument(format!(
-              "field=\"{}\": numeric value out of range: {:?}",
-              fp.field_info.as_ref().unwrap().name,
-              num
+              "field=\"{field_name}\": numeric value out of range: {num:?}"
             )));
           },
         }
@@ -1330,18 +1339,13 @@ where
       Some(DocValuesWriterEnum::SortedSet(writer)) => {
         debug_assert_eq!(dv_type, DocValuesType::SortedSet);
         let bytes = field.binary_value()?.ok_or_else(|| {
-          LuceneError::illegal_argument(format!(
-            "field=\"{}\": null value not allowed",
-            fp.field_info.as_ref().unwrap().name
-          ))
+          LuceneError::illegal_argument(format!("field=\"{field_name}\": null value not allowed"))
         })?;
         writer.add_value(doc_id, bytes.as_ref(), pool)?;
       },
       None => {
         return Err(LuceneError::illegal_state(format!(
-          "field=\"{}\": no DocValuesWriter for type {:?}",
-          fp.field_info.as_ref().unwrap().name,
-          dv_type
+          "field=\"{field_name}\": no DocValuesWriter for type {dv_type:?}"
         )));
       },
     }
@@ -1380,9 +1384,16 @@ where
 
   pub(crate) fn get_has_doc_values(&mut self, field: &str) -> Result<Option<DocValuesWriterDISI>> {
     if let Some(idx) = self.get_per_field(field) {
-      let pf = &mut self.per_fields[idx];
+      let pf = self
+        .per_fields
+        .get_mut(idx)
+        .ok_or_else(|| LuceneError::illegal_state("per-field index is out of range"))?;
       if let Some(ref writer_enum) = pf.doc_values_writer {
-        if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::None {
+        let field_info = pf
+          .field_info
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+        if *field_info.get_doc_values_type() == DocValuesType::None {
           return Ok(None);
         }
         return Ok(Some(writer_enum.get_doc_values()?));
@@ -1484,15 +1495,18 @@ impl PerField {
   where
     D: Directory + Clone,
   {
-    let fi = self.field_info.as_ref().unwrap().clone();
+    let fi = self
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?
+      .clone();
     let state = FieldInvertState::new(
       self.index_created_version_major,
       fi.name.clone(),
       *fi.get_index_options(),
     );
     self.invert_state = Some(state);
-    self.terms_hash_per_field =
-      Some(terms_hash.add_field(self.field_info.as_ref().unwrap().clone())?);
+    self.terms_hash_per_field = Some(terms_hash.add_field(fi.clone())?);
 
     if !fi.omits_norms() {
       // Even if no documents actually succeed in setting a norm, we still write norms for this
@@ -1516,9 +1530,16 @@ impl PerField {
     D: Directory + Clone,
     S: Similarity,
   {
-    if !self.field_info.as_ref().unwrap().omits_norms() {
+    let field_info = self
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+    if !field_info.omits_norms() {
       let norm_value = {
-        let state = self.invert_state.as_ref().unwrap();
+        let state = self
+          .invert_state
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?;
         if state.length == 0 {
           // the field exists in this document, but it did not have
           // any indexed tokens, so we assign a default value of zero
@@ -1534,7 +1555,11 @@ impl PerField {
           nv
         }
       };
-      self.norms.as_mut().unwrap().add_value(doc_id, norm_value)?;
+      self
+        .norms
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("norms writer is missing"))?
+        .add_value(doc_id, norm_value)?;
     }
     let meta = PerFieldMeta {
       idx: self.idx_in_doc_field,
@@ -1543,7 +1568,7 @@ impl PerField {
     self
       .terms_hash_per_field
       .as_mut()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("terms hash is missing"))?
       .finish(term_vectors_consumer, meta)
   }
   /// Inverts one field for one document; first is true if this is the first time we are seeing
@@ -1626,7 +1651,10 @@ impl PerField {
 
     let mut succeeded_in_processing_field = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+      let terms_hash_per_field = self
+        .terms_hash_per_field
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("terms hash is missing"))?;
       terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
       let mut stream = field
         .token_stream(analyzer, &mut self.token_stream)?
@@ -1642,7 +1670,10 @@ impl PerField {
             // will be marked as deleted, but still
             // consume a docID
             let attribute_source = stream.get_attribute_source_mut();
-            let invert_state = self.invert_state.as_mut().unwrap();
+            let invert_state = self
+              .invert_state
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?;
             let pos_incr = attribute_source.get_position_increment()?;
             invert_state.position += pos_incr;
             if invert_state.position < invert_state.last_position {
@@ -1700,7 +1731,10 @@ impl PerField {
                 // use attribute_source's bytes_ref
                 None,
                 doc_id,
-                self.invert_state.as_mut().unwrap(),
+                self
+                  .invert_state
+                  .as_mut()
+                  .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?,
                 attribute_source,
                 context,
               )
@@ -1717,10 +1751,7 @@ impl PerField {
                   .copy_from_slice(&bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + len]);
                 let mut ia = LuceneError::illegal_argument(format!(
                   "Document contains at least one immense term in field=\"{}\" (whose UTF8 encoding is longer than the max length {}), all of which were skipped. Please correct the analyzer to not produce such terms. The prefix of the first immense term is: '{:?}...', original message: {}",
-                  self.field_info.as_ref().unwrap().name,
-                  MAX_TERM_LENGTH,
-                  prefix,
-                  e
+                  field_name, MAX_TERM_LENGTH, prefix, e
                 ));
                 ia.add_suppressed(e.into());
                 return Err(ia);
@@ -1740,7 +1771,10 @@ impl PerField {
           }
           // trigger streams to perform end-of-stream operations
           stream.end()?;
-          let invert_state = self.invert_state.as_mut().unwrap();
+          let invert_state = self
+            .invert_state
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?;
           invert_state.position += stream.get_attribute_source().get_position_increment()?;
           invert_state.offset += stream.get_attribute_source().end_offset()?;
           Ok(())
@@ -1760,10 +1794,18 @@ impl PerField {
     unwrap_caught_result!(result)?;
 
     if analyzed {
-      let invert_state = self.invert_state.as_mut().unwrap();
-      invert_state.position +=
-        analyzer.get_position_increment_gap(&self.field_info.as_ref().unwrap().name);
-      invert_state.offset += analyzer.get_offset_gap(&self.field_info.as_ref().unwrap().name);
+      let field_name = self
+        .field_info
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?
+        .name
+        .clone();
+      let invert_state = self
+        .invert_state
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?;
+      invert_state.position += analyzer.get_position_increment_gap(&field_name);
+      invert_state.offset += analyzer.get_offset_gap(&field_name);
     }
     Ok(())
   }
@@ -1797,12 +1839,18 @@ impl PerField {
         field.name()
       )));
     }
-    let state = self.invert_state.as_mut().unwrap();
+    let state = self
+      .invert_state
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?;
     // TODO
     // state.set_attribute_source();
     state.position += 1;
     state.length += 1;
-    let terms_hash_per_field = self.terms_hash_per_field.as_mut().unwrap();
+    let terms_hash_per_field = self
+      .terms_hash_per_field
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("terms hash is missing"))?;
     terms_hash_per_field.start(field, first, &mut context.byte_pool)?;
     match state.length.checked_add(1) {
       Some(new_length) => {
@@ -1826,9 +1874,7 @@ impl PerField {
         prefix.copy_from_slice(&binary_value.bytes[binary_value.offset..binary_value.offset + 30]);
         let msg = format!(
           "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
-          self.field_info.as_ref().unwrap().name,
-          MAX_TERM_LENGTH,
-          prefix
+          self.field_name, MAX_TERM_LENGTH, prefix
         );
         let mut ia = LuceneError::illegal_argument(msg);
         ia.add_suppressed(e.into());
@@ -2136,6 +2182,18 @@ where
       index_base: IndexReaderBase::new(),
     }
   }
+
+  fn per_field(&self, field: &str) -> Result<Option<&PerField>> {
+    let Some(index) = self.index_chain.get_per_field(field) else {
+      return Ok(None);
+    };
+    self
+      .index_chain
+      .per_fields
+      .get(index)
+      .map(Some)
+      .ok_or_else(|| LuceneError::illegal_state(format!("field index {index} is out of range")))
+  }
 }
 
 impl<D> Display for DocValuesLeafReaderImpl1<'_, D>
@@ -2227,68 +2285,66 @@ where
   type NumericDocValues = BufferedNumericDocValues;
 
   fn get_numeric_doc_values(&self, field: &str) -> Result<Option<Self::NumericDocValues>> {
-    let pf_index = self.index_chain.get_per_field(field);
-    if pf_index.is_none() {
+    let Some(pf) = self.per_field(field)? else {
+      return Ok(None);
+    };
+    let field_info = pf
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+    if *field_info.get_doc_values_type() != DocValuesType::Numeric {
       return Ok(None);
     }
-    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Numeric {
-      match pf.doc_values_writer {
-        Some(DocValuesWriterEnum::Numeric(ref writer)) => {
-          Ok(Option::from(writer.get_doc_values()?))
-        },
-        _ => Err(LuceneError::illegal_state(format!(
-          "field=\"{}\": expected Numeric DocValuesWriter, found {}",
-          pf.field_name,
-          pf.doc_values_writer.as_ref().unwrap()
-        ))),
-      }
-    } else {
-      Ok(None)
+    match pf.doc_values_writer.as_ref() {
+      Some(DocValuesWriterEnum::Numeric(writer)) => Ok(Option::from(writer.get_doc_values()?)),
+      _ => Err(LuceneError::illegal_state(format!(
+        "field=\"{}\": expected Numeric DocValuesWriter",
+        pf.field_name
+      ))),
     }
   }
 
   type BinaryDocValues = BufferedBinaryDocValues<DocsWithFieldSetDISI, PagedBytesDataInput>;
 
   fn get_binary_doc_values(&self, field: &str) -> Result<Option<Self::BinaryDocValues>> {
-    let pf_index = self.index_chain.get_per_field(field);
-    if pf_index.is_none() {
+    let Some(pf) = self.per_field(field)? else {
+      return Ok(None);
+    };
+    let field_info = pf
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+    if *field_info.get_doc_values_type() != DocValuesType::Binary {
       return Ok(None);
     }
-    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Binary {
-      match pf.doc_values_writer {
-        Some(DocValuesWriterEnum::Binary(ref writer)) => Ok(Option::from(writer.get_doc_values()?)),
-        _ => Err(LuceneError::illegal_state(format!(
-          "field=\"{}\": expected Binary DocValuesWriter, found {}",
-          pf.field_name,
-          pf.doc_values_writer.as_ref().unwrap()
-        ))),
-      }
-    } else {
-      Ok(None)
+    match pf.doc_values_writer.as_ref() {
+      Some(DocValuesWriterEnum::Binary(writer)) => Ok(Option::from(writer.get_doc_values()?)),
+      _ => Err(LuceneError::illegal_state(format!(
+        "field=\"{}\": expected Binary DocValuesWriter",
+        pf.field_name
+      ))),
     }
   }
 
   type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetDISI>;
 
   fn get_sorted_doc_values(&self, field: &str) -> Result<Option<Self::SortedDocValues>> {
-    let pf_index = self.index_chain.get_per_field(field);
-    if pf_index.is_none() {
+    let Some(pf) = self.per_field(field)? else {
+      return Ok(None);
+    };
+    let field_info = pf
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+    if *field_info.get_doc_values_type() != DocValuesType::Sorted {
       return Ok(None);
     }
-    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::Sorted {
-      match pf.doc_values_writer {
-        Some(DocValuesWriterEnum::Sorted(ref writer)) => Ok(Option::from(writer.get_doc_values()?)),
-        _ => Err(LuceneError::illegal_state(format!(
-          "field=\"{}\": expected Sorted DocValuesWriter, found {}",
-          pf.field_name,
-          pf.doc_values_writer.as_ref().unwrap()
-        ))),
-      }
-    } else {
-      Ok(None)
+    match pf.doc_values_writer.as_ref() {
+      Some(DocValuesWriterEnum::Sorted(writer)) => Ok(Option::from(writer.get_doc_values()?)),
+      _ => Err(LuceneError::illegal_state(format!(
+        "field=\"{}\": expected Sorted DocValuesWriter",
+        pf.field_name
+      ))),
     }
   }
 
@@ -2298,24 +2354,24 @@ where
     &self,
     field: &str,
   ) -> Result<Option<Self::SortedNumericDocValues>> {
-    let pf_index = self.index_chain.get_per_field(field);
-    if pf_index.is_none() {
+    let Some(pf) = self.per_field(field)? else {
+      return Ok(None);
+    };
+    let field_info = pf
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+    if *field_info.get_doc_values_type() != DocValuesType::SortedNumeric {
       return Ok(None);
     }
-    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedNumeric {
-      match pf.doc_values_writer {
-        Some(DocValuesWriterEnum::SortedNumeric(ref writer)) => {
-          Ok(Option::from(writer.get_doc_values()?))
-        },
-        _ => Err(LuceneError::illegal_state(format!(
-          "field=\"{}\": expected SortedNumeric DocValuesWriter, found {}",
-          pf.field_name,
-          pf.doc_values_writer.as_ref().unwrap()
-        ))),
-      }
-    } else {
-      Ok(None)
+    match pf.doc_values_writer.as_ref() {
+      Some(DocValuesWriterEnum::SortedNumeric(writer)) => {
+        Ok(Option::from(writer.get_doc_values()?))
+      },
+      _ => Err(LuceneError::illegal_state(format!(
+        "field=\"{}\": expected SortedNumeric DocValuesWriter",
+        pf.field_name
+      ))),
     }
   }
 
@@ -2354,24 +2410,22 @@ where
   type SortedSetDocValues = SortedSetDocValuesWriterDocIdSetIterator;
 
   fn get_sorted_set_doc_values(&self, field: &str) -> Result<Option<Self::SortedSetDocValues>> {
-    let pf_index = self.index_chain.get_per_field(field);
-    if pf_index.is_none() {
+    let Some(pf) = self.per_field(field)? else {
+      return Ok(None);
+    };
+    let field_info = pf
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?;
+    if *field_info.get_doc_values_type() != DocValuesType::SortedSet {
       return Ok(None);
     }
-    let pf = &self.index_chain.per_fields[pf_index.unwrap()];
-    if *pf.field_info.as_ref().unwrap().get_doc_values_type() == DocValuesType::SortedSet {
-      match pf.doc_values_writer {
-        Some(DocValuesWriterEnum::SortedSet(ref writer)) => {
-          Ok(Option::from(writer.get_doc_values()?))
-        },
-        _ => Err(LuceneError::illegal_state(format!(
-          "field=\"{}\": expected SortedSet DocValuesWriter, found {}",
-          pf.field_name,
-          pf.doc_values_writer.as_ref().unwrap()
-        ))),
-      }
-    } else {
-      Ok(None)
+    match pf.doc_values_writer.as_ref() {
+      Some(DocValuesWriterEnum::SortedSet(writer)) => Ok(Option::from(writer.get_doc_values()?)),
+      _ => Err(LuceneError::illegal_state(format!(
+        "field=\"{}\": expected SortedSet DocValuesWriter",
+        pf.field_name
+      ))),
     }
   }
 

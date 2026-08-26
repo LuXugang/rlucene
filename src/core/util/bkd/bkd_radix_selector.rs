@@ -186,8 +186,10 @@ impl BKDRadixSelector {
         right_result => {
           let close_result =
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| left_writer.close()));
-          return IOUtils::use_or_suppress_caught_result(right_result, close_result)
-            .map(|_| unreachable!());
+          IOUtils::use_or_suppress_caught_result(right_result, close_result)?;
+          return Err(LuceneError::illegal_state(
+            "right point writer creation unexpectedly succeeded after an error",
+          ));
         },
       };
       if let PointWriterEnum::Offline(offline_point_writer) = points.writer {

@@ -298,7 +298,7 @@ pub fn test_binary_random() -> Result<()> {
     if random_update.has_value {
       buffer.add_update_with_bytes_ref(
         &random_update.term,
-        random_update.sub_update.get_binary().unwrap().get_value(),
+        random_update.sub_update.get_binary().unwrap().get_value()?,
         doc_id_upto,
       )?;
     } else {
@@ -323,7 +323,7 @@ pub fn test_binary_random() -> Result<()> {
 
     if random_update.has_value {
       assert_eq!(
-        random_update.sub_update.get_binary().unwrap().get_value(),
+        random_update.sub_update.get_binary().unwrap().get_value()?,
         &value.binary_value.unwrap()
       );
     } else {
@@ -356,7 +356,11 @@ pub fn test_numeric_random() -> Result<()> {
     if random_update.has_value {
       buffer.add_update_with_long(
         &random_update.term,
-        random_update.sub_update.get_numeric().unwrap().get_value(),
+        random_update
+          .sub_update
+          .get_numeric()
+          .unwrap()
+          .get_value()?,
         doc_id_upto,
       )?;
     } else {
@@ -370,12 +374,18 @@ pub fn test_numeric_random() -> Result<()> {
     && updates.iter().all(|update| {
       update.field == updates[last_update].field
         && update.has_value
-        && update.sub_update.get_numeric().unwrap().get_value()
+        && update
+          .sub_update
+          .get_numeric()
+          .unwrap()
+          .get_value()
+          .unwrap()
           == updates[last_update]
             .sub_update
             .get_numeric()
             .unwrap()
             .get_value()
+            .unwrap()
     });
 
   assert_buffer_updates(&buffer, updates, terms_sorted)?;
@@ -502,7 +512,7 @@ fn assert_buffer_updates(
         .sub_update
         .get_numeric()
         .unwrap()
-        .get_value();
+        .get_value()?;
       assert_eq!(expected_value, value.numeric_value);
       min = min.min(expected_value);
       max = max.max(expected_value);

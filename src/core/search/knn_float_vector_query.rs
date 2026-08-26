@@ -168,7 +168,12 @@ impl HasIdentity for KnnFloatVectorQuery {
 impl QueryBase for KnnFloatVectorQuery {
   fn to_string(&self, _field: &str) -> Result<String> {
     let mut buffer = String::new();
-    buffer.push_str(std::any::type_name::<Self>().rsplit("::").next().unwrap());
+    let type_name = std::any::type_name::<Self>();
+    buffer.push_str(
+      type_name
+        .rsplit_once("::")
+        .map_or(type_name, |(_, name)| name),
+    );
     buffer.push(':');
     buffer.push_str(&self.base.field);
     buffer.push('[');

@@ -164,7 +164,11 @@ where
   }
 
   pub(crate) fn read_vlong_output(&self, input: &mut impl DataInput) -> Result<i64> {
-    let version = self.parent.as_ref().unwrap().version;
+    let version = self
+      .parent
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("block-tree terms reader is missing"))?
+      .version;
     if version >= VERSION_MSB_VLONG_OUTPUT {
       read_msb_vlong(input)
     } else {
@@ -278,14 +282,13 @@ where
   PR: PostingsReaderBase,
 {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let Some(parent) = self.parent.as_ref() else {
+      return Err(fmt::Error);
+    };
     write!(
       f,
       "BlockTreeTerms(seg={} terms={} postings={} positions={} docs={})",
-      self.parent.as_ref().unwrap().segment,
-      self.num_terms,
-      self.sum_doc_freq,
-      self.sum_total_term_freq,
-      self.doc_count
+      parent.segment, self.num_terms, self.sum_doc_freq, self.sum_total_term_freq, self.doc_count
     )
   }
 }
@@ -296,6 +299,10 @@ where
 {
   // used to init SegmentTermsEnum
   fn clone(&self) -> Self {
+    let index = match self.index.as_ref() {
+      Some(index) => Arc::clone(index),
+      None => panic!("initialized block-tree field reader has no terms index"),
+    };
     Self {
       num_terms: self.num_terms,
       field_info: self.field_info.clone(),
@@ -307,7 +314,7 @@ where
       min_term: self.min_term.clone(),
       max_term: self.max_term.clone(),
       parent: self.parent.clone(),
-      index: Some(Arc::clone(self.index.as_ref().unwrap())),
+      index: Some(index),
       tmp_data: None,
     }
   }

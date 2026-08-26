@@ -357,12 +357,7 @@ impl Automata {
       if equal_prefix {
         if min_label == max_label {
           a.add_transition_label(last_state, next_state, min_label)?;
-        } else if max.is_none() {
-          equal_prefix = false;
-          shared_prefix_length = 0;
-          a.add_transition(last_state, sink_state, min_label + 1, 255)?;
-          a.add_transition_label(last_state, next_state, min_label)?;
-        } else {
+        } else if let Some(max_ref) = max_ref {
           debug_assert!(max_label > min_label);
 
           a.add_transition_label(last_state, next_state, min_label)?;
@@ -370,15 +365,20 @@ impl Automata {
             a.add_transition(last_state, sink_state, min_label + 1, max_label - 1)?;
           }
 
-          if max_inclusive || i < max_ref.as_ref().unwrap().length - 1 {
+          if max_inclusive || i < max_ref.length - 1 {
             first_max_state = a.create_state()?;
-            if i < max_ref.as_ref().unwrap().length - 1 {
+            if i < max_ref.length - 1 {
               a.set_accept(first_max_state, true);
             }
             a.add_transition_label(last_state, first_max_state, max_label)?;
           }
           equal_prefix = false;
           shared_prefix_length = i;
+        } else {
+          equal_prefix = false;
+          shared_prefix_length = 0;
+          a.add_transition(last_state, sink_state, min_label + 1, 255)?;
+          a.add_transition_label(last_state, next_state, min_label)?;
         }
       } else {
         a.add_transition_label(last_state, next_state, min_label)?;

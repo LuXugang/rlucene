@@ -126,8 +126,9 @@ where
           };
 
           debug_assert!({
-            let v = last_field_name.is_none()
-              || field_name.cmp(last_field_name.as_ref().unwrap()).to_int() > 0;
+            let v = last_field_name
+              .as_ref()
+              .is_none_or(|last| field_name.cmp(last).to_int() > 0);
             last_field_name = Some(field_name.clone());
             v
           });

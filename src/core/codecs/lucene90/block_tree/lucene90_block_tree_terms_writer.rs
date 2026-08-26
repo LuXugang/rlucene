@@ -387,7 +387,9 @@ where
           #[cfg(debug_assertions)]
           {
             debug_assert!({
-              let v = last_field.is_none() || last_field.as_ref().unwrap().cmp(field).to_int() < 0;
+              let v = last_field
+                .as_ref()
+                .is_none_or(|last| last.cmp(field).to_int() < 0);
               last_field = Some(field.clone());
               v
             });
@@ -633,7 +635,10 @@ impl PendingBlock {
     let meta = fst_compiler
       .compile()?
       .ok_or_else(|| LuceneError::number_format("fst_metadata is None"))?;
-    first_block.index = Some(FST::from_fst_reader(meta, fst_compiler.get_fst_reader()?).unwrap());
+    first_block.index = Some(
+      FST::from_fst_reader(meta, fst_compiler.get_fst_reader()?)
+        .ok_or_else(|| LuceneError::illegal_state("FST metadata produced no reader"))?,
+    );
 
     debug_assert!(first_block.sub_indices.is_empty());
     Ok(blocks.remove(0))
@@ -1054,7 +1059,12 @@ where
             self
               .suffix_lengths_writer
               .write_vlong(start_fp - block.fp)?;
-            sub_indices.push(block.index.take().unwrap());
+            sub_indices.push(
+              block
+                .index
+                .take()
+                .ok_or_else(|| LuceneError::illegal_state("floor block index is missing"))?,
+            );
           },
         }
       }
@@ -1085,7 +1095,10 @@ where
           0,
           suffix_len.try_convert()?,
           &mut self.spare_writer,
-          self.compression_hash_table.as_mut().unwrap(),
+          self
+            .compression_hash_table
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("compression hash table is missing"))?,
         )?;
 
         if self.spare_writer.size() < (suffix_len - (suffix_len >> 2)) {
@@ -1195,8 +1208,8 @@ where
       postings_enum,
     )?;
 
-    if let Some(state) = &state_opt {
-      let (total_term_freq, doc_freq) = match state {
+    if let Some(state) = state_opt {
+      let (total_term_freq, doc_freq) = match &state {
         TermStateEnum::Block(block) => {
           debug_assert!(block.doc_freq != 0);
           (block.total_term_freq, block.doc_freq)
@@ -1216,7 +1229,7 @@ where
 
       self.push_term(&text)?;
 
-      let term = PendingTerm::new(text, state_opt.unwrap());
+      let term = PendingTerm::new(text, state);
 
       self.sum_doc_freq += doc_freq as i64;
       self.sum_total_term_freq += total_term_freq;
@@ -1280,21 +1293,28 @@ where
             PendingEntryEnum::Term(_) => false,
           }
       );
-      let mut root = match self.pending.pop().unwrap() {
+      let mut root = match self
+        .pending
+        .pop()
+        .ok_or_else(|| LuceneError::illegal_state("final terms block is missing"))?
+      {
         PendingEntryEnum::Block(b) => b,
         _ => return Err(LuceneError::illegal_state("expected final root block")),
       };
       debug_assert_eq!(root.prefix.length, 0);
 
-      let root_code = root.index.as_ref().unwrap().get_empty_output();
-      debug_assert!(root_code.is_some());
+      let root_code = root
+        .index
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("root terms index is missing"))?
+        .get_empty_output()
+        .ok_or_else(|| LuceneError::illegal_state("root terms index has no empty output"))?;
 
       let mut meta_out = ByteBuffersDataOutput::new();
 
       meta_out.write_vint(self.field_info.get_field_number())?;
       meta_out.write_vlong(self.num_terms)?;
 
-      let root_code = root_code.unwrap();
       debug_assert!(root_code.length <= i32::MAX as usize);
       meta_out.write_vint(root_code.length as i32)?;
       debug_assert!(root_code.offset <= i32::MAX as usize);
@@ -1307,7 +1327,10 @@ where
       }
       meta_out.write_vlong(self.sum_doc_freq)?;
       meta_out.write_vint(self.docs_seen.cardinality().try_convert()?)?;
-      let first_term_bytes = self.first_pending_term_bytes.take().unwrap();
+      let first_term_bytes = self
+        .first_pending_term_bytes
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("first pending term is missing"))?;
       self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(first_term_bytes))?;
       let last_term_bytes = std::mem::take(&mut self.last_pending_term_bytes);
       self.write_bytes_ref(&mut meta_out, &BytesRef::from_bytes(last_term_bytes))?;
@@ -1315,7 +1338,7 @@ where
       root
         .index
         .as_mut()
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("root terms index is missing"))?
         .save(&mut meta_out, index_out)?;
 
       fields.push(meta_out);

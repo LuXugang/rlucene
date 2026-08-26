@@ -299,7 +299,11 @@ impl CompiledAutomaton {
     lead_label: i32,
   ) -> Result<BytesRef<Vec<u8>>> {
     let mut max_index = -1;
-    let automaton = &self.run_automaton.as_ref().unwrap().base.automaton;
+    let run_automaton = self
+      .run_automaton
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("normal compiled automaton is missing its DFA"))?;
+    let automaton = &run_automaton.base.automaton;
     let num_transitions = automaton.init_transition(state, &mut self.transition);
     for i in 0..num_transitions {
       automaton.get_next_transition(&mut self.transition);
@@ -329,7 +333,7 @@ impl CompiledAutomaton {
       let num_transitions = automaton.get_num_transitions_with_state(state);
 
       if num_transitions == 0 {
-        debug_assert!(self.run_automaton.as_ref().unwrap().is_accept(state)?);
+        debug_assert!(run_automaton.is_accept(state)?);
         term.set_length(idx);
         return Ok(term.get_bytes_owner());
       }
@@ -373,7 +377,10 @@ impl CompiledAutomaton {
     input: &BytesRef<Vec<u8>>,
     output: &mut BytesRefBuilder<Vec<u8>>,
   ) -> Result<Option<BytesRef<Vec<u8>>>> {
-    let run_automaton = self.run_automaton.as_mut().unwrap();
+    let run_automaton = self
+      .run_automaton
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("normal compiled automaton is missing its DFA"))?;
     let automaton = run_automaton.base.automaton.clone();
     let mut state = 0;
 
@@ -420,13 +427,12 @@ impl CompiledAutomaton {
                 output.set_length(idx);
                 return Ok(Some(output.get_bytes_owner()));
               }
-              if stack.is_empty() {
+              let Some(previous_state) = stack.pop() else {
                 return Ok(None);
-              } else {
-                state = stack.pop().unwrap();
-                idx -= 1;
-                label = input.bytes[input.offset + idx] as i32;
-              }
+              };
+              state = previous_state;
+              idx -= 1;
+              label = input.bytes[input.offset + idx] as i32;
             } else {
               break;
             }

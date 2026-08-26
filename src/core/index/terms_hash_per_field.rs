@@ -96,7 +96,8 @@ impl TermsHashPerField {
     term_id: i32,
     stream: i32,
     int_pool: &IntBlockPool,
-  ) where
+  ) -> Result<()>
+  where
     P: Deref<Target = ByteBlockPool>,
   {
     debug_assert!(stream < self.stream_count);
@@ -105,7 +106,7 @@ impl TermsHashPerField {
     let stream_start_offset = postings_array_wrapper
       .postings_array
       .as_ref()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
       .get_address_offset()[term_id];
     let buffer_index = stream_start_offset >> INT_BLOCK_SHIFT;
     let offset_in_address_buffer = stream_start_offset & INT_BLOCK_MASK;
@@ -117,10 +118,11 @@ impl TermsHashPerField {
     let init_offset = postings_array_wrapper
       .postings_array
       .as_ref()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
       .get_byte_starts()[term_id]
       + stream * ByteSlicePool::FIRST_LEVEL_SIZE;
-    reader.init(init_offset as usize, addr as usize)
+    reader.init(init_offset as usize, addr as usize);
+    Ok(())
   }
   /// Collapse the hash table and sort in-place; also sets this.sortedTermIDs
   /// to the results. This method must not be called twice unless
@@ -273,7 +275,7 @@ impl TermsHashPerField {
       postings_array_wrapper
         .postings_array
         .as_mut()
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
         .set_address_offset(
           term_id as usize,
           self.stream_address_offset + int_pool.int_offset,
@@ -290,7 +292,7 @@ impl TermsHashPerField {
       postings_array_wrapper
         .postings_array
         .as_mut()
-        .unwrap()
+        .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
         .set_byte_starts(
           term_id as usize,
           term_stream_address_buffer[self.stream_address_offset as usize],
@@ -317,7 +319,7 @@ impl TermsHashPerField {
     let int_start = postings_array_wrapper
       .postings_array
       .as_ref()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
       .get_address_offset()[term_id as usize];
     self.term_stream_address_buffer_index = int_start >> INT_BLOCK_SHIFT;
     self.stream_address_offset = int_start & INT_BLOCK_MASK;
@@ -407,7 +409,11 @@ impl BytesStartArray for PostingsBytesStartArray {
 
   fn grow(&mut self) -> Result<()> {
     debug_assert!(self.per_field.postings_array.is_some());
-    let postings_array = self.per_field.postings_array.as_mut().unwrap();
+    let postings_array = self
+      .per_field
+      .postings_array
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?;
     let old_size = postings_array.get_size();
     postings_array.grow()?;
     self.bytes_used.add_and_get(

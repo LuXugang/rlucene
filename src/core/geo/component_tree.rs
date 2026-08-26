@@ -330,7 +330,7 @@ where
     )
   }
 }
-pub(crate) fn create<T>(components: Vec<T>) -> Result<ComponentTree<T>>
+pub(crate) fn create<T>(mut components: Vec<T>) -> Result<ComponentTree<T>>
 where
   T: Component2D,
 {
@@ -341,10 +341,7 @@ where
   }
 
   if components.len() == 1 {
-    return Ok(ComponentTree::new(
-      components.into_iter().next().unwrap(),
-      false,
-    ));
+    return Ok(ComponentTree::new(components.remove(0), false));
   }
 
   let mut min_y = f64::INFINITY;

@@ -63,8 +63,12 @@ impl VectorSimilarityFunction {
   }
   #[cfg(test)]
   pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-    let v = rng.random_range(0..Self::COUNT) as u8;
-    Self::from_repr(v).unwrap()
+    [
+      Self::Euclidean,
+      Self::DotProduct,
+      Self::Cosine,
+      Self::MaximumInnerProduct,
+    ][rng.random_range(0..Self::COUNT)]
   }
 }
 /// Use Default for padding

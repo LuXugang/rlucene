@@ -44,7 +44,7 @@ impl BaseIndexFileFormatTestCase for TestLucene90StoredFieldsFormatHighCompressi
   type Defaults = crate::test_framework::core::index::base_stored_fields_format_test_case::BaseStoredFieldsFormatTestCaseDefaults;
 
   fn get_codec(&self) -> Result<Codecs> {
-    Ok(Lucene101Codec::with_mode(Mode::BestCompression).into())
+    Ok(Lucene101Codec::with_mode(Mode::BestCompression)?.into())
   }
 }
 
@@ -63,7 +63,7 @@ impl TestLucene90StoredFieldsFormatHighCompression {
         Mode::BestSpeed
       } else {
         Mode::BestCompression
-      }));
+      })?);
       let writer = IndexWriter::new(dir.clone(), new_index_writer_config(random)?)?;
       let mut doc = Document::new();
       doc.add(StoredField::from_string("field1", "value1")?);

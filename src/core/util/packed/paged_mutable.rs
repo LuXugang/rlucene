@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::abstract_paged_mutable::AbstractPagedMutableBase;
 use crate::core::util::packed::mutable_enum::MutableEnum;
 use crate::core::util::packed::{Format, FormatAndBits, PackedInts, fastest_format_and_bits};
@@ -49,10 +50,10 @@ impl PagedMutable {
   }
 }
 impl AbstractPagedMutableBase for PagedMutable {
-  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> MutableEnum {
+  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum> {
     debug_assert!(self.bits_per_value >= bits_per_value);
-    let sub_mutable = PackedInts::get_mutable_impl(value_count, self.bits_per_value, self.format);
-    MutableEnum::Packed(sub_mutable)
+    let sub_mutable = PackedInts::get_mutable_impl(value_count, self.bits_per_value, self.format)?;
+    Ok(MutableEnum::Packed(sub_mutable))
   }
 
   fn new_unfilled_copy(&self) -> Self {

@@ -103,28 +103,34 @@ impl BinaryPoint {
       ));
     }
 
-    let mut bytes_per_dim: Option<usize> = None;
+    let Some((first_dim, remaining_dims)) = point.split_first() else {
+      return Err(LuceneError::illegal_argument(
+        "point must not be 0 dimensions".to_string(),
+      ));
+    };
+    if first_dim.is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "point must not have 0-length values".to_string(),
+      ));
+    }
+    let bytes_per_dim = first_dim.len();
 
-    for one_dim in point {
+    for one_dim in remaining_dims {
       if one_dim.is_empty() {
         return Err(LuceneError::illegal_argument(
           "point must not have 0-length values".to_string(),
         ));
       }
-      match bytes_per_dim {
-        None => bytes_per_dim = Some(one_dim.len()),
-        Some(b) if b != one_dim.len() => {
-          return Err(LuceneError::illegal_argument(format!(
-            "all dimensions must have same bytes length; got {} and {}",
-            b,
-            one_dim.len()
-          )));
-        },
-        _ => {},
+      if bytes_per_dim != one_dim.len() {
+        return Err(LuceneError::illegal_argument(format!(
+          "all dimensions must have same bytes length; got {} and {}",
+          bytes_per_dim,
+          one_dim.len()
+        )));
       }
     }
 
-    Self::get_type(point.len(), bytes_per_dim.unwrap())
+    Self::get_type(point.len(), bytes_per_dim)
   }
 
   fn get_type(num_dims: usize, bytes_per_dim: usize) -> Result<FieldType> {
@@ -145,27 +151,32 @@ impl BinaryPoint {
       return Ok(BytesRef::from_bytes(point[0].clone()));
     }
 
-    let mut bytes_per_dim: Option<usize> = None;
-    for d in point {
+    let Some((first_dim, remaining_dims)) = point.split_first() else {
+      return Err(LuceneError::illegal_argument(
+        "point must not be 0 dimensions".to_string(),
+      ));
+    };
+    if first_dim.is_empty() {
+      return Err(LuceneError::illegal_argument(
+        "point must not have 0-length values".to_string(),
+      ));
+    }
+    let bytes_per_dim = first_dim.len();
+    for d in remaining_dims {
       if d.is_empty() {
         return Err(LuceneError::illegal_argument(
           "point must not have 0-length values".to_string(),
         ));
       }
-      match bytes_per_dim {
-        None => bytes_per_dim = Some(d.len()),
-        Some(b) if b != d.len() => {
-          return Err(LuceneError::illegal_argument(format!(
-            "all dimensions must have same bytes length; got {} and {}",
-            b,
-            d.len()
-          )));
-        },
-        _ => {},
+      if bytes_per_dim != d.len() {
+        return Err(LuceneError::illegal_argument(format!(
+          "all dimensions must have same bytes length; got {} and {}",
+          bytes_per_dim,
+          d.len()
+        )));
       }
     }
 
-    let bytes_per_dim = bytes_per_dim.unwrap();
     let mut packed = vec![0u8; bytes_per_dim * point.len()];
     for (i, dim) in point.iter().enumerate() {
       packed.copy_from(&dim[0..bytes_per_dim], i * bytes_per_dim);

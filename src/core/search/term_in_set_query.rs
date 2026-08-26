@@ -321,13 +321,13 @@ impl FilteredTermsEnumBase for SetEnum {
     &mut self,
     current: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    if current.is_none() {
+    let Some(current) = current else {
       return Ok(self.seek_term.as_ref().map(Cow::Borrowed));
-    }
+    };
     while self
       .seek_term
       .as_ref()
-      .is_some_and(|seek_term| seek_term <= current.unwrap())
+      .is_some_and(|seek_term| seek_term <= current)
     {
       self.seek_term = self.iterator.next()?.map(|term| term.into_owned());
     }

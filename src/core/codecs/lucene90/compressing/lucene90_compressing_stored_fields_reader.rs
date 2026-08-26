@@ -135,8 +135,7 @@ where
 
       let meta_stream_fm =
         IndexFileNames::segment_file_name(segment, segment_suffix, META_EXTENSION);
-      meta_in = Some(dir.open_checksum_input(&meta_stream_fm)?);
-      let meta = meta_in.as_mut().unwrap();
+      let meta = meta_in.insert(dir.open_checksum_input(&meta_stream_fm)?);
 
       CodecUtil::check_index_header(
         meta,

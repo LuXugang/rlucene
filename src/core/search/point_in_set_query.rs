@@ -659,29 +659,27 @@ impl IntersectVisitor for MergePointVisitor {
 
   fn compare(&self, min_packed_value: &[u8], max_packed_value: &[u8]) -> Result<Relation> {
     loop {
-      let cmp_min = match self.next_query_point.borrow().as_ref() {
-        Some(next_query_point) => self.comparator.compare(
-          &next_query_point.bytes,
-          next_query_point.offset,
-          min_packed_value,
-          0,
-        ),
-        None => return Ok(Relation::CellOutsideQuery),
+      let next_query_point_ref = self.next_query_point.borrow();
+      let Some(next_query_point) = next_query_point_ref.as_ref() else {
+        return Ok(Relation::CellOutsideQuery);
       };
+      let cmp_min = self.comparator.compare(
+        &next_query_point.bytes,
+        next_query_point.offset,
+        min_packed_value,
+        0,
+      );
       if cmp_min < 0 {
+        drop(next_query_point_ref);
         self.next_query_point()?;
         continue;
       }
-      let cmp_max = {
-        let next_query_point = self.next_query_point.borrow();
-        let next_query_point = next_query_point.as_ref().unwrap();
-        self.comparator.compare(
-          &next_query_point.bytes,
-          next_query_point.offset,
-          max_packed_value,
-          0,
-        )
-      };
+      let cmp_max = self.comparator.compare(
+        &next_query_point.bytes,
+        next_query_point.offset,
+        max_packed_value,
+        0,
+      );
       if cmp_max > 0 {
         return Ok(Relation::CellOutsideQuery);
       }

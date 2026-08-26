@@ -341,9 +341,9 @@ pub static GOOD_FAST_HASH_SEED: LazyLock<i32> = LazyLock::new(|| {
   } else {
     // Otherwise, fall back to using the current system time in
     // milliseconds.
-    SystemTime::now()
-      .duration_since(SystemTime::UNIX_EPOCH)
-      .unwrap()
-      .as_millis() as i32
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+      Ok(duration) => duration.as_millis() as i32,
+      Err(error) => (error.duration().as_millis() as i128).wrapping_neg() as i32,
+    }
   }
 });

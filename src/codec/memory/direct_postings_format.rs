@@ -291,7 +291,7 @@ impl PostingsFormat for DirectPostingsFormat {
   where
     D1: Directory,
   {
-    Lucene101PostingsFormat::new().fields_consumer(state, segment_info)
+    Lucene101PostingsFormat::new()?.fields_consumer(state, segment_info)
   }
 
   type FieldsProducer<I: IndexInput> =
@@ -305,7 +305,7 @@ impl PostingsFormat for DirectPostingsFormat {
   where
     D1: Directory,
   {
-    let postings = Lucene101PostingsFormat::new().fields_producer(state, segment_info)?;
+    let postings = Lucene101PostingsFormat::new()?.fields_producer(state, segment_info)?;
     if state.context.get_context() != &Context::Merge {
       let load_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         postings.check_integrity()?;
@@ -580,9 +580,13 @@ impl DirectField {
         postings_enum = Some(terms_enum.postings(postings_enum.take())?);
       }
       let postings_enum2 = if has_pos {
-        docs_and_positions_enum.as_mut().unwrap()
+        docs_and_positions_enum
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("positions postings enum is missing"))?
       } else {
-        postings_enum.as_mut().unwrap()
+        postings_enum
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("postings enum is missing"))?
       };
 
       let entry = if doc_freq <= low_freq_cutoff {
@@ -632,19 +636,29 @@ impl DirectField {
           docs[upto] = postings_enum2.doc_id();
           if has_freq {
             let freq = postings_enum2.freq()?;
-            freqs.as_mut().unwrap()[upto] = freq;
+            freqs
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("frequencies are missing"))?[upto] = freq;
             if has_pos {
               let mult = if has_offsets { 3 } else { 1 };
-              let doc_positions = &mut positions.as_mut().unwrap()[upto];
+              let doc_positions = &mut positions
+                .as_mut()
+                .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[upto];
               doc_positions.resize(mult * freq as usize, 0);
               if has_payloads {
-                payloads.as_mut().unwrap()[upto] = vec![None; freq as usize];
+                payloads
+                  .as_mut()
+                  .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?[upto] =
+                  vec![None; freq as usize];
               }
               let mut pos_upto = 0usize;
               for pos in 0..freq as usize {
                 doc_positions[pos_upto] = postings_enum2.next_position()?;
                 if has_payloads && let Some(payload) = postings_enum2.get_payload()? {
-                  payloads.as_mut().unwrap()[upto][pos] =
+                  payloads
+                    .as_mut()
+                    .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?[upto]
+                    [pos] =
                     Some(payload.bytes[payload.offset..payload.offset + payload.length].to_vec());
                 }
                 pos_upto += 1;
@@ -2160,7 +2174,11 @@ impl PostingsEnum for LowFreqPostingsEnum {
       self.payload_length = self.low_term().postings[self.upto] as usize;
       self.upto += 1;
       if self.payload_length > 0 {
-        let payloads = self.low_term().payloads.as_ref().unwrap();
+        let payloads = self
+          .low_term()
+          .payloads
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?;
         self.payload = Some(BytesRef::from_bytes(
           payloads[self.payload_offset..self.payload_offset + self.payload_length].to_vec(),
         ));
@@ -2424,13 +2442,23 @@ impl DocIdSetIterator for HighFreqPostingsEnum {
 
 impl PostingsEnum for HighFreqPostingsEnum {
   fn freq(&mut self) -> Result<i32> {
-    Ok(self.high_term().freqs.as_ref().unwrap()[self.upto as usize])
+    Ok(
+      self
+        .high_term()
+        .freqs
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("frequencies are missing"))?[self.upto as usize],
+    )
   }
 
   fn next_position(&mut self) -> Result<i32> {
     self.pos_upto += self.pos_jump;
-    let position =
-      self.high_term().positions.as_ref().unwrap()[self.upto as usize][self.pos_upto as usize];
+    let position = self
+      .high_term()
+      .positions
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[self.upto as usize]
+      [self.pos_upto as usize];
     if let Some(payloads) = &self.high_term().payloads {
       self.payload = payloads[self.upto as usize][(self.pos_upto / self.pos_jump) as usize]
         .as_ref()
@@ -2444,7 +2472,11 @@ impl PostingsEnum for HighFreqPostingsEnum {
   fn start_offset(&self) -> Result<i32> {
     if self.has_offsets {
       Ok(
-        self.high_term().positions.as_ref().unwrap()[self.upto as usize]
+        self
+          .high_term()
+          .positions
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[self.upto as usize]
           [self.pos_upto as usize + 1],
       )
     } else {
@@ -2455,7 +2487,11 @@ impl PostingsEnum for HighFreqPostingsEnum {
   fn end_offset(&self) -> Result<i32> {
     if self.has_offsets {
       Ok(
-        self.high_term().positions.as_ref().unwrap()[self.upto as usize]
+        self
+          .high_term()
+          .positions
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[self.upto as usize]
           [self.pos_upto as usize + 2],
       )
     } else {

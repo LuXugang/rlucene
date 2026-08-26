@@ -401,11 +401,11 @@ where
     debug_assert!(min_ord >= 0);
     debug_assert!(max_ord < self.terms_index.get_value_count()?);
 
-    self
+    let competitive_iterator = self
       .competitive_iterator
       .as_mut()
-      .unwrap()
-      .update(&mut self.terms_index, min_ord, max_ord)?;
+      .ok_or_else(|| LuceneError::illegal_state("competitive iterator is not initialized"))?;
+    competitive_iterator.update(&mut self.terms_index, min_ord, max_ord)?;
 
     Ok(())
   }
@@ -639,28 +639,27 @@ where
       self.init(doc_values, min_ord, max_ord)?;
     } else if size < self.postings.len() as i32 {
       // One or more ords got removed
-      debug_assert!(self.postings.is_empty() || *self.postings.front().unwrap() <= min_ord);
-      while !self.postings.is_empty() && *self.postings.front().unwrap() < min_ord {
+      debug_assert!(self.postings.front().is_none_or(|ord| *ord <= min_ord));
+      while self.postings.front().is_some_and(|ord| *ord < min_ord) {
         self.postings.pop_front();
       }
 
-      debug_assert!(self.postings.is_empty() || *self.postings.back().unwrap() >= max_ord);
-      while !self.postings.is_empty() && *self.postings.back().unwrap() > max_ord {
+      debug_assert!(self.postings.back().is_none_or(|ord| *ord >= max_ord));
+      while self.postings.back().is_some_and(|ord| *ord > max_ord) {
         self.postings.pop_back();
       }
-      let disjunction = self.disjunction.as_mut().unwrap();
+      let disjunction = self
+        .disjunction
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("postings disjunction is not initialized"))?;
       let iterms = disjunction.take_heap_array();
       // debug_assert!(
       //   iterms.len() == self.postings.len(),
       //   "priority queue size must match postings size"
       // );
-      let (min_ord, max_ord) = if !self.postings.is_empty() {
-        (
-          *self.postings.front().unwrap(),
-          *self.postings.back().unwrap(),
-        )
-      } else {
-        (0, 0)
+      let (min_ord, max_ord) = match (self.postings.front(), self.postings.back()) {
+        (Some(min_ord), Some(max_ord)) => (*min_ord, *max_ord),
+        _ => (0, 0),
       };
       for v in iterms {
         if v.ord < min_ord || v.ord > max_ord {
@@ -754,29 +753,28 @@ where
       return Ok(self.doc);
     }
 
-    if self.disjunction.is_none() {
+    let Some(disjunction) = self.disjunction.as_mut() else {
       if self.using_skip {
         // The field is sparse and we're only interested in documents that have a value.
         debug_assert!(!self.dense);
-        self.doc = self.docs_with_field.as_mut().unwrap().advance(target)?;
+        self.doc = self
+          .docs_with_field
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("docs-with-field iterator is missing"))?
+          .advance(target)?;
         return Ok(self.doc);
       } else {
         // We haven't started skipping yet
         self.doc = target;
         return Ok(self.doc);
       }
-    }
+    };
 
-    let disjunction = self.disjunction.as_mut().unwrap();
-    let top = disjunction.top_mut();
-
-    if top.is_none() {
+    let Some(mut top) = disjunction.top_mut() else {
       // priority queue is empty, none of the remaining documents are competitive
       self.doc = NO_MORE_DOCS;
       return Ok(self.doc);
-    }
-
-    let mut top = top.unwrap();
+    };
 
     while top.postings.doc_id() < target {
       top.postings.advance(target)?;

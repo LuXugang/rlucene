@@ -123,8 +123,7 @@ where
     accept_docs: Option<&dyn Bits>,
     max: i32,
   ) -> Result<()> {
-    if self.filter.is_some() {
-      let mut filter = self.filter.take().unwrap();
+    if let Some(mut filter) = self.filter.take() {
       self.score_inner_window_with_filter(collector, accept_docs, max, &mut filter)?;
       self.filter = Some(filter);
     } else if self.all_scorers_idx.len() - self.first_required_scorer >= 2 {
@@ -512,7 +511,11 @@ where
       let index = self.all_scorers_idx[i];
       let scorer = &mut self.all_scorers[index];
 
-      if self.filter.is_none() || scorer.cost >= self.filter.as_ref().unwrap().cost {
+      if self
+        .filter
+        .as_ref()
+        .is_none_or(|filter| scorer.cost >= filter.cost)
+      {
         let upto = scorer.scorer.advance_shallow(scorer.doc.max(window_min))? as i64;
         window_max = (window_max as i64).min(upto + 1) as i32; // upTo is inclusive
       }

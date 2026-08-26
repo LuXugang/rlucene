@@ -104,28 +104,22 @@ use std::sync::Arc;
 ///    -  Header → [IndexHeader](crate::core::codecs::codec_util::CodecUtil::write_index_header)
 ///    -  ChunkIndex → [`FieldsIndexWriter`](crate::core::codecs::lucene90::fields_index_writer::FieldsIndexWriter)
 ///    -  Footer → [`CodecFooter`](crate::core::codecs::codec_util::CodecUtil::write_footer)
+#[derive(Clone)]
 pub struct Lucene90TermVectorsFormat {
   base: Lucene90CompressingTermVectorsFormat,
 }
-impl Default for Lucene90TermVectorsFormat {
-  fn default() -> Self {
-    Self::new()
-  }
-}
 
 impl Lucene90TermVectorsFormat {
-  pub fn new() -> Self {
-    Self {
-      base: Lucene90CompressingTermVectorsFormat::new(
-        "Lucene90TermVectorsData",
-        "",
-        CompressionModeEnum::Fast(LZ4FastCompressionMode),
-        1 << 12,
-        128,
-        10,
-      )
-      .unwrap(),
-    }
+  pub fn new() -> Result<Self> {
+    let base = Lucene90CompressingTermVectorsFormat::new(
+      "Lucene90TermVectorsData",
+      "",
+      CompressionModeEnum::Fast(LZ4FastCompressionMode),
+      1 << 12,
+      128,
+      10,
+    )?;
+    Ok(Self { base })
   }
 }
 impl TermVectorsFormat for Lucene90TermVectorsFormat {

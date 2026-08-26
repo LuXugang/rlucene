@@ -327,8 +327,8 @@ fn test_random_bulk_copy() -> Result<()> {
       std::mem::swap(&mut bits1, &mut bits2);
     }
 
-    let mut packed1 = PackedInts::get_mutable(value_count, bits1, PackedInts::COMPACT);
-    let mut packed2 = PackedInts::get_mutable(value_count, bits2, PackedInts::COMPACT);
+    let mut packed1 = PackedInts::get_mutable(value_count, bits1, PackedInts::COMPACT)?;
+    let mut packed2 = PackedInts::get_mutable(value_count, bits2, PackedInts::COMPACT)?;
 
     let max_value = PackedInts::max_value(bits1);
     for i in 0..value_count {
@@ -413,7 +413,7 @@ fn create_packed_ints(value_count: i32, bits_per_value: i32) -> Result<Vec<Mutab
 
   for bpv in bits_per_value..=MAX_SUPPORTED_BITS_PER_VALUE {
     if is_supported(bpv) {
-      packed_ints.push(create(value_count, bpv));
+      packed_ints.push(create(value_count, bpv)?);
     }
   }
 
@@ -721,7 +721,7 @@ fn test_growable_writer() -> Result<()> {
   let mut random = random();
   let value_count = 113 + random.random_range(0..1112);
 
-  let mut wrt = GrowableWriter::new(1, value_count, PackedInts::DEFAULT);
+  let mut wrt = GrowableWriter::new(1, value_count, PackedInts::DEFAULT)?;
 
   wrt.set(4, 2);
   wrt.set(7, 10);

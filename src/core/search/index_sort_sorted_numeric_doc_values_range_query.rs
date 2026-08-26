@@ -316,9 +316,12 @@ where {
       if let Some(ref points) = point_values
         && points.get_doc_count()? == reader.max_doc()?
       {
+        let values = numeric_values
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("single-valued numeric values are missing"))?;
         let (opt_itc, remaining_numeric_values) = get_doc_id_set_iterator_or_null_from_bkd(
           context,
-          numeric_values.take().unwrap(),
+          values,
           self.query.lower_value,
           self.query.upper_value,
           &self.query.field,
@@ -539,7 +542,11 @@ where
   }
 
   // We found the next value, now we need the last doc ID.
-  let doc = last_doc(point_tree, vd.value.as_ref().unwrap(), comparator)?;
+  let value = vd
+    .value
+    .as_ref()
+    .ok_or_else(|| LuceneError::illegal_state("point-tree result has no value"))?;
+  let doc = last_doc(point_tree, value, comparator)?;
 
   if doc == -1 {
     // vd.docID was actually the last doc ID
@@ -977,10 +984,10 @@ where
   LR: LeafReader,
 {
   let index_sort = context.reader().get_metadata()?.get_sort();
-  if index_sort.is_none()
-    || index_sort.as_ref().unwrap().get_sort().is_empty()
-    || index_sort.as_ref().unwrap().get_sort()[0].get_field() != Some(field)
-  {
+  let Some(index_sort) = index_sort else {
+    return Ok((None, Some(delegate)));
+  };
+  if index_sort.get_sort().is_empty() || index_sort.get_sort()[0].get_field() != Some(field) {
     return Ok((None, Some(delegate)));
   }
 
@@ -1034,7 +1041,7 @@ where
     }
   }
 
-  let reverse = index_sort.as_ref().unwrap().get_sort()[0].get_reverse();
+  let reverse = index_sort.get_sort()[0].get_reverse();
   let comparator = ArrayUtil::get_unsigned_comparator(bpd);
 
   let min_doc_id;

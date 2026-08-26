@@ -462,16 +462,31 @@ impl DocValuesWriter for SortedDocValuesWriter {
         "must be finished before getting doc values",
       ));
     }
+    let Some(frozen_hash) = self.frozen_hash.clone() else {
+      return Err(LuceneError::illegal_state(
+        "must be finished before getting doc values",
+      ));
+    };
+    let Some(final_ords) = self.final_ords.take() else {
+      return Err(LuceneError::illegal_state(
+        "must be finished before getting doc values",
+      ));
+    };
+    let Some(final_ord_map) = self.final_ord_map.take() else {
+      return Err(LuceneError::illegal_state(
+        "must be finished before getting doc values",
+      ));
+    };
     dv_consumer.add_sorted_field(
       write_state,
       segment_info,
       &self.field_info,
       &get_doc_values_producer(
         self.field_info.clone(),
-        self.frozen_hash.clone().unwrap(),
+        frozen_hash,
         self.pool.clone(),
-        self.final_ords.take().unwrap(),
-        self.final_ord_map.take().unwrap(),
+        final_ords,
+        final_ord_map,
         std::mem::take(&mut self.docs_with_field),
         sort_map,
       )?,
@@ -487,11 +502,26 @@ impl DocValuesWriter for SortedDocValuesWriter {
         "must be finished before getting doc values",
       ));
     }
+    let Some(frozen_hash) = self.frozen_hash.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "must be finished before getting doc values",
+      ));
+    };
+    let Some(final_ords) = self.final_ords.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "must be finished before getting doc values",
+      ));
+    };
+    let Some(final_ord_map) = self.final_ord_map.as_ref() else {
+      return Err(LuceneError::illegal_state(
+        "must be finished before getting doc values",
+      ));
+    };
     Ok(BufferedSortedDocValues::new(
-      self.frozen_hash.as_ref().unwrap().clone(),
+      frozen_hash.clone(),
       self.pool.clone(),
-      self.final_ords.as_ref().unwrap(),
-      self.final_ord_map.as_ref().unwrap().clone(),
+      final_ords,
+      final_ord_map.clone(),
       self.docs_with_field.iterator()?,
     ))
   }
@@ -572,12 +602,12 @@ impl DocValuesProducer for DocValuesProducerImpl {
       self.ord_map.clone(),
       self.docs_with_field.iterator()?,
     );
-    if self.sorted.is_none() {
-      return Ok(SortedDocValuesWriterValues::Buffered(buf));
+    match self.sorted.as_ref() {
+      Some(sorted) => Ok(SortedDocValuesWriterValues::Sorting(
+        SortingSortedDocValues::new(buf, sorted.clone()),
+      )),
+      None => Ok(SortedDocValuesWriterValues::Buffered(buf)),
     }
-    Ok(SortedDocValuesWriterValues::Sorting(
-      SortingSortedDocValues::new(buf, self.sorted.as_ref().unwrap().clone()),
-    ))
   }
 
   type SortedNumericDocValues = DummySortedNumericDocValues;

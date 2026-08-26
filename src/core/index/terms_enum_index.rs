@@ -109,15 +109,15 @@ where
         .cmp(&(that.current_term_prefix8 as u64))
         .to_int();
 
-      debug_assert_eq!(
-        {
-          let current_term = self.current_term.as_ref().unwrap();
-          let that = that.current_term.as_ref().unwrap();
-          current_term.bytes[current_term.offset..current_term.offset + current_term.length]
-            .cmp(&that.bytes[that.offset..that.offset + that.length])
-            .to_int()
-        },
-        cmp.signum()
+      debug_assert!(
+        match (self.current_term.as_ref(), that.current_term.as_ref()) {
+          (Some(current_term), Some(that_term)) =>
+            current_term.bytes[current_term.offset..current_term.offset + current_term.length]
+              .cmp(&that_term.bytes[that_term.offset..that_term.offset + that_term.length])
+              .to_int()
+              == cmp.signum(),
+          _ => false,
+        }
       );
 
       return Ok(cmp);

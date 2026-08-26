@@ -568,7 +568,11 @@ where
       };
       if is_accept {
         let matches = if has_two_phase {
-          let mut two_phase = scorer.two_phase_iterator_mut().unwrap();
+          let Some(mut two_phase) = scorer.two_phase_iterator_mut() else {
+            return Err(LuceneError::illegal_state(
+              "scorer reported a two-phase iterator but did not provide one",
+            ));
+          };
           two_phase.matches()?
         } else {
           true

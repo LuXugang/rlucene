@@ -744,7 +744,7 @@ where
     } else if let Some(newest) = newest.as_ref() {
       let oldest = oldest
         .as_ref()
-        .expect("newest version implies oldest version");
+        .ok_or_else(|| LuceneError::illegal_state("newest version implies oldest version"))?;
       if oldest == newest {
         format!("version={oldest}")
       } else {
@@ -1176,7 +1176,9 @@ where
       if let Some(out) = info_stream.as_deref_mut() {
         write!(out, "    test: check integrity.....")?;
       }
-      let opened_reader = reader.as_ref().expect("segment reader was just opened");
+      let opened_reader = reader
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("segment reader was not opened"))?;
       opened_reader.check_integrity()?;
       Self::msg(
         info_stream.as_deref_mut(),
@@ -1345,7 +1347,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during live docs test")
-              .expect("the live docs test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the live docs test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1357,7 +1359,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during field info test")
-              .expect("the field info test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the field info test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1369,7 +1371,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during field norms test")
-              .expect("the field norms test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the field norms test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1381,7 +1383,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during term index test")
-              .expect("the term index test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the term index test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1393,7 +1395,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during stored fields test")
-              .expect("the stored fields test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the stored fields test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1405,7 +1407,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during term vectors test")
-              .expect("the term vectors test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the term vectors test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1417,7 +1419,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during doc values test")
-              .expect("the doc values test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the doc values test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1429,7 +1431,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during points test")
-              .expect("the points test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the points test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1441,7 +1443,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during vectors test")
-              .expect("the vectors test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the vectors test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1453,7 +1455,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during index sort test")
-              .expect("the index sort test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the index sort test did not fail"))?,
           );
           return Err(check_error);
         } else if let Some(error) = segment_status
@@ -1465,7 +1467,7 @@ where
           check_error.add_suppressed(
             error
               .caught_failure("panic during soft deletes test")
-              .expect("the soft deletes test failed"),
+              .ok_or_else(|| LuceneError::illegal_state("the soft deletes test did not fail"))?,
           );
           return Err(check_error);
         }
@@ -1554,7 +1556,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         {
           let parent_field = field_infos
             .get_parent_field()
-            .expect("the parent field is present");
+            .ok_or_else(|| LuceneError::illegal_state("the parent field is missing"))?;
           let iterator = LeafReader::get_numeric_doc_values(reader, parent_field)?
             .ok_or_else(|| LuceneError::corrupt_index("parent field has no numeric doc values"))?;
           DocIdSetIteratorEnum2::A(iterator)
@@ -2007,9 +2009,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
               "field=\"{field}\": invalid term: term={term}, minTerm={min_term}"
             )));
           }
-          let max_term = max_term
-            .as_ref()
-            .expect("minTerm and maxTerm are both present");
+          let max_term = max_term.as_ref().ok_or_else(|| {
+            LuceneError::illegal_state("maxTerm is missing while minTerm is present")
+          })?;
           if &term > max_term {
             return Err(LuceneError::corrupt_index(format!(
               "field=\"{field}\": invalid term: term={term}, maxTerm={max_term}"
@@ -2061,7 +2063,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         let mut has_non_deleted_docs = false;
         let mut total_term_freq = 0;
         {
-          let postings = postings.as_mut().expect("postings were just opened");
+          let postings = postings
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("postings were not opened"))?;
           loop {
             let doc = postings.next_doc()?;
             if doc == NO_MORE_DOCS {
@@ -2223,7 +2227,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           for idx in 0..7 {
             let skip_doc_id = (((idx + 1) * i64::from(max_doc)) / 8).try_convert()?;
             postings = Some(terms_enum.postings_with_flags(postings.take(), ALL as i32)?);
-            let postings_ref = postings.as_mut().expect("postings were just opened");
+            let postings_ref = postings
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("postings were not opened"))?;
             let doc_id = postings_ref.advance(skip_doc_id)?;
             if doc_id == NO_MORE_DOCS {
               break;
@@ -2307,7 +2313,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           for idx in 0..7 {
             let skip_doc_id = (((idx + 1) * i64::from(max_doc)) / 8).try_convert()?;
             postings = Some(terms_enum.postings_with_flags(postings.take(), NONE as i32)?);
-            let postings_ref = postings.as_mut().expect("postings were just opened");
+            let postings_ref = postings
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("postings were not opened"))?;
             let doc_id = postings_ref.advance(skip_doc_id)?;
             if doc_id == NO_MORE_DOCS {
               break;
@@ -2348,7 +2356,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
             postings = Some(terms_enum.postings_with_flags(postings.take(), FREQS as i32)?);
             loop {
               let doc = impacts_enum.next_doc()?;
-              let postings_ref = postings.as_mut().expect("postings were just opened");
+              let postings_ref = postings
+                .as_mut()
+                .ok_or_else(|| LuceneError::illegal_state("postings were not opened"))?;
               if postings_ref.next_doc()? != doc {
                 return Err(LuceneError::corrupt_index(format!(
                   "Wrong next doc: {doc}, expected {}",
@@ -2373,7 +2383,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                 let impacts_0 = impacts.get_impacts(0)?;
                 max_freq = impacts_0
                   .last()
-                  .expect("checkImpacts verified a non-empty list")
+                  .ok_or_else(|| {
+                    LuceneError::illegal_state("impact list is empty after validation")
+                  })?
                   .freq;
               }
               if impacts_enum.freq()? > max_freq {
@@ -2421,7 +2433,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                   let per_level_impacts = impacts.get_impacts(impacts_level)?;
                   max_freq = per_level_impacts
                     .last()
-                    .expect("checkImpacts verified a non-empty list")
+                    .ok_or_else(|| {
+                      LuceneError::illegal_state("impact list is empty after validation")
+                    })?
                     .freq;
                   break;
                 }
@@ -2434,7 +2448,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
               impacts_enum.next_doc()?
             };
 
-            let postings_ref = postings.as_mut().expect("postings were just opened");
+            let postings_ref = postings
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("postings were not opened"))?;
             if postings_ref.advance(target)? != doc {
               return Err(LuceneError::corrupt_index(format!(
                 "Impacts do not advance to the same document as postings for target {target}, postings: {}, impacts: {doc}",
@@ -2467,7 +2483,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                   let per_level_impacts = impacts.get_impacts(impacts_level)?;
                   max_freq = per_level_impacts
                     .last()
-                    .expect("checkImpacts verified a non-empty list")
+                    .ok_or_else(|| {
+                      LuceneError::illegal_state("impact list is empty after validation")
+                    })?
                     .freq;
                   break;
                 }
@@ -2487,7 +2505,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if min_term.is_some() && status.term_count + status.del_term_count == 0 {
         return Err(LuceneError::corrupt_index(format!(
           "field=\"{field}\": minTerm is non-null yet we saw no terms: {}",
-          min_term.as_ref().expect("minTerm is present")
+          min_term
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("minTerm is missing"))?
         )));
       }
 
@@ -2852,11 +2872,11 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         let mut previous_iterator = previous_level_impacts.iter();
         previous_iterator
           .next()
-          .expect("the previous impacts level is not empty");
+          .ok_or_else(|| LuceneError::illegal_state("the previous impacts level is empty"))?;
         let mut iterator = per_level_impacts.iter();
         let mut impact = iterator
           .next()
-          .expect("the current impacts level is not empty");
+          .ok_or_else(|| LuceneError::illegal_state("the current impacts level is empty"))?;
         for previous in previous_iterator {
           if previous.freq <= impact.freq && (previous.norm as u64) >= impact.norm as u64 {
             // previous triggers a lower score than the current impact, all good
@@ -2907,7 +2927,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       let fields = merge_fields_reader
         .as_ref()
         .or(fields_reader.as_ref())
-        .expect("the postings reader is present");
+        .ok_or_else(|| LuceneError::illegal_state("the postings reader is missing"))?;
 
       let field_infos = reader.get_field_infos()?;
       norms_reader = reader.get_norms_reader()?;
@@ -3668,7 +3688,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       let stored_fields = merge_stored_fields_reader
         .as_mut()
         .or(stored_fields_reader.as_mut())
-        .expect("the stored fields reader is present");
+        .ok_or_else(|| LuceneError::illegal_state("the stored fields reader is missing"))?;
       for j in 0..reader.max_doc()? {
         // Intentionally pull even deleted documents to
         // make sure they too are not corrupt:
@@ -4082,13 +4102,11 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     for i in 0..=max_ord {
       let term = doc_values.lookup_ord(i)?.into_owned();
       term.is_valid()?;
-      if last_value
-        .as_ref()
-        .is_some_and(|last_value| term <= *last_value)
+      if let Some(last_value) = last_value.as_ref()
+        && term <= *last_value
       {
         return Err(LuceneError::corrupt_index(format!(
-          "dv for field: {field_name} has ords out of order: {} >= {term}",
-          last_value.as_ref().expect("last value is present")
+          "dv for field: {field_name} has ords out of order: {last_value} >= {term}"
         )));
       }
       last_value = Some(term);
@@ -4192,13 +4210,11 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     for i in 0..=max_ord {
       let term = doc_values.lookup_ord(i)?.into_owned();
       debug_assert!(term.is_valid()?);
-      if last_value
-        .as_ref()
-        .is_some_and(|last_value| term <= *last_value)
+      if let Some(last_value) = last_value.as_ref()
+        && term <= *last_value
       {
         return Err(LuceneError::corrupt_index(format!(
-          "dv for field: {field_name} has ords out of order: {} >= {term}",
-          last_value.as_ref().expect("last value is present")
+          "dv for field: {field_name} has ords out of order: {last_value} >= {term}"
         )));
       }
       last_value = Some(term);
@@ -4530,7 +4546,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
                 let advance_doc = postings_docs
                   .as_mut()
-                  .expect("postings docs were just initialized")
+                  .ok_or_else(|| LuceneError::illegal_state("postings docs are missing"))?
                   .advance(j)?;
                 if advance_doc != j {
                   return Err(LuceneError::corrupt_index(format!(
@@ -4540,7 +4556,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
                 let doc = postings
                   .as_mut()
-                  .expect("term-vector postings were just initialized")
+                  .ok_or_else(|| LuceneError::illegal_state("term-vector postings are missing"))?
                   .next_doc()?;
                 if doc != 0 {
                   return Err(LuceneError::corrupt_index(format!(
@@ -4551,11 +4567,11 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                 if postings_has_freq {
                   let tf = postings
                     .as_mut()
-                    .expect("term-vector postings are present")
+                    .ok_or_else(|| LuceneError::illegal_state("term-vector postings are missing"))?
                     .freq()?;
                   let postings_freq = postings_docs
                     .as_mut()
-                    .expect("postings docs are present")
+                    .ok_or_else(|| LuceneError::illegal_state("postings docs are missing"))?
                     .freq()?;
                   if postings_has_freq && postings_freq != tf {
                     return Err(LuceneError::corrupt_index(format!(
@@ -4568,12 +4584,14 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                     for _ in 0..tf {
                       let pos = postings
                         .as_mut()
-                        .expect("term-vector postings are present")
+                        .ok_or_else(|| {
+                          LuceneError::illegal_state("term-vector postings are missing")
+                        })?
                         .next_position()?;
                       if postings_terms.has_positions() {
                         let postings_pos = postings_docs
                           .as_mut()
-                          .expect("postings docs are present")
+                          .ok_or_else(|| LuceneError::illegal_state("postings docs are missing"))?
                           .next_position()?;
                         if terms.has_positions() && pos != postings_pos {
                           return Err(LuceneError::corrupt_index(format!(
@@ -4586,20 +4604,24 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                       // sure they do not return an error:
                       let start_offset = postings
                         .as_ref()
-                        .expect("term-vector postings are present")
+                        .ok_or_else(|| {
+                          LuceneError::illegal_state("term-vector postings are missing")
+                        })?
                         .start_offset()?;
                       let end_offset = postings
                         .as_ref()
-                        .expect("term-vector postings are present")
+                        .ok_or_else(|| {
+                          LuceneError::illegal_state("term-vector postings are missing")
+                        })?
                         .end_offset()?;
                       if start_offset != -1 && end_offset != -1 && postings_terms.has_offsets() {
                         let postings_start_offset = postings_docs
                           .as_ref()
-                          .expect("postings docs are present")
+                          .ok_or_else(|| LuceneError::illegal_state("postings docs are missing"))?
                           .start_offset()?;
                         let postings_end_offset = postings_docs
                           .as_ref()
-                          .expect("postings docs are present")
+                          .ok_or_else(|| LuceneError::illegal_state("postings docs are missing"))?
                           .end_offset()?;
                         if start_offset != postings_start_offset {
                           return Err(LuceneError::corrupt_index(format!(
@@ -4615,7 +4637,9 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
 
                       let payload = postings
                         .as_ref()
-                        .expect("term-vector postings are present")
+                        .ok_or_else(|| {
+                          LuceneError::illegal_state("term-vector postings are missing")
+                        })?
                         .get_payload()?
                         .map(Cow::into_owned);
 
@@ -4626,7 +4650,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
                       if postings_has_payload && vectors_has_payload {
                         let postings_payload = postings_docs
                           .as_ref()
-                          .expect("postings docs are present")
+                          .ok_or_else(|| LuceneError::illegal_state("postings docs are missing"))?
                           .get_payload()?
                           .map(Cow::into_owned);
                         match (payload, postings_payload) {
@@ -4829,7 +4853,8 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       dir_impl,
       out: _,
     } = options;
-    let index_path = index_path.expect("parseOptions requires an index path");
+    let index_path = index_path
+      .ok_or_else(|| LuceneError::illegal_argument("parseOptions requires an index path"))?;
     writeln!(std::io::stdout(), "\nOpening index @ {index_path}\n")?;
 
     let path = PathBuf::from(&index_path);
@@ -4852,23 +4877,24 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       }));
     let directory = match directory_result {
       Ok(Ok(directory)) => Arc::new(directory),
-      result => {
+      Ok(Err(error)) => {
         writeln!(
           std::io::stdout(),
           "ERROR: could not open directory \"{index_path}\"; exiting"
         )?;
-        match result {
-          Ok(Err(error)) => writeln!(std::io::stdout(), "{error:?}")?,
-          Err(payload) => writeln!(
-            std::io::stdout(),
-            "{:?}",
-            LuceneError::tragedy_from_panic(
-              "panic while opening index directory",
-              payload.as_ref(),
-            )
-          )?,
-          Ok(Ok(_)) => unreachable!(),
-        }
+        writeln!(std::io::stdout(), "{error:?}")?;
+        return Ok(1);
+      },
+      Err(payload) => {
+        writeln!(
+          std::io::stdout(),
+          "ERROR: could not open directory \"{index_path}\"; exiting"
+        )?;
+        writeln!(
+          std::io::stdout(),
+          "{:?}",
+          LuceneError::tragedy_from_panic("panic while opening index directory", payload.as_ref(),)
+        )?;
         return Ok(1);
       },
     };
@@ -4876,13 +4902,17 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
     let checker_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       CheckIndex::new(Arc::clone(&directory))
     }));
-    if !matches!(&checker_result, Ok(Ok(_))) {
-      let close_result =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| directory.close()));
-      IOUtils::use_or_suppress_caught_result(checker_result, close_result)?;
-      unreachable!("failed CheckIndex construction unexpectedly returned a value");
-    }
-    let mut checker: CheckIndex<_, _, Stdout> = unwrap_caught_result!(checker_result)?;
+    let mut checker: CheckIndex<_, _, Stdout> = match checker_result {
+      Ok(Ok(checker)) => checker,
+      result => {
+        let close_result =
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| directory.close()));
+        IOUtils::use_or_suppress_caught_result(result, close_result)?;
+        return Err(LuceneError::illegal_state(
+          "CheckIndex construction unexpectedly succeeded after an error",
+        ));
+      },
+    };
     let mut options = Options {
       do_exorcise,
       verbose,
@@ -4992,7 +5022,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         options
           .only_segments
           .as_mut()
-          .expect("onlySegments is a list while parsing")
+          .ok_or_else(|| LuceneError::illegal_state("onlySegments is missing while parsing"))?
           .push(args[i].clone());
       } else if arg == "-dir-impl" {
         if i == args.len() - 1 {

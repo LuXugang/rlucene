@@ -63,7 +63,9 @@ where
     let mut all_scores = Vec::with_capacity(num_clauses);
     let mut required_scoring_idx = Vec::with_capacity(required_scoring_len);
     for (_, is_required_score, idx) in costs {
-      let scorer = tmp_all_scores[idx].take().unwrap();
+      let scorer = tmp_all_scores[idx]
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("scorer is missing"))?;
       all_scores.push(scorer);
       if is_required_score {
         required_scoring_idx.push(all_scores.len() - 1);

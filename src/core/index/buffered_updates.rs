@@ -24,7 +24,7 @@ use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_hash::DEFAULT_CAPACITY;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesStartArray};
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_string, size_of_vec};
 use crate::core::util::{AtomicCounter, ByteBlockPool, Counter, SharedCounter};
 #[cfg(test)]
@@ -95,13 +95,11 @@ impl BufferedUpdates {
     };
 
     if update.has_value {
-      let binary_update = update.sub_update.get_binary();
-      debug_assert!(binary_update.is_some());
-      buffer.add_update_with_bytes_ref(
-        &update.term,
-        binary_update.unwrap().get_value(),
-        doc_id_upto,
-      )?;
+      let binary_update = update
+        .sub_update
+        .get_binary()
+        .ok_or_else(|| LuceneError::illegal_state("binary update has no binary value"))?;
+      buffer.add_update_with_bytes_ref(&update.term, binary_update.get_value()?, doc_id_upto)?;
     } else {
       buffer.add_no_value(&update.term, doc_id_upto)?;
     }
@@ -129,13 +127,11 @@ impl BufferedUpdates {
     };
 
     if update.has_value {
-      let numeric_update = update.sub_update.get_numeric();
-      debug_assert!(numeric_update.is_some());
-      buffer.add_update_with_long(
-        &update.term,
-        numeric_update.unwrap().get_value(),
-        doc_id_upto,
-      )?;
+      let numeric_update = update
+        .sub_update
+        .get_numeric()
+        .ok_or_else(|| LuceneError::illegal_state("numeric update has no numeric value"))?;
+      buffer.add_update_with_long(&update.term, numeric_update.get_value()?, doc_id_upto)?;
     } else {
       buffer.add_no_value(&update.term, doc_id_upto)?;
     }

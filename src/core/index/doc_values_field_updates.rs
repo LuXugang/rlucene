@@ -184,7 +184,11 @@ where
     let inner = self.inner.lock();
     let v = DocValuesFieldInnerIter {
       size: inner.size,
-      docs: inner.docs_iter.as_ref().unwrap().clone(),
+      docs: inner
+        .docs_iter
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("finished updates have no docs iterator"))?
+        .clone(),
     };
     self.sub_update.iterator(v, self.del_gen)
   }
@@ -229,7 +233,7 @@ where
         inner.size as i32,
         PackedInts::bits_required((inner.size - 1) as i64)?,
         PackedInts::DEFAULT,
-      );
+      )?;
       for i in 0..inner.size {
         ords.set(i as i32, i as i64)
       }
@@ -1185,10 +1189,10 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     _inner: DocValuesFieldInnerIter,
     _del_gen: i64,
   ) -> Result<DocValuesFieldIteratorEnum> {
-    let iterator = BitSetIterator::new(
-      self.bit_set_iter.as_ref().unwrap().clone(),
-      self.max_doc as i64,
-    )?;
+    let bit_set_iter = self.bit_set_iter.as_ref().ok_or_else(|| {
+      LuceneError::illegal_state("finished single-value updates have no bit-set iterator")
+    })?;
+    let iterator = BitSetIterator::new(bit_set_iter.clone(), self.max_doc as i64)?;
     Ok(DocValuesFieldIteratorEnum::SingleValue(
       SingleValueDocValuesFieldUpdatesIterator::new(
         iterator,
@@ -1203,10 +1207,11 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     let _guide = self.lock.lock();
     self.bit_set.set(doc as usize);
     self.has_at_least_one_value = true;
-    if self.has_no_value.is_none() {
-      self.has_no_value = Some(SparseFixedBitSet::new(self.max_doc as usize)?);
-    }
-    self.has_no_value.as_mut().unwrap().set(doc as usize);
+    let has_no_value = match &mut self.has_no_value {
+      Some(has_no_value) => has_no_value,
+      slot @ None => slot.insert(SparseFixedBitSet::new(self.max_doc as usize)?),
+    };
+    has_no_value.set(doc as usize);
     drop(_guide);
     Ok(())
   }

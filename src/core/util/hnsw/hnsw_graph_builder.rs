@@ -399,7 +399,7 @@ where
 
   fn connect_components_with_level(&mut self, level: usize) -> Result<bool> {
     debug_assert!(self.hnsw.size() <= i32::MAX as usize);
-    let mut not_fully_connected = Some(FixedBitSet::new(self.hnsw.size()));
+    let mut not_fully_connected = FixedBitSet::new(self.hnsw.size());
     let mut max_conn = self.m;
     if level == 0 {
       max_conn *= 2;
@@ -408,7 +408,7 @@ where
     let components = HnswUtil::components(
       &mut self.hnsw,
       level,
-      not_fully_connected.as_mut(),
+      Some(&mut not_fully_connected),
       max_conn,
     )?;
 
@@ -463,19 +463,19 @@ where
           level,
           &eps,
           &mut self.hnsw,
-          not_fully_connected.as_ref(),
+          Some(&not_fully_connected),
         )?;
 
         let mut linked = false;
 
         while beam.size() > 0 {
           let c0node = beam.pop_node()?;
-          if c0node == c.start || !not_fully_connected.as_ref().unwrap().get(c0node)? {
+          if c0node == c.start || !not_fully_connected.get(c0node)? {
             continue;
           }
 
           let score = beam.minimum_score();
-          debug_assert!(not_fully_connected.as_ref().unwrap().get(c0node)?);
+          debug_assert!(not_fully_connected.get(c0node)?);
           // link the nodes
           Self::link(
             &mut self.hnsw,
@@ -483,7 +483,7 @@ where
             c0node,
             c.start,
             score,
-            not_fully_connected.as_mut().unwrap(),
+            &mut not_fully_connected,
           )?;
 
           linked = true;

@@ -469,7 +469,7 @@ impl TermsEnum for FreqProxTermsEnum {
           self.byte_pool.clone(),
         ),
       };
-      pos_enum.reset(sorted_term_ids[self.ord as usize]);
+      pos_enum.reset(sorted_term_ids[self.ord as usize])?;
       return Ok(PostingsEnumEnum2::A(pos_enum));
     }
 
@@ -486,7 +486,7 @@ impl TermsEnum for FreqProxTermsEnum {
         self.byte_pool.clone(),
       ),
     };
-    docs_enum.reset(sorted_term_ids[self.ord as usize]);
+    docs_enum.reset(sorted_term_ids[self.ord as usize])?;
     Ok(PostingsEnumEnum2::B(docs_enum))
   }
 
@@ -529,14 +529,15 @@ impl FreqProxDocsEnum {
       term_id: -1,
     }
   }
-  pub fn reset(&mut self, term_id: i32) {
+  pub fn reset(&mut self, term_id: i32) -> Result<()> {
     self.term_id = term_id;
     self
       .terms
       .base
-      .init_reader(&mut self.reader, term_id, 0, &self.int_pool);
+      .init_reader(&mut self.reader, term_id, 0, &self.int_pool)?;
     self.ended = false;
     self.doc_id = -1;
+    Ok(())
   }
 }
 
@@ -676,19 +677,20 @@ impl FreqProxPostingsEnum {
       payload: BytesRefBuilder::new(),
     }
   }
-  pub fn reset(&mut self, term_id: i32) {
+  pub fn reset(&mut self, term_id: i32) -> Result<()> {
     self.term_id = term_id;
     self
       .terms
       .base
-      .init_reader(&mut self.reader, term_id, 0, &self.int_pool);
+      .init_reader(&mut self.reader, term_id, 0, &self.int_pool)?;
     self
       .terms
       .base
-      .init_reader(&mut self.pos_reader, term_id, 1, &self.int_pool);
+      .init_reader(&mut self.pos_reader, term_id, 1, &self.int_pool)?;
     self.ended = false;
     self.doc_id = -1;
     self.pos_left = 0;
+    Ok(())
   }
 }
 

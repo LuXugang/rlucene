@@ -326,7 +326,11 @@ where
         &mut inner,
         rld.index_created_version_major,
       )?;
-      inner.reader.as_ref().unwrap().clone()
+      inner
+        .reader
+        .as_ref()
+        .cloned()
+        .ok_or_else(|| LuceneError::illegal_state("segment reader is missing"))?
     };
     Ok(SegmentState {
       del_gen: info.get_buffered_deletes_gen(),

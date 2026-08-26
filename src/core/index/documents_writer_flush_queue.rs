@@ -151,14 +151,23 @@ where
          */
         let (id, head) = {
           let mut inner = self.inner.lock();
-          let id = inner.queue.front().unwrap().clone();
-          let head = inner.value.remove(&id).unwrap();
+          let id = inner
+            .queue
+            .front()
+            .ok_or_else(|| LuceneError::illegal_state("publishable flush queue is empty"))?
+            .clone();
+          let head = inner.value.remove(&id).ok_or_else(|| {
+            LuceneError::illegal_state("flush ticket is missing from the value map")
+          })?;
           (id, head)
         };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| consumer(head)));
         {
           let mut inner = self.inner.lock();
-          let polled = inner.queue.pop_front().unwrap();
+          let polled = inner
+            .queue
+            .pop_front()
+            .ok_or_else(|| LuceneError::illegal_state("published flush queue is empty"))?;
           self.dec_tickets();
           debug_assert!(polled == id);
         }
@@ -248,8 +257,8 @@ where
   }
   /// Returns a frozen global deletes package.
   #[allow(dead_code)] // Mirrors Java's getFrozenUpdates; Rust publishers take ownership instead. See take_frozen_updates
-  pub(crate) fn get_frozen_updates(&self) -> &FrozenBufferedUpdates {
-    self.frozen_updates.as_ref().unwrap()
+  pub(crate) fn get_frozen_updates(&self) -> Option<&FrozenBufferedUpdates> {
+    self.frozen_updates.as_ref()
   }
   pub(crate) fn take_frozen_updates(&mut self) -> Option<FrozenBufferedUpdates> {
     self.frozen_updates.take()

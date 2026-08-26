@@ -227,9 +227,12 @@ impl TermWeight {
     let sim_scorer = if let Some(term_stats) = term_stats {
       debug_assert!(collection_stats.is_some());
       if score_mode.needs_scores() {
+        let collection_stats = collection_stats.as_ref().ok_or_else(|| {
+          LuceneError::illegal_state("term query collection statistics are missing")
+        })?;
         Some(Arc::new(TermQuerySimScorer::A(similarity.scorer(
           boost,
-          collection_stats.as_ref().unwrap(),
+          collection_stats,
           &[term_stats],
         )?)))
       } else {
@@ -279,12 +282,11 @@ impl TermWeight {
       );
       return Ok(None);
     };
-    let mut terms_enum = context
+    let terms = context
       .reader()
       .terms(parent_query.term.field())?
-      .as_ref()
-      .unwrap()
-      .iterator()?;
+      .ok_or_else(|| LuceneError::illegal_state("term state exists but field terms are missing"))?;
+    let mut terms_enum = terms.iterator()?;
     terms_enum.seek_exact_with_state(parent_query.term.bytes(), state.as_ref())?;
     Ok(Some(terms_enum))
   }
@@ -376,11 +378,11 @@ where
         "freq, occurrences of term within document".to_string(),
       );
 
-      let score_explanation = self
+      let sim_scorer = self
         .sim_scorer
         .as_ref()
-        .unwrap()
-        .explain(freq_explanation, norm)?;
+        .ok_or_else(|| LuceneError::illegal_state("term scorer is missing"))?;
+      let score_explanation = sim_scorer.explain(freq_explanation, norm)?;
 
       return Ok(Explanation::match_(
         score_explanation.value.clone(),
@@ -427,13 +429,16 @@ where
     match state_supplier {
       None => Ok(None),
       Some(v) => {
-        debug_assert!(self.sim_scorer.is_some());
+        let sim_scorer = self
+          .sim_scorer
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("term scorer is missing"))?;
         let v = TermScorerSupplier::new(
           false,
           self.term_states.clone(),
           v,
           parent_query.term.clone(),
-          self.sim_scorer.as_ref().unwrap().clone(),
+          sim_scorer.clone(),
           self.score_mode,
         );
         let v = Box::new(v);
@@ -613,7 +618,13 @@ where
   ) -> Result<i64> {
     let result: Result<i32> = (|| match self.get_terms_enum(context)? {
       None => Ok(0),
-      Some(_) => Ok(self.terms_enum.as_mut().unwrap().doc_freq()?),
+      Some(_) => Ok(
+        self
+          .terms_enum
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("term enum is missing"))?
+          .doc_freq()?,
+      ),
     })();
     match result {
       Ok(v) => Ok(v as i64),

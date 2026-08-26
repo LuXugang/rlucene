@@ -438,7 +438,10 @@ where
     // Apply delTerm only after all indexing has
     //succeeded, but apply it only to docs prior to when
     //this batch started:
-    let delete_slice = self.delete_slice.as_mut().unwrap();
+    let delete_slice = self
+      .delete_slice
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("document writer delete slice is missing"))?;
     let seq_no: i64 = if let Some(node) = delete_node {
       let seq = self
         .state
@@ -821,11 +824,9 @@ where
     FN: FlushNotifications,
     DM: DocMap,
   {
-    debug_assert!(
-      flushed_segment.segment_info.is_some(),
-      "segment info should be always set, wrap with Option for easier move"
-    );
-    let new_segment = flushed_segment.segment_info.as_mut().unwrap();
+    let new_segment = flushed_segment.segment_info.as_mut().ok_or_else(|| {
+      LuceneError::illegal_state("flushed segment info is missing before sealing")
+    })?;
     let res: Result<()> = (|| {
       if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
         set_diagnostics(segment_info, SOURCE_FLUSH);

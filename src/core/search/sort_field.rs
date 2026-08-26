@@ -410,8 +410,11 @@ impl SortFiledBase for SortField {
   }
 
   fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
-    debug_assert!(self.field.is_some());
-    out.write_string(self.field.as_ref().unwrap())?;
+    let field = self
+      .field
+      .as_deref()
+      .ok_or_else(|| LuceneError::illegal_state("field is required when serializing SortField"))?;
+    out.write_string(field)?;
     out.write_string(&self.type_.to_string())?;
     out.write_int(if self.reverse { 1 } else { 0 })?;
     if let Some(missing_value) = &self.missing_value {
@@ -483,6 +486,12 @@ impl SortFiledBase for SortField {
   type FieldComparator = FieldComparatorEnum;
 
   fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator> {
+    let field_name = || {
+      self
+        .field
+        .clone()
+        .ok_or_else(|| LuceneError::illegal_state("field is required for this sort type"))
+    };
     let mut field_comparator: FieldComparatorEnum = match self.type_ {
       SortFieldType::Score => RelevanceComparator::new(num_hits).into(),
 
@@ -493,14 +502,7 @@ impl SortFiledBase for SortField {
           Some(value) => Some(value.as_i32()?),
           None => None,
         };
-        IntComparator::new(
-          self.field.as_ref().unwrap().clone(),
-          num_hits,
-          missing,
-          self.reverse,
-          pruning,
-        )
-        .into()
+        IntComparator::new(field_name()?, num_hits, missing, self.reverse, pruning).into()
       },
 
       SortFieldType::Float => {
@@ -508,14 +510,7 @@ impl SortFiledBase for SortField {
           Some(value) => Some(value.as_f32()?),
           None => None,
         };
-        FloatComparator::new(
-          self.field.as_deref().unwrap().to_string(),
-          num_hits,
-          missing,
-          self.reverse,
-          pruning,
-        )
-        .into()
+        FloatComparator::new(field_name()?, num_hits, missing, self.reverse, pruning).into()
       },
 
       SortFieldType::Long => {
@@ -523,14 +518,7 @@ impl SortFiledBase for SortField {
           Some(value) => Some(value.as_i64()?),
           None => None,
         };
-        LongComparator::new(
-          self.field.as_deref().unwrap().to_string(),
-          num_hits,
-          missing,
-          self.reverse,
-          pruning,
-        )
-        .into()
+        LongComparator::new(field_name()?, num_hits, missing, self.reverse, pruning).into()
       },
 
       SortFieldType::Double => {
@@ -538,18 +526,11 @@ impl SortFiledBase for SortField {
           Some(value) => Some(value.as_f64()?),
           None => None,
         };
-        DoubleComparator::new(
-          self.field.as_deref().unwrap().to_string(),
-          num_hits,
-          missing,
-          self.reverse,
-          pruning,
-        )
-        .into()
+        DoubleComparator::new(field_name()?, num_hits, missing, self.reverse, pruning).into()
       },
 
       SortFieldType::String => TermOrdValComparator::new(
-        self.field.as_deref().unwrap().to_string(),
+        field_name()?,
         num_hits,
         matches!(self.missing_value, Some(MissingValueEnum::StringLast)),
         self.reverse,
@@ -558,7 +539,7 @@ impl SortFiledBase for SortField {
       .into(),
 
       SortFieldType::StringVal => TermValComparator::new(
-        self.field.as_deref().unwrap().to_string(),
+        field_name()?,
         num_hits,
         matches!(self.missing_value, Some(MissingValueEnum::StringLast)),
       )

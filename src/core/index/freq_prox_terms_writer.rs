@@ -250,15 +250,14 @@ where
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
     match self.inner.terms(field)? {
       Some(terms) => {
-        let index_options = self.field_infos.field_info_by_name(field)?;
-        if index_options.is_none() {
+        let Some(index_options) = self.field_infos.field_info_by_name(field)? else {
           return Err(LuceneError::illegal_state(format!(
             "Field '{field}' not found in field infos"
           )));
-        }
+        };
         Ok(Some(SortingTerms::new(
           terms,
-          *index_options.as_ref().unwrap().get_index_options(),
+          *index_options.get_index_options(),
           self.doc_map.clone(),
         )))
       },
@@ -966,7 +965,11 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.postings_enum.as_ref().unwrap().cost()
+    self
+      .postings_enum
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("postings enum not initialized"))?
+      .cost()
   }
 }
 

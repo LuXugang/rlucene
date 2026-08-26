@@ -172,8 +172,9 @@ where
             index_file_deleter.commits.push(commit_point);
             index_file_deleter.inc_ref_from_segment(&sis, true)?;
 
-            if last_segment_infos.is_none()
-              || sis.get_generation() > last_segment_infos.as_ref().unwrap().get_generation()
+            if last_segment_infos
+              .as_ref()
+              .is_none_or(|last| sis.get_generation() > last.get_generation())
             {
               last_segment_infos = Some(sis);
             }
@@ -805,8 +806,12 @@ where
     infos.counter = desired;
   }
   for info in infos.iter_mut() {
-    debug_assert!(max_per_segment_gen.contains_key(&info.info.name));
-    let gen_long = *max_per_segment_gen.get(&info.info.name).unwrap();
+    let gen_long = *max_per_segment_gen.get(&info.info.name).ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "missing maximum generation for segment {}",
+        info.info.name
+      ))
+    })?;
 
     let next_del = info.get_next_write_del_gen();
     if next_del < gen_long + 1 {

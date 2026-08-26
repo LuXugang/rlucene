@@ -985,7 +985,10 @@ impl Operations {
       );
 
       // add this label to prefix
-      builder.push(char::from_u32(label as u32).unwrap());
+      let label = char::from_u32(label as u32).ok_or_else(|| {
+        LuceneError::illegal_state("automaton transition is not a Unicode scalar")
+      })?;
+      builder.push(label);
 
       // swap current and next
       std::mem::swap(&mut current, &mut next);
@@ -1356,8 +1359,12 @@ impl PointTransitionSet {
         self.map.insert(point, p);
         return Ok(&mut self.points[p]);
       }
-      let v = self.map.get(&point).unwrap();
-      Ok(&mut self.points[*v])
+      let index = self
+        .map
+        .get(&point)
+        .copied()
+        .ok_or_else(|| LuceneError::illegal_state("transition point is missing from its map"))?;
+      Ok(&mut self.points[index])
     } else {
       for i in 0..self.count {
         if self.points[i].point == point {

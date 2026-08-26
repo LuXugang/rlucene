@@ -184,8 +184,10 @@ where
     output: &mut [u8],
     use_buffer: bool,
   ) -> Result<()> {
-    // This closure is not expected to be called under any circumstances.
-    self.read_buffer(pos, len, output, 1, |_| unreachable!(), use_buffer)
+    // `read_buffer` copies byte-sized values directly, so this converter is
+    // only a fallback for the generic path. Keeping it total avoids turning
+    // an internal dispatch invariant into a panic if that path changes.
+    self.read_buffer(pos, len, output, 1, |bytes| bytes[0], use_buffer)
   }
   fn read_ints(
     &mut self,

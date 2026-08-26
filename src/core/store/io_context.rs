@@ -29,14 +29,20 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// It will use [`ReadAdvice::Random`] by default, unless set by the system
 /// property `defaultReadAdvice`.
 pub static IO_CONTEXT_DEFAULT: LazyLock<IOContext> =
-  LazyLock::new(|| IOContext::default_io_context().unwrap());
+  LazyLock::new(|| match IOContext::default_io_context() {
+    Ok(context) => context,
+    Err(error) => panic!("invalid built-in default IO context: {error}"),
+  });
 /// A default context for reads with [`ReadAdvice::Sequential`].
 ///
 /// # Note
 /// This context should only be used when the read operations will be performed
 /// in the same thread as the thread that opens the underlying storage.
 pub static IO_CONTEXT_READ_ONCE: LazyLock<IOContext> =
-  LazyLock::new(|| IOContext::read_once_io_context().unwrap());
+  LazyLock::new(|| match IOContext::read_once_io_context() {
+    Ok(context) => context,
+    Err(error) => panic!("invalid built-in read-once IO context: {error}"),
+  });
 /// [`IOContext`] holds additional details on the merge/search context. An
 /// [`IOContext`] object can never be passed as a `None` parameter to either
 /// [`Directory::open_input`](crate::core::store::directory::Directory::open_input) or

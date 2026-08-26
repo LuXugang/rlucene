@@ -580,17 +580,18 @@ impl DeleteSlice {
       let mut current = self.slice_head.clone();
       loop {
         let next_node_guard = current.next.lock();
-        debug_assert!(
-          next_node_guard.is_some(),
-          "slice property violated between the head on the tail must not be a null node"
-        );
+        let next_node = next_node_guard.as_ref().ok_or_else(|| {
+          LuceneError::illegal_state(
+            "slice property violated: nodes between the head and tail must not be null",
+          )
+        })?;
 
-        next_node_guard.as_ref().unwrap().apply(del, doc_id_upto)?;
-        if Arc::ptr_eq(next_node_guard.as_ref().unwrap(), &self.slice_tail) {
+        next_node.apply(del, doc_id_upto)?;
+        if Arc::ptr_eq(next_node, &self.slice_tail) {
           break;
         }
 
-        let next_node = next_node_guard.as_ref().unwrap().clone();
+        let next_node = next_node.clone();
         drop(next_node_guard);
         current = next_node;
       }
@@ -613,11 +614,10 @@ impl DeleteSlice {
   pub(crate) fn is_tail_item(&self, item: &NodeEnum) -> bool {
     let node1 = NodeEnum::get_node_base(&self.slice_tail.item);
     let node2 = NodeEnum::get_node_base(item);
-    debug_assert!(node1.is_some() && node2.is_some());
-    if node1.as_ref().unwrap().item == node2.as_ref().unwrap().item {
-      return true;
+    match (node1.as_ref(), node2.as_ref()) {
+      (Some(node1), Some(node2)) => node1.item == node2.item,
+      _ => false,
     }
-    false
   }
 
   pub(crate) fn is_empty(&self) -> bool {

@@ -152,7 +152,7 @@ impl PackedInts {
     value_count: i32,
     bits_per_value: i32,
     acceptable_overhead_ratio: f32,
-  ) -> MutablePacked64Enum {
+  ) -> Result<MutablePacked64Enum> {
     let format_and_bits =
       fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
     PackedInts::get_mutable_impl(
@@ -162,17 +162,46 @@ impl PackedInts {
     )
   }
 
+  /// Creates a mutable packed array for a bit width that has already been
+  /// validated by the caller.
+  ///
+  /// Growable writers use this helper from infallible `Mutable` methods. The
+  /// bit width produced by those methods is always in the supported range;
+  /// the packed implementation is retained as a safe fallback if a
+  /// format-specific constructor rejects it.
+  pub(crate) fn get_mutable_for_valid_bits(
+    value_count: i32,
+    bits_per_value: i32,
+    acceptable_overhead_ratio: f32,
+  ) -> MutablePacked64Enum {
+    let format_and_bits =
+      fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
+    match PackedInts::get_mutable_impl(
+      value_count,
+      format_and_bits.bits_per_value,
+      format_and_bits.format,
+    ) {
+      Ok(mutable) => mutable,
+      Err(_) => {
+        MutablePacked64Enum::P64(Packed64::new(value_count, format_and_bits.bits_per_value))
+      },
+    }
+  }
+
   /// Same as [`get_mutable`](PackedInts::get_mutable) with a pre-computed
   /// number of bits per value and format.
   pub(crate) fn get_mutable_impl(
     value_count: i32,
     bits_per_value: i32,
     format: Format,
-  ) -> MutablePacked64Enum {
+  ) -> Result<MutablePacked64Enum> {
     debug_assert!(value_count >= 0);
     match format {
       Format::PackedSingleBlock(_) => create(value_count, bits_per_value),
-      Format::Packed(_) => MutablePacked64Enum::P64(Packed64::new(value_count, bits_per_value)),
+      Format::Packed(_) => Ok(MutablePacked64Enum::P64(Packed64::new(
+        value_count,
+        bits_per_value,
+      ))),
     }
   }
   /// Expert: Create a packed integer array writer for the given output,

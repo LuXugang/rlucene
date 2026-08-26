@@ -450,16 +450,31 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     DM: DocMap,
     DC: DocValuesConsumer,
   {
-    // `final_ords` should always be `Some` here, because we call finish() before flush()
-    // but we still keep the check here for consistent with Java Lucene.
-    let ords = self.final_ords.take().unwrap();
+    // `final_ords`, `final_ord_map`, and `frozen_hash` are populated by finish().
+    // Keep the state check explicit so a caller that flushes too early gets a normal error.
+    if self.final_ords.is_none() || self.final_ord_map.is_none() || self.frozen_hash.is_none() {
+      return Err(LuceneError::illegal_state(
+        "must be finished before flushing",
+      ));
+    }
+    let ords = self
+      .final_ords
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("must be finished before flushing"))?;
     let ord_counts = self.final_ord_counts.take();
-    let ord_map = self.final_ord_map.take().unwrap();
+    let ord_map = self
+      .final_ord_map
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("missing final ordinal map while flushing"))?;
+    let frozen_hash = self
+      .frozen_hash
+      .clone()
+      .ok_or_else(|| LuceneError::illegal_state("missing frozen hash while flushing"))?;
 
     if ord_counts.is_none() {
       let single_value_producer = get_doc_values_producer(
         self.field_info.clone(),
-        self.frozen_hash.clone().unwrap(),
+        frozen_hash,
         self.pool.clone(),
         ords.clone(),
         ord_map.clone(),
@@ -470,13 +485,14 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       dv_consumer.add_sorted_set_field(write_state, segment_info, &self.field_info, &producer)?;
       return Ok(());
     }
-    let ord_counts = ord_counts.unwrap();
+    let ord_counts = ord_counts
+      .ok_or_else(|| LuceneError::illegal_state("missing ordinal counts while flushing"))?;
 
     let doc_ords = if let Some(map) = sort_map {
       let docs_iter = self.docs_with_field.iterator()?;
       let mut values = BufferedSortedSetDocValues::new(
         ord_map.clone(),
-        self.frozen_hash.clone().unwrap(),
+        frozen_hash.clone(),
         self.pool.clone(),
         &ords,
         ord_counts.clone(),
@@ -496,7 +512,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     let producer = DocValuesProducerImpl1::new(
       self.field_info.clone(),
       ord_map,
-      self.frozen_hash.clone().unwrap(),
+      frozen_hash,
       self.pool.clone(),
       ords,
       ord_counts,
@@ -511,16 +527,22 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
   type DocIdSetIterator = SortedSetDocValuesWriterDocIdSetIterator;
 
   fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
-    if self.final_ords.is_none() {
-      return Err(LuceneError::illegal_state(
-        "must be finished before getting doc values".to_string(),
-      ));
-    }
+    let final_ord_map = self
+      .final_ord_map
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("must be finished before getting doc values"))?;
+    let frozen_hash = self
+      .frozen_hash
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("missing frozen hash while getting doc values"))?;
+    let final_ords = self.final_ords.as_ref().ok_or_else(|| {
+      LuceneError::illegal_state("missing final ordinals while getting doc values")
+    })?;
     SortedSetDocValuesWriter::get_values(
-      self.final_ord_map.as_ref().unwrap().clone(),
-      self.frozen_hash.clone().unwrap(),
+      final_ord_map.clone(),
+      frozen_hash.clone(),
       self.pool.clone(),
-      self.final_ords.as_ref().unwrap(),
+      final_ords,
       self.final_ord_counts.clone(),
       self.max_count,
       &self.docs_with_field,
@@ -919,7 +941,7 @@ impl DocOrds {
     let mut builder =
       PackedLongValues::packed_long_values_builder_default(acceptable_overhead_ratio)?;
     let mut doc_value_counts =
-      GrowableWriter::new(bits_per_value, max_doc, acceptable_overhead_ratio);
+      GrowableWriter::new(bits_per_value, max_doc, acceptable_overhead_ratio)?;
     let mut ord_offset = 1;
     loop {
       let doc_id = old_values.next_doc()?;

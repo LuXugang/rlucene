@@ -128,7 +128,10 @@ where
       doc
     };
     while doc < max {
-      let accepted = accept_docs.is_none() || accept_docs.as_ref().unwrap().get(doc as usize)?;
+      let accepted = match accept_docs {
+        Some(accept_docs) => accept_docs.get(doc as usize)?,
+        None => true,
+      };
       if accepted {
         let i = doc as usize & MASK;
         let idx = i >> 6;
@@ -187,14 +190,20 @@ where
               let v = head_top.scorer.iterator_mut().advance(min)?;
               head_top.doc = v;
               let _ = self.head.update_top_with_new_top(head_top)?;
-              head_top = self.head.take_top().unwrap();
+              head_top = self
+                .head
+                .take_top()
+                .ok_or_else(|| LuceneError::illegal_state("head queue is empty after update"))?;
             },
             Some(mut tail_top) => {
               if head_top.cost <= tail_top.cost {
                 let v = head_top.scorer.iterator_mut().advance(min)?;
                 head_top.doc = v;
                 let _ = self.head.update_top_with_new_top(head_top)?;
-                head_top = self.head.take_top().unwrap();
+                head_top = self
+                  .head
+                  .take_top()
+                  .ok_or_else(|| LuceneError::illegal_state("head queue is empty after update"))?;
                 // return tail_top back
                 self.tail.update_top_with_new_top(tail_top)?;
               } else {
@@ -202,7 +211,10 @@ where
                 tail_top.doc = v;
                 let _ = self.head.update_top_with_new_top(tail_top)?;
                 let _ = self.tail.update_top_with_new_top(head_top)?;
-                head_top = self.head.take_top().unwrap();
+                head_top = self
+                  .head
+                  .take_top()
+                  .ok_or_else(|| LuceneError::illegal_state("head queue is empty after update"))?;
               }
             },
           }

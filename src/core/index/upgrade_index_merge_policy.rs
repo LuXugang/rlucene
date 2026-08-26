@@ -204,10 +204,9 @@ where
       }
       if !new_infos.is_empty() {
         let merge = OneMerge::new(new_infos)?;
-        if spec.is_none() {
-          spec = Some(DefaultMergeSpecification::new());
-        }
-        spec.as_mut().unwrap().add(merge);
+        spec
+          .get_or_insert_with(DefaultMergeSpecification::new)
+          .add(merge);
       }
     }
 

@@ -135,11 +135,12 @@ where
   where
     S: RandomVectorScorer,
   {
-    let current_ep = graph.entry_node()?;
-    if current_ep.is_none() || graph.num_levels()? == 1 {
-      return Ok(current_ep);
+    let Some(mut current_ep) = graph.entry_node()? else {
+      return Ok(None);
+    };
+    if graph.num_levels()? == 1 {
+      return Ok(Some(current_ep));
     }
-    let mut current_ep = *current_ep.as_ref().unwrap();
     let size = get_graph_size(graph);
     self.prepare_scratch_state(size)?;
 

@@ -16,7 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::scorer::{Scorer, TwoPhaseState};
+use crate::core::search::scorer::Scorer;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 /// A Weight that has a constant score equal to the boost of the wrapped query.
@@ -42,9 +42,7 @@ impl ConstantScoreWeight {
     let exists = match scorer {
       None => false,
       Some(mut s) => {
-        let has_two_phase = s.has_two_phase_iterator();
-        if has_two_phase == TwoPhaseState::Yes {
-          let mut two_phase = s.two_phase_iterator_mut().unwrap();
+        if let Some(mut two_phase) = s.two_phase_iterator_mut() {
           let mut approximation = two_phase.approximation_mut();
           let is_match = approximation.advance(doc)? == doc;
           drop(approximation);

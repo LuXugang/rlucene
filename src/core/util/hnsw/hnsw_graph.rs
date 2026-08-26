@@ -264,8 +264,7 @@ pub struct ArrayNodesIterator {
 impl ArrayNodesIterator {
   /// Creates explicit node list (with partial length).
   pub fn from_nodes(nodes: Option<Arc<Vec<usize>>>, size: usize) -> Self {
-    debug_assert!(nodes.is_some());
-    debug_assert!(size <= nodes.as_ref().unwrap().len());
+    debug_assert!(nodes.as_ref().is_some_and(|nodes| size <= nodes.len()));
     Self {
       nodes,
       cur: 0,
@@ -383,7 +382,9 @@ impl NodesIterator for CollectionNodesIterator {
     }
     let mut dest_index = 0;
     while self.has_next() && dest_index < dest.len() {
-      dest[dest_index] = self.next().unwrap();
+      dest[dest_index] = self
+        .next()
+        .ok_or_else(|| LuceneError::no_such_element(""))?;
       dest_index += 1;
     }
     Ok(dest_index)

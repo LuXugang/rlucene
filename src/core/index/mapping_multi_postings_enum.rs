@@ -40,6 +40,36 @@ where
   PE: PostingsEnum,
   DM: DocMap,
 {
+  fn current_postings_mut(&mut self) -> Result<&mut PE> {
+    let idx = self
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("No current sub PostingsEnum"))?;
+    self
+      .doc_id_merger
+      .get_subs_mut()
+      .get_mut(idx)
+      .ok_or_else(|| LuceneError::illegal_state("Current postings sub is missing"))?
+      .sub
+      .postings
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("Current sub PostingsEnum is not set"))
+  }
+
+  fn current_postings_ref(&self) -> Result<&PE> {
+    let idx = self
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("No current sub PostingsEnum"))?;
+    self
+      .doc_id_merger
+      .get_subs()
+      .get(idx)
+      .ok_or_else(|| LuceneError::illegal_state("Current postings sub is missing"))?
+      .sub
+      .postings
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("Current sub PostingsEnum is not set"))
+  }
+
   pub(crate) fn new(
     field: String,
     doc_maps: &[Rc<DM>],
@@ -156,24 +186,11 @@ where
   DM: DocMap,
 {
   fn freq(&mut self) -> Result<i32> {
-    let v = self.current.unwrap();
-    self.doc_id_merger.get_subs_mut()[v]
-      .sub
-      .postings
-      .as_mut()
-      .unwrap()
-      .freq()
+    self.current_postings_mut()?.freq()
   }
 
   fn next_position(&mut self) -> Result<i32> {
-    let idx = self.current.unwrap();
-    let postings = self.doc_id_merger.get_subs_mut()[idx]
-      .sub
-      .postings
-      .as_mut()
-      .unwrap();
-
-    let pos = postings.next_position()?;
+    let pos = self.current_postings_mut()?.next_position()?;
     if pos < 0 {
       return Err(LuceneError::corrupt_index(format!(
         "position={} is negative, field=\"{}\" doc={}",
@@ -195,33 +212,15 @@ where
   }
 
   fn start_offset(&self) -> Result<i32> {
-    let idx = self.current.unwrap();
-    self.doc_id_merger.get_subs()[idx]
-      .sub
-      .postings
-      .as_ref()
-      .unwrap()
-      .start_offset()
+    self.current_postings_ref()?.start_offset()
   }
 
   fn end_offset(&self) -> Result<i32> {
-    let idx = self.current.unwrap();
-    self.doc_id_merger.get_subs()[idx]
-      .sub
-      .postings
-      .as_ref()
-      .unwrap()
-      .end_offset()
+    self.current_postings_ref()?.end_offset()
   }
 
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    let idx = self.current.unwrap();
-    self.doc_id_merger.get_subs()[idx]
-      .sub
-      .postings
-      .as_ref()
-      .unwrap()
-      .get_payload()
+    self.current_postings_ref()?.get_payload()
   }
 }
 pub(crate) struct MappingPostingsSub<PE, DM> {

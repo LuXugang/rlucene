@@ -519,7 +519,10 @@ where
     }
 
     debug_assert!(
-      self.head.size() == 0 || self.all_scorers[self.head.top().unwrap()].doc <= self.upto
+      self
+        .head
+        .top()
+        .is_none_or(|idx| self.all_scorers[idx].doc <= self.upto)
     );
     debug_assert!(self.upto >= target);
 
@@ -687,7 +690,10 @@ where
         let w = &self.all_scorers[idx];
 
         debug_assert!(w.doc < self.doc);
-        max_score_sum = max_score_sum.checked_add(w.scaled_max_score).unwrap();
+        max_score_sum = match max_score_sum.checked_add(w.scaled_max_score) {
+          Some(sum) => sum,
+          None => panic!("scaled maximum score sum overflowed"),
+        };
       }
 
       debug_assert!(
@@ -768,7 +774,7 @@ where
     let mut head_top = self.advance_head(target)?;
 
     if self.score_mode == ScoreMode::TopScores
-      && (head_top.is_none() || self.all_scorers[head_top.unwrap()].doc > self.upto)
+      && head_top.is_none_or(|idx| self.all_scorers[idx].doc > self.upto)
     {
       // Update score bounds if necessary
       self.move_to_next_block(target)?;
@@ -841,7 +847,10 @@ where
         approx.advance_tail_top()?;
 
         if approx.score_mode == ScoreMode::TopScores && approx.lead != prev_lead {
-          debug_assert!(prev_lead == approx.all_scorers[approx.lead.unwrap()].next);
+          debug_assert!(match approx.lead {
+            Some(lead) => prev_lead == approx.all_scorers[lead].next,
+            None => false,
+          });
 
           scaled_lead_score = scale_max_score(
             MathUtil::sum_upper_bound(approx.lead_score, FLOAT_MANTISSA_BITS) as f32,

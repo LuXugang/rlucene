@@ -244,12 +244,6 @@ pub struct Lucene101PostingsFormat {
   identity: Identity,
 }
 
-impl Default for Lucene101PostingsFormat {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
 impl Lucene101PostingsFormat {
   /// Filename extension for some small metadata about how postings are
   /// encoded.
@@ -289,8 +283,8 @@ impl Lucene101PostingsFormat {
   pub(crate) const VERSION_START: i32 = 0;
   pub(crate) const VERSION_CURRENT: i32 = Self::VERSION_START;
 
-  pub fn new() -> Self {
-    Self::with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE).unwrap()
+  pub fn new() -> Result<Self> {
+    Self::with_iterm_num(DEFAULT_MIN_BLOCK_SIZE, DEFAULT_MAX_BLOCK_SIZE)
   }
   /// Creates a [`Lucene101PostingsFormat`] with custom values for `min_block_size` and `max_block_size`
   /// passed to the block terms dictionary.
@@ -383,12 +377,12 @@ impl PostingsFormat for Lucene101PostingsFormat {
   }
 
   fn for_name(name: &str) -> Result<Arc<Self>> {
-    static FORMAT: OnceLock<Arc<Lucene101PostingsFormat>> = OnceLock::new();
+    static FORMAT: OnceLock<Result<Arc<Lucene101PostingsFormat>>> = OnceLock::new();
 
     match name {
-      "Lucene101" => Ok(Arc::clone(
-        FORMAT.get_or_init(|| Arc::new(Lucene101PostingsFormat::new())),
-      )),
+      "Lucene101" => FORMAT
+        .get_or_init(|| Lucene101PostingsFormat::new().map(Arc::new))
+        .clone(),
       _ => Err(LuceneError::illegal_argument(format!(
         "Could not load postings format named \"{name}\""
       ))),

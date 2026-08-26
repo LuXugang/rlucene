@@ -278,6 +278,27 @@ impl MemorySegmentIndexInput {
     Ok(read(&bytes))
   }
 
+  fn decode_short(bytes: &[u8]) -> Result<i16> {
+    let bytes: [u8; BitUtil::SHORT_BYTES] = bytes
+      .try_into()
+      .map_err(|_| LuceneError::illegal_state("short read returned an invalid byte length"))?;
+    Ok(i16::from_le_bytes(bytes))
+  }
+
+  fn decode_int(bytes: &[u8]) -> Result<i32> {
+    let bytes: [u8; BitUtil::INT_BYTES] = bytes
+      .try_into()
+      .map_err(|_| LuceneError::illegal_state("int read returned an invalid byte length"))?;
+    Ok(i32::from_le_bytes(bytes))
+  }
+
+  fn decode_long(bytes: &[u8]) -> Result<i64> {
+    let bytes: [u8; BitUtil::LONG_BYTES] = bytes
+      .try_into()
+      .map_err(|_| LuceneError::illegal_state("long read returned an invalid byte length"))?;
+    Ok(i64::from_le_bytes(bytes))
+  }
+
   fn read_bytes_boundary_current(&mut self, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
     self.ensure_current_read(len)?;
     let mut remaining = len;
@@ -450,16 +471,12 @@ impl DataInput for MemorySegmentIndexInput {
 
   fn read_short(&mut self) -> Result<i16> {
     self.ensure_open()?;
-    self.read_current_buffer(BitUtil::SHORT_BYTES, |bytes| {
-      i16::from_le_bytes(bytes.try_into().unwrap())
-    })
+    self.read_current_buffer(BitUtil::SHORT_BYTES, Self::decode_short)?
   }
 
   fn read_int(&mut self) -> Result<i32> {
     self.ensure_open()?;
-    self.read_current_buffer(BitUtil::INT_BYTES, |bytes| {
-      i32::from_le_bytes(bytes.try_into().unwrap())
-    })
+    self.read_current_buffer(BitUtil::INT_BYTES, Self::decode_int)?
   }
 
   fn read_group_vint(&mut self, dst: &mut [i32], offset: usize) -> Result<()> {
@@ -483,9 +500,7 @@ impl DataInput for MemorySegmentIndexInput {
 
   fn read_long(&mut self) -> Result<i64> {
     self.ensure_open()?;
-    self.read_current_buffer(BitUtil::LONG_BYTES, |bytes| {
-      i64::from_le_bytes(bytes.try_into().unwrap())
-    })
+    self.read_current_buffer(BitUtil::LONG_BYTES, Self::decode_long)?
   }
 
   fn read_longs(&mut self, dst: &mut [i64], offset: usize, len: usize) -> Result<()> {
@@ -570,7 +585,10 @@ impl IntReader for MemorySegmentIndexInput {
     let bytes = segment
       .get(pos..end)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
-    Ok(i32::from_le_bytes(bytes.try_into().unwrap()))
+    let bytes: [u8; BitUtil::INT_BYTES] = bytes
+      .try_into()
+      .map_err(|_| LuceneError::illegal_state("int read returned an invalid byte length"))?;
+    Ok(i32::from_le_bytes(bytes))
   }
 }
 
@@ -761,23 +779,17 @@ impl RandomAccessInput for MemorySegmentIndexInput {
 
   fn read_short(&mut self, pos: usize) -> Result<i16> {
     self.ensure_open()?;
-    self.read_buffer(pos, BitUtil::SHORT_BYTES, |bytes| {
-      i16::from_le_bytes(bytes.try_into().unwrap())
-    })
+    self.read_buffer(pos, BitUtil::SHORT_BYTES, Self::decode_short)?
   }
 
   fn read_int(&mut self, pos: usize) -> Result<i32> {
     self.ensure_open()?;
-    self.read_buffer(pos, BitUtil::INT_BYTES, |bytes| {
-      i32::from_le_bytes(bytes.try_into().unwrap())
-    })
+    self.read_buffer(pos, BitUtil::INT_BYTES, Self::decode_int)?
   }
 
   fn read_long(&mut self, pos: usize) -> Result<i64> {
     self.ensure_open()?;
-    self.read_buffer(pos, BitUtil::LONG_BYTES, |bytes| {
-      i64::from_le_bytes(bytes.try_into().unwrap())
-    })
+    self.read_buffer(pos, BitUtil::LONG_BYTES, Self::decode_long)?
   }
 
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {

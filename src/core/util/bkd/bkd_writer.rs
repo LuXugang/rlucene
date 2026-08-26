@@ -2040,12 +2040,8 @@ where
   }
   pub fn close(&mut self) -> Result<()> {
     self.finished = true;
-    if matches!(self.point_writer, Some(PointWriterEnum::Offline(_))) {
+    if let Some(PointWriterEnum::Offline(offline_point_writer)) = self.point_writer.as_mut() {
       let (temp_file_name, close_result) = {
-        let offline_point_writer = match self.point_writer.as_mut() {
-          Some(PointWriterEnum::Offline(offline_point_writer)) => offline_point_writer,
-          _ => unreachable!(),
-        };
         let temp_file_name = offline_point_writer.name.clone();
         let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
           offline_point_writer.close()

@@ -54,7 +54,12 @@ use std::rc::Rc;
 use std::sync::LazyLock;
 
 pub(crate) static FLAGS_BITS: LazyLock<i32> =
-  LazyLock::new(|| bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64).unwrap());
+  LazyLock::new(
+    || match bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64) {
+      Ok(bits) => bits,
+      Err(error) => panic!("invalid built-in term-vector flags: {error}"),
+    },
+  );
 /// [`TermVectorsWriter`] for [`Lucene90CompressingTermVectorsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat).
 pub struct Lucene90CompressingTermVectorsWriter<D>
 where
@@ -352,7 +357,11 @@ where
 
   fn flush_num_fields(&mut self, chunk_docs: usize) -> Result<i32> {
     if chunk_docs == 1 {
-      let num_fields = self.pending_docs.front().unwrap().num_fields;
+      let num_fields = self
+        .pending_docs
+        .front()
+        .ok_or_else(|| LuceneError::illegal_state("pending term-vector document is missing"))?
+        .num_fields;
       self.vectors_stream.write_vint(num_fields)?;
       Ok(num_fields)
     } else {

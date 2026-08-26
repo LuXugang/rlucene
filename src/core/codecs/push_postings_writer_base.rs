@@ -29,7 +29,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{DataOutput, IndexOutput};
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -121,13 +121,15 @@ where
     N: NormsProducer,
     PE: PostingsEnum,
   {
-    let mut norm_values = if self.field_info.as_ref().unwrap().has_norms() {
-      Some(
-        norms
-          .as_ref()
-          .unwrap()
-          .get_norms(self.field_info.as_ref().unwrap())?,
-      )
+    let field_info = self
+      .field_info
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("postings field info is not initialized"))?;
+    let mut norm_values = if field_info.has_norms() {
+      let norms = norms
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("norms producer is missing"))?;
+      Some(norms.get_norms(field_info)?)
     } else {
       None
     };

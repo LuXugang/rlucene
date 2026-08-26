@@ -206,10 +206,14 @@ where
     let cmp = BitSetIteratorCmp::new(temp_bit_set_iterators.as_ref());
     ArrayUtil::tim_sort_with_comparator(&mut cost, cmp)?;
 
-    let bit_set_iterators = cost
-      .into_iter()
-      .map(|idx| temp_bit_set_iterators[idx].take().unwrap())
-      .collect::<Vec<_>>();
+    let mut bit_set_iterators = Vec::with_capacity(cost.len());
+    for idx in cost {
+      bit_set_iterators.push(
+        temp_bit_set_iterators[idx]
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("sorted bit-set iterator is missing"))?,
+      );
+    }
     let mut min_length = i32::MAX;
     for iter in &bit_set_iterators {
       let bit_set = iter.get_bit_set();
@@ -309,14 +313,13 @@ where
   const TYPE: &'static str = "BitSetIteratorCmp";
 
   fn compare(&self, a: &usize, b: &usize) -> Result<i32> {
-    Ok(
-      self.disi[*a]
-        .as_ref()
-        .unwrap()
-        .cost()?
-        .cmp(&self.disi[*b].as_ref().unwrap().cost()?)
-        .to_int(),
-    )
+    let left = self.disi[*a]
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("left bit-set iterator is missing"))?;
+    let right = self.disi[*b]
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("right bit-set iterator is missing"))?;
+    Ok(left.cost()?.cmp(&right.cost()?).to_int())
   }
 }
 /// [`TwoPhaseIterator`] implementing a conjunction.

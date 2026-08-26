@@ -294,8 +294,10 @@ impl State {
   }
   /// Returns the most recent transition's target state.
   pub(crate) fn last_child(&self) -> usize {
-    debug_assert!(self.has_children(), "No outgoing transitions.");
-    *self.states.last().unwrap()
+    match self.states.last() {
+      Some(state) => *state,
+      None => panic!("No outgoing transitions."),
+    }
   }
   /// Returns the associated state if the most recent transition is labeled
   /// with `label`.

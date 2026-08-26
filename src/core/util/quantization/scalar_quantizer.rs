@@ -661,8 +661,12 @@ pub(crate) fn get_upper_and_lower_quantile(arr: &mut [f32], confidence_interval:
   if selector_index > 0 {
     let len = arr.len();
     let mut selector = IntroSelector::new(FloatSelector::new(arr));
-    Selector::select(&mut selector, 0, len, len - selector_index).unwrap();
-    Selector::select(&mut selector, 0, len - selector_index, selector_index).unwrap();
+    if let Err(error) = Selector::select(&mut selector, 0, len, len - selector_index) {
+      panic!("valid upper quantile selection failed: {error}");
+    }
+    if let Err(error) = Selector::select(&mut selector, 0, len - selector_index, selector_index) {
+      panic!("valid lower quantile selection failed: {error}");
+    }
   }
   let mut min = f32::INFINITY;
   let mut max = f32::NEG_INFINITY;

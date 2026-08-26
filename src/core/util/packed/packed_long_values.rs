@@ -312,7 +312,7 @@ impl Builder {
       };
 
       let mut mutable =
-        PackedInts::get_mutable(num_values, bits_required, acceptable_overhead_ratio);
+        PackedInts::get_mutable(num_values, bits_required, acceptable_overhead_ratio)?;
       let mut i = 0;
       while i < num_values {
         i += mutable.set_bulk(i, self.pending.as_slice(), i, num_values - i);

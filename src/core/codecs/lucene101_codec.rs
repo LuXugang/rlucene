@@ -109,31 +109,30 @@ pub struct Lucene101Codec {
   doc_values_format: Lucene101CodecDocValuesFormat,
   knn_vectors_format: Lucene101CodecKnnVectorsFormat,
   stored_fields_format: Lucene90StoredFieldsFormat,
-}
-
-impl Default for Lucene101Codec {
-  fn default() -> Self {
-    Self::with_mode(Mode::BestSpeed)
-  }
+  term_vectors_format: Lucene90TermVectorsFormat,
 }
 
 impl Lucene101Codec {
+  /// Instantiates a new codec using the default stored fields compression mode.
+  pub fn new() -> Result<Self> {
+    Self::with_mode(Mode::BestSpeed)
+  }
+
   /// Instantiates a new codec, specifying the stored fields compression mode to use.
-  pub fn with_mode(mode: Mode) -> Self {
-    Self {
+  pub fn with_mode(mode: Mode) -> Result<Self> {
+    Ok(Self {
       stored_fields_format: Lucene90StoredFieldsFormat::with_mode(mode.stored_mode()),
       postings_format: PerFieldPostingsFormat::new(Lucene101CodecPostingsFormatBase {
-        default_postings_format: DefaultPostingsFormat::new(),
+        default_postings_format: DefaultPostingsFormat::new()?,
       }),
       doc_values_format: PerFieldDocValuesFormat::new(Lucene101CodecDocValuesFormatBase {
-        default_doc_values_format: DefaultDocValuesFormat::default(),
+        default_doc_values_format: DefaultDocValuesFormat::new()?,
       }),
       knn_vectors_format: PerFieldKnnVectorsFormat::new(Lucene101CodecKnnVectorsFormatBase {
-        default_knn_vectors_format: Lucene99HnswVectorsFormat::new()
-          .expect("default KNN vectors format parameters are valid")
-          .into(),
+        default_knn_vectors_format: Lucene99HnswVectorsFormat::new()?.into(),
       }),
-    }
+      term_vectors_format: Lucene90TermVectorsFormat::new()?,
+    })
   }
 }
 
@@ -168,7 +167,7 @@ impl Codec for Lucene101Codec {
   }
 
   fn term_vectors_format(&self) -> Self::TermVectorsFormat {
-    Lucene90TermVectorsFormat::default()
+    self.term_vectors_format.clone()
   }
 
   fn field_infos_format(&self) -> Self::FieldInfosFormat {

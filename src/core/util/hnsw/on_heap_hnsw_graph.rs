@@ -139,7 +139,15 @@ impl OnHeapHnswGraph {
   ) -> Result<&mut NeighborArray> {
     #[cfg(debug_assertions)]
     check_graph(&self.graph, level, node);
-    Ok(self.graph[node].get_mut().unwrap()[level].get_mut())
+    let levels = self
+      .graph
+      .get_mut(node)
+      .and_then(OnceLock::get_mut)
+      .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} is not initialized")))?;
+    let neighbors = levels.get_mut(level).ok_or_else(|| {
+      LuceneError::illegal_state(format!("HNSW node {node} has no level {level}"))
+    })?;
+    Ok(neighbors.get_mut())
   }
 
   pub(crate) fn get_neighbors(
@@ -149,7 +157,15 @@ impl OnHeapHnswGraph {
   ) -> Result<RwLockReadGuard<'_, NeighborArray>> {
     #[cfg(debug_assertions)]
     check_graph(&self.graph, level, node);
-    Ok(self.graph[node].get().unwrap()[level].read())
+    let levels = self
+      .graph
+      .get(node)
+      .and_then(OnceLock::get)
+      .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} is not initialized")))?;
+    let neighbors = levels.get(level).ok_or_else(|| {
+      LuceneError::illegal_state(format!("HNSW node {node} has no level {level}"))
+    })?;
+    Ok(neighbors.read())
   }
 
   pub(crate) fn with_neighbors_mut<T>(
@@ -160,7 +176,15 @@ impl OnHeapHnswGraph {
   ) -> Result<T> {
     #[cfg(debug_assertions)]
     check_graph(&self.graph, level, node);
-    let mut neighbors = self.graph[node].get().unwrap()[level].write();
+    let levels = self
+      .graph
+      .get(node)
+      .and_then(OnceLock::get)
+      .ok_or_else(|| LuceneError::illegal_state(format!("HNSW node {node} is not initialized")))?;
+    let neighbors = levels.get(level).ok_or_else(|| {
+      LuceneError::illegal_state(format!("HNSW node {node} has no level {level}"))
+    })?;
+    let mut neighbors = neighbors.write();
     action(&mut neighbors)
   }
 
@@ -433,8 +457,14 @@ impl HnswGraph for &OnHeapHnswGraph {
 }
 #[cfg(debug_assertions)]
 fn check_graph(graph: &[OnceLock<Vec<RwLock<NeighborArray>>>], level: usize, node: usize) {
-  debug_assert!(node < graph.len(),);
-  let levels = graph[node].get().unwrap();
+  let Some(entry) = graph.get(node) else {
+    debug_assert!(false, "HNSW node {node} is out of bounds");
+    return;
+  };
+  let Some(levels) = entry.get() else {
+    debug_assert!(false, "HNSW node {node} is not initialized");
+    return;
+  };
   debug_assert!(
     level < levels.len(),
     "level={} exceeds available levels ({}) for node={}",

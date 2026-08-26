@@ -97,14 +97,12 @@ where
   // For the user's convenience, we allow None collectors to be passed.
   // However, to improve performance, these None collectors are found
   // and dropped from the array we save for actual collection time.
-  let collectors: Vec<C> = collectors.into_iter().flatten().collect();
+  let mut collectors: Vec<C> = collectors.into_iter().flatten().collect();
   match collectors.len() {
     0 => Err(LuceneError::illegal_argument(
       "At least 1 collector must not be None",
     )),
-    1 => Ok(OneOrMultiCollector::One(
-      collectors.into_iter().next().unwrap(),
-    )),
+    1 => Ok(OneOrMultiCollector::One(collectors.remove(0))),
     _ => Ok(OneOrMultiCollector::Multi(MultiCollector::new(collectors)?)),
   }
 }
@@ -158,9 +156,7 @@ where
       && (global_score_mode == ScoreMode::TopScores
         || leaf_score_mode != Some(ScoreMode::TopScores))
     {
-      Ok(LeafCollectorEnum3::A(
-        leaf_collectors.into_iter().next().unwrap(),
-      ))
+      Ok(LeafCollectorEnum3::A(leaf_collectors.remove(0)))
     } else {
       let leaf_collector =
         MultiLeafCollector::new(leaf_collectors, global_score_mode == ScoreMode::TopScores);

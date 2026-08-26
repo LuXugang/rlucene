@@ -213,7 +213,7 @@ impl QueryBase for SynonymQuery {
     }
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(mut self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
     Self: Sized,
@@ -222,13 +222,7 @@ impl QueryBase for SynonymQuery {
       return Ok(boolean_query::Builder::new().build().into());
     }
     if self.terms.len() == 1 && self.terms[0].boost == 1.0 {
-      return Ok(
-        TermQuery::new(Term::new(
-          self.field,
-          self.terms.into_iter().next().unwrap().term,
-        ))
-        .into(),
-      );
+      return Ok(TermQuery::new(Term::new(self.field, self.terms.remove(0).term)).into());
     }
     Ok(self.into())
   }
@@ -882,14 +876,14 @@ impl SynonymImpacts {
       }
 
       let freq_upper_bound = std::cmp::min(i32::MAX as i64, sum_tf) as i32;
-      if merged_impacts.is_empty() {
-        merged_impacts.push(Impact::new(freq_upper_bound, norm));
-      } else {
-        let prev_impact = merged_impacts.last().unwrap();
-        debug_assert!((prev_impact.norm as u64) < (norm as u64));
-        if freq_upper_bound > prev_impact.freq {
-          merged_impacts.push(Impact::new(freq_upper_bound, norm));
-        } // otherwise the previous impact is already more competitive
+      match merged_impacts.last() {
+        None => merged_impacts.push(Impact::new(freq_upper_bound, norm)),
+        Some(prev_impact) => {
+          debug_assert!((prev_impact.norm as u64) < (norm as u64));
+          if freq_upper_bound > prev_impact.freq {
+            merged_impacts.push(Impact::new(freq_upper_bound, norm));
+          } // otherwise the previous impact is already more competitive
+        },
       }
 
       if top.current_opt().is_none() {
@@ -1471,17 +1465,17 @@ where
   {
     self.init(context)?;
 
-    let Some(iterators) = self.iterators.take() else {
+    let Some(mut iterators) = self.iterators.take() else {
       return Err(LuceneError::illegal_state(
         "ScorerSupplier.get must be called at most once",
       ));
     };
-    let Some(impacts) = self.impacts.take() else {
+    let Some(mut impacts) = self.impacts.take() else {
       return Err(LuceneError::illegal_state(
         "ScorerSupplier.get must be called at most once",
       ));
     };
-    let term_boosts = std::mem::take(&mut self.term_boosts);
+    let mut term_boosts = std::mem::take(&mut self.term_boosts);
 
     if iterators.is_empty() {
       return Ok(SynonymScorerEnum::D(ConstantScoreScorer::from_disi(
@@ -1497,9 +1491,9 @@ where
     let norms = context.reader().get_norm_values(&self.query.field)?;
 
     if iterators.len() == 1 {
-      let iterator = iterators.into_iter().next().unwrap();
-      let impact = impacts.into_iter().next().unwrap();
-      let boost = term_boosts.into_iter().next().unwrap();
+      let iterator = iterators.remove(0);
+      let impact = impacts.remove(0);
+      let boost = term_boosts.remove(0);
       return if self.score_mode == ScoreMode::CompleteNoScores || boost == 1.0 {
         let scorer = if self.score_mode == ScoreMode::TopScores {
           TermScorer::from_impacts(impact, sim_weight.clone(), norms, false)

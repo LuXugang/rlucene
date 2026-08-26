@@ -206,9 +206,13 @@ impl QueryBase for FloatVectorSimilarityQuery {
       .target
       .first()
       .ok_or_else(|| LuceneError::array_index_out_of_bounds("target must not be empty"))?;
+    let type_name = std::any::type_name::<Self>();
+    let short_type_name = type_name
+      .rsplit_once("::")
+      .map_or(type_name, |(_, name)| name);
     Ok(format!(
       "{}[field={} target=[{}...] traversal_similarity={} result_similarity={} filter={}]",
-      std::any::type_name::<Self>().rsplit("::").next().unwrap(),
+      short_type_name,
       self.base.field,
       target,
       self.base.traversal_similarity,

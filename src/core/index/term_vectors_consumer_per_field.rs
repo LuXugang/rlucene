@@ -148,13 +148,17 @@ impl TermVectorsConsumerPerField {
 
           if self.do_vector_positions || self.do_vector_offsets {
             let positions = if self.do_vector_positions {
-              self.base.init_reader(&mut pos_reader, term_id, 0, int_pool);
+              self
+                .base
+                .init_reader(&mut pos_reader, term_id, 0, int_pool)?;
               Some(&mut pos_reader)
             } else {
               None
             };
             let offsets = if self.do_vector_offsets {
-              self.base.init_reader(&mut off_reader, term_id, 1, int_pool);
+              self
+                .base
+                .init_reader(&mut off_reader, term_id, 1, int_pool)?;
               Some(&mut off_reader)
             } else {
               None

@@ -237,7 +237,7 @@ fn test_add_and_update_term() -> Result<()> {
   assert_eq!(6, hash.add_called.load(Ordering::SeqCst));
 
   let mut reader = ByteSliceReader::new(&byte_pool);
-  base.base.init_reader(&mut reader, 0, 0, &int_pool);
+  base.base.init_reader(&mut reader, 0, 0, &int_pool)?;
 
   let postings_array_wrapper = &base.base.bytes_hash.bytes_start_array.per_field;
 
@@ -249,7 +249,7 @@ fn test_add_and_update_term() -> Result<()> {
     0,
     1
   )?);
-  base.base.init_reader(&mut reader, 1, 0, &int_pool);
+  base.base.init_reader(&mut reader, 1, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
     postings_array_wrapper,
@@ -258,7 +258,7 @@ fn test_add_and_update_term() -> Result<()> {
     0,
     1
   )?);
-  base.base.init_reader(&mut reader, 2, 0, &int_pool);
+  base.base.init_reader(&mut reader, 2, 0, &int_pool)?;
   assert!(!assert_doc_and_freq(
     &mut reader,
     postings_array_wrapper,
@@ -275,7 +275,7 @@ fn test_add_and_update_term() -> Result<()> {
     1,
     3
   )?);
-  base.base.init_reader(&mut reader, 3, 0, &int_pool);
+  base.base.init_reader(&mut reader, 3, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
     postings_array_wrapper,
@@ -284,7 +284,7 @@ fn test_add_and_update_term() -> Result<()> {
     1,
     2
   )?);
-  base.base.init_reader(&mut reader, 4, 0, &int_pool);
+  base.base.init_reader(&mut reader, 4, 0, &int_pool)?;
   assert!(!assert_doc_and_freq(
     &mut reader,
     postings_array_wrapper,
@@ -309,7 +309,7 @@ fn test_add_and_update_term() -> Result<()> {
     3,
     1
   )?);
-  base.base.init_reader(&mut reader, 5, 0, &int_pool);
+  base.base.init_reader(&mut reader, 5, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
     postings_array_wrapper,
@@ -318,7 +318,7 @@ fn test_add_and_update_term() -> Result<()> {
     2,
     1
   )?);
-  base.base.init_reader(&mut reader, 6, 0, &int_pool);
+  base.base.init_reader(&mut reader, 6, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
     postings_array_wrapper,
@@ -427,7 +427,7 @@ fn test_add_and_update_random() -> Result<()> {
   for posting in values {
     base
       .base
-      .init_reader(&mut reader, posting.term_id, 0, &int_pool);
+      .init_reader(&mut reader, posting.term_id, 0, &int_pool)?;
 
     let mut eof = false;
     let mut pref_doc = 0;
@@ -500,7 +500,7 @@ fn test_write_bytes() -> Result<()> {
     let mut reader = ByteSliceReader::new(&byte_pool);
     // Java uses a separate term-byte pool, so its first postings slice starts at 0. Rust shares
     // the pool with term bytes; initialize from the recorded stream boundaries instead.
-    base.base.init_reader(&mut reader, 0, 0, &int_pool);
+    base.base.init_reader(&mut reader, 0, 0, &int_pool)?;
     for expected in random_data {
       assert_eq!(expected, reader.read_byte()?);
     }

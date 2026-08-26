@@ -33,6 +33,20 @@ impl<N> SingletonSortedNumericDocValues<N>
 where
   N: NumericDocValues,
 {
+  fn inner_ref(&self) -> Result<&N> {
+    self
+      .inner
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("wrapped NumericDocValues is not available"))
+  }
+
+  fn inner_mut(&mut self) -> Result<&mut N> {
+    self
+      .inner
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("wrapped NumericDocValues is not available"))
+  }
+
   pub fn new(inner: N) -> Result<Self> {
     if inner.doc_id() != -1 {
       return Err(LuceneError::illegal_state(format!(
@@ -55,19 +69,19 @@ where
   N: NumericDocValues,
 {
   fn doc_id(&self) -> i32 {
-    self.inner.as_ref().unwrap().doc_id()
+    self.inner.as_ref().map_or(-1, |inner| inner.doc_id())
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.inner.as_mut().unwrap().next_doc()
+    self.inner_mut()?.next_doc()
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    self.inner.as_mut().unwrap().advance(target)
+    self.inner_mut()?.advance(target)
   }
 
   fn cost(&self) -> Result<i64> {
-    self.inner.as_ref().unwrap().cost()
+    self.inner_ref()?.cost()
   }
 }
 
@@ -76,7 +90,7 @@ where
   N: NumericDocValues,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    self.inner.as_mut().unwrap().advance_exact(target)
+    self.inner_mut()?.advance_exact(target)
   }
 }
 
@@ -85,7 +99,7 @@ where
   N: NumericDocValues,
 {
   fn next_value(&mut self) -> Result<i64> {
-    self.inner.as_mut().unwrap().long_value()
+    self.inner_mut()?.long_value()
   }
 
   fn doc_value_count(&mut self) -> Result<i32> {

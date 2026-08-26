@@ -218,10 +218,16 @@ impl BooleanQuery {
   where
     IRC: IndexReaderContext,
   {
-    let mut new_query = Builder::new();
-    let mut queries: [Option<Query>; 3] = [None, None, None];
+    if self.clauses.len() != 2 {
+      return Err(LuceneError::illegal_state(
+        "two-clause count rewrite requires exactly two clauses",
+      ));
+    }
 
-    for (clause, slot) in self.clauses.iter().zip(queries.iter_mut()) {
+    let mut new_query = Builder::new();
+    let mut queries = Vec::with_capacity(3);
+
+    for clause in &self.clauses {
       let term_query = match &clause.query {
         Query::Term(q) => q.clone(),
         _ => {
@@ -237,16 +243,13 @@ impl BooleanQuery {
       };
 
       new_query.add(term_query.clone(), Occur::Must)?;
-      *slot = Some(term_query.into());
+      queries.push(term_query.into());
     }
 
-    queries[2] = Some(new_query.build().into());
-
-    Ok([
-      queries[0].take().unwrap(),
-      queries[1].take().unwrap(),
-      queries[2].take().unwrap(),
-    ])
+    queries.push(new_query.build().into());
+    queries.try_into().map_err(|_| {
+      LuceneError::illegal_state("two-clause count rewrite did not create three queries")
+    })
   }
 }
 

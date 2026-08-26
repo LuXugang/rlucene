@@ -124,12 +124,13 @@ impl DocValuesWriter for NumericDocValuesWriter {
   {
     // `final_values` should always be `Some` here, because we call finish() before flush()
     // but we still keep the check here for consistent with Java Lucene.
-    if self.final_values.is_none() {
-      self.final_values = Some(std::mem::take(&mut self.pending).build()?)
-    }
+    let final_values = match &mut self.final_values {
+      Some(final_values) => final_values,
+      slot @ None => slot.insert(std::mem::take(&mut self.pending).build()?),
+    };
     let producer = get_doc_values_producer(
       self.field_info.clone(),
-      self.final_values.as_ref().unwrap(),
+      final_values,
       std::mem::take(&mut self.docs_with_field),
       sort_map,
     )?;
@@ -140,13 +141,13 @@ impl DocValuesWriter for NumericDocValuesWriter {
   type DocIdSetIterator = BufferedNumericDocValues;
 
   fn get_doc_values(&self) -> Result<Self::DocIdSetIterator> {
-    if self.final_values.is_none() {
+    let Some(final_values) = self.final_values.as_ref() else {
       return Err(LuceneError::illegal_state(
         "must be finished before getting doc values",
       ));
-    }
+    };
     Ok(BufferedNumericDocValues::new(
-      self.final_values.as_ref().unwrap(),
+      final_values,
       self.docs_with_field.iterator()?,
     ))
   }

@@ -84,6 +84,46 @@ impl<PE> MultiPostingsEnum<PE> {
   pub fn postings_enums_mut(&mut self) -> &mut [Option<PE>] {
     self.sub_postings_enums.as_mut()
   }
+
+  fn postings_enum_mut(&mut self, idx: usize) -> Result<&mut PE> {
+    self
+      .sub_postings_enums
+      .get_mut(idx)
+      .and_then(Option::as_mut)
+      .ok_or_else(|| LuceneError::illegal_state(format!("PostingsEnum {idx} is not set")))
+  }
+
+  fn postings_enum_ref(&self, idx: usize) -> Result<&PE> {
+    self
+      .sub_postings_enums
+      .get(idx)
+      .and_then(Option::as_ref)
+      .ok_or_else(|| LuceneError::illegal_state(format!("PostingsEnum {idx} is not set")))
+  }
+
+  fn current_postings_mut(&mut self) -> Result<&mut PE> {
+    let current = self
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("No current sub PostingsEnum"))?;
+    let pe_idx = self
+      .subs
+      .get(current)
+      .ok_or_else(|| LuceneError::illegal_state("Current postings sub is missing"))?
+      .postings_enum_idx;
+    self.postings_enum_mut(pe_idx)
+  }
+
+  fn current_postings_ref(&self) -> Result<&PE> {
+    let current = self
+      .current
+      .ok_or_else(|| LuceneError::illegal_state("No current sub PostingsEnum"))?;
+    let pe_idx = self
+      .subs
+      .get(current)
+      .ok_or_else(|| LuceneError::illegal_state("Current postings sub is missing"))?
+      .postings_enum_idx;
+    self.postings_enum_ref(pe_idx)
+  }
 }
 
 impl<PE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
@@ -102,7 +142,9 @@ where
 
   fn next_doc(&mut self) -> Result<i32> {
     loop {
-      if self.current.is_none() {
+      let current = if let Some(current) = self.current {
+        current
+      } else {
         if self.upto == self.num_subs - 1 {
           self.doc = NO_MORE_DOCS;
           return Ok(self.doc);
@@ -111,11 +153,12 @@ where
           let idx = self.upto as usize;
           self.current = Some(idx);
           self.current_base = self.subs[idx].slice.get_start();
+          idx
         }
-      }
+      };
 
-      let idx = self.subs[self.current.unwrap()].postings_enum_idx;
-      let doc = self.sub_postings_enums[idx].as_mut().unwrap().next_doc()?;
+      let idx = self.subs[current].postings_enum_idx;
+      let doc = self.postings_enum_mut(idx)?.next_doc()?;
       if doc != NO_MORE_DOCS {
         self.doc = self.current_base as i32 + doc;
         return Ok(self.doc);
@@ -129,17 +172,13 @@ where
     debug_assert!(target > self.doc);
     loop {
       if let Some(idx) = self.current {
+        let pe_idx = self.subs[idx].postings_enum_idx;
         let doc = if target < self.current_base as i32 {
           // target was in the previous slice but there was no matching doc after it
-          self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-            .as_mut()
-            .unwrap()
-            .next_doc()?
+          self.postings_enum_mut(pe_idx)?.next_doc()?
         } else {
-          self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-            .as_mut()
-            .unwrap()
-            .advance(target - self.current_base as i32)?
+          let target = target - self.current_base as i32;
+          self.postings_enum_mut(pe_idx)?.advance(target)?
         };
 
         if doc == NO_MORE_DOCS {
@@ -164,7 +203,7 @@ where
     let mut cost: i64 = 0;
     for i in 0..(self.num_subs as usize) {
       let pe_idx = self.subs[i].postings_enum_idx;
-      cost += self.sub_postings_enums[pe_idx].as_ref().unwrap().cost()?;
+      cost += self.postings_enum_ref(pe_idx)?.cost()?;
     }
     Ok(cost)
   }
@@ -175,53 +214,23 @@ where
   PE: PostingsEnum,
 {
   fn freq(&mut self) -> Result<i32> {
-    match self.current {
-      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-        .as_mut()
-        .unwrap()
-        .freq(),
-      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-    }
+    self.current_postings_mut()?.freq()
   }
 
   fn next_position(&mut self) -> Result<i32> {
-    match self.current {
-      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-        .as_mut()
-        .unwrap()
-        .next_position(),
-      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-    }
+    self.current_postings_mut()?.next_position()
   }
 
   fn start_offset(&self) -> Result<i32> {
-    match self.current {
-      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-        .as_ref()
-        .unwrap()
-        .start_offset(),
-      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-    }
+    self.current_postings_ref()?.start_offset()
   }
 
   fn end_offset(&self) -> Result<i32> {
-    match self.current {
-      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-        .as_ref()
-        .unwrap()
-        .end_offset(),
-      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-    }
+    self.current_postings_ref()?.end_offset()
   }
 
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    match self.current {
-      Some(idx) => self.sub_postings_enums[self.subs[idx].postings_enum_idx]
-        .as_ref()
-        .unwrap()
-        .get_payload(),
-      None => Err(LuceneError::illegal_state("No current sub PostingsEnum")),
-    }
+    self.current_postings_ref()?.get_payload()
   }
 }
 impl<PE> Display for MultiPostingsEnum<PE> {

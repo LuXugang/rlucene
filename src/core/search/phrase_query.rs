@@ -692,17 +692,7 @@ impl<IE> Ord for PostingsAndFreq<IE> {
       return Ordering::Equal;
     }
 
-    let a = self.terms.as_ref().unwrap();
-    let b = other.terms.as_ref().unwrap();
-
-    for i in 0..a.len() {
-      let ord = a[i].cmp(&b[i]);
-      if ord != Ordering::Equal {
-        return ord;
-      }
-    }
-
-    Ordering::Equal
+    self.terms.cmp(&other.terms)
   }
 }
 

@@ -103,14 +103,26 @@ where
   }
   pub(crate) fn init_index_input(&mut self) -> Result<()> {
     if self.input.is_none() {
-      self.input = Some(self.fr.parent.as_ref().unwrap().terms_in.try_clone()?);
+      self.input = Some(
+        self
+          .fr
+          .parent
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
+          .terms_in
+          .try_clone()?,
+      );
     }
     Ok(())
   }
 
   /// Runs through the entire terms dictionary and computes block statistics.
   pub fn compute_block_stats(&mut self) -> Result<Stats> {
-    let parent = self.fr.parent.as_ref().unwrap();
+    let parent = self
+      .fr
+      .parent
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?;
     let mut stats = Stats::new(parent.segment.clone(), self.fr.field_info.name.clone());
     if let Some(index) = self.fr.index.as_ref() {
       stats.index_num_bytes = index.fst_reader.lock().ram_bytes_used()?;
@@ -279,8 +291,18 @@ where
       return Err(LuceneError::illegal_state("terms index was not loaded"));
     }
     if self.fr.size()? > 0
-      && (target.cmp(self.fr.get_min()?.as_ref().unwrap()).to_int() < 0
-        || target.cmp(self.fr.get_max()?.as_ref().unwrap()).to_int() > 0)
+      && (target
+        .cmp(self.fr.get_min()?.as_ref().ok_or_else(|| {
+          LuceneError::illegal_state("terms minimum is missing for a non-empty field")
+        })?)
+        .to_int()
+        < 0
+        || target
+          .cmp(self.fr.get_max()?.as_ref().ok_or_else(|| {
+            LuceneError::illegal_state("terms maximum is missing for a non-empty field")
+          })?)
+          .to_int()
+          > 0)
     {
       self.prepare_seek_status = PrepareSeekStatus::NotFound;
       return Ok(None);
@@ -371,7 +393,12 @@ where
         let arc = &mut self.arcs[0];
         self.target_before_current_length = -1;
 
-        self.fr.index.as_ref().unwrap().get_first_arc(arc);
+        self
+          .fr
+          .index
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?
+          .get_first_arc(arc);
         debug_assert!(arc.is_final());
 
         self.output_accumulator.push(arc.output());
@@ -392,8 +419,15 @@ where
       let target_label = target.bytes[target.offset + target_upto] as i32;
 
       let next_arc_idx = self.get_arc(1 + target_upto)?;
-      let fr_index = self.fr.index.as_ref().unwrap();
-      let reader = self.fst_reader.as_mut().unwrap();
+      let fr_index = self
+        .fr
+        .index
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?;
+      let reader = self
+        .fst_reader
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("terms index reader is missing"))?;
 
       debug_assert!(arc_index < next_arc_idx);
       let (follow_arcs, next_arcs) = self.arcs.split_at_mut(next_arc_idx);
@@ -689,7 +723,12 @@ where
       self.target_before_current_length = -1;
       arc_index = 0;
       let arc = &mut self.arcs[arc_index];
-      self.fr.index.as_ref().unwrap().get_first_arc(arc);
+      self
+        .fr
+        .index
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?
+        .get_first_arc(arc);
 
       debug_assert!(arc.is_final());
 
@@ -708,9 +747,16 @@ where
       let target_label = target.bytes[target.offset + target_upto] as i32;
 
       next_arc_idx = self.get_arc(1 + target_upto)?;
-      let fr_index = self.fr.index.as_ref().unwrap();
+      let fr_index = self
+        .fr
+        .index
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("terms index was not loaded"))?;
 
-      let reader = self.fst_reader.as_mut().unwrap();
+      let reader = self
+        .fst_reader
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("terms index reader is missing"))?;
 
       debug_assert!(arc_index < next_arc_idx);
       let (follow_arcs, next_arcs) = self.arcs.split_at_mut(next_arc_idx);
@@ -850,7 +896,12 @@ where
     SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
 
     let field_info = &self.fr.field_info;
-    let postings_reader = &self.fr.parent.as_ref().unwrap().postings_reader;
+    let postings_reader = &self
+      .fr
+      .parent
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
+      .postings_reader;
     let current_frame = &self.stack[self.current_frame_idx];
 
     let v = postings_reader
@@ -866,7 +917,12 @@ where
     SegmentTermsEnumFrame::decode_meta_data(self.current_frame_idx, self)?;
     let current_frame = &self.stack[self.current_frame_idx];
     let field_info = &self.fr.field_info;
-    let postings_reader = &self.fr.parent.as_ref().unwrap().postings_reader;
+    let postings_reader = &self
+      .fr
+      .parent
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("terms reader is missing"))?
+      .postings_reader;
 
     let result = postings_reader.impacts(field_info, &current_frame.state, flags)?;
     Ok(result)

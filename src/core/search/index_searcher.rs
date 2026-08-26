@@ -310,13 +310,10 @@ where
 
   pub fn get_slices(&self) -> Result<Arc<Vec<LeafSlice>>> {
     let mut inner = self.inner.lock();
-    if inner.leaf_slices.is_none() {
-      self.compute_and_cache_slices(&mut inner)?;
-    }
-    Ok(inner.leaf_slices.as_ref().unwrap().clone())
+    self.compute_and_cache_slices(&mut inner)
   }
 
-  fn compute_and_cache_slices(&self, inner: &mut Inner) -> Result<()> {
+  fn compute_and_cache_slices(&self, inner: &mut Inner) -> Result<Arc<Vec<LeafSlice>>> {
     if inner.leaf_slices.is_none() {
       let leaves = self.reader_context.leaves()?;
       let res = self.hook.slices(self, leaves)?;
@@ -336,7 +333,11 @@ where
 
       inner.leaf_slices = Some(Arc::new(res));
     }
-    Ok(())
+    inner
+      .leaf_slices
+      .as_ref()
+      .cloned()
+      .ok_or_else(|| LuceneError::illegal_state("leaf slices are missing"))
   }
 
   pub fn search_after_score(
@@ -575,7 +576,7 @@ where
     for leaf_slice in leaf_slices.iter() {
       let mut collector = collectors
         .next()
-        .expect("each leaf slice must have a collector");
+        .ok_or_else(|| LuceneError::illegal_state("each leaf slice must have a collector"))?;
       list_tasks.push(move || {
         self.search_partitions(leaf_slice.partitions.as_slice(), weight, &mut collector)?;
         Ok(collector)
@@ -871,10 +872,7 @@ where
           ctx_max_doc,
         )?]);
       } else {
-        if group.is_none() {
-          group = Some(Vec::new());
-        }
-        let group_ref = group.as_mut().unwrap();
+        let group_ref = group.get_or_insert_default();
         group_ref.push(LeafReaderContextPartition::create_for_entire_segment(
           &leaves[ctx_idx],
         )?);
@@ -886,7 +884,8 @@ where
         // single partition of a segment.
         if group_ref.len() >= max_segments_per_slice || current_slice_num_docs > max_docs_per_slice
         {
-          grouped_leaf_partitions.push(group.take().unwrap());
+          grouped_leaf_partitions.push(std::mem::take(group_ref));
+          group = None;
           current_slice_num_docs = 0;
         }
       }
@@ -916,15 +915,13 @@ where
       debug_assert!(group.is_none());
       grouped_leaves.push(vec![ord]);
     } else {
-      if group.is_none() {
-        group = Some(Vec::new());
-      }
-      let group_ref = group.as_mut().unwrap();
+      let group_ref = group.get_or_insert_default();
       group_ref.push(ord);
       doc_sum += ctx_max_doc as i64;
 
       if group_ref.len() >= max_segments_per_slice || doc_sum > max_docs_per_slice as i64 {
-        grouped_leaves.push(group.take().unwrap());
+        grouped_leaves.push(std::mem::take(group_ref));
+        group = None;
         doc_sum = 0;
       }
     }

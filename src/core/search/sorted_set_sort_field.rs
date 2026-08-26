@@ -108,11 +108,10 @@ impl SortedSetSortField {
 impl Display for SortedSetSortField {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let mut buffer = String::new();
-    debug_assert!(self.base.get_field().is_some());
-    buffer.push_str(&format!(
-      "<sortedset: \"{}\">",
-      self.base.get_field().unwrap()
-    ));
+    let Some(field) = self.base.get_field() else {
+      return Err(std::fmt::Error);
+    };
+    buffer.push_str(&format!("<sortedset: \"{}\">", field));
     if self.base.reverse {
       buffer.push('!');
     }
@@ -147,19 +146,25 @@ impl SortFiledBase for SortedSetSortField {
   type IndexSort = StringSorter<SProviderImpl1>;
 
   fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>> {
-    debug_assert!(self.base.get_field().is_some());
+    let field = self
+      .base
+      .get_field()
+      .ok_or_else(|| LuceneError::illegal_state("sorted-set sort field has no field name"))?;
     let missing_value = self.base.missing_value.clone();
     Ok(Some(StringSorter::new(
       SetProvider::NAME.to_string(),
       missing_value,
       self.base.reverse,
-      SProviderImpl1::new(self.selector, self.base.get_field().unwrap().to_string()),
+      SProviderImpl1::new(self.selector, field.to_string()),
     )))
   }
 
   fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
-    debug_assert!(self.base.get_field().is_some());
-    out.write_string(self.base.get_field().unwrap())?;
+    let field = self
+      .base
+      .get_field()
+      .ok_or_else(|| LuceneError::illegal_state("sorted-set sort field has no field name"))?;
+    out.write_string(field)?;
     out.write_int(if self.base.reverse { 1 } else { 0 })?;
     out.write_int(self.selector as i32)?;
     match self.base.missing_value {

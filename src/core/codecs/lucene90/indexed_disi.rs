@@ -325,11 +325,13 @@ where
         // Another alternative is to maintain an extra slice for DENSE rank,
         // but IndexedDISI is already slice-heavy.
         if self.dense_rank_power != -1 {
-          let rank_table_len = self.dense_rank_table.as_ref().unwrap().len();
+          let rank_table = self
+            .dense_rank_table
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("dense rank table is not initialized"))?;
+          let rank_table_len = rank_table.len();
           debug_assert!(rank_table_len <= i32::MAX as usize);
-          if let Some(rank_table) = self.dense_rank_table.as_mut() {
-            slice.read_bytes(rank_table, 0, rank_table_len)?;
-          }
+          slice.read_bytes(rank_table, 0, rank_table_len)?;
         }
 
         self.word_index = -1;

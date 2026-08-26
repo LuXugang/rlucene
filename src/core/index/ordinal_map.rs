@@ -249,7 +249,9 @@ impl OrdinalMap {
     let mut ord_delta_bits_has_value = false;
     let mut top_idx;
     while queue.size() != 0 {
-      top_idx = *queue.top().unwrap();
+      top_idx = *queue
+        .top()
+        .ok_or_else(|| LuceneError::illegal_state("ordinal merge queue is empty"))?;
       top_state.copy_from(&queue.compare.terms_enum_indices[top_idx])?;
 
       let mut first_segment_index = i32::MAX;
@@ -257,7 +259,11 @@ impl OrdinalMap {
       // Advance past this term, recording the per-segment ord deltas:
       loop {
         let top = &mut queue.compare.terms_enum_indices[top_idx];
-        let segment_ord = top.terms_enum.as_ref().unwrap().ord()?;
+        let segment_ord = top
+          .terms_enum
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("segment terms enum is missing"))?
+          .ord()?;
         let delta = global_ord - segment_ord;
         let segment_index = top.sub_index;
         // We compute the least segment where the term occurs. In case the
@@ -287,7 +293,9 @@ impl OrdinalMap {
           if queue.size() == 0 {
             break;
           }
-          top_idx = *queue.top().unwrap();
+          top_idx = *queue
+            .top()
+            .ok_or_else(|| LuceneError::illegal_state("ordinal merge queue is empty"))?;
         } else {
           top_idx = *queue.update_top()?;
         }
@@ -347,7 +355,7 @@ impl OrdinalMap {
           // monotonic compression mostly adds overhead, let's keep the mapping in plain packed ints
           let size = deltas.size() as i32;
           let mut new_deltas =
-            PackedInts::get_mutable(size, bits_required, acceptable_overhead_ratio);
+            PackedInts::get_mutable(size, bits_required, acceptable_overhead_ratio)?;
 
           let mut it = deltas.iterator();
           for ord in 0..size {

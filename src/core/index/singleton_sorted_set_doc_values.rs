@@ -38,6 +38,20 @@ impl<S> SingletonSortedSetDocValues<S>
 where
   S: SortedDocValues,
 {
+  fn inner_ref(&self) -> Result<&S> {
+    self
+      .inner
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("wrapped SortedDocValues is not available"))
+  }
+
+  fn inner_mut(&mut self) -> Result<&mut S> {
+    self
+      .inner
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("wrapped SortedDocValues is not available"))
+  }
+
   /// Creates a multi-valued view over the provided SortedDocValues.
   pub fn new(inner: S) -> Result<Self> {
     if inner.doc_id() != -1 {
@@ -53,13 +67,17 @@ where
   }
 
   pub fn get_sorted_doc_values(&mut self) -> Result<S> {
-    if self.inner.as_ref().unwrap().doc_id() != -1 {
+    let inner = self.inner_ref()?;
+    if inner.doc_id() != -1 {
       return Err(LuceneError::illegal_state(format!(
         "iterator has already been used: docID={}",
-        self.inner.as_ref().unwrap().doc_id()
+        inner.doc_id()
       )));
     }
-    Ok(self.inner.take().unwrap())
+    self
+      .inner
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("wrapped SortedDocValues is not available"))
   }
 }
 
@@ -74,27 +92,27 @@ where
   S: SortedDocValues,
 {
   fn doc_id(&self) -> i32 {
-    self.inner.as_ref().unwrap().doc_id()
+    self.inner.as_ref().map_or(-1, |inner| inner.doc_id())
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    let doc_id = self.inner.as_mut().unwrap().next_doc()?;
+    let doc_id = self.inner_mut()?.next_doc()?;
     if doc_id != NO_MORE_DOCS {
-      self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
+      self.ord = self.inner_mut()?.ord_value()? as i64;
     }
     Ok(doc_id)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    let doc_id = self.inner.as_mut().unwrap().advance(target)?;
+    let doc_id = self.inner_mut()?.advance(target)?;
     if doc_id != NO_MORE_DOCS {
-      self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
+      self.ord = self.inner_mut()?.ord_value()? as i64;
     }
     Ok(doc_id)
   }
 
   fn cost(&self) -> Result<i64> {
-    self.inner.as_ref().unwrap().cost()
+    self.inner_ref()?.cost()
   }
 }
 
@@ -103,8 +121,8 @@ where
   S: SortedDocValues,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    if self.inner.as_mut().unwrap().advance_exact(target)? {
-      self.ord = self.inner.as_mut().unwrap().ord_value()? as i64;
+    if self.inner_mut()?.advance_exact(target)? {
+      self.ord = self.inner_mut()?.ord_value()? as i64;
       Ok(true)
     } else {
       Ok(false)
@@ -125,15 +143,15 @@ where
   }
 
   fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    self.inner.as_mut().unwrap().lookup_ord(ord as i32)
+    self.inner_mut()?.lookup_ord(ord as i32)
   }
 
   fn get_value_count(&self) -> Result<i64> {
-    Ok(self.inner.as_ref().unwrap().get_value_count()? as i64)
+    Ok(self.inner_ref()?.get_value_count()? as i64)
   }
 
   fn lookup_term(&mut self, key: &BytesRef<Vec<u8>>) -> Result<i64> {
-    Ok(self.inner.as_mut().unwrap().lookup_term(key)? as i64)
+    Ok(self.inner_mut()?.lookup_term(key)? as i64)
   }
 
   type TermsEnum<'a>

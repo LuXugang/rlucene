@@ -205,14 +205,6 @@ impl Lucene90DocValuesFormat {
     })
   }
 }
-impl Default for Lucene90DocValuesFormat {
-  fn default() -> Self {
-    let result = Self::new();
-    debug_assert!(result.is_ok());
-    Self::new().unwrap()
-  }
-}
-
 impl Display for Lucene90DocValuesFormat {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "DocValuesFormat(name={})", self.name)

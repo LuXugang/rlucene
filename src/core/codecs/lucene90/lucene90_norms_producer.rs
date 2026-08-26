@@ -175,24 +175,18 @@ where
         break;
       }
 
-      let info = field_infos.field_info_by_number(field_number)?;
-      let info_number;
-      match &info {
-        None => {
-          return Err(LuceneError::corrupt_index(format!(
-            "invalid field number: {field_number} (resource={meta})"
-          )));
-        },
-        Some(info) => {
-          info_number = info.number;
-          if !info.has_norms() {
-            return Err(LuceneError::corrupt_index(format!(
-              "Invalid field (no norms): {}",
-              info.name
-            )));
-          }
-        },
+      let Some(info) = field_infos.field_info_by_number(field_number)? else {
+        return Err(LuceneError::corrupt_index(format!(
+          "invalid field number: {field_number} (resource={meta})"
+        )));
+      };
+      if !info.has_norms() {
+        return Err(LuceneError::corrupt_index(format!(
+          "Invalid field (no norms): {}",
+          info.name
+        )));
       }
+      let info_number = info.number;
       let docs_with_field_offset = meta.read_long()?;
       let docs_with_field_length = meta.read_long()?;
       let jump_table_entry_count = meta.read_short()?;
@@ -206,9 +200,7 @@ where
         _ => {
           return Err(LuceneError::corrupt_index(format!(
             "Invalid bytesPerValue: {}, field: {}(resource={})",
-            bytes_per_norm,
-            info.as_ref().unwrap().name,
-            meta
+            bytes_per_norm, info.name, meta
           )));
         },
       }
@@ -384,7 +376,13 @@ where
 
   fn get_norms(&self, field: &Arc<FieldInfo>) -> Result<Lucene90NormNumericDocValuesEnum<I>> {
     // copy on stack is acceptable, of course we could have a better way
-    let entry = self.norms.get(&field.number).unwrap().clone();
+    let entry = self
+      .norms
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!("norms entry is missing for field {}", field.name))
+      })?
+      .clone();
     if entry.docs_with_field_offset == -2 {
       // empty
       return Ok(Lucene90NormNumericDocValuesEnum::Empty(

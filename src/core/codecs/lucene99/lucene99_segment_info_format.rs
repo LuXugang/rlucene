@@ -172,9 +172,9 @@ impl Lucene99SegmentInfoFormat {
     Ok(si)
   }
   fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()> {
-    let version_wrap = si.get_version_ref();
-    debug_assert!(version_wrap.is_some());
-    let version = version_wrap.unwrap();
+    let version = si
+      .get_version_ref()
+      .ok_or_else(|| LuceneError::illegal_state("segment version is missing"))?;
     if version.major < 7 {
       return Err(LuceneError::illegal_argument(format!(
         "invalid major version: should be >= 7 but got: {} segment={}",

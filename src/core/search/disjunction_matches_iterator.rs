@@ -231,7 +231,11 @@ where
     if self.it.is_none() {
       self.init()?;
     }
-    self.it.as_mut().unwrap().next()
+    self
+      .it
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("matches iterator is not initialized"))?
+      .next()
   }
 
   fn start_position(&self) -> Result<i32> {

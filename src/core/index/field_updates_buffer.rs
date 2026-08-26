@@ -122,7 +122,7 @@ impl FieldUpdatesBuffer {
       .ok_or_else(|| LuceneError::illegal_argument("Missing numeric value"))?;
     let has_values = numeric.has_value();
     let (numeric_values, max_numeric, min_numeric) = if has_values {
-      let value = numeric.get_value();
+      let value = numeric.get_value()?;
       (vec![value], value, value)
     } else {
       (vec![0], i64::MIN, i64::MAX)
@@ -148,14 +148,17 @@ impl FieldUpdatesBuffer {
       .ok_or_else(|| LuceneError::illegal_argument("Missing binary value"))?;
     let has_values = binary.has_value();
     let value = if has_values {
-      binary.get_value()
+      binary.get_value()?
     } else {
       &BytesRef::default()
     };
     let mut buffer = Self::new(bytes_used, initial_value, doc_upto, false)?;
     if has_values {
-      debug_assert!(buffer.byte_values.is_some());
-      buffer.byte_values.as_mut().unwrap().append(value)?;
+      buffer
+        .byte_values
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("byte_values is missing for binary updates"))?
+        .append(value)?;
     }
     Ok(buffer)
   }
@@ -241,7 +244,11 @@ impl FieldUpdatesBuffer {
       }
 
       if has_value {
-        self.has_values.as_mut().unwrap().set(ord);
+        self
+          .has_values
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("has_values bitset is missing"))?
+          .set(ord);
       }
     }
     Ok(())
@@ -253,7 +260,10 @@ impl FieldUpdatesBuffer {
     self.add(field, doc_upto, ord, true)?;
     self.min_numeric = min(self.min_numeric, value);
     self.max_numeric = max(self.max_numeric, value);
-    let numeric_values = self.numeric_values.as_mut().unwrap();
+    let numeric_values = self
+      .numeric_values
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("numeric_values is missing for numeric updates"))?;
     let numeric_values_len = numeric_values.len();
     if numeric_values[0] != value || numeric_values_len != 1 {
       if numeric_values_len <= ord {
@@ -357,7 +367,7 @@ impl FieldUpdatesBuffer {
     if !self.finished {
       return Err(LuceneError::illegal_state("Buffer was not finished"));
     }
-    Ok(BufferedUpdateIterator::new(self))
+    BufferedUpdateIterator::new(self)
   }
   pub(crate) fn is_numeric(&self) -> bool {
     debug_assert!(self.is_numeric || self.byte_values.is_some());
@@ -365,7 +375,10 @@ impl FieldUpdatesBuffer {
   }
   pub(crate) fn has_single_value(&self) -> bool {
     // we only do this optimization for numerics so far.
-    self.is_numeric && self.numeric_values.as_ref().unwrap().len() == 1
+    self
+      .numeric_values
+      .as_ref()
+      .is_some_and(|numeric_values| self.is_numeric && numeric_values.len() == 1)
   }
   pub(crate) fn get_numeric_value(&self, idx: usize) -> Result<i64> {
     if let Some(ref has_values) = self.has_values
@@ -373,9 +386,12 @@ impl FieldUpdatesBuffer {
     {
       return Ok(0);
     }
-    debug_assert!(self.numeric_values.is_some());
-    let length = self.numeric_values.as_ref().unwrap().len();
-    Ok(self.numeric_values.as_ref().unwrap()[Self::get_array_index(length, idx)])
+    let numeric_values = self
+      .numeric_values
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("numeric_values is missing"))?;
+    let length = numeric_values.len();
+    Ok(numeric_values[Self::get_array_index(length, idx)])
   }
   fn get_array_index(array_length: usize, index: usize) -> usize {
     debug_assert!(
@@ -399,7 +415,7 @@ pub struct BufferedUpdateIterator<'a> {
 }
 
 impl<'a> BufferedUpdateIterator<'a> {
-  pub fn new(field_updates_buffer: &'a FieldUpdatesBuffer) -> Self {
+  pub fn new(field_updates_buffer: &'a FieldUpdatesBuffer) -> Result<Self> {
     let term_values_iterator = field_updates_buffer
       .term_values
       .iterator_with_state(field_updates_buffer.term_sort_state.clone());
@@ -415,12 +431,11 @@ impl<'a> BufferedUpdateIterator<'a> {
     let byte_values_iterator = if field_updates_buffer.is_numeric {
       None
     } else {
-      debug_assert!(field_updates_buffer.byte_values.is_some());
       Some(
         field_updates_buffer
           .byte_values
           .as_ref()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("byte_values is missing for binary updates"))?
           .iterator(),
       )
     };
@@ -432,12 +447,16 @@ impl<'a> BufferedUpdateIterator<'a> {
     let fields_length = field_updates_buffer.fields.len();
     let docs_upto_length = field_updates_buffer.docs_upto.len();
     let numeric_values_length = if field_updates_buffer.is_numeric {
-      field_updates_buffer.numeric_values.as_ref().unwrap().len()
+      field_updates_buffer
+        .numeric_values
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("numeric_values is missing for numeric updates"))?
+        .len()
     } else {
       0
     };
     debug_assert!(docs_upto_length <= i32::MAX as usize);
-    BufferedUpdateIterator {
+    Ok(BufferedUpdateIterator {
       term_values_iterator,
       look_ahead_term_iterator,
       byte_values_iterator,
@@ -447,7 +466,7 @@ impl<'a> BufferedUpdateIterator<'a> {
       docs_upto_length,
       numeric_values_length,
       field_updates_buffer,
-    }
+    })
   }
   /// If all updates update a single field to the same value, then we can
   /// apply these updates in the term order instead of the request order
@@ -467,7 +486,11 @@ impl<'a> BufferedUpdateIterator<'a> {
       let idx = self.term_values_iterator.ord();
       self.buffered_update.term_value = Some(next.clone());
       buffered_update.term_value = Some(next);
-      buffered_update.has_value = self.updates_with_value.as_ref().unwrap().get(idx)?;
+      buffered_update.has_value = self
+        .updates_with_value
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("updates_with_value is missing"))?
+        .get(idx)?;
       buffered_update.term_field = self.field_updates_buffer.fields
         [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)]
       .clone();
@@ -476,9 +499,12 @@ impl<'a> BufferedUpdateIterator<'a> {
 
       if buffered_update.has_value {
         if self.field_updates_buffer.is_numeric {
-          buffered_update.numeric_value =
-            self.field_updates_buffer.numeric_values.as_ref().unwrap()
-              [FieldUpdatesBuffer::get_array_index(self.numeric_values_length, idx)];
+          buffered_update.numeric_value = self
+            .field_updates_buffer
+            .numeric_values
+            .as_ref()
+            .ok_or_else(|| LuceneError::illegal_state("numeric_values is missing"))?
+            [FieldUpdatesBuffer::get_array_index(self.numeric_values_length, idx)];
           buffered_update.binary_value = None;
         } else {
           debug_assert!(self.numeric_values_length == 0);
@@ -530,7 +556,8 @@ impl<'a> BufferedUpdateIterator<'a> {
           // aheadTerm can only equal
           // lastTerm when aheadTerm has a lager ord.
           if look_ahead_term_iterator.ord() > self.term_values_iterator.ord()
-            && ahead == *last_term.as_mut().unwrap()
+            && let Some(last_term) = last_term.as_mut()
+            && ahead == *last_term
           {
             continue;
           }

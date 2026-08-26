@@ -381,8 +381,7 @@ where
         .top_list_root(&mut self.unverified_matches.compare.approximation.all_scores)
     };
     let mut w_idx_opt = Some(root_idx);
-    while w_idx_opt.is_some() {
-      let w_idx = w_idx_opt.unwrap();
+    while let Some(w_idx) = w_idx_opt {
       let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
       let next = w.next;
       let has_no_two_phase_view = (w.scorer.has_two_phase_iterator() == TwoPhaseState::No)

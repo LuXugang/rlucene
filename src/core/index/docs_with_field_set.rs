@@ -132,8 +132,8 @@ impl DocIdSet for DocsWithFieldSet {
   fn finish(&mut self) {
     self.finish = true;
     // not all documents are contiguous
-    if self.set.is_some() {
-      self.set_iter = Some(Arc::new(self.set.take().unwrap()));
+    if let Some(set) = self.set.take() {
+      self.set_iter = Some(Arc::new(set));
     }
   }
 }

@@ -26,7 +26,7 @@ use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::{
   TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub type ReqOptSumScorerDisi<S1, S2> = DocIdSetIteratorEnum2<
   DocIdSetIteratorImpl<S1, S2>,
@@ -516,26 +516,32 @@ where
             return Ok(false);
           }
         }
-        let matches = {
-          let mut tpi = self.disi.opt_scorer.two_phase_iterator_mut();
-          tpi.as_mut().unwrap().matches()?
+        let matches = match self.disi.opt_scorer.two_phase_iterator_mut() {
+          Some(mut tpi) => tpi.matches()?,
+          None => {
+            return Err(LuceneError::illegal_state(
+              "optional scorer reported a two-phase iterator but did not provide one",
+            ));
+          },
         };
         if !matches {
           // Advance the iterator to make it clear it doesn't match the current doc id
           ScorerUtil::next_doc(&mut self.disi.opt_scorer)?;
           return Ok(false);
         }
-      } else if opt_doc == req_doc
-        && !self
-          .disi
-          .opt_scorer
-          .two_phase_iterator_mut()
-          .as_mut()
-          .unwrap()
-          .matches()?
-      {
-        // Advance the iterator to make it clear it doesn't match the current doc id
-        ScorerUtil::next_doc(&mut self.disi.opt_scorer)?;
+      } else if opt_doc == req_doc {
+        let matches = match self.disi.opt_scorer.two_phase_iterator_mut() {
+          Some(mut tpi) => tpi.matches()?,
+          None => {
+            return Err(LuceneError::illegal_state(
+              "optional scorer reported a two-phase iterator but did not provide one",
+            ));
+          },
+        };
+        if !matches {
+          // Advance the iterator to make it clear it doesn't match the current doc id
+          ScorerUtil::next_doc(&mut self.disi.opt_scorer)?;
+        }
       }
     }
 

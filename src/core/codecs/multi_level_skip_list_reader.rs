@@ -16,7 +16,7 @@
  */
 use crate::core::store::IndexInput;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
 
 /// Reads skip lists with multiple levels.
@@ -65,6 +65,22 @@ pub struct MultiLevelSkipListReader<I> {
   skip_multiplier: i32,
 }
 impl<I: IndexInput> MultiLevelSkipListReader<I> {
+  fn skip_stream_ref(&self, level: usize) -> Result<&I> {
+    self
+      .skip_stream
+      .get(level)
+      .and_then(Option::as_ref)
+      .ok_or_else(|| LuceneError::illegal_state(format!("skip stream {level} is not loaded")))
+  }
+
+  fn skip_stream_mut(&mut self, level: usize) -> Result<&mut I> {
+    self
+      .skip_stream
+      .get_mut(level)
+      .and_then(Option::as_mut)
+      .ok_or_else(|| LuceneError::illegal_state(format!("skip stream {level} is not loaded")))
+  }
+
   /// Creates a new [`MultiLevelSkipListReader`] with the given skip stream,
   /// maximum skip levels, base skip interval, and skip multiplier.
   pub fn new(
@@ -128,10 +144,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
         // no more skips on this level, go down one level
         if level > 0 {
           let lower = (level - 1) as usize;
-          let fp = self.skip_stream[lower]
-            .as_ref()
-            .unwrap()
-            .get_file_pointer()?;
+          let fp = self.skip_stream_ref(lower)?.get_file_pointer()?;
           if self.last_child_pointer > fp {
             self.seek_child(lower)?;
           }
@@ -162,7 +175,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
     }
 
     // read next skip data
-    let delta = base.read_skip_data(level, self.skip_stream[level].as_mut().unwrap())?;
+    let delta = base.read_skip_data(level, self.skip_stream_mut(level)?)?;
     self.skip_doc[level] = self.skip_doc[level].wrapping_add(delta);
 
     if level != 0 {
@@ -177,7 +190,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
   pub fn init(&mut self, skip_pointer: usize, df: i32) -> Result<()> {
     self.skip_pointer[0] = skip_pointer;
     self.doc_count = df;
-    let skip_stream_length = self.skip_stream[0].as_ref().unwrap().length()?;
+    let skip_stream_length = self.skip_stream_ref(0)?.length()?;
     debug_assert!(
       skip_pointer <= skip_stream_length,
       "invalid skip pointer: {}, length={}",
@@ -209,7 +222,11 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
       self.number_of_skip_levels = self.max_number_of_skip_levels;
     }
     // take ownership to void borrow issue, return to self.skip_stream later
-    let mut stream0 = self.skip_stream[0].take().unwrap();
+    let mut stream0 = self
+      .skip_stream
+      .get_mut(0)
+      .and_then(Option::take)
+      .ok_or_else(|| LuceneError::illegal_state("base skip stream is not loaded"))?;
     stream0.seek(self.skip_pointer[0])?;
     for i in (1..self.number_of_skip_levels as usize).rev() {
       // the length of the current level
@@ -251,10 +268,7 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
   /// Returns:
   /// - child pointer
   fn read_child_pointer(&mut self, skip_stream_level: usize) -> Result<i64> {
-    self.skip_stream[skip_stream_level]
-      .as_mut()
-      .unwrap()
-      .read_vlong()
+    self.skip_stream_mut(skip_stream_level)?.read_vlong()
   }
 }
 
@@ -278,8 +292,9 @@ where
     self.last_child_pointer = self.child_pointer[level];
   }
   fn seek_child(&mut self, level: usize) -> Result<()> {
-    let stream = self.skip_stream[level].as_mut().unwrap();
-    stream.seek(self.last_child_pointer)?;
+    let last_child_pointer = self.last_child_pointer;
+    let stream = self.skip_stream_mut(level)?;
+    stream.seek(last_child_pointer)?;
     self.num_skipped[level] = self.num_skipped[level + 1] - self.skip_interval[level + 1];
     self.skip_doc[level] = self.last_doc;
     if level > 0 {

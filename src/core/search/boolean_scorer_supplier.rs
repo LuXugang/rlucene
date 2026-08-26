@@ -205,8 +205,12 @@ where
     if should_empty {
       let [filter_v, must_v] = self.subs.get_disjoint_mut([&Occur::Filter, &Occur::Must]);
 
-      let filter_slice = filter_v.unwrap().as_mut_slice();
-      let must_slice = must_v.unwrap().as_mut_slice();
+      let filter_slice = filter_v
+        .ok_or_else(|| LuceneError::illegal_state("FILTER clause is missing"))?
+        .as_mut_slice();
+      let must_slice = must_v
+        .ok_or_else(|| LuceneError::illegal_state("MUST clause is missing"))?
+        .as_mut_slice();
       let req = Self::req(
         filter_slice,
         must_slice,
@@ -269,10 +273,18 @@ where
       &Occur::Filter,
       &Occur::MustNot,
     ]);
-    let should_slice = should_v.unwrap().as_mut_slice();
-    let must_slice = must_v.unwrap().as_mut_slice();
-    let filter_slice = filter_v.unwrap().as_mut_slice();
-    let must_not_slice = must_not_v.unwrap().as_mut_slice();
+    let should_slice = should_v
+      .ok_or_else(|| LuceneError::illegal_state("SHOULD clause is missing"))?
+      .as_mut_slice();
+    let must_slice = must_v
+      .ok_or_else(|| LuceneError::illegal_state("MUST clause is missing"))?
+      .as_mut_slice();
+    let filter_slice = filter_v
+      .ok_or_else(|| LuceneError::illegal_state("FILTER clause is missing"))?
+      .as_mut_slice();
+    let must_not_slice = must_not_v
+      .ok_or_else(|| LuceneError::illegal_state("MUST_NOT clause is missing"))?
+      .as_mut_slice();
     if self.min_should_match > 0 {
       let req = Self::excl(
         Self::req(
@@ -395,7 +407,7 @@ where
     }
 
     let prohibited_scorer = if prohibited.len() == 1 {
-      ScorerEnum2::A(prohibited.pop().unwrap())
+      ScorerEnum2::A(prohibited.remove(0))
     } else {
       ScorerEnum2::B(DisjunctionScorer::new(
         prohibited,
@@ -417,7 +429,11 @@ where
     if should_len == 0 {
       return Ok(None);
     } else if should_len == 1 && self.min_should_match <= 1 {
-      return match self.subs.get_mut(&Occur::Should).unwrap()[0].bulk_scorer(context, searcher)? {
+      let should = self
+        .subs
+        .get_mut(&Occur::Should)
+        .ok_or_else(|| LuceneError::illegal_state("SHOULD clauses are missing"))?;
+      return match should[0].bulk_scorer(context, searcher)? {
         None => Ok(None),
         Some(bs) => return Ok(Some(bs)),
       };
@@ -425,7 +441,11 @@ where
 
     if self.score_mode == ScoreMode::TopScores && self.min_should_match <= 1 {
       let mut optional_scorers = Vec::with_capacity(should_len);
-      for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
+      let should = self
+        .subs
+        .get_mut(&Occur::Should)
+        .ok_or_else(|| LuceneError::illegal_state("SHOULD clauses are missing"))?;
+      for ss in should.iter_mut() {
         optional_scorers.push(ss.get(i64::MAX, context, searcher)?);
       }
       let v = Box::new(MaxScoreBulkScorer::with_no_filter(
@@ -436,7 +456,11 @@ where
     }
 
     let mut optional = Vec::with_capacity(should_len);
-    for ss in self.subs.get_mut(&Occur::Should).unwrap().iter_mut() {
+    let should = self
+      .subs
+      .get_mut(&Occur::Should)
+      .ok_or_else(|| LuceneError::illegal_state("SHOULD clauses are missing"))?;
+    for ss in should.iter_mut() {
       optional.push(ss.get(i64::MAX, context, searcher)?);
     }
 
@@ -483,7 +507,7 @@ where
     }
 
     let filter_scorer = if filters.len() == 1 {
-      ScorerEnum2::A(filters.pop().unwrap())
+      ScorerEnum2::A(filters.remove(0))
     } else {
       ScorerEnum2::B(ConjunctionScorer::new(filters, vec![])?)
     };
@@ -523,10 +547,16 @@ where
 
     if required_cnt == 1 {
       return if must_len != 0 {
-        let must = self.subs.get_mut(&Occur::Must).unwrap();
+        let must = self
+          .subs
+          .get_mut(&Occur::Must)
+          .ok_or_else(|| LuceneError::illegal_state("MUST clauses are missing"))?;
         must[0].bulk_scorer(context, searcher)
       } else {
-        let filter = self.subs.get_mut(&Occur::Filter).unwrap();
+        let filter = self
+          .subs
+          .get_mut(&Occur::Filter)
+          .ok_or_else(|| LuceneError::illegal_state("FILTER clauses are missing"))?;
         if self.score_mode.needs_scores() {
           match filter[0].bulk_scorer(context, searcher)? {
             None => Err(LuceneError::illegal_state("bulk_scorer is None"))?,

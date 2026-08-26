@@ -199,10 +199,9 @@ where
   }
 
   fn append_str(&mut self, s: Option<&str>) -> Result<&mut Self> {
-    if s.is_none() {
+    let Some(s) = s else {
       return self.append_null();
-    }
-    let s = s.unwrap();
+    };
     let len = s.chars().count();
     self.resize_buffer(self.term_length + len)?;
     if len == s.len() {
@@ -258,11 +257,16 @@ where
   T: AttributeImpl + CharTermAttributeImplBase,
 {
   fn clone(&self) -> Self {
-    let mut copy = CharTermAttributeImpl::with_sub(self.sub.clone()).expect("should not failed");
-    copy.term_buffer = self.term_buffer.clone();
-    copy.term_length = self.term_length;
-    copy.builder.bytes_ref = self.builder.bytes_ref.clone();
-    copy
+    Self {
+      term_buffer: self.term_buffer.clone(),
+      term_length: self.term_length,
+      builder: BytesRefBuilder {
+        bytes_ref: self.builder.bytes_ref.clone(),
+      },
+      sub: self.sub.clone(),
+      #[cfg(any(test, debug_assertions))]
+      attribute: self.attribute.clone(),
+    }
   }
 }
 
@@ -320,13 +324,13 @@ where
     for c in &self.term_buffer[..self.term_length] {
       let char_length = c.len_utf8();
       if length + char_length > buffer.len() {
-        f.write_str(std::str::from_utf8(&buffer[..length]).expect("chars are valid UTF-8"))?;
+        f.write_str(std::str::from_utf8(&buffer[..length]).map_err(|_| std::fmt::Error)?)?;
         length = 0;
       }
       length += c.encode_utf8(&mut buffer[length..]).len();
     }
     if length > 0 {
-      f.write_str(std::str::from_utf8(&buffer[..length]).expect("chars are valid UTF-8"))?;
+      f.write_str(std::str::from_utf8(&buffer[..length]).map_err(|_| std::fmt::Error)?)?;
     }
     Ok(())
   }

@@ -53,7 +53,9 @@ where
     cost.sort_by_key(|entry| std::cmp::Reverse(entry.1));
     let mut scorers = Vec::with_capacity(cost.len());
     for (idx, _) in cost {
-      let v = temp_scorers_list[idx].take().unwrap();
+      let v = temp_scorers_list[idx]
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("scorer is missing"))?;
       scorers.push(v);
     }
     Ok(Self {

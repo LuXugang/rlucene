@@ -147,7 +147,7 @@ impl QueryBase for DisjunctionMaxQuery {
       self,
       *score_mode,
       boost,
-    )))
+    )?))
   }
 
   fn rewrite<IRC>(mut self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
@@ -161,7 +161,7 @@ impl QueryBase for DisjunctionMaxQuery {
     }
 
     if self.ordered_queries.len() == 1 {
-      return Ok(self.ordered_queries.pop().unwrap());
+      return Ok(self.ordered_queries.remove(0));
     }
 
     if self.tie_breaker_multiplier == 1.0 {
@@ -265,19 +265,19 @@ where
     query: DisjunctionMaxQuery,
     score_mode: ScoreMode,
     boost: f32,
-  ) -> Self {
+  ) -> Result<Self> {
     let mut weights = Vec::with_capacity(query.get_disjuncts().len());
     for (query, _) in query.disjuncts.clone() {
-      let weight = query.create_weight(searcher, &score_mode, boost).unwrap();
+      let weight = query.create_weight(searcher, &score_mode, boost)?;
       weights.push(weight);
     }
     let tie_breaker_multiplier = query.get_tie_breaker_multiplier();
-    Self {
+    Ok(Self {
       parent_query: Arc::new(query.into()),
       tie_breaker_multiplier,
       score_mode,
       weights,
-    }
+    })
   }
 }
 
@@ -394,7 +394,7 @@ where
     if scorer_suppliers.is_empty() {
       Ok(None)
     } else if scorer_suppliers.len() == 1 {
-      Ok(Some(scorer_suppliers.pop().unwrap()))
+      Ok(Some(scorer_suppliers.remove(0)))
     } else {
       let v = ScorerSupplierImpl::new(
         -1,

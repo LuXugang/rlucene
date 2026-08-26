@@ -18,7 +18,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::term::Term;
 use crate::core::store::DataOutput;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::sync::Arc;
 
@@ -123,9 +123,11 @@ impl BinaryDocValuesUpdate {
   pub fn new(value: Option<BytesRef<Vec<u8>>>) -> Self {
     BinaryDocValuesUpdate { value }
   }
-  pub fn get_value(&self) -> &BytesRef<Vec<u8>> {
-    debug_assert!(self.value.is_some());
-    self.value.as_ref().unwrap()
+  pub fn get_value(&self) -> Result<&BytesRef<Vec<u8>>> {
+    self
+      .value
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("getValue requires an update value"))
   }
 }
 impl DocValuesUpdateBase for BinaryDocValuesUpdate {
@@ -153,12 +155,10 @@ impl NumericDocValuesUpdate {
   pub fn new(value: Option<i64>) -> Self {
     NumericDocValuesUpdate { value }
   }
-  pub fn get_value(&self) -> i64 {
-    debug_assert!(
-      self.value.is_some(),
-      "getValue should only be called if this update has a value"
-    );
-    *self.value.as_ref().unwrap()
+  pub fn get_value(&self) -> Result<i64> {
+    self
+      .value
+      .ok_or_else(|| LuceneError::illegal_state("getValue requires an update value"))
   }
 }
 impl DocValuesUpdateBase for NumericDocValuesUpdate {

@@ -484,7 +484,10 @@ where
         self.next_leaf += 1;
       }
 
-      let new_doc_id = self.values[*self.current_values.as_ref().unwrap()].next_doc()?;
+      let idx = self
+        .current_values
+        .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
+      let new_doc_id = self.values[idx].next_doc()?;
 
       if new_doc_id == NO_MORE_DOCS {
         self.current_values = None;
@@ -519,7 +522,9 @@ where
       self.next_leaf = reader_index + 1;
     }
 
-    let idx = *self.current_values.as_ref().unwrap();
+    let idx = self
+      .current_values
+      .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
     let new_doc_id = self.values[idx].advance(target_doc_id - self.current_doc_start)?;
 
     if new_doc_id == NO_MORE_DOCS {
@@ -690,7 +695,9 @@ where
         self.next_leaf += 1;
       }
 
-      let idx = *self.current_values.as_ref().unwrap();
+      let idx = self
+        .current_values
+        .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
       let new_doc_id = self.values[idx].next_doc()?;
 
       if new_doc_id == NO_MORE_DOCS {
@@ -728,7 +735,9 @@ where
       self.next_leaf = reader_index + 1;
     }
 
-    let idx = *self.current_values.as_ref().unwrap();
+    let idx = self
+      .current_values
+      .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
     let new_doc_id = self.values[idx].advance(target_doc_id - self.current_doc_start)?;
 
     if new_doc_id == NO_MORE_DOCS {
@@ -856,7 +865,11 @@ where
         continue;
       }
 
-      let new_doc_id = self.current_values.as_mut().unwrap().next_doc()?;
+      let new_doc_id = self
+        .current_values
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
+        .next_doc()?;
 
       if new_doc_id == NO_MORE_DOCS {
         self.current_values = None;
@@ -899,7 +912,7 @@ where
     let new_doc_id = self
       .current_values
       .as_mut()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
       .advance(target_doc_id - self.current_doc_base as i32)?;
 
     if new_doc_id == NO_MORE_DOCS {
@@ -1022,7 +1035,11 @@ where
         self.next_leaf += 1;
       }
 
-      let new_doc_id = self.current_values.as_mut().unwrap().next_doc()?;
+      let new_doc_id = self
+        .current_values
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
+        .next_doc()?;
 
       if new_doc_id == NO_MORE_DOCS {
         self.current_values = None;
@@ -1063,7 +1080,7 @@ where
     let new_doc_id = self
       .current_values
       .as_mut()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
       .advance(target_doc_id - self.current_doc_base as i32)?;
 
     if new_doc_id == NO_MORE_DOCS {
@@ -1185,7 +1202,11 @@ where
         self.next_leaf += 1;
       }
 
-      let new_doc_id = self.current_values.as_mut().unwrap().next_doc()?;
+      let new_doc_id = self
+        .current_values
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
+        .next_doc()?;
 
       if new_doc_id == NO_MORE_DOCS {
         self.current_values = None;
@@ -1227,7 +1248,7 @@ where
     let new_doc_id = self
       .current_values
       .as_mut()
-      .unwrap()
+      .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
       .advance(target_doc_id - self.current_doc_base as i32)?;
 
     if new_doc_id == NO_MORE_DOCS {
@@ -1364,7 +1385,10 @@ where
         self.next_leaf += 1;
       }
 
-      let new_doc = self.values[*self.current_values_index.as_ref().unwrap()].next_doc()?;
+      let idx = self
+        .current_values_index
+        .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
+      let new_doc = self.values[idx].next_doc()?;
 
       if new_doc == NO_MORE_DOCS {
         self.current_values_index = None;
@@ -1399,8 +1423,10 @@ where
       self.next_leaf = reader_index + 1;
     }
 
-    let new_doc = self.values[*self.current_values_index.as_ref().unwrap()]
-      .advance(target_doc_id - self.current_doc_base as i32)?;
+    let idx = self
+      .current_values_index
+      .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
+    let new_doc = self.values[idx].advance(target_doc_id - self.current_doc_base as i32)?;
 
     if new_doc == NO_MORE_DOCS {
       self.current_values_index = None;

@@ -551,7 +551,11 @@ where
       };
 
     let (pos_in_util, pos_delta_buffer) = if needs_pos {
-      let pi = reader.pos_in.as_ref().unwrap().try_clone()?;
+      let pi = reader
+        .pos_in
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("positions input is missing"))?
+        .try_clone()?;
       let util = DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(pi);
       (Some(util), vec![0; ForUtil::BLOCK_SIZE])
     } else {
@@ -559,7 +563,11 @@ where
     };
 
     let pay_in_util = if needs_offsets_or_payloads {
-      let pi = reader.pay_in.as_ref().unwrap().try_clone()?;
+      let pi = reader
+        .pay_in
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("payload input is missing"))?
+        .try_clone()?;
       let util = DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(pi);
       Some(util)
     } else {
@@ -698,11 +706,14 @@ where
     self.doc_freq = term_state.base.doc_freq;
     self.singleton_doc_id = term_state.singleton_doc_id;
     if self.doc_freq > 1 {
-      if self.doc_in_util.is_none() {
-        let doc_in = reader.doc_in.try_clone()?;
-        self.doc_in_util = Some(DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(doc_in));
-      }
-      prefetch_postings(&mut self.doc_in_util.as_mut().unwrap().input, term_state)?;
+      let doc_in_util = match &mut self.doc_in_util {
+        Some(doc_in_util) => doc_in_util,
+        slot @ None => {
+          let doc_in = reader.doc_in.try_clone()?;
+          slot.insert(DEFAULT_VECTORIZATION_PROVIDER.new_posting_decoding_util(doc_in))
+        },
+      };
+      prefetch_postings(&mut doc_in_util.input, term_state)?;
     }
 
     if self.for_delta_util.is_none() && (self.doc_freq as usize) >= ForUtil::BLOCK_SIZE {
@@ -762,7 +773,7 @@ where
         self
           .doc_in_util
           .as_mut()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
           .input
           .seek(term_state.doc_start_fp as usize)?;
       }
@@ -777,15 +788,25 @@ where
     Ok(self)
   }
   fn refill_full_block(&mut self) -> Result<()> {
-    let for_delta_util = self.for_delta_util.as_mut().unwrap();
-    let doc_in_util = self.doc_in_util.as_mut().unwrap();
+    let for_delta_util = self
+      .for_delta_util
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("FOR decoder is missing"))?;
+    let doc_in_util = self
+      .doc_in_util
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?;
     for_delta_util.decode_and_prefix_sum(
       &mut *doc_in_util,
       self.prev_doc_id,
       &mut self.doc_buffer,
     )?;
     if self.index_has_freq {
-      let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+      let doc_in = &mut self
+        .doc_in_util
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+        .input;
       if self.needs_freq {
         self.freq_fp = doc_in.get_file_pointer()? as i64;
       }
@@ -810,7 +831,11 @@ where
       self.doc_count_left = 0;
       self.doc_buffer_size = 1;
     } else {
-      let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+      let doc_in = &mut self
+        .doc_in_util
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+        .input;
       PostingsUtil::read_vint_block(
         doc_in,
         &mut self.doc_buffer,
@@ -846,7 +871,11 @@ where
     Ok(())
   }
   fn skip_level1_to(&mut self, target: i32) -> Result<()> {
-    let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+    let doc_in = &mut self
+      .doc_in_util
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+      .input;
     loop {
       self.prev_doc_id = self.level1_last_doc_id;
       self.level0_last_doc_id = self.level1_last_doc_id;
@@ -873,7 +902,10 @@ where
         let num_impact_bytes = doc_in.read_short()? as usize;
 
         if self.needs_impacts && self.level1_last_doc_id >= target {
-          let byte_ref = self.level1_serialized_impacts.as_mut().unwrap();
+          let byte_ref = self
+            .level1_serialized_impacts
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("level 1 impacts are missing"))?;
           doc_in.read_bytes(&mut byte_ref.bytes, 0, num_impact_bytes)?;
           byte_ref.length = num_impact_bytes;
         } else {
@@ -921,7 +953,11 @@ where
 
     if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
       {
-        let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+        let doc_in = &mut self
+          .doc_in_util
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+          .input;
         doc_in.read_vlong()?;
         let doc_delta = read_vint15(doc_in)?;
         self.level0_last_doc_id += doc_delta;
@@ -931,7 +967,10 @@ where
         if self.index_has_freq {
           let num_impact_bytes = doc_in.read_vint()?.try_convert()?;
           if self.needs_impacts {
-            let bi = self.level0_serialized_impacts.as_mut().unwrap();
+            let bi = self
+              .level0_serialized_impacts
+              .as_mut()
+              .ok_or_else(|| LuceneError::illegal_state("level 0 impacts are missing"))?;
             doc_in.read_bytes(&mut bi.bytes, 0, num_impact_bytes)?;
             bi.length = num_impact_bytes;
           } else {
@@ -966,7 +1005,11 @@ where
     if self.needs_docs_and_freqs_only && (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
       // Optimize the common path for exhaustive evaluation
       {
-        let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+        let doc_in = &mut self
+          .doc_in_util
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+          .input;
         let level0_num_bytes = doc_in.read_vlong()?;
         IndexInput::skip_bytes(doc_in, level0_num_bytes)?;
       }
@@ -995,7 +1038,11 @@ where
     // already decoded. In this case we just accumulate frequencies
     // into posPendingCount instead of seeking backwards and decoding the
     // same pos block again.
-    let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
+    let pos_in = &mut self
+      .pos_in_util
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("positions input is missing"))?
+      .input;
     if pos_fp >= pos_in.get_file_pointer()? as i64 {
       pos_in.seek(pos_fp as usize)?;
       self.pos_pending_count = pos_upto;
@@ -1027,7 +1074,11 @@ where
         pay_upto = self.level0_block_pay_upto;
 
         if (self.doc_count_left as usize) >= ForUtil::BLOCK_SIZE {
-          let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+          let doc_in = &mut self
+            .doc_in_util
+            .as_mut()
+            .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+            .input;
           let num_skip_bytes: usize = doc_in.read_vlong()?.try_convert()?;
           let skip0_end = doc_in.get_file_pointer()? + num_skip_bytes;
           let doc_delta = read_vint15(doc_in)?;
@@ -1042,7 +1093,10 @@ where
             } else {
               let num_impact_bytes = doc_in.read_vint()?.try_convert()?;
               if self.needs_impacts && found {
-                let bytes = self.level0_serialized_impacts.as_mut().unwrap();
+                let bytes = self
+                  .level0_serialized_impacts
+                  .as_mut()
+                  .ok_or_else(|| LuceneError::illegal_state("level 0 impacts are missing"))?;
                 doc_in.read_bytes(&mut bytes.bytes, 0, num_impact_bytes)?;
                 bytes.length = num_impact_bytes;
               } else {
@@ -1083,7 +1137,11 @@ where
       // advance skip data on level 1
       self.skip_level1_to(target)?;
     } else if self.needs_refilling {
-      let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+      let doc_in = &mut self
+        .doc_in_util
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+        .input;
       doc_in.seek(self.level0_doc_end_fp as usize)?;
       self.doc_count_left -= ForUtil::BLOCK_SIZE as i32;
     }
@@ -1108,7 +1166,11 @@ where
     } else {
       to_skip -= left_in_block;
       {
-        let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
+        let pos_in = &mut self
+          .pos_in_util
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("positions input is missing"))?
+          .input;
         while to_skip >= ForUtil::BLOCK_SIZE as i32 {
           debug_assert!(pos_in.get_file_pointer()? as i64 != self.last_pos_block_fp);
           PForUtil::skip(pos_in)?;
@@ -1148,7 +1210,11 @@ where
     let mut offset_length = 0;
     self.payload_byte_upto = 0;
 
-    let pos_in = &mut self.pos_in_util.as_mut().unwrap().input;
+    let pos_in = &mut self
+      .pos_in_util
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("positions input is missing"))?
+      .input;
 
     for i in 0..count {
       let code = pos_in.read_vint()?;
@@ -1199,17 +1265,20 @@ where
   fn refill_offsets_or_payloads(&mut self) -> Result<()> {
     if self.index_has_payloads {
       if self.needs_payloads {
-        let pay_in_util = self.pay_in_util.as_mut().unwrap();
+        let pay_in_util = self
+          .pay_in_util
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("payload input is missing"))?;
         self
           .pfor_util
           .as_mut()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("PFor decoder is missing"))?
           .decode(pay_in_util, &mut self.payload_length_buffer)?;
 
         let num_bytes = self
           .pay_in_util
           .as_mut()
-          .unwrap()
+          .ok_or_else(|| LuceneError::illegal_state("payload input is missing"))?
           .input
           .read_vint()?
           .try_convert()?;
@@ -1217,11 +1286,12 @@ where
           ArrayUtil::grow_no_copy(&mut self.payload_bytes, num_bytes)?;
         }
 
-        self.pay_in_util.as_mut().unwrap().input.read_bytes(
-          &mut self.payload_bytes,
-          0,
-          num_bytes,
-        )?;
+        self
+          .pay_in_util
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("payload input is missing"))?
+          .input
+          .read_bytes(&mut self.payload_bytes, 0, num_bytes)?;
       } else if let Some(ref mut pay_in) = self.pay_in_util {
         // this works, because when writing a vint block we always force
         // the first length to be written
@@ -1236,8 +1306,14 @@ where
 
     if self.index_has_offsets {
       if self.needs_offsets {
-        let pay_in_util = self.pay_in_util.as_mut().unwrap();
-        let pfor_util = self.pfor_util.as_mut().unwrap();
+        let pay_in_util = self
+          .pay_in_util
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("payload input is missing"))?;
+        let pfor_util = self
+          .pfor_util
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("PFor decoder is missing"))?;
         pfor_util.decode(pay_in_util, &mut self.offset_start_delta_buffer)?;
         pfor_util.decode(pay_in_util, &mut self.offset_length_buffer)?;
       } else if let Some(ref mut pay_in) = self.pay_in_util {
@@ -1252,7 +1328,11 @@ where
   }
   fn refill_positions(&mut self) -> Result<()> {
     let pos = {
-      let pos_in = &self.pos_in_util.as_mut().unwrap().input;
+      let pos_in = &self
+        .pos_in_util
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("positions input is missing"))?
+        .input;
       pos_in.get_file_pointer()?
     };
     if pos as i64 == self.last_pos_block_fp {
@@ -1260,10 +1340,15 @@ where
       return Ok(());
     }
 
-    self.pfor_util.as_mut().unwrap().decode(
-      self.pos_in_util.as_mut().unwrap(),
-      &mut self.pos_delta_buffer,
-    )?;
+    let pfor_util = self
+      .pfor_util
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("PFor decoder is missing"))?;
+    let pos_in_util = self
+      .pos_in_util
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("positions input is missing"))?;
+    pfor_util.decode(pos_in_util, &mut self.pos_delta_buffer)?;
 
     if self.index_has_offsets_or_payloads {
       self.refill_offsets_or_payloads()?;
@@ -1289,10 +1374,13 @@ where
     }
     Ok(())
   }
-  fn accumulate_payload_and_offsets(&mut self) {
+  fn accumulate_payload_and_offsets(&mut self) -> Result<()> {
     if self.needs_payloads {
       self.payload_length = self.payload_length_buffer[self.pos_buffer_upto as usize];
-      let payload = self.payload.as_mut().unwrap();
+      let payload = self
+        .payload
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
       payload.offset = self.payload_byte_upto as usize;
       payload.length = self.payload_length as usize;
       // TODO IMPORTANT could we avoid copying the payload?
@@ -1306,6 +1394,7 @@ where
       self.end_offset = self.start_offset + self.offset_length_buffer[pos];
       self.last_start_offset = self.start_offset;
     }
+    Ok(())
   }
 }
 
@@ -1315,13 +1404,21 @@ where
 {
   fn freq(&mut self) -> Result<i32> {
     if self.freq_fp != -1 {
-      let doc_in = &mut self.doc_in_util.as_mut().unwrap().input;
+      let doc_in = &mut self
+        .doc_in_util
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
+        .input;
       doc_in.seek(self.freq_fp as usize)?;
-      self
+      let pfor_util = self
         .pfor_util
         .as_mut()
-        .unwrap()
-        .decode(self.doc_in_util.as_mut().unwrap(), &mut self.freq_buffer)?;
+        .ok_or_else(|| LuceneError::illegal_state("PFor decoder is missing"))?;
+      let doc_in_util = self
+        .doc_in_util
+        .as_mut()
+        .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?;
+      pfor_util.decode(doc_in_util, &mut self.freq_buffer)?;
       self.freq_fp = -1;
     }
     Ok(self.freq_buffer[(self.doc_buffer_upto - 1) as usize])
@@ -1348,7 +1445,7 @@ where
     self.position += self.pos_delta_buffer[self.pos_buffer_upto as usize];
 
     if self.needs_offsets_or_payloads {
-      self.accumulate_payload_and_offsets();
+      self.accumulate_payload_and_offsets()?;
     }
 
     self.pos_buffer_upto += 1;
@@ -1377,7 +1474,9 @@ where
     if !self.needs_payloads || self.payload_length == 0 {
       Ok(None)
     } else {
-      Ok(Some(Cow::Borrowed(self.payload.as_ref().unwrap())))
+      Ok(Some(Cow::Borrowed(self.payload.as_ref().ok_or_else(
+        || LuceneError::illegal_state("payload value is missing"),
+      )?)))
     }
   }
 }
@@ -1521,7 +1620,10 @@ impl Impacts for ImpactsImpl<'_> {
     if self.index_has_freq {
       // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
       if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {
-        let level0_serialized_impacts_bytes_ref = self.level0_serialized_impacts.as_ref().unwrap();
+        let level0_serialized_impacts_bytes_ref = self
+          .level0_serialized_impacts
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("level 0 impacts are missing"))?;
         let level0_impacts = ImpactsImpl::read_impacts(
           level0_serialized_impacts_bytes_ref.bytes.as_ref(),
           level0_serialized_impacts_bytes_ref.length,
@@ -1530,7 +1632,10 @@ impl Impacts for ImpactsImpl<'_> {
         return Ok(level0_impacts.impacts[..level0_impacts.length].to_vec());
       }
       if level == 1 {
-        let level1_serialized_impacts_bytes_ref = self.level1_serialized_impacts.as_ref().unwrap();
+        let level1_serialized_impacts_bytes_ref = self
+          .level1_serialized_impacts
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("level 1 impacts are missing"))?;
         let level1_impacts = ImpactsImpl::read_impacts(
           level1_serialized_impacts_bytes_ref.bytes.as_ref(),
           level1_serialized_impacts_bytes_ref.length,

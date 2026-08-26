@@ -1137,9 +1137,12 @@ impl Default for AssertingCodecDefaults {
     Self {
       default_format: AssertingPostingsFormat::new().into(),
       default_dv_format: AssertingDocValuesFormat::new().into(),
-      default_knn_vectors_format: AssertingKnnVectorsFormat::new()
-        .expect("default KNN vectors format parameters are valid")
-        .into(),
+      default_knn_vectors_format: match AssertingKnnVectorsFormat::new() {
+        Ok(format) => format.into(),
+        Err(error) => {
+          unreachable!("default KNN vectors format parameters are valid: {error}")
+        },
+      },
     }
   }
 }

@@ -40,24 +40,24 @@ fn test_worst_case_stack_size() -> Result<()> {
   } else {
     TestUtil::next_usize(&mut random, 140_000_000, 200_000_000)
   };
-  let arr = generate_worst_case_array(length);
+  let arr = generate_worst_case_array(length)?;
   TimSorter::new(0, WorstCaseSorter::new(arr)).sort(0, length)
 }
 
 /// Create an array for the given list of runs.
-fn create_array(length: usize, runs: LinkedList<usize>) -> MutablePacked64Enum {
-  let mut array = PackedInts::get_mutable(length as i32, 1, 0.0);
+fn create_array(length: usize, runs: LinkedList<usize>) -> Result<MutablePacked64Enum> {
+  let mut array = PackedInts::get_mutable(length as i32, 1, 0.0)?;
   let mut end_run = -1_i32;
   for len in runs {
     end_run += len as i32;
     array.set(end_run, 1);
   }
   array.set(length as i32 - 1, 0);
-  array
+  Ok(array)
 }
 
 /// Create an array that triggers a worst-case sequence of run lengths.
-fn generate_worst_case_array(length: usize) -> MutablePacked64Enum {
+fn generate_worst_case_array(length: usize) -> Result<MutablePacked64Enum> {
   let min_run = TimSorter::<WorstCaseSorter>::min_run(length);
   let runs = runs_worst_case(length, min_run);
   create_array(length, runs)

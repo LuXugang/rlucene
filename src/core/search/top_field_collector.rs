@@ -408,13 +408,13 @@ where
       }
     }
 
-    let leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
+    let mut leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
     let reverse_muls = base.base.pq.get_reverse_mul_shared();
 
     let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
       (
         reverse_muls[0],
-        TopFieldLeafComparatorEnum::Single(leaf_comparators.into_iter().next().unwrap()),
+        TopFieldLeafComparatorEnum::Single(leaf_comparators.remove(0)),
       )
     } else {
       (

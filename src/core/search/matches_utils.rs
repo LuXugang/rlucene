@@ -85,11 +85,11 @@ pub fn from_sub_matches<'a>(
     return None;
   }
 
-  let mut match_index = None;
+  let mut match_index = 0;
   let mut match_count = 0;
   for (index, matches) in sub_matches.iter().enumerate() {
     if !matches!(matches, QueryWeightMatches::MatchWithNoTerms(_)) {
-      match_index = Some(index);
+      match_index = index;
       match_count += 1;
     }
   }
@@ -98,7 +98,7 @@ pub fn from_sub_matches<'a>(
     return Some(QueryWeightMatches::MatchWithNoTerms(MatchWithNoTerms));
   }
   if match_count == 1 {
-    return Some(sub_matches.swap_remove(match_index.unwrap()));
+    return Some(sub_matches.swap_remove(match_index));
   }
   Some(QueryWeightMatches::Matches(Box::new(CombinedMatch::new(
     sub_matches,

@@ -522,16 +522,17 @@ impl IndexableField for Field {
           *reuse_token_stream = Some(ReusedIndexingTokenStream::B(StringTokenStream::new()));
         }
 
-        match reuse_token_stream.as_mut().unwrap() {
+        let stream = reuse_token_stream
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("should StringTokenStream here"))?;
+        match stream {
           ReusedIndexingTokenStream::B(s) => s.set_value(string_value),
           ReusedIndexingTokenStream::A(_) => {
             return Err(LuceneError::illegal_state("should StringTokenStream here"));
           },
         }
 
-        return Ok(Some(IndexingTokenStreamEnum3::Reused(
-          reuse_token_stream.as_mut().unwrap(),
-        )));
+        return Ok(Some(IndexingTokenStreamEnum3::Reused(stream)));
       }
 
       if let Some(binary_value) = self.binary_value()?.map(|v| v.into_owned()) {
@@ -541,15 +542,16 @@ impl IndexableField for Field {
         ) {
           *reuse_token_stream = Some(ReusedIndexingTokenStream::A(BinaryTokenStream::new()?));
         }
-        match reuse_token_stream.as_mut().unwrap() {
+        let stream = reuse_token_stream
+          .as_mut()
+          .ok_or_else(|| LuceneError::illegal_state("should BinaryTokenStream here"))?;
+        match stream {
           ReusedIndexingTokenStream::A(s) => s.set_value(binary_value),
           ReusedIndexingTokenStream::B(_) => {
             return Err(LuceneError::illegal_state("should BinaryTokenStream here"));
           },
         }
-        return Ok(Some(IndexingTokenStreamEnum3::Reused(
-          reuse_token_stream.as_mut().unwrap(),
-        )));
+        return Ok(Some(IndexingTokenStreamEnum3::Reused(stream)));
       }
       debug_assert!(reuse_token_stream.is_none());
     }

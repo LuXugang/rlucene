@@ -58,8 +58,7 @@ impl VectorEncoding {
   }
   #[cfg(test)]
   pub fn random<R: Rng + ?Sized>(rng: &mut R) -> Self {
-    let v = rng.random_range(0..Self::COUNT) as u8;
-    Self::from_repr(v).unwrap()
+    Self::values()[rng.random_range(0..Self::COUNT)]
   }
 }
 

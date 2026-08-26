@@ -185,19 +185,24 @@ where
         self.current = self.queue.pop()?;
       }
     } else if self.queue.size() > 0 {
-      debug_assert!({
-        let top_idx = **self.queue.top().as_ref().unwrap();
-        let top = self.queue.compare.subs[top_idx].mapped_doc_id;
-        self.queue_min_doc_id == top
+      debug_assert!(match self.queue.top().as_ref() {
+        Some(top_idx) => {
+          let top = self.queue.compare.subs[**top_idx].mapped_doc_id;
+          self.queue_min_doc_id == top
+        },
+        None => false,
       });
       debug_assert!(next_doc > self.queue_min_doc_id);
       let new_current_idx = *self
         .queue
         .top()
         .ok_or_else(|| LuceneError::illegal_state("no top available"))?;
-      self
-        .queue
-        .update_top_with_new_top(self.current.take().unwrap())?;
+      self.queue.update_top_with_new_top(
+        self
+          .current
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("current merge sub is missing"))?,
+      )?;
       self.current = Some(new_current_idx);
     }
 

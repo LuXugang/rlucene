@@ -185,8 +185,12 @@ impl<'a> TopScoreDocLeafCollector<'a> {
   where
     S: Scorable + ?Sized,
   {
-    debug_assert!(self.base.min_score_acc.is_some());
-    let max_min_score = self.base.min_score_acc.as_ref().unwrap().get_raw();
+    let max_min_score = self
+      .base
+      .min_score_acc
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("minimum score accumulator is missing"))?
+      .get_raw();
     if max_min_score != i64::MIN {
       // since we tie-break on doc id and collect in doc id order we can require
       // the next float if the global minimum score is set on a document id that is

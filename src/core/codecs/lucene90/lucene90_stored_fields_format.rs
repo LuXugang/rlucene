@@ -45,9 +45,9 @@ use std::sync::Arc;
 ///
 /// ```text
 /// // the default: for high performance
-/// index_writer_config.set_codec(Lucene101Codec::with_mode(Mode::BestSpeed));
+/// index_writer_config.set_codec(Lucene101Codec::with_mode(Mode::BestSpeed)?);
 /// // instead for higher compression (but slower):
-/// index_writer_config.set_codec(Lucene101Codec::with_mode(Mode::BestCompression));
+/// index_writer_config.set_codec(Lucene101Codec::with_mode(Mode::BestCompression)?);
 /// ```
 ///
 /// # File formats
