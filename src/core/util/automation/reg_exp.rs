@@ -533,48 +533,60 @@ impl RegExp {
   pub fn get_original_string(&self) -> &str {
     &self.original_string
   }
-  pub fn to_string_builder(&self, b: &mut String) {
+  fn require_exp1(&self) -> Result<&RegExp> {
+    self
+      .exp1
+      .as_deref()
+      .ok_or_else(|| LuceneError::illegal_state("first child expression is missing"))
+  }
+  fn require_exp2(&self) -> Result<&RegExp> {
+    self
+      .exp2
+      .as_deref()
+      .ok_or_else(|| LuceneError::illegal_state("second child expression is missing"))
+  }
+  pub fn to_string_builder(&self, b: &mut String) -> Result<()> {
     use RegExpKind::*;
 
     match self.kind {
       Union => {
         b.push('(');
-        self.exp1.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
         b.push('|');
-        self.exp2.as_ref().unwrap().to_string_builder(b);
+        self.require_exp2()?.to_string_builder(b)?;
         b.push(')');
       },
       Concatenation => {
-        self.exp1.as_ref().unwrap().to_string_builder(b);
-        self.exp2.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
+        self.require_exp2()?.to_string_builder(b)?;
       },
       Intersection => {
         b.push('(');
-        self.exp1.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
         b.push('&');
-        self.exp2.as_ref().unwrap().to_string_builder(b);
+        self.require_exp2()?.to_string_builder(b)?;
         b.push(')');
       },
       Optional => {
         b.push('(');
-        self.exp1.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
         b.push_str(")?");
       },
       Repeat => {
         b.push('(');
-        self.exp1.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
         b.push_str(")*");
       },
       RepeatMin => {
         b.push('(');
-        self.exp1.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
         b.push_str("){");
         b.push_str(&self.min.to_string());
         b.push_str(",}");
       },
       RepeatMinMax => {
         b.push('(');
-        self.exp1.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
         b.push_str("){");
         b.push_str(&self.min.to_string());
         b.push(',');
@@ -583,7 +595,7 @@ impl RegExp {
       },
       Complement | DeprecatedComplement => {
         b.push_str("~(");
-        self.exp1.as_ref().unwrap().to_string_builder(b);
+        self.require_exp1()?.to_string_builder(b)?;
         b.push(')');
       },
       Char => {
@@ -647,6 +659,7 @@ impl RegExp {
         }
       },
     }
+    Ok(())
   }
   /// Like to string, but more verbose (shows the higherchy more clearly).
   pub fn to_string_tree(&self) -> String {
@@ -795,42 +808,70 @@ impl RegExp {
   fn make_union(flags: i32, exp1: RegExp, exp2: RegExp) -> Self {
     RegExp::new_container_node(flags, RegExpKind::Union, Some(exp1), Some(exp2))
   }
-  fn make_concatenation(flags: i32, mut exp1: RegExp, mut exp2: RegExp) -> Self {
+  fn make_concatenation(flags: i32, mut exp1: RegExp, mut exp2: RegExp) -> Result<Self> {
     let is_str_or_char = |e: &RegExp| matches!(e.kind, RegExpKind::Char | RegExpKind::String);
     if is_str_or_char(&exp1) && is_str_or_char(&exp2) {
-      return RegExp::make_string_concat(flags, &exp1, &exp2);
+      return Ok(RegExp::make_string_concat(flags, &exp1, &exp2));
     }
 
-    if exp1.kind == RegExpKind::Concatenation {
-      if let Some(e2) = &exp1.exp2
-        && is_str_or_char(e2)
-        && is_str_or_char(&exp2)
-      {
-        let rexp1 = *exp1.exp1.take().unwrap();
-        let rexp2 = RegExp::make_string_concat(flags, e2, &exp2);
-        return RegExp::new_container_node(
-          flags,
-          RegExpKind::Concatenation,
-          Some(rexp1),
-          Some(rexp2),
-        );
-      }
-    } else if exp2.kind == RegExpKind::Concatenation
-      && let Some(e1) = &exp2.exp1
-      && is_str_or_char(&exp1)
-      && is_str_or_char(e1)
-    {
-      let rexp1 = RegExp::make_string_concat(flags, &exp1, e1);
-      let rexp2 = *exp2.exp2.take().unwrap();
-      return RegExp::new_container_node(
+    let merge_left = if exp1.kind == RegExpKind::Concatenation {
+      exp1.require_exp1()?;
+      let e2 = exp1.require_exp2()?;
+      is_str_or_char(e2) && is_str_or_char(&exp2)
+    } else {
+      false
+    };
+
+    if merge_left {
+      let rexp1 = *exp1
+        .exp1
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("first child expression is missing"))?;
+      let e2 = *exp1
+        .exp2
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("second child expression is missing"))?;
+      let rexp2 = RegExp::make_string_concat(flags, &e2, &exp2);
+      return Ok(RegExp::new_container_node(
         flags,
         RegExpKind::Concatenation,
         Some(rexp1),
         Some(rexp2),
-      );
+      ));
     }
 
-    RegExp::new_container_node(flags, RegExpKind::Concatenation, Some(exp1), Some(exp2))
+    let merge_right = if exp2.kind == RegExpKind::Concatenation {
+      let e1 = exp2.require_exp1()?;
+      exp2.require_exp2()?;
+      is_str_or_char(&exp1) && is_str_or_char(e1)
+    } else {
+      false
+    };
+
+    if merge_right {
+      let e1 = *exp2
+        .exp1
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("first child expression is missing"))?;
+      let rexp2 = *exp2
+        .exp2
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("second child expression is missing"))?;
+      let rexp1 = RegExp::make_string_concat(flags, &exp1, &e1);
+      return Ok(RegExp::new_container_node(
+        flags,
+        RegExpKind::Concatenation,
+        Some(rexp1),
+        Some(rexp2),
+      ));
+    }
+
+    Ok(RegExp::new_container_node(
+      flags,
+      RegExpKind::Concatenation,
+      Some(exp1),
+      Some(exp2),
+    ))
   }
   fn make_string_concat(flags: i32, exp1: &RegExp, exp2: &RegExp) -> Self {
     let mut b = String::new();
@@ -1013,7 +1054,7 @@ impl RegExp {
     let mut result = gather(self)?;
     while stop(self) {
       let e = gather(self)?;
-      result = reducer.get(flags, result, e);
+      result = reducer.get(flags, result, e)?;
     }
     Ok(result)
   }
@@ -1297,7 +1338,7 @@ impl fmt::Display for RegExp {
   /// Constructs string from parsed regular expression.
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut s = String::new();
-    self.to_string_builder(&mut s);
+    self.to_string_builder(&mut s).map_err(|_| fmt::Error)?;
     write!(f, "{s}")
   }
 }
@@ -1343,27 +1384,27 @@ pub enum RegExpKind {
   DeprecatedComplement,
 }
 /// Custom callback trait for methods with the signature:
-/// `fn(i32, RegExp, RegExp) -> RegExp`
+/// `fn(i32, RegExp, RegExp) -> Result<RegExp>`
 trait MakeRegexGroup {
-  fn get(&self, int1: i32, exp1: RegExp, exp2: RegExp) -> RegExp;
+  fn get(&self, int1: i32, exp1: RegExp, exp2: RegExp) -> Result<RegExp>;
 }
 struct UnionGroup;
 impl MakeRegexGroup for UnionGroup {
-  fn get(&self, flags: i32, e1: RegExp, e2: RegExp) -> RegExp {
-    RegExp::make_union(flags, e1, e2)
+  fn get(&self, flags: i32, e1: RegExp, e2: RegExp) -> Result<RegExp> {
+    Ok(RegExp::make_union(flags, e1, e2))
   }
 }
 
 struct IntersectionGroup;
 impl MakeRegexGroup for IntersectionGroup {
-  fn get(&self, flags: i32, e1: RegExp, e2: RegExp) -> RegExp {
-    RegExp::make_intersection(flags, e1, e2)
+  fn get(&self, flags: i32, e1: RegExp, e2: RegExp) -> Result<RegExp> {
+    Ok(RegExp::make_intersection(flags, e1, e2))
   }
 }
 
 struct ConcatGroup;
 impl MakeRegexGroup for ConcatGroup {
-  fn get(&self, flags: i32, e1: RegExp, e2: RegExp) -> RegExp {
+  fn get(&self, flags: i32, e1: RegExp, e2: RegExp) -> Result<RegExp> {
     RegExp::make_concatenation(flags, e1, e2)
   }
 }
