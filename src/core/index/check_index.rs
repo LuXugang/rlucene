@@ -4389,7 +4389,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
           doc_values_reader.get_numeric(field_info)?,
         )
       },
-      DocValuesType::None => std::panic::panic_any(()),
+      DocValuesType::None => Err(LuceneError::illegal_state(format!(
+        "field \"{}\" has no doc values",
+        field_info.name
+      ))),
     }
   }
 

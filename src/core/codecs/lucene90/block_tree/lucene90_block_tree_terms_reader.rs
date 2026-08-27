@@ -26,6 +26,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
+use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
@@ -359,8 +360,15 @@ where
   type Terms = FieldReader<I, PR>;
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
-    let field_info = self.field_infos.field_info_by_name(field)?;
-    Ok(field_info.and_then(|f| self.field_map.read().get(&f.number).cloned()))
+    let Some(field_info) = self.field_infos.field_info_by_name(field)? else {
+      return Ok(None);
+    };
+    self
+      .field_map
+      .read()
+      .get(&field_info.number)
+      .map(TryClone::try_clone)
+      .transpose()
   }
 
   fn size(&self) -> Result<i32> {

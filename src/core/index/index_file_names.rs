@@ -199,8 +199,9 @@ impl IndexFileNames {
 use regex::Regex;
 use std::sync::LazyLock;
 
-pub static CODEC_FILE_PATTERN: LazyLock<Regex> =
-  LazyLock::new(|| match Regex::new(r"_[a-z0-9]+(_.*)?\..*") {
-    Ok(regex) => regex,
-    Err(error) => panic!("invalid codec file regex: {error}"),
-  });
+pub static CODEC_FILE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+  expect_invariant!(
+    Regex::new(r"_[a-z0-9]+(_.*)?\..*"),
+    "codec file pattern is a fixed valid regular expression",
+  )
+});

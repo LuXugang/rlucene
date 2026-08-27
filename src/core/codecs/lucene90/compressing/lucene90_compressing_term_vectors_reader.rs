@@ -243,10 +243,7 @@ where
     } else {
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         match meta_in.as_mut() {
-          Some(meta) => {
-            CodecUtil::check_footer_with_error(meta, Some(result))?;
-            panic!("unreachable");
-          },
+          Some(meta) => CodecUtil::check_footer_with_error(meta, Some(result)),
           None => IOUtils::rethrow_always(result),
         }
       }));

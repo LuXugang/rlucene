@@ -156,29 +156,31 @@ fn test_quantize_and_de_quantize_7_bit() -> Result<()> {
 }
 
 #[test]
-fn test_quantiles() {
+fn test_quantiles() -> Result<()> {
   let mut random = random();
   let mut percs = (0..1000).map(|i| i as f32).collect::<Vec<_>>();
   shuffle_array(&mut random, &mut percs);
-  let upper_and_lower = get_upper_and_lower_quantile(&mut percs, 0.9);
+  let upper_and_lower = get_upper_and_lower_quantile(&mut percs, 0.9)?;
   assert_approx_eq(50.0, upper_and_lower[0], 1e-7);
   assert_approx_eq(949.0, upper_and_lower[1], 1e-7);
   shuffle_array(&mut random, &mut percs);
-  let upper_and_lower = get_upper_and_lower_quantile(&mut percs, 0.95);
+  let upper_and_lower = get_upper_and_lower_quantile(&mut percs, 0.95)?;
   assert_approx_eq(25.0, upper_and_lower[0], 1e-7);
   assert_approx_eq(974.0, upper_and_lower[1], 1e-7);
   shuffle_array(&mut random, &mut percs);
-  let upper_and_lower = get_upper_and_lower_quantile(&mut percs, 0.99);
+  let upper_and_lower = get_upper_and_lower_quantile(&mut percs, 0.99)?;
   assert_approx_eq(5.0, upper_and_lower[0], 1e-7);
   assert_approx_eq(994.0, upper_and_lower[1], 1e-7);
+  Ok(())
 }
 
 #[test]
-fn test_edge_case() {
+fn test_edge_case() -> Result<()> {
   let mut arr = [1.0, 1.0, 1.0, 1.0, 1.0];
-  let upper_and_lower = get_upper_and_lower_quantile(&mut arr, 0.9);
+  let upper_and_lower = get_upper_and_lower_quantile(&mut arr, 0.9)?;
   assert_approx_eq(1.0, upper_and_lower[0], 1e-7);
   assert_approx_eq(1.0, upper_and_lower[1], 1e-7);
+  Ok(())
 }
 
 #[test]

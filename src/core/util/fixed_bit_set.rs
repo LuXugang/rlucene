@@ -69,10 +69,7 @@ impl PartialEq for FixedBitSet {
 
 impl Clone for FixedBitSet {
   fn clone(&self) -> Self {
-    match Self::with_capacity(self.bits.clone(), self.num_bits) {
-      Ok(bit_set) => bit_set,
-      Err(error) => panic!("invalid FixedBitSet clone state: {error}"),
-    }
+    Self::from_validated_parts(self.bits.clone(), self.num_bits, self.num_words)
   }
 }
 
@@ -145,12 +142,7 @@ impl FixedBitSet {
     let size: usize = Self::bits2words(num_bits);
     let bits: Vec<i64> = vec![0; size];
     let exact_size = bits.len();
-    FixedBitSet {
-      bits,
-      num_bits,
-      num_words: exact_size,
-      id: Identity::new(),
-    }
+    Self::from_validated_parts(bits, num_bits, exact_size)
   }
   /// Creates a new [`FixedBitSet`] using the provided `Vec<u64>` array as the
   /// backing store. The `stored_bits` array must be large enough to
@@ -168,14 +160,20 @@ impl FixedBitSet {
         "The given long array is too small  to hold {num_words} bits"
       )));
     }
-    let result = FixedBitSet {
-      bits: stored_bits,
+    Ok(Self::from_validated_parts(stored_bits, num_bits, num_words))
+  }
+
+  fn from_validated_parts(bits: Vec<i64>, num_bits: usize, num_words: usize) -> Self {
+    debug_assert_eq!(num_words, Self::bits2words(num_bits));
+    debug_assert!(num_words <= bits.len());
+    let bit_set = Self {
+      bits,
       num_bits,
       num_words,
       id: Identity::new(),
     };
-    debug_assert!(Self::verify_ghost_bits_clear(&result));
-    Ok(result)
+    debug_assert!(Self::verify_ghost_bits_clear(&bit_set));
+    bit_set
   }
 
   /// Checks if the bits past `num_bits` are clear. Some methods rely on this

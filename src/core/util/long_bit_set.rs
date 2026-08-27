@@ -77,11 +77,7 @@ impl LongBitSet {
   pub fn new(num_bits: usize) -> Result<Self> {
     let num_words = Self::bits2words(num_bits)?;
     let bits = vec![0i64; num_words as usize];
-    Ok(Self {
-      bits,
-      num_bits,
-      num_words,
-    })
+    Ok(Self::from_validated_parts(bits, num_bits, num_words))
   }
   /// Creates a new [`LongBitSet`] using the provided `Vec<i64>` as
   /// backing storage. `stored_bits` must be large enough to
@@ -100,13 +96,23 @@ impl LongBitSet {
       )));
     }
 
-    let bitset = Self {
-      bits: stored_bits,
+    Ok(Self::from_validated_parts(stored_bits, num_bits, num_words))
+  }
+
+  fn from_validated_parts(bits: Vec<i64>, num_bits: usize, num_words: i32) -> Self {
+    debug_assert!(num_words >= 0);
+    debug_assert!(matches!(
+      Self::bits2words(num_bits),
+      Ok(expected_num_words) if expected_num_words == num_words
+    ));
+    debug_assert!(num_words as usize <= bits.len());
+    let bit_set = Self {
+      bits,
       num_bits,
       num_words,
     };
-    debug_assert!(bitset.verify_ghost_bits_clear());
-    Ok(bitset)
+    debug_assert!(bit_set.verify_ghost_bits_clear());
+    bit_set
   }
   /**
    * Checks if the bits past numBits are clear. Some methods rely on this
@@ -507,10 +513,7 @@ impl Accountable for LongBitSet {
 }
 impl Clone for LongBitSet {
   fn clone(&self) -> Self {
-    match Self::from_bits(self.bits.clone(), self.num_bits) {
-      Ok(bit_set) => bit_set,
-      Err(error) => panic!("invalid LongBitSet clone state: {error}"),
-    }
+    Self::from_validated_parts(self.bits.clone(), self.num_bits, self.num_words)
   }
 }
 impl PartialEq for LongBitSet {

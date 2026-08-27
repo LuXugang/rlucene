@@ -53,13 +53,12 @@ use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
 use std::sync::LazyLock;
 
-pub(crate) static FLAGS_BITS: LazyLock<i32> =
-  LazyLock::new(
-    || match bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64) {
-      Ok(bits) => bits,
-      Err(error) => panic!("invalid built-in term-vector flags: {error}"),
-    },
-  );
+pub(crate) static FLAGS_BITS: LazyLock<i32> = LazyLock::new(|| {
+  expect_invariant!(
+    bits_required((POSITIONS | OFFSETS | PAYLOADS) as i64),
+    "built-in term-vector flags form a fixed valid bit mask",
+  )
+});
 /// [`TermVectorsWriter`] for [`Lucene90CompressingTermVectorsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_term_vectors_format::Lucene90CompressingTermVectorsFormat).
 pub struct Lucene90CompressingTermVectorsWriter<D>
 where

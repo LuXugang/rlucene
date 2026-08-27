@@ -28,6 +28,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::terms::Terms;
 use crate::core::store::{ByteArrayDataInput, DataInput, IndexInput};
 use crate::core::util::automation::compiled_automaton::{AutomatonType, CompiledAutomaton};
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::byte_sequence_outputs::ByteSequenceOutputs;
 use crate::core::util::fst_impl::fst::{FST, FSTMetadata, read_metadata};
@@ -182,7 +183,7 @@ where
   PR: PostingsReaderBase,
 {
   pub(crate) fn get_stats_object(&self) -> Result<Stats> {
-    SegmentTermsEnum::new(self.clone())?.compute_block_stats()
+    SegmentTermsEnum::new(self.try_clone()?)?.compute_block_stats()
   }
 }
 
@@ -194,7 +195,7 @@ where
   type TermsEnum = SegmentTermsEnum<I, PR>;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
-    SegmentTermsEnum::new(self.clone())
+    SegmentTermsEnum::new(self.try_clone()?)
   }
 
   type IntersectIter = IntersectTermsEnum<I, PR>;
@@ -210,7 +211,7 @@ where
       ));
     }
     IntersectTermsEnum::new(
-      self.clone(),
+      self.try_clone()?,
       compiled.get_automaton()?,
       compiled.common_suffix_ref.clone(),
       start_term,
@@ -292,18 +293,18 @@ where
     )
   }
 }
-impl<I, PR> Clone for FieldReader<I, PR>
+impl<I, PR> TryClone for FieldReader<I, PR>
 where
   I: IndexInput,
   PR: PostingsReaderBase,
 {
   // used to init SegmentTermsEnum
-  fn clone(&self) -> Self {
-    let index = match self.index.as_ref() {
-      Some(index) => Arc::clone(index),
-      None => panic!("initialized block-tree field reader has no terms index"),
-    };
-    Self {
+  fn try_clone(&self) -> Result<Self> {
+    let index = self
+      .index
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("block-tree field reader has no terms index"))?;
+    Ok(Self {
       num_terms: self.num_terms,
       field_info: self.field_info.clone(),
       sum_total_term_freq: self.sum_total_term_freq,
@@ -314,9 +315,9 @@ where
       min_term: self.min_term.clone(),
       max_term: self.max_term.clone(),
       parent: self.parent.clone(),
-      index: Some(index),
+      index: Some(Arc::clone(index)),
       tmp_data: None,
-    }
+    })
   }
 }
 

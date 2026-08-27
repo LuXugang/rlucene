@@ -587,7 +587,9 @@ impl IOUtils {
     match result {
       Ok(Err(error)) => Err(error),
       Err(payload) => std::panic::resume_unwind(payload),
-      Ok(Ok(_)) => panic!("argument must contain a failure"),
+      Ok(Ok(_)) => Err(LuceneError::illegal_state(
+        "IOUtils::rethrow_always requires a previously caught failure",
+      )),
     }
   }
 

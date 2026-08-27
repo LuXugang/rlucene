@@ -53,11 +53,12 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// [`StoredFieldsWriter`] implementation for
 /// [`Lucene90CompressingStoredFieldsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
-pub(crate) static TYPE_BITS: LazyLock<i32> =
-  LazyLock::new(|| match PackedInts::bits_required(NUMERIC_DOUBLE as i64) {
-    Ok(bits) => bits,
-    Err(error) => panic!("invalid built-in stored-fields type range: {error}"),
-  });
+pub(crate) static TYPE_BITS: LazyLock<i32> = LazyLock::new(|| {
+  expect_invariant!(
+    PackedInts::bits_required(NUMERIC_DOUBLE as i64),
+    "NUMERIC_DOUBLE is a fixed valid stored-fields type identifier",
+  )
+});
 
 pub(crate) static TYPE_MASK: LazyLock<i64> = LazyLock::new(|| PackedInts::max_value(*TYPE_BITS));
 pub struct Lucene90CompressingStoredFieldsWriter<D>

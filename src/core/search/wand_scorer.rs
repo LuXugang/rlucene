@@ -690,10 +690,9 @@ where
         let w = &self.all_scorers[idx];
 
         debug_assert!(w.doc < self.doc);
-        max_score_sum = match max_score_sum.checked_add(w.scaled_max_score) {
-          Some(sum) => sum,
-          None => panic!("scaled maximum score sum overflowed"),
-        };
+        max_score_sum = max_score_sum
+          .checked_add(w.scaled_max_score)
+          .ok_or_else(|| LuceneError::number_overflow("scaled maximum score sum overflowed"))?;
       }
 
       debug_assert!(

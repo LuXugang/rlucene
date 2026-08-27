@@ -226,7 +226,7 @@ impl StringsToAutomaton {
   /// Replaces the last child of `state` with an already registered state or
   /// registers the last child state into the state registry.
   fn replace_or_register(&mut self, state: usize) -> Result<()> {
-    let child = self.all_states[state].last_child();
+    let child = self.all_states[state].last_child()?;
 
     if self.all_states[child].has_children() {
       self.replace_or_register(child)?;
@@ -293,11 +293,12 @@ impl State {
     Ok(new_state)
   }
   /// Returns the most recent transition's target state.
-  pub(crate) fn last_child(&self) -> usize {
-    match self.states.last() {
-      Some(state) => *state,
-      None => panic!("No outgoing transitions."),
-    }
+  pub(crate) fn last_child(&self) -> Result<usize> {
+    self
+      .states
+      .last()
+      .copied()
+      .ok_or_else(|| LuceneError::illegal_state("state has no outgoing transitions"))
   }
   /// Returns the associated state if the most recent transition is labeled
   /// with `label`.

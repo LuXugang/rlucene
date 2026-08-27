@@ -320,7 +320,7 @@ impl ScalarQuantizer {
             &mut quantile_gathering_scratch,
             &mut upper_sum,
             &mut lower_sum,
-          );
+          )?;
           i = 0;
           count += 1;
         }
@@ -356,7 +356,7 @@ impl ScalarQuantizer {
           &mut quantile_gathering_scratch,
           &mut upper_sum,
           &mut lower_sum,
-        );
+        )?;
         count += 1;
         idx = 0;
       }
@@ -415,7 +415,7 @@ impl ScalarQuantizer {
             &mut quantile_gathering_scratch,
             &mut upper_sum,
             &mut lower_sum,
-          );
+          )?;
           i = 0;
           count += 1;
         }
@@ -447,7 +447,7 @@ impl ScalarQuantizer {
             &mut quantile_gathering_scratch,
             &mut upper_sum,
             &mut lower_sum,
-          );
+          )?;
           count += 1;
           idx = 0;
         }
@@ -503,15 +503,16 @@ fn extract_quantiles(
   quantile_gathering_scratch: &mut [f32],
   upper_sum: &mut [f64],
   lower_sum: &mut [f64],
-) {
+) -> Result<()> {
   debug_assert_eq!(confidence_intervals.len(), upper_sum.len());
   debug_assert_eq!(confidence_intervals.len(), lower_sum.len());
   for i in 0..confidence_intervals.len() {
     let upper_and_lower =
-      get_upper_and_lower_quantile(quantile_gathering_scratch, confidence_intervals[i]);
+      get_upper_and_lower_quantile(quantile_gathering_scratch, confidence_intervals[i])?;
     upper_sum[i] += upper_and_lower[1] as f64;
     lower_sum[i] += upper_and_lower[0] as f64;
   }
+  Ok(())
 }
 
 fn gather_sample(
@@ -650,23 +651,22 @@ fn find_nearest_neighbors(
 /// - `confidence_interval`: the configured confidence interval
 ///
 /// Returns lower and upper quantile values.
-pub(crate) fn get_upper_and_lower_quantile(arr: &mut [f32], confidence_interval: f32) -> [f32; 2] {
+pub(crate) fn get_upper_and_lower_quantile(
+  arr: &mut [f32],
+  confidence_interval: f32,
+) -> Result<[f32; 2]> {
   debug_assert!(!arr.is_empty());
   // If we have 1 or 2 values, we can't calculate the quantiles, simply return the min and max
   if arr.len() <= 2 {
     arr.sort_by(|left, right| left.total_cmp(right));
-    return [arr[0], arr[arr.len() - 1]];
+    return Ok([arr[0], arr[arr.len() - 1]]);
   }
   let selector_index = (arr.len() as f32 * (1.0 - confidence_interval) / 2.0 + 0.5) as usize;
   if selector_index > 0 {
     let len = arr.len();
     let mut selector = IntroSelector::new(FloatSelector::new(arr));
-    if let Err(error) = Selector::select(&mut selector, 0, len, len - selector_index) {
-      panic!("valid upper quantile selection failed: {error}");
-    }
-    if let Err(error) = Selector::select(&mut selector, 0, len - selector_index, selector_index) {
-      panic!("valid lower quantile selection failed: {error}");
-    }
+    Selector::select(&mut selector, 0, len, len - selector_index)?;
+    Selector::select(&mut selector, 0, len - selector_index, selector_index)?;
   }
   let mut min = f32::INFINITY;
   let mut max = f32::NEG_INFINITY;
@@ -678,7 +678,7 @@ pub(crate) fn get_upper_and_lower_quantile(arr: &mut [f32], confidence_interval:
     min = min.min(value);
     max = max.max(value);
   }
-  [min, max]
+  Ok([min, max])
 }
 
 struct FloatSelector<'a> {
