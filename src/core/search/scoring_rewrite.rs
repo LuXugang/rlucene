@@ -309,15 +309,15 @@ impl BytesStartArray for TermFreqBoostByteStart {
     self.base.bytes_used()
   }
 
-  fn get_value(&self, index: usize) -> i32 {
+  fn get_value(&self, index: usize) -> Result<i32> {
     self.base.get_value(index)
   }
 
-  fn set_value(&mut self, index: usize, value: i32) {
-    self.base.set_value(index, value);
+  fn set_value(&mut self, index: usize, value: i32) -> Result<()> {
+    self.base.set_value(index, value)
   }
 
-  fn len(&self) -> usize {
+  fn len(&self) -> Result<usize> {
     self.base.len()
   }
 

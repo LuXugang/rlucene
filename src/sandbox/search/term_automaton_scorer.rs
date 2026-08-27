@@ -23,7 +23,7 @@ use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::automation::automaton::Automaton;
 use crate::core::util::automation::run_automaton::RunAutomaton;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
 pub(crate) struct TermAutomatonScorer<PE, SS, N> {
@@ -115,18 +115,19 @@ where
   }
 
   /// Pops all enums positioned on the current (minimum) doc.
-  fn pop_current_doc(&mut self) {
+  fn pop_current_doc(&mut self) -> Result<()> {
     debug_assert!(self.subs_on_doc.is_empty());
     debug_assert!(!self.doc_id_queue.is_empty());
-    let first = self.doc_id_queue.pop(&self.subs);
+    let first = self.doc_id_queue.pop(&self.subs)?;
     self.doc_id = self.subs[first].pos_enum.doc_id();
     self.subs_on_doc.push(first);
     while let Some(top) = self.doc_id_queue.top() {
       if self.subs[top].pos_enum.doc_id() != self.doc_id {
         break;
       }
-      self.subs_on_doc.push(self.doc_id_queue.pop(&self.subs));
+      self.subs_on_doc.push(self.doc_id_queue.pop(&self.subs)?);
     }
+    Ok(())
   }
 
   /// Pushes all previously popped enums back into the doc ID queue.
@@ -154,7 +155,7 @@ where
     );
     loop {
       // println!("  do_next: cycle");
-      self.pop_current_doc();
+      self.pop_current_doc()?;
       // println!("    doc_id={}", self.doc_id);
       if self.doc_id == NO_MORE_DOCS {
         return Ok(self.doc_id);
@@ -193,7 +194,7 @@ where
     self.pos_shift = -1;
 
     while !self.pos_queue.is_empty() {
-      let index = self.pos_queue.pop(&self.subs);
+      let index = self.pos_queue.pop(&self.subs)?;
 
       // This is a graph intersection, and pos is the state this token
       // leaves from. Until index stores posLength (which we could
@@ -343,7 +344,7 @@ where
       if self.subs[top].pos_enum.doc_id() >= target {
         break;
       }
-      let index = self.doc_id_queue.pop(&self.subs);
+      let index = self.doc_id_queue.pop(&self.subs)?;
       self.subs[index].pos_enum.advance(target)?;
       self.position_sub_on_doc(index)?;
       self.doc_id_queue.add(index, &self.subs);
@@ -460,35 +461,39 @@ impl DocIdQueue {
     }
   }
 
-  fn pop<PE>(&mut self, subs: &[EnumAndScorer<PE>]) -> usize
+  fn pop<PE>(&mut self, subs: &[EnumAndScorer<PE>]) -> Result<usize>
   where
     PE: PostingsEnum,
   {
-    let result = self.heap[0];
-    let last = self.heap.pop().unwrap();
-    if !self.heap.is_empty() {
-      self.heap[0] = last;
-      let mut index = 0;
-      loop {
-        let left = index * 2 + 1;
-        if left >= self.heap.len() {
-          break;
-        }
-        let right = left + 1;
-        let mut child = left;
-        if right < self.heap.len()
-          && subs[self.heap[right]].pos_enum.doc_id() < subs[self.heap[left]].pos_enum.doc_id()
-        {
-          child = right;
-        }
-        if subs[self.heap[index]].pos_enum.doc_id() <= subs[self.heap[child]].pos_enum.doc_id() {
-          break;
-        }
-        self.heap.swap(index, child);
-        index = child;
-      }
+    let last = self
+      .heap
+      .pop()
+      .ok_or_else(|| LuceneError::illegal_state("document ID queue is empty"))?;
+    if self.heap.is_empty() {
+      return Ok(last);
     }
-    result
+
+    let result = std::mem::replace(&mut self.heap[0], last);
+    let mut index = 0;
+    loop {
+      let left = index * 2 + 1;
+      if left >= self.heap.len() {
+        break;
+      }
+      let right = left + 1;
+      let mut child = left;
+      if right < self.heap.len()
+        && subs[self.heap[right]].pos_enum.doc_id() < subs[self.heap[left]].pos_enum.doc_id()
+      {
+        child = right;
+      }
+      if subs[self.heap[index]].pos_enum.doc_id() <= subs[self.heap[child]].pos_enum.doc_id() {
+        break;
+      }
+      self.heap.swap(index, child);
+      index = child;
+    }
+    Ok(result)
   }
 }
 
@@ -522,33 +527,37 @@ impl PositionQueue {
     }
   }
 
-  fn pop<PE>(&mut self, subs: &[EnumAndScorer<PE>]) -> usize
+  fn pop<PE>(&mut self, subs: &[EnumAndScorer<PE>]) -> Result<usize>
   where
     PE: PostingsEnum,
   {
-    let result = self.heap[0];
-    let last = self.heap.pop().unwrap();
-    if !self.heap.is_empty() {
-      self.heap[0] = last;
-      let mut index = 0;
-      loop {
-        let left = index * 2 + 1;
-        if left >= self.heap.len() {
-          break;
-        }
-        let right = left + 1;
-        let mut child = left;
-        if right < self.heap.len() && subs[self.heap[right]].pos < subs[self.heap[left]].pos {
-          child = right;
-        }
-        if subs[self.heap[index]].pos <= subs[self.heap[child]].pos {
-          break;
-        }
-        self.heap.swap(index, child);
-        index = child;
-      }
+    let last = self
+      .heap
+      .pop()
+      .ok_or_else(|| LuceneError::illegal_state("position queue is empty"))?;
+    if self.heap.is_empty() {
+      return Ok(last);
     }
-    result
+
+    let result = std::mem::replace(&mut self.heap[0], last);
+    let mut index = 0;
+    loop {
+      let left = index * 2 + 1;
+      if left >= self.heap.len() {
+        break;
+      }
+      let right = left + 1;
+      let mut child = left;
+      if right < self.heap.len() && subs[self.heap[right]].pos < subs[self.heap[left]].pos {
+        child = right;
+      }
+      if subs[self.heap[index]].pos <= subs[self.heap[child]].pos {
+        break;
+      }
+      self.heap.swap(index, child);
+      index = child;
+    }
+    Ok(result)
   }
 }
 

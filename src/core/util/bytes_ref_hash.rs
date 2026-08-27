@@ -21,7 +21,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{
   AtomicCounter, ByteBlockPool, BytesRefComparator, Comparator, Counter, GOOD_FAST_HASH_SEED,
@@ -110,15 +110,13 @@ where
     ref_: &mut BytesRef<Vec<u8>>,
     pool: &ByteBlockPool,
   ) -> Result<()> {
+    let bytes_start_len = self.bytes_start_array.len()?;
+    debug_assert!(bytes_start_len > 0, "bytes_start is null - not initialized");
     debug_assert!(
-      self.bytes_start_array.len() > 0,
-      "bytes_start is null - not initialized"
-    );
-    debug_assert!(
-      (bytes_id as usize) < self.bytes_start_array.len(),
+      (bytes_id as usize) < bytes_start_len,
       "bytesID exceeds bytes_start len"
     );
-    let value = self.bytes_start_array.get_value(bytes_id as usize);
+    let value = self.bytes_start_array.get_value(bytes_id as usize)?;
     self.pool.fill_bytes_ref(ref_, value, pool)
   }
 
@@ -128,9 +126,9 @@ where
   /// # Note
   /// This is a destructive operation. `Clear()` must be called to reuse this
   /// [`BytesRefHash`] instance.
-  pub fn compact(&mut self) -> &Vec<i32> {
+  pub fn compact(&mut self) -> Result<&Vec<i32>> {
     debug_assert!(
-      self.bytes_start_array.len() > 0,
+      self.bytes_start_array.len()? > 0,
       "bytes_start is null - not initialized"
     );
 
@@ -147,11 +145,11 @@ where
     debug_assert!(upto == self.count as usize);
     self.last_count = self.count;
 
-    &self.ids
+    Ok(&self.ids)
   }
   /// Returns the values array sorted by the referenced byte values.
   pub fn sort(&mut self, byte_block_pool: &ByteBlockPool) -> Result<()> {
-    let compact = self.compact();
+    let compact = self.compact()?;
     let mut length = compact.len();
     debug_assert!(
       (self.count * 2) as usize <= length,
@@ -245,29 +243,30 @@ where
     byte_block_pool: &mut ByteBlockPool,
   ) -> Result<i32> {
     debug_assert!(
-      self.bytes_start_array.len() > 0,
+      self.bytes_start_array.len()? > 0,
       "Bytesstart is null - not initialized"
     );
 
     // final position
-    let hash_pos = self.find_hash(bytes, byte_block_pool);
+    let hash_pos = self.find_hash(bytes, byte_block_pool)?;
     let mut e = self.ids[hash_pos];
     if e == -1 {
       {
-        let length = self.bytes_start_array.len();
+        let length = self.bytes_start_array.len()?;
         // new entry
         if self.count as usize >= length {
           self.bytes_start_array.grow()?;
+          let grown_length = self.bytes_start_array.len()?;
           debug_assert!(
-            (self.count as usize) < self.bytes_start_array.len() + 1,
+            (self.count as usize) < grown_length + 1,
             "count: {} len: {}",
             self.count,
-            self.bytes_start_array.len()
+            grown_length
           );
         }
 
         let v = self.pool.add_bytes_ref(bytes, byte_block_pool)?;
-        self.bytes_start_array.set_value(self.count as usize, v);
+        self.bytes_start_array.set_value(self.count as usize, v)?;
         e = self.count;
         self.count += 1;
         debug_assert_eq!(self.ids[hash_pos], -1);
@@ -275,7 +274,7 @@ where
       }
 
       if self.count == self.hash_half_size {
-        self.rehash(2 * self.hash_size, true, byte_block_pool);
+        self.rehash(2 * self.hash_size, true, byte_block_pool)?;
       }
 
       return Ok(e);
@@ -290,12 +289,12 @@ where
   /// # Returns
   /// The id of the given bytes, or `-1` if there is no mapping for the given
   /// bytes.
-  pub fn find(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> i32 {
-    self.ids[self.find_hash(bytes, byte_block_pool)]
+  pub fn find(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> Result<i32> {
+    Ok(self.ids[self.find_hash(bytes, byte_block_pool)?])
   }
-  fn find_hash(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> usize {
+  fn find_hash(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> Result<usize> {
     debug_assert!(
-      self.bytes_start_array.len() > 0,
+      self.bytes_start_array.len()? > 0,
       "bytesStart is null - not initialized"
     );
 
@@ -306,7 +305,7 @@ where
     let mut e = self.ids[hash_pos as usize];
     if e != -1
       && !self.pool.equals(
-        self.bytes_start_array.get_value(e as usize),
+        self.bytes_start_array.get_value(e as usize)?,
         bytes,
         byte_block_pool,
       )
@@ -317,7 +316,7 @@ where
         e = self.ids[hash_pos as usize];
         if e == -1
           || self.pool.equals(
-            self.bytes_start_array.get_value(e as usize),
+            self.bytes_start_array.get_value(e as usize)?,
             bytes,
             byte_block_pool,
           )
@@ -327,7 +326,7 @@ where
       }
     }
     debug_assert!(hash_pos >= 0);
-    hash_pos as usize
+    Ok(hash_pos as usize)
   }
   /// Adds an "arbitrary" integer offset instead of a [`BytesRef`] term.
   ///
@@ -341,7 +340,7 @@ where
     byte_block_pool: &mut ByteBlockPool,
   ) -> Result<i32> {
     debug_assert!(
-      self.bytes_start_array.len() > 0,
+      self.bytes_start_array.len()? > 0,
       "Bytesstart is null - not initialized"
     );
 
@@ -349,9 +348,9 @@ where
     let mut code = offset;
     let mut hash_pos = offset & self.hash_mask;
     let mut e = self.ids[hash_pos as usize];
-    let length = self.bytes_start_array.len();
+    let length = self.bytes_start_array.len()?;
     // Resolve hash conflicts
-    while e != -1 && self.bytes_start_array.get_value(e as usize) != offset {
+    while e != -1 && self.bytes_start_array.get_value(e as usize)? != offset {
       code = code.wrapping_add(1);
       hash_pos = code & self.hash_mask;
       e = self.ids[hash_pos as usize];
@@ -361,23 +360,24 @@ where
       // New entry
       if self.count as usize >= length {
         self.bytes_start_array.grow()?;
+        let grown_length = self.bytes_start_array.len()?;
         debug_assert!(
-          self.count < self.bytes_start_array.len() as i32 + 1,
+          self.count < grown_length as i32 + 1,
           "count: {}, len: {}",
           self.count,
-          self.bytes_start_array.len()
+          grown_length
         );
       }
 
       e = self.count;
       self.count += 1;
-      self.bytes_start_array.set_value(e as usize, offset);
+      self.bytes_start_array.set_value(e as usize, offset)?;
 
       debug_assert_eq!(self.ids[hash_pos as usize], -1);
       self.ids[hash_pos as usize] = e;
 
       if self.count == self.hash_half_size {
-        self.rehash(2 * self.hash_size, false, byte_block_pool);
+        self.rehash(2 * self.hash_size, false, byte_block_pool)?;
       }
 
       return Ok(e);
@@ -387,7 +387,12 @@ where
   }
   /// Called when hash is too small (> 50% occupied) or too large (< 20%
   /// occupied).
-  fn rehash(&mut self, new_size: i32, hash_on_data: bool, byte_block_pool: &mut ByteBlockPool) {
+  fn rehash(
+    &mut self,
+    new_size: i32,
+    hash_on_data: bool,
+    byte_block_pool: &mut ByteBlockPool,
+  ) -> Result<()> {
     let new_mask = new_size - 1;
     let old_size = size_of_vec(&self.ids);
     let mut new_hash = vec![-1; new_size as usize];
@@ -396,11 +401,11 @@ where
       if e0 != -1 {
         let mut code = if hash_on_data {
           self.pool.hash(
-            self.bytes_start_array.get_value(e0 as usize),
+            self.bytes_start_array.get_value(e0 as usize)?,
             byte_block_pool,
           )
         } else {
-          self.bytes_start_array.get_value(e0 as usize)
+          self.bytes_start_array.get_value(e0 as usize)?
         };
 
         let mut hash_pos = code & new_mask;
@@ -424,6 +429,7 @@ where
     self.ids = new_hash;
     self.hash_size = new_size;
     self.hash_half_size = new_size / 2;
+    Ok(())
   }
 
   /// Reinitializes the [`BytesRefHash`] after a previous `clear()` call.
@@ -448,9 +454,9 @@ where
   /// # Returns
   /// The `bytesStart` offset into the internally used
   /// `SingleThreadedByteBlockPool` for the given ID.
-  pub fn byte_start(&self, bytes_id: i32) -> i32 {
+  pub fn byte_start(&self, bytes_id: i32) -> Result<i32> {
     debug_assert!(
-      self.bytes_start_array.len() > 0,
+      self.bytes_start_array.len()? > 0,
       "bytes_start is null - not initialized"
     );
     debug_assert!(bytes_id >= 0 || bytes_id < self.count);
@@ -608,7 +614,7 @@ where
     result: &mut BytesRef<Vec<u8>>,
     i: usize,
   ) -> Result<()> {
-    let start = self.bytes_start_array.get_value(self.compact[i] as usize);
+    let start = self.bytes_start_array.get_value(self.compact[i] as usize)?;
     self
       .pool
       .fill_bytes_ref(result, start, self.byte_block_pool)
@@ -652,9 +658,9 @@ pub trait BytesStartArray {
   /// # Returns
   /// A reference holding the number of bytes used by this [`BytesStartArray`].
   fn bytes_used(&mut self) -> SharedCounter;
-  fn get_value(&self, index: usize) -> i32;
-  fn set_value(&mut self, index: usize, value: i32);
-  fn len(&self) -> usize;
+  fn get_value(&self, index: usize) -> Result<i32>;
+  fn set_value(&mut self, index: usize, value: i32) -> Result<()>;
+  fn len(&self) -> Result<usize>;
   fn need_init(&self) -> bool;
   fn ram_bytes_used(&self) -> Result<i64>;
 }
@@ -703,16 +709,22 @@ impl BytesStartArray for DirectBytesStartArray {
     self.bytes_used.clone()
   }
 
-  fn get_value(&self, index: usize) -> i32 {
-    self.bytes_start[index]
+  fn get_value(&self, index: usize) -> Result<i32> {
+    self.bytes_start.get(index).copied().ok_or_else(|| {
+      LuceneError::illegal_argument(format!("bytes start index {index} is out of bounds"))
+    })
   }
 
-  fn set_value(&mut self, index: usize, value: i32) {
-    self.bytes_start[index] = value;
+  fn set_value(&mut self, index: usize, value: i32) -> Result<()> {
+    let slot = self.bytes_start.get_mut(index).ok_or_else(|| {
+      LuceneError::illegal_argument(format!("bytes start index {index} is out of bounds"))
+    })?;
+    *slot = value;
+    Ok(())
   }
 
-  fn len(&self) -> usize {
-    self.bytes_start.len()
+  fn len(&self) -> Result<usize> {
+    Ok(self.bytes_start.len())
   }
 
   fn need_init(&self) -> bool {

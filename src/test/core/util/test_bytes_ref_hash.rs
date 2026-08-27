@@ -174,7 +174,7 @@ fn test_compact() -> Result<()> {
     assert_eq!(num_entries as usize, bits.count());
     assert_eq!(num_entries, hash.size());
 
-    let compact = hash.compact();
+    let compact = hash.compact()?;
     assert!(num_entries < compact.len() as i32);
 
     for &id in compact {
@@ -311,7 +311,7 @@ fn test_find() -> Result<()> {
 
       ref_builder.copy_chars_from_string(&str_value)?;
       let count = hash.size();
-      let key = hash.find(ref_builder.get_bytes_mut_ref(), &byte_block_pool);
+      let key = hash.find(ref_builder.get_bytes_mut_ref(), &byte_block_pool)?;
 
       if key >= 0 {
         assert!(!strings.insert(str_value.clone()));
@@ -388,7 +388,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
           drop(strings_guard);
 
           let hash_guard = hash_clone.lock();
-          let id = hash_guard.find(&find, &byte_block_pool.lock());
+          let id = hash_guard.find(&find, &byte_block_pool.lock())?;
 
           if id < 0 {
             not_found_clone.fetch_add(1, Ordering::SeqCst);
@@ -499,7 +499,7 @@ fn test_add_by_pool_offset() -> Result<()> {
         assert_eq!(unique_count, key);
         assert_eq!(hash.size(), count + 1);
 
-        let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(key), &mut pool)?;
+        let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(key)?, &mut pool)?;
         assert_eq!(unique_count, offset_key);
         assert_eq!(offset_hash.size(), count + 1);
 
@@ -510,7 +510,7 @@ fn test_add_by_pool_offset() -> Result<()> {
         hash.get(-key - 1, &mut scratch, &pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
-        let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1), &mut pool)?;
+        let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1)?, &mut pool)?;
         assert!((-offset_key - 1) < count);
         hash.get(-offset_key - 1, &mut scratch, &pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);

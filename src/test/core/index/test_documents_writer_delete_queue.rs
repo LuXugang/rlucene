@@ -120,7 +120,7 @@ fn test_assert_all_between(
 ) -> Result<()> {
   for i in start..=end {
     let term = Term::from_text("id", ids[i as usize].to_string());
-    assert_eq!(end, deletes.delete_terms.get(&term));
+    assert_eq!(end, deletes.delete_terms.get(&term)?);
   }
   Ok(())
 }

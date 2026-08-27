@@ -142,7 +142,7 @@ impl BufferedUpdates {
     Ok(())
   }
   pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
-    let current = self.delete_terms.get(term);
+    let current = self.delete_terms.get(term)?;
     if current != -1 && doc_id_upto < current {
       // Only record the new number if it's greater than the
       // current one.
@@ -293,11 +293,11 @@ impl DeletedTerms {
   ///
   /// Returns the newest document ID if the term exists, otherwise returns
   /// `-1`.
-  pub(crate) fn get(&self, term: &Term) -> i32 {
+  pub(crate) fn get(&self, term: &Term) -> Result<i32> {
     if let Some(hash) = self.delete_terms.get(&term.field) {
       hash.get(&term.bytes, &self.pool)
     } else {
-      -1
+      Ok(-1)
     }
   }
   pub(crate) fn clear(&mut self) {
@@ -370,7 +370,11 @@ impl fmt::Display for DeletedTerms {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut entries = Vec::new();
     for term in self.key_set().map_err(|_| fmt::Error)?.iter() {
-      entries.push(format!("{}={}", term, self.get(term)));
+      entries.push(format!(
+        "{}={}",
+        term,
+        self.get(term).map_err(|_| fmt::Error)?
+      ));
     }
 
     write!(f, "{{{}}}", entries.join(", "))
@@ -430,9 +434,15 @@ impl BytesRefIntMap {
       Ok(true)
     }
   }
-  fn get(&self, key: &BytesRef<Vec<u8>>, pool: &ByteBlockPool) -> i32 {
-    let e = self.bytes_ref_hash.find(key, pool);
-    if e == -1 { -1 } else { self.values[e as usize] }
+  fn get(&self, key: &BytesRef<Vec<u8>>, pool: &ByteBlockPool) -> Result<i32> {
+    let e = self.bytes_ref_hash.find(key, pool)?;
+    if e == -1 {
+      Ok(-1)
+    } else {
+      self.values.get(e as usize).copied().ok_or_else(|| {
+        LuceneError::illegal_state(format!("missing value for bytes reference ID {e}"))
+      })
+    }
   }
 }
 

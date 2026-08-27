@@ -412,6 +412,24 @@ impl PostingsBytesStartArray {
       bytes_used,
     }
   }
+
+  fn postings_array(&self) -> Result<&PostingsArrayEnum> {
+    debug_assert!(self.per_field.postings_array.is_some());
+    self
+      .per_field
+      .postings_array
+      .as_ref()
+      .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))
+  }
+
+  fn postings_array_mut(&mut self) -> Result<&mut PostingsArrayEnum> {
+    debug_assert!(self.per_field.postings_array.is_some());
+    self
+      .per_field
+      .postings_array
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))
+  }
 }
 impl BytesStartArray for PostingsBytesStartArray {
   fn init(&mut self) -> Result<()> {
@@ -427,17 +445,13 @@ impl BytesStartArray for PostingsBytesStartArray {
   }
 
   fn grow(&mut self) -> Result<()> {
-    debug_assert!(self.per_field.postings_array.is_some());
-    let postings_array = self
-      .per_field
-      .postings_array
-      .as_mut()
-      .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?;
-    let old_size = postings_array.get_size();
-    postings_array.grow()?;
-    self.bytes_used.add_and_get(
-      (postings_array.bytes_per_posting() * (postings_array.get_size() - old_size)) as i64,
-    );
+    let bytes_used = {
+      let postings_array = self.postings_array_mut()?;
+      let old_size = postings_array.get_size();
+      postings_array.grow()?;
+      postings_array.bytes_per_posting() * (postings_array.get_size() - old_size)
+    };
+    self.bytes_used.add_and_get(bytes_used as i64);
     Ok(())
   }
 
@@ -453,35 +467,31 @@ impl BytesStartArray for PostingsBytesStartArray {
     self.bytes_used.clone()
   }
 
-  fn get_value(&self, index: usize) -> i32 {
-    debug_assert!(self.per_field.postings_array.is_some());
-    self
-      .per_field
-      .postings_array
-      .as_ref()
-      .unwrap()
-      .get_text_starts()[index]
-  }
-
-  fn set_value(&mut self, index: usize, value: i32) {
-    debug_assert!(self.per_field.postings_array.is_some());
-    self
-      .per_field
-      .postings_array
-      .as_mut()
-      .unwrap()
-      .set_text_starts(index, value)
-  }
-
-  fn len(&self) -> usize {
-    debug_assert!(self.per_field.postings_array.is_some());
-    self
-      .per_field
-      .postings_array
-      .as_ref()
-      .unwrap()
+  fn get_value(&self, index: usize) -> Result<i32> {
+    let postings_array = self.postings_array()?;
+    postings_array
       .get_text_starts()
-      .len()
+      .get(index)
+      .copied()
+      .ok_or_else(|| {
+        LuceneError::illegal_argument(format!("postings array index {index} is out of bounds"))
+      })
+  }
+
+  fn set_value(&mut self, index: usize, value: i32) -> Result<()> {
+    let postings_array = self.postings_array_mut()?;
+    if index >= postings_array.get_text_starts().len() {
+      return Err(LuceneError::illegal_argument(format!(
+        "postings array index {index} is out of bounds"
+      )));
+    }
+    postings_array.set_text_starts(index, value);
+    Ok(())
+  }
+
+  fn len(&self) -> Result<usize> {
+    let postings_array = self.postings_array()?;
+    Ok(postings_array.get_text_starts().len())
   }
 
   fn need_init(&self) -> bool {

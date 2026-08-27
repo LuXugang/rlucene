@@ -117,7 +117,7 @@ fn test_deleted_terms() -> Result<()> {
     assert_eq!(expected.len(), actual.size() as usize);
 
     for (term, expected_value) in &expected {
-      assert_eq!(*expected_value, actual.get(term));
+      assert_eq!(*expected_value, actual.get(term)?);
     }
 
     let mut expected_sorted: Vec<(Term, i32)> = expected
