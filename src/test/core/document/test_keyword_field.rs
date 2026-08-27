@@ -62,7 +62,7 @@ fn test_set_bytes_value() -> Result<()> {
     assert!(field.string_value()?.is_none());
 
     if field.field_type().stored() {
-      let stored = field.stored_value().unwrap();
+      let stored = field.stored_value()?.unwrap();
       match stored {
         FieldDataEnum::Binary(v) => {
           assert_eq!(new_bytes_ref_from_string(&mut random, "value")?, v);
@@ -70,7 +70,7 @@ fn test_set_bytes_value() -> Result<()> {
         _ => unreachable!(""),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
 
     field.set_bytes_value(new_bytes_ref_from_string(&mut random, "value2")?)?;
@@ -82,7 +82,7 @@ fn test_set_bytes_value() -> Result<()> {
     assert!(field.string_value()?.is_none());
 
     if field.field_type().stored() {
-      let stored = field.stored_value().unwrap();
+      let stored = field.stored_value()?.unwrap();
       match stored {
         FieldDataEnum::Binary(v) => {
           assert_eq!(new_bytes_ref_from_string(&mut random, "value2")?, v);
@@ -90,7 +90,7 @@ fn test_set_bytes_value() -> Result<()> {
         _ => unreachable!(""),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -112,7 +112,7 @@ fn test_set_string_value() -> Result<()> {
     );
 
     if field.field_type().stored() {
-      let stored = field.stored_value().unwrap();
+      let stored = field.stored_value()?.unwrap();
       match stored {
         FieldDataEnum::String(v) => {
           assert_eq!("value", v);
@@ -120,7 +120,7 @@ fn test_set_string_value() -> Result<()> {
         _ => unreachable!(""),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
 
     field.set_string_value("value2")?;
@@ -135,7 +135,7 @@ fn test_set_string_value() -> Result<()> {
     );
 
     if field.field_type().stored() {
-      let stored = field.stored_value().unwrap();
+      let stored = field.stored_value()?.unwrap();
       match stored {
         FieldDataEnum::String(v) => {
           assert_eq!("value2", v);
@@ -143,7 +143,7 @@ fn test_set_string_value() -> Result<()> {
         _ => unreachable!(""),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 

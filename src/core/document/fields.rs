@@ -302,7 +302,7 @@ impl IndexableField for Fields {
     dispatch_fields!(self, |field| field.numeric_value())
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     dispatch_fields!(self, |field| field.stored_value())
   }
 

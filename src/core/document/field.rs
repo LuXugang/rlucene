@@ -660,12 +660,19 @@ impl IndexableField for Field {
     }
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     if !self.indexable_field_type.stored() {
-      return None;
+      return Ok(None);
     }
 
-    Some(self.fields_data.clone())
+    match &self.fields_data {
+      FieldDataEnum::Number(_) | FieldDataEnum::Binary(_) | FieldDataEnum::String(_) => {
+        Ok(Some(self.fields_data.try_clone()?))
+      },
+      _ => Err(LuceneError::illegal_state(
+        "stored field data must be numeric, binary, or a string",
+      )),
+    }
   }
 
   fn invertable_type(&self) -> &InvertableType {
@@ -767,20 +774,33 @@ pub enum FieldDataEnum {
   Dummy(()),
   VectorValue(VectorValueEnum),
 }
-impl Clone for FieldDataEnum {
-  fn clone(&self) -> Self {
+impl FieldDataEnum {
+  /// Clones field data when its value supports independent ownership.
+  ///
+  /// Token streams carry mutable iteration state and cannot be cloned.
+  pub fn try_clone(&self) -> Result<Self> {
     match self {
-      Self::Number(n) => Self::Number(n.clone()),
-      Self::Binary(b) => Self::Binary(b.clone()),
-      Self::String(s) => Self::String(s.clone()),
-      Self::Reader(r) => Self::Reader(r.clone()),
-      Self::TokenStream(_t) => unreachable!("token stream should not be cloned"),
+      Self::Number(n) => Ok(Self::Number(n.clone())),
+      Self::Binary(b) => Ok(Self::Binary(b.clone())),
+      Self::String(s) => Ok(Self::String(s.clone())),
+      Self::Reader(r) => Ok(Self::Reader(r.clone())),
+      Self::TokenStream(_) => Err(LuceneError::illegal_state("token stream cannot be cloned")),
       Self::Dummy(d) => {
         let _: () = *d;
-        Self::Dummy(())
+        Ok(Self::Dummy(()))
       },
-      Self::VectorValue(v) => Self::VectorValue(v.clone()),
+      Self::VectorValue(v) => Ok(Self::VectorValue(v.clone())),
     }
+  }
+}
+
+#[cfg(test)]
+impl Clone for FieldDataEnum {
+  fn clone(&self) -> Self {
+    expect_invariant!(
+      self.try_clone(),
+      "test field clone call sites never contain token stream field data",
+    )
   }
 }
 

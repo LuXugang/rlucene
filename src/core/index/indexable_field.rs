@@ -85,7 +85,7 @@ pub trait IndexableField: Display {
 
   /// Stored value. This method is called to populate stored fields and must
   /// return a present value if the field stored.
-  fn stored_value(&self) -> Option<FieldDataEnum>;
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>>;
 
   /// Describes how this field should be inverted. This must return a present
   /// value if the field indexes terms and postings.

@@ -1066,7 +1066,7 @@ where
     // Add stored fields
     if field.field_type().stored() {
       let stored_value = field
-        .stored_value()
+        .stored_value()?
         .ok_or_else(|| LuceneError::illegal_argument("Cannot store a null value"))?;
       if let FieldDataEnum::String(s) = &stored_value
         && s.len() > MAX_STORED_STRING_LENGTH as usize
@@ -2837,7 +2837,7 @@ where
     self.delegate.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     self.delegate.stored_value()
   }
   fn invertable_type(&self) -> &InvertableType {

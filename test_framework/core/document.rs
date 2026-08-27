@@ -109,7 +109,7 @@ impl IndexableField for FieldImpl {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     self.parent_field.stored_value()
   }
 
@@ -190,17 +190,15 @@ impl IndexableField for MockIndexableField {
     Ok(None)
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
-    if let Some(string_value) = self
-      .string_value()
-      .expect("MyField::string_value should not fail")
-    {
-      Some(FieldDataEnum::String(string_value.into_owned()))
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+    if let Some(string_value) = self.string_value()? {
+      Ok(Some(FieldDataEnum::String(string_value.into_owned())))
     } else {
-      self
-        .binary_value()
-        .expect("MyField::binary_value should not fail")
-        .map(|binary_value| FieldDataEnum::Binary(binary_value.into_owned()))
+      Ok(
+        self
+          .binary_value()?
+          .map(|binary_value| FieldDataEnum::Binary(binary_value.into_owned())),
+      )
     }
   }
 
@@ -411,17 +409,15 @@ impl IndexableField for MyField {
     }
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
-    if let Some(string_value) = self
-      .string_value()
-      .expect("MyField::string_value should not fail")
-    {
-      Some(FieldDataEnum::String(string_value.into_owned()))
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+    if let Some(string_value) = self.string_value()? {
+      Ok(Some(FieldDataEnum::String(string_value.into_owned())))
     } else {
-      self
-        .binary_value()
-        .expect("MyField::binary_value should not fail")
-        .map(|binary_value| FieldDataEnum::Binary(binary_value.into_owned()))
+      Ok(
+        self
+          .binary_value()?
+          .map(|binary_value| FieldDataEnum::Binary(binary_value.into_owned())),
+      )
     }
   }
 
@@ -499,8 +495,8 @@ impl IndexableField for CustomField {
     Ok(None)
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
-    None
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+    Ok(None)
   }
 
   fn invertable_type(&self) -> &InvertableType {

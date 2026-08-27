@@ -247,8 +247,12 @@ impl IndexableField for IntField {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
-    self.stored_value.clone()
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
+    self
+      .stored_value
+      .as_ref()
+      .map(FieldDataEnum::try_clone)
+      .transpose()
   }
 
   fn invertable_type(&self) -> &InvertableType {

@@ -298,7 +298,7 @@ impl IndexableField for IntRange {
     ))
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     self.parent_field.stored_value()
   }
 

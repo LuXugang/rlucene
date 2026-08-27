@@ -117,33 +117,6 @@ impl SuppressedFailure {
       },
     }
   }
-
-  fn into_exception(self, panic_message: &str) -> LuceneError {
-    match self {
-      Self::Panic(payload) => match payload.downcast::<PanicWithSuppressed>() {
-        Ok(panic) => {
-          let PanicWithSuppressed {
-            primary,
-            suppressed,
-          } = *panic;
-          let mut primary = LuceneError::tragedy_from_panic(panic_message, primary.as_ref());
-          for suppressed in suppressed {
-            primary.add_suppressed(suppressed.into_exception(panic_message));
-          }
-          primary
-        },
-        Err(payload) => LuceneError::tragedy_from_panic(panic_message, payload.as_ref()),
-      },
-      Self::Exception(error) => error,
-      Self::ExceptionWithSuppressed(error) => {
-        let mut primary = error.primary;
-        for suppressed in error.suppressed {
-          primary.add_suppressed(suppressed);
-        }
-        primary
-      },
-    }
-  }
 }
 
 pub(crate) struct CaughtResultDisplay<'a, R: ?Sized>(&'a R);
@@ -153,6 +126,8 @@ pub(crate) trait CaughtResultExt {
 
   fn clone_caught_failure(&self, panic_message: &str) -> Option<CaughtResult>;
 
+  /// Adds a cleanup failure to an existing primary failure. If the primary operation succeeded,
+  /// the cleanup failure becomes the primary failure so it can still be propagated.
   fn add_suppressed<T>(&mut self, suppressed: CaughtResult<T>, panic_message: &str);
 
   fn fmt_caught_result(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result;
@@ -198,16 +173,29 @@ impl<T> CaughtResultExt for CaughtResult<T> {
   }
 
   fn add_suppressed<U>(&mut self, suppressed: CaughtResult<U>, panic_message: &str) {
-    let suppressed = match suppressed {
-      Ok(Ok(_)) => return,
-      Ok(Err(error)) => SuppressedFailure::Exception(error),
-      Err(payload) => SuppressedFailure::Panic(payload),
-    };
-
-    match self {
-      Ok(Ok(_)) => unreachable!("cannot add a suppressed failure to a successful result"),
-      Ok(Err(error)) => error.add_suppressed(suppressed.into_exception(panic_message)),
-      Err(payload) => PanicWithSuppressed::add_suppressed_to_payload(payload, suppressed),
+    match suppressed {
+      Ok(Ok(_)) => {},
+      Ok(Err(suppressed)) => match self {
+        Ok(Ok(_)) => *self = Ok(Err(suppressed)),
+        Ok(Err(primary)) => primary.add_suppressed(suppressed),
+        Err(primary) => PanicWithSuppressed::add_suppressed_to_payload(
+          primary,
+          SuppressedFailure::Exception(suppressed),
+        ),
+      },
+      Err(suppressed) => match self {
+        Ok(Ok(_)) => *self = Err(suppressed),
+        Ok(Err(primary)) => {
+          primary.add_suppressed(LuceneError::tragedy_from_panic(
+            panic_message,
+            suppressed.as_ref(),
+          ));
+        },
+        Err(primary) => PanicWithSuppressed::add_suppressed_to_payload(
+          primary,
+          SuppressedFailure::Panic(suppressed),
+        ),
+      },
     }
   }
 

@@ -204,11 +204,11 @@ impl IndexableField for TextField {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     if self.has_stored_value {
       self.parent_field.stored_value()
     } else {
-      None
+      Ok(None)
     }
   }
 

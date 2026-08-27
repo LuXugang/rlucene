@@ -624,13 +624,13 @@ fn test_int_field() -> Result<()> {
     );
 
     if field.field_type().stored() {
-      match field.stored_value() {
+      match field.stored_value()? {
         Some(FieldDataEnum::Number(v)) => assert_eq!(v.to_i32().unwrap(), 6),
         Some(_) => unreachable!(""),
         None => unreachable!(""),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -702,12 +702,12 @@ fn test_long_field() -> Result<()> {
     );
 
     if field.field_type().stored() {
-      match field.stored_value() {
+      match field.stored_value()? {
         Some(FieldDataEnum::Number(v)) => assert_eq!(v.to_i64().unwrap(), 6),
         _ => unreachable!(),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -799,7 +799,7 @@ fn test_float_field() -> Result<()> {
     );
 
     if field.field_type().stored() {
-      match field.stored_value() {
+      match field.stored_value()? {
         Some(FieldDataEnum::Number(v)) => {
           let v = v.to_f32().ok_or_else(|| {
             LuceneError::illegal_argument(format!("cannot convert to f32: {}", v))
@@ -809,7 +809,7 @@ fn test_float_field() -> Result<()> {
         _ => unreachable!(),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -901,7 +901,7 @@ fn test_double_field() -> Result<()> {
     );
 
     if field.field_type().stored() {
-      match field.stored_value() {
+      match field.stored_value()? {
         Some(FieldDataEnum::Number(v)) => {
           assert!((v.to_f64().unwrap() + 28.8).abs() < f64::EPSILON);
         },
@@ -909,7 +909,7 @@ fn test_double_field() -> Result<()> {
         None => unreachable!(""),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -1242,12 +1242,12 @@ fn test_string_field() -> Result<()> {
     assert_eq!(string_value.as_ref().unwrap().as_ref(), "baz");
 
     if field.field_type().stored() {
-      match field.stored_value() {
+      match field.stored_value()? {
         Some(FieldDataEnum::String(v)) => assert_eq!(v, "baz"),
         _ => unreachable!(),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -1311,12 +1311,12 @@ fn test_binary_string_field() -> Result<()> {
     );
 
     if field.field_type().stored() {
-      match field.stored_value() {
+      match field.stored_value()? {
         Some(FieldDataEnum::Binary(v)) => assert_eq!(v, BytesRef::from_string("baz")),
         _ => unreachable!(),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -1377,12 +1377,12 @@ fn test_text_field_string() -> Result<()> {
     let v = string_value.as_ref().unwrap();
     assert_eq!(v.as_ref(), "baz");
     if field.field_type().stored() {
-      match field.stored_value() {
+      match field.stored_value()? {
         Some(FieldDataEnum::String(v)) => assert_eq!(v.as_str(), "baz"),
         _ => unreachable!(),
       }
     } else {
-      assert!(field.stored_value().is_none());
+      assert!(field.stored_value()?.is_none());
     }
   }
 
@@ -1438,7 +1438,7 @@ fn test_text_field_reader() -> Result<()> {
   ));
 
   assert!(field.take_reader_value()?.is_some());
-  assert!(field.stored_value().is_none());
+  assert!(field.stored_value()?.is_none());
 
   Ok(())
 }

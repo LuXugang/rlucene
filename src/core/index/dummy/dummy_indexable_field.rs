@@ -88,7 +88,7 @@ impl IndexableField for DummyIndexableField {
     dummy_unreachable!()
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     dummy_unreachable!()
   }
 

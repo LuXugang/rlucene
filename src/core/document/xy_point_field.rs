@@ -327,7 +327,7 @@ impl IndexableField for XYPointField {
     self.parent_field.numeric_value()
   }
 
-  fn stored_value(&self) -> Option<FieldDataEnum> {
+  fn stored_value(&self) -> Result<Option<FieldDataEnum>> {
     self.parent_field.stored_value()
   }
 
