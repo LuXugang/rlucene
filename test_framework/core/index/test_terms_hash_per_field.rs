@@ -44,14 +44,7 @@ impl TermsHashPerFieldMock {
   ) -> crate::core::util::error::lucene_error::Result<()> {
     self.new_called.fetch_add(1, Ordering::SeqCst);
     let term_id = term_id as usize;
-    match base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
-      .unwrap()
-    {
+    match base.postings_array_mut().unwrap() {
       PostingsArrayEnum::FreqProx(f) => {
         f.last_doc_ids[term_id] = doc_id;
         f.last_doc_codes[term_id] = doc_id << 1;
@@ -79,14 +72,7 @@ impl TermsHashPerFieldMock {
     let term_id = term_id as usize;
     let mut v = Vec::new();
     let mut need_write = false;
-    match base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
-      .unwrap()
-    {
+    match base.postings_array_mut().unwrap() {
       PostingsArrayEnum::FreqProx(postings) => {
         if doc_id != postings.last_doc_ids[term_id] {
           match &mut postings.term_freqs {

@@ -125,11 +125,7 @@ impl TermVectorsConsumerPerField {
     let mut flush_term = BytesRef::new();
     let postings_array_enum = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_ref()
+      .postings_array()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     match postings_array_enum {
       PostingsArrayEnum::TermVectors(postings) => {
@@ -323,11 +319,7 @@ impl TermVectorsConsumerPerField {
   ) -> Result<()> {
     let postings = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_ref()
+      .postings_array()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     let mut last_offset = None;
     let mut last_position = None;
@@ -388,11 +380,7 @@ impl TermVectorsConsumerPerField {
     }
     let postings = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
+      .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     match postings {
       PostingsArrayEnum::TermVectors(postings) => {
@@ -456,11 +444,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     let freq = self.get_term_freq(attribute_source)?;
     let postings_enum = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
+      .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     if let PostingsArrayEnum::TermVectors(postings) = postings_enum {
       postings.freqs[term_id] = freq;
@@ -487,11 +471,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     let freq = self.get_term_freq(attribute_source)?;
     let postings_enum = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
+      .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
     if let PostingsArrayEnum::TermVectors(postings) = postings_enum {

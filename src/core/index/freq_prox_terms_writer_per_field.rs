@@ -138,11 +138,7 @@ impl FreqProxTermsWriterPerField {
     }
     let postings_array_enum = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
+      .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     match postings_array_enum {
       PostingsArrayEnum::FreqProx(f) => {
@@ -176,11 +172,7 @@ impl FreqProxTermsWriterPerField {
 
     let postings_array = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
+      .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
     let (v1, v2) = match postings_array {
@@ -304,10 +296,9 @@ impl FreqProxTermsWriterPerField {
     }
 
     if let Some(ref mut next_per_field) = self.next_per_field {
-      let postings_array_wrapper = &self.base.bytes_hash.bytes_start_array.per_field;
-      let text_start = postings_array_wrapper
-        .postings_array
-        .as_ref()
+      let text_start = self
+        .base
+        .postings_array()
         .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?
         .get_text_starts()[term_id as usize];
       next_per_field.add_with_text_start(
@@ -347,10 +338,9 @@ impl FreqProxTermsWriterPerField {
     }
 
     if let Some(ref mut next_per_field) = self.next_per_field {
-      let postings_array_wrapper = &self.base.bytes_hash.bytes_start_array.per_field;
-      let text_start = postings_array_wrapper
-        .postings_array
-        .as_ref()
+      let text_start = self
+        .base
+        .postings_array()
         .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?
         .get_text_starts()[term_id as usize];
       next_per_field.add_with_text_start(
@@ -396,11 +386,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     let tf = self.get_term_freq(attribute_source)?;
     let postings_array_enum = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
+      .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
 
     match postings_array_enum {
@@ -468,11 +454,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     let tf = self.get_term_freq(attribute_source)?;
     let postings_enum = self
       .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array
-      .as_mut()
+      .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
     let mut v = Vec::new();
     match postings_enum {

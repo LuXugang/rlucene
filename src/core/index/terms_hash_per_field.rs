@@ -236,6 +236,25 @@ impl TermsHashPerField {
   pub(crate) fn get_num_terms(&self) -> i32 {
     self.bytes_hash.size()
   }
+
+  pub(crate) fn postings_array(&self) -> Option<&PostingsArrayEnum> {
+    self
+      .bytes_hash
+      .bytes_start_array
+      .per_field
+      .postings_array
+      .as_ref()
+  }
+
+  pub(crate) fn postings_array_mut(&mut self) -> Option<&mut PostingsArrayEnum> {
+    self
+      .bytes_hash
+      .bytes_start_array
+      .per_field
+      .postings_array
+      .as_mut()
+  }
+
   pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
     self.bytes_hash.clear_with_reset_pool(false, byte_pool);
   }

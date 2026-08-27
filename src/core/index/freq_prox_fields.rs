@@ -259,13 +259,7 @@ impl BytesRefIterator for FreqProxTermsEnum {
 
     let term_id = self.terms.base.get_sorted_term_ids()[self.ord as usize];
 
-    let postings_array_enum = &self
-      .terms
-      .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array;
+    let postings_array_enum = self.terms.base.postings_array();
 
     let Some(PostingsArrayEnum::FreqProx(p)) = postings_array_enum else {
       return Err(LuceneError::illegal_state(
@@ -313,13 +307,7 @@ impl TermsEnum for FreqProxTermsEnum {
   }
 
   fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
-    let postings_array_enum = &self
-      .terms
-      .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array;
+    let postings_array_enum = self.terms.base.postings_array();
     let Some(postings_array) = postings_array_enum else {
       return Err(LuceneError::illegal_state("Postings array is none"));
     };
@@ -376,13 +364,7 @@ impl TermsEnum for FreqProxTermsEnum {
 
     let term_id = self.terms.base.get_sorted_term_ids()[ord as usize];
 
-    let postings_array_enum = &self
-      .terms
-      .base
-      .bytes_hash
-      .bytes_start_array
-      .per_field
-      .postings_array;
+    let postings_array_enum = self.terms.base.postings_array();
 
     let Some(PostingsArrayEnum::FreqProx(p)) = postings_array_enum else {
       return Err(LuceneError::illegal_state(
@@ -558,13 +540,7 @@ impl DocIdSetIterator for FreqProxDocsEnum {
       } else {
         self.ended = true;
         {
-          let postings_array_enum = &self
-            .terms
-            .base
-            .bytes_hash
-            .bytes_start_array
-            .per_field
-            .postings_array;
+          let postings_array_enum = self.terms.base.postings_array();
           let Some(postings_array) = postings_array_enum else {
             return Err(LuceneError::illegal_state("Postings array is none"));
           };
@@ -715,13 +691,7 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
       } else {
         self.ended = true;
         {
-          let postings_array_enum = &self
-            .terms
-            .base
-            .bytes_hash
-            .bytes_start_array
-            .per_field
-            .postings_array;
+          let postings_array_enum = self.terms.base.postings_array();
           let Some(postings_array) = postings_array_enum else {
             return Err(LuceneError::illegal_state("Postings array is none"));
           };
