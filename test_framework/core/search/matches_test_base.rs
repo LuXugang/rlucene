@@ -96,7 +96,7 @@ pub trait MatchesTestBase {
       let mut iterator = iterator.expect("expected matches iterator");
       let mut labels = HashSet::new();
       while iterator.next()? {
-        let query = iterator.get_query();
+        let query = iterator.get_query()?;
         labels.insert(Arc::as_ptr(&query));
       }
       assert_eq!(*expected, labels.len());
@@ -119,7 +119,7 @@ pub trait MatchesTestBase {
       );
       assert_eq!(
         expected[pos + 1],
-        iterator.end_position(),
+        iterator.end_position()?,
         "Wrong end position"
       );
       assert_eq!(

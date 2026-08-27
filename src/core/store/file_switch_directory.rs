@@ -28,8 +28,12 @@ use std::fmt::{Display, Formatter};
 use std::io::{Error, ErrorKind};
 use std::sync::LazyLock;
 
-static EXT_PATTERN: LazyLock<Regex> =
-  LazyLock::new(|| Regex::new(r"\.([a-zA-Z]+)").expect("valid file extension pattern"));
+static EXT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+  expect_invariant!(
+    Regex::new(r"\.([a-zA-Z]+)"),
+    "the built-in file extension pattern is valid"
+  )
+});
 
 /// Utility method to return a file's extension.
 pub fn get_extension(name: &str) -> &str {

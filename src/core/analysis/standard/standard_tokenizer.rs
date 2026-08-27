@@ -82,8 +82,8 @@ impl StandardTokenizer {
   /// Attaches `input` to the newly created JFlex scanner.
   ///
   /// See <http://issues.apache.org/jira/browse/LUCENE-1068>
-  pub fn new() -> Self {
-    Self::with_att(default_attribute())
+  pub fn new() -> Result<Self> {
+    Ok(Self::with_att(default_attribute()?))
   }
 
   pub fn with_att(att: Attributes) -> Self {
@@ -126,12 +126,6 @@ impl StandardTokenizer {
   /// Returns the current maximum token length
   pub fn get_max_token_length(&self) -> usize {
     self.max_token_length
-  }
-}
-
-impl Default for StandardTokenizer {
-  fn default() -> Self {
-    Self::new()
   }
 }
 

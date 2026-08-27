@@ -38,7 +38,7 @@ where
   S: CharTokenizerBase,
 {
   pub fn new(sub: S) -> Result<Self> {
-    Self::with_max_token_len(default_attribute(), DEFAULT_MAX_WORD_LEN, sub)
+    Self::with_max_token_len(default_attribute()?, DEFAULT_MAX_WORD_LEN, sub)
   }
   pub fn with_att(att: Attributes, sub: S) -> Result<Self> {
     Self::with_max_token_len(att, DEFAULT_MAX_WORD_LEN, sub)
@@ -214,7 +214,7 @@ pub trait CharTokenizerBase {
 pub fn from_token_char_predicate(
   token_char_predicate: fn(i32) -> bool,
 ) -> Result<CharTokenizer<CharTokenizerImpl>> {
-  from_token_char_predicate_with_attr(default_attribute(), token_char_predicate)
+  from_token_char_predicate_with_attr(default_attribute()?, token_char_predicate)
 }
 
 /// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate, supplied as method reference or lambda expression. The predicate should return true for all valid token characters.
@@ -231,7 +231,7 @@ pub fn from_token_char_predicate_with_attr(
 pub fn from_separator_char_predicate(
   separator_char_predicate: fn(i32) -> bool,
 ) -> Result<CharTokenizer<CharTokenizerImpl>> {
-  from_separator_char_predicate_with_attr(default_attribute(), separator_char_predicate)
+  from_separator_char_predicate_with_attr(default_attribute()?, separator_char_predicate)
 }
 /// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate,
 /// supplied as method reference or lambda expression.

@@ -191,7 +191,10 @@ impl Similarity for BM25Similarity {
 pub static LENGTH_TABLE: LazyLock<[f32; 256]> = LazyLock::new(|| {
   let mut table = [0.0; 256];
   for (i, out) in table.iter_mut().take(256).enumerate() {
-    *out = SmallFloat::byte4_to_int(i as u8).expect("should not fail") as f32;
+    *out = expect_invariant!(
+      SmallFloat::byte4_to_int(i as u8),
+      "every u8 value is valid for the BM25 length decoding table"
+    ) as f32;
   }
 
   table

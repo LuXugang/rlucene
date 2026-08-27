@@ -81,7 +81,7 @@ impl StandardAnalyzer {
 pub type StandardAnalyzerTS = FilteringTokenFilter<LowerCaseFilter<StandardTokenizer>, StopFilter>;
 impl Analyzer for StandardAnalyzer {
   fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
-    let mut src = StandardTokenizer::new();
+    let mut src = StandardTokenizer::new()?;
     src.set_max_token_length(self.max_token_length)?;
     let tok = StopFilter::new(LowerCaseFilter::new(src), self.stop_words.clone());
     Ok(TokenStreamComponents::new(tok, Some(self.max_token_length)))

@@ -34,26 +34,40 @@ use crate::core::util::number::Number;
 /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, not stored.
 pub(crate) static TYPE_NOT_STORED: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_omit_norms(true)
-    .expect("set_omit_norms(true) should never fail in this context");
-  ft.set_index_options(IndexOptions::Docs)
-    .expect("set_index_options should never fail in this context");
-  ft.set_tokenized(false)
-    .expect("set_tokenized(false) should never fail in this context");
+  expect_invariant!(
+    ft.set_omit_norms(true),
+    "the built-in non-stored string field type is mutable and unfrozen"
+  );
+  expect_invariant!(
+    ft.set_index_options(IndexOptions::Docs),
+    "the built-in string field index options are valid"
+  );
+  expect_invariant!(
+    ft.set_tokenized(false),
+    "the built-in non-stored string field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });
 /// Indexed, not tokenized, omits norms, indexes DOCS_ONLY, stored.
 pub(crate) static TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_omit_norms(true)
-    .expect("set_omit_norms(true) should never fail in this context");
-  ft.set_index_options(IndexOptions::Docs)
-    .expect("set_index_options should never fail in this context");
-  ft.set_stored(true)
-    .expect("set_stored(true) should never fail in this context");
-  ft.set_tokenized(false)
-    .expect("set_tokenized(false) should never fail in this context");
+  expect_invariant!(
+    ft.set_omit_norms(true),
+    "the built-in stored string field type is mutable and unfrozen"
+  );
+  expect_invariant!(
+    ft.set_index_options(IndexOptions::Docs),
+    "the built-in stored string field index options are valid"
+  );
+  expect_invariant!(
+    ft.set_stored(true),
+    "the built-in stored string field type is mutable and unfrozen"
+  );
+  expect_invariant!(
+    ft.set_tokenized(false),
+    "the built-in stored string field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });

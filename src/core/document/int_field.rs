@@ -39,19 +39,28 @@ use std::sync::LazyLock;
 
 pub static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_dimensions(1, BitUtil::INT_BYTES)
-    .expect("set_dimensions should not fail");
-  ft.set_doc_values_type(DocValuesType::SortedNumeric)
-    .expect("set_doc_values_type should not fail");
+  expect_invariant!(
+    ft.set_dimensions(1, BitUtil::INT_BYTES),
+    "the built-in integer field dimensions are valid"
+  );
+  expect_invariant!(
+    ft.set_doc_values_type(DocValuesType::SortedNumeric),
+    "the built-in integer field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });
 
 /// Indexed as SortedNumeric DocValue, and stored.
 pub static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("should not fail");
-  ft.set_stored(true)
-    .expect("set_stored(true) should not fail");
+  let mut ft = expect_invariant!(
+    FieldType::from_ref(&*FIELD_TYPE),
+    "the built-in integer field type can be copied"
+  );
+  expect_invariant!(
+    ft.set_stored(true),
+    "the copied integer field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });

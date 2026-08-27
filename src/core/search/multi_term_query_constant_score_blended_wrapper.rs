@@ -271,8 +271,10 @@ impl RewritingWeightBase for BlendedRewritingWeight {
     all_scorers.push(DisiWrapper::new(scorer)?);
     let len = all_scorers.len() - 1;
     subs.add(len, all_scorers.as_slice());
-    let v =
-      WeightOrDocIdSetIterator::from_iterator(DisjunctionDISIApproximation::new(subs, all_scorers));
+    let v = WeightOrDocIdSetIterator::from_iterator(DisjunctionDISIApproximation::new(
+      subs,
+      all_scorers,
+    )?);
     Ok(v)
   }
 }

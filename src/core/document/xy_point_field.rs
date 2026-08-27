@@ -48,8 +48,10 @@ pub const BYTES: usize = BitUtil::INT_BYTES;
 /// Each point stores two dimensions with 4 bytes per dimension.
 pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_dimensions(2, BitUtil::INT_BYTES)
-    .expect("set_dimensions should never fail in this context");
+  expect_invariant!(
+    ft.set_dimensions(2, BitUtil::INT_BYTES),
+    "the built-in XY point dimensions are valid"
+  );
   ft.freeze();
   ft
 });

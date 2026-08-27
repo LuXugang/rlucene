@@ -498,6 +498,10 @@ pub struct UnionPostingsEnum<P> {
   cost: i64,
   pos_queue: PositionsQueue,
   pos_queue_doc: i32,
+  #[cfg(debug_assertions)]
+  initial_docs_queue_size: usize,
+  #[cfg(debug_assertions)]
+  initial_subs_len: usize,
 }
 
 impl<P> UnionPostingsEnum<P>
@@ -519,12 +523,54 @@ where
     for i in 0..size {
       docs_queue.add(i)?;
     }
+    #[cfg(debug_assertions)]
+    let initial_docs_queue_size = docs_queue.size();
+    #[cfg(debug_assertions)]
+    let initial_subs_len = docs_queue.compare.subs.len();
     Ok(UnionPostingsEnum {
       docs_queue,
       cost,
       pos_queue: PositionsQueue::new(),
       pos_queue_doc: -2,
+      #[cfg(debug_assertions)]
+      initial_docs_queue_size,
+      #[cfg(debug_assertions)]
+      initial_subs_len,
     })
+  }
+
+  fn top_idx(&self) -> usize {
+    #[cfg(debug_assertions)]
+    self.debug_assert_docs_queue_unchanged();
+    *expect_invariant!(
+      self.docs_queue.top(),
+      "a union postings enum retains its non-empty documents queue"
+    )
+  }
+
+  fn update_top_idx(&mut self) -> Result<usize> {
+    let top_idx = *self.docs_queue.update_top()?;
+    #[cfg(debug_assertions)]
+    self.debug_assert_docs_queue_unchanged();
+    Ok(top_idx)
+  }
+
+  fn subs(&self) -> &[P] {
+    #[cfg(debug_assertions)]
+    self.debug_assert_docs_queue_unchanged();
+    &self.docs_queue.compare.subs
+  }
+
+  fn subs_mut(&mut self) -> &mut [P] {
+    #[cfg(debug_assertions)]
+    self.debug_assert_docs_queue_unchanged();
+    &mut self.docs_queue.compare.subs
+  }
+
+  #[cfg(debug_assertions)]
+  fn debug_assert_docs_queue_unchanged(&self) {
+    debug_assert_eq!(self.initial_docs_queue_size, self.docs_queue.size());
+    debug_assert_eq!(self.initial_subs_len, self.docs_queue.compare.subs.len());
   }
 }
 
@@ -539,20 +585,16 @@ where
   P: PostingsEnum,
 {
   fn doc_id(&self) -> i32 {
-    // docs_queue is nerver empty or pop so it is safe to unwrap
-    let index = self.docs_queue.top().expect("docs_queue is never empty");
-    self.docs_queue.compare.subs[*index].doc_id()
+    let index = self.top_idx();
+    self.subs()[index].doc_id()
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    let mut top = *self
-      .docs_queue
-      .top()
-      .ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
+    let mut top = self.top_idx();
     let doc = self.docs_queue.compare.subs[top].doc_id();
     loop {
       self.docs_queue.compare.subs[top].next_doc()?;
-      top = *self.docs_queue.update_top()?;
+      top = self.update_top_idx()?;
       if self.docs_queue.compare.subs[top].doc_id() != doc {
         return Ok(self.docs_queue.compare.subs[top].doc_id());
       }
@@ -560,13 +602,10 @@ where
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    let mut top = *self
-      .docs_queue
-      .top()
-      .ok_or_else(|| LuceneError::illegal_state("docs_queue is never empty"))?;
+    let mut top = self.top_idx();
     loop {
       self.docs_queue.compare.subs[top].advance(target)?;
-      top = *self.docs_queue.update_top()?;
+      top = self.update_top_idx()?;
       let doc = self.docs_queue.compare.subs[top].doc_id();
       if doc >= target {
         return Ok(doc);
@@ -596,6 +635,8 @@ where
           }
         }
       }
+      #[cfg(debug_assertions)]
+      self.debug_assert_docs_queue_unchanged();
       self.pos_queue.sort();
       self.pos_queue_doc = doc;
     }
@@ -795,8 +836,9 @@ where
     self.freq = 0;
     self.started = false;
     self.pos_queue.clear();
+    let postings = self.base.subs_mut();
     for pp in &mut self.subs {
-      let pe = &mut self.base.docs_queue.compare.subs[pp.pe];
+      let pe = &mut postings[pp.pe];
       if pe.doc_id() == doc {
         pp.pos = pe.next_position()?;
         pp.upto = pe.freq()?;
@@ -831,7 +873,7 @@ where
       return Ok(top.pos);
     }
 
-    top.pos = self.base.docs_queue.compare.subs[top.pe].next_position()?;
+    top.pos = self.base.subs_mut()[top.pe].next_position()?;
     top.upto -= 1;
     self.pos_queue.update_top()?;
 
@@ -847,7 +889,7 @@ where
       .pos_queue
       .top()
       .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
-    self.base.docs_queue.compare.subs[top.pe].start_offset()
+    self.base.subs()[top.pe].start_offset()
   }
 
   fn end_offset(&self) -> Result<i32> {
@@ -855,14 +897,14 @@ where
       .pos_queue
       .top()
       .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
-    self.base.docs_queue.compare.subs[top.pe].end_offset()
+    self.base.subs()[top.pe].end_offset()
   }
   fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let top = self
       .pos_queue
       .top()
       .ok_or_else(|| LuceneError::illegal_state("pos_queue is empty"))?;
-    self.base.docs_queue.compare.subs[top.pe].get_payload()
+    self.base.subs()[top.pe].get_payload()
   }
 }
 #[allow(clippy::large_enum_variant)] // Keep postings iteration allocation-free.

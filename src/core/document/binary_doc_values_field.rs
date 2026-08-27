@@ -33,8 +33,10 @@ use std::sync::LazyLock;
 /// Type for straight bytes DocValues.
 static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_doc_values_type(DocValuesType::Binary)
-    .expect("set_doc_values_type should never fail in this context");
+  expect_invariant!(
+    ft.set_doc_values_type(DocValuesType::Binary),
+    "the built-in binary doc-values field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });

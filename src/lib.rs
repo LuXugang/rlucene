@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 #![cfg_attr(not(test), forbid(clippy::mutable_key_type))]
+#![cfg_attr(not(test), deny(clippy::expect_used))]
 // The monolithic macOS lib-test binary exceeds ld's compact-unwind table limit.
 #![cfg_attr(all(test, target_os = "macos"), allow(linker_messages))]
 #[macro_use]

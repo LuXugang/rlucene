@@ -26,18 +26,18 @@ use crate::core::util::error::parse::Parse;
 use crate::core::util::error::{IllegalArgumentError, IllegalStateError};
 use crate::core::util::strict_string_tokenizer::StrictStringTokenizer;
 pub static LUCENE_9_0_0: LazyLock<Version> =
-  LazyLock::new(|| Version::new(9, 0, 0).expect("should not fail"));
+  LazyLock::new(|| expect_invariant!(Version::new(9, 0, 0), "Lucene 9.0.0 is a valid version"));
 
 pub static LUCENE_10_0_0: LazyLock<Version> =
-  LazyLock::new(|| Version::new(10, 0, 0).expect("should not fail"));
+  LazyLock::new(|| expect_invariant!(Version::new(10, 0, 0), "Lucene 10.0.0 is a valid version"));
 
 /// Match settings and bugs in Lucene's 10.1.0 release.
 pub static LUCENE_10_1_0: LazyLock<Version> =
-  LazyLock::new(|| Version::new(10, 1, 0).expect("should not fail"));
+  LazyLock::new(|| expect_invariant!(Version::new(10, 1, 0), "Lucene 10.1.0 is a valid version"));
 
 /// Match settings and bugs in Lucene's 11.0.0 release.
 pub static LUCENE_10_1_1: LazyLock<Version> =
-  LazyLock::new(|| Version::new(10, 1, 1).expect("should not fail"));
+  LazyLock::new(|| expect_invariant!(Version::new(10, 1, 1), "Lucene 10.1.1 is a valid version"));
 
 /// # Warning
 /// If you use this setting, and then upgrade to a newer release of Lucene,

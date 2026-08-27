@@ -163,12 +163,12 @@ where
       return;
     }
 
-    let callable = self
-      .callable
-      .lock()
-      .take()
-      .expect("a task must retain its callable until it starts");
-    let outcome = catch_unwind(AssertUnwindSafe(callable));
+    let outcome = match self.callable.lock().take() {
+      Some(callable) => catch_unwind(AssertUnwindSafe(callable)),
+      None => Ok(Err(LuceneError::illegal_state(
+        "the task that starts must still own its callable",
+      ))),
+    };
     let failed = !matches!(outcome, Ok(Ok(_)));
     *self.outcome.lock() = Some(TaskOutcome::Completed(outcome));
     if failed {

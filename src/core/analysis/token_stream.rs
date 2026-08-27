@@ -62,10 +62,8 @@ impl TokenStreamBase {
   }
 }
 
-pub fn default_attribute() -> Attributes {
-  PackedTokenAttributeImpl::new()
-    .expect("new PackedTokenAttributeImpl should never failed")
-    .into()
+pub fn default_attribute() -> Result<Attributes> {
+  PackedTokenAttributeImpl::new().map(Into::into)
 }
 #[macro_export]
 macro_rules! either_token_stream {

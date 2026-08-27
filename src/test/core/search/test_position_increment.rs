@@ -198,7 +198,10 @@ impl PositionIncrementTokenizer {
   fn new() -> Self {
     Self {
       i: 0,
-      tokenizer_base: TokenizerBase::new(default_attribute()),
+      tokenizer_base: TokenizerBase::new(expect_invariant!(
+        default_attribute(),
+        "the test tokenizer uses the built-in default attributes"
+      )),
     }
   }
 }

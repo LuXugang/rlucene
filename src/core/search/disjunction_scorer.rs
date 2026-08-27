@@ -59,15 +59,16 @@ where
       all_scorers.push(w);
       dpq.add(i, all_scorers.as_slice());
     }
-    let mut approximation = DisjunctionDISIApproximation::new(dpq, all_scorers);
+    let mut approximation = DisjunctionDISIApproximation::new(dpq, all_scorers)?;
     let needs_scores = score_mode != ScoreMode::CompleteNoScores;
     let mut has_approximation = false;
     let mut sum_match_cost = 0f32;
     let mut sum_approx_cost = 0i64;
     // Compute matchCost as the average over the matchCost of the subScorers.
     // This is weighted by the cost, which is an expected number of matching documents.
-    for idx in approximation.sub_iterators.iter() {
-      let w = &mut approximation.all_scores[idx];
+    let (sub_iterators, all_scores) = approximation.sub_iterators_and_all_scores_mut();
+    for idx in sub_iterators.iter() {
+      let w = &mut all_scores[idx];
       let cost_weight = if w.cost <= 1 { 1 } else { w.cost };
       sum_approx_cost += cost_weight;
       if w.scorer.has_two_phase_iterator() == TwoPhaseState::Yes
@@ -94,7 +95,7 @@ where
 
   fn get_sub_matched(&mut self) -> Result<Option<usize>> {
     match self.disi {
-      Disi::A(ref mut v) => Ok(Some(v.sub_iterators.top_list_root(&mut v.all_scores))),
+      Disi::A(ref mut v) => Ok(Some(v.top_list_root())),
       Disi::B(ref mut v) => {
         let two_phase = &mut v.two_phase_iterator;
         two_phase.get_sub_matches()
@@ -111,14 +112,13 @@ where
   fn score(&mut self) -> Result<f32> {
     let idx = self.get_sub_matched()?;
     match self.disi {
-      Disi::A(ref mut v) => self.sub.score(&mut v.all_scores, idx),
+      Disi::A(ref mut v) => self.sub.score(v.all_scores_mut(), idx),
       Disi::B(ref mut v) => self.sub.score(
         v.two_phase_iterator
           .unverified_matches
           .compare
           .approximation
-          .all_scores
-          .as_mut_slice(),
+          .all_scores_mut(),
         idx,
       ),
     }
@@ -128,15 +128,14 @@ where
     match self.disi {
       Disi::A(ref mut v) => self
         .sub
-        .set_min_competitive_score(min_score, &mut v.all_scores),
+        .set_min_competitive_score(min_score, v.all_scores_mut()),
       Disi::B(ref mut v) => self.sub.set_min_competitive_score(
         min_score,
         v.two_phase_iterator
           .unverified_matches
           .compare
           .approximation
-          .all_scores
-          .as_mut_slice(),
+          .all_scores_mut(),
       ),
     }
   }
@@ -237,7 +236,7 @@ where
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     match self.disi {
-      Disi::A(ref mut v) => match self.sub.advance_shallow(target, &mut v.all_scores) {
+      Disi::A(ref mut v) => match self.sub.advance_shallow(target, v.all_scores_mut()) {
         Ok(doc) => Ok(doc),
         Err(e) => match e {
           LuceneError::NotImplemented(_) => self.default_advance_shallow(target),
@@ -251,8 +250,7 @@ where
             .unverified_matches
             .compare
             .approximation
-            .all_scores
-            .as_mut_slice(),
+            .all_scores_mut(),
         ) {
           Ok(doc) => Ok(doc),
           Err(e) => match e {
@@ -266,15 +264,14 @@ where
 
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
     match self.disi {
-      Disi::A(ref mut v) => self.sub.get_max_score(upto, &mut v.all_scores),
+      Disi::A(ref mut v) => self.sub.get_max_score(upto, v.all_scores_mut()),
       Disi::B(ref mut v) => self.sub.get_max_score(
         upto,
         v.two_phase_iterator
           .unverified_matches
           .compare
           .approximation
-          .all_scores
-          .as_mut_slice(),
+          .all_scores_mut(),
       ),
     }
   }
@@ -326,7 +323,7 @@ where
     needs_scores: bool,
   ) -> Result<Self> {
     let cmp = DisiWrapperCmp { approximation };
-    let size = cmp.approximation.all_scores.len();
+    let size = cmp.approximation.all_scores().len();
     let unverified_matches = PriorityQueue::new(size, cmp)?;
     Ok(Self {
       match_cost,
@@ -341,7 +338,11 @@ where
       let i = *self.unverified_matches.get_heap_array()[heap_index]
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("priority queue element should exist"))?;
-      let w = &mut self.unverified_matches.compare.approximation.all_scores[i];
+      let w = &mut self
+        .unverified_matches
+        .compare
+        .approximation
+        .all_scores_mut()[i];
 
       if w.matches()? {
         w.next = self.verified_matches;
@@ -353,7 +354,11 @@ where
     Ok(self.verified_matches)
   }
   fn all_scores_mut(&mut self) -> &mut [DisiWrapper<S>] {
-    &mut self.unverified_matches.compare.approximation.all_scores
+    self
+      .unverified_matches
+      .compare
+      .approximation
+      .all_scores_mut()
   }
 }
 impl<S> TwoPhaseIterator for TwoPhase<S>
@@ -372,17 +377,18 @@ where
     self.verified_matches = None;
     self.unverified_matches.clear();
 
-    let root_idx = {
-      self
+    let root_idx = self
+      .unverified_matches
+      .compare
+      .approximation
+      .top_list_root();
+    let mut w_idx_opt = Some(root_idx);
+    while let Some(w_idx) = w_idx_opt {
+      let w = &mut self
         .unverified_matches
         .compare
         .approximation
-        .sub_iterators
-        .top_list_root(&mut self.unverified_matches.compare.approximation.all_scores)
-    };
-    let mut w_idx_opt = Some(root_idx);
-    while let Some(w_idx) = w_idx_opt {
-      let w = &mut self.unverified_matches.compare.approximation.all_scores[w_idx];
+        .all_scores_mut()[w_idx];
       let next = w.next;
       let has_no_two_phase_view = (w.scorer.has_two_phase_iterator() == TwoPhaseState::No)
         || w.scorer.two_phase_iterator().is_none();
@@ -433,7 +439,10 @@ where
   S: Scorer,
 {
   fn less_than(&self, a: &usize, b: &usize) -> Result<bool> {
-    Ok(self.approximation.all_scores[*a].match_cost < self.approximation.all_scores[*b].match_cost)
+    Ok(
+      self.approximation.all_scores()[*a].match_cost
+        < self.approximation.all_scores()[*b].match_cost,
+    )
   }
 }
 

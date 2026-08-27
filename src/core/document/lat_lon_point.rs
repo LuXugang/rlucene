@@ -65,8 +65,10 @@ use std::sync::LazyLock;
 /// Each point stores two dimensions with 4 bytes per dimension.
 pub(crate) static TYPE_: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_dimensions(2, BitUtil::INT_BYTES)
-    .expect("should never fail in this context");
+  expect_invariant!(
+    ft.set_dimensions(2, BitUtil::INT_BYTES),
+    "the built-in latitude-longitude point dimensions are valid"
+  );
   ft.freeze();
   ft
 });

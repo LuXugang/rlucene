@@ -29,7 +29,7 @@ impl MatchesIterator for DummyMatchesIterator {
     dummy_unreachable!()
   }
 
-  fn end_position(&self) -> i32 {
+  fn end_position(&self) -> Result<i32> {
     dummy_unreachable!()
   }
 
@@ -45,7 +45,7 @@ impl MatchesIterator for DummyMatchesIterator {
     dummy_unreachable!()
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> Result<Arc<Query>> {
     dummy_unreachable!()
   }
 }

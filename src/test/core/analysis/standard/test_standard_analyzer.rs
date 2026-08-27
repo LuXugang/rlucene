@@ -104,7 +104,7 @@ fn test_large_partially_matching_token() -> Result<()> {
     }
   }
 
-  let mut tokenizer = StandardTokenizer::new();
+  let mut tokenizer = StandardTokenizer::new()?;
   tokenizer.set_reader(builder.as_str().into())?;
   tokenizer.reset()?;
   while tokenizer.increment_token()? {}
@@ -124,7 +124,7 @@ fn test_large_partially_matching_token() -> Result<()> {
 fn test_huge_doc() -> Result<()> {
   let mut input = " ".repeat(4094);
   input.push_str("testing 1234");
-  let mut tokenizer = StandardTokenizer::new();
+  let mut tokenizer = StandardTokenizer::new()?;
   tokenizer.set_reader(input.into())?;
   assert_token_stream_contents12(&mut tokenizer, &["testing", "1234"])
 }

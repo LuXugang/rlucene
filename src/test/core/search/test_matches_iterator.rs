@@ -658,8 +658,8 @@ impl TestMatchesIterator {
         Ok(self.max - self.count)
       }
 
-      fn end_position(&self) -> i32 {
-        self.max - self.count
+      fn end_position(&self) -> Result<i32> {
+        Ok(self.max - self.count)
       }
 
       fn start_offset(&self) -> Result<i32> {
@@ -674,7 +674,7 @@ impl TestMatchesIterator {
         panic!("get_sub_matches should not be called")
       }
 
-      fn get_query(&self) -> Arc<Query> {
+      fn get_query(&self) -> Result<Arc<Query>> {
         panic!("get_query should not be called")
       }
     }

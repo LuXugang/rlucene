@@ -30,7 +30,10 @@ use std::sync::{Arc, LazyLock};
 static LENGTH_TABLE: LazyLock<[i32; 256]> = LazyLock::new(|| {
   let mut table = [0i32; 256];
   for (i, slot) in table.iter_mut().enumerate() {
-    *slot = SmallFloat::byte4_to_int(i as u8).expect("should not fail");
+    *slot = expect_invariant!(
+      SmallFloat::byte4_to_int(i as u8),
+      "every u8 value is valid for the TF-IDF length decoding table"
+    );
   }
   table
 });

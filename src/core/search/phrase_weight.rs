@@ -69,8 +69,8 @@ where
     Ok(self.matcher.start_position())
   }
 
-  fn end_position(&self) -> i32 {
-    self.matcher.end_position()
+  fn end_position(&self) -> Result<i32> {
+    Ok(self.matcher.end_position())
   }
 
   fn start_offset(&self) -> Result<i32> {
@@ -86,8 +86,8 @@ where
     Ok(None)
   }
 
-  fn get_query(&self) -> Arc<Query> {
-    self.query.clone()
+  fn get_query(&self) -> Result<Arc<Query>> {
+    Ok(self.query.clone())
   }
 }
 

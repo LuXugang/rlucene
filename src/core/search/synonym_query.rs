@@ -1142,16 +1142,13 @@ where
   }
 
   fn freq(&mut self) -> Result<f32> {
-    let list_index = self
-      .impacts_disi
-      .in_
-      .sub_iterators
-      .top_list_root(&mut self.impacts_disi.in_.all_scores);
-    let mut freq = self.impacts_disi.in_.all_scores[list_index].scorer.freq()?;
-    let mut next = self.impacts_disi.in_.all_scores[list_index].next;
+    let list_index = self.impacts_disi.in_.top_list_root();
+    let all_scores = self.impacts_disi.in_.all_scores_mut();
+    let mut freq = all_scores[list_index].scorer.freq()?;
+    let mut next = all_scores[list_index].next;
     while let Some(next_index) = next {
-      freq += self.impacts_disi.in_.all_scores[next_index].scorer.freq()?;
-      next = self.impacts_disi.in_.all_scores[next_index].next;
+      freq += all_scores[next_index].scorer.freq()?;
+      next = all_scores[next_index].next;
     }
     Ok(freq)
   }
@@ -1533,7 +1530,7 @@ where
       queue.add(idx, &wrappers);
     }
 
-    let iterator = DisjunctionDISIApproximation::new(queue, wrappers);
+    let iterator = DisjunctionDISIApproximation::new(queue, wrappers)?;
     let impacts_source = SynonymQuery::merge_impacts(impacts, term_boosts);
     let max_score_cache = MaxScoreCache::new(impacts_source, sim_weight.clone());
     let impacts_disi = ImpactsDISI::new(iterator, max_score_cache, true);

@@ -97,11 +97,11 @@ where
       .start_position()
   }
 
-  fn end_position(&self) -> i32 {
+  fn end_position(&self) -> Result<i32> {
     self
       .queue
       .top()
-      .expect("priority queue top element should exist")
+      .ok_or_else(|| LuceneError::illegal_state("priority queue top element should exist"))?
       .end_position()
   }
 
@@ -129,11 +129,11 @@ where
       .get_sub_matches()
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> Result<Arc<Query>> {
     self
       .queue
       .top()
-      .expect("priority queue top element should exist")
+      .ok_or_else(|| LuceneError::illegal_state("priority queue top element should exist"))?
       .get_query()
   }
 }
@@ -153,8 +153,8 @@ where
     }
     let a_start = a.start_position()?;
     let b_start = b.start_position()?;
-    let a_end = a.end_position();
-    let b_end = b.end_position();
+    let a_end = a.end_position()?;
+    let b_end = b.end_position()?;
     Ok(a_start < b_start || (a_start == b_start && a_end <= b_end))
   }
 }
@@ -246,11 +246,11 @@ where
       .start_position()
   }
 
-  fn end_position(&self) -> i32 {
+  fn end_position(&self) -> Result<i32> {
     self
       .it
       .as_ref()
-      .expect("matches iterator is not initialized")
+      .ok_or_else(|| LuceneError::illegal_state("matches iterator is not initialized"))?
       .end_position()
   }
 
@@ -278,11 +278,11 @@ where
       .get_sub_matches()
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> Result<Arc<Query>> {
     self
       .it
       .as_ref()
-      .expect("matches iterator is not initialized")
+      .ok_or_else(|| LuceneError::illegal_state("matches iterator is not initialized"))?
       .get_query()
   }
 }

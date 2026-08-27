@@ -158,6 +158,10 @@ impl SmallFloat {
   }
 }
 
-static MAX_INT4: LazyLock<i32> =
-  LazyLock::new(|| SmallFloat::long_to_int4(i32::MAX as i64).expect("should not fail"));
+static MAX_INT4: LazyLock<i32> = LazyLock::new(|| {
+  expect_invariant!(
+    SmallFloat::long_to_int4(i32::MAX as i64),
+    "i32::MAX is supported by the built-in small-float encoding"
+  )
+});
 static NUM_FREE_VALUES: LazyLock<i32> = LazyLock::new(|| 255 - *MAX_INT4);

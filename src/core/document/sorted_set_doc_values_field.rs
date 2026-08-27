@@ -36,17 +36,23 @@ use std::sync::LazyLock;
 
 static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_doc_values_type(DocValuesType::SortedSet)
-    .expect("set_doc_values_type should never fail in this context");
+  expect_invariant!(
+    ft.set_doc_values_type(DocValuesType::SortedSet),
+    "the built-in sorted-set doc-values field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });
 
 static INDEXED_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
-  let mut ft =
-    FieldType::from_ref(&*TYPE).expect("FieldType::from_ref should never fail in this context");
-  ft.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range)
-    .expect("set_doc_values_skip_index_type should never fail in this context");
+  let mut ft = expect_invariant!(
+    FieldType::from_ref(&*TYPE),
+    "the built-in sorted-set doc-values field type can be copied"
+  );
+  expect_invariant!(
+    ft.set_doc_values_skip_index_type(DocValuesSkipIndexType::Range),
+    "the copied sorted-set doc-values field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });

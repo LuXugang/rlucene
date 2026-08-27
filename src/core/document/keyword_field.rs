@@ -42,19 +42,35 @@ pub mod keyword {
 
   pub(crate) static FIELD_TYPE: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
-    ft.set_index_options(IndexOptions::Docs)
-      .expect("set_index_options");
-    ft.set_omit_norms(true).expect("set_omit_norms");
-    ft.set_tokenized(false).expect("set_tokenized");
-    ft.set_doc_values_type(DocValuesType::SortedSet)
-      .expect("set_doc_values_type");
+    expect_invariant!(
+      ft.set_index_options(IndexOptions::Docs),
+      "the built-in keyword field index options are valid"
+    );
+    expect_invariant!(
+      ft.set_omit_norms(true),
+      "the built-in keyword field type is mutable and unfrozen"
+    );
+    expect_invariant!(
+      ft.set_tokenized(false),
+      "the built-in keyword field type is mutable and unfrozen"
+    );
+    expect_invariant!(
+      ft.set_doc_values_type(DocValuesType::SortedSet),
+      "the built-in keyword field doc-values type is valid"
+    );
     ft.freeze();
     ft
   });
 
   pub(crate) static FIELD_TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
-    let mut ft = FieldType::from_ref(&*FIELD_TYPE).expect("Invalid field type");
-    ft.set_stored(true).expect("set_stored");
+    let mut ft = expect_invariant!(
+      FieldType::from_ref(&*FIELD_TYPE),
+      "the built-in keyword field type can be copied"
+    );
+    expect_invariant!(
+      ft.set_stored(true),
+      "the copied keyword field type is mutable and unfrozen"
+    );
     ft.freeze();
     ft
   });

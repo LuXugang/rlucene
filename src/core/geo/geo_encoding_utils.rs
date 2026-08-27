@@ -23,11 +23,19 @@ use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use std::sync::LazyLock;
-pub static MIN_LON_ENCODED: LazyLock<i32> =
-  LazyLock::new(|| encode_longitude(GeoUtils::MIN_LON_INCL).expect("MIN_LON_INCL must be valid"));
+pub static MIN_LON_ENCODED: LazyLock<i32> = LazyLock::new(|| {
+  expect_invariant!(
+    encode_longitude(GeoUtils::MIN_LON_INCL),
+    "MIN_LON_INCL is a valid longitude"
+  )
+});
 
-pub static MAX_LON_ENCODED: LazyLock<i32> =
-  LazyLock::new(|| encode_longitude(GeoUtils::MAX_LON_INCL).expect("MAX_LON_INCL must be valid"));
+pub static MAX_LON_ENCODED: LazyLock<i32> = LazyLock::new(|| {
+  expect_invariant!(
+    encode_longitude(GeoUtils::MAX_LON_INCL),
+    "MAX_LON_INCL is a valid longitude"
+  )
+});
 /// Quantizes double (64 bit) longitude into 32 bits (rounding down: in the direction of -180)
 ///
 /// # Arguments

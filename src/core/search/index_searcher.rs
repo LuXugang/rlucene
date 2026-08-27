@@ -113,17 +113,19 @@ pub static MAX_RAM_BYTES_USED: LazyLock<i64> = LazyLock::new(|| {
 pub type DefaultQueryCache = LRUQueryCache<MinSegmentSizePredicate>;
 
 fn new_default_query_cache() -> Option<Arc<DefaultQueryCache>> {
-  Some(Arc::new(
-    LRUQueryCache::new(MAX_CACHED_QUERIES, *MAX_RAM_BYTES_USED)
-      .expect("default query cache configuration must be valid"),
-  ))
+  Some(Arc::new(expect_invariant!(
+    LRUQueryCache::new(MAX_CACHED_QUERIES, *MAX_RAM_BYTES_USED),
+    "the built-in query cache limits are valid"
+  )))
 }
 
 fn new_default_caching_policy() -> Arc<QueryCachingPolicyEnum> {
   Arc::new(
-    UsageTrackingQueryCachingPolicy::new()
-      .expect("default query caching policy configuration must be valid")
-      .into(),
+    expect_invariant!(
+      UsageTrackingQueryCachingPolicy::new(),
+      "the built-in query caching policy configuration is valid"
+    )
+    .into(),
   )
 }
 

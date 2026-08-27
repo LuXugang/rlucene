@@ -35,8 +35,10 @@ pub mod stored_field_type {
   use std::sync::LazyLock;
   pub static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
     let mut ft = FieldType::new();
-    ft.set_stored(true)
-      .expect("set_stored(true) should never fail in this context");
+    expect_invariant!(
+      ft.set_stored(true),
+      "the built-in stored field type is mutable and unfrozen"
+    );
     ft.freeze();
     ft
   });

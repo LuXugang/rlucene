@@ -500,8 +500,12 @@ impl FieldInfos {
     self.hook.field_info_by_number(self, field_number)
   }
 }
-pub(crate) static EMPTY: LazyLock<Arc<FieldInfos>> =
-  LazyLock::new(|| Arc::new(FieldInfos::new(vec![]).expect("should not fail")));
+pub(crate) static EMPTY: LazyLock<Arc<FieldInfos>> = LazyLock::new(|| {
+  Arc::new(expect_invariant!(
+    FieldInfos::new(vec![]),
+    "an empty built-in field-info collection is valid"
+  ))
+});
 
 pub fn get_merged_field_infos<IR>(reader: IR) -> Result<Arc<FieldInfos>>
 where

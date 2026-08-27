@@ -43,7 +43,7 @@ pub trait MatchesIterator {
   /// The end position of the current match, or `-1` if positions are not available.
   ///
   /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-  fn end_position(&self) -> i32;
+  fn end_position(&self) -> Result<i32>;
 
   /// The starting offset of the current match, or `-1` if offsets are not available.
   ///
@@ -69,7 +69,7 @@ pub trait MatchesIterator {
   /// then returns a [`TermQuery`](crate::core::search::term_query::TermQuery) equivalent to the current match.
   ///
   /// Should only be called after [`MatchesIterator::next`] has returned `true`.
-  fn get_query(&self) -> Arc<Query>;
+  fn get_query(&self) -> Result<Arc<Query>>;
 }
 
 impl<T> MatchesIterator for Box<T>
@@ -84,7 +84,7 @@ where
     (**self).start_position()
   }
 
-  fn end_position(&self) -> i32 {
+  fn end_position(&self) -> Result<i32> {
     (**self).end_position()
   }
 
@@ -100,7 +100,7 @@ where
     (**self).get_sub_matches()
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> Result<Arc<Query>> {
     (**self).get_query()
   }
 }
@@ -128,7 +128,7 @@ macro_rules! either_matches_iterator {
             }
 
             #[inline]
-            fn end_position(&self) -> i32 {
+            fn end_position(&self) -> Result<i32> {
                 match self { $( Self::$Variant(inner) => inner.end_position(), )+ }
             }
 
@@ -150,7 +150,7 @@ macro_rules! either_matches_iterator {
             }
 
             #[inline]
-            fn get_query(&self) -> Arc<Query> {
+            fn get_query(&self) -> Result<Arc<Query>> {
                 match self { $( Self::$Variant(inner) => inner.get_query(), )+ }
             }
         }

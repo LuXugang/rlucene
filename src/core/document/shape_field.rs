@@ -52,8 +52,10 @@ impl ShapeField {
 /// tessellated triangles are seven dimensions; the first four are the bounding box index dimensions
 pub(crate) static TYPE_: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_dimensions_with_index(7, 4, ShapeField::BYTES)
-    .expect("should never fail in this context");
+  expect_invariant!(
+    ft.set_dimensions_with_index(7, 4, ShapeField::BYTES),
+    "the built-in tessellated shape dimensions are valid"
+  );
   ft.freeze();
   ft
 });

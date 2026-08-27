@@ -53,8 +53,10 @@ use std::sync::LazyLock;
 /// - [`GeoEncodingUtils::decode_longitude`]
 pub(crate) static TYPE: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_doc_values_type(DocValuesType::SortedNumeric)
-    .expect("set_doc_values_type should never fail in this context");
+  expect_invariant!(
+    ft.set_doc_values_type(DocValuesType::SortedNumeric),
+    "the built-in latitude-longitude doc-values field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });

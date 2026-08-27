@@ -21,6 +21,19 @@ macro_rules! dummy_unreachable {
   };
 }
 
+/// Extracts a value whose presence or success is guaranteed by a documented program invariant.
+///
+/// Production code must use this macro instead of calling `Option::expect` or `Result::expect`
+/// directly. The reason must describe why failure is a programmer error rather than a recoverable
+/// runtime condition.
+macro_rules! expect_invariant {
+  ($value:expr, $reason:literal $(,)?) => {{
+    #[allow(clippy::expect_used)]
+    let value = $value.expect(concat!("invariant violated: ", $reason));
+    value
+  }};
+}
+
 macro_rules! unwrap_caught_result {
   ($result:expr) => {{
     match $result {

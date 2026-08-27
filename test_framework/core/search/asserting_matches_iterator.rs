@@ -57,7 +57,7 @@ impl MatchesIterator for AssertingMatchesIterator<'_> {
     self.in_.start_position()
   }
 
-  fn end_position(&self) -> i32 {
+  fn end_position(&self) -> Result<i32> {
     assert_eq!(self.state, State::Iterating);
     self.in_.end_position()
   }
@@ -77,7 +77,7 @@ impl MatchesIterator for AssertingMatchesIterator<'_> {
     self.in_.get_sub_matches()
   }
 
-  fn get_query(&self) -> Arc<Query> {
+  fn get_query(&self) -> Result<Arc<Query>> {
     assert_eq!(self.state, State::Iterating);
     self.in_.get_query()
   }

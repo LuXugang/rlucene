@@ -35,22 +35,32 @@ use std::sync::LazyLock;
 /// Indexed, tokenized, not stored.
 pub(crate) static TYPE_NOT_STORED: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
-    .expect("set_index_options should never fail in this context");
-  ft.set_tokenized(true)
-    .expect("set_tokenized(true) should never fail in this context");
+  expect_invariant!(
+    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions),
+    "the built-in non-stored text field index options are valid"
+  );
+  expect_invariant!(
+    ft.set_tokenized(true),
+    "the built-in non-stored text field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });
 /// Indexed, tokenized, stored.
 pub(crate) static TYPE_STORED: LazyLock<FieldType> = LazyLock::new(|| {
   let mut ft = FieldType::new();
-  ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions)
-    .expect("set_index_options should never fail in this context");
-  ft.set_tokenized(true)
-    .expect("set_tokenized(true) should never fail in this context");
-  ft.set_stored(true)
-    .expect("set_stored(true) should never fail in this context");
+  expect_invariant!(
+    ft.set_index_options(IndexOptions::DocsAndFreqsAndPositions),
+    "the built-in stored text field index options are valid"
+  );
+  expect_invariant!(
+    ft.set_tokenized(true),
+    "the built-in stored text field type is mutable and unfrozen"
+  );
+  expect_invariant!(
+    ft.set_stored(true),
+    "the built-in stored text field type is mutable and unfrozen"
+  );
   ft.freeze();
   ft
 });

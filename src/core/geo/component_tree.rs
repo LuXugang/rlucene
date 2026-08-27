@@ -346,63 +346,71 @@ where
 
   let mut min_y = f64::INFINITY;
   let mut min_x = f64::INFINITY;
-  let mut component_slots: Vec<Option<T>> = components
-    .into_iter()
-    .map(|component| {
-      min_y = min_y.min(component.get_min_y());
-      min_x = min_x.min(component.get_min_x());
-      Some(component)
-    })
-    .collect();
+  for component in &components {
+    min_y = min_y.min(component.get_min_y());
+    min_x = min_x.min(component.get_min_x());
+  }
 
-  let high = component_slots.len() - 1;
-  let mut root = create_tree(&mut component_slots, 0, high, false)?
-    .ok_or_else(|| LuceneError::illegal_argument("failed to build component tree"))?;
+  let component_count = components.len();
+  partition_components(&mut components, 0, component_count - 1, false);
+
+  let mut components = components.into_iter();
+  let mut root = create_tree(&mut components, component_count, false)?.ok_or_else(|| {
+    LuceneError::illegal_state("failed to build component tree from non-empty components")
+  })?;
+  if !components.as_slice().is_empty() {
+    return Err(LuceneError::illegal_state(
+      "not all components were consumed during tree construction",
+    ));
+  }
   root.min_y = min_y;
   root.min_x = min_x;
   Ok(root)
 }
 
+fn partition_components<T>(components: &mut [T], low: usize, high: usize, split_x: bool)
+where
+  T: Component2D,
+{
+  if low >= high {
+    return;
+  }
+
+  let mid = (low + high) >> 1;
+  let relative_mid = mid - low;
+  components[low..=high].select_nth_unstable_by(relative_mid, |left, right| {
+    compare_components(left, right, split_x)
+  });
+
+  if mid > low {
+    partition_components(components, low, mid - 1, !split_x);
+  }
+  if mid < high {
+    partition_components(components, mid + 1, high, !split_x);
+  }
+}
+
 fn create_tree<T>(
-  components: &mut [Option<T>],
-  low: usize,
-  high: usize,
+  components: &mut std::vec::IntoIter<T>,
+  component_count: usize,
   split_x: bool,
 ) -> Result<Option<ComponentTree<T>>>
 where
   T: Component2D,
 {
-  if low > high {
+  if component_count == 0 {
     return Ok(None);
   }
 
-  let mid = (low + high) >> 1;
-  if low < high {
-    let relative_mid = mid - low;
-    components[low..=high].select_nth_unstable_by(relative_mid, |left, right| {
-      compare_components(
-        left
-          .as_ref()
-          .expect("component missing during tree construction"),
-        right
-          .as_ref()
-          .expect("component missing during tree construction"),
-        split_x,
-      )
-    });
-  }
-
-  let component = components[mid]
-    .take()
-    .ok_or_else(|| LuceneError::illegal_argument("component missing during tree construction"))?;
+  let left_count = (component_count - 1) >> 1;
+  let right_count = component_count - left_count - 1;
+  let left = create_tree(components, left_count, !split_x)?;
+  let component = components
+    .next()
+    .ok_or_else(|| LuceneError::illegal_state("component missing during tree construction"))?;
   let mut new_node = ComponentTree::new(component, split_x);
-
-  new_node.left = if mid == 0 {
-    None
-  } else {
-    create_tree(components, low, mid - 1, !split_x)?.map(Box::new)
-  };
-  new_node.right = create_tree(components, mid + 1, high, !split_x)?.map(Box::new);
+  new_node.left = left.map(Box::new);
+  new_node.right = create_tree(components, right_count, !split_x)?.map(Box::new);
 
   if let Some(left) = &new_node.left {
     new_node.max_x = new_node.max_x.max(left.get_max_x());
