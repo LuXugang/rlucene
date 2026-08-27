@@ -26,7 +26,7 @@ use crate::core::index::BytesRef;
 use crate::core::index::byte_slice_reader::ByteSliceReader;
 use crate::core::index::indexing_chain::IntBlockAllocator;
 use crate::core::index::parallel_postings_array::PostingsArrayEnum;
-use crate::core::index::terms_hash_per_field::{PostingsArrayWrapper, TermsHashPerField};
+use crate::core::index::terms_hash_per_field::TermsHashPerField;
 use crate::core::store::DataInput;
 
 use crate::core::util::allocator_byte::DirectAllocatorByte;
@@ -38,7 +38,9 @@ use crate::core::util::{AtomicCounter, ByteBlockPool};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_invert_state::FieldInvertState;
 use crate::core::index::freq_prox_terms_writer::FreqProxTermsWriter;
-use crate::core::index::freq_prox_terms_writer_per_field::FreqProxTermsWriterPerField;
+use crate::core::index::freq_prox_terms_writer_per_field::{
+  FreqProxPostingsArray, FreqProxTermsWriterPerField,
+};
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::test_framework::core::index::test_terms_hash_per_field::{
@@ -57,7 +59,7 @@ fn create_new_hash(new_called: AtomicI64, add_called: AtomicI64) -> TermsHashPer
 
 fn assert_doc_and_freq<P>(
   reader: &mut ByteSliceReader<P>,
-  postings_array_wrapper: &PostingsArrayWrapper,
+  postings_array: &FreqProxPostingsArray,
   prev_doc: i32,
   term_id: i32,
   doc: i32,
@@ -68,13 +70,6 @@ where
 {
   assert!(term_id >= 0);
   let term_id = term_id as usize;
-  let postings_array_enum = postings_array_wrapper.postings_array.as_ref().unwrap();
-  let postings_array = match postings_array_enum {
-    PostingsArrayEnum::FreqProx(freq_prox) => freq_prox,
-    _ => {
-      unreachable!()
-    },
-  };
   let mut doc_id = prev_doc;
   let freq: i32;
   let eof = reader.eof();
@@ -239,11 +234,14 @@ fn test_add_and_update_term() -> Result<()> {
   let mut reader = ByteSliceReader::new(&byte_pool);
   base.base.init_reader(&mut reader, 0, 0, &int_pool)?;
 
-  let postings_array_wrapper = &base.base.bytes_hash.bytes_start_array.per_field;
+  let postings_array = match base.base.postings_array() {
+    Some(PostingsArrayEnum::FreqProx(postings_array)) => postings_array,
+    _ => unreachable!(),
+  };
 
   assert!(assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     0,
     0,
     0,
@@ -252,7 +250,7 @@ fn test_add_and_update_term() -> Result<()> {
   base.base.init_reader(&mut reader, 1, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     0,
     1,
     0,
@@ -261,7 +259,7 @@ fn test_add_and_update_term() -> Result<()> {
   base.base.init_reader(&mut reader, 2, 0, &int_pool)?;
   assert!(!assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     0,
     2,
     0,
@@ -269,7 +267,7 @@ fn test_add_and_update_term() -> Result<()> {
   )?);
   assert!(assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     2,
     2,
     1,
@@ -278,7 +276,7 @@ fn test_add_and_update_term() -> Result<()> {
   base.base.init_reader(&mut reader, 3, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     0,
     3,
     1,
@@ -287,7 +285,7 @@ fn test_add_and_update_term() -> Result<()> {
   base.base.init_reader(&mut reader, 4, 0, &int_pool)?;
   assert!(!assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     0,
     4,
     1,
@@ -295,7 +293,7 @@ fn test_add_and_update_term() -> Result<()> {
   )?);
   assert!(!assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     1,
     4,
     2,
@@ -303,7 +301,7 @@ fn test_add_and_update_term() -> Result<()> {
   )?);
   assert!(assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     2,
     4,
     3,
@@ -312,7 +310,7 @@ fn test_add_and_update_term() -> Result<()> {
   base.base.init_reader(&mut reader, 5, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     0,
     5,
     2,
@@ -321,7 +319,7 @@ fn test_add_and_update_term() -> Result<()> {
   base.base.init_reader(&mut reader, 6, 0, &int_pool)?;
   assert!(assert_doc_and_freq(
     &mut reader,
-    postings_array_wrapper,
+    postings_array,
     0,
     6,
     3,
@@ -423,7 +421,10 @@ fn test_add_and_update_random() -> Result<()> {
   values.shuffle(&mut random);
   let mut reader = ByteSliceReader::new(&byte_pool);
 
-  let postings_array_wrapper = &base.base.bytes_hash.bytes_start_array.per_field;
+  let postings_array = match base.base.postings_array() {
+    Some(PostingsArrayEnum::FreqProx(postings_array)) => postings_array,
+    _ => unreachable!(),
+  };
   for posting in values {
     base
       .base
@@ -437,7 +438,7 @@ fn test_add_and_update_random() -> Result<()> {
 
       eof = assert_doc_and_freq(
         &mut reader,
-        postings_array_wrapper,
+        postings_array,
         pref_doc,
         posting.term_id,
         doc,

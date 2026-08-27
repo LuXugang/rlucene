@@ -101,7 +101,7 @@ where
       if (terms_enum_index.next()?).is_some() {
         let sub_idx = terms_enum_index.sub_index;
         let entry_idx = self.subs[sub_idx];
-        let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+        let entry = self.queue.entry_mut(entry_idx);
         entry.base.reset(terms_enum_index);
         self.queue.q.add(entry_idx)?;
         self.current_subs[self.num_subs as usize] = entry_idx;
@@ -125,7 +125,7 @@ where
     self.num_top = self.queue.fill_top(&mut self.top)?.try_convert()?;
 
     let top0_idx = self.top[0];
-    let top0 = &self.queue.q.compare.all_terms_enum_with_slice[top0_idx];
+    let top0 = self.queue.entry(top0_idx);
     self.current = top0.base.term().cloned();
 
     Ok(())
@@ -138,7 +138,7 @@ where
         .q
         .top()
         .ok_or_else(|| LuceneError::illegal_state("top() returned None"))?;
-      let top = &mut self.queue.q.compare.all_terms_enum_with_slice[top_idx];
+      let top = self.queue.entry_mut(top_idx);
 
       if top.base.next()?.is_none() {
         self.queue.q.pop()?;
@@ -236,7 +236,7 @@ where
       // Doing so is a waste because this sub will simply
       // seek to the same spot.
       if seek_opt {
-        let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+        let entry = self.queue.entry_mut(entry_idx);
         let cur_term = entry.base.term();
 
         if let Some(cur) = cur_term {
@@ -252,7 +252,7 @@ where
           status = false;
         }
       } else {
-        let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+        let entry = self.queue.entry_mut(entry_idx);
         status = entry.base.seek_exact(term)?;
       }
 
@@ -261,14 +261,14 @@ where
         self.num_top += 1;
 
         let cur = {
-          let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+          let entry = self.queue.entry_mut(entry_idx);
           entry.base.term()
         };
         self.current = cur.cloned();
 
         debug_assert!({
           let t = {
-            let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+            let entry = self.queue.entry_mut(entry_idx);
             entry.base.term()
           };
           match t {
@@ -317,7 +317,7 @@ where
       // Doing so is a waste because this sub will simply
       // seek to the same spot.
       if seek_opt {
-        let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+        let entry = self.queue.entry_mut(entry_idx);
         let cur_term = entry.base.term();
 
         if let Some(cur) = cur_term {
@@ -333,7 +333,7 @@ where
           status = SeekStatus::End;
         }
       } else {
-        let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+        let entry = self.queue.entry_mut(entry_idx);
         status = entry.base.seek_ceil(term)?;
       }
 
@@ -342,7 +342,7 @@ where
         self.num_top += 1;
 
         let cur = {
-          let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+          let entry = self.queue.entry_mut(entry_idx);
           entry.base.term()
         };
         self.current = cur.cloned();
@@ -350,7 +350,7 @@ where
         self.queue.q.add(entry_idx)?;
       } else if status == SeekStatus::NotFound {
         debug_assert!({
-          let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+          let entry = self.queue.entry_mut(entry_idx);
           entry.base.term().is_some()
         });
         self.queue.q.add(entry_idx)?;
@@ -406,7 +406,7 @@ where
     let mut sum: i32 = 0;
     for i in 0..(self.num_top) {
       let idx = self.top[i];
-      let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[idx];
+      let entry = self.queue.entry_mut(idx);
       match entry.base.terms_enum {
         Some(ref mut terms_enum) => {
           sum += terms_enum.doc_freq()?;
@@ -421,7 +421,7 @@ where
     let mut sum: i64 = 0;
     for i in 0..(self.num_top) {
       let idx = self.top[i];
-      let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[idx];
+      let entry = self.queue.entry_mut(idx);
       match entry.base.terms_enum {
         Some(ref mut terms_enum) => {
           let v = terms_enum.total_term_freq()?;
@@ -452,13 +452,12 @@ where
       None => MultiPostingsEnum::new(self.parent.clone(), self.subs.len()),
     };
     let mut upto: usize = 0;
-    let cmp =
-      TopTermsEnumWithSliceCmp::new(self.queue.q.compare.all_terms_enum_with_slice.as_slice());
+    let cmp = TopTermsEnumWithSliceCmp::new(self.queue.entries());
     ArrayUtil::do_tim_sort(self.top.as_mut(), 0, self.num_top, cmp)?;
 
     for i in 0..(self.num_top) {
       let entry_idx = self.top[i];
-      let entry = &mut self.queue.q.compare.all_terms_enum_with_slice[entry_idx];
+      let entry = self.queue.entry_mut(entry_idx);
 
       let sub_index = entry.base.sub_index;
       debug_assert!(
@@ -716,6 +715,19 @@ where
       q: queue,
     })
   }
+
+  fn entry(&self, index: usize) -> &TermsEnumWithSlice<TE> {
+    &self.q.compare.all_terms_enum_with_slice[index]
+  }
+
+  fn entry_mut(&mut self, index: usize) -> &mut TermsEnumWithSlice<TE> {
+    &mut self.q.compare.all_terms_enum_with_slice[index]
+  }
+
+  fn entries(&self) -> &[TermsEnumWithSlice<TE>] {
+    &self.q.compare.all_terms_enum_with_slice
+  }
+
   /// Add the top() slice as well as all slices that are positionned on the same term to tops and return how many of them there are.
   pub(crate) fn fill_top(&mut self, tops: &mut [usize]) -> Result<i32> {
     let size = self.q.size();
@@ -743,8 +755,8 @@ where
         let top0_idx = tops[0];
 
         let cmp = {
-          let te = &self.q.compare.all_terms_enum_with_slice[te_idx];
-          let top0 = &self.q.compare.all_terms_enum_with_slice[top0_idx];
+          let te = self.entry(te_idx);
+          let top0 = self.entry(top0_idx);
           te.base.compare_term_to(&top0.base)?
         };
 

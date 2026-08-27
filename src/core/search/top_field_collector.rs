@@ -128,6 +128,25 @@ impl TopFieldCollector {
       score_mode,
     })
   }
+
+  fn increment_total_hits(&mut self) -> usize {
+    self.base.total_hits += 1;
+    debug_assert!(self.base.total_hits <= i32::MAX as usize);
+    self.base.total_hits
+  }
+
+  fn comparators_mut(&mut self) -> &mut [FieldComparatorEnum] {
+    self.pq_mut().get_comparators_mut()
+  }
+
+  fn total_hits_relation(&self) -> Relation {
+    self.base.total_hits_relation
+  }
+
+  fn set_total_hits_relation(&mut self, relation: Relation) {
+    self.base.total_hits_relation = relation;
+  }
+
   pub(crate) fn update_global_min_competitive_score<S>(&mut self, scorer: &mut S) -> Result<()>
   where
     S: Scorable + ?Sized,
@@ -402,14 +421,13 @@ where
       base.search_sort_part_of_index_sort = Some(can_early_terminate);
 
       if can_early_terminate {
-        let pq = &mut base.base.pq;
-        let first_comparator = &mut pq.get_comparators_mut()[0];
+        let first_comparator = &mut base.comparators_mut()[0];
         first_comparator.disable_skipping();
       }
     }
 
-    let mut leaf_comparators = base.base.pq.get_leaf_comparator(context)?;
-    let reverse_muls = base.base.pq.get_reverse_mul_shared();
+    let mut leaf_comparators = base.pq_mut().get_leaf_comparator(context)?;
+    let reverse_muls = base.pq().get_reverse_mul_shared();
 
     let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
       (
@@ -433,13 +451,39 @@ where
       comparator,
     })
   }
+
+  fn is_queue_full(&self) -> bool {
+    self.base.queue_full
+  }
+
+  fn total_hits(&self) -> usize {
+    self.base.total_hits()
+  }
+
+  fn total_hits_relation(&self) -> Relation {
+    self.base.total_hits_relation()
+  }
+
+  fn update_min_competitive_score<S>(&mut self, scorer: &mut S) -> Result<()>
+  where
+    S: Scorable + ?Sized,
+  {
+    self.base.update_min_competitive_score(scorer)
+  }
+
+  fn compare_top<S>(&mut self, doc: i32, scorer: &mut S) -> Result<i32>
+  where
+    S: Scorable + ?Sized,
+  {
+    let comparators = self.base.comparators_mut();
+    Ok(self.comparator.compare_top(doc, scorer, comparators)? * self.reverse_mul)
+  }
+
   pub(crate) fn count_hit<S>(&mut self, scorer: &mut S, _doc: i32) -> Result<()>
   where
     S: Scorable + ?Sized,
   {
-    self.base.base.total_hits += 1;
-    debug_assert!(self.base.base.total_hits <= i32::MAX as usize);
-    let hit_count_so_far = self.base.base.total_hits;
+    let hit_count_so_far = self.base.increment_total_hits();
 
     if let Some(acc) = &self.base.min_score_acc
       && (hit_count_so_far & acc.mod_interval as usize) == 0
@@ -448,12 +492,14 @@ where
     }
 
     if !self.base.score_mode.is_exhaustive()
-      && self.base.base.total_hits_relation == Relation::EqualTo
+      && self.base.total_hits_relation() == Relation::EqualTo
       && hit_count_so_far > self.base.total_hits_threshold
     {
-      let comparators = self.base.base.pq.get_comparators_mut();
+      let comparators = self.base.comparators_mut();
       self.comparator.set_hits_threshold_reached(comparators)?;
-      self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+      self
+        .base
+        .set_total_hits_relation(Relation::GreaterThanOrEqualTo);
     }
 
     Ok(())
@@ -465,7 +511,7 @@ where
     let cmp_check = if self.collected_all_competitive_hits {
       true
     } else {
-      let comparators = self.base.base.pq.get_comparators_mut();
+      let comparators = self.base.comparators_mut();
       let cmp = self.comparator.compare_bottom(doc, scorer, comparators)?;
       self.reverse_mul * cmp <= 0
     };
@@ -475,15 +521,17 @@ where
       // this document is larger than anything else in the queue, and
       // therefore not competitive.
       if self.base.search_sort_part_of_index_sort.unwrap_or(false) {
-        if self.base.base.total_hits > self.base.total_hits_threshold {
-          self.base.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
+        if self.base.total_hits() > self.base.total_hits_threshold {
+          self
+            .base
+            .set_total_hits_relation(Relation::GreaterThanOrEqualTo);
           return Err(LuceneError::collection_terminated(
             "collection terminated due to early termination threshold",
           ));
         } else {
           self.collected_all_competitive_hits = true;
         }
-      } else if self.base.base.total_hits_relation == Relation::EqualTo {
+      } else if self.base.total_hits_relation() == Relation::EqualTo {
         // we can start setting the min competitive score if the
         // threshold is reached for the first time here.
         self.base.update_min_competitive_score(scorer)?;
@@ -499,18 +547,15 @@ where
   {
     {
       let bottom = self.bottom()?;
-      self.comparator.copy(
-        bottom.slot()?,
-        doc,
-        scorer,
-        self.base.base.pq.get_comparators_mut(),
-      )?;
+      self
+        .comparator
+        .copy(bottom.slot()?, doc, scorer, self.base.comparators_mut())?;
     }
     self.base.update_bottom(doc)?;
     let bottom = self.bottom()?;
     self
       .comparator
-      .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
+      .set_bottom(bottom.slot()?, self.base.comparators_mut())?;
     self.base.update_min_competitive_score(scorer)?;
 
     Ok(())
@@ -529,13 +574,13 @@ where
     // Copy hit into queue
     self
       .comparator
-      .copy(slot, doc, scorer, self.base.base.pq.get_comparators_mut())?;
+      .copy(slot, doc, scorer, self.base.comparators_mut())?;
     self.base.add(slot, doc)?;
     if self.base.queue_full {
       let bottom = self.bottom()?;
       self
         .comparator
-        .set_bottom(bottom.slot()?, self.base.base.pq.get_comparators_mut())?;
+        .set_bottom(bottom.slot()?, self.base.comparators_mut())?;
       self.base.update_min_competitive_score(scorer)?;
     }
     Ok(())
@@ -560,7 +605,7 @@ where
   LR: LeafReader,
 {
   fn set_scorer(&mut self, scorer: &mut dyn Scorable) -> Result<()> {
-    let comparators = self.base.base.pq.get_comparators_mut();
+    let comparators = self.base.comparators_mut();
     self.comparator.set_scorer(scorer, comparators)?;
 
     if self.base.min_score_acc.is_none() {
@@ -585,7 +630,7 @@ where
   }
 
   fn competitive_iterator(&mut self) -> Result<Option<Box<dyn DocIdSetIterator + '_>>> {
-    let comparators = self.base.base.pq.get_comparators_mut();
+    let comparators = self.base.comparators_mut();
     Ok(
       self
         .comparator
@@ -780,13 +825,13 @@ where
 
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
     self.base.count_hit(scorer, doc)?;
-    if self.base.base.queue_full {
+    if self.base.is_queue_full() {
       if self.base.threshold_check(doc, scorer)? {
         return Ok(());
       }
       self.base.collect_competitive_hit(doc, scorer)?;
     } else {
-      let hits_collected = self.base.base.total_hits();
+      let hits_collected = self.base.total_hits();
       self.base.collect_any_hit(doc, hits_collected, scorer)?;
     }
     Ok(())
@@ -826,7 +871,7 @@ impl PagingFieldCollector {
     )?;
 
     // set top values for comparators
-    let comparators = base.base.pq.get_comparators_mut();
+    let comparators = base.comparators_mut();
     let fields = std::mem::take(&mut after.fields);
     let score_doc = std::mem::take(&mut after.base);
 
@@ -994,26 +1039,23 @@ where
 
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
     self.base.count_hit(scorer, doc)?;
-    if self.base.base.queue_full && self.base.threshold_check(doc, scorer)? {
+    if self.base.is_queue_full() && self.base.threshold_check(doc, scorer)? {
       return Ok(());
     }
 
-    let top_cmp = {
-      let comparators = self.base.base.base.pq.get_comparators_mut();
-      self.base.comparator.compare_top(doc, scorer, comparators)? * self.base.reverse_mul
-    };
+    let top_cmp = self.base.compare_top(doc, scorer)?;
 
     if top_cmp > 0 || (top_cmp == 0 && doc <= self.after_doc) {
       // already collected in previous page
-      if self.base.base.base.total_hits_relation == Relation::EqualTo {
+      if self.base.total_hits_relation() == Relation::EqualTo {
         // check if totalHitsThreshold is reached and we can update competitive score
         // necessary to account for possible update to global min competitive score
-        self.base.base.update_min_competitive_score(scorer)?;
+        self.base.update_min_competitive_score(scorer)?;
       }
       return Ok(());
     }
 
-    if self.base.base.queue_full {
+    if self.base.is_queue_full() {
       self.base.collect_competitive_hit(doc, scorer)?;
     } else {
       *self.collected_hits += 1;
