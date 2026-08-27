@@ -439,10 +439,10 @@ impl Attribute for Attributes {
 
 impl Default for Attributes {
   fn default() -> Self {
-    Attributes::PackedToken(match PackedTokenAttributeImpl::new() {
-      Ok(attribute) => attribute,
-      Err(error) => unreachable!("default packed token attributes are valid: {error}"),
-    })
+    Attributes::PackedToken(expect_invariant!(
+      PackedTokenAttributeImpl::new(),
+      "the default packed token attribute uses fixed built-in attribute definitions",
+    ))
   }
 }
 

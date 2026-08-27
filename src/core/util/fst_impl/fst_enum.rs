@@ -691,17 +691,16 @@ where
       if label < target_label {
         if !is_last {
           if bytes_per_arc != 0 && label != END_LABEL {
-            match node_flags {
-              ARCS_FOR_BINARY_SEARCH => {
-                self.find_next_floor_arc_binary_search(upto, target_label, reader)?;
-              },
-              ARCS_FOR_DIRECT_ADDRESSING => {
-                self.find_next_floor_arc_direct_addressing(upto, target_label, reader)?;
-              },
-              ARCS_FOR_CONTINUOUS => {
-                self.find_next_floor_arc_continuous(upto, target_label, reader)?;
-              },
-              _ => unreachable!(),
+            if node_flags == ARCS_FOR_BINARY_SEARCH {
+              self.find_next_floor_arc_binary_search(upto, target_label, reader)?;
+            } else if node_flags == ARCS_FOR_DIRECT_ADDRESSING {
+              self.find_next_floor_arc_direct_addressing(upto, target_label, reader)?;
+            } else if node_flags == ARCS_FOR_CONTINUOUS {
+              self.find_next_floor_arc_continuous(upto, target_label, reader)?;
+            } else {
+              return Err(LuceneError::corrupt_index(format!(
+                "invalid FST node flags: {node_flags}"
+              )));
             }
           } else {
             let arc = &mut self.arcs[upto];

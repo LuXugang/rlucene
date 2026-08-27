@@ -150,9 +150,11 @@ impl Codecs {
 }
 
 #[cfg(not(test))]
-static DEFAULT_CODEC: LazyLock<RwLock<Codecs>> = LazyLock::new(|| match Codecs::new() {
-  Ok(codec) => RwLock::new(codec),
-  Err(error) => unreachable!("invalid built-in Lucene101 codec settings: {error}"),
+static DEFAULT_CODEC: LazyLock<RwLock<Codecs>> = LazyLock::new(|| {
+  RwLock::new(expect_invariant!(
+    Codecs::new(),
+    "the built-in Lucene101 codec uses fixed validated format settings",
+  ))
 });
 
 // Rust tests run concurrently in the same process, so their defaults must not interfere with one

@@ -469,13 +469,14 @@ where
 
 fn compute_shift(a: i64, b: i64) -> i32 {
   debug_assert!(a <= b);
-  for shift in 1.. {
+  let mut shift = 1;
+  loop {
     let delta = (b as u64 >> shift) as i64 - (a as u64 >> shift) as i64;
     if (0..Grid::ARITY as i64).contains(&delta) {
       return shift;
     }
+    shift += 1;
   }
-  unreachable!()
 }
 /// A predicate that checks whether a given point is within a component2D geometry.
 pub struct Component2DPredicate<C> {

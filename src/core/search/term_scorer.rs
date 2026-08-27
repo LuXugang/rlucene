@@ -25,13 +25,17 @@ use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::similarities_impl::similarities::SimScorer;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 
 /// Expert: A Scorer for documents matching a Term.
 pub struct TermScorer<PE, SS, N, IE> {
   norms: Option<N>,
-  impacts_disi: Option<ImpactsDISI<DummyDISI, IE, SS>>,
-  max_score_cache: Option<MaxScoreCache<ImpactsEnums<IE, PE>, SS>>,
+  state: TermScorerState<PE, SS, IE>,
+}
+
+enum TermScorerState<PE, SS, IE> {
+  ImpactsDisi(ImpactsDISI<DummyDISI, IE, SS>),
+  MaxScoreCache(MaxScoreCache<ImpactsEnums<IE, PE>, SS>),
 }
 
 enum TSPostings<'a, IE, PE> {
@@ -68,8 +72,7 @@ where
     let max_score_cache = MaxScoreCache::new(ImpactsEnumEnum2::B(impacts_enum), scorer);
     Self {
       norms,
-      impacts_disi: None,
-      max_score_cache: Some(max_score_cache),
+      state: TermScorerState::MaxScoreCache(max_score_cache),
     }
   }
   /// Construct a [`TermScorer`] that will use impacts to skip blocks of non-competitive documents.
@@ -79,20 +82,16 @@ where
     norms: Option<N>,
     top_level_scoring_clause: bool,
   ) -> Self {
-    let (impacts_disi, max_score_cache) = if top_level_scoring_clause {
+    let state = if top_level_scoring_clause {
       let max_score_cache = MaxScoreCache::new(impacts_enum, scorer);
       let disi = ImpactsDISI::new(DummyDISI, max_score_cache, false);
-      (Some(disi), None)
+      TermScorerState::ImpactsDisi(disi)
     } else {
       let max_score_cache = MaxScoreCache::new(ImpactsEnumEnum2::A(impacts_enum), scorer);
-      (None, Some(max_score_cache))
+      TermScorerState::MaxScoreCache(max_score_cache)
     };
 
-    TermScorer {
-      norms,
-      impacts_disi,
-      max_score_cache,
-    }
+    TermScorer { norms, state }
   }
 }
 
@@ -105,33 +104,29 @@ where
 {
   /// Returns term frequency in the current document.
   pub fn freq(&mut self) -> Result<i32> {
-    let mut postings = self.postings()?;
+    let mut postings = self.postings();
     postings.freq()
   }
 
-  fn postings(&mut self) -> Result<TSPostings<'_, IE, PE>> {
-    match (&mut self.impacts_disi, &mut self.max_score_cache) {
-      (Some(impacts_disi), None) => {
+  fn postings(&mut self) -> TSPostings<'_, IE, PE> {
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
         let v = &mut impacts_disi.max_score_cache.impacts_source;
-        Ok(TSPostings::Impacts(v))
+        TSPostings::Impacts(v)
       },
-      (None, Some(inner)) => match inner.impacts_source {
-        ImpactsEnumEnum2::A(ref mut impacts_enum) => Ok(TSPostings::Impacts(impacts_enum)),
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
+        ImpactsEnumEnum2::A(ref mut impacts_enum) => TSPostings::Impacts(impacts_enum),
         ImpactsEnumEnum2::B(ref mut slow_impacts) => {
-          Ok(TSPostings::Posting(&mut slow_impacts.delegate))
+          TSPostings::Posting(&mut slow_impacts.delegate)
         },
       },
-      _ => Err(LuceneError::illegal_state(
-        "exactly one of impacts_disi and max_score_cache must be set",
-      )),
     }
   }
 
-  fn sim_scorer(&self) -> Result<&SS> {
-    match (&self.impacts_disi, &self.max_score_cache) {
-      (Some(impacts_disi), None) => Ok(&impacts_disi.max_score_cache.scorer),
-      (None, Some(inner)) => Ok(&inner.scorer),
-      _ => Err(LuceneError::illegal_state("")),
+  fn sim_scorer(&self) -> &SS {
+    match &self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => &impacts_disi.max_score_cache.scorer,
+      TermScorerState::MaxScoreCache(inner) => &inner.scorer,
     }
   }
 }
@@ -146,7 +141,7 @@ where
   fn score(&mut self) -> Result<f32> {
     let mut norm = 1;
     let (freq, doc_id) = {
-      let mut postings = self.postings()?;
+      let mut postings = self.postings();
       let freq = postings.freq()?;
       let doc_id = postings.doc_id()?;
       (freq, doc_id)
@@ -156,7 +151,7 @@ where
     {
       norm = norms.long_value()?;
     }
-    let scorer = self.sim_scorer()?;
+    let scorer = self.sim_scorer();
     Ok(scorer.score(freq as f32, norm))
   }
 
@@ -167,12 +162,12 @@ where
     {
       norm = norms.long_value()?;
     }
-    let scorer = self.sim_scorer()?;
+    let scorer = self.sim_scorer();
     Ok(scorer.score(0f32, norm))
   }
 
   fn set_min_competitive_score(&mut self, min_score: f32) -> Result<()> {
-    if let Some(impacts_disi) = &mut self.impacts_disi {
+    if let TermScorerState::ImpactsDisi(impacts_disi) = &mut self.state {
       impacts_disi.set_min_competitive_score(min_score);
     }
     Ok(())
@@ -193,66 +188,56 @@ where
   IE: ImpactsEnum + 'static,
 {
   fn doc_id(&mut self) -> Result<i32> {
-    let mut postings = self.postings()?;
+    let mut postings = self.postings();
     postings.doc_id()
   }
 
   fn iterator(&self) -> Box<dyn DocIdSetIterator + '_> {
-    match (&self.impacts_disi, &self.max_score_cache) {
-      (Some(impacts_disi), None) => Box::new(impacts_disi),
-      (None, Some(inner)) => match inner.impacts_source {
+    match &self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => Box::new(impacts_disi),
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
         ImpactsEnumEnum2::A(ref impacts_enum) => Box::new(impacts_enum),
         ImpactsEnumEnum2::B(ref slow_impacts) => Box::new(&slow_impacts.delegate),
-      },
-      _ => {
-        debug_assert!(false);
-        unreachable!("")
       },
     }
   }
 
   fn iterator_mut(&mut self) -> Box<dyn DocIdSetIterator + '_> {
-    match (&mut self.impacts_disi, &mut self.max_score_cache) {
-      (Some(impacts_disi), None) => Box::new(impacts_disi),
-      (None, Some(inner)) => match inner.impacts_source {
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => Box::new(impacts_disi),
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
         ImpactsEnumEnum2::A(ref mut impacts_enum) => Box::new(impacts_enum),
         ImpactsEnumEnum2::B(ref mut slow_impacts) => Box::new(&mut slow_impacts.delegate),
-      },
-      _ => {
-        debug_assert!(false);
-        unreachable!("")
       },
     }
   }
 
   fn take_iterator(self: Box<Self>) -> Box<dyn DocIdSetIterator> {
-    let mut this = *self;
-    match (this.impacts_disi.take(), this.max_score_cache.take()) {
-      (Some(impacts_disi), None) => Box::new(impacts_disi),
-      (None, Some(inner)) => match inner.impacts_source {
+    let this = *self;
+    match this.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => Box::new(impacts_disi),
+      TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
         ImpactsEnumEnum2::A(impacts_enum) => Box::new(impacts_enum),
         ImpactsEnumEnum2::B(slow_impacts) => Box::new(slow_impacts.delegate),
-      },
-      _ => {
-        debug_assert!(false);
-        unreachable!()
       },
     }
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-    match (&mut self.impacts_disi, &mut self.max_score_cache) {
-      (Some(impacts_disi), None) => impacts_disi.max_score_cache.advance_shallow(target),
-      (None, Some(inner)) => inner.advance_shallow(target),
-      _ => Err(LuceneError::illegal_state("")),
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        impacts_disi.max_score_cache.advance_shallow(target)
+      },
+      TermScorerState::MaxScoreCache(inner) => inner.advance_shallow(target),
     }
   }
 
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    match (&mut self.impacts_disi, &mut self.max_score_cache) {
-      (Some(impacts_disi), None) => impacts_disi.max_score_cache.get_max_score(upto),
-      (None, Some(inner)) => inner.get_max_score(upto),
-      _ => Err(LuceneError::illegal_state("")),
+    match &mut self.state {
+      TermScorerState::ImpactsDisi(impacts_disi) => {
+        impacts_disi.max_score_cache.get_max_score(upto)
+      },
+      TermScorerState::MaxScoreCache(inner) => inner.get_max_score(upto),
     }
   }
 

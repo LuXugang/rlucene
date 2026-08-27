@@ -234,17 +234,13 @@ impl ByteBuffersDataOutput {
     if self.blocks.is_empty() {
       return 0;
     }
-    let mut size = 0;
     let block_count = self.current_block_index + 1;
-    if block_count >= 1 {
-      let full_block_size = (block_count - 1) * self.block_size();
-      let Some(last_block) = self.blocks.get(self.current_block_index) else {
-        unreachable!("the current block index always addresses an allocated block");
-      };
-      let last_block_size = last_block.position();
-      size = full_block_size + last_block_size as usize;
-    }
-    size
+    let full_block_size = (block_count - 1) * self.block_size();
+    let last_block = expect_invariant!(
+      self.blocks.get(self.current_block_index),
+      "a non-empty byte buffers output keeps its current block index within the allocated blocks",
+    );
+    full_block_size + last_block.position() as usize
   }
   fn block_size(&self) -> usize {
     1 << self.block_bits
@@ -339,9 +335,10 @@ impl ByteBuffersDataOutput {
       0 => Vec::new(),
       // If the number of blocks is 1, take ownership to avoid copying.
       1 => {
-        let Some(cursor) = self.blocks.front_mut() else {
-          unreachable!("a one-block output always has a front block");
-        };
+        let cursor = expect_invariant!(
+          self.blocks.front_mut(),
+          "a byte buffers output with exactly one allocated block has a front block",
+        );
         let end = cursor.position() as usize;
 
         let old_vec = std::mem::replace(cursor.get_mut(), vec![0u8; 1 << self.block_bits]);

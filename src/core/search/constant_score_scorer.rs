@@ -44,7 +44,7 @@ impl<DISI> ConstantScoreScorer<DISI, DummyTwoPhaseIterator> {
   pub fn from_disi(score: f32, score_mode: ScoreMode, disi: DISI) -> Self {
     let approximation = match score_mode {
       ScoreMode::TopScores => {
-        ConstantScoreIterator::DisiTop(DocIdSetIteratorWrapper::new(DelegateEnum::Disi(disi)))
+        ConstantScoreIterator::DisiTop(DocIdSetIteratorWrapper::new(DisiDelegate::Disi(disi)))
       },
       _ => ConstantScoreIterator::Disi(disi),
     };
@@ -67,8 +67,8 @@ impl<TPI> ConstantScoreScorer<DummyDISI, TPI> {
   pub fn from_tpi(score: f32, score_mode: ScoreMode, two_phase_iterator: TPI) -> Self {
     let two_phase_iterator = match score_mode {
       ScoreMode::TopScores => {
-        let v: DocIdSetIteratorWrapper<TPI, DummyDISI> =
-          DocIdSetIteratorWrapper::new(DelegateEnum::TPI(two_phase_iterator));
+        let v: DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>> =
+          DocIdSetIteratorWrapper::new(TwoPhaseDelegate::Tpi(two_phase_iterator));
         ConstantScoreIterator::TpiTop(TwoPhaseIteratorAsDocIdSetIterator::new(
           TwoPhaseIteratorImpl::new(v),
         ))
@@ -97,11 +97,11 @@ where
     if min_score > self.score && matches!(self.score_mode, ScoreMode::TopScores) {
       match &mut self.disi {
         ConstantScoreIterator::DisiTop(iterator) => {
-          iterator.delegate = DelegateEnum::Empty(EmptyDISI::new());
+          iterator.delegate = DisiDelegate::Empty(EmptyDISI::new());
         },
         ConstantScoreIterator::TpiTop(iterator) => {
           iterator.two_phase_iterator.approximation.delegate =
-            DelegateEnum::Empty(EmptyDISI::new());
+            TwoPhaseDelegate::Empty(EmptyDISI::new());
         },
         ConstantScoreIterator::Disi(_) | ConstantScoreIterator::Tpi(_) => {
           return Err(LuceneError::illegal_state("TopScores: should not be here"));
@@ -223,10 +223,10 @@ where
 }
 
 pub struct TwoPhaseIteratorImpl<TPI> {
-  approximation: DocIdSetIteratorWrapper<TPI, DummyDISI>,
+  approximation: DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>,
 }
 impl<TPI> TwoPhaseIteratorImpl<TPI> {
-  pub fn new(approximation: DocIdSetIteratorWrapper<TPI, DummyDISI>) -> Self {
+  fn new(approximation: DocIdSetIteratorWrapper<TwoPhaseDelegate<TPI>>) -> Self {
     Self { approximation }
   }
 }
@@ -244,25 +244,21 @@ where
 
   fn matches(&mut self) -> Result<bool> {
     match self.approximation.delegate {
-      DelegateEnum::TPI(ref mut t) => t.matches(),
-      DelegateEnum::Empty(_) => Ok(false),
-      _ => Err(LuceneError::illegal_state(
-        "two-phase iterator has a doc-id iterator delegate",
-      )),
+      TwoPhaseDelegate::Tpi(ref mut t) => t.matches(),
+      TwoPhaseDelegate::Empty(_) => Ok(false),
     }
   }
 
   fn match_cost(&self) -> f32 {
     match self.approximation.delegate {
-      DelegateEnum::TPI(ref t) => t.match_cost(),
-      DelegateEnum::Empty(_) => 0.0,
-      _ => unreachable!("should not be here"),
+      TwoPhaseDelegate::Tpi(ref t) => t.match_cost(),
+      TwoPhaseDelegate::Empty(_) => 0.0,
     }
   }
 }
 
 enum ConstantScoreIterator<DISI, TPI> {
-  DisiTop(DocIdSetIteratorWrapper<DummyTwoPhaseIterator, DISI>),
+  DisiTop(DocIdSetIteratorWrapper<DisiDelegate<DISI>>),
   Disi(DISI),
   TpiTop(TwoPhaseIteratorAsDocIdSetIterator<TwoPhaseIteratorImpl<TPI>>),
   Tpi(TwoPhaseIteratorAsDocIdSetIterator<TPI>),
@@ -326,85 +322,121 @@ where
   }
 }
 
-pub enum DelegateEnum<T, D> {
-  TPI(T),
+enum DisiDelegate<D> {
   Disi(D),
   Empty(EmptyDISI),
 }
-impl<T, D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for DelegateEnum<T, D>
-where
-  T: TwoPhaseIterator,
-  D: DocIdSetIterator,
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DisiDelegate<D> where
+  D: DocIdSetIterator
 {
 }
-impl<T, D> DocIdSetIterator for DelegateEnum<T, D>
+impl<D> DocIdSetIterator for DisiDelegate<D>
 where
-  T: TwoPhaseIterator,
   D: DocIdSetIterator,
 {
   fn doc_id(&self) -> i32 {
     match self {
-      DelegateEnum::TPI(t) => t.approximation().doc_id(),
-      DelegateEnum::Disi(d) => d.doc_id(),
-      DelegateEnum::Empty(e) => e.doc_id(),
+      Self::Disi(d) => d.doc_id(),
+      Self::Empty(e) => e.doc_id(),
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
     match self {
-      DelegateEnum::TPI(t) => t.approximation_mut().next_doc(),
-      DelegateEnum::Disi(d) => d.next_doc(),
-      DelegateEnum::Empty(e) => e.next_doc(),
+      Self::Disi(d) => d.next_doc(),
+      Self::Empty(e) => e.next_doc(),
     }
   }
 
-  fn advance(&mut self, _target: i32) -> Result<i32> {
+  fn advance(&mut self, target: i32) -> Result<i32> {
     match self {
-      DelegateEnum::TPI(t) => t.approximation_mut().advance(_target),
-      DelegateEnum::Disi(d) => d.advance(_target),
-      DelegateEnum::Empty(e) => e.advance(_target),
+      Self::Disi(d) => d.advance(target),
+      Self::Empty(e) => e.advance(target),
     }
   }
 
   fn slow_advance(&mut self, target: i32) -> Result<i32> {
     match self {
-      DelegateEnum::TPI(t) => t.approximation_mut().slow_advance(target),
-      DelegateEnum::Disi(d) => d.slow_advance(target),
-      DelegateEnum::Empty(e) => e.slow_advance(target),
+      Self::Disi(d) => d.slow_advance(target),
+      Self::Empty(e) => e.slow_advance(target),
     }
   }
 
   fn cost(&self) -> Result<i64> {
     match self {
-      DelegateEnum::TPI(t) => t.approximation().cost(),
-      DelegateEnum::Disi(d) => d.cost(),
-      DelegateEnum::Empty(e) => e.cost(),
+      Self::Disi(d) => d.cost(),
+      Self::Empty(e) => e.cost(),
     }
   }
 }
 
-pub struct DocIdSetIteratorWrapper<T, D> {
-  doc: i32,
-  delegate: DelegateEnum<T, D>,
+enum TwoPhaseDelegate<T> {
+  Tpi(T),
+  Empty(EmptyDISI),
+}
+impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for TwoPhaseDelegate<T> where
+  T: TwoPhaseIterator
+{
+}
+impl<T> DocIdSetIterator for TwoPhaseDelegate<T>
+where
+  T: TwoPhaseIterator,
+{
+  fn doc_id(&self) -> i32 {
+    match self {
+      Self::Tpi(t) => t.approximation().doc_id(),
+      Self::Empty(e) => e.doc_id(),
+    }
+  }
+
+  fn next_doc(&mut self) -> Result<i32> {
+    match self {
+      Self::Tpi(t) => t.approximation_mut().next_doc(),
+      Self::Empty(e) => e.next_doc(),
+    }
+  }
+
+  fn advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Tpi(t) => t.approximation_mut().advance(target),
+      Self::Empty(e) => e.advance(target),
+    }
+  }
+
+  fn slow_advance(&mut self, target: i32) -> Result<i32> {
+    match self {
+      Self::Tpi(t) => t.approximation_mut().slow_advance(target),
+      Self::Empty(e) => e.slow_advance(target),
+    }
+  }
+
+  fn cost(&self) -> Result<i64> {
+    match self {
+      Self::Tpi(t) => t.approximation().cost(),
+      Self::Empty(e) => e.cost(),
+    }
+  }
 }
 
-impl<T, D> DocIdSetIteratorWrapper<T, D> {
-  pub fn new(delegate: DelegateEnum<T, D>) -> Self {
+struct DocIdSetIteratorWrapper<D> {
+  doc: i32,
+  delegate: D,
+}
+
+impl<D> DocIdSetIteratorWrapper<D> {
+  fn new(delegate: D) -> Self {
     Self { doc: -1, delegate }
   }
 }
 
-impl<T, D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for DocIdSetIteratorWrapper<T, D>
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for DocIdSetIteratorWrapper<D>
 where
-  T: TwoPhaseIterator,
   D: DocIdSetIterator,
 {
 }
-impl<T, D> DocIdSetIterator for DocIdSetIteratorWrapper<T, D>
+impl<D> DocIdSetIterator for DocIdSetIteratorWrapper<D>
 where
-  T: TwoPhaseIterator,
   D: DocIdSetIterator,
 {
   fn doc_id(&self) -> i32 {
