@@ -26,10 +26,9 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_doc_values::SegmentDocValues;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
-use crate::core::util::IdentityArc;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{CaughtResultExt, LuceneError, Result};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
@@ -38,8 +37,10 @@ pub struct SegmentDocValuesProducer<I>
 where
   I: IndexInput,
 {
-  pub(crate) dv_producers_by_field: HashMap<i32, Arc<CodecDocValuesProducer<I>>>,
-  pub(crate) dv_producers: HashSet<IdentityArc<CodecDocValuesProducer<I>>>,
+  // Java stores the same producer references in a field map and an identity set. Rust owns each
+  // producer Arc once in this Vec and stores its stable index in the field map.
+  dv_producers_by_field: HashMap<i32, usize>,
+  dv_producers: Vec<Arc<CodecDocValuesProducer<I>>>,
   pub(crate) dv_gens: Vec<i64>,
 }
 impl<I> SegmentDocValuesProducer<I>
@@ -58,12 +59,11 @@ where
     D1: Directory<IndexInput = I>,
   {
     let mut dv_producers_by_field = HashMap::new();
-    // Hashing and equality use the Arc allocation identity, not mutable producer state.
-    #[allow(clippy::mutable_key_type)]
-    let mut dv_producers = HashSet::new();
+    let mut dv_producers = Vec::new();
+    let mut producer_indices = HashMap::new();
     let mut dv_gens = Vec::new();
 
-    let mut base_producer = None;
+    let mut base_producer_index = None;
 
     let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       for fi in all_infos {
@@ -73,7 +73,9 @@ where
         let doc_values_gen = fi.get_doc_values_gen();
 
         if doc_values_gen == -1 {
-          if base_producer.is_none() {
+          let producer_index = if let Some(producer_index) = base_producer_index {
+            producer_index
+          } else {
             // the base producer gets the original fieldinfos it wrote
             let producer = seg_doc_values.get_doc_values_producer(
               doc_values_gen,
@@ -82,21 +84,21 @@ where
               core_infos.clone(),
             )?;
             dv_gens.push(doc_values_gen);
-            dv_producers.insert(IdentityArc::new(producer.clone()));
-            base_producer = Some(producer);
-          }
-          let producer = base_producer.as_ref().ok_or_else(|| {
-            LuceneError::illegal_state("base doc values producer was not initialized")
-          })?;
-          dv_producers_by_field.insert(fi.number, producer.clone());
+            let producer_index =
+              Self::add_unique_producer(&mut dv_producers, &mut producer_indices, producer);
+            base_producer_index = Some(producer_index);
+            producer_index
+          };
+          dv_producers_by_field.insert(fi.number, producer_index);
         } else {
           debug_assert!(!dv_gens.contains(&doc_values_gen));
           // otherwise, producer sees only the one fieldinfo it wrote
           let field_infos = Arc::new(FieldInfos::new(vec![fi.clone()])?);
           let dvp = seg_doc_values.get_doc_values_producer(doc_values_gen, si, dir, field_infos)?;
           dv_gens.push(doc_values_gen);
-          dv_producers.insert(IdentityArc::new(dvp.clone()));
-          dv_producers_by_field.insert(fi.number, dvp);
+          let producer_index =
+            Self::add_unique_producer(&mut dv_producers, &mut producer_indices, dvp);
+          dv_producers_by_field.insert(fi.number, producer_index);
         }
       }
       Ok(())
@@ -119,6 +121,45 @@ where
       dv_gens,
     })
   }
+
+  fn add_unique_producer(
+    producers: &mut Vec<Arc<CodecDocValuesProducer<I>>>,
+    producer_indices: &mut HashMap<*const CodecDocValuesProducer<I>, usize>,
+    producer: Arc<CodecDocValuesProducer<I>>,
+  ) -> usize {
+    let identity = Arc::as_ptr(&producer);
+    match producer_indices.entry(identity) {
+      std::collections::hash_map::Entry::Occupied(entry) => *entry.get(),
+      std::collections::hash_map::Entry::Vacant(entry) => {
+        let producer_index = producers.len();
+        producers.push(producer);
+        entry.insert(producer_index);
+        producer_index
+      },
+    }
+  }
+
+  fn producer_for_field(&self, field: &FieldInfo) -> Result<&CodecDocValuesProducer<I>> {
+    let producer_index = self
+      .dv_producers_by_field
+      .get(&field.number)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing doc values producer for field {} ({})",
+          field.name, field.number
+        ))
+      })?;
+    self
+      .dv_producers
+      .get(*producer_index)
+      .map(Arc::as_ref)
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "invalid doc values producer index {producer_index} for field {} ({})",
+          field.name, field.number
+        ))
+      })
+  }
 }
 
 impl<I> CloseableRef for SegmentDocValuesProducer<I>
@@ -137,96 +178,42 @@ where
   type NumericDocValues = CodecNumericDocValues<I>;
 
   fn get_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    self
-      .dv_producers_by_field
-      .get(&field.number)
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "missing doc values producer for field {} ({})",
-          field.name, field.number
-        ))
-      })?
-      .get_numeric(field)
+    self.producer_for_field(field)?.get_numeric(field)
   }
 
   type BinaryDocValues = CodecBinaryDocValues<I>;
 
   fn get_binary(&self, field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    self
-      .dv_producers_by_field
-      .get(&field.number)
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "missing doc values producer for field {} ({})",
-          field.name, field.number
-        ))
-      })?
-      .get_binary(field)
+    self.producer_for_field(field)?.get_binary(field)
   }
 
   type SortedDocValues = CodecSortedDocValues<I>;
 
   fn get_sorted(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-    self
-      .dv_producers_by_field
-      .get(&field.number)
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "missing doc values producer for field {} ({})",
-          field.name, field.number
-        ))
-      })?
-      .get_sorted(field)
+    self.producer_for_field(field)?.get_sorted(field)
   }
 
   type SortedNumericDocValues = CodecSortedNumericDocValues<I>;
 
   fn get_sorted_numeric(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-    self
-      .dv_producers_by_field
-      .get(&field.number)
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "missing doc values producer for field {} ({})",
-          field.name, field.number
-        ))
-      })?
-      .get_sorted_numeric(field)
+    self.producer_for_field(field)?.get_sorted_numeric(field)
   }
 
   type SortedSetDocValues = CodecSortedSetDocValues<I>;
 
   fn get_sorted_set(&self, field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-    self
-      .dv_producers_by_field
-      .get(&field.number)
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "missing doc values producer for field {} ({})",
-          field.name, field.number
-        ))
-      })?
-      .get_sorted_set(field)
+    self.producer_for_field(field)?.get_sorted_set(field)
   }
 
   type DocValuesSkipper = CodecDocValuesSkipper<I>;
 
   fn get_skipper(&self, field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-    self
-      .dv_producers_by_field
-      .get(&field.number)
-      .ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "missing doc values producer for field {} ({})",
-          field.name, field.number
-        ))
-      })?
-      .get_skipper(field)
+    self.producer_for_field(field)?.get_skipper(field)
   }
 
   fn check_integrity(&self) -> Result<()> {
-    for dv_producer in self.dv_producers.iter() {
-      dv_producer.object.check_integrity()?;
+    for dv_producer in &self.dv_producers {
+      dv_producer.check_integrity()?;
     }
     Ok(())
   }
