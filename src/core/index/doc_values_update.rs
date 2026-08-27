@@ -17,7 +17,6 @@
 use crate::core::index::BytesRef;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::term::Term;
-use crate::core::store::DataOutput;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -35,8 +34,6 @@ pub struct DocValuesUpdate {
   pub sub_update: DocValuesUpdateEnum,
 }
 impl DocValuesUpdate {
-  #[allow(dead_code)] // Mirrors Java's retained sizeInBytes accounting path, which has no current callers.
-  const RAW_SIZE_IN_BYTES: i32 = 0;
   pub fn new<T, F>(
     doc_values_type: DocValuesType,
     term: F,
@@ -64,10 +61,6 @@ impl DocValuesUpdate {
 
   pub(crate) fn has_value(&self) -> bool {
     self.has_value
-  }
-  #[allow(dead_code)] // Mirrors Java's retained sizeInBytes method, which has no current callers.
-  fn size_in_bytes(&self) -> i32 {
-    unimplemented!("Retained for Java parity, but there is no current caller")
   }
   #[cfg(test)]
   pub fn prepare_for_apply(&mut self, doc_id_upto: i32) -> Option<DocValuesUpdate> {
@@ -97,18 +90,7 @@ impl Display for DocValuesUpdate {
   }
 }
 pub trait DocValuesUpdateBase {
-  #[allow(dead_code)] // Mirrors Java's retained valueSizeInBytes path, which is only called by the unused sizeInBytes method.
-  fn value_size_in_bytes(&self) -> i64 {
-    unimplemented!("Retained for Java parity, but there is no current caller")
-  }
   fn value_to_string(&self) -> String;
-  #[allow(dead_code)] // Mirrors Java's retained writeTo method, which has no current callers.
-  fn write_to<D>(&self, _bytes: &mut BytesRef<Vec<u8>>) -> Result<()>
-  where
-    D: DataOutput,
-  {
-    unimplemented!("Retained for Java parity, but there is no current caller")
-  }
   fn has_value(&self) -> bool;
   #[cfg(test)]
   fn prepare_for_apply(&mut self) -> DocValuesUpdateEnum;
@@ -118,8 +100,6 @@ pub struct BinaryDocValuesUpdate {
   value: Option<BytesRef<Vec<u8>>>,
 }
 impl BinaryDocValuesUpdate {
-  #[allow(dead_code)] // Mirrors Java's retained valueSizeInBytes accounting path, which has no current callers.
-  const RAW_VALUE_SIZE_IN_BYTES: i32 = 0;
   pub fn new(value: Option<BytesRef<Vec<u8>>>) -> Self {
     BinaryDocValuesUpdate { value }
   }

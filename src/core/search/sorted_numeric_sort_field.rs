@@ -599,11 +599,11 @@ macro_rules! impl_sorted_numeric_comparator {
         $leaf::new(&mut self.base, context, Some(selector_a), Some(selector_b))
       }
 
-      fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+      fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
         self.base.compare_values(first, second)
       }
 
-      fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
+      fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> Result<i32> {
         self.base.fallback_compare(first, second)
       }
 

@@ -162,13 +162,13 @@ impl FieldComparator for TermOrdValComparator {
     TermOrdValLeafComparator::new(context, c, self)
   }
 
-  fn compare_values(&self, val1: Option<&Self::V>, val2: Option<&Self::V>) -> i32 {
-    match (val1, val2) {
+  fn compare_values(&self, val1: Option<&Self::V>, val2: Option<&Self::V>) -> Result<i32> {
+    Ok(match (val1, val2) {
       (None, None) => 0,
       (None, Some(_)) => self.missing_sort_cmp,
       (Some(_), None) => -self.missing_sort_cmp,
       (Some(v1), Some(v2)) => v1.cmp(v2).to_int(),
-    }
+    })
   }
 
   fn set_single_sort(&mut self) {

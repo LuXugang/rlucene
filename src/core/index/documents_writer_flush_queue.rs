@@ -19,7 +19,6 @@ use crate::core::index::frozen_buffered_updates::FrozenBufferedUpdates;
 use crate::core::index::index_reader::Identity;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::supplier::Supplier;
 use parking_lot::{Mutex, ReentrantMutex};
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicI32, Ordering};
@@ -55,16 +54,16 @@ where
       purge_lock: ReentrantMutex::new(()),
     }
   }
-  pub(crate) fn add_ticket<S>(&self, mut ticket_supplier: S) -> Result<Option<Identity>>
+  pub(crate) fn add_ticket<F>(&self, ticket_supplier: F) -> Result<Option<Identity>>
   where
-    S: Supplier<Option<FlushTicket<D>>>,
+    F: FnOnce() -> Result<Option<FlushTicket<D>>>,
   {
     // Increment the ticket count first; freezing opens a window in which `any_changes` can fail.
     let mut inner = self.inner.lock();
     self.inc_tickets();
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      let ticket_opt = ticket_supplier.get_mut()?;
+      let ticket_opt = ticket_supplier()?;
       if let Some(ticket) = ticket_opt {
         let id = ticket.id.clone();
         inner.queue.push_back(ticket.id.clone());

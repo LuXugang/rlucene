@@ -534,8 +534,3 @@ fn compute_block_size_bits_for(bytes: i64) -> i32 {
   debug_assert!(block_bits <= i32::MAX as u32);
   block_bits as i32
 }
-
-#[allow(dead_code)]
-fn write_long_string(_byte_len: usize, _s: String) {
-  unimplemented!()
-}

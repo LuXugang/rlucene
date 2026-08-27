@@ -103,8 +103,8 @@ impl FieldComparator for DoubleComparator {
     DoubleLeafComparator::new(self, context, None, None)
   }
 
-  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
-    if first.is_nan() && second.is_nan() {
+  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> Result<i32> {
+    Ok(if first.is_nan() && second.is_nan() {
       0
     } else if first.is_nan() {
       1
@@ -112,7 +112,7 @@ impl FieldComparator for DoubleComparator {
       -1
     } else {
       0
-    }
+    })
   }
 
   fn disable_skipping(&mut self) {

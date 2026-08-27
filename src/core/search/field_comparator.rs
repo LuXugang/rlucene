@@ -125,22 +125,24 @@ pub trait FieldComparator {
   ///
   /// Provide this method if the [`FieldComparator`] value type does not implement ordering.
   /// or if values may sometimes be absent ([`Option::None`]).
-  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
     match (first, second) {
-      (None, None) => 0,
-      (None, Some(_)) => -1,
-      (Some(_), None) => 1,
+      (None, None) => Ok(0),
+      (None, Some(_)) => Ok(-1),
+      (Some(_), None) => Ok(1),
       (Some(f), Some(s)) => {
         match f.partial_cmp(s) {
-          Some(ord) => ord.to_int(),
+          Some(ord) => Ok(ord.to_int()),
           // In case of NaN for f64 or other non-comparable values
           None => self.fallback_compare(f, s),
         }
       },
     }
   }
-  fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
-    unimplemented!("fallback_compare must be implemented if the type isn't fully comparable");
+  fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> Result<i32> {
+    Err(LuceneError::unsupported_operation(
+      "fallback_compare must be implemented if the value type is not fully comparable",
+    ))
   }
   /// Informs the comparator that sort is done on this single field.
   /// This is useful to enable some optimizations for skipping non-competitive documents.
@@ -207,24 +209,24 @@ impl FieldComparator for RelevanceComparator {
     Ok(RelevanceLeafComparator::new())
   }
 
-  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
     match (first, second) {
       (Some(&f), Some(&s)) => {
         // Reversed intentionally because relevance by default
         // sorts descending:
         match s.partial_cmp(&f) {
-          Some(r) => r.to_int(),
+          Some(r) => Ok(r.to_int()),
           None => self.fallback_compare(&s, &f),
         }
       },
-      (None, Some(_)) => 1,
-      (Some(_), None) => -1,
-      (None, None) => 0,
+      (None, Some(_)) => Ok(1),
+      (Some(_), None) => Ok(-1),
+      (None, None) => Ok(0),
     }
   }
 
-  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
-    if first.is_nan() && second.is_nan() {
+  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> Result<i32> {
+    Ok(if first.is_nan() && second.is_nan() {
       0
     } else if first.is_nan() {
       1
@@ -232,7 +234,7 @@ impl FieldComparator for RelevanceComparator {
       -1
     } else {
       0
-    }
+    })
   }
 }
 pub struct RelevanceLeafComparator;
@@ -267,7 +269,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
     debug_assert!(!doc_value.is_nan());
     match doc_value.partial_cmp(&comparator.bottom) {
       Some(r) => Ok(r.to_int()),
-      None => Ok(comparator.fallback_compare(&doc_value, &comparator.bottom)),
+      None => comparator.fallback_compare(&doc_value, &comparator.bottom),
     }
   }
 
@@ -284,7 +286,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
     debug_assert!(!doc_value.is_nan());
     match doc_value.partial_cmp(&comparator.top_value) {
       Some(r) => Ok(r.to_int()),
-      None => Ok(comparator.fallback_compare(&doc_value, &comparator.top_value)),
+      None => comparator.fallback_compare(&doc_value, &comparator.top_value),
     }
   }
 
@@ -709,7 +711,7 @@ impl FieldComparator for FieldComparatorEnum {
     }
   }
 
-  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
     match self {
       FieldComparatorEnum::Relevance(comparator) => comparator.compare_values(
         first.and_then(FieldComparatorValue::as_f32),
@@ -735,10 +737,13 @@ impl FieldComparator for FieldComparatorEnum {
         first.and_then(FieldComparatorValue::as_i64),
         second.and_then(FieldComparatorValue::as_i64),
       ),
-      FieldComparatorEnum::TermVal(comparator) => comparator.compare_values(
-        first.and_then(FieldComparatorValue::as_term_val),
-        second.and_then(FieldComparatorValue::as_term_val),
-      ),
+      FieldComparatorEnum::TermVal(comparator) => {
+        <TermValComparator as FieldComparator>::compare_values(
+          comparator,
+          first.and_then(FieldComparatorValue::as_term_val),
+          second.and_then(FieldComparatorValue::as_term_val),
+        )
+      },
       FieldComparatorEnum::TermOrdValue(comparator) => comparator.compare_values(
         first.and_then(FieldComparatorValue::as_term_val),
         second.and_then(FieldComparatorValue::as_term_val),
@@ -777,32 +782,42 @@ impl FieldComparator for FieldComparatorEnum {
     }
   }
 
-  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> i32 {
+  fn fallback_compare(&self, first: &Self::V, second: &Self::V) -> Result<i32> {
     match self {
       FieldComparatorEnum::Double(comparator) => match (first.as_f64(), second.as_f64()) {
         (Some(first), Some(second)) => comparator.fallback_compare(first, second),
-        _ => 0,
+        _ => Err(LuceneError::illegal_state(
+          "double fallback comparison received non-double values",
+        )),
       },
       FieldComparatorEnum::Float(comparator) => match (first.as_f32(), second.as_f32()) {
         (Some(first), Some(second)) => comparator.fallback_compare(first, second),
-        _ => 0,
+        _ => Err(LuceneError::illegal_state(
+          "float fallback comparison received non-float values",
+        )),
       },
       FieldComparatorEnum::SortedNumericDouble(comparator) => {
         match (first.as_f64(), second.as_f64()) {
           (Some(first), Some(second)) => comparator.fallback_compare(first, second),
-          _ => 0,
+          _ => Err(LuceneError::illegal_state(
+            "sorted numeric double fallback comparison received non-double values",
+          )),
         }
       },
       FieldComparatorEnum::SortedNumericFloat(comparator) => {
         match (first.as_f32(), second.as_f32()) {
           (Some(first), Some(second)) => comparator.fallback_compare(first, second),
-          _ => 0,
+          _ => Err(LuceneError::illegal_state(
+            "sorted numeric float fallback comparison received non-float values",
+          )),
         }
       },
       FieldComparatorEnum::Dummy(_) => {
         dummy_unreachable!()
       },
-      _ => 0,
+      _ => Err(LuceneError::unsupported_operation(
+        "fallback comparison is not supported for this field comparator",
+      )),
     }
   }
 
@@ -920,13 +935,13 @@ impl FieldComparator for TermValComparator {
     Ok(TermValLeafComparator::new(doc_terms))
   }
 
-  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
-    match (first, second) {
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
+    Ok(match (first, second) {
       (Some(f), Some(s)) => f.cmp(s).to_int(),
       (None, Some(_)) => self.missing_sort_cmp,
       (Some(_), None) => -self.missing_sort_cmp,
       (None, None) => 0,
-    }
+    })
   }
 }
 pub struct TermValLeafComparator<B> {

@@ -25,12 +25,11 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::mem;
-use std::rc::Rc;
 use std::sync::Arc;
 
 /// Represents a logical byte buffer as a series of pages. You can write once into
 /// the logical buffer (append only), using copy, and then retrieve slices
-/// (BytesRef) into it using fill.
+/// (BytesRef) into it using fill_slice.
 #[derive(Default)]
 pub struct PagedBytes {
   blocks: Vec<Vec<u8>>,
@@ -305,10 +304,6 @@ impl Reader {
     let index = o >> self.block_bits;
     let offset = o & self.block_mask;
     self.blocks[index][offset]
-  }
-  #[allow(dead_code)]
-  pub fn fill(_b: &mut BytesRef<Rc<Vec<u8>>>, _start: i64) {
-    unimplemented!("not used in Java Lucene");
   }
 }
 impl Accountable for Reader {

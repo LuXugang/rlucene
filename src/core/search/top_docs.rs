@@ -406,7 +406,7 @@ where
 
     for (i, comp) in self.comparators.iter().enumerate() {
       let cmp = self.reverse_mul[i]
-        * comp.compare_values(first_fd.fields()?.get(i), second_fd.fields()?.get(i));
+        * comp.compare_values(first_fd.fields()?.get(i), second_fd.fields()?.get(i))?;
       if cmp != 0 {
         return Ok(cmp < 0);
       }

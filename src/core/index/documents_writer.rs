@@ -19,7 +19,6 @@ use crate::core::index::doc_values_update::DocValuesUpdate;
 use crate::core::index::documents_writer_delete_queue::{DocumentsWriterDeleteQueue, Node};
 use crate::core::index::documents_writer_flush_control::DocumentsWriterFlushControl;
 use crate::core::index::documents_writer_flush_queue::{DocumentsWriterFlushQueue, FlushTicket};
-use crate::core::index::documents_writer_per_thread::DocumentsWriterPerThread;
 use crate::core::index::documents_writer_per_thread_pool::DwptWrapper;
 use crate::core::index::index_writer::{IndexWriter, IntoFallibleIterator};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -34,7 +33,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::error::lucene_error::{CaughtResult, LuceneError};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
-use crate::core::util::supplier::Supplier;
 use parking_lot::{Mutex, MutexGuard};
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -185,20 +183,33 @@ where
     // Check the applyAllDeletes flag first. This helps exit early most of the time without checking
     // isFullFlush(), which takes a lock and introduces contention on small documents that are quick
     // to index.
-    if self.flush_control.get_apply_all_deletes()
+    let should_apply_all_deletes = self.flush_control.get_apply_all_deletes()
             && !self.flush_control.is_full_flush()
             // never apply deletes during full flush this breaks happens before relationship.
             && delete_queue.is_open()
             // if it's closed then it's already fully applied and we have a new delete queue
-            && self.flush_control.get_and_reset_apply_all_deletes()
-    {
-      let supplier = SupplierImpl::new(&delete_queue);
-      if self.ticket_queue.add_ticket(supplier)?.is_some() {
-        self.flush_notifications.on_deletes_applied()?; // apply deletes event forces a purge
-        return Ok(true);
-      }
+            && self.flush_control.get_and_reset_apply_all_deletes();
+    if !should_apply_all_deletes {
+      return Ok(false);
     }
-    Ok(false)
+
+    let Some(_) = self
+      .ticket_queue
+      .add_ticket(|| Self::maybe_freeze_global_buffer(&delete_queue))?
+    else {
+      return Ok(false);
+    };
+    self.flush_notifications.on_deletes_applied()?; // apply deletes event forces a purge
+    Ok(true)
+  }
+
+  fn maybe_freeze_global_buffer(
+    delete_queue: &DocumentsWriterDeleteQueue,
+  ) -> Result<Option<FlushTicket<D>>> {
+    match delete_queue.maybe_freeze_global_buffer()? {
+      Some(frozen_updates) => Ok(Some(FlushTicket::new(Some(frozen_updates), false))),
+      None => Ok(None),
+    }
   }
   pub(crate) fn purge_flush_tickets<F>(&self, forced: bool, consumer: F) -> Result<()>
   where
@@ -607,8 +618,10 @@ where
           debug_assert!(self.assert_ticket_queue_modification(&flushing_dwpt.state.delete_queue));
           let ticket = {
             let mut dwpt = flushing_dwpt.dwpt.lock();
-            let supplier = SupplierImpl1::new(&mut *dwpt);
-            self.ticket_queue.add_ticket(supplier)?
+            self.ticket_queue.add_ticket(|| {
+              let frozen_buffered_updates = dwpt.prepare_flush()?;
+              Ok(Some(FlushTicket::new(frozen_buffered_updates, true)))
+            })?
           };
           match ticket {
             Some(ticket) => {
@@ -824,8 +837,9 @@ where
         }
 
         debug_assert!(self.assert_ticket_queue_modification(&flushing_delete_queue));
-        let supplier = SupplierImpl::new(&flushing_delete_queue);
-        self.ticket_queue.add_ticket(supplier)?;
+        self
+          .ticket_queue
+          .add_ticket(|| Self::maybe_freeze_global_buffer(&flushing_delete_queue))?;
       }
       // we can't assert that we don't have any tickets in the queue since we might add a
       // DocumentsWriterDeleteQueue
@@ -989,53 +1003,4 @@ pub(crate) trait FlushNotifications {
   /// is called. The caller must ensure that the purge happens without an index writer lock being
   /// held.
   fn on_ticket_backlog(&self) -> Result<()>;
-}
-
-struct SupplierImpl<'a> {
-  delete_queue: &'a DocumentsWriterDeleteQueue,
-}
-impl<'a> SupplierImpl<'a> {
-  pub(crate) fn new(delete_queue: &'a DocumentsWriterDeleteQueue) -> Self {
-    SupplierImpl { delete_queue }
-  }
-}
-impl<D> Supplier<Option<FlushTicket<D>>> for SupplierImpl<'_>
-where
-  D: Directory,
-{
-  fn get_mut(&mut self) -> Result<Option<FlushTicket<D>>> {
-    self.get()
-  }
-
-  fn get(&self) -> Result<Option<FlushTicket<D>>> {
-    // it's maybeFreezeGlobalBuffer(DocumentsWriterDeleteQueue deleteQueue)'s logic in Java Lucene
-    match self.delete_queue.maybe_freeze_global_buffer()? {
-      Some(frozen_updates) => Ok(Some(FlushTicket::new(Some(frozen_updates), false))),
-      _ => Ok(None),
-    }
-  }
-}
-
-struct SupplierImpl1<'a, D>
-where
-  D: Directory,
-{
-  dwpt: &'a mut DocumentsWriterPerThread<D>,
-}
-impl<'a, D> SupplierImpl1<'a, D>
-where
-  D: Directory,
-{
-  pub(crate) fn new(dwpt: &'a mut DocumentsWriterPerThread<D>) -> Self {
-    SupplierImpl1 { dwpt }
-  }
-}
-impl<'a, D> Supplier<Option<FlushTicket<D>>> for SupplierImpl1<'a, D>
-where
-  D: Directory,
-{
-  fn get_mut(&mut self) -> Result<Option<FlushTicket<D>>> {
-    let frozen_buffered_updates = self.dwpt.prepare_flush()?;
-    Ok(Some(FlushTicket::new(frozen_buffered_updates, true)))
-  }
 }

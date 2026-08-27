@@ -46,9 +46,7 @@ pub trait BytesRefComparator: Comparator<BytesRef<Vec<u8>>> {
     }
     Ok(0)
   }
-  fn compared_bytes_count(&self) -> usize {
-    unimplemented!("compared_bytes_count must be implemented if it needs to be used")
-  }
+  fn compared_bytes_count(&self) -> usize;
 }
 
 pub struct Natural {

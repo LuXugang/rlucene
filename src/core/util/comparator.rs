@@ -118,6 +118,10 @@ impl BytesRefComparator for NaturalOrder {
     }
     Ok(bytes_ref.bytes[bytes_ref.offset + i] as i32)
   }
+
+  fn compared_bytes_count(&self) -> usize {
+    i32::MAX as usize
+  }
 }
 
 pub const COMPARATOR_TYPE: &str = "Comparator";

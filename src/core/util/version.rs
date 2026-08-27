@@ -321,7 +321,3 @@ impl VersionError {
     }
   }
 }
-#[allow(dead_code)]
-fn get_package_implementation_version() {
-  unimplemented!()
-}

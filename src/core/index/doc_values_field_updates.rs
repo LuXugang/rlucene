@@ -356,8 +356,8 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
   fn need_reset(&self) -> bool {
     false
   }
-  fn any(&self, _super_any: bool) -> bool {
-    unimplemented!("must be implemented if you need to use it")
+  fn any(&self, super_any: bool) -> bool {
+    super_any
   }
   fn need_any(&self) -> bool {
     false

@@ -53,11 +53,19 @@ impl FieldComparator for DummyFieldComparator {
     dummy_unreachable!()
   }
 
-  fn compare_values(&self, _first: Option<&Self::V>, _second: Option<&Self::V>) -> i32 {
+  fn compare_values(
+    &self,
+    _first: Option<&Self::V>,
+    _second: Option<&Self::V>,
+  ) -> crate::core::util::error::lucene_error::Result<i32> {
     dummy_unreachable!()
   }
 
-  fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
+  fn fallback_compare(
+    &self,
+    _first: &Self::V,
+    _second: &Self::V,
+  ) -> crate::core::util::error::lucene_error::Result<i32> {
     dummy_unreachable!()
   }
 

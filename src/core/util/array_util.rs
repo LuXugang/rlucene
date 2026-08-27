@@ -298,11 +298,6 @@ impl ArrayUtil {
     code
   }
 
-  /// Swaps the values stored in indices `i` and `j` of the given slice.
-  #[allow(dead_code)]
-  pub fn swap<T>(_arr: &mut [T], _i: usize, _j: usize) {
-    unimplemented!()
-  }
   /// Sorts the given slice using the intro sort algorithm,
   /// falling back to insertion sort for small arrays.
   pub fn do_intro_sort<T, C>(a: &mut [T], from_index: usize, to_index: usize, comp: C) -> Result<()>

@@ -57,18 +57,15 @@ pub trait PostingsWriterBase: Closeable {
   /// dict will skip the term.
   fn write_term<N, PE>(
     &mut self,
-    _term: &BytesRef<Vec<u8>>,
-    _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
-    _docs_seen: &mut FixedBitSet,
-    _norms: Option<&N>,
-    _postings_enum: Option<PE>,
+    term: &BytesRef<Vec<u8>>,
+    terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
+    docs_seen: &mut FixedBitSet,
+    norms: Option<&N>,
+    postings_enum: Option<PE>,
   ) -> Result<(Option<PE>, Option<TermStateEnum>)>
   where
     N: NormsProducer,
-    PE: PostingsEnum,
-  {
-    unimplemented!()
-  }
+    PE: PostingsEnum;
 
   /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the
   /// current term is delta encoded according to the latest term. Usually

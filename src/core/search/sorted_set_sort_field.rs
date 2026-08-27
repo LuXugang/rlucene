@@ -324,11 +324,11 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
     TermOrdValLeafComparator::new(context, c, &mut self.base)
   }
 
-  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> i32 {
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
     self.base.compare_values(first, second)
   }
 
-  fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> i32 {
+  fn fallback_compare(&self, _first: &Self::V, _second: &Self::V) -> Result<i32> {
     self.base.fallback_compare(_first, _second)
   }
 
