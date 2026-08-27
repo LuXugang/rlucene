@@ -324,26 +324,30 @@ where
       Ok(())
     })?;
 
-    let success = match (|| -> Result<()> {
-      writer.commit()?;
-      writer.close()
-    })() {
-      Ok(()) => true,
-      Err(LuceneError::AlreadyClosed(_)) => {
-        // OK: abort closes the writer
-        assert!(writer.is_deleter_closed()?);
-        false
-      },
-      Err(error) if error.is_io_error() => {
-        if cfg!(feature = "test_log_verbose") {
-          eprintln!("{error:?}");
-        }
-        writer.rollback()?;
-        failure.clear_do_fail();
-        false
-      },
-      Err(error) => return Err(error),
-    };
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<bool> {
+      match (|| -> Result<()> {
+        writer.commit()?;
+        writer.close()
+      })() {
+        Ok(()) => Ok(true),
+        Err(LuceneError::AlreadyClosed(_)) => {
+          // OK: abort closes the writer
+          assert!(writer.is_deleter_closed()?);
+          Ok(false)
+        },
+        Err(error) if error.is_io_error() => {
+          if cfg!(feature = "test_log_verbose") {
+            eprintln!("{error:?}");
+          }
+          writer.rollback()?;
+          failure.clear_do_fail();
+          Ok(false)
+        },
+        Err(error) => Err(error),
+      }
+    }));
+    let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.close()));
+    let success = IOUtils::finally_caught_result(result, close_result)?;
     if cfg!(feature = "test_log_verbose") {
       println!("TEST: success={success}");
     }

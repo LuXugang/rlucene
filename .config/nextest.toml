@@ -14,6 +14,13 @@ final-status-level = "slow"
 # SLOW after 30 seconds and terminate it as TIMEOUT after 60 seconds.
 slow-timeout = { period = "30s", terminate-after = 2, grace-period = "30s" }
 
+[[profile.ci.overrides]]
+# The Java-aligned randomized WAND test performs hundreds of full score and
+# max-score checks. Some valid seeds need more than the general 60-second CI
+# limit even in release mode.
+filter = 'test(=test::core::search::test_wand_scorer::test_random)'
+slow-timeout = { period = "30s", terminate-after = 6, grace-period = "30s" }
+
 [profile.ci.junit]
 path = "junit.xml"
 store-success-output = false
