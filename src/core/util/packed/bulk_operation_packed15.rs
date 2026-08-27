@@ -14,12 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::packed::Decoder;
 use crate::core::util::packed::bulk_operation::BulkOperation;
-use crate::core::util::packed::{Decoder, Encoder};
+use crate::core::util::packed::bulk_operation_packed::{
+  define_bulk_operation_packed_specialized, delegate_bulk_operation_packed_decoder_counts,
+  impl_bulk_operation_packed_encoder,
+};
 
-#[derive(Default)]
-pub(crate) struct BulkOperationPacked15;
+define_bulk_operation_packed_specialized!(BulkOperationPacked15, 15);
 impl Decoder for BulkOperationPacked15 {
+  delegate_bulk_operation_packed_decoder_counts!();
   fn decode_u64_to_i64(
     &self,
     blocks: &[u64],
@@ -515,5 +519,5 @@ impl Decoder for BulkOperationPacked15 {
     }
   }
 }
-impl Encoder for BulkOperationPacked15 {}
+impl_bulk_operation_packed_encoder!(BulkOperationPacked15);
 impl BulkOperation for BulkOperationPacked15 {}
