@@ -764,9 +764,10 @@ impl Sorter for DocOffsetSorter<'_> {
 }
 
 impl TimSorterBase for DocOffsetSorter<'_> {
-  fn copy(&mut self, src: usize, dest: usize) {
+  fn copy(&mut self, src: usize, dest: usize) -> Result<()> {
     self.docs[dest] = self.docs[src];
     self.offsets[dest] = self.offsets[src];
+    Ok(())
   }
 
   fn save(&mut self, i: usize, len: usize) -> Result<()> {

@@ -49,7 +49,7 @@ where
     data_input: &'a mut D,
     mem: i32,
   ) -> Result<Self> {
-    let bulk_operation = of(format, bits_per_value);
+    let bulk_operation = of(format, bits_per_value)?;
     let iterations = bulk_operation.compute_iterations(value_count, mem);
 
     debug_assert!(

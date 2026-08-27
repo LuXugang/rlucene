@@ -109,7 +109,7 @@ impl Reader for MutablePacked64Enum {
     }
   }
 
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
+  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
     match self {
       MutablePacked64Enum::P64SingleBlock1(op) => op.get_bulk(index, arr, off, len),
       MutablePacked64Enum::P64SingleBlock2(op) => op.get_bulk(index, arr, off, len),
@@ -171,7 +171,7 @@ impl Mutable for MutablePacked64Enum {
     }
   }
 
-  fn set(&mut self, index: i32, value: i64) {
+  fn set(&mut self, index: i32, value: i64) -> Result<()> {
     match self {
       MutablePacked64Enum::P64SingleBlock1(op) => op.set(index, value),
       MutablePacked64Enum::P64SingleBlock2(op) => op.set(index, value),
@@ -191,7 +191,7 @@ impl Mutable for MutablePacked64Enum {
     }
   }
 
-  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
+  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
     match self {
       MutablePacked64Enum::P64SingleBlock1(op) => op.set_bulk(index, arr, off, len),
       MutablePacked64Enum::P64SingleBlock2(op) => op.set_bulk(index, arr, off, len),
@@ -211,7 +211,7 @@ impl Mutable for MutablePacked64Enum {
     }
   }
 
-  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) {
+  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
     match self {
       MutablePacked64Enum::P64SingleBlock1(op) => op.fill(from_index, to_index, val),
       MutablePacked64Enum::P64SingleBlock2(op) => op.fill(from_index, to_index, val),
@@ -231,7 +231,7 @@ impl Mutable for MutablePacked64Enum {
     }
   }
 
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     match self {
       MutablePacked64Enum::P64SingleBlock1(op) => op.clear(),
       MutablePacked64Enum::P64SingleBlock2(op) => op.clear(),

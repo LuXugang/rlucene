@@ -132,8 +132,9 @@ impl<T, C: Comparator<T>> TimSorterBase for ListTimSorter<'_, T, C>
 where
   T: Copy,
 {
-  fn copy(&mut self, src: usize, dest: usize) {
+  fn copy(&mut self, src: usize, dest: usize) -> Result<()> {
     self.arr[dest] = self.arr[src];
+    Ok(())
   }
 
   fn save(&mut self, start: usize, len: usize) -> Result<()> {

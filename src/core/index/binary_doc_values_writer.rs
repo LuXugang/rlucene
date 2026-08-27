@@ -352,7 +352,7 @@ impl<D, DI> BufferedBinaryDocValues<D, DI> {
     value.grow(max_length)?;
     Ok(Self {
       value,
-      lengths_iterator: lengths.iterator(),
+      lengths_iterator: lengths.iterator()?,
       docs_with_field,
       bytes_iter,
     })
@@ -378,7 +378,7 @@ where
   fn next_doc(&mut self) -> Result<i32> {
     let doc_id = self.docs_with_field.next_doc()?;
     if doc_id != NO_MORE_DOCS {
-      let length = self.lengths_iterator.next_value().try_convert()?;
+      let length = self.lengths_iterator.next_value()?.try_convert()?;
       self.value.set_length(length);
       self
         .bytes_iter

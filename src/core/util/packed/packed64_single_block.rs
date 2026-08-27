@@ -72,7 +72,7 @@ where
     self.sub_reader.get(index, &self.blocks)
   }
 
-  fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> i32 {
+  fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(index < self.value_count, "index out of bounds");
     len = len.min(self.value_count - index);
@@ -89,7 +89,7 @@ where
     if offset_in_block != 0 {
       for _ in offset_in_block..values_per_block {
         if len == 0 {
-          return index - original_index;
+          return Ok(index - original_index);
         }
         arr[off as usize] = self.sub_reader.get(index as usize, &self.blocks);
         off += 1;
@@ -97,7 +97,7 @@ where
         len -= 1;
       }
       if len == 0 {
-        return index - original_index;
+        return Ok(index - original_index);
       }
     }
 
@@ -110,7 +110,7 @@ where
     let decoder = of(
       Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
       self.bits_per_value,
-    );
+    )?;
     debug_assert_eq!(
       Decoder::long_block_count(decoder),
       1,
@@ -136,7 +136,7 @@ where
 
     if index > original_index {
       // Stay at the block boundary
-      index - original_index
+      Ok(index - original_index)
     } else {
       // No progress so far => already at a block boundary but no full
       // block to get
@@ -262,11 +262,12 @@ where
     self.bits_per_value
   }
 
-  fn set(&mut self, index: i32, value: i64) {
+  fn set(&mut self, index: i32, value: i64) -> Result<()> {
     self.sub_reader.set(index as usize, value, &mut self.blocks);
+    Ok(())
   }
 
-  fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> i32 {
+  fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(index < self.value_count, "index out of bounds");
     len = len.min(self.value_count - index);
@@ -284,7 +285,7 @@ where
     if offset_in_block != 0 {
       for _ in offset_in_block..values_per_block {
         if len == 0 {
-          return index - original_index;
+          return Ok(index - original_index);
         }
         self
           .sub_reader
@@ -294,7 +295,7 @@ where
         len -= 1;
       }
       if len == 0 {
-        return index - original_index;
+        return Ok(index - original_index);
       }
     }
 
@@ -308,7 +309,7 @@ where
     let op = of(
       Format::PackedSingleBlock(PackedSingleBlockImpl::new(1)),
       self.bits_per_value,
-    );
+    )?;
     debug_assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
     debug_assert_eq!(
       Decoder::long_value_count(op),
@@ -333,7 +334,7 @@ where
 
     if index > original_index {
       // Stay at the block boundary
-      index - original_index
+      Ok(index - original_index)
     } else {
       // No progress so far => already at a block boundary but no full
       // block to set
@@ -342,7 +343,7 @@ where
     }
   }
 
-  fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) {
+  fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
     debug_assert!(from_index <= to_index, "from_index must be <= to_index");
     debug_assert!(
       PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
@@ -354,16 +355,16 @@ where
     // If the range is too small, fallback to naive setting
     if to_index - from_index <= (values_per_block * 2) {
       for _ in from_index..to_index {
-        self.default_fill(from_index, to_index, val);
+        self.default_fill(from_index, to_index, val)?;
       }
-      return;
+      return Ok(());
     }
 
     // set values naively until the next block start
     let from_offset_in_block = from_index % values_per_block;
     if from_offset_in_block != 0 {
       for _ in from_offset_in_block..values_per_block {
-        self.set(from_index, val);
+        self.set(from_index, val)?;
         from_index += 1;
       }
       debug_assert_eq!(from_index % values_per_block, 0);
@@ -383,12 +384,14 @@ where
 
     // Fill the gap at the end
     for i in (values_per_block * to_block)..to_index {
-      self.set(i, val);
+      self.set(i, val)?;
     }
+    Ok(())
   }
 
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     self.blocks.fill(0);
+    Ok(())
   }
 }
 

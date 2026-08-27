@@ -76,12 +76,12 @@ impl NumericDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
   fn finish(&mut self) {
-    self.values_iter = Some(Arc::new(std::mem::take(&mut self.values)));
+    self.values_iter = Some(Arc::new(self.values.take()));
   }
 
   fn add_value(&mut self, _doc: i32, value: i64, index: usize) -> Result<()> {
     let _guard = self.lock.lock();
-    self.values.set(index, value.wrapping_sub(self.min_value));
+    self.values.set(index, value.wrapping_sub(self.min_value))?;
     Ok(())
   }
 
@@ -116,8 +116,8 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     let tmp_val = self.values.get(j)?;
     let value = self.values.get(i)?;
-    self.values.set(j, value);
-    self.values.set(i, tmp_val);
+    self.values.set(j, value)?;
+    self.values.set(i, tmp_val)?;
     Ok(())
   }
 

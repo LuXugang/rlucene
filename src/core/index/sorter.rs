@@ -253,8 +253,9 @@ impl<'a, DC> TimSorterBase for DocValueSorter<'a, DC>
 where
   DC: DocComparator,
 {
-  fn copy(&mut self, src: usize, dest: usize) {
+  fn copy(&mut self, src: usize, dest: usize) -> Result<()> {
     self.docs[dest] = self.docs[src];
+    Ok(())
   }
 
   fn save(&mut self, i: usize, len: usize) -> Result<()> {

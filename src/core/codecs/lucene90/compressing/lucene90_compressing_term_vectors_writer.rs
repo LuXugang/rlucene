@@ -410,7 +410,7 @@ where
       num_distinct_fields as i32,
       bits_required,
       1,
-    );
+    )?;
 
     for &field_num in &field_nums {
       writer.add(field_num as i64)?;

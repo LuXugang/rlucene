@@ -89,7 +89,7 @@ impl Reader for PackedIntsReadEnum {
     }
   }
 
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
+  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
     match self {
       PackedIntsReadEnum::P64SingleBlock1(op) => op.get_bulk(index, arr, off, len),
       PackedIntsReadEnum::P64SingleBlock2(op) => op.get_bulk(index, arr, off, len),

@@ -270,13 +270,13 @@ impl SortedNumericDocValuesWriter {
 
     match value_counts {
       None => {
-        let dv = BufferedNumericDocValues::new(values, iter);
+        let dv = BufferedNumericDocValues::new(values, iter)?;
         Ok(SortedNumericDocValuesWriterValues::Single(
           DocValues::singleton_numeric(dv)?,
         ))
       },
       Some(value_counts) => {
-        let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter);
+        let dv = BufferedSortedNumericDocValues::new(values, value_counts, iter)?;
         Ok(SortedNumericDocValuesWriterValues::Multi(dv))
       },
     }
@@ -337,7 +337,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
         &values,
         &value_counts,
         self.docs_with_field.iterator()?,
-      );
+      )?;
       Some(LongValues::new(
         segment_info.max_doc()? as usize,
         sort_map,
@@ -464,7 +464,7 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
       &self.values,
       &self.value_counts,
       self.docs_with_field.iterator()?,
-    );
+    )?;
     match &self.sorted {
       Some(sorted) => Ok(SortedNumericDocValuesWriterValues::SortedMulti(
         SortingSortedNumericDocValues::new(buf, sorted.clone()),
@@ -490,14 +490,14 @@ impl<D> BufferedSortedNumericDocValues<D> {
     values: &PackedLongValues,
     value_counts: &PackedLongValues,
     docs_with_field: D,
-  ) -> Self {
-    Self {
-      values_iter: values.iterator(),
-      value_counts_iter: value_counts.iterator(),
+  ) -> Result<Self> {
+    Ok(Self {
+      values_iter: values.iterator()?,
+      value_counts_iter: value_counts.iterator()?,
       docs_with_field,
       value_count: 0,
       value_upto: 0,
-    }
+    })
   }
 }
 
@@ -526,12 +526,12 @@ where
 
   fn next_doc(&mut self) -> Result<i32> {
     for _ in self.value_upto..self.value_count {
-      self.values_iter.next_value();
+      self.values_iter.next_value()?;
     }
 
     let doc_id = self.docs_with_field.next_doc()?;
     if doc_id != NO_MORE_DOCS {
-      self.value_count = self.value_counts_iter.next_value().try_convert()?;
+      self.value_count = self.value_counts_iter.next_value()?.try_convert()?;
       self.value_upto = 0;
     }
     Ok(doc_id)
@@ -552,7 +552,7 @@ where
 {
   fn next_value(&mut self) -> Result<i64> {
     self.value_upto += 1;
-    Ok(self.values_iter.next_value())
+    self.values_iter.next_value()
   }
 
   fn doc_value_count(&mut self) -> Result<i32> {

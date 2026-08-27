@@ -23,7 +23,7 @@ use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::mutable_enum::MutableEnum;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
 use crate::core::util::packed::paged_mutable::PagedMutable;
-use crate::core::util::packed::{DummyMutable, Mutable, PackedInts, Reader};
+use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 
 const MIN_BLOCK_SIZE: i32 = 1 << 6;
@@ -34,7 +34,6 @@ const MAX_BLOCK_SIZE: i32 = 1 << 30;
 ///
 /// # Lucene Internal
 /// This is an internal utility for use within the Lucene system.
-#[derive(Default)]
 pub struct AbstractPagedMutable<T> {
   sub_reader: T,
   size: usize,
@@ -52,12 +51,7 @@ where
     let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
     let page_mask = page_size - 1;
     let num_pages = PackedInts::num_blocks(size, page_size)?;
-    let mut sub_mutables = Vec::with_capacity(num_pages as usize);
-    // We use index-based access to sub_mutables, so we can initialize it as
-    // DummyMutable.
-    for _ in 0..num_pages as usize {
-      sub_mutables.push(MutableEnum::Dummy(DummyMutable));
-    }
+    let sub_mutables = Vec::with_capacity(num_pages as usize);
     let mut result = AbstractPagedMutable {
       sub_reader,
       size,
@@ -70,8 +64,9 @@ where
     };
     Ok(result)
   }
-  pub fn fill_pages(&mut self) -> Result<()> {
+  fn fill_pages(&mut self) -> Result<()> {
     let num_pages = PackedInts::num_blocks(self.size, self.page_size())?;
+    let mut sub_mutables = Vec::with_capacity(num_pages as usize);
     for i in 0..num_pages {
       // do not allocate for more entries than necessary on the last page
       let value_count = if i == num_pages - 1 {
@@ -79,10 +74,13 @@ where
       } else {
         self.page_size()
       };
-      self.sub_mutables[i as usize] = self
-        .sub_reader
-        .new_mutable(value_count, self.sub_reader.bits_per_value())?;
+      sub_mutables.push(
+        self
+          .sub_reader
+          .new_mutable(value_count, self.sub_reader.bits_per_value())?,
+      );
     }
+    self.sub_mutables = sub_mutables;
     Ok(())
   }
   fn last_page_size(&self, size: usize) -> i32 {
@@ -95,6 +93,18 @@ where
   pub fn size(&self) -> usize {
     self.size
   }
+
+  pub(crate) fn take(&mut self) -> Self {
+    let replacement = Self {
+      sub_reader: self.sub_reader.new_unfilled_copy(),
+      size: 0,
+      page_shift: self.page_shift,
+      page_mask: self.page_mask,
+      sub_mutables: Vec::new(),
+    };
+    std::mem::replace(self, replacement)
+  }
+
   fn page_index(&self, index: usize) -> usize {
     index >> self.page_shift
   }
@@ -103,7 +113,7 @@ where
     (index & self.page_mask as usize) as i32
   }
   /// Sets the value at the specified index.
-  pub fn set(&mut self, index: usize, value: i64) {
+  pub fn set(&mut self, index: usize, value: i64) -> Result<()> {
     debug_assert!(
       index < self.size,
       "Index out of bounds: index={} size={}",
@@ -123,11 +133,12 @@ where
   pub fn resize(&self, new_size: usize) -> Result<AbstractPagedMutable<T>> {
     let sub = self.sub_reader.new_unfilled_copy();
     let mut copy = AbstractPagedMutable::new(new_size, self.page_size(), sub)?;
-    let num_common_pages = std::cmp::min(copy.sub_mutables.len(), self.sub_mutables.len());
+    let num_pages = PackedInts::num_blocks(new_size, self.page_size())? as usize;
+    let num_common_pages = std::cmp::min(num_pages, self.sub_mutables.len());
     let mut copy_buffer = vec![0i64; 1024];
-    for i in 0..copy.sub_mutables.len() {
+    for i in 0..num_pages {
       // Determine the number of values in the current page
-      let value_count = if i == copy.sub_mutables.len() - 1 {
+      let value_count = if i == num_pages - 1 {
         self.last_page_size(new_size)
       } else {
         self.page_size()
@@ -137,19 +148,20 @@ where
       } else {
         self.sub_reader.bits_per_value()
       };
-      copy.sub_mutables[i] = self.sub_reader.new_mutable(value_count, bpv)?;
+      let mut sub_mutable = self.sub_reader.new_mutable(value_count, bpv)?;
 
       if i < num_common_pages {
         let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
         PackedInts::copy_with_buffer(
           &self.sub_mutables[i],
           0,
-          &mut copy.sub_mutables[i],
+          &mut sub_mutable,
           0,
           copy_length,
           &mut copy_buffer,
-        );
+        )?;
       }
+      copy.sub_mutables.push(sub_mutable);
     }
     Ok(copy)
   }
@@ -166,7 +178,7 @@ where
   }
 
   pub fn grow(&self) -> Result<Option<AbstractPagedMutable<T>>> {
-    self.grow_with_size(self.size() << 1)
+    self.grow_with_size(self.size() + 1)
   }
 }
 #[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.

@@ -420,12 +420,12 @@ impl SortedSetDocValuesWriter {
           ords_counts,
           max_count,
           docs_iter,
-        ),
+        )?,
       )),
       None => Ok(SortedSetDocValuesWriterDocIdSetIterator::Singleton(
         DocValues::singleton_sorted(BufferedSortedDocValues::new(
           hash, pool, ords, ord_map, docs_iter,
-        ))?,
+        )?)?,
       )),
     }
   }
@@ -498,7 +498,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         ord_counts.clone(),
         self.max_count,
         docs_iter,
-      );
+      )?;
       Some(DocOrds::new(
         segment_info.max_doc()?,
         map,
@@ -639,7 +639,7 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
       self.ord_counts.clone(),
       self.max_count,
       docs_iter,
-    );
+    )?;
     match &self.doc_ords {
       Some(ords) => Ok(SortedSetDocValuesWriterValues::Sorting(
         SortingSortedSetDocValues::new(buf, ords.clone()),
@@ -703,19 +703,19 @@ impl<D> BufferedSortedSetDocValues<D> {
     ord_counts: PackedLongValues,
     max_count: i32,
     docs_with_field: D,
-  ) -> Self {
-    Self {
+  ) -> Result<Self> {
+    Ok(Self {
       ord_map,
       hash,
       pool,
       scratch: BytesRef::new(),
-      ords_iter: ords.iterator(),
-      ord_counts_iter: ord_counts.iterator(),
+      ords_iter: ords.iterator()?,
+      ord_counts_iter: ord_counts.iterator()?,
       docs_with_field,
       current_doc: vec![0; max_count as usize],
       ord_count: 0,
       ord_upto: 0,
-    }
+    })
   }
 }
 
@@ -736,11 +736,11 @@ where
   fn next_doc(&mut self) -> Result<i32> {
     let doc_id = self.docs_with_field.next_doc()?;
     if doc_id != NO_MORE_DOCS {
-      let count = self.ord_counts_iter.next_value() as usize;
+      let count = self.ord_counts_iter.next_value()? as usize;
       debug_assert!(count > 0);
       self.ord_count = count;
       for i in 0..count {
-        let raw: i32 = self.ords_iter.next_value().try_convert()?;
+        let raw: i32 = self.ords_iter.next_value()?.try_convert()?;
         self.current_doc[i] = self.ord_map[raw as usize];
       }
       self.current_doc[..count].sort_unstable();
@@ -958,7 +958,7 @@ impl DocOrds {
         builder.add(old_values.next_ord()?)?;
       }
 
-      doc_value_counts.set(new_doc_id, (ord_offset - start_offset) as i64);
+      doc_value_counts.set(new_doc_id, (ord_offset - start_offset) as i64)?;
 
       if start_offset != ord_offset {
         // do we have any values?

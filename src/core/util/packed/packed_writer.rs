@@ -44,14 +44,14 @@ where
     value_count: i32,
     bits_per_value: i32,
     mem: i32,
-  ) -> Self {
-    let encoder = of(format, bits_per_value);
+  ) -> Result<Self> {
+    let encoder = of(format, bits_per_value)?;
     debug_assert!(value_count >= 0);
     let iterations = encoder.compute_iterations(value_count, mem);
     let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder)) as usize];
     let next_values = vec![0; (iterations * Encoder::byte_value_count(encoder)) as usize];
 
-    Self {
+    Ok(Self {
       finished: false,
       format,
       encoder,
@@ -63,7 +63,7 @@ where
       value_count,
       bits_per_value,
       data_output,
-    }
+    })
   }
   fn flush(&mut self) -> Result<()> {
     self.encoder.encode_i64_to_u8(

@@ -70,7 +70,7 @@ impl PackedInts {
     bits_per_value: i32,
   ) -> Result<&'static BulkOperationPackedEnum> {
     check_version(version)?;
-    Ok(of(format, bits_per_value))
+    of(format, bits_per_value)
   }
   /// Get an [`Encoder`].
   ///
@@ -166,28 +166,7 @@ impl PackedInts {
   /// validated by the caller.
   ///
   /// Growable writers use this helper from infallible `Mutable` methods. The
-  /// bit width produced by those methods is always in the supported range;
-  /// the packed implementation is retained as a safe fallback if a
-  /// format-specific constructor rejects it.
-  pub(crate) fn get_mutable_for_valid_bits(
-    value_count: i32,
-    bits_per_value: i32,
-    acceptable_overhead_ratio: f32,
-  ) -> MutablePacked64Enum {
-    let format_and_bits =
-      fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
-    match PackedInts::get_mutable_impl(
-      value_count,
-      format_and_bits.bits_per_value,
-      format_and_bits.format,
-    ) {
-      Ok(mutable) => mutable,
-      Err(_) => {
-        MutablePacked64Enum::P64(Packed64::new(value_count, format_and_bits.bits_per_value))
-      },
-    }
-  }
-
+  /// bit width produced by those methods is always in the supported range.
   /// Same as [`get_mutable`](PackedInts::get_mutable) with a pre-computed
   /// number of bits per value and format.
   pub(crate) fn get_mutable_impl(
@@ -252,7 +231,7 @@ impl PackedInts {
     value_count: i32,
     bits_per_value: i32,
     mem: i32,
-  ) -> PackedWriter<'_, T>
+  ) -> Result<PackedWriter<'_, T>>
   where
     T: DataOutput,
   {
@@ -319,7 +298,7 @@ impl PackedInts {
     dest_pos: i32,
     len: i32,
     mem: i32,
-  ) {
+  ) -> Result<()> {
     debug_assert!(
       src_pos + len <= src.size(),
       "Source position and length out of bounds"
@@ -332,14 +311,15 @@ impl PackedInts {
     let capacity = mem >> 3;
     if capacity == 0 {
       for i in 0..len {
-        dest.set(dest_pos + i, src.get((src_pos + i) as usize));
+        dest.set(dest_pos + i, src.get((src_pos + i) as usize))?;
       }
     } else if len > 0 {
       // Use bulk operations
       let buf_size = capacity.min(len);
       let mut buf = vec![0; buf_size as usize];
-      PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf);
+      PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf)?;
     }
+    Ok(())
   }
   /// Same as `copy` but uses a pre-allocated buffer.
   pub fn copy_with_buffer(
@@ -349,7 +329,7 @@ impl PackedInts {
     mut dest_pos: i32,
     mut len: i32,
     buf: &mut [i64],
-  ) {
+  ) -> Result<()> {
     debug_assert!(!buf.is_empty(), "Buffer length must be greater than 0");
 
     let mut remaining = 0;
@@ -361,13 +341,13 @@ impl PackedInts {
         buf,
         remaining,
         len.min(buf.len() as i32 - remaining),
-      );
+      )?;
       debug_assert!(read > 0, "Read operation failed");
       src_pos += read;
       len -= read;
       remaining += read;
 
-      let written = dest.set_bulk(dest_pos, buf, 0, remaining);
+      let written = dest.set_bulk(dest_pos, buf, 0, remaining)?;
       debug_assert!(written > 0, "Write operation failed");
       dest_pos += written;
 
@@ -378,13 +358,14 @@ impl PackedInts {
     }
 
     while remaining > 0 {
-      let written = dest.set_bulk(dest_pos, buf, 0, remaining);
+      let written = dest.set_bulk(dest_pos, buf, 0, remaining)?;
       dest_pos += written;
       remaining -= written;
       if remaining > 0 {
         buf.copy_within(written as usize..(written + remaining) as usize, 0);
       }
     }
+    Ok(())
   }
   /// Check that the block size is a power of 2, within the right bounds, and
   /// return its log in base 2.
@@ -527,27 +508,19 @@ pub fn fastest_format_and_bits(
 pub trait Decoder {
   /// The minimum number of long blocks to encode in a single iteration, when
   /// using `i64` encoding.
-  fn long_block_count(&self) -> i32 {
-    unimplemented!("long_block_count() must be implemented if it needs to be used")
-  }
+  fn long_block_count(&self) -> i32;
 
   /// The number of values that can be stored in `long_block_count()` long
   /// blocks.
-  fn long_value_count(&self) -> i32 {
-    unimplemented!("long_value_count() must be implemented if it needs to be used")
-  }
+  fn long_value_count(&self) -> i32;
 
   /// The minimum number of byte blocks to encode in a single iteration, when
   /// using byte encoding.
-  fn byte_block_count(&self) -> i32 {
-    unimplemented!("byte_block_count() must be implemented if it needs to be used")
-  }
+  fn byte_block_count(&self) -> i32;
 
   /// The number of values that can be stored in `byte_block_count()` byte
   /// blocks.
-  fn byte_value_count(&self) -> i32 {
-    unimplemented!("byte_value_count() must be implemented if it needs to be used")
-  }
+  fn byte_value_count(&self) -> i32;
 
   /// Read `iterations * block_count()` blocks from `blocks`, decode them, and
   /// write `iterations * value_count()` values into `values`.
@@ -561,14 +534,12 @@ pub trait Decoder {
   /// * `iterations` - Controls how much data to decode.
   fn decode_u64_to_i64(
     &self,
-    _blocks: &[u64],
-    _blocks_offset: usize,
-    _values: &mut [i64],
-    _values_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("decode_long_to_long() must be implemented if it needs to be used")
-  }
+    blocks: &[u64],
+    blocks_offset: usize,
+    values: &mut [i64],
+    values_offset: usize,
+    iterations: i32,
+  );
 
   /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them,
   /// and write `iterations * value_count()` values into `values`.
@@ -582,14 +553,12 @@ pub trait Decoder {
   /// * `iterations` - Controls how much data to decode.
   fn decode_u8_to_i64(
     &self,
-    _blocks: &[u8],
-    _blocks_offset: usize,
-    _values: &mut [i64],
-    _values_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("decode_byte_to_long() must be implemented if it needs to be used")
-  }
+    blocks: &[u8],
+    blocks_offset: usize,
+    values: &mut [i64],
+    values_offset: usize,
+    iterations: i32,
+  );
 
   /// Read `iterations * block_count()` blocks from `blocks`, decode them, and
   /// write `iterations * value_count()` values into `values`.
@@ -603,14 +572,12 @@ pub trait Decoder {
   /// * `iterations` - Controls how much data to decode.
   fn decode_u64_to_i32(
     &self,
-    _blocks: &[u64],
-    _blocks_offset: usize,
-    _values: &mut [i32],
-    _values_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("decode_long_to_int() must be implemented if it needs to be used")
-  }
+    blocks: &[u64],
+    blocks_offset: usize,
+    values: &mut [i32],
+    values_offset: usize,
+    iterations: i32,
+  );
 
   /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them,
   /// and write `iterations * value_count()` values into `values`.
@@ -624,40 +591,30 @@ pub trait Decoder {
   /// * `iterations` - Controls how much data to decode.
   fn decode_u8_to_i32(
     &self,
-    _blocks: &[u8],
-    _blocks_offset: usize,
-    _values: &mut [i32],
-    _values_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("decode_byte_to_int() must be implemented")
-  }
+    blocks: &[u8],
+    blocks_offset: usize,
+    values: &mut [i32],
+    values_offset: usize,
+    iterations: i32,
+  );
 }
 /// An encoder for packed integers.
 pub trait Encoder {
   /// The minimum number of long blocks to encode in a single iteration, when
   /// using `i64` encoding.
-  fn long_block_count(&self) -> i32 {
-    unimplemented!("long_block_count() must be implemented if it needs to be used")
-  }
+  fn long_block_count(&self) -> i32;
 
   /// The number of values that can be stored in `long_block_count()` long
   /// blocks.
-  fn long_value_count(&self) -> i32 {
-    unimplemented!("long_value_count() must be implemented if it needs to be used")
-  }
+  fn long_value_count(&self) -> i32;
 
   /// The minimum number of byte blocks to encode in a single iteration, when
   /// using byte encoding.
-  fn byte_block_count(&self) -> i32 {
-    unimplemented!("byte_block_count() must be implemented if it needs to be used")
-  }
+  fn byte_block_count(&self) -> i32;
 
   /// The number of values that can be stored in `byte_block_count()` byte
   /// blocks.
-  fn byte_value_count(&self) -> i32 {
-    unimplemented!("byte_value_count() must be implemented if it needs to be used")
-  }
+  fn byte_value_count(&self) -> i32;
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
   /// write `iterations * block_count()` blocks into `blocks`.
@@ -671,14 +628,12 @@ pub trait Encoder {
   /// * `iterations` - Controls how much data to encode.
   fn encode_i64_to_u64(
     &self,
-    _values: &[i64],
-    _values_offset: usize,
-    _blocks: &mut [u64],
-    _blocks_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("encode_long_to_long() must be implemented if it needs to be used")
-  }
+    values: &[i64],
+    values_offset: usize,
+    blocks: &mut [u64],
+    blocks_offset: usize,
+    iterations: i32,
+  );
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
   /// write `8 * iterations * block_count()` blocks into `blocks`.
@@ -692,14 +647,12 @@ pub trait Encoder {
   /// * `iterations` - Controls how much data to encode.
   fn encode_i64_to_u8(
     &self,
-    _values: &[i64],
-    _values_offset: usize,
-    _blocks: &mut [u8],
-    _blocks_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("encode_long_to_byte() must be implemented if it needs to be used")
-  }
+    values: &[i64],
+    values_offset: usize,
+    blocks: &mut [u8],
+    blocks_offset: usize,
+    iterations: i32,
+  );
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
   /// write `iterations * block_count()` blocks into `blocks`.
@@ -713,14 +666,12 @@ pub trait Encoder {
   /// * `iterations` - Controls how much data to encode.
   fn encode_i32_to_u64(
     &self,
-    _values: &[i32],
-    _values_offset: usize,
-    _blocks: &mut [u64],
-    _blocks_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("encode_int_to_long() must be implemented if it needs to be used")
-  }
+    values: &[i32],
+    values_offset: usize,
+    blocks: &mut [u64],
+    blocks_offset: usize,
+    iterations: i32,
+  );
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
   /// write `8 * iterations * block_count()` blocks into `blocks`.
@@ -734,30 +685,26 @@ pub trait Encoder {
   /// * `iterations` - Controls how much data to encode.
   fn encode_i32_to_u8(
     &self,
-    _values: &[i32],
-    _values_offset: usize,
-    _blocks: &mut [u8],
-    _blocks_offset: usize,
-    _iterations: i32,
-  ) {
-    unimplemented!("encode_int_to_byte() must be implemented if it needs to be used")
-  }
+    values: &[i32],
+    values_offset: usize,
+    blocks: &mut [u8],
+    blocks_offset: usize,
+    iterations: i32,
+  );
 }
 
 /// A read-only random access array of positive integers.
 pub trait Reader: Accountable {
   /// Get the value at the given index.
-  fn get(&self, _index: usize) -> i64 {
-    unimplemented!("get() must be implemented if it needs to be used")
-  }
+  fn get(&self, index: usize) -> i64;
 
   /// Bulk get: read at least one and at most `len` values starting from
   /// `index` into `arr[off.off+len]` and return the actual number of
   /// values that have been read.
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
+  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
     self.default_get_bulk(index, arr, off, len)
   }
-  fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
+  fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
     debug_assert!(len > 0, "len must be > 0");
     debug_assert!(index < self.size(), "index out of bounds: {index}");
     debug_assert!(
@@ -769,13 +716,11 @@ pub trait Reader: Accountable {
     for (i, o) in (index..index + gets).zip(off..off + gets) {
       arr[o as usize] = self.get(i as usize);
     }
-    gets
+    Ok(gets)
   }
 
   /// Returns the number of values in the reader.
-  fn size(&self) -> i32 {
-    unimplemented!("size() must be implemented if it needs to be used")
-  }
+  fn size(&self) -> i32;
 }
 /// Run-once iterator trait for decoding previously saved packed integers.
 pub trait ReaderIterator: Display {
@@ -881,9 +826,7 @@ pub trait Mutable: Reader + Display {
   /// Note: This does not imply that memory usage is `bits_per_value *
   /// values, as implementations may use non-space-optimal
   /// packing of bits.
-  fn get_bits_per_value(&self) -> i32 {
-    unimplemented!("get_bits_per_value() must be implemented if it needs to be used")
-  }
+  fn get_bits_per_value(&self) -> i32;
 
   /// Sets the value at the given index in the array.
   ///
@@ -892,9 +835,7 @@ pub trait Mutable: Reader + Display {
   /// * `index` - The position where the value should be set.
   /// * `value` - The value to be stored, which must conform to the
   ///   constraints of the array.
-  fn set(&mut self, _index: i32, _value: i64) {
-    unimplemented!("set() must be implemented if it needs to be used")
-  }
+  fn set(&mut self, index: i32, value: i64) -> Result<()>;
   /// Sets a range of values in the array.
   ///
   /// # Arguments
@@ -908,10 +849,10 @@ pub trait Mutable: Reader + Display {
   /// # Returns
   ///
   /// The actual number of values that have been set.
-  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
+  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
     self.default_set_bulk(index, arr, off, len)
   }
-  fn default_set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
+  fn default_set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(
       index >= 0 && index < self.size(),
@@ -925,9 +866,9 @@ pub trait Mutable: Reader + Display {
     );
 
     for (i, o) in (index..index + len).zip(off..off + len) {
-      self.set(i, arr[o as usize]);
+      self.set(i, arr[o as usize])?;
     }
-    len
+    Ok(len)
   }
 
   /// Fills a range in the packed array with a specific value.
@@ -937,22 +878,23 @@ pub trait Mutable: Reader + Display {
   /// * `from_index` - The start index of the range to fill (inclusive).
   /// * `to_index` - The end index of the range to fill (exclusive).
   /// * `val` - The value to fill with.
-  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) {
+  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
     self.default_fill(from_index, to_index, val)
   }
-  fn default_fill(&mut self, from_index: i32, to_index: i32, val: i64) {
+  fn default_fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
     debug_assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
     debug_assert!(
       from_index <= to_index,
       "from_index must be <= to_index: {from_index} > {to_index}"
     );
     for i in from_index..to_index {
-      self.set(i, val);
+      self.set(i, val)?;
     }
+    Ok(())
   }
 
   /// Sets all values in the packed array to 0.
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     self.fill(0, self.size(), 0)
   }
 }
@@ -982,7 +924,7 @@ impl Reader for NullReader {
     0
   }
 
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> i32 {
+  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> Result<i32> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(
       index < self.value_count,
@@ -998,7 +940,7 @@ impl Reader for NullReader {
     );
 
     arr[off as usize..(off + len) as usize].fill(0);
-    len
+    Ok(len)
   }
 
   fn size(&self) -> i32 {
@@ -1018,20 +960,3 @@ pub trait Writer {
   /// written so far minus one).
   fn ord(&self) -> i32;
 }
-
-#[derive(Debug, Clone)]
-pub struct DummyMutable;
-impl Reader for DummyMutable {}
-impl Accountable for DummyMutable {
-  fn ram_bytes_used(&self) -> Result<i64> {
-    Err(LuceneError::unsupported_operation(
-      "DummyMutable should not be used",
-    ))
-  }
-}
-impl Display for DummyMutable {
-  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
-  }
-}
-impl Mutable for DummyMutable {}

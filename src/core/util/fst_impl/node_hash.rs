@@ -168,7 +168,7 @@ where
           // it was already in fallback -- promote to primary
           node_hash
             .primary_table
-            .set_node_address(hash_slot, node_address);
+            .set_node_address(hash_slot, node_address)?;
           let fallback_hash_slot = node_hash
             .last_fallback_hash_slot
             .ok_or_else(|| LuceneError::illegal_state("fallback FST hash slot is missing"))?;
@@ -193,7 +193,7 @@ where
           let node_hash = &mut fst_compiler.dedup_hash;
           node_hash
             .primary_table
-            .set_node_address(hash_slot, node_address);
+            .set_node_address(hash_slot, node_address)?;
           {
             let pos = fst_compiler.scratch_bytes.get_position();
             node_hash.primary_table.copy_node_bytes(
@@ -421,10 +421,11 @@ where
     self.inner.fst_node_address.get(hash_slot)
   }
   /// Set the node address for the given hash slot.
-  pub fn set_node_address(&mut self, hash_slot: usize, node_address: i64) {
+  pub fn set_node_address(&mut self, hash_slot: usize, node_address: i64) -> Result<()> {
     debug_assert_eq!(self.inner.fst_node_address.get(hash_slot).unwrap_or(-1), 0);
-    self.inner.fst_node_address.set(hash_slot, node_address);
+    self.inner.fst_node_address.set(hash_slot, node_address)?;
     self.count += 1;
+    Ok(())
   }
   /// Copy the node bytes from the FST.
   pub(crate) fn copy_node_bytes(
@@ -443,7 +444,10 @@ where
     let position = copied_nodes.get_position();
     // write the offset, which points to the last byte of the node we
     // copied since we later read this node in reverse
-    self.inner.copied_node_address.set(hash_slot, position - 1);
+    self
+      .inner
+      .copied_node_address
+      .set(hash_slot, position - 1)?;
     Ok(())
   }
   /// Promote the node bytes from the fallback table.
@@ -471,7 +475,10 @@ where
       node_length,
     )?;
     let position = copied_nodes.get_position();
-    self.inner.copied_node_address.set(hash_slot, position - 1);
+    self
+      .inner
+      .copied_node_address
+      .set(hash_slot, position - 1)?;
     Ok(())
   }
   fn rehash<O, F>(&mut self, last_node_address: i64, fst: &FST<O, F>) -> Result<()>
@@ -505,8 +512,8 @@ where
         let mut c = 0;
         loop {
           if new_fst_node_address.get(hash_slot)? == 0 {
-            new_fst_node_address.set(hash_slot, address);
-            new_copied_node_address.set(hash_slot, self.inner.copied_node_address.get(idx)?);
+            new_fst_node_address.set(hash_slot, address)?;
+            new_copied_node_address.set(hash_slot, self.inner.copied_node_address.get(idx)?)?;
             break;
           }
           // quadratic probe

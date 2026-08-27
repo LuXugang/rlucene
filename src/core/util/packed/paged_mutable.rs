@@ -28,6 +28,7 @@ use crate::core::util::packed::{Format, FormatAndBits, PackedInts, fastest_forma
 pub struct PagedMutable {
   format: Format,
   bits_per_value: i32,
+  fill_pages: bool,
 }
 impl PagedMutable {
   pub fn with_overhead_ratio(
@@ -46,6 +47,7 @@ impl PagedMutable {
     Self {
       format,
       bits_per_value,
+      fill_pages: true,
     }
   }
 }
@@ -57,7 +59,11 @@ impl AbstractPagedMutableBase for PagedMutable {
   }
 
   fn new_unfilled_copy(&self) -> Self {
-    PagedMutable::with_bits_and_format(self.bits_per_value, self.format)
+    PagedMutable {
+      format: self.format,
+      bits_per_value: self.bits_per_value,
+      fill_pages: false,
+    }
   }
 
   fn base_ram_bytes_used_base(&self) -> i64 {
@@ -65,7 +71,7 @@ impl AbstractPagedMutableBase for PagedMutable {
   }
 
   fn fill_pages(&self) -> bool {
-    true
+    self.fill_pages
   }
 
   fn bits_per_value(&self) -> i32 {

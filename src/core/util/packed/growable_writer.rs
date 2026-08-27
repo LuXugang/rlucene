@@ -61,18 +61,15 @@ impl GrowableWriter {
   pub fn get_mutable(&self) -> &impl Mutable {
     &self.current
   }
-  fn ensure_capacity(&mut self, value: i64) {
+  fn ensure_capacity(&mut self, value: i64) -> Result<()> {
     if (value & self.current_mask) == value {
-      return;
+      return Ok(());
     }
     let bits_required = PackedInts::unsigned_bits_required(value);
     debug_assert!(bits_required > self.current.get_bits_per_value());
     let value_count = self.size();
-    let mut next = PackedInts::get_mutable_for_valid_bits(
-      value_count,
-      bits_required,
-      self.acceptable_overhead_ratio,
-    );
+    let mut next =
+      PackedInts::get_mutable(value_count, bits_required, self.acceptable_overhead_ratio)?;
 
     PackedInts::copy(
       &mut self.current,
@@ -81,10 +78,11 @@ impl GrowableWriter {
       0,
       value_count,
       PackedInts::DEFAULT_BUFFER_SIZE,
-    );
+    )?;
 
     self.current = next;
     self.current_mask = Self::mask(self.current.get_bits_per_value());
+    Ok(())
   }
 
   pub fn resize(&mut self, new_size: i32) -> Result<GrowableWriter> {
@@ -101,7 +99,7 @@ impl GrowableWriter {
       0,
       limit,
       PackedInts::DEFAULT_BUFFER_SIZE,
-    );
+    )?;
     Ok(next)
   }
 }
@@ -111,7 +109,7 @@ impl Reader for GrowableWriter {
     self.current.get(index)
   }
 
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> i32 {
+  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
     self.current.get_bulk(index, arr, off, len)
   }
 
@@ -137,28 +135,28 @@ impl Mutable for GrowableWriter {
     self.current.get_bits_per_value()
   }
 
-  fn set(&mut self, index: i32, value: i64) {
-    self.ensure_capacity(value);
-    self.current.set(index, value);
+  fn set(&mut self, index: i32, value: i64) -> Result<()> {
+    self.ensure_capacity(value)?;
+    self.current.set(index, value)
   }
 
-  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> i32 {
+  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
     let mut max = 0i64;
     max |= arr
       .iter()
       .skip(off as usize)
       .take(len as usize)
       .fold(0, |acc, &value| acc | value);
-    self.ensure_capacity(max);
+    self.ensure_capacity(max)?;
     self.current.set_bulk(index, arr, off, len)
   }
 
-  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) {
-    self.ensure_capacity(val);
+  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+    self.ensure_capacity(val)?;
     self.current.fill(from_index, to_index, val)
   }
 
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     self.current.clear()
   }
 }

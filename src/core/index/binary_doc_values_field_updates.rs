@@ -85,8 +85,8 @@ impl Accountable for BinaryDocValuesFieldUpdates {
 
 impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
   fn finish(&mut self) {
-    self.offsets_iter = Some(Arc::new(std::mem::take(&mut self.offsets)));
-    self.lengths_iter = Some(Arc::new(std::mem::take(&mut self.lengths)));
+    self.offsets_iter = Some(Arc::new(self.offsets.take()));
+    self.lengths_iter = Some(Arc::new(self.lengths.take()));
   }
 
   fn add_value(&mut self, _doc: i32, _value: i64, _index: usize) -> Result<()> {
@@ -97,8 +97,8 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 
   fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()> {
     let _guard = self.lock.lock();
-    self.offsets.set(index, self.values.length() as i64);
-    self.lengths.set(index, value.length as i64);
+    self.offsets.set(index, self.values.length() as i64)?;
+    self.lengths.set(index, value.length as i64)?;
     self.values.append(value)?;
     Ok(())
   }
@@ -135,13 +135,13 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     let temp_offset = self.offsets.get(j)?;
     let value = self.offsets.get(i)?;
-    self.offsets.set(j, value);
-    self.offsets.set(i, temp_offset);
+    self.offsets.set(j, value)?;
+    self.offsets.set(i, temp_offset)?;
 
     let tem_length = self.lengths.get(j)?;
     let length = self.lengths.get(i)?;
-    self.lengths.set(j, length);
-    self.lengths.set(i, tem_length);
+    self.lengths.set(j, length)?;
+    self.lengths.set(i, tem_length)?;
     Ok(())
   }
 

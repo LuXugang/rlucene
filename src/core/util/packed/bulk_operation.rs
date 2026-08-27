@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::util::packed::bulk_operation_packed::BulkOperationPacked;
-use crate::core::util::packed::bulk_operation_packed_dummy::BulkOperationPackedDummy;
 use crate::core::util::packed::bulk_operation_packed_enum::BulkOperationPackedEnum;
 use crate::core::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
 use crate::core::util::packed::bulk_operation_packed1::BulkOperationPacked1;
@@ -109,39 +108,67 @@ pub(crate) const PACKED_BULK_OPS: [BulkOperationPackedEnum; 64] = [
   BulkOperationPackedEnum::Packed(BulkOperationPacked::new(63)),
   BulkOperationPackedEnum::Packed(BulkOperationPacked::new(64)),
 ];
-pub(crate) const PACKED_SINGLE_BLOCK_BULK_OPS: [BulkOperationPackedEnum; 32] = [
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(1)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(2)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(3)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(4)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(5)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(6)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(7)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(8)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(9)),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(10)),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(12)),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(16)),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(21)),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::Dummy(BulkOperationPackedDummy::new()),
-  BulkOperationPackedEnum::SinglePacked(BulkOperationPackedSingleBlock::new(32)),
+pub(crate) const PACKED_SINGLE_BLOCK_BULK_OPS: [Option<BulkOperationPackedEnum>; 32] = [
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(1),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(2),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(3),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(4),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(5),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(6),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(7),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(8),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(9),
+  )),
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(10),
+  )),
+  None,
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(12),
+  )),
+  None,
+  None,
+  None,
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(16),
+  )),
+  None,
+  None,
+  None,
+  None,
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(21),
+  )),
+  None,
+  None,
+  None,
+  None,
+  None,
+  None,
+  None,
+  None,
+  None,
+  None,
+  Some(BulkOperationPackedEnum::SinglePacked(
+    BulkOperationPackedSingleBlock::new(32),
+  )),
 ];
 pub(crate) trait BulkOperation: Decoder + Encoder {
   fn write_long(&self, block: u64, blocks: &mut [u8], mut blocks_offset: usize) -> usize {
@@ -188,16 +215,17 @@ pub(crate) trait BulkOperation: Decoder + Encoder {
     }
   }
 }
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::Format;
 
-pub(crate) fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationPackedEnum {
+pub(crate) fn of(format: Format, bits_per_value: i32) -> Result<&'static BulkOperationPackedEnum> {
   match format {
     Format::Packed(..) => {
       debug_assert!(
         bits_per_value > 0 && bits_per_value <= 64,
         "bits_per_value must be between 1 and 64"
       );
-      &PACKED_BULK_OPS[bits_per_value as usize - 1]
+      Ok(&PACKED_BULK_OPS[bits_per_value as usize - 1])
     },
     Format::PackedSingleBlock(..) => {
       debug_assert!(
@@ -206,12 +234,15 @@ pub(crate) fn of(format: Format, bits_per_value: i32) -> &'static BulkOperationP
       );
 
       let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize - 1];
-
       debug_assert!(
-        !matches!(operation, BulkOperationPackedEnum::Dummy(_)),
-        "BulkOperationPackedDummy is not a valid operation"
+        operation.is_some(),
+        "unsupported bits_per_value for PACKED_SINGLE_BLOCK: {bits_per_value}"
       );
-      operation
+      operation.as_ref().ok_or_else(|| {
+        LuceneError::illegal_argument(format!(
+          "unsupported bits_per_value for PACKED_SINGLE_BLOCK: {bits_per_value}"
+        ))
+      })
     },
   }
 }

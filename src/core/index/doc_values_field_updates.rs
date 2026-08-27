@@ -109,8 +109,8 @@ impl DocValuesFieldInner {
   pub(crate) fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     let tmp_doc = self.docs.get(j)?;
     let value_i = self.docs.get(i)?;
-    self.docs.set(j, value_i);
-    self.docs.set(i, tmp_doc);
+    self.docs.set(j, value_i)?;
+    self.docs.set(i, tmp_doc)?;
     Ok(())
   }
 }
@@ -235,7 +235,7 @@ where
         PackedInts::DEFAULT,
       )?;
       for i in 0..inner.size {
-        ords.set(i as i32, i as i64)
+        ords.set(i as i32, i as i64)?;
       }
       let mut sorter = IntroSorterImpl {
         ords: &mut ords,
@@ -246,7 +246,7 @@ where
       };
       sorter.sort(0, size)?;
     }
-    inner.docs_iter = Some(Arc::new(std::mem::take(&mut inner.docs)));
+    inner.docs_iter = Some(Arc::new(inner.docs.take()));
     self.sub_update.finish();
     Ok(())
   }
@@ -290,7 +290,7 @@ where
       self.sub_update.grow(size as i32 + 1)?;
     }
     let value = ((doc as i64) << 1) | has_value_mask;
-    inner.docs.set(size, value);
+    inner.docs.set(size, value)?;
     inner.size += 1;
     Ok(inner.size - 1)
   }
@@ -587,8 +587,8 @@ where
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     let tmp_ord = self.ords.get(i);
     let value = self.ords.get(j);
-    self.ords.set(i.try_convert()?, value);
-    self.ords.set(j.try_convert()?, tmp_ord);
+    self.ords.set(i.try_convert()?, value)?;
+    self.ords.set(j.try_convert()?, tmp_ord)?;
     self.inner.swap(i, j)?;
     self.sub_update.swap(i, j)?;
     Ok(())

@@ -102,7 +102,7 @@ impl NormValuesWriter {
       Some(sort_map) => {
         let dense = sort_map.size() == self.docs_with_field.cardinality();
         let iter = self.docs_with_field.iterator()?;
-        let mut buffer_norms = BufferedNorms::new(&values, iter);
+        let mut buffer_norms = BufferedNorms::new(&values, iter)?;
         let sorted = sort_doc_values(segment_info.max_doc()?, sort_map, &mut buffer_norms, dense)?;
         Some(sorted)
       },
@@ -149,7 +149,7 @@ impl NormsProducer for NormsProducerImpl {
       None => Ok(BufferedSortingNorms::Buffered(BufferedNorms::new(
         &self.values,
         self.docs_with_field.iterator()?,
-      ))),
+      )?)),
     }
   }
 
@@ -165,12 +165,15 @@ pub(crate) struct BufferedNorms {
   value: i64,
 }
 impl BufferedNorms {
-  pub(crate) fn new(values: &PackedLongValues, doc_with_field: DocsWithFieldSetDISI) -> Self {
-    Self {
-      iter: values.iterator(),
+  pub(crate) fn new(
+    values: &PackedLongValues,
+    doc_with_field: DocsWithFieldSetDISI,
+  ) -> Result<Self> {
+    Ok(Self {
+      iter: values.iterator()?,
       doc_with_field,
       value: 0,
-    }
+    })
   }
 }
 
@@ -250,7 +253,7 @@ impl DocIdSetIterator for BufferedNorms {
   fn next_doc(&mut self) -> Result<i32> {
     let doc_id = self.doc_with_field.next_doc()?;
     if doc_id != NO_MORE_DOCS {
-      self.value = self.iter.next_value();
+      self.value = self.iter.next_value()?;
     }
     Ok(doc_id)
   }

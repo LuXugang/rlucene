@@ -146,10 +146,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
         "must be finished before getting doc values",
       ));
     };
-    Ok(BufferedNumericDocValues::new(
-      final_values,
-      self.docs_with_field.iterator()?,
-    ))
+    BufferedNumericDocValues::new(final_values, self.docs_with_field.iterator()?)
   }
 
   fn finish(&mut self, _pool: Arc<ByteBlockPool>) -> Result<()> {
@@ -197,7 +194,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
         SortingNumericDocValues::new(sorted.clone()),
       )),
       None => Ok(BufferedSortingNumericDocValues::Buffered(
-        BufferedNumericDocValues::new(&self.values, self.docs_with_field.iterator()?),
+        BufferedNumericDocValues::new(&self.values, self.docs_with_field.iterator()?)?,
       )),
     }
   }
@@ -216,12 +213,15 @@ pub(crate) struct BufferedNumericDocValues {
   value: i64,
 }
 impl BufferedNumericDocValues {
-  pub(crate) fn new(values: &PackedLongValues, doc_with_field: DocsWithFieldSetDISI) -> Self {
-    Self {
-      iter: values.iterator(),
+  pub(crate) fn new(
+    values: &PackedLongValues,
+    doc_with_field: DocsWithFieldSetDISI,
+  ) -> Result<Self> {
+    Ok(Self {
+      iter: values.iterator()?,
       doc_with_field,
       value: 0,
-    }
+    })
   }
 }
 
@@ -243,7 +243,7 @@ impl DocIdSetIterator for BufferedNumericDocValues {
   fn next_doc(&mut self) -> Result<i32> {
     let doc_id = self.doc_with_field.next_doc()?;
     if doc_id != NO_MORE_DOCS {
-      self.value = self.iter.next_value();
+      self.value = self.iter.next_value()?;
     }
     Ok(doc_id)
   }
@@ -494,7 +494,7 @@ where
   let sorter = if let Some(sort_map) = sort_map {
     let dense = sort_map.size() == docs_with_field.cardinality();
     let iter = docs_with_field.iterator()?;
-    let mut old_values = BufferedNumericDocValues::new(values, iter);
+    let mut old_values = BufferedNumericDocValues::new(values, iter)?;
     let sorted = sort_doc_values(sort_map.size(), sort_map, &mut old_values, dense)?;
     Some(sorted)
   } else {

@@ -197,7 +197,7 @@ impl<T: TimSorterBase> TimSorter<T> {
 
     let len1 = mid - lo;
     self.delegate.save(lo, len1)?;
-    self.delegate.copy(mid, lo);
+    self.delegate.copy(mid, lo)?;
 
     let mut i = 0;
     let mut j = mid + 1;
@@ -214,7 +214,7 @@ impl<T: TimSorterBase> TimSorter<T> {
           dest += 1;
           count = 0;
         } else {
-          self.delegate.copy(j, dest);
+          self.delegate.copy(j, dest)?;
           j += 1;
           dest += 1;
           count += 1;
@@ -224,7 +224,7 @@ impl<T: TimSorterBase> TimSorter<T> {
       // Galloping phase
       let next = self.lower_saved3(j, hi, i)?;
       while j < next {
-        self.delegate.copy(j, dest);
+        self.delegate.copy(j, dest)?;
         j += 1;
         dest += 1;
       }
@@ -248,7 +248,7 @@ impl<T: TimSorterBase> TimSorter<T> {
 
     let len2 = hi - mid;
     self.delegate.save(mid, len2)?;
-    self.delegate.copy(mid - 1, hi - 1);
+    self.delegate.copy(mid - 1, hi - 1)?;
 
     let mut i: i32 = mid as i32 - 2;
     let mut j: i32 = len2 as i32 - 1;
@@ -265,7 +265,7 @@ impl<T: TimSorterBase> TimSorter<T> {
           dest -= 1;
           count = 0;
         } else {
-          self.delegate.copy(i as usize, dest as usize);
+          self.delegate.copy(i as usize, dest as usize)?;
           i -= 1;
           dest -= 1;
           count += 1;
@@ -275,7 +275,7 @@ impl<T: TimSorterBase> TimSorter<T> {
       // Galloping phase
       let next = self.upper_saved3(lo, (i + 1) as usize, j as usize)?;
       while i >= next as i32 {
-        self.delegate.copy(i as usize, dest as usize);
+        self.delegate.copy(i as usize, dest as usize)?;
         i -= 1;
         dest -= 1;
       }
@@ -423,7 +423,7 @@ where
       let mut i: i32 = (lo + len1) as i32 - 1;
       let mut j: i32 = hi as i32 - 1;
       while i >= lo as i32 {
-        self.delegate.copy(i as usize, j as usize);
+        self.delegate.copy(i as usize, j as usize)?;
         i -= 1;
         j -= 1;
       }
@@ -439,7 +439,7 @@ where
       let mut i = mid;
       let mut j = lo;
       while i < hi {
-        self.delegate.copy(i, j);
+        self.delegate.copy(i, j)?;
         i += 1;
         j += 1;
       }
@@ -461,7 +461,7 @@ where
 
 pub trait TimSorterBase: Sorter {
   ///Copy data from slot `src` to slot `dest`
-  fn copy(&mut self, src: usize, dest: usize);
+  fn copy(&mut self, src: usize, dest: usize) -> Result<()>;
 
   /// Save all elements between slots i and `i+len` into the temporary
   /// storage.

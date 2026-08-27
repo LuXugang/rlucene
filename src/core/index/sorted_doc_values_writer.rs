@@ -517,13 +517,13 @@ impl DocValuesWriter for SortedDocValuesWriter {
         "must be finished before getting doc values",
       ));
     };
-    Ok(BufferedSortedDocValues::new(
+    BufferedSortedDocValues::new(
       frozen_hash.clone(),
       self.pool.clone(),
       final_ords,
       final_ord_map.clone(),
       self.docs_with_field.iterator()?,
-    ))
+    )
   }
 
   fn finish(&mut self, pool: Arc<ByteBlockPool>) -> Result<()> {
@@ -601,7 +601,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
       &self.ords,
       self.ord_map.clone(),
       self.docs_with_field.iterator()?,
-    );
+    )?;
     match self.sorted.as_ref() {
       Some(sorted) => Ok(SortedDocValuesWriterValues::Sorting(
         SortingSortedDocValues::new(buf, sorted.clone()),
@@ -632,16 +632,16 @@ impl<D> BufferedSortedDocValues<D> {
     doc_to_ord: &PackedLongValues,
     ord_map: Arc<Vec<i32>>,
     docs_with_field: D,
-  ) -> Self {
-    Self {
+  ) -> Result<Self> {
+    Ok(Self {
       hash,
       pool,
       scratch: BytesRef::new(),
       ord_map,
       ord: -1,
-      iter: doc_to_ord.iterator(),
+      iter: doc_to_ord.iterator()?,
       docs_with_field,
-    }
+    })
   }
 }
 
@@ -671,7 +671,7 @@ where
   fn next_doc(&mut self) -> Result<i32> {
     let doc_id = self.docs_with_field.next_doc()?;
     if doc_id != NO_MORE_DOCS {
-      let raw_ord: i32 = self.iter.next_value().try_convert()?;
+      let raw_ord: i32 = self.iter.next_value()?.try_convert()?;
       let mapped = self.ord_map[raw_ord as usize];
       self.ord = mapped;
     }
@@ -833,7 +833,7 @@ where
       &ords,
       ord_map.clone(),
       docs_iter,
-    );
+    )?;
     Some(Arc::new(SortedDocValuesWriter::sort_doc_values(
       sort_map.size() as usize,
       sort_map,
