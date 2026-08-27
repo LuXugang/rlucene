@@ -99,7 +99,7 @@ pub trait BaseLiveDocsFormatTestCase {
             break;
           }
         }
-        live_docs.clear_with_index(clear_bit as usize);
+        live_docs.clear_with_index(clear_bit as usize)?;
       }
     } else {
       for _ in 0..num_live_docs {
@@ -110,7 +110,7 @@ pub trait BaseLiveDocsFormatTestCase {
             break;
           }
         }
-        live_docs.set(set_bit as usize);
+        live_docs.set(set_bit as usize)?;
       }
     }
     let bits = if fixed_bit_set {

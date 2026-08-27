@@ -371,7 +371,7 @@ where
   while new_doc_id != NO_MORE_DOCS && new_doc_id <= max_new_doc_id {
     if let Some(&old_ordinal) = new_id_to_old_ordinal.get(&new_doc_id) {
       let new_ord = merged_vector_iterator.index()? as usize;
-      initialized_nodes.set(new_ord);
+      initialized_nodes.set(new_ord)?;
       old_to_new_ordinal_map[old_ordinal] = new_ord;
     }
     new_doc_id = merged_vector_iterator.next_doc()?;

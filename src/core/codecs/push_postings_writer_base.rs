@@ -146,7 +146,7 @@ where
         break;
       }
       doc_freq += 1;
-      docs_seen.set(doc_id as usize);
+      docs_seen.set(doc_id as usize)?;
 
       let freq = if self.options.write_freqs {
         let f = postings_enum.freq()?;

@@ -62,7 +62,7 @@ impl RunAutomaton {
     let mut transition = Transition::default();
     for n in 0..size {
       if automaton.is_accept(n) {
-        accept.set(n as usize);
+        accept.set(n as usize)?;
       }
       transition.source = n;
       transition.transition_upto = -1;

@@ -1048,12 +1048,12 @@ where
       )?;
       jump_block_index = (prev_block + 1) as usize;
       buffer = flush(prev_block, buffer, block_cardinality, dense_rank_power, out)?;
-      buffer.clear();
+      buffer.clear()?;
       total_cardinality += block_cardinality;
       block_cardinality = 0;
     }
 
-    buffer.set((doc & 0xFFFF).try_convert()?);
+    buffer.set((doc & 0xFFFF).try_convert()?)?;
     block_cardinality += 1;
     prev_block = block;
 
@@ -1070,7 +1070,7 @@ where
     )?;
     total_cardinality += block_cardinality;
     buffer = flush(prev_block, buffer, block_cardinality, dense_rank_power, out)?;
-    buffer.clear();
+    buffer.clear()?;
     prev_block += 1;
   }
 
@@ -1094,7 +1094,7 @@ where
     last_block + 1,
   )?;
 
-  buffer.set((NO_MORE_DOCS & 0xFFFF) as usize);
+  buffer.set((NO_MORE_DOCS & 0xFFFF) as usize)?;
   let _ = flush(NO_MORE_DOCS >> 16, buffer, 1, dense_rank_power, out)?;
 
   flush_block_jumps(&jumps, last_block + 1, out)

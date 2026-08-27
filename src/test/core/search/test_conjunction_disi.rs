@@ -75,7 +75,7 @@ where
 {
   ScorerImpl::new(two_phase_iterator)
 }
-fn random_set<R>(random: &mut R, max_doc: usize) -> FixedBitSet
+fn random_set<R>(random: &mut R, max_doc: usize) -> Result<FixedBitSet>
 where
   R: Rng + ?Sized,
 {
@@ -84,13 +84,13 @@ where
 
   let mut doc = random.random_range(0..step);
   while doc < max_doc {
-    set.set(doc);
+    set.set(doc)?;
     doc += TestUtil::next_usize(random, 1, step);
   }
 
-  set
+  Ok(set)
 }
-fn clear_random_bits<R>(random: &mut R, other: &FixedBitSet) -> FixedBitSet
+fn clear_random_bits<R>(random: &mut R, other: &FixedBitSet) -> Result<FixedBitSet>
 where
   R: Rng + ?Sized,
 {
@@ -100,11 +100,11 @@ where
 
   for i in 0..set.length() {
     if random.random_bool(0.5) {
-      set.clear_with_index(i);
+      set.clear_with_index(i)?;
     }
   }
 
-  set
+  Ok(set)
 }
 fn intersect(bit_sets: &[Arc<FixedBitSet>]) -> FixedBitSet {
   let mut intersection = FixedBitSet::new(bit_sets[0].length());
@@ -131,7 +131,7 @@ fn test_conjunction() -> Result<()> {
     let mut iterators = Vec::with_capacity(num_iterators);
 
     for _ in 0..num_iterators {
-      let set = Arc::new(random_set(&mut random, max_doc));
+      let set = Arc::new(random_set(&mut random, max_doc)?);
 
       match random.random_range(0..3) {
         0 => {
@@ -154,7 +154,7 @@ fn test_conjunction() -> Result<()> {
         },
         _ => {
           // two-phase iterator
-          let confirmed = Arc::new(clear_random_bits(&mut random, &set));
+          let confirmed = Arc::new(clear_random_bits(&mut random, &set)?);
           sets.push(confirmed.clone());
 
           let approx = approximation(
@@ -209,7 +209,7 @@ fn test_conjunction_approximation() -> Result<()> {
     let mut has_approximation = false;
 
     for _ in 0..num_iterators {
-      let set = Arc::new(random_set(&mut random, max_doc));
+      let set = Arc::new(random_set(&mut random, max_doc)?);
 
       if random.random_bool(0.5) {
         // simple iterator
@@ -221,7 +221,7 @@ fn test_conjunction_approximation() -> Result<()> {
         iterators.push(ScorerEnum2::A(scorer));
       } else {
         // scorer with approximation
-        let confirmed = Arc::new(clear_random_bits(&mut random, &set));
+        let confirmed = Arc::new(clear_random_bits(&mut random, &set)?);
         sets.push(confirmed.clone());
 
         let approx = approximation(
@@ -271,7 +271,7 @@ fn test_recursive_conjunction_approximation() -> Result<()> {
     let mut has_approximation = false;
 
     for _ in 0..num_iterators {
-      let set = Arc::new(random_set(&mut random, max_doc));
+      let set = Arc::new(random_set(&mut random, max_doc)?);
       let new_iterator: Box<dyn Scorer> = match random.random_range(0..3) {
         0 => {
           sets.push(set.clone());
@@ -292,7 +292,7 @@ fn test_recursive_conjunction_approximation() -> Result<()> {
           ))
         },
         _ => {
-          let confirmed = Arc::new(clear_random_bits(&mut random, &set));
+          let confirmed = Arc::new(clear_random_bits(&mut random, &set)?);
           sets.push(confirmed.clone());
           let approximation = approximation(
             &mut random,
@@ -346,7 +346,7 @@ where
 
   let mut doc = iterator.next_doc()?;
   while doc != NO_MORE_DOCS {
-    set.set(doc as usize);
+    set.set(doc as usize)?;
     doc = iterator.next_doc()?;
   }
 
@@ -372,7 +372,7 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
     let mut scorers: Vec<Box<dyn Scorer>> = Vec::with_capacity(num_iterators);
 
     for _ in 0..num_iterators {
-      let set = Arc::new(random_set(&mut random, max_doc));
+      let set = Arc::new(random_set(&mut random, max_doc)?);
       if random.random_bool(0.5) {
         sets.push(set.clone());
         scorers.push(Box::new(ConstantScoreScorer::from_disi(
@@ -381,7 +381,7 @@ fn test_collapse_sub_conjunctions(wrap_with_scorer: bool) -> Result<()> {
           BitDocIdSet::new(Some(set))?.iterator()?,
         )));
       } else {
-        let confirmed = Arc::new(clear_random_bits(&mut random, &set));
+        let confirmed = Arc::new(clear_random_bits(&mut random, &set)?);
         sets.push(confirmed.clone());
         scorers.push(Box::new(scorer(approximation(
           &mut random,
@@ -469,7 +469,7 @@ fn test_illegal_advancement_of_sub_iterators_trips_assertion() -> Result<()> {
   let max_doc = 100;
   let num_iterators = TestUtil::next_usize(&mut random, 2, 5);
 
-  let set = Arc::new(random_set(&mut random, max_doc));
+  let set = Arc::new(random_set(&mut random, max_doc)?);
 
   let mut iterators = Vec::with_capacity(num_iterators);
   for _ in 0..num_iterators {

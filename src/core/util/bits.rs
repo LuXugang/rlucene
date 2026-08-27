@@ -46,7 +46,7 @@ pub trait Bits: HasIdentity {
     bit_set.set_with_range(0, length);
     for i in 0..length {
       if !self.get(i)? {
-        bit_set.clear_with_index(i);
+        bit_set.clear_with_index(i)?;
       }
     }
     Ok(bit_set)

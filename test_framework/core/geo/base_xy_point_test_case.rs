@@ -1238,7 +1238,7 @@ pub trait BaseXYPointTestCase {
           .unwrap();
         let distance = Self::cartesian_distance(x as f64, y as f64, doc_x as f64, doc_y as f64);
         if distance <= radius as f64 {
-          expected.set(doc as usize);
+          expected.set(doc as usize)?;
         }
       }
 
@@ -1252,7 +1252,7 @@ pub trait BaseXYPointTestCase {
 
       let mut actual = FixedBitSet::new(max_doc as usize);
       for score_doc in top_docs.score_docs() {
-        actual.set(score_doc.doc() as usize);
+        actual.set(score_doc.doc() as usize)?;
       }
 
       if expected != actual {

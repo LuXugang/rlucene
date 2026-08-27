@@ -76,7 +76,7 @@ impl Collector for FixedBitSetCollector {
 
 impl LeafCollector for FixedBitSetCollector {
   fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-    self.bit_set.set((self.doc_base + doc) as usize);
+    self.bit_set.set((self.doc_base + doc) as usize)?;
     Ok(())
   }
 }

@@ -426,14 +426,15 @@ impl Accountable for SparseFixedBitSet {
   }
 }
 impl BitSet for SparseFixedBitSet {
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     self.bits.fill(Vec::new());
     self.indices.fill(0);
     self.non_zero_long_count = 0;
     self.ram_bytes_used = size_of_vec(&self.indices).saturating_add(size_of_vec(&self.bits));
+    Ok(())
   }
 
-  fn set(&mut self, i: usize) {
+  fn set(&mut self, i: usize) -> Result<()> {
     debug_assert!(self.consistent(i));
     let i4096 = i >> 12;
     let index = self.indices[i4096];
@@ -457,9 +458,10 @@ impl BitSet for SparseFixedBitSet {
       // in has no value yet, so we need to insert a new long
       self.insert_long(i4096, i64bit as usize, i, index);
     }
+    Ok(())
   }
 
-  fn get_and_set(&mut self, i: usize) -> bool {
+  fn get_and_set(&mut self, i: usize) -> Result<bool> {
     debug_assert!(self.consistent(i));
     let i4096 = i >> 12;
     let index = self.indices[i4096];
@@ -474,33 +476,34 @@ impl BitSet for SparseFixedBitSet {
       let bit = 1_u64 << (i % 64);
       let v = self.bits[i4096][location] & bit != 0;
       self.bits[i4096][location] |= bit;
-      v
+      Ok(v)
     } else if index == 0 {
       // if the index is 0, it means that we just found a block of 4096
       // bits that has no bit that is set yet. So let's
       // initialize a new block:
       self.insert_block(i4096, i64bit as usize, i);
-      false
+      Ok(false)
     } else {
       // in that case we found a block of 4096 bits that has some values,
       // but the sub-block of 64 bits that we are interested
       // in has no value yet, so we need to insert a new long
       self.insert_long(i4096, i64bit as usize, i, index);
-      false
+      Ok(false)
     }
   }
 
-  fn clear_with_index(&mut self, i: usize) {
+  fn clear_with_index(&mut self, i: usize) -> Result<()> {
     debug_assert!(self.consistent(i));
     let i4096 = i >> 12;
     let i64 = i >> 6;
     self.and(i4096, i64, !(1_usize << (i % 64)));
+    Ok(())
   }
 
-  fn clear_range(&mut self, from: usize, to: usize) {
+  fn clear_range(&mut self, from: usize, to: usize) -> Result<()> {
     debug_assert!(to <= self.length);
     if from >= to {
-      return;
+      return Ok(());
     }
     let first_block = from >> 12;
     let last_block = (to - 1) >> 12;
@@ -516,6 +519,7 @@ impl BitSet for SparseFixedBitSet {
       }
       self.clear_within_block(last_block, 0, (to - 1) & MASK_4096);
     }
+    Ok(())
   }
 
   fn cardinality(&self) -> usize {

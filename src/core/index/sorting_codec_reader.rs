@@ -1970,7 +1970,7 @@ where
       break;
     }
     let new_doc_id = doc_map.old_to_new(doc_id)? as usize;
-    docs_with_field.set(new_doc_id);
+    docs_with_field.set(new_doc_id)?;
     values[new_doc_id] = old_numerics.long_value()?;
     doc_id = old_numerics.next_doc()?;
   }
@@ -4393,7 +4393,7 @@ where
     if new_doc_id != -1 {
       let new_doc_id = new_doc_id as usize;
       doc_to_ord[new_doc_id] = iter.index()? as usize;
-      doc_bits.set(new_doc_id);
+      doc_bits.set(new_doc_id)?;
       count += 1;
     }
     doc = iter.next_doc()?;

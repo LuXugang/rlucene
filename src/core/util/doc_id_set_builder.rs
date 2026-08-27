@@ -99,7 +99,7 @@ impl DocIdSetBuilder {
   }
   pub fn add_disi(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
     let cost = std::cmp::min(iter.cost()?, i32::MAX as i64);
-    self.grow(cost as i32);
+    self.grow(cost as i32)?;
     if let Some(bit_set) = self.bit_set.as_mut() {
       BitSet::or(bit_set, iter)?;
       return Ok(());
@@ -109,44 +109,47 @@ impl DocIdSetBuilder {
       if doc == NO_MORE_DOCS {
         return Ok(());
       }
-      self.add_doc(doc);
+      self.add_doc(doc)?;
     }
     let mut doc = iter.next_doc()?;
     while doc != NO_MORE_DOCS {
-      self.grow(1);
-      self.add_doc(doc);
+      self.grow(1)?;
+      self.add_doc(doc)?;
       doc = iter.next_doc()?;
     }
     Ok(())
   }
-  pub fn add_doc(&mut self, doc: i32) {
+  pub fn add_doc(&mut self, doc: i32) -> Result<()> {
     if let Some(bit_set) = self.bit_set.as_mut() {
-      bit_set.set(doc as usize);
+      bit_set.set(doc as usize)?;
     } else {
       self.buffer.push(doc);
     }
+    Ok(())
   }
-  pub fn grow(&mut self, num_docs: i32) {
+  pub fn grow(&mut self, num_docs: i32) -> Result<()> {
     if self.bit_set.is_none() {
       if self.buffer.len() as i32 + num_docs > self.threshold {
-        self.upgrade_to_bitset();
+        self.upgrade_to_bitset()?;
         self.counter += num_docs as i64;
       }
     } else {
       self.counter += num_docs as i64;
     }
+    Ok(())
   }
-  fn upgrade_to_bitset(&mut self) {
+  fn upgrade_to_bitset(&mut self) -> Result<()> {
     debug_assert!(self.bit_set.is_none());
     let mut bitset = FixedBitSet::new(self.max_doc as usize);
     let mut counter = 0i64;
     for doc in self.buffer.iter() {
-      bitset.set(*doc as usize);
+      bitset.set(*doc as usize)?;
       counter += 1;
     }
     self.bit_set = Some(bitset);
     self.counter = counter;
     self.buffer.clear();
+    Ok(())
   }
   pub fn build(&mut self) -> Result<DocIdSetBuilderEnum> {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

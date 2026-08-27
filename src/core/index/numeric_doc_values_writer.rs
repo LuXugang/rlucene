@@ -474,7 +474,7 @@ where
 
     let new_doc_id = sort_map.old_to_new(doc_id)?;
     if let Some(bits) = &mut docs_with_field {
-      bits.set(new_doc_id as usize);
+      bits.set(new_doc_id as usize)?;
     }
 
     values[new_doc_id as usize] = old_doc_values.long_value()?;

@@ -108,7 +108,7 @@ fn check_expecteds(dir: Arc<DirEnum>, expecteds: &mut FixedBitSet) -> Result<()>
     if is_live && let Some(value) = stored_fields.document(i)?.get(FIELD_RECORD_ID)? {
       let value = value.parse::<usize>()?;
       assert!(expecteds.get(value)?, "Did not expect document #{value}");
-      expecteds.clear_with_index(value);
+      expecteds.clear_with_index(value)?;
     }
   }
   reader.close()?;

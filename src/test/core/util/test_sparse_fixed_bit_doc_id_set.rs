@@ -55,14 +55,14 @@ impl BaseDocIdSetTestCase for TestSparseFixedBitDocIdSet {
       if buffer.len() >= 100_000 {
         buffer.shuffle(random);
         for &i in &buffer {
-          set.set(i);
+          set.set(i)?;
         }
         buffer.clear();
       }
     }
     buffer.shuffle(random);
     for i in buffer {
-      set.set(i);
+      set.set(i)?;
     }
     let cost = set.approximate_cardinality() as i64;
     BitDocIdSet::with_cost(Some(Arc::new(set)), cost)

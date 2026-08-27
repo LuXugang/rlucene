@@ -625,12 +625,12 @@ impl MergePointVisitor {
 
 impl IntersectVisitor for MergePointVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?);
+    self.result.grow(count.try_convert()?)?;
     Ok(())
   }
 
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.add_doc(doc_id);
+    self.result.add_doc(doc_id)?;
     Ok(())
   }
 
@@ -721,12 +721,12 @@ impl SinglePointVisitor {
 
 impl IntersectVisitor for SinglePointVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?);
+    self.result.grow(count.try_convert()?)?;
     Ok(())
   }
 
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.add_doc(doc_id);
+    self.result.add_doc(doc_id)?;
     Ok(())
   }
 

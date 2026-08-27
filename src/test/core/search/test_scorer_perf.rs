@@ -57,27 +57,31 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestScorerPerf;
 
-fn rand_bit_set<R>(random: &mut R, sz: usize, num_bits_to_set: usize) -> FixedBitSet
+fn rand_bit_set<R>(random: &mut R, sz: usize, num_bits_to_set: usize) -> Result<FixedBitSet>
 where
   R: Rng + ?Sized,
 {
   let mut set = FixedBitSet::new(sz);
   for _ in 0..num_bits_to_set {
-    set.set(random.random_range(0..sz));
+    set.set(random.random_range(0..sz))?;
   }
-  set
+  Ok(set)
 }
 
-fn rand_bit_sets<R>(random: &mut R, num_sets: usize, set_size: usize) -> Vec<Arc<FixedBitSet>>
+fn rand_bit_sets<R>(
+  random: &mut R,
+  num_sets: usize,
+  set_size: usize,
+) -> Result<Vec<Arc<FixedBitSet>>>
 where
   R: Rng + ?Sized,
 {
   let mut sets = Vec::with_capacity(num_sets);
   for _ in 0..num_sets {
     let num_bits_to_set = random.random_range(0..set_size);
-    sets.push(Arc::new(rand_bit_set(random, set_size, num_bits_to_set)));
+    sets.push(Arc::new(rand_bit_set(random, set_size, num_bits_to_set)?));
   }
-  sets
+  Ok(sets)
 }
 
 fn add_clause<R>(
@@ -196,7 +200,7 @@ fn test_conjunctions() -> Result<()> {
   s.set_query_cache(None);
   let num_sets = at_least_usize(&mut random, 1000);
   let set_size = at_least_usize(&mut random, 10);
-  let sets = rand_bit_sets(&mut random, num_sets, set_size);
+  let sets = rand_bit_sets(&mut random, num_sets, set_size)?;
   let iterations = if is_night_mode() {
     at_least_usize(&mut random, 10000)
   } else {

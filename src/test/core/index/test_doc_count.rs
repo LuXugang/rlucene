@@ -111,7 +111,7 @@ where
     while te.next()?.is_some() {
       let mut de = TestUtil::docs(random, &mut te, None, NONE as i32)?;
       while de.next_doc()? != NO_MORE_DOCS {
-        visited.set(de.doc_id() as usize);
+        visited.set(de.doc_id() as usize)?;
       }
     }
 

@@ -817,12 +817,12 @@ where
   V: SpatialVisitor,
 {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count as i32);
+    self.result.grow(count as i32)?;
     Ok(())
   }
 
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.add_doc(doc_id);
+    self.result.add_doc(doc_id)?;
     Ok(())
   }
 
@@ -897,7 +897,7 @@ where
   V: SpatialVisitor,
 {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.set(doc_id as usize);
+    self.result.set(doc_id as usize)?;
     self.cost += 1;
     Ok(())
   }
@@ -978,7 +978,7 @@ where
   V: SpatialVisitor,
 {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.set(doc_id as usize);
+    self.result.set(doc_id as usize)?;
     self.cost += 1;
     Ok(())
   }
@@ -997,7 +997,7 @@ where
       {
         self.visit(doc_id)?;
       } else {
-        self.excluded.set(doc_id as usize);
+        self.excluded.set(doc_id as usize)?;
       }
     }
     Ok(())
@@ -1064,7 +1064,7 @@ where
   V: SpatialVisitor,
 {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.excluded.set(doc_id as usize);
+    self.excluded.set(doc_id as usize)?;
     Ok(())
   }
 
@@ -1077,9 +1077,9 @@ where
       match self.spatial_visitor.contains(packed_value)? {
         WithinRelation::Candidate => {
           self.cost += 1;
-          self.result.set(doc_id as usize);
+          self.result.set(doc_id as usize)?;
         },
-        WithinRelation::NotWithin => self.excluded.set(doc_id as usize),
+        WithinRelation::NotWithin => self.excluded.set(doc_id as usize)?,
         WithinRelation::Disjoint => {},
       }
     }
@@ -1100,9 +1100,9 @@ where
       match within {
         WithinRelation::Candidate => {
           self.cost += 1;
-          self.result.set(doc_id as usize);
+          self.result.set(doc_id as usize)?;
         },
-        WithinRelation::NotWithin => self.excluded.set(doc_id as usize),
+        WithinRelation::NotWithin => self.excluded.set(doc_id as usize)?,
         WithinRelation::Disjoint => {},
       }
     }
@@ -1152,7 +1152,7 @@ where
   V: SpatialVisitor,
 {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.clear_with_index(doc_id as usize);
+    self.result.clear_with_index(doc_id as usize)?;
     self.cost -= 1;
     Ok(())
   }
@@ -1228,7 +1228,7 @@ where
   V: SpatialVisitor,
 {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.clear_with_index(doc_id as usize);
+    self.result.clear_with_index(doc_id as usize)?;
     Ok(())
   }
 

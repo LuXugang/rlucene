@@ -220,7 +220,7 @@ fn is_rooted_with_level(nodes: &[Vec<Option<Vec<usize>>>], level: usize) -> Resu
       if connected.get(node)? {
         continue;
       }
-      connected.set(node);
+      connected.set(node)?;
       count += 1;
 
       if let Some(neighbors) = nodes[level][node].as_ref() {

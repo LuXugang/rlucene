@@ -207,7 +207,7 @@ fn test_with_sort() -> Result<()> {
     bitset.set_with_range(0, tot_doc_count);
     let delete_attempts = TestUtil::next_int(&mut random, 1, tot_doc_count as i32);
     for _ in 0..delete_attempts {
-      bitset.clear_with_index(random.random_range(0..tot_doc_count));
+      bitset.clear_with_index(random.random_range(0..tot_doc_count))?;
     }
     live_docs = Some(Rc::new(bitset));
   }

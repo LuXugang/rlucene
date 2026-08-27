@@ -209,7 +209,7 @@ where
       if k_usize != k0 {
         FixedBitSet::ensure_capacity(&mut bits, k_usize)?;
         // mark that pp2 need to be re-queued
-        bits.set(k_usize);
+        bits.set(k_usize)?;
       }
     }
 
@@ -229,7 +229,7 @@ where
       if self.pq.compare.phrase_positions[pp2_idx].rpt_group >= 0 {
         let ind = self.pq.compare.phrase_positions[pp2_idx].rpt_ind;
         if (ind) < num_bits && bits.get(ind)? {
-          bits.clear_with_index(ind);
+          bits.clear_with_index(ind)?;
         }
       }
     }
@@ -494,7 +494,7 @@ where
       }
     } else {
       // more involved - has multi-terms
-      let mut bb = self.pp_terms_bit_sets(&rpp, rpt_terms);
+      let mut bb = self.pp_terms_bit_sets(&rpp, rpt_terms)?;
       self.union_term_groups(&mut bb);
 
       let tg = self.term_groups(rpt_terms, bb)?;
@@ -581,7 +581,11 @@ where
   }
   /// bit-sets - for each repeating pp, for each of its repeating terms,
   /// the term ordinal values is set
-  fn pp_terms_bit_sets(&self, rpp: &[usize], tord: &LinkedHashMap<Term, i32>) -> Vec<FixedBitSet> {
+  fn pp_terms_bit_sets(
+    &self,
+    rpp: &[usize],
+    tord: &LinkedHashMap<Term, i32>,
+  ) -> Result<Vec<FixedBitSet>> {
     let mut bb = Vec::with_capacity(rpp.len());
 
     for &pp_idx in rpp {
@@ -590,14 +594,14 @@ where
       let pp = &self.pq.compare.phrase_positions[pp_idx];
       for t in &pp.terms {
         if let Some(&ord) = tord.get(t) {
-          b.set(ord as usize);
+          b.set(ord as usize)?;
         }
       }
 
       bb.push(b);
     }
 
-    bb
+    Ok(bb)
   }
   /// union (term group) bit-sets until they are disjoint (O(n^^2)),
   /// and each group have different terms

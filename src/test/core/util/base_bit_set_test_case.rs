@@ -74,7 +74,7 @@ pub trait BaseBitSetTestCase {
     &self,
     bs: &RustUtilBitSet,
     length: usize,
-  ) -> (Self::TestBitSet, Option<SparseFixedBitSet>);
+  ) -> Result<(Self::TestBitSet, Option<SparseFixedBitSet>)>;
   fn assert_equals(
     &self,
     set1: &RustUtilBitSet,
@@ -82,18 +82,19 @@ pub trait BaseBitSetTestCase {
     max_doc: usize,
     sfbs: Option<&SparseFixedBitSet>,
   );
-  fn test_cardinality<R>(&mut self, random: &mut R)
+  fn test_cardinality<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     let num_bits = 1 + random.random_range(0..100000);
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
-      let (set2, _sfbs) = self.copy_of(&set1, num_bits);
+      let (set2, _sfbs) = self.copy_of(&set1, num_bits)?;
       assert_eq!(set1.cardinality(), set2.cardinality());
     }
+    Ok(())
   }
-  fn test_prev_set_bit<R>(&mut self, random: &mut R)
+  fn test_prev_set_bit<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
@@ -101,13 +102,14 @@ pub trait BaseBitSetTestCase {
     let num_bits = 1 + random.random_range(0..1000);
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
-      let (set2, _sfbs) = self.copy_of(&set1, num_bits);
+      let (set2, _sfbs) = self.copy_of(&set1, num_bits)?;
       for i in 0..num_bits {
         assert_eq!(set1.prev_set_bit(i), set2.prev_set_bit(i));
       }
     }
+    Ok(())
   }
-  fn test_next_set_bit<R>(&mut self, random: &mut R)
+  fn test_next_set_bit<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
@@ -115,13 +117,14 @@ pub trait BaseBitSetTestCase {
     let num_bits = 1 + random.random_range(0..1000);
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
-      let (set2, _sfbs) = self.copy_of(&set1, num_bits);
+      let (set2, _sfbs) = self.copy_of(&set1, num_bits)?;
       for i in 0..num_bits {
         assert_eq!(set1.next_set_bit(i), set2.next_set_bit(i));
       }
     }
+    Ok(())
   }
-  fn test_next_set_bit_in_range<R>(&mut self, random: &mut R)
+  fn test_next_set_bit_in_range<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
@@ -129,7 +132,7 @@ pub trait BaseBitSetTestCase {
     let num_bits = 1 + random.random_range(0..1000);
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set1 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
-      let (set2, _sfbs) = self.copy_of(&set1, num_bits);
+      let (set2, _sfbs) = self.copy_of(&set1, num_bits)?;
       for start in 0..num_bits {
         let end = if start + 1 == num_bits {
           num_bits
@@ -146,41 +149,44 @@ pub trait BaseBitSetTestCase {
         );
       }
     }
+    Ok(())
   }
-  fn test_set<R>(&self, random: &mut R)
+  fn test_set<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     let num_bits = 1 + random.random_range(0..100000) as usize;
     let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
     let mut set1 = set3.clone();
-    let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
+    let (mut set2, sfbs) = self.copy_of(&set3, num_bits)?;
     let iters = 10000 + random.random_range(0..10000);
     for _i in 0..iters {
       let index = random.random_range(0..num_bits);
-      set1.set(index);
-      set2.set(index);
+      set1.set(index)?;
+      set2.set(index)?;
     }
     self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
+    Ok(())
   }
-  fn test_get_and_set<R>(&self, random: &mut R)
+  fn test_get_and_set<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     let num_bits = 1 + random.random_range(0..100000);
     let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
     let mut set1 = set3.clone();
-    let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
+    let (mut set2, sfbs) = self.copy_of(&set3, num_bits)?;
     let iters = 10000 + random.random_range(0..10000);
     for _i in 0..iters {
       let index = random.random_range(0..num_bits);
-      let v1 = set1.get_and_set(index);
-      let v2 = set2.get_and_set(index);
+      let v1 = set1.get_and_set(index)?;
+      let v2 = set2.get_and_set(index)?;
       assert_eq!(v1, v2);
     }
     self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
+    Ok(())
   }
-  fn test_clear<R>(&mut self, random: &mut R)
+  fn test_clear<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
@@ -188,17 +194,18 @@ pub trait BaseBitSetTestCase {
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
       let mut set1 = set3.clone();
-      let (mut set2, _sfbs) = self.copy_of(&set3, num_bits);
+      let (mut set2, _sfbs) = self.copy_of(&set3, num_bits)?;
       let iters = 1 + random.random_range(0..(num_bits * 2));
       for _i in 0..iters {
         let index = random.random_range(0..num_bits);
-        set1.clear_with_index(index);
-        set2.clear_with_index(index);
+        set1.clear_with_index(index)?;
+        set2.clear_with_index(index)?;
       }
     }
+    Ok(())
   }
 
-  fn test_clear_range<R>(&self, random: &mut R)
+  fn test_clear_range<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
@@ -206,18 +213,19 @@ pub trait BaseBitSetTestCase {
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
       let mut set1 = set3.clone();
-      let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
+      let (mut set2, sfbs) = self.copy_of(&set3, num_bits)?;
       let iters = at_least(random, 10);
       for _i in 0..iters {
         let from = random.random_range(0..num_bits);
         let to = random.random_range(0..(num_bits + 1));
-        set1.clear_range(from, to);
-        set2.clear_range(from, to);
+        set1.clear_range(from, to)?;
+        set2.clear_range(from, to)?;
         self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
       }
     }
+    Ok(())
   }
-  fn test_clear_all<R>(&self, random: &mut R)
+  fn test_clear_all<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
@@ -225,14 +233,15 @@ pub trait BaseBitSetTestCase {
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
       let mut set1 = set3.clone();
-      let (mut set2, sfbs) = self.copy_of(&set3, num_bits);
+      let (mut set2, sfbs) = self.copy_of(&set3, num_bits)?;
       let iters = at_least(random, 10);
       for _i in 0..iters {
-        set1.clear();
-        set2.clear();
+        set1.clear()?;
+        set2.clear()?;
         self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
       }
     }
+    Ok(())
   }
 
   fn test_or_sparse<R>(&mut self, random: &mut R) -> Result<()>
@@ -269,7 +278,7 @@ pub trait BaseBitSetTestCase {
         set.cardinality() as i64,
       )?)),
       1 => {
-        let (copy, _) = self.copy_of(set, num_bits);
+        let (copy, _) = self.copy_of(set, num_bits)?;
         Ok(RandomCopyDocIdSet::Test(BitDocIdSet::with_cost(
           Some(Arc::new(copy)),
           set.cardinality() as i64,
@@ -315,7 +324,7 @@ pub trait BaseBitSetTestCase {
     let num_bits = 1 + random.random_range(0..100000);
     let set1 = RustUtilBitSet::new(random_set(random, num_bits, 0.0), num_bits);
     let mut expected = set1.clone();
-    let (mut actual, sfbs) = self.copy_of(&set1, num_bits);
+    let (mut actual, sfbs) = self.copy_of(&set1, num_bits)?;
 
     let iterations = at_least(random, 10);
     for _ in 0..iterations {
@@ -474,35 +483,39 @@ impl Accountable for RustUtilBitSet {
 }
 
 impl BitSet for RustUtilBitSet {
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     self.bitset.make_empty();
     self.index_hash_set.clear();
+    Ok(())
   }
 
-  fn set(&mut self, i: usize) {
+  fn set(&mut self, i: usize) -> Result<()> {
     self.bitset.insert(i);
     self.index_hash_set.insert(i);
+    Ok(())
   }
 
-  fn get_and_set(&mut self, i: usize) -> bool {
-    let v = self.get(i).unwrap_or(false);
-    self.set(i);
-    v
+  fn get_and_set(&mut self, i: usize) -> Result<bool> {
+    let v = self.get(i)?;
+    self.set(i)?;
+    Ok(v)
   }
 
-  fn clear_with_index(&mut self, i: usize) {
+  fn clear_with_index(&mut self, i: usize) -> Result<()> {
     self.bitset.remove(i);
     self.index_hash_set.remove(&i);
+    Ok(())
   }
 
-  fn clear_range(&mut self, start_index: usize, end_index: usize) {
+  fn clear_range(&mut self, start_index: usize, end_index: usize) -> Result<()> {
     if start_index >= end_index {
-      return;
+      return Ok(());
     }
     clear_range(&mut self.bitset, start_index, end_index);
     self
       .index_hash_set
       .retain(|index| *index < start_index || *index >= end_index);
+    Ok(())
   }
 
   fn cardinality(&self) -> usize {

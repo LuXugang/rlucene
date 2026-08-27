@@ -472,7 +472,7 @@ pub trait BaseNormsFormatTestCase:
       while count < num_docs_with_field {
         let doc = random.random_range(0..num_docs as usize);
         if !docs_with_field.get(doc)? {
-          docs_with_field.set(doc);
+          docs_with_field.set(doc)?;
           count += 1;
         }
       }
@@ -634,7 +634,7 @@ pub trait BaseNormsFormatTestCase:
       while count < num_docs_with_field {
         let doc = random.random_range(0..num_docs as usize);
         if !docs_with_field.get(doc)? {
-          docs_with_field.set(doc);
+          docs_with_field.set(doc)?;
           count += 1;
         }
       }

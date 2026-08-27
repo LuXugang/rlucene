@@ -261,7 +261,7 @@ where
       },
     }
     self.point_count += 1;
-    self.docs_seen.set(doc_id as usize);
+    self.docs_seen.set(doc_id as usize)?;
     Ok(())
   }
   /// Write a field from a [`MutablePointTree`](crate::core::codecs::mutable_point_tree::MutablePointTree). This way of writing points is
@@ -393,7 +393,9 @@ where
     self.max_packed_value = max_packed_value;
 
     for i in 0..self.point_count as i32 {
-      self.docs_seen.set(values.get_doc_id(i as usize)? as usize);
+      self
+        .docs_seen
+        .set(values.get_doc_id(i as usize)? as usize)?;
     }
 
     let data_start_fp = data_out.get_file_pointer()?;
@@ -1487,7 +1489,7 @@ where
                 i,
                 dim * self.config.bytes_per_dim + self.common_prefix_lengths[dim],
               );
-              set.set(b as usize);
+              set.set(b as usize)?;
             }
           }
         }
@@ -1808,7 +1810,7 @@ where
                   heap_source.get_packed_value_slice(i)?.packed_value();
                 let bucket = bytes[bytes_offset + offset + prefix] as usize;
                 match used_bytes[dim] {
-                  Some(ref mut set) => set.set(bucket),
+                  Some(ref mut set) => set.set(bucket)?,
                   None => {
                     return Err(LuceneError::illegal_state(
                       "used_bytes[dim] should not be None",
@@ -2168,7 +2170,7 @@ where
     self.leaf_values.copy_from(&packed_value[0..length], offset);
 
     self.leaf_docs[self.leaf_count] = doc_id;
-    self.bkd_writer.docs_seen.set(doc_id as usize);
+    self.bkd_writer.docs_seen.set(doc_id as usize)?;
     self.leaf_count += 1;
 
     if self.value_count + self.leaf_count as i64 > self.bkd_writer.total_point_count {

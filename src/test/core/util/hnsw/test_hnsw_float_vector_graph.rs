@@ -348,7 +348,7 @@ fn test_search_with_skewed_accept_ords() -> Result<()> {
     // Skip over half of the documents that are closest to the query vector.
     let mut accept_ords = FixedBitSet::new(n_doc);
     for i in 500..n_doc {
-      crate::core::util::bit_set::BitSet::set(&mut accept_ords, i);
+      crate::core::util::bit_set::BitSet::set(&mut accept_ords, i)?;
     }
 
     let scorer = match vectors {

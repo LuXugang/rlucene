@@ -318,7 +318,7 @@ impl Collector for SimpleCollectorImpl<'_> {
 impl LeafCollector for SimpleCollectorImpl<'_> {
   fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
     assert!(doc < self.end);
-    self.hits.set(doc as usize);
+    self.hits.set(doc as usize)?;
     Ok(())
   }
 }

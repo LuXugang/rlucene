@@ -43,23 +43,23 @@ pub trait BitSet: Bits + Accountable + BitSetExtensions {
   /// # Note
   /// Depending on the implementation, this may be significantly faster than
   /// `clear(0, length)`.
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     self.clear_range(0, self.length())
   }
 
   /// Sets the bit at `i`.
-  fn set(&mut self, i: usize);
+  fn set(&mut self, i: usize) -> Result<()>;
   /// Sets the bit at `i`, returning `true` if it was previously set.
-  fn get_and_set(&mut self, i: usize) -> bool;
+  fn get_and_set(&mut self, i: usize) -> Result<bool>;
 
   /// Clears the bit at `i`.
-  fn clear_with_index(&mut self, i: usize);
+  fn clear_with_index(&mut self, i: usize) -> Result<()>;
   /// Clears a range of bits.
   ///
   /// # Arguments
   /// * `start_index` - The lower index.
   /// * `end_index` - One-past the last bit to clear.
-  fn clear_range(&mut self, start_index: usize, end_index: usize);
+  fn clear_range(&mut self, start_index: usize, end_index: usize) -> Result<()>;
 
   /// Returns the number of bits that are set.
   ///
@@ -104,7 +104,7 @@ pub trait BitSet: Bits + Accountable + BitSetExtensions {
       if doc == NO_MORE_DOCS as usize {
         break;
       }
-      self.set(doc);
+      self.set(doc)?;
     }
     Ok(())
   }
@@ -178,35 +178,35 @@ where
   A: BitSet,
   B: BitSet,
 {
-  fn clear(&mut self) {
+  fn clear(&mut self) -> Result<()> {
     match self {
       BitSetEnum2::A(t) => t.clear(),
       BitSetEnum2::B(s) => s.clear(),
     }
   }
 
-  fn set(&mut self, i: usize) {
+  fn set(&mut self, i: usize) -> Result<()> {
     match self {
       BitSetEnum2::A(t) => t.set(i),
       BitSetEnum2::B(s) => s.set(i),
     }
   }
 
-  fn get_and_set(&mut self, i: usize) -> bool {
+  fn get_and_set(&mut self, i: usize) -> Result<bool> {
     match self {
       BitSetEnum2::A(t) => t.get_and_set(i),
       BitSetEnum2::B(s) => s.get_and_set(i),
     }
   }
 
-  fn clear_with_index(&mut self, i: usize) {
+  fn clear_with_index(&mut self, i: usize) -> Result<()> {
     match self {
       BitSetEnum2::A(t) => t.clear_with_index(i),
       BitSetEnum2::B(s) => s.clear_with_index(i),
     }
   }
 
-  fn clear_range(&mut self, start_index: usize, end_index: usize) {
+  fn clear_range(&mut self, start_index: usize, end_index: usize) -> Result<()> {
     match self {
       BitSetEnum2::A(t) => t.clear_range(start_index, end_index),
       BitSetEnum2::B(s) => s.clear_range(start_index, end_index),
@@ -290,24 +290,34 @@ impl<T> BitSet for Arc<T>
 where
   T: BitSet,
 {
-  fn clear(&mut self) {
-    unreachable!()
+  fn clear(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 
-  fn set(&mut self, _i: usize) {
-    unreachable!()
+  fn set(&mut self, _i: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 
-  fn get_and_set(&mut self, _i: usize) -> bool {
-    unreachable!()
+  fn get_and_set(&mut self, _i: usize) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 
-  fn clear_with_index(&mut self, _i: usize) {
-    unreachable!()
+  fn clear_with_index(&mut self, _i: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 
-  fn clear_range(&mut self, _start_index: usize, _end_index: usize) {
-    unreachable!()
+  fn clear_range(&mut self, _start_index: usize, _end_index: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Arc",
+    ))
   }
 
   fn cardinality(&self) -> usize {
@@ -394,24 +404,34 @@ impl<T> BitSet for Rc<T>
 where
   T: BitSet,
 {
-  fn clear(&mut self) {
-    unreachable!()
+  fn clear(&mut self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 
-  fn set(&mut self, _i: usize) {
-    unreachable!()
+  fn set(&mut self, _i: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 
-  fn get_and_set(&mut self, _i: usize) -> bool {
-    unreachable!()
+  fn get_and_set(&mut self, _i: usize) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 
-  fn clear_with_index(&mut self, _i: usize) {
-    unreachable!()
+  fn clear_with_index(&mut self, _i: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 
-  fn clear_range(&mut self, _start_index: usize, _end_index: usize) {
-    unreachable!()
+  fn clear_range(&mut self, _start_index: usize, _end_index: usize) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "cannot mutate a BitSet through Rc",
+    ))
   }
 
   fn cardinality(&self) -> usize {

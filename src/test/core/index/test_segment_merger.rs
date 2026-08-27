@@ -193,7 +193,7 @@ fn test_build_doc_map() -> Result<()> {
     loop {
       let doc_id = random.random_range(0..max_doc);
       if !live_docs.get(doc_id)? {
-        live_docs.set(doc_id);
+        live_docs.set(doc_id)?;
         break;
       }
     }

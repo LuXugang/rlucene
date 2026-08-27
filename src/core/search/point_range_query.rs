@@ -797,7 +797,7 @@ impl<'a> IntersectVisitorImpl<'a> {
 }
 impl IntersectVisitor for IntersectVisitorImpl<'_> {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.clear_with_index(doc_id as usize);
+    self.result.clear_with_index(doc_id as usize)?;
     self.cost -= 1;
     Ok(())
   }
@@ -810,7 +810,7 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
 
   fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef<Vec<i32>>) -> Result<()> {
     for i in ints_ref.offset..(ints_ref.offset + ints_ref.length) {
-      self.result.clear_with_index(ints_ref.ints[i] as usize)
+      self.result.clear_with_index(ints_ref.ints[i] as usize)?;
     }
     self.cost -= ints_ref.length as i64;
     Ok(())
@@ -873,12 +873,12 @@ impl IntersectVisitorImpl1 {
 
 impl IntersectVisitor for IntersectVisitorImpl1 {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?);
+    self.result.grow(count.try_convert()?)?;
     Ok(())
   }
 
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.add_doc(doc_id);
+    self.result.add_doc(doc_id)?;
     Ok(())
   }
 
@@ -889,7 +889,7 @@ impl IntersectVisitor for IntersectVisitorImpl1 {
 
   fn visit_with_ints_ref(&mut self, ints_ref: &IntsRef<Vec<i32>>) -> Result<()> {
     for i in ints_ref.offset..(ints_ref.offset + ints_ref.length) {
-      self.result.add_doc(ints_ref.ints[i]);
+      self.result.add_doc(ints_ref.ints[i])?;
     }
     Ok(())
   }

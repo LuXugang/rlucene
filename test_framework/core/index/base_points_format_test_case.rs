@@ -1457,7 +1457,7 @@ impl IntersectVisitor for BasicIntersectVisitor<'_> {
   }
 
   fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-    self.seen.set(doc_id as usize);
+    self.seen.set(doc_id as usize)?;
     assert_eq!(doc_id, NumericUtils::sortable_bytes_to_int(packed_value, 0));
     Ok(())
   }
@@ -1488,7 +1488,7 @@ where
       .live_docs
       .is_some_and(|bits| bits.get(doc_id as usize).expect(""))
     {
-      self.seen.set(doc_id as usize);
+      self.seen.set(doc_id as usize)?;
     }
     assert_eq!(
       self.doc_id_to_id[doc_id as usize],
@@ -1529,7 +1529,7 @@ struct BigIntNDimsIntersectVisitor<'a> {
 
 impl IntersectVisitor for BigIntNDimsIntersectVisitor<'_> {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.hits.set((self.doc_base + doc_id) as usize);
+    self.hits.set((self.doc_base + doc_id) as usize)?;
     Ok(())
   }
 
@@ -1545,7 +1545,7 @@ impl IntersectVisitor for BigIntNDimsIntersectVisitor<'_> {
       }
     }
 
-    self.hits.set((self.doc_base + doc_id) as usize);
+    self.hits.set((self.doc_base + doc_id) as usize)?;
     Ok(())
   }
 

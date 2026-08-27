@@ -414,7 +414,7 @@ where
         // accounting
         // below.
       }
-    } else if !bits.get_and_set(doc_id as usize) {
+    } else if !bits.get_and_set(doc_id as usize)? {
       new_deletes -= 1;
     }
   }

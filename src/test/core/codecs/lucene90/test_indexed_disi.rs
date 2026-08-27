@@ -60,24 +60,24 @@ fn test_empty_blocks() -> Result<()> {
   let mut random = random();
   let max_doc = B * 11;
   let mut set = SparseFixedBitSet::new(max_doc)?;
-  set.set(B + 5);
-  set.set(B * 4 + 5);
+  set.set(B + 5)?;
+  set.set(B * 4 + 5)?;
   for i in 0..B {
-    set.set(B * 6 + i);
+    set.set(B * 6 + i)?;
   }
   for i in (0..B).step_by(3) {
-    set.set(B * 7 + i);
+    set.set(B * 7 + i)?;
   }
   for i in 0..B {
     if i != 32768 {
-      set.set(B * 8 + i);
+      set.set(B * 8 + i)?;
     }
   }
   {
     let dir = new_directory(&mut random)?;
     set = do_test_all_single_jump(&mut random, set, &dir)?;
   }
-  set.set(0);
+  set.set(0)?;
   {
     let dir = new_directory(&mut random)?;
     let _ = do_test_all_single_jump(&mut random, set, &dir)?;
@@ -93,7 +93,7 @@ fn test_last_empty_blocks() -> Result<()> {
   let max_doc = B * 3;
   let mut set = SparseFixedBitSet::new(max_doc)?;
   for i in 0..(B * 2) {
-    set.set(i);
+    set.set(i)?;
   }
   set = do_test_all_single_jump(&mut random, set, &dir)?;
   assert_advance_beyond_end(set, &dir)
@@ -222,17 +222,17 @@ where
       0 => {},
       1 => {
         for doc_id in (block * B)..((block + 1) * B) {
-          set.set(doc_id);
+          set.set(doc_id)?;
         }
       },
       2 => {
         for doc_id in (block * B..(block + 1) * B).step_by(101) {
-          set.set(doc_id);
+          set.set(doc_id)?;
         }
       },
       3 => {
         for doc_id in (block * B..(block + 1) * B).step_by(3) {
-          set.set(doc_id);
+          set.set(doc_id)?;
         }
       },
       _ => unreachable!(),
@@ -296,7 +296,7 @@ fn test_one_doc() -> Result<()> {
   let mut random = random();
   let max_doc = TestUtil::next_usize(&mut random, 1, 100_000);
   let mut set = SparseFixedBitSet::new(max_doc)?;
-  set.set(random.random_range(0..max_doc));
+  set.set(random.random_range(0..max_doc))?;
   let dir = new_directory(&mut random)?;
   let _ = do_test(set, &dir, &mut random)?;
   Ok(())
@@ -307,8 +307,8 @@ fn test_two_docs() -> Result<()> {
   let mut random = random();
   let max_doc = TestUtil::next_usize(&mut random, 1, 100_000);
   let mut set = SparseFixedBitSet::new(max_doc)?;
-  set.set(random.random_range(0..max_doc));
-  set.set(random.random_range(0..max_doc));
+  set.set(random.random_range(0..max_doc))?;
+  set.set(random.random_range(0..max_doc))?;
   let dir = new_directory(&mut random)?;
   let _ = do_test(set, &dir, &mut random)?;
   Ok(())
@@ -332,7 +332,7 @@ fn test_half_full() -> Result<()> {
   let mut set = SparseFixedBitSet::new(max_doc)?;
   let mut i = random.random_range(0..2);
   while i < max_doc {
-    set.set(i);
+    set.set(i)?;
     i += TestUtil::next_usize(&mut random, 1, 3);
   }
   let dir = new_directory(&mut random)?;
@@ -395,7 +395,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
 
   set = do_test(set, &dir, &mut random)?;
 
-  set.set(start + MAX_ARRAY_LENGTH as usize + random.random_range(0..100));
+  set.set(start + MAX_ARRAY_LENGTH as usize + random.random_range(0..100))?;
   let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
   let mut v = BitSetIterator::new(set.clone(), (MAX_ARRAY_LENGTH + 1) as i64)?;
   write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)?;
@@ -427,7 +427,7 @@ fn test_one_doc_missing() -> Result<()> {
   let max_doc = TestUtil::next_usize(&mut random, 1, 1_000_000);
   let mut set = FixedBitSet::new(max_doc);
   set.set_with_range(0, max_doc);
-  set.clear_with_index(random.random_range(0..max_doc));
+  set.clear_with_index(random.random_range(0..max_doc))?;
   let dir = new_directory(&mut random)?;
   let _ = do_test(set, &dir, &mut random)?;
   Ok(())
@@ -445,7 +445,7 @@ fn test_few_missing_docs() -> Result<()> {
     set.set_with_range(0, max_doc);
     let num_missing = TestUtil::next_int(&mut random, 2, 1000);
     for _ in 0..num_missing {
-      set.clear_with_index(random.random_range(0..max_doc));
+      set.clear_with_index(random.random_range(0..max_doc))?;
     }
     let _ = do_test(set, &dir, &mut random)?;
   }
@@ -460,7 +460,7 @@ fn test_dense_multi_block() -> Result<()> {
   let max_doc = 10 * 65536;
   let mut set = FixedBitSet::new(max_doc);
   for i in (0..max_doc).step_by(2) {
-    set.set(i);
+    set.set(i)?;
   }
   let _ = do_test(set, &dir, &mut random)?;
   Ok(())
@@ -489,7 +489,7 @@ fn test_illegal_dense_rank_power() -> Result<()> {
 
 fn create_and_open_disi(write_power: i8, read_power: i8) -> Result<()> {
   let mut set = FixedBitSet::new(10);
-  set.set(9);
+  set.set(9)?;
   let mut random = random();
   let dir = new_directory(&mut random)?;
   let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
@@ -522,7 +522,7 @@ fn test_one_doc_missing_fixed() -> Result<()> {
 
   let mut set = FixedBitSet::new(max_doc);
   set.set_with_range(0, max_doc);
-  set.clear_with_index(1345);
+  set.clear_with_index(1345)?;
   let cardinality = set.cardinality() as i64;
 
   let dir = new_directory(&mut random)?;
@@ -573,7 +573,7 @@ where
   let mut doc = -1;
   for _ in 0..num_docs {
     doc += TestUtil::next_int(random, 1, max_step);
-    docs.set(doc as usize);
+    docs.set(doc as usize)?;
     last_doc = doc;
   }
 

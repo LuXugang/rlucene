@@ -149,7 +149,7 @@ where
 
     for level in (1..graph.num_levels()?).rev() {
       let mut found_better = true;
-      self.visited.set(current_ep);
+      self.visited.set(current_ep)?;
       // Keep searching the given level until we stop finding a better candidate entry
       // point
       while found_better {
@@ -162,7 +162,7 @@ where
         } {
           debug_assert!(friend_ord < size, "friendOrd={friend_ord} >= size={size}");
 
-          if self.visited.get_and_set(friend_ord) {
+          if self.visited.get_and_set(friend_ord)? {
             continue;
           }
 
@@ -210,7 +210,7 @@ where
     self.prepare_scratch_state(size)?;
 
     for &ep in eps {
-      if !self.visited.get_and_set(ep) {
+      if !self.visited.get_and_set(ep)? {
         if results.early_terminated() {
           break;
         }
@@ -243,7 +243,7 @@ where
       } {
         debug_assert!(friend_ord < size, "friendOrd={friend_ord} >= size={size}");
 
-        if self.visited.get_and_set(friend_ord) {
+        if self.visited.get_and_set(friend_ord)? {
           continue;
         }
 
@@ -286,7 +286,7 @@ where
       debug_assert!(capacity <= i32::MAX as usize);
       self.visited.ensure_capacity(capacity)?;
     }
-    self.visited.clear();
+    self.visited.clear()?;
     Ok(())
   }
 }

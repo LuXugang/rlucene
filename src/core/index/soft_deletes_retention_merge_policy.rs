@@ -509,7 +509,7 @@ where
   let mut deleted_docs = FixedBitSet::new(max_doc as usize);
   for doc_id in 0..max_doc as usize {
     if !live_docs.get(doc_id)? {
-      deleted_docs.set(doc_id);
+      deleted_docs.set(doc_id)?;
     }
   }
   let deleted_count = reader.num_deleted_docs()?;
@@ -528,7 +528,7 @@ where
   let mut doc_id = retained_docs.next_set_bit(0);
   while doc_id != NO_MORE_DOCS as usize {
     if !new_live_docs.get(doc_id)? {
-      new_live_docs.set(doc_id);
+      new_live_docs.set(doc_id)?;
       // If we bring one back to live, we need to account for it.
       extra_live_docs += 1;
     }
@@ -570,7 +570,7 @@ where
           if doc_id == NO_MORE_DOCS {
             break;
           }
-          matches.set(doc_id as usize);
+          matches.set(doc_id as usize)?;
         }
         Ok(Some(matches))
       } else {

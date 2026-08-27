@@ -917,7 +917,7 @@ impl RandomQuery {
       }
 
       if random.random::<f32>() <= self.density {
-        bitset.set(doc_id as usize);
+        bitset.set(doc_id as usize)?;
         let value_ord = id_source.long_value()? as usize;
         let value = self.doc_values.get(value_ord).unwrap();
         self

@@ -47,20 +47,20 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
     &self,
     bs: &RustUtilBitSet,
     length: usize,
-  ) -> (Self::TestBitSet, Option<SparseFixedBitSet>) {
-    let mut set = SparseFixedBitSet::new(length).unwrap();
-    let mut set1 = SparseFixedBitSet::new(length).unwrap();
+  ) -> Result<(Self::TestBitSet, Option<SparseFixedBitSet>)> {
+    let mut set = SparseFixedBitSet::new(length)?;
+    let mut set1 = SparseFixedBitSet::new(length)?;
     let mut doc = bs.next_set_bit(0);
     while doc != NO_MORE_DOCS as usize {
-      set.set(doc);
-      set1.set(doc);
+      set.set(doc)?;
+      set1.set(doc)?;
       if doc + 1 > length {
         doc = NO_MORE_DOCS as usize;
       } else {
         doc = bs.next_set_bit(doc + 1);
       }
     }
-    (set, Some(set1))
+    Ok((set, Some(set1)))
   }
 
   fn assert_equals(
@@ -98,7 +98,7 @@ impl TestSparseFixedBitSet {
     let mut copy = SparseFixedBitSet::new(length)?;
     let mut doc = bit_set.next_set_bit(0);
     while doc != NO_MORE_DOCS as usize {
-      copy.set(doc);
+      copy.set(doc)?;
       doc = if doc + 1 >= length {
         NO_MORE_DOCS as usize
       } else {
@@ -113,7 +113,7 @@ impl TestSparseFixedBitSet {
 
     let mut original = SparseFixedBitSet::new(size)?;
     for _ in 0..3 {
-      original.set(random.random_range(0..size));
+      original.set(random.random_range(0..size))?;
     }
     let original_ram_bytes_used = original.ram_bytes_used()?;
     assert!(original_ram_bytes_used > 0);
@@ -123,7 +123,7 @@ impl TestSparseFixedBitSet {
     let mut other_bit_set = SparseFixedBitSet::new(size)?;
     let interval = 10 + random.random_range(0..100);
     for i in (0..size).step_by(interval) {
-      other_bit_set.set(i);
+      other_bit_set.set(i)?;
     }
     let mut iterator = BitSetIterator::new(other_bit_set, size as i64)?;
     copy.or(&mut iterator)?;
@@ -156,74 +156,47 @@ mod base_doc_id_set_test_case_util {
 
   #[test]
   fn test_cardinality() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_cardinality(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_cardinality(random))
   }
 
   #[test]
   fn test_prev_set_bit() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_prev_set_bit(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_prev_set_bit(random))
   }
 
   #[test]
   fn test_next_set_bit() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_next_set_bit(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_next_set_bit(random))
   }
 
   #[test]
   fn test_next_set_bit_in_range() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_next_set_bit_in_range(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_next_set_bit_in_range(random))
   }
 
   #[test]
   fn test_set() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_set(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_set(random))
   }
 
   #[test]
   fn test_get_and_set() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_get_and_set(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_get_and_set(random))
   }
 
   #[test]
   fn test_clear() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_clear(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_clear(random))
   }
 
   #[test]
   fn test_clear_range() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_clear_range(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_clear_range(random))
   }
 
   #[test]
   fn test_clear_all() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_clear_all(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_clear_all(random))
   }
 
   #[test]
@@ -250,7 +223,7 @@ fn test_approximate_cardinality() -> Result<()> {
   let interval = 200 + random.random_range(100..1000);
   let mut i = first;
   while i < set.length() {
-    set.set(i);
+    set.set(i)?;
     i += interval;
   }
   let cardinality = set.cardinality();
@@ -264,7 +237,7 @@ fn test_approximate_cardinality_on_dense_set() -> Result<()> {
   let num_docs = random.random_range(1..=10000);
   let mut set = SparseFixedBitSet::new(num_docs)?;
   for i in 0..set.length() {
-    set.set(i);
+    set.set(i)?;
   }
   assert_eq!(num_docs, set.approximate_cardinality());
   Ok(())

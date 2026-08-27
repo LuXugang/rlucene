@@ -109,7 +109,7 @@ fn test_long_postings() -> Result<()> {
   let mut is_s1 = FixedBitSet::new(num_docs as usize);
   for idx in 0..num_docs {
     if random.random_bool(0.5) {
-      is_s1.set(idx as usize);
+      is_s1.set(idx as usize)?;
     }
   }
 
@@ -255,7 +255,7 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
   let mut is_s1 = FixedBitSet::new(num_docs as usize);
   for idx in 0..num_docs {
     if random.random_bool(0.5) {
-      is_s1.set(idx as usize);
+      is_s1.set(idx as usize)?;
     }
   }
 

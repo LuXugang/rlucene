@@ -2073,7 +2073,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
             }
             let doc_index: usize = doc.try_convert()?;
             CoreHelper::check_index(doc_index, visited_docs.length())?;
-            visited_docs.set(doc_index);
+            visited_docs.set(doc_index)?;
             let freq = postings.freq()?;
             if freq <= 0 {
               return Err(LuceneError::corrupt_index(format!(
@@ -3458,7 +3458,7 @@ impl IntersectVisitor for VerifyPointsVisitor {
     self.point_count_seen += 1;
     let doc_index: usize = doc_id.try_convert()?;
     CoreHelper::check_index(doc_index, self.docs_seen.length())?;
-    self.docs_seen.set(doc_index);
+    self.docs_seen.set(doc_index)?;
 
     {
       let last_min_packed_value = self.last_min_packed_value.borrow();
@@ -4072,7 +4072,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         max_ord_2 = std::cmp::max(max_ord_2, ord);
         let ord_index: usize = ord.try_convert()?;
         CoreHelper::check_index(ord_index, seen_ords.length())?;
-        seen_ords.set(ord_index);
+        seen_ords.set(ord_index)?;
       }
       if !doc_values_2.advance_exact(doc)? {
         return Err(LuceneError::corrupt_index(format!(

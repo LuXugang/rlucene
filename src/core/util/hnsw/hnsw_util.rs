@@ -247,7 +247,7 @@ impl HnswUtil {
         continue;
       }
       count += 1;
-      connected_nodes.set(node);
+      connected_nodes.set(node)?;
       hnsw_graph.seek(level, node)?;
 
       let mut friend_count = 0;
@@ -263,7 +263,7 @@ impl HnswUtil {
       if friend_count < max_conn
         && let Some(nfc) = not_fully_connected.as_deref_mut()
       {
-        nfc.set(node);
+        nfc.set(node)?;
       }
     }
 

@@ -44,7 +44,7 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
     let mut set = FixedBitSet::new(length);
     let iter = bs.iter();
     for doc in iter {
-      set.set(doc);
+      set.set(doc)?;
     }
     BitDocIdSet::new(Some(set))
   }

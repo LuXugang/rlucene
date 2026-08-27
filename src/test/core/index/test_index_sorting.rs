@@ -2242,7 +2242,7 @@ fn test_random1() -> Result<()> {
       writer.force_merge(2)?;
     } else if random.random_range(0..4) == 0 {
       let id = TestUtil::next_usize(&mut random, 0, i);
-      deleted.set(id);
+      deleted.set(id)?;
       writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
     }
   }
@@ -2337,7 +2337,7 @@ fn test_multi_valued_random1() -> Result<()> {
       writer.force_merge(2)?;
     } else if random.random_range(0..4) == 0 {
       let id = TestUtil::next_usize(&mut random, 0, i);
-      deleted.set(id);
+      deleted.set(id)?;
       writer.delete_documents_with_terms(vec![Term::from_text("id", id.to_string())])?;
     }
   }

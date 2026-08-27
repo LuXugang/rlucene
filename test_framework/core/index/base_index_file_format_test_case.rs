@@ -506,7 +506,7 @@ where
 {
   fn read_byte(&mut self) -> Result<u8> {
     let position = self.in_.get_file_pointer()?;
-    self.read_bytes.lock().set(self.file_offset + position);
+    self.read_bytes.lock().set(self.file_offset + position)?;
     self.in_.read_byte()
   }
 
@@ -514,7 +514,7 @@ where
     let fp = self.in_.get_file_pointer()?;
     let mut read_bytes = self.read_bytes.lock();
     for i in 0..length {
-      read_bytes.set(self.file_offset + fp + i);
+      read_bytes.set(self.file_offset + fp + i)?;
     }
     drop(read_bytes);
     self.in_.read_bytes(bytes, offset, length)
@@ -526,7 +526,7 @@ where
     let end = self.in_.get_file_pointer()?;
     let mut read_bytes = self.read_bytes.lock();
     for i in start..end {
-      read_bytes.set(self.file_offset + i);
+      read_bytes.set(self.file_offset + i)?;
     }
     drop(read_bytes);
     result

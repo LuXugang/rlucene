@@ -152,10 +152,10 @@ impl Builder {
         let num_bits = std::cmp::min(1 << 16, self.max_doc - (block << 16) as usize);
         self.dense_buffer = FixedBitSet::new(num_bits);
         for i in 0..self.buffer.len() {
-          self.dense_buffer.set(self.buffer[i] as usize & 0xFFFF);
+          self.dense_buffer.set(self.buffer[i] as usize & 0xFFFF)?;
         }
       }
-      self.dense_buffer.set(doc_id as usize & 0xFFFF);
+      self.dense_buffer.set(doc_id as usize & 0xFFFF)?;
     }
     self.last_doc_id = doc_id;
     self.current_block_cardinality += 1;

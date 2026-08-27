@@ -1447,7 +1447,7 @@ impl Display for LeafCollectorImpl {
 impl LeafCollector for LeafCollectorImpl {
   fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
     self.count += 1;
-    self.bit_set.set(doc.try_convert()?);
+    self.bit_set.set(doc.try_convert()?)?;
     Ok(())
   }
 }

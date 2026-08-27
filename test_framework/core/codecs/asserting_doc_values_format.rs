@@ -249,7 +249,7 @@ where
       last_doc_id = doc_id;
       let ord = values.ord_value()?;
       assert!(ord >= 0 && ord < value_count);
-      seen_ords.set(ord as usize);
+      seen_ords.set(ord as usize)?;
     }
     assert_eq!(seen_ords.cardinality(), value_count as usize);
     self

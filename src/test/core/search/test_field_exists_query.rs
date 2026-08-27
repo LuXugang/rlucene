@@ -953,7 +953,7 @@ fn test_delete_knn_vector() -> Result<()> {
         "vector",
         random_vector(&mut random, 5),
       )?);
-      docs_with_vector.set(i);
+      docs_with_vector.set(i)?;
     }
     doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
     iw.add_document(&mut random, doc)?;
@@ -963,7 +963,7 @@ fn test_delete_knn_vector() -> Result<()> {
     let num_deleted = random.random_range(1..=num_docs);
     for i in 0..num_deleted {
       iw.delete_documents_with_terms(&mut random, vec![Term::from_text("id", i.to_string())])?;
-      docs_with_vector.clear_with_index(i);
+      docs_with_vector.clear_with_index(i)?;
     }
   }
 

@@ -136,7 +136,7 @@ fn test_term_docs_iterator() -> Result<()> {
           if !duplicates {
             assert!(!bit_set.get(doc as usize)?);
           }
-          bit_set.set(doc as usize);
+          bit_set.set(doc as usize)?;
         }
       }
     }

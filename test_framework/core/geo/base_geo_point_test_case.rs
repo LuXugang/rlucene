@@ -1419,7 +1419,7 @@ pub trait BaseGeoPointTestCase {
           .expect("lon field should be f64");
         let distance = SloppyMath::haversin_meters(lat, lon, doc_latitude, doc_longitude);
         if distance <= radius {
-          expected.set(doc);
+          expected.set(doc)?;
         }
       }
 
@@ -1427,7 +1427,7 @@ pub trait BaseGeoPointTestCase {
         searcher.search(self.new_distance_query("field", lat, lon, radius)?, max_doc)?;
       let mut actual = FixedBitSet::new(max_doc);
       for doc in top_docs.score_docs {
-        actual.set(doc.doc as usize);
+        actual.set(doc.doc as usize)?;
       }
 
       if expected != actual {

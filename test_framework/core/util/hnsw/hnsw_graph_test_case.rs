@@ -517,7 +517,7 @@ where
     let hnsw = builder.build(vectors.size())?;
 
     // The first 10 docs must remain accepted to preserve the expected recall.
-    let accept_ords = create_random_accept_ords(10, n_doc, random);
+    let accept_ords = create_random_accept_ords(10, n_doc, random)?;
 
     let scorer = self.build_scorer(vectors, self.get_target_vector())?;
     let mut nn = hnsw_graph_searcher::search_with_top_k(
@@ -564,7 +564,7 @@ where
     let mut accept_ords = FixedBitSet::new(n_doc);
     let mut i = 0;
     while i < n_doc {
-      accept_ords.set(i);
+      accept_ords.set(i)?;
       i += random.random_range(15..20);
     }
 
@@ -739,7 +739,7 @@ where
     let top_k = 50;
     let visited_limit = top_k + random.random_range(0..5);
     let scorer = self.build_scorer(vectors, self.get_target_vector())?;
-    let accept_ords = create_random_accept_ords(0, n_doc, random);
+    let accept_ords = create_random_accept_ords(0, n_doc, random)?;
     let nn = hnsw_graph_searcher::search_with_top_k(
       &scorer,
       top_k,
@@ -931,7 +931,7 @@ where
     let accept_ords = if random.random_bool(0.5) {
       None
     } else {
-      Some(create_random_accept_ords(0, size, random))
+      Some(create_random_accept_ords(0, size, random)?)
     };
 
     let mut total_matches = 0usize;
@@ -993,7 +993,7 @@ where
     let accept_ords = if random.random_bool(0.5) {
       None
     } else {
-      Some(create_random_accept_ords(0, size, random))
+      Some(create_random_accept_ords(0, size, random)?)
     };
 
     let mut queries = Vec::new();
@@ -1665,22 +1665,22 @@ pub fn create_random_accept_ords<R>(
   start_index: usize,
   length: usize,
   random: &mut R,
-) -> FixedBitSet
+) -> Result<FixedBitSet>
 where
   R: Rng + ?Sized,
 {
   let mut bits = FixedBitSet::new(length);
   for i in 0..start_index.min(length) {
-    bits.set(i);
+    bits.set(i)?;
   }
 
   for i in start_index.min(length)..length {
     if random.random::<f32>() < 0.667 {
-      bits.set(i);
+      bits.set(i)?;
     }
   }
 
-  bits
+  Ok(bits)
 }
 
 pub fn random_vector<R>(random: &mut R, dim: usize) -> Vec<f32>

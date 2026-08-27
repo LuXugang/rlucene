@@ -68,13 +68,13 @@ fn do_test_random(two_phase: bool) -> Result<()> {
   let num_included_docs = random.random_range(1..=max_doc);
   let num_excluded_docs = random.random_range(1..=max_doc);
 
-  req_builder.grow(num_included_docs);
+  req_builder.grow(num_included_docs)?;
   for _ in 0..num_included_docs {
-    req_builder.add_doc(random.random_range(0..max_doc));
+    req_builder.add_doc(random.random_range(0..max_doc))?;
   }
-  excl_builder.grow(num_excluded_docs);
+  excl_builder.grow(num_excluded_docs)?;
   for _ in 0..num_excluded_docs {
-    excl_builder.add_doc(random.random_range(0..max_doc));
+    excl_builder.add_doc(random.random_range(0..max_doc))?;
   }
 
   let req = req_builder.build()?;
@@ -229,7 +229,7 @@ impl Display for LeafCollectorImpl<'_> {
 
 impl<'a> LeafCollector for LeafCollectorImpl<'a> {
   fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-    self.actual_matches.set(doc as usize);
+    self.actual_matches.set(doc as usize)?;
     Ok(())
   }
 }

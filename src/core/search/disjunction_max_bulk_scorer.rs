@@ -134,7 +134,7 @@ where
           .try_convert()?;
       }
 
-      self.window_matches.clear();
+      self.window_matches.clear()?;
       self.window_scores.fill(0.0);
     }
 
@@ -212,7 +212,7 @@ impl<'a> LeafCollector for LeafCollectorImpl<'a> {
 
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
     let delta = (doc - self.window_min) as usize;
-    self.window_matches.set(delta);
+    self.window_matches.set(delta)?;
     self.window_scores[delta] = self.window_scores[delta].max(scorer.score()?);
     Ok(())
   }

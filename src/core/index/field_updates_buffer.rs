@@ -248,7 +248,7 @@ impl FieldUpdatesBuffer {
           .has_values
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("has_values bitset is missing"))?
-          .set(ord);
+          .set(ord)?;
       }
     }
     Ok(())

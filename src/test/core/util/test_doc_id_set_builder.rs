@@ -97,7 +97,7 @@ fn test_sparse() -> Result<()> {
     let mut doc = random.random_range(0..100);
     while doc < max_doc {
       b.add(doc)?;
-      fixed_set_bit.set(doc as usize);
+      fixed_set_bit.set(doc as usize)?;
       doc += base_inc + random.random_range(0..10000);
     }
     let roaring_doc_id_set = b.build();
@@ -122,7 +122,7 @@ fn test_dense() -> Result<()> {
     let mut doc = random.random_range(0..1000);
     while doc < max_doc {
       b.add(doc)?;
-      fixed_set_bit.set(doc as usize);
+      fixed_set_bit.set(doc as usize)?;
       doc += 1 + random.random_range(0..100);
     }
     let roaring_doc_id_set = b.build();
@@ -152,7 +152,7 @@ fn test_random() -> Result<()> {
     while c < num_docs {
       let d = random.random_range(0..max_doc);
       if !docs.get(d as usize)? {
-        docs.set(d as usize);
+        docs.set(d as usize)?;
         c += 1
       }
     }
@@ -194,9 +194,9 @@ fn test_random() -> Result<()> {
         let rarely = rarely(&mut random);
         if budget == 0 || rarely {
           budget = TestUtil::next_int(&mut random, 1, l - k + 5);
-          builder.grow(budget);
+          builder.grow(budget)?;
         }
-        builder.add_doc(array[j]);
+        builder.add_doc(array[j])?;
         budget -= 1;
         k += 1;
         j += 1;
@@ -220,7 +220,7 @@ fn test_misleading_disi_cost() -> Result<()> {
     let num_docs = random.random_range(1..=max_doc / 1000);
     for _ in 0..num_docs {
       let doc = random.random_range(0..max_doc);
-      docs.set(doc as usize);
+      docs.set(doc as usize)?;
     }
     expected.or(&docs);
     // We provide a cost of 0 here to make sure the builder can deal
@@ -249,9 +249,9 @@ fn test_leverage_stats() -> Result<()> {
   assert!(!builder.get_multi_valued());
 
   {
-    builder.grow(2);
-    builder.add_doc(5);
-    builder.add_doc(7);
+    builder.grow(2)?;
+    builder.add_doc(5)?;
+    builder.add_doc(7)?;
   }
 
   let set = builder.build()?;
@@ -266,9 +266,9 @@ fn test_leverage_stats() -> Result<()> {
   assert_eq!(1.5_f64, builder.get_num_values_per_doc());
   assert!(builder.get_multi_valued());
 
-  builder.grow(2);
-  builder.add_doc(5);
-  builder.add_doc(7);
+  builder.grow(2)?;
+  builder.add_doc(5)?;
+  builder.add_doc(7)?;
 
   let set = builder.build()?;
   assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));
@@ -293,9 +293,9 @@ fn test_leverage_stats() -> Result<()> {
   assert_eq!(1.0_f64, builder.get_num_values_per_doc());
   assert!(!builder.get_multi_valued());
 
-  builder.grow(2);
-  builder.add_doc(5);
-  builder.add_doc(7);
+  builder.grow(2)?;
+  builder.add_doc(5)?;
+  builder.add_doc(7)?;
 
   let set = builder.build()?;
   assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));
@@ -309,9 +309,9 @@ fn test_leverage_stats() -> Result<()> {
   assert_eq!(1.5_f64, builder.get_num_values_per_doc());
   assert!(builder.get_multi_valued());
 
-  builder.grow(2);
-  builder.add_doc(5);
-  builder.add_doc(7);
+  builder.grow(2)?;
+  builder.add_doc(5)?;
+  builder.add_doc(7)?;
 
   let set = builder.build()?;
   assert!(matches!(set, DocIdSetBuilderEnum::BitDoc(_)));

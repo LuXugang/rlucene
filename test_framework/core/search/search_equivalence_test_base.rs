@@ -143,7 +143,7 @@ pub trait SearchEquivalenceTestBase {
 
       let mut bitset = FixedBitSet::new(max_doc);
       for score_doc in td2.score_docs() {
-        bitset.set(score_doc.doc() as usize);
+        bitset.set(score_doc.doc() as usize)?;
       }
 
       for score_doc in td1.score_docs() {

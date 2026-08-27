@@ -547,7 +547,7 @@ where
     if doc_id <= self.max_doc_visited {
       return Ok(()); // Already visited or skipped
     }
-    self.result.add_doc(doc_id);
+    self.result.add_doc(doc_id)?;
     Ok(())
   }
 
@@ -557,7 +557,7 @@ where
     }
     let l = self.as_long.bytes_to_long(packed_value);
     if l >= self.min_value_as_long && l <= self.max_value_as_long {
-      self.result.add_doc(doc_id); // doc is competitive
+      self.result.add_doc(doc_id)?; // doc is competitive
     }
     Ok(())
   }
@@ -580,7 +580,7 @@ where
   }
 
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?);
+    self.result.grow(count.try_convert()?)?;
     Ok(())
   }
 }

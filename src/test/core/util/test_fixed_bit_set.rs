@@ -74,18 +74,18 @@ impl BaseBitSetTestCase for TestFixedBitSet {
     &self,
     bs: &RustUtilBitSet,
     length: usize,
-  ) -> (Self::TestBitSet, Option<SparseFixedBitSet>) {
+  ) -> Result<(Self::TestBitSet, Option<SparseFixedBitSet>)> {
     let mut set = FixedBitSet::new(length);
     let mut doc = bs.next_set_bit(0);
     while doc != NO_MORE_DOCS as usize {
-      set.set(doc);
+      set.set(doc)?;
       if doc + 1 > length {
         doc = NO_MORE_DOCS as usize;
       } else {
         doc = bs.next_set_bit(doc + 1);
       }
     }
-    (set, None)
+    Ok((set, None))
   }
 
   fn assert_equals(
@@ -98,87 +98,61 @@ impl BaseBitSetTestCase for TestFixedBitSet {
     BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
   }
 
-  fn test_prev_set_bit<R>(&mut self, random: &mut R)
+  fn test_prev_set_bit<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     check_prev_set_bit_array(random, vec![], 0);
     check_prev_set_bit_array(random, vec![0], 1);
     check_prev_set_bit_array(random, vec![0, 2], 3);
+    Ok(())
   }
 }
 mod base_doc_id_set_test_case_util {
   use super::*;
   #[test]
   fn test_cardinality() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_cardinality(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_cardinality(random))
   }
 
   #[test]
   fn test_prev_set_bit() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_prev_set_bit(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_prev_set_bit(random))
   }
 
   #[test]
   fn test_next_set_bit() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_next_set_bit(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_next_set_bit(random))
   }
 
   #[test]
   fn test_next_set_bit_in_range() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_next_set_bit_in_range(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_next_set_bit_in_range(random))
   }
 
   #[test]
   fn test_set() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_set(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_set(random))
   }
 
   #[test]
   fn test_get_and_set() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_get_and_set(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_get_and_set(random))
   }
 
   #[test]
   fn test_clear() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_clear(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_clear(random))
   }
 
   #[test]
   fn test_clear_range() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_clear_range(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_clear_range(random))
   }
 
   #[test]
   fn test_clear_all() -> Result<()> {
-    run_case(|case, random| {
-      let _: () = case.test_clear_all(random);
-      Ok(())
-    })
+    run_case(|case, random| case.test_clear_all(random))
   }
 
   #[test]
@@ -198,7 +172,7 @@ mod base_doc_id_set_test_case_util {
 }
 
 #[test]
-fn test_approximate_cardinality() {
+fn test_approximate_cardinality() -> Result<()> {
   // The approximate cardinality works in such a way that it should be
   // pretty accurate on a bitset whose bits are uniformly
   // distributed.
@@ -208,11 +182,12 @@ fn test_approximate_cardinality() {
   let interval = random.random_range(10..=20);
   let mut i = first;
   while i < set.length() {
-    set.set(i);
+    set.set(i)?;
     i += interval;
   }
   let cardinality = set.cardinality();
-  assert!(cardinality.abs_diff(set.approximate_cardinality()) <= (cardinality / 20))
+  assert!(cardinality.abs_diff(set.approximate_cardinality()) <= (cardinality / 20));
+  Ok(())
 }
 fn do_get(a: &bit_set::BitSet, b: &FixedBitSet) {
   assert_eq!(a.count(), b.cardinality());
@@ -330,11 +305,11 @@ where
     for _j in 0..n_oper {
       let mut idx = random.random_range(0..sz);
       a.insert(idx);
-      b.set(idx);
+      b.set(idx)?;
 
       idx = random.random_range(0..sz);
       a.remove(idx);
-      b.clear_with_index(idx);
+      b.clear_with_index(idx)?;
 
       idx = random.random_range(0..sz);
       flip_bit_range(&mut a, idx, idx + 1);
@@ -345,12 +320,12 @@ where
       b.flip(idx);
 
       let val2 = b.get(idx)?;
-      let val = b.get_and_set(idx);
+      let val = b.get_and_set(idx)?;
       assert_eq!(val2, val);
       assert!(b.get(idx)?);
 
       if !val {
-        b.clear_with_index(idx);
+        b.clear_with_index(idx)?;
       }
       assert_eq!(b.get(idx)?, val);
     }
@@ -375,7 +350,7 @@ where
     aa.clone_from(&a);
     clear_range(&mut aa, from_index, to_index);
     bb = b.clone();
-    bb.clear_range(from_index, to_index);
+    bb.clear_range(from_index, to_index)?;
 
     do_next_set_bit(&aa, &bb); // a problem here is from clear() or nextSetBit
 
@@ -450,7 +425,7 @@ fn test_small() -> Result<()> {
 }
 
 #[test]
-fn test_equals() {
+fn test_equals() -> Result<()> {
   // This test can't handle numBits==0:
   let mut random = random();
   let num_bits = random.random_range(0..2000) + 1;
@@ -461,18 +436,19 @@ fn test_equals() {
   for _i in 0..random.random_range(1000..5000) {
     let idx = random.random_range(0..num_bits);
     if !b1.get(idx).unwrap() {
-      b1.set(idx);
+      b1.set(idx)?;
       assert!(!b1.eq(&b2));
       assert!(!b2.eq(&b1));
-      b2.set(idx);
+      b2.set(idx)?;
       assert!(b1.eq(&b2));
       assert!(b2.eq(&b1));
     }
   }
+  Ok(())
 }
 
 #[test]
-fn test_hash_code_equals() {
+fn test_hash_code_equals() -> Result<()> {
   let mut random = random();
 
   let num_bits = random.random_range(0..2000) + 1;
@@ -481,14 +457,15 @@ fn test_hash_code_equals() {
   for _i in 0..random.random_range(1000..5000) {
     let idx = random.random_range(0..num_bits);
     if !b1.get(idx).unwrap() {
-      b1.set(idx);
+      b1.set(idx)?;
       assert!(!b1.eq(&b2));
       assert_ne!(calculate_hash(&b1), calculate_hash(&b2));
-      b2.set(idx);
+      b2.set(idx)?;
       assert!(b1.eq(&b2));
       assert_eq!(calculate_hash(&b1), calculate_hash(&b2));
     }
   }
+  Ok(())
 }
 
 fn calculate_hash(a: &FixedBitSet) -> u64 {
@@ -528,7 +505,7 @@ where
     bs = FixedBitSet::new(num_bits)
   }
   for e in a {
-    bs.set(*e);
+    bs.set(*e)?;
   }
   Ok(bs)
 }
@@ -574,26 +551,26 @@ fn test_next_bitset() {
 #[test]
 fn test_ensure_capacity() -> Result<()> {
   let mut bits = FixedBitSet::new(5);
-  bits.set(1);
-  bits.set(4);
+  bits.set(1)?;
+  bits.set(4)?;
   bits.ensure_capacity(8)?;
   let mut new_bits = bits.clone();
   assert!(bits.get(1)?);
   assert!(bits.get(4)?);
-  bits.clear_with_index(1);
+  bits.clear_with_index(1)?;
   assert!(!bits.get(1)?);
   assert!(new_bits.get(1)?);
 
-  new_bits.set(1);
+  new_bits.set(1)?;
   let length = bits.length();
   new_bits.ensure_capacity(length - 2)?;
   assert!(new_bits.get(1)?);
 
-  new_bits.set(1);
+  new_bits.set(1)?;
   new_bits.ensure_capacity(72)?;
   assert!(new_bits.get(1)?);
   assert!(new_bits.get(4)?);
-  new_bits.clear_with_index(1);
+  new_bits.clear_with_index(1)?;
   // We grew the backing vector, so it is not shared.
   assert!(!bits.get(1)?);
   assert!(!new_bits.get(1)?);
@@ -776,7 +753,7 @@ fn test_copy_of() -> Result<()> {
   let bits = make_int_array(&mut random, count, 0, num_bits - 1);
   let mut fixed_bit_set = FixedBitSet::new(num_bits);
   for bit in bits {
-    fixed_bit_set.set(bit);
+    fixed_bit_set.set(bit)?;
   }
 
   let mutable_copy = fixed_bit_set.copy_of()?;

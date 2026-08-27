@@ -536,7 +536,7 @@ where
       nbr0.add_out_of_order(n1, score)?;
 
       if nbr0.size() == max_conn {
-        not_fully_connected.clear_with_index(n0);
+        not_fully_connected.clear_with_index(n0)?;
       }
       Ok(max_conn)
     })?;
@@ -545,7 +545,7 @@ where
       if nbr1.size() < max_conn {
         nbr1.add_out_of_order(n0, score)?;
         if nbr1.size() == max_conn {
-          not_fully_connected.clear_with_index(n1);
+          not_fully_connected.clear_with_index(n1)?;
         }
       }
       Ok(())

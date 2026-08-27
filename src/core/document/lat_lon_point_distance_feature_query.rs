@@ -603,13 +603,13 @@ impl DistanceScorerIntersectVisitor {
 
 impl IntersectVisitor for DistanceScorerIntersectVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count as i32);
+    self.result.grow(count as i32)?;
     Ok(())
   }
 
   fn visit(&mut self, doc_id: i32) -> Result<()> {
     if doc_id > self.doc {
-      self.result.add_doc(doc_id);
+      self.result.add_doc(doc_id)?;
     }
     Ok(())
   }
@@ -633,7 +633,7 @@ impl IntersectVisitor for DistanceScorerIntersectVisitor {
       return Ok(());
     }
 
-    self.result.add_doc(doc_id);
+    self.result.add_doc(doc_id)?;
     Ok(())
   }
 

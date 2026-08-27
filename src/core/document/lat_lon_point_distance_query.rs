@@ -462,12 +462,12 @@ impl LatLonDistanceIntersectVisitor {
 
 impl IntersectVisitor for LatLonDistanceIntersectVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count as i32);
+    self.result.grow(count as i32)?;
     Ok(())
   }
 
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.add_doc(doc_id);
+    self.result.add_doc(doc_id)?;
     Ok(())
   }
 
@@ -512,7 +512,7 @@ impl<'a> LatLonDistanceInverseIntersectVisitor<'a> {
 
 impl IntersectVisitor for LatLonDistanceInverseIntersectVisitor<'_> {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.result.clear_with_index(doc_id as usize);
+    self.result.clear_with_index(doc_id as usize)?;
     self.cost -= 1;
     Ok(())
   }

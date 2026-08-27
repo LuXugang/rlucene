@@ -947,13 +947,13 @@ impl Operations {
     let mut visited = FixedBitSet::new(capacity as usize);
     let mut current = FixedBitSet::new(capacity as usize);
     let mut next = FixedBitSet::new(capacity as usize);
-    current.set(0); // start with initial state
+    current.set(0)?; // start with initial state
     'algorithm: loop {
       let mut label: i32 = -1;
       let mut state = current.next_set_bit(0);
       // do a pass, stepping all current paths forward once
       while state != NO_MORE_DOCS as usize {
-        visited.set(state);
+        visited.set(state)?;
 
         if a.is_accept(state as i32) {
           break 'algorithm;
@@ -969,7 +969,7 @@ impl Operations {
           if scratch.min != scratch.max || scratch.min != label {
             break 'algorithm;
           }
-          next.set(scratch.dest as usize);
+          next.set(scratch.dest as usize)?;
         }
 
         if state + 1 >= (current.length()) {
@@ -992,7 +992,7 @@ impl Operations {
 
       // swap current and next
       std::mem::swap(&mut current, &mut next);
-      next.clear();
+      next.clear()?;
     }
 
     Ok(builder)

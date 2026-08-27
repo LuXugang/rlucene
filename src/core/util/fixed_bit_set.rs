@@ -302,7 +302,7 @@ impl FixedBitSet {
     check_unpositioned(iter)?;
     let mut doc = iter.next_doc()?;
     while doc != NO_MORE_DOCS {
-      self.clear_with_index(doc.try_convert()?);
+      self.clear_with_index(doc.try_convert()?)?;
       doc = iter.next_doc()?;
     }
     Ok(())
@@ -493,7 +493,7 @@ impl Accountable for FixedBitSet {
 }
 
 impl BitSet for FixedBitSet {
-  fn set(&mut self, i: usize) {
+  fn set(&mut self, i: usize) -> Result<()> {
     debug_assert!(
       i < self.num_bits,
       "index = {}, num_bits = {}",
@@ -503,9 +503,10 @@ impl BitSet for FixedBitSet {
     let word_num = i >> 6;
     let bit_mask = 1_i64 << (i % 64);
     self.bits[word_num] |= bit_mask;
+    Ok(())
   }
 
-  fn get_and_set(&mut self, i: usize) -> bool {
+  fn get_and_set(&mut self, i: usize) -> Result<bool> {
     debug_assert!(
       i < self.num_bits,
       "index = {}, num_bits = {}",
@@ -516,10 +517,10 @@ impl BitSet for FixedBitSet {
     let bit_mask = 1_i64 << (i % 64);
     let val = (self.bits[word_num] & bit_mask) != 0;
     self.bits[word_num] |= bit_mask;
-    val
+    Ok(val)
   }
 
-  fn clear_with_index(&mut self, i: usize) {
+  fn clear_with_index(&mut self, i: usize) -> Result<()> {
     debug_assert!(
       i < self.num_bits,
       "index = {}, num_bits = {}",
@@ -529,9 +530,10 @@ impl BitSet for FixedBitSet {
     let word_num = i >> 6;
     let bit_mask = 1_i64 << (i % 64);
     self.bits[word_num] &= !bit_mask;
+    Ok(())
   }
 
-  fn clear_range(&mut self, start_index: usize, end_index: usize) {
+  fn clear_range(&mut self, start_index: usize, end_index: usize) -> Result<()> {
     debug_assert!(
       start_index < self.num_bits,
       "start_index = {}, num_bits = {}",
@@ -545,7 +547,7 @@ impl BitSet for FixedBitSet {
       self.num_bits
     );
     if end_index <= start_index {
-      return;
+      return Ok(());
     }
     let start_word = start_index >> 6;
     let end_word = (end_index - 1) >> 6;
@@ -558,14 +560,15 @@ impl BitSet for FixedBitSet {
     end_mask = !end_mask;
     if start_word == end_word {
       self.bits[start_word] &= start_mask as i64 | end_mask as i64;
-      return;
+      return Ok(());
     }
 
     self.bits[start_word] &= start_mask as i64;
     for i in (start_word + 1)..end_word {
       self.bits[i] = 0;
     }
-    self.bits[end_word] &= end_mask as i64
+    self.bits[end_word] &= end_mask as i64;
+    Ok(())
   }
 
   /// Returns the number of set bits.
