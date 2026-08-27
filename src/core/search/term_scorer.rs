@@ -19,8 +19,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::slow_impacts_enum::SlowImpactsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::impacts_disi::ImpactsDISI;
+use crate::core::search::impacts_disi::SourceImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
@@ -34,7 +33,7 @@ pub struct TermScorer<PE, SS, N, IE> {
 }
 
 enum TermScorerState<PE, SS, IE> {
-  ImpactsDisi(ImpactsDISI<DummyDISI, IE, SS>),
+  ImpactsDisi(SourceImpactsDISI<IE, SS>),
   MaxScoreCache(MaxScoreCache<ImpactsEnums<IE, PE>, SS>),
 }
 
@@ -84,7 +83,7 @@ where
   ) -> Self {
     let state = if top_level_scoring_clause {
       let max_score_cache = MaxScoreCache::new(impacts_enum, scorer);
-      let disi = ImpactsDISI::new(DummyDISI, max_score_cache, false);
+      let disi = SourceImpactsDISI::from_source(max_score_cache);
       TermScorerState::ImpactsDisi(disi)
     } else {
       let max_score_cache = MaxScoreCache::new(ImpactsEnumEnum2::A(impacts_enum), scorer);
@@ -111,8 +110,7 @@ where
   fn postings(&mut self) -> TSPostings<'_, IE, PE> {
     match &mut self.state {
       TermScorerState::ImpactsDisi(impacts_disi) => {
-        let v = &mut impacts_disi.max_score_cache.impacts_source;
-        TSPostings::Impacts(v)
+        TSPostings::Impacts(impacts_disi.iterator_mut())
       },
       TermScorerState::MaxScoreCache(inner) => match inner.impacts_source {
         ImpactsEnumEnum2::A(ref mut impacts_enum) => TSPostings::Impacts(impacts_enum),
@@ -125,7 +123,7 @@ where
 
   fn sim_scorer(&self) -> &SS {
     match &self.state {
-      TermScorerState::ImpactsDisi(impacts_disi) => &impacts_disi.max_score_cache.scorer,
+      TermScorerState::ImpactsDisi(impacts_disi) => &impacts_disi.max_score_cache().scorer,
       TermScorerState::MaxScoreCache(inner) => &inner.scorer,
     }
   }
@@ -226,7 +224,7 @@ where
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
     match &mut self.state {
       TermScorerState::ImpactsDisi(impacts_disi) => {
-        impacts_disi.max_score_cache.advance_shallow(target)
+        impacts_disi.max_score_cache_mut().advance_shallow(target)
       },
       TermScorerState::MaxScoreCache(inner) => inner.advance_shallow(target),
     }
@@ -235,7 +233,7 @@ where
   fn get_max_score(&mut self, upto: i32) -> Result<f32> {
     match &mut self.state {
       TermScorerState::ImpactsDisi(impacts_disi) => {
-        impacts_disi.max_score_cache.get_max_score(upto)
+        impacts_disi.max_score_cache_mut().get_max_score(upto)
       },
       TermScorerState::MaxScoreCache(inner) => inner.get_max_score(upto),
     }

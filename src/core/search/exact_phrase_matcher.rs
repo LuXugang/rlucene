@@ -14,16 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
-use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::search::conjunction_disi::ConjunctionDISI;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
-use crate::core::search::dummy::dummy_disi::DummyDISI;
-use crate::core::search::impacts_disi::ImpactsDISI;
+use crate::core::search::impacts_disi::SourceImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::phrase_matcher::PhraseMatcher;
 use crate::core::search::phrase_query::PostingsAndFreq;
@@ -32,8 +29,7 @@ use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use std::borrow::Cow;
-pub type ImpactsApproximationType<IE, SS> = ImpactsDISI<DummyDISI, ImpactsSourceImpl<IE>, SS>;
+pub type ImpactsApproximationType<IE, SS> = SourceImpactsDISI<ImpactsSourceImpl<IE>, SS>;
 /// Expert: Find exact phrases
 pub struct ExactPhraseMatcher<IE, SS> {
   pub(crate) impacts_approximation: ImpactsApproximationType<IE, SS>,
@@ -62,7 +58,7 @@ where
     let wrapped_impacts_enum = ConjunctionDISI::from_disi(impacts_enum)?;
     let impacts_source = merge_impacts(wrapped_impacts_enum)?;
     let impacts_approximation =
-      ImpactsDISI::new(DummyDISI, MaxScoreCache::new(impacts_source, scorer), false);
+      SourceImpactsDISI::from_source(MaxScoreCache::new(impacts_source, scorer));
     Ok(Self {
       impacts_approximation,
       match_cost,
@@ -94,19 +90,13 @@ where
 
   #[inline]
   fn posting(&self, idx: usize) -> &IE {
-    &self
-      .impacts_approximation
-      .max_score_cache()
-      .impacts_source
-      .impacts_enums
-      .all_disi[idx]
+    &self.impacts_approximation.iterator().impacts_enums.all_disi[idx]
   }
   #[inline]
   fn posting_mut(&mut self, idx: usize) -> &mut IE {
     &mut self
       .impacts_approximation
-      .max_score_cache
-      .impacts_source
+      .iterator_mut()
       .impacts_enums
       .all_disi[idx]
   }
@@ -117,18 +107,10 @@ where
     &self.impacts_approximation
   }
   pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<IE> {
-    &mut self
-      .impacts_approximation
-      .max_score_cache
-      .impacts_source
-      .impacts_enums
+    &mut self.impacts_approximation.iterator_mut().impacts_enums
   }
   pub(crate) fn approximation(&self) -> &ConjunctionDISI<IE> {
-    &self
-      .impacts_approximation
-      .max_score_cache()
-      .impacts_source
-      .impacts_enums
+    &self.impacts_approximation.iterator().impacts_enums
   }
 }
 impl<IE, SS> PhraseMatcher for ExactPhraseMatcher<IE, SS>
@@ -289,31 +271,6 @@ where
   }
 }
 
-impl<IE> PostingsEnum for ImpactsSourceImpl<IE>
-where
-  IE: ImpactsEnum,
-{
-  fn freq(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn next_position(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn start_offset(&self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn end_offset(&self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-}
-
 impl<IE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for ImpactsSourceImpl<IE>
 where
@@ -345,7 +302,6 @@ where
   }
 }
 
-impl<IE> ImpactsEnum for ImpactsSourceImpl<IE> where IE: ImpactsEnum {}
 pub struct ImpactsImpl<I> {
   impacts: Vec<I>,
   lead_index: usize,

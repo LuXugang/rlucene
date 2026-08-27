@@ -45,7 +45,7 @@ use crate::core::search::disjunction_matches_iterator::from_terms;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, EmptyDISI};
 use crate::core::search::dummy::dummy_two_phase_iterator::DummyTwoPhaseIterator;
 use crate::core::search::explanation::Explanation;
-use crate::core::search::impacts_disi::ImpactsDISI;
+use crate::core::search::impacts_disi::SeparateImpactsDISI;
 use crate::core::search::index_searcher;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::matches_utils::for_field;
@@ -715,67 +715,6 @@ impl<IE> SynonymImpactsSource<IE> {
   }
 }
 
-impl<IE> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for SynonymImpactsSource<IE>
-where
-  IE: ImpactsEnum,
-{
-}
-impl<IE> DocIdSetIterator for SynonymImpactsSource<IE>
-where
-  IE: ImpactsEnum,
-{
-  fn doc_id(&self) -> i32 {
-    self
-      .impacts_enums
-      .iter()
-      .map(|impacts_enum| impacts_enum.doc_id())
-      .min()
-      .unwrap_or(-1)
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn advance(&mut self, _target: i32) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn cost(&self) -> Result<i64> {
-    let mut cost = 0;
-    for impacts_enum in &self.impacts_enums {
-      cost += impacts_enum.cost()?;
-    }
-    Ok(cost)
-  }
-}
-
-impl<IE> PostingsEnum for SynonymImpactsSource<IE>
-where
-  IE: ImpactsEnum,
-{
-  fn freq(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn next_position(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn start_offset(&self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn end_offset(&self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-}
-
 impl<IE> ImpactsSource for SynonymImpactsSource<IE>
 where
   IE: ImpactsEnum,
@@ -820,8 +759,6 @@ where
     })
   }
 }
-
-impl<IE> ImpactsEnum for SynonymImpactsSource<IE> where IE: ImpactsEnum {}
 
 pub(crate) struct SynonymImpacts {
   impacts: Vec<OwnedImpacts>,
@@ -1006,7 +943,7 @@ type SynonymTermScorer<LR> = TermScorer<
 
 type SynonymDisi<LR> = DisjunctionDISIApproximation<SynonymSubScorer<LR>>;
 
-type SynonymImpactsDISI<LR> = ImpactsDISI<
+type SynonymImpactsDISI<LR> = SeparateImpactsDISI<
   SynonymDisi<LR>,
   SynonymImpactsSource<SynonymImpactsEnum<LR>>,
   Arc<SimilarityEnumSimScorer>,
@@ -1142,8 +1079,8 @@ where
   }
 
   fn freq(&mut self) -> Result<f32> {
-    let list_index = self.impacts_disi.in_.top_list_root();
-    let all_scores = self.impacts_disi.in_.all_scores_mut();
+    let list_index = self.impacts_disi.iterator_mut().top_list_root();
+    let all_scores = self.impacts_disi.iterator_mut().all_scores_mut();
     let mut freq = all_scores[list_index].scorer.freq()?;
     let mut next = all_scores[list_index].next;
     while let Some(next_index) = next {
@@ -1169,7 +1106,7 @@ where
     let doc = if self.use_impacts_disi() {
       self.impacts_disi.doc_id()
     } else {
-      self.impacts_disi.in_.doc_id()
+      self.impacts_disi.iterator().doc_id()
     };
     if let Some(ref mut norms) = self.norms
       && norms.advance_exact(doc)?
@@ -1208,7 +1145,7 @@ where
     Ok(if self.use_impacts_disi() {
       self.impacts_disi.doc_id()
     } else {
-      self.impacts_disi.in_.doc_id()
+      self.impacts_disi.iterator().doc_id()
     })
   }
 
@@ -1216,7 +1153,7 @@ where
     if self.use_impacts_disi() {
       Box::new(&self.impacts_disi)
     } else {
-      Box::new(&self.impacts_disi.in_)
+      Box::new(self.impacts_disi.iterator())
     }
   }
 
@@ -1224,7 +1161,7 @@ where
     if self.use_impacts_disi() {
       Box::new(&mut self.impacts_disi)
     } else {
-      Box::new(&mut self.impacts_disi.in_)
+      Box::new(self.impacts_disi.iterator_mut())
     }
   }
 
@@ -1232,16 +1169,19 @@ where
     if self.use_impacts_disi() {
       Box::new(self.impacts_disi)
     } else {
-      Box::new(self.impacts_disi.in_)
+      Box::new(self.impacts_disi.into_iterator())
     }
   }
 
   fn advance_shallow(&mut self, target: i32) -> Result<i32> {
-    self.impacts_disi.max_score_cache.advance_shallow(target)
+    self
+      .impacts_disi
+      .max_score_cache_mut()
+      .advance_shallow(target)
   }
 
   fn get_max_score(&mut self, _upto: i32) -> Result<f32> {
-    self.impacts_disi.max_score_cache.get_max_score(_upto)
+    self.impacts_disi.max_score_cache_mut().get_max_score(_upto)
   }
 
   fn has_two_phase_iterator(&self) -> TwoPhaseState {
@@ -1533,7 +1473,7 @@ where
     let iterator = DisjunctionDISIApproximation::new(queue, wrappers)?;
     let impacts_source = SynonymQuery::merge_impacts(impacts, term_boosts);
     let max_score_cache = MaxScoreCache::new(impacts_source, sim_weight.clone());
-    let impacts_disi = ImpactsDISI::new(iterator, max_score_cache, true);
+    let impacts_disi = SeparateImpactsDISI::new(iterator, max_score_cache);
 
     Ok(SynonymScorerEnum::A(SynonymScorer::new(
       impacts_disi,

@@ -14,17 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
 use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
-use crate::core::index::postings_enum::PostingsEnum;
 use crate::core::index::term::Term;
 use crate::core::search::conjunction_disi::ConjunctionDISI;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::search::impacts_disi::ImpactsDISI;
+use crate::core::search::impacts_disi::SeparateImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
 use crate::core::search::phrase_matcher::PhraseMatcher;
 use crate::core::search::phrase_positions::PhrasePositions;
@@ -38,12 +35,12 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::priority_queue::PriorityQueue;
 use linked_hash_map::LinkedHashMap;
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::vec;
 
-pub type SloopyImpactsDISI<IE, SS> = ImpactsDISI<ConjunctionDISI<IE>, ImpactsSourceImpl, SS>;
+pub type SloopyImpactsDISI<IE, SS> =
+  SeparateImpactsDISI<ConjunctionDISI<IE>, ImpactsSourceImpl, SS>;
 /**
  * Find all slop-valid position-combinations (matches) encountered while traversing/hopping the
  * PhrasePositions. <br>
@@ -124,7 +121,7 @@ where
     let impacts_source = ImpactsSourceImpl;
     let max_score_cache = MaxScoreCache::new(impacts_source, scorer);
 
-    let impacts_approximation = ImpactsDISI::new(approximation, max_score_cache, true);
+    let impacts_approximation = SeparateImpactsDISI::new(approximation, max_score_cache);
 
     Ok(Self {
       slop,
@@ -653,22 +650,20 @@ where
 
   #[inline]
   pub(crate) fn posting_mut(&mut self, posting_idx: usize) -> &mut IE {
-    debug_assert!(self.impacts_approximation.use_disi);
-    let impacts = &mut self.impacts_approximation.in_;
+    let impacts = self.impacts_approximation.iterator_mut();
     &mut impacts.all_disi[posting_idx]
   }
   #[inline]
   pub(crate) fn posting(&self, posting_idx: usize) -> &IE {
-    debug_assert!(self.impacts_approximation.use_disi);
-    let impacts = &self.impacts_approximation.in_;
+    let impacts = self.impacts_approximation.iterator();
     &impacts.all_disi[posting_idx]
   }
 
   pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<IE> {
-    &mut self.impacts_approximation.in_
+    self.impacts_approximation.iterator_mut()
   }
   pub(crate) fn approximation(&self) -> &ConjunctionDISI<IE> {
-    &self.impacts_approximation.in_
+    self.impacts_approximation.iterator()
   }
 }
 
@@ -681,7 +676,7 @@ where
     // every term position in each postings list can be at the head of at most
     // one matching phrase, so the maximum possible phrase freq is the sum of
     // the freqs of the postings lists.
-    let impacts = &mut self.impacts_approximation.in_;
+    let impacts = self.impacts_approximation.iterator_mut();
     let mut max_freq = 0f32;
     for phrase_position in &self.pq.compare.phrase_positions {
       let idx = phrase_position.postings_idx;
@@ -849,52 +844,6 @@ impl ImpactsSource for ImpactsSourceImpl {
   }
 }
 
-impl PostingsEnum for ImpactsSourceImpl {
-  fn freq(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn next_position(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn start_offset(&self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn end_offset(&self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn get_payload(&self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-}
-
-impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ImpactsSourceImpl {}
-impl DocIdSetIterator for ImpactsSourceImpl {
-  fn doc_id(&self) -> i32 {
-    unreachable!()
-  }
-
-  fn next_doc(&mut self) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn advance(&mut self, _target: i32) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn slow_advance(&mut self, _target: i32) -> Result<i32> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-
-  fn cost(&self) -> Result<i64> {
-    Err(LuceneError::unsupported_operation(""))
-  }
-}
-
-impl ImpactsEnum for ImpactsSourceImpl {}
 #[derive(Default)]
 pub struct ImpactsImpl;
 impl Impacts for ImpactsImpl {
