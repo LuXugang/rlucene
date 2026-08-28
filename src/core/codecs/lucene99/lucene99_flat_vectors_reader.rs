@@ -331,9 +331,7 @@ where
   }
 
   fn finish_merge(&self) -> Result<()> {
-    self
-      .vector_data
-      .update_read_advice(ReadAdvice::Sequential)?;
+    self.vector_data.update_read_advice(ReadAdvice::Random)?;
     Ok(())
   }
 }

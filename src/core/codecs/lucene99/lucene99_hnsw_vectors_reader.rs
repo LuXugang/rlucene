@@ -531,6 +531,24 @@ where
     })
   }
 
+  fn get_merge_instance(&self) -> Result<Option<Self>>
+  where
+    Self: Sized,
+  {
+    // TODO 这里有问题
+    let Some(flat_vectors_reader) =
+      KnnVectorsReader::get_merge_instance(&self.flat_vectors_reader)?
+    else {
+      return Ok(None);
+    };
+    Ok(Some(Self {
+      flat_vectors_reader,
+      field_infos: Arc::clone(&self.field_infos),
+      fields: self.fields.clone(),
+      vector_index: self.vector_index.try_clone()?,
+    }))
+  }
+
   fn finish_merge(&self) -> Result<()> {
     self.flat_vectors_reader.finish_merge()
   }
@@ -597,6 +615,7 @@ where
   )
 }
 
+#[derive(Clone)]
 pub struct FieldEntry {
   #[allow(dead_code)] // Mirrors the Java record component, retained as part of the field metadata.
   similarity_function: VectorSimilarityFunction,

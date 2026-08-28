@@ -1418,10 +1418,17 @@ fn test_exception_on_merge_init() -> Result<()> {
     }
   }
 
-  if let crate::core::index::merge_scheduler::MergeSchedulerEnum::Concurrent(scheduler) =
-    writer.get_config()?.get_merge_scheduler()
-  {
-    let _ = scheduler.sync();
+  let sync_result = (|| -> Result<()> {
+    if let crate::core::index::merge_scheduler::MergeSchedulerEnum::Concurrent(scheduler) =
+      writer.get_config()?.get_merge_scheduler()
+    {
+      scheduler.sync()?;
+    }
+    Ok(())
+  })();
+  match sync_result {
+    Ok(()) | Err(LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_)) => {},
+    Err(error) => return Err(error),
   }
   assert!(test_point.failed.load(Ordering::SeqCst));
   writer.close()?;
