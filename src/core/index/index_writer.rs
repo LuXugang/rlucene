@@ -240,6 +240,7 @@ where
   merging_segments: HashSet<String>,
   merge_max_num_segments: i32,
   running_add_indexes_merges: HashSet<String>,
+  add_indexes_merge_sources: Vec<Weak<dyn AddIndexesMergeAbort<D>>>,
 }
 
 pub struct CommitInner<D>
@@ -630,6 +631,7 @@ where
           merging_segments: HashSet::new(),
           merge_max_num_segments: 0,
           running_add_indexes_merges: HashSet::new(),
+          add_indexes_merge_sources: Vec::new(),
         }),
         pausing: Condvar::new(),
         hooks,
@@ -2922,6 +2924,18 @@ where
       Ok(())
     })?;
 
+    // Java keeps one writer-level AddIndexesMergeSource and aborts its pending merges here.
+    // Rust needs one typed source per CodecReader type, so keep weak references to all live
+    // sources and abort each of them while holding the same writer lock used for registration.
+    let add_indexes_merge_sources = std::mem::take(&mut inner.add_indexes_merge_sources);
+    IOUtils::close_with(add_indexes_merge_sources, |source| {
+      if let Some(source) = source.upgrade() {
+        source.abort_pending_merges(inner)
+      } else {
+        Ok(())
+      }
+    })?;
+
     for merge_stat in &inner.running_merges {
       if self.info_stream.is_enabled("IW") {
         self.info_stream.message(
@@ -3490,6 +3504,13 @@ where
           let mut merge_stats = Vec::with_capacity(spec.merges.len());
           {
             let mut inner = self.inner.lock();
+            inner
+              .add_indexes_merge_sources
+              .retain(|source| source.strong_count() > 0);
+            let abort_source: Arc<dyn AddIndexesMergeAbort<D>> = merge_source.clone();
+            inner
+              .add_indexes_merge_sources
+              .push(Arc::downgrade(&abort_source));
             for om in spec.merges {
               merge_stats.push(om.stat.clone());
               merge_source.register_merge(om, &mut inner);
@@ -8584,6 +8605,22 @@ where
   processed_merges: Mutex<Vec<OneMerge<D, CR>>>,
 }
 
+/// Type-erased access to aborting pending addIndexes merges.
+///
+/// [`IndexWriter`] is parameterized only by the directory type, while each
+/// [`AddIndexesMergeSource`] also carries the `CodecReader` type selected by an individual
+/// `add_indexes_from_codec_readers` call. Different calls on the same writer may therefore create
+/// sources with different concrete reader types, which cannot be stored together without erasing
+/// that type parameter. This trait exposes only the operation needed by writer-wide cleanup so
+/// `abort_merges` can abort every live source. Normal merge scheduling and execution continue to
+/// use the concrete `AddIndexesMergeSource<D, CR>` type and retain static dispatch.
+trait AddIndexesMergeAbort<D>: Send + Sync
+where
+  D: Directory,
+{
+  fn abort_pending_merges(&self, inner: &mut Inner<D>) -> Result<()>;
+}
+
 impl<D, CR> AddIndexesMergeSource<D, CR>
 where
   D: Directory,
@@ -8636,6 +8673,17 @@ where
     });
     self.processed_merges.lock().extend(pending_merges);
     result
+  }
+}
+
+impl<D, CR> AddIndexesMergeAbort<D> for AddIndexesMergeSource<D, CR>
+where
+  D: Directory,
+  CR: CodecReader,
+  OneMerge<D, CR>: Send + 'static,
+{
+  fn abort_pending_merges(&self, inner: &mut Inner<D>) -> Result<()> {
+    AddIndexesMergeSource::abort_pending_merges(self, inner)
   }
 }
 
