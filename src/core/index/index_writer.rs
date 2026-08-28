@@ -6124,7 +6124,7 @@ where
     let c = |mut ticket: FlushTicket<D>| {
       let buffered_updates = ticket.take_frozen_updates();
       ticket.mark_published();
-      let new_segment = ticket.get_flushed_segment();
+      let new_segment = ticket.take_flushed_segment();
       match new_segment {
         // this is a flushed global deletes package - not a segment
         None => {
@@ -6140,7 +6140,7 @@ where
             self.publish_frozen_updates(buffered_updates, None)?;
           }
         },
-        Some(seg) => {
+        Some(mut seg) => {
           if self.info_stream.is_enabled("IW") {
             self.info_stream.message(
               "IW",
@@ -6159,15 +6159,14 @@ where
               ),
             )?;
           }
+          let segment_updates = seg.segment_updates.take();
+          let sort_map = seg.sort_map.take();
           self.publish_flushed_segment(
-            seg
-              .segment_info
-              .take()
-              .ok_or_else(|| LuceneError::illegal_state("segment info is missing"))?,
-            seg.field_infos.clone(),
-            seg.segment_updates.take(),
+            seg.segment_info,
+            seg.field_infos,
+            segment_updates,
             buffered_updates,
-            seg.sort_map.take(),
+            sort_map,
           )?;
         },
       }

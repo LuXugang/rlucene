@@ -28,7 +28,7 @@ use crate::core::index::term::Term;
 use crate::core::search::query::Query;
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::close::Closeable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::error::lucene_error::{CaughtResult, LuceneError};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
@@ -266,13 +266,12 @@ where
       self.info_stream.message("DW", "lockAndAbortAll")?;
     }
     // Make sure we move all pending tickets into the flush queue:
-    self.ticket_queue.force_purge(|mut ticket| {
-      if let Some(flushed_segment) = ticket.get_flushed_segment()
-        && let Some(segment_info) = &flushed_segment.segment_info
-      {
-        self
-          .pending_num_docs
-          .fetch_add(-(segment_info.info.max_doc()? as i64), Ordering::SeqCst);
+    self.ticket_queue.force_purge(|ticket| {
+      if let Some(flushed_segment) = ticket.get_flushed_segment() {
+        self.pending_num_docs.fetch_add(
+          -(flushed_segment.segment_info.info.max_doc()? as i64),
+          Ordering::SeqCst,
+        );
       }
       Ok(())
     })?;
@@ -360,14 +359,14 @@ where
     // could be a window where all changes are in the ticket queue
     // before they are published to the IW. ie we need to check if the
     // ticket queue has any tickets.
-    let num_docs = self.num_docs_in_ram.load(Ordering::SeqCst) != 0;
+    let num_docs = self.num_docs_in_ram.load(Ordering::SeqCst);
     let deletions = self.any_deletions();
     let tickets = self.ticket_queue.has_tickets();
     let pending_full = self
       .pending_changes_in_current_full_flush
       .load(Ordering::SeqCst);
 
-    let any = num_docs || deletions || tickets || pending_full;
+    let any = num_docs != 0 || deletions || tickets || pending_full;
 
     if self.info_stream.is_enabled("DW") && any {
       self.info_stream.message(
@@ -390,19 +389,6 @@ where
   }
   pub(crate) fn any_deletions(&self) -> bool {
     self.flush_control.delete_queue.lock().any_changes(None)
-  }
-  pub(crate) fn close(&self) -> Result<()> {
-    self.closed.store(true, Ordering::SeqCst);
-    IOUtils::close_with(0..2, |operation| match operation {
-      0 => {
-        self.flush_control.close();
-        Ok(())
-      },
-      _ => {
-        self.flush_control.per_thread_pool.close();
-        Ok(())
-      },
-    })
   }
   /// Called if we hit an error at a bad time (when updating the index files) and must discard
   /// all currently buffered docs. This resets our state, discarding any docs added since last flush.
@@ -545,25 +531,22 @@ where
       Ok(())
     }));
 
-    let release_result = {
+    {
       let inner = self.flush_control.inner.lock();
-      let result = if dwpt_wrapper.state.is_flush_pending()
+      if dwpt_wrapper.state.is_flush_pending()
         || dwpt_wrapper.state.is_aborted()
         || dwpt_wrapper.state.delete_queue.is_advanced()
       {
         dwpt_wrapper.state.unlock();
-        Ok(())
       } else {
         self
           .flush_control
           .per_thread_pool
-          .mark_as_free_and_unlock(dwpt_wrapper)
-      };
+          .mark_as_free_and_unlock(dwpt_wrapper);
+      }
       drop(inner);
-      result
-    };
+    }
 
-    release_result?;
     unwrap_caught_result!(result)?;
     if self.post_update(flushing_dwpt_opt, has_events, writer)? {
       seq_no = -seq_no;
@@ -623,44 +606,37 @@ where
               Ok(Some(FlushTicket::new(frozen_buffered_updates, true)))
             })?
           };
-          match ticket {
-            Some(ticket) => {
-              has_ticket = Some(ticket);
-              let flushing_docs_in_ram = flushing_dwpt.state.get_num_docs_in_ram();
-              {
-                let mut dwpt = flushing_dwpt.dwpt.lock();
-                let mut dwpt_success = false;
-                let result =
-                  std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-                    let v = dwpt.flush(&self.flush_notifications, writer)?;
-                    match v {
-                      Some(new_segment) => {
-                        let ticket = has_ticket
-                          .as_ref()
-                          .ok_or_else(|| LuceneError::illegal_state("flush ticket is missing"))?;
-                        self.ticket_queue.add_segment(ticket, new_segment)?;
-                        dwpt_success = true;
-                        Ok(())
-                      },
-                      None => Err(LuceneError::illegal_state("flush_segment returned None")),
-                    }
-                  }));
-                self.subtract_flushed_num_docs(flushing_docs_in_ram);
-                if !dwpt.pending_files_to_delete().is_empty() {
-                  let files = dwpt.pending_files_to_delete().clone();
-                  self.flush_notifications.delete_unused_files(files)?;
+          let ticket = ticket.ok_or_else(|| LuceneError::illegal_state("ticket returned None"))?;
+          has_ticket = Some(ticket.clone());
+          let flushing_docs_in_ram = flushing_dwpt.state.get_num_docs_in_ram();
+          {
+            let mut dwpt = flushing_dwpt.dwpt.lock();
+            let mut dwpt_success = false;
+            let result =
+              std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+                let v = dwpt.flush(&self.flush_notifications, writer)?;
+                match v {
+                  Some(new_segment) => {
+                    self.ticket_queue.add_segment(&ticket, new_segment)?;
+                    dwpt_success = true;
+                    Ok(())
+                  },
+                  None => Err(LuceneError::illegal_state("flush_segment returned None")),
                 }
-                if !dwpt_success {
-                  let dir = dwpt.segment_info.dir.clone();
-                  self.flush_notifications.flush_failed(std::mem::replace(
-                    &mut dwpt.segment_info,
-                    SegmentInfo::dummy(dir),
-                  ))?
-                }
-                unwrap_caught_result!(result)
-              }
-            },
-            None => Err(LuceneError::illegal_state("ticket returned None")),
+              }));
+            self.subtract_flushed_num_docs(flushing_docs_in_ram);
+            if !dwpt.pending_files_to_delete().is_empty() {
+              let files = dwpt.pending_files_to_delete().clone();
+              self.flush_notifications.delete_unused_files(files)?;
+            }
+            if !dwpt_success {
+              let dir = dwpt.segment_info.dir.clone();
+              self.flush_notifications.flush_failed(std::mem::replace(
+                &mut dwpt.segment_info,
+                SegmentInfo::dummy(dir),
+              ))?
+            }
+            unwrap_caught_result!(result)
           }?;
           success = true;
           Ok(())
@@ -905,6 +881,26 @@ where
   }
 }
 
+impl<D, FN> CloseableRef for DocumentsWriter<D, FN>
+where
+  D: Directory,
+  FN: FlushNotifications,
+{
+  fn close(&self) -> Result<()> {
+    self.closed.store(true, Ordering::SeqCst);
+    IOUtils::close_with(0..2, |operation| match operation {
+      0 => {
+        self.flush_control.close();
+        Ok(())
+      },
+      _ => {
+        self.flush_control.per_thread_pool.close();
+        Ok(())
+      },
+    })
+  }
+}
+
 pub(crate) struct LockAndAbortAllGuard<'a, D, FN>
 where
   D: Directory,
@@ -940,12 +936,6 @@ where
       .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
       .is_ok()
     {
-      if self.documents_writer.info_stream.is_enabled("DW") {
-        self
-          .documents_writer
-          .info_stream
-          .message("DW", "unlockAllAbortedThread")?;
-      }
       self
         .documents_writer
         .flush_control
@@ -954,18 +944,14 @@ where
       for writer in &self.writers {
         writer.unlock();
       }
+      if self.documents_writer.info_stream.is_enabled("DW") {
+        self
+          .documents_writer
+          .info_stream
+          .message("DW", "unlockAllAbortedThread")?;
+      }
     }
     Ok(())
-  }
-}
-
-impl<D, FN> Drop for LockAndAbortAllGuard<'_, D, FN>
-where
-  D: Directory,
-  FN: FlushNotifications,
-{
-  fn drop(&mut self) {
-    let _ = self.close();
   }
 }
 

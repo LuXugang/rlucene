@@ -824,9 +824,7 @@ where
     FN: FlushNotifications,
     DM: DocMap,
   {
-    let new_segment = flushed_segment.segment_info.as_mut().ok_or_else(|| {
-      LuceneError::illegal_state("flushed segment info is missing before sealing")
-    })?;
+    let new_segment = &mut flushed_segment.segment_info;
     let res: Result<()> = (|| {
       if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
         set_diagnostics(segment_info, SOURCE_FLUSH);
@@ -1022,8 +1020,7 @@ where
 }
 
 pub(crate) struct FlushedSegment<D> {
-  // wrap with Option for easier move
-  pub(crate) segment_info: Option<SegmentCommitInfo<D>>,
+  pub(crate) segment_info: SegmentCommitInfo<D>,
   pub(crate) field_infos: Arc<FieldInfos>,
   pub(crate) segment_updates: Option<FrozenBufferedUpdates>,
   live_docs: Option<FixedBitSet>,
@@ -1053,7 +1050,7 @@ where
     };
 
     Ok(FlushedSegment {
-      segment_info: Option::from(segment_info),
+      segment_info,
       field_infos,
       segment_updates,
       live_docs,

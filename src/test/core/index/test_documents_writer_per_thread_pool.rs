@@ -51,7 +51,7 @@ fn test_lock_release_and_close() -> Result<()> {
   assert_eq!(pool.size(), 2);
 
   let first_id = first.id().to_string();
-  pool.mark_as_free_and_unlock(first)?;
+  pool.mark_as_free_and_unlock(first);
   assert_eq!(pool.size(), 2);
 
   let third = pool.get_and_lock(&iw, || queue.clone())?;
@@ -64,7 +64,7 @@ fn test_lock_release_and_close() -> Result<()> {
   pool.close();
   assert_eq!(pool.size(), 1);
 
-  pool.mark_as_free_and_unlock(second)?;
+  pool.mark_as_free_and_unlock(second);
   assert_eq!(pool.size(), 1);
 
   let v = pool.filter_and_lock(|_| true)?;

@@ -251,8 +251,11 @@ where
   }
   /// Returns the flushed segment, or `None` if this flush ticket doesn’t have a segment.
   /// This can occur when the ticket represents a flushed global frozen updates package.
-  pub(crate) fn get_flushed_segment(&mut self) -> Option<&mut FlushedSegment<D>> {
-    self.segment.as_mut()
+  pub(crate) fn get_flushed_segment(&self) -> Option<&FlushedSegment<D>> {
+    self.segment.as_ref()
+  }
+  pub(crate) fn take_flushed_segment(&mut self) -> Option<FlushedSegment<D>> {
+    self.segment.take()
   }
   /// Returns a frozen global deletes package.
   #[allow(dead_code)] // Mirrors Java's getFrozenUpdates; Rust publishers take ownership instead. See take_frozen_updates

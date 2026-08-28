@@ -173,8 +173,11 @@ where
     let inner = self.inner.lock();
     inner.dwpts.contains_key(state_id)
   }
-  pub(crate) fn mark_as_free_and_unlock(&self, wrap_dwpt: Arc<DwptWrapper<D>>) -> Result<()> {
-    let ram_bytes_used = wrap_dwpt.dwpt.lock().ram_bytes_used()?;
+  pub(crate) fn mark_as_free_and_unlock(&self, wrap_dwpt: Arc<DwptWrapper<D>>) {
+    let ram_bytes_used = expect_invariant!(
+      wrap_dwpt.dwpt.lock().ram_bytes_used(),
+      "DocumentsWriterPerThread RAM accounting mirrors Java Accountable and is infallible"
+    );
 
     debug_assert!(
       !wrap_dwpt.state.is_flush_pending()
@@ -190,17 +193,7 @@ where
       self.contains(&wrap_dwpt.state.id),
       "Tried to add a DWPT back to the pool but the pool doesn't know about this DWPT"
     );
-    let v = match self.inner.lock().dwpts.get(&wrap_dwpt.state.id) {
-      Some(v) => v.clone(),
-      None => {
-        return Err(LuceneError::illegal_state(
-          "Tried to add a DWPT back to the pool but the pool doesn't know about this DWPT",
-        ));
-      },
-    };
-    drop(wrap_dwpt);
-    self.free_list.add_and_unlock(v, ram_bytes_used);
-    Ok(())
+    self.free_list.add_and_unlock(wrap_dwpt, ram_bytes_used);
   }
   pub(crate) fn iterator(&self) -> HashMap<String, Arc<DwptWrapper<D>>> {
     let inner = self.inner.lock();
@@ -265,6 +258,7 @@ where
     self.closed.store(true, Ordering::SeqCst);
   }
 }
+
 pub struct DwptWrapper<D>
 where
   D: Directory,
