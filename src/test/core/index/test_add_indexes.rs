@@ -1693,11 +1693,15 @@ fn test_add_indexes_with_rollback() -> Result<()> {
     println!("TEST: now force rollback");
   }
   c.base.did_close.store(true, Ordering::SeqCst);
+  let concurrent_merge_scheduler = match c.base.writer2.get_config()?.get_merge_scheduler() {
+    MergeSchedulerEnum::Concurrent(ms) => Some(ms.clone()),
+    _ => None,
+  };
   c.base.writer2.rollback()?;
 
   c.base.join_threads()?;
 
-  if let MergeSchedulerEnum::Concurrent(ms) = c.base.writer2.get_config().get_merge_scheduler() {
+  if let Some(ms) = concurrent_merge_scheduler {
     assert_eq!(0, ms.merge_thread_count());
   }
 

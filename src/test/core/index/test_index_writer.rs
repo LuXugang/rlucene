@@ -1315,7 +1315,7 @@ fn test_delete_unused_files2() -> Result<()> {
     KeepOnlyLastCommitDeletionPolicy,
   ));
   let writer = IndexWriter::new(dir.clone(), config)?;
-  let sdp = match writer.get_config().get_index_deletion_policy() {
+  let sdp = match writer.get_config()?.get_index_deletion_policy() {
     IndexDeletionPolicyEnum::Snapshot(policy) => policy.as_ref(),
     policy => {
       return Err(LuceneError::illegal_state(format!(
@@ -2388,7 +2388,7 @@ fn test_get_commit_data_from_old_snapshot() -> Result<()> {
   );
   writer.commit()?;
   // Snapshot this commit to open later.
-  let index_commit = match writer.get_config().get_index_deletion_policy() {
+  let index_commit = match writer.get_config()?.get_index_deletion_policy() {
     IndexDeletionPolicyEnum::Snapshot(policy) => policy.snapshot()?,
     policy => {
       return Err(LuceneError::illegal_state(format!(
@@ -3939,7 +3939,7 @@ fn test_check_pending_flush_post_update() -> Result<()> {
         flushing_threads.retain(|thread| indexing_threads.lock().unwrap().contains(thread));
         assert!(flushing_threads.is_empty(), "{flushing_threads:?}");
       }
-      w.get_config().set_check_pending_flush_update(true);
+      w.get_config()?.set_check_pending_flush_update(true);
       let mut num_iters = 0;
       loop {
         assert!(num_iters < 100, "should finish in less than 100 iterations");

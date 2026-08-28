@@ -1419,7 +1419,7 @@ fn test_exception_on_merge_init() -> Result<()> {
   }
 
   if let crate::core::index::merge_scheduler::MergeSchedulerEnum::Concurrent(scheduler) =
-    writer.get_config().get_merge_scheduler()
+    writer.get_config()?.get_merge_scheduler()
   {
     let _ = scheduler.sync();
   }
@@ -1849,7 +1849,7 @@ fn test_exception_during_sync() -> Result<()> {
     }
   }
   if let crate::core::index::merge_scheduler::MergeSchedulerEnum::Concurrent(scheduler) =
-    writer.get_config().get_merge_scheduler()
+    writer.get_config()?.get_merge_scheduler()
   {
     scheduler.sync()?;
   }
@@ -2744,11 +2744,15 @@ fn test_merge_exception_is_tragic() -> Result<()> {
   {
     merge_policy.set_max_merged_segment_mb(0.2)?;
   }
-  if let crate::core::index::merge_scheduler::MergeSchedulerEnum::Concurrent(scheduler) =
-    config.get_merge_scheduler()
-  {
-    scheduler.set_suppress_exceptions();
-  }
+  let concurrent_merge_scheduler =
+    if let crate::core::index::merge_scheduler::MergeSchedulerEnum::Concurrent(scheduler) =
+      config.get_merge_scheduler()
+    {
+      scheduler.set_suppress_exceptions();
+      Some(scheduler.clone())
+    } else {
+      None
+    };
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   loop {
@@ -2770,9 +2774,7 @@ fn test_merge_exception_is_tragic() -> Result<()> {
   assert!(!writer.is_open());
   assert!(did_fail.load(Ordering::SeqCst));
 
-  if let crate::core::index::merge_scheduler::MergeSchedulerEnum::Concurrent(scheduler) =
-    writer.get_config().get_merge_scheduler()
-  {
+  if let Some(scheduler) = concurrent_merge_scheduler {
     // Sneaky: CMS's merge thread will be concurrently rolling back IW due
     // to the tragedy, with this main thread, so we have to wait here
     // to ensure the rollback has finished, else MDW still sees open files:

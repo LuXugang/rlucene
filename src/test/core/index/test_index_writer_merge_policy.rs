@@ -339,8 +339,8 @@ where
   D: Directory + 'static,
 {
   writer.wait_for_merges()?;
-  let max_buffered_docs = writer.get_config().get_max_buffered_docs();
-  let merge_factor = match writer.get_config().get_merge_policy() {
+  let max_buffered_docs = writer.get_config()?.get_max_buffered_docs();
+  let merge_factor = match writer.get_config()?.get_merge_policy() {
     MergePolicyEnum::Mock(merge_policy) => merge_policy.get_merge_factor(),
     _ => unreachable!(),
   };

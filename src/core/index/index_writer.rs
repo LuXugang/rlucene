@@ -711,10 +711,11 @@ where
   }
   /// Returns the [`IndexWriterConfig`] that was passed to [`IndexWriter::new`]. This returns
   /// a live reference; changes to the config affect this writer instance.
-  pub fn get_config(&self) -> &IndexWriterConfig<D> {
-    &self.config
+  pub fn get_config(&self) -> Result<&IndexWriterConfig<D>> {
+    self.do_ensure_open(false)?;
+    Ok(&self.config)
   }
-  /// Mutable version of [`Self::get_config`].
+  /// Test-only mutable accessor used to exercise live configuration changes.
   #[cfg(test)]
   #[allow(invalid_reference_casting)]
   #[allow(clippy::mut_from_ref)]
@@ -2684,7 +2685,7 @@ where
       self.config.get_merge_scheduler().close()?;
 
       self.doc_writer.close()?;
-      self.doc_writer.abort(self.get_config())?;
+      self.doc_writer.abort(self.get_config()?)?;
       self.doc_writer.flush_control.wait_for_flush();
       self.publish_flushed_segments(true)?;
       self.event_queue.close(self)?;
@@ -3040,7 +3041,7 @@ where
     D: 'static,
   {
     let mut inner = self.inner.lock();
-    self.do_ensure_open(true)?;
+    self.do_ensure_open(false)?;
     inner
       .deleter
       .revisit_policy(self.config.get_index_deletion_policy())
@@ -6710,7 +6711,7 @@ where
 
           if seg_state.rld.is_fully_deleted(info)?
             && !self
-              .get_config()
+              .get_config()?
               .get_merge_policy()
               .keep_fully_deleted_segment(|| Ok(seg_state.reader.clone()))?
           {
@@ -8456,9 +8457,11 @@ where
   D: Directory,
 {
   fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
-    let result = writer.publish_flushed_segments(true);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      writer.publish_flushed_segments(true)
+    }));
     writer.flush_count.fetch_add(1, Ordering::SeqCst);
-    result
+    unwrap_caught_result!(result)
   }
 }
 pub(crate) struct EventImpl4;

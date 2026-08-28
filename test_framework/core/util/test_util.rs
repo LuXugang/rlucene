@@ -206,7 +206,7 @@ impl TestUtil {
   where
     D: Directory,
   {
-    Self::sync_concurrent_merges_with_scheduler(writer.get_config().get_merge_scheduler())
+    Self::sync_concurrent_merges_with_scheduler(writer.get_config()?.get_merge_scheduler())
   }
 
   pub fn sync_concurrent_merges_with_scheduler(merge_scheduler: &MergeSchedulerEnum) -> Result<()> {
@@ -351,7 +351,7 @@ impl TestUtil {
       },
       _ => {},
     }
-    let merge_scheduler = w.get_config().get_merge_scheduler();
+    let merge_scheduler = w.get_config()?.get_merge_scheduler();
     if let MergeSchedulerEnum::Concurrent(cms) = merge_scheduler {
       cms.set_max_merges_and_threads(3, 2)?;
     }

@@ -813,7 +813,7 @@ fn test_random_phrases() -> Result<()> {
 
         let mut ts = writer
           .w
-          .get_config()
+          .get_config()?
           .get_analyzer()
           .token_stream("ignore", ReaderEnum::from(&term))?;
         let body_result = (|| -> Result<()> {

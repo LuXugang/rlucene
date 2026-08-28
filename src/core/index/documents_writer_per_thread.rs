@@ -354,7 +354,7 @@ where
 
       let docs_in_ram_before = self.state.num_docs_in_ram.load(SeqCst);
       let mut all_docs_indexed = false;
-      let index_writer_config = writer.get_config();
+      let index_writer_config = writer.get_config()?;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
         let mut docs_iter = docs.into_fallible_iter();
         let mut next_doc = docs_iter.next().transpose()?;
@@ -543,7 +543,7 @@ where
       .segment_info
       .set_max_doc(self.state.num_docs_in_ram.load(SeqCst))?;
 
-    let index_writer_config = writer.get_config();
+    let index_writer_config = writer.get_config()?;
     let io_context = IOContext::with_flush(FlushInfo::new(
       self.state.num_docs_in_ram.load(SeqCst),
       self.state.last_committed_bytes_used.load(Ordering::SeqCst),

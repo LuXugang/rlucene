@@ -104,7 +104,7 @@ where
       &index_writer.new_segment_name(None),
       index_writer.directory_orig.clone(),
       index_writer.directory.clone(),
-      index_writer.get_config(),
+      index_writer.get_config()?,
       delete_queue,
       infos,
       index_writer.pending_num_docs.clone(),

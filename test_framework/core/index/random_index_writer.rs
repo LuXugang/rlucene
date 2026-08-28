@@ -219,6 +219,7 @@ where
       0.0
     };
 
+    let can_randomly_force_merge = !matches!(c.get_merge_policy(), MergePolicyEnum::No(_));
     let w = Self::mock_index_writer(dir.clone(), c, r).expect("should not fail");
     let flush_at = TestUtil::next_int(r, 10, 1000);
     if cfg!(feature = "test_log_verbose") {
@@ -226,8 +227,7 @@ where
     }
 
     // Make sure we sometimes test indices that don't get any forced merges.
-    let do_random_force_merge =
-      !matches!(w.get_config().get_merge_policy(), MergePolicyEnum::No(_)) && r.random();
+    let do_random_force_merge = can_randomly_force_merge && r.random();
     let seed = r.random();
     Self {
       w,
@@ -374,7 +374,7 @@ where
     let seq_no = if self.use_soft_deletes(r) {
       let soft_deletes_field = self
         .w
-        .get_config()
+        .get_config()?
         .get_soft_deletes_field()
         .expect("soft deletes field is not configured")
         .clone();
@@ -417,7 +417,7 @@ where
     let seq_no = if self.use_soft_deletes(r) {
       let soft_deletes_field = self
         .w
-        .get_config()
+        .get_config()?
         .get_soft_deletes_field()
         .expect("soft deletes field is not configured")
         .clone();
@@ -637,7 +637,7 @@ where
         self.w.force_merge(limit)?;
         if limit == 1
           || !matches!(
-            self.w.get_config().get_merge_policy(),
+            self.w.get_config()?.get_merge_policy(),
             MergePolicyEnum::Tiered(_)
           )
         {
@@ -708,7 +708,7 @@ where
           && !INDEX_WRITER_ACCESS.is_closed(&self.w)
         {
           self.do_random_force_merge(r)?;
-          if !self.w.get_config().get_commit_on_close() {
+          if !self.w.get_config()?.get_commit_on_close() {
             // index may have changed, must commit the changes, or otherwise they are discarded by the
             // call to close()
             self.w.commit()?;

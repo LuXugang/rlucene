@@ -68,7 +68,7 @@ fn init_index_with_directory(
   config.set_merge_scheduler(ConcurrentMergeScheduler::new());
   config.set_commit_on_close(commit_on_close);
   let writer = IndexWriter::new(dir, config)?;
-  match writer.get_config().get_merge_scheduler() {
+  match writer.get_config()?.get_merge_scheduler() {
     MergeSchedulerEnum::Concurrent(cms) => cms.set_suppress_exceptions(),
     _ => unreachable!("the test configures ConcurrentMergeScheduler"),
   }

@@ -1062,7 +1062,7 @@ fn test_list_commits() -> Result<()> {
     KeepOnlyLastCommitDeletionPolicy,
   ));
   let writer = IndexWriter::new(dir.clone(), iwc)?;
-  let sdp = match writer.get_config().get_index_deletion_policy() {
+  let sdp = match writer.get_config()?.get_index_deletion_policy() {
     IndexDeletionPolicyEnum::Snapshot(policy) => policy.as_ref(),
     policy => {
       return Err(LuceneError::illegal_state(format!(

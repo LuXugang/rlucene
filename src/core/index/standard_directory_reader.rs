@@ -244,7 +244,7 @@ where
       let reader = reader_function.apply(info, inner)?;
       if reader.num_docs()? > 0
         || writer
-          .get_config()
+          .get_config()?
           .get_merge_policy()
           .keep_fully_deleted_segment(|| Ok(reader.clone()))?
       {
@@ -256,7 +256,7 @@ where
         segment_infos.remove(infos_upto);
       }
     }
-    let leaf_sorter = writer.get_config().get_leaf_sorter().cloned();
+    let leaf_sorter = writer.get_config()?.get_leaf_sorter().cloned();
     writer.inc_ref_deleter(&segment_infos, Some(inner))?;
     let reader = StandardDirectoryReader::new(
       dir,

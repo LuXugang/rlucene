@@ -88,12 +88,12 @@ fn run_flush_by_ram(num_threads: i32, max_ram_mb: f64, ensure_not_stalled: bool)
   iwc.set_ram_buffer_size_mb(max_ram_mb);
   iwc.set_max_buffered_docs(DISABLE_AUTO_FLUSH);
   let writer = IndexWriter::new(dir, iwc)?;
-  let flush_policy = match writer.get_config().get_flush_policy() {
+  let flush_policy = match writer.get_config()?.get_flush_policy() {
     FlushPolicyEnum::MockDefault(flush_policy) => flush_policy,
     _ => unreachable!("expected MockDefaultFlushPolicy"),
   };
-  assert!(!flush_policy.base.flush_on_doc_count(writer.get_config()));
-  assert!(flush_policy.base.flush_on_ram(writer.get_config()));
+  assert!(!flush_policy.base.flush_on_doc_count(writer.get_config()?));
+  assert!(flush_policy.base.flush_on_ram(writer.get_config()?));
   let docs_writer = writer.get_docs_writer();
   let flush_control = &docs_writer.flush_control;
   assert_eq!(
@@ -115,7 +115,7 @@ fn run_flush_by_ram(num_threads: i32, max_ram_mb: f64, ensure_not_stalled: bool)
     Ok(())
   })?;
 
-  let max_ram_bytes = (writer.get_config().get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
+  let max_ram_bytes = (writer.get_config()?.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
   assert_eq!(
     0,
     docs_writer.get_flushing_bytes(),
@@ -157,12 +157,12 @@ fn test_flush_doc_count() -> Result<()> {
     iwc.set_max_buffered_docs(2 + at_least(&mut random, 10));
     iwc.set_ram_buffer_size_mb(DISABLE_AUTO_FLUSH as f64);
     let writer = IndexWriter::new(dir, iwc)?;
-    let flush_policy = match writer.get_config().get_flush_policy() {
+    let flush_policy = match writer.get_config()?.get_flush_policy() {
       FlushPolicyEnum::MockDefault(flush_policy) => flush_policy,
       _ => unreachable!("expected MockDefaultFlushPolicy"),
     };
-    assert!(flush_policy.base.flush_on_doc_count(writer.get_config()));
-    assert!(!flush_policy.base.flush_on_ram(writer.get_config()));
+    assert!(flush_policy.base.flush_on_doc_count(writer.get_config()?));
+    assert!(!flush_policy.base.flush_on_ram(writer.get_config()?));
     let docs_writer = writer.get_docs_writer();
     let flush_control = &docs_writer.flush_control;
     assert_eq!(
@@ -197,7 +197,7 @@ fn test_flush_doc_count() -> Result<()> {
       flush_policy
         .peak_doc_count_without_flush
         .load(Ordering::SeqCst)
-        <= writer.get_config().get_max_buffered_docs() as i64,
+        <= writer.get_config()?.get_max_buffered_docs() as i64,
       "peak bytes without flush exceeded watermark"
     );
     assert_active_bytes_after(flush_control)?;
@@ -221,7 +221,7 @@ fn test_random() -> Result<()> {
   iwc.set_flush_policy(flush_policy);
 
   let writer = IndexWriter::new(dir, iwc)?;
-  let flush_policy = match writer.get_config().get_flush_policy() {
+  let flush_policy = match writer.get_config()?.get_flush_policy() {
     FlushPolicyEnum::MockDefault(flush_policy) => flush_policy,
     _ => unreachable!("expected MockDefaultFlushPolicy"),
   };
@@ -255,10 +255,10 @@ fn test_random() -> Result<()> {
   let doc_stats = writer.get_doc_stats()?;
   assert_eq!(num_documents_to_index, doc_stats.num_docs);
   assert_eq!(num_documents_to_index, doc_stats.max_doc);
-  if flush_policy.base.flush_on_ram(writer.get_config())
-    && !flush_policy.base.flush_on_doc_count(writer.get_config())
+  if flush_policy.base.flush_on_ram(writer.get_config()?)
+    && !flush_policy.base.flush_on_doc_count(writer.get_config()?)
   {
-    let max_ram_bytes = (writer.get_config().get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
+    let max_ram_bytes = (writer.get_config()?.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64;
     assert!(
       flush_policy.peak_bytes_without_flush.load(Ordering::SeqCst) <= max_ram_bytes,
       "peak bytes without flush exceeded watermark"
@@ -278,7 +278,7 @@ fn test_random() -> Result<()> {
   let reader = directory_reader::open_from_writer(&writer)?;
   assert_eq!(num_documents_to_index, reader.num_docs()?);
   assert_eq!(num_documents_to_index, reader.max_doc()?);
-  if !flush_policy.base.flush_on_ram(writer.get_config()) {
+  if !flush_policy.base.flush_on_ram(writer.get_config()?) {
     assert!(
       !flush_control.was_stalled(),
       "never stall if we don't flush on RAM"
@@ -342,7 +342,7 @@ fn test_stall_control() -> Result<()> {
       );
     }
     if flush_control.get_peak_net_bytes()
-      > (2.0 * writer.get_config().get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64
+      > (2.0 * writer.get_config()?.get_ram_buffer_size_mb() * 1024.0 * 1024.0) as i64
     {
       assert!(flush_control.was_stalled());
     }

@@ -111,13 +111,15 @@ where
   )
 }
 
-fn persistent_policy<D>(writer: &IndexWriter<D>) -> &PersistentSnapshotDeletionPolicy<D>
+fn persistent_policy<D>(writer: &IndexWriter<D>) -> Result<&PersistentSnapshotDeletionPolicy<D>>
 where
   D: Directory,
 {
-  match writer.get_config().get_index_deletion_policy() {
-    IndexDeletionPolicyEnum::PersistentSnapshot(policy) => policy.as_ref(),
-    policy => panic!("expected PersistentSnapshotDeletionPolicy but got {policy}"),
+  match writer.get_config()?.get_index_deletion_policy() {
+    IndexDeletionPolicyEnum::PersistentSnapshot(policy) => Ok(policy.as_ref()),
+    policy => Err(LuceneError::illegal_state(format!(
+      "expected PersistentSnapshotDeletionPolicy but got {policy}"
+    ))),
   }
 }
 
@@ -130,7 +132,7 @@ fn test_existing_snapshots() -> Result<()> {
     dir.clone(),
     get_config(&mut random, get_deletion_policy(dir.clone())?)?,
   )?;
-  let psdp = persistent_policy(&writer);
+  let psdp = persistent_policy(&writer)?;
   assert!(psdp.get_last_save_file().is_none());
   let mut snapshots = prepare_index_and_snapshots(|| psdp.snapshot(), &writer, num_snapshots)?;
   assert!(psdp.get_last_save_file().is_some());
@@ -156,7 +158,7 @@ fn test_existing_snapshots() -> Result<()> {
   )?;
 
   let writer = IndexWriter::new(dir.clone(), get_config(&mut random, psdp)?)?;
-  let psdp = persistent_policy(&writer);
+  let psdp = persistent_policy(&writer)?;
 
   assert_eq!(num_snapshots, psdp.get_snapshots().len());
   assert_eq!(num_snapshots as i32, psdp.get_snapshot_count());
@@ -234,7 +236,7 @@ fn test_exception_during_save() -> Result<()> {
   writer.add_document(Document::new())?;
   writer.commit()?;
 
-  let psdp = persistent_policy(&writer);
+  let psdp = persistent_policy(&writer)?;
   fail_on_persist.store(true, Ordering::SeqCst);
   let error = match psdp.snapshot() {
     Ok(_) => panic!("snapshot save should fail on purpose"),
@@ -259,7 +261,7 @@ fn test_snapshot_release() -> Result<()> {
     dir.clone(),
     get_config(&mut random, get_deletion_policy(dir.clone())?)?,
   )?;
-  let psdp = persistent_policy(&writer);
+  let psdp = persistent_policy(&writer)?;
   let snapshots = prepare_index_and_snapshots(|| psdp.snapshot(), &writer, 1)?;
   writer.close()?;
 
@@ -282,7 +284,7 @@ fn test_snapshot_release_by_generation() -> Result<()> {
     dir.clone(),
     get_config(&mut random, get_deletion_policy(dir.clone())?)?,
   )?;
-  let psdp = persistent_policy(&writer);
+  let psdp = persistent_policy(&writer)?;
   let snapshots = prepare_index_and_snapshots(|| psdp.snapshot(), &writer, 1)?;
   writer.close()?;
 

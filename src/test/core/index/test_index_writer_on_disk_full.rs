@@ -74,7 +74,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
         dir.clone(),
         new_index_writer_config_with_analyzer(&mut random, analyzer)?,
       )?;
-      if let MergeSchedulerEnum::Concurrent(ms) = writer.get_config().get_merge_scheduler() {
+      if let MergeSchedulerEnum::Concurrent(ms) = writer.get_config()?.get_merge_scheduler() {
         // This test intentionally produces errors
         // in the threads that CMS launches; we don't
         // want to pollute test output with these.
@@ -272,7 +272,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
       let mut success: bool;
 
       for x in 0..2 {
-        if let MergeSchedulerEnum::Concurrent(ms) = writer.get_config().get_merge_scheduler() {
+        if let MergeSchedulerEnum::Concurrent(ms) = writer.get_config()?.get_merge_scheduler() {
           // This test intentionally produces errors
           // in the threads that CMS launches; we don't
           // want to pollute test output with these.
