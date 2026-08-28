@@ -86,7 +86,7 @@ fn test_close_under_exception() -> Result<()> {
     }
 
     let expected = reader.close().expect_err("reader.close() should fail");
-    assert!(matches!(expected, LuceneError::IllegalState(_)));
+    assert!(expected.is_illegal_state_error());
 
     if throw_on_close {
       assert_eq!("BOOM!", expected.to_string());

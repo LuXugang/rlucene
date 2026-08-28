@@ -2121,7 +2121,10 @@ fn test_total_point_count_validation() -> Result<()> {
 
   let result = writer.write_field(&mut out, &mut reader, "test_field_name");
 
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
   Ok(())
 }
 pub struct MutablePointTreeMock2 {
@@ -2222,6 +2225,7 @@ fn test_too_many_points() -> Result<()> {
   let err = w
     .add(&point_value, num_values as i32)
     .expect_err("expected LuceneError::IllegalState");
+  assert!(err.is_illegal_state_error());
   assert_eq!(
     err.to_string(),
     format!(
@@ -2268,9 +2272,14 @@ fn test_too_many_points_1d() -> Result<()> {
 
   let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
 
-  let result = writer.write_field(&mut out, &mut reader, "");
-  assert!(
-    matches!(result, Err(LuceneError::IllegalState(msg)) if msg.message.eq("totalPointCount=10 was passed when we were created, but we just hit 11 values"))
+  let error = match writer.write_field(&mut out, &mut reader, "") {
+    Ok(_) => panic!("writing too many points must fail"),
+    Err(error) => error,
+  };
+  assert!(error.is_illegal_state_error());
+  assert_eq!(
+    "totalPointCount=10 was passed when we were created, but we just hit 11 values",
+    error.to_string()
   );
 
   Ok(())

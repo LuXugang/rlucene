@@ -171,7 +171,7 @@ fn do_test_deadlock_stalled_merges(merge_on_flush: bool, random: &mut StdRng) ->
   // w writes third segment
   w.add_document(Document::new())?;
   let error = w.commit().expect_err("commit should fail after a tragedy");
-  assert!(matches!(error, LuceneError::IllegalState(_)), "{error}");
+  assert!(error.is_illegal_state_error(), "{error}");
   assert!(
     error
       .to_string()

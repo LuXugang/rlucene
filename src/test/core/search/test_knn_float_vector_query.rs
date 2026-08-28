@@ -329,7 +329,7 @@ fn test_vector_encoding_mismatch() -> Result<()> {
     };
     let query = KnnByteVectorQuery::with_filter("field", vec![0, 1], 10, filter)?;
     match searcher.search(query, 10) {
-      Err(LuceneError::IllegalState(_)) => Ok(()),
+      Err(error) if error.is_illegal_state_error() => Ok(()),
       _ => unreachable!(""),
     }
   })

@@ -237,7 +237,7 @@ impl<D> SegmentInfo<D> {
   /// into account)
   pub fn max_doc(&self) -> Result<i32> {
     if self.max_doc == -1 {
-      return Err(LuceneError::illegal_argument("maxDoc isn't set yet"));
+      return Err(LuceneError::illegal_state("maxDoc isn't set yet"));
     }
     Ok(self.max_doc)
   }
@@ -245,7 +245,7 @@ impl<D> SegmentInfo<D> {
   /// Sets the max_doc value, can only be called once
   pub fn set_max_doc(&mut self, max_doc: i32) -> Result<()> {
     if self.max_doc != -1 {
-      return Err(LuceneError::illegal_argument(format!(
+      return Err(LuceneError::illegal_state(format!(
         "maxDoc was already set: this.maxDoc={} vs maxDoc {}",
         self.max_doc, max_doc
       )));
@@ -258,7 +258,7 @@ impl<D> SegmentInfo<D> {
   pub fn files(&self) -> Result<&HashSet<String>> {
     match self.set_files {
       Some(ref files) => Ok(files),
-      None => Err(LuceneError::illegal_argument(format!(
+      None => Err(LuceneError::illegal_state(format!(
         "files were not set; segment={} maxDoc={}",
         self.name, self.max_doc
       ))),
@@ -267,7 +267,7 @@ impl<D> SegmentInfo<D> {
   pub fn take_files(&mut self) -> Result<HashSet<String>> {
     match self.set_files.take() {
       Some(files) => Ok(files),
-      None => Err(LuceneError::illegal_argument(format!(
+      None => Err(LuceneError::illegal_state(format!(
         "files were not set; segment={} maxDoc={}",
         self.name, self.max_doc
       ))),

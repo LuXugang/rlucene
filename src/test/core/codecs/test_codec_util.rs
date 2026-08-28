@@ -314,17 +314,26 @@ fn test_write_bogus_crc() -> Result<()> {
   fake_checksum.store(-1, std::sync::atomic::Ordering::SeqCst); // bad
   let result = CodecUtil::write_crc(&mut fake_output);
   assert!(result.is_err());
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   fake_checksum.store(1 << 32, std::sync::atomic::Ordering::SeqCst); // bad
   let result = CodecUtil::write_crc(&mut fake_output);
   assert!(result.is_err());
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   fake_checksum.store(-(1 << 32), std::sync::atomic::Ordering::SeqCst); // bad
   let result = CodecUtil::write_crc(&mut fake_output);
   assert!(result.is_err());
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   fake_checksum.store((1 << 32) - 1, std::sync::atomic::Ordering::SeqCst); // ok
   let result = CodecUtil::write_crc(&mut fake_output);

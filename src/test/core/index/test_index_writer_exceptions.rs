@@ -1427,7 +1427,8 @@ fn test_exception_on_merge_init() -> Result<()> {
     Ok(())
   })();
   match sync_result {
-    Ok(()) | Err(LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_)) => {},
+    Ok(()) => {},
+    Err(error) if error.is_illegal_state_error() => {},
     Err(error) => return Err(error),
   }
   assert!(test_point.failed.load(Ordering::SeqCst));
@@ -1941,9 +1942,17 @@ fn test_force_merge_exceptions() -> Result<()> {
     config.set_merge_scheduler(merge_scheduler);
     let writer = IndexWriter::new(dir.clone(), config)?;
     dir.set_random_io_exception_rate(0.5);
-    let _ = writer.force_merge(1);
+    match writer.force_merge(1) {
+      Ok(()) => {},
+      Err(error) if error.is_illegal_state_error() || error.is_io_error() => {},
+      Err(error) => return Err(error),
+    }
     dir.set_random_io_exception_rate(0.0);
-    let _ = writer.close();
+    match writer.close() {
+      Ok(()) => {},
+      Err(error) if error.is_illegal_state_error() => {},
+      Err(error) => return Err(error),
+    }
     dir.as_ref().close()?;
   }
   start_dir.as_ref().close()?;
@@ -2765,14 +2774,17 @@ fn test_merge_exception_is_tragic() -> Result<()> {
   loop {
     let mut doc = Document::new();
     doc.add(StringField::from_string("field", "string", Store::No)?);
-    if writer.add_document(doc).is_err() {
-      break;
+    match writer.add_document(doc) {
+      Ok(_) => {},
+      Err(error) if error.is_illegal_state_error() || error.is_io_error() => break,
+      Err(error) => return Err(error),
     }
     if random.random_range(0..10) == 7 {
       // Flush new segment:
       match directory_reader::open_from_writer(&writer) {
         Ok(reader) => reader.close()?,
-        Err(_) => break,
+        Err(error) if error.is_illegal_state_error() || error.is_io_error() => break,
+        Err(error) => return Err(error),
       }
     }
   }

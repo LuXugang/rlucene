@@ -204,14 +204,14 @@ fn test_missing_snapshots() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  assert!(
+  assert!(matches!(
     PersistentSnapshotDeletionPolicy::with_open_mode(
       KeepOnlyLastCommitDeletionPolicy,
       dir,
       OpenMode::Append,
-    )
-    .is_err()
-  );
+    ),
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   Ok(())
 }

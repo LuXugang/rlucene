@@ -91,13 +91,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
       match add_result {
         Ok(()) => match writer.commit() {
           Ok(_) => index_exists = true,
-          Err(error)
-            if error.is_io_error()
-              || matches!(
-                &error,
-                LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_)
-              ) =>
-          {
+          Err(error) if error.is_io_error() || error.is_illegal_state_error() => {
             hit_exception = true;
           },
           Err(error) => return Err(error),
@@ -114,13 +108,7 @@ fn test_add_document_on_disk_full() -> Result<()> {
         } else {
           match writer.close() {
             Ok(()) => {},
-            Err(error)
-              if error.is_io_error()
-                || matches!(
-                  &error,
-                  LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_)
-                ) =>
-            {
+            Err(error) if error.is_io_error() || error.is_illegal_state_error() => {
               dir.set_max_size_in_bytes(0);
               match writer.close() {
                 Ok(()) | Err(LuceneError::AlreadyClosed(_)) => {},
@@ -347,10 +335,9 @@ fn test_add_index_on_disk_full() -> Result<()> {
             }
           },
           Err(error)
-            if matches!(
-              &error,
-              LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_) | LuceneError::Merge(_)
-            ) || error.is_io_error() =>
+            if error.is_illegal_state_error()
+              || matches!(&error, LuceneError::Merge(_))
+              || error.is_io_error() =>
           {
             success = false;
             let is_merge_exception = matches!(error, LuceneError::Merge(_));

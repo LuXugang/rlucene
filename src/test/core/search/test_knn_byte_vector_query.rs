@@ -384,7 +384,7 @@ impl TestKnnByteVectorQuery {
     };
     let query = KnnFloatVectorQuery::with_filter("field", vec![0.0, 1.0], 10, filter)?;
     match searcher.search(query, 10) {
-      Err(LuceneError::IllegalState(_)) => Ok(()),
+      Err(error) if error.is_illegal_state_error() => Ok(()),
       _ => unreachable!(""),
     }
   }

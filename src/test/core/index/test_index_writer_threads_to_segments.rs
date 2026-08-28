@@ -300,7 +300,7 @@ fn test_many_threads_close() -> Result<()> {
     starting_gun.wait();
     thread::sleep(Duration::from_millis(100));
     if let Err(e) = w.close(&mut random)
-      && !matches!(e, LuceneError::IllegalState(_))
+      && !e.is_illegal_state_error()
     {
       return Err(e);
     }

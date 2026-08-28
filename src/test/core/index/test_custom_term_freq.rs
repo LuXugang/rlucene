@@ -457,6 +457,7 @@ fn test_invalid_prox() -> Result<()> {
   doc.add(field);
 
   let err = w.add_document(doc).unwrap_err();
+  assert!(err.is_illegal_state_error());
   assert!(
     err.to_string().contains(
       "field \"field\": cannot index positions while using custom TermFrequencyAttribute"
@@ -496,6 +497,7 @@ fn test_invalid_docs_only() -> Result<()> {
   doc.add(field);
 
   let err = w.add_document(doc).unwrap_err();
+  assert!(err.is_illegal_state_error());
   assert!(
     err
       .to_string()

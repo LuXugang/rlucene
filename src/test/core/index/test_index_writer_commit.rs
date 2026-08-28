@@ -770,7 +770,10 @@ fn test_prepare_commit_then_close() -> Result<()> {
 
   writer.prepare_commit()?;
   let err = writer.close();
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err,
+    Err(error) if error.is_illegal_state_error()
+  ));
   writer.commit()?;
   writer.close()?;
 

@@ -150,7 +150,10 @@ fn test_finish_twice() -> Result<()> {
   let one_merge = &mut spec.merges[0];
   one_merge.close_for_test(true, false, |_| Ok(()))?;
   let err = one_merge.close_for_test(false, false, |_| Ok(()));
-  assert!(err.is_err());
+  assert!(matches!(
+    err,
+    Err(error) if error.is_illegal_state_error()
+  ));
   Ok(())
 }
 

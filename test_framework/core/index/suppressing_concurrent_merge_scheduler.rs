@@ -64,7 +64,7 @@ impl SuppressingConcurrentMergeScheduler {
       ExpectedMergeException::All => true,
       ExpectedMergeException::WriterClosedOrTragic => {
         matches!(error, LuceneError::AlreadyClosed(_))
-          || matches!(error, LuceneError::IllegalState(_))
+          || error.is_illegal_state_error()
             && error
               .to_string()
               .contains("this writer hit an unrecoverable error")

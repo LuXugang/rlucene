@@ -1211,6 +1211,10 @@ fn test_packed_long_values() -> Result<()> {
       assert_eq!(arr.len(), buf.size() as usize);
 
       let values = buf.build()?;
+      assert!(matches!(
+        buf.add(random.random()),
+        Err(error) if error.is_illegal_state_error()
+      ));
       assert_eq!(arr.len(), values.size() as usize);
 
       for (i, &value) in arr.iter().enumerate() {

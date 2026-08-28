@@ -35,6 +35,9 @@ use crate::core::util::io_utils::IOUtils;
 use rand::Rng;
 use std::collections::HashMap;
 
+#[allow(dead_code)] // for quick search
+struct BaseTokenStreamTestCase;
+
 pub trait CheckClearAttributesAttribute: AttributeImpl {
   const ATTRIBUTE_NAME: &'static str = NAME;
 
@@ -1215,14 +1218,8 @@ where
       }));
     let result = IOUtils::finally_caught_result(result, finally_result);
     match result {
-      Err(e) => {
-        match e {
-          LuceneError::IllegalState(_) => {
-            // ok
-          },
-          _ => unreachable!("got wrong error when reset() not called"),
-        }
-      },
+      Err(error) if error.is_illegal_state_error() => {},
+      Err(error) => unreachable!("got wrong error when reset() not called: {error}"),
       Ok(true) => {
         unreachable!("didn't get expected error when reset() not called")
       },
@@ -1250,14 +1247,8 @@ where
   }));
   let result = IOUtils::finally_caught_result(result, finally_result);
   match result {
-    Err(e) => {
-      match e {
-        LuceneError::IllegalState(_) => {
-          // ok
-        },
-        _ => unreachable!("didn't get expected error"),
-      }
-    },
+    Err(error) if error.is_illegal_state_error() => {},
+    Err(error) => unreachable!("didn't get expected error: {error}"),
     Ok(()) => unreachable!("didn't get expected error when close() not called"),
   }
   Ok(())

@@ -98,7 +98,7 @@ fn test_nan_and_inf_value_failure() {
       let float_vector_values = from_floats(floats.clone());
       assert!(matches!(
         ScalarQuantizer::from_vectors(&float_vector_values, 0.9, num_vecs, bits),
-        Err(LuceneError::IllegalState(_))
+        Err(error) if error.is_illegal_state_error()
       ));
       let actual_function = if function == VectorSimilarityFunction::Cosine {
         VectorSimilarityFunction::DotProduct
@@ -112,7 +112,7 @@ fn test_nan_and_inf_value_failure() {
           num_vecs,
           bits,
         ),
-        Err(LuceneError::IllegalState(_))
+        Err(error) if error.is_illegal_state_error()
       ));
     }
   }

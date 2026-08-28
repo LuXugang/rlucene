@@ -16,7 +16,7 @@
  */
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::delta_packed_long_values::{
   DeltaPackedLongValues, DeltaPackedLongValuesBuilder,
@@ -184,6 +184,7 @@ pub struct Builder {
   pub(crate) ram_bytes_used: i64,
   pub(crate) values_off: i32,
   pending_off: i32,
+  finished: bool,
   sub_builder: Option<DeltaPackedLongValuesBuilder>,
 }
 
@@ -226,6 +227,7 @@ impl Builder {
       ram_bytes_used,
       values_off: 0,
       pending_off: 0,
+      finished: false,
       sub_builder: sub_packed_long_values_builder,
     })
   }
@@ -233,6 +235,7 @@ impl Builder {
   /// been added to this builder. This operation is destructive.
   pub fn build(&mut self) -> Result<PackedLongValues> {
     self.finish()?;
+    self.finished = true;
 
     let mut values = std::mem::take(&mut self.values);
     values.truncate(self.values_off as usize);
@@ -245,6 +248,9 @@ impl Builder {
     PackedLongValues::new(self.page_shift, self.page_mask, values, self.size, sub)
   }
   pub fn add(&mut self, l: i64) -> Result<&mut Self> {
+    if self.finished {
+      return Err(LuceneError::illegal_state("Cannot be reused after build()"));
+    }
     if self.pending_off as usize == self.pending.len() {
       let current_value_len = self.values.len();
       if current_value_len == self.values_off as usize {

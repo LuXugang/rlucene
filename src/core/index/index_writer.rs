@@ -7937,10 +7937,8 @@ impl FlushNotifications for FlushNotificationsImpl {
         let event = EventEnum::B(EventImpl2::new(files));
         self.event_queue.add(event)
       },
-      Err(_) => {
-        // no-op
-        Ok(())
-      },
+      Err(error) if error.is_illegal_state_error() => Ok(()),
+      Err(error) => Err(error),
     }
   }
 

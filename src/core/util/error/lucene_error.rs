@@ -597,6 +597,17 @@ impl LuceneError {
     )
   }
 
+  /// Returns whether this error corresponds to Java's `IllegalStateException`.
+  ///
+  /// Java's `AlreadyClosedException` extends `IllegalStateException`, while Rust represents the
+  /// two exception types as separate [`LuceneError`] variants.
+  pub fn is_illegal_state_error(&self) -> bool {
+    matches!(
+      self,
+      LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_)
+    )
+  }
+
   error_ctor!(already_closed, AlreadyClosed, AlreadyClosedError);
   error_ctor!(
     array_index_out_of_bounds,

@@ -777,7 +777,10 @@ fn test_norms_query_matches_count() -> Result<()> {
   assert_norms_count_with_shortcut(&searcher, "doesNotExist", 0)?;
 
   let q = FieldExistsQuery::new("text_n");
-  assert!(searcher.count(q).is_err());
+  assert!(matches!(
+    searcher.count(q),
+    Err(error) if error.is_illegal_state_error()
+  ));
   // docs that have a text field that analyzes to an empty token
   // stream still have a recorded norm value but don't show up in
   // `IndexReader::get_doc_count(field)`, so we cannot use the shortcut for

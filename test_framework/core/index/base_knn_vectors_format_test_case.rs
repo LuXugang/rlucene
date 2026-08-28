@@ -2972,10 +2972,15 @@ impl MergeScheduler for TestMergeScheduler {
     OneMerge<D, MS::Reader>: Send + 'static,
   {
     while let Some(merge) = merge_source.get_next_merge()? {
-      let result: Result<()> = merge_source.merge(merge);
-      if result.is_err() {
-        self.ex.store(true, Ordering::SeqCst);
-        return result;
+      match merge_source.merge(merge) {
+        Ok(()) => {},
+        Err(error)
+          if error.is_illegal_state_error() || matches!(error, LuceneError::IllegalArgument(_)) =>
+        {
+          self.ex.store(true, Ordering::SeqCst);
+          break;
+        },
+        Err(error) => return Err(error),
       }
     }
     Ok(())

@@ -1162,7 +1162,10 @@ fn test_npe_after_invalid_reindex1() -> Result<()> {
   w.close()?;
 
   let err = directory_reader::open_if_changed(&r);
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   r.close()?;
   Ok(())
@@ -1208,7 +1211,10 @@ fn test_npe_after_invalid_reindex2() -> Result<()> {
   w.close()?;
 
   let err = directory_reader::open_if_changed(&r);
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   r.close()?;
   Ok(())
@@ -1512,7 +1518,10 @@ fn test_delete_index_files_while_reader_still_open() -> Result<()> {
   w.add_document(doc)?;
   w.close()?;
   let err = directory_reader::open_if_changed(&r);
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   r.close()?;
   Ok(())

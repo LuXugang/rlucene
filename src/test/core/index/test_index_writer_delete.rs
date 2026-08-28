@@ -807,12 +807,17 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
           }
           match modifier.close() {
             Ok(()) => {},
-            Err(LuceneError::IllegalState(mut error)) => {
+            Err(mut error) if error.is_illegal_state_error() => {
               // ok
-              if let Some(cause) = error.source.take() {
+              let cause = match &mut error {
+                LuceneError::IllegalState(error) => error.source.take(),
+                LuceneError::AlreadyClosed(error) => error.source.take(),
+                _ => unreachable!("guard accepts only IllegalStateException equivalents"),
+              };
+              if let Some(cause) = cause {
                 return Err(*cause);
               }
-              return Err(LuceneError::IllegalState(error));
+              return Err(error);
             },
             Err(error) => return Err(error),
           }
@@ -1008,7 +1013,7 @@ fn test_error_after_apply_deletes() -> Result<()> {
   // succeed, because the failure is a one-shot)
   let writer_closed = match modifier.commit() {
     Ok(_) => false,
-    Err(LuceneError::IllegalState(_)) | Err(LuceneError::AlreadyClosed(_)) => true,
+    Err(error) if error.is_illegal_state_error() => true,
     Err(error) => return Err(error),
   };
 

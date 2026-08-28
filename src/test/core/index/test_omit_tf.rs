@@ -254,8 +254,11 @@ fn test_basic() -> Result<()> {
   let q4 = TermQuery::new(d.clone());
 
   let pq = PhraseQuery::from_bytes_no_slop(a.field(), vec![a.bytes().clone(), c.bytes().clone()])?;
-  let err = searcher.search(pq, 10);
-  assert!(err.is_err());
+  let error = match searcher.search(pq, 10) {
+    Ok(_) => panic!("phrase queries require term positions"),
+    Err(error) => error,
+  };
+  assert!(error.is_illegal_state_error(), "{error}");
 
   let collector_manager = CollectorManagerImpl;
   searcher.search_with_collector_manager(q1.clone(), &collector_manager)?;

@@ -452,7 +452,10 @@ fn test_reference_decrement_illegally() -> Result<()> {
   let acquire = sm.acquire()?;
   acquire.get_index_reader().dec_ref()?;
   sm.release(acquire)?;
-  assert!(matches!(sm.acquire(), Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    sm.acquire(),
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   // searcher_manager.close(); -- already closed
   writer.close()?;
@@ -541,7 +544,10 @@ fn test_evil_searcher_factory() -> Result<()> {
       EvilSearcherFactory::new(other.clone(), random.random()),
     ))),
   );
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
   let result = SearcherManager::with_writer_deletes(
     &writer.w,
     random.random_bool(0.5),
@@ -550,7 +556,10 @@ fn test_evil_searcher_factory() -> Result<()> {
       EvilSearcherFactory::new(other.clone(), random.random()),
     ))),
   );
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
   writer.close(&mut random)?;
   other.close()?;
   directory.close()?;

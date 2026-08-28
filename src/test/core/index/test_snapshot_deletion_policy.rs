@@ -200,10 +200,10 @@ fn run_test(rng: &mut impl rand::Rng, dir: Arc<DirEnum>) -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   // Verify we catch misuse:
-  assert!(
-    dp.snapshot().is_err(),
-    "snapshot should not succeed before commit"
-  );
+  assert!(matches!(
+    dp.snapshot(),
+    Err(error) if error.is_illegal_state_error()
+  ));
   writer.commit()?;
 
   let index_writer = writer.clone();

@@ -279,7 +279,7 @@ pub trait BasePointsFormatTestCase:
 
       match IOUtils::use_or_suppress_caught_result(result, close_result) {
         Ok(()) => {},
-        Err(e @ (LuceneError::AlreadyClosed(_) | LuceneError::IllegalState(_))) => {
+        Err(e) if e.is_illegal_state_error() => {
           done = self.handle_possibly_fake_exception(e)?;
         },
         Err(LuceneError::IllegalArgument(msg)) => {

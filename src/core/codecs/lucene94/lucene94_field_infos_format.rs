@@ -358,7 +358,7 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
               });
               let field_info = match field_info {
                 Ok(field_info) => field_info,
-                Err(error @ LuceneError::IllegalState(_)) => {
+                Err(error) if error.is_illegal_state_error() => {
                   let mut corrupt = LuceneError::corrupt_index(format!(
                     "invalid fieldinfo for field: {name}, fieldNumber={field_number} (resource={input})"
                   ));

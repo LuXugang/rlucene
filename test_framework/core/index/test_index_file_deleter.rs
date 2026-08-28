@@ -38,7 +38,7 @@ impl ConcurrentMergeSchedulerBase for FakeFailConcurrentMergeScheduler {
     if matches!(&error, LuceneError::IllegalState(_)) && error.to_string() == "fake fail" {
       // ok to ignore
       Ok(())
-    } else if matches!(&error, LuceneError::IllegalState(_))
+    } else if error.is_illegal_state_error()
       && error
         .get_suppressed()?
         .is_some_and(|cause| cause.to_string() == "fake fail")

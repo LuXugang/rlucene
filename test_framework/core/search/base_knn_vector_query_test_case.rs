@@ -423,7 +423,7 @@ pub trait BaseKnnVectorQueryTestCase {
 
         assert!(matches!(
           leaf_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0),
-          Err(LuceneError::IllegalState(_))
+          Err(error) if error.is_illegal_state_error()
         ));
         Ok(())
       }));

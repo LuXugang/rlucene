@@ -2304,7 +2304,7 @@ where
       match read_past_last_position_exception {
         ReadPastLastPositionException::IllegalState => assert!(matches!(
           docs_and_positions_enum.next_position(),
-          Err(LuceneError::IllegalState(_))
+          Err(error) if error.is_illegal_state_error()
         )),
         ReadPastLastPositionException::Assertion => {
           expect_panic(|| docs_and_positions_enum.next_position())

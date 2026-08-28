@@ -644,10 +644,7 @@ fn test_invalid_int_point_usage() -> Result<()> {
   }
 
   let err = field.numeric_value().unwrap_err();
-  match err {
-    LuceneError::IllegalState(_) => {},
-    _ => unreachable!("{:?}", err),
-  }
+  assert!(err.is_illegal_state_error(), "{err:?}");
 
   Ok(())
 }
@@ -662,10 +659,7 @@ fn test_invalid_long_point_usage() -> Result<()> {
   }
 
   let err = field.numeric_value().unwrap_err();
-  match err {
-    LuceneError::IllegalState(_) => {},
-    _ => unreachable!("{:?}", err),
-  }
+  assert!(err.is_illegal_state_error(), "{err:?}");
 
   Ok(())
 }
@@ -681,10 +675,7 @@ fn test_invalid_float_point_usage() -> Result<()> {
   }
 
   let err = field.numeric_value().unwrap_err();
-  match err {
-    LuceneError::IllegalState(_) => {},
-    _ => unreachable!("{:?}", err),
-  }
+  assert!(err.is_illegal_state_error(), "{err:?}");
 
   Ok(())
 }
@@ -700,10 +691,7 @@ fn test_invalid_double_point_usage() -> Result<()> {
   }
 
   let err = field.numeric_value().unwrap_err();
-  match err {
-    LuceneError::IllegalState(_) => {},
-    _ => unreachable!("{:?}", err),
-  }
+  assert!(err.is_illegal_state_error(), "{err:?}");
 
   Ok(())
 }

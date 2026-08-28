@@ -178,6 +178,7 @@ fn test_double_point_2d() -> Result<()> {
 
   match field.numeric_value() {
     Err(err) => {
+      assert!(err.is_illegal_state_error());
       assert!(
         err
           .to_string()
@@ -414,6 +415,7 @@ fn test_float_point_2d() -> Result<()> {
 
   match field.numeric_value() {
     Err(err) => {
+      assert!(err.is_illegal_state_error());
       assert!(
         err
           .to_string()
@@ -538,6 +540,7 @@ fn test_int_point_2d() -> Result<()> {
 
   match field.numeric_value() {
     Err(err) => {
+      assert!(err.is_illegal_state_error());
       assert!(
         err
           .to_string()
@@ -1078,6 +1081,7 @@ fn test_long_point_2d() -> Result<()> {
 
   match field.numeric_value() {
     Err(err) => {
+      assert!(err.is_illegal_state_error());
       assert!(
         err
           .to_string()

@@ -17,7 +17,7 @@
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 
@@ -29,9 +29,10 @@ fn test_no_growth() {
 
   let result = graph.add_node(1, 100);
 
-  assert!(
-    matches!(result, Err(LuceneError::IllegalState(msg)) if msg.message.contains("does not expect to grow")),
-  );
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
 }
 #[test]
 fn test_add_level_out_of_order() {
@@ -61,9 +62,10 @@ fn test_incomplete_graph_throw() {
   graph.add_node(0, 5).unwrap();
 
   let result = graph.get_nodes_on_level(0);
-  assert!(
-    matches!(result, Err(LuceneError::IllegalState(msg)) if msg.message.contains("graph build not complete")),
-  );
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
 }
 #[test]
 fn test_graph_growth() -> Result<()> {

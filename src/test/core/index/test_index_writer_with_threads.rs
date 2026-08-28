@@ -113,7 +113,7 @@ where
         }
         full_count += 1;
       },
-      Err(LuceneError::IllegalState(_)) | Err(LuceneError::AlreadyClosed(_)) => {
+      Err(error) if error.is_illegal_state_error() => {
         // OK: abort closes the writer
         break;
       },

@@ -354,7 +354,10 @@ fn test_invalid_lead_with_any() -> Result<()> {
   query.set_accept(s2, true);
   query.add_any_transition(s0, s1)?;
   query.add_transition(s1, s2, "b")?;
-  assert!(matches!(query.finish(), Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    query.finish(),
+    Err(error) if error.is_illegal_state_error()
+  ));
   Ok(())
 }
 
@@ -367,7 +370,10 @@ fn test_invalid_trail_with_any() -> Result<()> {
   query.set_accept(s2, true);
   query.add_transition(s0, s1, "b")?;
   query.add_any_transition(s1, s2)?;
-  assert!(matches!(query.finish(), Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    query.finish(),
+    Err(error) if error.is_illegal_state_error()
+  ));
   Ok(())
 }
 
@@ -862,7 +868,10 @@ fn test_empty_string() -> Result<()> {
   let mut query = TermAutomatonQuery::new("field");
   let init_state = query.create_state();
   query.set_accept(init_state, true);
-  assert!(matches!(query.finish(), Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    query.finish(),
+    Err(error) if error.is_illegal_state_error()
+  ));
   Ok(())
 }
 

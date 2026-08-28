@@ -26,7 +26,7 @@ use crate::core::index::doc_values::DocValues;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::lucene_test_case::{
   get_only_leaf_reader, new_directory_shared, new_index_writer_config, random,
 };
@@ -81,23 +81,23 @@ fn test_misconfigured_field() -> Result<()> {
   // errors
   assert!(matches!(
     DocValues::get_binary(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_set(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
 
   writer.close()?;
@@ -127,15 +127,15 @@ fn test_numeric_field() -> Result<()> {
   // errors
   assert!(matches!(
     DocValues::get_binary(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_set(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
 
   writer.close()?;
@@ -165,19 +165,19 @@ fn test_binary_field() -> Result<()> {
   // errors
   assert!(matches!(
     DocValues::get_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_set(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
 
   writer.close()?;
@@ -210,15 +210,15 @@ fn test_sorted_field() -> Result<()> {
   // errors
   assert!(matches!(
     DocValues::get_binary(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
 
   writer.close()?;
@@ -248,19 +248,19 @@ fn test_sorted_set_field() -> Result<()> {
   // errors
   assert!(matches!(
     DocValues::get_binary(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
 
   writer.close()?;
@@ -287,19 +287,19 @@ fn test_sorted_numeric_field() -> Result<()> {
   // errors
   assert!(matches!(
     DocValues::get_binary(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_numeric(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   assert!(matches!(
     DocValues::get_sorted_set(r.as_ref(), "foo"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
 
   writer.close()?;

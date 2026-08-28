@@ -283,7 +283,7 @@ where
     builder.build(n_doc)?;
     assert!(matches!(
       builder.add_graph_node(0),
-      Err(LuceneError::IllegalState(_))
+      Err(error) if error.is_illegal_state_error()
     ));
 
     let _rand_seed_guard = TestRandSeedGuard::new(seed);
@@ -1104,7 +1104,7 @@ where
     // Cannot build twice.
     assert!(matches!(
       builder.build(size),
-      Err(LuceneError::IllegalState(_))
+      Err(error) if error.is_illegal_state_error()
     ));
     Ok(())
   }

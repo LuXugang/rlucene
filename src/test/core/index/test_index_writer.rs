@@ -2019,7 +2019,10 @@ fn test_prepare_commit_then_close() -> Result<()> {
   w.prepare_commit()?;
 
   let err = w.close();
-  assert!(matches!(err, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    err,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   w.commit()?;
   w.close()?;
@@ -3036,7 +3039,7 @@ fn test_close_during_commit() -> Result<()> {
     .join()
     .expect("commit thread should not panic")?;
   if let Err(error) = close_result
-    && !matches!(error, LuceneError::IllegalState(_))
+    && !error.is_illegal_state_error()
   {
     return Err(error);
   }

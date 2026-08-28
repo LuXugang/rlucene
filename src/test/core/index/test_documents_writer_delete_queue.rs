@@ -307,7 +307,10 @@ fn test_close() -> Result<()> {
     let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
     queue.add_delete_term(vec![Term::from_text("foo", "bar")])?;
     let result = queue.close();
-    assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+    assert!(matches!(
+      result,
+      Err(error) if error.is_illegal_state_error()
+    ));
 
     assert!(queue.is_open());
     queue.try_apply_global_slice()?;

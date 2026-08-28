@@ -71,7 +71,10 @@ fn test_evil_searcher_factory() -> Result<()> {
       EvilSearcherFactory::new(other.clone(), random.random()),
     ))),
   );
-  assert!(matches!(result, Err(LuceneError::IllegalState(_))));
+  assert!(matches!(
+    result,
+    Err(error) if error.is_illegal_state_error()
+  ));
 
   writer.close(&mut random)?;
   other.close()?;

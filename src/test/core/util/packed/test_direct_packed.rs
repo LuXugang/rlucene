@@ -72,6 +72,7 @@ fn test_not_enough_values() -> Result<()> {
     writer.add(2)?;
     writer.add(1)?;
     let err = writer.finish().unwrap_err();
+    assert!(err.is_illegal_state_error());
     assert!(err.to_string().starts_with("Wrong number of values added"));
   }
   Ok(())

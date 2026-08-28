@@ -640,15 +640,17 @@ fn test_remove_dead_transitions_empty() -> Result<()> {
   Ok(())
 }
 #[test]
-#[should_panic(expected = "from state")]
-fn test_invalid_add_transition() {
+fn test_invalid_add_transition() -> Result<()> {
   let mut a = Automaton::new();
-  let s1 = a.create_state().unwrap();
-  let s2 = a.create_state().unwrap();
-  a.add_transition(s1, s2, 'a' as i32, 'a' as i32).unwrap();
-  a.add_transition(s2, s2, 'a' as i32, 'a' as i32).unwrap();
-  // This should panic because transitions on s1 were already added
-  a.add_transition(s1, s2, 'b' as i32, 'b' as i32).unwrap();
+  let s1 = a.create_state()?;
+  let s2 = a.create_state()?;
+  a.add_transition(s1, s2, 'a' as i32, 'a' as i32)?;
+  a.add_transition(s2, s2, 'a' as i32, 'a' as i32)?;
+  assert!(matches!(
+    a.add_transition(s1, s2, 'b' as i32, 'b' as i32),
+    Err(error) if error.is_illegal_state_error()
+  ));
+  Ok(())
 }
 #[test]
 fn test_builder_random() -> Result<()> {

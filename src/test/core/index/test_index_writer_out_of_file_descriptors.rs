@@ -174,12 +174,7 @@ fn test() -> Result<()> {
     };
 
     if let Err(error) = iteration_result {
-      if error.is_io_error()
-        || matches!(
-          error,
-          LuceneError::IllegalState(_) | LuceneError::AlreadyClosed(_)
-        )
-      {
+      if error.is_io_error() || error.is_illegal_state_error() {
         if cfg!(feature = "test_log_verbose") {
           println!("TEST: iter={iter}: error");
           eprintln!("{error:?}");

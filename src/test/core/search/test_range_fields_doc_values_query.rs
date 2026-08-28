@@ -275,7 +275,7 @@ fn test_no_data() -> Result<()> {
     Ok(_) => unreachable!("search should fail"),
     Err(err) => err,
   };
-  assert!(matches!(err, LuceneError::IllegalState(_)));
+  assert!(err.is_illegal_state_error());
 
   Ok(())
 }

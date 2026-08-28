@@ -96,7 +96,7 @@ fn test_attribute_map_frozen() -> Result<()> {
   ft.freeze();
   assert!(matches!(
     ft.put_attribute("dummy", "a"),
-    Err(LuceneError::IllegalState(_))
+    Err(error) if error.is_illegal_state_error()
   ));
   Ok(())
 }

@@ -409,11 +409,11 @@ fn test_segment_partitions_same_slice() -> Result<()> {
     Ok(_) => panic!("get_slices should reject multiple partitions of the same leaf in one slice"),
     Err(error) => error,
   };
-  assert!(matches!(
-    error,
-    LuceneError::IllegalState(ref error)
-      if error.message == "The same slice targets multiple leaf partitions of the same leaf reader context. A physical segment should rather get partitioned to be searched concurrently from as many slices as the number of leaf partitions it is split into."
-  ));
+  assert!(error.is_illegal_state_error());
+  assert_eq!(
+    "The same slice targets multiple leaf partitions of the same leaf reader context. A physical segment should rather get partitioned to be searched concurrently from as many slices as the number of leaf partitions it is split into.",
+    error.to_string()
+  );
 
   Ok(())
 }
