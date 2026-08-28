@@ -85,7 +85,7 @@ impl FlushByRamOrCountsPolicy {
     L: LiveIndexWriterConfig,
   {
     let largest_non_pending_writer =
-      self.find_largest_non_pending_writer_for_thread(control, per_thread)?;
+      self.find_largest_non_pending_writer_for_thread(control, inner, per_thread)?;
     if let Some(largest_non_pending_writer) = largest_non_pending_writer {
       control.set_flush_pending(&largest_non_pending_writer.state, Some(inner), config)?;
     }

@@ -77,6 +77,7 @@ pub trait FlushPolicy {
   fn find_largest_non_pending_writer_for_thread<D>(
     &self,
     control: &DocumentsWriterFlushControl<D>,
+    inner: &Inner<D>,
     per_thread: &DocumentsWriterPerThread<D>,
   ) -> Result<Option<Arc<DwptWrapper<D>>>>
   where
@@ -87,7 +88,7 @@ pub trait FlushPolicy {
       "expected per_thread to have >0 docs in RAM"
     );
     // the dwpt which needs to be flushed eventually
-    let max_ram_using_writer = control.find_largest_non_pending_writer()?;
+    let max_ram_using_writer = control.find_largest_non_pending_writer(Some(inner))?;
     let assert_message = self.assert_message(
       "set largest ram consuming thread pending on lower watermark",
       &control.info_stream,
@@ -189,6 +190,7 @@ impl FlushPolicy for FlushPolicyEnum {
   fn find_largest_non_pending_writer_for_thread<D>(
     &self,
     control: &DocumentsWriterFlushControl<D>,
+    inner: &Inner<D>,
     per_thread: &DocumentsWriterPerThread<D>,
   ) -> Result<Option<Arc<DwptWrapper<D>>>>
   where
@@ -196,15 +198,15 @@ impl FlushPolicy for FlushPolicyEnum {
   {
     match self {
       FlushPolicyEnum::FlushByRamOrCounts(policy) => {
-        policy.find_largest_non_pending_writer_for_thread(control, per_thread)
+        policy.find_largest_non_pending_writer_for_thread(control, inner, per_thread)
       },
       #[cfg(test)]
       FlushPolicyEnum::MockDefault(policy) => {
-        policy.find_largest_non_pending_writer_for_thread(control, per_thread)
+        policy.find_largest_non_pending_writer_for_thread(control, inner, per_thread)
       },
       #[cfg(test)]
       FlushPolicyEnum::ApplyDeletes(policy) => {
-        policy.find_largest_non_pending_writer_for_thread(control, per_thread)
+        policy.find_largest_non_pending_writer_for_thread(control, inner, per_thread)
       },
     }
   }

@@ -109,7 +109,7 @@ where
     let inner = Inner {
       flush_by_ram_was_disabled: false,
       max_configured_ram_buffer: 0f64,
-      hard_max_bytes_per_dwpt: (config.get_ram_per_thread_hard_limit_mb() * 1024 * 1024) as i64,
+      hard_max_bytes_per_dwpt: i64::from(config.get_ram_per_thread_hard_limit_mb()) * 1024 * 1024,
       active_bytes: 0,
       flush_bytes: 0,
       num_pending: 0,
@@ -243,7 +243,7 @@ where
   }
 
   // only for asserts
-  fn update_peaks(&self, delta: i64, inner: &mut Inner<D>) -> bool {
+  fn update_peaks(&self, delta: i64, inner: &mut Inner<D>) {
     let net = self.net_bytes(Some(inner));
     let active = inner.active_bytes;
     let flush = inner.flush_bytes;
@@ -252,8 +252,6 @@ where
     inner.peak_flush_bytes = inner.peak_flush_bytes.max(flush);
     inner.peak_net_bytes = inner.peak_net_bytes.max(net);
     inner.peak_delta = inner.peak_delta.max(delta);
-
-    true
   }
   /// Return the smallest number of bytes that we would like to make sure to not miss from the global RAM accounting.
   fn ram_buffer_granularity<L>(&self, config: &L) -> i64
@@ -303,10 +301,14 @@ where
       // pending during a delete
       if per_thread.is_flush_pending() {
         inner.flush_bytes += delta;
-        self.update_peaks(delta, &mut inner);
+        if cfg!(debug_assertions) {
+          self.update_peaks(delta, &mut inner);
+        }
       } else {
         inner.active_bytes += delta;
-        self.update_peaks(delta, &mut inner);
+        if cfg!(debug_assertions) {
+          self.update_peaks(delta, &mut inner);
+        }
         config
           .get_flush_policy()
           .on_change(self, &mut inner, Some(per_thread), config)?;
@@ -811,17 +813,15 @@ where
     flushing_queue: &Arc<DocumentsWriterDeleteQueue>,
     inner: &mut Inner<D>, // The mutable borrow proves exclusive access to the writer state.
   ) {
-    let mut idxs = Vec::new();
-    for (i, dwpt) in inner.blocked_flushes.iter().enumerate() {
-      if Arc::ptr_eq(&dwpt.state.delete_queue, flushing_queue) {
-        idxs.push(i);
-      }
-    }
-
-    for &i in idxs.iter().rev() {
-      if let Some(dwpt) = inner.blocked_flushes.remove(i) {
-        self.add_flushing_dwpt(dwpt.clone(), inner);
-        inner.flush_queue.push_back(dwpt);
+    let num_blocked = inner.blocked_flushes.len();
+    for _ in 0..num_blocked {
+      if let Some(dwpt) = inner.blocked_flushes.pop_front() {
+        if Arc::ptr_eq(&dwpt.state.delete_queue, flushing_queue) {
+          self.add_flushing_dwpt(dwpt.clone(), inner);
+          inner.flush_queue.push_back(dwpt);
+        } else {
+          inner.blocked_flushes.push_back(dwpt);
+        }
       }
     }
   }
@@ -981,7 +981,14 @@ where
   pub(crate) fn any_stalled_threads(&self) -> bool {
     self.stall_control.any_stalled_threads()
   }
-  pub(crate) fn find_largest_non_pending_writer(&self) -> Result<Option<Arc<DwptWrapper<D>>>> {
+  pub(crate) fn find_largest_non_pending_writer(
+    &self,
+    inner: Option<&Inner<D>>,
+  ) -> Result<Option<Arc<DwptWrapper<D>>>> {
+    let _inner = match inner {
+      Some(inner) => inner,
+      None => &*self.inner.lock(),
+    };
     let mut max_ram_using_writer: Option<Arc<DwptWrapper<D>>> = None;
     // Note: should be initialized to -1 since some DWPTs might return 0 if their RAM usage has not
     // been committed yet.
@@ -1029,7 +1036,7 @@ where
   where
     L: LiveIndexWriterConfig,
   {
-    if let Some(largest_non_pending_writer) = self.find_largest_non_pending_writer()? {
+    if let Some(largest_non_pending_writer) = self.find_largest_non_pending_writer(None)? {
       largest_non_pending_writer.lock();
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let per_thread = largest_non_pending_writer.dwpt.lock();

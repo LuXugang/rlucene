@@ -3561,7 +3561,7 @@ fn test_flush_largest_writer() -> Result<()> {
   let largest_non_pending_writer = w
     .doc_writer
     .flush_control
-    .find_largest_non_pending_writer()?
+    .find_largest_non_pending_writer(None)?
     .unwrap();
 
   assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
@@ -3640,7 +3640,7 @@ fn test_never_check_out_on_full_flush() -> Result<()> {
   let largest_non_pending_writer = w
     .doc_writer
     .flush_control
-    .find_largest_non_pending_writer()?
+    .find_largest_non_pending_writer(None)?
     .unwrap();
 
   assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
@@ -3818,7 +3818,7 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
   let largest_non_pending_writer = w
     .doc_writer
     .flush_control
-    .find_largest_non_pending_writer()?
+    .find_largest_non_pending_writer(None)?
     .unwrap();
   assert!(!largest_non_pending_writer.dwpt.lock().is_flush_pending());
   assert!(!largest_non_pending_writer.dwpt.lock().has_flushed());

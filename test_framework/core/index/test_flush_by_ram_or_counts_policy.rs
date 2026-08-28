@@ -83,7 +83,7 @@ impl FlushPolicy for MockDefaultFlushPolicy {
     {
       let to_flush = self
         .base
-        .find_largest_non_pending_writer_for_thread(control, dwpt)?;
+        .find_largest_non_pending_writer_for_thread(control, inner, dwpt)?;
       if let Some(to_flush) = to_flush {
         assert!(!to_flush.state.is_flush_pending());
         Some(to_flush)
