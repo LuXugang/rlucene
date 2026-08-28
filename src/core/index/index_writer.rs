@@ -2250,13 +2250,29 @@ where
           return Err(error);
         }
 
-        let running = requested_merges.iter().any(|merge_stat| {
-          inner
+        let mut running = false;
+        for merge_stat in &requested_merges {
+          if inner
             .pending_merges
             .iter()
             .any(|merge| merge.stat == *merge_stat)
             || inner.running_merges.contains(merge_stat)
-        });
+          {
+            running = true;
+          }
+
+          if let Some(merge_error) = merge_stat
+            .get_exception()
+            .and_then(|result| result.caught_failure("panic from a background merge"))
+          {
+            let mut error = LuceneError::from(std::io::Error::other(format!(
+              "background merge hit exception: {}",
+              Self::segment_ids_to_string(&merge_stat.segments)
+            )));
+            error.add_suppressed(merge_error);
+            return Err(error);
+          }
+        }
 
         if running {
           self.do_wait(&mut inner);
