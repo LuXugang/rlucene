@@ -1191,15 +1191,17 @@ where
       return Ok(());
     }
 
+    // Java keeps the SegmentCommitInfo argument available throughout this method. Rust addresses
+    // it by ID, so retain the SegmentInfo before either collection can remove its last entry.
+    // This also covers a segment that has already moved from the live list to the retained map
+    // while ReaderPool still holds it.
+    let segment_info = inner
+      .segment_infos
+      .index_of(seg_id)
+      .map(|sci| Arc::clone(&sci.info));
     // it's possible that we invoke this method more than once for the same SCI
     // we must only remove the docs once!
-    let (mut drop_pending_docs, max_doc) = match inner.segment_infos.remove_with_id(seg_id) {
-      Some(sci) => {
-        let max_doc = sci.info.max_doc()?;
-        (true, max_doc)
-      },
-      None => (false, -1),
-    };
+    let mut drop_pending_docs = inner.segment_infos.remove_with_id(seg_id).is_some();
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       // this is sneaky - we might hit an error while dropping a reader, but then we have
       // already
@@ -1211,8 +1213,12 @@ where
     }));
 
     if drop_pending_docs {
-      let dec = -(max_doc as i64);
-      self.adjust_pending_num_docs(dec);
+      let segment_info = segment_info.ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "segment info is missing while dropping fully deleted segment {seg_id}"
+        ))
+      })?;
+      self.adjust_pending_num_docs(-i64::from(segment_info.max_doc()?));
     }
     unwrap_caught_result!(res)
   }
