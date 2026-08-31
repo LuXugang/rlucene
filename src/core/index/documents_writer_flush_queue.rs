@@ -96,13 +96,14 @@ where
     segment: FlushedSegment<D>,
   ) -> Result<()> {
     let mut inner = self.inner.lock();
-    // the actual flush is done asynchronously and once done the FlushedSegment
-    // is passed to the flush ticket
-    inner
+    let ticket = inner
       .value
       .get_mut(ticket_index)
-      .ok_or_else(|| LuceneError::illegal_state("could not get ticket"))?
-      .set_segment(segment);
+      .ok_or_else(|| LuceneError::illegal_state("could not get ticket"))?;
+    debug_assert!(ticket.has_segment);
+    // the actual flush is done asynchronously and once done the FlushedSegment
+    // is passed to the flush ticket
+    ticket.set_segment(segment);
     Ok(())
   }
   pub(crate) fn mark_ticket_failed(&self, ticket_idx: Identity) -> Result<()> {
@@ -111,6 +112,7 @@ where
       .value
       .get_mut(&ticket_idx)
       .ok_or_else(|| LuceneError::illegal_state("could not get ticket"))?;
+    debug_assert!(ticket.has_segment);
     // to free the queue we mark tickets as failed just to clean up the queue.
     ticket.set_failed();
     Ok(())
@@ -121,11 +123,11 @@ where
     debug_assert!(count >= 0, "ticket_count should be >= 0 but was: {count}");
     count != 0
   }
-  pub(crate) fn inner_purge<F>(&self, consumer: F) -> Result<()>
+  fn inner_purge<F>(&self, consumer: F) -> Result<()>
   where
     F: Fn(FlushTicket<D>) -> Result<()>,
   {
-    debug_assert!(self.purge_lock.is_locked());
+    debug_assert!(self.purge_lock.is_owned_by_current_thread());
     loop {
       let can_publish = {
         let inner = self.inner.lock();

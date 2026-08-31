@@ -3080,7 +3080,7 @@ where
     &self,
     packet: FrozenBufferedUpdates,
     inner: Option<&Inner<D>>,
-  ) -> Result<i64> {
+  ) -> Result<(i64, Arc<FrozenBufferedUpdates>)> {
     let _guard = match inner {
       Some(i) => i,
       None => &self.inner.lock(),
@@ -3089,9 +3089,10 @@ where
     let (next_gen, packet) = self.buffered_updates_stream.push(packet)?;
     // Do this as an event so it applies higher in the stack when we are not holding
     // DocumentsWriterFlushQueue.purgeLock:
-    let event: EventEnum = EventEnum::E(EventImpl5::new(packet));
+    let event: EventEnum = EventEnum::E(EventImpl5::new(packet.clone()));
     self.event_queue.add(event)?;
-    Ok(next_gen)
+    // Retain the published packet for callers that log it after publication, as in Java.
+    Ok((next_gen, packet))
   }
   /// Atomically adds the segment private delete packet and publishes the flushed segments SegmentInfo to the index writer.
   fn publish_flushed_segment(
@@ -3127,10 +3128,12 @@ where
         None => false,
       };
       let next_gen = if packet_any {
-        self.publish_frozen_updates(
-          packet.ok_or_else(|| LuceneError::illegal_state("delete packet is missing"))?,
-          Some(&inner),
-        )?
+        self
+          .publish_frozen_updates(
+            packet.ok_or_else(|| LuceneError::illegal_state("delete packet is missing"))?,
+            Some(&inner),
+          )?
+          .0
       } else {
         // Since we don't have a delete packet to apply we can get a new
         // generation right away
@@ -6131,13 +6134,13 @@ where
           if let Some(buffered_updates) = buffered_updates
             && buffered_updates.any()
           {
+            let (_, buffered_updates) = self.publish_frozen_updates(buffered_updates, None)?;
             if self.info_stream.is_enabled("IW") {
               self.info_stream.message(
                 "IW",
-                &format!("flush: push buffered updates: {buffered_updates:?}"),
+                &format!("flush: push buffered updates: {buffered_updates}"),
               )?;
             }
-            self.publish_frozen_updates(buffered_updates, None)?;
           }
         },
         Some(mut seg) => {
