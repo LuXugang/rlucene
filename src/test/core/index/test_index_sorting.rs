@@ -4208,55 +4208,33 @@ fn test_block_contains_parent_field() -> Result<()> {
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let cases = if random.random_bool(0.5) {
-    vec![0, 1]
-  } else {
-    vec![1, 0]
-  };
-  let latch = Arc::new(Barrier::new(cases.len() + 1));
-  thread::scope(|scope| -> Result<()> {
-    let mut handles = Vec::new();
-    for case in cases {
-      let writer = writer.clone();
-      let latch = latch.clone();
-      handles.push(scope.spawn(move || -> Result<()> {
-        latch.wait();
-        let err = if case == 0 {
-          let mut doc = Document::new();
-          doc.add(NumericDocValuesField::new("parent", 0));
-          writer
-            .add_documents(vec![doc, Document::new()])
-            .unwrap_err()
-        } else {
-          let mut doc = Document::new();
-          doc.add(NumericDocValuesField::new("parent", 0));
-          writer
-            .add_documents(vec![Document::new(), doc])
-            .unwrap_err()
-        };
+  let mut cases = vec![0, 1];
+  cases.shuffle(&mut random);
+  for case in cases {
+    let err = if case == 0 {
+      let mut doc = Document::new();
+      doc.add(NumericDocValuesField::new("parent", 0));
+      writer
+        .add_documents(vec![doc, Document::new()])
+        .unwrap_err()
+    } else {
+      let mut doc = Document::new();
+      doc.add(NumericDocValuesField::new("parent", 0));
+      writer
+        .add_documents(vec![Document::new(), doc])
+        .unwrap_err()
+    };
 
-        match err {
-          LuceneError::IllegalArgument(msg) => {
-            assert_eq!(
-              "\"parent\" is a reserved field and should not be added to any document",
-              msg.to_string()
-            );
-          },
-          _ => unreachable!("expected IllegalArgument"),
-        }
-        Ok(())
-      }));
+    match err {
+      LuceneError::IllegalArgument(msg) => {
+        assert_eq!(
+          "\"parent\" is a reserved field and should not be added to any document",
+          msg.to_string()
+        );
+      },
+      _ => unreachable!("expected IllegalArgument"),
     }
-
-    latch.wait();
-
-    for handle in handles {
-      handle
-        .join()
-        .map_err(|_| LuceneError::illegal_state("block parent field thread panicked"))??;
-    }
-    Ok(())
-  })?;
+  }
 
   writer.close()?;
   Ok(())

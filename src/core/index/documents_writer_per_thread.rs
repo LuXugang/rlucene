@@ -251,7 +251,7 @@ where
       )?;
     }
 
-    let indexing_chain = IndexingChain::new(
+    let mut indexing_chain = IndexingChain::new(
       index_major_version_created,
       &segment_info,
       directory_wrapped.clone(),
@@ -269,9 +269,13 @@ where
       has_flushed: OnceLock::new(),
       aborted: Arc::new(AtomicBool::new(false)),
     };
-    let parent_field = index_writer_config
-      .get_parent_field()
-      .map(|parent_field| parent_field.to_string());
+    let parent_field = if let Some(parent_field) = index_writer_config.get_parent_field() {
+      let field = NumericDocValuesField::new(parent_field, -1).into();
+      indexing_chain.mark_as_reserved(&field)?;
+      Some(parent_field.to_string())
+    } else {
+      None
+    };
 
     Ok(DocumentsWriterPerThread {
       directory: directory_wrapped,
@@ -636,8 +640,14 @@ where
         self.segment_info.set_files(files)?;
 
         let dir = self.segment_info.dir.clone();
+        // Java keeps the same SegmentInfo instance in the DWPT after constructing
+        // SegmentCommitInfo. Rust must move it, so retain a file-only mirror for
+        // flushFailed; otherwise the replacement dummy reports no files.
+        let mut replacement_segment_info = SegmentInfo::dummy(dir);
+        replacement_segment_info.name = self.segment_info.name.clone();
+        replacement_segment_info.set_files(self.segment_info.files()?.clone())?;
         let segment_info_per_commit = SegmentCommitInfo::new(
-          std::mem::replace(&mut self.segment_info, SegmentInfo::dummy(dir)),
+          std::mem::replace(&mut self.segment_info, replacement_segment_info),
           0,
           flush_state.soft_del_count_on_flush,
           -1,
@@ -724,7 +734,7 @@ where
             "DWPT",
             &format!(
               "flushed: segment={} ramUsed={:.2} MB newFlushedSize={:.2} MB docs/MB={:.2}",
-              self.segment_info.name,
+              segment_info_per_commit.info.name,
               start_mb_used,
               new_size_mb,
               segment_info_per_commit.info.max_doc()? as f64 / new_size_mb
@@ -826,11 +836,10 @@ where
   {
     let new_segment = &mut flushed_segment.segment_info;
     let res: Result<()> = (|| {
-      if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
-        set_diagnostics(segment_info, SOURCE_FLUSH);
-      } else {
-        debug_assert!(Arc::strong_count(&new_segment.info) == 1);
-      }
+      let segment_info = Arc::get_mut(&mut new_segment.info).ok_or_else(|| {
+        LuceneError::illegal_state("flushed segment info must be uniquely owned while sealing")
+      })?;
+      set_diagnostics(segment_info, SOURCE_FLUSH);
       let context = IOContext::with_flush(FlushInfo::new(
         new_segment.info.max_doc()?,
         new_segment.size_in_bytes()?,
@@ -840,34 +849,32 @@ where
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         if index_writer_config.get_use_compound_file() {
           let original_files = new_segment.info.files()?.clone();
-          if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
-            let dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
-            create_compound_file(
-              &self.info_stream,
-              &dir,
-              segment_info,
-              &context,
-              IOConsumerImpl::new(flush_notifications),
-            )?;
-            self.files_to_delete.extend(original_files);
-            segment_info.set_use_compound_file(true);
-          } else {
-            debug_assert!(Arc::strong_count(&new_segment.info) == 1);
-          }
+          let segment_info = Arc::get_mut(&mut new_segment.info).ok_or_else(|| {
+            LuceneError::illegal_state("flushed segment info must be uniquely owned while sealing")
+          })?;
+          let dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
+          create_compound_file(
+            &self.info_stream,
+            &dir,
+            segment_info,
+            &context,
+            IOConsumerImpl::new(flush_notifications),
+          )?;
+          self.files_to_delete.extend(original_files);
+          segment_info.set_use_compound_file(true);
         }
 
         // Have codec write SegmentInfo.  Must do this after
         // creating CFS so that 1) .si isn't slurped into CFS,
         // and 2) .si reflects useCompoundFile=true change
         // above:
-        if let Some(segment_info) = Arc::get_mut(&mut new_segment.info) {
-          let codec = segment_info.get_codec()?.clone();
-          codec
-            .segment_info_format()
-            .write(self.directory.as_ref(), segment_info, &context)?;
-        } else {
-          debug_assert!(Arc::strong_count(&new_segment.info) == 1);
-        }
+        let segment_info = Arc::get_mut(&mut new_segment.info).ok_or_else(|| {
+          LuceneError::illegal_state("flushed segment info must be uniquely owned while sealing")
+        })?;
+        let codec = segment_info.get_codec()?.clone();
+        codec
+          .segment_info_format()
+          .write(self.directory.as_ref(), segment_info, &context)?;
 
         // Must write deleted docs after the CFS so we don't
         // slurp the del file into CFS:
@@ -914,6 +921,13 @@ where
         success = true;
         Ok(())
       }));
+      // Keep the replacement SegmentInfo synchronized with files created while
+      // sealing (.cfs/.si). Preserve the original error or panic if both
+      // sealing and this Rust-only ownership adaptation fail.
+      let mirror_result = new_segment
+        .info
+        .files()
+        .and_then(|files| self.segment_info.set_files(files.clone()));
       if !success && self.info_stream.is_enabled("DWPT") {
         self.info_stream.message(
           "DWPT",
@@ -923,7 +937,10 @@ where
           ),
         )?;
       }
-      unwrap_caught_result!(result)
+      match unwrap_caught_result!(result) {
+        Ok(()) => mirror_result,
+        Err(error) => Err(error),
+      }
     })();
     res
   }

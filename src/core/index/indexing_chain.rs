@@ -1379,8 +1379,9 @@ where
     }
     None
   }
-  #[allow(dead_code)] // not use in rust lucene
-  pub(crate) fn mark_as_reserved() {}
+  pub(crate) fn mark_as_reserved(&mut self, field: &Fields) -> Result<()> {
+    self.get_or_add_per_field(field, true).map(|_| ())
+  }
 
   pub(crate) fn get_has_doc_values(&mut self, field: &str) -> Result<Option<DocValuesWriterDISI>> {
     if let Some(idx) = self.get_per_field(field) {

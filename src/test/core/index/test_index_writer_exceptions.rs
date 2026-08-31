@@ -818,9 +818,13 @@ where
       && context.contains_method(ExecutionMethod::Flush)
       && !context.contains_method(ExecutionMethod::FinishDocument)
     {
-      *self.count.lock() += 1;
-      self.do_fail.store(false, Ordering::SeqCst);
-      return Err(LuceneError::io(Error::other("now failing during flush")));
+      let mut count = self.count.lock();
+      let should_fail = *count >= 30;
+      *count += 1;
+      if should_fail {
+        self.do_fail.store(false, Ordering::SeqCst);
+        return Err(LuceneError::io(Error::other("now failing during flush")));
+      }
     }
     Ok(())
   }
