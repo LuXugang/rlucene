@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 use crate::core::index::documents_writer_stall_control::DocumentsWriterStallControl;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{CaughtResult, CaughtResultExt, Result};
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, at_least_usize, is_night_mode, random,
+  at_least, at_least_usize, is_night_mode, random, random_from_seed,
 };
 use parking_lot::{Condvar, Mutex};
 use rand::RngExt;
-use rand::rng;
+use rand::rngs::StdRng;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -47,7 +47,7 @@ fn test_simple_stall() -> Result<()> {
   ctrl.update_stalled(true);
   wait_thread_handles = wait_threads(at_least(&mut random, 1), ctrl.clone());
   start(&wait_thread_handles);
-  await_state(wait_thread_handles.len() as i32, &ctrl);
+  await_state(wait_thread_handles.len() as i32, &ctrl, &mut random);
   assert!(ctrl.has_blocked());
   assert!(ctrl.any_stalled_threads());
   ctrl.update_stalled(false);
@@ -66,8 +66,9 @@ fn test_random() -> Result<()> {
   for _ in 0..at_least_usize(&mut random, 3) {
     let ctrl = ctrl.clone();
     let stall_probability = 1 + random.random_range(0..10);
+    let seed = random.random();
     stall_threads.push(thread::spawn(move || {
-      let mut random = rng();
+      let mut random = random_from_seed(seed);
       let iters = at_least(&mut random, 100);
       for _ in 0..iters {
         ctrl.update_stalled(random.random_range(0..stall_probability) == 0);
@@ -123,6 +124,7 @@ fn test_acquire_release_race() -> Result<()> {
       sync.clone(),
       true,
       errors.clone(),
+      random.random(),
     ));
   }
   for _ in num_releasers..num_releasers + num_stallers {
@@ -133,6 +135,7 @@ fn test_acquire_release_race() -> Result<()> {
       sync.clone(),
       false,
       errors.clone(),
+      random.random(),
     ));
   }
   for _ in num_releasers + num_stallers..num_releasers + num_stallers + num_waiters {
@@ -159,7 +162,12 @@ fn test_acquire_release_race() -> Result<()> {
         "timed out waiting for update threads - deadlock?"
       );
       if !errors.lock().is_empty() {
-        unreachable!("got errors in threads: {:?}", errors.lock());
+        let errors = errors.lock();
+        let messages = errors
+          .iter()
+          .map(|error| error.display().to_string())
+          .collect::<Vec<_>>();
+        unreachable!("got errors in threads: {messages:?}");
       }
 
       if ctrl.has_blocked() && ctrl.is_healthy() {
@@ -244,17 +252,23 @@ impl Waiter {
     check_point: Arc<AtomicBool>,
     ctrl: Arc<DocumentsWriterStallControl>,
     sync: Arc<Synchronizer>,
-    errors: Arc<Mutex<Vec<String>>>,
+    errors: Arc<Mutex<Vec<CaughtResult>>>,
   ) -> TestThread {
     TestThread::spawn(true, move || {
-      while !stop.load(Ordering::SeqCst) {
-        ctrl.wait_if_stalled();
-        if check_point.load(Ordering::SeqCst) && !sync.await_waiter(Duration::from_secs(10)) {
-          errors.lock().push(format!(
-            "[Waiter] timed out - wait count: {}",
-            sync.waiter_get_count()
-          ));
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        while !stop.load(Ordering::SeqCst) {
+          ctrl.wait_if_stalled();
+          if check_point.load(Ordering::SeqCst) {
+            assert!(
+              sync.await_waiter(Duration::from_secs(10)),
+              "[Waiter] timed out - wait count: {}",
+              sync.waiter_get_count()
+            );
+          }
         }
+      }));
+      if let Err(payload) = result {
+        errors.lock().push(Err(payload));
       }
     })
   }
@@ -270,32 +284,37 @@ impl Updater {
     ctrl: Arc<DocumentsWriterStallControl>,
     sync: Arc<Synchronizer>,
     release: bool,
-    errors: Arc<Mutex<Vec<String>>>,
+    errors: Arc<Mutex<Vec<CaughtResult>>>,
+    seed: u64,
   ) -> TestThread {
     TestThread::spawn(false, move || {
-      let mut random = rng();
-      while !stop.load(Ordering::SeqCst) {
-        let internal_iters = if release && random.random_bool(0.5) {
-          at_least(&mut random, 5)
-        } else {
-          1
-        };
-        for _ in 0..internal_iters {
-          ctrl.update_stalled(random.random_bool(0.5));
-        }
-        if check_point.load(Ordering::SeqCst) {
-          sync.update_join_count_down();
-          if !sync.await_waiter(Duration::from_secs(10)) {
-            errors.lock().push(format!(
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let mut random = random_from_seed(seed);
+        while !stop.load(Ordering::SeqCst) {
+          let internal_iters = if release && random.random_bool(0.5) {
+            at_least(&mut random, 5)
+          } else {
+            1
+          };
+          for _ in 0..internal_iters {
+            ctrl.update_stalled(random.random_bool(0.5));
+          }
+          if check_point.load(Ordering::SeqCst) {
+            sync.update_join_count_down();
+            assert!(
+              sync.await_waiter(Duration::from_secs(10)),
               "[Updater] timed out - wait count: {}",
               sync.waiter_get_count()
-            ));
+            );
+            sync.left_checkpoint_count_down();
           }
-          sync.left_checkpoint_count_down();
+          if random.random_bool(0.5) {
+            thread::yield_now();
+          }
         }
-        if random.random_bool(0.5) {
-          thread::yield_now();
-        }
+      }));
+      if let Err(payload) = result {
+        errors.lock().push(Err(payload));
       }
       sync.update_join_count_down();
     })
@@ -317,8 +336,11 @@ impl TestThread {
     let alive = Arc::new(AtomicBool::new(true));
     let thread_alive = alive.clone();
     let handle = thread::spawn(move || {
-      f();
+      let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
       thread_alive.store(false, Ordering::SeqCst);
+      if let Err(payload) = result {
+        std::panic::resume_unwind(payload);
+      }
     });
     let thread_id = handle.thread().id();
     Self {
@@ -380,9 +402,8 @@ pub fn wait_threads(num: i32, ctrl: Arc<DocumentsWriterStallControl>) -> Vec<Joi
 }
 
 /// Waits for all incoming threads to be in wait() methods.
-pub fn await_state(num_waiting: i32, ctrl: &DocumentsWriterStallControl) {
+pub fn await_state(num_waiting: i32, ctrl: &DocumentsWriterStallControl, random: &mut StdRng) {
   while ctrl.get_num_waiting() != num_waiting {
-    let mut random = rng();
     if random.random_bool(0.5) {
       thread::yield_now();
     } else {

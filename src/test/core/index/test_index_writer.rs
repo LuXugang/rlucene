@@ -5832,8 +5832,9 @@ fn test_index_writer_blocks_on_stall() -> Result<()> {
       }));
     }
 
-    let result = {
+    let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       for _ in 0..10 {
+        stall_control.notify_all();
         while stall_control.get_num_waiting() != num_threads {
           // wait for all threads to be stalled again
           assert_eq!(0, writer.get_pending_num_docs());
@@ -5842,13 +5843,16 @@ fn test_index_writer_blocks_on_stall() -> Result<()> {
         }
       }
       Ok(())
-    };
+    }));
 
     stall_control.update_stalled(false);
     for thread in threads {
       thread.join().expect("thread panicked")?;
     }
-    result
+    match body_result {
+      Ok(result) => result,
+      Err(payload) => std::panic::resume_unwind(payload),
+    }
   })?;
 
   writer.commit()?;

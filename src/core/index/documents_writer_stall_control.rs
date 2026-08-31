@@ -125,4 +125,10 @@ impl DocumentsWriterStallControl {
     let st = self.inner.lock();
     st.was_stalled
   }
+
+  #[cfg(test)]
+  pub(crate) fn notify_all(&self) {
+    let _st = self.inner.lock();
+    self.pausing.notify_all();
+  }
 }
