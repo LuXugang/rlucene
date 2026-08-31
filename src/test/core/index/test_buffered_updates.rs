@@ -26,6 +26,7 @@ use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::ram_usage_estimator::size_of_string;
 
 /// Unit test for BufferedUpdate
 #[allow(dead_code)] // for quick search
@@ -34,9 +35,11 @@ struct TestBufferedUpdates;
 #[test]
 fn test_ram_bytes_used() -> Result<()> {
   let mut random = random();
-  let mut bu = BufferedUpdates::new("seg1");
+  let segment_name = "seg1".to_string();
+  let mut bu = BufferedUpdates::new(&segment_name);
+  let empty_ram_bytes_used = size_of_string(&segment_name);
 
-  assert_eq!(bu.ram_bytes_used()?, 0);
+  assert_eq!(bu.ram_bytes_used()?, empty_ram_bytes_used);
   assert!(!bu.any());
 
   let queries = at_least(&mut random, 1);
@@ -83,7 +86,7 @@ fn test_ram_bytes_used() -> Result<()> {
 
   bu.clear();
   assert!(!bu.any());
-  assert_eq!(bu.ram_bytes_used()?, 0);
+  assert_eq!(bu.ram_bytes_used()?, empty_ram_bytes_used);
 
   Ok(())
 }
@@ -127,11 +130,11 @@ fn test_deleted_terms() -> Result<()> {
     expected_sorted.sort_by_key(|entry| entry.0.clone());
 
     let mut actual_sorted: Vec<_> = Vec::new();
-    let _ = actual.for_each_ordered(|term, doc_id| {
+    actual.for_each_ordered(|term, doc_id| {
       let copy = Term::new(term.field.clone(), term.bytes.clone());
       actual_sorted.push((copy, doc_id));
       Ok(())
-    });
+    })?;
 
     assert_eq!(expected_sorted, actual_sorted);
 

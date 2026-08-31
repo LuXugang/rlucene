@@ -32,6 +32,7 @@ use parking_lot::Mutex;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::sync::atomic::AtomicI32;
 
@@ -57,7 +58,6 @@ pub(crate) struct BufferedUpdates {
   verbose_deletes: bool,
   gen_: i64,
 
-  #[allow(dead_code)]
   // Mirrors Java's retained segmentName field for source and diagnostic fidelity.
   segment_name: String,
 }
@@ -82,64 +82,87 @@ impl BufferedUpdates {
     update: &DocValuesUpdate,
     doc_id_upto: i32,
   ) -> Result<()> {
-    let buffer = match self.field_updates.entry(update.field.clone()) {
-      Occupied(entry) => entry.into_mut(),
-      Vacant(entry) => {
-        let new_buffer = FieldUpdatesBuffer::from_binary_update(
-          self.field_updates_bytes_used.clone(),
-          update,
-          doc_id_upto,
-        )?;
-        entry.insert(new_buffer)
-      },
-    };
+    let old_map_size = size_of_hash_map(&self.field_updates);
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      let buffer = match self.field_updates.entry(update.field.clone()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(entry) => {
+          let new_buffer = FieldUpdatesBuffer::from_binary_update(
+            self.field_updates_bytes_used.clone(),
+            update,
+            doc_id_upto,
+          )?;
+          self
+            .field_updates_bytes_used
+            .add_and_get(size_of_string(entry.key()));
+          entry.insert(new_buffer)
+        },
+      };
 
-    if update.has_value {
-      let binary_update = update
-        .sub_update
-        .get_binary()
-        .ok_or_else(|| LuceneError::illegal_state("binary update has no binary value"))?;
-      buffer.add_update_with_bytes_ref(&update.term, binary_update.get_value()?, doc_id_upto)?;
-    } else {
-      buffer.add_no_value(&update.term, doc_id_upto)?;
-    }
+      if update.has_value {
+        let binary_update = update
+          .sub_update
+          .get_binary()
+          .ok_or_else(|| LuceneError::illegal_state("binary update has no binary value"))?;
+        buffer.add_update_with_bytes_ref(&update.term, binary_update.get_value()?, doc_id_upto)?;
+      } else {
+        buffer.add_no_value(&update.term, doc_id_upto)?;
+      }
 
+      self
+        .num_field_updates
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+      Ok(())
+    }));
+    // Entry creation can reserve buckets even when constructing or updating the
+    // value fails or panics. Charge their inline payload before propagating the
+    // original failure; this counter also follows the map into a frozen packet.
     self
-      .num_field_updates
-      .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    Ok(())
+      .field_updates_bytes_used
+      .add_and_get(size_of_hash_map(&self.field_updates).saturating_sub(old_map_size));
+    unwrap_caught_result!(result)
   }
   pub(crate) fn add_numeric_update(
     &mut self,
     update: &DocValuesUpdate,
     doc_id_upto: i32,
   ) -> Result<()> {
-    let buffer = match self.field_updates.entry(update.field.clone()) {
-      Occupied(entry) => entry.into_mut(),
-      Vacant(entry) => {
-        let new_buffer = FieldUpdatesBuffer::from_numeric_update(
-          self.field_updates_bytes_used.clone(),
-          update,
-          doc_id_upto,
-        )?;
-        entry.insert(new_buffer)
-      },
-    };
+    let old_map_size = size_of_hash_map(&self.field_updates);
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      let buffer = match self.field_updates.entry(update.field.clone()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(entry) => {
+          let new_buffer = FieldUpdatesBuffer::from_numeric_update(
+            self.field_updates_bytes_used.clone(),
+            update,
+            doc_id_upto,
+          )?;
+          self
+            .field_updates_bytes_used
+            .add_and_get(size_of_string(entry.key()));
+          entry.insert(new_buffer)
+        },
+      };
 
-    if update.has_value {
-      let numeric_update = update
-        .sub_update
-        .get_numeric()
-        .ok_or_else(|| LuceneError::illegal_state("numeric update has no numeric value"))?;
-      buffer.add_update_with_long(&update.term, numeric_update.get_value()?, doc_id_upto)?;
-    } else {
-      buffer.add_no_value(&update.term, doc_id_upto)?;
-    }
+      if update.has_value {
+        let numeric_update = update
+          .sub_update
+          .get_numeric()
+          .ok_or_else(|| LuceneError::illegal_state("numeric update has no numeric value"))?;
+        buffer.add_update_with_long(&update.term, numeric_update.get_value()?, doc_id_upto)?;
+      } else {
+        buffer.add_no_value(&update.term, doc_id_upto)?;
+      }
 
+      self
+        .num_field_updates
+        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+      Ok(())
+    }));
     self
-      .num_field_updates
-      .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    Ok(())
+      .field_updates_bytes_used
+      .add_and_get(size_of_hash_map(&self.field_updates).saturating_sub(old_map_size));
+    unwrap_caught_result!(result)
   }
   pub(crate) fn add_term(&mut self, term: &Term, doc_id_upto: i32) -> Result<()> {
     let current = self.delete_terms.get(term)?;
@@ -178,7 +201,9 @@ impl BufferedUpdates {
     self
       .num_field_updates
       .store(0, std::sync::atomic::Ordering::SeqCst);
-    self.field_updates.clear();
+    // Inline values live in the map's heap allocation in Rust. Release it when
+    // resetting the flush-budget counter, just as we do for delete_queries.
+    self.field_updates = HashMap::new();
 
     let used = -self.bytes_used.get();
     self.bytes_used.add_and_get(used);
@@ -203,7 +228,8 @@ impl Accountable for BufferedUpdates {
         .bytes_used
         .get()
         .wrapping_add(self.field_updates_bytes_used.get())
-        .wrapping_add(self.delete_terms.ram_bytes_used()?),
+        .wrapping_add(self.delete_terms.ram_bytes_used()?)
+        .wrapping_add(size_of_string(&self.segment_name)),
     )
   }
 }
@@ -304,7 +330,7 @@ impl DeletedTerms {
     self.pool.reset(false, false);
     let used = -self.bytes_used.get();
     self.bytes_used.add_and_get(used);
-    self.delete_terms.clear();
+    self.delete_terms = HashMap::new();
     self.terms_size = 0;
   }
 
@@ -362,7 +388,14 @@ impl DeletedTerms {
 
 impl Accountable for DeletedTerms {
   fn ram_bytes_used(&self) -> Result<i64> {
-    Ok(self.bytes_used.get())
+    // BytesRefIntMap is inline in each bucket, not a separate allocation whose
+    // shallow size can be charged by the child as it is in Java.
+    Ok(
+      self
+        .bytes_used
+        .get()
+        .saturating_add(size_of_hash_map(&self.delete_terms)),
+    )
   }
 }
 impl fmt::Display for DeletedTerms {
