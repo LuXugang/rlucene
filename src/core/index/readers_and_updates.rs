@@ -507,15 +507,7 @@ where
 
       info.advance_doc_values_gen();
       debug_assert!(!field_files.contains_key(&field_info.number));
-      field_files.insert(
-        field_info.number,
-        state
-          .directory
-          .get_created_files()
-          .lock()
-          .created_filenames
-          .clone(),
-      );
+      field_files.insert(field_info.number, state.directory.get_created_files());
     }
     Ok(())
   }
@@ -685,10 +677,7 @@ where
     if !success {
       info.advance_next_write_field_infos_gen();
       info.advance_next_write_doc_values_gen();
-      IOUtils::delete_files_ignoring_exceptions(
-        &dir,
-        &tracking_dir.get_created_files().lock().created_filenames,
-      );
+      IOUtils::delete_files_ignoring_exceptions(&dir, tracking_dir.get_created_files());
     }
     unwrap_caught_result!(result)?;
     // Prune the now-written DV updates:

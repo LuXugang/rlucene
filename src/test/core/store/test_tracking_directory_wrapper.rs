@@ -355,10 +355,7 @@ where
 fn test_track_empty() -> Result<()> {
   let _random = random();
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
-  assert_eq!(
-    dir.get_created_files().lock().created_filenames,
-    HashSet::new()
-  );
+  assert_eq!(dir.get_created_files(), HashSet::new());
   Ok(())
 }
 
@@ -368,10 +365,7 @@ fn test_track_create() -> Result<()> {
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
-  assert_eq!(
-    dir.get_created_files().lock().created_filenames,
-    HashSet::from(["foo".to_string()])
-  );
+  assert_eq!(dir.get_created_files(), HashSet::from(["foo".to_string()]));
   Ok(())
 }
 
@@ -381,15 +375,9 @@ fn test_track_delete() -> Result<()> {
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
-  assert_eq!(
-    dir.get_created_files().lock().created_filenames,
-    HashSet::from(["foo".to_string()])
-  );
+  assert_eq!(dir.get_created_files(), HashSet::from(["foo".to_string()]));
   dir.delete_file("foo")?;
-  assert_eq!(
-    dir.get_created_files().lock().created_filenames,
-    HashSet::new()
-  );
+  assert_eq!(dir.get_created_files(), HashSet::new());
   Ok(())
 }
 
@@ -399,15 +387,9 @@ fn test_track_rename() -> Result<()> {
   let dir = TrackingDirectoryWrapper::new(ByteBuffersDirectory::new());
   let mut out = dir.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
-  assert_eq!(
-    dir.get_created_files().lock().created_filenames,
-    HashSet::from(["foo".to_string()])
-  );
+  assert_eq!(dir.get_created_files(), HashSet::from(["foo".to_string()]));
   dir.rename("foo", "bar")?;
-  assert_eq!(
-    dir.get_created_files().lock().created_filenames,
-    HashSet::from(["bar".to_string()])
-  );
+  assert_eq!(dir.get_created_files(), HashSet::from(["bar".to_string()]));
   Ok(())
 }
 
@@ -420,17 +402,14 @@ fn test_track_copy_from() -> Result<()> {
   let mut out = source.create_output("foo", &new_io_context(&mut random)?)?;
   out.close()?;
   assert_eq!(
-    source.get_created_files().lock().created_filenames,
+    source.get_created_files(),
     HashSet::from(["foo".to_string()])
   );
 
   dest.copy_from(&source, "foo", "bar", &new_io_context(&mut random)?)?;
+  assert_eq!(dest.get_created_files(), HashSet::from(["bar".to_string()]));
   assert_eq!(
-    dest.get_created_files().lock().created_filenames,
-    HashSet::from(["bar".to_string()])
-  );
-  assert_eq!(
-    source.get_created_files().lock().created_filenames,
+    source.get_created_files(),
     HashSet::from(["foo".to_string()])
   );
   Ok(())

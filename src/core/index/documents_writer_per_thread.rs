@@ -663,12 +663,7 @@ where
         // We clear this here because we already resolved them (private to this segment) when writing
         // postings:
         self.pending_updates.clear_delete_terms();
-        let files = self
-          .directory
-          .get_created_files()
-          .lock()
-          .created_filenames
-          .clone();
+        let files = self.directory.get_created_files();
         self.segment_info.set_files(files)?;
 
         let dir = self.segment_info.dir.clone();

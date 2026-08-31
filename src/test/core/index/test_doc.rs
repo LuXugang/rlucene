@@ -176,10 +176,7 @@ fn merge(
     merger.merge()?;
   }
 
-  let created = {
-    let inner = tracking_dir.get_created_files().lock();
-    inner.created_filenames.clone()
-  };
+  let created = tracking_dir.get_created_files();
   si.set_files(created)?;
 
   if use_compound_file {

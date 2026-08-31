@@ -1849,13 +1849,10 @@ where
         if merger.should_merge()? {
           merger.merge()?;
         }
-        merger.merge_state.segment_info.set_files(
-          dir_wrapper
-            .get_created_files()
-            .lock()
-            .created_filenames
-            .clone(),
-        )?;
+        merger
+          .merge_state
+          .segment_info
+          .set_files(dir_wrapper.get_created_files())?;
         if !merger.should_merge()? {
           debug_assert!(merger.merge_state.segment_info.max_doc()? == 0);
           success = self.commit_merge(merge, &doc_maps)?;
@@ -8229,12 +8226,7 @@ where
   T: IOConsumer<HashSet<String>>,
 {
   // maybe this check is not needed, but why take the risk?
-  if !directory
-    .get_created_files()
-    .lock()
-    .created_filenames
-    .is_empty()
-  {
+  if !directory.get_created_files().is_empty() {
     return Err(LuceneError::illegal_state(
       "pass a clean trackingdir for CFS creation",
     ));
@@ -8253,7 +8245,7 @@ where
     success = true;
     Ok(())
   }));
-  let filename = std::mem::take(&mut directory.get_created_files().lock().created_filenames);
+  let filename = directory.get_created_files();
   if !success {
     delete_files.accept(filename)?;
     return unwrap_caught_result!(write_result);

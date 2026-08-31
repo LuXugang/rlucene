@@ -632,24 +632,14 @@ where
       );
       // If no error, we should have cleaned everything up:
       debug_assert!(
-        self
-          .temp_dir
-          .get_created_files()
-          .lock()
-          .created_filenames
-          .is_empty(),
+        self.temp_dir.get_created_files().is_empty(),
         "Temp directory should be empty"
       );
       success = true;
       Ok(())
     }));
     if !success {
-      let created_files = self
-        .temp_dir
-        .get_created_files()
-        .lock()
-        .created_filenames
-        .clone();
+      let created_files = self.temp_dir.get_created_files();
       IOUtils::delete_files_ignoring_exceptions(&self.temp_dir, &created_files);
     }
     unwrap_caught_result!(result)?;
@@ -1292,13 +1282,7 @@ where
   ) -> Result<R> {
     if let PointWriterEnum::Offline(writer) = writer {
       // We are reading from a temp file; go verify the checksum:
-      if self
-        .temp_dir
-        .get_created_files()
-        .lock()
-        .created_filenames
-        .contains(&writer.name)
-      {
+      if self.temp_dir.get_created_files().contains(&writer.name) {
         let mut input = self.temp_dir.open_checksum_input(&writer.name)?;
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           CodecUtil::check_footer_with_error(&mut input, Some(prior_result))

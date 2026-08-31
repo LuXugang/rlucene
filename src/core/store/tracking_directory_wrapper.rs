@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::index_reader::Identity;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, ErasedDirectory};
 use crate::core::store::{IOContext, IndexOutput};
 use crate::core::util::HasIdentity;
 use crate::core::util::close::CloseableRef;
@@ -27,33 +27,29 @@ use std::fmt::{Display, Formatter};
 /// A delegating Directory that records which files were written to and deleted.
 pub struct TrackingDirectoryWrapper<D> {
   pub(crate) in_: D,
-  inner: Mutex<Inner>,
+  created_filenames: Mutex<HashSet<String>>,
   id: Identity,
-}
-pub struct Inner {
-  pub(crate) created_filenames: HashSet<String>,
 }
 impl<D> TrackingDirectoryWrapper<D> {
   pub fn new(input: D) -> Self {
-    let lock = Mutex::new(Inner {
-      created_filenames: HashSet::new(),
-    });
     TrackingDirectoryWrapper {
       in_: input,
-      inner: lock,
+      created_filenames: Mutex::new(HashSet::new()),
       id: Identity::new(),
     }
   }
 
-  pub fn get_created_files(&self) -> &Mutex<Inner> {
-    &self.inner
-  }
-  pub fn take_created_files(&mut self) -> HashSet<String> {
-    std::mem::take(&mut self.inner.lock().created_filenames)
+  /// NOTE: returns a copy of the created files.
+  pub fn get_created_files(&self) -> HashSet<String> {
+    self.created_filenames.lock().clone()
   }
 
-  pub fn clear_created_files(&mut self) {
-    self.inner.lock().created_filenames.clear();
+  pub fn take_created_files(&mut self) -> HashSet<String> {
+    std::mem::take(&mut self.created_filenames.lock())
+  }
+
+  pub fn clear_created_files(&self) {
+    self.created_filenames.lock().clear();
   }
 }
 
@@ -91,7 +87,7 @@ where
 
   fn delete_file(&self, name: &str) -> Result<()> {
     self.in_.delete_file(name)?;
-    self.inner.lock().created_filenames.remove(name);
+    self.created_filenames.lock().remove(name);
     Ok(())
   }
 
@@ -101,7 +97,7 @@ where
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
     let output = self.in_.create_output(name, context)?;
-    self.inner.lock().created_filenames.insert(name.to_string());
+    self.created_filenames.lock().insert(name.to_string());
     Ok(output)
   }
 
@@ -115,7 +111,7 @@ where
   ) -> Result<Self::IndexOutput> {
     let temp = self.in_.create_temp_output(prefix, suffix, context)?;
     let name = temp.get_name().to_string();
-    self.inner.lock().created_filenames.insert(name);
+    self.created_filenames.lock().insert(name);
     Ok(temp)
   }
 
@@ -129,10 +125,9 @@ where
 
   fn rename(&self, source: &str, dest: &str) -> Result<()> {
     self.in_.rename(source, dest)?;
-    let mut inner = self.inner.lock();
-    inner.created_filenames.insert(dest.to_string());
-    inner.created_filenames.remove(source);
-    drop(inner);
+    let mut created_filenames = self.created_filenames.lock();
+    created_filenames.insert(dest.to_string());
+    created_filenames.remove(source);
     Ok(())
   }
 
@@ -153,8 +148,12 @@ where
     T: Directory + ?Sized,
   {
     self.in_.copy_from(from, src, dest, context)?;
-    self.inner.lock().created_filenames.insert(dest.to_string());
+    self.created_filenames.lock().insert(dest.to_string());
     Ok(())
+  }
+
+  fn as_erased_directory(&self) -> Option<&dyn ErasedDirectory> {
+    self.in_.as_erased_directory()
   }
 
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
