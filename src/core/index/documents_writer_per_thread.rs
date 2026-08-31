@@ -91,7 +91,7 @@ where
 
 pub(crate) struct State {
   cvar: Condvar,
-  available: Mutex<bool>,
+  lock_state: Mutex<Option<(thread::ThreadId, i32)>>,
   pub(crate) flush_pending: OnceLock<bool>,
   pub(crate) last_committed_bytes_used: AtomicI64,
   pub(crate) num_docs_in_ram: AtomicI32,
@@ -126,36 +126,68 @@ impl State {
   pub(crate) fn is_queue_advanced(&self) -> bool {
     self.delete_queue.is_advanced()
   }
+
+  /// Returns true if the DWPT's lock is held by the current thread.
+  pub(crate) fn is_held_by_current_thread(&self) -> bool {
+    self
+      .lock_state
+      .lock()
+      .as_ref()
+      .is_some_and(|(owner, _)| *owner == thread::current().id())
+  }
 }
 
 impl Lock for State {
   fn lock(&self) {
-    let mut guard = self.available.lock();
-    while !*guard {
+    let current = thread::current().id();
+    let mut guard = self.lock_state.lock();
+    while guard.as_ref().is_some_and(|(owner, _)| *owner != current) {
       self.cvar.wait(&mut guard);
     }
-    *guard = false;
+    match guard.as_mut() {
+      Some((_, hold_count)) => {
+        // Java ReentrantLock throws Error if its signed hold count overflows.
+        assert!(*hold_count < i32::MAX, "Maximum lock count exceeded");
+        *hold_count += 1;
+      },
+      None => *guard = Some((current, 1)),
+    }
   }
 
   fn try_lock(&self) -> bool {
-    let mut flag = self.available.lock();
-    if *flag {
-      *flag = false;
-      true
-    } else {
-      false
+    let current = thread::current().id();
+    let mut guard = self.lock_state.lock();
+    match guard.as_mut() {
+      Some((owner, hold_count)) if *owner == current => {
+        // Java ReentrantLock throws Error if its signed hold count overflows.
+        assert!(*hold_count < i32::MAX, "Maximum lock count exceeded");
+        *hold_count += 1;
+        true
+      },
+      Some(_) => false,
+      None => {
+        *guard = Some((current, 1));
+        true
+      },
     }
   }
 
-  fn unlock(&self) {
-    let mut guard = self.available.lock();
-    debug_assert!(!*guard);
-    *guard = true;
-    self.cvar.notify_one();
-  }
-
-  fn is_locked(&self) -> bool {
-    !*self.available.lock()
+  fn unlock(&self) -> Result<()> {
+    let mut guard = self.lock_state.lock();
+    let current = thread::current().id();
+    match guard.as_mut() {
+      Some((owner, hold_count)) if *owner == current => {
+        *hold_count -= 1;
+        if *hold_count == 0 {
+          *guard = None;
+          self.cvar.notify_one();
+        }
+        Ok(())
+      },
+      _ => Err(LuceneError::illegal_state(
+        "DWPT lock is not held by the current thread",
+      )),
+    }
   }
 }
 
@@ -260,7 +292,7 @@ where
 
     let state = State {
       cvar: Condvar::new(),
-      available: Mutex::new(true),
+      lock_state: Mutex::new(None),
       flush_pending: OnceLock::new(),
       last_committed_bytes_used: AtomicI64::new(0),
       num_docs_in_ram: AtomicI32::new(0),

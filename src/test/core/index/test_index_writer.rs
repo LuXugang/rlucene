@@ -3576,7 +3576,7 @@ fn test_flush_largest_writer() -> Result<()> {
   // Make sure it's not locked.
   {
     largest_non_pending_writer.lock();
-    largest_non_pending_writer.unlock();
+    largest_non_pending_writer.unlock()?;
   }
 
   if random.random_bool(0.5) {
@@ -3835,7 +3835,7 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
         largest_non_pending_writer.lock();
         locked.wait();
         wait.wait();
-        largest_non_pending_writer.unlock();
+        largest_non_pending_writer.unlock()
       })
     };
 
@@ -3854,7 +3854,7 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
     w.doc_writer.flush_control.active_bytes(None);
     wait.wait();
 
-    lock_thread.join().expect("thread panicked");
+    lock_thread.join().expect("thread panicked")?;
     flush_thread.join().expect("thread panicked")?;
 
     Ok(())
@@ -3867,7 +3867,7 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
 
   // Make sure it's not locked.
   largest_non_pending_writer.lock();
-  largest_non_pending_writer.unlock();
+  largest_non_pending_writer.unlock()?;
 
   if random.random_bool(0.5) {
     w.commit()?;
@@ -3932,7 +3932,7 @@ fn test_check_pending_flush_post_update() -> Result<()> {
         1
       };
       for _ in 0..num_iters {
-        wait_for_docs_in_buffers(&w, std::cmp::min(2, num_threads));
+        wait_for_docs_in_buffers(&w, std::cmp::min(2, num_threads))?;
         w.commit()?;
         let mut flushing_threads = flushing_threads.lock().unwrap();
         assert!(
@@ -3947,7 +3947,7 @@ fn test_check_pending_flush_post_update() -> Result<()> {
       loop {
         assert!(num_iters < 100, "should finish in less than 100 iterations");
         num_iters += 1;
-        wait_for_docs_in_buffers(&w, std::cmp::min(2, num_threads));
+        wait_for_docs_in_buffers(&w, std::cmp::min(2, num_threads))?;
         w.flush()?;
         let mut flushing_threads = flushing_threads.lock().unwrap();
         flushing_threads.retain(|thread| indexing_threads.lock().unwrap().contains(thread));
@@ -4005,7 +4005,7 @@ where
   }
 }
 
-fn wait_for_docs_in_buffers<D>(w: &IndexWriter<D>, buffers_with_docs: usize)
+fn wait_for_docs_in_buffers<D>(w: &IndexWriter<D>, buffers_with_docs: usize) -> Result<()>
 where
   D: Directory,
 {
@@ -4016,13 +4016,13 @@ where
     for (_id, dwpt) in per_thread_pool.iterator() {
       dwpt.lock();
       let num_docs_in_ram = dwpt.dwpt.lock().get_num_docs_in_ram();
-      dwpt.unlock();
+      dwpt.unlock()?;
       if num_docs_in_ram > 1 {
         num_states_with_docs += 1;
       }
     }
     if num_states_with_docs >= buffers_with_docs {
-      return;
+      return Ok(());
     }
     thread::yield_now();
   }
@@ -5006,7 +5006,7 @@ fn test_flush_while_starting_new_threads() -> Result<()> {
         Ok(())
       })();
       for state in states {
-        state.unlock();
+        state.unlock()?;
       }
       result
     });

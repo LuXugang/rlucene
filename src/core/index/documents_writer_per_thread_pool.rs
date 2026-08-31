@@ -24,6 +24,7 @@ use crate::core::index::lockable_concurrent_approximate_priority_queue::{
 };
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::{Condvar, Mutex, MutexGuard};
 use std::collections::HashMap;
@@ -51,6 +52,9 @@ where
 {
   pub(crate) dwpts: HashMap<String, Arc<DwptWrapper<D>>>,
   taken_writer_permits: i32,
+  // Rust has no Thread.State.WAITING; tests inspect this under inner's mutex after wait releases it.
+  #[cfg(test)]
+  pub(crate) waiting_new_writers: usize,
 }
 
 impl<D> DocumentsWriterPerThreadPool<D>
@@ -61,6 +65,8 @@ where
     let inner = Mutex::new(Inner {
       dwpts: HashMap::new(),
       taken_writer_permits: 0,
+      #[cfg(test)]
+      waiting_new_writers: 0,
     });
     Ok(Self {
       inner,
@@ -124,7 +130,15 @@ where
     let mut inner = self.inner.lock();
     debug_assert!(inner.taken_writer_permits >= 0);
     while inner.taken_writer_permits > 0 {
+      #[cfg(test)]
+      {
+        inner.waiting_new_writers += 1;
+      }
       self.pausing.wait(&mut inner);
+      #[cfg(test)]
+      {
+        inner.waiting_new_writers -= 1;
+      }
     }
     // we must check if we are closed since this might happen while we are waiting for the writer
     // permit
@@ -173,7 +187,7 @@ where
     let inner = self.inner.lock();
     inner.dwpts.contains_key(state_id)
   }
-  pub(crate) fn mark_as_free_and_unlock(&self, wrap_dwpt: Arc<DwptWrapper<D>>) {
+  pub(crate) fn mark_as_free_and_unlock(&self, wrap_dwpt: Arc<DwptWrapper<D>>) -> Result<()> {
     let ram_bytes_used = expect_invariant!(
       wrap_dwpt.dwpt.lock().ram_bytes_used(),
       "DocumentsWriterPerThread RAM accounting mirrors Java Accountable and is infallible"
@@ -193,7 +207,7 @@ where
       self.contains(&wrap_dwpt.state.id),
       "Tried to add a DWPT back to the pool but the pool doesn't know about this DWPT"
     );
-    self.free_list.add_and_unlock(wrap_dwpt, ram_bytes_used);
+    self.free_list.add_and_unlock(wrap_dwpt, ram_bytes_used)
   }
   pub(crate) fn iterator(&self) -> HashMap<String, Arc<DwptWrapper<D>>> {
     let inner = self.inner.lock();
@@ -214,7 +228,7 @@ where
         if self.is_registered_with_state(id, None) {
           list.push(state.clone());
         } else {
-          state.state.unlock();
+          state.state.unlock()?;
         }
       }
     }
@@ -229,7 +243,7 @@ where
     &self,
     per_thread: &MutexGuard<'_, DocumentsWriterPerThread<D>>,
   ) -> Option<Arc<DwptWrapper<D>>> {
-    debug_assert!(per_thread.state.is_locked());
+    debug_assert!(per_thread.state.is_held_by_current_thread());
     let mut inner = self.inner.lock();
     match inner.dwpts.remove(&per_thread.state.id) {
       Some(v) => {
@@ -254,8 +268,16 @@ where
     };
     state.dwpts.contains_key(per_thread)
   }
-  pub fn close(&self) {
+}
+
+impl<D> CloseableRef for DocumentsWriterPerThreadPool<D>
+where
+  D: Directory,
+{
+  fn close(&self) -> Result<()> {
+    let _inner = self.inner.lock();
     self.closed.store(true, Ordering::SeqCst);
+    Ok(())
   }
 }
 
@@ -291,12 +313,8 @@ where
     self.state.try_lock()
   }
 
-  fn unlock(&self) {
+  fn unlock(&self) -> Result<()> {
     self.state.unlock()
-  }
-
-  fn is_locked(&self) -> bool {
-    self.state.is_locked()
   }
 }
 impl<D> IdentityId for Arc<DwptWrapper<D>>

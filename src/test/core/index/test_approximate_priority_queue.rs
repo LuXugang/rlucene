@@ -16,6 +16,7 @@
  */
 use crate::core::index::approximate_priority_queue::{ApproximatePriorityQueue, IdentityId};
 use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
+use crate::core::util::error::lucene_error::Result;
 
 #[allow(dead_code)] // for quick search
 struct TestApproximatePriorityQueue;
@@ -27,10 +28,8 @@ impl Lock for i64 {
   fn try_lock(&self) -> bool {
     unreachable!()
   }
-  fn unlock(&self) {}
-
-  fn is_locked(&self) -> bool {
-    unreachable!()
+  fn unlock(&self) -> Result<()> {
+    Ok(())
   }
 }
 
@@ -42,10 +41,8 @@ impl Lock for u64 {
   fn try_lock(&self) -> bool {
     unreachable!()
   }
-  fn unlock(&self) {}
-
-  fn is_locked(&self) -> bool {
-    unreachable!()
+  fn unlock(&self) -> Result<()> {
+    Ok(())
   }
 }
 impl IdentityId for u64 {
@@ -158,10 +155,8 @@ fn test_remove() {
     fn try_lock(&self) -> bool {
       unreachable!()
     }
-    fn unlock(&self) {}
-
-    fn is_locked(&self) -> bool {
-      unreachable!()
+    fn unlock(&self) -> Result<()> {
+      Ok(())
     }
   }
   impl IdentityId for U64Wrapper {

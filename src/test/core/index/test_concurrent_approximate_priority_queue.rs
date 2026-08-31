@@ -34,10 +34,8 @@ impl Lock for i32 {
   fn try_lock(&self) -> bool {
     unreachable!()
   }
-  fn unlock(&self) {}
-
-  fn is_locked(&self) -> bool {
-    unreachable!()
+  fn unlock(&self) -> Result<()> {
+    Ok(())
   }
 }
 impl IdentityId for i32 {

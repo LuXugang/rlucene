@@ -68,17 +68,17 @@ where
   }
 
   ///  Add an entry to the queue and unlock it, in that order.
-  pub(crate) fn add_and_unlock(&self, entry: T, weight: i64) {
+  pub(crate) fn add_and_unlock(&self, entry: T, weight: i64) -> Result<()> {
     let entry_to_unlock = entry.clone();
     self.queue.add(entry, weight);
-    entry_to_unlock.unlock();
+    entry_to_unlock.unlock()?;
     self.add_and_unlock_counter.fetch_add(1, Ordering::SeqCst);
+    Ok(())
   }
 }
 
 pub(crate) trait Lock {
   fn lock(&self);
   fn try_lock(&self) -> bool;
-  fn unlock(&self);
-  fn is_locked(&self) -> bool;
+  fn unlock(&self) -> Result<()>;
 }

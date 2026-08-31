@@ -542,7 +542,7 @@ where
     L: LiveIndexWriterConfig,
   {
     debug_assert!(per_thread.is_flush_pending());
-    debug_assert!(per_thread.state.is_locked());
+    debug_assert!(per_thread.state.is_held_by_current_thread());
     debug_assert!(self.per_thread_pool.is_registered(&per_thread.state.id));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
       || -> Result<Arc<DwptWrapper<D>>> {
@@ -608,7 +608,7 @@ where
               Ok(None)
             }
           }));
-          next.unlock();
+          next.unlock()?;
           return unwrap_caught_result!(result);
         }
       }
@@ -691,7 +691,7 @@ where
             );
           }
         }));
-        per_thread.unlock();
+        per_thread.unlock()?;
         resume_caught_panic!(result);
       }
     }
@@ -766,7 +766,7 @@ where
         }
         Ok(())
       }));
-      dwpt.unlock();
+      dwpt.unlock()?;
       unwrap_caught_result!(result)?;
     }
 
@@ -1052,7 +1052,7 @@ where
           Ok(None)
         }
       }));
-      largest_non_pending_writer.unlock();
+      largest_non_pending_writer.unlock()?;
       return unwrap_caught_result!(result);
     }
     Ok(None)

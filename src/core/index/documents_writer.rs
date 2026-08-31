@@ -286,7 +286,7 @@ where
         .per_thread_pool
         .filter_and_lock(|_| true)?;
       for per_thread in &finalizer.writers {
-        debug_assert!(per_thread.state.is_locked());
+        debug_assert!(per_thread.state.is_held_by_current_thread());
         self.abort_documents_writer_per_thread(per_thread.clone(), config)?;
       }
       self.flush_control.delete_queue.lock().clear();
@@ -415,7 +415,7 @@ where
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
           self.abort_documents_writer_per_thread(per_thread.clone(), config)
         }));
-        per_thread.unlock();
+        per_thread.unlock()?;
         unwrap_caught_result!(result)?;
       }
 
@@ -537,12 +537,12 @@ where
         || dwpt_wrapper.state.is_aborted()
         || dwpt_wrapper.state.delete_queue.is_advanced()
       {
-        dwpt_wrapper.state.unlock();
+        dwpt_wrapper.state.unlock()?;
       } else {
         self
           .flush_control
           .per_thread_pool
-          .mark_as_free_and_unlock(dwpt_wrapper);
+          .mark_as_free_and_unlock(dwpt_wrapper)?;
       }
       drop(inner);
     }
@@ -893,10 +893,7 @@ where
         self.flush_control.close();
         Ok(())
       },
-      _ => {
-        self.flush_control.per_thread_pool.close();
-        Ok(())
-      },
+      _ => self.flush_control.per_thread_pool.close(),
     })
   }
 }
@@ -942,7 +939,7 @@ where
         .per_thread_pool
         .unlock_new_writers();
       for writer in &self.writers {
-        writer.unlock();
+        writer.unlock()?;
       }
       if self.documents_writer.info_stream.is_enabled("DW") {
         self

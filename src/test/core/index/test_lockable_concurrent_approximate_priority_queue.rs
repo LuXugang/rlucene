@@ -18,6 +18,7 @@ use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::lockable_concurrent_approximate_priority_queue::{
   Lock, LockableConcurrentApproximatePriorityQueue,
 };
+use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::lucene_test_case::random;
 
 use rand::RngExt;
@@ -72,15 +73,11 @@ impl Lock for WeightedLock {
     }
   }
 
-  fn unlock(&self) {
+  fn unlock(&self) -> Result<()> {
     let mut guard = self.available.lock();
     *guard = true;
     self.cvar.notify_one();
-  }
-
-  fn is_locked(&self) -> bool {
-    let flag = self.available.lock();
-    !*flag
+    Ok(())
   }
 }
 
@@ -93,12 +90,8 @@ impl Lock for Arc<WeightedLock> {
     self.as_ref().try_lock()
   }
 
-  fn unlock(&self) {
+  fn unlock(&self) -> Result<()> {
     self.as_ref().unlock()
-  }
-
-  fn is_locked(&self) -> bool {
-    self.as_ref().is_locked()
   }
 }
 impl PartialEq for WeightedLock {
@@ -127,11 +120,11 @@ fn test_never_return_none_on_non_empty_queue() {
         lock.lock();
         lock.weight += 1;
         let weight = lock.weight;
-        q.add_and_unlock(Arc::new(lock), weight);
+        q.add_and_unlock(Arc::new(lock), weight).unwrap();
         for _ in 0..10_000 {
           let lock = q.lock_and_poll().expect("Queue was non-empty");
           let weight = lock.weight;
-          q.add_and_unlock(lock, weight);
+          q.add_and_unlock(lock, weight).unwrap();
         }
       }));
     }
