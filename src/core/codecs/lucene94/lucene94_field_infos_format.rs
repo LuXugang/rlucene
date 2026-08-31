@@ -137,13 +137,15 @@ impl Lucene94FieldInfosFormat {
     Lucene94FieldInfosFormat {}
   }
   fn doc_values_byte(doc_values_type: &DocValuesType) -> u8 {
+    // These are Lucene94's on-disk values, whose last two entries intentionally differ from the
+    // Rust enum declaration order.
     match doc_values_type {
       DocValuesType::None => 0,
       DocValuesType::Numeric => 1,
       DocValuesType::Binary => 2,
       DocValuesType::Sorted => 3,
-      DocValuesType::SortedNumeric => 4,
-      DocValuesType::SortedSet => 5,
+      DocValuesType::SortedSet => 4,
+      DocValuesType::SortedNumeric => 5,
     }
   }
 
@@ -158,9 +160,15 @@ impl Lucene94FieldInfosFormat {
   where
     I: IndexInput,
   {
-    match DocValuesType::from_repr(b) {
-      Some(dv) => Ok(dv),
-      None => Err(LuceneError::corrupt_index(format!(
+    // Keep this explicit: the Lucene94 on-disk values are not the Rust enum discriminants.
+    match b {
+      0 => Ok(DocValuesType::None),
+      1 => Ok(DocValuesType::Numeric),
+      2 => Ok(DocValuesType::Binary),
+      3 => Ok(DocValuesType::Sorted),
+      4 => Ok(DocValuesType::SortedSet),
+      5 => Ok(DocValuesType::SortedNumeric),
+      _ => Err(LuceneError::corrupt_index(format!(
         "invalid docvalues byte: {b} (resource={input})"
       ))),
     }

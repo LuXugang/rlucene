@@ -769,18 +769,19 @@ pub enum SortFieldType {
   Rewritable,
 }
 impl SortFieldType {
+  /// Resolves the Java enum name persisted in segment sort metadata.
   pub fn value_of(type_str: &str) -> Result<Self> {
     match type_str {
-      "Score" => Ok(SortFieldType::Score),
-      "Doc" => Ok(SortFieldType::Doc),
-      "String" => Ok(SortFieldType::String),
-      "Int" => Ok(SortFieldType::Int),
-      "Float" => Ok(SortFieldType::Float),
-      "Long" => Ok(SortFieldType::Long),
-      "Double" => Ok(SortFieldType::Double),
-      "Custom" => Ok(SortFieldType::Custom),
-      "StringVal" => Ok(SortFieldType::StringVal),
-      "Rewritable" => Ok(SortFieldType::Rewritable),
+      "SCORE" => Ok(SortFieldType::Score),
+      "DOC" => Ok(SortFieldType::Doc),
+      "STRING" => Ok(SortFieldType::String),
+      "INT" => Ok(SortFieldType::Int),
+      "FLOAT" => Ok(SortFieldType::Float),
+      "LONG" => Ok(SortFieldType::Long),
+      "DOUBLE" => Ok(SortFieldType::Double),
+      "CUSTOM" => Ok(SortFieldType::Custom),
+      "STRING_VAL" => Ok(SortFieldType::StringVal),
+      "REWRITEABLE" => Ok(SortFieldType::Rewritable),
       _ => Err(LuceneError::illegal_argument(format!(
         "Can't deserialize SortField - unknown type {type_str}"
       ))),
@@ -797,16 +798,16 @@ impl SortFieldType {
 impl Display for SortFieldType {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      SortFieldType::Score => write!(f, "Score"),
-      SortFieldType::Doc => write!(f, "Doc"),
-      SortFieldType::String => write!(f, "String"),
-      SortFieldType::Int => write!(f, "Int"),
-      SortFieldType::Float => write!(f, "Float"),
-      SortFieldType::Long => write!(f, "Long"),
-      SortFieldType::Double => write!(f, "Double"),
-      SortFieldType::Custom => write!(f, "Custom"),
-      SortFieldType::StringVal => write!(f, "StringVal"),
-      SortFieldType::Rewritable => write!(f, "Rewritable"),
+      SortFieldType::Score => write!(f, "SCORE"),
+      SortFieldType::Doc => write!(f, "DOC"),
+      SortFieldType::String => write!(f, "STRING"),
+      SortFieldType::Int => write!(f, "INT"),
+      SortFieldType::Float => write!(f, "FLOAT"),
+      SortFieldType::Long => write!(f, "LONG"),
+      SortFieldType::Double => write!(f, "DOUBLE"),
+      SortFieldType::Custom => write!(f, "CUSTOM"),
+      SortFieldType::StringVal => write!(f, "STRING_VAL"),
+      SortFieldType::Rewritable => write!(f, "REWRITEABLE"),
     }
   }
 }
@@ -1024,13 +1025,7 @@ pub enum IndexSorterEnumSorter {
 }
 impl IndexSorter for IndexSorterEnumSorter {
   fn get_provider_name(&self) -> &str {
-    match self {
-      IndexSorterEnumSorter::String(_) => "SortedDocValuesProviderImpl",
-      IndexSorterEnumSorter::Int(_) => "NumericDocValuesProviderImpl1",
-      IndexSorterEnumSorter::Long(_) => "NumericDocValuesProviderImpl1",
-      IndexSorterEnumSorter::Double(_) => "NumericDocValuesProviderImpl1",
-      IndexSorterEnumSorter::Float(_) => "NumericDocValuesProviderImpl1",
-    }
+    Provider::NAME
   }
 
   type ComparableProvider<LR>

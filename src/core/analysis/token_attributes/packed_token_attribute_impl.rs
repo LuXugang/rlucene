@@ -373,7 +373,7 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
   }
   #[cfg(not(test))]
   fn get_payload(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(None)
   }
 
   #[cfg(test)]
