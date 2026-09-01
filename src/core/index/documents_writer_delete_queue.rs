@@ -85,8 +85,8 @@ pub struct DocumentsWriterDeleteQueue {
   // The current end (latest delete operation) in the delete queue.
   tail: Mutex<Arc<Node>>,
   closed: AtomicBool,
-  // Only acquired to update the global deletes.
-  global_buffer_lock: Mutex<GlobalBufferState>,
+  // Only acquired to update the global deletes, crate-visible for access by tests.
+  pub(crate) global_buffer_lock: Mutex<GlobalBufferState>,
   pub(crate) generation: i64,
   /// Generates the sequence number that IW returns to callers changing the
   /// index, showing the effective serialization of all operations.
@@ -580,6 +580,10 @@ impl DeleteSlice {
       let mut current = self.slice_head.clone();
       loop {
         let next_node_guard = current.next.lock();
+        debug_assert!(
+          next_node_guard.is_some(),
+          "slice property violated: nodes between the head and tail must not be null"
+        );
         let next_node = next_node_guard.as_ref().ok_or_else(|| {
           LuceneError::illegal_state(
             "slice property violated: nodes between the head and tail must not be null",
@@ -608,16 +612,11 @@ impl DeleteSlice {
     Arc::ptr_eq(&self.slice_tail, node)
   }
 
-  /// Returns `true` if the item of the given node matches the item in the
+  /// Returns `true` if the given item is identical to the item held by the
   /// tail.
   #[cfg(test)]
   pub(crate) fn is_tail_item(&self, item: &NodeEnum) -> bool {
-    let node1 = NodeEnum::get_node_base(&self.slice_tail.item);
-    let node2 = NodeEnum::get_node_base(item);
-    match (node1.as_ref(), node2.as_ref()) {
-      (Some(node1), Some(node2)) => node1.item == node2.item,
-      _ => false,
-    }
+    std::ptr::eq(&self.slice_tail.item, item)
   }
 
   pub(crate) fn is_empty(&self) -> bool {
@@ -629,7 +628,7 @@ impl DeleteSlice {
 pub(crate) struct Node {
   /// The next node in the list, or `None` if this is the last node.
   next: Mutex<Option<Arc<Node>>>,
-  item: NodeEnum,
+  pub(crate) item: NodeEnum,
 }
 
 impl Node {
@@ -640,9 +639,24 @@ impl Node {
     }
   }
 }
+impl Drop for Node {
+  fn drop(&mut self) {
+    let mut next = self.next.get_mut().take();
+    while let Some(node) = next {
+      match Arc::try_unwrap(node) {
+        Ok(mut node) => next = node.next.get_mut().take(),
+        Err(_) => break,
+      }
+    }
+  }
+}
 impl NodeBase for Node {
   fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
     self.item.apply(buffered_deletes, doc_id_upto)
+  }
+
+  fn is_delete(&self) -> bool {
+    self.item.is_delete()
   }
 }
 impl Display for Node {
@@ -759,7 +773,14 @@ impl NodeBase for TermNodeArray {
 }
 impl Display for TermNodeArray {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "del={:?}", self.item)
+    write!(f, "dels=[")?;
+    for (i, term) in self.item.iter().enumerate() {
+      if i > 0 {
+        write!(f, ", ")?;
+      }
+      write!(f, "{term}")?;
+    }
+    write!(f, "]")
   }
 }
 
@@ -831,12 +852,8 @@ pub(crate) enum NodeEnum {
   DocValuesUpdatesNode(DocValuesUpdatesNode),
 }
 
-impl NodeEnum {
-  pub(crate) fn apply(
-    &self,
-    buffered_deletes: &mut BufferedUpdates,
-    doc_id_upto: i32,
-  ) -> Result<()> {
+impl NodeBase for NodeEnum {
+  fn apply(&self, buffered_deletes: &mut BufferedUpdates, doc_id_upto: i32) -> Result<()> {
     match self {
       NodeEnum::TermNode(node) => node.apply(buffered_deletes, doc_id_upto),
       NodeEnum::QueryNode(node) => node.apply(buffered_deletes, doc_id_upto),
@@ -846,11 +863,14 @@ impl NodeEnum {
       NodeEnum::EmptyNode(node) => node.apply(buffered_deletes, doc_id_upto),
     }
   }
-  #[cfg(test)]
-  pub(crate) fn get_node_base(node: &NodeEnum) -> Option<&TermNodeArray> {
-    match node {
-      NodeEnum::TermNodeArray(node) => Some(node),
-      _ => None,
+  fn is_delete(&self) -> bool {
+    match self {
+      NodeEnum::EmptyNode(node) => node.is_delete(),
+      NodeEnum::TermNode(node) => node.is_delete(),
+      NodeEnum::QueryNode(node) => node.is_delete(),
+      NodeEnum::QueryNodeArray(node) => node.is_delete(),
+      NodeEnum::TermNodeArray(node) => node.is_delete(),
+      NodeEnum::DocValuesUpdatesNode(node) => node.is_delete(),
     }
   }
 }
@@ -874,7 +894,7 @@ pub(crate) trait NodeBase {
     ))
   }
 
-  #[allow(dead_code)] // Mirrors Java's retained Node.isDelete hook, which has no current callers.
+  #[allow(dead_code)]
   fn is_delete(&self) -> bool {
     true
   }

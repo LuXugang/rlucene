@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use crate::test_framework::core::util::lucene_test_case::{random, random_multiplier};
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{Arc, Barrier};
 use std::{thread, vec};
 
 use parking_lot::Mutex;
@@ -29,7 +30,7 @@ use crate::core::index::doc_values_update::{
   BinaryDocValuesUpdate, DocValuesUpdate, DocValuesUpdateEnum,
 };
 use crate::core::index::documents_writer_delete_queue::{
-  DeleteSlice, DocumentsWriterDeleteQueue, NodeEnum, TermNodeArray,
+  DeleteSlice, DocumentsWriterDeleteQueue, Node, NodeEnum, TermNodeArray,
 };
 use crate::core::index::field_term_iterator::FieldTermIterator;
 
@@ -64,25 +65,22 @@ fn test_update_delete_slices() -> Result<()> {
   for (j, &id) in ids.iter().enumerate() {
     let term = Term::from_text("id", id.to_string());
     unique_values.insert(term.clone());
-    queue.add_delete_term(Vec::from([term.clone()]))?;
+    // Retain the owning node so the moved array item has a stable identity.
+    let node = Arc::new(Node::new(NodeEnum::TermNodeArray(TermNodeArray::new(
+      vec![term],
+    ))));
+    queue.add(node.clone())?;
+    queue.try_apply_global_slice()?;
     if random.random_range(0..20) == 0 || j == (size - 1) as usize {
       queue.update_slice(&mut slice1)?;
-      assert!(
-        slice1.is_tail_item(&NodeEnum::TermNodeArray(TermNodeArray::new(Vec::from([
-          term.clone()
-        ]))))
-      );
+      assert!(slice1.is_tail_item(&node.item));
       slice1.apply(&mut bd1, j as i32)?;
       test_assert_all_between(last1 as i32, j as i32, &mut bd1, &ids)?;
       last1 = j + 1;
     }
     if random.random_range(0..10) == 5 || j == size as usize - 1 {
       queue.update_slice(&mut slice2)?;
-      assert!(
-        slice2.is_tail_item(&NodeEnum::TermNodeArray(TermNodeArray::new(Vec::from([
-          term.clone()
-        ]))))
-      );
+      assert!(slice2.is_tail_item(&node.item));
       slice2.apply(&mut bd2, j as i32)?;
       test_assert_all_between(last2 as i32, j as i32, &mut bd2, &ids)?;
       last2 = j + 1;
@@ -170,9 +168,10 @@ fn test_any_changes() -> Result<()> {
 
     assert!(queue.any_changes(None));
 
-    if random.random_range(0..5) == 0
-      && let Some(frozen) = queue.freeze_global_buffer(None)?
-    {
+    if random.random_range(0..5) == 0 {
+      let frozen = queue.freeze_global_buffer(None)?.ok_or_else(|| {
+        LuceneError::illegal_state("freeze_global_buffer returned None despite queued changes")
+      })?;
       assert_eq!(terms_since_freeze, frozen.delete_terms.size());
       assert_eq!(queries_since_freeze, frozen.delete_queries.len());
       terms_since_freeze = 0;
@@ -184,19 +183,17 @@ fn test_any_changes() -> Result<()> {
 }
 #[test]
 fn test_partially_applied_global_slice() -> Result<()> {
-  let queue_ = DocumentsWriterDeleteQueue::new(get_default_info_stream());
-  let queue = Arc::new(Mutex::new(queue_));
-  let lock = queue.lock();
+  let queue = Arc::new(DocumentsWriterDeleteQueue::new(get_default_info_stream()));
+  let lock = queue.global_buffer_lock.lock();
   let handle = thread::spawn({
     let queue = queue.clone();
     move || {
       let term = Term::from_text("foo", "bar");
-      queue.lock().add_delete_term(vec![term]).unwrap();
+      queue.add_delete_term(vec![term]).unwrap();
     }
   });
-  drop(lock);
   handle.join().unwrap();
-  let queue = queue.lock();
+  drop(lock);
   assert!(queue.any_changes(None));
   queue.try_apply_global_slice()?;
   assert!(queue.any_changes(None));
@@ -219,7 +216,7 @@ fn test_stress_delete_queue() -> Result<()> {
     unique_values.insert(Term::from_text("id", id.to_string()));
   }
 
-  let barrier = Arc::new(Barrier::new(1));
+  let latch = CountDownLatch::new(1);
   let index = Arc::new(AtomicI32::new(0));
   let num_threads = 2 + random.random_range(0..5);
 
@@ -229,7 +226,7 @@ fn test_stress_delete_queue() -> Result<()> {
       Arc::clone(&queue),
       Arc::clone(&index),
       ids.clone(),
-      Arc::clone(&barrier),
+      latch.clone(),
     )?;
     threads.push(Arc::new(Mutex::new(thread)));
   }
@@ -242,6 +239,7 @@ fn test_stress_delete_queue() -> Result<()> {
       thread.run().expect("Thread execution failed");
     }));
   }
+  latch.count_down();
   for handle in handles {
     handle.join().expect("Thread join failed");
   }
@@ -327,7 +325,7 @@ struct UpdateThread {
   ids: Vec<i32>,
   slice: DeleteSlice,
   deletes: BufferedUpdatesLock,
-  barrier: Arc<Barrier>,
+  latch: CountDownLatch,
 }
 
 impl UpdateThread {
@@ -335,7 +333,7 @@ impl UpdateThread {
     queue: Arc<DocumentsWriterDeleteQueue>,
     index: Arc<AtomicI32>,
     ids: Vec<i32>,
-    barrier: Arc<Barrier>,
+    latch: CountDownLatch,
   ) -> Result<Self> {
     let slice = queue.new_slice();
     let deletes = Arc::new(Mutex::new(BufferedUpdates::new()));
@@ -346,13 +344,16 @@ impl UpdateThread {
       ids,
       slice,
       deletes,
-      barrier,
+      latch,
     })
   }
   fn run(&mut self) -> Result<()> {
-    self.barrier.wait();
-    let mut i = 0;
-    while i < self.ids.len() {
+    self.latch.wait();
+    loop {
+      let i = self.index.fetch_add(1, Ordering::SeqCst) as usize;
+      if i >= self.ids.len() {
+        break;
+      }
       let term = Term::from_text("id", self.ids[i].to_string());
       let term_node = Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(term));
       self
@@ -362,8 +363,6 @@ impl UpdateThread {
 
       let mut guard = self.deletes.lock();
       self.slice.apply(&mut guard, MAX_INT)?;
-
-      i = self.index.fetch_add(1, Ordering::SeqCst) as usize;
     }
     Ok(())
   }
