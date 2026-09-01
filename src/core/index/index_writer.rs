@@ -3086,8 +3086,9 @@ where
     let (next_gen, packet) = self.buffered_updates_stream.push(packet)?;
     // Do this as an event so it applies higher in the stack when we are not holding
     // DocumentsWriterFlushQueue.purgeLock:
-    let event: EventEnum = EventEnum::E(EventImpl5::new(packet.clone()));
-    self.event_queue.add(event)?;
+    self
+      .event_queue
+      .add(Event::ApplyUpdatesPacket(packet.clone()))?;
     // Retain the published packet for callers that log it after publication, as in Java.
     Ok((next_gen, packet))
   }
@@ -7927,16 +7928,12 @@ impl FlushNotificationsImpl {
 }
 impl FlushNotifications for FlushNotificationsImpl {
   fn delete_unused_files(&self, files: HashSet<String>) -> Result<()> {
-    let event = EventEnum::A(EventImpl1::new(files));
-    self.event_queue.add(event)
+    self.event_queue.add(Event::DeleteUnusedFiles(files))
   }
 
   fn flush_failed<D>(&self, mut info: SegmentInfo<D>) -> Result<()> {
     match info.take_files() {
-      Ok(files) => {
-        let event = EventEnum::B(EventImpl2::new(files));
-        self.event_queue.add(event)
-      },
+      Ok(files) => self.event_queue.add(Event::FlushFailed(files)),
       Err(error) if error.is_illegal_state_error() => Ok(()),
       Err(error) => Err(error),
     }
@@ -7962,13 +7959,11 @@ impl FlushNotifications for FlushNotificationsImpl {
   }
 
   fn on_deletes_applied(&self) -> Result<()> {
-    let event = EventEnum::C(EventImpl3);
-    self.event_queue.add(event)
+    self.event_queue.add(Event::DeletesApplied)
   }
 
   fn on_ticket_backlog(&self) -> Result<()> {
-    let event = EventEnum::D(EventImpl4);
-    self.event_queue.add(event)
+    self.event_queue.add(Event::TicketBacklog)
   }
 }
 
@@ -8073,7 +8068,7 @@ use num_bigint::BigInt;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
-use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::time::{Duration, Instant};
 
 /// Maximum number of documents. In Java Lucene, We subtract 128 to ensure
@@ -8258,57 +8253,55 @@ where
   Ok(())
 }
 struct Permits {
-  avail: AtomicUsize,
+  avail: Mutex<usize>,
+  available: Condvar,
 }
 impl Permits {
   const MAX: usize = i32::MAX as usize;
 
   fn new() -> Self {
     Self {
-      avail: AtomicUsize::new(Self::MAX),
+      avail: Mutex::new(Self::MAX),
+      available: Condvar::new(),
     }
   }
   fn try_acquire(&self) -> bool {
-    let mut cur = self.avail.load(Ordering::Acquire);
-    while cur > 0 {
-      match self
-        .avail
-        .compare_exchange(cur, cur - 1, Ordering::AcqRel, Ordering::Acquire)
-      {
-        Ok(_) => return true,
-        Err(actual) => cur = actual,
-      }
+    let mut avail = self.avail.lock();
+    if *avail == 0 {
+      false
+    } else {
+      *avail -= 1;
+      true
     }
-    false
   }
   fn release(&self) {
-    self.avail.fetch_add(1, Ordering::Release);
-  }
-  fn acquire_all(&self) {
-    loop {
-      let cur = self.avail.load(Ordering::Acquire);
-      if cur == Self::MAX {
-        let res = self
-          .avail
-          .compare_exchange(Self::MAX, 0, Ordering::AcqRel, Ordering::Acquire);
-        if res.is_ok() {
-          break;
-        }
-      }
-      std::thread::yield_now();
+    let mut avail = self.avail.lock();
+    *avail += 1;
+    if *avail == Self::MAX {
+      self.available.notify_all();
     }
   }
+  fn acquire_all(&self) {
+    let mut avail = self.avail.lock();
+    while *avail != Self::MAX {
+      self.available.wait(&mut avail);
+    }
+    *avail = 0;
+  }
   fn release_all(&self) {
-    self.avail.store(Self::MAX, Ordering::Release);
+    *self.avail.lock() = Self::MAX;
+    self.available.notify_all();
   }
   fn available(&self) -> usize {
-    self.avail.load(Ordering::Relaxed)
+    *self.avail.lock()
   }
 }
 pub(crate) struct EventQueue {
   closed: AtomicBool,
+  // Use permits rather than synchronized methods so multiple threads can process events
+  // concurrently, and each thread processes its events before returning from IndexWriter.
   permits: Permits,
-  queue: SegQueue<EventEnum>,
+  queue: SegQueue<Event>,
   guard: Mutex<()>,
 }
 
@@ -8325,13 +8318,13 @@ impl EventQueue {
     if !self.permits.try_acquire() {
       return Err(LuceneError::already_closed("queue is closed"));
     }
-    if self.closed.load(Ordering::Acquire) {
+    if self.closed.load(Ordering::SeqCst) {
       self.permits.release();
       return Err(LuceneError::already_closed("queue is closed"));
     }
     Ok(())
   }
-  pub(crate) fn add(&self, event: EventEnum) -> Result<()> {
+  pub(crate) fn add(&self, event: Event) -> Result<()> {
     self.acquire()?;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       self.queue.push(event);
@@ -8360,7 +8353,7 @@ impl EventQueue {
       "must acquire a permit before processing events"
     );
 
-    while let Some(mut event) = self.queue.pop() {
+    while let Some(event) = self.queue.pop() {
       event.process(writer)?
     }
     Ok(())
@@ -8371,12 +8364,13 @@ impl EventQueue {
   {
     let _guard = self.guard.lock();
     debug_assert!(
-      !self.closed.load(Ordering::Acquire),
+      !self.closed.load(Ordering::SeqCst),
       "we should never close this twice"
     );
 
-    self.closed.store(true, Ordering::Release);
+    self.closed.store(true, Ordering::SeqCst);
 
+    // It's possible that we close this queue while we are in a process_events call.
     if writer.get_tragic_exception().get().is_some() {
       while self.queue.pop().is_some() {
         // we are already handling a tragic error let's drop it all on the floor and return
@@ -8395,156 +8389,65 @@ impl EventQueue {
   }
 }
 
-/// Trait for internal atomic events. See [`DocumentsWriter`] for details.
+/// Internal atomic events. See [`DocumentsWriter`] for details.
 /// Events are executed concurrently and no order is guaranteed. Each event should only rely on
 /// the serializability within its `process` method. All actions that must happen before or after
-/// a certain action must be encoded inside the [`process(IndexWriter)`](Self::process) method.
-trait Event<D>
-where
-  D: Directory,
-{
+/// a certain action must be encoded inside the [`process`](Self::process) method.
+pub(crate) enum Event {
+  DeleteUnusedFiles(HashSet<String>),
+  FlushFailed(HashSet<String>),
+  DeletesApplied,
+  TicketBacklog,
+  ApplyUpdatesPacket(Arc<FrozenBufferedUpdates>),
+  #[cfg(test)]
+  IncrementCounter(Arc<AtomicI32>),
+}
+
+impl Event {
   /// Processes the event. This method is called by the [`IndexWriter`] passed as the first argument.
   ///
   /// # Arguments
   ///
   /// * `writer` — the [`IndexWriter`] that executes the event.
-  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()>;
-}
-pub(crate) struct EventImpl1 {
-  files: HashSet<String>,
-}
-impl EventImpl1 {
-  pub fn new(files: HashSet<String>) -> Self {
-    Self { files }
-  }
-}
-impl<D> Event<D> for EventImpl1
-where
-  D: Directory,
-{
-  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
-    writer.delete_new_files(self.files.iter(), None)
-  }
-}
-
-pub(crate) struct EventImpl2 {
-  info_files: HashSet<String>,
-}
-impl EventImpl2 {
-  pub fn new(info_files: HashSet<String>) -> Self {
-    Self { info_files }
-  }
-}
-impl<D> Event<D> for EventImpl2
-where
-  D: Directory,
-{
-  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
-    writer.flush_failed(std::mem::take(&mut self.info_files))
-  }
-}
-
-pub(crate) struct EventImpl3;
-impl<D> Event<D> for EventImpl3
-where
-  D: Directory,
-{
-  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      writer.publish_flushed_segments(true)
-    }));
-    writer.flush_count.fetch_add(1, Ordering::SeqCst);
-    unwrap_caught_result!(result)
-  }
-}
-pub(crate) struct EventImpl4;
-impl<D> Event<D> for EventImpl4
-where
-  D: Directory,
-{
-  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
-    writer.publish_flushed_segments(true)
-  }
-}
-pub(crate) struct EventImpl5 {
-  packet: Arc<FrozenBufferedUpdates>,
-}
-impl EventImpl5 {
-  pub fn new(packet: Arc<FrozenBufferedUpdates>) -> Self {
-    Self { packet }
-  }
-}
-impl<D> Event<D> for EventImpl5
-where
-  D: Directory + 'static,
-{
-  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
-    // we call tryApply here since we don't want to block if a refresh or a flush is already
-    // applying the
-    // packet. The flush will retry this packet anyway to ensure all of them are applied
-    let mut result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      writer.try_apply(&self.packet)
-    }));
-    if !matches!(&result, Ok(Ok(_))) {
-      let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        writer.on_tragic_event(&result, "applyUpdatesPacket")
-      }));
-      result.add_suppressed(
-        tragic_result,
-        "panic while handling tragic apply updates packet event",
-      );
-    }
-    unwrap_caught_result!(result)?;
-    writer.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
-    Ok(())
-  }
-}
-
-#[cfg(test)]
-pub(crate) struct EventImplTest {
-  executed: Arc<AtomicI32>,
-}
-
-#[cfg(test)]
-impl EventImplTest {
-  pub(crate) fn new(executed: Arc<AtomicI32>) -> Self {
-    Self { executed }
-  }
-}
-
-#[cfg(test)]
-impl<D> Event<D> for EventImplTest
-where
-  D: Directory,
-{
-  fn process(&mut self, _writer: &IndexWriter<D>) -> Result<()> {
-    self.executed.fetch_add(1, Ordering::SeqCst);
-    Ok(())
-  }
-}
-
-pub(crate) enum EventEnum {
-  A(EventImpl1),
-  B(EventImpl2),
-  C(EventImpl3),
-  D(EventImpl4),
-  E(EventImpl5),
-  #[cfg(test)]
-  Test(EventImplTest),
-}
-impl<D> Event<D> for EventEnum
-where
-  D: Directory + 'static,
-{
-  fn process(&mut self, writer: &IndexWriter<D>) -> Result<()> {
+  fn process<D>(self, writer: &IndexWriter<D>) -> Result<()>
+  where
+    D: Directory + 'static,
+  {
     match self {
-      EventEnum::A(e) => e.process(writer),
-      EventEnum::B(e) => e.process(writer),
-      EventEnum::C(e) => e.process(writer),
-      EventEnum::D(e) => e.process(writer),
-      EventEnum::E(e) => e.process(writer),
+      Self::DeleteUnusedFiles(files) => writer.delete_new_files(files.iter(), None),
+      Self::FlushFailed(files) => writer.flush_failed(files),
+      Self::DeletesApplied => {
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+          writer.publish_flushed_segments(true)
+        }));
+        writer.flush_count.fetch_add(1, Ordering::SeqCst);
+        unwrap_caught_result!(result)
+      },
+      Self::TicketBacklog => writer.publish_flushed_segments(true),
+      Self::ApplyUpdatesPacket(packet) => {
+        // we call tryApply here since we don't want to block if a refresh or a flush is already
+        // applying the packet. The flush will retry this packet anyway to ensure all of them are
+        // applied
+        let mut result =
+          std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| writer.try_apply(&packet)));
+        if !matches!(&result, Ok(Ok(_))) {
+          let tragic_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            writer.on_tragic_event(&result, "applyUpdatesPacket")
+          }));
+          result.add_suppressed(
+            tragic_result,
+            "panic while handling tragic apply updates packet event",
+          );
+        }
+        unwrap_caught_result!(result)?;
+        writer.flush_deletes_count.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+      },
       #[cfg(test)]
-      EventEnum::Test(e) => e.process(writer),
+      Self::IncrementCounter(executed) => {
+        executed.fetch_add(1, Ordering::SeqCst);
+        Ok(())
+      },
     }
   }
 }

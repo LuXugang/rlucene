@@ -51,8 +51,8 @@ use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::MAX_STORED_STRING_LENGTH;
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
 use crate::core::index::index_writer::{
-  EventEnum, EventImplTest, EventQueue, IndexCommitWrapper, IndexWriter, IndexWriterHooks,
-  IndexWriterHooksEnum, IntoFallibleIterator, WRITE_LOCK_NAME, read_field_infos,
+  Event, EventQueue, IndexCommitWrapper, IndexWriter, IndexWriterHooks, IndexWriterHooksEnum,
+  IntoFallibleIterator, WRITE_LOCK_NAME, read_field_infos,
 };
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::index_writer_config::{DISABLE_AUTO_FLUSH, IndexWriterConfig};
@@ -5102,15 +5102,15 @@ fn test_closeable_queue() -> Result<()> {
   let queue = Arc::new(EventQueue::new());
   let executed = Arc::new(AtomicI32::new(0));
 
-  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
-  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
+  queue.add(Event::IncrementCounter(executed.clone()))?;
+  queue.add(Event::IncrementCounter(executed.clone()))?;
   queue.process_events(&writer)?;
   assert_eq!(2, executed.load(SeqCst));
   queue.process_events(&writer)?;
   assert_eq!(2, executed.load(SeqCst));
 
-  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
-  queue.add(EventEnum::Test(EventImplTest::new(executed.clone())))?;
+  queue.add(Event::IncrementCounter(executed.clone()))?;
+  queue.add(Event::IncrementCounter(executed.clone()))?;
 
   thread::scope(|scope| -> Result<()> {
     let thread_queue = queue.clone();
@@ -5130,7 +5130,7 @@ fn test_closeable_queue() -> Result<()> {
   assert_eq!(4, executed.load(SeqCst));
   let err = queue.process_events(&writer);
   assert!(matches!(err, Err(LuceneError::AlreadyClosed(_))));
-  let err = queue.add(EventEnum::Test(EventImplTest::new(executed.clone())));
+  let err = queue.add(Event::IncrementCounter(executed.clone()));
   assert!(matches!(err, Err(LuceneError::AlreadyClosed(_))));
 
   writer.close()?;
