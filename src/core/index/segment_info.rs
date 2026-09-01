@@ -16,6 +16,7 @@
  */
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use crate::core::codecs::Codecs;
@@ -33,10 +34,10 @@ use crate::core::util::version::Version;
 /// This API is experimental and may change in future releases.
 pub struct SegmentInfo<D> {
   /// Unique segment name in the directory.
-  pub name: String,
+  pub(crate) name: String,
   max_doc: i32, // number of docs in seg
   /// Where this segment resides.
-  pub dir: Arc<D>,
+  pub(crate) dir: Arc<D>,
   is_compound_file: bool,
   /// Id that uniquely identifies this segment.
   id: [u8; StringHelper::ID_LENGTH],
@@ -129,6 +130,11 @@ impl<D> SegmentInfo<D> {
     attributes: HashMap<String, String>,
     index_sort: Option<Arc<Sort>>,
   ) -> Result<SegmentInfo<D>> {
+    if version.is_none() {
+      return Err(LuceneError::illegal_argument(
+        "segment version must not be None",
+      ));
+    }
     if id.len() != StringHelper::ID_LENGTH {
       return Err(LuceneError::illegal_argument(format!("Invalid id: {id:?}")));
     }
@@ -163,9 +169,19 @@ impl<D> SegmentInfo<D> {
   }
 }
 impl<D> SegmentInfo<D> {
+  /// Returns this segment's name.
+  pub fn name(&self) -> &str {
+    &self.name
+  }
+
+  /// Returns the directory that contains this segment.
+  pub fn dir(&self) -> &Arc<D> {
+    &self.dir
+  }
+
   /// Sets the diagnostics map. The given map is cloned to ensure
   /// immutability.
-  pub fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
+  pub(crate) fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
     self.diagnostics = diagnostics;
   }
 
@@ -211,7 +227,7 @@ impl<D> SegmentInfo<D> {
   ///
   /// * `is_compound_file` - `true` if this is a compound file; otherwise,
   ///   `false`.
-  pub fn set_use_compound_file(&mut self, is_compound_file: bool) {
+  pub(crate) fn set_use_compound_file(&mut self, is_compound_file: bool) {
     self.is_compound_file = is_compound_file;
   }
   /// Returns `true` if this segment is stored as a compound file; otherwise,
@@ -230,7 +246,7 @@ impl<D> SegmentInfo<D> {
 
   /// Sets the `has_blocks` property to `true`. This setting is viral and
   /// can't be unset.
-  pub fn set_has_blocks(&mut self) {
+  pub(crate) fn set_has_blocks(&mut self) {
     self.has_blocks = true;
   }
   /// Returns the number of documents in this segment (deletions are not taken
@@ -243,7 +259,7 @@ impl<D> SegmentInfo<D> {
   }
 
   /// Sets the max_doc value, can only be called once
-  pub fn set_max_doc(&mut self, max_doc: i32) -> Result<()> {
+  pub(crate) fn set_max_doc(&mut self, max_doc: i32) -> Result<()> {
     if self.max_doc != -1 {
       return Err(LuceneError::illegal_state(format!(
         "maxDoc was already set: this.maxDoc={} vs maxDoc {}",
@@ -466,6 +482,22 @@ impl<D> SegmentInfo<D> {
       has_blocks: false,
       set_files: None,
     }
+  }
+}
+impl<D> PartialEq for SegmentInfo<D> {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.dir, &other.dir) && self.name == other.name
+  }
+}
+impl<D> Eq for SegmentInfo<D> {}
+
+impl<D> Hash for SegmentInfo<D> {
+  fn hash<H>(&self, state: &mut H)
+  where
+    H: Hasher,
+  {
+    Arc::as_ptr(&self.dir).hash(state);
+    self.name.hash(state);
   }
 }
 impl<D> Display for SegmentInfo<D> {

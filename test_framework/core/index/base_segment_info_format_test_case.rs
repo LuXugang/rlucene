@@ -41,7 +41,7 @@ use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
-use crate::core::util::close::CloseableRef;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{StringHelper, Version};
 use crate::test_framework::core::index::base_index_file_format_test_case::{
@@ -89,6 +89,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(*info.files()?, *info2.files()?);
+    dir.as_ref().close()?;
     Ok(())
   }
   fn test_has_blocks<R>(&self, random: &mut R) -> Result<()>
@@ -123,6 +124,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       .segment_info_format()
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(info.get_has_blocks(), info2.get_has_blocks());
+    dir.as_ref().close()?;
     Ok(())
   }
 
@@ -173,6 +175,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     //     !add_result,
     //     "Files set should be immutable, but modification was allowed."
     // );
+    dir.as_ref().close()?;
     Ok(())
   }
   /// Test diagnostics map
@@ -218,6 +221,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     //     insert_result.is_none(),
     //     "Diagnostics map should be immutable, but modification was
     // allowed." );
+    dir.as_ref().close()?;
     Ok(())
   }
   /// Test attributes map
@@ -265,6 +269,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     //     "Attributes map should be immutable, but modification was
     // allowed." );
 
+    dir.as_ref().close()?;
     Ok(())
   }
 
@@ -301,6 +306,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       .read(dir.clone(), "_123", &id, &io_context)?;
     assert_eq!(id, info2.get_id().as_slice());
 
+    dir.as_ref().close()?;
     Ok(())
   }
   /// Test versions
@@ -350,6 +356,7 @@ pub trait BaseSegmentInfoFormatTestCase:
         } else {
           assert_eq!(info2.get_min_version_ref(), None);
         }
+        dir.as_ref().close()?;
       }
     }
 
@@ -486,8 +493,8 @@ pub trait BaseSegmentInfoFormatTestCase:
     let io_context = IOContext::default_io_context()?;
 
     let iters = at_least(random, 5);
-    for _ in 0..iters {
-      let sort = if random.random_bool(0.2) {
+    for i in 0..iters {
+      let sort = if i == 0 {
         None
       } else {
         let num_sort_fields = TestUtil::next_int(random, 1, 3);
@@ -529,6 +536,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       } else {
         assert!(sort_clone.is_none())
       }
+      dir.as_ref().close()?;
     }
     Ok(())
   }
@@ -768,7 +776,8 @@ pub trait BaseSegmentInfoFormatTestCase:
       for j in 0..num_files {
         let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
         files.insert(file.clone());
-        dir.create_output(&file, &io_context)?;
+        let mut output = dir.create_output(&file, &io_context)?;
+        output.close()?;
       }
       let mut diagnostics = HashMap::new();
       let num_diags = random.random_range(0..10);
@@ -810,6 +819,7 @@ pub trait BaseSegmentInfoFormatTestCase:
         .segment_info_format()
         .read(dir.clone(), &name, &id, &io_context)?;
       Self::assert_equals(&info, &info2)?;
+      dir.as_ref().close()?;
     }
     Ok(())
   }
