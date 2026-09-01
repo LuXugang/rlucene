@@ -133,7 +133,7 @@ impl GlobalBufferState {
   fn new(tail: Arc<Node>) -> Self {
     Self {
       global_slice: DeleteSlice::new(tail),
-      global_buffered_updates: BufferedUpdates::new("global"),
+      global_buffered_updates: BufferedUpdates::new(),
     }
   }
 

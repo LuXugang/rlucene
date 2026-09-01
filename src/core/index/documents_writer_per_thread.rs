@@ -252,7 +252,7 @@ where
     let info_stream = index_writer_config.get_info_stream();
     let tracking_dir = TrackingDirectoryWrapper::new(directory);
     let directory_wrapped = Arc::new(tracking_dir);
-    let pending_updates = BufferedUpdates::new(segment_name);
+    let pending_updates = BufferedUpdates::new();
     let delete_slice = Some(delete_queue.new_slice());
     let random_id = StringHelper::random_id();
     let id = StringHelper::id_to_string(Some(&random_id));
@@ -751,7 +751,7 @@ where
         } else {
           Some(std::mem::replace(
             &mut self.pending_updates,
-            BufferedUpdates::new("dummy"),
+            BufferedUpdates::new(),
           ))
         };
 

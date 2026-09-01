@@ -6515,6 +6515,7 @@ where
       let mut del_count = 0;
       {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+          // TODO IMPORTANT 这里需要用到 IndexWriter 的锁
           // don't hold IW monitor lock here so threads are free concurrently resolve
           // deletes/updates:
           del_count = updates.apply(&seg_states, &self.inner.lock().segment_infos)?;

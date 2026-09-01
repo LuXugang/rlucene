@@ -101,7 +101,8 @@ where
         if let Some(postings) = iterator.next_term(term.field(), &term.bytes)? {
           debug_assert!(doc_id < NO_MORE_DOCS);
 
-          while let Ok(doc) = postings.next_doc() {
+          loop {
+            let doc = postings.next_doc()?;
             if doc >= doc_id {
               break;
             }

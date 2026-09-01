@@ -56,8 +56,8 @@ fn test_update_delete_slices() -> Result<()> {
   }
   let mut slice1 = queue.new_slice();
   let mut slice2 = queue.new_slice();
-  let mut bd1 = BufferedUpdates::new("bd1");
-  let mut bd2 = BufferedUpdates::new("bd2");
+  let mut bd1 = BufferedUpdates::new();
+  let mut bd2 = BufferedUpdates::new();
   let mut last1 = 0;
   let mut last2 = 0;
   let mut unique_values = HashSet::new();
@@ -338,7 +338,7 @@ impl UpdateThread {
     barrier: Arc<Barrier>,
   ) -> Result<Self> {
     let slice = queue.new_slice();
-    let deletes = Arc::new(Mutex::new(BufferedUpdates::new("deletes")));
+    let deletes = Arc::new(Mutex::new(BufferedUpdates::new()));
 
     Ok(UpdateThread {
       queue,

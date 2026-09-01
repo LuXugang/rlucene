@@ -57,14 +57,11 @@ pub(crate) struct BufferedUpdates {
   pub(crate) field_updates_bytes_used: SharedCounter,
   verbose_deletes: bool,
   gen_: i64,
-
-  // Mirrors Java's retained segmentName field for source and diagnostic fidelity.
-  segment_name: String,
 }
 
 impl BufferedUpdates {
   /// Creates a new `BufferedUpdates` instance.
-  pub(crate) fn new(segment_name: &str) -> Self {
+  pub(crate) fn new() -> Self {
     Self {
       num_field_updates: AtomicI32::new(0),
       delete_terms: DeletedTerms::new(),
@@ -74,7 +71,6 @@ impl BufferedUpdates {
       field_updates_bytes_used: Arc::new(AtomicCounter::new()),
       verbose_deletes: false,
       gen_: 0,
-      segment_name: segment_name.to_string(),
     }
   }
   pub(crate) fn add_binary_update(
@@ -228,8 +224,7 @@ impl Accountable for BufferedUpdates {
         .bytes_used
         .get()
         .wrapping_add(self.field_updates_bytes_used.get())
-        .wrapping_add(self.delete_terms.ram_bytes_used()?)
-        .wrapping_add(size_of_string(&self.segment_name)),
+        .wrapping_add(self.delete_terms.ram_bytes_used()?),
     )
   }
 }

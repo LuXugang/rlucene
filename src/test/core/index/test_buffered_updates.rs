@@ -26,7 +26,6 @@ use crate::core::index::term::Term;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::ram_usage_estimator::size_of_string;
 
 /// Unit test for BufferedUpdate
 #[allow(dead_code)] // for quick search
@@ -35,11 +34,9 @@ struct TestBufferedUpdates;
 #[test]
 fn test_ram_bytes_used() -> Result<()> {
   let mut random = random();
-  let segment_name = "seg1".to_string();
-  let mut bu = BufferedUpdates::new(&segment_name);
-  let empty_ram_bytes_used = size_of_string(&segment_name);
+  let mut bu = BufferedUpdates::new();
 
-  assert_eq!(bu.ram_bytes_used()?, empty_ram_bytes_used);
+  assert_eq!(bu.ram_bytes_used()?, 0);
   assert!(!bu.any());
 
   let queries = at_least(&mut random, 1);
@@ -86,7 +83,7 @@ fn test_ram_bytes_used() -> Result<()> {
 
   bu.clear();
   assert!(!bu.any());
-  assert_eq!(bu.ram_bytes_used()?, empty_ram_bytes_used);
+  assert_eq!(bu.ram_bytes_used()?, 0);
 
   Ok(())
 }
