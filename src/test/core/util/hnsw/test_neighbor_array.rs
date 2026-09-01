@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(debug_assertions)]
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use crate::core::util::bits::Bits;
@@ -32,19 +33,22 @@ fn test_scores_desc_order() -> Result<()> {
   neighbors.add_in_order(0, 1.0)?;
   neighbors.add_in_order(1, 0.8)?;
 
-  let result = catch_unwind(AssertUnwindSafe(|| {
-    neighbors.add_in_order(2, 0.9).unwrap();
-  }));
-  assert!(result.is_err());
-  if let Err(err) = result {
-    if let Some(s) = err.downcast_ref::<String>() {
-      assert!(
-        s.contains("Nodes are added in the incorrect order!"),
-        "{}",
-        s
-      );
-    } else {
-      unreachable!();
+  #[cfg(debug_assertions)]
+  {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      neighbors.add_in_order(2, 0.9).unwrap();
+    }));
+    assert!(result.is_err());
+    if let Err(err) = result {
+      if let Some(s) = err.downcast_ref::<String>() {
+        assert!(
+          s.contains("Nodes are added in the incorrect order!"),
+          "{}",
+          s
+        );
+      } else {
+        unreachable!();
+      }
     }
   }
 
@@ -97,19 +101,22 @@ fn test_scores_asc_order() -> Result<()> {
   neighbors.add_in_order(0, 0.1)?;
   neighbors.add_in_order(1, 0.3)?;
 
-  let result = catch_unwind(AssertUnwindSafe(|| {
-    neighbors.add_in_order(2, 0.15).unwrap();
-  }));
-  assert!(result.is_err());
-  if let Err(err) = result {
-    if let Some(s) = err.downcast_ref::<String>() {
-      assert!(
-        s.contains("Nodes are added in the incorrect order!"),
-        "{}",
-        s
-      );
-    } else {
-      unreachable!("panic payload is not String");
+  #[cfg(debug_assertions)]
+  {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      neighbors.add_in_order(2, 0.15).unwrap();
+    }));
+    assert!(result.is_err());
+    if let Err(err) = result {
+      if let Some(s) = err.downcast_ref::<String>() {
+        assert!(
+          s.contains("Nodes are added in the incorrect order!"),
+          "{}",
+          s
+        );
+      } else {
+        unreachable!("panic payload is not String");
+      }
     }
   }
 
@@ -160,10 +167,13 @@ fn test_sort_asc() -> Result<()> {
   let mut neighbors = NeighborArray::new(10, false);
 
   neighbors.add_out_of_order(1, 2.0)?;
-  let result = catch_unwind(AssertUnwindSafe(|| {
-    neighbors.add_in_order(1, 2.0).unwrap();
-  }));
-  assert!(result.is_err());
+  #[cfg(debug_assertions)]
+  {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      neighbors.add_in_order(1, 2.0).unwrap();
+    }));
+    assert!(result.is_err());
+  }
 
   neighbors.add_out_of_order(2, 3.0)?;
   neighbors.add_out_of_order(5, 6.0)?;
@@ -198,10 +208,13 @@ fn test_sort_desc() -> Result<()> {
   let mut neighbors = NeighborArray::new(10, true);
 
   neighbors.add_out_of_order(1, 7.0)?;
-  let result = catch_unwind(AssertUnwindSafe(|| {
-    neighbors.add_in_order(1, 2.0).unwrap();
-  }));
-  assert!(result.is_err());
+  #[cfg(debug_assertions)]
+  {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      neighbors.add_in_order(1, 2.0).unwrap();
+    }));
+    assert!(result.is_err());
+  }
 
   neighbors.add_out_of_order(2, 6.0)?;
   neighbors.add_out_of_order(5, 3.0)?;
@@ -236,10 +249,13 @@ fn test_add_with_scoring_function() -> Result<()> {
   let mut neighbors = NeighborArray::new(10, true);
   neighbors.add_out_of_order(1, f32::NAN)?;
 
-  let result = catch_unwind(AssertUnwindSafe(|| {
-    neighbors.add_in_order(1, 2.0).unwrap();
-  }));
-  assert!(result.is_err());
+  #[cfg(debug_assertions)]
+  {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      neighbors.add_in_order(1, 2.0).unwrap();
+    }));
+    assert!(result.is_err());
+  }
 
   neighbors.add_out_of_order(2, f32::NAN)?;
   neighbors.add_out_of_order(5, f32::NAN)?;
@@ -261,10 +277,13 @@ fn test_add_with_scoring_function_large_ord() -> Result<()> {
   let mut neighbors = NeighborArray::new(10, true);
   neighbors.add_out_of_order(11, f32::NAN)?;
 
-  let result = catch_unwind(AssertUnwindSafe(|| {
-    neighbors.add_in_order(1, 2.0).unwrap();
-  }));
-  assert!(result.is_err());
+  #[cfg(debug_assertions)]
+  {
+    let result = catch_unwind(AssertUnwindSafe(|| {
+      neighbors.add_in_order(1, 2.0).unwrap();
+    }));
+    assert!(result.is_err());
+  }
 
   neighbors.add_out_of_order(12, f32::NAN)?;
   neighbors.add_out_of_order(15, f32::NAN)?;

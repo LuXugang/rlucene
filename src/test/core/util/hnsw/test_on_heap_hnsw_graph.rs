@@ -34,6 +34,7 @@ fn test_no_growth() {
     Err(error) if error.is_illegal_state_error()
   ));
 }
+#[cfg(debug_assertions)]
 #[test]
 fn test_add_level_out_of_order() {
   let mut graph = OnHeapHnswGraph::new(10, -1);
