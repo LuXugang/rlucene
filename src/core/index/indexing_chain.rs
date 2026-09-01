@@ -956,7 +956,7 @@ where
       s.doc_values_type,
       s.doc_values_skip_index,
       -1,
-      std::mem::take(&mut s.attributes),
+      s.attributes.clone(),
       s.point_dimension_count,
       s.point_index_dimension_count,
       s.point_num_bytes,
@@ -2110,7 +2110,6 @@ impl FieldSchema {
     self.store_term_vector = false;
     self.index_options = IndexOptions::None;
     self.doc_values_type = DocValuesType::None;
-    self.doc_values_skip_index = DocValuesSkipIndexType::None;
     self.point_dimension_count = 0;
     self.point_index_dimension_count = 0;
     self.point_num_bytes = 0;
