@@ -125,7 +125,6 @@ impl FrozenBufferedUpdates {
     for value in updates.field_updates.values_mut() {
       value.finish()?
     }
-    let field_updates = std::mem::take(&mut updates.field_updates);
     let field_updates_count = updates.num_field_updates.load(Ordering::SeqCst);
 
     let bytes_used = delete_terms
@@ -151,6 +150,8 @@ impl FrozenBufferedUpdates {
         ),
       )?;
     }
+    // Retain the source map if a fallible freeze operation fails, as Map.copyOf does in Java.
+    let field_updates = std::mem::take(&mut updates.field_updates);
     Ok(Self {
       info_stream: info_stream.clone(),
       delete_terms,
@@ -220,11 +221,19 @@ impl FrozenBufferedUpdates {
       );
     }
 
-    let mut count = self.apply_term_deletes(seg_states, infos)?;
-    count += self.apply_query_deletes(seg_states, infos)?;
-    count += self.apply_doc_values_updates_all(seg_states)?;
-    self.total_del_count.store(count, Ordering::Relaxed);
-    Ok(count)
+    self.total_del_count.fetch_add(
+      self.apply_term_deletes(seg_states, infos)?,
+      Ordering::Relaxed,
+    );
+    self.total_del_count.fetch_add(
+      self.apply_query_deletes(seg_states, infos)?,
+      Ordering::Relaxed,
+    );
+    self.total_del_count.fetch_add(
+      self.apply_doc_values_updates_all(seg_states)?,
+      Ordering::Relaxed,
+    );
+    Ok(self.total_del_count.load(Ordering::Relaxed))
   }
   pub(crate) fn apply_doc_values_updates_all<D>(
     &self,
@@ -293,7 +302,6 @@ impl FrozenBufferedUpdates {
 
     let mut resolved_updates = Vec::new();
 
-    let accept_docs = seg_state.rld.get_live_docs();
     for (update_field, value) in updates.iter() {
       let is_numeric = value.is_numeric();
       let mut iterator = value.iterator()?;
@@ -371,6 +379,7 @@ impl FrozenBufferedUpdates {
             binary_value,
             is_numeric,
           );
+          let accept_docs = seg_state.rld.get_live_docs();
           if let Some(sort_map) = seg_state.rld.sort_map.as_ref()
             && segment_private_deletes
           {
@@ -594,6 +603,7 @@ impl FrozenBufferedUpdates {
     self.delete_terms.size() > 0 || !self.delete_queries.is_empty() || self.field_updates_count > 0
   }
 }
+
 impl Display for FrozenBufferedUpdates {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(f, "delGen={}", self.del_gen)?;
@@ -679,7 +689,9 @@ where
           if self.sorted_terms {
             // need to reset otherwise we fail the assertSorted below since we sort per field
             #[cfg(debug_assertions)]
-            debug_assert!(self.last_term.is_none());
+            {
+              self.last_term = None;
+            }
             self.reader_term = terms_enum.next()?.map(Cow::into_owned);
             if self.reader_term.is_none() {
               self.terms_enum = None;
@@ -705,7 +717,7 @@ where
     if let Some(terms_enum) = self.terms_enum.as_mut() {
       if self.sorted_terms {
         #[cfg(debug_assertions)]
-        Self::assert_sorted(self.sorted_terms, self.last_term.as_mut(), term);
+        Self::assert_sorted(self.sorted_terms, &mut self.last_term, term);
         // in the sorted case we can take advantage of the "seeking forward" property
         // this allows us depending on the term dict impl to reuse data-structures internally
         // which speed up iteration over terms and docs significantly.
@@ -745,7 +757,7 @@ where
   #[cfg(debug_assertions)]
   fn assert_sorted(
     sorted_terms: bool,
-    last_term: Option<&mut BytesRef<Vec<u8>>>,
+    last_term: &mut Option<BytesRef<Vec<u8>>>,
     term: &BytesRef<Vec<u8>>,
   ) {
     debug_assert!(sorted_terms);
@@ -757,9 +769,7 @@ where
         last.utf8_to_string()
       );
     }
-    if let Some(last) = last_term {
-      *last = BytesRef::deep_copy_of(term);
-    }
+    *last_term = Some(BytesRef::deep_copy_of(term));
   }
   fn get_docs(&mut self) -> Result<&mut Disi<P>> {
     let terms_enum = self

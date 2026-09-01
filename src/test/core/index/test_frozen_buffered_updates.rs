@@ -46,8 +46,8 @@ struct TestFrozenBufferedUpdates;
 
 #[test]
 fn test_term_docs_iterator() -> Result<()> {
+  let mut random = random();
   for _ in 0..5 {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
     let iwc = new_index_writer_config(&mut random)?;
     let writer = IndexWriter::new(dir.clone(), iwc)?;
