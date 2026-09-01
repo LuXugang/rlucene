@@ -20,7 +20,7 @@ use std::sync::Arc;
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::accountable::Accountable;
-use crate::core::util::allocator_byte::DirectAllocatorByte;
+use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -50,7 +50,7 @@ pub struct BytesRefArray {
 
 impl BytesRefArray {
   pub fn new(byte_used: SharedCounter) -> Result<BytesRefArray> {
-    let allocator = DirectAllocatorByte::new();
+    let allocator = DirectTrackingAllocatorByte::new(byte_used.clone());
     let mut pool = ByteBlockPool::new(allocator);
     pool.next_buffer()?;
     let offsets = Vec::new();

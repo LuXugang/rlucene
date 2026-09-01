@@ -97,6 +97,7 @@ pub fn test_basics() -> Result<()> {
     }
     count += 1;
   }
+  assert_eq!(count, 5);
   Ok(())
 }
 #[test]
@@ -207,21 +208,22 @@ pub fn test_update_share_values_binary() -> Result<()> {
     assert_eq!(i32::MAX, value.doc_upto);
     count += 1;
   }
+  assert!(!buffer.is_numeric());
   Ok(())
 }
-pub fn random_from<T>(items: Vec<T>) -> T
+pub fn random_from<T, R>(random: &mut R, items: Vec<T>) -> T
 where
   T: Clone,
+  R: Rng + ?Sized,
 {
-  let mut rng = rand::rng();
-  let index = rng.random_range(0..items.len());
+  let index = random.random_range(0..items.len());
   items[index].clone()
 }
 pub fn get_random_binary_update<R>(random: &mut R, doc_id_upto: i32) -> DocValuesUpdate
 where
   R: Rng + ?Sized,
 {
-  let term_field = random_from(vec!["id", "_id", "some_other_field"]);
+  let term_field = random_from(random, vec!["id", "_id", "some_other_field"]);
   let doc_id = random.random_range(0..10).to_string();
 
   let value = if rarely(random) {
@@ -251,7 +253,7 @@ pub fn get_random_numeric_update<R>(random: &mut R, doc_id_upto: i32) -> DocValu
 where
   R: Rng + ?Sized,
 {
-  let term_field = random_from(vec!["id", "_id", "some_other_field"]);
+  let term_field = random_from(random, vec!["id", "_id", "some_other_field"]);
   let doc_id = random.random_range(0..10).to_string();
 
   let value = if rarely(random) {
@@ -331,7 +333,7 @@ pub fn test_binary_random() -> Result<()> {
     }
     assert_eq!(random_update.doc_id_upto, value.doc_upto);
   }
-
+  assert_eq!(updates.len(), count);
   Ok(())
 }
 #[test]
@@ -418,7 +420,7 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<()> {
   let num_updates = 1 + random.random_range(0..1000);
   let counter = Arc::new(AtomicCounter::new());
 
-  let term_field = random_from(vec!["id", "_id", "some_other_field"]);
+  let term_field = random_from(&mut random, vec!["id", "_id", "some_other_field"]);
   let doc_value = 1 + random.random_range(0..1000);
 
   let mut random_update = DocValuesUpdate::new(
@@ -514,13 +516,15 @@ fn assert_buffer_updates(
         .unwrap()
         .get_value()?;
       assert_eq!(expected_value, value.numeric_value);
-      min = min.min(expected_value);
-      max = max.max(expected_value);
+      assert_eq!(v, value.numeric_value);
+      min = min.min(v);
+      max = max.max(v);
       has_at_least_one_value = true;
     } else {
       assert_eq!(0, value.numeric_value);
       assert_eq!(0, v)
     }
+    assert_eq!(expected_update.doc_id_upto, value.doc_upto);
   }
   if has_at_least_one_value {
     assert_eq!(max, buffer.get_max_numeric());

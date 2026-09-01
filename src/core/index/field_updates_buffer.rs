@@ -28,7 +28,9 @@ use crate::core::util::bits::{Bits, BitsEnum2, MatchAllBits};
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::ram_usage_estimator::{size_of_string as ram_size_of_string, size_of_vec};
+use crate::core::util::ram_usage_estimator::{
+  size_of_string as ram_size_of_string, size_of_string_vec, size_of_vec,
+};
 use crate::core::util::{
   BytesRefArray, Counter, IndexedBytesRefIterator, IndexedBytesRefIteratorImpl, NaturalOrder,
   SharedCounter, SortState, SortableBytesRefArray,
@@ -193,7 +195,7 @@ impl FieldUpdatesBuffer {
     let fields_len = self.fields.len();
     if self.fields[0] != field || fields_len != 1 {
       if fields_len <= ord {
-        let old_size = size_of_vec(&self.fields);
+        let old_size = size_of_string_vec(&self.fields);
         ArrayUtil::grow_with_len(&mut self.fields, ord + 1)?;
         if fields_len == 1 {
           for i in 1..ord {
@@ -202,11 +204,9 @@ impl FieldUpdatesBuffer {
         }
         self
           .bytes_used
-          .add_and_get(size_of_vec(&self.fields).saturating_sub(old_size));
+          .add_and_get(size_of_string_vec(&self.fields).saturating_sub(old_size));
       }
-      if self.fields[0] != field {
-        self.bytes_used.add_and_get(Self::size_of_string(&field));
-      }
+      self.bytes_used.add_and_get(Self::size_of_string(&field));
       self.fields[ord] = field;
     }
 
