@@ -141,8 +141,7 @@ impl FSLockFactory for NativeFSLockFactory {
         path: real_path,
         metadata,
         closed: AtomicBool::new(false),
-        #[cfg(test)]
-        lock_released_for_test: AtomicBool::new(false),
+        lock_valid: AtomicBool::new(true),
         close_lock: Mutex::new(()),
       }),
       Ok(Err(error)) => {
@@ -196,21 +195,22 @@ pub struct NativeFSLock {
   pub(crate) path: PathBuf,
   pub(crate) metadata: Metadata,
   pub(crate) closed: AtomicBool,
-  #[cfg(test)]
-  lock_released_for_test: AtomicBool,
+  lock_valid: AtomicBool,
   close_lock: Mutex<()>,
 }
 
 impl NativeFSLock {
   #[cfg(test)]
   pub(crate) fn release_lock_for_test(&self) -> Result<()> {
-    self
-      .file
-      .lock()
+    let _guard = self.close_lock.lock();
+    let file = self.file.lock();
+    let file = file
       .as_ref()
-      .ok_or_else(|| LuceneError::already_closed("native file lock is closed"))?
-      .unlock()?;
-    self.lock_released_for_test.store(true, Ordering::SeqCst);
+      .ok_or_else(|| LuceneError::already_closed("native file lock is closed"))?;
+    if self.lock_valid.load(Ordering::SeqCst) {
+      file.unlock()?;
+      self.lock_valid.store(false, Ordering::SeqCst);
+    }
     Ok(())
   }
 
@@ -248,7 +248,11 @@ impl CloseableRef for NativeFSLock {
     if !self.closed.load(Ordering::SeqCst) {
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         if let Some(file) = self.file.lock().take() {
-          let unlock_result = file.unlock();
+          let unlock_result = if self.lock_valid.swap(false, Ordering::SeqCst) {
+            file.unlock()
+          } else {
+            Ok(())
+          };
           drop(file);
           unlock_result?;
         }
@@ -288,8 +292,7 @@ impl Lock for NativeFSLock {
       )));
     }
 
-    #[cfg(test)]
-    if self.lock_released_for_test.load(Ordering::SeqCst) {
+    if !self.lock_valid.load(Ordering::SeqCst) {
       return Err(LuceneError::already_closed(format!(
         "File lock invalidated by an external force: {:?}",
         self.path

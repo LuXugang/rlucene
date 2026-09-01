@@ -188,8 +188,8 @@ fn test_large_random_blocks() -> Result<()> {
 
 #[test]
 fn test_too_many_allocs() -> Result<()> {
-  // Use a mock allocator that doesn't waste memory
-  let allocator = DirectAllocatorByte::new();
+  // Use a mock allocator that doesn't waste memory.
+  let allocator = DirectAllocatorByte::with_block_size(0);
   let mut pool = ByteBlockPool::new(allocator);
   pool.next_buffer()?;
 

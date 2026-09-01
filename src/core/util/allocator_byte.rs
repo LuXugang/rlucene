@@ -79,6 +79,11 @@ impl DirectAllocatorByte {
       block_size: BYTE_BLOCK_SIZE as usize,
     }
   }
+
+  #[cfg(test)]
+  pub(crate) fn with_block_size(block_size: usize) -> Self {
+    DirectAllocatorByte { block_size }
+  }
 }
 
 impl AllocatorByte for DirectAllocatorByte {

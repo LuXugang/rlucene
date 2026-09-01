@@ -70,7 +70,8 @@ fn test_write_read_reset() -> Result<()> {
 }
 #[test]
 fn test_too_many_allocs() -> Result<()> {
-  let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::new());
+  // Use a mock allocator that doesn't waste memory.
+  let allocator = AllocatorIntEnum::DA(DirectAllocatorI32::with_block_size(0));
   let mut pool = IntBlockPool::with_allocator(allocator);
   pool.next_buffer()?;
 

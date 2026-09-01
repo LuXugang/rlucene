@@ -151,6 +151,11 @@ impl DirectAllocatorI32 {
       block_size: INT_BLOCK_SIZE as usize,
     }
   }
+
+  #[cfg(test)]
+  pub(crate) fn with_block_size(block_size: usize) -> Self {
+    DirectAllocatorI32 { block_size }
+  }
 }
 
 impl AllocatorI32 for DirectAllocatorI32 {

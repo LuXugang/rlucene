@@ -1073,11 +1073,9 @@ impl Builder {
     if let Some(cur_fi) = self.field_info(&fi.name) {
       cur_fi.verify_same_schema(&fi)?;
 
-      {
-        let inner = fi.inner.lock();
-        for (k, v) in inner.attributes.iter() {
-          cur_fi.put_attribute(k.clone(), v.clone());
-        }
+      let attributes = fi.inner.lock().attributes.clone();
+      for (k, v) in attributes {
+        cur_fi.put_attribute(k, v);
       }
       if fi.has_payloads() {
         cur_fi.set_store_payloads()?;
