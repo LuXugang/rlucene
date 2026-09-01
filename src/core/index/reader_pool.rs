@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::field_infos::FieldNumbers;
+use crate::core::index::field_infos::FieldNumbersLock;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriterDir;
@@ -220,7 +220,7 @@ where
     _assert_info_live: bool,
     segment_infos: &mut SegmentInfos<D>,
     merge_info: Option<&mut SegmentCommitInfo<D>>,
-    global_field_number: &FieldNumbers,
+    global_field_number: &FieldNumbersLock,
   ) -> Result<bool> {
     let mut inner = self.inner.lock();
     let mut changed = false;
@@ -316,7 +316,7 @@ where
   pub(crate) fn write_all_doc_values_updates(
     &self,
     infos: &mut SegmentInfos<D>,
-    global_field_number: &FieldNumbers,
+    global_field_number: &FieldNumbersLock,
   ) -> Result<bool> {
     let copy: Vec<Arc<ReadersAndUpdates<D>>> = {
       let inner = self.inner.lock();
@@ -342,7 +342,7 @@ where
     &self,
     info_ids: &[String],
     infos: &mut SegmentInfos<D>,
-    global_field_number: &FieldNumbers,
+    global_field_number: &FieldNumbersLock,
   ) -> Result<bool> {
     let mut any = false;
     for ids in info_ids {
@@ -423,7 +423,7 @@ where
   pub(crate) fn commit(
     &self,
     infos: &mut SegmentInfos<D>,
-    global_field_number: &FieldNumbers,
+    global_field_number: &FieldNumbersLock,
   ) -> Result<bool> {
     let inner = self.inner.lock();
     let mut at_least_one_change = false;

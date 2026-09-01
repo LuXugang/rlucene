@@ -34,7 +34,7 @@ use crate::core::index::doc_values_field_updates::{
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
-use crate::core::index::field_infos::{FieldInfos, FieldNumbers};
+use crate::core::index::field_infos::{FieldInfos, FieldNumbersLock};
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::merge_policy::{MergePolicy, MergeReader, MergeReaderSR};
@@ -547,7 +547,7 @@ where
   pub fn write_field_updates<D1>(
     &self,
     dir: D1,
-    field_numbers: &FieldNumbers,
+    field_numbers: &FieldNumbersLock,
     max_del_gen: i64,
     info_stream: &impl InfoStream,
     info: Option<&mut SegmentCommitInfo<D>>,
@@ -623,9 +623,12 @@ where
             } else {
               // the field is not present in this segment so we clone the global field
               // (which is guaranteed to exist) and remaps its field number locally.
-              if let Some(fi) =
-                field_numbers.construct_field_info(field, update.type_, max_field_number + 1)?
-              {
+              let fi = field_numbers.lock().construct_field_info(
+                field,
+                update.type_,
+                max_field_number + 1,
+              )?;
+              if let Some(fi) = fi {
                 max_field_number += 1;
                 by_name.insert(fi.name.to_string(), fi);
               } else {

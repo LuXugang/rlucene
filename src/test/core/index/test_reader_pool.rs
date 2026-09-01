@@ -124,7 +124,7 @@ fn test_drop() -> Result<()> {
     random.random_bool(0.5),
     segment_infos,
     None,
-    &field_numbers.lock(),
+    &field_numbers,
   )?;
   pool.close(segment_infos)?;
   Ok(())
@@ -166,7 +166,7 @@ fn test_pool_readers() -> Result<()> {
     random.random_bool(0.5),
     segment_infos,
     None,
-    &field_numbers.lock(),
+    &field_numbers,
   )?;
 
   assert!(
@@ -187,7 +187,7 @@ fn test_pool_readers() -> Result<()> {
     random.random_bool(0.5),
     segment_infos,
     None,
-    &field_numbers.lock(),
+    &field_numbers,
   )?;
 
   let pooled = pool
@@ -218,7 +218,7 @@ fn test_pool_readers() -> Result<()> {
       random.random_bool(0.5),
       segment_infos,
       None,
-      &field_numbers.lock(),
+      &field_numbers,
     )?;
     assert_eq!(
       0,
@@ -324,17 +324,16 @@ fn test_update() -> Result<()> {
     let written_to_disk: bool;
     if pool.is_reader_pooling_enabled() {
       if random.random_bool(0.5) {
-        written_to_disk =
-          pool.write_all_doc_values_updates(segment_infos, &field_numbers.lock())?;
+        written_to_disk = pool.write_all_doc_values_updates(segment_infos, &field_numbers)?;
         assert!(!readers_and_updates.is_merging());
       } else if random.random_bool(0.5) {
-        written_to_disk = pool.commit(segment_infos, &field_numbers.lock())?;
+        written_to_disk = pool.commit(segment_infos, &field_numbers)?;
         assert!(!readers_and_updates.is_merging());
       } else {
         written_to_disk = pool.write_doc_values_updates_for_merge(
           vec![seg_id.clone()].as_ref(),
           segment_infos,
-          &field_numbers.lock(),
+          &field_numbers,
         )?;
         assert!(readers_and_updates.is_merging());
       }
@@ -343,7 +342,7 @@ fn test_update() -> Result<()> {
         random.random_bool(0.5),
         segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?);
     } else if random.random_bool(0.5) {
       written_to_disk = pool.release(
@@ -351,14 +350,14 @@ fn test_update() -> Result<()> {
         random.random_bool(0.5),
         segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?;
       assert!(!readers_and_updates.is_merging());
     } else {
       written_to_disk = pool.write_doc_values_updates_for_merge(
         vec![seg_id.clone()].as_ref(),
         segment_infos,
-        &field_numbers.lock(),
+        &field_numbers,
       )?;
       assert!(readers_and_updates.is_merging());
 
@@ -367,7 +366,7 @@ fn test_update() -> Result<()> {
         random.random_bool(0.5),
         segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?);
     }
 
@@ -398,7 +397,7 @@ fn test_update() -> Result<()> {
         random.random_bool(0.5),
         segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?);
     }
   }
@@ -471,13 +470,13 @@ fn test_deletes() -> Result<()> {
     read_only_clone.close()?;
     let written_to_disk: bool;
     if pool.is_reader_pooling_enabled() {
-      written_to_disk = pool.commit(segment_infos, &field_numbers.lock())?;
+      written_to_disk = pool.commit(segment_infos, &field_numbers)?;
       assert!(!pool.release(
         &readers_and_updates,
         random.random_bool(0.5),
         segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?);
     } else {
       written_to_disk = pool.release(
@@ -485,7 +484,7 @@ fn test_deletes() -> Result<()> {
         random.random_bool(0.5),
         segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?;
     }
 
@@ -513,7 +512,7 @@ fn test_deletes() -> Result<()> {
         random.random_bool(0.5),
         segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?);
     }
   }
@@ -585,7 +584,7 @@ fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
           bg_random.random_bool(0.5),
           seg_infos,
           None,
-          &bg_field_numbers.lock(),
+          &bg_field_numbers,
         )?;
       }
     }
@@ -633,7 +632,7 @@ fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
         random.random_bool(0.5),
         &mut reader.segment_infos,
         None,
-        &field_numbers.lock(),
+        &field_numbers,
       )?;
     }
   }

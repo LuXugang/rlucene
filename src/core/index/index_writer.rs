@@ -4289,18 +4289,18 @@ where
   /// * `write_deletes` — if `true`, deletes should also be written to disk.
   pub(crate) fn write_reader_pool(&self, write_deletes: bool, inner: &mut Inner<D>) -> Result<()> {
     if write_deletes {
-      if self.reader_pool.commit(
-        &mut inner.segment_infos,
-        &self.global_field_number_map.lock(),
-      )? {
+      if self
+        .reader_pool
+        .commit(&mut inner.segment_infos, &self.global_field_number_map)?
+      {
         self.check_point_no_sis(inner)?;
       }
     } else {
       // only write the docValues
-      if self.reader_pool.write_all_doc_values_updates(
-        &mut inner.segment_infos,
-        &self.global_field_number_map.lock(),
-      )? {
+      if self
+        .reader_pool
+        .write_all_doc_values_updates(&mut inner.segment_infos, &self.global_field_number_map)?
+      {
         self.checkpoint(inner)?;
       }
     }
@@ -4421,7 +4421,7 @@ where
 
               if rld.write_field_updates(
                 &self.directory,
-                &self.global_field_number_map.lock(),
+                &self.global_field_number_map,
                 self.buffered_updates_stream.get_completed_del_gen(),
                 self.info_stream.as_ref(),
                 Some(info),
@@ -5571,7 +5571,7 @@ where
     if self.reader_pool.write_doc_values_updates_for_merge(
       merge.stat.segments.as_ref(),
       &mut inner.segment_infos,
-      &self.global_field_number_map.lock(),
+      &self.global_field_number_map,
     )? {
       self.checkpoint(&mut inner)?;
     }
@@ -6356,7 +6356,7 @@ where
       assert_live_info,
       &mut inner.segment_infos,
       merge_info,
-      &self.global_field_number_map.lock(),
+      &self.global_field_number_map,
     )? {
       // if we write anything here we have to hold the lock otherwise IDF will delete files
       // underneath us
