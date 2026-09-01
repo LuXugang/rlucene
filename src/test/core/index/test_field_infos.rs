@@ -23,6 +23,7 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer, random,
@@ -114,6 +115,7 @@ fn test_field_infos() -> Result<()> {
   let mut it3 = fis3.iter();
   assert!(it3.next().is_none());
 
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -148,7 +150,7 @@ fn test_field_attributes() -> Result<()> {
   writer.force_merge(1)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let fis = get_merged_field_infos(reader)?;
+  let fis = get_merged_field_infos(&reader)?;
   assert_eq!(2, fis.size());
 
   for fi in fis.iter() {
@@ -167,7 +169,9 @@ fn test_field_attributes() -> Result<()> {
       },
     }
   }
+  reader.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -207,7 +211,7 @@ fn test_field_attributes_single_segment() -> Result<()> {
   writer.commit()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let fis = get_merged_field_infos(reader)?;
+  let fis = get_merged_field_infos(&reader)?;
 
   let fi1 = fis.field_info_by_name("f1")?.unwrap();
   assert_eq!(Some("attdoc1".to_string()), fi1.get_attribute("att1"));
@@ -217,7 +221,9 @@ fn test_field_attributes_single_segment() -> Result<()> {
   let fi2 = fis.field_info_by_name("f2")?.unwrap();
   assert_eq!(Some("attdoc2".to_string()), fi2.get_attribute("att4"));
 
+  reader.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -229,10 +235,12 @@ fn test_merged_field_infos_empty() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
-  let actual = get_merged_field_infos(reader)?;
+  let actual = get_merged_field_infos(&reader)?;
 
   assert!(Arc::ptr_eq(&EMPTY.clone(), &actual));
+  reader.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -257,15 +265,16 @@ fn test_merged_field_infos_single_leaf() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&writer)?;
   let actual = get_merged_field_infos(&reader)?;
-  let reader = reader.get_context()?;
-  let leaves = reader.leaves()?;
+  let context = (&reader).get_context()?;
+  let leaves = context.leaves()?;
   let expected = leaves[0].reader().get_field_infos()?;
 
   assert_eq!(1, leaves.len());
   assert!(std::ptr::eq(expected.as_ref(), actual.as_ref()));
 
+  reader.close()?;
   writer.close()?;
-  drop(dir);
+  dir.close()?;
   Ok(())
 }
 
