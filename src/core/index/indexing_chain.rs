@@ -784,7 +784,7 @@ where
     aborting_exception_consumer: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
-    DF: IntoIterator<Item = Fields>,
+    DF: IntoIterator<Item = Result<Fields>>,
   {
     // number of unique fields by names (collapses multiple field instances by the same name)
     let mut field_count = 0;
@@ -802,15 +802,16 @@ where
     self.terms_hash.start_document()?;
     self.start_stored_fields(doc_id, info, aborting_exception_consumer)?;
 
-    let mut document: Vec<Fields> = document.into_iter().collect();
+    let mut document_fields = document.into_iter();
+    let mut document = Vec::new();
     // 1st pass over doc fields – verify that doc schema matches the index schema
     // build schema for each unique doc field
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      for field in &document {
+      while let Some(field) = document_fields.next().transpose()? {
         let field_type = field.field_type();
         let is_reserved = field.is_reserved();
-        let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
+        let pf_idx = self.get_or_add_per_field(&field, is_reserved)?;
         {
           let pf = &mut self.per_fields[pf_idx];
           if pf.reserved != is_reserved {
@@ -835,6 +836,7 @@ where
         doc_field_idx += 1;
         let pf = &mut self.per_fields[pf_idx];
         Self::update_doc_field_schema(field.name(), &mut pf.schema, &field_type)?;
+        document.push(field);
       }
 
       // For each field, if it's the first time we see this field in this segment,
@@ -1422,6 +1424,14 @@ where
             .ram_bytes_used()?,
         ),
     )
+  }
+
+  fn get_child_resources(&self) -> Vec<&dyn Accountable> {
+    vec![
+      &self.stored_fields_consumer,
+      &self.terms_hash.next_terms_hash,
+      self.vector_values_consumer.get_accountable(),
+    ]
   }
 }
 

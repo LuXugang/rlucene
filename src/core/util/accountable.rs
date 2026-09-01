@@ -28,10 +28,7 @@ pub trait Accountable {
 
   /// Returns nested resources of this struct. The result should be a
   /// point-in-time snapshot (to avoid race conditions).
-  fn get_child_resources<A>(&self) -> Vec<A>
-  where
-    A: Accountable,
-  {
+  fn get_child_resources(&self) -> Vec<&dyn Accountable> {
     vec![]
   }
 }
@@ -43,6 +40,10 @@ where
   fn ram_bytes_used(&self) -> Result<i64> {
     (**self).ram_bytes_used()
   }
+
+  fn get_child_resources(&self) -> Vec<&dyn Accountable> {
+    (**self).get_child_resources()
+  }
 }
 
 impl<T> Accountable for Arc<T>
@@ -51,5 +52,9 @@ where
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     (**self).ram_bytes_used()
+  }
+
+  fn get_child_resources(&self) -> Vec<&dyn Accountable> {
+    (**self).get_child_resources()
   }
 }

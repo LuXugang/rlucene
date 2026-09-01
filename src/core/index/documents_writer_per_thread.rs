@@ -67,6 +67,8 @@ use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
 
+const INFO_VERBOSE: bool = false;
+
 pub struct DocumentsWriterPerThread<D>
 where
   D: Directory,
@@ -271,7 +273,7 @@ where
       index_writer_config.get_index_sort(),
     )?;
 
-    if info_stream.is_enabled("DWPT") {
+    if INFO_VERBOSE && info_stream.is_enabled("DWPT") {
       info_stream.message(
         "DWPT",
         &format!(
@@ -372,7 +374,7 @@ where
         "DWPT encountered an aborting error but is still indexing"
       );
 
-      if self.info_stream.is_enabled("DWPT") {
+      if INFO_VERBOSE && self.info_stream.is_enabled("DWPT") {
         self.info_stream.message(
           "DWPT",
           &format!(
@@ -392,38 +394,34 @@ where
       let mut all_docs_indexed = false;
       let index_writer_config = writer.get_config()?;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
-        let mut docs_iter = docs.into_fallible_iter();
-        let mut next_doc = docs_iter.next().transpose()?;
-        while let Some(doc) = next_doc {
-          next_doc = docs_iter.next().transpose()?;
-          let has_next_doc = next_doc.is_some();
-          if self.parent_field.is_none()
-            && self.segment_info.index_sort.is_some()
-            && has_next_doc
-            && self.index_major_version_created >= LUCENE_10_0_0.major
-          {
-            return Err(LuceneError::illegal_argument(
-              "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
-            ));
-          }
+        let mut docs_iter = docs.into_fallible_iter().peekable();
+        while let Some(doc) = docs_iter.next() {
+          let doc = doc?;
+          let reserved_parent_field: Option<Fields> = if let Some(parent) = &self.parent_field {
+            docs_iter
+              .peek()
+              .is_none()
+              .then(|| ReservedField::new(NumericDocValuesField::new(parent, -1)).into())
+          } else {
+            if self.segment_info.index_sort.is_some()
+              && docs_iter.peek().is_some()
+              && self.index_major_version_created >= LUCENE_10_0_0.major
+            {
+              return Err(LuceneError::illegal_argument(
+                "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
+              ));
+            }
+            None
+          };
 
           self.reserve_one_doc()?;
           let doc_id = self.state.num_docs_in_ram.fetch_add(1, Ordering::SeqCst);
           let process_result =
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-              let mut doc_fields = Vec::new();
-              let mut fields = doc.into_fallible_iter();
-              while let Some(field) = fields.next().transpose()? {
-                doc_fields.push(field);
-              }
-              if let Some(parent) = &self.parent_field
-                && !has_next_doc
-              {
-                doc_fields.insert(
-                  0,
-                  ReservedField::new(NumericDocValuesField::new(parent, -1)).into(),
-                );
-              }
+              let doc_fields = reserved_parent_field
+                .into_iter()
+                .map(Ok)
+                .chain(doc.into_fallible_iter());
               self.indexing_chain.process_document(
                 doc_id,
                 doc_fields,
@@ -1037,11 +1035,8 @@ where
     )
   }
 
-  fn get_child_resources<A>(&self) -> Vec<A>
-  where
-    A: Accountable,
-  {
-    todo!()
+  fn get_child_resources(&self) -> Vec<&dyn Accountable> {
+    vec![&self.pending_updates, &self.indexing_chain]
   }
 }
 impl<D> Display for DocumentsWriterPerThread<D>

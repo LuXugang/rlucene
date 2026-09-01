@@ -416,10 +416,7 @@ impl Accountable for OrdinalMap {
     Ok(self.ram_bytes_used)
   }
 
-  fn get_child_resources<A>(&self) -> Vec<A>
-  where
-    A: Accountable,
-  {
+  fn get_child_resources(&self) -> Vec<&dyn Accountable> {
     todo!()
   }
 }
