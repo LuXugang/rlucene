@@ -173,7 +173,7 @@ fn clone_field_info(fi: &FieldInfo, field_number: i32) -> Result<FieldInfo> {
     *fi.get_doc_values_type(),
     *fi.doc_values_skip_index_type(),
     fi.get_doc_values_gen(),
-    fi.attributes().lock().attributes.clone(),
+    fi.attributes().as_ref().clone(),
     fi.get_point_dimension_count(),
     fi.get_point_index_dimension_count(),
     fi.get_point_num_bytes(),

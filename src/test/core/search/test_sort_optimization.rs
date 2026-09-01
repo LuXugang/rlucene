@@ -1955,7 +1955,7 @@ where
     let mut new_infos = Vec::with_capacity(self.in_.get_field_infos()?.size());
 
     for fi in self.in_.get_field_infos()?.iter() {
-      let attributes = fi.attributes().lock().attributes.clone();
+      let attributes = fi.attributes().as_ref().clone();
       let no_index_fi = FieldInfo::new(
         fi.name.clone(),
         fi.number,

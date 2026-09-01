@@ -116,12 +116,43 @@ pub trait BaseFieldInfoFormatTestCase:
     Ok(())
   }
   /// Test field infos attributes coming back are not mutable.
-  #[allow(dead_code)]
-  fn test_immutable_attributes<R>(&self, _random: &mut R) -> Result<()>
+  fn test_immutable_attributes<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // The concrete Rust entry is ignored because attributes are exposed as an immutable borrow.
+    let dir = new_directory_shared(random)?;
+    let codec = self.get_codec()?;
+    let segment_info = Self::new_segment_info(random, dir.clone(), "_123")?;
+    let fi = Arc::new(Self::create_field_info()?);
+    Self::add_attributes(&fi);
+    fi.put_attribute("foo".to_string(), "bar".to_string());
+    fi.put_attribute("bar".to_string(), "baz".to_string());
+
+    let infos = IndexPackageAccessImpl
+      .new_field_infos_builder(None, None)?
+      .add(fi)?
+      .finish()?;
+
+    codec.field_infos_format().write(
+      dir.as_ref(),
+      &segment_info,
+      "",
+      &infos,
+      &IOContext::default_io_context()?,
+    )?;
+    let infos2 = codec.field_infos_format().read(
+      dir.as_ref(),
+      &segment_info,
+      "",
+      &IOContext::default_io_context()?,
+    )?;
+    assert_eq!(1, infos2.size());
+    let field = infos2.field_info_by_name("field")?.unwrap();
+    let mut attributes = field.attributes();
+    // The shared map cannot be borrowed mutably to change its attributes.
+    assert!(Arc::get_mut(&mut attributes).is_none());
+
+    dir.as_ref().close()?;
     Ok(())
   }
 

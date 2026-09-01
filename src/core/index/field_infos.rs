@@ -1076,7 +1076,7 @@ impl Builder {
     if let Some(cur_fi) = self.field_info(&fi.name) {
       cur_fi.verify_same_schema(&fi)?;
 
-      let attributes = fi.inner.lock().attributes.clone();
+      let attributes = fi.attributes().as_ref().clone();
       for (k, v) in attributes {
         cur_fi.put_attribute(k, v);
       }
@@ -1089,7 +1089,7 @@ impl Builder {
     self.assert_not_finished()?;
 
     let field_number = self.global_field_numbers.lock().add_or_get(&fi)?;
-    let attributes = fi.inner.lock().attributes.clone();
+    let attributes = fi.attributes().as_ref().clone();
     let fi_new = Arc::new(FieldInfo::new(
       fi.name.clone(),
       field_number,

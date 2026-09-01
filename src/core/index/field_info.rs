@@ -24,6 +24,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::Ordering::Relaxed;
 use std::sync::atomic::{AtomicBool, AtomicI64};
 
@@ -45,7 +46,7 @@ pub struct FieldInfo {
   doc_values_skip_index: DocValuesSkipIndexType,
   omit_norms: bool, // omit norms associated with indexed fields
   pub(crate) index_options: IndexOptions,
-  pub(crate) inner: Mutex<Inner>,
+  attributes: Mutex<Arc<HashMap<String, String>>>,
   dv_gen: AtomicI64,
   ///  If both of these are positive it means this field indexed points (see
   /// [`PointsFormat`](crate::core::codecs::points_format::PointsFormat)).
@@ -64,18 +65,6 @@ pub struct FieldInfo {
   // True if any document indexed term vectors
   store_term_vector: AtomicBool,
 }
-pub struct Inner {
-  pub(crate) attributes: HashMap<String, String>,
-}
-/// For padding using
-impl Default for Inner {
-  fn default() -> Self {
-    Inner {
-      attributes: HashMap::new(),
-    }
-  }
-}
-
 impl FieldInfo {
   /// Creates a new instance.
   #[allow(clippy::too_many_arguments)]
@@ -109,7 +98,7 @@ impl FieldInfo {
     } else {
       (false, false, false)
     };
-    let properties = Mutex::new(Inner { attributes });
+    let attributes = Mutex::new(Arc::new(attributes));
 
     let v = FieldInfo {
       name: name.into(),
@@ -118,7 +107,7 @@ impl FieldInfo {
       doc_values_skip_index,
       omit_norms,
       index_options,
-      inner: properties,
+      attributes,
       dv_gen: AtomicI64::new(dv_gen),
       point_dimension_count,
       point_index_dimension_count,
@@ -560,7 +549,7 @@ impl FieldInfo {
   /// Omit norms for this field.
   pub fn set_omits_norms(&mut self) -> Result<()> {
     if self.index_options == IndexOptions::None {
-      return Err(LuceneError::illegal_argument(
+      return Err(LuceneError::illegal_state(
         "cannot omit norms: this field is not indexed".to_string(),
       ));
     }
@@ -591,8 +580,7 @@ impl FieldInfo {
 
   /// Get a codec attribute value, or None if it does not exist
   pub fn get_attribute(&self, key: &str) -> Option<String> {
-    let properties = self.inner.lock();
-    properties.attributes.get(key).cloned()
+    self.attributes.lock().get(key).cloned()
   }
 
   /// Puts a codec attribute value.
@@ -606,13 +594,13 @@ impl FieldInfo {
   /// field is changed between documents, the behavior after merge is
   /// undefined.
   pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
-    let mut properties = self.inner.lock();
-    properties.attributes.insert(key, value)
+    let mut attributes = self.attributes.lock();
+    Arc::make_mut(&mut attributes).insert(key, value)
   }
 
-  /// Returns internal codec attributes map.
-  pub fn attributes(&self) -> &Mutex<Inner> {
-    &self.inner
+  /// Returns a shared snapshot of the internal codec attributes map.
+  pub fn attributes(&self) -> Arc<HashMap<String, String>> {
+    self.attributes.lock().clone()
   }
 
   /// Returns true if this field is configured and used as the soft-deletes

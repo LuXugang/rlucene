@@ -69,9 +69,8 @@ fn test_one_field() -> Result<()> {
 }
 
 #[test]
-#[ignore = "Java-only: FieldInfo attributes are exposed through an immutable Rust borrow"]
 fn test_immutable_attributes() -> Result<()> {
-  test_not_required_in_rust_lucene!();
+  run_case(|test, random| test.test_immutable_attributes(random))
 }
 
 #[test]
