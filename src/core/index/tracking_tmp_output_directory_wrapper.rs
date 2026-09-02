@@ -153,14 +153,11 @@ where
     self.in_.obtain_lock(name)
   }
 
-  fn copy_from<T>(&self, from: &T, src: &str, dest: &str, context: &IOContext) -> Result<()>
-  where
-    T: Directory + ?Sized,
-  {
-    self.in_.copy_from(from, src, dest, context)
-  }
-
   fn get_pending_deletions(&self) -> Result<HashSet<String>> {
     self.in_.get_pending_deletions()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.in_.ensure_open()
   }
 }
