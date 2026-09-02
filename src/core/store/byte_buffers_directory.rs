@@ -135,7 +135,17 @@ fn output_as_many_buffers(
   file_name: &str,
   mut output: ByteBuffersDataOutput,
 ) -> Result<ByteBuffersIndexInputOwned> {
-  let data_input = output.get_data_input_owner(false)?;
+  let (length, buffers) = output.to_buffer_list_owner(false);
+  let buffers = buffers
+    .into_iter()
+    .map(|buffer| {
+      let position = buffer.position();
+      let mut shared = Cursor::new(Arc::new(buffer.into_inner()));
+      shared.set_position(position);
+      shared
+    })
+    .collect();
+  let data_input = ByteBuffersDataInput::new(buffers, length)?;
   let input_name = format!(
     "{} (file={}, buffers={})",
     std::any::type_name::<ByteBuffersIndexInputOwned>()
@@ -155,7 +165,7 @@ fn output_as_one_buffer(
 ) -> Result<ByteBuffersIndexInputOwned> {
   let bytes = output.try_get_array_ownership();
   let length = bytes.len();
-  let data_input = ByteBuffersDataInput::new(vec![Cursor::new(bytes)], length)?;
+  let data_input = ByteBuffersDataInput::new(vec![Cursor::new(Arc::new(bytes))], length)?;
   let input_name = format!(
     "{} (file={}, buffers={})",
     std::any::type_name::<ByteBuffersIndexInputOwned>()

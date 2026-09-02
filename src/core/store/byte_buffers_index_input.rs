@@ -16,6 +16,7 @@
  */
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::core::store::DataInput;
@@ -29,7 +30,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// An [`IndexInput`] implementing [`RandomAccessInput`]
 /// and backed by a [`ByteBuffersDataInput`].
 pub type ByteBuffersIndexInputRef<'a> = ByteBuffersIndexInput<&'a [u8]>;
-pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Vec<u8>>;
+pub type ByteBuffersIndexInputOwned = ByteBuffersIndexInput<Arc<Vec<u8>>>;
 
 pub struct ByteBuffersIndexInput<B> {
   in_: ByteBuffersDataInput<B>,

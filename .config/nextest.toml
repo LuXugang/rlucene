@@ -15,10 +15,14 @@ final-status-level = "slow"
 slow-timeout = { period = "30s", terminate-after = 2, grace-period = "30s" }
 
 [[profile.ci.overrides]]
-# The Java-aligned randomized WAND test performs hundreds of full score and
+# These Java-aligned randomized WAND tests perform hundreds of full score and
 # max-score checks. Some valid seeds need more than the general 60-second CI
 # limit even in release mode.
-filter = 'test(=test::core::search::test_wand_scorer::test_random)'
+filter = '''
+test(=test::core::search::test_wand_scorer::test_random)
+| test(=test::core::search::test_wand_scorer::test_random_with_infinite_max_score)
+| test(=test::core::search::test_wand_scorer::test_random_with_max_score_overflow)
+'''
 slow-timeout = { period = "30s", terminate-after = 6, grace-period = "30s" }
 
 [profile.ci.junit]
