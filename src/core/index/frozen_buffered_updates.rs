@@ -717,7 +717,7 @@ where
     if let Some(terms_enum) = self.terms_enum.as_mut() {
       if self.sorted_terms {
         #[cfg(debug_assertions)]
-        Self::assert_sorted(self.sorted_terms, &mut self.last_term, term);
+        Self::assert_sorted(self.sorted_terms, &mut self.last_term, term)?;
         // in the sorted case we can take advantage of the "seeking forward" property
         // this allows us depending on the term dict impl to reuse data-structures internally
         // which speed up iteration over terms and docs significantly.
@@ -759,7 +759,7 @@ where
     sorted_terms: bool,
     last_term: &mut Option<BytesRef<Vec<u8>>>,
     term: &BytesRef<Vec<u8>>,
-  ) {
+  ) -> Result<()> {
     debug_assert!(sorted_terms);
     if let Some(last) = last_term.as_ref() {
       debug_assert!(
@@ -769,7 +769,8 @@ where
         last.utf8_to_string()
       );
     }
-    *last_term = Some(BytesRef::deep_copy_of(term));
+    *last_term = Some(BytesRef::deep_copy_of(term)?);
+    Ok(())
   }
   fn get_docs(&mut self) -> Result<&mut Disi<P>> {
     let terms_enum = self

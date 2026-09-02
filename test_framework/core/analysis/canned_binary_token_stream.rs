@@ -47,7 +47,7 @@ impl TokenStream for CannedBinaryTokenStream {
       let token = &self.tokens[self.upto];
       self
         .attr
-        .set_bytes_ref(Some(BytesRef::deep_copy_of(&token.term)))?;
+        .set_bytes_ref(Some(BytesRef::deep_copy_of(&token.term)?))?;
       self.attr.set_position_increment(token.pos_inc)?;
       self.attr.set_position_length(token.pos_len)?;
       self.attr.set_offset(token.start_offset, token.end_offset)?;

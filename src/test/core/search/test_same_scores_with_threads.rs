@@ -74,7 +74,7 @@ fn test() -> Result<()> {
   let mut answers = HashMap::new();
   while terms_enum.next()?.is_some() {
     if random.random::<f64>() <= chance {
-      let term = BytesRef::deep_copy_of(terms_enum.term()?.as_ref());
+      let term = BytesRef::deep_copy_of(terms_enum.term()?.as_ref())?;
       answers.insert(
         term.clone(),
         s.search(TermQuery::new(Term::new("body", term)), 100)?,

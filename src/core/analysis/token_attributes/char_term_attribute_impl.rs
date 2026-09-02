@@ -244,11 +244,11 @@ impl<T> TermToBytesRefAttribute for CharTermAttributeImpl<T>
 where
   T: AttributeImpl + CharTermAttributeImplBase,
 {
-  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     self
       .builder
-      .copy_chars_from_chars(&self.term_buffer, 0, self.term_length);
-    Some(Cow::Borrowed(&self.builder.bytes_ref))
+      .copy_chars_from_chars(&self.term_buffer, 0, self.term_length)?;
+    Ok(Some(Cow::Borrowed(&self.builder.bytes_ref)))
   }
 }
 

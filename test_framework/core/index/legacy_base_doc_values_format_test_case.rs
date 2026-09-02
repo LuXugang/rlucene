@@ -4822,8 +4822,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     {
       let mut dv = make_dv()?;
       let mut te = dv.terms_enum()?;
-      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref()));
-      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref()));
+      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref())?);
+      terms.push(BytesRef::deep_copy_of(te.next()?.unwrap().as_ref())?);
     }
 
     {
@@ -4832,8 +4832,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
       let _ = enum1.next()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
-      let term1 = BytesRef::deep_copy_of(enum1.next()?.unwrap().as_ref());
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
+      let term1 = BytesRef::deep_copy_of(enum1.next()?.unwrap().as_ref())?;
       assert_eq!(term1, enum1.term()?.into_owned());
       assert_eq!(term2, enum2.term()?.into_owned());
     }
@@ -4843,13 +4843,13 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       let mut seek_term_bytes =
         terms[0].bytes[terms[0].offset..(terms[0].offset + terms[0].length)].to_vec();
       seek_term_bytes.push(0);
       let seek_term = BytesRef::from_bytes(seek_term_bytes);
       enum1.seek_ceil(&seek_term)?;
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
       assert_eq!(term1, enum1.term()?.into_owned());
       assert_eq!(term2, enum2.term()?.into_owned());
     }
@@ -4859,9 +4859,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       enum1.seek_ceil(&terms[1])?;
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
       assert_eq!(term1, enum1.term()?.into_owned());
       assert_eq!(term2, enum2.term()?.into_owned());
     }
@@ -4871,9 +4871,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       assert!(enum1.seek_exact(&terms[1])?);
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
       assert_eq!(term1, enum1.term()?.into_owned());
       assert_eq!(term2, enum2.term()?.into_owned());
     }
@@ -4883,9 +4883,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut dv2 = make_dv()?;
       let mut enum1 = dv1.terms_enum()?;
       let mut enum2 = dv2.terms_enum()?;
-      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref());
+      let term2 = BytesRef::deep_copy_of(enum2.next()?.unwrap().as_ref())?;
       enum1.seek_exact_with_ord(1)?;
-      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref());
+      let term1 = BytesRef::deep_copy_of(enum1.term()?.as_ref())?;
       assert_eq!(term1, enum1.term()?.into_owned());
       assert_eq!(term2, enum2.term()?.into_owned());
     }

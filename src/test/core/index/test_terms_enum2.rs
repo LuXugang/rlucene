@@ -247,7 +247,7 @@ fn test_intersect() -> Result<()> {
     };
     let mut found: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
     while let Some(term) = te.next()? {
-      found.insert(BytesRef::deep_copy_of(&term));
+      found.insert(BytesRef::deep_copy_of(&term)?);
     }
 
     let v: Vec<BytesRef<Vec<u8>>> = found.iter().cloned().collect();

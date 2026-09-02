@@ -145,7 +145,7 @@ where
 
   while let Some(term) = terms_enum.next()? {
     assert!(last < *term);
-    last = BytesRef::deep_copy_of(&term);
+    last = BytesRef::deep_copy_of(&term)?;
 
     let s = term.utf8_to_string()?;
     assert!(

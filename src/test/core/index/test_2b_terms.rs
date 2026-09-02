@@ -114,7 +114,7 @@ impl TokenStream for MyTokenStream {
     self.token_count += 1;
     state.next_save -= 1;
     if state.next_save == 0 {
-      state.saved_terms.push(BytesRef::deep_copy_of(&bytes));
+      state.saved_terms.push(BytesRef::deep_copy_of(&bytes)?);
       println!("TEST: save term={bytes}");
       state.next_save = TestUtil::next_int(&mut *self.random.lock(), 500_000, 1_000_000);
     }
@@ -250,7 +250,7 @@ where
   while let Some(term) = terms_enum.next()?.map(|term| term.into_owned()) {
     next_save -= 1;
     if next_save == 0 {
-      saved_terms.push(BytesRef::deep_copy_of(&term));
+      saved_terms.push(BytesRef::deep_copy_of(&term)?);
       println!("TEST: add {term}");
       next_save = TestUtil::next_int(random, 500_000, 1_000_000);
     }

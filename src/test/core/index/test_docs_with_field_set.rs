@@ -29,45 +29,33 @@ use crate::test_framework::core::util::test_util::TestUtil;
 struct TestDocsWithFieldSet {}
 #[test]
 fn test_dense() -> Result<()> {
-  let mut random = random();
   let mut set = DocsWithFieldSet::new();
-  let mut it;
+  set.finish();
+  let mut it = set.iterator()?;
+  assert_eq!(NO_MORE_DOCS, it.next_doc()?);
 
-  match random.random_range(0..3) {
-    0 => {
-      set.finish();
-      let mut it = set.iterator()?;
-      assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-      Ok(())
-    },
-    1 => {
-      set.add(0)?;
-      set.finish();
-      it = set.iterator()?;
-      assert_eq!(0, it.next_doc()?);
-      assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-      Ok(())
-    },
-    _ => {
-      set.add(0)?;
+  // Each Java checkpoint needs its own set because Rust iterators require finish().
+  let mut set = DocsWithFieldSet::new();
+  set.add(0)?;
+  set.finish();
+  let mut it = set.iterator()?;
+  assert_eq!(0, it.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, it.next_doc()?);
 
-      let ram_bytes_used = set.ram_bytes_used()?;
-
-      for i in 1..1000 {
-        set.add(i)?;
-      }
-      set.finish();
-
-      assert_eq!(ram_bytes_used, set.ram_bytes_used()?);
-
-      it = set.iterator()?;
-      for i in 0..1000 {
-        assert_eq!(i, it.next_doc()?);
-      }
-      assert_eq!(NO_MORE_DOCS, it.next_doc()?);
-      Ok(())
-    },
+  let mut set = DocsWithFieldSet::new();
+  set.add(0)?;
+  let ram_bytes_used = set.ram_bytes_used()?;
+  for i in 1..1000 {
+    set.add(i)?;
   }
+  assert_eq!(ram_bytes_used, set.ram_bytes_used()?);
+  set.finish();
+  let mut it = set.iterator()?;
+  for i in 0..1000 {
+    assert_eq!(i, it.next_doc()?);
+  }
+  assert_eq!(NO_MORE_DOCS, it.next_doc()?);
+  Ok(())
 }
 
 #[test]
@@ -75,31 +63,30 @@ fn test_sparse() -> Result<()> {
   let mut random = random();
   let mut set = DocsWithFieldSet::new();
   let doc = random.random_range(0..10000);
-  let _ = set.add(doc);
-  if random.random_bool(0.5) {
-    set.finish();
-    {
-      let mut it = set.iterator()?;
-      assert_eq!(doc, it.next_doc()?);
-      assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-    }
-  } else {
-    let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
-    set.add(doc2)?;
-    set.finish();
-    let mut it = set.iterator()?;
-    assert_eq!(doc, it.next_doc()?);
-    assert_eq!(doc2, it.next_doc()?);
-    assert_eq!(it.next_doc()?, NO_MORE_DOCS);
-  }
+  set.add(doc)?;
+  set.finish();
+  let mut it = set.iterator()?;
+  assert_eq!(doc, it.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, it.next_doc()?);
+
+  let doc2 = doc + TestUtil::next_int(&mut random, 1, 100);
+  // Rebuild the prefix for the second Java checkpoint with a newly finished set.
+  let mut set = DocsWithFieldSet::new();
+  set.add(doc)?;
+  set.add(doc2)?;
+  set.finish();
+  let mut it = set.iterator()?;
+  assert_eq!(doc, it.next_doc()?);
+  assert_eq!(doc2, it.next_doc()?);
+  assert_eq!(NO_MORE_DOCS, it.next_doc()?);
   Ok(())
 }
 
 #[test]
 fn test_dense_then_sparse() -> Result<()> {
   let mut random = random();
-  let dense_count = random.random_range(1..10000);
-  let next_doc = dense_count + random.random_range(1..10000);
+  let dense_count = random.random_range(0..10000);
+  let next_doc = dense_count + random.random_range(0..10000);
   let mut set = DocsWithFieldSet::new();
   for i in 0..dense_count {
     set.add(i)?;

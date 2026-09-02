@@ -202,7 +202,7 @@ fn test_random2() -> Result<()> {
       }
     }
 
-    let br = builder.get_bytes_ref_copy();
+    let br = builder.get_bytes_ref_copy()?;
     strings_set.insert(br);
     iters += 1;
   }

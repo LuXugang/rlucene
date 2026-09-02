@@ -29,13 +29,13 @@ fn test_copy_to() -> Result<()> {
   let mut copy = assert_copy_is_equal(&t)?;
 
   // first do empty
-  assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
-  assert!(copy.get_bytes_ref().is_none());
+  assert_eq!(t.get_bytes_ref()?, copy.get_bytes_ref()?);
+  assert!(copy.get_bytes_ref()?.is_none());
 
   // now after setting it
   t.set_bytes_ref(Some(BytesRef::from_string("hello")))?;
   copy = assert_copy_is_equal(&t)?;
-  assert_eq!(t.get_bytes_ref(), copy.get_bytes_ref());
+  assert_eq!(t.get_bytes_ref()?, copy.get_bytes_ref()?);
   // no need check same instance
 
   Ok(())

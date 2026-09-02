@@ -192,7 +192,7 @@ fn compare_optional_bytes_ref(
 fn field_doc_sort_value(value: Option<&FieldComparatorValue>) -> Result<Option<BytesRef<Vec<u8>>>> {
   match value {
     Some(FieldComparatorValue::Missing) | None => Ok(None),
-    Some(FieldComparatorValue::TermVal(bytes)) => Ok(Some(BytesRef::deep_copy_of(bytes))),
+    Some(FieldComparatorValue::TermVal(bytes)) => Ok(Some(BytesRef::deep_copy_of(bytes)?)),
     Some(other) => Err(LuceneError::illegal_state(format!(
       "expected string sort value, got {other:?}"
     ))),

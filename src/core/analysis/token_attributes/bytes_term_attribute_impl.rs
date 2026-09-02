@@ -94,7 +94,7 @@ impl AttributeImpl for BytesTermAttributeImpl {
 
   fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     match self.bytes {
-      Some(ref bytes) => other.bytes = Some(BytesRef::deep_copy_of(bytes)),
+      Some(ref bytes) => other.bytes = Some(BytesRef::deep_copy_of(bytes)?),
       None => other.bytes = None,
     }
     Ok(())
@@ -102,8 +102,8 @@ impl AttributeImpl for BytesTermAttributeImpl {
 }
 
 impl TermToBytesRefAttribute for BytesTermAttributeImpl {
-  fn get_bytes_ref(&mut self) -> Option<Cow<'_, BytesRef<Vec<u8>>>> {
-    self.bytes.as_ref().map(Cow::Borrowed)
+  fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
+    Ok(self.bytes.as_ref().map(Cow::Borrowed))
   }
 }
 
@@ -138,7 +138,7 @@ impl AttributeSource for BytesTermAttributeImpl {
   }
 
   fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Ok(TermToBytesRefAttribute::get_bytes_ref(self))
+    TermToBytesRefAttribute::get_bytes_ref(self)
   }
 
   fn clear_attributes(&mut self) -> Result<()> {

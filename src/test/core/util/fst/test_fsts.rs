@@ -504,7 +504,7 @@ fn test_real_terms() -> Result<()> {
     let mut ord = 0;
 
     while let Some(term) = terms_enum.next()? {
-      let term = BytesRef::deep_copy_of(term.as_ref());
+      let term = BytesRef::deep_copy_of(term.as_ref())?;
       let term2 = terms_enum2
         .next()?
         .expect("intersect enum must return term");

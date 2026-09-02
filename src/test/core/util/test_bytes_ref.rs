@@ -17,15 +17,13 @@
 // Migrated from src/core/index/bytes_ref.rs
 
 use crate::test_framework::core::util::lucene_test_case::random;
-use rand::RngExt;
-use rand::distr::Alphanumeric;
 
 use crate::core::index::BytesRef;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
-struct TestBytesRef {}
+struct TestBytesRef;
 
 #[test]
 fn test_empty() {
@@ -53,19 +51,16 @@ fn test_from_bytes() -> Result<()> {
 #[test]
 fn test_from_chars() -> Result<()> {
   let mut random = random();
-  let length = random.random_range(1000..100000);
   for _i in 0..100 {
-    let s = (&mut random)
-      .sample_iter(&Alphanumeric)
-      .take(length)
-      .map(char::from)
-      .collect::<String>();
+    let s = TestUtil::random_unicode_string(&mut random);
     let s2: String = BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
     assert_eq!(s, s2);
   }
-  let s = TestUtil::random_unicode_string(&mut random);
-  let s2 = BytesRef::<Vec<u8>>::from_string(&s).utf8_to_string()?;
-  assert_eq!(s, s2);
+  // only for 4.x
+  assert_eq!(
+    "\u{ffff}",
+    BytesRef::<Vec<u8>>::from_string("\u{ffff}").utf8_to_string()?
+  );
   Ok(())
 }
 
@@ -73,9 +68,7 @@ fn test_from_chars() -> Result<()> {
 fn test_invalid_deep_copy() -> Result<()> {
   let mut from = BytesRef::from_bytes(vec![1, 2]);
   from.offset += 1;
-  let result = std::panic::catch_unwind(|| {
-    BytesRef::deep_copy_of(&from);
-  });
-  assert!(result.is_err());
+  let result = BytesRef::deep_copy_of(&from);
+  assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
   Ok(())
 }

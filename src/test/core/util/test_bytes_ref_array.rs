@@ -214,7 +214,7 @@ fn test_stable_sort() -> Result<()> {
         assert!(last_ord.is_none() || Some(ord) > last_ord);
       }
 
-      last = Some(BytesRef::deep_copy_of(&next));
+      last = Some(BytesRef::deep_copy_of(&next)?);
       last_ord = Some(iter.ord());
       i += 1;
     }

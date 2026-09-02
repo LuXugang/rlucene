@@ -23,12 +23,14 @@ use rand::RngExt;
 
 use crate::core::index::BytesRef;
 use crate::core::store::IndexOutput;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::clone::TryClone;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::paged_bytes::{PagedBytes, get_data_input, get_data_output};
+use crate::test_framework::core::store::mock_directory_wrapper::Throttling;
 use crate::test_framework::core::util::test_util::TestUtil;
 use std::mem;
 
@@ -41,9 +43,13 @@ fn test_data_input_output() -> Result<()> {
 
   for _ in 0..num_iters {
     let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("testOverflow")?)?;
+    if let DirEnum::B(mock) = dir.as_ref() {
+      mock.set_throttling(Throttling::Never);
+    }
     let block_bits = TestUtil::next_int(&mut random, 1, 20);
     let block_size = 1 << block_bits;
     let mut paged_bytes = PagedBytes::new(block_bits as usize);
+    let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
 
     let num_bytes = if is_night_mode() {
       TestUtil::next_usize(&mut random, 2, 10_000_000)
@@ -55,20 +61,20 @@ fn test_data_input_output() -> Result<()> {
     random.fill(&mut answer[..]);
 
     {
-      let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
       let mut written: usize = 0;
       while written < num_bytes {
         if random.random_range(0..100) == 7 {
           out.write_byte(answer[written])?;
           written += 1;
         } else {
-          let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - written);
+          let chunk = std::cmp::min(random.random_range(0..1000), num_bytes - written);
           out.write_bytes_range(&answer, written, chunk)?;
           written += chunk;
         }
       }
     }
 
+    out.close()?;
     let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
     let mut clone_input = input.try_clone()?;
 
@@ -83,7 +89,7 @@ fn test_data_input_output() -> Result<()> {
         verify[read] = clone_input.read_byte()?;
         read += 1;
       } else {
-        let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - read);
+        let chunk = std::cmp::min(random.random_range(0..1000), num_bytes - read);
         clone_input.read_bytes(&mut verify, read, chunk)?;
         read += chunk;
       }
@@ -109,6 +115,8 @@ fn test_data_input_output() -> Result<()> {
         );
       }
     }
+    input.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -141,7 +149,7 @@ fn test_data_input_output_2() -> Result<()> {
         out.write_byte(answer[written])?;
         written += 1;
       } else {
-        let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - written);
+        let chunk = std::cmp::min(random.random_range(0..1000), num_bytes - written);
         out.write_bytes_range(&answer, written, chunk)?;
         written += chunk;
       }
@@ -158,7 +166,7 @@ fn test_data_input_output_2() -> Result<()> {
         verify[read] = input.read_byte()?;
         read += 1;
       } else {
-        let chunk = std::cmp::min(random.random_range(1..1000), num_bytes - read);
+        let chunk = std::cmp::min(random.random_range(0..1000), num_bytes - read);
         input.read_bytes(&mut verify, read, chunk)?;
         read += chunk;
       }
@@ -201,6 +209,9 @@ fn test_data_input_output_2() -> Result<()> {
 fn test_overflow() -> Result<()> {
   let mut random = random();
   let dir = new_fs_directory(&mut random, create_temp_dir_with_prefix("testOverflow")?)?;
+  if let DirEnum::B(mock) = dir.as_ref() {
+    mock.set_throttling(Throttling::Never);
+  }
   let block_bits = TestUtil::next_int(&mut random, 14, 28);
   let block_size = 1 << block_bits;
 
@@ -225,6 +236,7 @@ fn test_overflow() -> Result<()> {
       written += len;
     }
     assert_eq!(num_bytes, out.get_file_pointer()?);
+    out.close()?;
   }
 
   let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
@@ -244,6 +256,8 @@ fn test_overflow() -> Result<()> {
     let expected = arr[offset % arr.len()];
     assert_eq!(expected, b.bytes[b.offset], "Mismatch at offset {}", offset);
   }
+  input.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]

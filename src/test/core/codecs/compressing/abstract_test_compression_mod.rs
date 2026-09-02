@@ -107,7 +107,7 @@ pub(crate) trait AbstractTestCompressionMode {
     let mut bytes = BytesRef::default();
     let mut input = ByteArrayDataInput::with_bytes(compressed);
     decompressor.decompress(&mut input, original_length, 0, original_length, &mut bytes)?;
-    Ok(BytesRef::deep_copy_of(&bytes).bytes)
+    Ok(BytesRef::deep_copy_of(&bytes)?.bytes)
   }
   fn decompress_with_range(
     &self,
@@ -120,7 +120,7 @@ pub(crate) trait AbstractTestCompressionMode {
     let mut bytes = BytesRef::default();
     let mut input = ByteArrayDataInput::with_bytes(compressed);
     decompressor.decompress(&mut input, original_length, offset, length, &mut bytes)?;
-    Ok(BytesRef::deep_copy_of(&bytes).bytes)
+    Ok(BytesRef::deep_copy_of(&bytes)?.bytes)
   }
 
   fn test_decompress<R>(&self, random: &mut R) -> crate::core::util::error::lucene_error::Result<()>

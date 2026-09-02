@@ -1079,7 +1079,7 @@ fn test_random_finite() -> Result<()> {
         for term in &terms {
           new_term.copy_bytes_from_ref(&prefix)?;
           new_term.append(term)?;
-          new_terms.insert(new_term.get_bytes_ref_copy());
+          new_terms.insert(new_term.get_bytes_ref_copy()?);
         }
         terms = new_terms;
         let was_deterministic1 = a.is_deterministic();
@@ -1097,7 +1097,7 @@ fn test_random_finite() -> Result<()> {
         for term in &terms {
           b.copy_bytes_from_ref(term)?;
           b.append(&suffix)?;
-          new_terms.insert(b.get_bytes_ref_copy());
+          new_terms.insert(b.get_bytes_ref_copy()?);
         }
         terms = new_terms;
         a = Cow::Owned(Operations::concatenate(
@@ -1349,7 +1349,7 @@ fn test_random_finite() -> Result<()> {
             for suffix in &add_terms {
               new_term.copy_bytes_from_ref(term)?;
               new_term.append(suffix)?;
-              new_terms.insert(new_term.get_bytes_ref_copy());
+              new_terms.insert(new_term.get_bytes_ref_copy()?);
             }
           }
         } else {
@@ -1365,7 +1365,7 @@ fn test_random_finite() -> Result<()> {
             for prefix in &add_terms {
               new_term.copy_bytes_from_ref(prefix)?;
               new_term.append(term)?;
-              new_terms.insert(new_term.get_bytes_ref_copy());
+              new_terms.insert(new_term.get_bytes_ref_copy()?);
             }
           }
         }
@@ -1650,7 +1650,7 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     for _ in 0..num_zeros {
       b.append_byte(0)?;
     }
-    let min_term = b.get_bytes_ref_copy();
+    let min_term = b.get_bytes_ref_copy()?;
 
     let mut b = BytesRefBuilder::new();
     b.append(&min_term)?;
@@ -1658,7 +1658,7 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     for _ in 0..num_zeros {
       b.append_byte(0)?;
     }
-    let max_term = b.get_bytes_ref_copy();
+    let max_term = b.get_bytes_ref_copy()?;
 
     let min_inclusive = random.random_bool(0.5);
     let max_inclusive = random.random_bool(0.5);
@@ -1692,7 +1692,7 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     b.append(&min_term)?;
 
     if !min_inclusive {
-      assert!(!accepts(&a, &b.get_bytes_ref_copy())?);
+      assert!(!accepts(&a, &b.get_bytes_ref_copy()?)?);
       b.append_byte(0)?;
     }
 
@@ -1705,7 +1705,7 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
         true
       };
 
-      assert_eq!(expected, accepts(&a, &b.get_bytes_ref_copy())?);
+      assert_eq!(expected, accepts(&a, &b.get_bytes_ref_copy()?)?);
     }
   }
   Ok(())

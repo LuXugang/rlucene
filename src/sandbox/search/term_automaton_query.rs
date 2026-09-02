@@ -132,13 +132,13 @@ impl TermAutomatonQuery {
     dest: i32,
     term: &BytesRef<Vec<u8>>,
   ) -> Result<()> {
-    let term_id = self.get_term_id(Some(term));
+    let term_id = self.get_term_id(Some(term))?;
     self.builder.add_transition_label(source, dest, term_id)
   }
 
   /// Adds a transition matching any term.
   pub fn add_any_transition(&mut self, source: i32, dest: i32) -> Result<()> {
-    let term_id = self.get_term_id(None);
+    let term_id = self.get_term_id(None)?;
     self.builder.add_transition_label(source, dest, term_id)
   }
 
@@ -226,24 +226,24 @@ impl TermAutomatonQuery {
     Ok(())
   }
 
-  fn get_term_id(&mut self, term: Option<&BytesRef<Vec<u8>>>) -> i32 {
+  fn get_term_id(&mut self, term: Option<&BytesRef<Vec<u8>>>) -> Result<i32> {
     let Some(term) = term else {
       if self.any_term_id == -1 {
         self.any_term_id = self.id_to_term.len() as i32;
         self.id_to_term.push(None);
       }
-      return self.any_term_id;
+      return Ok(self.any_term_id);
     };
 
     let bytes = &term.bytes[term.offset..term.offset + term.length];
     if let Some(id) = self.term_to_id.get(bytes) {
-      return *id;
+      return Ok(*id);
     }
 
     let id = self.id_to_term.len() as i32;
     self.term_to_id.insert(bytes.to_vec(), id);
-    self.id_to_term.push(Some(BytesRef::deep_copy_of(term)));
-    id
+    self.id_to_term.push(Some(BytesRef::deep_copy_of(term)?));
+    Ok(id)
   }
 
   fn check_finished(&self) {

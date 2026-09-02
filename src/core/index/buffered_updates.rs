@@ -440,7 +440,7 @@ impl BytesRefIntMap {
 
     for i in 0..self.bytes_ref_hash.size() {
       self.bytes_ref_hash.get(i, &mut scratch, pool)?;
-      set.insert(BytesRef::deep_copy_of(&scratch));
+      set.insert(BytesRef::deep_copy_of(&scratch)?);
     }
     Ok(set)
   }

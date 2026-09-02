@@ -132,7 +132,7 @@ where
     }
 
     // only for assert
-    debug_assert!(ite.set_saved_start_term(start_term));
+    debug_assert!(ite.set_saved_start_term(start_term)?);
 
     // push initial output
     {
@@ -149,9 +149,12 @@ where
     Ok(ite)
   }
 
-  pub(crate) fn set_saved_start_term(&mut self, start_term: Option<&BytesRef<Vec<u8>>>) -> bool {
-    self.saved_start_term = start_term.map(BytesRef::deep_copy_of);
-    true
+  pub(crate) fn set_saved_start_term(
+    &mut self,
+    start_term: Option<&BytesRef<Vec<u8>>>,
+  ) -> Result<bool> {
+    self.saved_start_term = start_term.map(BytesRef::deep_copy_of).transpose()?;
+    Ok(true)
   }
   pub(crate) fn get_frame(&mut self, ord: usize) -> Result<()> {
     if ord >= self.stack.len() {

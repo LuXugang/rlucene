@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 use crate::core::index::bytes_ref::BytesRef;
-use crate::core::util::SliceCopyOps;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{CoreHelper, SliceCopyOps};
 
 /// A builder for [`BytesRef`] instances.
 pub struct BytesRefBuilder<AV> {
@@ -99,10 +99,12 @@ where
   pub fn append_with_range(&mut self, b: &[u8], off: usize, len: usize) -> Result<()> {
     self.grow(self.bytes_ref.length + len)?;
     let pos = self.bytes_ref.length;
+    CoreHelper::check_from_index_size(off, len, b.len())?;
+    let source = &b[off..off + len];
     self
       .bytes_mut()
       .bytes
-      .access_mut(|bytes| bytes.copy_from(&b[off..off + len], pos));
+      .access_mut(|bytes| bytes.copy_from(source, pos));
     self.bytes_ref.length += len;
     Ok(())
   }
@@ -119,8 +121,6 @@ where
   }
   pub fn clear(&mut self) {
     self.set_length(0);
-    self.bytes_ref.bytes.access_mut(|bytes| bytes.clear());
-    self.bytes_ref.offset = 0;
   }
 
   /// Replaces the content of this builder with the provided bytes.
@@ -141,10 +141,12 @@ where
     debug_assert_eq!(self.bytes_ref.offset, 0);
     self.bytes_ref.length = len;
     self.grow_no_copy(len)?;
+    CoreHelper::check_from_index_size(off, len, b.len())?;
+    let source = &b[off..off + len];
     self
       .bytes_mut()
       .bytes
-      .access_mut(|bytes| bytes.copy_from(&b[off..off + len], 0));
+      .access_mut(|bytes| bytes.copy_from(source, 0));
     Ok(())
   }
   pub fn copy_bytes_from_ref(&mut self, b: &BytesRef<AV>) -> Result<()> {
@@ -158,22 +160,27 @@ where
     self.copy_chars_range(s, 0, s.len())
   }
   pub fn copy_chars_range(&mut self, s: &str, off: usize, len: usize) -> Result<()> {
-    let sub_bytes = s.as_bytes()[off..(off + len)].to_vec();
+    CoreHelper::check_from_index_size(off, len, s.len())?;
+    let sub_bytes = s.as_bytes()[off..off + len].to_vec();
     self.copy_chars_from_vec(&sub_bytes, 0, sub_bytes.len())
   }
   pub fn copy_chars_from_vec(&mut self, s: &[u8], off: usize, len: usize) -> Result<()> {
     self.grow(len)?;
+    CoreHelper::check_from_index_size(off, len, s.len())?;
+    let source = &s[off..off + len];
     self
       .bytes_ref
       .bytes
-      .access_mut(|bytes| bytes.copy_from(&s[off..(off + len)], off));
+      .access_mut(|bytes| bytes.copy_from(source, 0));
     self.bytes_ref.length = len;
     self.bytes_ref.offset = 0;
     Ok(())
   }
-  pub fn copy_chars_from_chars(&mut self, s: &[char], off: usize, len: usize) {
+  pub fn copy_chars_from_chars(&mut self, s: &[char], off: usize, len: usize) -> Result<()> {
     let mut bytes = Vec::with_capacity(len);
-    for &c in &s[off..off + len] {
+    CoreHelper::check_from_index_size(off, len, s.len())?;
+    let source = &s[off..off + len];
+    for &c in source {
       let mut buf = [0u8; 4];
       let encoded_str = c.encode_utf8(&mut buf);
       bytes.extend_from_slice(encoded_str.as_bytes());
@@ -182,6 +189,7 @@ where
     self.bytes_ref.length = bytes.len();
     self.bytes_ref.bytes = AV::from_vec(bytes);
     self.bytes_ref.offset = 0;
+    Ok(())
   }
 
   /// Return a BytesRef that points to the internal content of this builder.
@@ -207,7 +215,11 @@ where
     std::mem::take(&mut self.bytes_ref)
   }
   /// Build a new BytesRef that has the same content as this buffer.
-  pub fn get_bytes_ref_copy(&self) -> BytesRef<AV> {
-    BytesRef::from_bytes(self.bytes_ref.bytes.slice_clone(0, self.bytes_ref.length))
+  pub fn get_bytes_ref_copy(&self) -> Result<BytesRef<AV>> {
+    self.bytes_ref.bytes.access(|bytes| {
+      CoreHelper::check_from_index_size(0, self.bytes_ref.length, bytes.len())?;
+      let slice = &bytes[..self.bytes_ref.length];
+      Ok(BytesRef::from_bytes(AV::from_vec(slice.to_vec())))
+    })
   }
 }

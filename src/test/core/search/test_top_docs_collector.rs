@@ -879,7 +879,7 @@ fn test_realistic_concurrent_minimum_score() -> Result<()> {
   let mut terms_enum = terms.iterator()?;
   while let Some(term) = terms_enum.next()? {
     if random.random::<f64>() <= chance {
-      let term_bytes = BytesRef::deep_copy_of(&*term);
+      let term_bytes = BytesRef::deep_copy_of(&*term)?;
       let query: Query = TermQuery::new(Term::new("body", term_bytes)).into();
 
       let tdc = do_concurrent_search_with_threshold(

@@ -16,7 +16,7 @@
  */
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{GOOD_FAST_HASH_SEED, HashCode, StringHelper};
+use crate::core::util::{CoreHelper, GOOD_FAST_HASH_SEED, HashCode, StringHelper};
 use crate::with_other;
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display};
@@ -74,17 +74,19 @@ where
 
   pub fn with_capacity(capacity: usize) -> Result<Self> {
     Ok(BytesRef {
-      bytes: AV::with_capacity(capacity)?,
+      bytes: AV::from_vec(vec![0; capacity]),
       offset: 0,
       length: 0,
     })
   }
   pub fn from_slice(bytes: AV, offset: usize, length: usize) -> Self {
-    BytesRef {
+    let bytes_ref = BytesRef {
       bytes,
       offset,
       length,
-    }
+    };
+    debug_assert!(bytes_ref.is_valid().is_ok());
+    bytes_ref
   }
   /// This instance will directly share/ownership bytes w/o making a copy
   pub fn from_bytes(bytes: AV) -> Self {
@@ -121,17 +123,19 @@ where
   /// Interprets the stored bytes as UTF-8, returning the resulting string.
   pub fn utf8_to_string(&self) -> Result<String> {
     self.bytes.access(|bytes| {
-      std::str::from_utf8(&bytes[self.offset..(self.offset + self.length)])
+      CoreHelper::check_from_index_size(self.offset, self.length, bytes.len())?;
+      let slice = &bytes[self.offset..self.offset + self.length];
+      std::str::from_utf8(slice)
         .map(|s| s.to_owned())
         .map_err(LuceneError::from)
     })
   }
-  pub fn deep_copy_of(other: &BytesRef<AV>) -> Self {
-    BytesRef::from_slice(
-      other.bytes.slice_clone(other.offset, other.length),
-      0,
-      other.length,
-    )
+  pub fn deep_copy_of(other: &BytesRef<AV>) -> Result<Self> {
+    other.bytes.access(|bytes| {
+      CoreHelper::check_from_index_size(other.offset, other.length, bytes.len())?;
+      let slice = &bytes[other.offset..other.offset + other.length];
+      Ok(BytesRef::from_bytes(AV::from_vec(slice.to_vec())))
+    })
   }
   /// Performs internal consistency checks. Always returns `true` (or returns
   /// [`IllegalStateError`](crate::core::util::error::IllegalStateError)).
@@ -193,14 +197,10 @@ where
 
 impl<AV> Clone for BytesRef<AV>
 where
-  AV: Clone,
+  AV: SharedAccessVec<u8>,
 {
   fn clone(&self) -> Self {
-    BytesRef {
-      bytes: self.bytes.clone(),
-      offset: self.offset,
-      length: self.length,
-    }
+    BytesRef::from_slice(self.bytes.clone(), self.offset, self.length)
   }
 }
 impl<AV> Hash for BytesRef<AV>

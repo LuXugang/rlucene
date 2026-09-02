@@ -34,10 +34,10 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::DataInput;
+use crate::core::util::attribute_source::EmptyAttributeSource;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::int_block_pool::IntBlockPool;
 use crate::core::util::iterator::{VecIter, VecIteratorExt};
@@ -216,6 +216,7 @@ impl Terms for FreqProxTerms {
 }
 
 pub(crate) struct FreqProxTermsEnum {
+  attributes: EmptyAttributeSource,
   terms: Rc<FreqProxTermsWriterPerField>,
   int_pool: Rc<IntBlockPool>,
   byte_pool: Rc<ByteBlockPool>,
@@ -240,6 +241,7 @@ impl FreqProxTermsEnum {
       int_pool,
       byte_pool,
       terms_pool,
+      attributes: EmptyAttributeSource,
       scratch: BytesRef::new(),
       num_terms,
       ord: 0,
@@ -278,20 +280,20 @@ impl BytesRefIterator for FreqProxTermsEnum {
 
 impl TermsEnum for FreqProxTermsEnum {
   type AttributeSource<'a>
-    = &'a DummyAttributeSource
+    = &'a EmptyAttributeSource
   where
     Self: 'a;
   type AttributeSourceMut<'a>
-    = &'a mut DummyAttributeSource
+    = &'a mut EmptyAttributeSource
   where
     Self: 'a;
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(&self.attributes)
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(&mut self.attributes)
   }
 
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
@@ -299,11 +301,11 @@ impl TermsEnum for FreqProxTermsEnum {
   }
 
   fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(""))
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.seek_exact(target)
   }
 
   fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
@@ -386,8 +388,8 @@ impl TermsEnum for FreqProxTermsEnum {
     _state: &TermStateEnum,
   ) -> Result<()> {
     if !self.seek_exact(term)? {
-      return Err(LuceneError::illegal_state(format!(
-        "term {} does not exist",
+      return Err(LuceneError::illegal_argument(format!(
+        "term={} does not exist",
         term
       )));
     }
@@ -435,12 +437,12 @@ impl TermsEnum for FreqProxTermsEnum {
       if !has_prox {
         // Caller wants positions but we didn't index them;
         // don't lie:
-        return Err(LuceneError::illegal_state("did not index positions"));
+        return Err(LuceneError::illegal_argument("did not index positions"));
       }
       if !has_offsets && feature_requested(flags, OFFSETS) {
         // Caller wants offsets but we didn't index them;
         // don't lie:
-        return Err(LuceneError::illegal_state("did not index offsets"));
+        return Err(LuceneError::illegal_argument("did not index offsets"));
       }
 
       let mut pos_enum = match reuse {
@@ -456,9 +458,9 @@ impl TermsEnum for FreqProxTermsEnum {
     }
 
     if !has_freq && feature_requested(flags, FREQS) {
-      // Caller wants offsets but we didn't index them;
+      // Caller wants freqs but we didn't index them;
       // don't lie:
-      return Err(LuceneError::illegal_state("did not index freq"));
+      return Err(LuceneError::illegal_argument("did not index freq"));
     };
     let mut docs_enum = match reuse {
       Some(PostingsEnumEnum2::B(p)) if Rc::ptr_eq(&p.terms, &self.terms) => p,
@@ -570,6 +572,10 @@ impl DocIdSetIterator for FreqProxDocsEnum {
           self.freq = self.reader.read_vint()?;
         }
       }
+      debug_assert!(matches!(
+        self.terms.base.postings_array(),
+        Some(PostingsArrayEnum::FreqProx(p)) if self.doc_id != p.last_doc_ids[self.term_id as usize]
+      ));
     }
 
     Ok(self.doc_id)
@@ -635,6 +641,8 @@ impl FreqProxPostingsEnum {
     byte_pool: Rc<ByteBlockPool>,
   ) -> Self {
     let has_offsets = terms.has_offsets;
+    debug_assert!(terms.has_prox);
+    debug_assert!(terms.has_freq);
     Self {
       terms,
       int_pool,
@@ -716,6 +724,10 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
       } else {
         self.freq = self.reader.read_vint()?;
       }
+      debug_assert!(matches!(
+        self.terms.base.postings_array(),
+        Some(PostingsArrayEnum::FreqProx(p)) if self.doc_id != p.last_doc_ids[self.term_id as usize]
+      ));
     }
 
     self.pos_left = self.freq;
@@ -770,18 +782,14 @@ impl PostingsEnum for FreqProxPostingsEnum {
 
   fn start_offset(&self) -> Result<i32> {
     if !self.read_offsets {
-      return Err(LuceneError::unsupported_operation(
-        "Offsets not indexed".to_string(),
-      ));
+      return Err(LuceneError::illegal_state("offsets were not indexed"));
     }
     Ok(self.start_offset)
   }
 
   fn end_offset(&self) -> Result<i32> {
     if !self.read_offsets {
-      return Err(LuceneError::unsupported_operation(
-        "Offsets not indexed".to_string(),
-      ));
+      return Err(LuceneError::illegal_state("offsets were not indexed"));
     }
     Ok(self.end_offset)
   }

@@ -196,7 +196,7 @@ impl AttributeSource for RandomTokenStreamAttr {
   }
 
   fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Ok(TermToBytesRefAttribute::get_bytes_ref(&mut self.packed))
+    TermToBytesRefAttribute::get_bytes_ref(&mut self.packed)
   }
 
   fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()> {

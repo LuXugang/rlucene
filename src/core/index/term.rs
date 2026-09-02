@@ -49,11 +49,11 @@ impl Term {
   }
 
   /// Constructs a Term with the given field and the bytes from a builder.
-  pub fn from_bytes_ref_builder<T>(fld: T, bytes_builder: BytesRefBuilder<Vec<u8>>) -> Self
+  pub fn from_bytes_ref_builder<T>(fld: T, bytes_builder: BytesRefBuilder<Vec<u8>>) -> Result<Self>
   where
     T: Into<String>,
   {
-    Self::new(fld, bytes_builder.get_bytes_ref_copy())
+    Ok(Self::new(fld, bytes_builder.get_bytes_ref_copy()?))
   }
 
   /// Constructs a Term with the given field and text.

@@ -923,7 +923,7 @@ impl RandomQuery {
         self
           .match_values
           .lock()
-          .push(value.as_ref().map(BytesRef::deep_copy_of));
+          .push(value.as_ref().map(BytesRef::deep_copy_of).transpose()?);
       }
     }
 

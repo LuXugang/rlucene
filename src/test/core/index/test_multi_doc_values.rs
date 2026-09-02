@@ -242,7 +242,7 @@ fn test_sorted() -> Result<()> {
 
     let single_ord_value = single.ord_value()?;
     let single_ord = single.lookup_ord(single_ord_value)?;
-    let expected = BytesRef::deep_copy_of(single_ord.as_ref());
+    let expected = BytesRef::deep_copy_of(single_ord.as_ref())?;
 
     let multi_ord_value = multi.ord_value()?;
     let multi_ord = multi.lookup_ord(multi_ord_value)?;
@@ -325,7 +325,7 @@ fn test_sorted_with_lots_of_dups() -> Result<()> {
     // check ord value
     let single_ord_value = single.ord_value()?;
     let single_ord = single.lookup_ord(single_ord_value)?;
-    let expected = BytesRef::deep_copy_of(single_ord.as_ref());
+    let expected = BytesRef::deep_copy_of(single_ord.as_ref())?;
 
     let multi_ord_value = multi.ord_value()?;
     let multi_ord = multi.lookup_ord(multi_ord_value)?;
@@ -400,7 +400,7 @@ fn test_sorted_set() -> Result<()> {
 
       let value_count = single.get_value_count()?;
       for i in 0..value_count {
-        let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref());
+        let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref())?;
         let actual = multi.lookup_ord(i)?;
         assert_eq!(&expected, actual.as_ref());
       }
@@ -495,7 +495,7 @@ fn test_sorted_set_with_dups() -> Result<()> {
       // check values
       let value_count = single.get_value_count()?;
       for i in 0..value_count {
-        let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref());
+        let expected = BytesRef::deep_copy_of(single.lookup_ord(i)?.as_ref())?;
         let actual = multi.lookup_ord(i)?;
         assert_eq!(&expected, actual.as_ref());
       }

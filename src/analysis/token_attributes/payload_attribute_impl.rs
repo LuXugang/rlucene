@@ -76,7 +76,7 @@ impl AttributeImpl for PayloadAttributeImpl {
 
   fn copy_to(&self, other: &mut Self::AttributeImpl) -> Result<()> {
     match self.payload {
-      Some(ref payload) => other.payload = Some(BytesRef::deep_copy_of(payload)),
+      Some(ref payload) => other.payload = Some(BytesRef::deep_copy_of(payload)?),
       None => {
         other.payload = None;
       },

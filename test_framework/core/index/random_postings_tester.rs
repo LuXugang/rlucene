@@ -252,7 +252,7 @@ impl RandomPostingsTester {
     for field in field_names {
       if let Some(field_terms) = fields.get(&field) {
         for (ord, term) in field_terms.keys().enumerate() {
-          all_terms.push(FieldAndTerm::new(field.clone(), term, ord as i64));
+          all_terms.push(FieldAndTerm::new(field.clone(), term, ord as i64)?);
         }
       }
     }
@@ -743,7 +743,7 @@ impl RandomPostingsTester {
                     );
                   }
 
-                  let payload_copy = BytesRef::deep_copy_of(payload.as_ref());
+                  let payload_copy = BytesRef::deep_copy_of(payload.as_ref())?;
                   assert_eq!(
                     payload_copy,
                     BytesRef::deep_copy_of(
@@ -752,7 +752,7 @@ impl RandomPostingsTester {
                         .as_ref()
                         .ok_or_else(|| LuceneError::illegal_state("missing payload"))?
                         .as_ref()
-                    ),
+                    )?,
                     "2nd call to getPayload returns something different!"
                   );
                 },
@@ -1340,12 +1340,12 @@ pub struct FieldAndTerm {
 }
 
 impl FieldAndTerm {
-  pub fn new(field: String, term: &BytesRef<Vec<u8>>, ord: i64) -> Self {
-    Self {
+  pub fn new(field: String, term: &BytesRef<Vec<u8>>, ord: i64) -> Result<Self> {
+    Ok(Self {
       field,
-      term: BytesRef::deep_copy_of(term),
+      term: BytesRef::deep_copy_of(term)?,
       ord,
-    }
+    })
   }
 
   pub fn field(&self) -> &str {
@@ -1902,7 +1902,7 @@ impl RandomPostingsTester {
           if let Some(ref start_term) = start_term {
             assert!(start_term < &term);
           }
-          intersected_terms.insert(BytesRef::deep_copy_of(&term));
+          intersected_terms.insert(BytesRef::deep_copy_of(&term)?);
           self.verify_enum(
             random,
             &mut thread_state,

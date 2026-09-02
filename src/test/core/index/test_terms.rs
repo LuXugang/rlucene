@@ -83,13 +83,13 @@ fn test_term_min_max_random() -> Result<()> {
         .as_ref()
         .is_none_or(|min_term| token_bytes < *min_term)
       {
-        min_term = Some(BytesRef::deep_copy_of(&token_bytes));
+        min_term = Some(BytesRef::deep_copy_of(&token_bytes)?);
       }
       if max_term
         .as_ref()
         .is_none_or(|max_term| token_bytes > *max_term)
       {
-        max_term = Some(BytesRef::deep_copy_of(&token_bytes));
+        max_term = Some(BytesRef::deep_copy_of(&token_bytes)?);
       }
 
       tokens.push(BinaryToken::new(token_bytes));

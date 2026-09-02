@@ -132,7 +132,7 @@ impl PointInSetQuery {
       }
 
       builder.add(field.clone(), current)?;
-      previous = Some(BytesRef::deep_copy_of(current));
+      previous = Some(BytesRef::deep_copy_of(current)?);
     }
 
     let sorted_packed_points: PrefixCodedTermsArc = builder.finish().into();

@@ -126,7 +126,7 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
       offsets_iter.clone(),
       lengths_iter.clone(),
       // TODO: avoid copy here if iterator is called busy
-      self.values.get_bytes_ref_copy(),
+      self.values.get_bytes_ref_copy()?,
     );
     Ok(DocValuesFieldIteratorEnum::AbstractBinary(
       AbstractIterator::new(inner, del_gen, base),

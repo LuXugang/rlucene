@@ -389,7 +389,7 @@ impl AttributeSource for CharTermAttributeImpl<PackedTokenAttributeImpl> {
   }
 
   fn get_bytes_ref(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    Ok(TermToBytesRefAttribute::get_bytes_ref(self))
+    TermToBytesRefAttribute::get_bytes_ref(self)
   }
 
   fn set_term_frequency(&mut self, term_frequency: i32) -> Result<()> {

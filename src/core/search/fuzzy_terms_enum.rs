@@ -268,7 +268,7 @@ where
 
       // We must delay bottomChanged until the next next() call otherwise we mess up docFreq(),
       // etc., for the current term:
-      self.queued_bottom = Some(BytesRef::deep_copy_of(&term));
+      self.queued_bottom = Some(BytesRef::deep_copy_of(&term)?);
     }
 
     Ok(Some(Cow::Owned(term)))

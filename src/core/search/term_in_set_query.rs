@@ -117,7 +117,7 @@ impl TermInSetQuery {
         continue;
       }
       builder.add(field.to_string(), &term)?;
-      previous = Some(BytesRef::deep_copy_of(&term));
+      previous = Some(BytesRef::deep_copy_of(&term)?);
     }
     Ok(builder.finish().into())
   }

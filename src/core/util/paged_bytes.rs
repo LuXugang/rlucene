@@ -113,15 +113,36 @@ impl PagedBytes {
   /// Do **not** use this method if `freeze(true)` will be called afterward.
   ///
   /// This only supports `bytes.len() <= block_size`.
-  #[allow(dead_code)]
-  pub fn copy_with_bytes_ref(
-    &mut self,
-    _bytes: &BytesRef<Vec<u8>>,
-    _out: &mut BytesRef<Vec<u8>>,
+  /// The output borrows the current page; finish using it before appending again.
+  pub fn copy_with_bytes_ref<'a>(
+    &'a mut self,
+    bytes: &BytesRef<Vec<u8>>,
+    out: &mut BytesRef<&'a mut [u8]>,
   ) -> Result<()> {
-    Err(LuceneError::not_implemented(
-      "PagedBytes::copy_with_bytes_ref is not implemented",
-    ))
+    let left = self.block_size - self.upto;
+    if bytes.length > left || self.current_block.is_none() {
+      if let Some(block) = self.current_block.take() {
+        self.add_block(block)?;
+        self.did_skip_bytes = true;
+      }
+      self.current_block = Some(vec![0u8; self.block_size]);
+      self.upto = 0;
+      debug_assert!(bytes.length <= self.block_size);
+    }
+
+    let current_block = self
+      .current_block
+      .as_mut()
+      .ok_or_else(|| LuceneError::illegal_state("current_block not initialized"))?;
+    out.offset = self.upto;
+    out.length = bytes.length;
+    current_block.copy_from(
+      &bytes.bytes[bytes.offset..bytes.offset + bytes.length],
+      self.upto,
+    );
+    self.upto += bytes.length;
+    out.bytes = current_block;
+    Ok(())
   }
   /// Commits the final byte buffer, trimming it when requested.
   pub fn freeze(&mut self, trim: bool) -> Result<Reader> {
@@ -305,6 +326,23 @@ impl Reader {
     let offset = o & self.block_mask;
     self.blocks[index][offset]
   }
+  /// Reads a one- or two-byte length prefix at `start` and fills `b`.
+  /// The slice must be contained within a single block.
+  pub fn fill(&self, b: &mut BytesRef<Arc<Vec<u8>>>, start: usize) -> Result<()> {
+    let index = start >> self.block_bits;
+    let offset = start & self.block_mask;
+    let block = &self.blocks[index];
+    b.bytes = Arc::clone(block);
+    if block[offset] & 128 == 0 {
+      b.length = block[offset] as usize;
+      b.offset = offset + 1;
+    } else {
+      b.length = (u16::from_be_bytes([block[offset], block[offset + 1]]) & 0x7fff) as usize;
+      b.offset = offset + 2;
+      debug_assert!(b.length > 0);
+    }
+    Ok(())
+  }
 }
 impl Accountable for Reader {
   fn ram_bytes_used(&self) -> Result<i64> {
@@ -318,6 +356,11 @@ impl Accountable for Reader {
     Ok(bytes)
   }
 }
+impl Display for Reader {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    write!(f, "PagedBytes(blocksize={})", self.block_size)
+  }
+}
 impl Display for PagedBytes {
   fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
     write!(
@@ -329,6 +372,7 @@ impl Display for PagedBytes {
   }
 }
 /// Input that transparently iterates over pages
+#[derive(Clone)]
 pub struct PagedBytesDataInput {
   current_block_index: usize,
   current_block_upto: usize,

@@ -1811,7 +1811,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
   {
     let mut terms = Vec::new();
     while let Some(term) = terms_enum.next()? {
-      terms.push(BytesRef::deep_copy_of(term.as_ref()));
+      terms.push(BytesRef::deep_copy_of(term.as_ref())?);
     }
 
     for (i, expected) in terms.iter().enumerate() {
