@@ -26,7 +26,7 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 /// # Note
 /// This is an internal API.
 pub struct BitSetIterator<T> {
-  pub bits: T,
+  pub(crate) bits: T,
   length: i32,
   cost: i64,
   doc: i32,

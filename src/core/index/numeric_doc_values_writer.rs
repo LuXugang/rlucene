@@ -131,7 +131,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
     let producer = get_doc_values_producer(
       self.field_info.clone(),
       final_values,
-      std::mem::take(&mut self.docs_with_field),
+      &self.docs_with_field,
       sort_map,
     )?;
     dv_consumer.add_numeric_field(write_state, segment_info, &self.field_info, &producer)?;
@@ -158,19 +158,23 @@ impl DocValuesWriter for NumericDocValuesWriter {
   }
 }
 
-pub(crate) struct DocValuesProducerImpl {
+pub(crate) struct DocValuesProducerImpl<'a> {
   sorted: Option<NumericDVs<FixedBitSet>>,
-  docs_with_field: DocsWithFieldSet,
+  docs_with_field: &'a DocsWithFieldSet,
   values: PackedLongValues,
   writer_field_info: Arc<FieldInfo>,
 }
 
-impl CloseableRef for DocValuesProducerImpl {}
+impl CloseableRef for DocValuesProducerImpl<'_> {
+  fn close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
 
-impl DocValuesProducerImpl {
+impl<'a> DocValuesProducerImpl<'a> {
   pub(crate) fn new(
     sorted: Option<NumericDVs<FixedBitSet>>,
-    docs_with_field: DocsWithFieldSet,
+    docs_with_field: &'a DocsWithFieldSet,
     values: PackedLongValues,
     writer_field_info: Arc<FieldInfo>,
   ) -> Self {
@@ -182,7 +186,7 @@ impl DocValuesProducerImpl {
     }
   }
 }
-impl DocValuesProducer for DocValuesProducerImpl {
+impl DocValuesProducer for DocValuesProducerImpl<'_> {
   type NumericDocValues = BufferedSortingNumericDocValues;
 
   fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
@@ -482,12 +486,12 @@ where
   Ok(NumericDVs::new(values, docs_with_field))
 }
 
-pub(crate) fn get_doc_values_producer<DM>(
+pub(crate) fn get_doc_values_producer<'a, DM>(
   writer_field_info: Arc<FieldInfo>,
   values: &PackedLongValues,
-  docs_with_field: DocsWithFieldSet,
+  docs_with_field: &'a DocsWithFieldSet,
   sort_map: Option<&DM>,
-) -> Result<DocValuesProducerImpl>
+) -> Result<DocValuesProducerImpl<'a>>
 where
   DM: DocMap,
 {

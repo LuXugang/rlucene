@@ -466,7 +466,9 @@ fn test_add_binary_twice() -> Result<()> {
   let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
 
+  ir.close()?;
   iwriter.close()?;
+  directory.close()?;
 
   Ok(())
 }
@@ -496,7 +498,9 @@ fn test_add_numeric_twice() -> Result<()> {
   let ir = directory_reader::open_from_writer(&iwriter)?;
   assert_eq!(1, ir.num_docs()?);
 
+  ir.close()?;
   iwriter.close()?;
+  directory.close()?;
 
   Ok(())
 }

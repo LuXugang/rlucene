@@ -47,11 +47,7 @@ where
   }
 
   fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
-    let delegate = MergeSorterImpl::new(k, self.max_length, &mut self.delegate);
-    MergeSorter {
-      delegate,
-      pivot_index: 0,
-    }
+    StableMSBRadixSorterBase::get_fallback_sorter(&mut self.delegate, k, self.max_length)
   }
 
   fn reorder(
@@ -87,6 +83,17 @@ pub trait StableMSBRadixSorterBase: MSBRadixSorterBase {
   /// Restore values between i-th and j-th(excluding) in temporary storage
   /// into original storage.
   fn restore(&mut self, i: usize, j: usize);
+
+  fn get_fallback_sorter(&mut self, k: usize, length: usize) -> impl Sorter
+  where
+    Self: Sized,
+  {
+    let delegate = MergeSorterImpl::new(k, length, self);
+    MergeSorter {
+      delegate,
+      pivot_index: 0,
+    }
+  }
 }
 
 pub struct MergeSorter<T> {

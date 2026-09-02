@@ -32,10 +32,10 @@ use crate::test_framework::core::util::test_util::TestUtil;
 struct TestStringSorter;
 
 fn test(refs: Vec<BytesRef<Vec<u8>>>, len: usize) -> Result<()> {
-  test_impl(refs.clone(), len, Natural::default())?;
-  test_impl(refs.clone(), len, NaturalOrder)?;
-  test_stable(refs.clone(), len, Natural::default())?;
-  test_stable(refs.clone(), len, NaturalOrder)?;
+  test_impl(refs[..len].to_vec(), len, Natural::default())?;
+  test_impl(refs[..len].to_vec(), len, NaturalOrder)?;
+  test_stable(refs[..len].to_vec(), len, Natural::default())?;
+  test_stable(refs[..len].to_vec(), len, NaturalOrder)?;
   Ok(())
 }
 

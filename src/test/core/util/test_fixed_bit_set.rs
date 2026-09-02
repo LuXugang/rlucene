@@ -280,7 +280,7 @@ where
     let bb = if random.random_bool(0.5) {
       iterator.next_doc()?
     } else {
-      iterator.advance(index as i32)?
+      iterator.advance(iterator.doc_id() + 1)?
     };
     assert_eq!(index, bb as usize);
   }

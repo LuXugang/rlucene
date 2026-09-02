@@ -94,10 +94,6 @@ where
       .get(&mut self.scratch1, &mut self.scratch_bytes1, i)?;
     self.cmp.byte_at(&self.scratch_bytes1, k)
   }
-
-  fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
-    fall_back_sorter_stable(self.cmp, self.delegate, Some(k))
-  }
 }
 
 impl<T, C> StableMSBRadixSorterBase for StableMSBRadixSorterImpl<'_, T, C>
@@ -111,6 +107,10 @@ where
 
   fn restore(&mut self, i: usize, j: usize) {
     self.delegate.restore(i, j)
+  }
+
+  fn get_fallback_sorter(&mut self, k: usize, _length: usize) -> impl Sorter {
+    fall_back_sorter_stable(self.cmp, self.delegate, Some(k))
   }
 }
 

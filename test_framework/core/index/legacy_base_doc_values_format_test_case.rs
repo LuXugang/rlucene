@@ -367,6 +367,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         dv.binary_value()?.as_ref()
       );
     }
+    isearcher.get_index_reader().close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -2343,6 +2345,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
+    reader.close()?;
     writer.force_merge(random, 1)?;
 
     let reader = writer.get_reader(random)?;
@@ -2368,7 +2371,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
+    reader.close()?;
     writer.close(random)?;
+    dir.close()?;
     Ok(())
   }
 
@@ -4375,7 +4380,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     R: Rng + ?Sized,
   {
     for i in 0..20 {
-      if i > 14 && self.codec_accepts_huge_binary_values("field") {
+      if i > 14 && !self.codec_accepts_huge_binary_values("field") {
         break;
       }
       let directory = new_directory_shared(random)?;
@@ -4402,6 +4407,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let result = values.binary_value()?;
         assert!(result.length == 0 || result.length == (1usize << i));
       }
+      reader.close()?;
+      directory.close()?;
     }
     Ok(())
   }

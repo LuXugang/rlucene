@@ -320,7 +320,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
       let single_value_producer = get_doc_values_producer(
         self.field_info.clone(),
         &values,
-        std::mem::take(&mut self.docs_with_field),
+        &self.docs_with_field,
         sort_map,
       )?;
       let producer = DocValuesProducerImpl1::new(single_value_producer)?;
@@ -387,21 +387,21 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
     Ok(())
   }
 }
-pub(crate) struct DocValuesProducerImpl1 {
-  single_value_producer: DocValuesProducerImpl,
+pub(crate) struct DocValuesProducerImpl1<'a> {
+  single_value_producer: DocValuesProducerImpl<'a>,
 }
 
-impl CloseableRef for DocValuesProducerImpl1 {}
+impl CloseableRef for DocValuesProducerImpl1<'_> {}
 
-impl DocValuesProducerImpl1 {
-  pub(crate) fn new(single_value_producer: DocValuesProducerImpl) -> Result<Self> {
+impl<'a> DocValuesProducerImpl1<'a> {
+  pub(crate) fn new(single_value_producer: DocValuesProducerImpl<'a>) -> Result<Self> {
     Ok(Self {
       single_value_producer,
     })
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl1 {
+impl DocValuesProducer for DocValuesProducerImpl1<'_> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;

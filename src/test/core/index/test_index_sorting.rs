@@ -787,7 +787,9 @@ fn test_basic_long() -> Result<()> {
   assert_eq!(2, values.next_doc()?);
   assert_eq!(18_i64, values.long_value()?);
 
+  reader.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -847,8 +849,8 @@ fn test_basic_multi_valued_long() -> Result<()> {
 
 #[test]
 fn test_missing_long_first() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -894,7 +896,9 @@ fn test_missing_long_first() -> Result<()> {
       assert_eq!(18_i64, values.long_value()?);
     }
 
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -968,8 +972,8 @@ fn test_missing_multi_valued_long_first() -> Result<()> {
 }
 #[test]
 fn test_missing_long_last() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -1016,7 +1020,9 @@ fn test_missing_long_last() -> Result<()> {
     }
 
     assert_eq!(NO_MORE_DOCS, values.next_doc()?);
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -1132,7 +1138,9 @@ fn test_basic_int() -> Result<()> {
   assert_eq!(2, values.next_doc()?);
   assert_eq!(18_i64, values.long_value()?);
 
+  reader.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -1194,8 +1202,8 @@ fn test_basic_multi_valued_int() -> Result<()> {
 
 #[test]
 fn test_missing_int_first() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -1241,7 +1249,9 @@ fn test_missing_int_first() -> Result<()> {
       assert_eq!(18_i64, values.long_value()?);
     }
 
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -1316,8 +1326,8 @@ fn test_missing_multi_valued_int_first() -> Result<()> {
 
 #[test]
 fn test_missing_int_last() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -1364,7 +1374,9 @@ fn test_missing_int_last() -> Result<()> {
     }
 
     assert_eq!(NO_MORE_DOCS, values.next_doc()?);
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -1479,7 +1491,9 @@ fn test_basic_double() -> Result<()> {
   assert_eq!(2, values.next_doc()?);
   assert_eq!(18.0, f64::from_bits(values.long_value()? as u64));
 
+  reader.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -1557,8 +1571,8 @@ fn test_basic_multi_valued_double() -> Result<()> {
 
 #[test]
 fn test_missing_double_first() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -1604,7 +1618,9 @@ fn test_missing_double_first() -> Result<()> {
       assert_eq!(18.0, f64::from_bits(values.long_value()? as u64));
     }
 
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -1692,8 +1708,8 @@ fn test_missing_multi_valued_double_first() -> Result<()> {
 
 #[test]
 fn test_missing_double_last() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -1740,7 +1756,9 @@ fn test_missing_double_last() -> Result<()> {
     }
 
     assert_eq!(NO_MORE_DOCS, values.next_doc()?);
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -1867,7 +1885,9 @@ fn test_basic_float() -> Result<()> {
   assert_eq!(2, values.next_doc()?);
   assert_eq!(18.0f32, f32::from_bits(values.long_value()? as u32));
 
+  reader.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -1942,8 +1962,8 @@ fn test_basic_multi_valued_float() -> Result<()> {
 
 #[test]
 fn test_missing_float_first() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -1989,7 +2009,9 @@ fn test_missing_float_first() -> Result<()> {
       assert_eq!(18.0f32, f32::from_bits(values.long_value()? as u32));
     }
 
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -2077,8 +2099,8 @@ fn test_missing_multi_valued_float_first() -> Result<()> {
 
 #[test]
 fn test_missing_float_last() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -2125,7 +2147,9 @@ fn test_missing_float_last() -> Result<()> {
     }
 
     assert_eq!(NO_MORE_DOCS, values.next_doc()?);
+    reader.close()?;
     writer.close()?;
+    dir.close()?;
   }
 
   Ok(())

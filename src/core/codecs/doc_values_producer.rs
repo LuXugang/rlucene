@@ -40,6 +40,7 @@ use std::sync::Arc;
 
 /// A trait that produces numeric, binary, sorted, sorted set, and sorted
 /// numeric doc values.
+/// Value accessors and integrity checks are unsupported unless overridden.
 pub trait DocValuesProducer: CloseableRef {
   type NumericDocValues: NumericDocValues;
   /// Returns [`NumericDocValues`] for this field. The returned instance need
@@ -47,7 +48,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// behavior is undefined if the doc values type of the given field is
   /// not [`DocValuesType::Numeric`](crate::core::index::doc_values_type::DocValuesType::Numeric).
   fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    Err(LuceneError::need_implemented(""))
+    Err(LuceneError::unsupported_operation(""))
   }
   type BinaryDocValues: BinaryDocValues;
   /// Returns [`BinaryDocValues`] for this field. The returned instance need
@@ -57,7 +58,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// [`DocValuesType::Binary`](crate::core::index::doc_values_type::DocValuesType::Binary).
   /// A value is always returned on success.
   fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    Err(LuceneError::need_implemented(""))
+    Err(LuceneError::unsupported_operation(""))
   }
   type SortedDocValues: SortedDocValues;
   /// Returns [`SortedDocValues`] for this field. The returned instance need
@@ -67,7 +68,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// [`DocValuesType::Sorted`](crate::core::index::doc_values_type::DocValuesType::Sorted).
   /// A value is always returned on success.
   fn get_sorted(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-    Err(LuceneError::need_implemented(""))
+    Err(LuceneError::unsupported_operation(""))
   }
   type SortedNumericDocValues: SortedNumericDocValues;
   /// Returns [`SortedNumericDocValues`] for this field. The returned instance
@@ -76,7 +77,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// is not [`DocValuesType::SortedNumeric`](crate::core::index::doc_values_type::DocValuesType::SortedNumeric).
   /// A value is always returned on success.
   fn get_sorted_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedNumericDocValues> {
-    Err(LuceneError::need_implemented(""))
+    Err(LuceneError::unsupported_operation(""))
   }
 
   type SortedSetDocValues: SortedSetDocValues;
@@ -87,7 +88,7 @@ pub trait DocValuesProducer: CloseableRef {
   /// [`DocValuesType::SortedSet`](crate::core::index::doc_values_type::DocValuesType::SortedSet).
   /// A value is always returned on success.
   fn get_sorted_set(&self, _field: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-    Err(LuceneError::need_implemented(""))
+    Err(LuceneError::unsupported_operation(""))
   }
   type DocValuesSkipper: DocValuesSkipper;
   /// Returns a [`DocValuesSkipper`] for this field. The returned instance
@@ -96,14 +97,14 @@ pub trait DocValuesProducer: CloseableRef {
   /// [`FieldInfo::doc_values_skip_index_type()`](FieldInfo::doc_values_skip_index_type) returns
   /// [`DocValuesSkipIndexType::None`](crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType::None).
   fn get_skipper(&self, _field: &Arc<FieldInfo>) -> Result<Option<Self::DocValuesSkipper>> {
-    Err(LuceneError::need_implemented(""))
+    Err(LuceneError::unsupported_operation(""))
   }
   /// Checks consistency of this producer.
   ///
   /// Note that this may be costly in terms of I/O, e.g. it may involve
   /// computing a checksum value against large data files.
   fn check_integrity(&self) -> Result<()> {
-    Err(LuceneError::need_implemented(""))
+    Err(LuceneError::unsupported_operation(""))
   }
   /// Returns an instance optimized for merging. This instance may only be consumed in the thread
   /// that called [`get_merge_instance()`](DocValuesProducer::get_merge_instance).

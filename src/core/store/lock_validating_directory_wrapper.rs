@@ -16,7 +16,7 @@
  */
 use crate::core::index::index_reader::Identity;
 use crate::core::store::IOContext;
-use crate::core::store::directory::Directory;
+use crate::core::store::directory::{Directory, ErasedDirectory};
 use crate::core::store::lock::Lock;
 use crate::core::util::HasIdentity;
 use crate::core::util::close::CloseableRef;
@@ -141,8 +141,16 @@ where
     self.in_.get_pending_deletions()
   }
 
+  fn as_erased_directory(&self) -> Option<&dyn ErasedDirectory> {
+    self.in_.as_erased_directory()
+  }
+
   #[cfg(test)]
   fn is_fs_directory(&self) -> bool {
     self.in_.is_fs_directory()
+  }
+
+  fn ensure_open(&self) -> Result<()> {
+    self.in_.ensure_open()
   }
 }

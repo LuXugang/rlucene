@@ -174,7 +174,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
       },
       None => None,
     };
-    let Some(final_lengths) = self.final_lengths.take() else {
+    let Some(final_lengths) = self.final_lengths.as_ref() else {
       return Err(LuceneError::illegal_state(
         "final lengths are unavailable after they were built",
       ));
@@ -184,8 +184,8 @@ impl DocValuesWriter for BinaryDocValuesWriter {
       self.field_info.clone(),
       final_lengths,
       self.max_length,
-      std::mem::take(&mut self.bytes_out.paged_bytes),
-      std::mem::take(&mut self.docs_with_field),
+      &self.bytes_out.paged_bytes,
+      &self.docs_with_field,
       sorted,
     )?;
     dv_consumer.add_binary_field(write_state, segment_info, &self.field_info, &producer)
@@ -216,24 +216,28 @@ impl DocValuesWriter for BinaryDocValuesWriter {
   }
 }
 
-pub(crate) struct DocValuesProducerImpl {
+pub(crate) struct DocValuesProducerImpl<'a> {
   field_info: Arc<FieldInfo>,
-  final_lengths: PackedLongValues,
+  final_lengths: &'a PackedLongValues,
   max_length: i32,
-  paged_bytes: PagedBytes,
-  docs_with_field: DocsWithFieldSet,
+  paged_bytes: &'a PagedBytes,
+  docs_with_field: &'a DocsWithFieldSet,
   sorted: Option<BinaryDVs>,
 }
 
-impl CloseableRef for DocValuesProducerImpl {}
+impl CloseableRef for DocValuesProducerImpl<'_> {
+  fn close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
 
-impl DocValuesProducerImpl {
+impl<'a> DocValuesProducerImpl<'a> {
   pub(crate) fn new(
     field_info: Arc<FieldInfo>,
-    final_lengths: PackedLongValues,
+    final_lengths: &'a PackedLongValues,
     max_length: i32,
-    paged_bytes: PagedBytes,
-    docs_with_field: DocsWithFieldSet,
+    paged_bytes: &'a PagedBytes,
+    docs_with_field: &'a DocsWithFieldSet,
     sorted: Option<BinaryDVs>,
   ) -> Result<Self> {
     Ok(Self {
@@ -304,7 +308,7 @@ impl BinaryDocValues for BufferedSortingBinaryDocValues {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl {
+impl DocValuesProducer for DocValuesProducerImpl<'_> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = BufferedSortingBinaryDocValues;
 
@@ -318,9 +322,9 @@ impl DocValuesProducer for DocValuesProducerImpl {
       )),
       None => Ok(BufferedSortingBinaryDocValues::Buffered(
         BufferedBinaryDocValues::new(
-          &self.final_lengths,
+          self.final_lengths,
           self.max_length as usize,
-          get_data_input(&self.paged_bytes)?,
+          get_data_input(self.paged_bytes)?,
           self.docs_with_field.iterator()?,
         )?,
       )),
