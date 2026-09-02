@@ -78,7 +78,7 @@ pub trait BaseDocIdSetTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_bits = random.random_range(100..1 << 20) as usize;
+    let num_bits = random.random_range(100..=1 << 20) as usize;
     let random_float: f32 = random.random();
     for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
       let set = random_set(random, num_bits, percent_set);
@@ -105,7 +105,7 @@ pub trait BaseDocIdSetTestCase {
       iterations += 1;
 
       set = bit_set::BitSet::with_capacity(num_bits);
-      let mut d = random.random_range(0..=10);
+      let mut d = random.random_range(0..10);
       while d < num_bits {
         set.insert(d);
         d += inc;
@@ -157,35 +157,26 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
     assert_eq!(disi.doc_id(), NO_MORE_DOCS);
     // nextDoc / advance
     let mut disi = ds2.iterator()?;
-    let iter = ds1.iter();
-    let mut docs = vec![];
-    iter.for_each(|doc| docs.push(doc));
-    let mut index = 0;
-    let mut doc;
-    while index < docs.len() {
+    let mut docs = ds1.iter();
+    let mut doc = -1;
+    while doc != NO_MORE_DOCS {
       if random.random_bool(0.5) {
-        assert_eq!(docs[index], disi.next_doc()? as usize);
-        assert_eq!(docs[index], disi.doc_id() as usize);
-        index += 1;
+        doc = docs.next().map_or(NO_MORE_DOCS, |doc| doc as i32);
+        assert_eq!(doc, disi.next_doc()?);
+        assert_eq!(doc, disi.doc_id());
       } else {
         let skip_length = if random.random_bool(0.5) {
           64
         } else {
           std::cmp::max(num_bits / 8, 1)
         };
-        let target = docs[index] + 1 + random.random_range(0..=skip_length) as usize;
-        if let Some(i) = docs.iter().position(|&doc| doc == target) {
-          index = i + 1;
-          doc = target
-        } else {
-          break;
-        }
-        assert_eq!(doc as i32, disi.advance(target as i32)?);
-        assert_eq!(doc as i32, disi.doc_id());
+        let target = doc + 1 + random.random_range(0..skip_length) as i32;
+        doc = docs
+          .find(|&doc| doc >= target as usize)
+          .map_or(NO_MORE_DOCS, |doc| doc as i32);
+        assert_eq!(doc, disi.advance(target)?);
+        assert_eq!(doc, disi.doc_id());
       }
-    }
-    if docs.is_empty() {
-      assert_eq!(disi.next_doc()?, NO_MORE_DOCS);
     }
     // bits
     let bitss = ds2.bits();

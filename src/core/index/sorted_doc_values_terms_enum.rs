@@ -17,8 +17,8 @@
 use crate::core::index::dummy::dummy_impacts_enum::DummyImpactsEnum;
 use crate::core::index::dummy::dummy_postings_enum::DummyPostingsEnum;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
+use crate::core::util::attribute_source::EmptyAttributeSource;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
-use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 
 use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::index::ord_term_state::OrdTermState;
@@ -34,6 +34,7 @@ pub struct SortedDocValuesTermsEnum<S> {
   values: S,
   current_ord: i32,
   scratch: BytesRefBuilder<Vec<u8>>,
+  attributes: EmptyAttributeSource,
 }
 
 impl<S> SortedDocValuesTermsEnum<S> {
@@ -43,6 +44,7 @@ impl<S> SortedDocValuesTermsEnum<S> {
       values,
       current_ord: -1,
       scratch: BytesRefBuilder::new(),
+      attributes: EmptyAttributeSource,
     }
   }
 }
@@ -67,20 +69,20 @@ where
   S: SortedDocValues,
 {
   type AttributeSource<'a>
-    = &'a DummyAttributeSource
+    = &'a EmptyAttributeSource
   where
     Self: 'a;
   type AttributeSourceMut<'a>
-    = &'a mut DummyAttributeSource
+    = &'a mut EmptyAttributeSource
   where
     Self: 'a;
 
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
-    Err(LuceneError::not_implemented(""))
+    Ok(&self.attributes)
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(&mut self.attributes)
   }
 
   fn seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<bool> {
@@ -95,11 +97,11 @@ where
   }
 
   fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::not_implemented(""))
+    Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::not_implemented(""))
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.seek_exact(target)
   }
 
   fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
@@ -136,6 +138,10 @@ where
     _term: &BytesRef<Vec<u8>>,
     state: &TermStateEnum,
   ) -> Result<()> {
+    debug_assert!(matches!(
+      state,
+      TermStateEnum::Ord(_) | TermStateEnum::Block(_) | TermStateEnum::Int(_)
+    ));
     self.seek_exact_with_ord(state.ord()?)
   }
 

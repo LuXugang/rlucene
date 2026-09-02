@@ -25,6 +25,7 @@ use crate::core::store::{
   ByteArrayDataInput, DataInput, DataOutput, IO_CONTEXT_DEFAULT, IndexInput, IndexOutput,
 };
 use crate::core::util::accountable::Accountable;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::Format::{Packed, PackedSingleBlock};
@@ -296,15 +297,13 @@ fn test_controlled_equality() -> Result<()> {
   const VALUE_COUNT: i32 = 255;
   const BITS_PER_VALUE: i32 = 8;
 
-  let packed_ints = create_packed_ints(VALUE_COUNT, BITS_PER_VALUE)?;
+  let mut packed_ints = create_packed_ints(VALUE_COUNT, BITS_PER_VALUE)?;
 
-  for mut packed_int in packed_ints {
+  for packed_int in &mut packed_ints {
     for i in 0..packed_int.size() {
       packed_int.set(i, (i + 1) as i64)?;
     }
   }
-  let mut packed_ints = create_packed_ints(VALUE_COUNT, BITS_PER_VALUE)?;
-
   assert_list_equality(&mut packed_ints)?;
 
   Ok(())
@@ -496,7 +495,21 @@ fn test_secondary_block_change() -> Result<()> {
 #[test]
 #[ignore = "See LUCENE-4488"]
 fn test_int_overflow() -> Result<()> {
-  // TODO:
+  // Check index * bits_per_value > i32::MAX. Each array allocates about 256 MB.
+  const INDEX: i32 = (1 << 30) + 1;
+  const BITS: i32 = 2;
+
+  {
+    let mut p64 = Packed64::new(INDEX, BITS);
+    p64.set(INDEX - 1, 1)?;
+    assert_eq!(p64.get((INDEX - 1) as usize), 1);
+  }
+
+  {
+    let mut p64sb = create(INDEX, BITS)?;
+    p64sb.set(INDEX - 1, 1)?;
+    assert_eq!(p64sb.get((INDEX - 1) as usize), 1);
+  }
   Ok(())
 }
 #[test]
@@ -720,7 +733,7 @@ fn test_copy() -> Result<()> {
 #[test]
 fn test_growable_writer() -> Result<()> {
   let mut random = random();
-  let value_count = 113 + random.random_range(0..1112);
+  let value_count = 113 + random.random_range(0..1111);
 
   let mut wrt = GrowableWriter::new(1, value_count, PackedInts::DEFAULT)?;
 
@@ -746,10 +759,11 @@ fn test_growable_writer() -> Result<()> {
   assert_eq!(wrt.get((value_count - 10).try_convert()?), 99);
   assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
 
-  // TODO:
-  // Check memory usage
-  // let ram_used = wrt.ram_bytes_used();
-  // assert_eq!(ram_used, ram_usage(&wrt));
+  // At 64 bits per value, the only owned allocation is the value buffer.
+  assert_eq!(
+    wrt.ram_bytes_used()?,
+    i64::from(value_count) * size_of::<i64>() as i64
+  );
 
   Ok(())
 }
@@ -1483,6 +1497,7 @@ fn test_monotonic_block_packed_reader_writer() -> Result<()> {
       writer.finish(&mut out)?;
       assert_eq!(value_count, writer.ord());
       file_pointer = out.get_file_pointer()?;
+      out.close()?;
     }
     let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
     let reader = MonotonicBlockPackedReader::of(
@@ -1495,6 +1510,8 @@ fn test_monotonic_block_packed_reader_writer() -> Result<()> {
     for (i, &value) in values.iter().enumerate().take(value_count) {
       assert_eq!(value, reader.get(i)?);
     }
+    input.close()?;
+    dir.close()?;
   }
 
   Ok(())

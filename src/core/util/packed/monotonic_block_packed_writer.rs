@@ -64,7 +64,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
     let avg = if *off == 1 {
       0.0f32
     } else {
-      values[*off as usize - 1].wrapping_sub(values[0]) as f32 / (*off as f32 - 1.0)
+      values[*off as usize - 1].wrapping_sub(values[0]) as f32 / (*off - 1) as f32
     };
 
     let mut min = values[0];

@@ -50,7 +50,7 @@ fn test_empty_index() -> Result<()> {
   writer.add_document(doc)?;
 
   let dr = directory_reader::open_from_writer(&writer)?;
-  let r = get_only_leaf_reader(dr)?;
+  let r = get_only_leaf_reader(&dr)?;
 
   let mut v = DocValues::get_binary(r.as_ref(), "bogus")?;
   assert_eq!(v.next_doc()?, NO_MORE_DOCS);
@@ -63,7 +63,9 @@ fn test_empty_index() -> Result<()> {
   let mut v = DocValues::get_sorted_numeric(r.as_ref(), "bogus")?;
   assert_eq!(v.next_doc()?, NO_MORE_DOCS);
 
+  dr.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 /// field just doesnt have any docvalues at all:error
@@ -78,7 +80,7 @@ fn test_misconfigured_field() -> Result<()> {
   writer.add_document(doc)?;
 
   let dr = directory_reader::open_from_writer(&writer)?;
-  let r = get_only_leaf_reader(dr)?;
+  let r = get_only_leaf_reader(&dr)?;
 
   // errors
   assert!(matches!(
@@ -102,7 +104,9 @@ fn test_misconfigured_field() -> Result<()> {
     Err(error) if error.is_illegal_state_error()
   ));
 
+  dr.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 /// field with numeric docvalues

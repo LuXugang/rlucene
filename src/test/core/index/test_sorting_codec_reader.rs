@@ -71,17 +71,20 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand::seq::{IndexedRandom, SliceRandom};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 #[allow(dead_code)] // for quick search
 struct TestSortingCodecReader;
 #[test]
 fn test_sort_on_add_indices_ord() -> Result<()> {
   let mut random = random();
   let tmp_dir = new_directory_shared(&mut random)?;
+  let dir = new_directory_shared(&mut random)?;
   let mock = MockAnalyzer::new(&mut random);
   let iwc = IndexWriterConfig::with_analyzer(mock)?;
   let w = IndexWriter::new(tmp_dir.clone(), iwc)?;
@@ -112,38 +115,51 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
   let index_sort = Sort::with_fields(vec![SortedSetSortField::with_selector("foo", false, Min)?])?;
 
   let reader = directory_reader::open(tmp_dir.clone())?;
-  let reader = reader.get_context()?;
-  for ctx in reader.leaves()? {
-    let leaf_reader = ctx.reader().clone();
-    let slow = SlowCodecReaderWrapper::wrap_leaf_reader(leaf_reader);
-    let wrap = wrap(slow, index_sort.clone())?;
+  let body_result = catch_unwind(AssertUnwindSafe(|| {
+    let context = (&reader).get_context()?;
+    for ctx in context.leaves()? {
+      let leaf_reader = ctx.reader().clone();
+      let slow = SlowCodecReaderWrapper::wrap_leaf_reader(leaf_reader);
+      let wrap = wrap(slow, index_sort.clone())?;
 
-    let s = wrap.to_string();
-    assert!(s.starts_with("SortingCodecReader("), "{}", s);
-    match wrap {
-      SortingCodecReaderEnum::Sorting(sorting_codec_reader) => {
-        let fi = ctx
-          .reader()
-          .get_field_infos()?
-          .field_info_by_name("foo")?
-          .expect("field foo must exist");
+      let s = wrap.to_string();
+      assert!(s.starts_with("SortingCodecReader("), "{}", s);
+      match wrap {
+        SortingCodecReaderEnum::Sorting(sorting_codec_reader) => {
+          let fi = ctx
+            .reader()
+            .get_field_infos()?
+            .field_info_by_name("foo")?
+            .expect("field foo must exist");
 
-        let mut sorted_set_doc_values = sorting_codec_reader
-          .get_doc_values_reader()?
-          .expect("doc values reader must exist")
-          .get_sorted_set(&fi)?;
+          let mut sorted_set_doc_values = sorting_codec_reader
+            .get_doc_values_reader()?
+            .expect("doc values reader must exist")
+            .get_sorted_set(&fi)?;
 
-        sorted_set_doc_values.next_doc()?;
-        assert_eq!(sorted_set_doc_values.doc_value_count()?, 2);
+          sorted_set_doc_values.next_doc()?;
+          assert_eq!(sorted_set_doc_values.doc_value_count()?, 2);
 
-        sorted_set_doc_values.next_doc()?;
-        assert_eq!(sorted_set_doc_values.doc_value_count()?, 1);
+          sorted_set_doc_values.next_doc()?;
+          assert_eq!(sorted_set_doc_values.doc_value_count()?, 1);
 
-        assert_eq!(sorted_set_doc_values.next_doc()?, NO_MORE_DOCS);
-      },
-      _ => unreachable!("wrap should be SortingCodecReader"),
+          assert_eq!(sorted_set_doc_values.next_doc()?, NO_MORE_DOCS);
+        },
+        _ => unreachable!("wrap should be SortingCodecReader"),
+      }
     }
-  }
+    Ok(())
+  }));
+  let close_result = catch_unwind(AssertUnwindSafe(|| reader.close()));
+  IOUtils::use_or_suppress_caught_result(body_result, close_result)?;
+  IOUtils::close_with(
+    [
+      catch_unwind(AssertUnwindSafe(|| w.close())),
+      catch_unwind(AssertUnwindSafe(|| dir.close())),
+      catch_unwind(AssertUnwindSafe(|| tmp_dir.close())),
+    ],
+    |result| unwrap_caught_result!(result),
+  )?;
   Ok(())
 }
 

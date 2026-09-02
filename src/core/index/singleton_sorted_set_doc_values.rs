@@ -20,7 +20,6 @@ use crate::core::index::BytesRef;
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::index::sorted_set_doc_values::SortedSetDocValues;
-use crate::core::index::sorted_set_doc_values_terms_enum::SortedSetDocValuesTermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -155,12 +154,12 @@ where
   }
 
   type TermsEnum<'a>
-    = SortedSetDocValuesTermsEnum<&'a mut Self>
+    = S::TermsEnum<'a>
   where
     S: 'a;
 
   fn terms_enum(&mut self) -> Result<Self::TermsEnum<'_>> {
-    self.default_terms_enum()
+    self.inner_mut()?.terms_enum()
   }
 
   fn is_single_valued(&self) -> bool {

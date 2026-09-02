@@ -144,7 +144,7 @@ where
     write_state: &SegmentWriteState<D1>,
     segment_info: &SegmentInfo<D2>,
     field: &Arc<FieldInfo>,
-  ) -> Result<(Identity, &mut DVC)>
+  ) -> Result<(Identity, String, &mut DVC)>
   where
     D1: Directory<IndexOutput = DVC::IndexOutput>,
     B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
@@ -159,7 +159,7 @@ where
     segment_info: &SegmentInfo<D2>,
     field: &Arc<FieldInfo>,
     ignore_current_format: bool,
-  ) -> Result<(Identity, &mut DVC)>
+  ) -> Result<(Identity, String, &mut DVC)>
   where
     D1: Directory<IndexOutput = DVC::IndexOutput>,
     B::Format: DocValuesFormat<DocValuesConsumer<DVC::IndexOutput> = DVC>,
@@ -256,13 +256,17 @@ where
       LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
     })?;
     field.put_attribute(PER_FIELD_SUFFIX_KEY.to_string(), suffix.to_string());
+    let segment_suffix = get_full_segment_suffix(
+      &write_state.segment_suffix,
+      &get_suffix(&format_name, suffix),
+    );
     let consumer = self.formats.get_mut(&identity).ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "missing doc values consumer for field: {}",
         field.name
       ))
     })?;
-    Ok((identity, &mut consumer.consumer))
+    Ok((identity, segment_suffix, &mut consumer.consumer))
   }
 }
 
@@ -285,8 +289,9 @@ where
     D1: Directory<IndexOutput = Self::IndexOutput>,
     D: DocValuesProducer,
   {
-    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
-    consumer.add_numeric_field(write_state, segment_info, field, values_producer)
+    let (_, segment_suffix, consumer) = self.get_instance(write_state, segment_info, field)?;
+    let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+    consumer.add_numeric_field(&state, segment_info, field, values_producer)
   }
 
   fn add_binary_field<D1, D2, D>(
@@ -300,8 +305,9 @@ where
     D1: Directory<IndexOutput = Self::IndexOutput>,
     D: DocValuesProducer,
   {
-    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
-    consumer.add_binary_field(write_state, segment_info, field, values_producer)
+    let (_, segment_suffix, consumer) = self.get_instance(write_state, segment_info, field)?;
+    let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+    consumer.add_binary_field(&state, segment_info, field, values_producer)
   }
 
   fn add_sorted_field<D1, D2, D>(
@@ -315,8 +321,9 @@ where
     D1: Directory<IndexOutput = Self::IndexOutput>,
     D: DocValuesProducer,
   {
-    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
-    consumer.add_sorted_field(write_state, segment_info, field, values_producer)
+    let (_, segment_suffix, consumer) = self.get_instance(write_state, segment_info, field)?;
+    let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+    consumer.add_sorted_field(&state, segment_info, field, values_producer)
   }
 
   fn add_sorted_numeric_field<D1, D2, D>(
@@ -330,8 +337,9 @@ where
     D1: Directory<IndexOutput = Self::IndexOutput>,
     D: DocValuesProducer,
   {
-    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
-    consumer.add_sorted_numeric_field(write_state, segment_info, field, values_producer)
+    let (_, segment_suffix, consumer) = self.get_instance(write_state, segment_info, field)?;
+    let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+    consumer.add_sorted_numeric_field(&state, segment_info, field, values_producer)
   }
 
   fn add_sorted_set_field<D1, D2, D>(
@@ -345,8 +353,9 @@ where
     D1: Directory<IndexOutput = Self::IndexOutput>,
     D: DocValuesProducer,
   {
-    let (_, consumer) = self.get_instance(write_state, segment_info, field)?;
-    consumer.add_sorted_set_field(write_state, segment_info, field, values_producer)
+    let (_, segment_suffix, consumer) = self.get_instance(write_state, segment_info, field)?;
+    let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+    consumer.add_sorted_set_field(&state, segment_info, field, values_producer)
   }
 
   fn merge<D1, D2, MS>(
@@ -359,7 +368,7 @@ where
     D1: Directory<IndexOutput = Self::IndexOutput>,
     MS: MergeStateAccess,
   {
-    let mut consumers_to_fields: HashMap<Identity, Vec<String>> = HashMap::new();
+    let mut consumers_to_fields: HashMap<Identity, (String, Vec<String>)> = HashMap::new();
 
     // Group each consumer by the fields it handles.
     for field_info in merge_state.merge_field_infos().iter() {
@@ -367,7 +376,7 @@ where
         continue;
       }
       // Merge should ignore current format for the fields being merged.
-      let (identity, _) = self.get_instance_with_ignore_current_format(
+      let (identity, segment_suffix, _) = self.get_instance_with_ignore_current_format(
         write_state,
         segment_info,
         field_info,
@@ -375,20 +384,20 @@ where
       )?;
       consumers_to_fields
         .entry(identity)
-        .or_default()
+        .or_insert_with(|| (segment_suffix, Vec::new()))
+        .1
         .push(field_info.name.clone());
     }
 
     // Delegate the merge to the appropriate consumer.
-    for (identity, fields) in consumers_to_fields {
+    for (identity, (segment_suffix, fields)) in consumers_to_fields {
       let restricted = PerFieldMergeState::restrict_fields(merge_state, &fields)?;
+      let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
       let consumer = self
         .formats
         .get_mut(&identity)
         .ok_or_else(|| LuceneError::illegal_state("missing doc values consumer for merge"))?;
-      consumer
-        .consumer
-        .merge(write_state, segment_info, &restricted)?;
+      consumer.consumer.merge(&state, segment_info, &restricted)?;
     }
     Ok(())
   }

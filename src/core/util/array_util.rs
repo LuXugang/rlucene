@@ -304,7 +304,7 @@ impl ArrayUtil {
   where
     C: Comparator<T>,
   {
-    if to_index - from_index <= 1 {
+    if to_index.saturating_sub(from_index) <= 1 {
       return Ok(());
     }
     ArrayIntroSorter::new(a, comp).sort(from_index, to_index)

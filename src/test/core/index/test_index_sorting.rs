@@ -83,6 +83,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
+use crate::core::util::io_utils::IOUtils;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::MockTokenizer;
@@ -99,6 +100,7 @@ use rand::prelude::{SliceRandom, StdRng};
 use rand::{Rng, RngExt, SeedableRng};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
@@ -3569,7 +3571,14 @@ fn test_tie_break() -> Result<()> {
     );
   }
 
-  writer.close()?;
+  IOUtils::close_with(
+    [
+      catch_unwind(AssertUnwindSafe(|| reader.close())),
+      catch_unwind(AssertUnwindSafe(|| writer.close())),
+      catch_unwind(AssertUnwindSafe(|| dir.close())),
+    ],
+    |result| unwrap_caught_result!(result),
+  )?;
   Ok(())
 }
 
@@ -4304,285 +4313,305 @@ fn test_block_contains_parent_field() -> Result<()> {
 fn test_index_sort_with_blocks() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
+  let body_result = catch_unwind(AssertUnwindSafe(|| {
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+    let codec = AssertingNeedsIndexSortCodec::new();
+    iwc.set_codec(codec.clone());
 
-  let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
-  let codec = AssertingNeedsIndexSortCodec::new();
-  iwc.set_codec(codec.clone());
+    let parent_field = "parent";
+    let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
+    iwc.set_index_sort(index_sort)?;
+    iwc.set_parent_field(parent_field);
 
-  let parent_field = "parent";
-  let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
-  iwc.set_index_sort(index_sort)?;
-  iwc.set_parent_field(parent_field);
+    let mut policy = new_log_merge_policy(&mut random)?;
+    match policy {
+      MergePolicyEnum::LogBytesSize(ref mut p) => {
+        if p.get_merge_factor() <= 2 {
+          p.set_merge_factor(3)?;
+        }
+      },
+      MergePolicyEnum::LogDoc(ref mut p) => {
+        if p.get_merge_factor() <= 2 {
+          p.set_merge_factor(3)?;
+        }
+      },
+      _ => unreachable!("expected LogByteSizeMergePolicy or LogDocMergePolicy"),
+    }
+    iwc.set_merge_policy(policy);
 
-  let mut policy = new_log_merge_policy(&mut random)?;
-  match policy {
-    MergePolicyEnum::LogBytesSize(ref mut p) => {
-      if p.get_merge_factor() <= 2 {
-        p.set_merge_factor(3)?;
-      }
-    },
-    MergePolicyEnum::LogDoc(ref mut p) => {
-      if p.get_merge_factor() <= 2 {
-        p.set_merge_factor(3)?;
-      }
-    },
-    _ => unreachable!("expected LogByteSizeMergePolicy or LogDocMergePolicy"),
-  }
-  iwc.set_merge_policy(policy);
+    // add already sorted documents
+    codec.num_calls.store(0, Ordering::Relaxed);
+    codec.needs_index_sort.store(false, Ordering::Relaxed);
+    {
+      let writer = IndexWriter::new(dir.clone(), iwc)?;
+      let writer_result = catch_unwind(AssertUnwindSafe(|| {
+        let num_docs = random.random_range(50..100);
 
-  // add already sorted documents
-  codec.num_calls.store(0, Ordering::Relaxed);
-  codec.needs_index_sort.store(false, Ordering::Relaxed);
-  {
-    let writer = IndexWriter::new(dir.clone(), iwc)?;
-    let num_docs = random.random_range(50..100);
+        for i in 0..num_docs {
+          let mut child1 = Document::new();
+          child1.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+          child1.add(NumericDocValuesField::new("id", i as i64));
+          child1.add(NumericDocValuesField::new("child", 1));
+          child1.add(NumericDocValuesField::new(
+            "foo",
+            random.random::<i32>() as i64,
+          ));
 
-    for i in 0..num_docs {
-      let mut child1 = Document::new();
-      child1.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      child1.add(NumericDocValuesField::new("id", i as i64));
-      child1.add(NumericDocValuesField::new("child", 1));
-      child1.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
+          let mut child2 = Document::new();
+          child2.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+          child2.add(NumericDocValuesField::new("id", i as i64));
+          child2.add(NumericDocValuesField::new("child", 2));
+          child2.add(NumericDocValuesField::new(
+            "foo",
+            random.random::<i32>() as i64,
+          ));
 
-      let mut child2 = Document::new();
-      child2.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      child2.add(NumericDocValuesField::new("id", i as i64));
-      child2.add(NumericDocValuesField::new("child", 2));
-      child2.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
+          let mut parent = Document::new();
+          parent.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+          parent.add(NumericDocValuesField::new("id", i as i64));
+          parent.add(NumericDocValuesField::new(
+            "foo",
+            random.random::<i32>() as i64,
+          ));
 
-      let mut parent = Document::new();
-      parent.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      parent.add(NumericDocValuesField::new("id", i as i64));
-      parent.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
+          writer.add_documents(vec![child1, child2, parent])?;
+          if rarely(&mut random) {
+            writer.commit()?;
+          }
+        }
 
-      writer.add_documents(vec![child1, child2, parent])?;
-      if rarely(&mut random) {
         writer.commit()?;
+        if random.random_bool(0.5) {
+          writer.force_merge_with_wait(1, true)?;
+        }
+        Ok(())
+      }));
+      let writer_close_result = catch_unwind(AssertUnwindSafe(|| writer.close()));
+      IOUtils::use_or_suppress_caught_result(writer_result, writer_close_result)?;
+    }
+
+    let reader = directory_reader::open(dir.clone())?;
+    let reader_result = catch_unwind(AssertUnwindSafe(|| {
+      let context = (&reader).get_context()?;
+      for ctx in context.leaves()? {
+        let leaf = ctx.reader();
+        let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();
+        let mut ids = leaf.get_numeric_doc_values("id")?.unwrap();
+        let mut children = leaf.get_numeric_doc_values("child")?.unwrap();
+
+        let mut expected_doc_id = 2;
+        loop {
+          let doc = parent_disi.next_doc()?;
+          if doc == NO_MORE_DOCS {
+            break;
+          }
+
+          assert_eq!(-1_i64, parent_disi.long_value()?);
+          assert_eq!(expected_doc_id, doc);
+
+          let id = ids.next_doc()?;
+          let child1_id = ids.long_value()?;
+          assert_eq!(id, children.next_doc()?);
+          let child1 = children.long_value()?;
+          assert_eq!(1_i64, child1);
+
+          let id = ids.next_doc()?;
+          let child2_id = ids.long_value()?;
+          assert_eq!(id, children.next_doc()?);
+          let child2 = children.long_value()?;
+          assert_eq!(2_i64, child2);
+
+          let id_parent = ids.next_doc()?;
+          assert_eq!(id + 1, id_parent);
+          let parent = ids.long_value()?;
+          assert_eq!(child1_id, parent);
+          assert_eq!(child2_id, parent);
+
+          expected_doc_id += 3;
+        }
       }
-    }
 
-    writer.commit()?;
-    if random.random_bool(0.5) {
-      writer.force_merge_with_wait(1, true)?;
-    }
-    writer.close()?;
-  }
-
-  let reader = (directory_reader::open(dir.clone())?).get_context()?;
-  for ctx in reader.leaves()? {
-    let leaf = ctx.reader();
-    let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();
-    let mut ids = leaf.get_numeric_doc_values("id")?.unwrap();
-    let mut children = leaf.get_numeric_doc_values("child")?.unwrap();
-
-    let mut expected_doc_id = 2;
-    loop {
-      let doc = parent_disi.next_doc()?;
-      if doc == NO_MORE_DOCS {
-        break;
-      }
-
-      assert_eq!(-1_i64, parent_disi.long_value()?);
-      assert_eq!(expected_doc_id, doc);
-
-      let id = ids.next_doc()?;
-      let child1_id = ids.long_value()?;
-      assert_eq!(id, children.next_doc()?);
-      let child1 = children.long_value()?;
-      assert_eq!(1_i64, child1);
-
-      let id = ids.next_doc()?;
-      let child2_id = ids.long_value()?;
-      assert_eq!(id, children.next_doc()?);
-      let child2 = children.long_value()?;
-      assert_eq!(2_i64, child2);
-
-      let id_parent = ids.next_doc()?;
-      assert_eq!(id + 1, id_parent);
-      let parent = ids.long_value()?;
-      assert_eq!(child1_id, parent);
-      assert_eq!(child2_id, parent);
-
-      expected_doc_id += 3;
-    }
-  }
-
-  Ok(())
+      Ok(())
+    }));
+    let reader_close_result = catch_unwind(AssertUnwindSafe(|| reader.close()));
+    IOUtils::use_or_suppress_caught_result(reader_result, reader_close_result)
+  }));
+  let close_result = catch_unwind(AssertUnwindSafe(|| dir.close()));
+  IOUtils::use_or_suppress_caught_result(body_result, close_result)
 }
 
 #[test]
 fn test_mix_random_documents_with_blocks() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
+  let body_result = catch_unwind(AssertUnwindSafe(|| {
+    let analyzer = MockAnalyzer::new(&mut random);
+    let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
+    let codec = AssertingNeedsIndexSortCodec::new();
+    iwc.set_codec(codec);
+    let parent_field = "parent";
+    let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
+    iwc.set_index_sort(index_sort)?;
+    iwc.set_parent_field(parent_field);
 
-  let analyzer = MockAnalyzer::new(&mut random);
-  let mut iwc = IndexWriterConfig::with_analyzer(analyzer)?;
-  let codec = AssertingNeedsIndexSortCodec::new();
-  iwc.set_codec(codec);
-  let parent_field = "parent";
-  let index_sort = Sort::with_fields(vec![SortField::new(Some("foo"), SortFieldType::Int)?])?;
-  iwc.set_index_sort(index_sort)?;
-  iwc.set_parent_field(parent_field);
-
-  let random_index_writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
-  let num_docs = random.random_range(100..1000);
-  for i in 0..num_docs {
-    if rarely(&mut random) {
-      let id_to_delete = random.random_range(0..=i).to_string();
-      random_index_writer
-        .delete_documents_with_terms(&mut random, vec![Term::from_text("id", id_to_delete)])?;
-    }
-
-    let mut docs = Vec::new();
-    let case = random.random_range(0..100) % 5;
-    if case >= 4 {
-      let mut child3 = Document::new();
-      child3.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      child3.add(NumericDocValuesField::new("type", 2));
-      child3.add(NumericDocValuesField::new("child_ord", 3));
-      child3.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
-      docs.push(child3);
-    }
-    if case >= 3 {
-      let mut child2 = Document::new();
-      child2.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      child2.add(NumericDocValuesField::new("type", 2));
-      child2.add(NumericDocValuesField::new("child_ord", 2));
-      child2.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
-      docs.push(child2);
-    }
-    if case >= 2 {
-      let mut child1 = Document::new();
-      child1.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      child1.add(NumericDocValuesField::new("type", 2));
-      child1.add(NumericDocValuesField::new("child_ord", 1));
-      child1.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
-      docs.push(child1);
-    }
-    if case >= 1 {
-      let mut root = Document::new();
-      root.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      root.add(NumericDocValuesField::new("type", 1));
-      root.add(NumericDocValuesField::new(
-        "num_children",
-        docs.len() as i64,
-      ));
-      root.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
-      docs.push(root);
-      random_index_writer.w.add_documents(docs)?;
-    } else {
-      let mut single = Document::new();
-      single.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
-      single.add(NumericDocValuesField::new("type", 0));
-      single.add(NumericDocValuesField::new(
-        "foo",
-        random.random::<i32>() as i64,
-      ));
-      random_index_writer.add_document(&mut random, single)?;
-    }
-
-    if rarely(&mut random) {
-      random_index_writer.force_merge(&mut random, 1)?;
-    }
-    random_index_writer.commit(&mut random)?;
-  }
-
-  random_index_writer.close(&mut random)?;
-  let reader = (directory_reader::open(dir.clone())?).get_context()?;
-  for ctx in reader.leaves()? {
-    let leaf = ctx.reader();
-    let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();
-    let mut type_values = leaf.get_numeric_doc_values("type")?.unwrap();
-    let mut child_ord = leaf.get_numeric_doc_values("child_ord")?;
-    let mut num_children = leaf.get_numeric_doc_values("num_children")?;
-    let live_docs = leaf.get_live_docs()?;
-    let mut stored_fields = leaf.stored_fields()?;
-
-    let mut num_current_children = 0;
-    let mut total_pending_children = 0_i64;
-    let mut child_id: Option<String> = None;
-    for i in 0..leaf.max_doc()? {
-      if let Some(live_docs) = live_docs.as_ref()
-        && !live_docs.get(i as usize)?
-      {
-        continue;
+    let random_index_writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
+    let num_docs = random.random_range(100..1000);
+    for i in 0..num_docs {
+      if rarely(&mut random) {
+        let id_to_delete = random.random_range(0..=i).to_string();
+        random_index_writer
+          .delete_documents_with_terms(&mut random, vec![Term::from_text("id", id_to_delete)])?;
       }
 
-      assert!(type_values.advance_exact(i)?);
-      let type_value = type_values.long_value()? as i32;
-      match type_value {
-        2 => {
-          assert!(!parent_disi.advance_exact(i)?);
-          let child_ord = child_ord.as_mut().unwrap();
-          assert!(child_ord.advance_exact(i)?);
-          if num_current_children == 0 {
-            let doc = stored_fields.document(i)?;
-            child_id = Some(doc.get("id")?.unwrap().into_owned());
-            total_pending_children = child_ord.long_value()? - 1;
-          } else {
-            assert!(child_id.is_some());
-            assert_eq!(total_pending_children, child_ord.long_value()?);
-            total_pending_children -= 1;
-            let doc = stored_fields.document(i)?;
-            assert_eq!(child_id.as_ref().unwrap(), doc.get("id")?.unwrap().as_ref());
-          }
-          num_current_children += 1;
-        },
-        1 => {
-          assert!(parent_disi.advance_exact(i)?);
-          assert_eq!(-1_i64, parent_disi.long_value()?);
-          if let Some(child_ord) = child_ord.as_mut() {
-            assert!(!child_ord.advance_exact(i)?);
-          }
-          let num_children = num_children.as_mut().unwrap();
-          assert!(num_children.advance_exact(i)?);
-          assert_eq!(0_i64, total_pending_children);
-          assert_eq!(num_current_children as i64, num_children.long_value()?);
-          if num_current_children > 0 {
-            let doc = stored_fields.document(i)?;
-            assert_eq!(child_id.as_ref().unwrap(), doc.get("id")?.unwrap().as_ref());
-          } else {
-            assert!(child_id.is_none());
-          }
-          num_current_children = 0;
-          child_id = None;
-        },
-        0 => {
-          assert!(parent_disi.advance_exact(i)?);
-          assert_eq!(-1_i64, parent_disi.long_value()?);
-          if let Some(child_ord) = child_ord.as_mut() {
-            assert!(!child_ord.advance_exact(i)?);
-          }
-          if let Some(num_children) = num_children.as_mut() {
-            assert!(!num_children.advance_exact(i)?);
-          }
-        },
-        _ => panic!("unexpected type value {type_value}"),
+      let mut docs = Vec::new();
+      let case = random.random_range(0..100) % 5;
+      if case >= 4 {
+        let mut child3 = Document::new();
+        child3.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+        child3.add(NumericDocValuesField::new("type", 2));
+        child3.add(NumericDocValuesField::new("child_ord", 3));
+        child3.add(NumericDocValuesField::new(
+          "foo",
+          random.random::<i32>() as i64,
+        ));
+        docs.push(child3);
       }
-    }
-  }
+      if case >= 3 {
+        let mut child2 = Document::new();
+        child2.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+        child2.add(NumericDocValuesField::new("type", 2));
+        child2.add(NumericDocValuesField::new("child_ord", 2));
+        child2.add(NumericDocValuesField::new(
+          "foo",
+          random.random::<i32>() as i64,
+        ));
+        docs.push(child2);
+      }
+      if case >= 2 {
+        let mut child1 = Document::new();
+        child1.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+        child1.add(NumericDocValuesField::new("type", 2));
+        child1.add(NumericDocValuesField::new("child_ord", 1));
+        child1.add(NumericDocValuesField::new(
+          "foo",
+          random.random::<i32>() as i64,
+        ));
+        docs.push(child1);
+      }
+      if case >= 1 {
+        let mut root = Document::new();
+        root.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+        root.add(NumericDocValuesField::new("type", 1));
+        root.add(NumericDocValuesField::new(
+          "num_children",
+          docs.len() as i64,
+        ));
+        root.add(NumericDocValuesField::new(
+          "foo",
+          random.random::<i32>() as i64,
+        ));
+        docs.push(root);
+        random_index_writer.add_documents(&mut random, docs)?;
+      } else {
+        let mut single = Document::new();
+        single.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
+        single.add(NumericDocValuesField::new("type", 0));
+        single.add(NumericDocValuesField::new(
+          "foo",
+          random.random::<i32>() as i64,
+        ));
+        random_index_writer.add_document(&mut random, single)?;
+      }
 
-  Ok(())
+      if rarely(&mut random) {
+        random_index_writer.force_merge(&mut random, 1)?;
+      }
+      random_index_writer.commit(&mut random)?;
+    }
+
+    random_index_writer.close(&mut random)?;
+    let reader = directory_reader::open(dir.clone())?;
+    let reader_result = catch_unwind(AssertUnwindSafe(|| {
+      let context = (&reader).get_context()?;
+      for ctx in context.leaves()? {
+        let leaf = ctx.reader();
+        let mut parent_disi = leaf.get_numeric_doc_values(parent_field)?.unwrap();
+        let mut type_values = leaf.get_numeric_doc_values("type")?.unwrap();
+        let mut child_ord = leaf.get_numeric_doc_values("child_ord")?;
+        let mut num_children = leaf.get_numeric_doc_values("num_children")?;
+        let live_docs = leaf.get_live_docs()?;
+        let mut stored_fields = leaf.stored_fields()?;
+
+        let mut num_current_children = 0;
+        let mut total_pending_children = 0_i64;
+        let mut child_id: Option<String> = None;
+        for i in 0..leaf.max_doc()? {
+          if let Some(live_docs) = live_docs.as_ref()
+            && !live_docs.get(i as usize)?
+          {
+            continue;
+          }
+
+          assert!(type_values.advance_exact(i)?);
+          let type_value = type_values.long_value()? as i32;
+          match type_value {
+            2 => {
+              assert!(!parent_disi.advance_exact(i)?);
+              let child_ord = child_ord.as_mut().unwrap();
+              assert!(child_ord.advance_exact(i)?);
+              if num_current_children == 0 {
+                let doc = stored_fields.document(i)?;
+                child_id = Some(doc.get("id")?.unwrap().into_owned());
+                total_pending_children = child_ord.long_value()? - 1;
+              } else {
+                assert!(child_id.is_some());
+                assert_eq!(total_pending_children, child_ord.long_value()?);
+                total_pending_children -= 1;
+                let doc = stored_fields.document(i)?;
+                assert_eq!(child_id.as_ref().unwrap(), doc.get("id")?.unwrap().as_ref());
+              }
+              num_current_children += 1;
+            },
+            1 => {
+              assert!(parent_disi.advance_exact(i)?);
+              assert_eq!(-1_i64, parent_disi.long_value()?);
+              if let Some(child_ord) = child_ord.as_mut() {
+                assert!(!child_ord.advance_exact(i)?);
+              }
+              let num_children = num_children.as_mut().unwrap();
+              assert!(num_children.advance_exact(i)?);
+              assert_eq!(0_i64, total_pending_children);
+              assert_eq!(num_current_children as i64, num_children.long_value()?);
+              if num_current_children > 0 {
+                let doc = stored_fields.document(i)?;
+                assert_eq!(child_id.as_ref().unwrap(), doc.get("id")?.unwrap().as_ref());
+              } else {
+                assert!(child_id.is_none());
+              }
+              num_current_children = 0;
+              child_id = None;
+            },
+            0 => {
+              assert!(parent_disi.advance_exact(i)?);
+              assert_eq!(-1_i64, parent_disi.long_value()?);
+              if let Some(child_ord) = child_ord.as_mut() {
+                assert!(!child_ord.advance_exact(i)?);
+              }
+              if let Some(num_children) = num_children.as_mut() {
+                assert!(!num_children.advance_exact(i)?);
+              }
+            },
+            _ => panic!("unexpected type value {type_value}"),
+          }
+        }
+      }
+
+      Ok(())
+    }));
+    let reader_close_result = catch_unwind(AssertUnwindSafe(|| reader.close()));
+    IOUtils::use_or_suppress_caught_result(reader_result, reader_close_result)
+  }));
+  let close_result = catch_unwind(AssertUnwindSafe(|| dir.close()));
+  IOUtils::use_or_suppress_caught_result(body_result, close_result)
 }

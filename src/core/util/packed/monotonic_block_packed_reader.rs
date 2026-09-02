@@ -83,13 +83,16 @@ impl MonotonicBlockPackedReader {
         // sub_readers inited with Zeroes,so no-op here
         continue;
       } else {
-        let size = std::cmp::min(block_size, (value_count - i * block_size as usize) as i32);
+        let size = std::cmp::min(block_size as usize, value_count - i * block_size as usize) as i32;
         let byte_count =
           Format::Packed(PackedImpl::new(0)).byte_count(packed_ints_version, size, bits_per_value);
         total_byte_count += byte_count;
-        let mut blocks = vec![0u8; byte_count as usize];
-        input.read_bytes(&mut blocks, 0, byte_count as usize)?;
-        let mask_right = (1u64 << bits_per_value) - 1;
+        let byte_count = usize::try_from(byte_count).map_err(|_| {
+          LuceneError::illegal_argument(format!("negative block byte count: {byte_count}"))
+        })?;
+        let mut blocks = vec![0u8; byte_count];
+        input.read_bytes(&mut blocks, 0, byte_count)?;
+        let mask_right = 1u64.wrapping_shl(bits_per_value as u32).wrapping_sub(1);
         let bpv_minus_block_size = bits_per_value - BLOCK_SIZE;
         sub_readers[i] = LongValuesEnum2::B(MonotonicLongValues {
           bits_per_values: bits_per_value,
@@ -133,12 +136,15 @@ impl LongValues for MonotonicLongValues {
     // The offset of the first block in the backing byte-array
     let mut block_offset = (major_bit_pos >> BLOCK_BITS) as usize;
     let mut end_bits = (major_bit_pos & MOD_MASK as i64) + self.bpv_minus_block_size as i64;
+    let first_block = *self.blocks.get(block_offset).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds(format!("block offset: {block_offset}"))
+    })? as u64;
     if end_bits <= 0 {
       // Single block
-      return Ok(((self.blocks[block_offset] as u64 >> -end_bits) & self.mask_right) as i64);
+      return Ok(((first_block >> -end_bits) & self.mask_right) as i64);
     }
     // Multiple blocks
-    let mut value = ((self.blocks[block_offset] as u64) << end_bits) & self.mask_right;
+    let mut value = (first_block << end_bits) & self.mask_right;
     block_offset += 1;
     while end_bits > BLOCK_SIZE as i64 {
       end_bits -= BLOCK_SIZE as i64;
@@ -188,6 +194,7 @@ impl Accountable for MonotonicBlockPackedReader {
     let mut size_in_bytes = 0;
     size_in_bytes += size_of_vec(&self.min_values);
     size_in_bytes += size_of_vec(&self.averages);
+    size_in_bytes += size_of_vec(&self.sub_readers);
     size_in_bytes += self.total_byte_count;
     Ok(size_in_bytes)
   }

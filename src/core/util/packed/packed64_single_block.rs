@@ -354,9 +354,7 @@ where
 
     // If the range is too small, fallback to naive setting
     if to_index - from_index <= (values_per_block * 2) {
-      for _ in from_index..to_index {
-        self.default_fill(from_index, to_index, val)?;
-      }
+      self.default_fill(from_index, to_index, val)?;
       return Ok(());
     }
 

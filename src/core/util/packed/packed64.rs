@@ -317,9 +317,7 @@ impl Mutable for Packed64 {
 
     // If the span is too small, fall back to naive filling
     if span <= (3 * n_aligned_values) {
-      for _ in from_index..to_index {
-        self.default_fill(from_index, to_index, val)?;
-      }
+      self.default_fill(from_index, to_index, val)?;
       return Ok(());
     }
 
@@ -347,8 +345,8 @@ impl Mutable for Packed64 {
     debug_assert!(n_aligned_blocks as usize <= n_aligned_values_blocks.len());
 
     // Bulk set values using precomputed blocks
-    let start_block = (from_index * self.bits_per_value) >> 6;
-    let end_block = (to_index * self.bits_per_value) >> 6;
+    let start_block = ((from_index as i64 * self.bits_per_value as i64) >> 6) as i32;
+    let end_block = ((to_index as i64 * self.bits_per_value as i64) >> 6) as i32;
     for block in start_block..end_block {
       let block_value = n_aligned_values_blocks[(block % n_aligned_blocks) as usize];
       self.blocks[block as usize] = block_value;

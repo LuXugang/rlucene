@@ -17,7 +17,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::core::util::accountable::Accountable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 
@@ -142,11 +142,14 @@ impl Mutable for GrowableWriter {
 
   fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
     let mut max = 0i64;
-    max |= arr
-      .iter()
-      .skip(off as usize)
-      .take(len as usize)
-      .fold(0, |acc, &value| acc | value);
+    for i in off..off.wrapping_add(len) {
+      max |= *arr.get(i as usize).ok_or_else(|| {
+        LuceneError::array_index_out_of_bounds(format!(
+          "Index {i} out of bounds for length {}",
+          arr.len()
+        ))
+      })?;
+    }
     self.ensure_capacity(max)?;
     self.current.set_bulk(index, arr, off, len)
   }

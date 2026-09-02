@@ -93,14 +93,14 @@ impl<'a> TermsEnum for SortedDocValuesWriterTermsEnum<'a> {
   fn attributes(&self) -> Result<Self::AttributeSource<'_>> {
     match self {
       Self::Buffered(terms) => terms.attributes(),
-      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+      Self::Sorting(terms) => terms.attributes(),
     }
   }
 
   fn attributes_mut(&mut self) -> Result<Self::AttributeSourceMut<'_>> {
     match self {
       Self::Buffered(terms) => terms.attributes_mut(),
-      Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
+      Self::Sorting(terms) => terms.attributes_mut(),
     }
   }
 
