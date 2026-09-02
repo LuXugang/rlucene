@@ -79,15 +79,16 @@ impl PointValuesWriter {
         "field={}: this field's value has length={} but should be {}",
         self.field_info.name,
         value.length,
-        self.field_info.get_point_dimension_count() + self.field_info.get_point_num_bytes()
+        self.field_info.get_point_dimension_count() * self.field_info.get_point_num_bytes()
       )));
     }
 
     if self.doc_ids.len() == self.num_points {
+      let old_capacity = self.doc_ids.capacity();
       ArrayUtil::grow_with_len(&mut self.doc_ids, self.num_points + 1)?;
       self
         .iw_bytes_used
-        .add_and_get(((self.doc_ids.len() - self.num_points) * BitUtil::INT_BYTES) as i64);
+        .add_and_get(((self.doc_ids.capacity() - old_capacity) * BitUtil::INT_BYTES) as i64);
     }
 
     let bytes_ram_bytes_used_before = self.bytes_out.paged_bytes.ram_bytes_used()?;

@@ -50,11 +50,15 @@ pub(crate) struct NormValuesWriter {
 }
 impl NormValuesWriter {
   pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
+    let docs_with_field = DocsWithFieldSet::new();
+    let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
+    let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;
+    iw_bytes_used.add_and_get(bytes_used);
     Ok(Self {
-      docs_with_field: DocsWithFieldSet::new(),
-      pending: PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?,
+      docs_with_field,
+      pending,
       iw_bytes_used,
-      bytes_used: 0,
+      bytes_used,
       field_info,
       last_doc_id: -1,
     })
@@ -82,10 +86,6 @@ impl NormValuesWriter {
     self.bytes_used = new_bytes_used;
     Ok(())
   }
-  pub(crate) fn finish(&mut self, _max_doc: i32) {
-    self.docs_with_field.finish()
-  }
-
   pub(crate) fn flush<D, DM, N>(
     &mut self,
     sort_map: Option<&DM>,
@@ -96,8 +96,8 @@ impl NormValuesWriter {
     DM: DocMap,
     N: NormsConsumer,
   {
-    self.finish(segment_info.max_doc()?);
-    let values = std::mem::take(&mut self.pending).build()?;
+    let values = self.pending.build()?;
+    self.docs_with_field.finish();
     let sorted = match sort_map {
       Some(sort_map) => {
         let dense = sort_map.size() == self.docs_with_field.cardinality();
@@ -109,23 +109,22 @@ impl NormValuesWriter {
       None => None,
     };
 
-    let mut norms_producer =
-      NormsProducerImpl::new(sorted, std::mem::take(&mut self.docs_with_field), values)?;
+    let mut norms_producer = NormsProducerImpl::new(sorted, &self.docs_with_field, values)?;
     norms_consumer.add_norms_field(&self.field_info, &mut norms_producer)?;
 
     Ok(())
   }
 }
 
-struct NormsProducerImpl {
+struct NormsProducerImpl<'a> {
   sorted: Option<NumericDVs<FixedBitSet>>,
-  docs_with_field: DocsWithFieldSet,
+  docs_with_field: &'a DocsWithFieldSet,
   values: PackedLongValues,
 }
-impl NormsProducerImpl {
+impl<'a> NormsProducerImpl<'a> {
   pub(crate) fn new(
     sorted: Option<NumericDVs<FixedBitSet>>,
-    docs_with_field: DocsWithFieldSet,
+    docs_with_field: &'a DocsWithFieldSet,
     values: PackedLongValues,
   ) -> Result<Self> {
     Ok(Self {
@@ -136,9 +135,9 @@ impl NormsProducerImpl {
   }
 }
 
-impl CloseableRef for NormsProducerImpl {}
+impl CloseableRef for NormsProducerImpl<'_> {}
 
-impl NormsProducer for NormsProducerImpl {
+impl NormsProducer for NormsProducerImpl<'_> {
   type NumericDocValues = BufferedSortingNorms;
 
   fn get_norms(&self, _field_info2: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {

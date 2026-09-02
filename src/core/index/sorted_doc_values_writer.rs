@@ -467,12 +467,12 @@ impl DocValuesWriter for SortedDocValuesWriter {
         "must be finished before getting doc values",
       ));
     };
-    let Some(final_ords) = self.final_ords.take() else {
+    let Some(final_ords) = self.final_ords.as_ref() else {
       return Err(LuceneError::illegal_state(
         "must be finished before getting doc values",
       ));
     };
-    let Some(final_ord_map) = self.final_ord_map.take() else {
+    let Some(final_ord_map) = self.final_ord_map.as_ref() else {
       return Err(LuceneError::illegal_state(
         "must be finished before getting doc values",
       ));
@@ -486,8 +486,8 @@ impl DocValuesWriter for SortedDocValuesWriter {
         frozen_hash,
         self.pool.clone(),
         final_ords,
-        final_ord_map,
-        std::mem::take(&mut self.docs_with_field),
+        final_ord_map.clone(),
+        &self.docs_with_field,
         sort_map,
       )?,
     )?;
@@ -552,25 +552,29 @@ impl DocValuesWriter for SortedDocValuesWriter {
   }
 }
 
-pub(crate) struct DocValuesProducerImpl {
+pub(crate) struct DocValuesProducerImpl<'a> {
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
-  ords: PackedLongValues,
+  ords: &'a PackedLongValues,
   ord_map: Arc<Vec<i32>>,
-  docs_with_field: DocsWithFieldSet,
+  docs_with_field: &'a DocsWithFieldSet,
   writer_field_info: Arc<FieldInfo>,
   sorted: Option<Arc<Vec<i32>>>,
 }
 
-impl CloseableRef for DocValuesProducerImpl {}
+impl CloseableRef for DocValuesProducerImpl<'_> {
+  fn close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
 
-impl DocValuesProducerImpl {
+impl<'a> DocValuesProducerImpl<'a> {
   pub(crate) fn new(
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
-    ords: PackedLongValues,
+    ords: &'a PackedLongValues,
     ord_map: Arc<Vec<i32>>,
-    docs_with_field: DocsWithFieldSet,
+    docs_with_field: &'a DocsWithFieldSet,
     writer_field_info: Arc<FieldInfo>,
     sorted: Option<Arc<Vec<i32>>>,
   ) -> Result<Self> {
@@ -586,7 +590,7 @@ impl DocValuesProducerImpl {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl {
+impl DocValuesProducer for DocValuesProducerImpl<'_> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = SortedDocValuesWriterValues;
@@ -598,7 +602,7 @@ impl DocValuesProducer for DocValuesProducerImpl {
     let buf = BufferedSortedDocValues::new(
       self.hash.clone(),
       self.pool.clone(),
-      &self.ords,
+      self.ords,
       self.ord_map.clone(),
       self.docs_with_field.iterator()?,
     )?;
@@ -813,27 +817,22 @@ where
   }
 }
 
-pub(crate) fn get_doc_values_producer<DM>(
+pub(crate) fn get_doc_values_producer<'a, DM>(
   writer_field_info: Arc<FieldInfo>,
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
-  ords: PackedLongValues,
+  ords: &'a PackedLongValues,
   ord_map: Arc<Vec<i32>>,
-  docs_with_field: DocsWithFieldSet,
+  docs_with_field: &'a DocsWithFieldSet,
   sort_map: Option<&DM>,
-) -> Result<DocValuesProducerImpl>
+) -> Result<DocValuesProducerImpl<'a>>
 where
   DM: DocMap,
 {
   let sorted = if let Some(sort_map) = sort_map {
     let docs_iter = docs_with_field.iterator()?;
-    let mut old_values = BufferedSortedDocValues::new(
-      hash.clone(),
-      pool.clone(),
-      &ords,
-      ord_map.clone(),
-      docs_iter,
-    )?;
+    let mut old_values =
+      BufferedSortedDocValues::new(hash.clone(), pool.clone(), ords, ord_map.clone(), docs_iter)?;
     Some(Arc::new(SortedDocValuesWriter::sort_doc_values(
       sort_map.size() as usize,
       sort_map,

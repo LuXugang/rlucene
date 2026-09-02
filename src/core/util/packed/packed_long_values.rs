@@ -30,7 +30,6 @@ use std::mem::size_of_val;
 use std::sync::Arc;
 
 /// Utility struct to compress integers into a [`LongValues`] instance.
-#[derive(Clone)]
 pub struct PackedLongValues {
   page_shift: i32,
   pub(crate) page_mask: i32,
@@ -39,6 +38,23 @@ pub struct PackedLongValues {
 
   ram_bytes_used: i64,
   sub_long_values: Option<Arc<DeltaPackedLongValues>>,
+}
+
+impl Clone for PackedLongValues {
+  fn clone(&self) -> Self {
+    let values = self.values.clone();
+    Self {
+      page_shift: self.page_shift,
+      page_mask: self.page_mask,
+      ram_bytes_used: self
+        .ram_bytes_used
+        .saturating_sub(size_of_vec(&self.values))
+        .saturating_add(size_of_vec(&values)),
+      values,
+      size: self.size,
+      sub_long_values: self.sub_long_values.clone(),
+    }
+  }
 }
 const MIN_PAGE_SIZE: i32 = 64;
 // More than 1M doesn't really makes sense with these appending buffers

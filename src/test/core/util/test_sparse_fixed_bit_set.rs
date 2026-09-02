@@ -49,18 +49,16 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
     length: usize,
   ) -> Result<(Self::TestBitSet, Option<SparseFixedBitSet>)> {
     let mut set = SparseFixedBitSet::new(length)?;
-    let mut set1 = SparseFixedBitSet::new(length)?;
     let mut doc = bs.next_set_bit(0);
     while doc != NO_MORE_DOCS as usize {
       set.set(doc)?;
-      set1.set(doc)?;
-      if doc + 1 > length {
+      if doc + 1 >= length {
         doc = NO_MORE_DOCS as usize;
       } else {
         doc = bs.next_set_bit(doc + 1);
       }
     }
-    Ok((set, Some(set1)))
+    Ok((set, None))
   }
 
   fn assert_equals(
@@ -70,8 +68,9 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
     max_doc: usize,
     sfbs: Option<&SparseFixedBitSet>,
   ) {
+    BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
     let mut non_zero_long_count = 0;
-    let sparse_fixed_bit_set = sfbs.as_ref().unwrap();
+    let sparse_fixed_bit_set = set2.as_sparse_fixed_bit_set().unwrap();
     let length = sparse_fixed_bit_set.get_indices().len();
     for i in 0..length {
       let n = sparse_fixed_bit_set.get_indices()[i].count_ones();
@@ -87,9 +86,8 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
     }
     assert_eq!(
       non_zero_long_count,
-      sfbs.as_ref().unwrap().get_non_zero_long_count() as u32
+      sparse_fixed_bit_set.get_non_zero_long_count() as u32
     );
-    BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
   }
 }
 
@@ -218,9 +216,9 @@ mod base_doc_id_set_test_case_util {
 #[test]
 fn test_approximate_cardinality() -> Result<()> {
   let mut random = random();
-  let mut set = SparseFixedBitSet::new(100)?;
-  let first = random.random_range(1000..10000);
-  let interval = 200 + random.random_range(100..1000);
+  let mut set = SparseFixedBitSet::new(10000)?;
+  let first = random.random_range(0..1000);
+  let interval = 200 + random.random_range(0..1000);
   let mut i = first;
   while i < set.length() {
     set.set(i)?;

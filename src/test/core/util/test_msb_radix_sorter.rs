@@ -17,7 +17,8 @@
 // Migrated from src/core/util/most_significant_bit_radix_sort.rs
 
 use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
+use std::hash::{BuildHasherDefault, DefaultHasher};
 
 use rand::Rng;
 use rand::RngExt;
@@ -61,7 +62,6 @@ where
 fn test_empty() -> Result<()> {
   let mut random = random();
   let mut refs: Vec<BytesRef<Vec<u8>>> = vec![BytesRef::default(); random.random_range(0..5)];
-  assert!(test(&mut refs, 0, &mut random).is_ok());
   test(&mut refs, 0, &mut random)
 }
 #[test]
@@ -89,11 +89,11 @@ where
 {
   let mut common_prefix = vec![0u8; common_prefix_len];
   random.fill_bytes(&mut common_prefix);
-  let len = random.random_range(0..10000);
+  let len = random.random_range(0..100_000);
   let mut bytes: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(len + random.random_range(0..50));
   for _ in 0..len {
     let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
-    random.fill_bytes(&mut b[common_prefix_len..]);
+    random.fill_bytes(&mut b);
 
     b.copy_from(&common_prefix, 0);
 
@@ -147,7 +147,7 @@ fn test_random2() -> Result<()> {
 
   // How many substring fragments to use
   let substring_count = TestUtil::next_usize(&mut random, 2, 10);
-  let mut substrings_set = HashSet::new();
+  let mut substrings_set = HashSet::<_, BuildHasherDefault<DefaultHasher>>::default();
 
   // How many strings to make
   let string_count = at_least_usize(&mut random, 10000);
@@ -180,7 +180,7 @@ fn test_random2() -> Result<()> {
   }
 
   // Generate unique strings
-  let mut strings_set = BTreeSet::new();
+  let mut strings_set = HashSet::<_, BuildHasherDefault<DefaultHasher>>::default();
   let mut iters = 0;
   while strings_set.len() < string_count && iters < string_count * 5 {
     let count = random.random_range(1..=5);

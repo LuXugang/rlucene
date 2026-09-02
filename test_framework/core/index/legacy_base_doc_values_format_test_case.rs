@@ -1046,6 +1046,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         dv.lookup_ord(ord)?.as_ref()
       );
     }
+    isearcher.reader_context.reader().close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1088,6 +1090,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.next_doc()?);
     let ord = dv.ord_value()?;
     assert_eq!("hello world 2", dv.lookup_ord(ord)?.utf8_to_string()?);
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1140,6 +1144,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!("hello world 2", dv.lookup_ord(1)?.utf8_to_string()?);
     assert_eq!(2, dv.next_doc()?);
     assert_eq!(0, dv.ord_value()?);
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1218,6 +1224,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let ord = dv.ord_value()?;
       assert_eq!(expected, dv.lookup_ord(ord)?.utf8_to_string()?);
     }
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1272,6 +1280,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1341,6 +1351,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       dv.lookup_ord(ord)?.as_ref()
     );
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1499,6 +1511,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(1, dv.next_doc()?);
     assert_eq!(0, dv.ord_value()?);
     assert_eq!("", dv.lookup_ord(0)?.utf8_to_string()?);
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1600,6 +1614,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_doc()?);
     let ord = dv.ord_value()?;
     assert_eq!(&b, dv.lookup_ord(ord)?.as_ref());
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1661,6 +1677,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert_eq!(0, dv.next_doc()?);
     let ord = dv.ord_value()?;
     assert_eq!("boo!", dv.lookup_ord(ord)?.utf8_to_string()?);
+    ireader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -1815,7 +1833,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(expected.as_str(), actual.utf8_to_string()?);
     }
 
+    searcher.reader_context.reader().close()?;
     writer.close(random)?;
+    dir.close()?;
     Ok(())
   }
 
@@ -2522,6 +2542,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
+    reader.close()?;
     writer.force_merge(random, 1)?;
 
     let reader = writer.get_reader(random)?;
@@ -2548,7 +2569,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       assert_eq!(NO_MORE_DOCS, doc_values.doc_id());
     }
 
+    reader.close()?;
     writer.close(random)?;
+    dir.close()?;
     Ok(())
   }
 
@@ -4721,6 +4744,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let dv = leaf.get_sorted_doc_values("field")?.unwrap();
       DocValues::singleton_sorted(dv)
     })?;
+    reader.close()?;
+    directory.close()?;
     Ok(())
   }
 
@@ -4914,6 +4939,8 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     assert!(!terms_enum.seek_exact(&lucene)?);
     assert_eq!(SeekStatus::End, terms_enum.seek_ceil(&lucene)?);
     assert_eq!(-1, dv.lookup_term(&lucene)?);
+    reader.close()?;
+    directory.close()?;
     Ok(())
   }
 

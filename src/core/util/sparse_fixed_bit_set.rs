@@ -427,7 +427,9 @@ impl Accountable for SparseFixedBitSet {
 }
 impl BitSet for SparseFixedBitSet {
   fn clear(&mut self) -> Result<()> {
-    self.bits.fill(Vec::new());
+    for bit_array in &mut self.bits {
+      *bit_array = Vec::new();
+    }
     self.indices.fill(0);
     self.non_zero_long_count = 0;
     self.ram_bytes_used = size_of_vec(&self.indices).saturating_add(size_of_vec(&self.bits));

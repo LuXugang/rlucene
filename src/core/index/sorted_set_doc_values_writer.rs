@@ -245,7 +245,18 @@ impl SortedSetDocValues for SortedSetDocValuesWriterDocIdSetIterator {
     self.default_terms_enum()
   }
 
-  type SortedDocValues = DummySortedDocValues;
+  fn is_single_valued(&self) -> bool {
+    matches!(self, Self::Singleton(_))
+  }
+
+  type SortedDocValues = BufferedSortedDocValues<DocsWithFieldSetDISI>;
+
+  fn get_sorted_doc_values(&mut self) -> Result<Self::SortedDocValues> {
+    match self {
+      Self::Singleton(values) => values.get_sorted_doc_values(),
+      Self::Buffered(_) => Err(LuceneError::unsupported_operation("")),
+    }
+  }
 }
 
 /// Buffers pending byte slices per document, sorts them by `i32` ordinal, then writes them during
@@ -405,7 +416,7 @@ impl SortedSetDocValuesWriter {
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
     ords: &PackedLongValues,
-    ord_counts: Option<PackedLongValues>,
+    ord_counts: Option<&PackedLongValues>,
     max_count: i32,
     docs_with_field: &DocsWithFieldSet,
   ) -> Result<SortedSetDocValuesWriterDocIdSetIterator> {
@@ -459,12 +470,12 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     }
     let ords = self
       .final_ords
-      .take()
+      .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("must be finished before flushing"))?;
-    let ord_counts = self.final_ord_counts.take();
+    let ord_counts = self.final_ord_counts.as_ref();
     let ord_map = self
       .final_ord_map
-      .take()
+      .clone()
       .ok_or_else(|| LuceneError::illegal_state("missing final ordinal map while flushing"))?;
     let frozen_hash = self
       .frozen_hash
@@ -476,9 +487,9 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         self.field_info.clone(),
         frozen_hash,
         self.pool.clone(),
-        ords.clone(),
+        ords,
         ord_map.clone(),
-        std::mem::take(&mut self.docs_with_field),
+        &self.docs_with_field,
         sort_map,
       )?;
       let producer = DocValuesProducerImpl2::new(single_value_producer);
@@ -494,8 +505,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         ord_map.clone(),
         frozen_hash.clone(),
         self.pool.clone(),
-        &ords,
-        ord_counts.clone(),
+        ords,
+        ord_counts,
         self.max_count,
         docs_iter,
       )?;
@@ -517,7 +528,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       ords,
       ord_counts,
       self.max_count,
-      std::mem::take(&mut self.docs_with_field),
+      &self.docs_with_field,
       doc_ords,
     );
     dv_consumer.add_sorted_set_field(write_state, segment_info, &self.field_info, &producer)?;
@@ -543,7 +554,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       frozen_hash.clone(),
       self.pool.clone(),
       final_ords,
-      self.final_ord_counts.clone(),
+      self.final_ord_counts.as_ref(),
       self.max_count,
       &self.docs_with_field,
     )
@@ -579,31 +590,35 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
     Ok(())
   }
 }
-pub(crate) struct DocValuesProducerImpl1 {
+pub(crate) struct DocValuesProducerImpl1<'a> {
   field_info: Arc<FieldInfo>,
   ord_map: Arc<Vec<i32>>,
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
-  ords: PackedLongValues,
-  ord_counts: PackedLongValues,
+  ords: &'a PackedLongValues,
+  ord_counts: &'a PackedLongValues,
   max_count: i32,
-  docs_with_field: DocsWithFieldSet,
+  docs_with_field: &'a DocsWithFieldSet,
   doc_ords: Option<DocOrds>,
 }
 
-impl CloseableRef for DocValuesProducerImpl1 {}
+impl CloseableRef for DocValuesProducerImpl1<'_> {
+  fn close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
 
-impl DocValuesProducerImpl1 {
+impl<'a> DocValuesProducerImpl1<'a> {
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new(
     field_info: Arc<FieldInfo>,
     ord_map: Arc<Vec<i32>>,
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
-    ords: PackedLongValues,
-    ord_counts: PackedLongValues,
+    ords: &'a PackedLongValues,
+    ord_counts: &'a PackedLongValues,
     max_count: i32,
-    docs_with_field: DocsWithFieldSet,
+    docs_with_field: &'a DocsWithFieldSet,
     doc_ords: Option<DocOrds>,
   ) -> Self {
     Self {
@@ -619,7 +634,7 @@ impl DocValuesProducerImpl1 {
     }
   }
 }
-impl DocValuesProducer for DocValuesProducerImpl1 {
+impl DocValuesProducer for DocValuesProducerImpl1<'_> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
@@ -635,8 +650,8 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
       self.ord_map.clone(),
       self.hash.clone(),
       self.pool.clone(),
-      &self.ords,
-      self.ord_counts.clone(),
+      self.ords,
+      self.ord_counts,
       self.max_count,
       docs_iter,
     )?;
@@ -651,15 +666,19 @@ impl DocValuesProducer for DocValuesProducerImpl1 {
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) struct DocValuesProducerImpl2 {
-  single_value_producer: crate::core::index::sorted_doc_values_writer::DocValuesProducerImpl,
+pub(crate) struct DocValuesProducerImpl2<'a> {
+  single_value_producer: crate::core::index::sorted_doc_values_writer::DocValuesProducerImpl<'a>,
 }
 
-impl CloseableRef for DocValuesProducerImpl2 {}
+impl CloseableRef for DocValuesProducerImpl2<'_> {
+  fn close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
 
-impl DocValuesProducerImpl2 {
+impl<'a> DocValuesProducerImpl2<'a> {
   pub(crate) fn new(
-    single_value_producer: crate::core::index::sorted_doc_values_writer::DocValuesProducerImpl,
+    single_value_producer: crate::core::index::sorted_doc_values_writer::DocValuesProducerImpl<'a>,
   ) -> Self {
     Self {
       single_value_producer,
@@ -667,7 +686,7 @@ impl DocValuesProducerImpl2 {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl2 {
+impl DocValuesProducer for DocValuesProducerImpl2<'_> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
@@ -700,7 +719,7 @@ impl<D> BufferedSortedSetDocValues<D> {
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
     ords: &PackedLongValues,
-    ord_counts: PackedLongValues,
+    ord_counts: &PackedLongValues,
     max_count: i32,
     docs_with_field: D,
   ) -> Result<Self> {

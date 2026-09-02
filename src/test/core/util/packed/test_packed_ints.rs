@@ -24,6 +24,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteArrayDataInput, DataInput, DataOutput, IO_CONTEXT_DEFAULT, IndexInput, IndexOutput,
 };
+use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::Format::{Packed, PackedSingleBlock};
@@ -1126,8 +1127,50 @@ fn equals(ints: &[i32], longs: &[i64]) -> bool {
   true
 }
 #[test]
-fn test_packed_long_values_on_zeros() {
-  // TOOD
+fn test_packed_long_values_on_zeros() -> Result<()> {
+  // Make sure that when all values are the same, they use 0 bits per value.
+  let mut random = random();
+  let page_size = 1 << TestUtil::next_int(&mut random, 6, 20);
+  let acceptable_overhead_ratio = random.random::<f32>();
+
+  assert_eq!(
+    PackedLongValues::packed_long_values_builder(page_size, acceptable_overhead_ratio)?
+      .add(0)?
+      .build()?
+      .ram_bytes_used()?,
+    PackedLongValues::packed_long_values_builder(page_size, acceptable_overhead_ratio)?
+      .add(0)?
+      .add(0)?
+      .build()?
+      .ram_bytes_used()?
+  );
+  let l = random.random::<i64>();
+  assert_eq!(
+    PackedLongValues::delta_packed_long_values_builder(page_size, acceptable_overhead_ratio)?
+      .add(l)?
+      .build()?
+      .ram_bytes_used()?,
+    PackedLongValues::delta_packed_long_values_builder(page_size, acceptable_overhead_ratio)?
+      .add(l)?
+      .add(l)?
+      .build()?
+      .ram_bytes_used()?
+  );
+  let avg = random.random_range(0..100i64);
+  assert_eq!(
+    PackedLongValues::monotonic_long_values_builder(page_size, acceptable_overhead_ratio)?
+      .add(l)?
+      .add(l.wrapping_add(avg))?
+      .build()?
+      .ram_bytes_used()?,
+    PackedLongValues::monotonic_long_values_builder(page_size, acceptable_overhead_ratio)?
+      .add(l)?
+      .add(l.wrapping_add(avg))?
+      .add(l.wrapping_add(2 * avg))?
+      .build()?
+      .ram_bytes_used()?
+  );
+  Ok(())
 }
 enum DataType {
   Packed,
@@ -1179,7 +1222,7 @@ fn test_packed_long_values() -> Result<()> {
       if *bpv == 0 {
         arr[0] = random.random::<i64>();
         for i in 1..arr.len() {
-          arr[i] = arr[i - 1] + inc;
+          arr[i] = arr[i - 1].wrapping_add(inc);
         }
       } else if *bpv == 64 {
         arr.iter_mut().for_each(|item| {
@@ -1192,8 +1235,10 @@ fn test_packed_long_values() -> Result<()> {
           i64::MAX - PackedInts::max_value(*bpv),
         );
         arr.iter_mut().enumerate().for_each(|(i, item)| {
-          *item =
-            min_value + inc * i as i64 + (random.random::<i64>() & PackedInts::max_value(*bpv));
+          *item = min_value
+            .wrapping_add(inc.wrapping_mul(i as i64))
+            .wrapping_add(random.random::<i64>())
+            & PackedInts::max_value(*bpv);
         });
       }
 

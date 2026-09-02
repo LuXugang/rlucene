@@ -304,22 +304,24 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
   {
     // `final_values` should always be `Some` here, because we call finish() before flush()
     // but we still keep the check here for consistent with Java Lucene.
-    let (values, value_counts) = match self.final_values.take() {
-      Some(values) => (values, self.final_values_count.take()),
+    let built_values;
+    let built_value_counts;
+    let (values, value_counts) = match self.final_values.as_ref() {
+      Some(values) => (values, self.final_values_count.as_ref()),
       None => {
         self.finish_current_doc()?;
-        let values = self.pending.build()?;
-        let value_counts = match &mut self.pending_counts {
+        built_values = self.pending.build()?;
+        built_value_counts = match &mut self.pending_counts {
           Some(p) => Some(p.build()?),
           None => None,
         };
-        (values, value_counts)
+        (&built_values, built_value_counts.as_ref())
       },
     };
     let Some(value_counts) = value_counts else {
       let single_value_producer = get_doc_values_producer(
         self.field_info.clone(),
-        &values,
+        values,
         &self.docs_with_field,
         sort_map,
       )?;
@@ -334,8 +336,8 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
     };
     let sorted = if let Some(sort_map) = sort_map {
       let mut v = BufferedSortedNumericDocValues::new(
-        &values,
-        &value_counts,
+        values,
+        value_counts,
         self.docs_with_field.iterator()?,
       )?;
       Some(LongValues::new(
@@ -350,7 +352,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
 
     let producer = DocValuesProducerImpl2::new(
       self.field_info.clone(),
-      std::mem::take(&mut self.docs_with_field),
+      &self.docs_with_field,
       values,
       sorted,
       value_counts,
@@ -391,7 +393,11 @@ pub(crate) struct DocValuesProducerImpl1<'a> {
   single_value_producer: DocValuesProducerImpl<'a>,
 }
 
-impl CloseableRef for DocValuesProducerImpl1<'_> {}
+impl CloseableRef for DocValuesProducerImpl1<'_> {
+  fn close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
 
 impl<'a> DocValuesProducerImpl1<'a> {
   pub(crate) fn new(single_value_producer: DocValuesProducerImpl<'a>) -> Result<Self> {
@@ -419,23 +425,27 @@ impl DocValuesProducer for DocValuesProducerImpl1<'_> {
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-pub(crate) struct DocValuesProducerImpl2 {
+pub(crate) struct DocValuesProducerImpl2<'a> {
   field_info: Arc<FieldInfo>,
-  docs_with_field: DocsWithFieldSet,
-  values: PackedLongValues,
+  docs_with_field: &'a DocsWithFieldSet,
+  values: &'a PackedLongValues,
   sorted: Option<LongValues>,
-  value_counts: PackedLongValues,
+  value_counts: &'a PackedLongValues,
 }
 
-impl CloseableRef for DocValuesProducerImpl2 {}
+impl CloseableRef for DocValuesProducerImpl2<'_> {
+  fn close(&self) -> Result<()> {
+    Err(LuceneError::unsupported_operation(""))
+  }
+}
 
-impl DocValuesProducerImpl2 {
+impl<'a> DocValuesProducerImpl2<'a> {
   fn new(
     field_info: Arc<FieldInfo>,
-    docs_with_field: DocsWithFieldSet,
-    values: PackedLongValues,
+    docs_with_field: &'a DocsWithFieldSet,
+    values: &'a PackedLongValues,
     sorted: Option<LongValues>,
-    value_counts: PackedLongValues,
+    value_counts: &'a PackedLongValues,
   ) -> Result<Self> {
     Ok(Self {
       field_info,
@@ -447,7 +457,7 @@ impl DocValuesProducerImpl2 {
   }
 }
 
-impl DocValuesProducer for DocValuesProducerImpl2 {
+impl DocValuesProducer for DocValuesProducerImpl2<'_> {
   type NumericDocValues = DummyNumericDocValues;
   type BinaryDocValues = DummyBinaryDocValues;
   type SortedDocValues = DummySortedDocValues;
@@ -458,11 +468,11 @@ impl DocValuesProducer for DocValuesProducerImpl2 {
     field_info_in: &Arc<FieldInfo>,
   ) -> Result<Self::SortedNumericDocValues> {
     if !Arc::ptr_eq(&self.field_info, field_info_in) {
-      return Err(LuceneError::illegal_state("wrong fieldInfo"));
+      return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     let buf = BufferedSortedNumericDocValues::new(
-      &self.values,
-      &self.value_counts,
+      self.values,
+      self.value_counts,
       self.docs_with_field.iterator()?,
     )?;
     match &self.sorted {

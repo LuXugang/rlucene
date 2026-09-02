@@ -204,7 +204,7 @@ fn test_sorted_field() -> Result<()> {
   writer.add_document(doc)?;
 
   let dr = directory_reader::open_from_writer(&writer)?;
-  let r = get_only_leaf_reader(dr)?;
+  let r = get_only_leaf_reader(&dr)?;
 
   // ok
   let mut v = DocValues::get_sorted(r.as_ref(), "foo")?;
@@ -227,7 +227,9 @@ fn test_sorted_field() -> Result<()> {
     Err(error) if error.is_illegal_state_error()
   ));
 
+  dr.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 /// field with sortedset docvalues
@@ -269,7 +271,9 @@ fn test_sorted_set_field() -> Result<()> {
     Err(error) if error.is_illegal_state_error()
   ));
 
+  dr.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 /// field with sortednumeric docvalues
@@ -284,7 +288,7 @@ fn test_sorted_numeric_field() -> Result<()> {
   writer.add_document(doc)?;
 
   let dr = directory_reader::open_from_writer(&writer)?;
-  let r = get_only_leaf_reader(dr)?;
+  let r = get_only_leaf_reader(&dr)?;
 
   // ok
   let mut v = DocValues::get_sorted_numeric(r.as_ref(), "foo")?;
@@ -308,7 +312,9 @@ fn test_sorted_numeric_field() -> Result<()> {
     Err(error) if error.is_illegal_state_error()
   ));
 
+  dr.close()?;
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]

@@ -669,7 +669,7 @@ where
     let mut success = false;
 
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      let max_doc = segment_info.max_doc()?;
+      segment_info.max_doc()?;
       for fi in state.field_infos.iter() {
         let per_field_index = self.get_per_field(&fi.name);
         debug_assert!(per_field_index.is_some());
@@ -686,7 +686,6 @@ where
             .norms
             .as_mut()
             .ok_or_else(|| LuceneError::illegal_state("norms writer is missing"))?;
-          norms.finish(max_doc);
           norms.flush(sort_map, &mut norms_consumer, segment_info)?;
         }
       }

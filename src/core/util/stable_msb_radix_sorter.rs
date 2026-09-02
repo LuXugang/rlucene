@@ -50,6 +50,33 @@ where
     StableMSBRadixSorterBase::get_fallback_sorter(&mut self.delegate, k, self.max_length)
   }
 
+  fn get_bucket(&mut self, i: usize, k: usize) -> Result<i32> {
+    self.delegate.get_bucket(i, k)
+  }
+
+  fn build_histogram(
+    &mut self,
+    prefix_common_bucket: usize,
+    prefix_common_len: usize,
+    from: usize,
+    to: usize,
+    k: usize,
+    histogram: &mut [usize],
+  ) -> Result<()> {
+    self.delegate.build_histogram(
+      prefix_common_bucket,
+      prefix_common_len,
+      from,
+      to,
+      k,
+      histogram,
+    )
+  }
+
+  fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
+    self.delegate.should_fallback(from, to, l)
+  }
+
   fn reorder(
     &mut self,
     from: usize,

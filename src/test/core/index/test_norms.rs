@@ -36,6 +36,7 @@ use crate::core::search::similarities_impl::similarities::{
 use crate::core::search::similarities_impl::tf_idf_similarity::TFIDFSimilarity;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::store::directory::DirEnum;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -45,6 +46,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_log_merge_policy, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
+use rand::rngs::StdRng;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -60,7 +62,7 @@ fn test_max_byte_norms() -> Result<()> {
     &mut random,
     create_temp_dir_with_prefix("TestNorms.testMaxByteNorms")?,
   )?;
-  build_index(dir.clone())?;
+  build_index(dir.clone(), &mut random)?;
 
   let open = directory_reader::open(dir.clone())?;
   let mut norm_values = MultiDocValues::get_norm_values(&open, BYTE_TEST_FIELD)?
@@ -82,24 +84,24 @@ fn test_max_byte_norms() -> Result<()> {
     assert_eq!(expected, norm_values.long_value()?);
   }
   open.close()?;
+  dir.close()?;
   Ok(())
 }
-pub fn build_index(dir: Arc<DirEnum>) -> Result<()> {
-  let mut random = random();
-  let mut analyzer = MockAnalyzer::new(&mut random);
+pub fn build_index(dir: Arc<DirEnum>, random: &mut StdRng) -> Result<()> {
+  let mut analyzer = MockAnalyzer::new(random);
   // we need at least 3 for maxTokenLength otherwise norms are messed up
-  analyzer.set_max_token_length(TestUtil::next_int(&mut random, 3, MAX_TERM_LENGTH));
+  analyzer.set_max_token_length(TestUtil::next_int(random, 3, MAX_TERM_LENGTH));
 
-  let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
+  let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
   let provider = MySimProvider;
   config.set_similarity(SimilarityEnum::custom(provider));
 
-  let writer = RandomIndexWriter::with_config(&mut random, dir, config);
-  let num = at_least(&mut random, 100);
+  let writer = RandomIndexWriter::with_config(random, dir, config);
+  let num = at_least(random, 100);
 
   for _ in 0..num {
     let mut doc = Document::new();
-    let boost = TestUtil::next_int(&mut random, 1, 255);
+    let boost = TestUtil::next_int(random, 1, 255);
     let value = (0..boost)
       .map(|_| boost.to_string())
       .collect::<Vec<_>>()
@@ -107,11 +109,11 @@ pub fn build_index(dir: Arc<DirEnum>) -> Result<()> {
 
     let field = TextField::from_string(BYTE_TEST_FIELD, value, Store::Yes)?;
     doc.add(field);
-    writer.add_document(&mut random, doc)?;
+    writer.add_document(random, doc)?;
   }
 
-  writer.commit(&mut random)?;
-  writer.close(&mut random)?;
+  writer.commit(random)?;
+  writer.close(random)?;
   Ok(())
 }
 #[test]
@@ -148,6 +150,7 @@ fn test_empty_value_vs_no_value() -> Result<()> {
   assert_eq!(0, norm_values.long_value()?);
 
   reader.close()?;
+  dir.close()?;
   Ok(())
 }
 

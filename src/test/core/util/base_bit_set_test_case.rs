@@ -194,13 +194,14 @@ pub trait BaseBitSetTestCase {
     for percent_set in [0f32, 0.01, 0.1, 0.5, 0.9, 0.99, 1f32] {
       let set3 = RustUtilBitSet::new(random_set(random, num_bits, percent_set), num_bits);
       let mut set1 = set3.clone();
-      let (mut set2, _sfbs) = self.copy_of(&set3, num_bits)?;
+      let (mut set2, sfbs) = self.copy_of(&set3, num_bits)?;
       let iters = 1 + random.random_range(0..(num_bits * 2));
       for _i in 0..iters {
         let index = random.random_range(0..num_bits);
         set1.clear_with_index(index)?;
         set2.clear_with_index(index)?;
       }
+      self.assert_equals(&set1, &set2, num_bits, sfbs.as_ref());
     }
     Ok(())
   }

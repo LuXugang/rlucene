@@ -45,10 +45,12 @@ use crate::core::index::term::Term;
 use crate::core::store::{ByteBuffersDirectory, FSDirectories};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
+use std::cell::RefCell;
 use std::collections::HashMap;
 
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
@@ -94,6 +96,7 @@ fn test_upgrade_field_to_points() -> Result<()> {
   doc.add(v);
   w.close()?;
 
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -121,6 +124,7 @@ fn test_illegal_dim_change_one_doc() -> Result<()> {
     _ => unreachable!("{:?}", err),
   }
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -152,6 +156,7 @@ fn test_illegal_dim_change_two_docs() -> Result<()> {
   }
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -186,6 +191,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
   }
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -227,6 +233,7 @@ to inconsistent dimensionCount=2, indexDimensionCount=2, numBytes=4"
 
     w2.close()?;
   }
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -258,7 +265,8 @@ fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
     err.unwrap_err().to_string()
   );
 
-  w2.close()?;
+  let close: [&dyn Fn() -> Result<()>; 3] = [&|| w2.close(), &|| dir.close(), &|| dir2.close()];
+  IOUtils::close_with(close, |close| close())?;
   Ok(())
 }
 #[test]
@@ -291,10 +299,11 @@ fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
     err.unwrap_err().to_string()
   );
 
-  reader.close()?;
-  w2.close()?;
-  dir.close()?;
-  dir2.close()?;
+  let close: [&dyn Fn() -> Result<()>; 4] =
+    [&|| reader.close(), &|| w2.close(), &|| dir.close(), &|| {
+      dir2.close()
+    }];
+  IOUtils::close_with(close, |close| close())?;
   Ok(())
 }
 #[test]
@@ -326,10 +335,11 @@ fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
     err.unwrap_err().to_string()
   );
 
-  reader.close()?;
-  w2.close()?;
-  dir.close()?;
-  dir2.close()?;
+  let close: [&dyn Fn() -> Result<()>; 4] =
+    [&|| reader.close(), &|| w2.close(), &|| dir.close(), &|| {
+      dir2.close()
+    }];
+  IOUtils::close_with(close, |close| close())?;
   Ok(())
 }
 #[test]
@@ -358,6 +368,7 @@ fn test_illegal_num_bytes_change_one_doc() -> Result<()> {
   }
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -390,6 +401,7 @@ fn test_illegal_num_bytes_change_two_docs() -> Result<()> {
   }
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -424,6 +436,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
   }
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -467,6 +480,7 @@ to inconsistent dimensionCount=1, indexDimensionCount=1, numBytes=6"
     w2.close()?;
   }
 
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -498,7 +512,8 @@ fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
     err.unwrap_err().to_string()
   );
 
-  w2.close()?;
+  let close: [&dyn Fn() -> Result<()>; 3] = [&|| w2.close(), &|| dir.close(), &|| dir2.close()];
+  IOUtils::close_with(close, |close| close())?;
   Ok(())
 }
 #[test]
@@ -531,10 +546,11 @@ fn test_illegal_num_bytes_change_via_add_indexes_codec_reader() -> Result<()> {
     err.unwrap_err().to_string()
   );
 
-  reader.close()?;
-  w2.close()?;
-  dir.close()?;
-  dir2.close()?;
+  let close: [&dyn Fn() -> Result<()>; 4] =
+    [&|| reader.close(), &|| w2.close(), &|| dir.close(), &|| {
+      dir2.close()
+    }];
+  IOUtils::close_with(close, |close| close())?;
   Ok(())
 }
 #[test]
@@ -566,10 +582,11 @@ fn test_illegal_num_bytes_change_via_add_indexes_slow_codec_reader() -> Result<(
     err.unwrap_err().to_string()
   );
 
-  reader.close()?;
-  w2.close()?;
-  dir.close()?;
-  dir2.close()?;
+  let close: [&dyn Fn() -> Result<()>; 4] =
+    [&|| reader.close(), &|| w2.close(), &|| dir.close(), &|| {
+      dir2.close()
+    }];
+  IOUtils::close_with(close, |close| close())?;
   Ok(())
 }
 #[test]
@@ -592,6 +609,7 @@ fn test_illegal_too_many_bytes() -> Result<()> {
   w.add_document(doc2)?;
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -620,6 +638,7 @@ fn test_illegal_too_many_dimensions() -> Result<()> {
   w.add_document(doc2)?;
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -695,10 +714,11 @@ fn test_invalid_double_point_usage() -> Result<()> {
 
   Ok(())
 }
-struct IntersectVisitorImpl {
+struct IntersectVisitorImpl<'a, R: ?Sized> {
+  random: RefCell<&'a mut R>,
   last_doc_id: i32,
 }
-impl IntersectVisitor for IntersectVisitorImpl {
+impl<R: Rng + ?Sized> IntersectVisitor for IntersectVisitorImpl<'_, R> {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
     if doc_id < self.last_doc_id {
       return Err(LuceneError::illegal_state(format!(
@@ -715,7 +735,7 @@ impl IntersectVisitor for IntersectVisitorImpl {
   }
 
   fn compare(&self, _min_packed_value: &[u8], _max_packed_value: &[u8]) -> Result<Relation> {
-    if random().random_bool(0.5) {
+    if self.random.borrow_mut().random_bool(0.5) {
       Ok(Relation::CellCrossesQuery)
     } else {
       Ok(Relation::CellInsideQuery)
@@ -748,17 +768,22 @@ fn test_tie_break_by_doc_id() -> Result<()> {
   }
 
   let reader = directory_reader::open_from_writer(&w)?;
-  let reader = reader.get_context()?;
+  let context = (&reader).get_context()?;
 
-  for leaf in reader.leaves()? {
+  for leaf in context.leaves()? {
     let points = leaf.reader().get_point_values("int")?;
     if let Some(points) = points {
-      let mut visitor = IntersectVisitorImpl { last_doc_id: -1 };
+      let mut visitor = IntersectVisitorImpl {
+        random: RefCell::new(&mut random),
+        last_doc_id: -1,
+      };
       points.intersect(&mut visitor)?;
     }
   }
 
+  reader.close()?;
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -789,13 +814,15 @@ fn test_delete_all_point_docs() -> Result<()> {
   w.force_merge(1)?;
   let reader = directory_reader::open_from_writer(&w)?;
 
-  let ctx = reader.get_context()?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
   let leaf = &leaves[0];
 
   assert!(leaf.reader().get_point_values("int")?.is_none());
 
   w.close()?;
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -867,7 +894,7 @@ fn test_sparse_points() -> Result<()> {
   }
 
   let reader = w.get_reader(&mut random)?;
-  let ctx = reader.get_context()?;
+  let ctx = (&reader).get_context()?;
   let leaves = ctx.leaves()?;
 
   for field in 0..num_fields {
@@ -886,7 +913,9 @@ fn test_sparse_points() -> Result<()> {
     assert_eq!(field_sizes[field as usize], size);
   }
 
+  reader.close()?;
   w.close(&mut random)?;
+  dir.close()?;
 
   Ok(())
 }
@@ -951,7 +980,7 @@ fn test_merged_stats_one_segment_without_points() -> Result<()> {
   w.add_document(Document::new())?;
 
   {
-    directory_reader::open_from_writer(&w)?;
+    directory_reader::open_from_writer(&w)?.close()?;
   }
 
   let mut doc = Document::new();
@@ -1065,7 +1094,7 @@ where
     w.add_document(doc)?;
 
     if random.random_bool(0.5) {
-      directory_reader::open_from_writer(&w)?;
+      directory_reader::open_from_writer(&w)?.close()?;
     }
   }
 
@@ -1099,5 +1128,12 @@ where
     },
   }
 
+  let close: [&dyn Fn() -> Result<()>; 4] = [
+    &|| w.close(),
+    &|| reader1.close(),
+    &|| reader2.close(),
+    &|| dir.close(),
+  ];
+  IOUtils::close_with(close, |close| close())?;
   Ok(())
 }

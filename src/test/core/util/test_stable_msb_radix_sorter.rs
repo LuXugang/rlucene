@@ -18,6 +18,7 @@
 
 use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use std::collections::HashSet;
+use std::hash::{BuildHasherDefault, DefaultHasher};
 
 use rand::{Rng, RngExt};
 
@@ -35,7 +36,7 @@ fn test<R>(refs: &[BytesRef<Vec<u8>>], len: usize, random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
+  let mut expected: Vec<&BytesRef<Vec<u8>>> = refs[..len].iter().collect();
   expected.sort();
 
   let mut max_length = 0;
@@ -50,13 +51,17 @@ where
   }
 
   let final_max_length = max_length;
-  let mut actual = refs[..len].to_vec();
+  let mut actual: Vec<&BytesRef<Vec<u8>>> = refs[..len].iter().collect();
   let delegate = StableMSBRadixSorterTestImpl::new(final_max_length, &mut actual);
   let stable_msb_radix_sorter = StableMSBRadixSorter::new(delegate, final_max_length);
   let mut msb_radix_sorter = MSBRadixSorter::new(max_length, stable_msb_radix_sorter);
   msb_radix_sorter.sort(0, len)?;
 
   assert_vecs_equal(&expected, &actual);
+  // Equal keys must retain the same original instance at every index.
+  for (expected, actual) in expected.iter().zip(&actual) {
+    assert!(std::ptr::eq(*expected, *actual));
+  }
   Ok(())
 }
 #[test]
@@ -92,7 +97,7 @@ where
   let mut bytes: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(len + random.random_range(0..50));
   for _ in 0..len {
     let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
-    random.fill_bytes(&mut b[common_prefix_len..]);
+    random.fill_bytes(&mut b);
     b.copy_from(&common_prefix, 0);
     bytes.push(BytesRef::from_bytes(b));
   }
@@ -145,7 +150,7 @@ fn test_random2() -> Result<()> {
 
   // how many substring fragments to use
   let substring_count = TestUtil::next_usize(&mut random, 2, 10);
-  let mut substrings_set = HashSet::new();
+  let mut substrings_set = HashSet::<_, BuildHasherDefault<DefaultHasher>>::default();
 
   // how many strings to make
   let string_count = at_least_usize(&mut random, 10000);
@@ -178,7 +183,7 @@ fn test_random2() -> Result<()> {
     *value = accum;
   }
 
-  let mut strings_set = HashSet::new();
+  let mut strings_set = HashSet::<_, BuildHasherDefault<DefaultHasher>>::default();
   let mut iters = 0;
 
   while strings_set.len() < string_count && iters < string_count * 5 {
@@ -206,32 +211,32 @@ fn test_random2() -> Result<()> {
   test(&strings_vec, strings_vec.len(), &mut random)
 }
 
-struct StableMSBRadixSorterTestImpl<'a> {
-  temp: Vec<BytesRef<Vec<u8>>>,
+struct StableMSBRadixSorterTestImpl<'a, 'b> {
+  temp: Vec<&'a BytesRef<Vec<u8>>>,
   final_max_length: usize,
-  refs: &'a mut [BytesRef<Vec<u8>>],
+  refs: &'b mut [&'a BytesRef<Vec<u8>>],
 }
-impl<'a> StableMSBRadixSorterTestImpl<'a> {
-  fn new(final_max_length: usize, refs: &'a mut Vec<BytesRef<Vec<u8>>>) -> Self {
+impl<'a, 'b> StableMSBRadixSorterTestImpl<'a, 'b> {
+  fn new(final_max_length: usize, refs: &'b mut [&'a BytesRef<Vec<u8>>]) -> Self {
     StableMSBRadixSorterTestImpl {
-      temp: vec![BytesRef::default(); refs.len()],
+      temp: Vec::new(),
       final_max_length,
       refs,
     }
   }
 }
 
-impl Sorter for StableMSBRadixSorterTestImpl<'_> {
+impl Sorter for StableMSBRadixSorterTestImpl<'_, '_> {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     self.refs.swap(i, j);
     Ok(())
   }
 }
 
-impl MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
+impl MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_, '_> {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     assert!(k < self.final_max_length, "k is out of bounds");
-    let ref_item = &self.refs[i];
+    let ref_item = self.refs[i];
 
     if ref_item.length <= k {
       return Ok(-1);
@@ -240,14 +245,17 @@ impl MSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
     Ok(ref_item.bytes[ref_item.offset + k] as i32)
   }
 }
-impl StableMSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_> {
+impl StableMSBRadixSorterBase for StableMSBRadixSorterTestImpl<'_, '_> {
   fn save(&mut self, i: usize, j: usize) {
-    self.temp[j] = self.refs[i].clone();
+    if self.temp.is_empty() {
+      self.temp = self.refs.to_vec();
+    }
+    self.temp[j] = self.refs[i];
   }
 
   fn restore(&mut self, i: usize, j: usize) {
-    for idx in i..j {
-      self.refs[idx] = self.temp[idx].clone();
+    if !self.temp.is_empty() {
+      self.refs[i..j].copy_from_slice(&self.temp[i..j]);
     }
   }
 }
