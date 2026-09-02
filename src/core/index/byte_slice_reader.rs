@@ -54,13 +54,6 @@ impl<P> ByteSliceReader<P> {
     debug_assert!(self.upto + self.buffer_offset <= self.end_index);
     self.upto + self.buffer_offset == self.end_index
   }
-
-  /// # Note
-  /// Not used in Java Lucene; kept for API completeness.
-  #[allow(dead_code)]
-  pub(crate) fn write(&self, _out: &mut impl DataOutput) -> i64 {
-    0
-  }
 }
 
 impl<P> ByteSliceReader<P>
@@ -85,6 +78,32 @@ where
     } else {
       self.limit = self.upto + first_size - 4;
     }
+  }
+
+  #[allow(dead_code)]
+  pub(crate) fn write(&mut self, out: &mut impl DataOutput) -> Result<i64> {
+    let mut size = 0;
+    loop {
+      if self.limit + self.buffer_offset == self.end_index {
+        debug_assert!(self.end_index - self.buffer_offset >= self.upto);
+        out.write_bytes_range(
+          self.pool.get_buffer(self.buffer_upto),
+          self.upto,
+          self.limit - self.upto,
+        )?;
+        size += (self.limit - self.upto) as i64;
+        break;
+      } else {
+        out.write_bytes_range(
+          self.pool.get_buffer(self.buffer_upto),
+          self.upto,
+          self.limit - self.upto,
+        )?;
+        size += (self.limit - self.upto) as i64;
+        self.next_slice()?;
+      }
+    }
+    Ok(size)
   }
 
   pub(crate) fn next_slice(&mut self) -> Result<()> {

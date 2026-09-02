@@ -38,10 +38,10 @@ fn test_alloc_known_size_slice() -> Result<()> {
   let mut slice_pool = ByteSlicePool;
 
   for _ in 0..100 {
-    let size: i32 = if rand::random::<bool>() {
-      rand::rng().random_range(100..1000)
+    let size: i32 = if random.random_bool(0.5) {
+      TestUtil::next_int(&mut random, 100, 1000)
     } else {
-      rand::rng().random_range(50000..100000)
+      TestUtil::next_int(&mut random, 50000, 100000)
     };
 
     let mut random_data = vec![0u8; size as usize];
@@ -119,10 +119,10 @@ impl SliceWriter {
   {
     let size: i32 = if random.random_bool(0.5) {
       // size < ByteBlockPool.BYTE_BLOCK_SIZE
-      random.random_range(100..1000)
+      TestUtil::next_int(random, 100, 1000)
     } else {
       // size > ByteBlockPool.BYTE_BLOCK_SIZE
-      random.random_range(50000..100000)
+      TestUtil::next_int(random, 50000, 100000)
     };
 
     let mut random_data = vec![0u8; size as usize];
@@ -274,7 +274,7 @@ impl SliceReader {
     let global_slice_offset = BitUtil::get_i32_le(
       slice_buffer,
       (self.slice_offset + self.slice_length) as usize,
-    ) & 0xFFFFFF;
+    );
     self.slice = (global_slice_offset / BYTE_BLOCK_SIZE) as usize;
     self.slice_offset = global_slice_offset % BYTE_BLOCK_SIZE;
     self.slice_length = ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
@@ -321,12 +321,9 @@ fn test_random_interleaved_slices() -> Result<()> {
       let i = random.random_range(0..n);
       let succeeded = slice_writers[i].write_slice(&mut pool, &mut slice_pool)?;
       if !succeeded {
-        slice_writers.iter_mut().take(n).for_each(|writer| {
-          while writer
-            .write_slice(&mut pool, &mut slice_pool)
-            .unwrap_or(false)
-          {}
-        });
+        for writer in slice_writers.iter_mut().take(n) {
+          while writer.write_slice(&mut pool, &mut slice_pool)? {}
+        }
         break;
       }
     }
@@ -342,7 +339,7 @@ fn test_random_interleaved_slices() -> Result<()> {
 
     // Read slices
     loop {
-      let i = rand::rng().random_range(0..n);
+      let i = random.random_range(0..n);
       let succeeded = slice_readers[i].read_slice(&pool);
       if !succeeded {
         for j in slice_readers.iter_mut().take(n) {
@@ -361,7 +358,7 @@ fn test_random_interleaved_slices() -> Result<()> {
     // SliceWriter keeps the slice length as state, but
     // ByteSlicePool.allocKnownSizeSlice asserts on zeros in the
     // buffer.
-    pool.reset(true, rand::rng().random_bool(0.5));
+    pool.reset(true, random.random_bool(0.5));
   }
 
   Ok(())
