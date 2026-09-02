@@ -498,8 +498,7 @@ where
   let mut bs: FixedBitSet;
   if random.random_bool(0.5) {
     let bits_2_words = FixedBitSet::bits2words(num_bits);
-    let mut words: Vec<i64> = Vec::with_capacity(bits_2_words);
-    words.resize(num_bits, 0);
+    let words = vec![0; bits_2_words + random.random_range(0..100)];
     bs = FixedBitSet::with_capacity(words, num_bits)?
   } else {
     bs = FixedBitSet::new(num_bits)
@@ -647,7 +646,7 @@ fn test_and_not() -> Result<()> {
 
   let min = random.random_range(0..=(num_bits1 - 1));
   let off_set_word1 = min >> 6;
-  let offset1 = off_set_word1 >> 6;
+  let offset1 = off_set_word1 << 6;
   let bits1 = make_int_array(&mut random, count1, min, num_bits1 - 1);
   let bits2 = make_int_array(&mut random, count2, 0, num_bits2 - 1);
 

@@ -157,7 +157,7 @@ impl FixedBitSet {
     let num_words = Self::bits2words(num_bits);
     if num_words > stored_bits.len() {
       return Err(LuceneError::illegal_argument(format!(
-        "The given long array is too small  to hold {num_words} bits"
+        "The given long array is too small  to hold {num_bits} bits"
       )));
     }
     Ok(Self::from_validated_parts(stored_bits, num_bits, num_words))
@@ -241,8 +241,21 @@ impl FixedBitSet {
   pub fn xor(&mut self, other: &FixedBitSet) {
     self.xor_impl(&other.bits, other.num_words);
   }
-  pub fn xor_disi(&self, _iter: impl DocIdSetIterator) {
-    // not used in Java Lucene, so we did not impl it
+  /// Does in-place XOR of the bits provided by the iterator.
+  pub fn xor_disi(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
+    check_unpositioned(iter)?;
+    if let Some(bits) = iter.get_fixed_bit_set() {
+      self.xor(bits);
+    } else {
+      loop {
+        let doc: usize = iter.next_doc()?.try_convert()?;
+        if doc >= self.num_bits {
+          break;
+        }
+        self.flip(doc);
+      }
+    }
+    Ok(())
   }
   fn xor_impl(&mut self, other_bits: &[i64], other_num_words: usize) {
     debug_assert!(
@@ -316,7 +329,10 @@ impl FixedBitSet {
   }
 
   fn and_not_impl(&mut self, other_offset_words: usize, other_arr: &[i64], other_num_words: usize) {
-    let pos = std::cmp::min(self.num_words - other_offset_words, other_num_words);
+    let pos = std::cmp::min(
+      self.num_words.saturating_sub(other_offset_words),
+      other_num_words,
+    );
     let offset = other_offset_words;
     for i in (0..pos).rev() {
       self.bits[i + offset] &= !other_arr[i];
@@ -491,6 +507,11 @@ impl Accountable for FixedBitSet {
 }
 
 impl BitSet for FixedBitSet {
+  fn clear(&mut self) -> Result<()> {
+    self.bits.fill(0);
+    Ok(())
+  }
+
   fn set(&mut self, i: usize) -> Result<()> {
     debug_assert!(
       i < self.num_bits,
