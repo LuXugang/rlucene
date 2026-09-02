@@ -422,8 +422,7 @@ where
       "parent_splits should be all zeros at the end"
     );
 
-    let split_packed_values =
-      BytesRef::from_slice(split_packed_values, self.config.bytes_per_dim, 0);
+    let split_packed_values = BytesRef::from_bytes(split_packed_values);
 
     self.make_writer(
       split_packed_values,
@@ -649,8 +648,7 @@ where
       .bytes
       .clone_from(&split_packed_values);
     self.scratch_bytes_ref1.length = self.config.bytes_per_dim;
-    let split_packed_values =
-      BytesRef::from_slice(split_packed_values, self.config.bytes_per_dim, 0);
+    let split_packed_values = BytesRef::from_bytes(split_packed_values);
 
     self.make_writer(
       split_packed_values,
@@ -2677,7 +2675,7 @@ impl BKDTreeLeafNodes for BKDTreeLeafNodesImpl {
     (
       &self.scratch_bytes_ref1.bytes,
       index * self.bytes_per_dim,
-      self.scratch_bytes_ref1.length,
+      self.bytes_per_dim,
     )
   }
 

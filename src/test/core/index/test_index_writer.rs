@@ -4804,7 +4804,7 @@ fn test_broken_payload() -> Result<()> {
   let d = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  let w = IndexWriter::new(d, iwc)?;
+  let w = IndexWriter::new(d.clone(), iwc)?;
 
   let mut doc = Document::new();
   let mut token = token::with_range(Some("bar"), 0, 3)?;
@@ -4819,8 +4819,10 @@ fn test_broken_payload() -> Result<()> {
     FieldTokenStreamEnum::custom(CannedTokenStream::new(vec![token])),
   )?);
 
-  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| w.add_document(doc)));
-  assert!(result.is_err());
+  let err = w.add_document(doc).unwrap_err();
+  assert!(matches!(err, LuceneError::ArrayIndexOutOfBounds(_)));
+  w.close()?;
+  d.close()?;
   Ok(())
 }
 #[test]
