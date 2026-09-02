@@ -1,0 +1,55 @@
+import hudson.plugins.git.BranchSpec
+import hudson.plugins.git.GitSCM
+import hudson.plugins.git.UserRemoteConfig
+import hudson.plugins.git.extensions.impl.CleanBeforeCheckout
+import hudson.plugins.git.extensions.impl.CloneOption
+import hudson.tasks.LogRotator
+import jenkins.model.BuildDiscarderProperty
+import jenkins.model.Jenkins
+import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
+import org.jenkinsci.plugins.workflow.job.WorkflowJob
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty
+
+def setting = { String name, String fallback ->
+  System.getenv(name) ?: fallback
+}
+def jenkins = Jenkins.get()
+def jobName = setting('RLUCENE_JOB_NAME', 'rlucene-ci')
+if (!(jobName ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/)) {
+  throw new IllegalArgumentException('RLUCENE_JOB_NAME must be a simple job name')
+}
+
+// Creation only: never rewrite an existing job, its history, or its credentials.
+if (jenkins.getItem(jobName) != null) {
+  println("Keeping existing Jenkins job ${jobName}")
+  return
+}
+
+def repository = setting('RLUCENE_REPOSITORY_URL', 'https://github.com/Rustify-All/rlucene.git')
+def branch = setting('RLUCENE_BRANCH', 'main')
+if (!(branch ==~ /[A-Za-z0-9][A-Za-z0-9_.\/-]*/) || branch.contains('..')) {
+  throw new IllegalArgumentException('RLUCENE_BRANCH must name a Git branch')
+}
+def credentialsId = setting('RLUCENE_GIT_CREDENTIALS_ID', '')
+def clean = new CleanBeforeCheckout()
+clean.setDeleteUntrackedNestedRepositories(true)
+def clone = new CloneOption(true, true, '', 10)
+clone.setDepth(1)
+clone.setHonorRefspec(true)
+def scm = new GitSCM(
+  [new UserRemoteConfig(repository, 'origin',
+    "+refs/heads/${branch}:refs/remotes/origin/${branch}", credentialsId)],
+  [new BranchSpec("*/${branch}")],
+  false, [], null, null, [clean, clone]
+)
+def definition = new CpsScmFlowDefinition(scm, 'ci/jenkins/Jenkinsfile')
+definition.setLightweight(true)
+
+def job = jenkins.createProject(WorkflowJob.class, jobName)
+job.setDescription('RLucene CI. Definition: ci/jenkins/Jenkinsfile; bootstrap: ci/jenkins/deployment.')
+job.setDefinition(definition)
+job.addProperty(new DisableConcurrentBuildsJobProperty())
+job.addProperty(new BuildDiscarderProperty(new LogRotator(-1, 500, -1, -1)))
+job.setDisabled(setting('RLUCENE_JOB_DISABLED', 'false').toBoolean())
+job.save()
+println("Created Jenkins job ${jobName}; run it once to install the Pipeline schedule")

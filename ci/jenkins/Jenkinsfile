@@ -10,20 +10,17 @@ pipeline {
   }
 
   triggers {
-    cron('H/2 * * * *')
+    // Compose supplies the default; Jenkins may expose an empty value as null.
+    cron(env.RLUCENE_CRON ?: '')
   }
 
   environment {
-    REPOSITORY_URL = 'git@github.com:Rustify-All/rlucene.git'
-    GIT_CREDENTIALS_ID = 'github-ssh'
-    RUSTUP_DIST_SERVER = 'https://rsproxy.cn'
-    RUSTUP_UPDATE_ROOT = 'https://rsproxy.cn/rustup'
     RUSTUP_HOME = '/opt/rustup'
     CARGO_HOME = '/opt/cargo'
     // Keep release artifacts across builds; release compilation is expensive.
-    CARGO_TARGET_DIR = '/var/jenkins_home/cargo-target/rlucene-ci'
-    CI_STATE_ROOT = '/var/jenkins_home/ci-state/rlucene-ci'
-    LAST_SUCCESSFUL_SHA_FILE = '/var/jenkins_home/ci-state/rlucene-ci/last-successful-sha'
+    CARGO_TARGET_DIR = "${JENKINS_HOME}/cargo-target/${JOB_NAME}"
+    CI_STATE_ROOT = "${JENKINS_HOME}/ci-state/${JOB_NAME}"
+    LAST_SUCCESSFUL_SHA_FILE = "${JENKINS_HOME}/ci-state/${JOB_NAME}/last-successful-sha"
     CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = 'true'
     CARGO_TERM_COLOR = 'never'
     RUST_BACKTRACE = 'full'
@@ -81,34 +78,11 @@ pipeline {
       }
     }
 
-    stage('Checkout main') {
+    stage('Checkout') {
       steps {
-        checkout([
-          $class: 'GitSCM',
-          branches: [[name: '*/main']],
-          extensions: [
-            [
-              $class: 'CleanBeforeCheckout',
-              deleteUntrackedNestedRepositories: true
-            ],
-            [
-              $class: 'CloneOption',
-              depth: 1,
-              honorRefspec: true,
-              noTags: true,
-              reference: '',
-              shallow: true,
-              timeout: 10
-            ]
-          ],
-          userRemoteConfigs: [[
-            credentialsId: env.GIT_CREDENTIALS_ID,
-            name: 'origin',
-            refspec:
-              '+refs/heads/main:refs/remotes/origin/main',
-            url: env.REPOSITORY_URL
-          ]]
-        ])
+        // Use the same repository, branch, and credentials that supplied this file.
+        // The versioned job initializer configures the shallow, clean checkout.
+        checkout(scm)
         script {
           String checkedOutSha = sh(
             returnStdout: true,
@@ -366,18 +340,22 @@ running cargo nextest directly."""
 
     failure {
       script {
-        emailext(
-          to: 'luxugang@apache.org',
-          subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} failed",
-          body: """Build: ${env.BUILD_URL}
+        if (env.RLUCENE_FAILURE_EMAIL?.trim()) {
+          emailext(
+            to: env.RLUCENE_FAILURE_EMAIL,
+            subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} failed",
+            body: """Build: ${env.BUILD_URL}
 Commit: ${env.FAILED_SHA}
 Failure kind: ${env.FAILURE_KIND}
 """,
-          attachLog: true,
-          compressLog: true,
-          attachmentsPattern:
-            'nextest.log,nextest-junit.xml,nextest-diagnostics.log,doctest.log'
-        )
+            attachLog: true,
+            compressLog: true,
+            attachmentsPattern:
+              'nextest.log,nextest-junit.xml,nextest-diagnostics.log,doctest.log'
+          )
+        } else {
+          echo 'Failure email is disabled; see the archived logs and diagnostics.'
+        }
       }
     }
   }

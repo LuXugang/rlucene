@@ -1,0 +1,10 @@
+# Only the toolchain and the versioned controller definition enter the image.
+**
+!rust-toolchain.toml
+!ci/
+!ci/jenkins/
+!ci/jenkins/deployment/
+!ci/jenkins/deployment/Dockerfile
+!ci/jenkins/deployment/plugins.txt
+!ci/jenkins/deployment/init.groovy.d/
+!ci/jenkins/deployment/init.groovy.d/*.groovy.override
