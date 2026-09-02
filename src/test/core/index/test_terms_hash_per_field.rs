@@ -46,7 +46,7 @@ use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::test_framework::core::index::test_terms_hash_per_field::{
   TermsHashPerFieldMock, new_terms_hash_per_field_mock,
 };
-use rand::distr::Alphanumeric;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
 use rand::{Rng, RngExt};
 
@@ -87,7 +87,7 @@ where
     }
   } else {
     let code = reader.read_vint()?;
-    doc_id += code >> 1;
+    doc_id += ((code as u32) >> 1) as i32;
     if (code & 1) != 0 {
       freq = 1;
     } else {
@@ -366,13 +366,8 @@ fn test_add_and_update_random() -> Result<()> {
   let mut posting_map: HashMap<BytesRef<Vec<u8>>, Posting> = HashMap::new();
   let num_strings = 1 + random.random_range(0..200);
 
-  let random_length = random.random_range(1..100);
   for _ in 0..num_strings {
-    let random_string = (&mut random)
-      .sample_iter(&Alphanumeric)
-      .take(random_length)
-      .map(char::from)
-      .collect::<String>();
+    let random_string = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 10);
     posting_map
       .entry(new_bytes_ref_from_string(&mut random, &random_string)?)
       .or_insert_with(Posting::new);

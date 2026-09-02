@@ -58,6 +58,9 @@ pub struct TermsHashPerField {
   // parent hash in the case that this TermsHashPerField is hashing term
   // vectors.
   pub(crate) bytes_hash: BytesRefHash<PostingsBytesStartArray>,
+  // Sorted term IDs stay in bytes_hash.ids; track Java's sortedTermIDs null state separately.
+  #[cfg(debug_assertions)]
+  is_sorted: bool,
   last_doc_id: i32, // only used with debug/asserts
   pub(crate) field_name: String,
   pub(crate) index_options: IndexOptions,
@@ -85,6 +88,8 @@ impl TermsHashPerField {
       stream_address_offset: 0,
       stream_count,
       bytes_hash,
+      #[cfg(debug_assertions)]
+      is_sorted: false,
       last_doc_id: 0,
       field_name,
       index_options,
@@ -129,12 +134,20 @@ impl TermsHashPerField {
   /// [`reset()`](Self::reset) or
   /// [`reinit_hash()`](Self::reinit_hash) was called.
   pub(crate) fn sort_terms(&mut self, byte_pool: &ByteBlockPool) -> Result<()> {
+    #[cfg(debug_assertions)]
+    debug_assert!(!self.is_sorted);
     self.bytes_hash.sort(byte_pool)?;
+    #[cfg(debug_assertions)]
+    {
+      self.is_sorted = true;
+    }
     Ok(())
   }
   /// Returns the sorted term IDs.
   /// [`sort_terms()`](TermsHashPerField::sort_terms) must be called before.
   pub(crate) fn get_sorted_term_ids(&self) -> &[i32] {
+    #[cfg(debug_assertions)]
+    debug_assert!(self.is_sorted);
     self.bytes_hash.ids.as_slice()
   }
 
@@ -257,9 +270,17 @@ impl TermsHashPerField {
 
   pub(crate) fn reset(&mut self, byte_pool: &mut ByteBlockPool) {
     self.bytes_hash.clear_with_reset_pool(false, byte_pool);
+    #[cfg(debug_assertions)]
+    {
+      self.is_sorted = false;
+    }
   }
 
   pub(crate) fn reinit_hash(&mut self) -> Result<()> {
+    #[cfg(debug_assertions)]
+    {
+      self.is_sorted = false;
+    }
     self.bytes_hash.reinit()
   }
 
