@@ -55,12 +55,10 @@ fn test_append() -> Result<()> {
       string_list.push(random_realistic_unicode_string);
     }
     for (i, expected) in string_list.iter().take(entries).enumerate() {
+      list.get(&mut spare, i)?;
       assert_eq!(
         *expected,
-        list
-          .get(&mut spare, i)
-          .expect("not fail")
-          .utf8_to_string()?,
+        spare.get_bytes_ref().utf8_to_string()?,
         "entry {} doesn't match",
         i
       );
@@ -69,12 +67,10 @@ fn test_append() -> Result<()> {
     // Check random access
     for _i in 0..entries {
       let e = random.random_range(0..entries);
+      list.get(&mut spare, e)?;
       assert_eq!(
         string_list[e],
-        list
-          .get(&mut spare, e)
-          .expect("not fail")
-          .utf8_to_string()?,
+        spare.get_bytes_ref().utf8_to_string()?,
         "entry {} doesn't match",
         e
       );

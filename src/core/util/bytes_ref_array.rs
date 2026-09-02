@@ -21,7 +21,7 @@ use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
-use crate::core::util::bit_util::BitUtil;
+use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
@@ -53,8 +53,8 @@ impl BytesRefArray {
     let allocator = DirectTrackingAllocatorByte::new(byte_used.clone());
     let mut pool = ByteBlockPool::new(allocator);
     pool.next_buffer()?;
-    let offsets = Vec::new();
-    byte_used.add_and_get(BitUtil::INT_BYTES as i64);
+    let offsets = vec![0];
+    byte_used.add_and_get(size_of_vec(&offsets));
     Ok(BytesRefArray {
       pool,
       offsets,
@@ -76,11 +76,11 @@ impl BytesRefArray {
   /// # Errors
   /// Returns [`LuceneError::array_index_out_of_bounds`] if the index is
   /// invalid.
-  pub fn get(
+  pub fn get<'a>(
     &self,
-    spare: &mut BytesRefBuilder<Vec<u8>>,
+    spare: &'a mut BytesRefBuilder<Vec<u8>>,
     index: usize,
-  ) -> Result<BytesRef<Vec<u8>>> {
+  ) -> Result<&'a BytesRef<Vec<u8>>> {
     if index >= self.last_element {
       return Err(LuceneError::array_index_out_of_bounds(format!(
         "index: {}, last_element: {}",
@@ -106,7 +106,7 @@ impl BytesRefArray {
       Ok::<(), LuceneError>(())
     })?;
 
-    Ok(std::mem::take(spare.bytes_mut()))
+    Ok(spare.get_bytes_ref())
   }
 
   /// Used only by the sorting function below to set a [`BytesRef`] with the
@@ -212,18 +212,25 @@ impl BytesRefArray {
 /// [`BytesRefArray`]
 impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
   fn append(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<usize> {
+    if self.last_element >= self.offsets.len() {
+      let old_size = size_of_vec(&self.offsets);
+      let min_size = self.offsets.len() + 1;
+      ArrayUtil::grow_with_len(&mut self.offsets, min_size)?;
+      self
+        .byte_used
+        .add_and_get(size_of_vec(&self.offsets) - old_size);
+    }
     self.pool.append_bytes_ref(bytes)?;
-    self.offsets.push(self.current_offset);
+    self.offsets[self.last_element] = self.current_offset;
     self.last_element += 1;
     self.current_offset += bytes.length;
-    self.byte_used.add_and_get(BitUtil::INT_BYTES as i64);
     Ok(self.last_element - 1)
   }
 
   fn clear(&mut self) {
     self.last_element = 0;
     self.current_offset = 0;
-    self.offsets.clear();
+    self.offsets.fill(0);
     self.pool.reset(false, true) // no need to 0 fill the buffers we control
     // the allocator
   }
@@ -253,10 +260,10 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
 
 #[derive(Clone, Debug)]
 pub struct SortState {
-  pub indices: Option<Vec<usize>>,
+  pub(crate) indices: Option<Vec<usize>>,
 }
 impl SortState {
-  pub fn new(indices: Option<Vec<usize>>) -> SortState {
+  pub(crate) fn new(indices: Option<Vec<usize>>) -> SortState {
     SortState { indices }
   }
 }
@@ -280,6 +287,9 @@ impl<'a> IndexedBytesRefIteratorImpl<'a> {
     sort_state: Arc<SortState>,
     bytes_ref_array: &'a BytesRefArray,
   ) -> IndexedBytesRefIteratorImpl<'a> {
+    if let Some(indices) = &sort_state.indices {
+      debug_assert_eq!(indices.len(), bytes_ref_array.size());
+    }
     Self {
       pos: 0,
       ord: 0,

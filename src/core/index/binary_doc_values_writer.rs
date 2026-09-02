@@ -474,7 +474,7 @@ impl BinaryDocValues for SortingBinaryDocValues {
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     let idx = self.dvs.offsets[self.doc_id as usize] - 1;
     let v = self.dvs.values.get(&mut self.spare, idx)?;
-    Ok(Cow::Owned(v))
+    Ok(Cow::Borrowed(v))
   }
 }
 
