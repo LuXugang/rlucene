@@ -34,12 +34,11 @@ repository file, or console log.
 ## Scheduling
 
 Run the new job once using **Build Now**. That run installs the Pipeline's
-schedule and options: every two minutes (`H/2 * * * *`), no concurrent builds,
-500 retained builds, and a 30-minute overall timeout. Set `RLUCENE_CRON` in the
-Compose `.env` to change the schedule; an empty value disables periodic runs.
-After recreating the container, run the job once to apply a changed schedule.
-Outside this Compose deployment, set `RLUCENE_CRON` explicitly; an absent or
-empty value leaves periodic builds disabled.
+schedule and options: every minute (`* * * * *`), no concurrent builds,
+500 retained builds, and a 30-minute overall timeout. The schedule is defined
+directly in `Jenkinsfile`. After a schedule change is pushed, the next build
+loads the updated file and applies it without restarting the controller.
+The former `RLUCENE_CRON` environment setting is no longer used.
 
 ## Checkout and caching
 

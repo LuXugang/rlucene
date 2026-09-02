@@ -10,8 +10,7 @@ pipeline {
   }
 
   triggers {
-    // Compose supplies the default; Jenkins may expose an empty value as null.
-    cron(env.RLUCENE_CRON ?: '')
+    cron('* * * * *')
   }
 
   environment {

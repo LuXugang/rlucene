@@ -34,7 +34,7 @@ address your users can reach. The setup wizard, authentication, and CSRF
 protection are retained.
 
 The `rlucene-ci` job is created from `init.groovy.d/rlucene-job.groovy.override`.
-Run **Build Now** once to start testing and install the two-minute schedule.
+Run **Build Now** once to start testing and install the one-minute schedule.
 The first build also compiles the Rust project; later builds reuse the cache.
 The repository and branch configured in `.env` must contain
 `ci/jenkins/Jenkinsfile` before this first build. For an unmerged change, point
@@ -86,15 +86,16 @@ the image builder.
 | `RLUCENE_REPOSITORY_URL` / `RLUCENE_BRANCH` | SCM source for a newly created job; default is public upstream `main` |
 | `RLUCENE_GIT_CREDENTIALS_ID` | Optional existing Jenkins Git credential ID |
 | `RLUCENE_JOB_NAME` / `RLUCENE_JOB_DISABLED` | Name and initial disabled state of the generated job |
-| `RLUCENE_CRON` | Schedule; default `H/2 * * * *`, empty disables periodic builds |
 | `RLUCENE_FAILURE_EMAIL` | Optional failure recipient; empty disables email |
 
 The job initializer creates missing jobs only. Restarting the container does
 not replace existing jobs, history, credentials, or security settings. To
 change an existing job's repository/branch, edit its Pipeline-from-SCM settings
 in Jenkins. Changing only those bootstrap environment values does not rewrite
-an existing job. To apply environment changes used during builds (schedule or
-email), recreate the container and run the job once.
+an existing job. To apply failure-email environment changes used during builds,
+recreate the container and run the job once. The schedule is defined in
+`../Jenkinsfile`; a pushed schedule change is applied by the next build without
+recreating the container.
 
 For SSH checkout, create your own SSH credential and configure host-key
 verification in Jenkins before building. HTTPS avoids this setup for a public

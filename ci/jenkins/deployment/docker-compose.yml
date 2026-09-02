@@ -26,7 +26,6 @@ services:
       RLUCENE_GIT_CREDENTIALS_ID: ${RLUCENE_GIT_CREDENTIALS_ID:-}
       RLUCENE_JOB_NAME: ${RLUCENE_JOB_NAME:-rlucene-ci}
       RLUCENE_JOB_DISABLED: ${RLUCENE_JOB_DISABLED:-false}
-      RLUCENE_CRON: ${RLUCENE_CRON-H/2 * * * *}
       RLUCENE_FAILURE_EMAIL: ${RLUCENE_FAILURE_EMAIL:-}
     volumes:
       - jenkins_home:/var/jenkins_home
