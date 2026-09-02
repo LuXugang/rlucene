@@ -93,7 +93,7 @@ impl ByteBlockPool {
         let offset = if reuse_first { 1 } else { 0 };
         self
           .allocator
-          .recycle_byte_blocks(&self.buffers, offset, buffer_upto + 1);
+          .recycle_byte_blocks(&mut self.buffers, offset, buffer_upto + 1);
         for _i in offset..(buffer_upto + 1) {
           self.buffers.pop();
         }
@@ -162,7 +162,7 @@ impl ByteBlockPool {
       .bytes
       .access_mut(|bytes| ArrayUtil::grow_no_copy(bytes, length as usize))?;
     result.length = length as usize;
-    let buffer_index = offset >> BYTE_BLOCK_SHIFT;
+    let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;
     let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
     if pos + length <= BYTE_BLOCK_SIZE {
       // Common case: The slice lives in a single block.
@@ -236,10 +236,11 @@ impl ByteBlockPool {
       .buffer_upto
       .ok_or_else(|| LuceneError::number_format("buffer not initialized"))?;
     while length > 0 {
+      let src_buffer_index: i32 = (src_offset >> BYTE_BLOCK_SHIFT).try_convert()?;
       let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
       let bytes_to_copy = std::cmp::min(BYTE_BLOCK_SIZE - src_pos as i32, length);
       self.buffers[buffer_upto].copy_from(
-        &src_pool.buffers[(src_offset >> BYTE_BLOCK_SHIFT) as usize]
+        &src_pool.buffers[src_buffer_index as usize]
           [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
         self.byte_upto as usize,
       );

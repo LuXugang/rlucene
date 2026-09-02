@@ -36,6 +36,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -129,6 +130,8 @@ fn test_double_offset_counting() -> Result<()> {
 
   assert!(terms_enum.next()?.is_none());
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -182,6 +185,8 @@ fn test_double_offset_counting2() -> Result<()> {
 
   assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -243,6 +248,8 @@ fn test_end_offset_position_char_analyzer() -> Result<()> {
 
   assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -308,6 +315,8 @@ fn test_end_offset_position_stop_filter() -> Result<()> {
 
   assert_eq!(NO_MORE_DOCS, dp_enum.next_doc()?);
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -379,6 +388,8 @@ fn test_end_offset_position_standard() -> Result<()> {
   assert_eq!(18, dp_enum.start_offset()?);
   assert_eq!(21, dp_enum.end_offset()?);
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -440,6 +451,8 @@ fn test_end_offset_position_standard_empty_field() -> Result<()> {
   assert_eq!(8, dp_enum.start_offset()?);
   assert_eq!(11, dp_enum.end_offset()?);
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -515,6 +528,8 @@ fn test_end_offset_position_standard_empty_field2() -> Result<()> {
   assert_eq!(6, dp_enum.start_offset()?);
   assert_eq!(12, dp_enum.end_offset()?);
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -588,6 +603,7 @@ fn test_term_vector_corruption() -> Result<()> {
     writer.close()?;
   }
 
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -652,8 +668,10 @@ fn test_term_vector_corruption2() -> Result<()> {
     assert!(tv_reader.get(0)?.is_none());
     assert!(tv_reader.get(1)?.is_none());
     assert!(tv_reader.get(2)?.is_some());
+    reader.close()?;
   }
 
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -728,6 +746,8 @@ fn test_term_vector_corruption3() -> Result<()> {
     stored_fields.document(i)?;
   }
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -785,6 +805,7 @@ fn test_no_term_vector_after_term_vector() -> Result<()> {
   iw.force_merge(1)?;
   iw.close()?;
 
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -838,6 +859,7 @@ fn test_no_term_vector_after_term_vector_merge() -> Result<()> {
   iw.commit()?;
   iw.force_merge(1)?;
   iw.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -930,7 +952,9 @@ where
   }
   let ir = iw.get_reader(random)?;
   assert_eq!(3, ir.num_docs()?);
+  ir.close()?;
   iw.close(random)?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -962,5 +986,7 @@ fn test_no_abort_on_bad_tv_settings() -> Result<()> {
   assert_eq!(1, reader.num_docs()?);
 
   iw.close()?;
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }

@@ -17,7 +17,6 @@
 // Migrated from src/core/util/byte_block_pool.rs
 
 use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
-use rand::distr::Alphanumeric;
 use rand::{Rng, RngExt};
 use std::sync::Arc;
 
@@ -35,13 +34,8 @@ fn test_append_from_other_pool() -> Result<()> {
   let allocator = DirectAllocatorByte::new();
   let mut pool = ByteBlockPool::new(allocator);
   let num_bytes = at_least_usize(&mut random, 2 << 16);
-  let bytes = (&mut random)
-    .sample_iter(&Alphanumeric)
-    .take(num_bytes)
-    .map(char::from)
-    .collect::<String>()
-    .as_bytes()
-    .to_vec();
+  let mut bytes = vec![0; num_bytes];
+  random.fill_bytes(&mut bytes);
   pool.append(&bytes)?;
   let bytes_length = bytes.len();
 
@@ -89,19 +83,15 @@ fn test_read_and_write() -> Result<()> {
     let num_values = at_least_usize(&mut random, 100);
     let mut bytes_ref_builder: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
     for _i in 0..num_values {
-      let value = (&mut random)
-        .sample_iter(&Alphanumeric)
-        .take(max_length)
-        .map(char::from)
-        .collect::<String>();
-      let value_copy = value.clone();
+      let value = TestUtil::random_realistic_unicode_string_with_len(&mut random, max_length);
       list.push(BytesRef::from_string(&value));
-      bytes_ref_builder.copy_chars_from_string(&value_copy)?;
+      bytes_ref_builder.copy_chars_from_string(&value)?;
       pool.append_bytes_ref(bytes_ref_builder.get_bytes_mut_ref())?;
     }
     let mut position = 0;
     let mut builder = BytesRefBuilder::new();
     for expected in list.iter() {
+      bytes_ref_builder.grow(expected.length)?;
       bytes_ref_builder.set_length(expected.length);
       let bytes_ref_builder_length = bytes_ref_builder.length();
       let value = random.random_range(0..2);
@@ -115,8 +105,7 @@ fn test_read_and_write() -> Result<()> {
           )?;
         },
         1 => {
-          let mut scratch = BytesRef::new();
-          scratch.bytes = vec![0; bytes_ref_builder_length];
+          let mut scratch = BytesRef::<Vec<u8>>::new();
           pool.set_bytes_ref(
             &mut builder,
             &mut scratch,
@@ -151,11 +140,11 @@ fn test_large_random_blocks() -> Result<()> {
   let byte_used = Arc::new(AtomicCounter::new());
   let allocator = DirectTrackingAllocatorByte::new(byte_used.clone());
   let mut pool = ByteBlockPool::new(allocator);
-  let _ = pool.next_buffer();
+  pool.next_buffer()?;
 
   let mut total_bytes = 0;
   let iter = 100;
-  let mut iterms: Vec<Vec<u8>> = vec![vec![]; iter];
+  let mut iterms: Vec<Vec<u8>> = Vec::new();
 
   let mut size: i32;
   for _i in 0..iter {

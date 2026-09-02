@@ -121,9 +121,11 @@ where
   D: Directory,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
-    self
+    let writer_bytes = self
       .writer
       .as_ref()
-      .map_or(Ok(0), Accountable::ram_bytes_used)
+      .map_or(Ok(0), Accountable::ram_bytes_used)?;
+    // This consumer is the accounting root for its always-empty FieldInfos allocation.
+    Ok(writer_bytes.saturating_add(std::mem::size_of_val(self.field_infos.as_ref()) as i64))
   }
 }

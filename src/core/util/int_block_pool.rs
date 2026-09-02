@@ -73,9 +73,12 @@ impl IntBlockPool {
   pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
     if self.buffer_upto != -1 {
       if zero_fill_buffers {
-        for i in 0..(self.buffer_upto + 1) as usize {
+        for i in 0..self.buffer_upto as usize {
+          // Fully zero fill buffers that we fully used
           self.buffers[i].fill(0);
         }
+        // Partial zero fill the final buffer
+        self.buffers[self.buffer_upto as usize][..self.int_upto as usize].fill(0);
       }
       if self.buffer_upto > 0 || !reuse_first {
         let offset = if reuse_first { 1 } else { 0 };

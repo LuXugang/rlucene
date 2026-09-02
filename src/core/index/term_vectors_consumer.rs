@@ -277,6 +277,7 @@ where
     );
 
     self.last_doc_id += 1;
+    int_pool.reset(false, false);
     self.reset_fields();
     Ok(())
   }

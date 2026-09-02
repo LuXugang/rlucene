@@ -648,9 +648,10 @@ impl FreqProxPostingsArray {
     let last_positions = if write_prox {
       Some(vec![0; size])
     } else {
+      debug_assert!(!write_offsets);
       None
     };
-    let last_offsets = if write_offsets {
+    let last_offsets = if write_prox && write_offsets {
       Some(vec![0; size])
     } else {
       None

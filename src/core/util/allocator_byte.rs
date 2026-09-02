@@ -39,9 +39,12 @@ impl DirectTrackingAllocatorByte {
 }
 
 impl AllocatorByte for DirectTrackingAllocatorByte {
-  fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], start: usize, end: usize) {
+  fn recycle_byte_blocks(&mut self, blocks: &mut [Vec<u8>], start: usize, end: usize) {
     let delta = (end - start) as i64 * self.block_size as i64;
     self.byte_used.add_and_get(-delta);
+    for block in &mut blocks[start..end] {
+      *block = Vec::new();
+    }
   }
 
   fn get_byte_block(&mut self) -> Vec<u8> {
@@ -56,7 +59,7 @@ impl AllocatorByte for DirectTrackingAllocatorByte {
 
 /// Abstract trait for allocating and freeing byte blocks.
 pub trait AllocatorByte {
-  fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize);
+  fn recycle_byte_blocks(&mut self, blocks: &mut [Vec<u8>], start: usize, end: usize);
   fn get_byte_block(&mut self) -> Vec<u8>;
   fn get_block_size(&self) -> usize;
 }
@@ -87,7 +90,7 @@ impl DirectAllocatorByte {
 }
 
 impl AllocatorByte for DirectAllocatorByte {
-  fn recycle_byte_blocks(&mut self, _blocks: &[Vec<u8>], _start: usize, _end: usize) {}
+  fn recycle_byte_blocks(&mut self, _blocks: &mut [Vec<u8>], _start: usize, _end: usize) {}
 
   fn get_byte_block(&mut self) -> Vec<u8> {
     vec![0; self.block_size]
@@ -117,7 +120,7 @@ impl AllocatorByteEnum {
   }
 }
 impl AllocatorByte for AllocatorByteEnum {
-  fn recycle_byte_blocks(&mut self, blocks: &[Vec<u8>], start: usize, end: usize) {
+  fn recycle_byte_blocks(&mut self, blocks: &mut [Vec<u8>], start: usize, end: usize) {
     match self {
       AllocatorByteEnum::DA(da) => da.recycle_byte_blocks(blocks, start, end),
       AllocatorByteEnum::DTA(dta) => dta.recycle_byte_blocks(blocks, start, end),
