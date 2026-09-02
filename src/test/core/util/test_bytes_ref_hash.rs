@@ -19,10 +19,8 @@
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{Arc, Barrier};
 use std::thread;
 
-use parking_lot::Mutex;
 use rand::Rng;
 use rand::RngExt;
 
@@ -31,6 +29,7 @@ use crate::core::util::allocator_byte::DirectAllocatorByte;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, DirectBytesRefHash, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{BYTE_BLOCK_SIZE, ByteBlockPool};
+use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDownLatch;
 use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
@@ -342,74 +341,65 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
 
   for _ in 0..num {
     let num_strings = 797;
-    let strings = Arc::new(Mutex::new(Vec::with_capacity(num_strings)));
-    let byte_block_pool = Arc::new(Mutex::new(new_pool()));
-    let hash = Arc::new(Mutex::new(new_hash(&mut random)?));
+    let mut strings = Vec::with_capacity(num_strings);
+    let mut byte_block_pool = new_pool();
+    let mut hash = new_hash(&mut random)?;
 
-    {
-      let mut hash_guard = hash.lock();
-      for _ in 0..num_strings {
-        let str_value = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 1000);
-        hash_guard.add(
-          &BytesRef::from_string(&str_value),
-          &mut byte_block_pool.lock(),
-        )?;
-        strings.lock().push(str_value);
-      }
+    for _ in 0..num_strings {
+      let str_value = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 1000);
+      hash.add(&BytesRef::from_string(&str_value), &mut byte_block_pool)?;
+      strings.push(str_value);
     }
 
-    let hash_size = hash.lock().size();
+    let hash_size = hash.size();
 
-    let not_found = Arc::new(AtomicI32::new(0));
-    let not_equals = Arc::new(AtomicI32::new(0));
-    let wrong_size = Arc::new(AtomicI32::new(0));
+    let not_found = AtomicI32::new(0);
+    let not_equals = AtomicI32::new(0);
+    let wrong_size = AtomicI32::new(0);
 
     let num_threads = at_least(&mut random, 3);
-    let barrier = Arc::new(Barrier::new(num_threads as usize));
-    let mut handles = vec![];
+    let latch = CountDownLatch::new(num_threads as usize);
+    thread::scope(|scope| -> Result<()> {
+      let mut handles = vec![];
+      for _ in 0..num_threads {
+        let hash = &hash;
+        let strings = &strings;
+        let not_found = &not_found;
+        let not_equals = &not_equals;
+        let wrong_size = &wrong_size;
+        let latch = &latch;
+        let loops = at_least(&mut random, 100);
+        let byte_block_pool = &byte_block_pool;
 
-    for _ in 0..num_threads {
-      let hash_clone = Arc::clone(&hash);
-      let strings_clone = Arc::clone(&strings);
-      let not_found_clone = Arc::clone(&not_found);
-      let not_equals_clone = Arc::clone(&not_equals);
-      let wrong_size_clone = Arc::clone(&wrong_size);
-      let barrier_clone = Arc::clone(&barrier);
-      let loops = at_least(&mut random, 100);
-      let byte_block_pool = byte_block_pool.clone();
+        handles.push(scope.spawn(move || -> Result<()> {
+          let mut scratch = BytesRef::new();
+          latch.count_down();
+          latch.wait();
 
-      let handle = thread::spawn(move || -> Result<()> {
-        let mut scratch = BytesRef::new();
-        barrier_clone.wait();
+          for k in 0..loops {
+            let find = BytesRef::from_string(&strings[k as usize % strings.len()]);
+            let id = hash.find(&find, byte_block_pool)?;
 
-        for k in 0..loops {
-          let strings_guard = strings_clone.lock();
-          let find = BytesRef::from_string(&strings_guard[k as usize % strings_guard.len()]);
-          drop(strings_guard);
-
-          let hash_guard = hash_clone.lock();
-          let id = hash_guard.find(&find, &byte_block_pool.lock())?;
-
-          if id < 0 {
-            not_found_clone.fetch_add(1, Ordering::SeqCst);
-          } else {
-            hash_guard.get(id, &mut scratch, &byte_block_pool.lock())?;
-            if scratch != find {
-              not_equals_clone.fetch_add(1, Ordering::SeqCst);
+            if id < 0 {
+              not_found.fetch_add(1, Ordering::SeqCst);
+            } else {
+              hash.get(id, &mut scratch, byte_block_pool)?;
+              if scratch != find {
+                not_equals.fetch_add(1, Ordering::SeqCst);
+              }
+            }
+            if hash.size() != hash_size {
+              wrong_size.fetch_add(1, Ordering::SeqCst);
             }
           }
-          if hash_guard.size() != hash_size {
-            wrong_size_clone.fetch_add(1, Ordering::SeqCst);
-          }
-        }
-        Ok(())
-      });
-      handles.push(handle);
-    }
-
-    for handle in handles {
-      handle.join().expect("Thread panicked")?;
-    }
+          Ok(())
+        }));
+      }
+      for handle in handles {
+        handle.join().expect("Thread panicked")?;
+      }
+      Ok(())
+    })?;
 
     assert_eq!(
       not_found.load(Ordering::SeqCst),
@@ -427,9 +417,9 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
       "Hash size should remain consistent."
     );
 
-    hash.lock().clear(&mut byte_block_pool.lock());
-    assert_eq!(hash.lock().size(), 0, "Hash should be empty after clear.");
-    hash.lock().reinit()?;
+    hash.clear(&mut byte_block_pool);
+    assert_eq!(hash.size(), 0, "Hash should be empty after clear.");
+    hash.reinit()?;
   }
 
   Ok(())
@@ -454,6 +444,7 @@ fn test_large_value() -> Result<()> {
 
     match hash.add(&ref_bytes, &mut byte_block_pool) {
       Ok(key) => {
+        assert!(i < sizes.len() - 1, "Expected MaxBytesLengthExceeded");
         assert_eq!(i as i32, key, "Expected index {} but got {}", i, key);
       },
       Err(e) => {

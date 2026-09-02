@@ -110,8 +110,11 @@ where
     ref_: &mut BytesRef<Vec<u8>>,
     pool: &ByteBlockPool,
   ) -> Result<()> {
+    debug_assert!(
+      !self.bytes_start_array.need_init(),
+      "bytes_start is null - not initialized"
+    );
     let bytes_start_len = self.bytes_start_array.len()?;
-    debug_assert!(bytes_start_len > 0, "bytes_start is null - not initialized");
     debug_assert!(
       (bytes_id as usize) < bytes_start_len,
       "bytesID exceeds bytes_start len"
@@ -128,7 +131,7 @@ where
   /// [`BytesRefHash`] instance.
   pub fn compact(&mut self) -> Result<&Vec<i32>> {
     debug_assert!(
-      self.bytes_start_array.len()? > 0,
+      !self.bytes_start_array.need_init(),
       "bytes_start is null - not initialized"
     );
 
@@ -219,7 +222,7 @@ where
   pub fn close(&mut self, byte_block_pool: &mut ByteBlockPool) {
     self.clear_with_reset_pool(true, byte_block_pool);
     self.bytes_used.add_and_get(-size_of_vec(&self.ids));
-    self.ids.clear();
+    self.ids = vec![];
   }
   /// Adds a new [`BytesRef`].
   ///
@@ -243,7 +246,7 @@ where
     byte_block_pool: &mut ByteBlockPool,
   ) -> Result<i32> {
     debug_assert!(
-      self.bytes_start_array.len()? > 0,
+      !self.bytes_start_array.need_init(),
       "Bytesstart is null - not initialized"
     );
 
@@ -294,7 +297,7 @@ where
   }
   fn find_hash(&self, bytes: &BytesRef<Vec<u8>>, byte_block_pool: &ByteBlockPool) -> Result<usize> {
     debug_assert!(
-      self.bytes_start_array.len()? > 0,
+      !self.bytes_start_array.need_init(),
       "bytesStart is null - not initialized"
     );
 
@@ -340,7 +343,7 @@ where
     byte_block_pool: &mut ByteBlockPool,
   ) -> Result<i32> {
     debug_assert!(
-      self.bytes_start_array.len()? > 0,
+      !self.bytes_start_array.need_init(),
       "Bytesstart is null - not initialized"
     );
 
@@ -456,10 +459,10 @@ where
   /// `SingleThreadedByteBlockPool` for the given ID.
   pub fn byte_start(&self, bytes_id: i32) -> Result<i32> {
     debug_assert!(
-      self.bytes_start_array.len()? > 0,
+      !self.bytes_start_array.need_init(),
       "bytes_start is null - not initialized"
     );
-    debug_assert!(bytes_id >= 0 || bytes_id < self.count);
+    debug_assert!(bytes_id >= 0 && bytes_id < self.count);
     self.bytes_start_array.get_value(bytes_id as usize)
   }
 
@@ -688,8 +691,8 @@ impl DirectBytesStartArray {
 
 impl BytesStartArray for DirectBytesStartArray {
   fn init(&mut self) -> Result<()> {
-    self.init = true;
     self.bytes_start = vec![0; ArrayUtil::oversize(self.init_size, BitUtil::INT_BYTES)?];
+    self.init = true;
     Ok(())
   }
 
