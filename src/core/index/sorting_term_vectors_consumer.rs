@@ -36,6 +36,7 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
@@ -238,7 +239,7 @@ where
       &self.tmp_directory,
       segment_info,
       state.field_infos.clone(),
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     // Don't pull a merge instance, since merge instances optimize for
     // sequential access while term vectors will likely be accessed in random

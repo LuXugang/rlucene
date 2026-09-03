@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_mock_directory, random,
 };
@@ -39,7 +40,7 @@ use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::sorted_numeric_sort_field::SortedNumericSortField;
 use crate::core::search::sorted_set_sort_field::SortedSetSortField;
-use crate::core::store::IOContext;
+
 use crate::core::store::directory::Directory;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -66,7 +67,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     let dir = new_directory_shared(random)?;
     let codec = self.get_codec()?;
     let id = StringHelper::random_id();
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let mut info = SegmentInfo::new(
       dir.clone(),
       Option::from(self.get_versions()[0].clone()),
@@ -101,7 +102,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     let codec = self.get_codec()?;
     let id = StringHelper::random_id();
     let has_blocks = random.random_bool(0.5);
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let mut info = SegmentInfo::new(
       dir.clone(),
       Option::from(self.get_versions()[0].clone()),
@@ -136,7 +137,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     let dir = new_directory_shared(random)?;
     let codec = self.get_codec()?;
     let id = StringHelper::random_id();
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     let mut info = SegmentInfo::new(
       dir.clone(),
@@ -189,7 +190,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     let mut diagnostics: HashMap<String, String> = HashMap::new();
     diagnostics.insert("key1".to_string(), "value1".to_string());
     diagnostics.insert("key2".to_string(), "value2".to_string());
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     let mut info = SegmentInfo::new(
       dir.clone(),
@@ -235,7 +236,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     let mut attributes: HashMap<String, String> = HashMap::new();
     attributes.insert("key1".to_string(), "value1".to_string());
     attributes.insert("key2".to_string(), "value2".to_string());
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     let mut info = SegmentInfo::new(
       dir.clone(),
@@ -281,7 +282,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     let dir = new_directory_shared(random)?;
     let codec = self.get_codec()?;
     let id = StringHelper::random_id();
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     let mut info = SegmentInfo::new(
       dir.clone(),
@@ -315,7 +316,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     R: Rng + ?Sized,
   {
     let codec = self.get_codec()?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     for version in self.get_versions() {
       for min_version_opt in [Some(version.clone()), None] {
@@ -490,7 +491,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       "test requires a codec that can read/write index sort"
     );
     let codec = self.get_codec()?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     let iters = at_least(random, 5);
     for i in 0..iters {
@@ -571,7 +572,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     match codec.segment_info_format().write(
       dir.as_ref(),
       &mut info,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -620,7 +621,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     match codec.segment_info_format().write(
       dir.as_ref(),
       &mut info,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -667,7 +668,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     codec.segment_info_format().write(
       dir.as_ref(),
       &mut info,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
 
     enabled.store(true, Ordering::SeqCst);
@@ -675,7 +676,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       dir.clone(),
       "_123",
       &id,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -722,7 +723,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     codec.segment_info_format().write(
       dir.as_ref(),
       &mut info,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
 
     enabled.store(true, Ordering::SeqCst);
@@ -730,7 +731,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       dir.clone(),
       "_123",
       &id,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -757,7 +758,7 @@ pub trait BaseSegmentInfoFormatTestCase:
   {
     let versions = self.get_versions();
     let codec = self.get_codec()?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     for _ in 0..10 {
       let dir = new_directory_shared(random)?;

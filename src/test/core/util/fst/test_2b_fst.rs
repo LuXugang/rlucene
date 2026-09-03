@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 
 // Run something like this:
 // cargo test test_2b_fst::test -- --ignored --nocapture
@@ -25,10 +26,10 @@ use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 
 use crate::core::index::BytesRef;
+use crate::core::store::DataInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::mmap_directory::MMapDirectory;
-use crate::core::store::{DataInput, IOContext};
 use crate::core::util::IOUtils;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
@@ -141,10 +142,11 @@ fn test() -> Result<()> {
       let fst = fst_enum.base.fst;
 
       println!("\nTEST: save/load FST and re-verify");
-      let mut out = dir.create_output("fst", &IOContext::default_io_context()?)?;
+      let mut out = dir.create_output("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let save_result = fst.save_with_same_data_out(&mut out);
       IOUtils::use_or_suppress_result(save_result, out.close())?;
-      let mut index_input = dir.open_input("fst", &IOContext::default_io_context()?)?;
+      let mut index_input =
+        dir.open_input("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let load_result = (|| {
         let metadata = read_metadata(&mut index_input, outputs.clone())?;
         FST::from_on_heap_store(metadata, &mut index_input)
@@ -267,10 +269,11 @@ fn test() -> Result<()> {
       let fst = fst_enum.base.fst;
 
       println!("\nTEST: save/load FST and re-verify");
-      let mut out = dir.create_output("fst", &IOContext::default_io_context()?)?;
+      let mut out = dir.create_output("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let save_result = fst.save_with_same_data_out(&mut out);
       IOUtils::use_or_suppress_result(save_result, out.close())?;
-      let mut index_input = dir.open_input("fst", &IOContext::default_io_context()?)?;
+      let mut index_input =
+        dir.open_input("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let load_result = (|| {
         let metadata = read_metadata(&mut index_input, outputs.clone())?;
         FST::from_on_heap_store(metadata, &mut index_input)
@@ -391,10 +394,11 @@ fn test() -> Result<()> {
       let fst = fst_enum.base.fst;
 
       println!("\nTEST: save/load FST and re-verify");
-      let mut out = dir.create_output("fst", &IOContext::default_io_context()?)?;
+      let mut out = dir.create_output("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let save_result = fst.save_with_same_data_out(&mut out);
       IOUtils::use_or_suppress_result(save_result, out.close())?;
-      let mut index_input = dir.open_input("fst", &IOContext::default_io_context()?)?;
+      let mut index_input =
+        dir.open_input("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let load_result = (|| {
         let metadata = read_metadata(&mut index_input, outputs.clone())?;
         FST::from_on_heap_store(metadata, &mut index_input)

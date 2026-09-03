@@ -32,6 +32,7 @@ use crate::core::index::index_writer::WRITE_LOCK_NAME;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -136,7 +137,7 @@ where
       );
     }
 
-    let default_context = IOContext::default_io_context()?;
+    let default_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let read_once_context = IOContext::read_once_io_context()?;
     for name in dir.list_all()? {
       if name != victim {

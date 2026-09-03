@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_directory, new_directory_shared, random,
 };
 use rand::Rng;
 use rand::RngExt;
 
+use crate::core::store::IndexInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::PackedInts;
@@ -39,7 +40,8 @@ fn test_simple() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let bits_per_value = bits_required(2)?;
   {
-    let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut output =
+      dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
     writer.add(1)?;
     writer.add(0)?;
@@ -48,7 +50,7 @@ fn test_simple() -> Result<()> {
     writer.add(2)?;
     writer.finish()?;
   }
-  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let slice = input.random_access_slice(0, input.length()?)?;
   let mut reader = DirectReader::get_instance_with_offset(Some(slice), bits_per_value, 0)?;
   assert_eq!(1, reader.get_mut(0)?);
@@ -65,7 +67,8 @@ fn test_not_enough_values() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let bits_per_value = bits_required(2)?;
   {
-    let mut output = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut output =
+      dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut writer = DirectWriter::get_instance(&mut output, 5, bits_per_value)?;
     writer.add(1)?;
     writer.add(0)?;
@@ -140,7 +143,8 @@ where
     };
     let name = format!("bpv{}_{}", bpv, i);
     {
-      let mut output = directory.create_output(&name, &IOContext::default_io_context()?)?;
+      let mut output =
+        directory.create_output(&name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       for _ in 0..offset {
         output.write_byte(random.random())?;
       }
@@ -152,7 +156,7 @@ where
       writer.finish()?;
     }
 
-    let input = directory.open_input(&name, &IOContext::default_io_context()?)?;
+    let input = directory.open_input(&name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let slice = input.random_access_slice(0, input.length()?)?;
     let mut reader = if merge {
       DirectReader::get_merge_instance_with_base_offset(

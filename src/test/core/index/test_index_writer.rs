@@ -87,6 +87,7 @@ use crate::core::search::phrase_query::Builder as PhraseQueryBuilder;
 use crate::core::search::searcher_factory::SearcherFactory;
 use crate::core::search::searcher_manager::SearcherManager;
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::{ByteBuffersDirectory, IndexOutput, NoLockFactory};
 use crate::core::store::{DataOutput, IOContext, SimpleFSLockFactory};
@@ -2688,7 +2689,10 @@ fn test_corrupt_first_commit() -> Result<()> {
       IndexFileNames::file_name_from_generation(IndexFileNames::PENDING_SEGMENTS, "", 0)
         .expect("generation 0 should produce a file name");
     dir
-      .create_output(&pending_segments, &IOContext::default_io_context()?)?
+      .create_output(
+        &pending_segments,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?
       .close()?;
 
     let mock = MockAnalyzer::new(&mut random);
@@ -3393,7 +3397,10 @@ fn test_pending_delete_dv_generation() -> Result<()> {
     let mut new_files = dir.list_all()?;
     new_files.retain(|file| !files.contains(file));
     let random_file = new_files[random.random_range(0..new_files.len())].clone();
-    to_close.push(dir.open_input(&random_file, &IOContext::default_io_context()?)?);
+    to_close.push(dir.open_input(
+      &random_file,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?);
     w.rollback()?;
     drop(w);
 
@@ -3477,7 +3484,7 @@ fn test_leftover_temp_files() -> Result<()> {
   writer.close()?;
   drop(writer);
 
-  let io_context = IOContext::default_io_context()?;
+  let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   let temp_name = {
     let mut out = dir.create_temp_output("_0", "bkd", &io_context)?;
     let temp_name = out.get_name().to_string();

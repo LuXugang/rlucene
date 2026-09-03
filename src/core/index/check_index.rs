@@ -1161,7 +1161,7 @@ where
       reader = Some(SegmentReader::new(
         info,
         segment_infos.get_index_created_version_major(),
-        &IO_CONTEXT_DEFAULT,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
       )?);
       Self::msg(
         info_stream.as_deref_mut(),

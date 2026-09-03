@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_mock_directory,
 };
@@ -42,7 +43,7 @@ use crate::core::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
-use crate::core::store::IOContext;
+
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -88,13 +89,13 @@ pub trait BaseFieldInfoFormatTestCase:
       &segment_info,
       "",
       &infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     let infos2 = codec.field_infos_format().read(
       dir.as_ref(),
       &segment_info,
       "",
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
 
     assert_eq!(1, infos2.size());
@@ -138,13 +139,13 @@ pub trait BaseFieldInfoFormatTestCase:
       &segment_info,
       "",
       &infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     let infos2 = codec.field_infos_format().read(
       dir.as_ref(),
       &segment_info,
       "",
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     assert_eq!(1, infos2.size());
     let field = infos2.field_info_by_name("field")?.unwrap();
@@ -183,7 +184,7 @@ pub trait BaseFieldInfoFormatTestCase:
       &segment_info,
       "",
       &infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -228,7 +229,7 @@ pub trait BaseFieldInfoFormatTestCase:
       &segment_info,
       "",
       &infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -272,7 +273,7 @@ pub trait BaseFieldInfoFormatTestCase:
       &segment_info,
       "",
       &infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
 
     enabled.store(true, Ordering::SeqCst);
@@ -280,7 +281,7 @@ pub trait BaseFieldInfoFormatTestCase:
       dir.as_ref(),
       &segment_info,
       "",
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -324,7 +325,7 @@ pub trait BaseFieldInfoFormatTestCase:
       &segment_info,
       "",
       &infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
 
     enabled.store(true, Ordering::SeqCst);
@@ -332,7 +333,7 @@ pub trait BaseFieldInfoFormatTestCase:
       dir.as_ref(),
       &segment_info,
       "",
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     ) {
       Err(LuceneError::Io { source, .. }) | Err(LuceneError::IoWithPath { source, .. }) => {
         assert!(
@@ -455,7 +456,7 @@ pub trait BaseFieldInfoFormatTestCase:
       &segment_info,
       "",
       &infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
 
     // Read the FieldInfos back from the directory.
@@ -463,7 +464,7 @@ pub trait BaseFieldInfoFormatTestCase:
       dir.as_ref(),
       &segment_info,
       "",
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
 
     // Verify that the written and read FieldInfos are equal.

@@ -49,7 +49,8 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::index::{BytesRef, directory_reader};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::core::store::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::store::directory::DirEnum;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -118,7 +119,7 @@ fn test_fixed_postings() -> Result<()> {
 
   write(&si, Arc::clone(&field_infos), dir.as_ref(), fields)?;
 
-  let io_context = IOContext::default_io_context()?;
+  let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   let read_state = SegmentReadState::new(dir.as_ref(), field_infos, &io_context);
   let reader = codec.postings_format().fields_producer(&read_state, &si)?;
 
@@ -197,7 +198,7 @@ fn test_random_postings() -> Result<()> {
   )?;
   write(&si, Arc::clone(&field_infos), dir.as_ref(), fields.clone())?;
 
-  let io_context = IOContext::default_io_context()?;
+  let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   let read_state = SegmentReadState::new(dir.as_ref(), field_infos, &io_context);
   let terms = codec.postings_format().fields_producer(&read_state, &si)?;
 
@@ -1011,7 +1012,7 @@ fn write(
   fields: Vec<Arc<FieldData>>,
 ) -> Result<()> {
   let codec = codec::get_default();
-  let io_context = IOContext::default_io_context()?;
+  let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   let state = SegmentWriteState::new(get_default_info_stream(), dir, field_infos, &io_context);
   let mut consumer = codec.postings_format().fields_consumer(&state, si)?;
   let fake_norms = NormsProducerImpl {

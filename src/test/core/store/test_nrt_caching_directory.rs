@@ -267,10 +267,15 @@ impl TestNRTCachingDirectory {
     let fs_dir = new_directory_shared(random)?;
     let nrt_dir = NRTCachingDirectory::new(fs_dir.clone(), 2.0, 25.0);
     let name = "foo_bar_0.tmp";
-    let mut existing = nrt_dir.create_output(name, &IO_CONTEXT_DEFAULT)?;
+    let mut existing =
+      nrt_dir.create_output(name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     existing.close()?;
 
-    let mut out = nrt_dir.create_temp_output("foo", "bar", &IO_CONTEXT_DEFAULT)?;
+    let mut out = nrt_dir.create_temp_output(
+      "foo",
+      "bar",
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     assert_ne!(name, out.get_name());
     out.close()?;
     nrt_dir.close()?;
@@ -301,7 +306,7 @@ impl TestNRTCachingDirectory {
       1.0,
       NRTCachingDirectoryHook::AssertCacheWrite(AssertCacheWriteNRTCachingDirectory::new(false)),
     );
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let mut out = nrt_dir2.create_output("foo", &io_context)?;
     out.close()?;
     let mut out = nrt_dir2.create_temp_output("bar", "baz", &io_context)?;

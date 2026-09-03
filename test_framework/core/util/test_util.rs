@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -53,7 +54,7 @@ use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation;
 use crate::core::store::ByteBuffersDirectory;
-use crate::core::store::IOContext;
+
 use crate::core::store::directory::{Directory, DirectoryEnum};
 use crate::core::store::lock::LockEnum;
 use crate::core::store::no_lock_factory::NoLock;
@@ -777,7 +778,12 @@ impl TestUtil {
     let ram = Arc::new(ByteBuffersDirectory::new());
     for file in dir.list_all()? {
       if file.starts_with(IndexFileNames::SEGMENTS) || CODEC_FILE_PATTERN.is_match(&file) {
-        ram.copy_from(dir, &file, &file, &IOContext::default_io_context()?)?;
+        ram.copy_from(
+          dir,
+          &file,
+          &file,
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+        )?;
       }
     }
     Ok(ram)

@@ -22,6 +22,7 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
@@ -41,7 +42,7 @@ where
   info_stream: InfoStreamMT,
   dir: D,
   field_infos: Arc<FieldInfos>,
-  context: IOContext,
+  context: &'static IOContext,
 }
 impl<D> VectorValuesConsumer<D>
 where
@@ -54,7 +55,7 @@ where
       info_stream,
       dir,
       field_infos: Arc::new(FieldInfos::default()),
-      context: IOContext::default_io_context()?,
+      context: IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     })
   }
   fn init_knn_vectors_writer<D2>(&mut self, segment_info: &SegmentInfo<D2>) -> Result<()> {
@@ -64,7 +65,7 @@ where
         self.info_stream.clone(),
         &self.dir,
         Arc::clone(&self.field_infos),
-        &self.context,
+        self.context,
       );
       self.writer = Some(fmt.fields_writer(&initial_write_state, segment_info)?);
     }
@@ -80,7 +81,7 @@ where
       self.info_stream.clone(),
       &self.dir,
       Arc::clone(&self.field_infos),
-      &self.context,
+      self.context,
     );
     let writer = self
       .writer

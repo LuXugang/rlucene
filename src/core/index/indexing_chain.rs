@@ -50,6 +50,7 @@ use crate::core::index::index_options::IndexOptions;
 use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderContextKind};
 use crate::core::index::index_sorter::DocComparatorEnum2;
 use crate::core::index::index_sorter::{DocComparator, IndexSorter};
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use std::borrow::Cow;
 
 use crate::core::analysis::reader::ReaderEnum;
@@ -97,7 +98,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::similarities_impl::similarities::Similarity;
 use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::SortFiledBase;
-use crate::core::store::IOContext;
+
 use crate::core::store::directory::Directory;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::allocator_byte::DirectTrackingAllocatorByte;
@@ -413,11 +414,11 @@ where
         fp_idx = pf.next;
       }
     }
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let read_state = SegmentReadState::with_suffix(
       state.directory,
       state.field_infos.clone(),
-      &io_context,
+      io_context,
       &state.segment_suffix,
     );
     let mut norms = if read_state.field_infos.has_norms() {
@@ -478,7 +479,7 @@ where
       segment_info,
       "",
       &state.field_infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     if self.info_stream.is_enabled("IW") {
       self.info_stream.message(

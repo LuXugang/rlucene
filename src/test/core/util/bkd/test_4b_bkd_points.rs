@@ -16,8 +16,9 @@
  */
 use crate::core::index::check_index::VerifyPointsVisitor;
 use crate::core::index::point_values::PointValues;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
-use crate::core::store::{FSDirectories, IOContext, IndexInput, IndexOutput};
+use crate::core::store::{FSDirectories, IndexInput, IndexOutput};
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bkd::bkd_config::BKDConfig;
@@ -78,13 +79,15 @@ fn test_1d() -> Result<()> {
       println!("{doc_id} of {num_docs}...");
     }
   }
-  let mut output = dir.create_output("1d.bkd", &IOContext::default_io_context()?)?;
+  let mut output =
+    dir.create_output("1d.bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let finalizer = writer.finish(&mut output)?.expect("points were added");
   let index_fp = output.get_file_pointer()?;
   writer.write_index(&mut output, None, &finalizer)?;
   output.close()?;
 
-  let mut meta_input = dir.open_input("1d.bkd", &IOContext::default_io_context()?)?;
+  let mut meta_input =
+    dir.open_input("1d.bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   meta_input.seek(index_fp)?;
   let mut index_input = meta_input.try_clone()?;
   let data_input = Arc::new(Mutex::new(meta_input.try_clone()?));
@@ -151,13 +154,15 @@ fn test_2d() -> Result<()> {
       println!("{doc_id} of {num_docs}...");
     }
   }
-  let mut output = dir.create_output("2d.bkd", &IOContext::default_io_context()?)?;
+  let mut output =
+    dir.create_output("2d.bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let finalizer = writer.finish(&mut output)?.expect("points were added");
   let index_fp = output.get_file_pointer()?;
   writer.write_index(&mut output, None, &finalizer)?;
   output.close()?;
 
-  let mut meta_input = dir.open_input("2d.bkd", &IOContext::default_io_context()?)?;
+  let mut meta_input =
+    dir.open_input("2d.bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   meta_input.seek(index_fp)?;
   let mut index_input = meta_input.try_clone()?;
   let data_input = Arc::new(Mutex::new(meta_input.try_clone()?));

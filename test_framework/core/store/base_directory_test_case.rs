@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, at_least_usize, is_night_mode, new_directory, new_io_context, random_from_seed,
   slow_file_exists,
@@ -38,7 +39,7 @@ use crate::core::store::IndexOutput;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::store::{DataOutput, IOContext, ReadAdvice, write_group_vints_i64};
+use crate::core::store::{DataOutput, ReadAdvice, write_group_vints_i64};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::clone::TryClone as OtherClone;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -146,7 +147,7 @@ pub trait BaseDirectoryTestCase {
     let dir = self.get_directory(temp_dir.keep(), random)?;
 
     let file = "foo.txt";
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     assert!(!dir.list_all()?.contains(&file.to_string()));
 
@@ -462,7 +463,7 @@ pub trait BaseDirectoryTestCase {
   {
     let temp_dir = Builder::new().prefix("testAlignedFloats").tempdir()?;
     let dir = self.get_directory(temp_dir.keep(), random)?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
       let mut out = dir.create_output("Floats", &io_context)?;
       out.write_int(3f32.to_bits() as i32)?;
@@ -1261,7 +1262,7 @@ pub trait BaseDirectoryTestCase {
       .prefix("testCopyBytesWithThreads")
       .tempdir()?;
     let dir = Arc::new(self.get_directory(temp_dir.path().to_path_buf(), random)?);
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let header_len = 100;
     let data_len = random.random_range(header_len + 1..10000);
     let mut data = vec![0u8; data_len];
@@ -1288,7 +1289,7 @@ pub trait BaseDirectoryTestCase {
         let dir_clone = Arc::clone(&dir);
         let mut src = input.try_clone()?;
         let barrier_clone = Arc::clone(&barrier);
-        let io_context = IOContext::default_io_context()?;
+        let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
         let handle = thread::spawn(move || -> Result<()> {
           barrier_clone.wait();
           let file_name = format!("copy{}", i);
@@ -1308,7 +1309,7 @@ pub trait BaseDirectoryTestCase {
     }
 
     for i in 0..threads {
-      let io_context = IOContext::default_io_context()?;
+      let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
       let file_name = format!("copy{}", i);
       let mut data_copy = vec![0u8; data_len];
       let mut input_copy = dir.open_input(&file_name, &io_context)?;
@@ -1887,7 +1888,7 @@ pub trait BaseDirectoryTestCase {
   {
     let temp_dir = Builder::new().tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let name = "file";
 
     {
@@ -1918,7 +1919,7 @@ pub trait BaseDirectoryTestCase {
   {
     let temp_dir = Builder::new().tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
       let mut out = dir.create_output("a", &io_context)?;
       for _ in 0..1024 {
@@ -1945,7 +1946,7 @@ pub trait BaseDirectoryTestCase {
   {
     let temp_dir = Builder::new().tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     // Write a file with 1024 bytes
     {
       let mut out = dir.create_output("a", &io_context)?;
@@ -1992,7 +1993,7 @@ pub trait BaseDirectoryTestCase {
         &TestUtil::random_simple_string(random),
         "test",
       );
-      let io_context = IOContext::default_io_context()?;
+      let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
       if random.random_range(0..5) == 1 {
         // Create a temporary output
         {
@@ -2028,7 +2029,7 @@ pub trait BaseDirectoryTestCase {
     let mut values: [i64; 4] = [43, 12345, 123456, 1234567890];
     let temp_dir = Builder::new().prefix("test_data_types").tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
       let mut out = dir.create_output("test", &io_context)?;
       out.write_byte(43u8)?;
@@ -2080,7 +2081,7 @@ pub trait BaseDirectoryTestCase {
     // implementation.
     let values_len = values.len();
     let limit = random.random_range(1..size);
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let mut out = dir.create_output("test", &io_context)?;
     write_group_vints_i64(&mut out, &mut values[..values_len], limit as i32)?;
     out.close()?;
@@ -2131,7 +2132,7 @@ pub trait BaseDirectoryTestCase {
   {
     let mut values = vec![0i64; max_num_values];
     let mut num_values_array = vec![0usize; iterations];
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     // Create output files
     {
       let mut group_vint_out = dir.create_output("group-varint", &io_context)?;
@@ -2205,7 +2206,7 @@ pub trait BaseDirectoryTestCase {
     let total_length = TestUtil::next_usize(random, 16384, 65536);
     let mut arr = vec![0u8; total_length];
     random.fill_bytes(&mut arr[..]);
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
       let mut out = dir.create_output("temp.bin", &io_context)?;
       out.write_bytes_with_len(&arr, arr.len())?;
@@ -2256,7 +2257,7 @@ pub trait BaseDirectoryTestCase {
     // let mut arr = vec![0u8; total_length];
     let mut arr = vec![0u8; total_length];
     random.fill_bytes(&mut arr[..]);
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
       let mut out = dir.create_output("temp.bin", &io_context)?;
       out.write_bytes_with_len(&arr, total_length)?;
@@ -2347,7 +2348,7 @@ pub trait BaseDirectoryTestCase {
       let total_length = start_offset + TestUtil::next_usize(random, 16384, 65536);
       let mut arr = vec![0u8; total_length];
       random.fill_bytes(&mut arr);
-      let io_context = IOContext::default_io_context()?;
+      let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
       let mut out = dir.create_output("temp.bin", &io_context)?;
       let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 // Migrated from src/core/util/paged_bytes.rs
 
 use crate::test_framework::core::util::lucene_test_case::{
@@ -24,7 +25,7 @@ use rand::RngExt;
 use crate::core::index::BytesRef;
 use crate::core::store::IndexOutput;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput};
+use crate::core::store::{DataInput, DataOutput, IndexInput};
 use crate::core::util::accountable::Accountable;
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -49,7 +50,7 @@ fn test_data_input_output() -> Result<()> {
     let block_bits = TestUtil::next_int(&mut random, 1, 20);
     let block_size = 1 << block_bits;
     let mut paged_bytes = PagedBytes::new(block_bits as usize);
-    let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
     let num_bytes = if is_night_mode() {
       TestUtil::next_usize(&mut random, 2, 10_000_000)
@@ -75,7 +76,7 @@ fn test_data_input_output() -> Result<()> {
     }
 
     out.close()?;
-    let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+    let mut input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut clone_input = input.try_clone()?;
 
     let len = input.length()?;
@@ -226,7 +227,7 @@ fn test_overflow() -> Result<()> {
 
   let mut paged_bytes = PagedBytes::new(block_bits as usize);
   {
-    let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
     let mut written = 0;
     while written < num_bytes {
@@ -239,7 +240,7 @@ fn test_overflow() -> Result<()> {
     out.close()?;
   }
 
-  let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   paged_bytes.copy_with_input(&mut input, num_bytes)?;
   let reader = paged_bytes.freeze(random.random_bool(0.5))?;
 

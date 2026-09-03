@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::AtomicI64;
@@ -24,7 +25,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::{
   ByteBuffersDataOutput, ByteBuffersIndexInput, ByteBuffersIndexOutput, DataInput, DataOutput,
-  IOContext, IndexOutput,
+  IndexOutput,
 };
 use crate::core::util::StringHelper;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -373,7 +374,7 @@ fn test_retrieve_checksum() -> Result<()> {
   let mut random = random();
   let dir = new_directory(&mut random)?;
   {
-    let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let result = (|| -> Result<()> {
       out.write_byte(42)?;
       CodecUtil::write_footer(&mut out)
@@ -381,7 +382,7 @@ fn test_retrieve_checksum() -> Result<()> {
     IOUtils::use_or_suppress_result(result, out.close())?;
   }
   {
-    let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+    let mut input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let result = (|| -> Result<()> {
       let length = input.length()?;
       CodecUtil::retrieve_checksum_with_expected(&mut input, length)?; // no error
@@ -401,7 +402,7 @@ fn test_retrieve_checksum() -> Result<()> {
   }
 
   {
-    let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let result = (|| -> Result<()> {
       for i in 0..=CodecUtil::footer_length() {
         out.write_byte(i as u8)?;
@@ -411,7 +412,7 @@ fn test_retrieve_checksum() -> Result<()> {
     IOUtils::use_or_suppress_result(result, out.close())?;
   }
   {
-    let mut input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+    let mut input = dir.open_input("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let result = (|| -> Result<()> {
       let length = input.length()?;
       let error = CodecUtil::retrieve_checksum_with_expected(&mut input, length)

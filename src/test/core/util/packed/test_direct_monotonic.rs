@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory, new_directory_shared, random,
 };
@@ -64,8 +65,10 @@ pub fn test_empty() -> Result<()> {
 
   let data_length;
   {
-    let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
-    let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+    let mut meta_out =
+      dir.create_output("meta", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
+    let mut data_out =
+      dir.create_output("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut writer =
       DirectMonotonicWriter::get_instance(&mut meta_out, &mut data_out, 0, block_shift)?;
     writer.finish()?;
@@ -74,7 +77,7 @@ pub fn test_empty() -> Result<()> {
 
   {
     let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-    let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+    let data_in = dir.open_input("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let meta = load_meta(&mut meta_in, 0, block_shift)?;
     let slice = data_in.random_access_slice(0, data_length)?;
     DirectMonotonicReader::get_instance(&meta, slice)?;
@@ -92,8 +95,10 @@ pub fn test_simple() -> Result<()> {
 
   let data_length;
   {
-    let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
-    let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+    let mut meta_out =
+      dir.create_output("meta", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
+    let mut data_out =
+      dir.create_output("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut writer = DirectMonotonicWriter::get_instance(
       &mut meta_out,
       &mut data_out,
@@ -109,7 +114,7 @@ pub fn test_simple() -> Result<()> {
 
   {
     let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-    let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+    let data_in = dir.open_input("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
     let slice = data_in.random_access_slice(0, data_length)?;
     let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
@@ -134,8 +139,10 @@ pub fn test_constant_slope() -> Result<()> {
 
   let data_length;
   {
-    let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
-    let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+    let mut meta_out =
+      dir.create_output("meta", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
+    let mut data_out =
+      dir.create_output("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut writer = DirectMonotonicWriter::get_instance(
       &mut meta_out,
       &mut data_out,
@@ -151,7 +158,7 @@ pub fn test_constant_slope() -> Result<()> {
 
   {
     let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-    let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+    let data_in = dir.open_input("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
     let slice = data_in.random_access_slice(0, data_length)?;
     let mut values = DirectMonotonicReader::get_instance(&meta, slice)?;
@@ -177,8 +184,10 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
 
   let data_length;
   {
-    let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
-    let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+    let mut meta_out =
+      dir.create_output("meta", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
+    let mut data_out =
+      dir.create_output("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut writer = DirectMonotonicWriter::get_instance(
       &mut meta_out,
       &mut data_out,
@@ -194,7 +203,7 @@ pub fn test_zero_values_small_blob_shift() -> Result<()> {
 
   {
     let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-    let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+    let data_in = dir.open_input("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
     assert_eq!(meta_in.length()?, meta_in.get_file_pointer()?);
     meta_in.seek(0)?;
@@ -249,8 +258,10 @@ where
 
     let data_length;
     {
-      let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
-      let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+      let mut meta_out =
+        dir.create_output("meta", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
+      let mut data_out =
+        dir.create_output("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let mut writer = DirectMonotonicWriter::get_instance(
         &mut meta_out,
         &mut data_out,
@@ -266,7 +277,7 @@ where
 
     {
       let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-      let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+      let data_in = dir.open_input("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let meta = load_meta(&mut meta_in, num_values as i64, block_shift)?;
       let slice = data_in.random_access_slice(0, data_length)?;
       let mut values = DirectMonotonicReader::get_instance_with_merging(&meta, slice, merging)?;
@@ -321,8 +332,10 @@ where
   R: Rng + ?Sized,
 {
   {
-    let mut meta_out = dir.create_output("meta", &IOContext::default_io_context()?)?;
-    let mut data_out = dir.create_output("data", &IOContext::default_io_context()?)?;
+    let mut meta_out =
+      dir.create_output("meta", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
+    let mut data_out =
+      dir.create_output("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut writer = DirectMonotonicWriter::get_instance(
       &mut meta_out,
       &mut data_out,
@@ -337,7 +350,7 @@ where
 
   {
     let mut meta_in = dir.open_input("meta", &IOContext::read_once_io_context()?)?;
-    let data_in = dir.open_input("data", &IOContext::default_io_context()?)?;
+    let data_in = dir.open_input("data", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let meta = load_meta(&mut meta_in, array.len() as i64, block_shift)?;
     let slice = data_in.random_access_slice(0, dir.file_length("data")?)?;
     let mut reader = DirectMonotonicReader::get_instance(&meta, slice)?;

@@ -30,6 +30,7 @@ use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
 use crate::core::index::segment_info::{SegmentInfo, named_for_this_segment};
 use crate::core::index::segment_infos::{SegmentInfos, get_last_commit_segments_file_name};
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -2046,7 +2047,7 @@ where
         let sr = {
           let mut inner = rld.inner.lock();
           readers_and_updates::get_reader(
-            &IOContext::default_io_context()?,
+            IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
             info,
             &mut inner,
             rld.index_created_version_major,
@@ -7730,7 +7731,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("should always be able to get pooled instance"))?;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       rld
-        .get_read_only_clone(&IOContext::default_io_context()?, sci)?
+        .get_read_only_clone(IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?, sci)?
         .ok_or_else(|| LuceneError::illegal_state("should always be able to get read only clone"))
         .inspect(|segment_reader| {
           if self.max_full_flush_merge_wait_millis > 0 {

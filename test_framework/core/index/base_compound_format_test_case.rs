@@ -68,9 +68,11 @@ pub trait BaseCompoundFormatTestCase:
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -100,9 +102,11 @@ pub trait BaseCompoundFormatTestCase:
       )?;
 
       si.set_files(HashSet::from([test_file.clone()]))?;
-      si.get_codec()?
-        .compound_format()
-        .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+      si.get_codec()?.compound_format().write(
+        dir.as_ref(),
+        &si,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
 
       let cfs = si
         .get_codec()?
@@ -139,9 +143,11 @@ pub trait BaseCompoundFormatTestCase:
 
     let files_set: HashSet<String> = files.iter().map(|&file| file.to_string()).collect();
     si.set_files(files_set)?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -164,7 +170,10 @@ pub trait BaseCompoundFormatTestCase:
 
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    let mut out = dir.create_output(test_file, &IO_CONTEXT_DEFAULT)?;
+    let mut out = dir.create_output(
+      test_file,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let body_result = (|| {
       CodecUtil::write_index_header(&mut out, "Foo", 0, si.get_id(), "suffix")?;
       out.write_int(3)?;
@@ -173,9 +182,11 @@ pub trait BaseCompoundFormatTestCase:
     IOUtils::use_or_suppress_result(body_result, out.close())?;
 
     si.set_files(HashSet::from([test_file.to_string()]))?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -192,14 +203,14 @@ pub trait BaseCompoundFormatTestCase:
     R: Rng + ?Sized,
   {
     let test_file = "_123.test";
-    let my_context = Arc::new(IO_CONTEXT_DEFAULT.clone());
+    let my_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
     let dir = Arc::new(IOContextAssertingDirectoryWrapper::new(
       new_directory_shared(random)?,
-      my_context.clone(),
+      my_context,
     ));
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
-    let mut out = dir.create_output(test_file, my_context.as_ref())?;
+    let mut out = dir.create_output(test_file, my_context)?;
     let body_result = (|| {
       CodecUtil::write_index_header(&mut out, "Foo", 0, si.get_id(), "suffix")?;
       out.write_int(3)?;
@@ -210,7 +221,7 @@ pub trait BaseCompoundFormatTestCase:
     si.set_files(HashSet::from([test_file.to_string()]))?;
     si.get_codec()?
       .compound_format()
-      .write(dir.as_ref(), &si, my_context.as_ref())?;
+      .write(dir.as_ref(), &si, my_context)?;
     dir.close()
   }
 
@@ -291,7 +302,8 @@ pub trait BaseCompoundFormatTestCase:
         let files = cfs_dir.list_all()?;
 
         for file in files {
-          let input = cfs_dir.open_input(&file, &IO_CONTEXT_DEFAULT)?;
+          let input =
+            cfs_dir.open_input(&file, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
           input.close()?;
         }
         cfs_dir.close()?;
@@ -309,14 +321,16 @@ pub trait BaseCompoundFormatTestCase:
     let dir = new_directory_shared(random)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let result = cfs.create_output("bogus", &io_context);
     assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
     Ok(())
@@ -329,13 +343,16 @@ pub trait BaseCompoundFormatTestCase:
   {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
-    let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
+    let mut out =
+      dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -351,13 +368,16 @@ pub trait BaseCompoundFormatTestCase:
   {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
-    let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
+    let mut out =
+      dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -373,13 +393,16 @@ pub trait BaseCompoundFormatTestCase:
   {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
-    let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
+    let mut out =
+      dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -398,13 +421,16 @@ pub trait BaseCompoundFormatTestCase:
   {
     let testfile = "_123.test";
     let dir = new_directory_shared(random)?;
-    let mut out = dir.create_output(testfile, &IOContext::default_io_context()?)?;
+    let mut out =
+      dir.create_output(testfile, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     out.write_int(3)?;
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     si.set_files(HashSet::new())?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -505,9 +531,11 @@ pub trait BaseCompoundFormatTestCase:
       .filter(|file| file.starts_with(segment))
       .collect();
     si.set_files(files.iter().cloned().collect())?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -551,9 +579,11 @@ pub trait BaseCompoundFormatTestCase:
 
     let file_sets = files.iter().cloned().collect();
     si.set_files(file_sets)?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -798,9 +828,11 @@ pub trait BaseCompoundFormatTestCase:
     let mut hash_set_file = HashSet::new();
     hash_set_file.insert(sub_file.to_string());
     si.set_files(hash_set_file)?;
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let cfs = si
       .get_codec()?
       .compound_format()
@@ -834,10 +866,11 @@ pub trait BaseCompoundFormatTestCase:
     hash_set_file.insert(sub_file.to_string());
     si.set_files(hash_set_file)?;
 
-    let result = si
-      .get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT);
+    let result = si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    );
     assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
     match result {
       Ok(_) => unreachable!(),
@@ -875,10 +908,11 @@ pub trait BaseCompoundFormatTestCase:
     hash_set_file.insert(sub_file.to_string());
     si.set_files(hash_set_file)?;
 
-    let result = si
-      .get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT);
+    let result = si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    );
 
     assert!(matches!(result, Err(LuceneError::CorruptIndex(_))));
 
@@ -918,9 +952,11 @@ pub trait BaseCompoundFormatTestCase:
     si.set_files(HashSet::from([sub_file.to_string()]))?;
 
     let write_tracking_dir = FileTrackingDirectoryWrapper::new(dir.clone());
-    si.get_codec()?
-      .compound_format()
-      .write(&write_tracking_dir, &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      &write_tracking_dir,
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let created_files = write_tracking_dir.get_files();
 
     let compound_dir = si
@@ -953,7 +989,7 @@ pub trait BaseCompoundFormatTestCase:
 /// `testPassIOContext`.
 struct IOContextAssertingDirectoryWrapper<D> {
   in_: D,
-  expected_context: Arc<IOContext>,
+  expected_context: &'static IOContext,
   identity: Identity,
 }
 
@@ -961,7 +997,7 @@ impl<D> IOContextAssertingDirectoryWrapper<D>
 where
   D: Directory,
 {
-  fn new(in_: D, expected_context: Arc<IOContext>) -> Self {
+  fn new(in_: D, expected_context: &'static IOContext) -> Self {
     Self {
       in_,
       expected_context,
@@ -989,7 +1025,7 @@ where
   type IndexOutput = D::IndexOutput;
 
   fn create_output(&self, name: &str, context: &IOContext) -> Result<Self::IndexOutput> {
-    assert!(std::ptr::eq(self.expected_context.as_ref(), context));
+    assert!(std::ptr::eq(self.expected_context, context));
     self.in_.create_output(name, context)
   }
 
@@ -1264,9 +1300,11 @@ where
     files.insert(file_name);
   }
   si.set_files(files)?;
-  si.get_codec()?
-    .compound_format()
-    .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+  si.get_codec()?.compound_format().write(
+    dir.as_ref(),
+    &si,
+    IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+  )?;
   let cfs = si
     .get_codec()?
     .compound_format()

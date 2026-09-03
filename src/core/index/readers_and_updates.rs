@@ -48,6 +48,7 @@ use crate::core::index::{BytesRef, pending_soft_deletes};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::store::flush_info::FlushInfo;
@@ -256,7 +257,7 @@ where
     };
     if inner.reader.is_none() && inner.pending_deletes.must_init_on_delete() {
       get_reader(
-        &IOContext::default_io_context()?,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
         info,
         inner,
         self.index_created_version_major,
@@ -882,7 +883,7 @@ where
     if inner.reader.is_none() {
       // get a reader and dec the ref right away we just make sure we have a reader
       get_reader(
-        &IOContext::default_io_context()?,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
         info,
         inner,
         index_created_version_major,

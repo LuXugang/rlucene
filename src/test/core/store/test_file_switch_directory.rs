@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_cfs, random,
 };
@@ -39,7 +40,7 @@ use crate::core::store::file_switch_directory::{FileSwitchDirectory, get_extensi
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::nio_fs_directory::{NIOFSDirectory, NIOFSIndexInput};
 use crate::core::store::{
-  BufferedIndexInput, ByteBuffersDirectory, DataOutput, FSDirectory, IOContext, IndexOutput,
+  BufferedIndexInput, ByteBuffersDirectory, DataOutput, FSDirectory, IndexOutput,
   NativeFSLockFactory,
 };
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -170,8 +171,11 @@ impl TestFileSwitchDirectory {
       )?;
       let name;
       {
-        let mut out =
-          directory.create_temp_output("foo.cfs", "", &IOContext::default_io_context()?)?;
+        let mut out = directory.create_temp_output(
+          "foo.cfs",
+          "",
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+        )?;
         out.write_int(1)?;
         name = out.get_name().to_string();
         out.close()?;
@@ -218,8 +222,11 @@ impl TestFileSwitchDirectory {
       let directory = Self::new_fs_switch_directory(primary_extensions)?;
       let broken_name;
       {
-        let mut out =
-          directory.create_temp_output("foo", "bar", &IOContext::default_io_context()?)?;
+        let mut out = directory.create_temp_output(
+          "foo",
+          "bar",
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+        )?;
         out.write_int(1)?;
         broken_name = out.get_name().to_string();
         out.close()?;

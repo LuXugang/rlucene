@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 
 use crate::core::codecs::CodecUtil;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::bkd::bkd_config::BKDConfig;
 use crate::core::util::bkd::offline_point_reader::OfflinePointReader;
 use crate::core::util::bkd::point_value::{PointValue, PointValueEnum};
@@ -58,7 +59,7 @@ where
     let out = temp_dir.create_temp_output(
       temp_file_name_prefix,
       &format!("bkd_{desc}"),
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     let name = out.get_name().to_string();
     Ok(OfflinePointWriter {

@@ -460,7 +460,7 @@ impl<D> SegmentInfos<D> {
         directory.clone(),
         &seg_name,
         &segment_id,
-        &IO_CONTEXT_DEFAULT,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
       )?;
       info.set_codec(codec)?;
 
@@ -637,7 +637,10 @@ impl<D> SegmentInfos<D> {
     let mut success = false;
     let mut segn_output = None;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      segn_output = Some(directory.create_output(&segment_file_name, &IO_CONTEXT_DEFAULT)?);
+      segn_output = Some(directory.create_output(
+        &segment_file_name,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?);
       let segn_output = segn_output
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("pending segments output is missing"))?;

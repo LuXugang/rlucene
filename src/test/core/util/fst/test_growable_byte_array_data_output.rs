@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, is_night_mode, new_directory_shared, random,
 };
@@ -21,7 +22,7 @@ use rand::{Rng, RngExt};
 
 use crate::core::store::directory::Directory;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::core::store::{ByteArrayDataInput, DataOutput, IOContext};
+use crate::core::store::{ByteArrayDataInput, DataOutput};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
@@ -102,11 +103,12 @@ fn test_random() -> Result<()> {
       }
       let dir = new_directory_shared(&mut random)?;
       {
-        let mut out = dir.create_output("bytes", &IOContext::default_io_context()?)?;
+        let mut out =
+          dir.create_output("bytes", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
         bytes.write_to_data_output(&mut out)?;
       }
 
-      let mut in_ = dir.open_input("bytes", &IOContext::default_io_context()?)?;
+      let mut in_ = dir.open_input("bytes", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let mut bytes_to_verify = GrowableByteArrayDataOutput::new();
       bytes_to_verify.copy_bytes(&mut in_, num_bytes)?;
       bytes_to_verify

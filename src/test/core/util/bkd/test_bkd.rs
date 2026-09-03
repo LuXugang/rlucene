@@ -24,6 +24,7 @@ use crate::core::index::point_values::{
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, IOContext, IndexInput, IndexOutput, IndexOutputEnum2};
 use crate::core::util::HasIdentity;
@@ -111,7 +112,7 @@ fn test_basic_ints_1d() -> Result<()> {
 
     let index_fp;
     {
-      let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+      let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let finalizer = writer.finish(&mut out)?.unwrap();
       {
         index_fp = out.get_file_pointer()?;
@@ -120,7 +121,7 @@ fn test_basic_ints_1d() -> Result<()> {
     }
 
     {
-      let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+      let mut input = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       input.seek(index_fp)?;
       let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
 
@@ -195,7 +196,7 @@ fn test_random_ints_n_dims() -> Result<()> {
 
   let index_fp;
   {
-    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
     {
       index_fp = out.get_file_pointer()?;
@@ -204,7 +205,7 @@ fn test_random_ints_n_dims() -> Result<()> {
   }
 
   {
-    let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+    let mut input = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     input.seek(index_fp)?;
     let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
     let r = sub_point_values;
@@ -327,7 +328,7 @@ fn test_big_int_n_dims() -> Result<()> {
 
   let index_fp;
   {
-    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
     {
       index_fp = out.get_file_pointer()?;
@@ -336,7 +337,7 @@ fn test_big_int_n_dims() -> Result<()> {
   }
 
   {
-    let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+    let mut input = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     input.seek(index_fp)?;
     let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
     let point_values = sub_point_values;
@@ -940,7 +941,7 @@ where
       max_docs,
     )?);
 
-    out = Some(dir.create_output("bkd", &IOContext::default_io_context()?)?);
+    out = Some(dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?);
 
     let mut scratch = vec![0u8; num_bytes_per_dim * num_data_dims];
     let mut last_doc_id_base = 0;
@@ -1031,9 +1032,10 @@ where
       if let Some(mut output) = out.take() {
         output.close()?;
       }
-      input = Some(Arc::new(Mutex::new(
-        dir.open_input("bkd", &IOContext::default_io_context()?)?,
-      )));
+      input = Some(Arc::new(Mutex::new(dir.open_input(
+        "bkd",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?)));
       seg += 1;
       writer = Some(BKDWriter::new(
         num_values as i32,
@@ -1056,7 +1058,7 @@ where
         readers.push(get_point_values(input_ref.clone())?);
       }
 
-      out = Some(dir.create_output("bkd2", &IOContext::default_io_context()?)?);
+      out = Some(dir.create_output("bkd2", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?);
       {
         let out_ref = out.as_mut().unwrap();
         let finalizer = writer
@@ -1076,9 +1078,10 @@ where
       if let Some(input_ref) = input.take() {
         input_ref.lock().close()?;
       }
-      input = Some(Arc::new(Mutex::new(
-        dir.open_input("bkd2", &IOContext::default_io_context()?)?,
-      )));
+      input = Some(Arc::new(Mutex::new(dir.open_input(
+        "bkd2",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?)));
     } else {
       let out_ref = out.as_mut().unwrap();
       let finalizer = writer.as_mut().unwrap().finish(out_ref)?.unwrap();
@@ -1090,9 +1093,10 @@ where
       if let Some(mut output) = out.take() {
         output.close()?;
       }
-      input = Some(Arc::new(Mutex::new(
-        dir.open_input("bkd", &IOContext::default_io_context()?)?,
-      )));
+      input = Some(Arc::new(Mutex::new(dir.open_input(
+        "bkd",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?)));
     }
 
     let input_ref = input.as_ref().unwrap();
@@ -1593,14 +1597,14 @@ fn test_tie_break_order() -> Result<()> {
     writer.add(&bytes, doc_id)?;
   }
 
-  let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
   let finalizer = writer.finish(&mut out)?.unwrap();
   let fp = out.get_file_pointer()?;
   writer.write_index(&mut out, None, &finalizer)?;
   out.close()?;
 
-  let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   input.seek(fp)?;
   let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
   let point_values = sub_point_values;
@@ -1699,14 +1703,14 @@ fn test_check_data_dim_optimal_order() -> Result<()> {
       writer.add(&point_value2, i)?;
     }
 
-    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
     index_fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
     writer.close()?;
   }
 
-  let mut point_in = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+  let mut point_in = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   point_in.seek(index_fp)?;
 
   let sub_point_values = get_point_values(Arc::new(Mutex::new(point_in)))?;
@@ -1770,13 +1774,13 @@ fn test_2d_long_ords_offline() -> Result<()> {
 
   let fp;
   {
-    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
     fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
   }
 
-  let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   input.seek(fp)?;
   let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
   let point_values = sub_point_values;
@@ -1868,13 +1872,13 @@ fn test_wasted_leading_bytes() -> Result<()> {
   }
   let fp;
   {
-    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
     let finalizer = writer.finish(&mut out)?.unwrap();
     fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
   }
-  let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   input.seek(fp)?;
   let sub_point_values = get_point_values(Arc::new(Mutex::new(input)))?;
   let point_values = sub_point_values;
@@ -1987,13 +1991,13 @@ fn test_estimate_point_count() -> Result<()> {
 
   let index_fp;
   {
-    let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let finalizer = writer.finish(&mut out)?.unwrap();
     index_fp = out.get_file_pointer()?;
     writer.write_index(&mut out, None, &finalizer)?;
   }
 
-  let mut input = dir.open_input("bkd", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   input.seek(index_fp)?;
   let point_values = get_point_values(Arc::new(Mutex::new(input)))?;
 
@@ -2117,7 +2121,7 @@ fn test_total_point_count_validation() -> Result<()> {
     DEFAULT_MAX_MB_SORT_IN_HEAP as f64,
     num_values as i64,
   )?;
-  let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
   let result = writer.write_field(&mut out, &mut reader, "test_field_name");
 
@@ -2270,7 +2274,7 @@ fn test_too_many_points_1d() -> Result<()> {
     num_values as i64,
   )?;
 
-  let mut out = dir.create_output("bkd", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("bkd", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
   let error = match writer.write_field(&mut out, &mut reader, "") {
     Ok(_) => panic!("writing too many points must fail"),

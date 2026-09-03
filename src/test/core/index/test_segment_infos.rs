@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   new_directory, new_directory_shared, random,
 };
@@ -87,7 +88,7 @@ fn test_versions_one_segment() -> Result<()> {
   let dir = new_directory(&mut random)?;
   let directory = Arc::new(dir);
   let codec = codec::get_default();
-  let io_context = IOContext::default_io_context()?;
+  let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   let mut sis = SegmentInfos::new(LATEST.major)?;
   let mut info = SegmentInfo::new(
     directory.clone(),
@@ -130,7 +131,7 @@ fn test_versions_two_segments() -> Result<()> {
   let directory = Arc::new(dir);
   let codec = codec::get_default();
   let mut sis = SegmentInfos::new(LATEST.major)?;
-  let io_context = IOContext::default_io_context()?;
+  let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   // First Segment
   let mut info_0 = SegmentInfo::new(
     directory.clone(),
@@ -396,7 +397,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let codec = codec::get_default();
   let mut sis = SegmentInfos::new(LATEST.major)?;
-  let io_context = IOContext::default_io_context()?;
+  let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   let mut info_0 = SegmentInfo::new(
     dir.clone(),
     Some((*LATEST).clone()),

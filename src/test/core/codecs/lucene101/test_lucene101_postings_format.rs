@@ -35,10 +35,9 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::terms::Terms;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
-use crate::core::store::{
-  ByteArrayDataInput, ByteArrayDataOutput, DataInput, IOContext, IndexInput,
-};
+use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput, DataInput, IndexInput};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -254,10 +253,10 @@ fn do_test_impact_serialization(impacts: &[Impact]) -> Result<()> {
   }
   let dir = new_directory_shared(&mut random)?;
   {
-    let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     write_impacts(&acc.get_competitive_freq_norm_pairs(), &mut out)?;
   }
-  let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let len = input.length()?;
   let mut buffer = vec![0u8; len];
   input.read_bytes(&mut buffer, 0, len)?;

@@ -1345,7 +1345,10 @@ fn test_block_packed_reader_writer() -> Result<()> {
     let fp;
     let dir = new_directory_shared(&mut random)?;
     {
-      let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
+      let mut out = dir.create_output(
+        "out.bin",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       let mut writer = AbstractBlockPackedWriter::new(block_size, BlockPackedWriter)?;
       for (i, &value) in values.iter().enumerate() {
         assert_eq!(i, writer.ord());
@@ -1360,7 +1363,10 @@ fn test_block_packed_reader_writer() -> Result<()> {
     let mut buf = vec![0u8; fp];
     // test in1
     {
-      let mut in1 = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
+      let mut in1 = dir.open_input(
+        "out.bin",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       DataInput::read_bytes(&mut in1, &mut buf, 0, fp)?;
       in1.seek(0)?;
       let mut in_ref = in1;
@@ -1487,7 +1493,10 @@ fn test_monotonic_block_packed_reader_writer() -> Result<()> {
     let dir = new_directory_shared(&mut random)?;
     let file_pointer;
     {
-      let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
+      let mut out = dir.create_output(
+        "out.bin",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       let mut writer = AbstractBlockPackedWriter::new(block_size, MonotonicBlockPackedWriter)?;
       for (i, &value) in values.iter().enumerate().take(value_count) {
         assert_eq!(i, writer.ord());
@@ -1499,7 +1508,10 @@ fn test_monotonic_block_packed_reader_writer() -> Result<()> {
       file_pointer = out.get_file_pointer()?;
       out.close()?;
     }
-    let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
+    let mut input = dir.open_input(
+      "out.bin",
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let reader = MonotonicBlockPackedReader::of(
       &mut input,
       PackedInts::VERSION_CURRENT,
@@ -1532,7 +1544,10 @@ fn test_block_reader_overflow() -> Result<()> {
   let value = random.random::<i64>() & 0xFFFFFFFF;
 
   {
-    let mut out = dir.create_output("out.bin", &IO_CONTEXT_DEFAULT)?;
+    let mut out = dir.create_output(
+      "out.bin",
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let mut writer = AbstractBlockPackedWriter::new(block_size, BlockPackedWriter)?;
 
     let mut i = 0;
@@ -1553,7 +1568,10 @@ fn test_block_reader_overflow() -> Result<()> {
     }
   }
 
-  let mut input = dir.open_input("out.bin", &IO_CONTEXT_DEFAULT)?;
+  let mut input = dir.open_input(
+    "out.bin",
+    IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+  )?;
   assert!(block_size <= u32::MAX as usize);
   let mut reader =
     BlockPackedReaderIterator::new(PackedInts::VERSION_CURRENT, block_size, value_count)?;

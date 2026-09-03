@@ -76,7 +76,10 @@ where
 
     let mut handle = directory.open_input(
       &data_file_name,
-      &IO_CONTEXT_DEFAULT.with_read_advice_self(ReadAdvice::Normal)?,
+      &IO_CONTEXT_DEFAULT
+        .as_ref()
+        .map_err(Clone::clone)?
+        .with_read_advice_self(ReadAdvice::Normal)?,
     )?;
 
     let expected_length = entries

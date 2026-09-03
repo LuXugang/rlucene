@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 
 use crate::core::index::index_reader::Identity;
 use crate::core::store::byte_buffers_directory::{BBOutputToInput, BYTE_BUFFERS_DATA_OUTPUT};
@@ -192,7 +193,7 @@ where
       &self.cache_directory,
       file_name,
       file_name,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     let length: i64 = self.cache_directory.file_length(file_name)?.try_convert()?;
     self.cache_size.fetch_sub(length, Ordering::SeqCst);

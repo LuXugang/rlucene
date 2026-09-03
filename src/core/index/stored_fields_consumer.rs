@@ -23,7 +23,8 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::index::sorter::DocMap;
 use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsumer;
-use crate::core::store::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
@@ -192,7 +193,7 @@ impl StoredFieldsConsumerDefaults {
       *writer = Some(codec.stored_fields_format().fields_writer(
         directory.clone(),
         info,
-        &IOContext::default_io_context()?,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
       )?);
     }
     Ok(())

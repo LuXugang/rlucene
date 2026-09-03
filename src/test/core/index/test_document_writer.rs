@@ -55,7 +55,8 @@ use crate::core::index::terms_enum::TermsEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
-use crate::core::store::io_context::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::util::LATEST;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::attribute_source::{AttributeSource, Attributes};
@@ -89,7 +90,11 @@ fn test_add_document() -> Result<()> {
   DocHelper::setup_doc(&mut test_doc);
   let info = DocHelper::write_doc(&mut random, dir, test_doc)?;
 
-  let reader = SegmentReader::new(&info, LATEST.major, &IOContext::default_io_context()?)?;
+  let reader = SegmentReader::new(
+    &info,
+    LATEST.major,
+    IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+  )?;
   let mut stored_fields = reader.stored_fields()?;
   let doc = stored_fields.document(0)?;
 

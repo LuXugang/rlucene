@@ -21,7 +21,8 @@ use crate::core::index::readers_and_updates;
 use crate::core::index::readers_and_updates::ReadersAndUpdates;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::DefaultLeafReader;
-use crate::core::store::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
 use crate::core::util::accountable::Accountable;
@@ -321,7 +322,7 @@ where
     let reader = {
       let mut inner = rld.inner.lock();
       readers_and_updates::get_reader(
-        &IOContext::default_io_context()?,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
         info,
         &mut inner,
         rld.index_created_version_major,

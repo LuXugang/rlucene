@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataOutput, IOContext, IndexInput, IndexOutput};
+use crate::core::store::{DataOutput, IndexInput, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::paged_bytes::PagedBytes;
@@ -40,7 +41,8 @@ fn test() -> Result<()> {
     create_temp_dir_with_prefix("test2BPagedBytes")?,
   )?;
   let mut paged_bytes = PagedBytes::new(15);
-  let mut data_output = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut data_output =
+    dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut net_bytes = 0usize;
   let seed = random.random::<u64>();
   let mut last_file_pointer = 0usize;
@@ -57,7 +59,7 @@ fn test() -> Result<()> {
   }
   data_output.close()?;
 
-  let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let input_length = input.length()?;
   paged_bytes.copy_with_input(&mut input, input_length)?;
   input.close()?;

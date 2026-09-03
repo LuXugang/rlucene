@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::BytesRef;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   is_light_mode, new_directory_shared, random,
 };
@@ -38,7 +39,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::TermsEnum;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::store::IOContext;
+
 use crate::core::store::directory::DirEnum;
 use crate::core::util::LATEST;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
@@ -98,7 +99,11 @@ where
   } else {
     build_set_up(random)?
   };
-  let reader = SegmentReader::new(&info, LATEST.major, &IOContext::default_io_context()?)?;
+  let reader = SegmentReader::new(
+    &info,
+    LATEST.major,
+    IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+  )?;
   Ok((dir, document, reader))
 }
 

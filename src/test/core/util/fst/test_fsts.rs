@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{FieldBase, Store};
 use crate::core::document::string_field::StringField;
 use crate::core::index::{BytesRef, directory_reader};
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string,
   new_directory_shared, new_fs_directory, new_index_writer_config_with_analyzer,
@@ -35,11 +36,11 @@ use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::term_query::TermQuery;
+use crate::core::store::ByteArrayDataInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::directory::MockDirWrapper;
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
-use crate::core::store::{ByteArrayDataInput, IOContext};
 use crate::core::util::Comparator;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -1152,13 +1153,13 @@ fn test_non_final_stop_node() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   {
-    let mut out = dir.create_output("fst", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     fst.save_with_same_data_out(&mut out)?;
   }
   // skip string writer
   check_stop_nodes(&fst, outputs.clone())?;
 
-  let mut in_file = dir.open_input("fst", &IOContext::default_io_context()?)?;
+  let mut in_file = dir.open_input("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let metadata = read_metadata(&mut in_file, outputs.clone())?;
   let loaded_fst = FST::from_on_heap_store(metadata, &mut in_file)?;
 

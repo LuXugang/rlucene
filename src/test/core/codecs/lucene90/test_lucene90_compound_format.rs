@@ -210,9 +210,11 @@ impl TestLucene90CompoundFormat {
     let files = shuffled_files.into_iter().collect();
     si.set_files(files)?;
 
-    si.get_codec()?
-      .compound_format()
-      .write(dir.as_ref(), &si, &IO_CONTEXT_DEFAULT)?;
+    si.get_codec()?.compound_format().write(
+      dir.as_ref(),
+      &si,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
 
     let entries_file_name =
       IndexFileNames::segment_file_name(&si.name, "", Lucene90CompoundFormat::ENTRIES_EXTENSION);

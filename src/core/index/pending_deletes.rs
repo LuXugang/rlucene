@@ -25,7 +25,8 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::pending_soft_deletes::PendingSoftDeletes;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
-use crate::core::store::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::store::directory::Directory;
 use crate::core::store::tracking_directory_wrapper::TrackingDirectoryWrapper;
 use crate::core::util::bits::Bits;
@@ -317,7 +318,7 @@ impl PendingDeletesBase for PendingDeletes {
         &tracking_dir,
         info,
         self.pending_delete_count,
-        &IOContext::default_io_context()?,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
       )?;
       success = true;
       Ok(())

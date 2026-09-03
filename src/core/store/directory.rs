@@ -18,6 +18,7 @@ use crate::core::index::IndexFileNames;
 use crate::core::index::index_reader::Identity;
 #[cfg(test)]
 use crate::core::store::ByteBuffersDirectory;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 #[cfg(test)]
 use crate::core::store::ReadAdvice;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
@@ -624,7 +625,7 @@ macro_rules! either_directory {
                 &self,
                 name: &str,
             ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-                let input = self.open_input(name, &IOContext::default_io_context()?)?;
+                let input = self.open_input(name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
                 Ok(BufferedChecksumIndexInput::new(input))
             }
 
@@ -1772,7 +1773,7 @@ impl Directory for DirEnum {
     &self,
     name: &str,
   ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-    let input = self.open_input(name, &IOContext::default_io_context()?)?;
+    let input = self.open_input(name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     Ok(BufferedChecksumIndexInput::new(input))
   }
 

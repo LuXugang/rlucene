@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 
 use crate::test_framework::core::util::lucene_test_case::{at_least, new_directory, random};
 use rand::Rng;
@@ -72,7 +73,7 @@ where
 {
   let len;
   {
-    let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("tmp", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     StoredFieldsInts::write_ints(ints, 0, ints.len() as i32, &mut out)?;
     len = out.get_file_pointer()?;
     if random.random_bool(0.5) {

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::new_directory_shared;
 use std::collections::HashMap;
 
@@ -133,7 +134,7 @@ pub trait BaseLiveDocsFormatTestCase {
       HashMap::new(),
       None,
     )?;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let si1 = si.clone();
     let mut sci =
       SegmentCommitInfo::new(si, 0, 0, 0, -1, -1, Option::from(StringHelper::random_id()));

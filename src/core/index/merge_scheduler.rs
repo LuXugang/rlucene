@@ -24,6 +24,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::no_merge_scheduler::NoMergeScheduler;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::search::task_executor::TaskExecutor;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::IOContext;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::directory::Directory;
@@ -299,7 +300,7 @@ where
     &self,
     name: &str,
   ) -> Result<BufferedChecksumIndexInput<Self::IndexInput>> {
-    let input = self.open_input(name, &IOContext::default_io_context()?)?;
+    let input = self.open_input(name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     Ok(BufferedChecksumIndexInput::new(input))
   }
 

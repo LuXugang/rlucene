@@ -19,6 +19,8 @@ use std::env;
 use strum::EnumCount;
 use strum_macros::{EnumCount, FromRepr};
 
+use crate::core::util::error::lucene_error::{LuceneError, Result};
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, EnumCount, FromRepr)]
 #[repr(u8)]
 pub enum ReadAdvice {
@@ -54,14 +56,17 @@ impl ReadAdvice {
       "NORMAL" => Some(ReadAdvice::Normal),
       "RANDOM" => Some(ReadAdvice::Random),
       "SEQUENTIAL" => Some(ReadAdvice::Sequential),
-      "RANDOM PRELOAD" => Some(ReadAdvice::RandomPreload),
+      "RANDOM_PRELOAD" => Some(ReadAdvice::RandomPreload),
       _ => None,
     }
   }
-  pub fn default_read_advice() -> ReadAdvice {
-    env::var("lucene.store.defaultReadAdvice")
-      .ok()
-      .and_then(|value| ReadAdvice::from_str_custom(&value))
-      .unwrap_or(ReadAdvice::Random)
+  pub fn default_read_advice() -> Result<ReadAdvice> {
+    match env::var("apache.lucene.store.defaultReadAdvice") {
+      Ok(value) => ReadAdvice::from_str_custom(&value).ok_or_else(|| {
+        LuceneError::illegal_argument(format!("Invalid default read advice: {value}"))
+      }),
+      Err(env::VarError::NotPresent) => Ok(ReadAdvice::Random),
+      Err(error) => Err(LuceneError::illegal_argument(error.to_string())),
+    }
   }
 }

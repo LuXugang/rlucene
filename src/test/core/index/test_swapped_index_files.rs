@@ -21,8 +21,9 @@ use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::WRITE_LOCK_NAME;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::MergePolicy;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::store::io_context::IOContext;
+
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
@@ -113,7 +114,7 @@ where
 {
   let dir_copy = new_directory_shared(random)?;
   dir_copy.set_check_index_on_close(false);
-  let context = IOContext::default_io_context()?;
+  let context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
   // Copy all files from dir1 to dirCopy, except victim which we copy from dir2:
   for name in dir1.list_all()? {

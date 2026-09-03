@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, random, random_multiplier,
 };
@@ -73,7 +74,7 @@ impl TestMMapDirectory {
     R: Rng + ?Sized,
   {
     let n_ints = 8 * 1024 * 1024;
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let temp_dir = Builder::new().prefix("testAceWithThreads").tempdir()?;
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
@@ -127,7 +128,7 @@ impl TestMMapDirectory {
     let size = 8 * 1024;
     let mut bytes = vec![0u8; size];
     random.fill(&mut bytes[..]);
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let normal_context = IOContext::with_read_advice(ReadAdvice::Normal)?;
     let temp_dir = Builder::new().prefix("testWithRandom").tempdir()?;
     let dir = MMapDirectory::new(temp_dir.path().to_path_buf())?;

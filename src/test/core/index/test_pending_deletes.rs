@@ -21,10 +21,11 @@ use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::pending_deletes::{PendingDeletes, PendingDeletesBase, PendingDeletesEnum};
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_info::SegmentInfo;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::random;
 
 use crate::core::store::ByteBuffersDirectory;
-use crate::core::store::IOContext;
+
 use crate::core::store::directory::Directory;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
@@ -175,7 +176,7 @@ pub(crate) trait TestPendingDeletesBase {
     let live_docs = codec.live_docs_format().read_live_docs(
       dir.as_ref(),
       &commit_info,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     assert!(!live_docs.get(5)?);
     if second_doc_deletes {
@@ -198,7 +199,7 @@ pub(crate) trait TestPendingDeletesBase {
     let live_docs = codec.live_docs_format().read_live_docs(
       dir.as_ref(),
       &commit_info,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     assert!(!live_docs.get(5)?);
     if second_doc_deletes {
@@ -247,7 +248,7 @@ pub(crate) trait TestPendingDeletesBase {
       &commit_info.info,
       "",
       &field_infos,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     let mut deletes = self.new_pending_deletes(&commit_info)?;
 

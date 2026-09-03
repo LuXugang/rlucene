@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_io_context, random,
 };
@@ -25,9 +26,7 @@ use rand::{Rng, RngExt};
 use crate::core::store::directory::Directory;
 use crate::core::store::memory_segment_index_input::MemorySegmentIndexInput;
 use crate::core::store::mmap_directory::MMapDirectory;
-use crate::core::store::{
-  DataInput, DataOutput, FSDirectory, IOContext, IndexInput, NativeFSLockFactory,
-};
+use crate::core::store::{DataInput, DataOutput, FSDirectory, IndexInput, NativeFSLockFactory};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -487,14 +486,15 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       self.get_directory_with_max_chunk_size(temp_dir.path().to_path_buf(), slice_size)?;
     let size = 128 + 63;
     {
-      let mut out = mmap_dir.create_output("a", &IOContext::default_io_context()?)?;
+      let mut out =
+        mmap_dir.create_output("a", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       for _ in 0..size {
         out.write_byte(0)?;
       }
       out.close()?;
     }
 
-    let mut input = mmap_dir.open_input("a", &IOContext::default_io_context()?)?;
+    let mut input = mmap_dir.open_input("a", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
     // TODO IMPORTANT: Java verifies the error for seek(-1234). Rust's
     // IndexInput::seek accepts usize, so a negative position cannot be
@@ -536,7 +536,8 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       io.write_vint(5)?;
     }
 
-    let mut one = mmap_dir.open_input("bytes", &IOContext::default_io_context()?)?;
+    let mut one =
+      mmap_dir.open_input("bytes", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut two = one.try_clone()?;
     let mut three = two.try_clone()?;
     CloseableRef::close(&one)?;

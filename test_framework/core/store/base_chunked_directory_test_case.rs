@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, create_temp_dir, create_temp_dir_with_prefix, is_night_mode,
   new_index_writer_config_with_analyzer, new_io_context, new_log_merge_policy, new_string_field,
@@ -31,7 +32,7 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, write_group_vints_i64};
+use crate::core::store::{DataInput, DataOutput, IndexInput, write_group_vints_i64};
 use crate::core::util::clone::TryClone;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -78,7 +79,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       io.close()?;
     }
 
-    let mut one = dir.open_input("bytes", &IOContext::default_io_context()?)?;
+    let mut one = dir.open_input("bytes", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut two = one.try_clone()?;
     let mut three = two.try_clone()?;
     CloseableRef::close(&two)?;

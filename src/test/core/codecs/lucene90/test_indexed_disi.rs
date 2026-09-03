@@ -21,9 +21,10 @@ use crate::core::codecs::indexed_disi::{
 use crate::core::codecs::lucene90::indexed_disi::{IndexedDISI, IndexedDISIImpl, Method};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInput;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory, random, rarely,
 };
@@ -105,7 +106,7 @@ where
 {
   let cardinality = set.cardinality();
   let dense_rank_power = 9;
-  let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut v = BitSetIterator::new(set, cardinality as i64)?;
   let jump_count = write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
   let length = out.get_file_pointer()?;
@@ -119,7 +120,7 @@ where
     index += 1;
   }
 
-  let input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut disi = IndexedDISIImpl::new(
     &input,
     0,
@@ -164,7 +165,7 @@ fn test_position_not_zero() -> Result<()> {
   };
   let set = create_set_with_random_blocks(&mut random, BLOCKS)?;
   let cardinality = set.cardinality();
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let jump_table_entry_count = write_bitset_with_dense_rank_power(
     &mut BitSetIterator::new(set, cardinality as i64)?,
     &mut out,
@@ -173,7 +174,7 @@ fn test_position_not_zero() -> Result<()> {
   let length = out.get_file_pointer()?;
   drop(out);
 
-  let full_input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let full_input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   test_position_not_zero_extra(
     &mut random,
     &full_input,
@@ -252,7 +253,7 @@ where
   } else {
     (random.random_range(0..7) + 7) as i8
   };
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut v = BitSetIterator::new(set, cardinality as i64)?;
   let jump_table_entry_count =
     { write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32 };
@@ -260,7 +261,7 @@ where
   let length = out.get_file_pointer()?;
   drop(out);
 
-  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   for i in 0..v.bits.length() {
     let mut disi = IndexedDISIImpl::new(
       &input,
@@ -370,7 +371,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
   };
 
   set.set_with_range(start, start + MAX_ARRAY_LENGTH as usize);
-  let mut out = dir.create_output("sparse", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("sparse", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut v = BitSetIterator::new(set, MAX_ARRAY_LENGTH as i64)?;
   let jump_table_entry_count =
     { write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32 };
@@ -380,7 +381,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
   let mut set = v.bits;
 
   {
-    let input = dir.open_input("sparse", &IOContext::default_io_context()?)?;
+    let input = dir.open_input("sparse", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut disi = IndexedDISIImpl::new(
       &input,
       0,
@@ -396,7 +397,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
   set = do_test(set, &dir, &mut random)?;
 
   set.set(start + MAX_ARRAY_LENGTH as usize + random.random_range(0..100))?;
-  let mut out = dir.create_output("bar", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut v = BitSetIterator::new(set.clone(), (MAX_ARRAY_LENGTH + 1) as i64)?;
   write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)?;
   let set = v.bits;
@@ -404,7 +405,7 @@ fn test_sparse_dense_boundary() -> Result<()> {
   drop(out);
 
   {
-    let input = dir.open_input("bar", &IOContext::default_io_context()?)?;
+    let input = dir.open_input("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut disi = IndexedDISIImpl::new(
       &input,
       0,
@@ -492,13 +493,13 @@ fn create_and_open_disi(write_power: i8, read_power: i8) -> Result<()> {
   set.set(9)?;
   let mut random = random();
   let dir = new_directory(&mut random)?;
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut v = BitSetIterator::new(set.clone(), set.cardinality() as i64)?;
   let jump_count = write_bitset_with_dense_rank_power(&mut v, &mut out, write_power)? as i32;
   let length = out.get_file_pointer()?;
   drop(out);
 
-  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let _ = IndexedDISIImpl::new(
     &input,
     0,
@@ -526,7 +527,7 @@ fn test_one_doc_missing_fixed() -> Result<()> {
   let cardinality = set.cardinality() as i64;
 
   let dir = new_directory(&mut random)?;
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut v = BitSetIterator::new(set, cardinality)?;
   let jump_table_entry_count =
     write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
@@ -534,7 +535,7 @@ fn test_one_doc_missing_fixed() -> Result<()> {
   drop(out);
 
   let mut disi2 = BitSetIterator::new(v.bits, cardinality)?;
-  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut disi = IndexedDISIImpl::new(
     &input,
     0,
@@ -602,7 +603,7 @@ where
   let jump_table_entry_count;
 
   let mut set = {
-    let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut v = BitSetIterator::new(set, cardinality)?;
     jump_table_entry_count =
       write_bitset_with_dense_rank_power(&mut v, &mut out, dense_rank_power)? as i32;
@@ -611,7 +612,7 @@ where
   };
 
   set = {
-    let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+    let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut disi = IndexedDISIImpl::new(
       &input,
       0,
@@ -626,7 +627,7 @@ where
   };
 
   for &step in &[1, 10, 100, 1000, 10000, 100000] {
-    let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+    let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut disi = IndexedDISIImpl::new(
       &input,
       0,
@@ -641,7 +642,7 @@ where
   }
 
   for &step in &[10, 100, 1000, 10000, 100000] {
-    let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+    let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut disi = IndexedDISIImpl::new(
       &input,
       0,

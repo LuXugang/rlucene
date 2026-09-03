@@ -22,6 +22,7 @@ use crate::core::document::int_point::IntPoint;
 use crate::core::document::sorted_numeric_doc_values_field::SortedNumericDocValuesField;
 #[cfg(feature = "nightly")]
 use crate::core::index::index_writer::IndexWriter;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{at_least, new_directory, random};
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::{
@@ -144,7 +145,7 @@ where
   let len;
   let mut doc_ids_writer = DocIdsWriter::new(ints.len());
   {
-    let mut out = dir.create_output("tmp", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("tmp", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     doc_ids_writer.write_doc_ids(ints, 0, ints.len(), &mut out)?;
     len = out.get_file_pointer()?;
     if random.random_bool(0.5) {

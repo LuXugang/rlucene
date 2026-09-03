@@ -85,12 +85,18 @@ fn test_multiple_byte_scorers() -> Result<()> {
     let file_name = format!("test_multiple_byte_scorers_{index}");
 
     {
-      let mut output = dir.create_output(&file_name, &IO_CONTEXT_DEFAULT)?;
+      let mut output = dir.create_output(
+        &file_name,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       let bytes = concat_bytes(&[&vec0, &vec1, &vec2]);
       output.write_bytes_with_len(&bytes, bytes.len())?;
     }
 
-    let input = dir.open_input(&file_name, &IO_CONTEXT_DEFAULT)?;
+    let input = dir.open_input(
+      &file_name,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let vector_values = byte_vector_values(
       4,
       3,
@@ -127,12 +133,18 @@ fn test_multiple_float_scorers() -> Result<()> {
     let file_name = format!("test_multiple_float_scorers_{index}");
 
     {
-      let mut output = dir.create_output(&file_name, &IO_CONTEXT_DEFAULT)?;
+      let mut output = dir.create_output(
+        &file_name,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       let bytes = concat_f32(&[&vec0, &vec1, &vec2]);
       output.write_bytes_with_len(&bytes, bytes.len())?;
     }
 
-    let input = dir.open_input(&file_name, &IO_CONTEXT_DEFAULT)?;
+    let input = dir.open_input(
+      &file_name,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let vector_values = float_vector_values(
       4,
       3,
@@ -172,12 +184,18 @@ fn test_check_byte_dimensions() -> Result<()> {
     let file_name = format!("test_check_byte_dimensions_{index}");
 
     {
-      let mut output = dir.create_output(&file_name, &IO_CONTEXT_DEFAULT)?;
+      let mut output = dir.create_output(
+        &file_name,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       let vec0 = [0_u8; 4];
       output.write_bytes_with_len(&vec0, vec0.len())?;
     }
 
-    let input = dir.open_input(&file_name, &IO_CONTEXT_DEFAULT)?;
+    let input = dir.open_input(
+      &file_name,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     for similarity in similarities {
       let vector_values = byte_vector_values(4, 1, &input, scorer.clone(), similarity)?;
       let result = scorer.get_random_vector_scorer_u8(similarity, vector_values, vec![0_u8; 5]);
@@ -203,12 +221,18 @@ fn test_check_float_dimensions() -> Result<()> {
     let file_name = format!("test_check_float_dimensions_{index}");
 
     {
-      let mut output = dir.create_output(&file_name, &IO_CONTEXT_DEFAULT)?;
+      let mut output = dir.create_output(
+        &file_name,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       let bytes = concat_f32(&[&[0.0_f32, 0.0, 0.0, 0.0]]);
       output.write_bytes_with_len(&bytes, bytes.len())?;
     }
 
-    let input = dir.open_input(&file_name, &IO_CONTEXT_DEFAULT)?;
+    let input = dir.open_input(
+      &file_name,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     for similarity in similarities {
       let vector_values = float_vector_values(4, 1, &input, scorer.clone(), similarity)?;
       let result = scorer.get_random_vector_scorer_f32(similarity, vector_values, vec![0.0_f32; 5]);

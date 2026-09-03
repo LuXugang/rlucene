@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_io_context, random_from_seed,
 };
@@ -24,7 +25,6 @@ use std::rc::Rc;
 use rand::Rng;
 use rand::RngExt;
 
-use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::ToInt;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
@@ -183,9 +183,10 @@ where
       Builder::new(input_type, self.outputs.clone());
     let use_off_heap = random.random_bool(0.5);
     if use_off_heap {
-      let out = self
-        .dir
-        .create_output("fstOffHeap.bin", &IOContext::default_io_context()?)?;
+      let out = self.dir.create_output(
+        "fstOffHeap.bin",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       let out = DataOutputEnum::FromDir(out);
       fst_compiler_builder.data_output(out);
     }
@@ -219,9 +220,10 @@ where
         Some(metadata) => {
           let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
             || -> Result<FSTEnums<O, D>> {
-              let mut input = self
-                .dir
-                .open_input("fstOffHeap.bin", &IOContext::default_io_context()?)?;
+              let mut input = self.dir.open_input(
+                "fstOffHeap.bin",
+                IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+              )?;
               let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 FST::from_on_heap_store(metadata, &mut input).map(FSTEnums::FST1)
               }));

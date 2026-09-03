@@ -33,7 +33,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_field_collector_manager::TopFieldCollectorManager;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::wildcard_query::WildcardQuery;
-use crate::core::store::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
@@ -152,7 +153,7 @@ where
       directory.as_ref(),
       &file_name,
       &file_name,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     single_segment_directory.sync(&[file_name])?;
   }
@@ -243,7 +244,12 @@ where
     if name.starts_with("extra") {
       continue;
     }
-    copy.copy_from(dir, &name, &name, &IOContext::default_io_context()?)?;
+    copy.copy_from(
+      dir,
+      &name,
+      &name,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     copy.sync(&[name])?;
   }
   Ok(copy)

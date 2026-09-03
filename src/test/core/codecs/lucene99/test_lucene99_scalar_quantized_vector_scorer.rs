@@ -44,8 +44,9 @@ use crate::core::index::{index_writer::IndexWriter, index_writer_config::IndexWr
 use crate::core::search::dummy::dummy_vector_scorer::DummyVectorScorer;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_knn_collector::TopKnnCollector;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, DataOutput, IOContext, IndexInput, IndexOutput};
+use crate::core::store::{DataInput, DataOutput, IndexInput, IndexOutput};
 use crate::core::util::bits::Bits;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::dummy::dummy_bits::DummyBits;
@@ -111,7 +112,10 @@ fn vector_non_zero_scoring_test(bits: i32, compress: bool) -> Result<()> {
   }
   let file_name = "test_non_zero_scores-32";
   {
-    let mut out = dir.create_output(file_name, &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output(
+      file_name,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     // large negative offset to override any query score correction and
     // ensure negative values that need to be snapped to `0`
     let negative_offset = (-50_f32).to_le_bytes();
@@ -123,9 +127,10 @@ fn vector_non_zero_scoring_test(bits: i32, compress: bool) -> Result<()> {
     out.write_bytes_with_len(&bytes, bytes.len())?;
     out.close()?;
   }
-  let input = Arc::new(Mutex::new(
-    dir.open_input(file_name, &IOContext::default_io_context()?)?,
-  ));
+  let input = Arc::new(Mutex::new(dir.open_input(
+    file_name,
+    IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+  )?));
   {
     let scalar_quantizer = ScalarQuantizer::new(0.1, 0.9, bits as u8)?;
     let values = TestQuantizedByteVectorValues {

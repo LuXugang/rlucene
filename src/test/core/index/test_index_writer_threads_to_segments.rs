@@ -32,8 +32,9 @@ use crate::core::index::no_merge_policy::NoMergePolicy;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_reader::SegmentReader;
 use crate::core::index::term::Term;
+use crate::core::store::DataInput;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::store::{DataInput, IOContext};
 use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::version::LATEST;
@@ -380,11 +381,15 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
               dir.clone(),
               seg_name,
               &id,
-              &IOContext::default_io_context()?,
+              IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
             )?;
             si.set_codec(codec.clone().into())?;
             let sci = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
-            let sr = SegmentReader::new(&sci, LATEST.major, &IOContext::default_io_context()?)?;
+            let sr = SegmentReader::new(
+              &sci,
+              LATEST.major,
+              IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+            )?;
             thread0_count += LeafReader::doc_freq(&sr, &Term::from_text("field", "threadID0"))?;
             thread1_count += LeafReader::doc_freq(&sr, &Term::from_text("field", "threadID1"))?;
             sr.close()?;
@@ -405,7 +410,7 @@ fn read_segment_info_id<D>(dir: &D, file: &str) -> Result<[u8; StringHelper::ID_
 where
   D: Directory,
 {
-  let mut input = dir.open_input(file, &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input(file, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
   input.read_int()?; // magic
   input.read_string()?; // codec name

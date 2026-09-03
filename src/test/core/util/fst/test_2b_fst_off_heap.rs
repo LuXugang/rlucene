@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 
 // Similar to Test2BFST but builds and reads the FST off-heap and can be run with a small heap.
 //
@@ -27,9 +28,9 @@ use rand::rngs::StdRng;
 use rand::{RngExt, SeedableRng};
 
 use crate::core::index::BytesRef;
+use crate::core::store::IndexInput;
 use crate::core::store::directory::Directory;
 use crate::core::store::mmap_directory::MMapDirectory;
-use crate::core::store::{IOContext, IndexInput};
 use crate::core::util::IOUtils;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
@@ -65,7 +66,8 @@ fn test() -> Result<()> {
     println!("\nTEST: ~2.2B nodes; output=NO_OUTPUTS");
     let outputs = NoOutputs::get_singleton().clone();
     let no_output = outputs.get_no_output();
-    let index_output = dir.create_output("fst", &IOContext::default_io_context()?)?;
+    let index_output =
+      dir.create_output("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let mut builder = Builder::new(InputType::Byte1, outputs.clone());
     builder.data_output(DataOutputEnum::FromDir(index_output));
     let mut fst_compiler = builder.build()?;
@@ -101,7 +103,8 @@ fn test() -> Result<()> {
 
     let metadata = fst_compiler.compile()?.unwrap();
     fst_compiler.data_output.close()?;
-    let index_input = Arc::new(dir.open_input("fst", &IOContext::default_io_context()?)?);
+    let index_input =
+      Arc::new(dir.open_input("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?);
     let offset = index_input.get_file_pointer()?;
     let num_bytes = metadata.num_bytes as usize;
     let mut fst = FST::from_fst_reader(
@@ -163,7 +166,8 @@ fn test() -> Result<()> {
   // Build FST with ByteSequenceOutputs and stop when FST size = 3 GB.
   {
     println!("\nTEST: 3 GB size; outputs=bytes");
-    let index_output = dir.create_output("fst", &IOContext::default_io_context()?)?;
+    let index_output =
+      dir.create_output("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let outputs = ByteSequenceOutputs::get_singleton().clone();
     let mut builder = Builder::new(InputType::Byte1, outputs.clone());
     builder.data_output(DataOutputEnum::FromDir(index_output));
@@ -195,7 +199,8 @@ fn test() -> Result<()> {
 
     let metadata = fst_compiler.compile()?.unwrap();
     fst_compiler.data_output.close()?;
-    let index_input = Arc::new(dir.open_input("fst", &IOContext::default_io_context()?)?);
+    let index_input =
+      Arc::new(dir.open_input("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?);
     let offset = index_input.get_file_pointer()?;
     let num_bytes = metadata.num_bytes as usize;
     let mut fst = FST::from_fst_reader(
@@ -255,7 +260,8 @@ fn test() -> Result<()> {
 
   // Build FST with PositiveIntOutputs and stop when FST size = 3 GB.
   {
-    let index_output = dir.create_output("fst", &IOContext::default_io_context()?)?;
+    let index_output =
+      dir.create_output("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     println!("\nTEST: 3 GB size; outputs=long");
     let outputs = PositiveIntOutputs::get_singleton().clone();
     let mut builder = Builder::new(InputType::Byte1, outputs.clone());
@@ -287,7 +293,8 @@ fn test() -> Result<()> {
 
     let metadata = fst_compiler.compile()?.unwrap();
     fst_compiler.data_output.close()?;
-    let index_input = Arc::new(dir.open_input("fst", &IOContext::default_io_context()?)?);
+    let index_input =
+      Arc::new(dir.open_input("fst", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?);
     let offset = index_input.get_file_pointer()?;
     let num_bytes = metadata.num_bytes as usize;
     let mut fst = FST::from_fst_reader(

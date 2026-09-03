@@ -36,6 +36,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::{FindSegmentsFile, SegmentInfos};
 use crate::core::index::segment_reader::{DefaultLeafReader, SegmentReader};
 use crate::core::index::term::Term;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -319,7 +320,7 @@ where
         None => Arc::new(SegmentReader::new(
           commit_info,
           infos.get_index_created_version_major(),
-          &IOContext::default_io_context()?,
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
         )?),
         Some(old_reader)
           if commit_info.info.get_use_compound_file()
@@ -328,7 +329,7 @@ where
           Arc::new(SegmentReader::new(
             commit_info,
             infos.get_index_created_version_major(),
-            &IOContext::default_io_context()?,
+            IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
           )?)
         },
         Some(old_reader) => {
@@ -756,7 +757,7 @@ where
         readers[i] = Some(Arc::new(SegmentReader::new(
           info,
           sis.get_index_created_version_major(),
-          &IOContext::default_io_context()?,
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
         )?));
       }
       let opened_readers = readers

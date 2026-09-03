@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::Identity;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{
   CoreDirEnum, DirEnum, Directory, DirectoryEnum2, MaybeNrtDirEnum, MockDirWrapper, RawDirEnum,
   SharedLockFactory,
@@ -126,13 +127,13 @@ fn test_disk_full() -> Result<()> {
   let dir = new_mock_directory(&mut random)?;
   dir.set_max_size_in_bytes(3);
   let bytes = [1, 2];
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   out.write_bytes_with_len(&bytes, bytes.len())?; // first write should succeed
   // close() to ensure the written bytes are not buffered and counted
   // against the directory size
   out.close()?;
 
-  let mut out2 = dir.create_output("bar", &IOContext::default_io_context()?)?;
+  let mut out2 = dir.create_output("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   assert!(out2.write_bytes_with_len(&bytes, bytes.len()).is_err());
   out2.close()?;
   dir.close()?;
@@ -140,14 +141,14 @@ fn test_disk_full() -> Result<()> {
   // test copyBytes
   let dir = new_mock_directory(&mut random)?;
   dir.set_max_size_in_bytes(3);
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut input = ByteArrayDataInput::with_bytes(bytes.as_slice());
   out.copy_bytes(&mut input, bytes.len())?; // first copy should succeed
   // close() to ensure the written bytes are not buffered and counted
   // against the directory size
   out.close()?;
 
-  let mut out3 = dir.create_output("bar", &IOContext::default_io_context()?)?;
+  let mut out3 = dir.create_output("bar", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut input = ByteArrayDataInput::with_bytes(bytes.as_slice());
   assert!(out3.copy_bytes(&mut input, bytes.len()).is_err());
   out3.close()?;
@@ -323,7 +324,8 @@ where
     }
 
     // not sync'd!
-    let mut out = wrapped.create_output("foo", &IOContext::default_io_context()?)?;
+    let mut out =
+      wrapped.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     let write_result = (|| -> Result<()> {
       for i in 0..100 {
         out.write_int(i)?;
@@ -337,7 +339,7 @@ where
   }
 
   let mut changed = false;
-  let mut input = match dir.open_input("foo", &IOContext::default_io_context()?) {
+  let mut input = match dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?) {
     Ok(input) => Some(input),
     Err(LuceneError::NoSuchFile(_)) => {
       // ok
@@ -393,10 +395,10 @@ where
 fn test_abuse_closed_index_input() -> Result<()> {
   let mut random = random();
   let dir = new_mock_directory(&mut random)?;
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   out.write_byte(42)?;
   out.close()?;
-  let mut input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let mut input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   input.close()?;
   assert!(input.read_byte().is_err());
   dir.close()
@@ -406,10 +408,10 @@ fn test_abuse_closed_index_input() -> Result<()> {
 fn test_abuse_clone_after_parent_closed() -> Result<()> {
   let mut random = random();
   let dir = new_mock_directory(&mut random)?;
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   out.write_byte(42)?;
   out.close()?;
-  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let mut clone = input.try_clone()?;
   input.close()?;
   assert!(clone.read_byte().is_err());
@@ -420,10 +422,10 @@ fn test_abuse_clone_after_parent_closed() -> Result<()> {
 fn test_abuse_clone_of_clone_after_parent_closed() -> Result<()> {
   let mut random = random();
   let dir = new_mock_directory(&mut random)?;
-  let mut out = dir.create_output("foo", &IOContext::default_io_context()?)?;
+  let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   out.write_byte(42)?;
   out.close()?;
-  let input = dir.open_input("foo", &IOContext::default_io_context()?)?;
+  let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let clone1 = input.try_clone()?;
   let mut clone2 = clone1.try_clone()?;
   input.close()?;

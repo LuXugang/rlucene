@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{new_directory, random};
 use std::path::PathBuf;
 
@@ -23,7 +24,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::fs_directory_base::{BuiltInFSIndexInput, FSDirectoryBaseEnum};
 use crate::core::store::mmap_directory::MMapDirectory;
 use crate::core::store::{
-  DataInput, DataOutput, FSDirectories, IOContext, IndexInput, IndexInputEnum2, ReadAdvice,
+  DataInput, DataOutput, FSDirectories, IndexInput, IndexInputEnum2, ReadAdvice,
 };
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
@@ -66,7 +67,8 @@ impl TestSerializedIOCountingDirectory {
   {
     let dir = SerialIOCountingDirectory::new(new_directory(random)?);
     let body_result = (|| -> Result<()> {
-      let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
+      let mut out =
+        dir.create_output("test", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let write_result = (|| -> Result<()> {
         for _ in 0..10 {
           out.write_bytes_with_len(&[0u8; 4096], 4096)?;
@@ -75,7 +77,10 @@ impl TestSerializedIOCountingDirectory {
       })();
       IOUtils::use_or_suppress_result(write_result, out.close())?;
 
-      let context = IOContext::default_io_context()?.with_read_advice_self(ReadAdvice::Normal)?;
+      let context = IO_CONTEXT_DEFAULT
+        .as_ref()
+        .map_err(Clone::clone)?
+        .with_read_advice_self(ReadAdvice::Normal)?;
       let mut input = dir.open_input("test", &context)?;
       let read_result = (|| -> Result<()> {
         input.read_byte()?;
@@ -89,7 +94,10 @@ impl TestSerializedIOCountingDirectory {
       })();
       IOUtils::use_or_suppress_result(read_result, input.close())?;
 
-      let context = IOContext::default_io_context()?.with_read_advice_self(ReadAdvice::Random)?;
+      let context = IO_CONTEXT_DEFAULT
+        .as_ref()
+        .map_err(Clone::clone)?
+        .with_read_advice_self(ReadAdvice::Random)?;
       let mut input = dir.open_input("test", &context)?;
       let read_result = (|| -> Result<()> {
         input.read_byte()?;
@@ -112,7 +120,8 @@ impl TestSerializedIOCountingDirectory {
   {
     let dir = SerialIOCountingDirectory::new(new_directory(random)?);
     let body_result = (|| -> Result<()> {
-      let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
+      let mut out =
+        dir.create_output("test", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
       let write_result = (|| -> Result<()> {
         for _ in 0..10 {
           out.write_bytes_with_len(&[0u8; 4096], 4096)?;
@@ -121,7 +130,10 @@ impl TestSerializedIOCountingDirectory {
       })();
       IOUtils::use_or_suppress_result(write_result, out.close())?;
 
-      let context = IOContext::default_io_context()?.with_read_advice_self(ReadAdvice::Random)?;
+      let context = IO_CONTEXT_DEFAULT
+        .as_ref()
+        .map_err(Clone::clone)?
+        .with_read_advice_self(ReadAdvice::Random)?;
       let mut input = dir.open_input("test", &context)?;
       let read_result = (|| -> Result<()> {
         let mut count = dir.count();

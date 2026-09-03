@@ -16,6 +16,7 @@
  */
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteBuffersDirectory, DataInput, DataOutput, IOContext, IndexInput, IndexOutput,
@@ -47,7 +48,10 @@ fn test_encode_decode() -> Result<()> {
 
   {
     // encode
-    let mut out = dir.create_output("test.bin", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output(
+      "test.bin",
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let mut for_util = ForUtil::new();
 
     for i in 0..iterations {

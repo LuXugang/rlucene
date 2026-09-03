@@ -193,7 +193,10 @@ where
     let mut success = false;
     let mut out = None;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      out = Some(self.dir.create_output(&file_name, &IO_CONTEXT_DEFAULT)?);
+      out = Some(self.dir.create_output(
+        &file_name,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?);
       let write_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           let out = out
@@ -284,7 +287,9 @@ where
         if gen_loaded == -1 || gen_ > gen_loaded {
           snapshot_files.push(file.clone());
           let mut ref_counts = HashMap::new();
-          let mut input = self.dir.open_input(&file, &IO_CONTEXT_DEFAULT)?;
+          let mut input = self
+            .dir
+            .open_input(&file, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
           let read_result =
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
               let result = (|| -> Result<()> {

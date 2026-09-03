@@ -32,7 +32,8 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::store::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::store::directory::Directory;
 use crate::core::store::lock_validating_directory_wrapper::LockValidatingDirectoryWrapper;
 use crate::core::util::bits::Bits;
@@ -285,7 +286,10 @@ fn test_update() -> Result<()> {
       let commit_info = segment_infos.info_idx_mut(idx).unwrap();
       let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
       let read_only_clone = readers_and_updates
-        .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
+        .get_read_only_clone(
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+          commit_info,
+        )?
         .unwrap();
 
       let term = Term::from_text("id", id.to_string());
@@ -378,7 +382,10 @@ fn test_update() -> Result<()> {
         let commit_info = segment_infos.info_idx_mut(idx).unwrap();
         let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
         let updated_reader = readers_and_updates
-          .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
+          .get_read_only_clone(
+            IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+            commit_info,
+          )?
           .unwrap();
         (readers_and_updates, updated_reader)
       };
@@ -440,7 +447,10 @@ fn test_deletes() -> Result<()> {
       let commit_info = segment_infos.info_idx_mut(idx).unwrap();
       let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
       let read_only_clone = readers_and_updates
-        .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
+        .get_read_only_clone(
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+          commit_info,
+        )?
         .unwrap();
 
       let term = Term::from_text("id", id.to_string());
@@ -495,7 +505,10 @@ fn test_deletes() -> Result<()> {
     if expect_update {
       let readers_and_updates = pool.get(&commit_info, true, None)?.unwrap();
       let updated_reader = readers_and_updates
-        .get_read_only_clone(&IOContext::default_io_context()?, &commit_info)?
+        .get_read_only_clone(
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+          &commit_info,
+        )?
         .unwrap();
 
       assert_ne!(-1, doc);
@@ -574,8 +587,10 @@ fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
         let seg_infos = &mut bg_reader.segment_infos;
         let commit_info = seg_infos.info_idx_mut(idx).unwrap();
         let readers_and_updates = pool_bg.get(commit_info, true, None)?.unwrap();
-        let segment_reader = readers_and_updates
-          .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?;
+        let segment_reader = readers_and_updates.get_read_only_clone(
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+          commit_info,
+        )?;
         if let Some(ref sr) = segment_reader {
           readers_and_updates.release(sr.as_ref(), None)?;
         }
@@ -598,7 +613,10 @@ fn test_pass_reader_to_merge_policy_concurrently() -> Result<()> {
       let commit_info = reader.segment_infos.info_idx_mut(idx).unwrap();
       let readers_and_updates = pool.get(commit_info, true, None)?.unwrap();
       let read_only_clone = readers_and_updates
-        .get_read_only_clone(&IOContext::default_io_context()?, commit_info)?
+        .get_read_only_clone(
+          IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+          commit_info,
+        )?
         .unwrap();
 
       let term = Term::from_text("id", i.to_string());

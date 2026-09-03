@@ -19,9 +19,10 @@ use crate::core::internal::vectorization::posting_decoding_util::PostingDecoding
 use crate::core::internal::vectorization::vectorization_provider::{
   DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
 };
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::Directory;
 use crate::core::store::mmap_directory::MMapDirectory;
-use crate::core::store::{DataOutput, IOContext, IndexInput};
+use crate::core::store::{DataOutput, IndexInput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
@@ -42,7 +43,7 @@ fn test_duel_split_ints() -> Result<()> {
   let dir = MMapDirectory::new(temp_dir.path().to_path_buf())?;
 
   let body_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let mut out = dir.create_output("tests.bin", &io_context)?;
     let write_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       out.write_int(random.random())?;

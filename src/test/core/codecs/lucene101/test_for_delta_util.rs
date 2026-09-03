@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
 
@@ -48,7 +49,10 @@ fn test_encode_decode() -> Result<()> {
 
   // encode
   {
-    let mut out = d.create_output("test.bin", &IOContext::default_io_context()?)?;
+    let mut out = d.create_output(
+      "test.bin",
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+    )?;
     let mut for_delta_util = ForDeltaUtil::new();
 
     for i in 0..iterations {

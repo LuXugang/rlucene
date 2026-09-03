@@ -27,13 +27,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 ///
 /// # Note
 /// It will use [`ReadAdvice::Random`] by default, unless set by the system
-/// property `defaultReadAdvice`.
-pub static IO_CONTEXT_DEFAULT: LazyLock<IOContext> = LazyLock::new(|| IOContext {
-  context: Context::Default,
-  read_advice: ReadAdvice::default_read_advice(),
-  merge_info: None,
-  flush_info: None,
-});
+/// environment variable `apache.lucene.store.defaultReadAdvice`.
+pub static IO_CONTEXT_DEFAULT: LazyLock<Result<IOContext>> =
+  LazyLock::new(|| IOContext::with_read_advice(ReadAdvice::default_read_advice()?));
 /// A default context for reads with [`ReadAdvice::Sequential`].
 ///
 /// # Note
@@ -146,9 +142,6 @@ impl IOContext {
     } else {
       Ok(self.clone())
     }
-  }
-  pub fn default_io_context() -> Result<IOContext> {
-    Self::with_read_advice(ReadAdvice::default_read_advice())
   }
   pub fn read_once_io_context() -> Result<IOContext> {
     Self::with_read_advice(ReadAdvice::Sequential)

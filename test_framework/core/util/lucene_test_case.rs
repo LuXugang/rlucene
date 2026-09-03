@@ -1219,7 +1219,7 @@ pub(crate) fn new_io_context<R>(random: &mut R) -> Result<IOContext>
 where
   R: Rng + ?Sized,
 {
-  new_io_context_with_default(random, &IO_CONTEXT_DEFAULT)
+  new_io_context_with_default(random, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)
 }
 
 pub(crate) fn new_io_context_with_default<R>(
@@ -1260,7 +1260,7 @@ where
     // implications
     let context_type = random.random_range(0..3);
     match context_type {
-      0 => Ok(IOContext::default_io_context()?),
+      0 => IO_CONTEXT_DEFAULT.clone(),
       1 => Ok(IOContext::with_merge(MergeInfo::new(
         random_num_docs,
         size,
@@ -1271,7 +1271,7 @@ where
         random_num_docs,
         size,
       ))?),
-      _ => Ok(IOContext::default_io_context()?),
+      _ => IO_CONTEXT_DEFAULT.clone(),
     }
   }
 }

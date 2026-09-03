@@ -22,8 +22,9 @@ use crate::core::index::index_writer::{IndexWriter, MAX_TERM_LENGTH};
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_scheduler::MergeSchedulerEnum;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{Directory, MockDirWrapper};
-use crate::core::store::io_context::IOContext;
+
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
@@ -200,7 +201,7 @@ fn test() -> Result<()> {
         create_temp_dir_with_prefix("TestIndexWriterOutOfFileDescriptors.copy")?,
       )?);
       let mut files = HashSet::new();
-      let io_context = IOContext::default_io_context()?;
+      let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
       for file in dir.list_all()? {
         if file.starts_with(IndexFileNames::SEGMENTS) || CODEC_FILE_PATTERN.is_match(&file) {
           copy.copy_from(dir.as_ref(), &file, &file, &io_context)?;

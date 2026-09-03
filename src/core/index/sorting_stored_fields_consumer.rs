@@ -36,9 +36,10 @@ use crate::core::index::stored_fields_consumer::{
   StoredFieldsConsumerBase, StoredFieldsConsumerDefaults,
 };
 use crate::core::index::tracking_tmp_output_directory_wrapper::TrackingTmpOutputDirectoryWrapper;
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::directory::Directory;
-use crate::core::store::{DataInput, DataOutput, IOContext};
+use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::IOUtils;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -91,7 +92,7 @@ where
       self.writer = Some(self.stored_fields_format.fields_writer(
         self.tmp_directory.clone(),
         info,
-        &IOContext::default_io_context()?,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
       )?);
     }
 
@@ -122,7 +123,7 @@ where
       &self.tmp_directory,
       info,
       state.field_infos.clone(),
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     // Don't pull a merge instance, since merge instances optimize for
     // sequential access while we consume stored fields in random order here.

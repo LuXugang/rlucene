@@ -14,10 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::data_input::DataInput;
 use crate::core::store::data_output::DataOutput;
 use crate::core::store::directory::Directory;
-use crate::core::store::{IOContext, IndexInput, IndexOutput};
+use crate::core::store::{IndexInput, IndexOutput};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
@@ -99,15 +100,16 @@ where
     let name = self.out.get_name().to_string();
     let new_temp_name;
     {
-      let mut tmp_out =
-        self
-          .dir
-          .create_temp_output("tmp", "tmp", &IOContext::default_io_context()?)?;
+      let mut tmp_out = self.dir.create_temp_output(
+        "tmp",
+        "tmp",
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?;
       new_temp_name = tmp_out.get_name().to_string();
       let input_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         self
           .dir
-          .open_input(&name, &IOContext::default_io_context()?)
+          .open_input(&name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)
       }));
       let mut input = match input_result {
         Ok(Ok(input)) => input,
@@ -149,7 +151,7 @@ where
       self.dir,
       &new_temp_name,
       &name,
-      &IOContext::default_io_context()?,
+      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     self.dir.delete_file(&new_temp_name)?;
     Ok(())

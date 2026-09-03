@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::store::IO_CONTEXT_DEFAULT;
 
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::Rng;
@@ -21,7 +22,7 @@ use rand::RngExt;
 
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::codecs::lucene101::postings_util::PostingsUtil;
-use crate::core::store::IOContext;
+
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 
@@ -49,7 +50,7 @@ where
 
   let dir = new_directory_shared(random)?;
   {
-    let mut out = dir.create_output("test", &IOContext::default_io_context()?)?;
+    let mut out = dir.create_output("test", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     PostingsUtil::write_vint_block(
       &mut out,
       &mut doc_delta_buffer,
@@ -63,7 +64,7 @@ where
   let mut restored_freqs = vec![0i32; size];
 
   {
-    let mut input = dir.open_input("test", &IOContext::default_io_context()?)?;
+    let mut input = dir.open_input("test", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
     PostingsUtil::read_vint_block(
       &mut input,
       &mut restored_docs,

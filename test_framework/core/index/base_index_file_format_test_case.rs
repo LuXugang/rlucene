@@ -62,6 +62,7 @@ use crate::core::index::term::Term;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
+use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::flush_info::FlushInfo;
@@ -914,7 +915,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
     )?);
     let field_infos = Arc::new(FieldInfos::new(vec![Arc::clone(&field)])?);
     let flush_context = IOContext::with_flush(FlushInfo::new(1, 20))?;
-    let read_context = IOContext::default_io_context()?;
+    let read_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let write_state = SegmentWriteState::new(
       get_default_info_stream(),
       dir.as_ref(),

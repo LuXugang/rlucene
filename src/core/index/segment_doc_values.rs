@@ -21,7 +21,8 @@ use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::index::field_infos::FieldInfos;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_read_state::SegmentReadState;
-use crate::core::store::IOContext;
+use crate::core::store::IO_CONTEXT_DEFAULT;
+
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::util::IOUtils;
@@ -82,9 +83,9 @@ where
       segment_suffix = v.to_string();
     }
 
-    let io_context = IOContext::default_io_context()?;
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     // set SegmentReadState to list only the fields that are relevant to that gen
-    let srs = SegmentReadState::with_suffix(&dv_dir, infos, &io_context, &segment_suffix);
+    let srs = SegmentReadState::with_suffix(&dv_dir, infos, io_context, &segment_suffix);
 
     let dv_format = si.info.get_codec()?.doc_values_format();
 
