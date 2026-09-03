@@ -153,7 +153,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    Ok(self.ord as i64)
+    self.inner.cost()
   }
 }
 

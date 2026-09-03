@@ -91,6 +91,12 @@ impl SortedSetSortField {
       base: sort_field,
     })
   }
+
+  /// Returns the selector in use for this sort.
+  pub fn get_selector(&self) -> SortedSetSelectorType {
+    self.selector
+  }
+
   fn read_selector_type(data_input: &mut impl DataInput) -> Result<SortedSetSelectorType> {
     let selector_type = data_input.read_int()?;
 
@@ -230,9 +236,7 @@ impl SortFieldProvider for SetProvider {
     match value {
       1 => sorted_set_sort_field.set_missing_value(MissingValueEnum::StringFirst)?,
       2 => sorted_set_sort_field.set_missing_value(MissingValueEnum::StringLast)?,
-      _ => {
-        debug_assert!(value == 0);
-      },
+      _ => {},
     }
     Ok(sorted_set_sort_field.into())
   }

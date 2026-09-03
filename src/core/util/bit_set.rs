@@ -507,7 +507,7 @@ pub fn of(it: &mut impl DocIdSetIterator, max_doc: usize) -> Result<SparseFixedB
     let result = FixedBitSet::new(max_doc);
     set = BitSetEnum2::B(result);
   };
-  let _ = set.or(it);
+  set.or(it)?;
   Ok(set)
 }
 ///Assert that the current doc is -1.

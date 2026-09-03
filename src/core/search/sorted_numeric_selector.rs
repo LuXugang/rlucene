@@ -273,10 +273,6 @@ where
     self.inner.advance(target)
   }
 
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
-    self.inner.advance(target)
-  }
-
   fn cost(&self) -> Result<i64> {
     self.inner.cost()
   }
@@ -328,10 +324,6 @@ where
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    self.inner.advance(target)
-  }
-
-  fn slow_advance(&mut self, target: i32) -> Result<i32> {
     self.inner.advance(target)
   }
 

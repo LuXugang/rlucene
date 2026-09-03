@@ -417,7 +417,7 @@ impl Accountable for OrdinalMap {
   }
 
   fn get_child_resources(&self) -> Vec<&dyn Accountable> {
-    todo!()
+    vec![&self.segment_map]
   }
 }
 

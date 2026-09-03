@@ -24,6 +24,7 @@ use crate::test_framework::core::util::lucene_test_case::{
   random,
 };
 
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::multi_reader::MultiReader;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
@@ -37,9 +38,11 @@ use crate::core::search::sorted_set_sort_field::SortedSetSortField;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::CoreHelper;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Simple tests for SortedSetSortField, indexing the sortedset up front
 #[allow(dead_code)]
@@ -117,10 +120,10 @@ fn test_forward() -> Result<()> {
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
   writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader(&mut random)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(reader)?;
+  let searcher = new_searcher_with_reader(reader.clone())?;
   let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -136,6 +139,8 @@ fn test_forward() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("2", doc1.get("id")?.unwrap().as_ref());
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -167,10 +172,10 @@ fn test_reverse() -> Result<()> {
   doc.add(StringField::from_string("id", "2", Store::Yes)?);
   writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader(&mut random)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(reader)?;
+  let searcher = new_searcher_with_reader(reader.clone())?;
   let sort = Sort::with_fields(vec![SortedSetSortField::new("value", true)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -185,6 +190,8 @@ fn test_reverse() -> Result<()> {
     .stored_fields()?
     .document(td.score_docs()[1].doc())?;
   assert_eq!("1", doc1.get("id")?.unwrap().as_ref());
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -241,10 +248,10 @@ fn test_missing_first() -> Result<()> {
   )?);
   writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader(&mut random)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(reader)?;
+  let searcher = new_searcher_with_reader(reader.clone())?;
 
   let mut sort_field = SortedSetSortField::new("value", false)?;
   sort_field.set_missing_value(StringFirst)?;
@@ -268,6 +275,8 @@ fn test_missing_first() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("2", doc2.get("id")?.unwrap().as_ref());
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -325,10 +334,10 @@ fn test_missing_last() -> Result<()> {
   )?);
   writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader(&mut random)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(reader)?;
+  let searcher = new_searcher_with_reader(reader.clone())?;
 
   let mut sort_field = SortedSetSortField::new("value", false)?;
   sort_field.set_missing_value(StringLast)?;
@@ -354,6 +363,8 @@ fn test_missing_last() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("3", doc2.get("id")?.unwrap().as_ref());
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -381,10 +392,10 @@ fn test_singleton() -> Result<()> {
   doc.add(StringField::from_string("id", "1", Store::Yes)?);
   writer.add_document(&mut random, doc)?;
 
-  let reader = writer.get_reader(&mut random)?;
+  let reader = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(reader)?;
+  let searcher = new_searcher_with_reader(reader.clone())?;
   let sort = Sort::with_fields(vec![SortedSetSortField::new("value", false)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -400,5 +411,7 @@ fn test_singleton() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("2", doc1.get("id")?.unwrap().as_ref());
 
+  reader.close()?;
+  dir.close()?;
   Ok(())
 }

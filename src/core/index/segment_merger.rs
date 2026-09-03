@@ -40,8 +40,8 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::search::task_executor::TaskExecutor;
 use crate::core::store::Context::Merge;
-use crate::core::store::IOContext;
 use crate::core::store::directory::Directory;
+use crate::core::store::{IO_CONTEXT_DEFAULT, IOContext};
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
@@ -441,10 +441,12 @@ where
       self.context,
     );
 
-    let segment_read_state = SegmentReadState::new(
+    let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
+    let segment_read_state = SegmentReadState::with_suffix(
       &self.directory,
       self.merge_state.merge_field_infos.clone(),
-      self.context,
+      io_context,
+      &segment_write_state.segment_suffix,
     );
     {
       if self.merge_state.merge_field_infos.has_norms() {
