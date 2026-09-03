@@ -26,6 +26,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::util::attribute_source::Attributes;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::InfoStreamEnum;
 use crate::core::util::print_stream_info_stream::PrintStreamInfoStream;
@@ -56,7 +57,7 @@ fn test_info_stream_gets_field_name() -> Result<()> {
   c.set_info_stream(InfoStreamEnum::Custom(Box::new(
     print_stream_info_stream.clone(),
   )));
-  let writer = IndexWriter::new(dir, c)?;
+  let writer = IndexWriter::new(dir.clone(), c)?;
   let mut doc = Document::new();
   doc.add(Field::new(
     "distinctiveFieldName",
@@ -69,6 +70,7 @@ fn test_info_stream_gets_field_name() -> Result<()> {
   assert!(info_stream.contains("distinctiveFieldName"));
 
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -84,7 +86,7 @@ fn test_no_extra_noise() -> Result<()> {
   c.set_info_stream(InfoStreamEnum::Custom(Box::new(
     print_stream_info_stream.clone(),
   )));
-  let writer = IndexWriter::new(dir, c)?;
+  let writer = IndexWriter::new(dir.clone(), c)?;
   let mut doc = Document::new();
   doc.add(Field::new(
     "boringFieldName",
@@ -97,6 +99,7 @@ fn test_no_extra_noise() -> Result<()> {
   assert!(!info_stream.contains("boringFieldName"));
 
   writer.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -193,6 +196,14 @@ impl<T> TokenFilter for ThrowingTokenFilter<T> where T: TokenStream {}
 fn info_bytes_to_string(
   print_stream_info_stream: &PrintStreamInfoStream<Cursor<Vec<u8>>>,
 ) -> String {
-  String::from_utf8(print_stream_info_stream.stream.lock().get_ref().clone())
-    .expect("info stream should be valid UTF-8")
+  String::from_utf8(
+    print_stream_info_stream
+      .stream
+      .lock()
+      .as_ref()
+      .expect("info stream is still open")
+      .get_ref()
+      .clone(),
+  )
+  .expect("info stream should be valid UTF-8")
 }

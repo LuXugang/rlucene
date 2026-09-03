@@ -99,7 +99,7 @@ fn runs_worst_case(length: usize, min_run: usize) -> LinkedList<usize> {
     generate_wrong_elem(x, min_run, &mut runs);
   }
 
-  runs.push_front(length - running_total);
+  runs.push_back(length - running_total);
   runs
 }
 

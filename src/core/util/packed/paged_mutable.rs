@@ -78,3 +78,9 @@ impl AbstractPagedMutableBase for PagedMutable {
     self.bits_per_value
   }
 }
+
+impl std::fmt::Display for PagedMutable {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.write_str("PagedMutable")
+  }
+}

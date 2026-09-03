@@ -21,7 +21,7 @@ use strum_macros::{EnumCount, FromRepr};
 
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, EnumCount, FromRepr)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, EnumCount, FromRepr)]
 #[repr(u8)]
 pub enum ReadAdvice {
   ///  Normal behavior. Data is expected to be read mostly sequentially. The

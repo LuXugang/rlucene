@@ -1238,14 +1238,14 @@ where
   let random_num_docs: i32 = random.random_range(0..4192);
   let size = random.random_range(0..512) * random_num_docs as i64;
 
-  if let Some(flush_info) = &old_context.flush_info {
+  if let Some(flush_info) = old_context.get_flush_info() {
     // Always return at least the estimatedSegmentSize of the incoming
     // IOContext
     Ok(IOContext::with_flush(FlushInfo::new(
       random_num_docs,
       size.max(flush_info.get_estimated_segment_size()),
     ))?)
-  } else if let Some(merge_info) = &old_context.merge_info {
+  } else if let Some(merge_info) = old_context.get_merge_info() {
     // Always return at least the estimatedMergeBytes of the incoming
     // IOContext
     IOContext::with_merge(MergeInfo::new(

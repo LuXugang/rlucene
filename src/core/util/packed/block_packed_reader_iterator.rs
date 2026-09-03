@@ -250,7 +250,7 @@ impl BlockPackedReaderIterator {
     let min_value = if min_equals_0 {
       0
     } else {
-      BitUtil::zig_zag_decode_i64((1 + Self::read_vlong(data_input)?) as u64)
+      BitUtil::zig_zag_decode_i64(Self::read_vlong(data_input)?.wrapping_add(1) as u64)
     };
     debug_assert!(min_equals_0 || min_value != 0);
 
@@ -280,7 +280,7 @@ impl BlockPackedReaderIterator {
       decoder.decode_u8_to_i64(&self.blocks, 0, &mut self.values_ref.longs, 0, iterations);
       if min_value != 0 {
         for i in 0..value_count as usize {
-          self.values_ref.longs[i] += min_value;
+          self.values_ref.longs[i] = self.values_ref.longs[i].wrapping_add(min_value);
         }
       }
     }

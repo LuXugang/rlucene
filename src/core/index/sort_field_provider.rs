@@ -34,7 +34,7 @@ pub trait SortFieldProvider {
 /// Writes a [`SortFieldEnum`] to a [`DataOutput`].
 pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
   if let Some(index_sort) = sf.get_index_sorter()? {
-    let provider = for_name(index_sort.get_provider_name());
+    let provider = for_name(index_sort.get_provider_name())?;
     provider.write_sort_field(sf, output)?;
   } else {
     return Err(LuceneError::illegal_argument(format!(
@@ -44,11 +44,16 @@ pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
   Ok(())
 }
 /// Looks up a [SortFieldProvider] by name.
-pub fn for_name(name: &str) -> SortFieldProviderEnum {
+pub fn for_name(name: &str) -> Result<SortFieldProviderEnum> {
   match name {
-    NumericProvider::NAME => SortFieldProviderEnum::SortedNumericProvider(NumericProvider),
-    SetProvider::NAME => SortFieldProviderEnum::SortedSetProvider(SetProvider),
-    _ => SortFieldProviderEnum::SortProvider(Provider),
+    NumericProvider::NAME => Ok(SortFieldProviderEnum::SortedNumericProvider(
+      NumericProvider,
+    )),
+    SetProvider::NAME => Ok(SortFieldProviderEnum::SortedSetProvider(SetProvider)),
+    Provider::NAME => Ok(SortFieldProviderEnum::SortProvider(Provider)),
+    _ => Err(LuceneError::illegal_argument(format!(
+      "A SortFieldProvider with name '{name}' does not exist"
+    ))),
   }
 }
 pub enum SortFieldProviderEnum {

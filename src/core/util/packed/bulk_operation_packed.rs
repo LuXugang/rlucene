@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
 
 use crate::core::util::packed::bulk_operation::BulkOperation;
@@ -167,12 +168,13 @@ impl Decoder for BulkOperationPacked {
     values: &mut [i32],
     mut values_offset: usize,
     iterations: i32,
-  ) {
-    debug_assert!(
-      self.bits_per_value <= 32,
-      "Cannot decode {}-bit values into an i32 slice",
-      self.bits_per_value
-    );
+  ) -> Result<()> {
+    if self.bits_per_value > 32 {
+      return Err(LuceneError::unsupported_operation(format!(
+        "Cannot decode {}-bits values into an i32 slice",
+        self.bits_per_value
+      )));
+    }
 
     let mut bits_left: i32 = 64;
 
@@ -199,6 +201,7 @@ impl Decoder for BulkOperationPacked {
 
       values_offset += 1;
     }
+    Ok(())
   }
 
   fn decode_u8_to_i32(
@@ -208,7 +211,7 @@ impl Decoder for BulkOperationPacked {
     values: &mut [i32],
     mut values_offset: usize,
     iterations: i32,
-  ) {
+  ) -> Result<()> {
     let mut next_value: i32 = 0;
     let mut bits_left: i32 = self.bits_per_value;
 
@@ -219,7 +222,7 @@ impl Decoder for BulkOperationPacked {
       if bits_left > 8 {
         // Just buffer the value
         bits_left -= 8;
-        next_value |= bytes << bits_left;
+        next_value |= bytes.wrapping_shl(bits_left as u32);
       } else {
         // Flush the value
         let mut bits = 8 - bits_left;
@@ -240,6 +243,7 @@ impl Decoder for BulkOperationPacked {
     }
 
     debug_assert!(bits_left == self.bits_per_value);
+    Ok(())
   }
 }
 impl Encoder for BulkOperationPacked {
@@ -381,7 +385,7 @@ impl Encoder for BulkOperationPacked {
             (values[values_offset] as u64 & 0xFFFFFFFF).wrapping_shr((-bits_left) as u32);
           blocks[blocks_offset] = next_block;
           blocks_offset += 1;
-          next_block = ((values[values_offset] as u64 & 0xFFFFFFFF)
+          next_block = ((values[values_offset] as u64)
             & 1u64.wrapping_shl((-bits_left) as u32).wrapping_sub(1))
           .wrapping_shl((64 + bits_left) as u32);
           values_offset += 1;
@@ -414,12 +418,12 @@ impl Encoder for BulkOperationPacked {
         bits_left -= self.bits_per_value;
       } else {
         let mut bits = self.bits_per_value - bits_left;
-        blocks[blocks_offset] = (next_block as u32 | (v as u32 >> bits)) as u8;
+        blocks[blocks_offset] = (next_block as u32 | (v as u32).wrapping_shr(bits as u32)) as u8;
         blocks_offset += 1;
 
         while bits >= 8 {
           bits -= 8;
-          blocks[blocks_offset] = (v as u32 >> bits) as u8;
+          blocks[blocks_offset] = (v as u32).wrapping_shr(bits as u32) as u8;
           blocks_offset += 1;
         }
         bits_left = 8 - bits;

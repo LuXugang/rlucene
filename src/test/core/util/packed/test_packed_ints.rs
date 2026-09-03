@@ -25,6 +25,7 @@ use crate::core::store::{
   ByteArrayDataInput, DataInput, DataOutput, IO_CONTEXT_DEFAULT, IndexInput, IndexOutput,
 };
 use crate::core::util::accountable::Accountable;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -36,6 +37,7 @@ use crate::core::util::packed::block_packed_writer::BlockPackedWriter;
 use crate::core::util::packed::growable_writer::GrowableWriter;
 use crate::core::util::packed::monotonic_block_packed_reader::MonotonicBlockPackedReader;
 use crate::core::util::packed::monotonic_block_packed_writer::MonotonicBlockPackedWriter;
+use crate::core::util::packed::mutable_enum::MutableEnum;
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::packed_long_values::{Builder, PackedLongValues};
 use crate::core::util::packed::packed64::Packed64;
@@ -815,10 +817,14 @@ fn test_paged_growable_writer() -> Result<()> {
     assert_eq!(values.get(i)?, writer.get(i)?);
   }
 
-  // TODO
-  // assert!(
-  //     (RamUsageTester::ram_used(&writer) as f64 -
-  // writer.ram_bytes_used() as f64).abs() < 8.0 );
+  // These factories use contiguous Packed64 buffers. Count the page directory
+  // and each buffer independently of Accountable, without JVM object overhead.
+  let mut expected_bytes = writer.sub_mutables.len() * size_of::<MutableEnum>();
+  for page in &writer.sub_mutables {
+    expected_bytes += (page.size() as usize * page.get_bits_per_value() as usize).div_ceil(64)
+      * BitUtil::LONG_BYTES;
+  }
+  assert_eq!(writer.ram_bytes_used()?, expected_bytes as i64);
 
   let new_size = TestUtil::next_usize(&mut random, writer.size() / 2, writer.size() * 3 / 2);
   let copy = writer.resize(new_size)?;
@@ -890,11 +896,14 @@ fn test_paged_mutable() -> Result<()> {
     assert_eq!(values.get(i)?, writer.get(i)?);
   }
 
-  // TODO
-  // assert!(
-  //     (RamUsageTester::ram_used(&writer) as f64 -
-  // RamUsageTester::ram_used(&writer.format) as f64 -
-  // writer.ram_bytes_used() as f64).abs() < 8.0 );
+  // These factories use contiguous Packed64 buffers. Count the page directory
+  // and each buffer independently of Accountable, without JVM object overhead.
+  let mut expected_bytes = writer.sub_mutables.len() * size_of::<MutableEnum>();
+  for page in &writer.sub_mutables {
+    expected_bytes += (page.size() as usize * page.get_bits_per_value() as usize).div_ceil(64)
+      * BitUtil::LONG_BYTES;
+  }
+  assert_eq!(writer.ram_bytes_used()?, expected_bytes as i64);
 
   let new_size = TestUtil::next_usize(&mut random, writer.size() / 2, writer.size() * 3 / 2);
   let copy = writer.resize(new_size)?;
@@ -971,13 +980,12 @@ fn test_encode_decode() -> Result<()> {
       let byte_block_count = Encoder::byte_block_count(encoder);
       let byte_value_count = Encoder::byte_value_count(encoder);
 
-      assert_eq!(long_block_count, Encoder::long_block_count(decoder));
-      assert_eq!(long_value_count, Encoder::long_value_count(decoder));
-      assert_eq!(byte_block_count, Encoder::byte_block_count(decoder));
-      assert_eq!(byte_value_count, Encoder::byte_value_count(decoder));
+      assert_eq!(long_block_count, Decoder::long_block_count(decoder));
+      assert_eq!(long_value_count, Decoder::long_value_count(decoder));
+      assert_eq!(byte_block_count, Decoder::byte_block_count(decoder));
+      assert_eq!(byte_value_count, Decoder::byte_value_count(decoder));
 
-      // let long_iterations = random.random_range(0..100);
-      let long_iterations = 3;
+      let long_iterations = random.random_range(0..100);
       let byte_iterations = long_iterations * long_value_count / byte_value_count;
       assert_eq!(
         long_iterations * long_value_count,
@@ -1025,7 +1033,7 @@ fn test_encode_decode() -> Result<()> {
           &mut int_values,
           values_offset,
           long_iterations,
-        );
+        )?;
         assert!(equals(&int_values, &values), "{}", msg);
       }
 
@@ -1090,7 +1098,7 @@ fn test_encode_decode() -> Result<()> {
           &mut int_values2,
           values_offset,
           byte_iterations,
-        );
+        )?;
         assert!(equals(&int_values2, &values2), "{}", msg);
       }
       // 5. Byte-slice encoding.
@@ -1358,6 +1366,7 @@ fn test_block_packed_reader_writer() -> Result<()> {
       writer.finish(&mut out)?;
       assert_eq!(value_count, writer.ord());
       fp = out.get_file_pointer()?;
+      out.close()?;
     }
 
     let mut buf = vec![0u8; fp];
@@ -1412,6 +1421,7 @@ fn test_block_packed_reader_writer() -> Result<()> {
       }
       assert!(it2.skip(1, &mut in_ref).is_err());
       assert_eq!(fp, in_ref.get_file_pointer()?);
+      in_ref.close()?;
     }
     // test in2
     {
@@ -1460,6 +1470,7 @@ fn test_block_packed_reader_writer() -> Result<()> {
       assert!(it2.skip(1, &mut in_ref).is_err());
       assert_eq!(fp, in_ref.get_position());
     }
+    dir.close()?;
   }
   Ok(())
 }
@@ -1566,6 +1577,8 @@ fn test_block_reader_overflow() -> Result<()> {
         i += 1;
       }
     }
+    writer.finish(&mut out)?;
+    out.close()?;
   }
 
   let mut input = dir.open_input(
@@ -1579,5 +1592,7 @@ fn test_block_reader_overflow() -> Result<()> {
   reader.skip(value_offset, &mut input)?;
   assert_eq!(value, reader.next_value(&mut input,)?);
 
+  input.close()?;
+  dir.close()?;
   Ok(())
 }

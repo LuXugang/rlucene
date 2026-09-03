@@ -90,7 +90,10 @@ impl AbstractBlockPackedWriterBase for BlockPackedWriter {
     out.write_byte(token as u8)?;
 
     if min_adjusted != 0 {
-      write_vlong(out, BitUtil::zig_zag_encode_i64(min_adjusted) - 1)?;
+      write_vlong(
+        out,
+        BitUtil::zig_zag_encode_i64(min_adjusted).wrapping_sub(1),
+      )?;
     }
 
     if bits_required > 0 {

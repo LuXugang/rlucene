@@ -220,20 +220,21 @@ use crate::core::util::packed::Format;
 
 pub(crate) fn of(format: Format, bits_per_value: i32) -> Result<&'static BulkOperationPackedEnum> {
   match format {
-    Format::Packed(..) => {
-      debug_assert!(
-        bits_per_value > 0 && bits_per_value <= 64,
-        "bits_per_value must be between 1 and 64"
-      );
-      Ok(&PACKED_BULK_OPS[bits_per_value as usize - 1])
-    },
+    Format::Packed(..) => PACKED_BULK_OPS
+      .get(bits_per_value.wrapping_sub(1) as usize)
+      .ok_or_else(|| {
+        LuceneError::array_index_out_of_bounds(format!(
+          "Invalid bits_per_value for PACKED: {bits_per_value}"
+        ))
+      }),
     Format::PackedSingleBlock(..) => {
-      debug_assert!(
-        bits_per_value > 0 && bits_per_value <= 32,
-        "bits_per_value must be between 1 and 32"
-      );
-
-      let operation = &PACKED_SINGLE_BLOCK_BULK_OPS[bits_per_value as usize - 1];
+      let operation = PACKED_SINGLE_BLOCK_BULK_OPS
+        .get(bits_per_value.wrapping_sub(1) as usize)
+        .ok_or_else(|| {
+          LuceneError::array_index_out_of_bounds(format!(
+            "Invalid bits_per_value for PACKED_SINGLE_BLOCK: {bits_per_value}"
+          ))
+        })?;
       debug_assert!(
         operation.is_some(),
         "unsupported bits_per_value for PACKED_SINGLE_BLOCK: {bits_per_value}"

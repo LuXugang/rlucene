@@ -1445,7 +1445,7 @@ where
     let read_advice = *context.get_read_advice();
     let randomized_context =
       new_io_context_with_default(&mut *self.state.random_state.lock(), context)?;
-    let confined = randomized_context.context == Context::Default
+    let confined = *randomized_context.get_context() == Context::Default
       && *randomized_context.get_read_advice() == ReadAdvice::Sequential;
     if name.starts_with(IndexFileNames::SEGMENTS) && !confined {
       return Err(LuceneError::illegal_state(format!(

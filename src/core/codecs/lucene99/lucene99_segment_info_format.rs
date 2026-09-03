@@ -141,7 +141,7 @@ impl Lucene99SegmentInfoFormat {
         let mut sort_fields = Vec::with_capacity(num_sort_fields as usize);
         for _ in 0..num_sort_fields {
           let name = input.read_string()?;
-          let sort_field = for_name(&name).read_sort_field(input)?;
+          let sort_field = for_name(&name)?.read_sort_field(input)?;
           sort_fields.push(sort_field);
         }
         Some(Arc::new(Sort::with_fields(sort_fields)?))

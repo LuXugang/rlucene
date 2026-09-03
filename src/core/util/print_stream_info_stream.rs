@@ -19,17 +19,18 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use chrono::Utc;
 use parking_lot::Mutex;
+use std::any::TypeId;
 use std::io::{self, Write};
 use std::sync::atomic::{AtomicI32, Ordering};
+
+static MESSAGE_ID: AtomicI32 = AtomicI32::new(0);
 
 /// InfoStream implementation over a writable stream such as stdout.
 pub struct PrintStreamInfoStream<W> {
   message_id: i32,
-  pub(crate) stream: Mutex<W>,
-  is_system_stream: bool,
+  // Write has no close operation. Taking the owned writer releases its resource.
+  pub(crate) stream: Mutex<Option<W>>,
 }
-
-static MESSAGE_ID: AtomicI32 = AtomicI32::new(0);
 
 impl<W> PrintStreamInfoStream<W> {
   pub fn new(stream: W) -> Self {
@@ -39,50 +40,8 @@ impl<W> PrintStreamInfoStream<W> {
   pub fn with_message_id(stream: W, message_id: i32) -> Self {
     Self {
       message_id,
-      stream: Mutex::new(stream),
-      is_system_stream: false,
+      stream: Mutex::new(Some(stream)),
     }
-  }
-
-  pub fn is_system_stream(&self) -> bool {
-    self.is_system_stream
-  }
-
-  /// Returns the current time as string for insertion into log messages.
-  pub fn get_timestamp(&self) -> String {
-    Utc::now().to_rfc3339()
-  }
-}
-
-impl PrintStreamInfoStream<io::Stdout> {
-  pub fn stdout() -> Self {
-    Self {
-      message_id: MESSAGE_ID.fetch_add(1, Ordering::SeqCst),
-      stream: Mutex::new(io::stdout()),
-      is_system_stream: true,
-    }
-  }
-}
-
-impl PrintStreamInfoStream<io::Stderr> {
-  pub fn stderr() -> Self {
-    Self {
-      message_id: MESSAGE_ID.fetch_add(1, Ordering::SeqCst),
-      stream: Mutex::new(io::stderr()),
-      is_system_stream: true,
-    }
-  }
-}
-
-impl<W> CloseableRef for PrintStreamInfoStream<W>
-where
-  W: Write + Send + 'static,
-{
-  fn close(&self) -> Result<()> {
-    if !self.is_system_stream() {
-      self.stream.lock().flush()?;
-    }
-    Ok(())
   }
 }
 
@@ -95,17 +54,63 @@ where
     let thread_name = current_thread.name().unwrap_or("<unnamed>");
     let timestamp = self.get_timestamp();
     let mut stream = self.stream.lock();
-    writeln!(
-      stream,
-      "{} {} [{}; {}]: {}",
-      component, self.message_id, timestamp, thread_name, message
-    )?;
-    stream.flush()?;
+    if let Some(stream) = stream.as_mut() {
+      // Java PrintStream records I/O failures instead of throwing them from println.
+      let _ = writeln!(
+        stream,
+        "{} {} [{}; {}]: {}",
+        component, self.message_id, timestamp, thread_name, message
+      );
+      let _ = stream.flush();
+    }
     Ok(())
   }
 
   fn is_enabled(&self, _component: &str) -> bool {
     true
+  }
+}
+
+impl<W> CloseableRef for PrintStreamInfoStream<W>
+where
+  W: Write + Send + 'static,
+{
+  fn close(&self) -> Result<()> {
+    if !self.is_system_stream() {
+      let mut stream = self.stream.lock();
+      if let Some(mut stream) = stream.take() {
+        // As with Java PrintStream.close, an I/O failure does not escape close.
+        let _ = stream.flush();
+      }
+    }
+    Ok(())
+  }
+}
+
+impl<W> PrintStreamInfoStream<W> {
+  pub fn is_system_stream(&self) -> bool
+  where
+    W: 'static,
+  {
+    TypeId::of::<W>() == TypeId::of::<io::Stdout>()
+      || TypeId::of::<W>() == TypeId::of::<io::Stderr>()
+  }
+
+  /// Returns the current time as string for insertion into log messages.
+  pub fn get_timestamp(&self) -> String {
+    Utc::now().to_rfc3339()
+  }
+}
+
+impl PrintStreamInfoStream<io::Stdout> {
+  pub fn stdout() -> Self {
+    Self::new(io::stdout())
+  }
+}
+
+impl PrintStreamInfoStream<io::Stderr> {
+  pub fn stderr() -> Self {
+    Self::new(io::stderr())
   }
 }
 

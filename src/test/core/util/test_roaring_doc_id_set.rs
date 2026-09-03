@@ -57,7 +57,10 @@ impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
   where
     R: Rng + ?Sized,
   {
-    BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)
+    let cardinality = ds2.cardinality();
+    BaseDocIdSetTestCaseSupperImpl::assert_equals(self, random, num_bits, ds1, ds2)?;
+    assert_eq!(ds1.count(), cardinality);
+    Ok(())
   }
 }
 

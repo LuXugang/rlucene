@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::bulk_operation::BulkOperation;
 use crate::core::util::packed::bulk_operation_packed::BulkOperationPacked;
 use crate::core::util::packed::bulk_operation_packed_single_block::BulkOperationPackedSingleBlock;
@@ -385,7 +386,7 @@ impl Decoder for BulkOperationPackedEnum {
     values: &mut [i32],
     values_offset: usize,
     iterations: i32,
-  ) {
+  ) -> Result<()> {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
         op.decode_u64_to_i32(blocks, blocks_offset, values, values_offset, iterations)
@@ -476,7 +477,7 @@ impl Decoder for BulkOperationPackedEnum {
     values: &mut [i32],
     values_offset: usize,
     iterations: i32,
-  ) {
+  ) -> Result<()> {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
         op.decode_u8_to_i32(blocks, blocks_offset, values, values_offset, iterations)

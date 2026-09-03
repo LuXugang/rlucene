@@ -132,7 +132,7 @@ impl Builder {
   pub fn add(&mut self, doc_id: i32) -> Result<()> {
     if doc_id <= self.last_doc_id {
       return Err(LuceneError::illegal_argument(format!(
-        "Doc ids must be added in-order, got {} which is <= lastDocID=",
+        "Doc ids must be added in-order, got {doc_id} which is <= lastDocID={}",
         self.last_doc_id
       )));
     }
@@ -168,14 +168,15 @@ impl Builder {
   {
     let mut doc = disi.next_doc()?;
     while doc != NO_MORE_DOCS {
-      let _ = self.add(doc);
+      self.add(doc)?;
       doc = disi.next_doc()?;
     }
     Ok(())
   }
-  pub fn build(&mut self) -> RoaringDocIdSet {
+  /// Build an instance, consuming this builder.
+  pub fn build(mut self) -> RoaringDocIdSet {
     let _ = self.flush();
-    RoaringDocIdSet::new(std::mem::take(&mut self.sets), self.cardinality)
+    RoaringDocIdSet::new(self.sets, self.cardinality)
   }
   fn flush(&mut self) -> Result<()> {
     debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);
@@ -184,8 +185,9 @@ impl Builder {
       debug_assert_eq!(self.dense_buffer.length(), 0);
       if self.current_block_cardinality > 0 {
         let sparse = Some(DocIdSetEnum::Sparse(ShortArrayDocIdSet::new(
-          std::mem::take(&mut self.buffer),
+          self.buffer[..self.current_block_cardinality].to_vec(),
         )));
+        self.buffer.clear();
         debug_assert!(self.buffer.is_empty());
         self.sets[self.current_block as usize] = sparse;
       }
@@ -391,7 +393,7 @@ impl DocIdSetIterator for Iterator {
     let target_block = target >> 16;
     if target_block != self.block {
       self.block = target_block;
-      if self.block > self.doc_id_sets.len() as i32 {
+      if self.block >= self.doc_id_sets.len() as i32 {
         self.doc = NO_MORE_DOCS;
         return Ok(self.doc);
       }

@@ -40,7 +40,7 @@ use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
+use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_stream};
 /// Builder for HNSW graph. See [`HnswGraph`] for a gloss on the algorithm and
 /// the meaning of the hyper-parameters.
 pub struct HnswGraphBuilder<B, S, BS> {
@@ -186,7 +186,7 @@ where
       graph_searcher,
       entry_candidates: GraphBuilderKnnCollector::new(1)?,
       beam_candidates: GraphBuilderKnnCollector::new(beam_width)?,
-      info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
+      info_stream: get_default_info_stream(),
       frozen: false,
       hook,
     })

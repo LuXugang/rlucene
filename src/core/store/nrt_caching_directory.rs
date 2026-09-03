@@ -437,9 +437,9 @@ impl NRTCachingDirectoryDefaults {
   where
     D: Directory,
   {
-    let bytes = if let Some(merge_info) = &context.merge_info {
+    let bytes = if let Some(merge_info) = context.get_merge_info() {
       merge_info.get_estimated_merge_bytes()
-    } else if let Some(flush_info) = &context.flush_info {
+    } else if let Some(flush_info) = context.get_flush_info() {
       flush_info.get_estimated_segment_size()
     } else {
       return false;

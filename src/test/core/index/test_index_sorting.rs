@@ -527,8 +527,8 @@ fn test_missing_string_first() -> Result<()> {
 }
 #[test]
 fn test_missing_multi_valued_string_first() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);
@@ -680,8 +680,8 @@ fn test_missing_string_last() -> Result<()> {
 
 #[test]
 fn test_missing_multi_valued_string_last() -> Result<()> {
+  let mut random = random();
   for reverse in [true, false] {
-    let mut random = random();
     let dir = new_directory_shared(&mut random)?;
 
     let analyzer = MockAnalyzer::new(&mut random);

@@ -74,7 +74,7 @@ impl<T> BufferedIndexInput<T> {
 
   /// Returns default buffer sizes for the given [`IOContext`].
   pub fn buffer_size(io_context: &IOContext) -> usize {
-    match io_context.context {
+    match io_context.get_context() {
       Context::Merge => MERGE_BUFFER_SIZE,
       Context::Default | Context::Flush => BUFFER_SIZE,
     }

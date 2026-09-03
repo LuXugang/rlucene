@@ -21,11 +21,12 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort_field::MissingValueEnum;
+use crate::core::util::ToInt;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::packed::PackedInts;
-use crate::core::util::{ToInt, TryIntoInt};
 use std::rc::Rc;
 /// Handles how documents should be sorted in an index, both within a segment
 /// and between segments.
@@ -37,12 +38,23 @@ pub trait IndexSorter {
     LR: LeafReader;
   fn get_comparable_providers<LR>(
     &self,
-    _readers: &[LR],
+    readers: &[LR],
   ) -> Result<Vec<Self::ComparableProvider<LR>>>
   where
     LR: LeafReader,
   {
-    Err(LuceneError::unsupported_operation(""))
+    let missing_value = self.get_missing_value();
+    let ordinal_map = self.get_ordinal_map(readers)?;
+    let mut providers = Vec::with_capacity(readers.len());
+    for (reader_index, reader) in readers.iter().enumerate() {
+      providers.push(self.get_comparable_providers_per_reader(
+        reader,
+        reader_index,
+        &missing_value,
+        ordinal_map.as_ref(),
+      )?);
+    }
+    Ok(providers)
   }
   fn get_comparable_providers_per_reader<LR>(
     &self,
@@ -155,7 +167,13 @@ where
   }
 
   fn get_missing_value(&self) -> MissingValueEnum {
-    (self.missing_value.unwrap_or(0.0).to_bits() as i64).into()
+    let value = self.missing_value.unwrap_or(0.0);
+    let bits = if value.is_nan() {
+      BitUtil::DOUBLE_NAN_BITS
+    } else {
+      value.to_bits()
+    };
+    (bits as i64).into()
   }
 
   type DocComparator = DocComparatorImplDouble;
@@ -195,8 +213,8 @@ impl DocComparatorImplDouble {
 impl DocComparator for DocComparatorImplDouble {
   fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
     self.reverse_mul
-      * self.values[doc_id1]
-        .total_cmp(&self.values[doc_id2])
+      * NumericUtils::double_to_sortable_long(self.values[doc_id1])
+        .cmp(&NumericUtils::double_to_sortable_long(self.values[doc_id2]))
         .to_int()
   }
 }
@@ -582,7 +600,13 @@ where
   }
 
   fn get_missing_value(&self) -> MissingValueEnum {
-    (self.missing_value.unwrap_or(0.0).to_bits() as i32).into()
+    let value = self.missing_value.unwrap_or(0.0);
+    let bits = if value.is_nan() {
+      BitUtil::FLOAT_NAN_BITS
+    } else {
+      value.to_bits()
+    };
+    (bits as i32).into()
   }
 
   type DocComparator = DocComparatorImplFloat;
@@ -626,7 +650,12 @@ impl DocComparator for DocComparatorImplFloat {
   fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
     let v1 = self.values[doc_id1];
     let v2 = self.values[doc_id2];
-    let ord = v1.total_cmp(&v2).to_int();
+    let ord = match (v1.is_nan(), v2.is_nan()) {
+      (true, true) => 0,
+      (true, false) => 1,
+      (false, true) => -1,
+      (false, false) => v1.total_cmp(&v2).to_int(),
+    };
     self.reverse_mul * ord
   }
 }
@@ -650,7 +679,7 @@ where
 {
   fn get_as_comparable_long(&mut self, doc_id: i32) -> Result<i64> {
     let v = if self.values.advance_exact(doc_id)? {
-      self.values.long_value()?.try_convert()?
+      self.values.long_value()? as i32
     } else {
       self.missing_value_bits
     };
@@ -695,6 +724,33 @@ where
     = StringComparableProvider<ProviderString<SP, LR>>
   where
     LR: LeafReader;
+
+  fn get_comparable_providers<LR>(
+    &self,
+    readers: &[LR],
+  ) -> Result<Vec<Self::ComparableProvider<LR>>>
+  where
+    LR: LeafReader,
+  {
+    let mut values = Vec::with_capacity(readers.len());
+    for reader in readers {
+      values.push(self.values_provider.get(reader)?);
+    }
+    let ordinal_map = OrdinalMap::build_from_sorted(None, &mut values, PackedInts::DEFAULT)?;
+    let missing_ord = match self.missing_value {
+      Some(MissingValueEnum::StringLast) => i32::MAX,
+      _ => i32::MIN,
+    };
+    let mut providers = Vec::with_capacity(readers.len());
+    for (reader_index, reader_values) in values.into_iter().enumerate() {
+      providers.push(StringComparableProvider {
+        reader_values,
+        global_ords: ordinal_map.get_global_ords(reader_index).clone(),
+        missing_ord,
+      });
+    }
+    Ok(providers)
+  }
 
   fn get_comparable_providers_per_reader<LR>(
     &self,

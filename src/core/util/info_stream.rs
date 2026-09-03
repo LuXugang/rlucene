@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use parking_lot::RwLock;
 use std::sync::LazyLock;
 use std::{fmt, sync::Arc};
 
@@ -46,8 +47,8 @@ where
 
 /// A global, thread-safe reference to a default [`InfoStream`](crate::core::util::info_stream::InfoStream),
 /// mirroring `private static InfoStream defaultInfoStream` in Java.
-static DEFAULT_INFO_STREAM: LazyLock<Arc<InfoStreamEnum>> =
-  LazyLock::new(|| Arc::new(InfoStreamEnum::NoOutput(NoOutput)));
+static DEFAULT_INFO_STREAM: LazyLock<RwLock<InfoStreamMT>> =
+  LazyLock::new(|| RwLock::new(Arc::new(InfoStreamEnum::NoOutput(NoOutput))));
 
 /// Instance of InfoStream that does no logging at all.
 #[derive(Clone, Debug, Default)]
@@ -76,12 +77,15 @@ impl InfoStream for NoOutput {
 
 /// The default [`InfoStream`] used by newly created types.
 pub fn get_default_info_stream() -> Arc<InfoStreamEnum> {
-  DEFAULT_INFO_STREAM.clone()
+  DEFAULT_INFO_STREAM.read().clone()
 }
 
 /// Sets the default [`InfoStream`] used by newly created types.
-pub fn set_default(_info_stream: InfoStreamEnum) {
-  todo!()
+pub fn set_default(info_stream: impl Into<InfoStreamMT>) {
+  let info_stream = info_stream.into();
+  let previous = std::mem::replace(&mut *DEFAULT_INFO_STREAM.write(), info_stream);
+  // Release the old Rust owner after unlocking: a custom destructor may use InfoStream.
+  drop(previous);
 }
 pub enum InfoStreamEnum {
   NoOutput(NoOutput),

@@ -406,8 +406,8 @@ impl PackedInts {
             "size is too large for this block size",
           ));
         }
-        debug_assert!(num_blocks <= i32::MAX as usize);
-        Ok(num_blocks as i32)
+        i32::try_from(num_blocks)
+          .map_err(|_| LuceneError::illegal_argument("size is too large for this block size"))
       },
       None => Err(LuceneError::illegal_argument(format!(
         "multiply overflow:block_size:{block_size}, num_blocks:{num_blocks} "
@@ -577,7 +577,7 @@ pub trait Decoder {
     values: &mut [i32],
     values_offset: usize,
     iterations: i32,
-  );
+  ) -> Result<()>;
 
   /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them,
   /// and write `iterations * value_count()` values into `values`.
@@ -596,7 +596,7 @@ pub trait Decoder {
     values: &mut [i32],
     values_offset: usize,
     iterations: i32,
-  );
+  ) -> Result<()>;
 }
 /// An encoder for packed integers.
 pub trait Encoder {

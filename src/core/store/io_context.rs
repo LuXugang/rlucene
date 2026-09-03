@@ -52,12 +52,12 @@ pub static IO_CONTEXT_READ_ONCE: LazyLock<IOContext> = LazyLock::new(|| {
 /// * `merge_info` - Must be provided when `context == MERGE`.
 /// * `flush_info` - Must be provided when `context == FLUSH`.
 /// * `read_advice` - Advice regarding the read access pattern.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IOContext {
-  pub(crate) context: Context,
+  context: Context,
   read_advice: ReadAdvice,
-  pub merge_info: Option<MergeInfo>,
-  pub flush_info: Option<FlushInfo>,
+  merge_info: Option<MergeInfo>,
+  flush_info: Option<FlushInfo>,
 }
 
 impl IOContext {
@@ -148,7 +148,7 @@ impl IOContext {
   }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Context {
   /// Context for reads and writes that are associated with a merge.  */
   Merge,

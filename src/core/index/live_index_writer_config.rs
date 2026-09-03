@@ -38,7 +38,7 @@ use crate::core::search::sort::Sort;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::info_stream::{InfoStreamEnum, InfoStreamMT, NoOutput};
+use crate::core::util::info_stream::{InfoStreamMT, get_default_info_stream};
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::sync::Arc;
@@ -406,7 +406,7 @@ where
       open_mode: OpenMode::CreateOrAppend,
       similarity: Arc::new(get_default_similarity()?),
       codec: codec::get_default(),
-      info_stream: Arc::new(InfoStreamEnum::NoOutput(NoOutput)),
+      info_stream: get_default_info_stream(),
       merge_policy: MergePolicyEnum::Tiered(TieredMergePolicy::default()),
       flush_policy: Arc::new(FlushByRamOrCountsPolicy::new().into()),
       reader_pooling: DEFAULT_READER_POOLING,

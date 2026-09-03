@@ -18,7 +18,7 @@ use std::fmt::Display;
 
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
-use crate::core::util::error::lucene_error::Result;
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::mutable_enum::MutableEnum;
 use crate::core::util::packed::paged_growable_writer::PagedGrowableWriter;
@@ -39,7 +39,7 @@ pub struct AbstractPagedMutable<T> {
   size: usize,
   page_shift: i32,
   page_mask: i32,
-  sub_mutables: Vec<MutableEnum>,
+  pub(crate) sub_mutables: Vec<MutableEnum>,
 }
 
 #[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
@@ -122,7 +122,10 @@ where
     );
     let page_index = self.page_index(index);
     let index_in_page = self.index_in_page(index);
-    self.sub_mutables[page_index].set(index_in_page, value)
+    let sub_mutable = self.sub_mutables.get_mut(page_index).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds(format!("page index out of bounds: {page_index}"))
+    })?;
+    sub_mutable.set(index_in_page, value)
   }
   pub(crate) fn base_ram_bytes_used(&self) -> i64 {
     self.sub_reader.base_ram_bytes_used_base()
@@ -190,7 +193,10 @@ where
     debug_assert!(index < self.size, "index={} size={}", index, self.size);
     let page_index = self.page_index(index);
     let index_in_page = self.index_in_page(index);
-    Ok(self.sub_mutables[page_index].get(index_in_page.try_convert()?))
+    let sub_mutable = self.sub_mutables.get(page_index).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds(format!("page index out of bounds: {page_index}"))
+    })?;
+    Ok(sub_mutable.get(index_in_page.try_convert()?))
   }
 }
 #[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.
@@ -216,7 +222,7 @@ where
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "{}(size={}, pageSize={})",
+      "{}(size={},pageSize={})",
       self.sub_reader,
       self.size,
       self.page_size()
@@ -280,6 +286,15 @@ impl AbstractPagedMutableBase for AbstractPagedMutableBaseEnum {
     match self {
       AbstractPagedMutableBaseEnum::Mutable(m) => m.bits_per_value(),
       AbstractPagedMutableBaseEnum::GrowableWriter(g) => g.bits_per_value(),
+    }
+  }
+}
+
+impl Display for AbstractPagedMutableBaseEnum {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Mutable(m) => m.fmt(f),
+      Self::GrowableWriter(g) => g.fmt(f),
     }
   }
 }

@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::index::index_writer::{IndexWriter, IndexWriterHooks, IndexWriterHooksEnum};
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::{InfoStream, InfoStreamEnum};
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
@@ -35,9 +36,10 @@ fn test_test_points_off() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut iwc = IndexWriterConfig::new()?;
   iwc.set_info_stream(InfoStreamEnum::Custom(Box::new(NoTestPointsInfoStream)));
-  let iw = IndexWriter::new(dir, iwc)?;
+  let iw = IndexWriter::new(dir.clone(), iwc)?;
   iw.add_document(Document::new())?;
   iw.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -52,12 +54,13 @@ fn test_test_points_on() -> Result<()> {
     seen_test_point: seen_test_point.clone(),
   })));
   let iw = IndexWriter::with_hooks(
-    dir,
+    dir.clone(),
     iwc,
     Some(IndexWriterHooksEnum::custom(TestPointsIndexWriter)),
   )?;
   iw.add_document(Document::new())?;
   iw.close()?;
+  dir.close()?;
   assert!(seen_test_point.load(Ordering::SeqCst));
   Ok(())
 }

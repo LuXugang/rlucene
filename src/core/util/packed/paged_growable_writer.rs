@@ -72,3 +72,9 @@ impl AbstractPagedMutableBase for PagedGrowableWriter {
     self.bits_per_value
   }
 }
+
+impl std::fmt::Display for PagedGrowableWriter {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.write_str("PagedGrowableWriter")
+  }
+}

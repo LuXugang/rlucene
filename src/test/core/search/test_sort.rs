@@ -19,6 +19,8 @@ use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::sorted_doc_values_field::SortedDocValuesField;
 use crate::core::document::string_field::StringField;
+use crate::core::index::index_reader::IndexReader;
+use crate::core::util::close::CloseableRef;
 use crate::test_framework::core::util::lucene_test_case::{
   new_bytes_ref_from_string, new_directory_shared, new_searcher_with_reader, new_string_field,
   random,
@@ -51,6 +53,7 @@ use rand::Rng;
 use std::hash::DefaultHasher;
 use std::sync::Arc;
 use std::vec;
+
 /// Very simple sorting tests.
 #[allow(dead_code)] // for quick search
 struct TestSort;
@@ -123,15 +126,22 @@ fn test_equals() -> Result<()> {
 #[test]
 fn test_string() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(SortedDocValuesField::new(
     "value",
     new_bytes_ref_from_string(&mut random, "foo")?,
   ));
-  doc.add(StringField::from_string("value", "foo", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "foo",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
@@ -139,13 +149,19 @@ fn test_string() -> Result<()> {
     "value",
     new_bytes_ref_from_string(&mut random, "bar")?,
   ));
-  doc.add(StringField::from_string("value", "bar", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "bar",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::String)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -162,14 +178,17 @@ fn test_string() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("foo", v1.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests reverse sorting on type string
 #[test]
 fn test_string_reverse() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // doc 1: bar
   let mut doc = Document::new();
@@ -177,7 +196,13 @@ fn test_string_reverse() -> Result<()> {
     "value",
     new_bytes_ref_from_string(&mut random, "bar")?,
   ));
-  doc.add(StringField::from_string("value", "bar", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "bar",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
@@ -185,13 +210,19 @@ fn test_string_reverse() -> Result<()> {
     "value",
     new_bytes_ref_from_string(&mut random, "foo")?,
   ));
-  doc.add(StringField::from_string("value", "foo", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "foo",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::with_reverse(
     Some("value"),
     SortFieldType::String,
@@ -212,20 +243,29 @@ fn test_string_reverse() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("bar", v1.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type string_val
 #[test]
 fn test_string_val() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   doc.add(BinaryDocValuesField::new(
     "value",
     new_bytes_ref_from_string(&mut random, "foo")?,
   ));
-  doc.add(StringField::from_string("value", "foo", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "foo",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
@@ -233,13 +273,19 @@ fn test_string_val() -> Result<()> {
     "value",
     new_bytes_ref_from_string(&mut random, "bar")?,
   ));
-  doc.add(StringField::from_string("value", "bar", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "bar",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(
     Some("value"),
     SortFieldType::StringVal,
@@ -258,20 +304,29 @@ fn test_string_val() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("foo", v1.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests reverse sorting on type string_val
 #[test]
 fn test_string_val_reverse() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut doc = Document::new();
   doc.add(BinaryDocValuesField::new(
     "value",
     new_bytes_ref_from_string(&mut random, "bar")?,
   ));
-  doc.add(StringField::from_string("value", "bar", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "bar",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
@@ -279,13 +334,19 @@ fn test_string_val_reverse() -> Result<()> {
     "value",
     new_bytes_ref_from_string(&mut random, "foo")?,
   ));
-  doc.add(StringField::from_string("value", "foo", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "foo",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::with_reverse(
     Some("value"),
     SortFieldType::StringVal,
@@ -306,34 +367,55 @@ fn test_string_val_reverse() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("bar", v1.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type int
 #[test]
 fn test_int() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 300000));
-  doc.add(StringField::from_string("value", "300000", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "300000",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Int)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -354,34 +436,55 @@ fn test_int() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("300000", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type int in reverse
 #[test]
 fn test_int_reverse() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 300000));
-  doc.add(StringField::from_string("value", "300000", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "300000",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::with_reverse(
     Some("value"),
     SortFieldType::Int,
@@ -406,32 +509,47 @@ fn test_int_reverse() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("-1", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type int with a missing value
 #[test]
 fn test_int_missing() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let doc = Document::new();
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Int)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -452,32 +570,47 @@ fn test_int_missing() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("4", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on `i32`, specifying the missing value should be treated as `i32::MAX`.
 #[test]
 fn test_int_missing_last() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let doc = Document::new();
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
 
   let mut sort_field = SortField::new("value".into(), SortFieldType::Int)?;
   sort_field.set_missing_value(i32::MAX)?;
@@ -501,6 +634,8 @@ fn test_int_missing_last() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert!(v2.get("value")?.is_none());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -508,28 +643,47 @@ fn test_int_missing_last() -> Result<()> {
 #[test]
 fn test_long() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 3_000_000_000i64));
-  doc.add(StringField::from_string("value", "3000000000", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "3000000000",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1i64));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4i64));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Long)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -551,37 +705,58 @@ fn test_long() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("3000000000", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type long in reverse
 #[test]
 fn test_long_reverse() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // doc 1: 3000000000
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 3_000_000_000i64));
-  doc.add(StringField::from_string("value", "3000000000", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "3000000000",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // doc 2: -1
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1i64));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // doc 3: 4
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4i64));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::with_reverse(
     Some("value"),
     SortFieldType::Long,
@@ -607,32 +782,47 @@ fn test_long_reverse() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("-1", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type long with a missing value
 #[test]
 fn test_long_missing() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let doc = Document::new();
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1i64));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4i64));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Long)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -654,32 +844,47 @@ fn test_long_missing() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("4", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on `i64`, specifying the missing value should be treated as `i64::MAX`.
 #[test]
 fn test_long_missing_last() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let doc = Document::new();
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", -1i64));
-  doc.add(StringField::from_string("value", "-1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 4i64));
-  doc.add(StringField::from_string("value", "4", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
 
   let mut sort_field = SortField::new("value".into(), SortFieldType::Long)?;
   sort_field.set_missing_value(i64::MAX)?;
@@ -703,37 +908,58 @@ fn test_long_missing_last() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert!(v2.get("value")?.is_none());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type float
 #[test]
 fn test_float() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // 30.1
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 30.1f32));
-  doc.add(StringField::from_string("value", "30.1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "30.1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // -1.3
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", -1.3f32));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 4.2f32));
-  doc.add(StringField::from_string("value", "4.2", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4.2",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Float)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -755,37 +981,58 @@ fn test_float() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("30.1", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type float in reverse
 #[test]
 fn test_float_reverse() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // 30.1
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 30.1f32));
-  doc.add(StringField::from_string("value", "30.1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "30.1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // -1.3
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", -1.3f32));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 4.2f32));
-  doc.add(StringField::from_string("value", "4.2", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4.2",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::with_reverse(
     Some("value"),
     SortFieldType::Float,
@@ -811,14 +1058,17 @@ fn test_float_reverse() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("-1.3", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type float with a missing value
 #[test]
 fn test_float_missing() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // missing
   writer.add_document(&mut random, Document::new())?;
@@ -826,19 +1076,31 @@ fn test_float_missing() -> Result<()> {
   // -1.3
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", -1.3f32));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 4.2f32));
-  doc.add(StringField::from_string("value", "4.2", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4.2",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Float)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -860,14 +1122,17 @@ fn test_float_missing() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert_eq!("4.2", v2.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on `f32`, specifying the missing value should be treated as `f32::MAX`.
 #[test]
 fn test_float_missing_last() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // missing
   writer.add_document(&mut random, Document::new())?;
@@ -875,19 +1140,31 @@ fn test_float_missing_last() -> Result<()> {
   // -1.3
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", -1.3f32));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 4.2f32));
-  doc.add(StringField::from_string("value", "4.2", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "4.2",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
 
   let mut sort_field = SortField::new("value".into(), SortFieldType::Float)?;
   sort_field.set_missing_value(f32::MAX)?;
@@ -912,51 +1189,70 @@ fn test_float_missing_last() -> Result<()> {
     .document(td.score_docs()[2].doc())?;
   assert!(v2.get("value")?.is_none());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type double
 #[test]
 fn test_double() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // 30.1
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 30.1f64));
-  doc.add(StringField::from_string("value", "30.1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "30.1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // -1.3
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", -1.3f64));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333333
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333333",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333332
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333332",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -983,31 +1279,46 @@ fn test_double() -> Result<()> {
     .document(td.score_docs()[3].doc())?;
   assert_eq!("30.1", v3.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type double with +/- zero
 #[test]
 fn test_double_signed_zero() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // +0
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 0.0f64));
-  doc.add(StringField::from_string("value", "+0", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "+0",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // -0
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", -0.0f64));
-  doc.add(StringField::from_string("value", "-0", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-0",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1024,51 +1335,70 @@ fn test_double_signed_zero() -> Result<()> {
     .document(td.score_docs()[1].doc())?;
   assert_eq!("+0", v1.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type double in reverse
 #[test]
 fn test_double_reverse() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // 30.1
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 30.1f64));
-  doc.add(StringField::from_string("value", "30.1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "30.1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // -1.3
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", -1.3f64));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333333
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333333",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333332
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333332",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::with_reverse(
     Some("value"),
     SortFieldType::Double,
@@ -1099,14 +1429,17 @@ fn test_double_reverse() -> Result<()> {
     .document(td.score_docs()[3].doc())?;
   assert_eq!("-1.3", v3.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on type double with a missing value
 #[test]
 fn test_double_missing() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // missing
   writer.add_document(&mut random, Document::new())?;
@@ -1114,33 +1447,43 @@ fn test_double_missing() -> Result<()> {
   // -1.3
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", -1.3f64));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333333
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333333",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333332
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333332",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1167,6 +1510,8 @@ fn test_double_missing() -> Result<()> {
     .document(td.score_docs()[3].doc())?;
   assert_eq!("4.2333333333333", v3.get("value")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -1174,8 +1519,9 @@ fn test_double_missing() -> Result<()> {
 #[test]
 fn test_double_missing_last() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // missing
   writer.add_document(&mut random, Document::new())?;
@@ -1183,33 +1529,43 @@ fn test_double_missing_last() -> Result<()> {
   // -1.3
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", -1.3f64));
-  doc.add(StringField::from_string("value", "-1.3", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value",
+    "-1.3",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333333
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333333f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333333",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
   // 4.2333333333332
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 4.2333333333332f64));
-  doc.add(StringField::from_string(
+  doc.add(new_string_field(
+    &mut random,
     "value",
     "4.2333333333332",
     Store::Yes,
+    &mut field_types,
   )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
 
   let mut sort_field = SortField::new("value".into(), SortFieldType::Double)?;
   sort_field.set_missing_value(f64::MAX)?;
@@ -1238,14 +1594,17 @@ fn test_double_missing_last() -> Result<()> {
     .document(td.score_docs()[3].doc())?;
   assert!(v3.get("value")?.is_none());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 /// Tests sorting on multiple sort fields
 #[test]
 fn test_multi_sort() -> Result<()> {
   let mut random = random();
+  let mut field_types = HashMap::new();
   let dir = new_directory_shared(&mut random)?;
-  let writer = RandomIndexWriter::new(&mut random, dir)?;
+  let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   // doc1: foo, 0
   let mut doc = Document::new();
@@ -1254,8 +1613,20 @@ fn test_multi_sort() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "foo")?,
   ));
   doc.add(NumericDocValuesField::new("value2", 0));
-  doc.add(StringField::from_string("value1", "foo", Store::Yes)?);
-  doc.add(StringField::from_string("value2", "0", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value1",
+    "foo",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "value2",
+    "0",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // doc2: bar, 1
@@ -1265,8 +1636,20 @@ fn test_multi_sort() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "bar")?,
   ));
   doc.add(NumericDocValuesField::new("value2", 1));
-  doc.add(StringField::from_string("value1", "bar", Store::Yes)?);
-  doc.add(StringField::from_string("value2", "1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value1",
+    "bar",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "value2",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // doc3: bar, 0
@@ -1276,8 +1659,20 @@ fn test_multi_sort() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "bar")?,
   ));
   doc.add(NumericDocValuesField::new("value2", 0));
-  doc.add(StringField::from_string("value1", "bar", Store::Yes)?);
-  doc.add(StringField::from_string("value2", "0", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value1",
+    "bar",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "value2",
+    "0",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
   // doc4: foo, 1
@@ -1287,14 +1682,26 @@ fn test_multi_sort() -> Result<()> {
     new_bytes_ref_from_string(&mut random, "foo")?,
   ));
   doc.add(NumericDocValuesField::new("value2", 1));
-  doc.add(StringField::from_string("value1", "foo", Store::Yes)?);
-  doc.add(StringField::from_string("value2", "1", Store::Yes)?);
+  doc.add(new_string_field(
+    &mut random,
+    "value1",
+    "foo",
+    Store::Yes,
+    &mut field_types,
+  )?);
+  doc.add(new_string_field(
+    &mut random,
+    "value2",
+    "1",
+    Store::Yes,
+    &mut field_types,
+  )?);
   writer.add_document(&mut random, doc)?;
 
-  let ir = writer.get_reader(&mut random)?;
+  let ir = Arc::new(writer.get_reader(&mut random)?);
   writer.close(&mut random)?;
 
-  let searcher = new_searcher_with_reader(Arc::new(ir))?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Arc::new(Sort::with_fields(vec![
     SortField::new(Some("value1"), SortFieldType::String)?,
     SortField::new(Some("value2"), SortFieldType::Long)?,
@@ -1337,6 +1744,8 @@ fn test_multi_sort() -> Result<()> {
   assert_eq!("bar", v.get("value1")?.unwrap().as_ref());
   assert_eq!("0", v.get("value2")?.unwrap().as_ref());
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -1379,13 +1788,7 @@ where
       &mut field_types,
     )?);
   }
-  doc.add(new_string_field(
-    random,
-    "id",
-    "0",
-    Store::No,
-    &mut field_types,
-  )?);
+  doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
 
   writer.add_document(Document::new())?;
@@ -1395,10 +1798,10 @@ where
   writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
   writer.force_merge(1)?;
 
-  let ir = directory_reader::open_from_writer(&writer)?;
+  let ir = Arc::new(directory_reader::open_from_writer(&writer)?);
   writer.close()?;
 
-  let searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::String)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1417,6 +1820,8 @@ where
     _ => unreachable!(),
   };
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -1437,20 +1842,12 @@ where
   let iwc = IndexWriterConfig::new()?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut field_types = HashMap::new();
-
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 3));
   if indexed {
     doc.add(IntPoint::new("value", vec![3])?);
   }
-  doc.add(new_string_field(
-    random,
-    "id",
-    "0",
-    Store::No,
-    &mut field_types,
-  )?);
+  doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
 
   writer.add_document(Document::new())?;
@@ -1460,10 +1857,10 @@ where
   writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
   writer.force_merge(1)?;
 
-  let ir = directory_reader::open_from_writer(&writer)?;
+  let ir = Arc::new(directory_reader::open_from_writer(&writer)?);
   writer.close()?;
 
-  let searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Int)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1482,6 +1879,8 @@ where
     _ => unreachable!(),
   };
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -1501,20 +1900,12 @@ where
   let iwc = IndexWriterConfig::new()?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut field_types = HashMap::new();
-
   let mut doc = Document::new();
   doc.add(NumericDocValuesField::new("value", 3_i64));
   if indexed {
     doc.add(LongPoint::new("value", vec![3_i64])?);
   }
-  doc.add(new_string_field(
-    random,
-    "id",
-    "0",
-    Store::No,
-    &mut field_types,
-  )?);
+  doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
 
   writer.add_document(Document::new())?;
@@ -1524,10 +1915,10 @@ where
   writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
   writer.force_merge(1)?;
 
-  let ir = directory_reader::open_from_writer(&writer)?;
+  let ir = Arc::new(directory_reader::open_from_writer(&writer)?);
   writer.close()?;
 
-  let searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Long)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1546,6 +1937,8 @@ where
     _ => unreachable!(),
   };
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -1565,20 +1958,12 @@ where
   let iwc = IndexWriterConfig::new()?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut field_types = HashMap::new();
-
   let mut doc = Document::new();
   doc.add(DoubleDocValuesField::new("value", 1.25));
   if indexed {
     doc.add(DoublePoint::new("value", vec![1.25])?);
   }
-  doc.add(new_string_field(
-    random,
-    "id",
-    "0",
-    Store::No,
-    &mut field_types,
-  )?);
+  doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
 
   writer.add_document(Document::new())?;
@@ -1588,10 +1973,10 @@ where
   writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
   writer.force_merge(1)?;
 
-  let ir = directory_reader::open_from_writer(&writer)?;
+  let ir = Arc::new(directory_reader::open_from_writer(&writer)?);
   writer.close()?;
 
-  let searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Double)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1610,6 +1995,8 @@ where
     _ => unreachable!(),
   };
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -1629,20 +2016,12 @@ where
   let iwc = IndexWriterConfig::new()?;
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut field_types = HashMap::new();
-
   let mut doc = Document::new();
   doc.add(FloatDocValuesField::new("value", 1.25_f32));
   if indexed {
     doc.add(FloatPoint::new("value", vec![1.25_f32])?);
   }
-  doc.add(new_string_field(
-    random,
-    "id",
-    "0",
-    Store::No,
-    &mut field_types,
-  )?);
+  doc.add(StringField::from_string("id", "0", Store::No)?);
   writer.add_document(doc)?;
 
   writer.add_document(Document::new())?;
@@ -1652,10 +2031,10 @@ where
   writer.delete_documents_with_terms(vec![Term::from_text("id", "0")])?;
   writer.force_merge(1)?;
 
-  let ir = directory_reader::open_from_writer(&writer)?;
+  let ir = Arc::new(directory_reader::open_from_writer(&writer)?);
   writer.close()?;
 
-  let searcher = new_searcher_with_reader(ir)?;
+  let searcher = new_searcher_with_reader(ir.clone())?;
   let sort = Sort::with_fields(vec![SortField::new(Some("value"), SortFieldType::Float)?])?;
 
   let td = searcher.search_with_sort(MatchAllDocsQuery::new(), 10, sort)?;
@@ -1674,5 +2053,7 @@ where
     _ => unreachable!(),
   };
 
+  ir.close()?;
+  dir.close()?;
   Ok(())
 }

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::Decoder;
 use crate::core::util::packed::bulk_operation::BulkOperation;
 use crate::core::util::packed::bulk_operation_packed::{
@@ -308,7 +309,7 @@ impl Decoder for BulkOperationPacked21 {
     values: &mut [i32],
     mut values_offset: usize,
     iterations: i32,
-  ) {
+  ) -> Result<()> {
     for _ in 0..iterations {
       let block0 = blocks[blocks_offset];
       blocks_offset += 1;
@@ -501,6 +502,7 @@ impl Decoder for BulkOperationPacked21 {
       values[values_offset] = (block20 & 2_097_151) as i32;
       values_offset += 1;
     }
+    Ok(())
   }
   fn decode_u8_to_i32(
     &self,
@@ -509,7 +511,7 @@ impl Decoder for BulkOperationPacked21 {
     values: &mut [i32],
     mut values_offset: usize,
     iterations: i32,
-  ) {
+  ) -> Result<()> {
     for _ in 0..iterations {
       let byte0 = blocks[blocks_offset] as i32;
       blocks_offset += 1;
@@ -577,6 +579,7 @@ impl Decoder for BulkOperationPacked21 {
       values[values_offset] = ((byte18 & 31) << 16) | (byte19 << 8) | byte20;
       values_offset += 1;
     }
+    Ok(())
   }
 }
 impl_bulk_operation_packed_encoder!(BulkOperationPacked21);

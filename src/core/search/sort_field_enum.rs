@@ -284,47 +284,23 @@ impl IndexSorter for IndexSortEnum {
   where
     LR: LeafReader,
   {
-    let missing_value = self.get_missing_value();
-    let ordinal_map = self.get_ordinal_map(readers)?;
-    let mut provider = Vec::with_capacity(readers.len());
-    match self {
-      IndexSortEnum::SortedNumeric(sorter) => {
-        for (idx, reader) in readers.iter().enumerate() {
-          let v = sorter.get_comparable_providers_per_reader(
-            reader,
-            idx,
-            &missing_value,
-            ordinal_map.as_ref(),
-          )?;
-          provider.push(CPType::SortedNumeric(v))
-        }
-        Ok(provider)
-      },
-      IndexSortEnum::SortedSet(sorter) => {
-        for (idx, reader) in readers.iter().enumerate() {
-          let v = sorter.get_comparable_providers_per_reader(
-            reader,
-            idx,
-            &missing_value,
-            ordinal_map.as_ref(),
-          )?;
-          provider.push(CPType::SortedSet(v))
-        }
-        Ok(provider)
-      },
-      IndexSortEnum::Sorter(sorter) => {
-        for (idx, reader) in readers.iter().enumerate() {
-          let v = sorter.get_comparable_providers_per_reader(
-            reader,
-            idx,
-            &missing_value,
-            ordinal_map.as_ref(),
-          )?;
-          provider.push(CPType::Sorter(v))
-        }
-        Ok(provider)
-      },
-    }
+    Ok(match self {
+      IndexSortEnum::SortedNumeric(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(CPType::SortedNumeric)
+        .collect(),
+      IndexSortEnum::SortedSet(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(CPType::SortedSet)
+        .collect(),
+      IndexSortEnum::Sorter(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(CPType::Sorter)
+        .collect(),
+    })
   }
 
   fn get_ordinal_map<LR>(&self, readers: &[LR]) -> Result<Option<OrdinalMap>>

@@ -199,7 +199,7 @@ where
         // attributes yet.
         if let Some(suffix_attribute) = suffix_attribute {
           suffix = Some(suffix_attribute.parse::<i32>().map_err(|_| {
-            LuceneError::illegal_argument(format!(
+            LuceneError::number_format(format!(
               "invalid attribute: {PER_FIELD_SUFFIX_KEY}={suffix_attribute} for field: {}",
               field.name
             ))

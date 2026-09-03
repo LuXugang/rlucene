@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::bulk_operation::BulkOperation;
 use crate::core::util::packed::{Decoder, Encoder};
 
@@ -154,17 +155,19 @@ impl Decoder for BulkOperationPackedSingleBlock {
     values: &mut [i32],
     mut values_offset: usize,
     iterations: i32,
-  ) {
-    debug_assert!(
-      self.bits_per_value <= 32,
-      "Cannot decode {}-bits values into an i32 array",
-      self.bits_per_value
-    );
+  ) -> Result<()> {
+    if self.bits_per_value > 32 {
+      return Err(LuceneError::unsupported_operation(format!(
+        "Cannot decode {}-bits values into an i32 slice",
+        self.bits_per_value
+      )));
+    }
     for _ in 0..iterations {
       let block = blocks[blocks_offset];
       blocks_offset += 1;
       values_offset = self.decode_to_i32(block, values, values_offset);
     }
+    Ok(())
   }
 
   fn decode_u8_to_i32(
@@ -174,18 +177,20 @@ impl Decoder for BulkOperationPackedSingleBlock {
     values: &mut [i32],
     mut values_offset: usize,
     iterations: i32,
-  ) {
-    debug_assert!(
-      self.bits_per_value <= 32,
-      "Cannot decode {}-bits values into an i32 array",
-      self.bits_per_value
-    );
+  ) -> Result<()> {
+    if self.bits_per_value > 32 {
+      return Err(LuceneError::unsupported_operation(format!(
+        "Cannot decode {}-bits values into an i32 slice",
+        self.bits_per_value
+      )));
+    }
 
     for _ in 0..iterations {
       let block = Self::read_long(blocks, blocks_offset);
       blocks_offset += 8;
       values_offset = self.decode_to_i32(block, values, values_offset);
     }
+    Ok(())
   }
 }
 impl Encoder for BulkOperationPackedSingleBlock {

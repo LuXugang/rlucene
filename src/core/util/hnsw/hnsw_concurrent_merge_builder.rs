@@ -36,7 +36,7 @@ use crate::core::util::hnsw::hnsw_lock::HnswLock;
 use crate::core::util::hnsw::neighbor_queue::NeighborQueue;
 use crate::core::util::hnsw::on_heap_hnsw_graph::OnHeapHnswGraph;
 use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
-use crate::core::util::info_stream::{InfoStream, InfoStreamEnum, InfoStreamMT, NoOutput};
+use crate::core::util::info_stream::{InfoStream, InfoStreamMT, get_default_info_stream};
 
 /// Number of vectors a worker handles sequentially in one batch.
 const DEFAULT_BATCH_SIZE: usize = 2048;
@@ -75,7 +75,7 @@ where
     let hnsw_lock = HnswLock::new();
     let work_progress = Arc::new(AtomicUsize::new(0));
     let initialized_nodes = initialized_nodes.map(Arc::new);
-    let info_stream = Arc::new(InfoStreamEnum::NoOutput(NoOutput));
+    let info_stream = get_default_info_stream();
     let mut workers = Vec::with_capacity(num_workers);
     for _ in 0..num_workers {
       workers.push(ConcurrentMergeWorker::new(

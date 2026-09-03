@@ -38,7 +38,6 @@ use crate::core::search::field_comparator_source::FieldComparatorSourceEnum;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::sort_field_enum::SortFieldEnum;
-use crate::core::search::sorted_numeric_sort_field::NumericProvider;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
@@ -375,32 +374,32 @@ impl SortFiledBase for SortField {
           .ok_or_else(|| LuceneError::illegal_state("doc values reader is None"))?;
         let v = SProviderImpl2::new(field.to_string());
         Ok(Some(IndexSorterEnumSorter::String(StringSorter::new(
-          NumericProvider::NAME.to_string(),
+          Provider::NAME.to_string(),
           self.missing_value.clone(),
           self.reverse,
           v,
         ))))
       },
       SortFieldType::Int => Ok(Some(IndexSorterEnumSorter::Int(IntSorter::new(
-        NumericProvider::NAME.to_string(),
+        Provider::NAME.to_string(),
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
       )?))),
       SortFieldType::Long => Ok(Some(IndexSorterEnumSorter::Long(LongSorter::new(
-        NumericProvider::NAME.to_string(),
+        Provider::NAME.to_string(),
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
       )?))),
       SortFieldType::Double => Ok(Some(IndexSorterEnumSorter::Double(DoubleSorter::new(
-        NumericProvider::NAME.to_string(),
+        Provider::NAME.to_string(),
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
       )?))),
       SortFieldType::Float => Ok(Some(IndexSorterEnumSorter::Float(FloatSorter::new(
-        NumericProvider::NAME.to_string(),
+        Provider::NAME.to_string(),
         self.missing_value.clone(),
         self.reverse,
         make_get_value()?,
@@ -1032,6 +1031,42 @@ impl IndexSorter for IndexSorterEnumSorter {
     = CPEnumType1<NPImpl1, LR, SProviderImpl2>
   where
     LR: LeafReader;
+
+  fn get_comparable_providers<LR>(
+    &self,
+    readers: &[LR],
+  ) -> Result<Vec<Self::ComparableProvider<LR>>>
+  where
+    LR: LeafReader,
+  {
+    Ok(match self {
+      Self::Int(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(ComparableProviderEnum5::Int)
+        .collect(),
+      Self::Long(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(ComparableProviderEnum5::Long)
+        .collect(),
+      Self::Double(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(ComparableProviderEnum5::Double)
+        .collect(),
+      Self::Float(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(ComparableProviderEnum5::Float)
+        .collect(),
+      Self::String(sorter) => sorter
+        .get_comparable_providers(readers)?
+        .into_iter()
+        .map(ComparableProviderEnum5::String)
+        .collect(),
+    })
+  }
 
   fn get_comparable_providers_per_reader<LR>(
     &self,
