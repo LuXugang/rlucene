@@ -434,16 +434,17 @@ where
       self.merge_state.segment_info.max_doc()?
     );
 
+    let directory = self.directory;
     let segment_write_state = SegmentWriteState::new(
       self.merge_state.info_stream.clone(),
-      &self.directory,
+      &directory,
       self.merge_state.merge_field_infos.clone(),
       self.context,
     );
 
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let segment_read_state = SegmentReadState::with_suffix(
-      &self.directory,
+      &directory,
       self.merge_state.merge_field_infos.clone(),
       io_context,
       &segment_write_state.segment_suffix,
@@ -502,6 +503,13 @@ where
         )?;
       }
     }
+    if self.merge_state.merge_field_infos.has_term_vectors() {
+      Self::merge_with_logging(
+        || self.merge_term_vectors(),
+        "term vectors",
+        info_stream.as_ref(),
+      )?;
+    }
     Self::merge_with_logging_with_name(
       |sws, srs| self.merge_field_infos_with_state(sws, srs),
       &segment_write_state,
@@ -510,13 +518,6 @@ where
       num_merged,
       info_stream.as_ref(),
     )?;
-    if self.merge_state.merge_field_infos.has_term_vectors() {
-      Self::merge_with_logging(
-        || self.merge_term_vectors(),
-        "term vectors",
-        info_stream.as_ref(),
-      )?;
-    }
 
     Ok(())
   }

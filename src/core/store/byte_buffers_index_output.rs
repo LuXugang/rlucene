@@ -228,21 +228,15 @@ where
       let mut checksum = self.checksum.clone();
       self.last_checksum = {
         let delegate = self.delegate()?;
-        let (length, mut data) = delegate.to_buffer_list_ref();
-        if let Some(last_block) = data.pop() {
-          //  block length was limited by
-          // ByteBuffersDataOutput::LIMIT_MAX_BITS_PER_BLOCK
-          debug_assert!(last_block.get_ref().len() <= u32::MAX as usize);
-          let mut last_block_len = length;
-          for block in data {
-            //Each block has the same data length except for the last
-            // block. Therefore, we need to use
-            // last_block_len to get the data length
-            // of the last block.
-            last_block_len -= block.get_ref().len();
-            checksum.update(block.get_ref());
+        let (length, data) = delegate.to_buffer_list_ref();
+        let mut remaining = length;
+        for block in data {
+          if remaining == 0 {
+            break;
           }
-          checksum.update(&last_block.get_ref()[0..last_block_len]);
+          let block_length = remaining.min(block.get_ref().len());
+          checksum.update(&block.get_ref()[..block_length]);
+          remaining -= block_length;
         }
         checksum.finalize() as u64
       };

@@ -634,7 +634,8 @@ where
     let size = std::cmp::max(0, max_ord - min_ord + 1);
 
     if size > max_terms {
-      self.using_skip = true;
+      // Dense fields do not have a docs-with-field iterator to use for skipping.
+      self.using_skip = !self.dense;
     } else if !self.postings_init {
       self.init(doc_values, min_ord, max_ord)?;
     } else if size < self.postings.len() as i32 {

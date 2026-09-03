@@ -530,10 +530,16 @@ impl ByteBuffersDirectoryOutputOnClose {
 impl ByteBuffersIndexOutputOnClose for ByteBuffersDirectoryOutputOnClose {
   fn on_close(&mut self, output: ByteBuffersDataOutput) -> Result<()> {
     let mut entry = self.entry.lock();
-    // Defensive check for an output that was deleted before it was closed. In
-    // that case the detached entry must not publish content or notify a custom
-    // output conversion strategy.
-    if entry.deleted {
+    // Defensive check for an output that was deleted before it was closed. The
+    // NRT-specific strategy must not publish deleted content or update cache
+    // accounting, while ordinary custom strategies still receive their close
+    // callback as in Java's ByteBuffersDirectory.
+    if entry.deleted
+      && matches!(
+        self.output_to_input,
+        BBOutputToInput::NRTCachingDirectory(_)
+      )
+    {
       return Ok(());
     }
     let cached_length = output.size();

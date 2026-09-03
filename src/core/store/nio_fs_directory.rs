@@ -24,12 +24,9 @@ use parking_lot::RwLock;
 
 use crate::core::store::fs_directory::FSDirectory;
 use crate::core::store::fs_directory_base::FSDirectoryBase;
-use crate::core::store::index_input::get_full_slice_description;
 use crate::core::store::lock_factory::LockFactory;
 use crate::core::store::native_fs_lock_factory::NativeFSLockFactory;
-use crate::core::store::{
-  BUFFER_SIZE, BufferedIndexInput, BufferedIndexInputBase, IOContext, fs_lock_factory,
-};
+use crate::core::store::{BufferedIndexInput, BufferedIndexInputBase, IOContext, fs_lock_factory};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ReadableCursorExt, TryIntoInt};
@@ -87,16 +84,16 @@ impl FSDirectoryBase for NIOFSDirectory {
   fn open_input(&self, name: &str, context: &IOContext, path: &Path) -> Result<Self::Output> {
     let file_path = path.join(name);
     let file_name = file_path.to_string_lossy().to_string();
-    let file = match File::open(file_path) {
+    let file = match File::open(&file_path) {
       Ok(file) => file,
       Err(err) => {
         return Err(LuceneError::io_with_path(file_name, err));
       },
     };
-    let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", path.display());
-    // let resource_desc_string = resource_desc.to_string();
-    let index_input = NIOFSIndexInput::new(file, &resource_desc)?;
-    BufferedIndexInput::with_io_context(index_input, &resource_desc, context)
+    let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", file_path.display());
+    let buffer_size = BufferedIndexInput::<NIOFSIndexInput>::buffer_size(context);
+    let index_input = NIOFSIndexInput::new(file, &resource_desc, buffer_size)?;
+    BufferedIndexInput::with_buffer_size(index_input, &resource_desc, buffer_size)
   }
 }
 
@@ -132,7 +129,7 @@ struct NIOFSIndexInputShared {
 }
 
 impl NIOFSIndexInput {
-  pub fn new(file: File, resource_desc: &str) -> Result<Self> {
+  pub fn new(file: File, resource_desc: &str, buffer_size: usize) -> Result<Self> {
     let metadata = file.metadata()?;
     let len = metadata.len().try_convert()?;
     Ok(Self {
@@ -143,7 +140,7 @@ impl NIOFSIndexInput {
       off: 0,
       end: len,
       resource_desc: resource_desc.to_string(),
-      buffer_size: BUFFER_SIZE,
+      buffer_size,
     })
   }
   fn with_range(
@@ -314,7 +311,7 @@ impl BufferedIndexInputBase for NIOFSIndexInput {
       )));
     }
 
-    let resource_desc = get_full_slice_description(slice_description);
+    let resource_desc = format!("{} [slice={slice_description}]", self);
     let sub_index_input = NIOFSIndexInput::with_range(
       Arc::clone(&self.shared),
       self.off + offset,
