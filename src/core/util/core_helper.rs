@@ -27,6 +27,30 @@ use wide::{i32x8, u8x32};
 
 pub struct CoreHelper;
 impl CoreHelper {
+  /// Compares like Java's `Float.compare`: all NaNs are equal and greater than
+  /// positive infinity, and negative zero sorts before positive zero.
+  #[inline]
+  pub fn compare_f32(a: f32, b: f32) -> Ordering {
+    match (a.is_nan(), b.is_nan()) {
+      (true, true) => Ordering::Equal,
+      (true, false) => Ordering::Greater,
+      (false, true) => Ordering::Less,
+      (false, false) => a.total_cmp(&b),
+    }
+  }
+
+  /// Compares like Java's `Double.compare`: all NaNs are equal and greater than
+  /// positive infinity, and negative zero sorts before positive zero.
+  #[inline]
+  pub fn compare_f64(a: f64, b: f64) -> Ordering {
+    match (a.is_nan(), b.is_nan()) {
+      (true, true) => Ordering::Equal,
+      (true, false) => Ordering::Greater,
+      (false, true) => Ordering::Less,
+      (false, false) => a.total_cmp(&b),
+    }
+  }
+
   pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.
 The purpose of implementing the Clone trait is to make it could be used with Cow";
   pub fn check_from_index_size(from_index: usize, size: usize, length: usize) -> Result<usize> {

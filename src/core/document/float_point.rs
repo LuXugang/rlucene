@@ -28,6 +28,7 @@ use crate::core::search::point_in_set_query::{PointInSetBase, PointInSetQuery};
 #[cfg(debug_assertions)]
 use crate::core::search::point_range_query::check_args;
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
+use crate::core::util::CoreHelper;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -206,7 +207,7 @@ impl FloatPoint {
     V: AsRef<[f32]>,
   {
     let mut sorted_values = values.as_ref().to_vec();
-    sorted_values.sort_by(|a, b| a.total_cmp(b));
+    sorted_values.sort_by(|a, b| CoreHelper::compare_f32(*a, *b));
 
     PointInSetQuery::new(
       field.into(),

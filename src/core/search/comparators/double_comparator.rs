@@ -28,10 +28,10 @@ use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
-use crate::core::util::ToInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
+use crate::core::util::{CoreHelper, ToInt};
 
 /// Comparator based on [`f64::partial_cmp`] (equivalent to Java's `Double.compare`) for `num_hits`.
 ///
@@ -75,7 +75,7 @@ impl FieldComparator for DoubleComparator {
   fn compare(&self, slot1: usize, slot2: usize) -> i32 {
     let slot1_v = self.values[slot1];
     let slot2_v = self.values[slot2];
-    slot1_v.total_cmp(&slot2_v).to_int()
+    CoreHelper::compare_f64(slot1_v, slot2_v).to_int()
   }
 
   fn set_top_value(&mut self, value: Self::V) -> Result<()> {
@@ -213,7 +213,7 @@ where
     S: Scorable + ?Sized,
   {
     let v = self.get_value_for_doc(doc, &mut comparator.base)?;
-    Ok(comparator.bottom.total_cmp(&v).to_int())
+    Ok(CoreHelper::compare_f64(comparator.bottom, v).to_int())
   }
 
   fn compare_top<S>(
@@ -226,7 +226,7 @@ where
     S: Scorable + ?Sized,
   {
     let v = self.get_value_for_doc(doc, &mut comparator.base)?;
-    Ok(comparator.top_value.total_cmp(&v).to_int())
+    Ok(CoreHelper::compare_f64(comparator.top_value, v).to_int())
   }
 
   fn copy<S>(

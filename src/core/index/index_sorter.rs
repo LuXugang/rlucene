@@ -21,12 +21,12 @@ use crate::core::index::sorted_doc_values::SortedDocValues;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::sort_field::MissingValueEnum;
-use crate::core::util::ToInt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::packed::PackedInts;
+use crate::core::util::{CoreHelper, ToInt};
 use std::rc::Rc;
 /// Handles how documents should be sorted in an index, both within a segment
 /// and between segments.
@@ -650,12 +650,7 @@ impl DocComparator for DocComparatorImplFloat {
   fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
     let v1 = self.values[doc_id1];
     let v2 = self.values[doc_id2];
-    let ord = match (v1.is_nan(), v2.is_nan()) {
-      (true, true) => 0,
-      (true, false) => 1,
-      (false, true) => -1,
-      (false, false) => v1.total_cmp(&v2).to_int(),
-    };
+    let ord = CoreHelper::compare_f32(v1, v2).to_int();
     self.reverse_mul * ord
   }
 }
