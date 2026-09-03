@@ -79,7 +79,7 @@ impl TestMMapDirectory {
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
 
     let result = (|| -> Result<()> {
-      let mut out = dir.create_output("test", &io_context)?;
+      let mut out = dir.create_output("test", io_context)?;
       let write_result = (|| -> Result<()> {
         for _ in 0..n_ints {
           out.write_int(random.random())?;
@@ -90,7 +90,7 @@ impl TestMMapDirectory {
 
       let iters = random_multiplier() * if is_night_mode() { 50 } else { 10 };
       for _ in 0..iters {
-        let input = dir.open_input("test", &io_context)?;
+        let input = dir.open_input("test", io_context)?;
         let mut clone = input.try_clone()?;
         let mut accum = vec![0u8; n_ints * BitUtil::INT_BYTES];
         let shotgun = Arc::new(Barrier::new(2));
@@ -134,7 +134,7 @@ impl TestMMapDirectory {
     let dir = MMapDirectory::new(temp_dir.path().to_path_buf())?;
 
     {
-      let mut out = dir.create_output("test", &io_context)?;
+      let mut out = dir.create_output("test", io_context)?;
       out.write_bytes_with_len(&bytes, bytes.len())?;
     }
 

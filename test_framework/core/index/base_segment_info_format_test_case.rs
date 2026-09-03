@@ -85,10 +85,10 @@ pub trait BaseSegmentInfoFormatTestCase:
     info.set_files(HashSet::new())?;
     codec
       .segment_info_format()
-      .write(dir.as_ref(), &mut info, &io_context)?;
+      .write(dir.as_ref(), &mut info, io_context)?;
     let info2 = codec
       .segment_info_format()
-      .read(dir.clone(), "_123", &id, &io_context)?;
+      .read(dir.clone(), "_123", &id, io_context)?;
     assert_eq!(*info.files()?, *info2.files()?);
     dir.as_ref().close()?;
     Ok(())
@@ -120,10 +120,10 @@ pub trait BaseSegmentInfoFormatTestCase:
     info.set_files(HashSet::new())?;
     codec
       .segment_info_format()
-      .write(dir.as_ref(), &mut info, &io_context)?;
+      .write(dir.as_ref(), &mut info, io_context)?;
     let info2 = codec
       .segment_info_format()
-      .read(dir.clone(), "_123", &id, &io_context)?;
+      .read(dir.clone(), "_123", &id, io_context)?;
     assert_eq!(info.get_has_blocks(), info2.get_has_blocks());
     dir.as_ref().close()?;
     Ok(())
@@ -157,7 +157,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     info.set_files(original_files.clone())?;
     codec
       .segment_info_format()
-      .write(dir.as_ref(), &mut info, &io_context)?;
+      .write(dir.as_ref(), &mut info, io_context)?;
     let modified_files = info.files()?;
     assert!(modified_files.is_superset(&original_files));
     assert!(
@@ -166,7 +166,7 @@ pub trait BaseSegmentInfoFormatTestCase:
     );
     let info2 = codec
       .segment_info_format()
-      .read(dir.clone(), "_123", &id, &io_context)?;
+      .read(dir.clone(), "_123", &id, io_context)?;
     assert_eq!(*info.files()?, *info2.files()?);
     // `SegmentInfo::files` returns an immutably borrowed `HashSet`, so mutation
     // cannot be attempted through this reference.
@@ -209,10 +209,10 @@ pub trait BaseSegmentInfoFormatTestCase:
     info.set_files(HashSet::new())?;
     codec
       .segment_info_format()
-      .write(dir.as_ref(), &mut info, &io_context)?;
+      .write(dir.as_ref(), &mut info, io_context)?;
     let info2 = codec
       .segment_info_format()
-      .read(dir.clone(), "_123", &id, &io_context)?;
+      .read(dir.clone(), "_123", &id, io_context)?;
     assert_eq!(diagnostics, *info2.get_diagnostics());
     // `SegmentInfo::get_diagnostics` returns an immutably borrowed `HashMap`,
     // so mutation cannot be attempted through this reference.
@@ -255,10 +255,10 @@ pub trait BaseSegmentInfoFormatTestCase:
     info.set_files(HashSet::new())?;
     codec
       .segment_info_format()
-      .write(dir.as_ref(), &mut info, &io_context)?;
+      .write(dir.as_ref(), &mut info, io_context)?;
     let info2 = codec
       .segment_info_format()
-      .read(dir.clone(), "_123", &id, &io_context)?;
+      .read(dir.clone(), "_123", &id, io_context)?;
     assert_eq!(attributes, *info2.get_attributes()?);
     // 在 Rust Lucene 中，attributes
     // 的返回值是不可变的，因此不需要检查修改是否被禁止。
@@ -301,10 +301,10 @@ pub trait BaseSegmentInfoFormatTestCase:
     info.set_files(HashSet::new())?;
     codec
       .segment_info_format()
-      .write(dir.as_ref(), &mut info, &io_context)?;
+      .write(dir.as_ref(), &mut info, io_context)?;
     let info2 = codec
       .segment_info_format()
-      .read(dir.clone(), "_123", &id, &io_context)?;
+      .read(dir.clone(), "_123", &id, io_context)?;
     assert_eq!(id, info2.get_id().as_slice());
 
     dir.as_ref().close()?;
@@ -339,10 +339,10 @@ pub trait BaseSegmentInfoFormatTestCase:
         info.set_files(HashSet::new())?;
         codec
           .segment_info_format()
-          .write(dir.as_ref(), &mut info, &io_context)?;
+          .write(dir.as_ref(), &mut info, io_context)?;
         let info2 = codec
           .segment_info_format()
-          .read(dir.clone(), "_123", &id, &io_context)?;
+          .read(dir.clone(), "_123", &id, io_context)?;
         assert!(info2.get_version_ref().is_some());
         assert_eq!(*info2.get_version_ref().unwrap(), version.clone());
         if self.supports_min_version() {
@@ -527,10 +527,10 @@ pub trait BaseSegmentInfoFormatTestCase:
       info.set_files(HashSet::new())?;
       codec
         .segment_info_format()
-        .write(dir.as_ref(), &mut info, &io_context)?;
+        .write(dir.as_ref(), &mut info, io_context)?;
       let info2 = codec
         .segment_info_format()
-        .read(dir.clone(), "_123", &id, &io_context)?;
+        .read(dir.clone(), "_123", &id, io_context)?;
       if info2.get_index_sort().is_some() {
         assert!(info2.get_index_sort().is_some());
         assert!(*sort_clone.as_ref().unwrap() == info2.get_index_sort().unwrap());
@@ -777,7 +777,7 @@ pub trait BaseSegmentInfoFormatTestCase:
       for j in 0..num_files {
         let file = IndexFileNames::segment_file_name(&name, "", &j.to_string());
         files.insert(file.clone());
-        let mut output = dir.create_output(&file, &io_context)?;
+        let mut output = dir.create_output(&file, io_context)?;
         output.close()?;
       }
       let mut diagnostics = HashMap::new();
@@ -815,10 +815,10 @@ pub trait BaseSegmentInfoFormatTestCase:
       info.set_files(files.clone())?;
       codec
         .segment_info_format()
-        .write(dir.as_ref(), &mut info, &io_context)?;
+        .write(dir.as_ref(), &mut info, io_context)?;
       let info2 = codec
         .segment_info_format()
-        .read(dir.clone(), &name, &id, &io_context)?;
+        .read(dir.clone(), &name, &id, io_context)?;
       Self::assert_equals(&info, &info2)?;
       dir.as_ref().close()?;
     }

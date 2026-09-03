@@ -3486,7 +3486,7 @@ fn test_leftover_temp_files() -> Result<()> {
 
   let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
   let temp_name = {
-    let mut out = dir.create_temp_output("_0", "bkd", &io_context)?;
+    let mut out = dir.create_temp_output("_0", "bkd", io_context)?;
     let temp_name = out.get_name().to_string();
     out.close()?;
     temp_name
@@ -3497,7 +3497,7 @@ fn test_leftover_temp_files() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   assert!(
-    dir.open_input(&temp_name, &io_context).is_err(),
+    dir.open_input(&temp_name, io_context).is_err(),
     "did not hit error"
   );
   writer.close()?;

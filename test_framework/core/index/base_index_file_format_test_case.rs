@@ -922,7 +922,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
       Arc::clone(&field_infos),
       &flush_context,
     );
-    let read_state = SegmentReadState::new(dir.as_ref(), Arc::clone(&field_infos), &read_context);
+    let read_state = SegmentReadState::new(dir.as_ref(), Arc::clone(&field_infos), read_context);
 
     // PostingsFormat
     let postings_format = codec.postings_format();
@@ -989,7 +989,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
       dir.as_ref(),
       &segment_info,
       Arc::clone(&field_infos),
-      &read_context,
+      read_context,
     )?;
     let body_result = producer.close().and_then(|_| producer.close());
     IOUtils::use_or_suppress_result(body_result, producer.close())?;
@@ -1011,7 +1011,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
       dir.as_ref(),
       &segment_info,
       Arc::clone(&field_infos),
-      &read_context,
+      read_context,
     )?;
     let body_result = producer.close().and_then(|_| producer.close());
     IOUtils::use_or_suppress_result(body_result, producer.close())?;

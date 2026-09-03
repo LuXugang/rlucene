@@ -331,7 +331,7 @@ pub trait BaseCompoundFormatTestCase:
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
-    let result = cfs.create_output("bogus", &io_context);
+    let result = cfs.create_output("bogus", io_context);
     assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
     Ok(())
   }

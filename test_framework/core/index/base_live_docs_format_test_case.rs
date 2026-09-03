@@ -143,7 +143,7 @@ pub trait BaseLiveDocsFormatTestCase {
       dir.as_ref(),
       &sci,
       max_doc - num_live_docs,
-      &io_context,
+      io_context,
     )?;
 
     sci = SegmentCommitInfo::new(

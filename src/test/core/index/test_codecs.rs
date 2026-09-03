@@ -120,7 +120,7 @@ fn test_fixed_postings() -> Result<()> {
   write(&si, Arc::clone(&field_infos), dir.as_ref(), fields)?;
 
   let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
-  let read_state = SegmentReadState::new(dir.as_ref(), field_infos, &io_context);
+  let read_state = SegmentReadState::new(dir.as_ref(), field_infos, io_context);
   let reader = codec.postings_format().fields_producer(&read_state, &si)?;
 
   let mut fields_enum = reader.iterator()?;
@@ -199,7 +199,7 @@ fn test_random_postings() -> Result<()> {
   write(&si, Arc::clone(&field_infos), dir.as_ref(), fields.clone())?;
 
   let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
-  let read_state = SegmentReadState::new(dir.as_ref(), field_infos, &io_context);
+  let read_state = SegmentReadState::new(dir.as_ref(), field_infos, io_context);
   let terms = codec.postings_format().fields_producer(&read_state, &si)?;
 
   let seeds: Vec<u64> = (0..NUM_TEST_THREADS - 1)
@@ -1013,7 +1013,7 @@ fn write(
 ) -> Result<()> {
   let codec = codec::get_default();
   let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
-  let state = SegmentWriteState::new(get_default_info_stream(), dir, field_infos, &io_context);
+  let state = SegmentWriteState::new(get_default_info_stream(), dir, field_infos, io_context);
   let mut consumer = codec.postings_format().fields_consumer(&state, si)?;
   let fake_norms = NormsProducerImpl {
     max_doc: si.max_doc()?,

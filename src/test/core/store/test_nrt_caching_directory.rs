@@ -307,9 +307,9 @@ impl TestNRTCachingDirectory {
       NRTCachingDirectoryHook::AssertCacheWrite(AssertCacheWriteNRTCachingDirectory::new(false)),
     );
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
-    let mut out = nrt_dir2.create_output("foo", &io_context)?;
+    let mut out = nrt_dir2.create_output("foo", io_context)?;
     out.close()?;
-    let mut out = nrt_dir2.create_temp_output("bar", "baz", &io_context)?;
+    let mut out = nrt_dir2.create_temp_output("bar", "baz", io_context)?;
     out.close()?;
 
     dir.close()

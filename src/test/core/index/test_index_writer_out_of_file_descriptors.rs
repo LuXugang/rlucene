@@ -204,7 +204,7 @@ fn test() -> Result<()> {
       let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
       for file in dir.list_all()? {
         if file.starts_with(IndexFileNames::SEGMENTS) || CODEC_FILE_PATTERN.is_match(&file) {
-          copy.copy_from(dir.as_ref(), &file, &file, &io_context)?;
+          copy.copy_from(dir.as_ref(), &file, &file, io_context)?;
           files.insert(file);
         }
       }

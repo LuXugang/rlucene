@@ -119,9 +119,9 @@ where
   // Copy all files from dir1 to dirCopy, except victim which we copy from dir2:
   for name in dir1.list_all()? {
     if name != victim {
-      dir_copy.copy_from(dir1.as_ref(), &name, &name, &context)?;
+      dir_copy.copy_from(dir1.as_ref(), &name, &name, context)?;
     } else {
-      dir_copy.copy_from(dir2.as_ref(), &name, &name, &context)?;
+      dir_copy.copy_from(dir2.as_ref(), &name, &name, context)?;
     }
     dir_copy.sync(&[name])?;
   }

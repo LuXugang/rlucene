@@ -151,7 +151,7 @@ pub trait BaseDirectoryTestCase {
 
     assert!(!dir.list_all()?.contains(&file.to_string()));
 
-    let mut output = dir.create_output(file, &io_context)?;
+    let mut output = dir.create_output(file, io_context)?;
     output.close()?;
     assert!(dir.list_all()?.contains(&file.to_string()));
 
@@ -465,7 +465,7 @@ pub trait BaseDirectoryTestCase {
     let dir = self.get_directory(temp_dir.keep(), random)?;
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
-      let mut out = dir.create_output("Floats", &io_context)?;
+      let mut out = dir.create_output("Floats", io_context)?;
       out.write_int(3f32.to_bits() as i32)?;
       out.write_int(f32::MAX.to_bits() as i32)?;
       out.write_int((-3f32).to_bits() as i32)?;
@@ -473,7 +473,7 @@ pub trait BaseDirectoryTestCase {
     }
 
     {
-      let mut input = dir.open_input("Floats", &io_context)?;
+      let mut input = dir.open_input("Floats", io_context)?;
       assert_eq!(12, IndexInput::length(&input)?);
       let mut floats = vec![0.0f32; 4];
       input.read_floats(&mut floats, 1, 3)?;
@@ -1269,13 +1269,13 @@ pub trait BaseDirectoryTestCase {
     random.fill_bytes(&mut data);
     let data_clone = data.clone();
 
-    let mut output = dir.create_output("data", &io_context)?;
+    let mut output = dir.create_output("data", io_context)?;
     output.write_bytes_with_len(&data, data_len)?;
     output.close()?;
 
-    let mut input = dir.open_input("data", &io_context)?;
+    let mut input = dir.open_input("data", io_context)?;
 
-    let mut output_header = dir.create_output("header", &io_context)?;
+    let mut output_header = dir.create_output("header", io_context)?;
     // Copy our header.
     output_header.copy_bytes(&mut input, header_len)?;
     output_header.close()?;
@@ -1293,7 +1293,7 @@ pub trait BaseDirectoryTestCase {
         let handle = thread::spawn(move || -> Result<()> {
           barrier_clone.wait();
           let file_name = format!("copy{}", i);
-          let mut dst = dir_clone.create_output(&file_name, &io_context)?;
+          let mut dst = dir_clone.create_output(&file_name, io_context)?;
           let src_length = IndexInput::length(&src).expect("source length");
           dst.copy_bytes(&mut src, src_length - header_len)?;
           dst.close()?;
@@ -1312,7 +1312,7 @@ pub trait BaseDirectoryTestCase {
       let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
       let file_name = format!("copy{}", i);
       let mut data_copy = vec![0u8; data_len];
-      let mut input_copy = dir.open_input(&file_name, &io_context)?;
+      let mut input_copy = dir.open_input(&file_name, io_context)?;
 
       data_copy.copy_from(&data_clone[..header_len], 0);
 
@@ -1892,14 +1892,14 @@ pub trait BaseDirectoryTestCase {
     let name = "file";
 
     {
-      let mut output = dir.create_output(name, &io_context)?;
+      let mut output = dir.create_output(name, io_context)?;
       assert_eq!(output.get_name(), name);
       output.close()?;
     }
 
     {
       // Attempt to create the same file again, which should fail
-      let result = dir.create_output(name, &io_context);
+      let result = dir.create_output(name, io_context);
       assert!(
         matches!(result, Err(LuceneError::IoWithPath { source, .. }) if source.kind() == ErrorKind::AlreadyExists)
       );
@@ -1907,7 +1907,7 @@ pub trait BaseDirectoryTestCase {
 
     // Delete the file and attempt to recreate it
     dir.delete_file(name)?;
-    let mut output = dir.create_output(name, &io_context)?;
+    let mut output = dir.create_output(name, io_context)?;
     output.close()?;
 
     dir.close()
@@ -1921,7 +1921,7 @@ pub trait BaseDirectoryTestCase {
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
-      let mut out = dir.create_output("a", &io_context)?;
+      let mut out = dir.create_output("a", io_context)?;
       for _ in 0..1024 {
         out.write_byte(0)?;
       }
@@ -1929,7 +1929,7 @@ pub trait BaseDirectoryTestCase {
     }
 
     {
-      let mut input = dir.open_input("a", &io_context)?;
+      let mut input = dir.open_input("a", io_context)?;
       input.seek(100)?;
       assert_eq!(100, input.get_file_pointer()?);
 
@@ -1949,7 +1949,7 @@ pub trait BaseDirectoryTestCase {
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     // Write a file with 1024 bytes
     {
-      let mut out = dir.create_output("a", &io_context)?;
+      let mut out = dir.create_output("a", io_context)?;
       for _ in 0..1024 {
         out.write_byte(0)?;
       }
@@ -1958,7 +1958,7 @@ pub trait BaseDirectoryTestCase {
 
     // Test seeking within and beyond the file's end
     {
-      let mut input = dir.open_input("a", &io_context)?;
+      let mut input = dir.open_input("a", io_context)?;
       input.seek(100)?;
       assert_eq!(100, input.get_file_pointer()?);
 
@@ -1997,7 +1997,7 @@ pub trait BaseDirectoryTestCase {
       if random.random_range(0..5) == 1 {
         // Create a temporary output
         {
-          let mut output = dir.create_temp_output(&name, "foo", &io_context)?;
+          let mut output = dir.create_temp_output(&name, "foo", io_context)?;
           let output_name = output.get_name().to_string();
           names.insert(output_name);
           output.close()?;
@@ -2005,7 +2005,7 @@ pub trait BaseDirectoryTestCase {
       } else if !names.contains(name.as_str()) {
         // Create a normal output
         {
-          let mut output = dir.create_output(&name, &io_context)?;
+          let mut output = dir.create_output(&name, io_context)?;
           let output_name = output.get_name().to_string();
           names.insert(output_name);
           output.close()?;
@@ -2031,7 +2031,7 @@ pub trait BaseDirectoryTestCase {
     let dir = self.get_directory(temp_dir.path().to_path_buf(), random)?;
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
-      let mut out = dir.create_output("test", &io_context)?;
+      let mut out = dir.create_output("test", io_context)?;
       out.write_byte(43u8)?;
       out.write_short(12345i16)?;
       out.write_int(1234567890i32)?;
@@ -2044,7 +2044,7 @@ pub trait BaseDirectoryTestCase {
 
     let mut restored = [0i64; 4];
     {
-      let mut input = dir.open_input("test", &io_context)?;
+      let mut input = dir.open_input("test", io_context)?;
       assert_eq!(43, DataInput::read_byte(&mut input)? as i32);
       assert_eq!(12345, DataInput::read_short(&mut input)? as i32);
       assert_eq!(1234567890, DataInput::read_int(&mut input)?);
@@ -2082,11 +2082,11 @@ pub trait BaseDirectoryTestCase {
     let values_len = values.len();
     let limit = random.random_range(1..size);
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
-    let mut out = dir.create_output("test", &io_context)?;
+    let mut out = dir.create_output("test", io_context)?;
     write_group_vints_i64(&mut out, &mut values[..values_len], limit as i32)?;
     out.close()?;
     {
-      let mut input = dir.open_input("test", &io_context)?;
+      let mut input = dir.open_input("test", io_context)?;
       GroupVIntUtil::read_group_vints_i64(&mut input, &mut restore, limit)?;
       for i in 0..limit {
         assert_eq!(values[i], restore[i]);
@@ -2135,8 +2135,8 @@ pub trait BaseDirectoryTestCase {
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     // Create output files
     {
-      let mut group_vint_out = dir.create_output("group-varint", &io_context)?;
-      let mut vint_out = dir.create_output("vint", &io_context)?;
+      let mut group_vint_out = dir.create_output("group-varint", io_context)?;
+      let mut vint_out = dir.create_output("vint", io_context)?;
 
       // Encode
       for num_values in num_values_array.iter_mut().take(iterations) {
@@ -2161,8 +2161,8 @@ pub trait BaseDirectoryTestCase {
 
     // Decode
     {
-      let mut group_vint_in = dir.open_input("group-varint", &io_context)?;
-      let mut vint_in = dir.open_input("vint", &io_context)?;
+      let mut group_vint_in = dir.open_input("group-varint", io_context)?;
+      let mut vint_in = dir.open_input("vint", io_context)?;
       for &num_values in num_values_array.iter().take(iterations) {
         GroupVIntUtil::read_group_vints_i64(&mut group_vint_in, &mut values, num_values)?;
 
@@ -2208,12 +2208,12 @@ pub trait BaseDirectoryTestCase {
     random.fill_bytes(&mut arr[..]);
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
-      let mut out = dir.create_output("temp.bin", &io_context)?;
+      let mut out = dir.create_output("temp.bin", io_context)?;
       out.write_bytes_with_len(&arr, arr.len())?;
       out.close()?;
     }
 
-    let mut orig = Some(dir.open_input("temp.bin", &io_context)?);
+    let mut orig = Some(dir.open_input("temp.bin", io_context)?);
     let mut input = if random.random_bool(0.5) {
       orig.as_ref().expect("original input").try_clone()?
     } else {
@@ -2259,14 +2259,14 @@ pub trait BaseDirectoryTestCase {
     random.fill_bytes(&mut arr[..]);
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     {
-      let mut out = dir.create_output("temp.bin", &io_context)?;
+      let mut out = dir.create_output("temp.bin", io_context)?;
       out.write_bytes_with_len(&arr, total_length)?;
       out.close()?;
     }
 
     let mut temp = vec![0u8; 2048];
 
-    let mut orig = Some(dir.open_input("temp.bin", &io_context)?);
+    let mut orig = Some(dir.open_input("temp.bin", io_context)?);
     let mut input = if start_offset == 0 {
       orig.as_ref().expect("original input").try_clone()?
     } else {
@@ -2350,14 +2350,14 @@ pub trait BaseDirectoryTestCase {
       random.fill_bytes(&mut arr);
       let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
 
-      let mut out = dir.create_output("temp.bin", &io_context)?;
+      let mut out = dir.create_output("temp.bin", io_context)?;
       let write_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         out.write_bytes_with_len(&arr, arr.len())
       }));
       let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| out.close()));
       IOUtils::use_or_suppress_caught_result(write_result, close_result)?;
 
-      let orig = dir.open_input("temp.bin", &io_context)?;
+      let orig = dir.open_input("temp.bin", io_context)?;
       let input_result =
         std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
           let input = if start_offset == 0 {

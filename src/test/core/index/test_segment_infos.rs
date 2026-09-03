@@ -107,7 +107,7 @@ fn test_versions_one_segment() -> Result<()> {
   info.set_files(HashSet::new())?;
   codec
     .segment_info_format()
-    .write(directory.as_ref(), &mut info, &io_context)?;
+    .write(directory.as_ref(), &mut info, io_context)?;
 
   let commit_info = SegmentCommitInfo::new(info, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
 
@@ -150,7 +150,7 @@ fn test_versions_two_segments() -> Result<()> {
   info_0.set_files(HashSet::new())?;
   codec
     .segment_info_format()
-    .write(directory.as_ref(), &mut info_0, &io_context)?;
+    .write(directory.as_ref(), &mut info_0, io_context)?;
 
   let commit_info_0 =
     SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
@@ -175,7 +175,7 @@ fn test_versions_two_segments() -> Result<()> {
   info_1.set_files(HashSet::new())?;
   codec
     .segment_info_format()
-    .write(directory.as_ref(), &mut info_1, &io_context)?;
+    .write(directory.as_ref(), &mut info_1, io_context)?;
 
   let commit_info_1 =
     SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
@@ -415,7 +415,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
   info_0.set_files(HashSet::new())?;
   codec
     .segment_info_format()
-    .write(dir.as_ref(), &mut info_0, &io_context)?;
+    .write(dir.as_ref(), &mut info_0, io_context)?;
   let commit_info_0 =
     SegmentCommitInfo::new(info_0, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
   sis.add(commit_info_0)?;
@@ -438,7 +438,7 @@ fn test_bit_flipped_triggers_corrupt_index_exception() -> Result<()> {
   info_1.set_files(HashSet::new())?;
   codec
     .segment_info_format()
-    .write(dir.as_ref(), &mut info_1, &io_context)?;
+    .write(dir.as_ref(), &mut info_1, io_context)?;
   let commit_info_1 =
     SegmentCommitInfo::new(info_1, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
   sis.add(commit_info_1)?;

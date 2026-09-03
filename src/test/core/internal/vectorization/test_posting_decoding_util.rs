@@ -44,7 +44,7 @@ fn test_duel_split_ints() -> Result<()> {
 
   let body_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
-    let mut out = dir.create_output("tests.bin", &io_context)?;
+    let mut out = dir.create_output("tests.bin", io_context)?;
     let write_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       out.write_int(random.random())?;
       for _ in 0..ForUtil::BLOCK_SIZE {
@@ -55,7 +55,7 @@ fn test_duel_split_ints() -> Result<()> {
     let close_result = catch_unwind(AssertUnwindSafe(|| out.close()));
     IOUtils::use_or_suppress_caught_result(write_result, close_result)?;
 
-    let input = dir.open_input("tests.bin", &io_context)?;
+    let input = dir.open_input("tests.bin", io_context)?;
     let read_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let mut expected_b = vec![0i32; ForUtil::BLOCK_SIZE];
       let mut expected_c = vec![0i32; ForUtil::BLOCK_SIZE];

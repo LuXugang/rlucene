@@ -141,9 +141,9 @@ where
     let read_once_context = IOContext::read_once_io_context()?;
     for name in dir.list_all()? {
       if name != victim {
-        dir_copy.copy_from(dir.as_ref(), &name, &name, &default_context)?;
+        dir_copy.copy_from(dir.as_ref(), &name, &name, default_context)?;
       } else {
-        let mut out = dir_copy.create_output(&name, &default_context)?;
+        let mut out = dir_copy.create_output(&name, default_context)?;
         let mut input = match dir.open_input(&name, &read_once_context) {
           Ok(input) => input,
           Err(err) => {
