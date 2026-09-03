@@ -63,7 +63,7 @@ impl DirectReader {
       56 => DirectPackedEnum::Direct56(DirectPackedReader56::new(slice, offset)),
       64 => DirectPackedEnum::Direct64(DirectPackedReader64::new(slice, offset)),
       _ => {
-        return Err(LuceneError::illegal_state(format!(
+        return Err(LuceneError::illegal_argument(format!(
           "unsupported bits_per_value: {}",
           bits_per_value
         )));

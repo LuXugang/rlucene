@@ -28,6 +28,7 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::top_docs::TopDocsLike;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sloppy_math::SloppyMath;
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
@@ -97,6 +98,8 @@ fn test_distance_sort() -> Result<()> {
   let d = td.score_docs()[2].as_field().unwrap();
   assert_eq!(5285.881528419706, *d.fields[0].as_f64().unwrap());
 
+  searcher.get_index_reader().close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -145,6 +148,8 @@ fn test_missing_last() -> Result<()> {
   let d = td.score_docs()[2].as_field().unwrap();
   assert_eq!(f64::INFINITY, *d.fields[0].as_f64().unwrap());
 
+  searcher.get_index_reader().close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -337,6 +342,8 @@ where
     }
   }
 
+  searcher.get_index_reader().close()?;
   writer.close(random)?;
+  dir.close()?;
   Ok(())
 }

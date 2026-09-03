@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::IO_CONTEXT_DEFAULT;
+use crate::core::util::close::{Closeable, CloseableRef};
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_directory, new_directory_shared, random,
 };
@@ -49,6 +50,7 @@ fn test_simple() -> Result<()> {
     writer.add(1)?;
     writer.add(2)?;
     writer.finish()?;
+    output.close()?;
   }
   let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
   let slice = input.random_access_slice(0, input.length()?)?;
@@ -58,6 +60,8 @@ fn test_simple() -> Result<()> {
   assert_eq!(2, reader.get_mut(2)?);
   assert_eq!(1, reader.get_mut(3)?);
   assert_eq!(2, reader.get_mut(4)?);
+  input.close()?;
+  dir.close()?;
   Ok(())
 }
 /// test error is delivered if you add the wrong number of values.
@@ -77,7 +81,9 @@ fn test_not_enough_values() -> Result<()> {
     let err = writer.finish().unwrap_err();
     assert!(err.is_illegal_state_error());
     assert!(err.to_string().starts_with("Wrong number of values added"));
+    output.close()?;
   }
+  dir.close()?;
   Ok(())
 }
 
@@ -88,6 +94,7 @@ fn test_random() -> Result<()> {
   for bpv in 1..=64 {
     do_test_bpv(&mut random, &dir, bpv, 0, false)?;
   }
+  dir.close()?;
   Ok(())
 }
 
@@ -99,6 +106,7 @@ fn test_random_with_offset() -> Result<()> {
   for bpv in 1..=64 {
     do_test_bpv(&mut random, &dir, bpv, offset, false)?;
   }
+  dir.close()?;
   Ok(())
 }
 
@@ -109,6 +117,7 @@ fn test_random_merge() -> Result<()> {
   for bpv in 1..=64 {
     do_test_bpv(&mut random, &dir, bpv, 0, true)?;
   }
+  dir.close()?;
   Ok(())
 }
 
@@ -120,6 +129,7 @@ fn test_random_merge_with_offset() -> Result<()> {
   for bpv in 1..=64 {
     do_test_bpv(&mut random, &dir, bpv, offset, true)?;
   }
+  dir.close()?;
   Ok(())
 }
 
@@ -154,6 +164,7 @@ where
         writer.add(val)?;
       }
       writer.finish()?;
+      output.close()?;
     }
 
     let input = directory.open_input(&name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
@@ -171,6 +182,7 @@ where
     for (j, &expected) in original.iter().enumerate() {
       assert_eq!(expected, reader.get_mut(j)?, "bpv={}", bpv);
     }
+    input.close()?;
   }
   Ok(())
 }

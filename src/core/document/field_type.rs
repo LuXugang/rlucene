@@ -84,9 +84,6 @@ impl FieldType {
   /// Creates a new mutable FieldType with all of the properties from
   /// `ref_field`.
   pub fn from_ref(ref_field: &impl IndexableFieldType) -> Result<Self> {
-    // Copy attributes if available; otherwise use an empty map.
-    let attributes = ref_field.get_attributes().cloned();
-
     Ok(Self {
       stored: ref_field.stored(),
       tokenized: ref_field.tokenized(),
@@ -105,7 +102,7 @@ impl FieldType {
       vector_dimension: ref_field.vector_dimension(),
       vector_encoding: *ref_field.vector_encoding(),
       vector_similarity_function: *ref_field.vector_similarity_function(),
-      attributes,
+      attributes: ref_field.get_attributes().cloned(),
     })
   }
   /// Returns an error if this FieldType is frozen.

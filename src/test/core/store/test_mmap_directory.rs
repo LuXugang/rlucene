@@ -18,6 +18,7 @@ use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, random, random_multiplier,
 };
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::PathBuf;
 use std::sync::{Arc, Barrier};
 use std::thread;
@@ -133,18 +134,29 @@ impl TestMMapDirectory {
     let temp_dir = Builder::new().prefix("testWithRandom").tempdir()?;
     let dir = MMapDirectory::new(temp_dir.path().to_path_buf())?;
 
-    {
+    let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let mut out = dir.create_output("test", io_context)?;
-      out.write_bytes_with_len(&bytes, bytes.len())?;
-    }
+      let write_result = catch_unwind(AssertUnwindSafe(|| {
+        out.write_bytes_with_len(&bytes, bytes.len())
+      }));
+      IOUtils::use_or_suppress_caught_result(
+        write_result,
+        catch_unwind(AssertUnwindSafe(|| out.close())),
+      )?;
 
-    {
       let mut input = dir.open_input("test", &normal_context)?;
-      let mut read_bytes = vec![0u8; size];
-      DataInput::read_bytes(&mut input, &mut read_bytes, 0, size)?;
-      assert_eq!(bytes, read_bytes);
-    }
-
+      let read_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
+        let mut read_bytes = vec![0u8; size];
+        DataInput::read_bytes(&mut input, &mut read_bytes, 0, size)?;
+        assert_eq!(bytes, read_bytes);
+        Ok(())
+      }));
+      IOUtils::use_or_suppress_caught_result(
+        read_result,
+        catch_unwind(AssertUnwindSafe(|| input.close())),
+      )
+    }));
+    IOUtils::use_or_suppress_caught_result(result, catch_unwind(AssertUnwindSafe(|| dir.close())))?;
     Ok(())
   }
 }

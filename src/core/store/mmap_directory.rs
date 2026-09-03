@@ -158,14 +158,9 @@ impl MMapDirectory {
   where
     D: LockFactory,
   {
-    FSDirectory::with_lock_factory(
-      directory,
-      lock_factory,
-      Self {
-        preload: MMapPreload::NoFiles,
-        chunk_size_power: Self::chunk_size_power(max_chunk_size)?,
-      },
-    )
+    let mut directory = FSDirectory::with_lock_factory(directory, lock_factory, Self::default())?;
+    directory.sub_fs_directory.chunk_size_power = Self::chunk_size_power(max_chunk_size)?;
+    Ok(directory)
   }
 
   /// Configures which files to preload in physical memory upon opening.

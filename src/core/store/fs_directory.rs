@@ -427,6 +427,7 @@ where
 
   type IndexInput = T::Output;
   fn open_input(&self, name: &str, context: &IOContext) -> Result<Self::IndexInput> {
+    self.ensure_open()?;
     self.ensure_can_read(name)?;
     self
       .sub_fs_directory

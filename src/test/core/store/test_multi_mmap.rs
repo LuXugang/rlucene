@@ -534,6 +534,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
     {
       let mut io = mmap_dir.create_output("bytes", &new_io_context(random)?)?;
       io.write_vint(5)?;
+      io.close()?;
     }
 
     let mut one =
@@ -558,6 +559,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
     CloseableRef::close(&two)?;
     CloseableRef::close(&three)?;
     CloseableRef::close(&one)?;
+    CloseableRef::close(&mmap_dir)?;
     Ok(())
   }
 
@@ -571,6 +573,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       let mut io = mmap_dir.create_output("bytes", &new_io_context(random)?)?;
       io.write_int(1)?;
       io.write_int(2)?;
+      io.close()?;
     }
 
     let slicer = mmap_dir.open_input("bytes", &new_io_context(random)?)?;
@@ -596,6 +599,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
     CloseableRef::close(&three)?;
     CloseableRef::close(&four)?;
     CloseableRef::close(&slicer)?;
+    CloseableRef::close(&mmap_dir)?;
     Ok(())
   }
 
@@ -615,6 +619,7 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       {
         let mut io = mmap_dir.create_output("bytes", &io_context)?;
         io.write_bytes_with_len(&bytes, bytes.len())?;
+        io.close()?;
       }
 
       let mut ii = mmap_dir.open_input("bytes", &new_io_context(random)?)?;
@@ -634,6 +639,9 @@ trait TestMultiMMapTests: BaseChunkedDirectoryTestCase<Output = MemorySegmentInd
       let slice_size = random.random_range(0..=size - offset);
       let slice = ii.slice("slice", offset, slice_size)?;
       Self::assert_correct_impl(offset % chunk_size + slice_size < chunk_size, &slice)?;
+
+      CloseableRef::close(&ii)?;
+      CloseableRef::close(&mmap_dir)?;
     }
     Ok(())
   }

@@ -34,6 +34,20 @@ macro_rules! expect_invariant {
   }};
 }
 
+/// Panics for a documented, unrecoverable program invariant violation.
+///
+/// Production code must use this macro instead of calling `panic!` directly. The literal reason
+/// must explain why the failure is a programmer error rather than a recoverable runtime condition.
+/// The reason documents the lint exemption; the panic message is preserved without a prefix.
+macro_rules! panic_invariant {
+  ($reason:literal, $($message:tt)+) => {{
+    #[allow(clippy::panic, reason = $reason)]
+    {
+      panic!($($message)+)
+    }
+  }};
+}
+
 macro_rules! unwrap_caught_result {
   ($result:expr) => {{
     match $result {

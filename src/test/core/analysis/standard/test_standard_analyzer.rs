@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::analysis::analyzer::Analyzer;
+use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::reader::{ReaderEnum, StringReader};
 use crate::core::analysis::standard::standard_analyzer::{
   DEFAULT_MAX_TOKEN_LENGTH, StandardAnalyzer,
@@ -36,9 +36,28 @@ use rand::RngExt;
 #[allow(dead_code)]
 struct TestStandardAnalyzer;
 
-fn set_up() -> StandardAnalyzer {
+struct StandardTokenizerAnalyzer {
+  stored_value: AnalyzerStoredValue,
+}
+
+impl Analyzer for StandardTokenizerAnalyzer {
+  fn create_components(&self, _field: &str) -> Result<TokenStreamComponents> {
+    let tokenizer: Box<dyn TokenStream + Send + Sync> = Box::new(StandardTokenizer::new()?);
+    Ok(TokenStreamComponents::new(tokenizer, None))
+  }
+
+  fn stored_value(&self) -> &AnalyzerStoredValue {
+    &self.stored_value
+  }
+}
+
+crate::impl_analyzer_close!(StandardTokenizerAnalyzer);
+
+fn set_up() -> StandardTokenizerAnalyzer {
   // TODO IMPORTANT 应该支持跟多的 attribute factory
-  StandardAnalyzer::new()
+  StandardTokenizerAnalyzer {
+    stored_value: AnalyzerStoredValue::new(),
+  }
 }
 
 // LUCENE-5897: slow tokenization of strings of the form
@@ -131,7 +150,7 @@ fn test_huge_doc() -> Result<()> {
 
 #[test]
 fn test_armenian() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -139,7 +158,7 @@ fn test_armenian() -> Result<()> {
     &a,
     "Վիքիպեդիայի 13 միլիոն հոդվածները (4,600` հայերեն վիքիպեդիայում) գրվել են կամավորների կողմից ու համարյա բոլոր հոդվածները կարող է խմբագրել ցանկաց մարդ ով կարող է բացել Վիքիպեդիայի կայքը։",
     &[
-      "վիքիպեդիայի",
+      "Վիքիպեդիայի",
       "13",
       "միլիոն",
       "հոդվածները",
@@ -163,17 +182,17 @@ fn test_armenian() -> Result<()> {
       "կարող",
       "է",
       "բացել",
-      "վիքիպեդիայի",
+      "Վիքիպեդիայի",
       "կայքը",
     ],
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_amharic() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -196,11 +215,11 @@ fn test_amharic() -> Result<()> {
     ],
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_arabic() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -219,12 +238,12 @@ fn test_arabic() -> Result<()> {
       "قصة",
       "ويكيبيديا",
       "بالإنجليزية",
-      "truth",
+      "Truth",
       "in",
-      "numbers",
-      "the",
-      "wikipedia",
-      "story",
+      "Numbers",
+      "The",
+      "Wikipedia",
+      "Story",
       "سيتم",
       "إطلاقه",
       "في",
@@ -232,12 +251,12 @@ fn test_arabic() -> Result<()> {
     ],
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_aramaic() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -247,7 +266,7 @@ fn test_aramaic() -> Result<()> {
     &[
       "ܘܝܩܝܦܕܝܐ",
       "ܐܢܓܠܝܐ",
-      "wikipedia",
+      "Wikipedia",
       "ܗܘ",
       "ܐܝܢܣܩܠܘܦܕܝܐ",
       "ܚܐܪܬܐ",
@@ -265,12 +284,12 @@ fn test_aramaic() -> Result<()> {
     ],
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_bengali() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -303,11 +322,11 @@ fn test_bengali() -> Result<()> {
     ],
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_farsi() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
   let input =
     "ویکی پدیای انگلیسی در تاریخ ۲۵ دی ۱۳۷۹ به صورت مکملی برای دانشنامهٔ تخصصی نوپدیا نوشته شد.";
@@ -330,11 +349,12 @@ fn test_farsi() -> Result<()> {
     "نوشته",
     "شد",
   ];
-  assert_analyzes_to6(&mut random, &a, input, &expected)
+  assert_analyzes_to6(&mut random, &a, input, &expected)?;
+  a.close()
 }
 #[test]
 fn test_greek() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -342,7 +362,7 @@ fn test_greek() -> Result<()> {
     &a,
     "Γράφεται σε συνεργασία από εθελοντές με το λογισμικό wiki, κάτι που σημαίνει ότι άρθρα μπορεί να προστεθούν ή να αλλάξουν από τον καθένα.",
     &[
-      "γράφεται",
+      "Γράφεται",
       "σε",
       "συνεργασία",
       "από",
@@ -368,11 +388,11 @@ fn test_greek() -> Result<()> {
     ],
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_thai() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -382,12 +402,12 @@ fn test_thai() -> Result<()> {
     &["การที่ได้ต้องแสดงว่างานดี", "แล้วเธอจะไปไหน", "๑๒๓๔"],
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_lao() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -397,12 +417,12 @@ fn test_lao() -> Result<()> {
     &["ສາທາລະນະລັດ", "ປະຊາທິປະໄຕ", "ປະຊາຊົນລາວ"],
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_tibetan() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -433,59 +453,59 @@ fn test_tibetan() -> Result<()> {
     ],
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_chinese() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
     &mut random,
     &a,
     "我是中国人。 １２３４ Ｔｅｓｔｓ ",
-    &["我", "是", "中", "国", "人", "１２３４", "ｔｅｓｔｓ"],
+    &["我", "是", "中", "国", "人", "１２３４", "Ｔｅｓｔｓ"],
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_empty() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(&mut random, &a, "", &[])?;
   assert_analyzes_to6(&mut random, &a, ".", &[])?;
   assert_analyzes_to6(&mut random, &a, " ", &[])?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_lucene1545() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(&mut random, &a, "moͤchte", &["moͤchte"])?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_alphanumeric_sa() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
-  assert_analyzes_to6(&mut random, &a, "B2B", &["b2b"])?;
-  assert_analyzes_to6(&mut random, &a, "2B", &["2b"])?;
+  assert_analyzes_to6(&mut random, &a, "B2B", &["B2B"])?;
+  assert_analyzes_to6(&mut random, &a, "2B", &["2B"])?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_delimiters_sa() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -502,78 +522,78 @@ fn test_delimiters_sa() -> Result<()> {
   )?;
   assert_analyzes_to6(&mut random, &a, "ac/dc", &["ac", "dc"])?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_apostrophes_sa() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
-  assert_analyzes_to6(&mut random, &a, "O'Reilly", &["o'reilly"])?;
+  assert_analyzes_to6(&mut random, &a, "O'Reilly", &["O'Reilly"])?;
   assert_analyzes_to6(&mut random, &a, "you're", &["you're"])?;
   assert_analyzes_to6(&mut random, &a, "she's", &["she's"])?;
-  assert_analyzes_to6(&mut random, &a, "Jim's", &["jim's"])?;
+  assert_analyzes_to6(&mut random, &a, "Jim's", &["Jim's"])?;
   assert_analyzes_to6(&mut random, &a, "don't", &["don't"])?;
-  assert_analyzes_to6(&mut random, &a, "O'Reilly's", &["o'reilly's"])?;
+  assert_analyzes_to6(&mut random, &a, "O'Reilly's", &["O'Reilly's"])?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_numeric_sa() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(&mut random, &a, "21.35", &["21.35"])?;
-  assert_analyzes_to6(&mut random, &a, "R2D2 C3PO", &["r2d2", "c3po"])?;
+  assert_analyzes_to6(&mut random, &a, "R2D2 C3PO", &["R2D2", "C3PO"])?;
   assert_analyzes_to6(&mut random, &a, "216.239.63.104", &["216.239.63.104"])?;
   assert_analyzes_to6(&mut random, &a, "216.239.63.104", &["216.239.63.104"])?;
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_text_with_numbers_sa() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
     &mut random,
     &a,
     "David has 5000 bones",
-    &["david", "has", "5000", "bones"],
+    &["David", "has", "5000", "bones"],
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_various_text_sa() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
     &mut random,
     &a,
     "C embedded developers wanted",
-    &["c", "embedded", "developers", "wanted"],
+    &["C", "embedded", "developers", "wanted"],
   )?;
   assert_analyzes_to6(
     &mut random,
     &a,
     "foo bar FOO BAR",
-    &["foo", "bar", "foo", "bar"],
+    &["foo", "bar", "FOO", "BAR"],
   )?;
   assert_analyzes_to6(
     &mut random,
     &a,
     "foo      bar .  FOO <> BAR",
-    &["foo", "bar", "foo", "bar"],
+    &["foo", "bar", "FOO", "BAR"],
   )?;
-  assert_analyzes_to6(&mut random, &a, "\"QUOTED\" word", &["quoted", "word"])?;
+  assert_analyzes_to6(&mut random, &a, "\"QUOTED\" word", &["QUOTED", "word"])?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_korean_sa() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to6(
@@ -583,40 +603,40 @@ fn test_korean_sa() -> Result<()> {
     &["안녕하세요", "한글입니다"],
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_offsets() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to9(
     &mut random,
     &a,
     "David has 5000 bones",
-    &["david", "has", "5000", "bones"],
+    &["David", "has", "5000", "bones"],
     Some(&[0, 6, 10, 15]),
     Some(&[5, 9, 14, 20]),
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_types() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(
     &mut random,
     &a,
     "David has 5000 bones",
-    &["david", "has", "5000", "bones"],
+    &["David", "has", "5000", "bones"],
     Some(&["<ALPHANUM>", "<ALPHANUM>", "<NUM>", "<ALPHANUM>"]),
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_unicode_word_breaks() -> Result<()> {
@@ -625,7 +645,7 @@ fn test_unicode_word_breaks() -> Result<()> {
 }
 #[test]
 fn test_supplementary() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(
@@ -643,11 +663,11 @@ fn test_supplementary() -> Result<()> {
     ]),
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_korean() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(
@@ -658,12 +678,12 @@ fn test_korean() -> Result<()> {
     Some(&["<HANGUL>"]),
   )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_japanese() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(
@@ -680,11 +700,11 @@ fn test_japanese() -> Result<()> {
     ]),
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_combining_marks() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   check_one_term(&mut random, &a, "ざ", "ざ")?;
@@ -692,53 +712,53 @@ fn test_combining_marks() -> Result<()> {
   check_one_term(&mut random, &a, "壹゙", "壹゙")?;
   check_one_term(&mut random, &a, "아゙", "아゙")?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_mid() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
-  assert_analyzes_to6(&mut random, &a, "A:B", &["a:b"])?;
-  assert_analyzes_to6(&mut random, &a, "A::B", &["a", "b"])?;
+  assert_analyzes_to6(&mut random, &a, "A:B", &["A:B"])?;
+  assert_analyzes_to6(&mut random, &a, "A::B", &["A", "B"])?;
 
   assert_analyzes_to6(&mut random, &a, "1.2", &["1.2"])?;
-  assert_analyzes_to6(&mut random, &a, "A.B", &["a.b"])?;
+  assert_analyzes_to6(&mut random, &a, "A.B", &["A.B"])?;
   assert_analyzes_to6(&mut random, &a, "1..2", &["1", "2"])?;
-  assert_analyzes_to6(&mut random, &a, "A..B", &["a", "b"])?;
+  assert_analyzes_to6(&mut random, &a, "A..B", &["A", "B"])?;
 
   assert_analyzes_to6(&mut random, &a, "1,2", &["1,2"])?;
   assert_analyzes_to6(&mut random, &a, "1,,2", &["1", "2"])?;
 
-  assert_analyzes_to6(&mut random, &a, "A.:B", &["a", "b"])?;
-  assert_analyzes_to6(&mut random, &a, "A:.B", &["a", "b"])?;
+  assert_analyzes_to6(&mut random, &a, "A.:B", &["A", "B"])?;
+  assert_analyzes_to6(&mut random, &a, "A:.B", &["A", "B"])?;
 
   assert_analyzes_to6(&mut random, &a, "1,.2", &["1", "2"])?;
   assert_analyzes_to6(&mut random, &a, "1.,2", &["1", "2"])?;
 
-  assert_analyzes_to6(&mut random, &a, "A:B_A:B", &["a:b_a:b"])?;
-  assert_analyzes_to6(&mut random, &a, "A:B_A::B", &["a:b_a", "b"])?;
+  assert_analyzes_to6(&mut random, &a, "A:B_A:B", &["A:B_A:B"])?;
+  assert_analyzes_to6(&mut random, &a, "A:B_A::B", &["A:B_A", "B"])?;
 
   assert_analyzes_to6(&mut random, &a, "1.2_1.2", &["1.2_1.2"])?;
-  assert_analyzes_to6(&mut random, &a, "A.B_A.B", &["a.b_a.b"])?;
+  assert_analyzes_to6(&mut random, &a, "A.B_A.B", &["A.B_A.B"])?;
   assert_analyzes_to6(&mut random, &a, "1.2_1..2", &["1.2_1", "2"])?;
-  assert_analyzes_to6(&mut random, &a, "A.B_A..B", &["a.b_a", "b"])?;
+  assert_analyzes_to6(&mut random, &a, "A.B_A..B", &["A.B_A", "B"])?;
 
   assert_analyzes_to6(&mut random, &a, "1,2_1,2", &["1,2_1,2"])?;
   assert_analyzes_to6(&mut random, &a, "1,2_1,,2", &["1,2_1", "2"])?;
 
-  assert_analyzes_to6(&mut random, &a, "C_A.:B", &["c_a", "b"])?;
-  assert_analyzes_to6(&mut random, &a, "C_A:.B", &["c_a", "b"])?;
+  assert_analyzes_to6(&mut random, &a, "C_A.:B", &["C_A", "B"])?;
+  assert_analyzes_to6(&mut random, &a, "C_A:.B", &["C_A", "B"])?;
 
   assert_analyzes_to6(&mut random, &a, "3_1,.2", &["3_1", "2"])?;
   assert_analyzes_to6(&mut random, &a, "3_1.,2", &["3_1", "2"])?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_emoji() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(
@@ -749,31 +769,31 @@ fn test_emoji() -> Result<()> {
     Some(&["<EMOJI>", "<EMOJI>", "<EMOJI>"]),
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_emoji_sequence() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(&mut random, &a, "👩‍❤️‍👩", &["👩‍❤️‍👩"], Some(&["<EMOJI>"]))?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_emoji_sequence_with_modifier() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(&mut random, &a, "👨🏼‍⚕️", &["👨🏼‍⚕️"], Some(&["<EMOJI>"]))?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_emoji_regional_indicator() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(
@@ -784,11 +804,11 @@ fn test_emoji_regional_indicator() -> Result<()> {
     Some(&["<EMOJI>", "<EMOJI>"]),
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_emoji_variation_sequence() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(&mut random, &a, "#️⃣", &["#️⃣"], Some(&["<EMOJI>"]))?;
@@ -817,21 +837,27 @@ fn test_emoji_variation_sequence() -> Result<()> {
     Some(&["<EMOJI>", "<EMOJI>"]),
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_emoji_tag_sequence() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
-  assert_analyzes_to7(&mut random, &a, "🏴", &["🏴"], Some(&["<EMOJI>"]))?;
+  assert_analyzes_to7(
+    &mut random,
+    &a,
+    "🏴\u{e0067}\u{e0062}\u{e0065}\u{e006e}\u{e0067}\u{e007f}",
+    &["🏴\u{e0067}\u{e0062}\u{e0065}\u{e006e}\u{e0067}\u{e007f}"],
+    Some(&["<EMOJI>"]),
+  )?;
 
-  Ok(())
+  a.close()
 }
 
 #[test]
 fn test_emoji_tokenization() -> Result<()> {
-  let a = set_up();
+  let mut a = set_up();
   let mut random = random();
 
   assert_analyzes_to7(
@@ -849,7 +875,7 @@ fn test_emoji_tokenization() -> Result<()> {
     Some(&["<EMOJI>", "<IDEOGRAPHIC>", "<IDEOGRAPHIC>", "<EMOJI>"]),
   )?;
 
-  Ok(())
+  a.close()
 }
 #[test]
 fn test_unicode_emoji_tests() -> Result<()> {
@@ -886,7 +912,7 @@ fn test_normalize() -> Result<()> {
 
 #[test]
 fn test_max_token_length_default() -> Result<()> {
-  let analyzer = StandardAnalyzer::new();
+  let mut analyzer = StandardAnalyzer::new();
 
   // exact max length:
   let b_string = "b".repeat(DEFAULT_MAX_TOKEN_LENGTH);
@@ -894,7 +920,8 @@ fn test_max_token_length_default() -> Result<()> {
   let input = format!("x {b_string} {b_string}b");
   let expected = ["x", b_string.as_str(), b_string.as_str(), "b"];
   let mut random = random();
-  assert_analyzes_to6(&mut random, &analyzer, &input, &expected)
+  assert_analyzes_to6(&mut random, &analyzer, &input, &expected)?;
+  analyzer.close()
 }
 
 #[test]
@@ -907,7 +934,8 @@ fn test_max_token_length_non_default() -> Result<()> {
     &analyzer,
     "ab cd toolong xy z",
     &["ab", "cd", "toolo", "ng", "xy", "z"],
-  )
+  )?;
+  analyzer.close()
 }
 
 #[test]

@@ -293,7 +293,7 @@ impl BM25Scorer {
 
   fn explain_constant_factors(&self) -> Vec<Explanation> {
     let mut subs = Vec::new();
-    if (self.boost - 1.0).abs() > f32::EPSILON {
+    if self.boost != 1.0 {
       subs.push(Explanation::match_no_details(
         Number::F32(self.boost),
         "boost".to_string(),
@@ -322,6 +322,10 @@ impl SimScorer for BM25Scorer {
     let freq_value = freq.get_value().to_f32().ok_or_else(|| {
       LuceneError::illegal_argument(format!("cannot convert to f32: {}", freq.get_value()))
     })?;
+    let description = format!(
+      "score(freq={}), computed as boost * idf * tf from:",
+      freq.get_value()
+    );
     let tf_expl = self.explain_tf(freq, encoded_norm)?;
     subs.push(tf_expl);
 
@@ -329,13 +333,6 @@ impl SimScorer for BM25Scorer {
     let score_val = self.weight - self.weight / (1.0 + freq_value * norm_inverse);
     // not using "product of" since the rewrite that we do in score()
     // introduces a small rounding error that CheckHits complains about
-    Ok(Explanation::match_(
-      score_val,
-      format!(
-        "score(freq={}), computed as boost * idf * tf from:",
-        freq_value
-      ),
-      subs,
-    ))
+    Ok(Explanation::match_(score_val, description, subs))
   }
 }

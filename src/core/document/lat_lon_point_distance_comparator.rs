@@ -28,6 +28,7 @@ use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::scorable::Scorable;
 use crate::core::util::ToInt;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sloppy_math::SloppyMath;
 
@@ -106,6 +107,15 @@ impl FieldComparator for LatLonPointDistanceComparator {
 
   fn value(&self, slot: usize) -> Option<Self::V> {
     Some(Self::haversin2(self.values[slot]))
+  }
+
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
+    Ok(match (first, second) {
+      (None, None) => 0,
+      (None, Some(_)) => -1,
+      (Some(_), None) => 1,
+      (Some(first), Some(second)) => CoreHelper::compare_f64(*first, *second).to_int(),
+    })
   }
 
   type LeafFieldComparator<LR>
@@ -233,7 +243,7 @@ where
       }
     }
 
-    comparator.set_bottom_counter += 1;
+    comparator.set_bottom_counter = comparator.set_bottom_counter.wrapping_add(1);
     Ok(())
   }
 
@@ -308,10 +318,11 @@ where
   {
     let v = self.sort_key(doc, comparator)?;
     Ok(
-      comparator
-        .top_value
-        .total_cmp(&LatLonPointDistanceComparator::haversin2(v))
-        .to_int(),
+      CoreHelper::compare_f64(
+        comparator.top_value,
+        LatLonPointDistanceComparator::haversin2(v),
+      )
+      .to_int(),
     )
   }
 

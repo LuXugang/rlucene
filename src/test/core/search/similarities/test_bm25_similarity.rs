@@ -31,7 +31,7 @@ impl BaseSimilarityTestCase for TestBM25Similarity {
   {
     let k1: f32 = match random.random_range(0..4) {
       0 => 0.0,
-      1 => f32::MIN_POSITIVE,
+      1 => f32::from_bits(1),
       2 => i32::MAX as f32,
       _ => {
         let r: f32 = random.random();
@@ -41,7 +41,7 @@ impl BaseSimilarityTestCase for TestBM25Similarity {
 
     let b: f32 = match random.random_range(0..4) {
       0 => 0.0,
-      1 => f32::MIN_POSITIVE,
+      1 => f32::from_bits(1),
       2 => 1.0,
       _ => random.random(),
     };

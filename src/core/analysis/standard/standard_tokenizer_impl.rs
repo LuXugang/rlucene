@@ -484,7 +484,10 @@ impl StandardTokenizerImpl {
   ///  Sets the scanner buffer size in chars
   pub fn set_buffer_size(&mut self, num_chars: usize) {
     self.zz_buffer_size = num_chars;
-    self.zz_buffer.resize(num_chars, '\0');
+    let mut new_buffer = vec!['\0'; num_chars];
+    let length = self.zz_buffer.len().min(num_chars);
+    new_buffer[..length].copy_from_slice(&self.zz_buffer[..length]);
+    self.zz_buffer = new_buffer;
   }
   /// Translates raw input code points to DFA table row
   fn zz_cmap(input: i32) -> usize {
@@ -626,11 +629,14 @@ impl StandardTokenizerImpl {
   /// # Parameters
   ///
   /// * `error_code` - The code of the error message to display.
-  fn zz_scan_error(error_code: usize) -> Result<()> {
+  fn zz_scan_error(error_code: usize) -> ! {
     let message = ZZ_ERROR_MSG
       .get(error_code)
       .unwrap_or(&ZZ_ERROR_MSG[ZZ_UNKNOWN_ERROR]);
-    Err(LuceneError::illegal_state(message.to_string()))
+    panic_invariant!(
+      "scanner errors indicate a faulty DFA or a violated yypushback contract",
+      "{message}"
+    )
   }
   /// Pushes the specified number of characters back into the input stream.
   ///
@@ -640,12 +646,11 @@ impl StandardTokenizerImpl {
   ///
   /// * `number` - The number of characters to be read again. This number must not
   ///   be greater than `yylength()`.
-  pub fn yypushback(&mut self, number: usize) -> Result<()> {
+  pub fn yypushback(&mut self, number: usize) {
     if number > self.yylength() {
-      Self::zz_scan_error(ZZ_PUSHBACK_2BIG)?;
+      Self::zz_scan_error(ZZ_PUSHBACK_2BIG);
     }
     self.zz_marked_pos -= number;
-    Ok(())
   }
   /// Resumes scanning until the next regular expression is matched, the end of
   /// input is reached, or an I/O error occurs.
@@ -730,7 +735,7 @@ impl StandardTokenizerImpl {
         7 => return Ok(Self::IDEOGRAPHIC_TYPE),
         8 => return Ok(Self::KATAKANA_TYPE),
         9 => return Ok(Self::HIRAGANA_TYPE),
-        _ => Self::zz_scan_error(ZZ_NO_MATCH)?,
+        _ => Self::zz_scan_error(ZZ_NO_MATCH),
       }
     }
   }

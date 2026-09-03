@@ -155,7 +155,8 @@ impl TieredMergePolicy {
   /// measures the number of times each document in the index is written. A higher write
   /// amplification factor will lead to higher CPU and I/O activity as indicated above.
   pub fn set_deletes_pct_allowed(&mut self, v: f64) -> Result<&mut Self> {
-    if !(5.0..=50.0).contains(&v) {
+    // Match Java's comparison behavior for NaN.
+    if !v.is_nan() && !(5.0..=50.0).contains(&v) {
       return Err(LuceneError::illegal_argument(format!(
         "indexPctDeletedTarget must be >= 5.0 and <= 50 (got {})",
         v
@@ -203,7 +204,8 @@ impl TieredMergePolicy {
   /// When forceMergeDeletes is called, we only merge away a segment if its delete percentage is over
   /// this threshold. Default is 10%.
   pub fn set_force_merge_deletes_pct_allowed(&mut self, v: f64) -> Result<&mut Self> {
-    if !(0.0..=100.0).contains(&v) {
+    // Match Java's comparison behavior for NaN.
+    if !v.is_nan() && !(0.0..=100.0).contains(&v) {
       return Err(LuceneError::illegal_argument(format!(
         "forceMergeDeletesPctAllowed must be between 0.0 and 100.0 inclusive (got {})",
         v
@@ -446,9 +448,9 @@ impl TieredMergePolicy {
 
         if !hit_too_large
           && merge_type == MergeType::Natural
-          && bytes_this_merge < (max_candidate_segment_size.size_in_bytes as f64 * 1.5) as i64
-          && max_candidate_segment_size.del_count
-            < (max_candidate_segment_size.max_doc as f64 * self.deletes_pct_allowed / 100.0) as i32
+          && (bytes_this_merge as f64) < max_candidate_segment_size.size_in_bytes as f64 * 1.5
+          && (max_candidate_segment_size.del_count as f64)
+            < max_candidate_segment_size.max_doc as f64 * self.deletes_pct_allowed / 100.0
         {
           // Ignore any merge where the resulting segment is not at least 50% larger than the
           // biggest input segment.
@@ -518,18 +520,18 @@ impl TieredMergePolicy {
       if !have_one_large_merge || !best_too_large || merge_type == MergeType::ForceMergeDeletes {
         have_one_large_merge |= best_too_large;
 
-        let mut best_segments = Vec::with_capacity(best.len());
-        for meta in &best {
-          let info = meta.seg_info;
-          let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
-          best_segments.push(info.to_string_with_pending_del_count(del));
-        }
-        let best_string = best_segments.join(" ");
         let spec_ref = spec.get_or_insert_with(MergeSpecification::new);
         let merge = OneMerge::from_meta(best.as_ref())?;
         spec_ref.add(merge);
 
         if self.verbose(merge_context) {
+          let mut best_segments = Vec::with_capacity(best.len());
+          for meta in &best {
+            let info = meta.seg_info;
+            let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
+            best_segments.push(info.to_string_with_pending_del_count(del));
+          }
+          let best_string = best_segments.join(" ");
           let best_score = best_score
             .as_ref()
             .ok_or_else(|| LuceneError::illegal_state("selected merge has no score"))?;
@@ -625,7 +627,7 @@ impl TieredMergePolicy {
   }
   pub(crate) fn get_max_allowed_docs(&self, total_max_doc: i32, total_del_docs: i32) -> i32 {
     let v = total_max_doc - total_del_docs;
-    (v + self.target_search_concurrency - 1) / self.target_search_concurrency
+    v / self.target_search_concurrency + i32::from(v % self.target_search_concurrency > 0)
   }
 
   fn floor_size(&self, bytes: i64) -> i64 {
@@ -714,6 +716,29 @@ where
 
     let merging = merge_context.get_merging_segments(inner);
     let mut sorted_infos = self.get_sorted_by_segment_size(infos, merge_context)?;
+    if self.verbose(merge_context) {
+      for seg in &sorted_infos {
+        let mut extra = if merging.contains(seg.seg_info.info.get_id_key()) {
+          " [merging]".to_string()
+        } else {
+          String::new()
+        };
+        if seg.size_in_bytes >= self.max_merged_segment_bytes {
+          extra.push_str(" [skip: too large]");
+        } else if seg.size_in_bytes < self.floor_segment_bytes {
+          extra.push_str(" [floored]");
+        }
+        self.message(
+          &format!(
+            "  seg={} size={:.3} MB{}",
+            self.seg_string(merge_context, std::slice::from_ref(seg.seg_info))?,
+            seg.size_in_bytes as f64 / 1024.0 / 1024.0,
+            extra
+          ),
+          merge_context,
+        )?;
+      }
+    }
     sorted_infos.retain(|seg| {
       let seg_bytes = seg.size_in_bytes;
 
@@ -785,7 +810,7 @@ where
         break;
       }
       allowed_seg_count += self.segs_per_tier;
-      bytes_left -= (self.segs_per_tier * level_size as f64) as i64;
+      bytes_left = (bytes_left as f64 - self.segs_per_tier * level_size as f64) as i64;
       level_size = std::cmp::min(
         self.max_merged_segment_bytes,
         level_size * merge_factor as i64,
@@ -801,6 +826,13 @@ where
       allowed_seg_count.max((self.target_search_concurrency - too_big_count) as f64);
 
     let allowed_doc_count = self.get_max_allowed_docs(total_max_doc, total_del_docs);
+    if self.verbose(merge_context) && too_big_count > 0 {
+      self.message(
+        &format!("  allowedSegmentCount={} vs count={} (eligible count={}) tooBigCount= {}  allowedDocCount={} vs doc count={}",
+          allowed_seg_count, infos.size(), sorted_infos.len(), too_big_count, allowed_doc_count, infos.total_max_doc()?),
+        merge_context,
+      )?;
+    }
 
     self.do_find_merges(
       &sorted_infos,
@@ -826,6 +858,17 @@ where
   where
     MC: MergeContext<D>,
   {
+    if self.verbose(merge_context) {
+      self.message(
+        &format!(
+          "findForcedMerges maxSegmentCount={} infos={} segmentsToMerge={:?}",
+          max_segment_count,
+          self.seg_string(merge_context, infos.iter())?,
+          segments_to_merge
+        ),
+        merge_context,
+      )?;
+    }
     let mut sorted_size_and_docs = self.get_sorted_by_segment_size(infos, merge_context)?;
 
     let mut total_merge_bytes: i64 = 0;
@@ -921,10 +964,20 @@ where
       };
 
       if already {
+        if self.verbose(merge_context) {
+          self.message("already merged", merge_context)?;
+        }
         return Ok(None);
       }
     }
 
+    if self.verbose(merge_context) {
+      let mut eligible = Vec::with_capacity(sorted_size_and_docs.len());
+      for seg in &sorted_size_and_docs {
+        eligible.push(seg.seg_info.info.name.as_str());
+      }
+      self.message(&format!("eligible={:?}", eligible), merge_context)?;
+    }
     let starting_segment_count = sorted_size_and_docs.len();
     if force_merge_running {
       // hmm this is a little dangerous -- if a user kicks off a forceMerge, it is taking forever,
@@ -992,6 +1045,18 @@ where
           || (current_candidate_bytes as f64) > 0.7 * (max_merge_bytes as f64))
       {
         let merge = OneMerge::from_meta(candidate.as_ref())?;
+        if self.verbose(merge_context) {
+          let mut candidate_segments = Vec::with_capacity(candidate.len());
+          for meta in &candidate {
+            let info = meta.seg_info;
+            let del = merge_context.num_deleted_docs(info)? - info.get_del_count();
+            candidate_segments.push(info.to_string_with_pending_del_count(del));
+          }
+          self.message(
+            &format!("add merge={}", candidate_segments.join(" ")),
+            merge_context,
+          )?;
+        }
 
         let spec_ref = spec.get_or_insert_with(DefaultMergeSpecification::new);
         spec_ref.add(merge);
@@ -1010,6 +1075,17 @@ where
   where
     MC: MergeContext<D>,
   {
+    if self.verbose(merge_context) {
+      self.message(
+        &format!(
+          "findForcedDeletesMerges infos={} forceMergeDeletesPctAllowed={}",
+          self.seg_string(merge_context, infos.iter())?,
+          self.force_merge_deletes_pct_allowed
+        ),
+        merge_context,
+      )?;
+    }
+    let merging = merge_context.get_merging_segments(inner);
     // First do a quick check that there's any work to do.
     // NOTE: this makes BaseMergePOlicyTestCase.testFindForcedDeletesMerges work
     let mut have_work = false;
@@ -1023,9 +1099,7 @@ where
       let pct_deletes = 100.0 * (del_count as f64) / (info.info.max_doc()? as f64);
       have_work = have_work
         || (pct_deletes > self.force_merge_deletes_pct_allowed
-          && !merge_context
-            .get_merging_segments(inner)
-            .contains(&info.info.name));
+          && !merging.contains(info.info.get_id_key()));
     }
 
     if !have_work {
@@ -1035,13 +1109,18 @@ where
     let mut sorted_infos = self.get_sorted_by_segment_size(infos, merge_context)?;
 
     sorted_infos.retain(|seg| {
-      let pct_deletes = 100.0 * (seg.del_count as f64) / (seg.max_doc as f64);
-      !(merge_context
-        .get_merging_segments(inner)
-        .contains(seg.seg_info.info.get_id_key())
+      let pct_deletes = 100.0 * (seg.del_count as f64 / seg.max_doc as f64);
+      !(merging.contains(seg.seg_info.info.get_id_key())
         || pct_deletes <= self.force_merge_deletes_pct_allowed)
     });
 
+    if self.verbose(merge_context) {
+      let mut eligible = Vec::with_capacity(sorted_infos.len());
+      for seg in &sorted_infos {
+        eligible.push(seg.seg_info.info.name.as_str());
+      }
+      self.message(&format!("eligible={:?}", eligible), merge_context)?;
+    }
     self.do_find_merges(
       &sorted_infos,
       self.max_merged_segment_bytes,

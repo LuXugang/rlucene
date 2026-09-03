@@ -20,14 +20,17 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 use rand::Rng;
 use rand::RngExt;
+use strum::EnumCount;
 
 use crate::core::document::field_type::FieldType;
+use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::index_options::IndexOptions;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::point_values::{MAX_DIMENSIONS, MAX_INDEX_DIMENSIONS, MAX_NUM_BYTES};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 #[allow(dead_code)] // for quick search
@@ -79,11 +82,8 @@ fn test_equals() -> Result<()> {
 #[test]
 fn test_points_to_string() -> Result<()> {
   let mut ft = FieldType::new();
-  ft.set_dimensions(1, MAX_NUM_BYTES)?;
-  let expected = format!(
-    "pointDimensionCount=1,pointIndexDimensionCount=1,pointNumBytes={}",
-    MAX_NUM_BYTES
-  );
+  ft.set_dimensions(1, BitUtil::INT_BYTES)?;
+  let expected = "pointDimensionCount=1,pointIndexDimensionCount=1,pointNumBytes=4";
   let s = ft.to_string();
   assert_eq!(s, expected);
   Ok(())
@@ -127,13 +127,7 @@ where
   R: Rng + ?Sized,
 {
   let mut ft = FieldType::new();
-  let max_idx_dims = MAX_INDEX_DIMENSIONS;
-  let max_dims = MAX_DIMENSIONS;
-  let max_bytes = MAX_NUM_BYTES;
-  let dim = random.random_range(1..=max_dims);
-  let idx_dim = random.random_range(1..=max_idx_dims.min(dim));
-  let num_bytes = random.random_range(1..=max_bytes);
-  ft.set_dimensions_with_index(dim, idx_dim, num_bytes)?;
+  // Java discovers setters through reflection; call each setter explicitly here.
   ft.set_stored(random_value_bool(random))?;
   ft.set_tokenized(random_value_bool(random))?;
   ft.set_store_term_vectors(random_value_bool(random))?;
@@ -141,28 +135,31 @@ where
   ft.set_store_term_vector_positions(random_value_bool(random))?;
   ft.set_store_term_vector_payloads(random_value_bool(random))?;
   ft.set_omit_norms(random_value_bool(random))?;
-  let options = if random_value_bool(random) {
-    IndexOptions::DocsAndFreqs
+  ft.set_index_options(
+    IndexOptions::from_repr(random.random_range(0..IndexOptions::COUNT) as u8).unwrap(),
+  )?;
+  // setDimensions is handled specially as values must be in bounds.
+  ft.set_dimensions(
+    random.random_range(1..=MAX_INDEX_DIMENSIONS),
+    random.random_range(1..=MAX_NUM_BYTES),
+  )?;
+  let dim = random.random_range(1..=MAX_DIMENSIONS);
+  let idx_dim = 1 + (dim - 1).min(random.random_range(0..MAX_INDEX_DIMENSIONS));
+  let num_bytes = random.random_range(1..=MAX_NUM_BYTES);
+  ft.set_dimensions_with_index(dim, idx_dim, num_bytes)?;
+  ft.set_vector_attributes(
+    random.random_range(1..=100),
+    VectorEncoding::random(random),
+    VectorSimilarityFunction::random(random),
+  )?;
+  ft.set_doc_values_type(
+    DocValuesType::from_repr(random.random_range(0..DocValuesType::COUNT) as u8).unwrap(),
+  )?;
+  ft.set_doc_values_skip_index_type(if random_value_bool(random) {
+    DocValuesSkipIndexType::Range
   } else {
-    IndexOptions::DocsAndFreqsAndPositions
-  };
-  ft.set_index_options(options)?;
-  let dv = if random_value_bool(random) {
-    DocValuesType::Binary
-  } else {
-    DocValuesType::None
-  };
-  ft.set_doc_values_type(dv)?;
-
-  if random_value_bool(random) {
-    let vec_dim = random.random_range(1..=4);
-    ft.set_vector_attributes(
-      vec_dim,
-      VectorEncoding::FLOAT32(4),
-      VectorSimilarityFunction::Euclidean,
-    )?;
-  }
-  // ft.put_attribute("random".to_string(), "value".to_string())?;
+    DocValuesSkipIndexType::None
+  })?;
   Ok(ft)
 }
 

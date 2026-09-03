@@ -21,7 +21,7 @@ use std::hash::{Hash, Hasher};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt};
 
-/// Represents a slice (offset + length) into an existing `Vec<u64>`.
+/// Represents a slice (offset + length) into an existing `Vec<i64>`.
 ///
 /// The `longs` member should never be `None`; use an empty vector
 /// (`Vec::new()`) if necessary.
@@ -64,17 +64,17 @@ impl LongsRef {
     }
   }
 
-  /// This instance will directly reference the given `Vec<u64>` without
+  /// This instance will directly reference the given `Vec<i64>` without
   /// making a copy.
   ///
   /// # Arguments
   ///
-  /// * `longs` - The vector to reference. Should not be empty.
+  /// * `longs` - The vector to reference. May be empty.
   /// * `offset` - The offset where valid longs start.
   /// * `length` - The number of valid longs.
-  pub fn from_slice(mut longs: Vec<i64>, offset: usize, length: usize) -> Self {
+  pub fn from_slice(longs: Vec<i64>, offset: usize, length: usize) -> Self {
     debug_assert!(matches!(
-      Self::is_valid(longs.as_mut_slice(), offset, length),
+      Self::is_valid(longs.as_slice(), offset, length),
       Ok(true)
     ));
     Self {
@@ -97,7 +97,7 @@ impl LongsRef {
   ///
   /// A new [`LongsRef`] that is a deep copy of the provided `other`.
   pub fn deep_copy_of(other: &LongsRef) -> Result<LongsRef> {
-    if (other.offset + other.length) > other.longs.len() {
+    if other.offset > other.longs.len() || other.length > other.longs.len() - other.offset {
       return Err(LuceneError::array_index_out_of_bounds(
         "Offset and length exceed vector bounds",
       ));
@@ -112,10 +112,6 @@ impl LongsRef {
   }
 
   pub fn is_valid(longs: &[i64], offset: usize, length: usize) -> Result<bool> {
-    if longs.is_empty() {
-      return Err(LuceneError::illegal_state("longs is empty"));
-    }
-
     if length > longs.len() {
       return Err(LuceneError::illegal_state(format!(
         "length is out of bounds: {}, longs.len={}",
@@ -214,8 +210,20 @@ impl Comparator<LongsRef> for LongsRefComparator {
   /// * Zero if `a == b`.
   /// * A positive integer if `a > b`.
   fn compare(&self, a: &LongsRef, b: &LongsRef) -> Result<i32> {
-    let a_slice = &a.longs[a.offset..(a.offset + a.length)];
-    let b_slice = &b.longs[b.offset..(b.offset + b.length)];
+    let a_end = a
+      .offset
+      .checked_add(a.length)
+      .ok_or_else(|| LuceneError::illegal_argument("offset + length overflow"))?;
+    let a_slice = a.longs.get(a.offset..a_end).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds("Offset and length exceed vector bounds")
+    })?;
+    let b_end = b
+      .offset
+      .checked_add(b.length)
+      .ok_or_else(|| LuceneError::illegal_argument("offset + length overflow"))?;
+    let b_slice = b.longs.get(b.offset..b_end).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds("Offset and length exceed vector bounds")
+    })?;
     Ok(a_slice.cmp(b_slice).to_int())
   }
 }

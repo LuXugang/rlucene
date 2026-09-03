@@ -39,6 +39,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_merge_policy_test_case::{
@@ -75,7 +76,7 @@ mod base_merge_policy_test_case_tests {
   use crate::test::core::index::test_tiered_merge_policy::run_case;
 
   #[test]
-  fn test_rare_vectors() -> Result<()> {
+  fn test_force_merge_not_needed() -> Result<()> {
     run_case(|case, random| case.test_force_merge_not_needed(random))
   }
   #[test]
@@ -216,7 +217,8 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
         break;
       }
       allowed_seg_count += tmp.get_segments_per_tier();
-      bytes_left -= (tmp.get_segments_per_tier() as i64) * level_size_bytes;
+      bytes_left =
+        (bytes_left as f64 - tmp.get_segments_per_tier() * level_size_bytes as f64) as i64;
       level_size_bytes = std::cmp::min(
         level_size_bytes * merge_factor as i64,
         max_merged_segment_bytes / 2,
@@ -343,6 +345,7 @@ fn test_force_merge_deletes() -> Result<()> {
   assert_eq!(60, w.get_doc_stats()?.num_docs);
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -435,6 +438,7 @@ fn test_partial_merge() -> Result<()> {
     }
 
     w.close()?;
+    dir.close()?;
   }
 
   Ok(())
@@ -504,6 +508,7 @@ fn test_force_merge_deletes_max_seg_size() -> Result<()> {
   reader.close()?;
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]
@@ -635,6 +640,7 @@ fn test_forced_merges_respect_seg_size() -> Result<()> {
   assert_eq!(small_seg_doc_count, 50);
 
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 
@@ -963,6 +969,7 @@ where
     to_delete.extend(get_rand_terms(ctx, pct, round_up)?);
   }
 
+  reader.reader().close()?;
   w.delete_documents_with_terms(to_delete.clone())?;
   w.commit()?;
   Ok(to_delete.len() as i32)
@@ -1142,7 +1149,9 @@ fn test_unbalanced_merge_selection() -> Result<()> {
       num_docs
     );
   }
+  r.reader().close()?;
   w.close()?;
+  dir.close()?;
   Ok(())
 }
 #[test]

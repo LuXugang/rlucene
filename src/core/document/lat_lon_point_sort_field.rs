@@ -100,8 +100,8 @@ impl SortFiledBase for LatLonPointSortField {
     self.base.get_index_sorter()
   }
 
-  fn serialize(&self, _out: &mut impl DataOutput) -> Result<()> {
-    Ok(())
+  fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
+    self.base.serialize(out)
   }
 
   type FieldComparator = LatLonPointDistanceComparator;

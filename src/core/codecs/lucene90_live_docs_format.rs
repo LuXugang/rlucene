@@ -210,7 +210,7 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
       del_count = IOUtils::use_or_suppress_caught_result(result, close_result)?;
     }
 
-    if del_count != info.get_del_count() + new_del_count {
+    if del_count != info.get_del_count().wrapping_add(new_del_count) {
       return Err(LuceneError::corrupt_index(format!(
         "bits.deleted={} info.delcount={} newdelcount={}",
         del_count,

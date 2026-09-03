@@ -16,7 +16,7 @@
  */
 #![cfg_attr(not(test), forbid(clippy::mutable_key_type))]
 #![cfg_attr(not(test), deny(clippy::expect_used))]
-#![cfg_attr(not(test), forbid(clippy::panic))]
+#![cfg_attr(not(test), deny(clippy::panic))]
 #![cfg_attr(not(test), forbid(clippy::unimplemented))]
 #![cfg_attr(not(test), deny(clippy::unreachable))]
 #![cfg_attr(not(test), forbid(clippy::unwrap_used))]

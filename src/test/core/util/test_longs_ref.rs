@@ -14,8 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// Migrated from src/core/util/longs_ref.rs
-
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::longs_ref::LongsRef;
 
@@ -32,8 +30,10 @@ fn test_empty() {
 #[test]
 fn test_from_longs() {
   let longs = vec![1, 2, 3, 4];
-  let i = LongsRef::from_slice(longs.clone(), 0, 4);
-  assert_eq!(i.longs, i.longs);
+  let input_longs = longs.clone();
+  let input_ptr = input_longs.as_ptr();
+  let i = LongsRef::from_slice(input_longs, 0, 4);
+  assert_eq!(input_ptr, i.longs.as_ptr());
   assert_eq!(i.offset, 0);
   assert_eq!(i.length, 4);
 
