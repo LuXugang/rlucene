@@ -246,6 +246,12 @@ where
   /// The new 'top' element in the queue.
   pub fn add(&mut self, element: T) -> Result<&T> {
     let index = self.size + 1;
+    if index >= self.heap.len() {
+      return Err(LuceneError::array_index_out_of_bounds(format!(
+        "Cannot add an element to a queue with remaining capacity: {}",
+        self.max_size.saturating_sub(self.size)
+      )));
+    }
     self.heap[index] = Some(element);
     self.size = index;
     self.up_heap(index)?;
