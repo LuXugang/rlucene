@@ -25,8 +25,33 @@ impl BitUtil {
   pub const FLOAT_BYTES: usize = size_of::<f32>();
   pub const DOUBLE_BYTES: usize = size_of::<f64>();
   pub const USIZE_BYTES: usize = size_of::<usize>();
+  /// Java's `Float.MIN_VALUE`: the smallest positive subnormal value.
+  pub const F32_MIN_VALUE: f32 = f32::from_bits(1);
+  /// Java's `Double.MIN_VALUE`: the smallest positive subnormal value.
+  pub const F64_MIN_VALUE: f64 = f64::from_bits(1);
   pub const FLOAT_NAN_BITS: u32 = 0x7fc00000;
   pub const DOUBLE_NAN_BITS: u64 = 0x7ff8000000000000;
+
+  /// Java's `Float.floatToIntBits`, which canonicalizes all NaN representations.
+  #[inline]
+  pub fn float_to_int_bits(value: f32) -> i32 {
+    if value.is_nan() {
+      Self::FLOAT_NAN_BITS as i32
+    } else {
+      value.to_bits() as i32
+    }
+  }
+
+  /// Java's `Double.doubleToLongBits`, which canonicalizes all NaN representations.
+  #[inline]
+  pub fn double_to_long_bits(value: f64) -> i64 {
+    if value.is_nan() {
+      Self::DOUBLE_NAN_BITS as i64
+    } else {
+      value.to_bits() as i64
+    }
+  }
+
   // i16 big_endian
   pub fn get_i16_be(bytes: &[u8], pos: usize) -> i16 {
     debug_assert!(

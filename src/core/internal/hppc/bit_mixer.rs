@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::bit_util::BitUtil;
+
 /// Bit mixing utilities. The purpose of these methods is to evenly distribute
 /// key space over the `i32` range.
 ///
@@ -52,13 +54,13 @@ impl BitMixer {
 
   /// Mix an `f32` key using mix32 on its bit representation.
   pub fn mix_f32(key: f32) -> u32 {
-    Self::mix32(key.to_bits())
+    Self::mix32(BitUtil::float_to_int_bits(key) as u32)
   }
 
   /// Mix an `f64` key using mix64 on its bit representation, returning lower
   /// 32 bits.
   pub fn mix_f64(key: f64) -> u32 {
-    (Self::mix64(key.to_bits()) & 0xFFFF_FFFF) as u32
+    (Self::mix64(BitUtil::double_to_long_bits(key) as u64) & 0xFFFF_FFFF) as u32
   }
 
   /// Mix an `i64` key using mix64, returning lower 32 bits.
@@ -111,13 +113,13 @@ impl BitMixer {
   }
 
   pub fn mix_phi_f32(k: f32) -> u32 {
-    let bits = k.to_bits();
+    let bits = BitUtil::float_to_int_bits(k) as u32;
     let h = bits.wrapping_mul(BitMixer::PHI_C32);
     h ^ (h >> 16)
   }
 
   pub fn mix_phi_f64(k: f64) -> u32 {
-    let bits = k.to_bits();
+    let bits = BitUtil::double_to_long_bits(k) as u64;
     let h = bits.wrapping_mul(BitMixer::PHI_C64);
     ((h ^ (h >> 32)) & 0xFFFF_FFFF) as u32
   }

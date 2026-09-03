@@ -17,11 +17,13 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::impl_from_for_enum;
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Number {
   U8(u8),
   I16(i16),
@@ -39,8 +41,9 @@ impl Number {
       Number::I16(n) => n.to_u8(),
       Number::I32(n) => n.to_u8(),
       Number::I64(n) => n.to_u8(),
-      Number::F32(n) => n.to_u8(),
-      Number::F64(n) => n.to_u8(),
+      // Java byteValue first converts to int, then narrows to the low eight bits.
+      Number::F32(n) => Some(*n as i32 as u8),
+      Number::F64(n) => Some(*n as i32 as u8),
       Number::BigInt(n) => n.to_u8(),
     }
   }
@@ -51,8 +54,9 @@ impl Number {
       Number::I16(n) => Some(*n),
       Number::I32(n) => n.to_i16(),
       Number::I64(n) => n.to_i16(),
-      Number::F32(n) => n.to_i16(),
-      Number::F64(n) => n.to_i16(),
+      // Java shortValue first converts to int, then narrows to the low sixteen bits.
+      Number::F32(n) => Some(*n as i32 as i16),
+      Number::F64(n) => Some(*n as i32 as i16),
       Number::BigInt(n) => n.to_i16(),
     }
   }
@@ -63,8 +67,9 @@ impl Number {
       Number::I16(n) => n.to_i32(),
       Number::I32(n) => Some(*n),
       Number::I64(n) => n.to_i32(),
-      Number::F32(n) => n.to_i32(),
-      Number::F64(n) => n.to_i32(),
+      // Like Java intValue, Rust casts saturate overflow and convert NaN to zero.
+      Number::F32(n) => Some(*n as i32),
+      Number::F64(n) => Some(*n as i32),
       Number::BigInt(n) => n.to_i32(),
     }
   }
@@ -75,8 +80,8 @@ impl Number {
       Number::I16(n) => n.to_i64(),
       Number::I32(n) => n.to_i64(),
       Number::I64(n) => Some(*n),
-      Number::F32(n) => n.to_i64(),
-      Number::F64(n) => n.to_i64(),
+      Number::F32(n) => Some(*n as i64),
+      Number::F64(n) => Some(*n as i64),
       Number::BigInt(n) => n.to_i64(),
     }
   }
@@ -106,6 +111,21 @@ impl Number {
   }
 }
 
+impl PartialEq for Number {
+  fn eq(&self, other: &Self) -> bool {
+    match (self, other) {
+      (Self::U8(a), Self::U8(b)) => a == b,
+      (Self::I16(a), Self::I16(b)) => a == b,
+      (Self::I32(a), Self::I32(b)) => a == b,
+      (Self::I64(a), Self::I64(b)) => a == b,
+      (Self::F32(a), Self::F32(b)) => CoreHelper::compare_f32(*a, *b).is_eq(),
+      (Self::F64(a), Self::F64(b)) => CoreHelper::compare_f64(*a, *b).is_eq(),
+      (Self::BigInt(a), Self::BigInt(b)) => a == b,
+      _ => false,
+    }
+  }
+}
+
 impl fmt::Display for Number {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
@@ -129,8 +149,8 @@ impl Hash for Number {
       Number::I16(v) => v.hash(state),
       Number::I32(v) => v.hash(state),
       Number::I64(v) => v.hash(state),
-      Number::F32(v) => v.to_bits().hash(state),
-      Number::F64(v) => v.to_bits().hash(state),
+      Number::F32(v) => (BitUtil::float_to_int_bits(*v) as u32).hash(state),
+      Number::F64(v) => (BitUtil::double_to_long_bits(*v) as u64).hash(state),
       Number::BigInt(v) => v.hash(state),
     }
   }

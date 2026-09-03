@@ -18,6 +18,8 @@ use crate::core::geo::circle2d::{CartesianDistance, Circle2D, create_from_xy_cir
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry::XYGeometry;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Represents a circle on the XY plane.
 ///
@@ -80,7 +82,9 @@ impl XYGeometry for XYCircle {}
 
 impl PartialEq for XYCircle {
   fn eq(&self, other: &Self) -> bool {
-    self.x == other.x && self.y == other.y && self.radius == other.radius
+    CoreHelper::compare_f32(self.x, other.x).is_eq()
+      && CoreHelper::compare_f32(self.y, other.y).is_eq()
+      && CoreHelper::compare_f32(self.radius, other.radius).is_eq()
   }
 }
 
@@ -88,9 +92,9 @@ impl Eq for XYCircle {}
 
 impl std::hash::Hash for XYCircle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.x.to_bits().hash(state);
-    self.y.to_bits().hash(state);
-    self.radius.to_bits().hash(state);
+    (BitUtil::float_to_int_bits(self.x) as u32).hash(state);
+    (BitUtil::float_to_int_bits(self.y) as u32).hash(state);
+    (BitUtil::float_to_int_bits(self.radius) as u32).hash(state);
   }
 }
 

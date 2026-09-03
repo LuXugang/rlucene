@@ -54,7 +54,7 @@ impl ConstantScoreWeight {
     };
 
     if exists {
-      if (self.score - 1.0).abs() < f32::EPSILON {
+      if self.score == 1.0 {
         Ok(Explanation::match_no_details(self.score, query_str.into()))
       } else {
         Ok(Explanation::match_no_details(

@@ -24,6 +24,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
+use crate::core::util::bit_util::BitUtil;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_log_merge_policy,
   new_searcher_with_reader, new_searcher_with_threads, random,
@@ -78,12 +79,15 @@ fn test_scaling_factor() -> Result<()> {
   do_test_scaling_factor(2.0)?;
   do_test_scaling_factor(1.0f32.next_down())?;
   do_test_scaling_factor(1.0f32.next_up())?;
-  do_test_scaling_factor(f32::MIN_POSITIVE)?;
-  do_test_scaling_factor(f32::MIN_POSITIVE.next_up())?;
+  do_test_scaling_factor(BitUtil::F32_MIN_VALUE)?;
+  do_test_scaling_factor(BitUtil::F32_MIN_VALUE.next_up())?;
   do_test_scaling_factor(f32::MAX)?;
   do_test_scaling_factor(f32::MAX.next_down())?;
 
-  assert_eq!(scaling_factor(f32::MIN_POSITIVE)? + 1, scaling_factor(0.0)?);
+  assert_eq!(
+    scaling_factor(BitUtil::F32_MIN_VALUE)? + 1,
+    scaling_factor(0.0)?
+  );
 
   assert_eq!(
     scaling_factor(f32::MAX)? - 1,
@@ -92,7 +96,7 @@ fn test_scaling_factor() -> Result<()> {
 
   assert!(scaling_factor(1.0)? > scaling_factor(10.0)?);
   assert!(scaling_factor(f32::MAX)? > scaling_factor(f32::INFINITY)?);
-  assert!(scaling_factor(0.0)? > scaling_factor(f32::MIN_POSITIVE)?);
+  assert!(scaling_factor(0.0)? > scaling_factor(BitUtil::F32_MIN_VALUE)?);
   Ok(())
 }
 fn do_test_scaling_factor(v: f32) -> Result<()> {

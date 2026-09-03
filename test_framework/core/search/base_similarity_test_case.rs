@@ -19,6 +19,7 @@ use crate::core::search::collection_statistics::CollectionStatistics;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::similarities_impl::similarities::{SimScorer, Similarity};
 use crate::core::search::term_statistics::TermStatistics;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::small_float::SmallFloat;
 use crate::test_framework::core::search::check_hits::CheckHits;
@@ -442,7 +443,7 @@ pub trait BaseSimilarityTestCase {
               } else {
                 // float freq
                 let mut freq_candidate: f32 = match random.random_range(0..2) {
-                  0 => f32::MIN_POSITIVE,
+                  0 => BitUtil::F32_MIN_VALUE,
                   _ => {
                     let r: f32 = random.random();
                     (upper_bound as f32) * r
@@ -452,8 +453,8 @@ pub trait BaseSimilarityTestCase {
                 // MIN_VALUE in this case.
                 // this avoids testing frequencies of 0 which seem wrong to allow (we should enforce
                 // computeSlopFactor etc)
-                if freq_candidate <= f32::MIN_POSITIVE {
-                  freq_candidate = f32::MIN_POSITIVE.next_up();
+                if freq_candidate <= BitUtil::F32_MIN_VALUE {
+                  freq_candidate = BitUtil::F32_MIN_VALUE.next_up();
                 }
 
                 freq_candidate
@@ -466,7 +467,7 @@ pub trait BaseSimilarityTestCase {
             // computation with reasonable inputs.
             let boost: f32 = match random.random_range(0..5) {
               0 => 0.0,
-              1 => f32::MIN_POSITIVE,
+              1 => BitUtil::F32_MIN_VALUE,
               2 => 1.0,
               3 => i32::MAX as f32,
               _ => {

@@ -37,7 +37,9 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::vector_util::VectorUtil;
 use std::hash::{Hash, Hasher};
@@ -135,7 +137,9 @@ impl KnnFloatVectorQuery {
 
 impl PartialEq for KnnFloatVectorQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.target == other.target && self.base == other.base && self.hook == other.hook
+    CoreHelper::array_equals_f32(&self.target, &other.target)
+      && self.base == other.base
+      && self.hook == other.hook
   }
 }
 
@@ -149,12 +153,7 @@ impl Hash for KnnFloatVectorQuery {
     self.base.hash(state);
     self.hook.hash(state);
     for &v in &self.target {
-      let bits = if v == 0.0 {
-        0.0f32.to_bits()
-      } else {
-        v.to_bits()
-      };
-      bits.hash(state);
+      (BitUtil::float_to_int_bits(v) as u32).hash(state);
     }
   }
 }

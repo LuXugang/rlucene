@@ -38,6 +38,7 @@ use crate::core::index::tiered_merge_policy::TieredMergePolicy;
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -1358,7 +1359,7 @@ fn test_full_flush_merges() -> Result<()> {
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       1,
       0,
-      f64::MIN_POSITIVE,
+      BitUtil::F64_MIN_VALUE,
       SOURCE_FLUSH,
     )?)?;
   }

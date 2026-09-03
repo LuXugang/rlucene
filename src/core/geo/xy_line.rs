@@ -18,6 +18,8 @@ use crate::core::geo::geometry::Geometry;
 use crate::core::geo::line2d::{Line2D, create_from_xy_line};
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry::XYGeometry;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -117,7 +119,8 @@ impl XYGeometry for XYLine {}
 
 impl PartialEq for XYLine {
   fn eq(&self, other: &Self) -> bool {
-    self.x == other.x && self.y == other.y
+    CoreHelper::array_equals_f32(&self.x, &other.x)
+      && CoreHelper::array_equals_f32(&self.y, &other.y)
   }
 }
 
@@ -126,10 +129,10 @@ impl Eq for XYLine {}
 impl Hash for XYLine {
   fn hash<H: Hasher>(&self, state: &mut H) {
     for x in &self.x {
-      x.to_bits().hash(state);
+      (BitUtil::float_to_int_bits(*x) as u32).hash(state);
     }
     for y in &self.y {
-      y.to_bits().hash(state);
+      (BitUtil::float_to_int_bits(*y) as u32).hash(state);
     }
   }
 }

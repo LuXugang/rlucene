@@ -16,6 +16,7 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::Result;
 use crate::sandbox::document::half_float_point::HalfFloatPoint;
@@ -50,7 +51,7 @@ fn test_half_float_conversion() {
   );
   assert_eq!(
     0,
-    HalfFloatPoint::half_float_to_short_bits(f32::MIN_POSITIVE)
+    HalfFloatPoint::half_float_to_short_bits(BitUtil::F32_MIN_VALUE)
   );
 
   test_half_float("0011110000000000", 1.0);
@@ -316,11 +317,11 @@ fn test_next_up() {
   );
   assert_eq!(
     HalfFloatPoint::next_up(0f32),
-    HalfFloatPoint::next_up(f32::MIN_POSITIVE)
+    HalfFloatPoint::next_up(BitUtil::F32_MIN_VALUE)
   );
   assert_eq!(
     (-0f32).to_bits(),
-    HalfFloatPoint::next_up(-f32::MIN_POSITIVE).to_bits()
+    HalfFloatPoint::next_up(-BitUtil::F32_MIN_VALUE).to_bits()
   );
   assert_eq!(0f32.to_bits(), HalfFloatPoint::next_up(-0f32).to_bits());
 }
@@ -336,11 +337,11 @@ fn test_next_down() {
   assert_eq!((-0f32).to_bits(), HalfFloatPoint::next_down(0f32).to_bits());
   assert_eq!(
     0f32.to_bits(),
-    HalfFloatPoint::next_down(f32::MIN_POSITIVE).to_bits()
+    HalfFloatPoint::next_down(BitUtil::F32_MIN_VALUE).to_bits()
   );
   assert_eq!(
     HalfFloatPoint::next_down(-0f32),
-    HalfFloatPoint::next_down(-f32::MIN_POSITIVE)
+    HalfFloatPoint::next_down(-BitUtil::F32_MIN_VALUE)
   );
   assert_eq!((-0f32).to_bits(), HalfFloatPoint::next_down(0f32).to_bits());
 }

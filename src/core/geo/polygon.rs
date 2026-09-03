@@ -20,6 +20,8 @@ use crate::core::geo::lat_lon_geometry::LatLonGeometry;
 use crate::core::geo::polygon2d;
 use crate::core::geo::polygon2d::Polygon2D;
 use crate::core::geo::simple_geo_json_polygon_parser::SimpleGeoJSONPolygonParser;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
@@ -210,8 +212,8 @@ impl LatLonGeometry for Polygon {}
 impl PartialEq for Polygon {
   fn eq(&self, other: &Self) -> bool {
     self.holes == other.holes
-      && self.poly_lats == other.poly_lats
-      && self.poly_lons == other.poly_lons
+      && CoreHelper::array_equals_f64(&self.poly_lats, &other.poly_lats)
+      && CoreHelper::array_equals_f64(&self.poly_lons, &other.poly_lons)
   }
 }
 
@@ -221,10 +223,10 @@ impl std::hash::Hash for Polygon {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
     self.holes.hash(state);
     for lat in &self.poly_lats {
-      lat.to_bits().hash(state);
+      (BitUtil::double_to_long_bits(*lat) as u64).hash(state);
     }
     for lon in &self.poly_lons {
-      lon.to_bits().hash(state);
+      (BitUtil::double_to_long_bits(*lon) as u64).hash(state);
     }
   }
 }

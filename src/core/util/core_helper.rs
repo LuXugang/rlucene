@@ -51,6 +51,26 @@ impl CoreHelper {
     }
   }
 
+  /// Compares slices like Java's `Arrays.equals(float[], float[])`.
+  #[inline]
+  pub fn array_equals_f32(a: &[f32], b: &[f32]) -> bool {
+    a.len() == b.len()
+      && a
+        .iter()
+        .zip(b)
+        .all(|(&a, &b)| Self::compare_f32(a, b).is_eq())
+  }
+
+  /// Compares slices like Java's `Arrays.equals(double[], double[])`.
+  #[inline]
+  pub fn array_equals_f64(a: &[f64], b: &[f64]) -> bool {
+    a.len() == b.len()
+      && a
+        .iter()
+        .zip(b)
+        .all(|(&a, &b)| Self::compare_f64(a, b).is_eq())
+  }
+
   pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.
 The purpose of implementing the Clone trait is to make it could be used with Cow";
   pub fn check_from_index_size(from_index: usize, size: usize, length: usize) -> Result<usize> {

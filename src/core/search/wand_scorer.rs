@@ -26,6 +26,7 @@ use crate::core::search::two_phase_iterator::{
   TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
 use crate::core::util::TryIntoInt;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::math_util::MathUtil;
 
@@ -870,12 +871,6 @@ where
 pub(crate) const FLOAT_MANTISSA_BITS: i32 = 24;
 const MAX_SCALED_SCORE: i64 = (1_i64 << 24) - 1;
 
-#[inline]
-fn get_exponent_f32(f: f32) -> i32 {
-  let bits = f.to_bits();
-  let exp = ((bits >> 23) & 0xFF) as i32;
-  exp - 127
-}
 /// Return a scaling factor for the given float such that
 /// `f * 2^scaling_factor` falls within the interval `[2^23, 2^24)`.
 ///
@@ -891,11 +886,15 @@ pub(crate) fn scaling_factor(f: f32) -> Result<i32> {
       "Scores must be positive or null",
     ))
   } else if f == 0.0 {
-    Ok(scaling_factor(f32::MIN_POSITIVE)? + 1)
+    Ok(scaling_factor(BitUtil::F32_MIN_VALUE)? + 1)
   } else if f.is_infinite() {
     Ok(scaling_factor(f32::MAX)? - 1)
   } else {
-    let exp = get_exponent_f32(f);
+    // Widen to f64 so even subnormal f32 values have a normal exponent,
+    // matching Java's Math.getExponent((double) f).
+    let d = f as f64;
+    let exp = ((d.to_bits() >> 52) & 0x7ff) as i32 - 1023;
+    debug_assert!(d == 0.0 || exp >= -1022);
     Ok(FLOAT_MANTISSA_BITS - 1 - exp)
   }
 }

@@ -75,7 +75,8 @@ impl DisjunctionMaxQuery {
   ///   (i.e., one that is not in any higher scored field.
   #[cfg_attr(test, allow(clippy::mutable_key_type))]
   pub fn new(disjuncts: Vec<Query>, tie_breaker_multiplier: f32) -> Result<Self> {
-    if !(0.0..=1.0).contains(&tie_breaker_multiplier) {
+    // Keep Java's pair of primitive comparisons: NaN passes this check.
+    if tie_breaker_multiplier < 0.0 || tie_breaker_multiplier > 1.0 {
       return Err(LuceneError::illegal_argument(
         "tie_breaker_multiplier must be in [0, 1]",
       ));

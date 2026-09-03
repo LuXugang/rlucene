@@ -41,6 +41,7 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::total_hits::Relation::EqualTo;
 use crate::core::search::weight::Weight;
 use crate::core::store::directory::DirEnum;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::VectorUtil;
@@ -478,7 +479,10 @@ fn test_doc_and_score_query_basics() -> Result<()> {
 
     let docs = score_docs.iter().map(|sd| sd.doc).collect::<Vec<_>>();
     let scores = score_docs.iter().map(|sd| sd.score).collect::<Vec<_>>();
-    let max_score = scores.iter().copied().fold(f32::MIN, f32::max);
+    let max_score = scores
+      .iter()
+      .copied()
+      .fold(BitUtil::F32_MIN_VALUE, f32::max);
     let leaves = searcher.get_leaf_contexts()?;
     let segments = find_segment_starts(leaves, &docs)?;
     let _index_reader = searcher.get_index_reader();

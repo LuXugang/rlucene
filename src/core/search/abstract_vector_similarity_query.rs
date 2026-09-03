@@ -46,7 +46,9 @@ use crate::core::search::vector_similarity_collector::VectorSimilarityCollector;
 use crate::core::search::weight::{DefaultBulkScorer, Weight};
 use crate::core::util::bit_set::{BitSet, of};
 use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cell::Cell;
 use std::hash::{Hash, Hasher};
@@ -155,8 +157,8 @@ impl Hash for AbstractVectorSimilarityQueryBase {
     H: Hasher,
   {
     self.field.hash(state);
-    self.traversal_similarity.to_bits().hash(state);
-    self.result_similarity.to_bits().hash(state);
+    (BitUtil::float_to_int_bits(self.traversal_similarity) as u32).hash(state);
+    (BitUtil::float_to_int_bits(self.result_similarity) as u32).hash(state);
     self.filter.hash(state);
   }
 }
@@ -164,8 +166,8 @@ impl Hash for AbstractVectorSimilarityQueryBase {
 impl PartialEq for AbstractVectorSimilarityQueryBase {
   fn eq(&self, other: &Self) -> bool {
     self.field == other.field
-      && self.traversal_similarity.to_bits() == other.traversal_similarity.to_bits()
-      && self.result_similarity.to_bits() == other.result_similarity.to_bits()
+      && CoreHelper::compare_f32(self.traversal_similarity, other.traversal_similarity).is_eq()
+      && CoreHelper::compare_f32(self.result_similarity, other.result_similarity).is_eq()
       && self.filter == other.filter
   }
 }

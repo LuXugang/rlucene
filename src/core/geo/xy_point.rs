@@ -18,6 +18,8 @@ use crate::core::geo::geometry::Geometry;
 use crate::core::geo::point2d::{Point2D, create_from_xy_point};
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry::XYGeometry;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 /// Represents a point on the x/y plane. You can construct the point directly
 /// with `f32` coordinates.
@@ -68,7 +70,8 @@ impl XYGeometry for XYPoint {}
 
 impl PartialEq for XYPoint {
   fn eq(&self, other: &Self) -> bool {
-    self.x == other.x && self.y == other.y
+    CoreHelper::compare_f32(self.x, other.x).is_eq()
+      && CoreHelper::compare_f32(self.y, other.y).is_eq()
   }
 }
 
@@ -76,8 +79,8 @@ impl Eq for XYPoint {}
 
 impl std::hash::Hash for XYPoint {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.x.to_bits().hash(state);
-    self.y.to_bits().hash(state);
+    (BitUtil::float_to_int_bits(self.x) as u32).hash(state);
+    (BitUtil::float_to_int_bits(self.y) as u32).hash(state);
   }
 }
 

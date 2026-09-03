@@ -37,8 +37,8 @@ use crate::core::search::sorted_numeric_sort_field::{
   SortedNumericLongComparator,
 };
 use crate::core::search::sorted_set_sort_field::SortedDocValuesTermOrdValComparator;
-use crate::core::util::ToInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, ToInt};
 use crate::impl_from_for_enum;
 use std::borrow::Cow;
 use std::cmp::Ordering;
@@ -320,7 +320,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
   type DocIdSetIteratorRef<'a> = &'a mut DummyDISI;
 }
 
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, Default)]
 pub enum FieldComparatorValue {
   #[default]
   Missing,
@@ -329,6 +329,20 @@ pub enum FieldComparatorValue {
   Int(i32),
   Long(i64),
   TermVal(BytesRef<Vec<u8>>),
+}
+
+impl PartialEq for FieldComparatorValue {
+  fn eq(&self, other: &Self) -> bool {
+    match (self, other) {
+      (Self::Missing, Self::Missing) => true,
+      (Self::Double(a), Self::Double(b)) => CoreHelper::compare_f64(*a, *b).is_eq(),
+      (Self::Float(a), Self::Float(b)) => CoreHelper::compare_f32(*a, *b).is_eq(),
+      (Self::Int(a), Self::Int(b)) => a == b,
+      (Self::Long(a), Self::Long(b)) => a == b,
+      (Self::TermVal(a), Self::TermVal(b)) => a == b,
+      _ => false,
+    }
+  }
 }
 impl_from_for_enum!(
     FieldComparatorValue,
@@ -420,8 +434,12 @@ impl PartialOrd for FieldComparatorValue {
     match (self, other) {
       (FieldComparatorValue::Missing, FieldComparatorValue::Missing) => Some(Ordering::Equal),
       (FieldComparatorValue::Int(a), FieldComparatorValue::Int(b)) => a.partial_cmp(b),
-      (FieldComparatorValue::Double(a), FieldComparatorValue::Double(b)) => a.partial_cmp(b),
-      (FieldComparatorValue::Float(a), FieldComparatorValue::Float(b)) => a.partial_cmp(b),
+      (FieldComparatorValue::Double(a), FieldComparatorValue::Double(b)) => {
+        Some(CoreHelper::compare_f64(*a, *b))
+      },
+      (FieldComparatorValue::Float(a), FieldComparatorValue::Float(b)) => {
+        Some(CoreHelper::compare_f32(*a, *b))
+      },
       (FieldComparatorValue::Long(a), FieldComparatorValue::Long(b)) => a.partial_cmp(b),
       (FieldComparatorValue::TermVal(a), FieldComparatorValue::TermVal(b)) => Some(a.cmp(b)),
       _ => None,

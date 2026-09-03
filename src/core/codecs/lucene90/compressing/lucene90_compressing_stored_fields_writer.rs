@@ -879,7 +879,7 @@ pub(crate) const DAY_ENCODING: i32 = 0xC0;
 /// - Bytes --> Potential additional bytes to read depending on the header.
 pub(crate) fn write_zfloat(out: &mut impl DataOutput, f: f32) -> Result<()> {
   let int_val = f as i32;
-  let float_bits = f.to_bits();
+  let float_bits = BitUtil::float_to_int_bits(f) as u32;
 
   if f == int_val as f32 && (-1..=0x7D).contains(&int_val) && float_bits != NEGATIVE_ZERO_FLOAT {
     // small integer [-1..125]: single byte
@@ -913,7 +913,7 @@ pub(crate) fn write_zfloat(out: &mut impl DataOutput, f: f32) -> Result<()> {
 /// - Bytes --> Potential additional bytes to read depending on the header.
 pub(crate) fn write_zdouble(out: &mut impl DataOutput, d: f64) -> Result<()> {
   let int_val = d as i32;
-  let double_bits = d.to_bits(); // u64
+  let double_bits = BitUtil::double_to_long_bits(d) as u64;
 
   if d == int_val as f64 && (-1..=0x7C).contains(&int_val) && double_bits != NEGATIVE_ZERO_DOUBLE {
     // small integer value [-1..124]: single byte
@@ -921,7 +921,7 @@ pub(crate) fn write_zdouble(out: &mut impl DataOutput, d: f64) -> Result<()> {
   } else if d == (d as f32) as f64 {
     // d has an accurate float representation: 5 bytes
     out.write_byte(0xFE)?;
-    out.write_int((d as f32).to_bits() as i32)?;
+    out.write_int(BitUtil::float_to_int_bits(d as f32))?;
   } else if (double_bits >> 63) == 0 {
     // other positive doubles: 8 bytes
     out.write_byte((double_bits >> 56) as u8)?;

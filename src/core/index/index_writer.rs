@@ -1484,14 +1484,13 @@ where
       let update = match dv_type {
         DocValuesType::Numeric => {
           let value = match f.numeric_value()? {
-            Some(v) => match v.to_i64() {
-              Some(n) => Some(n),
-              None => {
-                return Err(LuceneError::illegal_argument(format!(
-                  "numeric value for field={} can not convert to i64: {:?}",
-                  name, v
-                )));
-              },
+            Some(Number::I64(value)) => Some(value),
+            Some(value) => {
+              // Java casts numericValue to Long here instead of calling longValue.
+              return Err(LuceneError::illegal_argument(format!(
+                "numeric docvalues update for field={} requires an i64 value, got {:?}",
+                name, value
+              )));
             },
             None => None,
           };
@@ -8057,6 +8056,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_consumer::IOConsumer;
 use crate::core::util::io_function::IOFunction;
+use crate::core::util::number::Number;
 use crate::core::util::unicode_util::UnicodeUtil;
 use crate::core::util::{
   BYTE_BLOCK_SIZE, CoreHelper, HasIdentity, IOUtils, LATEST, MIN_SUPPORTED_MAJOR, StringHelper,

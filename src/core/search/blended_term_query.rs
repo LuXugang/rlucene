@@ -28,6 +28,8 @@ use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::{boolean_query, index_searcher};
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
 use crate::core::util::{HasIdentity, Sorter, ToInt};
@@ -82,11 +84,7 @@ impl PartialEq for BlendedTermQuery {
   fn eq(&self, other: &Self) -> bool {
     self.terms == other.terms
       && self.contexts == other.contexts
-      && self
-        .boosts
-        .iter()
-        .map(|v| v.to_bits())
-        .eq(other.boosts.iter().map(|v| v.to_bits()))
+      && CoreHelper::array_equals_f32(&self.boosts, &other.boosts)
       && self.rewrite_method == other.rewrite_method
   }
 }
@@ -99,7 +97,7 @@ impl Hash for BlendedTermQuery {
     self.terms.hash(state);
     self.contexts.hash(state);
     for boost in &self.boosts {
-      boost.to_bits().hash(state);
+      (BitUtil::float_to_int_bits(*boost) as u32).hash(state);
     }
     self.rewrite_method.hash(state);
   }
@@ -351,7 +349,7 @@ impl DisjunctionMaxRewrite {
 }
 impl PartialEq for DisjunctionMaxRewrite {
   fn eq(&self, other: &Self) -> bool {
-    self.tie_breaker_multiplier.to_bits() == other.tie_breaker_multiplier.to_bits()
+    self.tie_breaker_multiplier == other.tie_breaker_multiplier
   }
 }
 
@@ -360,7 +358,7 @@ impl Eq for DisjunctionMaxRewrite {}
 impl Hash for DisjunctionMaxRewrite {
   fn hash<H: Hasher>(&self, state: &mut H) {
     std::any::TypeId::of::<Self>().hash(state);
-    self.tie_breaker_multiplier.to_bits().hash(state);
+    (BitUtil::float_to_int_bits(self.tie_breaker_multiplier) as u32).hash(state);
   }
 }
 impl RewriteMethod for DisjunctionMaxRewrite {

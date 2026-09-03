@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::bit_util::BitUtil;
+
 pub mod core;
 
 pub(crate) fn ulp_f32(x: f32) -> f32 {
@@ -24,7 +26,7 @@ pub(crate) fn ulp_f32(x: f32) -> f32 {
     return f32::INFINITY;
   }
   if x == 0.0 {
-    return f32::from_bits(1);
+    return BitUtil::F32_MIN_VALUE;
   }
 
   let bits = x.to_bits();

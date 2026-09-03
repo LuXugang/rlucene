@@ -17,6 +17,8 @@
 use crate::core::document::binary_range_field_range_query::BinaryRangeFieldRangeQuery;
 use crate::core::document::double_range;
 use crate::core::document::range_field_query::QueryType;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -57,7 +59,9 @@ impl DoubleRangeSlowRangeQuery {
 
 impl PartialEq for DoubleRangeSlowRangeQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.field == other.field && self.min == other.min && self.max == other.max
+    self.field == other.field
+      && CoreHelper::array_equals_f64(&self.min, &other.min)
+      && CoreHelper::array_equals_f64(&self.max, &other.max)
   }
 }
 
@@ -67,10 +71,10 @@ impl Hash for DoubleRangeSlowRangeQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.field.hash(state);
     for value in &self.min {
-      value.to_bits().hash(state);
+      (BitUtil::double_to_long_bits(*value) as u64).hash(state);
     }
     for value in &self.max {
-      value.to_bits().hash(state);
+      (BitUtil::double_to_long_bits(*value) as u64).hash(state);
     }
   }
 }

@@ -46,6 +46,7 @@ use crate::core::search::point_in_set_query::{
 use crate::core::search::point_range_query::{PointRangeBase, PointRangeQuery};
 use crate::core::search::query::{Query, QueryBase};
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 #[cfg(feature = "nightly")]
 use crate::core::util::bkd::bkd_config::BKDConfig;
@@ -333,7 +334,7 @@ fn test_crazy_doubles() -> Result<()> {
 
   {
     let mut doc = Document::new();
-    doc.add(DoublePoint::new("point", [f64::MIN_POSITIVE])?);
+    doc.add(DoublePoint::new("point", [BitUtil::F64_MIN_VALUE])?);
     w.add_document(doc)?;
   }
 
@@ -373,7 +374,10 @@ fn test_crazy_doubles() -> Result<()> {
   );
   assert_eq!(
     1,
-    searcher.count(DoublePoint::new_exact_query("point", f64::MIN_POSITIVE)?)?
+    searcher.count(DoublePoint::new_exact_query(
+      "point",
+      BitUtil::F64_MIN_VALUE
+    )?)?
   );
   assert_eq!(
     1,
@@ -394,7 +398,7 @@ fn test_crazy_doubles() -> Result<()> {
     f64::NAN,
     0.0f64,
     f64::NEG_INFINITY,
-    f64::MIN_POSITIVE,
+    BitUtil::F64_MIN_VALUE,
     -0.0f64,
     f64::INFINITY,
   ];
@@ -423,7 +427,7 @@ fn test_crazy_doubles() -> Result<()> {
     searcher.count(DoublePoint::new_range_query(
       "point",
       0.0f64,
-      f64::MIN_POSITIVE
+      BitUtil::F64_MIN_VALUE
     )?)?
   );
 
@@ -431,7 +435,7 @@ fn test_crazy_doubles() -> Result<()> {
     2,
     searcher.count(DoublePoint::new_range_query(
       "point",
-      f64::MIN_POSITIVE,
+      BitUtil::F64_MIN_VALUE,
       f64::MAX
     )?)?
   );
@@ -485,7 +489,7 @@ fn test_crazy_floats() -> Result<()> {
 
   {
     let mut doc = Document::new();
-    doc.add(FloatPoint::new("point", [f32::MIN_POSITIVE])?);
+    doc.add(FloatPoint::new("point", [BitUtil::F32_MIN_VALUE])?);
     w.add_document(doc)?;
   }
 
@@ -525,7 +529,10 @@ fn test_crazy_floats() -> Result<()> {
   );
   assert_eq!(
     1,
-    searcher.count(FloatPoint::new_exact_query("point", f32::MIN_POSITIVE)?)?
+    searcher.count(FloatPoint::new_exact_query(
+      "point",
+      BitUtil::F32_MIN_VALUE
+    )?)?
   );
   assert_eq!(
     1,
@@ -546,7 +553,7 @@ fn test_crazy_floats() -> Result<()> {
     f32::NAN,
     0.0f32,
     f32::NEG_INFINITY,
-    f32::MIN_POSITIVE,
+    BitUtil::F32_MIN_VALUE,
     -0.0f32,
     f32::INFINITY,
   ];
@@ -572,7 +579,7 @@ fn test_crazy_floats() -> Result<()> {
     searcher.count(FloatPoint::new_range_query(
       "point",
       0.0f32,
-      f32::MIN_POSITIVE
+      BitUtil::F32_MIN_VALUE
     )?)?
   );
 
@@ -580,7 +587,7 @@ fn test_crazy_floats() -> Result<()> {
     2,
     searcher.count(FloatPoint::new_range_query(
       "point",
-      f32::MIN_POSITIVE,
+      BitUtil::F32_MIN_VALUE,
       f32::MAX
     )?)?
   );
@@ -3251,7 +3258,7 @@ fn test_next_up() -> Result<()> {
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f64::from_bits(1).total_cmp(&DoublePoint::next_up(0.0)),
+    BitUtil::F64_MIN_VALUE.total_cmp(&DoublePoint::next_up(0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
@@ -3272,7 +3279,7 @@ fn test_next_up() -> Result<()> {
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f32::from_bits(1).total_cmp(&FloatPoint::next_up(0.0)),
+    BitUtil::F32_MIN_VALUE.total_cmp(&FloatPoint::next_up(0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
@@ -3298,7 +3305,7 @@ fn test_next_down() -> Result<()> {
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    (-f64::from_bits(1)).total_cmp(&DoublePoint::next_down(-0.0)),
+    (-BitUtil::F64_MIN_VALUE).total_cmp(&DoublePoint::next_down(-0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
@@ -3319,7 +3326,7 @@ fn test_next_down() -> Result<()> {
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    (-f32::from_bits(1)).total_cmp(&FloatPoint::next_down(-0.0)),
+    (-BitUtil::F32_MIN_VALUE).total_cmp(&FloatPoint::next_down(-0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(

@@ -164,6 +164,7 @@ mod compression_numeric_encoding_tests {
   use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
   use crate::core::index::no_merge_policy::NoMergePolicy;
   use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
+  use crate::core::util::bit_util::BitUtil;
   use crate::core::util::close::CloseableRef;
   use crate::core::util::error::lucene_error::Result;
   use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
@@ -200,7 +201,7 @@ mod compression_numeric_encoding_tests {
       0.0f32,
       f32::NEG_INFINITY,
       f32::INFINITY,
-      f32::MIN,
+      BitUtil::F32_MIN_VALUE,
       f32::MAX,
       f32::NAN,
     ];
@@ -263,7 +264,7 @@ mod compression_numeric_encoding_tests {
       0.0f64,
       f64::NEG_INFINITY,
       f64::INFINITY,
-      f64::MIN,
+      BitUtil::F64_MIN_VALUE,
       f64::MAX,
       f64::NAN,
     ];

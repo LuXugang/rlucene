@@ -20,6 +20,8 @@ use crate::core::geo::polygon2d;
 use crate::core::geo::polygon2d::Polygon2D;
 use crate::core::geo::xy_encoding_utils::XYEncodingUtils;
 use crate::core::geo::xy_geometry::XYGeometry;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 
@@ -170,7 +172,9 @@ impl XYPolygon {
 }
 impl PartialEq for XYPolygon {
   fn eq(&self, other: &Self) -> bool {
-    self.holes == other.holes && self.x == other.x && self.y == other.y
+    self.holes == other.holes
+      && CoreHelper::array_equals_f32(&self.x, &other.x)
+      && CoreHelper::array_equals_f32(&self.y, &other.y)
   }
 }
 
@@ -182,10 +186,10 @@ impl std::hash::Hash for XYPolygon {
       hole.hash(state);
     }
     for x in &self.x {
-      x.to_bits().hash(state);
+      (BitUtil::float_to_int_bits(*x) as u32).hash(state);
     }
     for y in &self.y {
-      y.to_bits().hash(state);
+      (BitUtil::float_to_int_bits(*y) as u32).hash(state);
     }
   }
 }

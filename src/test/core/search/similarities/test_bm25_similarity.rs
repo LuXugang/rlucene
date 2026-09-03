@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::similarities_impl::bm25_similarity::BM25Similarity;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::search::base_similarity_test_case::BaseSimilarityTestCase;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -31,7 +32,7 @@ impl BaseSimilarityTestCase for TestBM25Similarity {
   {
     let k1: f32 = match random.random_range(0..4) {
       0 => 0.0,
-      1 => f32::from_bits(1),
+      1 => BitUtil::F32_MIN_VALUE,
       2 => i32::MAX as f32,
       _ => {
         let r: f32 = random.random();
@@ -41,7 +42,7 @@ impl BaseSimilarityTestCase for TestBM25Similarity {
 
     let b: f32 = match random.random_range(0..4) {
       0 => 0.0,
-      1 => f32::from_bits(1),
+      1 => BitUtil::F32_MIN_VALUE,
       2 => 1.0,
       _ => random.random(),
     };

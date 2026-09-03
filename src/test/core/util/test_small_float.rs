@@ -16,6 +16,7 @@
  */
 // Migrated from src/core/util/small_float.rs
 
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::small_float::SmallFloat;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
@@ -119,12 +120,12 @@ fn test_float_to_byte() {
 
   // test some constants
   assert_eq!(SmallFloat::float_to_byte_3_15(0.0), 0);
-  assert_eq!(SmallFloat::float_to_byte_3_15(f32::MIN_POSITIVE), 1); // underflow rounds up
+  assert_eq!(SmallFloat::float_to_byte_3_15(BitUtil::F32_MIN_VALUE), 1); // underflow rounds up
   assert_eq!(SmallFloat::float_to_byte_3_15(f32::MAX), 255); // overflow rounds down
   assert_eq!(SmallFloat::float_to_byte_3_15(f32::INFINITY), 255);
 
   // all negatives map to 0
-  assert_eq!(SmallFloat::float_to_byte_3_15(-f32::MIN_POSITIVE), 0);
+  assert_eq!(SmallFloat::float_to_byte_3_15(-BitUtil::F32_MIN_VALUE), 0);
   assert_eq!(SmallFloat::float_to_byte_3_15(-f32::MAX), 0);
   assert_eq!(SmallFloat::float_to_byte_3_15(f32::NEG_INFINITY), 0);
 

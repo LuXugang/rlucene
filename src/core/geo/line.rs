@@ -18,6 +18,8 @@ use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
 use crate::core::geo::line2d::{Line2D, create_from_line};
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -114,7 +116,8 @@ impl Line {
 }
 impl PartialEq for Line {
   fn eq(&self, other: &Self) -> bool {
-    self.lats == other.lats && self.lons == other.lons
+    CoreHelper::array_equals_f64(&self.lats, &other.lats)
+      && CoreHelper::array_equals_f64(&self.lons, &other.lons)
   }
 }
 
@@ -123,10 +126,10 @@ impl Eq for Line {}
 impl Hash for Line {
   fn hash<H: Hasher>(&self, state: &mut H) {
     for lat in &self.lats {
-      lat.to_bits().hash(state);
+      (BitUtil::double_to_long_bits(*lat) as u64).hash(state);
     }
     for lon in &self.lons {
-      lon.to_bits().hash(state);
+      (BitUtil::double_to_long_bits(*lon) as u64).hash(state);
     }
   }
 }

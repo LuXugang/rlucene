@@ -20,6 +20,8 @@ use crate::core::geo::lat_lon_geometry::LatLonGeometry;
 use crate::core::geo::polygon::Polygon;
 use crate::core::geo::rectangle2d::{Rectangle2DType, create_from_rectangle};
 use crate::core::util::SloppyMath;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -223,10 +225,10 @@ impl Display for Rectangle {
 }
 impl PartialEq for Rectangle {
   fn eq(&self, other: &Self) -> bool {
-    self.min_lat == other.min_lat
-      && self.min_lon == other.min_lon
-      && self.max_lat == other.max_lat
-      && self.max_lon == other.max_lon
+    CoreHelper::compare_f64(self.min_lat, other.min_lat).is_eq()
+      && CoreHelper::compare_f64(self.min_lon, other.min_lon).is_eq()
+      && CoreHelper::compare_f64(self.max_lat, other.max_lat).is_eq()
+      && CoreHelper::compare_f64(self.max_lon, other.max_lon).is_eq()
   }
 }
 
@@ -234,9 +236,9 @@ impl Eq for Rectangle {}
 
 impl Hash for Rectangle {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    self.min_lat.to_bits().hash(state);
-    self.min_lon.to_bits().hash(state);
-    self.max_lat.to_bits().hash(state);
-    self.max_lon.to_bits().hash(state);
+    (BitUtil::double_to_long_bits(self.min_lat) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.min_lon) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.max_lat) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.max_lon) as u64).hash(state);
   }
 }

@@ -19,6 +19,8 @@ use crate::core::geo::geometry::Geometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
 use crate::core::geo::point2d;
 use crate::core::geo::point2d::Point2D;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 /// Represents a point on the earth's surface. You can construct the point directly
 /// with `f64` coordinates.
@@ -68,7 +70,8 @@ impl LatLonGeometry for Point {}
 
 impl PartialEq for Point {
   fn eq(&self, other: &Self) -> bool {
-    self.lat == other.lat && self.lon == other.lon
+    CoreHelper::compare_f64(self.lat, other.lat).is_eq()
+      && CoreHelper::compare_f64(self.lon, other.lon).is_eq()
   }
 }
 
@@ -76,8 +79,8 @@ impl Eq for Point {}
 
 impl std::hash::Hash for Point {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.lat.to_bits().hash(state);
-    self.lon.to_bits().hash(state);
+    (BitUtil::double_to_long_bits(self.lat) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.lon) as u64).hash(state);
   }
 }
 

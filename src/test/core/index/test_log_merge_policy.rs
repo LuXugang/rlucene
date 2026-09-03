@@ -27,6 +27,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
 use crate::core::util::LATEST;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::base_merge_policy_test_case::{
   BaseMergePolicyTestCase, FakeDirectory, IOStats, MockMergeContext, apply_merge,
@@ -496,7 +497,7 @@ fn test_full_flush_merges() -> Result<()> {
       &format!("_{}", seg_name_generator.fetch_add(1, Ordering::SeqCst)),
       1,
       0,
-      f64::MIN_POSITIVE,
+      BitUtil::F64_MIN_VALUE,
       SOURCE_FLUSH,
     )?)?;
   }

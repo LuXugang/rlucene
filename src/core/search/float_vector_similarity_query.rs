@@ -32,7 +32,9 @@ use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::util::HasIdentity;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::VectorUtil;
@@ -171,7 +173,7 @@ impl FloatVectorSimilarityQuery {
 
 impl PartialEq for FloatVectorSimilarityQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.target == other.target && self.base == other.base
+    CoreHelper::array_equals_f32(&self.target, &other.target) && self.base == other.base
   }
 }
 
@@ -184,12 +186,7 @@ impl Hash for FloatVectorSimilarityQuery {
   {
     self.base.hash(state);
     for &value in &self.target {
-      let bits = if value == 0.0 {
-        0.0f32.to_bits()
-      } else {
-        value.to_bits()
-      };
-      bits.hash(state);
+      (BitUtil::float_to_int_bits(value) as u32).hash(state);
     }
   }
 }
