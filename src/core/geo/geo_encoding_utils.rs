@@ -372,24 +372,27 @@ impl DistancePredicate {
   /// NOTE: this operates directly on the encoded representation of points.
   pub fn test(&self, lat: i32, lon: i32) -> bool {
     let lat2 = ((lat.wrapping_sub(i32::MIN)) as u32 >> self.base.lat_shift) as i32;
-    if lat2 < self.base.lat_base || lat2 - self.base.lat_base >= self.base.max_lat_delta {
+    let lat_delta = lat2.wrapping_sub(self.base.lat_base);
+    if lat2 < self.base.lat_base || lat_delta >= self.base.max_lat_delta {
       return false;
     }
 
     let mut lon2 = ((lon.wrapping_sub(i32::MIN)) as u32 >> self.base.lon_shift) as i32;
     if lon2 < self.base.lon_base {
-      lon2 += 1i32 << (32 - self.base.lon_shift);
+      lon2 = lon2.wrapping_add(1i32.wrapping_shl((32 - self.base.lon_shift) as u32));
     }
 
     debug_assert!((lon2 as u32) >= (self.base.lon_base as u32));
-    debug_assert!(lon2 - self.base.lon_base >= 0);
+    let lon_delta = lon2.wrapping_sub(self.base.lon_base);
+    debug_assert!(lon_delta >= 0);
 
-    if lon2 - self.base.lon_base >= self.base.max_lon_delta {
+    if lon_delta >= self.base.max_lon_delta {
       return false;
     }
 
-    let relation = self.base.relations[((lat2 - self.base.lat_base) * self.base.max_lon_delta
-      + (lon2 - self.base.lon_base)) as usize];
+    let relation = self.base.relations[(lat_delta
+      .wrapping_mul(self.base.max_lon_delta)
+      .wrapping_add(lon_delta)) as usize];
 
     if relation == CellCrossesQuery.ordinal() as u8 {
       SloppyMath::haversin_sort_key(
@@ -437,15 +440,26 @@ where
   }
   let lon_shift = compute_shift(min_lon2, max_lon2);
   let lon_base = (min_lon2 as u64 >> lon_shift) as i32;
-  let max_lon_delta = (max_lon2 as u64 >> lon_shift) as i32 - lon_base + 1;
+  let max_lon_delta = ((max_lon2 as u64 >> lon_shift) as i32)
+    .wrapping_sub(lon_base)
+    .wrapping_add(1);
+  debug_assert!(max_lon_delta > 0);
 
   let mut relations = vec![0u8; (max_lat_delta * max_lon_delta) as usize];
   for i in 0..max_lat_delta {
     for j in 0..max_lon_delta {
-      let box_min_lat = ((lat_base + i) << lat_shift).wrapping_add(i32::MIN);
-      let box_min_lon = ((lon_base + j) << lon_shift).wrapping_add(i32::MIN);
-      let box_max_lat = box_min_lat.wrapping_add((1 << lat_shift) - 1);
-      let box_max_lon = box_min_lon.wrapping_add((1 << lon_shift) - 1);
+      let box_min_lat = lat_base
+        .wrapping_add(i)
+        .wrapping_shl(lat_shift as u32)
+        .wrapping_add(i32::MIN);
+      let box_min_lon = lon_base
+        .wrapping_add(j)
+        .wrapping_shl(lon_shift as u32)
+        .wrapping_add(i32::MIN);
+      let box_max_lat =
+        box_min_lat.wrapping_add(1i32.wrapping_shl(lat_shift as u32).wrapping_sub(1));
+      let box_max_lon =
+        box_min_lon.wrapping_add(1i32.wrapping_shl(lon_shift as u32).wrapping_sub(1));
       let rect = Rectangle::new(
         GeoEncodingUtils::decode_latitude(box_min_lat),
         GeoEncodingUtils::decode_latitude(box_max_lat),

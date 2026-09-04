@@ -194,21 +194,25 @@ fn test_confined() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: Java shared Arena grouping has no Rust mmap ownership equivalent"]
 fn test_arenas() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Java shared Arena permit rollover has no Rust mmap ownership equivalent"]
 fn test_arenas_many_segment_files() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Java shared Arena segment grouping has no Rust mmap ownership equivalent"]
 fn test_group_by_segment_func() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }
 
 #[test]
+#[ignore = "Java-only: Java shared Arena grouping can be disabled; Rust mmap uses Arc ownership"]
 fn test_no_grouping_func() -> Result<()> {
   test_not_required_in_rust_lucene!();
 }

@@ -30,7 +30,7 @@ use std::hash::{Hash, Hasher};
 /// Represents a lat/lon rectangle.
 #[derive(Clone)]
 pub struct Rectangle {
-  /// maximum longitude value (in degrees)
+  /// minimum latitude value (in degrees)
   pub min_lat: f64,
 
   /// minimum longitude value (in degrees)
@@ -39,7 +39,7 @@ pub struct Rectangle {
   /// maximum latitude value (in degrees)
   pub max_lat: f64,
 
-  /// minimum latitude value (in degrees)
+  /// maximum longitude value (in degrees)
   pub max_lon: f64,
 }
 

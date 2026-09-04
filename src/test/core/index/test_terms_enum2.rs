@@ -19,6 +19,7 @@ use crate::core::document::field::Store::Yes;
 use crate::core::index::BytesRef;
 use crate::core::index::composite_reader_context::CompositeReaderContext;
 use crate::core::index::directory_reader;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
 use crate::core::index::multi_terms::get_terms;
@@ -36,6 +37,7 @@ use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -68,7 +70,7 @@ fn set_up<R>(
   random: &mut R,
 ) -> Result<(
   i32,
-  Arc<DirEnum>,
+  Option<Arc<DirEnum>>,
   BTreeSet<BytesRef<Vec<u8>>>,
   Automaton,
   Arc<StandardDirectoryReader<DirEnum>>,
@@ -77,7 +79,8 @@ fn set_up<R>(
 where
   R: Rng + ?Sized,
 {
-  let (num_iterations, dir, terms, terms_automaton) = if is_light_mode() {
+  let light_mode = is_light_mode();
+  let (num_iterations, dir, terms, terms_automaton) = if light_mode {
     let (num_iterations, dir, terms, terms_automaton) = &*LIGHT_CONTEXT;
     (
       *num_iterations,
@@ -92,7 +95,7 @@ where
   let searcher = new_searcher_with_reader(reader.clone())?;
   Ok((
     num_iterations,
-    dir,
+    (!light_mode).then_some(dir),
     terms,
     terms_automaton,
     reader,
@@ -139,7 +142,8 @@ where
 #[test]
 fn test_finite_versus_infinite() -> Result<()> {
   let mut random = random();
-  let (num_iterations, _dir, terms, _terms_automaton, _reader, searcher) = set_up(&mut random)?;
+  let (num_iterations, directory_to_close, terms, _terms_automaton, reader, searcher) =
+    set_up(&mut random)?;
 
   for _ in 0..num_iterations {
     let reg = AutomatonTestUtil::random_regexp(&mut random)?;
@@ -166,12 +170,18 @@ fn test_finite_versus_infinite() -> Result<()> {
     CheckHits::check_equal(&a1.into_query(), &orig_hits, &new_hits)?;
   }
 
+  drop(searcher);
+  reader.close()?;
+  if let Some(dir) = directory_to_close {
+    dir.close()?;
+  }
   Ok(())
 }
 #[test]
 fn test_seeking() -> Result<()> {
   let mut random = random();
-  let (num_iterations, _dir, terms, _terms_automaton, reader, _searcher) = set_up(&mut random)?;
+  let (num_iterations, directory_to_close, terms, _terms_automaton, reader, searcher) =
+    set_up(&mut random)?;
 
   for _ in 0..num_iterations {
     let reg = AutomatonTestUtil::random_regexp(&mut random)?;
@@ -200,12 +210,18 @@ fn test_seeking() -> Result<()> {
     }
   }
 
+  drop(searcher);
+  reader.close()?;
+  if let Some(dir) = directory_to_close {
+    dir.close()?;
+  }
   Ok(())
 }
 #[test]
 fn test_seeking_and_nexting() -> Result<()> {
   let mut random = random();
-  let (num_iterations, _dir, terms, _terms_automaton, reader, _searcher) = set_up(&mut random)?;
+  let (num_iterations, directory_to_close, terms, _terms_automaton, reader, searcher) =
+    set_up(&mut random)?;
 
   for _ in 0..num_iterations {
     let mut te = get_terms(&reader, "field")?.unwrap().iterator()?;
@@ -224,12 +240,18 @@ fn test_seeking_and_nexting() -> Result<()> {
     }
   }
 
+  drop(searcher);
+  reader.close()?;
+  if let Some(dir) = directory_to_close {
+    dir.close()?;
+  }
   Ok(())
 }
 #[test]
 fn test_intersect() -> Result<()> {
   let mut random = random();
-  let (num_iterations, _dir, _terms, terms_automaton, reader, _searcher) = set_up(&mut random)?;
+  let (num_iterations, directory_to_close, _terms, terms_automaton, reader, searcher) =
+    set_up(&mut random)?;
 
   for _ in 0..num_iterations {
     let reg = AutomatonTestUtil::random_regexp(&mut random)?;
@@ -260,5 +282,10 @@ fn test_intersect() -> Result<()> {
     assert!(AutomatonTestUtil::same_language(&expected, &actual)?);
   }
 
+  drop(searcher);
+  reader.close()?;
+  if let Some(dir) = directory_to_close {
+    dir.close()?;
+  }
   Ok(())
 }

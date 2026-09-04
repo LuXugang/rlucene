@@ -776,7 +776,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
-        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32(4), vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32, vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
       );
     }
@@ -821,7 +821,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
-        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32, vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
       );
     }
@@ -864,7 +864,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       let err = w2.add_indexes_from_codec_readers(vec![leaf]);
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
-        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32(4), vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32, vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
       );
       reader.close()?;
@@ -912,7 +912,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       let err = w2.add_indexes_from_codec_readers(vec![leaf]);
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
-        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32, vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
       );
       reader.close()?;
@@ -959,7 +959,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
-        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32(4), vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        "cannot change field \"f\" from vector dimension=6, vector encoding=FLOAT32, vector similarity function=DotProduct to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
       );
       reader.close()?;
@@ -1006,7 +1006,7 @@ pub trait BaseKnnVectorsFormatTestCase:
       let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
       assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
       assert_eq!(
-        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32(4), vector similarity function=DotProduct",
+        "cannot change field \"f\" from vector dimension=4, vector encoding=FLOAT32, vector similarity function=Euclidean to inconsistent vector dimension=4, vector encoding=FLOAT32, vector similarity function=DotProduct",
         err.unwrap_err().to_string()
       );
       reader.close()?;

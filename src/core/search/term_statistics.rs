@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::term::Term;
+use crate::core::index::{BytesRef, term::Term};
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use std::fmt::{self, Display};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 /// Contains statistics for a specific term
@@ -63,6 +65,27 @@ pub struct TermStatistics {
   total_term_freq: i64,
 }
 
+/// Converts term bytes or a term value into the internal shared term used by
+/// [`TermStatistics`].
+pub trait IntoTermStatisticsTerm {
+  fn into_term_statistics_term(self) -> Arc<Term>;
+}
+
+impl<T> IntoTermStatisticsTerm for T
+where
+  T: Into<Arc<Term>>,
+{
+  fn into_term_statistics_term(self) -> Arc<Term> {
+    self.into()
+  }
+}
+
+impl IntoTermStatisticsTerm for BytesRef<Vec<u8>> {
+  fn into_term_statistics_term(self) -> Arc<Term> {
+    Arc::new(Term::new("", self))
+  }
+}
+
 impl TermStatistics {
   /// Creates a new [`TermStatistics`] instance for a term.
   ///
@@ -72,22 +95,22 @@ impl TermStatistics {
   /// - Error if `total_term_freq` is less than `doc_freq`.  
   pub fn new<T>(term: T, doc_freq: i64, total_term_freq: i64) -> Result<Self>
   where
-    T: Into<Arc<Term>>,
+    T: IntoTermStatisticsTerm,
   {
-    let term = term.into();
+    let term = term.into_term_statistics_term();
     if doc_freq <= 0 {
       return Err(LuceneError::illegal_argument(format!(
-        "doc_freq must be positive, doc_freq: {doc_freq}"
+        "docFreq must be positive, docFreq: {doc_freq}"
       )));
     }
     if total_term_freq <= 0 {
       return Err(LuceneError::illegal_argument(format!(
-        "total_term_freq must be positive, total_term_freq: {total_term_freq}"
+        "totalTermFreq must be positive, totalTermFreq: {total_term_freq}"
       )));
     }
     if total_term_freq < doc_freq {
       return Err(LuceneError::illegal_argument(format!(
-        "total_term_freq must be at least doc_freq, total_term_freq: {total_term_freq}, doc_freq: {doc_freq}"
+        "totalTermFreq must be at least docFreq, totalTermFreq: {total_term_freq}, docFreq: {doc_freq}"
       )));
     }
     Ok(TermStatistics {
@@ -97,8 +120,8 @@ impl TermStatistics {
     })
   }
 
-  pub fn get_term(&self) -> &Arc<Term> {
-    &self.term
+  pub fn get_term(&self) -> &BytesRef<Vec<u8>> {
+    self.term.bytes()
   }
 
   pub fn get_doc_freq(&self) -> i64 {
@@ -107,5 +130,35 @@ impl TermStatistics {
 
   pub fn get_total_term_freq(&self) -> i64 {
     self.total_term_freq
+  }
+}
+
+impl PartialEq for TermStatistics {
+  fn eq(&self, other: &Self) -> bool {
+    self.term.bytes() == other.term.bytes()
+      && self.doc_freq == other.doc_freq
+      && self.total_term_freq == other.total_term_freq
+  }
+}
+
+impl Eq for TermStatistics {}
+
+impl Hash for TermStatistics {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    self.term.bytes().hash(state);
+    self.doc_freq.hash(state);
+    self.total_term_freq.hash(state);
+  }
+}
+
+impl Display for TermStatistics {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(
+      f,
+      "TermStatistics[term={}, docFreq={}, totalTermFreq={}]",
+      self.term.bytes(),
+      self.doc_freq,
+      self.total_term_freq
+    )
   }
 }

@@ -31,7 +31,6 @@ use crate::core::store::posix_native_access::PosixNativeAccess;
 use memmap2::Advice;
 use memmap2::{Mmap, MmapOptions};
 
-use crate::core::store::index_input::get_full_slice_description;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, ReadAdvice};
 use crate::core::util::bit_util::BitUtil;
@@ -50,6 +49,7 @@ pub struct MemorySegmentIndexInput {
   chunk_size_mask: usize,
   cur_segment_index: usize,
   cur_position: usize,
+  consecutive_prefetch_hit_count: i32,
   closed: AtomicBool,
   owns_shared: bool,
   #[cfg(unix)]
@@ -107,11 +107,8 @@ impl MemorySegmentIndexInput {
 
       #[cfg(unix)]
       {
-        if preload {
-          native_access
-            .madvise_will_need(&mmap)
-            .map_err(|e| LuceneError::io_with_path(path.display().to_string(), e))?;
-        } else {
+        // Java's preload path uses MemorySegment::load and explicitly bypasses madvise.
+        if !preload && read_advice != ReadAdvice::Normal {
           native_access
             .madvise(&mmap, &read_advice)
             .map_err(|e| LuceneError::io_with_path(path.display().to_string(), e))?;
@@ -144,6 +141,7 @@ impl MemorySegmentIndexInput {
       chunk_size_mask: chunk_size - 1,
       cur_segment_index: 0,
       cur_position: 0,
+      consecutive_prefetch_hit_count: 0,
       closed: AtomicBool::new(false),
       owns_shared: true,
       #[cfg(unix)]
@@ -173,7 +171,7 @@ impl MemorySegmentIndexInput {
       slice_offset,
     )?;
     Ok(Self {
-      resource_desc: get_full_slice_description(slice_description),
+      resource_desc: format!("{self} [slice={slice_description}]"),
       shared: self.shared.clone(),
       offset: slice_offset,
       length,
@@ -181,6 +179,7 @@ impl MemorySegmentIndexInput {
       chunk_size_mask: self.chunk_size_mask,
       cur_segment_index,
       cur_position,
+      consecutive_prefetch_hit_count: 0,
       closed: AtomicBool::new(false),
       owns_shared: false,
       #[cfg(unix)]
@@ -434,10 +433,67 @@ impl MemorySegmentIndexInput {
   }
 
   #[cfg(unix)]
-  fn advise_will_need(&self, pos: usize, len: usize) -> Result<()> {
-    self.advise(pos, len, |segment, offset, length| {
-      segment.advise_range(Advice::WillNeed, offset, length)
-    })
+  fn advise_first(
+    &self,
+    offset: usize,
+    length: usize,
+    advice: impl FnOnce(&Mmap, usize, usize) -> io::Result<()>,
+  ) -> Result<()> {
+    let end = offset
+      .checked_add(length)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    if end > self.length {
+      return Err(LuceneError::eof(format!("read past EOF: {self}")));
+    }
+    if length == 0 {
+      return Ok(());
+    }
+
+    let global_pos = self
+      .offset
+      .checked_add(offset)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    let segment_index = global_pos >> self.chunk_size_power;
+    let segment_offset = global_pos & self.chunk_size_mask;
+    let segment = self
+      .shared
+      .segments
+      .get(segment_index)
+      .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
+    let advised_length = length.min(segment.len() - segment_offset);
+    advice(segment, segment_offset, advised_length).map_err(LuceneError::io)
+  }
+
+  fn prefetch_impl(&mut self, pos: usize, len: usize) -> Result<()> {
+    #[cfg(unix)]
+    {
+      self.ensure_open()?;
+      CoreHelper::check_from_index_size(pos, len, self.length)?;
+
+      let hit_count = self.consecutive_prefetch_hit_count;
+      self.consecutive_prefetch_hit_count = hit_count.wrapping_add(1);
+      if !BitUtil::is_zero_or_power_of_two(hit_count) {
+        return Ok(());
+      }
+
+      let mut cache_miss = false;
+      let result = self.advise_first(pos, len, |segment, offset, length| {
+        if !self.native_access.is_loaded(segment, offset, length)? {
+          cache_miss = true;
+          segment.advise_range(Advice::WillNeed, offset, length)?;
+        }
+        Ok(())
+      });
+      if cache_miss {
+        self.consecutive_prefetch_hit_count = 0;
+      }
+      result
+    }
+    #[cfg(not(unix))]
+    {
+      let _ = (pos, len);
+      Ok(())
+    }
   }
 }
 
@@ -625,6 +681,7 @@ impl TryClone for MemorySegmentIndexInput {
       chunk_size_mask: self.chunk_size_mask,
       cur_segment_index: self.cur_segment_index,
       cur_position: self.cur_position,
+      consecutive_prefetch_hit_count: 0,
       closed: AtomicBool::new(false),
       owns_shared: false,
       #[cfg(unix)]
@@ -717,7 +774,11 @@ impl IndexInput for MemorySegmentIndexInput {
   type RandomAccessSlice = MemorySegmentIndexInput;
 
   fn random_access_slice(&self, offset: usize, length: usize) -> Result<Self::RandomAccessSlice> {
-    self.with_slice("random_access_slice", offset, length)
+    self.with_slice("randomaccess", offset, length)
+  }
+
+  fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
+    self.prefetch_impl(pos, len)
   }
 
   fn update_read_advice(&self, read_advice: ReadAdvice) -> Result<()> {
@@ -793,16 +854,7 @@ impl RandomAccessInput for MemorySegmentIndexInput {
   }
 
   fn prefetch(&mut self, pos: usize, len: usize) -> Result<()> {
-    self.ensure_open()?;
-    #[cfg(unix)]
-    {
-      self.advise_will_need(pos, len)
-    }
-    #[cfg(not(unix))]
-    {
-      let _ = (pos, len);
-      Ok(())
-    }
+    self.prefetch_impl(pos, len)
   }
 
   fn is_loaded(&self) -> Result<Option<bool>> {

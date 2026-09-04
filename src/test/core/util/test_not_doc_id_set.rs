@@ -30,7 +30,7 @@ use rand::prelude::StdRng;
 
 pub struct TestNotDocIdSet;
 impl BaseDocIdSetTestCase for TestNotDocIdSet {
-  type DocIdSet = BitDocIdSet<FixedBitSet>;
+  type DocIdSet = NotDocIdSet<BitDocIdSet<FixedBitSet>>;
 
   fn copy_of<R>(
     &self,
@@ -42,11 +42,17 @@ impl BaseDocIdSetTestCase for TestNotDocIdSet {
     R: Rng + ?Sized,
   {
     let mut set = FixedBitSet::new(length);
-    let iter = bs.iter();
-    for doc in iter {
-      set.set(doc)?;
+    for doc in 0..length {
+      if !bs.contains(doc) {
+        set.set(doc)?;
+      }
     }
-    BitDocIdSet::new(Some(set))
+    Ok(NotDocIdSet::new(
+      length.try_into().map_err(|_| {
+        LuceneError::illegal_argument(format!("length does not fit in i32: {length}"))
+      })?,
+      BitDocIdSet::new(Some(set))?,
+    ))
   }
 
   fn assert_equals<R>(

@@ -42,15 +42,24 @@ pub struct IntArrayDocIdSet {
 /// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
   pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet> {
-    if docs[length as usize] != NO_MORE_DOCS {
+    let length_as_usize = usize::try_from(length).map_err(|_| {
+      LuceneError::array_index_out_of_bounds(format!("length must be non-negative, got {length}"))
+    })?;
+    let sentinel = docs.get(length_as_usize).ok_or_else(|| {
+      LuceneError::array_index_out_of_bounds(format!(
+        "length {length} is out of bounds for docs of length {}",
+        docs.len()
+      ))
+    })?;
+    if *sentinel != NO_MORE_DOCS {
       return Err(LuceneError::illegal_argument(format!(
-        "last value must be {NO_MORE_DOCS}"
+        "docs[{length}] must be {NO_MORE_DOCS}"
       )));
     }
     debug_assert!(
-      assert_array_sorted(&docs),
+      assert_array_sorted(&docs[..length_as_usize]),
       "IntArrayDocIdSet need docs to be sorted:{}",
-      docs
+      docs[..length_as_usize]
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>()
@@ -63,7 +72,7 @@ impl IntArrayDocIdSet {
   }
 }
 fn assert_array_sorted(docs: &[i32]) -> bool {
-  docs.windows(2).all(|w| w[0] < w[1])
+  docs.windows(2).all(|w| w[0] <= w[1])
 }
 
 impl DocIdSet for IntArrayDocIdSet {

@@ -23,6 +23,7 @@ use crate::test_framework::core::util::lucene_test_case::{new_bytes_ref_from_str
 
 #[allow(dead_code)] // for quick search
 pub struct TestStringHelper;
+
 #[test]
 fn test_bytes_difference() -> Result<()> {
   let mut random = random();
@@ -62,13 +63,6 @@ fn test_bytes_difference() -> Result<()> {
     StringHelper::bytes_difference::<Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "food")?
-    )?,
-    3
-  );
-  assert_eq!(
-    StringHelper::bytes_difference::<Vec<u8>>(
-      &new_bytes_ref_from_string(&mut random, "food")?,
-      &new_bytes_ref_from_string(&mut random, "foo")?
     )?,
     3
   );

@@ -98,7 +98,7 @@ fn test_equals() -> Result<()> {
     .into(),
   );
 
-  Ok(())
+  searcher.get_index_reader().close()
 }
 #[test]
 fn test_create_weight_does_not_seek_if_scores_are_not_needed() -> Result<()> {
@@ -207,8 +207,11 @@ fn test_query_matches_count() -> Result<()> {
   let leaves = searcher.reader_context.leaves()?;
   assert_eq!(num_matching_docs, weight.count(&leaves[0], &searcher)?);
 
-  writer.close(&mut random)?;
-  Ok(())
+  let close_result = IOUtils::use_or_suppress_result(
+    searcher.get_index_reader().close(),
+    writer.close(&mut random),
+  );
+  IOUtils::use_or_suppress_result(close_result, dir.close())
 }
 #[test]
 fn test_get_term_states() -> Result<()> {
@@ -229,12 +232,12 @@ fn test_get_term_states() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
   writer.add_document(&mut random, doc)?;
-  writer.get_reader(&mut random)?;
+  writer.get_reader(&mut random)?.close()?;
 
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "baz", Store::No)?);
   writer.add_document(&mut random, doc)?;
-  writer.get_reader(&mut random)?;
+  writer.get_reader(&mut random)?.close()?;
 
   writer.add_document(&mut random, Document::new())?;
 
@@ -247,8 +250,11 @@ fn test_get_term_states() -> Result<()> {
   );
   assert!(query_with_context.get_term_states().is_some());
 
-  writer.close(&mut random)?;
-  Ok(())
+  let close_result = IOUtils::use_or_suppress_result(
+    searcher.get_index_reader().close(),
+    writer.close(&mut random),
+  );
+  IOUtils::use_or_suppress_result(close_result, dir.close())
 }
 
 #[test]
@@ -263,7 +269,7 @@ fn test_with_with_different_score_modes() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("foo", "bar", Store::No)?);
   writer.add_document(&mut random, doc)?;
-  writer.get_reader(&mut random)?;
+  writer.get_reader(&mut random)?.close()?;
 
   let reader = writer.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
@@ -284,8 +290,11 @@ fn test_with_with_different_score_modes() -> Result<()> {
     );
   }
 
-  writer.close(&mut random)?;
-  Ok(())
+  let close_result = IOUtils::use_or_suppress_result(
+    searcher.get_index_reader().close(),
+    writer.close(&mut random),
+  );
+  IOUtils::use_or_suppress_result(close_result, dir.close())
 }
 
 struct NoSeekDirectoryReader<DR>

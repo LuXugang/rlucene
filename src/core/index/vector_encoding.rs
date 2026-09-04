@@ -16,12 +16,13 @@
  */
 #[cfg(test)]
 use rand::{Rng, RngExt};
+use std::fmt::{Debug, Formatter};
 #[cfg(test)]
 use strum::EnumCount;
-use strum_macros::{Display, EnumCount, FromRepr};
+use strum_macros::{Display, EnumCount};
 
 /// The numeric datatype of the vector values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumCount, Display)]
+#[derive(Clone, Copy, EnumCount, Display)]
 #[repr(u8)]
 pub enum VectorEncoding {
   /**
@@ -41,16 +42,23 @@ pub enum VectorEncoding {
 impl VectorEncoding {
   /// The number of bytes required to encode a scalar in this format.
   /// A vector will nominally require dimension * byteSize bytes of storage.
-  pub fn byte_size(&self) -> usize {
+  pub const fn byte_size(&self) -> usize {
     match self {
-      VectorEncoding::BYTE(size) => *size,
-      VectorEncoding::FLOAT32(size) => *size,
+      VectorEncoding::BYTE(_) => 1,
+      VectorEncoding::FLOAT32(_) => 4,
     }
   }
-  pub fn ordinal(&self) -> i32 {
+  pub const fn ordinal(&self) -> i32 {
     match self {
       VectorEncoding::BYTE(_) => 0,
       VectorEncoding::FLOAT32(_) => 1,
+    }
+  }
+  pub const fn from_repr(repr: u8) -> Option<Self> {
+    match repr {
+      0 => Some(VectorEncoding::BYTE(1)),
+      1 => Some(VectorEncoding::FLOAT32(4)),
+      _ => None,
     }
   }
   pub const fn values() -> &'static [VectorEncoding] {
@@ -61,6 +69,24 @@ impl VectorEncoding {
     Self::values()[rng.random_range(0..Self::COUNT)]
   }
 }
+
+impl Debug for VectorEncoding {
+  fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+    std::fmt::Display::fmt(self, formatter)
+  }
+}
+
+impl PartialEq for VectorEncoding {
+  fn eq(&self, other: &Self) -> bool {
+    matches!(
+      (self, other),
+      (VectorEncoding::BYTE(_), VectorEncoding::BYTE(_))
+        | (VectorEncoding::FLOAT32(_), VectorEncoding::FLOAT32(_))
+    )
+  }
+}
+
+impl Eq for VectorEncoding {}
 
 impl Default for VectorEncoding {
   fn default() -> Self {

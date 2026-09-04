@@ -53,7 +53,7 @@ impl PosixNativeAccess {
 
   fn to_advice(read_advice: &ReadAdvice) -> Option<Advice> {
     match read_advice {
-      ReadAdvice::Normal | ReadAdvice::RandomPreload => None,
+      ReadAdvice::Normal | ReadAdvice::RandomPreload => Some(Advice::Normal),
       ReadAdvice::Random => Some(Advice::Random),
       ReadAdvice::Sequential => Some(Advice::Sequential),
     }

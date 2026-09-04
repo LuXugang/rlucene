@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 use std::env;
-use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::LazyLock;
 use std::time::SystemTime;
 
+use parking_lot::Mutex;
 use rand::RngExt;
-use std::sync::LazyLock;
 
 use crate::core::index::BytesRef;
 use crate::core::util::CoreHelper;
@@ -281,8 +281,10 @@ impl StringHelper {
 
   pub const ID_LENGTH: usize = 16;
   pub fn random_id() -> [u8; StringHelper::ID_LENGTH] {
-    let mut rng = rand::rng();
-    rng.random::<[u8; StringHelper::ID_LENGTH]>()
+    let mut next_id = NEXT_ID.lock();
+    let result = next_id.to_be_bytes();
+    *next_id = next_id.wrapping_add(1);
+    result
   }
   /// Helper method to render an ID as a string for debugging.
   ///
@@ -335,9 +337,9 @@ impl StringHelper {
 pub static GOOD_FAST_HASH_SEED: LazyLock<i32> = LazyLock::new(|| {
   if let Ok(prop) = env::var("tests.seed") {
     // If the system property `tests.seed` is set, use it as the seed.
-    let mut hasher = DefaultHasher::new();
-    prop.hash(&mut hasher);
-    hasher.finish() as i32
+    prop.encode_utf16().fold(0i32, |hash, code_unit| {
+      hash.wrapping_mul(31).wrapping_add(code_unit as i32)
+    })
   } else {
     // Otherwise, fall back to using the current system time in
     // milliseconds.
@@ -347,3 +349,45 @@ pub static GOOD_FAST_HASH_SEED: LazyLock<i32> = LazyLock::new(|| {
     }
   }
 });
+
+static NEXT_ID: LazyLock<Mutex<u128>> = LazyLock::new(|| Mutex::new(initial_next_id()));
+
+#[cfg(not(test))]
+fn initial_next_id() -> u128 {
+  let mut random = rand::rng();
+  scatter_id_seed(random.random(), random.random())
+}
+
+#[cfg(test)]
+fn initial_next_id() -> u128 {
+  let (x0, x1) = if let Ok(prop) = env::var("tests.seed") {
+    if !prop.is_ascii() {
+      panic!("tests.seed must end in up to eight hexadecimal digits: {prop}");
+    }
+    let seed_text = if prop.len() > 8 {
+      &prop[prop.len() - 8..]
+    } else {
+      &prop
+    };
+    let seed = match i64::from_str_radix(seed_text, 16) {
+      Ok(seed) => seed as u64,
+      Err(error) => panic!("invalid tests.seed {prop}: {error}"),
+    };
+    (seed, seed)
+  } else {
+    let mut random = rand::rng();
+    (random.random(), random.random())
+  };
+  scatter_id_seed(x0, x1)
+}
+
+fn scatter_id_seed(mut x0: u64, mut x1: u64) -> u128 {
+  for _ in 0..10 {
+    let mut s1 = x0;
+    let s0 = x1;
+    x0 = s0;
+    s1 ^= s1 << 23;
+    x1 = s1 ^ s0 ^ (s1 >> 17) ^ (s0 >> 26);
+  }
+  ((x0 as u128) << 64) | x1 as u128
+}

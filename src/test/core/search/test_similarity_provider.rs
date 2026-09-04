@@ -29,7 +29,10 @@ use crate::core::search::similarities_impl::similarities::{
 };
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_statistics::TermStatistics;
+use crate::core::store::directory::DirEnum;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
@@ -44,18 +47,24 @@ use std::sync::{Arc, LazyLock};
 #[allow(dead_code)] // for quick search
 pub struct TestSimilarityProvider;
 
-static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> =
-  LazyLock::new(|| Arc::new(build_set_up().expect("failed to initialize TestSimilarityProvider")));
+static LIGHT_SEARCHER: LazyLock<Arc<DefaultIndexSearchCR>> = LazyLock::new(|| {
+  Arc::new(
+    build_set_up()
+      .expect("failed to initialize TestSimilarityProvider")
+      .0,
+  )
+});
 
-fn set_up() -> Result<Arc<DefaultIndexSearchCR>> {
+fn set_up() -> Result<(Arc<DefaultIndexSearchCR>, Option<Arc<DirEnum>>)> {
   if is_light_mode() {
-    return Ok(LIGHT_SEARCHER.clone());
+    return Ok((LIGHT_SEARCHER.clone(), None));
   }
 
-  Ok(Arc::new(build_set_up()?))
+  let (searcher, directory) = build_set_up()?;
+  Ok((Arc::new(searcher), Some(directory)))
 }
 
-fn build_set_up() -> Result<DefaultIndexSearchCR> {
+fn build_set_up() -> Result<(DefaultIndexSearchCR, Arc<DirEnum>)> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
   let sim = SimilarityEnum::custom(ExampleSimilarityProvider::new());
@@ -98,11 +107,11 @@ fn build_set_up() -> Result<DefaultIndexSearchCR> {
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_similarity(SimilarityEnum::custom(ExampleSimilarityProvider::new()));
 
-  Ok(searcher)
+  Ok((searcher, directory))
 }
 #[test]
 fn test_basics() -> Result<()> {
-  let searcher = set_up()?;
+  let (searcher, directory) = set_up()?;
   let reader = searcher.get_index_reader();
 
   let mut foo_norms = MultiDocValues::get_norm_values(reader, "foo")?.unwrap();
@@ -122,6 +131,9 @@ fn test_basics() -> Result<()> {
   assert!(bardocs.total_hits.value() > 0);
 
   assert!(foodocs.score_docs[0].score < bardocs.score_docs[0].score);
+  if let Some(directory) = directory {
+    return IOUtils::use_or_suppress_result(searcher.get_index_reader().close(), directory.close());
+  }
   Ok(())
 }
 

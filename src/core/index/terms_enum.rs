@@ -233,11 +233,11 @@ impl TermsEnum for EmptyTermsEnum {
   }
 
   fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(""))
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.seek_exact(target)
   }
 
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
@@ -250,15 +250,12 @@ impl TermsEnum for EmptyTermsEnum {
 
   fn seek_exact_with_state(
     &mut self,
-    term: &BytesRef<Vec<u8>>,
+    _term: &BytesRef<Vec<u8>>,
     _state: &TermStateEnum,
   ) -> Result<()> {
-    if !self.seek_exact(term)? {
-      return Err(LuceneError::illegal_argument(format!(
-        "term= {term} does not exist"
-      )));
-    }
-    Ok(())
+    Err(LuceneError::illegal_state(
+      "this method should never be called",
+    ))
   }
 
   fn term(&self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
@@ -357,11 +354,11 @@ where
   }
 
   fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(""))
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.seek_exact(target)
   }
 
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {

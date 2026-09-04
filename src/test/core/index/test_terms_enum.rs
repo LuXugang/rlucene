@@ -54,6 +54,7 @@ use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::operations::Operations;
 use crate::core::util::automation::reg_exp::RegExp;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::per_thread_pk_lookup::PerThreadPKLookup;
@@ -156,6 +157,7 @@ fn test() -> Result<()> {
   }
 
   r.close()?;
+  d.close()?;
   docs.close();
   Ok(())
 }
@@ -360,10 +362,14 @@ fn test_intersect_random() -> Result<()> {
       assert!(te.next()?.is_none());
     }
   }
-  Ok(())
+  r.close()?;
+  dir.close()
 }
 
-fn make_index<R>(random: &mut R, terms: &[String]) -> Result<StandardDirectoryReader<DirEnum>>
+fn make_index<R>(
+  random: &mut R,
+  terms: &[String],
+) -> Result<(StandardDirectoryReader<DirEnum>, std::sync::Arc<DirEnum>)>
 where
   R: Rng + ?Sized,
 {
@@ -381,7 +387,7 @@ where
   }
   let reader = writer.get_reader(random)?;
   writer.close(random)?;
-  Ok(reader)
+  Ok((reader, dir))
 }
 fn doc_freq<CR>(reader: CR, term: &str) -> Result<i32>
 where
@@ -394,7 +400,7 @@ fn test_easy() -> Result<()> {
   let mut random = random();
 
   // No floor arcs:
-  let reader = make_index(
+  let (reader, dir) = make_index(
     &mut random,
     &[
       "aa0".to_string(),
@@ -459,7 +465,8 @@ fn test_easy() -> Result<()> {
   // Found, rewind:
   assert_eq!(1, doc_freq(&reader, "bb0")?);
 
-  Ok(())
+  reader.close()?;
+  dir.close()
 }
 #[test]
 fn test_floor_blocks() -> Result<()> {
@@ -472,7 +479,7 @@ fn test_floor_blocks() -> Result<()> {
   .map(String::from)
   .collect::<Vec<_>>();
 
-  let reader = make_index(&mut random, &terms)?;
+  let (reader, dir) = make_index(&mut random, &terms)?;
 
   // First term in first block:
   assert_eq!(1, doc_freq(&reader, "aa0")?);
@@ -521,7 +528,8 @@ fn test_floor_blocks() -> Result<()> {
   assert_eq!(Some("xx".to_string()), next_term(&mut te)?);
 
   test_random_seeks(&mut random, &reader, &terms)?;
-  Ok(())
+  reader.close()?;
+  dir.close()
 }
 fn seek_exact<R>(random: &mut R, te: &mut impl TermsEnum, term: &str) -> Result<bool>
 where
@@ -684,7 +692,8 @@ fn test_zero_terms() -> Result<()> {
     assert!(te.next()?.is_none());
   }
 
-  Ok(())
+  reader.close()?;
+  dir.close()
 }
 fn get_random_string<R>(random: &mut R) -> String
 where
@@ -730,10 +739,10 @@ fn test_random_terms() -> Result<()> {
     }
   }
 
-  let reader = make_index(&mut random, &terms)?;
+  let (reader, dir) = make_index(&mut random, &terms)?;
   test_random_seeks(&mut random, &reader, &terms)?;
   reader.close()?;
-  Ok(())
+  dir.close()
 }
 #[test]
 fn test_intersect_basic() -> Result<()> {
@@ -809,7 +818,8 @@ fn test_intersect_basic() -> Result<()> {
   assert_eq!("ccc", te.next()?.unwrap().utf8_to_string()?);
   assert_eq!(2, te.postings_with_flags(None, NONE.into())?.next_doc()?);
   assert!(te.next()?.is_none());
-  Ok(())
+  reader.close()?;
+  dir.close()
 }
 #[test]
 fn test_intersect_start_term() -> Result<()> {
@@ -902,7 +912,8 @@ fn test_intersect_start_term() -> Result<()> {
   let mut te = terms.intersect(&ca, Some(&BytesRef::from_string("ddd")))?;
   assert!(te.next()?.is_none());
 
-  Ok(())
+  reader.close()?;
+  dir.close()
 }
 #[test]
 fn test_intersect_empty_string() -> Result<()> {
@@ -985,13 +996,14 @@ fn test_intersect_empty_string() -> Result<()> {
 
   assert!(te.next()?.is_none());
 
-  Ok(())
+  reader.close()?;
+  dir.close()
 }
 #[test]
 fn test_common_prefix_terms() -> Result<()> {
   let mut random = random();
   let d = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, d)?;
+  let w = RandomIndexWriter::new(&mut random, d.clone())?;
   let mut terms: HashSet<String> = HashSet::new();
   let prefix = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 20);
   let num_terms = at_least(&mut random, 100);
@@ -1072,7 +1084,7 @@ fn test_common_prefix_terms() -> Result<()> {
 
   r.close()?;
   w.close(&mut random)?;
-  Ok(())
+  d.close()
 }
 #[cfg(feature = "nightly")]
 #[test]
@@ -1136,7 +1148,7 @@ fn test_varying_terms_per_segment() -> Result<()> {
     reader.close()?;
     writer.close(&mut random)?;
   }
-  Ok(())
+  dir.close()
 }
 #[test]
 fn test_intersect_regexp() -> Result<()> {
@@ -1170,7 +1182,9 @@ fn test_intersect_regexp() -> Result<()> {
     );
   }
 
-  Ok(())
+  reader.close()?;
+  writer.close(&mut random)?;
+  dir.close()
 }
 #[test]
 fn test_invalid_automaton_terms_enum() -> Result<()> {

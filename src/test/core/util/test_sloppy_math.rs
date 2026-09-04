@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sloppy_math::{SIN_COS_MAX_VALUE_FOR_INT_MODULO, SloppyMath, TO_METERS};
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
@@ -71,7 +72,7 @@ fn test_cos() {
       <= COS_DELTA
   );
 
-  let mut random = rand::rng();
+  let mut random = random();
   for _ in 0..10_000 {
     let mut d = random.random::<f64>() * SIN_COS_MAX_VALUE_FOR_INT_MODULO;
     if random.random::<bool>() {
@@ -97,7 +98,7 @@ fn test_asin() {
   assert!(((std::f64::consts::PI / 3.0) - SloppyMath::asin(0.8660254)).abs() <= ASIN_DELTA);
   assert!(((std::f64::consts::PI / 2.0) - SloppyMath::asin(1.0)).abs() <= ASIN_DELTA);
 
-  let mut random = rand::rng();
+  let mut random = random();
   for _ in 0..10_000 {
     let mut d = random.random::<f64>();
     if random.random::<bool>() {
@@ -134,7 +135,7 @@ fn test_haversin() {
     SloppyMath::haversin_meters(0.0, 0.0, 0.0, 180.0)
   );
 
-  let mut random = rand::rng();
+  let mut random = random();
   let random_lat1 = 40.7143528 + (random.random_range(0..10) - 5) as f64 * 360.0;
   let random_lon1 = -74.0059731 + (random.random_range(0..10) - 5) as f64 * 360.0;
   let random_lat2 = 40.65 + (random.random_range(0..10) - 5) as f64 * 360.0;
@@ -190,16 +191,16 @@ fn test_haversin_sort_key() -> Result<()> {
     let lat2 = GeoTestUtil::next_latitude(&mut random);
     let lon2 = GeoTestUtil::next_longitude(&mut random);
 
-    let expected = f64::total_cmp(
-      &SloppyMath::haversin_meters(center_lat, center_lon, lat1, lon1),
-      &SloppyMath::haversin_meters(center_lat, center_lon, lat2, lon2),
+    let expected = CoreHelper::compare_f64(
+      SloppyMath::haversin_meters(center_lat, center_lon, lat1, lon1),
+      SloppyMath::haversin_meters(center_lat, center_lon, lat2, lon2),
     )
     .cmp(&std::cmp::Ordering::Equal) as i32;
     let expected = expected.signum();
 
-    let actual = f64::total_cmp(
-      &SloppyMath::haversin_sort_key(center_lat, center_lon, lat1, lon1),
-      &SloppyMath::haversin_sort_key(center_lat, center_lon, lat2, lon2),
+    let actual = CoreHelper::compare_f64(
+      SloppyMath::haversin_sort_key(center_lat, center_lon, lat1, lon1),
+      SloppyMath::haversin_sort_key(center_lat, center_lon, lat2, lon2),
     )
     .cmp(&std::cmp::Ordering::Equal) as i32;
     let actual = actual.signum();
@@ -288,5 +289,5 @@ pub(crate) fn slow_haversin(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
   let h1 = (1.0 - (lat2.to_radians() - lat1.to_radians()).cos()) / 2.0;
   let h2 = (1.0 - (lon2.to_radians() - lon1.to_radians()).cos()) / 2.0;
   let h = h1 + lat1.to_radians().cos() * lat2.to_radians().cos() * h2;
-  2.0 * TO_METERS * h.sqrt().min(1.0).asin()
+  2.0 * TO_METERS * CoreHelper::min_f64(1.0, h.sqrt()).asin()
 }
