@@ -1,0 +1,51 @@
+ARG JENKINS_AGENT_BASE_IMAGE=jenkins/inbound-agent:3355.v388858a_47b_33-23-jdk21@sha256:65b16b388a32be41d95134a5be7ce58e20fbc4d862e12f021ae64bf83bd5fe7d
+FROM ${JENKINS_AGENT_BASE_IMAGE}
+
+USER root
+
+ARG DEBIAN_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian
+ARG DEBIAN_SECURITY_MIRROR=https://mirrors.tuna.tsinghua.edu.cn/debian-security
+RUN sed -i "s#http://deb.debian.org/debian-security#${DEBIAN_SECURITY_MIRROR}#g; s#http://deb.debian.org/debian#${DEBIAN_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl git build-essential pkg-config libssl-dev openssh-client ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1001 rlucene \
+    && useradd --create-home --uid 1001 --gid 1001 --shell /bin/bash rlucene
+
+ARG RUSTUP_DIST_SERVER=https://rsproxy.cn
+ARG RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup
+ARG CARGO_REGISTRY=sparse+https://rsproxy.cn/index/
+ENV RUSTUP_DIST_SERVER=${RUSTUP_DIST_SERVER}
+ENV RUSTUP_UPDATE_ROOT=${RUSTUP_UPDATE_ROOT}
+ENV RUSTUP_HOME=/opt/rustup
+ENV CARGO_HOME=/opt/cargo
+ENV PATH=/opt/cargo/bin:$PATH
+
+RUN mkdir -p /opt/rustup /opt/cargo /opt/rlucene-toolchain /home/rlucene/.ssh /home/rlucene/cargo-target \
+    && chmod 0700 /home/rlucene/.ssh \
+    && printf '%s\n' \
+      'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' \
+      'github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=' \
+      > /home/rlucene/.ssh/known_hosts \
+    && chmod 0600 /home/rlucene/.ssh/known_hosts \
+    && chown -R rlucene:rlucene /opt/rustup /opt/cargo /opt/rlucene-toolchain /home/rlucene
+
+USER rlucene
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    -o /tmp/rustup-init.sh \
+    && sh /tmp/rustup-init.sh -y --profile minimal --default-toolchain none \
+    && rm /tmp/rustup-init.sh
+
+RUN printf '[source.crates-io]\nreplace-with = "rsproxy"\n\n[source.rsproxy]\nregistry = "%s"\n' \
+    "$CARGO_REGISTRY" > /opt/cargo/config.toml
+
+COPY --chown=rlucene:rlucene rust-toolchain.toml /opt/rlucene-toolchain/rust-toolchain.toml
+RUN cd /opt/rlucene-toolchain \
+    && rustup show \
+    && toolchain="$(sed -n 's/^channel = "\([^"]*\)"/\1/p' rust-toolchain.toml)" \
+    && test -n "$toolchain" \
+    && rustup default "$toolchain"
+
+WORKDIR /home/rlucene/agent

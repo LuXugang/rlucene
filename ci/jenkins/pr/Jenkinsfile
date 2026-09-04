@@ -1,0 +1,97 @@
+pipeline {
+  agent { label 'rlucene-pr' }
+
+  options {
+    skipDefaultCheckout(true)
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '200'))
+    timeout(time: 35, unit: 'MINUTES')
+    timestamps()
+  }
+
+  environment {
+    CARGO_HOME = '/opt/cargo'
+    RUSTUP_HOME = '/opt/rustup'
+    CARGO_TARGET_DIR = '/home/rlucene/cargo-target/rlucene-pr'
+  }
+
+  stages {
+    stage('Authorize request') {
+      steps {
+        script {
+          if (!(params.PR_NUMBER ==~ /[1-9][0-9]*/)) {
+            error('PR_NUMBER is invalid')
+          }
+          if (!(params.PR_HEAD_SHA ==~ /[0-9a-f]{40}/)) {
+            error('PR_HEAD_SHA is invalid')
+          }
+          if (!(params.PR_AUTHOR ==~ /[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/)) {
+            error('PR_AUTHOR is invalid')
+          }
+          if (!(params.PR_PERMISSION in ['write', 'admin'])) {
+            error('PR_PERMISSION is not trusted')
+          }
+
+          currentBuild.displayName = "#${env.BUILD_NUMBER} PR #${params.PR_NUMBER}"
+          currentBuild.description = "${params.PR_AUTHOR} · ${params.PR_HEAD_SHA.take(12)}"
+          env.TRUSTED_PR_NUMBER = params.PR_NUMBER
+          env.TRUSTED_PR_HEAD_SHA = params.PR_HEAD_SHA
+          env.BUILD_TMPDIR = "${env.WORKSPACE_TMP}/rlucene-pr-build-tmp/${env.BUILD_NUMBER}"
+        }
+      }
+    }
+
+    stage('Checkout exact PR revision') {
+      steps {
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: env.TRUSTED_PR_HEAD_SHA]],
+          doGenerateSubmoduleConfigurations: false,
+          extensions: [
+            [$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
+            [$class: 'CloneOption', depth: 1, honorRefspec: true, noTags: true, shallow: true, timeout: 10]
+          ],
+          submoduleCfg: [],
+          userRemoteConfigs: [[
+            credentialsId: 'github-ssh',
+            name: 'origin',
+            refspec: "+refs/pull/${env.TRUSTED_PR_NUMBER}/head:refs/remotes/origin/pr/${env.TRUSTED_PR_NUMBER}/head",
+            url: 'git@github.com:Rustify-All/rlucene.git'
+          ]]
+        ])
+        sh '''
+          set -eu
+          actual_sha="$(git rev-parse HEAD)"
+          test "${actual_sha}" = "${TRUSTED_PR_HEAD_SHA}"
+          printf 'Checked out PR #%s at %s\n' "${TRUSTED_PR_NUMBER}" "${actual_sha}"
+        '''
+      }
+    }
+
+    stage('cargo test-light') {
+      steps {
+        timeout(time: 30, unit: 'MINUTES') {
+          sh '''#!/usr/bin/env bash
+            set -eu
+            mkdir -p "${BUILD_TMPDIR}" "${CARGO_TARGET_DIR}"
+            export TMPDIR="${BUILD_TMPDIR}"
+            set -o pipefail
+            cargo test-light 2>&1 | tee cargo-test-light.log
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts artifacts: 'cargo-test-light.log', allowEmptyArchive: true
+      sh '''
+        if test -n "${BUILD_TMPDIR:-}"; then
+          rm -rf -- "${BUILD_TMPDIR}"
+        fi
+      '''
+      deleteDir()
+    }
+  }
+}

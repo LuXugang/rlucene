@@ -1,0 +1,7 @@
+# Only the toolchain and the agent image definition enter the image build.
+**
+!rust-toolchain.toml
+!ci/
+!ci/jenkins/
+!ci/jenkins/deployment/
+!ci/jenkins/deployment/Dockerfile.agent

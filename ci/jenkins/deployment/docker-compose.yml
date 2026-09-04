@@ -1,4 +1,12 @@
 services:
+  pr-agent-volume-init:
+    platform: linux/amd64
+    image: alpine:3.22.1@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
+    command: ["sh", "-c", "chown 1000:1000 /bootstrap && chmod 0700 /bootstrap"]
+    restart: "no"
+    volumes:
+      - pr_agent_bootstrap:/bootstrap
+
   jenkins:
     platform: linux/amd64
     build:
@@ -14,6 +22,9 @@ services:
     image: ${JENKINS_IMAGE:-local-jenkins-rust:2.568.3}
     container_name: ${JENKINS_CONTAINER_NAME:-jenkins}
     restart: unless-stopped
+    depends_on:
+      pr-agent-volume-init:
+        condition: service_completed_successfully
     cap_add:
       - SYS_PTRACE
     ports:
@@ -32,8 +43,79 @@ services:
       RLUCENE_PUBLIC_READ_ONLY: ${RLUCENE_PUBLIC_READ_ONLY:-false}
       RLUCENE_ADMIN_USERS: ${RLUCENE_ADMIN_USERS:-}
       RLUCENE_FAILURE_EMAIL: ${RLUCENE_FAILURE_EMAIL:-}
+      RLUCENE_PR_AGENT_NAME: ${RLUCENE_PR_AGENT_NAME:-rlucene-pr-agent}
+      RLUCENE_PR_AGENT_LABEL: ${RLUCENE_PR_AGENT_LABEL:-rlucene-pr}
+      RLUCENE_PR_AGENT_SECRET_FILE: /run/rlucene-pr-agent/secret
+      RLUCENE_PR_JOB_NAME: ${RLUCENE_PR_JOB_NAME:-rlucene-pr}
+      RLUCENE_PR_JOB_DISABLED: ${RLUCENE_PR_JOB_DISABLED:-true}
+      RLUCENE_PR_TRIGGER_USER: ${RLUCENE_PR_TRIGGER_USER:-rlucene-github}
     volumes:
       - jenkins_home:/var/jenkins_home
+      - pr_agent_bootstrap:/run/rlucene-pr-agent
+
+  rlucene-pr-agent:
+    platform: linux/amd64
+    build:
+      context: ../../..
+      dockerfile: ci/jenkins/deployment/Dockerfile.agent
+      args:
+        JENKINS_AGENT_BASE_IMAGE: ${JENKINS_AGENT_BASE_IMAGE:-jenkins/inbound-agent:3355.v388858a_47b_33-23-jdk21@sha256:65b16b388a32be41d95134a5be7ce58e20fbc4d862e12f021ae64bf83bd5fe7d}
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-https://mirrors.tuna.tsinghua.edu.cn/debian}
+        DEBIAN_SECURITY_MIRROR: ${DEBIAN_SECURITY_MIRROR:-https://mirrors.tuna.tsinghua.edu.cn/debian-security}
+        RUSTUP_DIST_SERVER: ${RUSTUP_DIST_SERVER:-https://rsproxy.cn}
+        RUSTUP_UPDATE_ROOT: ${RUSTUP_UPDATE_ROOT:-https://rsproxy.cn/rustup}
+        CARGO_REGISTRY: ${CARGO_REGISTRY:-sparse+https://rsproxy.cn/index/}
+    image: ${JENKINS_PR_AGENT_IMAGE:-local-jenkins-rlucene-pr-agent:3355}
+    container_name: ${JENKINS_PR_AGENT_CONTAINER_NAME:-rlucene-pr-agent}
+    init: true
+    user: root
+    restart: unless-stopped
+    depends_on:
+      pr-agent-volume-init:
+        condition: service_completed_successfully
+      jenkins:
+        condition: service_started
+        restart: true
+    environment:
+      RLUCENE_PR_CONTROLLER_URL: http://jenkins:8080
+      RLUCENE_PR_AGENT_RUNTIME_NAME: ${RLUCENE_PR_AGENT_NAME:-rlucene-pr-agent}
+      TZ: ${TZ:-Asia/Shanghai}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        chown 1001:1001 /home/rlucene/agent /home/rlucene/cargo-target
+        while ! test -s /run/rlucene-pr-agent/secret; do sleep 2; done
+        agent_secret="$$(cat /run/rlucene-pr-agent/secret)"
+        chown root:root /run/rlucene-pr-agent/secret
+        chmod 0000 /run/rlucene-pr-agent/secret
+        rm -f /run/rlucene-pr-agent-runtime-secret
+        mkfifo -m 0600 /run/rlucene-pr-agent-runtime-secret
+        chown 1001:1001 /run/rlucene-pr-agent-runtime-secret
+        (
+          printf '%s' "$${agent_secret}" > /run/rlucene-pr-agent-runtime-secret
+          rm -f /run/rlucene-pr-agent-runtime-secret
+        ) &
+        unset agent_secret
+        exec su -s /bin/sh rlucene -c '
+          exec env \
+            HOME=/home/rlucene \
+            CARGO_HOME=/opt/cargo \
+            RUSTUP_HOME=/opt/rustup \
+            PATH=/opt/cargo/bin:/usr/local/bin:/usr/bin:/bin \
+            /usr/local/bin/jenkins-agent \
+            -url "$${RLUCENE_PR_CONTROLLER_URL}" \
+            -secret @/run/rlucene-pr-agent-runtime-secret \
+            -name "$${RLUCENE_PR_AGENT_RUNTIME_NAME}" \
+            -webSocket \
+            -workDir /home/rlucene/agent
+        '
+    volumes:
+      - pr_agent_bootstrap:/run/rlucene-pr-agent
+      - pr_agent_workspace:/home/rlucene/agent
+      - pr_agent_target:/home/rlucene/cargo-target
 
 volumes:
   jenkins_home:
+  pr_agent_bootstrap:
+  pr_agent_workspace:
+  pr_agent_target:

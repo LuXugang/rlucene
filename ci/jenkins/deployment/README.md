@@ -1,10 +1,12 @@
 # Recreate the Jenkins CI environment
 
-This directory builds the Jenkins controller and creates the `rlucene-ci`
-Pipeline automatically on its first startup. The Pipeline is
-[`../Jenkinsfile`](../Jenkinsfile). A new installation needs Docker Engine with
-Compose v2, network access to the configured package sources and Git repository,
-and a clone containing this version of the CI files.
+This directory builds the Jenkins controller and the isolated pull request
+agent. It creates both the scheduled `rlucene-ci` Pipeline and the member-only
+`rlucene-pr` Pipeline automatically on first startup. Their definitions are
+[`../Jenkinsfile`](../Jenkinsfile) and [`../pr/Jenkinsfile`](../pr/Jenkinsfile).
+A new installation needs Docker Engine with Compose v2, network access to the
+configured package sources and Git repository, and a clone containing this
+version of the CI files.
 
 ## Start from a fresh clone
 
@@ -15,8 +17,8 @@ cd ci/jenkins/deployment
 cp .env.example .env
 # Edit .env if you need different ports, a fork, or different resources.
 docker compose config --quiet
-docker compose build jenkins
-docker compose up -d jenkins
+docker compose build jenkins rlucene-pr-agent
+docker compose up -d
 docker compose ps
 ```
 
@@ -40,10 +42,44 @@ The repository and branch configured in `.env` must contain
 `ci/jenkins/Jenkinsfile` before this first build. For an unmerged change, point
 both settings at a published fork/branch containing the change.
 
+The `rlucene-pr` job and its exclusive agent are created by the three
+`rlucene-pr-*.groovy.override` hooks. After the setup wizard has configured
+Jenkins' private user database and Project Matrix Authorization Strategy,
+restart the controller. Jenkins then creates the dedicated `rlucene-github`
+service account and one API token. The plaintext is written once to:
+
+```text
+/var/jenkins_home/secrets/rlucene-pr-trigger-token
+```
+
+Store the account name as the GitHub Actions secret `JENKINS_PR_USER`, store
+the file content as `JENKINS_PR_API_TOKEN`, then delete the plaintext file from
+Jenkins home. Jenkins retains only the token hash. Set
+`RLUCENE_PR_JOB_DISABLED=false` before the job is first created, or enable the
+job in Jenkins after adding the GitHub secrets. Never print either secret in a
+build log.
+
+From an authenticated repository checkout, the handoff can be done without
+printing the token:
+
+```sh
+printf %s rlucene-github | gh secret set JENKINS_PR_USER --repo Rustify-All/rlucene
+docker compose exec -T jenkins \
+  cat /var/jenkins_home/secrets/rlucene-pr-trigger-token \
+  | gh secret set JENKINS_PR_API_TOKEN --repo Rustify-All/rlucene
+docker compose exec jenkins \
+  rm /var/jenkins_home/secrets/rlucene-pr-trigger-token
+```
+
 The default public HTTPS repository needs no SSH key. Private repository
 credentials must be created in your own Jenkins instance. Put only the
 credential ID in `.env`; never put passwords, private keys, API tokens, Jenkins
 home, workspaces, or build history in Git or the Docker build context.
+
+The `rlucene-pr` job is specific to `Rustify-All/rlucene`: its trusted Pipeline
+SCM and PR checkout both use the Jenkins SSH credential ID `github-ssh`. Create
+that credential before enabling the PR job. The private key is supplied only to
+Git checkout and is not stored in the agent image or Compose configuration.
 
 ## What is reproduced
 
@@ -55,6 +91,7 @@ home, workspaces, or build history in Git or the Docker build context.
 | cargo-nextest 0.9.143 | Exact version in `Dockerfile` |
 | 98 Jenkins plugins and dependencies | `plugins.txt`, installed with `--latest=false` |
 | Pipeline job, SCM branch/refspec, shallow clean checkout | `init.groovy.d/rlucene-job.groovy.override` |
+| Trusted-PR job, service account and exclusive inbound agent | `init.groovy.d/rlucene-pr-*.groovy.override` and `Dockerfile.agent` |
 | Optional public read-only authorization | `init.groovy.d/rlucene-public-read-only.groovy.override` |
 | Schedule, 500-build retention, no concurrent builds, test commands, timeouts and failure handling | `../Jenkinsfile` |
 | Slow-test diagnostics and classic console theme | `../capture-slow-test-diagnostics.sh` and `init.groovy.d/rlucene-console-theme.groovy.override` |
@@ -93,6 +130,9 @@ the image builder.
 | `RLUCENE_PUBLIC_READ_ONLY` | Opt in to anonymous read-only access for the configured job; disabled by default |
 | `RLUCENE_ADMIN_USERS` | Comma-separated Jenkins user IDs that retain full administration when public read-only access is enabled |
 | `RLUCENE_FAILURE_EMAIL` | Optional failure recipient; empty disables email |
+| `RLUCENE_PR_AGENT_NAME` / `RLUCENE_PR_AGENT_LABEL` | Exclusive inbound agent identity and label |
+| `RLUCENE_PR_JOB_NAME` / `RLUCENE_PR_JOB_DISABLED` | PR job name and initial disabled state |
+| `RLUCENE_PR_TRIGGER_USER` | Dedicated API-only user stored in `JENKINS_PR_USER` on GitHub |
 
 The job initializer creates missing jobs only. Restarting the container does
 not replace existing jobs, history, credentials, or security settings. To
@@ -175,6 +215,12 @@ The stack stores Jenkins data in `<COMPOSE_PROJECT_NAME>_jenkins_home`.
 Recreating the container retains that named volume. Keep the same project
 name when updating an existing installation. Removing the volume loses the
 instance's accounts, credentials, jobs and history.
+
+The PR agent uses separate workspace and Cargo target volumes. It receives only
+its inbound-agent connection secret; it cannot read `jenkins_home`. Do not add
+the controller home or Docker socket to this service. Recreating the agent keeps
+its compilation cache, while the Pipeline cleans the checked-out workspace and
+per-build temporary directory after every result.
 
 The default job retains the existing cache and state paths:
 

@@ -1,0 +1,79 @@
+import hudson.model.Node
+import hudson.slaves.DumbSlave
+import hudson.slaves.JNLPLauncher
+import hudson.slaves.RetentionStrategy
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.PosixFilePermissions
+import jenkins.model.Jenkins
+
+def setting = { String name, String fallback ->
+  System.getenv(name) ?: fallback
+}
+def validateSimpleName = { String value, String settingName ->
+  if (!(value ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/)) {
+    throw new IllegalArgumentException("${settingName} must be a simple name")
+  }
+}
+
+def jenkins = Jenkins.get()
+def agentName = setting('RLUCENE_PR_AGENT_NAME', 'rlucene-pr-agent')
+def agentLabel = setting('RLUCENE_PR_AGENT_LABEL', 'rlucene-pr')
+validateSimpleName(agentName, 'RLUCENE_PR_AGENT_NAME')
+validateSimpleName(agentLabel, 'RLUCENE_PR_AGENT_LABEL')
+
+def agent = jenkins.getNode(agentName)
+def createdAgent = false
+if (agent == null) {
+  def launcher = new JNLPLauncher()
+  launcher.setWebSocket(true)
+  agent = new DumbSlave(
+    agentName,
+    'Isolated Docker agent for trusted RLucene pull requests.',
+    '/home/rlucene/agent',
+    '1',
+    Node.Mode.EXCLUSIVE,
+    agentLabel,
+    launcher,
+    new RetentionStrategy.Always(),
+    []
+  )
+  jenkins.addNode(agent)
+  createdAgent = true
+  println("Created exclusive Jenkins agent ${agentName} with label ${agentLabel}")
+} else {
+  println("Keeping existing Jenkins agent ${agentName}")
+}
+
+def computer = agent.toComputer()
+if (computer == null) {
+  throw new IllegalStateException("Jenkins did not create a computer for ${agentName}")
+}
+def secretPath = setting('RLUCENE_PR_AGENT_SECRET_FILE', '/run/rlucene-pr-agent/secret')
+def secretFile = new File(secretPath)
+Files.createDirectories(secretFile.parentFile.toPath())
+if (createdAgent || !secretFile.exists()) {
+  def temporaryFile = new File(secretFile.parentFile, '.secret.tmp')
+  temporaryFile.setText(computer.getJnlpMac(), 'UTF-8')
+  Files.setPosixFilePermissions(
+    temporaryFile.toPath(),
+    PosixFilePermissions.fromString('rw-------')
+  )
+  try {
+    Files.move(
+      temporaryFile.toPath(),
+      secretFile.toPath(),
+      StandardCopyOption.ATOMIC_MOVE,
+      StandardCopyOption.REPLACE_EXISTING
+    )
+  } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+    Files.move(
+      temporaryFile.toPath(),
+      secretFile.toPath(),
+      StandardCopyOption.REPLACE_EXISTING
+    )
+  }
+  println("Refreshed inbound secret file for Jenkins agent ${agentName}")
+} else {
+  println("Keeping existing inbound secret file for Jenkins agent ${agentName}")
+}

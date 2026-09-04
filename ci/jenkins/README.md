@@ -11,13 +11,39 @@ Each job has its own build cache and last-successful-commit state. The original
 controller's disabled `legency` job and historical builds are instance data;
 new installations create only `rlucene-ci`.
 
+## Pull request test-light job
+
+The `Jenkins PR test-light` GitHub Actions workflow handles pull request events.
+It asks GitHub for the PR author's effective repository permission and starts
+Jenkins only for `write` or `admin`. An external contributor's workflow exits
+successfully without contacting Jenkins.
+
+Authorized requests start the separate `rlucene-pr` Pipeline. The Pipeline
+validates every parameter, fetches `refs/pull/<number>/head`, verifies that the
+checked-out commit is the exact SHA reported by GitHub, and runs:
+
+```sh
+cargo test-light
+```
+
+The GitHub Actions run waits for Jenkins. Jenkins `SUCCESS` becomes a green
+GitHub check; any other terminal result or timeout becomes a failed check. The
+Actions summary links to the Jenkins build. A superseding update to the same PR
+cancels the older Actions run and asks Jenkins to stop its obsolete build.
+
+PR code runs only on the exclusive `rlucene-pr` inbound agent. That container
+does not mount Jenkins home or the Docker socket. The existing scheduled
+`rlucene-ci` job remains on the built-in node and is unchanged.
+
 ## Jenkins prerequisites
 
 - Jenkins 2.568.2 with Java 21, as pinned in the controller image.
 - The plugin versions in `deployment/plugins.txt`, installed by the image.
-- No Git credential is needed for the default public HTTPS repository. For a
-  private/SSH repository, create your own Jenkins credential and set its ID in
-  `RLUCENE_GIT_CREDENTIALS_ID` before the job is first created.
+- No Git credential is needed for the scheduled job's default public HTTPS
+  checkout. The member-only PR job is intentionally fixed to
+  `git@github.com:Rustify-All/rlucene.git` and requires the existing Jenkins SSH
+  credential ID `github-ssh`; Jenkins uses it for the trusted definition checkout
+  and the exact PR-ref checkout on the agent.
 - Rust 1.98.0 with `rustfmt`, `clippy`, and `cargo-nextest` 0.9.143 available
   through `/opt/cargo/bin`.
 - The version-controlled controller image and Compose configuration under
