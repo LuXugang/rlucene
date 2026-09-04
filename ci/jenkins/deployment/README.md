@@ -49,12 +49,13 @@ home, workspaces, or build history in Git or the Docker build context.
 
 | Component | Source |
 | --- | --- |
-| Jenkins 2.568.2 / Java 21 | Version and image digest in `Dockerfile` and `.env.example` |
+| Jenkins 2.568.3 / Java 21 | Version and image digest in `Dockerfile` and `.env.example` |
 | Linux amd64 runtime | Compose `platform`, matching the original build host |
 | Rust toolchain and components | Repository-root `rust-toolchain.toml`, copied during the image build |
 | cargo-nextest 0.9.143 | Exact version in `Dockerfile` |
 | 98 Jenkins plugins and dependencies | `plugins.txt`, installed with `--latest=false` |
 | Pipeline job, SCM branch/refspec, shallow clean checkout | `init.groovy.d/rlucene-job.groovy.override` |
+| Optional public read-only authorization | `init.groovy.d/rlucene-public-read-only.groovy.override` |
 | Schedule, 500-build retention, no concurrent builds, test commands, timeouts and failure handling | `../Jenkinsfile` |
 | Slow-test diagnostics and classic console theme | `../capture-slow-test-diagnostics.sh` and `init.groovy.d/rlucene-console-theme.groovy.override` |
 | Container resources, ports, timezone and persistent storage | `docker-compose.yml` plus your local `.env` |
@@ -83,9 +84,13 @@ the image builder.
 | `COMPOSE_PROJECT_NAME` | Names the stack and its volume; default example is `rlucene-jenkins` |
 | `JENKINS_HTTP_PORT` / `JENKINS_AGENT_PORT` | Host ports; defaults are 8080 / 50000 |
 | `JAVA_OPTS` | Java controller heap only; reduce it for a smaller development machine |
+| `PLUGINS_FORCE_UPGRADE` | Non-empty tells the official image to replace manually upgraded plugins when the image pins a newer version |
+| `TRY_UPGRADE_IF_NO_MARKER` | Non-empty allows replacing older plugins from installations that have no image-version marker |
 | `RLUCENE_REPOSITORY_URL` / `RLUCENE_BRANCH` | SCM source for a newly created job; default is public upstream `main` |
 | `RLUCENE_GIT_CREDENTIALS_ID` | Optional existing Jenkins Git credential ID |
 | `RLUCENE_JOB_NAME` / `RLUCENE_JOB_DISABLED` | Name and initial disabled state of the generated job |
+| `RLUCENE_PUBLIC_READ_ONLY` | Opt in to anonymous read-only access for the configured job; disabled by default |
+| `RLUCENE_ADMIN_USERS` | Comma-separated Jenkins user IDs that retain full administration when public read-only access is enabled |
 | `RLUCENE_FAILURE_EMAIL` | Optional failure recipient; empty disables email |
 
 The job initializer creates missing jobs only. Restarting the container does
@@ -96,6 +101,55 @@ an existing job. To apply failure-email environment changes used during builds,
 recreate the container and run the job once. The schedule is defined in
 `../Jenkinsfile`; a pushed schedule change is applied by the next build without
 recreating the container.
+
+## Optional public read-only access
+
+The deployment pins Jenkins 2.568.3 and the fixed plugin versions from the
+[2026-09-02 Jenkins security advisory](https://www.jenkins.io/security/advisory/2026-09-02/).
+Do not publish a controller still running Jenkins 2.568.2 or the older plugin
+set, including one created from a previously built local image.
+
+After completing the setup wizard and creating the administrator accounts, set
+these values in the deployment's untracked `.env` file:
+
+```dotenv
+RLUCENE_PUBLIC_READ_ONLY=true
+RLUCENE_ADMIN_USERS=luxugang,noreply
+```
+
+Then recreate or restart the Jenkins container. The initializer changes the
+authorization strategy only from Jenkins' normal logged-in-user strategy or an
+existing Project Matrix Authorization Strategy. When changing from the normal
+strategy, it waits until every listed administrator ID exists, preventing a
+first-start configuration from locking out the administrator. An unrelated
+custom authorization strategy is left unchanged.
+
+The resulting anonymous access is deliberately narrow:
+
+- global `Overall/Read` and `View/Read`, so Jenkins pages and views can open;
+- `Job/Read` on only the job named by `RLUCENE_JOB_NAME`, so its builds, console
+  logs and artifacts can be viewed;
+- no build, cancel, configure, workspace, credential or administration grants.
+
+Existing matrix grants are retained. While the option remains enabled, a
+container restart restores these three anonymous grants if they were removed
+in the UI. Disabling the option stops managing them but does not revoke grants
+already saved in Jenkins home; revoke those explicitly in **Manage Jenkins →
+Security** and the job's **Configure → Enable project-based security** section.
+
+This configuration is an initialization hook, not part of the Pipeline. A Git
+checkout or a run of `ci/jenkins/Jenkinsfile` cannot replace it. A fresh Jenkins
+home can reproduce it from this deployment configuration; the running
+controller still stores the effective authorization state in its persistent
+`jenkins_home` volume.
+
+The official Jenkins image normally preserves plugin files already present in
+an existing Jenkins home. Keep both `PLUGINS_FORCE_UPGRADE=true` and
+`TRY_UPGRADE_IF_NO_MARKER=true` during this upgrade so the versions pinned in
+`plugins.txt` replace older installed versions, including installations made
+by an image that did not write version markers. These values are interpreted as
+enabled whenever they are non-empty, so use empty values rather than `false` to
+disable them after the migration.
 
 For SSH checkout, create your own SSH credential and configure host-key
 verification in Jenkins before building. HTTPS avoids this setup for a public

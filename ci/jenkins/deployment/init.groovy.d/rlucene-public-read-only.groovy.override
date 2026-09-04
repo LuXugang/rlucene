@@ -1,0 +1,86 @@
+import hudson.model.Item
+import hudson.model.User
+import hudson.model.View
+import hudson.security.AuthorizationMatrixProperty
+import hudson.security.FullControlOnceLoggedInAuthorizationStrategy
+import hudson.security.ProjectMatrixAuthorizationStrategy
+import jenkins.model.Jenkins
+import org.jenkinsci.plugins.matrixauth.PermissionEntry
+
+def setting = { String name, String fallback ->
+  System.getenv(name) ?: fallback
+}
+
+if (!setting('RLUCENE_PUBLIC_READ_ONLY', 'false').toBoolean()) {
+  println('RLucene public read-only access is disabled')
+  return
+}
+
+def adminUsers = setting('RLUCENE_ADMIN_USERS', '')
+  .split(',')
+  .collect { it.trim() }
+  .findAll { !it.isEmpty() }
+  .unique()
+if (adminUsers.isEmpty()) {
+  throw new IllegalArgumentException(
+    'RLUCENE_ADMIN_USERS must contain at least one Jenkins user ID when public read-only access is enabled'
+  )
+}
+adminUsers.each { userId ->
+  if (!(userId ==~ /[A-Za-z0-9][A-Za-z0-9_.@-]*/)) {
+    throw new IllegalArgumentException('RLUCENE_ADMIN_USERS must contain simple Jenkins user IDs')
+  }
+}
+
+def jenkins = Jenkins.get()
+def currentStrategy = jenkins.getAuthorizationStrategy()
+def strategy
+if (currentStrategy instanceof ProjectMatrixAuthorizationStrategy) {
+  strategy = currentStrategy
+} else if (currentStrategy instanceof FullControlOnceLoggedInAuthorizationStrategy) {
+  def missingUsers = adminUsers.findAll { User.getById(it, false) == null }
+  if (!missingUsers.isEmpty()) {
+    println(
+      "Deferring RLucene public read-only access until these administrator accounts exist: ${missingUsers.join(', ')}"
+    )
+    return
+  }
+  strategy = new ProjectMatrixAuthorizationStrategy()
+} else {
+  println(
+    "Keeping existing unsupported authorization strategy ${currentStrategy.class.name}; " +
+      'configure Project Matrix Authorization Strategy manually'
+  )
+  return
+}
+
+adminUsers.each { userId ->
+  strategy.add(Jenkins.ADMINISTER, PermissionEntry.user(userId))
+}
+strategy.add(Jenkins.READ, PermissionEntry.user('anonymous'))
+strategy.add(View.READ, PermissionEntry.user('anonymous'))
+jenkins.setAuthorizationStrategy(strategy)
+
+def jobName = setting('RLUCENE_JOB_NAME', 'rlucene-ci')
+if (!(jobName ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/)) {
+  throw new IllegalArgumentException('RLUCENE_JOB_NAME must be a simple job name')
+}
+def job = jenkins.getItem(jobName)
+if (job == null) {
+  println("RLucene job ${jobName} does not exist; public Item/Read permission was not added")
+} else {
+  def jobAuthorization = job.getProperty(AuthorizationMatrixProperty.class)
+  if (jobAuthorization == null) {
+    def permissions = [(Item.READ): ([PermissionEntry.user('anonymous')] as Set)]
+    job.addProperty(new AuthorizationMatrixProperty(
+      permissions,
+      new org.jenkinsci.plugins.matrixauth.inheritance.InheritParentStrategy()
+    ))
+  } else {
+    jobAuthorization.add(Item.READ, PermissionEntry.user('anonymous'))
+  }
+  job.save()
+}
+
+jenkins.save()
+println("Enabled anonymous read-only access for Jenkins job ${jobName}")
