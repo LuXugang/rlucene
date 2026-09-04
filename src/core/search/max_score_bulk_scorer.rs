@@ -24,6 +24,7 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::{FixedScore, Scorable};
 use crate::core::search::scorer::Scorer;
 use crate::core::search::scorer_util::ScorerUtil;
+use crate::core::util::CoreHelper;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -619,8 +620,7 @@ where
       let w2 = &self.all_scorers[i2];
       let s1 = w1.max_window_score as f64 / (w1.cost.max(1) as f64);
       let s2 = w2.max_window_score as f64 / (w2.cost.max(1) as f64);
-      // s2 never be zero  so we could use `total_cmp` directly on the division result.
-      s1.total_cmp(&s2)
+      CoreHelper::compare_f64(s1, s2)
     });
 
     let mut max_score_sum: f64 = 0.0;
@@ -644,7 +644,8 @@ where
       } else {
         let pos = n - 1 - (idx - self.first_essential_scorer);
         self.all_scorers_idx[pos] = index;
-        self.next_min_competitive_score = self.next_min_competitive_score.min(max_score_sum_float);
+        self.next_min_competitive_score =
+          CoreHelper::min_f32(max_score_sum_float, self.next_min_competitive_score);
       }
     }
 

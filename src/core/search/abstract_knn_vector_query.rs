@@ -50,11 +50,12 @@ use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::TotalHits;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
-use crate::core::util::HasIdentity;
 use crate::core::util::bit_set::{BitSet, SparseFixedBitSetBitSet, of};
 use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, HasIdentity};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -647,11 +648,7 @@ impl PartialEq for DocAndScoreQuery {
   fn eq(&self, other: &Self) -> bool {
     self.context_identity == other.context_identity
       && self.docs == other.docs
-      && self
-        .scores
-        .iter()
-        .zip(other.scores.iter())
-        .all(|(a, b)| a.to_bits() == b.to_bits())
+      && CoreHelper::array_equals_f32(&self.scores, &other.scores)
   }
 }
 impl Hash for DocAndScoreQuery {
@@ -662,7 +659,7 @@ impl Hash for DocAndScoreQuery {
     self.context_identity.hash(state);
     self.docs.hash(state);
     for f in self.scores.iter() {
-      state.write_u32(f.to_bits());
+      state.write_u32(BitUtil::float_to_int_bits(*f) as u32);
     }
   }
 }

@@ -31,6 +31,7 @@ use crate::core::index::lockable_concurrent_approximate_priority_queue::Lock;
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use parking_lot::{Condvar, Mutex, MutexGuard};
@@ -184,7 +185,8 @@ where
     // IWC's maxRAMBufferSizeMB:
     if max_ram_mb != DISABLE_AUTO_FLUSH as f64 && !inner.flush_by_ram_was_disabled {
       // for this assert we must be tolerant to ram buffer changes!
-      inner.max_configured_ram_buffer = inner.max_configured_ram_buffer.max(max_ram_mb);
+      inner.max_configured_ram_buffer =
+        CoreHelper::max_f64(max_ram_mb, inner.max_configured_ram_buffer);
       let flush_bytes = inner.flush_bytes;
       let active_bytes = inner.active_bytes;
       let num_pending = inner.num_pending;

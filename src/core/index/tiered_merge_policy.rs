@@ -23,6 +23,7 @@ use crate::core::index::merge_trigger::MergeTrigger;
 use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
+use crate::core::util::CoreHelper;
 use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
@@ -819,11 +820,13 @@ where
     // allowedSegCount may occasionally be less than segsPerTier
     // if segment sizes are below the floor size
 
-    allowed_seg_count = allowed_seg_count.max(self.segs_per_tier);
+    allowed_seg_count = CoreHelper::max_f64(allowed_seg_count, self.segs_per_tier);
     // No need to merge if the total number of segments (including too big segments) is less than or
     // equal to the target search concurrency.
-    allowed_seg_count =
-      allowed_seg_count.max((self.target_search_concurrency - too_big_count) as f64);
+    allowed_seg_count = CoreHelper::max_f64(
+      allowed_seg_count,
+      (self.target_search_concurrency - too_big_count) as f64,
+    );
 
     let allowed_doc_count = self.get_max_allowed_docs(total_max_doc, total_del_docs);
     if self.verbose(merge_context) && too_big_count > 0 {

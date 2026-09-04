@@ -21,6 +21,7 @@ use crate::core::search::sort_field::{
   IndexSorterEnumSorter, MissingValueEnum, SortField, SortFieldType, SortFiledBase,
 };
 use crate::core::store::DataOutput;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -123,16 +124,17 @@ impl SortFiledBase for LatLonPointSortField {
 impl Hash for LatLonPointSortField {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.base.hash(state);
-    self.latitude.to_bits().hash(state);
-    self.longitude.to_bits().hash(state);
+    (BitUtil::double_to_long_bits(self.latitude) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.longitude) as u64).hash(state);
   }
 }
 
 impl PartialEq for LatLonPointSortField {
   fn eq(&self, other: &Self) -> bool {
     self.base == other.base
-      && self.latitude.to_bits() == other.latitude.to_bits()
-      && self.longitude.to_bits() == other.longitude.to_bits()
+      && BitUtil::double_to_long_bits(self.latitude) == BitUtil::double_to_long_bits(other.latitude)
+      && BitUtil::double_to_long_bits(self.longitude)
+        == BitUtil::double_to_long_bits(other.longitude)
   }
 }
 

@@ -16,6 +16,7 @@
  */
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::index::point_values::Relation;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use std::sync::Arc;
 
@@ -138,10 +139,10 @@ pub trait Component2D {
 
   /// return true if this component2D intersects the provided line
   fn intersects_line_values(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
-    let min_y = a_y.min(b_y);
-    let min_x = a_x.min(b_x);
-    let max_y = a_y.max(b_y);
-    let max_x = a_x.max(b_x);
+    let min_y = CoreHelper::min_f64(a_y, b_y);
+    let min_x = CoreHelper::min_f64(a_x, b_x);
+    let max_y = CoreHelper::max_f64(a_y, b_y);
+    let max_x = CoreHelper::max_f64(a_x, b_x);
     self.intersects_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
   }
 
@@ -155,19 +156,19 @@ pub trait Component2D {
     c_x: f64,
     c_y: f64,
   ) -> bool {
-    let min_y = a_y.min(b_y).min(c_y);
-    let min_x = a_x.min(b_x).min(c_x);
-    let max_y = a_y.max(b_y).max(c_y);
-    let max_x = a_x.max(b_x).max(c_x);
+    let min_y = CoreHelper::min_f64(CoreHelper::min_f64(a_y, b_y), c_y);
+    let min_x = CoreHelper::min_f64(CoreHelper::min_f64(a_x, b_x), c_x);
+    let max_y = CoreHelper::max_f64(CoreHelper::max_f64(a_y, b_y), c_y);
+    let max_x = CoreHelper::max_f64(CoreHelper::max_f64(a_x, b_x), c_x);
     self.intersects_triangle(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y)
   }
 
   /// return true if this component2D contains the provided line
   fn contains_line_values(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
-    let min_y = a_y.min(b_y);
-    let min_x = a_x.min(b_x);
-    let max_y = a_y.max(b_y);
-    let max_x = a_x.max(b_x);
+    let min_y = CoreHelper::min_f64(a_y, b_y);
+    let min_x = CoreHelper::min_f64(a_x, b_x);
+    let max_y = CoreHelper::max_f64(a_y, b_y);
+    let max_x = CoreHelper::max_f64(a_x, b_x);
     self.contains_line(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y)
   }
 
@@ -181,10 +182,10 @@ pub trait Component2D {
     c_x: f64,
     c_y: f64,
   ) -> bool {
-    let min_y = a_y.min(b_y).min(c_y);
-    let min_x = a_x.min(b_x).min(c_x);
-    let max_y = a_y.max(b_y).max(c_y);
-    let max_x = a_x.max(b_x).max(c_x);
+    let min_y = CoreHelper::min_f64(CoreHelper::min_f64(a_y, b_y), c_y);
+    let min_x = CoreHelper::min_f64(CoreHelper::min_f64(a_x, b_x), c_x);
+    let max_y = CoreHelper::max_f64(CoreHelper::max_f64(a_y, b_y), c_y);
+    let max_x = CoreHelper::max_f64(CoreHelper::max_f64(a_x, b_x), c_x);
     self.contains_triangle(min_x, max_x, min_y, max_y, a_x, a_y, b_x, b_y, c_x, c_y)
   }
 
@@ -197,10 +198,10 @@ pub trait Component2D {
     b_x: f64,
     b_y: f64,
   ) -> Result<WithinRelation> {
-    let min_y = a_y.min(b_y);
-    let min_x = a_x.min(b_x);
-    let max_y = a_y.max(b_y);
-    let max_x = a_x.max(b_x);
+    let min_y = CoreHelper::min_f64(a_y, b_y);
+    let min_x = CoreHelper::min_f64(a_x, b_x);
+    let max_y = CoreHelper::max_f64(a_y, b_y);
+    let max_x = CoreHelper::max_f64(a_x, b_x);
     self.within_line(min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y)
   }
 
@@ -218,10 +219,10 @@ pub trait Component2D {
     c_y: f64,
     ca: bool,
   ) -> Result<WithinRelation> {
-    let min_y = a_y.min(b_y).min(c_y);
-    let min_x = a_x.min(b_x).min(c_x);
-    let max_y = a_y.max(b_y).max(c_y);
-    let max_x = a_x.max(b_x).max(c_x);
+    let min_y = CoreHelper::min_f64(CoreHelper::min_f64(a_y, b_y), c_y);
+    let min_x = CoreHelper::min_f64(CoreHelper::min_f64(a_x, b_x), c_x);
+    let max_y = CoreHelper::max_f64(CoreHelper::max_f64(a_y, b_y), c_y);
+    let max_x = CoreHelper::max_f64(CoreHelper::max_f64(a_x, b_x), c_x);
     self.within_triangle(
       min_x, max_x, min_y, max_y, a_x, a_y, ab, b_x, b_y, bc, c_x, c_y, ca,
     )

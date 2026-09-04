@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::DataOutput;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::packed::abstract_block_packed_writer::{
@@ -37,8 +38,8 @@ use crate::core::util::packed::monotonic_block_packed_reader::expected;
 ///   - `B`: The `B` from `f(x) = A * x + B` encoded using
 ///     [`BitUtil::zig_zag_encode_i64`](crate::core::util::bit_util::BitUtil::zig_zag_encode_i64)
 ///     with [`DataOutput::write_vlong`].
-///   - `A`: The `A` from `f(x) = A * x + B` encoded using [`f32::to_bits`] and
-///     written as a 4-byte integer with [`DataOutput::write_int`].
+///   - `A`: The `A` from `f(x) = A * x + B` encoded like Java
+///     `Float.floatToIntBits` and written as a 4-byte integer with [`DataOutput::write_int`].
 ///   - `BitsPerValue`: A variable-length integer written with
 ///     [`DataOutput::write_vint`].
 /// - `Ints`: If `BitsPerValue` is `0`, then there is nothing to read, and all
@@ -83,7 +84,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
       max_delta = max_delta.max(*value);
     }
     out.write_zlong(min)?;
-    out.write_int(avg.to_bits() as i32)?;
+    out.write_int(BitUtil::float_to_int_bits(avg))?;
 
     if max_delta == 0 {
       out.write_vint(0)?;

@@ -24,7 +24,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::selector::Selector;
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
 use crate::core::util::{
-  IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt, TryIntoInt,
+  CoreHelper, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt, TryIntoInt,
 };
 use parking_lot::Mutex;
 use std::fmt::{Display, Formatter};
@@ -139,7 +139,8 @@ impl ScalarQuantizer {
     // see first parenthesis in equation: byte = (float - minQuantile) * 127/(maxQuantile -
     // minQuantile)
     let dx = v - self.min_quantile;
-    let dxc = self.max_quantile.min(self.min_quantile.max(v)) - self.min_quantile;
+    let dxc = CoreHelper::max_f32(self.min_quantile, CoreHelper::min_f32(self.max_quantile, v))
+      - self.min_quantile;
     // Scale the value to the range [0, 127], this is our quantized value
     // scale = 127/(maxQuantile - minQuantile)
     let dxs = self.scale * dxc;
@@ -292,8 +293,8 @@ impl ScalarQuantizer {
         let ord: usize = iterator.index()?.try_convert()?;
         let vector_value = float_vector_values.vector_value(ord)?;
         for &value in vector_value.as_floats()? {
-          min = min.min(value);
-          max = max.max(value);
+          min = CoreHelper::min_f32(min, value);
+          max = CoreHelper::max_f32(max, value);
         }
       }
       return Self::new(min, max, bits);
@@ -391,7 +392,7 @@ impl ScalarQuantizer {
     let mut sampled_docs = Vec::with_capacity(sample_size);
     let confidence_intervals = [
       1.0
-        - 32.0f32.min(float_vector_values.dimension() as f32 / 10.0)
+        - CoreHelper::min_f32(32.0, float_vector_values.dimension() as f32 / 10.0)
           / (float_vector_values.dimension() as f32 + 1.0),
       1.0 - 1.0 / (float_vector_values.dimension() as f32 + 1.0),
     ];
@@ -658,7 +659,7 @@ pub(crate) fn get_upper_and_lower_quantile(
   debug_assert!(!arr.is_empty());
   // If we have 1 or 2 values, we can't calculate the quantiles, simply return the min and max
   if arr.len() <= 2 {
-    arr.sort_by(|left, right| left.total_cmp(right));
+    arr.sort_by(|&left, &right| CoreHelper::compare_f32(left, right));
     return Ok([arr[0], arr[arr.len() - 1]]);
   }
   let selector_index = (arr.len() as f32 * (1.0 - confidence_interval) / 2.0 + 0.5) as usize;
@@ -675,8 +676,8 @@ pub(crate) fn get_upper_and_lower_quantile(
     .take(arr.len() - selector_index)
     .skip(selector_index)
   {
-    min = min.min(value);
-    max = max.max(value);
+    min = CoreHelper::min_f32(min, value);
+    max = CoreHelper::max_f32(max, value);
   }
   Ok([min, max])
 }
@@ -709,7 +710,7 @@ impl IntroSelectorBaseDefault for FloatSelector<'_> {
   }
 
   fn compare_pivot(&mut self, j: usize) -> Result<i32> {
-    Ok(self.pivot.total_cmp(&self.arr[j]).to_int())
+    Ok(CoreHelper::compare_f32(self.pivot, self.arr[j]).to_int())
   }
 }
 
@@ -886,7 +887,7 @@ impl ScalarQuantizedVectorSimilarity {
         debug_assert!(dot_product >= 0);
         let adjusted_distance =
           dot_product as f32 * const_multiplier + query_vector_offset + vector_offset;
-        Ok(((1.0 + adjusted_distance) / 2.0).max(0.0))
+        Ok(CoreHelper::max_f32((1.0 + adjusted_distance) / 2.0, 0.0))
       },
       Self::MaximumInnerProduct {
         const_multiplier,

@@ -65,10 +65,10 @@ impl XYLine {
     let mut max_x = -f32::MAX;
     let mut max_y = -f32::MAX;
     for i in 0..x.len() {
-      min_x = XYEncodingUtils::check_val(x[i])?.min(min_x);
-      min_y = XYEncodingUtils::check_val(y[i])?.min(min_y);
-      max_x = x[i].max(max_x);
-      max_y = y[i].max(max_y);
+      min_x = CoreHelper::min_f32(XYEncodingUtils::check_val(x[i])?, min_x);
+      min_y = CoreHelper::min_f32(XYEncodingUtils::check_val(y[i])?, min_y);
+      max_x = CoreHelper::max_f32(x[i], max_x);
+      max_y = CoreHelper::max_f32(y[i], max_y);
     }
 
     Ok(Self {

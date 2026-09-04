@@ -26,9 +26,9 @@ use crate::core::search::dummy::dummy_disi::DummyDISI;
 use crate::core::search::field_comparator::FieldComparator;
 use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::scorable::Scorable;
-use crate::core::util::ToInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{CoreHelper, ToInt};
 /// Compares documents by distance from an origin point
 ///
 /// When the least competitive item on the priority queue changes (`set_bottom`), we recompute a
@@ -84,7 +84,7 @@ impl FieldComparator for XYPointDistanceComparator {
   type V = f64;
 
   fn compare(&self, slot1: usize, slot2: usize) -> i32 {
-    self.values[slot1].total_cmp(&self.values[slot2]).to_int()
+    CoreHelper::compare_f64(self.values[slot1], self.values[slot2]).to_int()
   }
 
   fn set_top_value(&mut self, value: Self::V) -> Result<()> {
@@ -94,6 +94,15 @@ impl FieldComparator for XYPointDistanceComparator {
 
   fn value(&self, slot: usize) -> Option<Self::V> {
     Some(self.values[slot])
+  }
+
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
+    match (first, second) {
+      (None, None) => Ok(0),
+      (None, Some(_)) => Ok(-1),
+      (Some(_), None) => Ok(1),
+      (Some(&first), Some(&second)) => Ok(CoreHelper::compare_f64(first, second).to_int()),
+    }
   }
 
   type LeafFieldComparator<LR>
@@ -172,7 +181,7 @@ where
         let diff_x = comparator.x - doc_x as f64;
         let diff_y = comparator.y - doc_y as f64;
         let distance = (diff_x * diff_x + diff_y * diff_y).sqrt();
-        min_value = min_value.min(distance);
+        min_value = CoreHelper::min_f64(min_value, distance);
       }
     }
 
@@ -224,7 +233,7 @@ where
       self.current_docs.advance(doc)?;
     }
     if doc < self.current_docs.doc_id() {
-      return Ok(comparator.bottom.total_cmp(&f64::INFINITY) as i32);
+      return Ok(CoreHelper::compare_f64(comparator.bottom, f64::INFINITY).to_int());
     }
 
     self.set_values(comparator)?;
@@ -252,7 +261,7 @@ where
       let diff_y = comparator.y - doc_y as f64;
       let distance = (diff_x * diff_x + diff_y * diff_y).sqrt();
 
-      cmp = cmp.max(comparator.bottom.total_cmp(&distance) as i32);
+      cmp = cmp.max(CoreHelper::compare_f64(comparator.bottom, distance).to_int());
       // once we compete in the PQ, no need to continue.
       if cmp > 0 {
         return Ok(cmp);
@@ -272,7 +281,7 @@ where
     S: Scorable + ?Sized,
   {
     let v = self.sort_key(doc, comparator)?;
-    Ok(comparator.top_value.total_cmp(&v).to_int())
+    Ok(CoreHelper::compare_f64(comparator.top_value, v).to_int())
   }
 
   fn copy<S>(

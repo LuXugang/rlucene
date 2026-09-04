@@ -33,7 +33,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{CoreHelper, ToInt};
 
-/// Comparator based on [`f64::partial_cmp`] (equivalent to Java's `Double.compare`) for `num_hits`.
+/// Comparator based on Java's `Double.compare` semantics for `num_hits`.
 ///
 /// This comparator provides a skipping functionality – an iterator that can skip over
 /// non-competitive documents.
@@ -86,6 +86,15 @@ impl FieldComparator for DoubleComparator {
 
   fn value(&self, slot: usize) -> Option<Self::V> {
     Some(self.values[slot])
+  }
+
+  fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
+    match (first, second) {
+      (None, None) => Ok(0),
+      (None, Some(_)) => Ok(-1),
+      (Some(_), None) => Ok(1),
+      (Some(&first), Some(&second)) => Ok(CoreHelper::compare_f64(first, second).to_int()),
+    }
   }
 
   type LeafFieldComparator<LR>

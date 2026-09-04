@@ -19,6 +19,7 @@ use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::{Relation, TotalHits};
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 /// Perform a similarity-based graph search.
@@ -87,7 +88,7 @@ impl KnnCollector for VectorSimilarityCollector {
   }
 
   fn collect(&mut self, doc_id: usize, similarity: f32) -> Result<bool> {
-    self.max_similarity = self.max_similarity.max(similarity);
+    self.max_similarity = CoreHelper::max_f32(self.max_similarity, similarity);
     if similarity >= self.result_similarity {
       debug_assert!(doc_id <= i32::MAX as usize);
       self
@@ -98,7 +99,10 @@ impl KnnCollector for VectorSimilarityCollector {
   }
 
   fn min_competitive_similarity(&self) -> Result<f32> {
-    Ok(self.traversal_similarity.min(self.max_similarity))
+    Ok(CoreHelper::min_f32(
+      self.traversal_similarity,
+      self.max_similarity,
+    ))
   }
 
   fn top_docs(&mut self) -> Result<TopDocs<ScoreDoc>> {

@@ -24,6 +24,7 @@ use crate::core::geo::xy_circle::XYCircle;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::point_values::Relation;
 use crate::core::util::SloppyMath;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 
 /// 2D circle implementation containing spatial logic
@@ -447,10 +448,10 @@ fn intersects_line(
   let p_x = a_x + vector_abx * distance;
   let p_y = a_y + vector_aby * distance;
 
-  let min_x = a_x.min(b_x);
-  let min_y = a_y.min(b_y);
-  let max_x = a_x.max(b_x);
-  let max_y = a_y.max(b_y);
+  let min_x = CoreHelper::min_f64(a_x, b_x);
+  let min_y = CoreHelper::min_f64(a_y, b_y);
+  let max_x = CoreHelper::max_f64(a_x, b_x);
+  let max_y = CoreHelper::max_f64(a_y, b_y);
 
   if p_x >= min_x && p_x <= max_x && p_y >= min_y && p_y <= max_y {
     return calculator.contains(p_x, p_y);

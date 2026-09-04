@@ -24,6 +24,8 @@ use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::point_values::Relation;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
 use std::fmt::{Display, Formatter};
@@ -48,10 +50,10 @@ impl Rectangle2D {
     }
   }
   fn edges_intersect(&self, a_x: f64, a_y: f64, b_x: f64, b_y: f64) -> bool {
-    if a_x.max(b_x) < self.min_x
-      || a_x.min(b_x) > self.max_x
-      || a_y.min(b_y) > self.max_y
-      || a_y.max(b_y) < self.min_y
+    if CoreHelper::max_f64(a_x, b_x) < self.min_x
+      || CoreHelper::min_f64(a_x, b_x) > self.max_x
+      || CoreHelper::min_f64(a_y, b_y) > self.max_y
+      || CoreHelper::max_f64(a_y, b_y) < self.min_y
     {
       return false;
     }
@@ -301,10 +303,10 @@ impl Display for Rectangle2D {
 }
 impl PartialEq for Rectangle2D {
   fn eq(&self, other: &Self) -> bool {
-    self.min_x.to_bits() == other.min_x.to_bits()
-      && self.max_x.to_bits() == other.max_x.to_bits()
-      && self.min_y.to_bits() == other.min_y.to_bits()
-      && self.max_y.to_bits() == other.max_y.to_bits()
+    CoreHelper::compare_f64(self.min_x, other.min_x).is_eq()
+      && CoreHelper::compare_f64(self.max_x, other.max_x).is_eq()
+      && CoreHelper::compare_f64(self.min_y, other.min_y).is_eq()
+      && CoreHelper::compare_f64(self.max_y, other.max_y).is_eq()
   }
 }
 
@@ -312,10 +314,10 @@ impl Eq for Rectangle2D {}
 
 impl std::hash::Hash for Rectangle2D {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.min_x.to_bits().hash(state);
-    self.max_x.to_bits().hash(state);
-    self.min_y.to_bits().hash(state);
-    self.max_y.to_bits().hash(state);
+    (BitUtil::double_to_long_bits(self.min_x) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.max_x) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.min_y) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.max_y) as u64).hash(state);
   }
 }
 static MIN_LON_INCL_QUANTIZE: LazyLock<f64> =

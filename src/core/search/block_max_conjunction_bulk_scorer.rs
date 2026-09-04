@@ -60,7 +60,7 @@ where
     }
     Ok(Self {
       scorable: DocAndScore::new(0.0),
-      sum_of_other_clauses: vec![f64::MAX; scorers.len()],
+      sum_of_other_clauses: vec![f64::INFINITY; scorers.len()],
       max_doc,
       scorers,
     })

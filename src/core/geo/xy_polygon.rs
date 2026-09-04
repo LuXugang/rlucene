@@ -96,10 +96,10 @@ impl XYPolygon {
     let mut i = 1usize;
     let mut j = 0usize;
     while i < num_pts {
-      min_x = f32::min(XYEncodingUtils::check_val(x[i])?, min_x);
-      max_x = f32::max(x[i], max_x);
-      min_y = f32::min(XYEncodingUtils::check_val(y[i])?, min_y);
-      max_y = f32::max(y[i], max_y);
+      min_x = CoreHelper::min_f32(XYEncodingUtils::check_val(x[i])?, min_x);
+      max_x = CoreHelper::max_f32(x[i], max_x);
+      min_y = CoreHelper::min_f32(XYEncodingUtils::check_val(y[i])?, min_y);
+      max_y = CoreHelper::max_f32(y[i], max_y);
 
       winding_sum += ((x[j] - x[num_pts]) as f64) * ((y[i] - y[num_pts]) as f64)
         - ((y[j] - y[num_pts]) as f64) * ((x[i] - x[num_pts]) as f64);

@@ -30,8 +30,8 @@ use crate::core::index::segment_read_state::SegmentReadState;
 use crate::core::index::segment_write_state::SegmentWriteState;
 use crate::core::store::directory::Directory;
 use crate::core::store::{IndexInput, IndexOutput};
-use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, HasIdentity};
 use std::fmt::{Display, Formatter};
 use std::sync::{Arc, LazyLock, OnceLock};
 
@@ -105,7 +105,8 @@ impl Lucene99ScalarQuantizedVectorsFormat {
   ) -> Result<Self> {
     if let Some(confidence_interval) = confidence_interval
       && confidence_interval != DYNAMIC_CONFIDENCE_INTERVAL
-      && !(MINIMUM_CONFIDENCE_INTERVAL..=MAXIMUM_CONFIDENCE_INTERVAL).contains(&confidence_interval)
+      && (confidence_interval < MINIMUM_CONFIDENCE_INTERVAL
+        || confidence_interval > MAXIMUM_CONFIDENCE_INTERVAL)
     {
       return Err(LuceneError::illegal_argument(format!(
         "confidenceInterval must be between {} and {} or 0; confidenceInterval={}",
@@ -137,7 +138,10 @@ impl Lucene99ScalarQuantizedVectorsFormat {
   }
 
   pub fn calculate_default_confidence_interval(vector_dimension: usize) -> f32 {
-    MINIMUM_CONFIDENCE_INTERVAL.max(1.0 - (1.0 / (vector_dimension as f32 + 1.0)))
+    CoreHelper::max_f32(
+      MINIMUM_CONFIDENCE_INTERVAL,
+      1.0 - (1.0 / (vector_dimension as f32 + 1.0)),
+    )
   }
 }
 

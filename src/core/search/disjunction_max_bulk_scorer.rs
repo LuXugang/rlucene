@@ -19,6 +19,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::simple_scorable::SimpleScorable;
+use crate::core::util::CoreHelper;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -213,7 +214,7 @@ impl<'a> LeafCollector for LeafCollectorImpl<'a> {
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
     let delta = (doc - self.window_min) as usize;
     self.window_matches.set(delta)?;
-    self.window_scores[delta] = self.window_scores[delta].max(scorer.score()?);
+    self.window_scores[delta] = CoreHelper::max_f32(self.window_scores[delta], scorer.score()?);
     Ok(())
   }
 }

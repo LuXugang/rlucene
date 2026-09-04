@@ -853,7 +853,7 @@ where
     if version >= VERSION_ADD_BITS {
       meta.write_int(
         confidence_interval
-          .map(|value| value.to_bits() as i32)
+          .map(BitUtil::float_to_int_bits)
           .unwrap_or(-1),
       )?;
       meta.write_byte(bits)?;
@@ -867,10 +867,10 @@ where
           field.get_vector_dimension() as usize,
         )
       });
-      meta.write_int(confidence_interval.to_bits() as i32)?;
+      meta.write_int(BitUtil::float_to_int_bits(confidence_interval))?;
     }
-    meta.write_int(lower_quantile.to_bits() as i32)?;
-    meta.write_int(upper_quantile.to_bits() as i32)?;
+    meta.write_int(BitUtil::float_to_int_bits(lower_quantile))?;
+    meta.write_int(BitUtil::float_to_int_bits(upper_quantile))?;
   }
   // write docIDs
   OrdToDocDISIReaderConfiguration::write_stored_meta(
@@ -1209,11 +1209,9 @@ where
     } else {
       output.write_bytes_range(binary_value, 0, binary_value.len())?;
     }
-    output.write_int(
-      quantized_byte_vector_values
-        .get_score_correction_constant(ord)?
-        .to_bits() as i32,
-    )?;
+    output.write_int(BitUtil::float_to_int_bits(
+      quantized_byte_vector_values.get_score_correction_constant(ord)?,
+    ))?;
     docs_with_field.add(doc)?;
   }
   docs_with_field.finish();

@@ -97,7 +97,7 @@ impl FieldComparator for LatLonPointDistanceComparator {
   type V = f64;
 
   fn compare(&self, slot1: usize, slot2: usize) -> i32 {
-    self.values[slot1].total_cmp(&self.values[slot2]).to_int()
+    CoreHelper::compare_f64(self.values[slot1], self.values[slot2]).to_int()
   }
 
   fn set_top_value(&mut self, value: Self::V) -> Result<()> {
@@ -193,12 +193,15 @@ where
         let encoded = comparator.current_values[i];
         let doc_latitude = GeoEncodingUtils::decode_latitude((encoded >> 32) as i32);
         let doc_longitude = GeoEncodingUtils::decode_longitude((encoded & 0xFFFF_FFFF) as i32);
-        min_value = min_value.min(SloppyMath::haversin_sort_key(
-          comparator.latitude,
-          comparator.longitude,
-          doc_latitude,
-          doc_longitude,
-        ));
+        min_value = CoreHelper::min_f64(
+          min_value,
+          SloppyMath::haversin_sort_key(
+            comparator.latitude,
+            comparator.longitude,
+            doc_latitude,
+            doc_longitude,
+          ),
+        );
       }
     }
 
@@ -260,7 +263,7 @@ where
       self.current_docs.advance(doc)?;
     }
     if doc < self.current_docs.doc_id() {
-      return Ok(comparator.bottom.total_cmp(&f64::INFINITY).to_int());
+      return Ok(CoreHelper::compare_f64(comparator.bottom, f64::INFINITY).to_int());
     }
 
     self.set_values(comparator)?;
@@ -287,15 +290,16 @@ where
       let doc_latitude = GeoEncodingUtils::decode_latitude(latitude_bits);
       let doc_longitude = GeoEncodingUtils::decode_longitude(longitude_bits);
       cmp = cmp.max(
-        comparator
-          .bottom
-          .total_cmp(&SloppyMath::haversin_sort_key(
+        CoreHelper::compare_f64(
+          comparator.bottom,
+          SloppyMath::haversin_sort_key(
             comparator.latitude,
             comparator.longitude,
             doc_latitude,
             doc_longitude,
-          ))
-          .to_int(),
+          ),
+        )
+        .to_int(),
       );
 
       // once we compete in the PQ, no need to continue.

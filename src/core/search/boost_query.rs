@@ -30,6 +30,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::hash::{Hash, Hasher};
@@ -71,7 +72,8 @@ impl BoostQuery {
 
 impl PartialEq for BoostQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.boost.to_bits() == other.boost.to_bits() && self.query == other.query
+    BitUtil::float_to_int_bits(self.boost) == BitUtil::float_to_int_bits(other.boost)
+      && self.query == other.query
   }
 }
 impl Eq for BoostQuery {}
@@ -154,7 +156,7 @@ impl Hash for BoostQuery {
     H: Hasher,
   {
     self.query.hash(state);
-    self.boost.to_bits().hash(state);
+    (BitUtil::float_to_int_bits(self.boost) as u32).hash(state);
   }
 }
 

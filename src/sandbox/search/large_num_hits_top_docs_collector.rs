@@ -27,9 +27,9 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::search::top_docs_collector::EMPTY_TOP_DOCS;
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
-use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
 /// Optimized collector for large number of hits.
@@ -86,12 +86,7 @@ impl LargeNumHitsTopDocsCollector {
       .hits
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("hits list has already been converted to a PQ"))?;
-    hits.sort_by(|a, b| {
-      b.score
-        .partial_cmp(&a.score)
-        .unwrap_or(Ordering::Equal)
-        .then_with(|| a.doc.cmp(&b.doc))
-    });
+    hits.sort_by(|a, b| CoreHelper::compare_f32(b.score, a.score).then_with(|| a.doc.cmp(&b.doc)));
 
     results[..how_many].clone_from_slice(&hits[..how_many]);
     Ok(())

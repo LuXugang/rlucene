@@ -349,7 +349,9 @@ impl DisjunctionMaxRewrite {
 }
 impl PartialEq for DisjunctionMaxRewrite {
   fn eq(&self, other: &Self) -> bool {
-    self.tie_breaker_multiplier == other.tie_breaker_multiplier
+    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // reflexive when the tie breaker is NaN.
+    std::ptr::eq(self, other) || self.tie_breaker_multiplier == other.tie_breaker_multiplier
   }
 }
 
@@ -358,7 +360,7 @@ impl Eq for DisjunctionMaxRewrite {}
 impl Hash for DisjunctionMaxRewrite {
   fn hash<H: Hasher>(&self, state: &mut H) {
     std::any::TypeId::of::<Self>().hash(state);
-    (BitUtil::float_to_int_bits(self.tie_breaker_multiplier) as u32).hash(state);
+    CoreHelper::hash_bits_f32_for_primitive_eq(self.tie_breaker_multiplier).hash(state);
   }
 }
 impl RewriteMethod for DisjunctionMaxRewrite {

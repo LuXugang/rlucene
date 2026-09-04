@@ -114,10 +114,10 @@ impl Polygon {
     let num_pts = poly_lats.len() - 1;
     for i in 1..num_pts {
       let j = i - 1;
-      min_lat = f64::min(poly_lats[i], min_lat);
-      max_lat = f64::max(poly_lats[i], max_lat);
-      min_lon = f64::min(poly_lons[i], min_lon);
-      max_lon = f64::max(poly_lons[i], max_lon);
+      min_lat = CoreHelper::min_f64(poly_lats[i], min_lat);
+      max_lat = CoreHelper::max_f64(poly_lats[i], max_lat);
+      min_lon = CoreHelper::min_f64(poly_lons[i], min_lon);
+      max_lon = CoreHelper::max_f64(poly_lons[i], max_lon);
       winding_sum += (poly_lons[j] - poly_lons[num_pts]) * (poly_lats[i] - poly_lats[num_pts])
         - (poly_lats[j] - poly_lats[num_pts]) * (poly_lons[i] - poly_lons[num_pts]);
     }

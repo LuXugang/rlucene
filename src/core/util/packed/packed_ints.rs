@@ -19,6 +19,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::accountable::Accountable;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::longs_ref::LongsRef;
 use crate::core::util::packed::bulk_operation::of;
@@ -482,8 +483,8 @@ pub fn fastest_format_and_bits(
   bits_per_value: i32,
   mut acceptable_overhead_ratio: f32,
 ) -> FormatAndBits {
-  acceptable_overhead_ratio =
-    acceptable_overhead_ratio.clamp(PackedInts::COMPACT, PackedInts::FASTEST);
+  acceptable_overhead_ratio = CoreHelper::max_f32(PackedInts::COMPACT, acceptable_overhead_ratio);
+  acceptable_overhead_ratio = CoreHelper::min_f32(PackedInts::FASTEST, acceptable_overhead_ratio);
   let acceptable_overhead_per_value = acceptable_overhead_ratio * bits_per_value as f32;
   let max_bits_per_value = bits_per_value + acceptable_overhead_per_value as i32;
 

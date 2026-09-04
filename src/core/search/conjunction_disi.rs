@@ -25,6 +25,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::collection_util::CollectionUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
 
@@ -424,11 +425,7 @@ where
     let r = self.tpis[*b]
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("tpi is None"))?;
-    let ord = l
-      .match_cost()
-      .partial_cmp(&r.match_cost())
-      .ok_or_else(|| LuceneError::illegal_state("can compare float?, match_cost is NaN"))?;
-    Ok(ord.to_int())
+    Ok(CoreHelper::compare_f32(l.match_cost(), r.match_cost()).to_int())
   }
 }
 

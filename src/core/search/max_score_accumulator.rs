@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use std::sync::atomic::{AtomicI64, Ordering};
 /// Maintains the maximum score and its corresponding document id concurrently
 pub(crate) static DEFAULT_INTERVAL: AtomicI64 = AtomicI64::new(0x3ff);
@@ -39,7 +41,7 @@ impl MaxScoreAccumulator {
   fn max_encode(v1: i64, v2: i64) -> i64 {
     let score1 = f32::from_bits((v1 >> 32) as u32);
     let score2 = f32::from_bits((v2 >> 32) as u32);
-    match score1.total_cmp(&score2) {
+    match CoreHelper::compare_f32(score1, score2) {
       std::cmp::Ordering::Equal => {
         // tie-break on the minimum doc base
         if (v1 as i32) < (v2 as i32) { v1 } else { v2 }
@@ -51,7 +53,8 @@ impl MaxScoreAccumulator {
 
   pub(crate) fn accumulate(&self, doc_id: i32, score: f32) {
     debug_assert!(doc_id >= 0 && score >= 0.0);
-    let encode: i64 = ((score.to_bits() as i32 as i64) << 32) | (doc_id as i64 & 0xffffffff);
+    let encode: i64 =
+      ((BitUtil::float_to_int_bits(score) as i64) << 32) | (doc_id as i64 & 0xffffffff);
     let mut prev = self.acc.load(Ordering::Relaxed);
     loop {
       let next = Self::max_encode(prev, encode);

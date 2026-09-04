@@ -50,7 +50,7 @@ where
   /// * `score_mode` — how the produced scorers will be consumed
   pub(crate) fn new(mut req_scorer: S1, mut opt_scorer: S2, score_mode: ScoreMode) -> Result<Self> {
     let (req_max_score, wrapper) = if score_mode != TopScores {
-      (f32::MAX, false)
+      (f32::INFINITY, false)
     } else {
       req_scorer.advance_shallow(0)?;
       opt_scorer.advance_shallow(0)?;

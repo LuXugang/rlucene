@@ -46,7 +46,7 @@ impl DisjunctionMaxScorer {
   where
     S: Scorer,
   {
-    if !(0.0..=1.0).contains(&tie_breaker_multiplier) {
+    if tie_breaker_multiplier < 0.0 || tie_breaker_multiplier > 1.0 {
       return Err(LuceneError::illegal_argument(
         "tieBreakerMultiplier must be in [0, 1]",
       ));

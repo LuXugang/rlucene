@@ -186,7 +186,7 @@ impl CompetitiveScoreState {
     Self {
       min_competitive_score: 0.0,
       upto: NO_MORE_DOCS,
-      max_score: f32::INFINITY,
+      max_score: f32::MAX,
     }
   }
 

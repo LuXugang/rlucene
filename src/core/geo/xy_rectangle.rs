@@ -17,6 +17,8 @@
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::rectangle2d::{Rectangle2D, create_from_xy_rectangle};
 use crate::core::geo::xy_geometry::XYGeometry;
+use crate::core::util::CoreHelper;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::fmt;
@@ -79,10 +81,10 @@ impl XYRectangle {
     // LUCENE-9243: We round up the bounding box to avoid
     // numerical errors.
     let distance_box = radius.next_up();
-    let min_x = (-f32::MAX).max(x - distance_box);
-    let max_x = f32::MAX.min(x + distance_box);
-    let min_y = (-f32::MAX).max(y - distance_box);
-    let max_y = f32::MAX.min(y + distance_box);
+    let min_x = CoreHelper::max_f32(-f32::MAX, x - distance_box);
+    let max_x = CoreHelper::min_f32(f32::MAX, x + distance_box);
+    let min_y = CoreHelper::max_f32(-f32::MAX, y - distance_box);
+    let max_y = CoreHelper::min_f32(f32::MAX, y + distance_box);
 
     Self::new(min_x, max_x, min_y, max_y)
   }
@@ -99,18 +101,18 @@ impl XYRectangle {
 impl Eq for XYRectangle {}
 impl PartialEq for XYRectangle {
   fn eq(&self, other: &Self) -> bool {
-    self.min_x.to_bits() == other.min_x.to_bits()
-      && self.min_y.to_bits() == other.min_y.to_bits()
-      && self.max_x.to_bits() == other.max_x.to_bits()
-      && self.max_y.to_bits() == other.max_y.to_bits()
+    CoreHelper::compare_f32(self.min_x, other.min_x).is_eq()
+      && CoreHelper::compare_f32(self.min_y, other.min_y).is_eq()
+      && CoreHelper::compare_f32(self.max_x, other.max_x).is_eq()
+      && CoreHelper::compare_f32(self.max_y, other.max_y).is_eq()
   }
 }
 impl std::hash::Hash for XYRectangle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.min_x.to_bits().hash(state);
-    self.min_y.to_bits().hash(state);
-    self.max_x.to_bits().hash(state);
-    self.max_y.to_bits().hash(state);
+    (BitUtil::float_to_int_bits(self.min_x) as u32).hash(state);
+    (BitUtil::float_to_int_bits(self.min_y) as u32).hash(state);
+    (BitUtil::float_to_int_bits(self.max_x) as u32).hash(state);
+    (BitUtil::float_to_int_bits(self.max_y) as u32).hash(state);
   }
 }
 

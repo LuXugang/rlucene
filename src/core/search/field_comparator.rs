@@ -182,7 +182,7 @@ impl FieldComparator for RelevanceComparator {
   fn compare(&self, slot1: usize, slot2: usize) -> i32 {
     let slot1_v = self.scores[slot2];
     let slot2_v = self.scores[slot1];
-    slot1_v.total_cmp(&slot2_v).to_int()
+    CoreHelper::compare_f32(slot1_v, slot2_v).to_int()
   }
 
   fn set_top_value(&mut self, value: Self::V) -> Result<()> {
@@ -211,14 +211,8 @@ impl FieldComparator for RelevanceComparator {
 
   fn compare_values(&self, first: Option<&Self::V>, second: Option<&Self::V>) -> Result<i32> {
     match (first, second) {
-      (Some(&f), Some(&s)) => {
-        // Reversed intentionally because relevance by default
-        // sorts descending:
-        match s.partial_cmp(&f) {
-          Some(r) => Ok(r.to_int()),
-          None => self.fallback_compare(&s, &f),
-        }
-      },
+      // Reversed intentionally because relevance by default sorts descending.
+      (Some(&f), Some(&s)) => Ok(CoreHelper::compare_f32(s, f).to_int()),
       (None, Some(_)) => Ok(1),
       (Some(_), None) => Ok(-1),
       (None, None) => Ok(0),
@@ -267,10 +261,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
   {
     let doc_value = scorer.score()?;
     debug_assert!(!doc_value.is_nan());
-    match doc_value.partial_cmp(&comparator.bottom) {
-      Some(r) => Ok(r.to_int()),
-      None => comparator.fallback_compare(&doc_value, &comparator.bottom),
-    }
+    Ok(CoreHelper::compare_f32(doc_value, comparator.bottom).to_int())
   }
 
   fn compare_top<S>(
@@ -284,10 +275,7 @@ impl LeafFieldComparator for RelevanceLeafComparator {
   {
     let doc_value = scorer.score()?;
     debug_assert!(!doc_value.is_nan());
-    match doc_value.partial_cmp(&comparator.top_value) {
-      Some(r) => Ok(r.to_int()),
-      None => comparator.fallback_compare(&doc_value, &comparator.top_value),
-    }
+    Ok(CoreHelper::compare_f32(doc_value, comparator.top_value).to_int())
   }
 
   fn copy<S>(

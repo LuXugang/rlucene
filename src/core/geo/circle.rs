@@ -18,6 +18,8 @@ use crate::core::geo::circle2d::{Circle2D, HaversinDistance, create_from_circle}
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::lat_lon_geometry::LatLonGeometry;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 
@@ -86,9 +88,9 @@ impl Display for Circle {
 }
 impl PartialEq for Circle {
   fn eq(&self, other: &Self) -> bool {
-    self.lat.to_bits() == other.lat.to_bits()
-      && self.lon.to_bits() == other.lon.to_bits()
-      && self.radius_meters.to_bits() == other.radius_meters.to_bits()
+    CoreHelper::compare_f64(self.lat, other.lat).is_eq()
+      && CoreHelper::compare_f64(self.lon, other.lon).is_eq()
+      && CoreHelper::compare_f64(self.radius_meters, other.radius_meters).is_eq()
   }
 }
 
@@ -96,9 +98,9 @@ impl Eq for Circle {}
 
 impl std::hash::Hash for Circle {
   fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-    self.lat.to_bits().hash(state);
-    self.lon.to_bits().hash(state);
-    self.radius_meters.to_bits().hash(state);
+    (BitUtil::double_to_long_bits(self.lat) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.lon) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.radius_meters) as u64).hash(state);
   }
 }
 impl Geometry for Circle {

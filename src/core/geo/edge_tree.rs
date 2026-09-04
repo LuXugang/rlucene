@@ -16,6 +16,7 @@
  */
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Internal tree node: represents geometry edge from `[x1, y1]` to `[x2, y2]`.
 /// The sort value is `low`, which is the minimum y of the edge.
@@ -403,13 +404,20 @@ pub(crate) fn create_tree(x: &[f64], y: &[f64]) -> Result<EdgeTree> {
     let y1 = y[i - 1];
     let x2 = x[i];
     let y2 = y[i];
-    edges.push(EdgeTree::new(x1, y1, x2, y2, y1.min(y2), y1.max(y2)));
+    edges.push(EdgeTree::new(
+      x1,
+      y1,
+      x2,
+      y2,
+      CoreHelper::min_f64(y1, y2),
+      CoreHelper::max_f64(y1, y2),
+    ));
   }
 
   edges.sort_by(|left, right| {
-    let ret = left.low.total_cmp(&right.low);
+    let ret = CoreHelper::compare_f64(left.low, right.low);
     if ret.is_eq() {
-      left.max.total_cmp(&right.max)
+      CoreHelper::compare_f64(left.max, right.max)
     } else {
       ret
     }
@@ -445,10 +453,10 @@ fn create_tree_from_edges(
   };
 
   if let Some(left) = &new_node.left {
-    new_node.max = new_node.max.max(left.max);
+    new_node.max = CoreHelper::max_f64(new_node.max, left.max);
   }
   if let Some(right) = &new_node.right {
-    new_node.max = new_node.max.max(right.max);
+    new_node.max = CoreHelper::max_f64(new_node.max, right.max);
   }
 
   Some(Box::new(new_node))

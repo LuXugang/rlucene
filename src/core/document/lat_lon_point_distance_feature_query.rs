@@ -48,6 +48,7 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
+use crate::core::util::CoreHelper;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIterator};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -91,10 +92,13 @@ impl LatLonPointDistanceFeatureQuery {
 
 impl PartialEq for LatLonPointDistanceFeatureQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.field == other.field
-      && self.origin_lat.to_bits() == other.origin_lat.to_bits()
-      && self.origin_lon.to_bits() == other.origin_lon.to_bits()
-      && self.pivot_distance.to_bits() == other.pivot_distance.to_bits()
+    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // reflexive when an accepted value is NaN.
+    std::ptr::eq(self, other)
+      || (self.field == other.field
+        && self.origin_lat == other.origin_lat
+        && self.origin_lon == other.origin_lon
+        && self.pivot_distance == other.pivot_distance)
   }
 }
 
@@ -103,9 +107,9 @@ impl Eq for LatLonPointDistanceFeatureQuery {}
 impl Hash for LatLonPointDistanceFeatureQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.field.hash(state);
-    self.origin_lat.to_bits().hash(state);
-    self.origin_lon.to_bits().hash(state);
-    self.pivot_distance.to_bits().hash(state);
+    CoreHelper::hash_bits_f64_for_primitive_eq(self.origin_lat).hash(state);
+    CoreHelper::hash_bits_f64_for_primitive_eq(self.origin_lon).hash(state);
+    CoreHelper::hash_bits_f64_for_primitive_eq(self.pivot_distance).hash(state);
   }
 }
 

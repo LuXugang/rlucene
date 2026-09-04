@@ -34,12 +34,12 @@ use crate::core::search::multi_term_query::{
 use crate::core::search::query::{Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::util::HasIdentity;
 use crate::core::util::attribute_source::AttributeSourceEnum2;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, HasIdentity};
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -225,12 +225,17 @@ impl FuzzyQuery {
 
   pub fn float_to_edits(minimum_similarity: f32, term_len: usize) -> i32 {
     if minimum_similarity >= 1.0 {
-      minimum_similarity.min(LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE as f32) as i32
+      CoreHelper::min_f32(
+        minimum_similarity,
+        LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE as f32,
+      ) as i32
     } else if minimum_similarity == 0.0 {
       0
     } else {
-      ((1.0 - minimum_similarity) as f64 * term_len as f64)
-        .min(LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE as f64) as i32
+      CoreHelper::min_f64(
+        (1.0 - minimum_similarity) as f64 * term_len as f64,
+        LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE as f64,
+      ) as i32
     }
   }
 }

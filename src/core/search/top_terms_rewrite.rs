@@ -27,6 +27,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::MultiTermQuery;
 use crate::core::search::query::Query;
 use crate::core::search::term_collecting_rewrite::{TermCollectingRewrite, TermCollector};
+use crate::core::util::CoreHelper;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -72,7 +73,7 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
         &mut builder,
         term,
         st.term_state.doc_freq()?,
-        st.boost.max(0.0),
+        CoreHelper::max_f32(0.0, st.boost),
         Some(st.term_state),
       )?;
     }
@@ -112,12 +113,10 @@ impl Compare<BytesRef<Vec<u8>>> for ScoreTermCmp {
       .visited_terms
       .get(b)
       .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
-    if l.boost < r.boost {
-      Ok(true)
-    } else if l.boost > r.boost {
-      Ok(false)
-    } else {
+    if l.boost == r.boost {
       Ok(b < a)
+    } else {
+      Ok(CoreHelper::compare_f32(l.boost, r.boost).is_lt())
     }
   }
 }

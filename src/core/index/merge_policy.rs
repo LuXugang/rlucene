@@ -1788,7 +1788,7 @@ impl MergePolicyBase {
   ///
   /// Set to `1.0` to always use CFS regardless of merge size.
   pub fn set_no_cfs_ratio(&mut self, ratio: f64) -> Result<()> {
-    if !(0.0..=1.0).contains(&ratio) {
+    if ratio < 0.0 || ratio > 1.0 {
       return Err(LuceneError::illegal_argument(format!(
         "noCFSRatio must be 0.0 to 1.0 inclusive; got {}",
         ratio

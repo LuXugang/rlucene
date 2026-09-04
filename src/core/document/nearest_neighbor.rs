@@ -21,7 +21,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{SloppyMath, ToInt};
+use crate::core::util::{CoreHelper, SloppyMath};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt::{Display, Formatter};
@@ -63,7 +63,7 @@ impl<PT> Cell<PT> {
 
 impl<PT> PartialEq for Cell<PT> {
   fn eq(&self, other: &Self) -> bool {
-    self.distance_sort_key.to_bits() == other.distance_sort_key.to_bits()
+    CoreHelper::compare_f64(self.distance_sort_key, other.distance_sort_key).is_eq()
   }
 }
 
@@ -80,7 +80,7 @@ impl<PT> Ord for Cell<PT> {
     // BinaryHeap pops greatest first. We want closest cells first (smallest distance_sort_key).
     // Reverse comparison so smaller distance_sort_key is "greater" and pops first.
     // This matches Java PriorityQueue natural ordering (closest cells explored first).
-    other.distance_sort_key.total_cmp(&self.distance_sort_key)
+    CoreHelper::compare_f64(other.distance_sort_key, self.distance_sort_key)
   }
 }
 /// Holds one hit from [`NearestNeighbor::nearest`]
@@ -105,7 +105,7 @@ impl Display for NearestHit {
 impl PartialEq for NearestHit {
   fn eq(&self, other: &Self) -> bool {
     self.doc_id == other.doc_id
-      && self.distance_sort_key.to_bits() == other.distance_sort_key.to_bits()
+      && CoreHelper::compare_f64(self.distance_sort_key, other.distance_sort_key).is_eq()
   }
 }
 
@@ -122,7 +122,7 @@ impl Ord for NearestHit {
     // BinaryHeap pops the greatest item first.
     // We want the heap top to be the current worst hit:
     // larger distance_sort_key is worse; if tied, larger doc_id is worse.
-    match self.distance_sort_key.total_cmp(&other.distance_sort_key) {
+    match CoreHelper::compare_f64(self.distance_sort_key, other.distance_sort_key) {
       Ordering::Equal => self.doc_id.cmp(&other.doc_id),
       cmp => cmp,
     }
@@ -252,8 +252,8 @@ where
         .ok_or_else(|| LuceneError::unsupported_operation("hitQueue is empty"))?;
 
       // we don't collect docs in order here, so we must also test the tie-break case ourselves:
-      if distance_sort_key.total_cmp(&hit.distance_sort_key).to_int() < 0
-        || (distance_sort_key.total_cmp(&hit.distance_sort_key).to_int() == 0
+      if CoreHelper::compare_f64(distance_sort_key, hit.distance_sort_key).is_lt()
+        || (CoreHelper::compare_f64(distance_sort_key, hit.distance_sort_key).is_eq()
           && full_doc_id < hit.doc_id)
       {
         let mut hit = self
@@ -427,5 +427,5 @@ fn approx_best_distance(
   let d2 = SloppyMath::haversin_sort_key(point_lat, point_lon, min_lat, max_lon);
   let d3 = SloppyMath::haversin_sort_key(point_lat, point_lon, max_lat, max_lon);
   let d4 = SloppyMath::haversin_sort_key(point_lat, point_lon, max_lat, min_lon);
-  d1.min(d2).min(d3.min(d4))
+  CoreHelper::min_f64(CoreHelper::min_f64(d1, d2), CoreHelper::min_f64(d3, d4))
 }

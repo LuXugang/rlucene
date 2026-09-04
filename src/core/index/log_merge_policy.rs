@@ -25,6 +25,7 @@ use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::index::tiered_merge_policy::SegmentDocAndID;
 use crate::core::store::directory::Directory;
 use crate::core::util::TryIntoInt;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
@@ -541,7 +542,7 @@ where
     // -1 is definitely the minimum value, because ln(1) is 0.
     max_levels[num_mergeable_segments] = -1.0;
     for i in (0..num_mergeable_segments).rev() {
-      max_levels[i] = levels[i].level.max(max_levels[i + 1]);
+      max_levels[i] = CoreHelper::max_f32(levels[i].level, max_levels[i + 1]);
     }
 
     let mut start = 0;
@@ -818,10 +819,7 @@ impl<'a, D> SegmentInfoAndLevel<'a, D> {
 
 impl<D> Ord for SegmentInfoAndLevel<'_, D> {
   fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-    other
-      .level
-      .partial_cmp(&self.level)
-      .unwrap_or(std::cmp::Ordering::Equal)
+    CoreHelper::compare_f32(other.level, self.level)
   }
 }
 
@@ -833,7 +831,7 @@ impl<D> PartialOrd for SegmentInfoAndLevel<'_, D> {
 
 impl<D> PartialEq for SegmentInfoAndLevel<'_, D> {
   fn eq(&self, other: &Self) -> bool {
-    self.level.to_bits() == other.level.to_bits()
+    CoreHelper::compare_f32(self.level, other.level).is_eq()
   }
 }
 

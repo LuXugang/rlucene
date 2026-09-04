@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::CoreHelper;
 use std::sync::LazyLock;
 
 pub struct SloppyMath;
@@ -138,11 +139,7 @@ impl SloppyMath {
 
   pub fn haversin_meters_from_sort_key(sort_key: f64) -> f64 {
     let value = (sort_key * 0.5).sqrt();
-    let value = if value.is_nan() {
-      f64::NAN
-    } else {
-      value.min(1.0)
-    };
+    let value = CoreHelper::min_f64(1.0, value);
     TO_METERS * 2.0 * Self::asin(value)
   }
 

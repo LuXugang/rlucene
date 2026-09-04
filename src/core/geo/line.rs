@@ -73,10 +73,10 @@ impl Line {
     for i in 0..lats.len() {
       GeoUtils::check_latitude(lats[i])?;
       GeoUtils::check_longitude(lons[i])?;
-      min_lat = lats[i].min(min_lat);
-      min_lon = lons[i].min(min_lon);
-      max_lat = lats[i].max(max_lat);
-      max_lon = lons[i].max(max_lon);
+      min_lat = CoreHelper::min_f64(lats[i], min_lat);
+      min_lon = CoreHelper::min_f64(lons[i], min_lon);
+      max_lat = CoreHelper::max_f64(lats[i], max_lat);
+      max_lon = CoreHelper::max_f64(lons[i], max_lon);
     }
 
     Ok(Self {

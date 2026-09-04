@@ -16,6 +16,7 @@
  */
 use crate::core::geo::component2d::{Component2D, WithinRelation};
 use crate::core::index::point_values::Relation;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::cmp::Ordering;
 
@@ -347,8 +348,8 @@ where
   let mut min_y = f64::INFINITY;
   let mut min_x = f64::INFINITY;
   for component in &components {
-    min_y = min_y.min(component.get_min_y());
-    min_x = min_x.min(component.get_min_x());
+    min_y = CoreHelper::min_f64(min_y, component.get_min_y());
+    min_x = CoreHelper::min_f64(min_x, component.get_min_x());
   }
 
   let component_count = components.len();
@@ -413,12 +414,12 @@ where
   new_node.right = create_tree(components, right_count, !split_x)?.map(Box::new);
 
   if let Some(left) = &new_node.left {
-    new_node.max_x = new_node.max_x.max(left.get_max_x());
-    new_node.max_y = new_node.max_y.max(left.get_max_y());
+    new_node.max_x = CoreHelper::max_f64(new_node.max_x, left.get_max_x());
+    new_node.max_y = CoreHelper::max_f64(new_node.max_y, left.get_max_y());
   }
   if let Some(right) = &new_node.right {
-    new_node.max_x = new_node.max_x.max(right.get_max_x());
-    new_node.max_y = new_node.max_y.max(right.get_max_y());
+    new_node.max_x = CoreHelper::max_f64(new_node.max_x, right.get_max_x());
+    new_node.max_y = CoreHelper::max_f64(new_node.max_y, right.get_max_y());
   }
 
   Ok(Some(new_node))
@@ -429,14 +430,10 @@ where
   T: Component2D,
 {
   if split_x {
-    left
-      .get_min_x()
-      .total_cmp(&right.get_min_x())
-      .then_with(|| left.get_max_x().total_cmp(&right.get_max_x()))
+    CoreHelper::compare_f64(left.get_min_x(), right.get_min_x())
+      .then_with(|| CoreHelper::compare_f64(left.get_max_x(), right.get_max_x()))
   } else {
-    left
-      .get_min_y()
-      .total_cmp(&right.get_min_y())
-      .then_with(|| left.get_max_y().total_cmp(&right.get_max_y()))
+    CoreHelper::compare_f64(left.get_min_y(), right.get_min_y())
+      .then_with(|| CoreHelper::compare_f64(left.get_max_y(), right.get_max_y()))
   }
 }

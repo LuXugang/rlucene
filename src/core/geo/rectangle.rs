@@ -110,8 +110,8 @@ impl Rectangle {
       max_lon = max_lon_;
     } else {
       // a pole is within the distance
-      min_lat = min_lat.max(GeoUtils::MIN_LAT_RADIANS);
-      max_lat = max_lat.min(GeoUtils::MAX_LAT_RADIANS);
+      min_lat = CoreHelper::max_f64(min_lat, GeoUtils::MIN_LAT_RADIANS);
+      max_lat = CoreHelper::min_f64(max_lat, GeoUtils::MAX_LAT_RADIANS);
       min_lon = GeoUtils::MIN_LON_RADIANS;
       max_lon = GeoUtils::MAX_LON_RADIANS;
     }
@@ -191,10 +191,10 @@ impl Rectangle {
     let mut max_lon = f64::NEG_INFINITY;
 
     for polygon in polygons {
-      min_lat = f64::min(polygon.min_lat, min_lat);
-      max_lat = f64::max(polygon.max_lat, max_lat);
-      min_lon = f64::min(polygon.min_lon, min_lon);
-      max_lon = f64::max(polygon.max_lon, max_lon);
+      min_lat = CoreHelper::min_f64(polygon.min_lat, min_lat);
+      max_lat = CoreHelper::max_f64(polygon.max_lat, max_lat);
+      min_lon = CoreHelper::min_f64(polygon.min_lon, min_lon);
+      max_lon = CoreHelper::max_f64(polygon.max_lon, max_lon);
     }
 
     Rectangle::new(min_lat, max_lat, min_lon, max_lon)

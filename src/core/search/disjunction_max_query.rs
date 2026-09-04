@@ -35,9 +35,9 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
-use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{CoreHelper, HasIdentity};
 use std::collections::HashMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
@@ -206,7 +206,11 @@ impl QueryBase for DisjunctionMaxQuery {
 }
 impl PartialEq for DisjunctionMaxQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.tie_breaker_multiplier == other.tie_breaker_multiplier && self.disjuncts == other.disjuncts
+    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // reflexive when the accepted tie breaker is NaN.
+    std::ptr::eq(self, other)
+      || (self.tie_breaker_multiplier == other.tie_breaker_multiplier
+        && self.disjuncts == other.disjuncts)
   }
 }
 
@@ -217,7 +221,7 @@ impl Hash for DisjunctionMaxQuery {
   where
     H: std::hash::Hasher,
   {
-    self.tie_breaker_multiplier.to_bits().hash(state);
+    CoreHelper::hash_bits_f32_for_primitive_eq(self.tie_breaker_multiplier).hash(state);
 
     let mut entries: Vec<_> = self.disjuncts.iter().collect();
     entries.sort_by(|a, b| {

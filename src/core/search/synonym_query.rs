@@ -66,7 +66,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::term_scorer::TermScorer;
 use crate::core::search::term_statistics::TermStatistics;
 use crate::core::search::weight::Weight;
-use crate::core::util::core_helper::HasIdentity;
+use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::{CoreHelper, HasIdentity};
 use crate::core::util::error::UncheckedIOError;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
@@ -248,7 +249,7 @@ struct TermAndBoost {
 
 impl PartialEq for TermAndBoost {
   fn eq(&self, other: &Self) -> bool {
-    self.term == other.term && self.boost.to_bits() == other.boost.to_bits()
+    self.term == other.term && CoreHelper::compare_f32(self.boost, other.boost).is_eq()
   }
 }
 
@@ -260,7 +261,7 @@ impl Hash for TermAndBoost {
     H: Hasher,
   {
     self.term.hash(state);
-    self.boost.to_bits().hash(state);
+    (BitUtil::float_to_int_bits(self.boost) as u32).hash(state);
   }
 }
 
@@ -1217,7 +1218,10 @@ where
     sim_weight: Arc<SimilarityEnumSimScorer>,
     norms: Option<LRNormNumericDocValues<LR>>,
   ) -> Result<Self> {
-    if boost.is_nan() || !(0.0..=1.0).contains(&boost) {
+    if boost.is_nan()
+      || CoreHelper::compare_f32(boost, 0.0).is_lt()
+      || CoreHelper::compare_f32(boost, 1.0).is_gt()
+    {
       return Err(LuceneError::illegal_argument(
         "boost must be a positive float between 0 (exclusive) and 1 (inclusive)",
       ));

@@ -16,6 +16,7 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::Identity;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ints_ref::IntsRef;
 use bit_set::BitSet;
@@ -23,7 +24,144 @@ use num_traits::PrimInt;
 use std::cmp::Ordering;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::sync::Arc;
-use wide::{i32x8, u8x32};
+use wide::{f32x8, f64x4, i32x8, u8x32};
+
+#[inline]
+fn array_element_equals_f32(a: f32, b: f32) -> bool {
+  a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan())
+}
+
+#[inline]
+fn array_element_equals_f64(a: f64, b: f64) -> bool {
+  a.to_bits() == b.to_bits() || (a.is_nan() && b.is_nan())
+}
+
+// Keep the public wrapper small enough to inline its length, short-slice, and first-element
+// fast paths. The call overhead is amortized once a slice is large enough to reach this kernel.
+#[inline(never)]
+fn array_equals_f32_wide(a: &[f32], b: &[f32]) -> bool {
+  debug_assert_eq!(a.len(), b.len());
+  const LANES: usize = 8;
+  const BLOCK_LANES: usize = LANES * 4;
+  const ALL_LANES: u32 = (1 << LANES) - 1;
+  let mut i = 0;
+  // Combine four raw-bit masks before reducing them. This avoids paying for a mask reduction on
+  // every vector, while the uncommon mismatch path still canonicalizes NaNs exactly like Java.
+  while i + BLOCK_LANES <= a.len() {
+    let raw_equal_0 = f32x8::from(&a[i..i + LANES])
+      .to_bits()
+      .simd_eq(f32x8::from(&b[i..i + LANES]).to_bits());
+    let raw_equal_1 = f32x8::from(&a[i + LANES..i + LANES * 2])
+      .to_bits()
+      .simd_eq(f32x8::from(&b[i + LANES..i + LANES * 2]).to_bits());
+    let raw_equal_2 = f32x8::from(&a[i + LANES * 2..i + LANES * 3])
+      .to_bits()
+      .simd_eq(f32x8::from(&b[i + LANES * 2..i + LANES * 3]).to_bits());
+    let raw_equal_3 = f32x8::from(&a[i + LANES * 3..i + BLOCK_LANES])
+      .to_bits()
+      .simd_eq(f32x8::from(&b[i + LANES * 3..i + BLOCK_LANES]).to_bits());
+    if (raw_equal_0 & raw_equal_1 & raw_equal_2 & raw_equal_3).to_bitmask() != ALL_LANES {
+      let equal_0 = raw_equal_0
+        | (f32x8::from(&a[i..i + LANES]).is_nan() & f32x8::from(&b[i..i + LANES]).is_nan())
+          .to_bits();
+      let equal_1 = raw_equal_1
+        | (f32x8::from(&a[i + LANES..i + LANES * 2]).is_nan()
+          & f32x8::from(&b[i + LANES..i + LANES * 2]).is_nan())
+        .to_bits();
+      let equal_2 = raw_equal_2
+        | (f32x8::from(&a[i + LANES * 2..i + LANES * 3]).is_nan()
+          & f32x8::from(&b[i + LANES * 2..i + LANES * 3]).is_nan())
+        .to_bits();
+      let equal_3 = raw_equal_3
+        | (f32x8::from(&a[i + LANES * 3..i + BLOCK_LANES]).is_nan()
+          & f32x8::from(&b[i + LANES * 3..i + BLOCK_LANES]).is_nan())
+        .to_bits();
+      if (equal_0 & equal_1 & equal_2 & equal_3).to_bitmask() != ALL_LANES {
+        return false;
+      }
+    }
+    i += BLOCK_LANES;
+  }
+  while i + LANES <= a.len() {
+    let a_values = f32x8::from(&a[i..i + LANES]);
+    let b_values = f32x8::from(&b[i..i + LANES]);
+    let raw_equal = a_values.to_bits().simd_eq(b_values.to_bits());
+    if raw_equal.to_bitmask() != ALL_LANES {
+      let both_nan = (a_values.is_nan() & b_values.is_nan()).to_bits();
+      if (raw_equal | both_nan).to_bitmask() != ALL_LANES {
+        return false;
+      }
+    }
+    i += LANES;
+  }
+
+  a[i..]
+    .iter()
+    .zip(&b[i..])
+    .all(|(&a, &b)| array_element_equals_f32(a, b))
+}
+
+// See `array_equals_f32_wide` for the split fast-path and four-vector reduction rationale.
+#[inline(never)]
+fn array_equals_f64_wide(a: &[f64], b: &[f64]) -> bool {
+  debug_assert_eq!(a.len(), b.len());
+  const LANES: usize = 4;
+  const BLOCK_LANES: usize = LANES * 4;
+  const ALL_LANES: u32 = (1 << LANES) - 1;
+  let mut i = 0;
+  while i + BLOCK_LANES <= a.len() {
+    let raw_equal_0 = f64x4::from(&a[i..i + LANES])
+      .to_bits()
+      .simd_eq(f64x4::from(&b[i..i + LANES]).to_bits());
+    let raw_equal_1 = f64x4::from(&a[i + LANES..i + LANES * 2])
+      .to_bits()
+      .simd_eq(f64x4::from(&b[i + LANES..i + LANES * 2]).to_bits());
+    let raw_equal_2 = f64x4::from(&a[i + LANES * 2..i + LANES * 3])
+      .to_bits()
+      .simd_eq(f64x4::from(&b[i + LANES * 2..i + LANES * 3]).to_bits());
+    let raw_equal_3 = f64x4::from(&a[i + LANES * 3..i + BLOCK_LANES])
+      .to_bits()
+      .simd_eq(f64x4::from(&b[i + LANES * 3..i + BLOCK_LANES]).to_bits());
+    if (raw_equal_0 & raw_equal_1 & raw_equal_2 & raw_equal_3).to_bitmask() != ALL_LANES {
+      let equal_0 = raw_equal_0
+        | (f64x4::from(&a[i..i + LANES]).is_nan() & f64x4::from(&b[i..i + LANES]).is_nan())
+          .to_bits();
+      let equal_1 = raw_equal_1
+        | (f64x4::from(&a[i + LANES..i + LANES * 2]).is_nan()
+          & f64x4::from(&b[i + LANES..i + LANES * 2]).is_nan())
+        .to_bits();
+      let equal_2 = raw_equal_2
+        | (f64x4::from(&a[i + LANES * 2..i + LANES * 3]).is_nan()
+          & f64x4::from(&b[i + LANES * 2..i + LANES * 3]).is_nan())
+        .to_bits();
+      let equal_3 = raw_equal_3
+        | (f64x4::from(&a[i + LANES * 3..i + BLOCK_LANES]).is_nan()
+          & f64x4::from(&b[i + LANES * 3..i + BLOCK_LANES]).is_nan())
+        .to_bits();
+      if (equal_0 & equal_1 & equal_2 & equal_3).to_bitmask() != ALL_LANES {
+        return false;
+      }
+    }
+    i += BLOCK_LANES;
+  }
+  while i + LANES <= a.len() {
+    let a_values = f64x4::from(&a[i..i + LANES]);
+    let b_values = f64x4::from(&b[i..i + LANES]);
+    let raw_equal = a_values.to_bits().simd_eq(b_values.to_bits());
+    if raw_equal.to_bitmask() != ALL_LANES {
+      let both_nan = (a_values.is_nan() & b_values.is_nan()).to_bits();
+      if (raw_equal | both_nan).to_bitmask() != ALL_LANES {
+        return false;
+      }
+    }
+    i += LANES;
+  }
+
+  a[i..]
+    .iter()
+    .zip(&b[i..])
+    .all(|(&a, &b)| array_element_equals_f64(a, b))
+}
 
 pub struct CoreHelper;
 impl CoreHelper {
@@ -51,24 +189,130 @@ impl CoreHelper {
     }
   }
 
+  /// Returns the greater value with Java `Math.max(float, float)` semantics.
+  #[inline]
+  pub fn max_f32(a: f32, b: f32) -> f32 {
+    if a.is_nan() {
+      a
+    } else if b.is_nan() {
+      b
+    } else if a == 0.0 && b == 0.0 {
+      if a.is_sign_positive() { a } else { b }
+    } else if a >= b {
+      a
+    } else {
+      b
+    }
+  }
+
+  /// Returns the lesser value with Java `Math.min(float, float)` semantics.
+  #[inline]
+  pub fn min_f32(a: f32, b: f32) -> f32 {
+    if a.is_nan() {
+      a
+    } else if b.is_nan() {
+      b
+    } else if a == 0.0 && b == 0.0 {
+      if a.is_sign_positive() { b } else { a }
+    } else if a <= b {
+      a
+    } else {
+      b
+    }
+  }
+
+  /// Returns the greater value with Java `Math.max(double, double)` semantics.
+  #[inline]
+  pub fn max_f64(a: f64, b: f64) -> f64 {
+    if a.is_nan() {
+      a
+    } else if b.is_nan() {
+      b
+    } else if a == 0.0 && b == 0.0 {
+      if a.is_sign_positive() { a } else { b }
+    } else if a >= b {
+      a
+    } else {
+      b
+    }
+  }
+
+  /// Returns the lesser value with Java `Math.min(double, double)` semantics.
+  #[inline]
+  pub fn min_f64(a: f64, b: f64) -> f64 {
+    if a.is_nan() {
+      a
+    } else if b.is_nan() {
+      b
+    } else if a == 0.0 && b == 0.0 {
+      if a.is_sign_positive() { b } else { a }
+    } else if a <= b {
+      a
+    } else {
+      b
+    }
+  }
+
+  /// Returns canonical bits suitable for hashing a float whose equality uses
+  /// Java primitive `==`: signed zeros are equal, so they share one hash.
+  #[inline]
+  pub fn hash_bits_f32_for_primitive_eq(value: f32) -> u32 {
+    BitUtil::float_to_int_bits(if value == 0.0 { 0.0 } else { value }) as u32
+  }
+
+  /// Returns canonical bits suitable for hashing a double whose equality uses
+  /// Java primitive `==`: signed zeros are equal, so they share one hash.
+  #[inline]
+  pub fn hash_bits_f64_for_primitive_eq(value: f64) -> u64 {
+    BitUtil::double_to_long_bits(if value == 0.0 { 0.0 } else { value }) as u64
+  }
+
   /// Compares slices like Java's `Arrays.equals(float[], float[])`.
   #[inline]
   pub fn array_equals_f32(a: &[f32], b: &[f32]) -> bool {
-    a.len() == b.len()
-      && a
+    if a.len() != b.len() {
+      return false;
+    }
+    if a.is_empty() {
+      return true;
+    }
+    if !array_element_equals_f32(a[0], b[0]) {
+      return false;
+    }
+    if std::ptr::eq(a, b) {
+      return true;
+    }
+    if a.len() < 32 {
+      return a[1..]
         .iter()
-        .zip(b)
-        .all(|(&a, &b)| Self::compare_f32(a, b).is_eq())
+        .zip(&b[1..])
+        .all(|(&a, &b)| array_element_equals_f32(a, b));
+    }
+    array_equals_f32_wide(a, b)
   }
 
   /// Compares slices like Java's `Arrays.equals(double[], double[])`.
   #[inline]
   pub fn array_equals_f64(a: &[f64], b: &[f64]) -> bool {
-    a.len() == b.len()
-      && a
+    if a.len() != b.len() {
+      return false;
+    }
+    if a.is_empty() {
+      return true;
+    }
+    if !array_element_equals_f64(a[0], b[0]) {
+      return false;
+    }
+    if std::ptr::eq(a, b) {
+      return true;
+    }
+    if a.len() < 16 {
+      return a[1..]
         .iter()
-        .zip(b)
-        .all(|(&a, &b)| Self::compare_f64(a, b).is_eq())
+        .zip(&b[1..])
+        .all(|(&a, &b)| array_element_equals_f64(a, b));
+    }
+    array_equals_f64_wide(a, b)
   }
 
   pub const CLONE_WARRING: &'static str = "does not implement the Clone logic.

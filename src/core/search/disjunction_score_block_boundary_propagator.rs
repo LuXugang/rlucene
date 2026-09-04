@@ -18,6 +18,7 @@ use crate::core::search::disi_wrapper::DisiWrapper;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::scorer::Scorer;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 /// A helper to propagate block boundaries for disjunctions. Because a disjunction matches if any of
 /// its sub clauses matches, it is tempting to return the minimum block boundary across all clauses.
@@ -42,9 +43,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
       cost.push(Cost::new(max_score, i, iter_cost));
     }
     cost.sort_by(|a, b| {
-      a.max_score
-        .total_cmp(&b.max_score)
-        .then_with(|| a.iter_cost.cmp(&b.iter_cost))
+      CoreHelper::compare_f32(a.max_score, b.max_score).then_with(|| a.iter_cost.cmp(&b.iter_cost))
     });
     Ok(Self {
       cost,

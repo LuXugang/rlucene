@@ -20,6 +20,7 @@ use crate::core::search::sort_field::{
   IndexSorterEnumSorter, MissingValueEnum, SortField, SortFieldType, SortFiledBase,
 };
 use crate::core::store::DataOutput;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
@@ -100,16 +101,16 @@ impl SortFiledBase for XYPointSortField {
 impl Hash for XYPointSortField {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.base.hash(state);
-    self.x.to_bits().hash(state);
-    self.y.to_bits().hash(state);
+    CoreHelper::hash_bits_f32_for_primitive_eq(self.x).hash(state);
+    CoreHelper::hash_bits_f32_for_primitive_eq(self.y).hash(state);
   }
 }
 
 impl PartialEq for XYPointSortField {
   fn eq(&self, other: &Self) -> bool {
-    self.base == other.base
-      && self.x.to_bits() == other.x.to_bits()
-      && self.y.to_bits() == other.y.to_bits()
+    // Java compares distinct instances with primitive `==`; the identity case keeps Rust `Eq`
+    // reflexive when a coordinate is NaN.
+    std::ptr::eq(self, other) || (self.base == other.base && self.x == other.x && self.y == other.y)
   }
 }
 

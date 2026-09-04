@@ -21,6 +21,7 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::{
   TwoPhaseIterator, TwoPhaseIteratorAsDocIdSetIterator,
 };
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub type BlockMaxConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
@@ -57,7 +58,7 @@ where
         match_cost.push((i, tpi.match_cost()));
       }
     }
-    match_cost.sort_by(|a, b| b.1.total_cmp(&a.1));
+    match_cost.sort_by(|a, b| CoreHelper::compare_f32(a.1, b.1));
     let approx = DocIdSetIteratorImpl::new(scorers);
     let (disi, two_phase_state) = if match_cost.is_empty() {
       (BlockMaxConjunctionScorerDisi::A(approx), TwoPhaseState::No)

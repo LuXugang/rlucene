@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
 #[cfg(test)]
@@ -89,11 +90,11 @@ impl VectorSimilarityFunction {
       },
       VectorSimilarityFunction::DotProduct => {
         let dot = VECTOR_UTIL.dot_product_f32(v1, v2)?;
-        Ok(((1.0 + dot) / 2.0).max(0.0))
+        Ok(CoreHelper::max_f32((1.0 + dot) / 2.0, 0.0))
       },
       VectorSimilarityFunction::Cosine => {
         let cosine = VECTOR_UTIL.cosine_f32(v1, v2)?;
-        Ok(((1.0 + cosine) / 2.0).max(0.0))
+        Ok(CoreHelper::max_f32((1.0 + cosine) / 2.0, 0.0))
       },
       VectorSimilarityFunction::MaximumInnerProduct => {
         let dot = VECTOR_UTIL.dot_product_f32(v1, v2)?;

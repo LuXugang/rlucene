@@ -467,7 +467,7 @@ where
       .min_scores
       .iter()
       .copied()
-      .fold(f32::MAX, |min, score| min.min(score))
+      .fold(f32::MAX, |min, score| if score < min { score } else { min })
   }
 }
 

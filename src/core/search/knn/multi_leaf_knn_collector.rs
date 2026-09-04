@@ -18,6 +18,7 @@ use crate::core::search::abstract_knn_collector::AbstractKnnCollector;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::score_doc::ScoreDoc;
 use crate::core::search::top_docs::TopDocs;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::blocking_float_heap::BlockingFloatHeap;
 use crate::core::util::hnsw::float_heap::FloatHeap;
@@ -87,7 +88,7 @@ where
     global_similarity_queue: &'a BlockingFloatHeap,
     sub_collector: A,
   ) -> Result<Self> {
-    if !(0.0..=1.0).contains(&greediness) {
+    if greediness < 0.0 || greediness > 1.0 {
       return Err(LuceneError::illegal_argument("greediness must be in [0,1]"));
     }
     if interval == 0 {
@@ -178,9 +179,9 @@ where
       return Ok(f32::NEG_INFINITY);
     }
 
-    Ok(f32::max(
+    Ok(CoreHelper::max_f32(
       self.sub_collector.min_competitive_similarity()?,
-      f32::min(
+      CoreHelper::min_f32(
         self.non_competitive_queue.peek(),
         self.cached_global_min_sim,
       ),

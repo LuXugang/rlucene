@@ -18,6 +18,7 @@ use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatV
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::util::CoreHelper;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
@@ -637,7 +638,7 @@ enum ScoreAdjustmentFunction {
 impl ScoreAdjustmentFunction {
   fn apply(self, f: f32) -> f32 {
     match self {
-      Self::DotProduct => ((1.0 + f) / 2.0).max(0.0),
+      Self::DotProduct => CoreHelper::max_f32((1.0 + f) / 2.0, 0.0),
       Self::MaximumInnerProduct => VectorUtil::scale_max_inner_product_score(f),
     }
   }

@@ -39,6 +39,7 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::doc_id_set_builder::DocIdSetBuilder;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -80,9 +81,11 @@ impl LatLonPointDistanceQuery {
 impl PartialEq for LatLonPointDistanceQuery {
   fn eq(&self, other: &Self) -> bool {
     self.field == other.field
-      && self.latitude.to_bits() == other.latitude.to_bits()
-      && self.longitude.to_bits() == other.longitude.to_bits()
-      && self.radius_meters.to_bits() == other.radius_meters.to_bits()
+      && BitUtil::double_to_long_bits(self.latitude) == BitUtil::double_to_long_bits(other.latitude)
+      && BitUtil::double_to_long_bits(self.longitude)
+        == BitUtil::double_to_long_bits(other.longitude)
+      && BitUtil::double_to_long_bits(self.radius_meters)
+        == BitUtil::double_to_long_bits(other.radius_meters)
   }
 }
 
@@ -91,9 +94,9 @@ impl Eq for LatLonPointDistanceQuery {}
 impl Hash for LatLonPointDistanceQuery {
   fn hash<H: Hasher>(&self, state: &mut H) {
     self.field.hash(state);
-    self.latitude.to_bits().hash(state);
-    self.longitude.to_bits().hash(state);
-    self.radius_meters.to_bits().hash(state);
+    (BitUtil::double_to_long_bits(self.latitude) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.longitude) as u64).hash(state);
+    (BitUtil::double_to_long_bits(self.radius_meters) as u64).hash(state);
   }
 }
 

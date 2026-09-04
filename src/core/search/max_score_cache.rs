@@ -19,6 +19,7 @@ use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::search::similarities_impl::similarities::SimScorer;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 /// Compute maximum scores based on [`Impacts`] and keep them in a cache
 /// in order not to run expensive similarity score computations multiple times
@@ -79,9 +80,7 @@ where
     let mut max_score = 0.0;
     for impact in impacts {
       let score = self.scorer.score(impact.freq as f32, impact.norm);
-      if score > max_score {
-        max_score = score;
-      }
+      max_score = CoreHelper::max_f32(score, max_score);
     }
     max_score
   }

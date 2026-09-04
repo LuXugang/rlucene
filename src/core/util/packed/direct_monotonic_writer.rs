@@ -16,6 +16,7 @@
  */
 use crate::core::store::IndexOutput;
 use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::direct_writer::{DirectWriter, unsigned_bits_required};
 /// Write monotonically-increasing sequences of integers. This writer splits
@@ -121,7 +122,7 @@ where
     }
 
     self.meta.write_long(min)?;
-    self.meta.write_int(avg_inc.to_bits() as i32)?;
+    self.meta.write_int(BitUtil::float_to_int_bits(avg_inc))?;
     self
       .meta
       .write_long((self.data.get_file_pointer()? - self.base_data_pointer) as i64)?;
