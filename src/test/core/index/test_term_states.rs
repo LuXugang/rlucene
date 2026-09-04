@@ -16,13 +16,18 @@
  */
 use crate::core::document::document::Document;
 use crate::core::index::index_reader::IndexReader;
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::build;
 use crate::core::search::index_searcher::IndexSearcher;
+use crate::core::store::directory::Directory;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{new_directory_shared, random};
 use rand::RngExt;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -31,7 +36,7 @@ struct TestTermStates;
 fn test_to_string_on_null_term_state() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
-  let w = RandomIndexWriter::new(&mut random, dir)?;
+  let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   w.add_document(&mut random, Document::new())?;
   let reader = w.get_reader(&mut random)?;
   let reader = reader.get_context()?;
@@ -40,5 +45,15 @@ fn test_to_string_on_null_term_state() -> Result<()> {
   let needs_stats = random.random_bool(0.5);
   let states = build(&searcher, Arc::new(term), needs_stats)?;
   assert_eq!("TermStates\n  state=null\n", states.to_string());
+  IOUtils::close_with(
+    [
+      catch_unwind(AssertUnwindSafe(|| {
+        searcher.get_top_reader_context().reader().close()
+      })),
+      catch_unwind(AssertUnwindSafe(|| w.close(&mut random))),
+      catch_unwind(AssertUnwindSafe(|| dir.close())),
+    ],
+    |result| unwrap_caught_result!(result),
+  )?;
   Ok(())
 }

@@ -21,10 +21,10 @@ use crate::core::util::number::Number;
 /// Expert: Describes the score computation for document and query.
 #[derive(Clone)]
 pub struct Explanation {
-  pub matched: bool,
-  pub value: Number,
-  pub description: String,
-  pub details: Vec<Explanation>,
+  matched: bool,
+  pub(crate) value: Number,
+  description: String,
+  details: Vec<Explanation>,
 }
 
 impl Explanation {

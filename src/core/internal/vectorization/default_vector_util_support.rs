@@ -142,9 +142,9 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
   fn dot_product_u8(&self, a: &[u8], b: &[u8]) -> i32 {
     debug_assert_eq!(a.len(), b.len());
 
-    let mut total = 0;
+    let mut total = 0i32;
     for i in 0..a.len() {
-      total += signed_byte(a[i]) * signed_byte(b[i]);
+      total = total.wrapping_add(signed_byte(a[i]) * signed_byte(b[i]));
     }
     total
   }
@@ -154,14 +154,14 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
 
     if apacked || bpacked {
       let (packed, unpacked) = if apacked { (a, b) } else { (b, a) };
-      let mut total = 0;
+      let mut total = 0i32;
 
       for i in 0..packed.len() {
         let packed_byte = packed[i];
         let unpacked1 = signed_byte(unpacked[i]);
         let unpacked2 = signed_byte(unpacked[i + packed.len()]);
-        total += i32::from(packed_byte & 0x0F) * unpacked2;
-        total += i32::from(packed_byte >> 4) * unpacked1;
+        total = total.wrapping_add(i32::from(packed_byte & 0x0F) * unpacked2);
+        total = total.wrapping_add(i32::from(packed_byte >> 4) * unpacked1);
       }
 
       return total;
@@ -173,16 +173,17 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
   fn cosine_u8(&self, a: &[u8], b: &[u8]) -> f32 {
     debug_assert_eq!(a.len(), b.len());
 
-    let mut sum = 0;
-    let mut norm1 = 0;
-    let mut norm2 = 0;
+    // Note: this will not overflow if dim < 2^18, since max(byte * byte) = 2^14.
+    let mut sum = 0i32;
+    let mut norm1 = 0i32;
+    let mut norm2 = 0i32;
 
     for i in 0..a.len() {
       let elem1 = signed_byte(a[i]);
       let elem2 = signed_byte(b[i]);
-      sum += elem1 * elem2;
-      norm1 += elem1 * elem1;
-      norm2 += elem2 * elem2;
+      sum = sum.wrapping_add(elem1 * elem2);
+      norm1 = norm1.wrapping_add(elem1 * elem1);
+      norm2 = norm2.wrapping_add(elem2 * elem2);
     }
 
     (sum as f64 / ((norm1 as f64) * (norm2 as f64)).sqrt()) as f32
@@ -191,10 +192,11 @@ impl VectorUtilSupport for DefaultVectorUtilSupport {
   fn square_distance_u8(&self, a: &[u8], b: &[u8]) -> i32 {
     debug_assert_eq!(a.len(), b.len());
 
-    let mut square_sum = 0;
+    // Note: this will not overflow if dim < 2^18, since max(byte * byte) = 2^14.
+    let mut square_sum = 0i32;
     for i in 0..a.len() {
       let diff = signed_byte(a[i]) - signed_byte(b[i]);
-      square_sum += diff * diff;
+      square_sum = square_sum.wrapping_add(diff * diff);
     }
     square_sum
   }

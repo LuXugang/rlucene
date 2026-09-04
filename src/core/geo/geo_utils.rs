@@ -84,9 +84,8 @@ impl GeoUtils {
     SloppyMath::cos(a - Self::PIO2)
   }
 
-  /// Placeholder for Lucene's `distanceQuerySortKey`.
-  ///
-  /// This depends on the haversine helpers that have not been ported yet.
+  /// Binary search to find the exact sort key needed to match the specified radius; any sort key
+  /// less than or equal to this is a query match.
   pub fn distance_query_sort_key(radius: f64) -> f64 {
     let max_sort_key = f64::MAX;
     let max_haversin = SloppyMath::haversin_meters_from_sort_key(max_sort_key);
@@ -120,10 +119,8 @@ impl GeoUtils {
     ceil
   }
 
-  /// Placeholder for Lucene's `relate`.
-  ///
-  /// This depends on [`SloppyMath`] and [`Rectangle::AXISLAT_ERROR`], which are
-  /// not available in the Rust port yet.
+  /// Compute the relation between the provided box and distance query. This only works for boxes
+  /// that do not cross the dateline.
   #[allow(clippy::too_many_arguments)]
   pub fn relate(
     min_lat: f64,

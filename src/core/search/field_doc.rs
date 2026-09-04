@@ -97,6 +97,20 @@ impl ScoreDocLike for FieldDoc {
 
 impl fmt::Display for FieldDoc {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{} fields={:?}", self.base, self.fields)
+    write!(f, "{} fields=[", self.base)?;
+    for (index, value) in self.fields.iter().enumerate() {
+      if index > 0 {
+        write!(f, ", ")?;
+      }
+      match value {
+        FieldComparatorValue::Missing => write!(f, "null")?,
+        FieldComparatorValue::Double(value) => write!(f, "{value}")?,
+        FieldComparatorValue::Float(value) => write!(f, "{value}")?,
+        FieldComparatorValue::Int(value) => write!(f, "{value}")?,
+        FieldComparatorValue::Long(value) => write!(f, "{value}")?,
+        FieldComparatorValue::TermVal(value) => write!(f, "{value}")?,
+      }
+    }
+    write!(f, "]")
   }
 }

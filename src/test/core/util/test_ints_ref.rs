@@ -31,13 +31,14 @@ fn test_empty() {
 #[test]
 fn test_from_ints() {
   let ints = vec![1, 2, 3, 4];
-  let rc_ints = ints.clone();
-  let i = IntsRef::from_slice(rc_ints.clone(), 0, 4);
-  assert_eq!(ints, *i.ints);
+  let ints_ptr = ints.as_ptr();
+  let i = IntsRef::from_slice(ints, 0, 4);
+  assert_eq!(ints_ptr, i.ints.as_ptr());
+  assert_eq!(vec![1, 2, 3, 4], i.ints);
   assert_eq!(0, i.offset);
   assert_eq!(4, i.length);
 
-  let i2 = IntsRef::from_slice(rc_ints.clone(), 1, 3);
+  let i2 = IntsRef::from_slice(vec![1, 2, 3, 4], 1, 3);
   let expected = IntsRef::from_slice(vec![2, 3, 4], 0, 3);
   assert_eq!(expected, i2);
   assert_ne!(i, i2);

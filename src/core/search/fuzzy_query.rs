@@ -232,10 +232,10 @@ impl FuzzyQuery {
     } else if minimum_similarity == 0.0 {
       0
     } else {
-      CoreHelper::min_f64(
-        (1.0 - minimum_similarity) as f64 * term_len as f64,
-        LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE as f64,
-      ) as i32
+      std::cmp::min(
+        ((1.0_f64 - minimum_similarity as f64) * term_len as f64) as i32,
+        LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE,
+      )
     }
   }
 }

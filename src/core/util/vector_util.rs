@@ -16,13 +16,17 @@
  */
 use crate::core::internal::vectorization::default_vector_util_support::DefaultVectorUtilSupport;
 use crate::core::internal::vectorization::vector_util_support::VectorUtilSupport;
+use crate::core::internal::vectorization::vectorization_provider::{
+  DEFAULT_VECTORIZATION_PROVIDER, VectorizationProvider,
+};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::LazyLock;
 
-pub static VECTOR_UTIL: LazyLock<VectorUtil> = LazyLock::new(VectorUtil::default);
+pub static VECTOR_UTIL: LazyLock<VectorUtil> = LazyLock::new(|| VectorUtil {
+  impl_: DEFAULT_VECTORIZATION_PROVIDER.get_vector_util_support(),
+});
 
-#[derive(Default)]
 pub struct VectorUtil {
   impl_: DefaultVectorUtilSupport,
 }
@@ -117,7 +121,7 @@ impl VectorUtil {
     }
 
     let l2norm = l1norm.sqrt() as f32;
-    for value in v {
+    for value in v.iter_mut() {
       *value /= l2norm;
     }
     Ok(())
@@ -178,7 +182,7 @@ impl VectorUtil {
     }
   }
 
-  pub fn xor_bit_count_int(&self, a: &[u8], b: &[u8]) -> i32 {
+  pub(crate) fn xor_bit_count_int(&self, a: &[u8], b: &[u8]) -> i32 {
     let mut distance = 0i32;
     let mut i = 0usize;
     let stride = u32::BITS as usize / 8;
@@ -187,19 +191,19 @@ impl VectorUtil {
     while i < upper_bound {
       let lhs = BitUtil::get_i32_le(a, i);
       let rhs = BitUtil::get_i32_le(b, i);
-      distance += (lhs ^ rhs).count_ones() as i32;
+      distance = distance.wrapping_add((lhs ^ rhs).count_ones() as i32);
       i += stride;
     }
 
     while i < a.len() {
-      distance += (a[i] ^ b[i]).count_ones() as i32;
+      distance = distance.wrapping_add((a[i] ^ b[i]).count_ones() as i32);
       i += 1;
     }
 
     distance
   }
 
-  pub fn xor_bit_count_long(&self, a: &[u8], b: &[u8]) -> i32 {
+  pub(crate) fn xor_bit_count_long(&self, a: &[u8], b: &[u8]) -> i32 {
     let mut distance = 0i32;
     let mut i = 0usize;
     let stride = BitUtil::LONG_BYTES;
@@ -208,12 +212,12 @@ impl VectorUtil {
     while i < upper_bound {
       let lhs = BitUtil::get_i64_le(a, i);
       let rhs = BitUtil::get_i64_le(b, i);
-      distance += (lhs ^ rhs).count_ones() as i32;
+      distance = distance.wrapping_add((lhs ^ rhs).count_ones() as i32);
       i += stride;
     }
 
     while i < a.len() {
-      distance += (a[i] ^ b[i]).count_ones() as i32;
+      distance = distance.wrapping_add((a[i] ^ b[i]).count_ones() as i32);
       i += 1;
     }
 
@@ -221,7 +225,7 @@ impl VectorUtil {
   }
 
   pub fn dot_product_score(&self, a: &[u8], b: &[u8]) -> Result<f32> {
-    let denom = (a.len() * (1 << 15)) as f32;
+    let denom = (a.len() as i32).wrapping_mul(1 << 15) as f32;
     Ok(0.5f32 + self.dot_product_u8(a, b)? as f32 / denom)
   }
 
@@ -237,10 +241,6 @@ impl VectorUtil {
   /// # Arguments
   ///
   /// * `v` - bytes containing a vector
-  ///
-  /// # Returns
-  ///
-  /// the vector for call-chaining
   ///
   /// # Errors
   ///

@@ -22,7 +22,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::io_utils::IOUtils;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::{Mutex, ReentrantMutex, RwLock};
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -84,7 +84,7 @@ where
 {
   closed: AtomicBool,
   searchers: RwLock<HashMap<i64, Arc<SearcherTracker<DR>>>>,
-  operation_lock: Mutex<()>,
+  operation_lock: ReentrantMutex<()>,
 }
 
 impl<DR> Default for SearcherLifetimeManager<DR>
@@ -108,7 +108,7 @@ where
     Self {
       closed: AtomicBool::new(false),
       searchers: RwLock::new(HashMap::new()),
-      operation_lock: Mutex::new(()),
+      operation_lock: ReentrantMutex::new(()),
     }
   }
 

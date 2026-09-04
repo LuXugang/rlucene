@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 use crate::core::util::access::SharedAccessVec;
-#[cfg(debug_assertions)]
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{Comparator, HashCode, ToInt};
@@ -109,11 +108,10 @@ where
       length,
     };
     #[cfg(debug_assertions)]
-    debug_assert!(instance.is_valid().unwrap_or(false));
+    debug_assert!(matches!(instance.is_valid(), Ok(true)));
     instance
   }
   /// Performs internal consistency checks. Always returns true (or Error)
-  #[cfg(debug_assertions)]
   pub fn is_valid(&self) -> Result<bool> {
     self.ints.access(|ints| {
       if self.length > ints.len() {
@@ -130,7 +128,7 @@ where
           ints.len()
         )));
       }
-      if self.offset + self.length > ints.len() {
+      if self.length > ints.len() - self.offset {
         return Err(LuceneError::illegal_state(format!(
           "offset+length out of bounds: offset={}, length={}, ints.len()={}",
           self.offset,
@@ -165,9 +163,10 @@ impl<AV> Clone for IntsRef<AV>
 where
   AV: Clone,
 {
-  /// Returns a shallow clone of this instance (the underlying ints are
-  /// **not** copied and will be shared by both the returned object and
-  /// this object).
+  /// Clones this instance and its backing container.
+  ///
+  /// Whether the underlying ints are copied or shared is determined by
+  /// `AV::clone` (for example, `Vec` copies while `Arc` shares).
   fn clone(&self) -> Self {
     IntsRef {
       ints: self.ints.clone(),
@@ -227,8 +226,20 @@ where
 
   fn compare(&self, a: &IntsRef<AV>, b: &IntsRef<AV>) -> Result<i32> {
     with_other!(a.ints, b.ints, |a_bytes, b_bytes| {
-      let a_slice = &a_bytes[a.offset..(a.offset + a.length)];
-      let b_slice = &b_bytes[a.offset..(a.offset + a.length)];
+      let a_end = a
+        .offset
+        .checked_add(a.length)
+        .ok_or_else(|| LuceneError::illegal_argument("offset + length overflow"))?;
+      let a_slice = a_bytes.get(a.offset..a_end).ok_or_else(|| {
+        LuceneError::array_index_out_of_bounds("Offset and length exceed vector bounds")
+      })?;
+      let b_end = b
+        .offset
+        .checked_add(b.length)
+        .ok_or_else(|| LuceneError::illegal_argument("offset + length overflow"))?;
+      let b_slice = b_bytes.get(b.offset..b_end).ok_or_else(|| {
+        LuceneError::array_index_out_of_bounds("Offset and length exceed vector bounds")
+      })?;
       Ok(a_slice.cmp(b_slice).to_int())
     })
   }
@@ -243,9 +254,9 @@ where
       write!(f, "[")?;
       for (i, v) in slice.iter().enumerate() {
         if i > 0 {
-          write!(f, ", ")?;
+          write!(f, " ")?;
         }
-        write!(f, "{v}")?;
+        write!(f, "{v:x}")?;
       }
       write!(f, "]")?;
       Ok(())

@@ -17,6 +17,7 @@
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
+use crate::core::index::index_reader::IndexReader;
 use crate::core::index::indexable_field::IndexableField;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::multi_reader::MultiReader;
@@ -32,10 +33,13 @@ use crate::core::search::query_visitor::{
 };
 use crate::core::search::similarities_impl::classic_similarity;
 use crate::core::store::directory::DirEnum;
+use crate::core::util::CoreHelper;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::levenshtein_automata::LevenshteinAutomata;
+use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -72,7 +76,8 @@ fn test_basic_prefix() -> Result<()> {
   let hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  Ok(())
+  searcher.get_index_reader().close()?;
+  directory.close()
 }
 #[test]
 fn test_fuzziness() -> Result<()> {
@@ -499,7 +504,9 @@ fn test_fuzziness() -> Result<()> {
   hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(0, hits.len());
 
-  Ok(())
+  drop(stored_fields);
+  searcher.get_index_reader().close()?;
+  directory.close()
 }
 #[test]
 fn test_prefix_length_equal_string_length() -> Result<()> {
@@ -557,7 +564,8 @@ fn test_prefix_length_equal_string_length() -> Result<()> {
   hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  Ok(())
+  searcher.get_index_reader().close()?;
+  directory.close()
 }
 #[test]
 fn test2() -> Result<()> {
@@ -594,7 +602,8 @@ fn test2() -> Result<()> {
   let hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(8, hits.len());
 
-  Ok(())
+  searcher.get_index_reader().close()?;
+  directory.close()
 }
 #[test]
 fn test_single_query_exact_match_scores_highest() -> Result<()> {
@@ -638,7 +647,9 @@ fn test_single_query_exact_match_scores_highest() -> Result<()> {
       assert_ne!(search_term, worst_match.as_ref().as_str());
     }
   }
-  Ok(())
+  drop(stored_fields);
+  searcher.get_index_reader().close()?;
+  directory.close()
 }
 #[test]
 fn test_multiple_queries_idf_works() -> Result<()> {
@@ -700,7 +711,8 @@ fn test_multiple_queries_idf_works() -> Result<()> {
     .unwrap();
   assert!(worst_match.as_ref().as_str().contains("micheal"));
 
-  Ok(())
+  searcher.get_index_reader().close()?;
+  directory.close()
 }
 #[test]
 fn test_tie_breaker() -> Result<()> {
@@ -731,10 +743,11 @@ fn test_tie_breaker() -> Result<()> {
   let fq = FuzzyQuery::with_options(Term::from_text("field", "z123456"), 1, 0, 2, false)?;
   let docs = searcher.search(fq, 2)?;
   assert_eq!(5, docs.total_hits.value());
+  searcher.get_index_reader().close()?;
   writer.close(&mut random)?;
   writer2.close(&mut random)?;
-
-  Ok(())
+  directory.close()?;
+  directory2.close()
 }
 /// Test the TopTermsBoostOnlyBooleanQueryRewrite rewrite method.
 #[test]
@@ -798,7 +811,8 @@ fn test_boost_only_rewrite() -> Result<()> {
       .as_str()
   );
 
-  Ok(())
+  searcher.get_index_reader().close()?;
+  directory.close()
 }
 #[test]
 fn test_giga() -> Result<()> {
@@ -839,6 +853,7 @@ fn test_giga() -> Result<()> {
   add_doc(&mut random, "Brute willis", &w, &mut field_to_type)?;
   add_doc(&mut random, "B. willis", &w, &mut field_to_type)?;
   let r = w.get_reader(&mut random)?;
+  w.close(&mut random)?;
 
   let q = FuzzyQuery::with_max_edits(Term::from_text("field", "giga"), 0)?;
 
@@ -857,9 +872,9 @@ fn test_giga() -> Result<()> {
       .as_ref()
       .as_str()
   );
+  searcher.get_index_reader().close()?;
   w.close(&mut random)?;
-
-  Ok(())
+  index.close()
 }
 #[test]
 fn test_distance_as_edits_searching() -> Result<()> {
@@ -909,7 +924,8 @@ fn test_distance_as_edits_searching() -> Result<()> {
   let expected = FuzzyQuery::with_max_edits(Term::from_text("field", "t"), 3).unwrap_err();
   assert!(format!("{expected}").contains("maxEdits"));
 
-  Ok(())
+  searcher.get_index_reader().close()?;
+  index.close()
 }
 #[test]
 fn test_validation() {
@@ -1089,7 +1105,8 @@ fn test_random() -> Result<()> {
     }
   }
 
-  Ok(())
+  let close_result = s.get_index_reader().close();
+  IOUtils::use_or_suppress_result(close_result, dir.close())
 }
 
 #[derive(Debug, Clone)]
@@ -1108,7 +1125,7 @@ impl Eq for TermAndScore {}
 
 impl PartialEq for TermAndScore {
   fn eq(&self, other: &Self) -> bool {
-    self.term == other.term && self.score == other.score
+    self.term == other.term && CoreHelper::compare_f32(self.score, other.score).is_eq()
   }
 }
 

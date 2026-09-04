@@ -21,7 +21,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
-use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use crate::test_framework::core::util::test_util::TestUtil;
 use crate::test_framework::core::util::test_vector_util::random_vector_dim;
 use rand::{Rng, RngExt};
@@ -292,11 +292,12 @@ fn test_self_cosine_bytes() {
 #[test]
 fn test_orthogonal_cosine_bytes() {
   let mut rng = random();
-  let v0 = rng.random_range(0..100) as i8;
-  let v1 = rng.random_range(1..100) as i8;
-  let v = [v0 as u8, v1 as u8];
-  let u = [v1 as u8, (-v0) as u8];
-  assert_approx_eq(0.0, VECTOR_UTIL.cosine_u8(&u, &v).unwrap(), DELTA);
+  let v = [
+    rng.random_range(0..100) as f32,
+    rng.random_range(1..100) as f32,
+  ];
+  let u = [v[1], -v[0]];
+  assert_approx_eq(0.0, VECTOR_UTIL.cosine_f32(&u, &v).unwrap(), DELTA);
 }
 
 #[test]
@@ -310,7 +311,8 @@ fn test_basic_xor_bit_count() {
 #[test]
 fn test_xor_bit_count() {
   let mut rng = random();
-  for _ in 0..100 {
+  let iterations = at_least_usize(&mut rng, 100);
+  for _ in 0..iterations {
     let size = rng.random_range(0..1024);
     let mut a = vec![0u8; size];
     let mut b = vec![0u8; size];

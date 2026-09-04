@@ -90,8 +90,7 @@ where
   let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
   let queue = PriorityQueue::new(len, &cmp)?;
   let (total_hits, hits) = merge_aux(queue, start, size, &shard_hits)?;
-  // TODO: `TopFieldDocs::fields` is unused in Java Lucene, so set it to an empty vector for now.
-  Ok(TopFieldDocs::new(total_hits, hits, vec![]))
+  Ok(TopFieldDocs::new(total_hits, hits, sort.fields.clone()))
 }
 /// Returns a new [`TopDocs`], containing topN results across the provided [`TopDocs`],
 /// sorting by score. Each [`TopDocs`] instance must be sorted.
@@ -213,7 +212,7 @@ impl std::fmt::Display for ShardRef {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "ShardRef(shard_index={} hit_index={})",
+      "ShardRef(shardIndex={} hitIndex={})",
       self.shard_index, self.hit_index
     )
   }
@@ -261,7 +260,7 @@ where
   let mut avail_hit_count = 0;
 
   for (shard_idx, shard) in shard_hits.iter().enumerate() {
-    total_hit_count += shard.total_hits.value as i64;
+    total_hit_count = total_hit_count.wrapping_add(shard.total_hits.value as i64);
     if shard.total_hits.relation == Relation::GreaterThanOrEqualTo {
       total_hits_relation = Relation::GreaterThanOrEqualTo;
     }
@@ -316,6 +315,11 @@ where
         queue.pop_unchecked()?;
       }
     }
+  }
+  if total_hit_count < 0 {
+    return Err(LuceneError::illegal_argument(format!(
+      "value must be >= 0, got {total_hit_count}"
+    )));
   }
   Ok((
     TotalHits::new(total_hit_count as usize, total_hits_relation),
@@ -378,6 +382,16 @@ impl<'a, C> MergeSortQueueCmp<'a, C> {
     shard_hits: &'a Vec<TopDocs<TopFieldScoreDoc>>,
     tie_breaker: C,
   ) -> Result<Self> {
+    for (shard_index, shard) in shard_hits.iter().enumerate() {
+      for score_doc in &shard.score_docs {
+        if score_doc.as_field().is_none() {
+          return Err(LuceneError::illegal_argument(format!(
+            "shard {shard_index} was not sorted by the provided Sort (expected FieldDoc but got ScoreDoc)"
+          )));
+        }
+      }
+    }
+
     let mut comparators = Vec::new();
     let mut reverse_mul = Vec::new();
     for sf in &sort.fields {
@@ -404,9 +418,11 @@ where
     let second_fd =
       &self.shard_hits[second.shard_index as usize].score_docs[second.hit_index as usize];
 
+    let first_fields = first_fd.fields()?;
+    let second_fields = second_fd.fields()?;
     for (i, comp) in self.comparators.iter().enumerate() {
       let cmp = self.reverse_mul[i]
-        * comp.compare_values(first_fd.fields()?.get(i), second_fd.fields()?.get(i))?;
+        * comp.compare_values(Some(&first_fields[i]), Some(&second_fields[i]))?;
       if cmp != 0 {
         return Ok(cmp < 0);
       }

@@ -24,11 +24,11 @@ pub struct CompetitiveImpactAccumulator {
   /// We speed up accumulation for common norm values with this array that
   /// maps norm values in -128..127 to the maximum frequency observed for
   /// these norm values.
-  pub max_freqs: [i32; 256],
+  max_freqs: [i32; 256],
   /// Stores competitive (freq, norm) pairs for norm values that fall
   /// outside of -128..127. It is always empty with the default similarity,
   /// which encodes norms as bytes.
-  pub other_freq_norm_pairs: BTreeSet<Impact>,
+  other_freq_norm_pairs: BTreeSet<Impact>,
 }
 
 impl Default for CompetitiveImpactAccumulator {
@@ -140,6 +140,17 @@ impl CompetitiveImpactAccumulator {
 
 impl std::fmt::Display for CompetitiveImpactAccumulator {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:?}", self.get_competitive_freq_norm_pairs())
+    write!(f, "[")?;
+    for (index, impact) in self
+      .get_competitive_freq_norm_pairs()
+      .into_iter()
+      .enumerate()
+    {
+      if index > 0 {
+        write!(f, ", ")?;
+      }
+      write!(f, "{impact}")?;
+    }
+    write!(f, "]")
   }
 }

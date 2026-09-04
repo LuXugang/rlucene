@@ -19,7 +19,6 @@ use crate::test_framework::core::util::lucene_test_case::{
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_cfs, random,
 };
 use std::collections::HashSet;
-use std::io::ErrorKind;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -114,6 +113,7 @@ impl TestFileSwitchDirectory {
     for file in files {
       assert!(!file.is_empty());
     }
+    fsd.close()?;
     Ok(())
   }
 
@@ -145,14 +145,13 @@ impl TestFileSwitchDirectory {
       second_dir.path().to_path_buf(),
       HashSet::new(),
     )?);
-    match directory_reader::open(dir) {
-      Ok(_) => panic!("expected IndexNotFound or NoSuchFile"),
-      Err(LuceneError::IndexNotFound(_)) | Err(LuceneError::NoSuchFile(_)) => {},
-      Err(LuceneError::IoWithPath { source, .. }) | Err(LuceneError::Io { source, .. })
-        if source.kind() == ErrorKind::NotFound => {},
+    match directory_reader::open(dir.clone()) {
+      Ok(_) => panic!("expected IndexNotFound"),
+      Err(LuceneError::IndexNotFound(_)) => {},
       Err(err) => return Err(err),
     }
 
+    dir.close()?;
     Ok(())
   }
 
@@ -314,6 +313,7 @@ fn test_rename_tmp_file() -> Result<()> {
 }
 
 #[test]
+#[ignore = "Java-only: requires Lucene WindowsFS pending-deletion emulation"]
 fn test_delete_and_list() -> Result<()> {
   run_case(|case, random| case.test_delete_and_list(random))
 }

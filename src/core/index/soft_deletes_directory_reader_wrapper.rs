@@ -38,7 +38,7 @@ use crate::core::search::field_exists_query::get_doc_values_doc_id_set_iterator;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::util::bits::Bits;
 use crate::core::util::dummy::dummy_comparator::DummyComparator;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
@@ -340,9 +340,6 @@ where
   LR::ReaderCacheHelper: Clone,
 {
   fn new(mapping: HashMap<CacheKey, SoftDeletesCodecReader<LR>>, field: String) -> Result<Self> {
-    if field.is_empty() {
-      return Err(LuceneError::illegal_argument("Field must not be empty"));
-    }
     Ok(Self { mapping, field })
   }
 }

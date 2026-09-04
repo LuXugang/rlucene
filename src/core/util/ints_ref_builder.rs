@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::BytesRef;
+use crate::core::util::CoreHelper;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::{SharedAccessVec, WritableVec};
 use crate::core::util::array_util::ArrayUtil;
@@ -62,8 +62,8 @@ where
   }
 
   /// Returns the underlying `i32` buffer.
-  pub fn ints(&mut self) -> AV {
-    self.ints_ref.ints.clone()
+  pub fn ints(&mut self) -> &mut AV {
+    &mut self.ints_ref.ints
   }
 
   /// Returns the number of `i32` values in this buffer.
@@ -132,6 +132,7 @@ where
     other_length: usize,
   ) -> Result<()> {
     self.grow_no_copy(other_length)?;
+    CoreHelper::check_from_index_size(other_offset, other_length, other.len())?;
     self.ints_ref.ints.access_mut(|ints_bytes| {
       ints_bytes.copy_from(&other[other_offset..(other_offset + other_length)], 0);
       self.ints_ref.length = other_length;
@@ -143,13 +144,6 @@ where
     ints
       .ints
       .access(|ints_bytes| self.copy_ints(ints_bytes, ints.offset, ints.length))
-  }
-
-  /// Copies the given UTF-8 bytes into this builder.
-  pub fn copy_utf8_bytes(&mut self, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
-    self.grow_no_copy(bytes.length)?;
-    self.ints_ref.length = bytes.length;
-    Ok(())
   }
 
   /// Returns a reference to the internal [`IntsRef`] content.

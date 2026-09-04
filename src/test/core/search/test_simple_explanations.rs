@@ -24,6 +24,7 @@ use crate::core::search::explanation::Explanation;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::multi_phrase_query::MultiPhraseQuery;
 use crate::core::search::phrase_query::PhraseQuery;
+use crate::core::search::synonym_query::Builder as SynonymQueryBuilder;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
@@ -419,7 +420,6 @@ mod simple_explanations_tests {
   }
 
   #[test]
-  #[ignore = "SynonymQuery has a known bug"]
   fn test_synonym_query() -> Result<()> {
     run_case(|case, random| case.test_synonym_query(random))
   }
@@ -1572,12 +1572,19 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     )
   }
 
-  fn test_synonym_query<R>(&self, _random: &mut R) -> Result<()>
+  fn test_synonym_query<R>(&self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    // TODO: Restore this Java test after SynonymWeight::explain and matches are implemented.
-    Ok(())
+    let mut query = SynonymQueryBuilder::new(FIELD);
+    query.add_term(Term::new(FIELD, "w1".into()))?;
+    query.add_term(Term::new(FIELD, "w2".into()))?;
+    self.q_test(
+      random,
+      &self.context().searcher,
+      query.build(),
+      &[0, 1, 2, 3],
+    )
   }
 
   fn test_equality(&self) -> Result<()> {

@@ -32,7 +32,7 @@ impl OrdTermState {
 }
 impl Display for OrdTermState {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{} ord={} ", std::any::type_name::<Self>(), self.ord)
+    write!(f, "OrdTermState ord={}", self.ord)
   }
 }
 

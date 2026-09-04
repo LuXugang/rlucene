@@ -38,6 +38,7 @@ use std::sync::Arc;
 /// associated readers.
 #[derive(Default, Clone)]
 pub struct TermStates {
+  identity: Identity,
   pub(crate) top_reader_context_identity: Identity,
   states: Vec<Option<Arc<TermStateEnum>>>,
   term: Option<Arc<Term>>,
@@ -56,6 +57,7 @@ impl TermStates {
       states.push(None)
     }
     Ok(TermStates {
+      identity: Identity::new(),
       top_reader_context_identity: context.base().identity.clone(),
       doc_freq: 0,
       total_term_freq: 0,
@@ -119,6 +121,10 @@ impl TermStates {
     T: Into<Arc<TermStateEnum>>,
   {
     debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
+    debug_assert!(
+      self.states[ord].is_none(),
+      "state for ord: {ord} already registered"
+    );
     // wrap with Arc for clone
     self.states[ord] = Some(state.into());
   }
@@ -130,8 +136,8 @@ impl TermStates {
       (doc_freq as i64) <= total_term_freq,
       "doc_freq must not exceed total_term_freq"
     );
-    self.doc_freq += doc_freq;
-    self.total_term_freq += total_term_freq;
+    self.doc_freq = self.doc_freq.wrapping_add(doc_freq);
+    self.total_term_freq = self.total_term_freq.wrapping_add(total_term_freq);
   }
   /// Returns a [`PrepareState`] for a [`TermState`] for the given [`LeafReaderContext`].
   /// This may return `None` if some cheap checks help figure out that this term
@@ -242,7 +248,7 @@ impl TermStates {
   pub fn doc_freq(&self) -> Result<i32> {
     if self.term.is_some() {
       return Err(LuceneError::illegal_state(
-        "Cannot call doc_freq() when needsStats=false",
+        "Cannot call docFreq() when needsStats=false",
       ));
     }
     Ok(self.doc_freq)
@@ -256,7 +262,7 @@ impl TermStates {
   pub fn total_term_freq(&self) -> Result<i64> {
     if self.term.is_some() {
       return Err(LuceneError::illegal_state(
-        "Cannot call total_term_freq() when needsStats=false",
+        "Cannot call totalTermFreq() when needsStats=false",
       ));
     }
     Ok(self.total_term_freq)
@@ -280,7 +286,7 @@ impl Display for TermStates {
 }
 impl PartialEq for TermStates {
   fn eq(&self, other: &Self) -> bool {
-    self.top_reader_context_identity == other.top_reader_context_identity
+    self.identity == other.identity
   }
 }
 
@@ -288,7 +294,7 @@ impl Eq for TermStates {}
 
 impl Hash for TermStates {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    self.top_reader_context_identity.hash(state);
+    self.identity.hash(state);
   }
 }
 
@@ -307,17 +313,12 @@ impl Accountable for TermStates {
   }
 }
 
+#[derive(Clone)]
 pub struct EmptyTermState;
 
 impl Display for EmptyTermState {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", std::any::type_name::<Self>())
-  }
-}
-
-impl Clone for EmptyTermState {
-  fn clone(&self) -> Self {
-    todo!()
+    write!(f, "TermState")
   }
 }
 
