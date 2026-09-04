@@ -30,9 +30,9 @@ The GitHub Actions run waits for Jenkins. Jenkins `SUCCESS` becomes a green
 GitHub check; any other terminal result or timeout becomes a failed check. The
 Actions summary links to the Jenkins build. A superseding update to the same PR
 cancels the older Actions run and asks Jenkins to stop its obsolete build.
-The newest Jenkins build for every PR is protected from automatic deletion.
-After a newer run for the same PR finishes, the workflow releases the older
-protected run so the normal 200-build history limit can remove it later.
+Every Jenkins PR build is protected from automatic deletion, including its log
+and archived test output. The normal 200-build history limit applies only to a
+run that fails before the Pipeline can mark it for retention.
 
 PR code runs only on the exclusive `rlucene-pr` inbound agent. That container
 does not mount Jenkins home or the Docker socket. The existing scheduled

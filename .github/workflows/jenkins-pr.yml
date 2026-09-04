@@ -78,68 +78,6 @@ jobs:
             fi
             rm -rf "${work_dir}"
           }
-          preserve_latest_pr_build() {
-            local current_number keep_log builds_json older_build_url older_keep_log
-            current_number="$(jq -er '.number' <<<"${build_json}")" || {
-              echo "Warning: Jenkins did not return the current build number; older retained builds were left unchanged." >&2
-              return
-            }
-            keep_log="$(jq -r '.keepLog // "unknown"' <<<"${build_json}")" || {
-              echo "Warning: Jenkins did not return the current retention state; older retained builds were left unchanged." >&2
-              return
-            }
-            if [[ "${keep_log}" != "true" && "${keep_log}" != "false" ]]; then
-              echo "Warning: Jenkins returned an invalid retention state; older retained builds were left unchanged." >&2
-              return
-            fi
-
-            if [[ "${keep_log}" != "true" ]]; then
-              if ! curl --fail --silent --show-error \
-                --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
-                --request POST \
-                --output /dev/null \
-                "${build_url}toggleLogKeep"; then
-                echo "Warning: unable to protect the latest Jenkins build for PR #${PR_NUMBER}." >&2
-                return
-              fi
-            fi
-
-            builds_json="$(curl --fail --silent --show-error \
-              --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
-              --get \
-              --data-urlencode 'tree=builds[number,url,keepLog,actions[parameters[name,value]]]{0,500}' \
-              "${JENKINS_URL}/job/rlucene-pr/api/json")" || {
-                echo "Warning: unable to list Jenkins builds; older retained builds were left unchanged." >&2
-                return
-              }
-
-            while IFS= read -r older_build_url; do
-              [[ -n "${older_build_url}" ]] || continue
-              if ! curl --fail --silent --show-error \
-                --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
-                --request POST \
-                --output /dev/null \
-                "${older_build_url}toggleLogKeep"; then
-                echo "Warning: unable to release an older retained build for PR #${PR_NUMBER}." >&2
-                continue
-              fi
-              older_keep_log="$(curl --fail --silent --show-error \
-                --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
-                "${older_build_url}api/json?tree=keepLog" \
-                | jq -r '.keepLog // "unknown"')" || older_keep_log="unknown"
-              if [[ "${older_keep_log}" != "false" ]]; then
-                echo "Warning: Jenkins did not release an older retained build for PR #${PR_NUMBER}." >&2
-              fi
-            done < <(jq -r \
-              --arg pr_number "${PR_NUMBER}" \
-              --argjson current_number "${current_number}" \
-              '.builds[]
-                | select(.number != $current_number and .keepLog == true)
-                | select(any(.actions[]?.parameters[]?;
-                    .name == "PR_NUMBER" and (.value | tostring) == $pr_number))
-                | .url' \
-              <<<"${builds_json}")
-          }
           trap cleanup EXIT
           trap 'exit 130' INT
           trap 'exit 143' TERM
@@ -191,11 +129,10 @@ jobs:
           for _ in $(seq 1 420); do
             build_json="$(curl --fail --silent --show-error \
               --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
-              "${build_url}api/json?tree=number,building,result,url,keepLog")"
+              "${build_url}api/json?tree=building,result,url")"
             if [[ "$(jq -r '.building' <<<"${build_json}")" == "false" ]]; then
               result="$(jq -r '.result' <<<"${build_json}")"
               build_finished=true
-              preserve_latest_pr_build
               echo "Jenkins result: ${result}"
               printf '\nResult: **%s**\n' "${result}" >> "${GITHUB_STEP_SUMMARY}"
               [[ "${result}" == "SUCCESS" ]]

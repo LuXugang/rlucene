@@ -59,13 +59,6 @@ Jenkins home. Jenkins retains only the token hash. Set
 job in Jenkins after adding the GitHub secrets. Never print either secret in a
 build log.
 
-The service account is limited to the `rlucene-pr` job. In addition to reading,
-starting and cancelling that job, it has build update and delete permissions so
-the trusted GitHub workflow can protect the newest build and release the older
-protection marker for the same PR. The workflow never calls Jenkins' build
-deletion endpoint; normal history deletion remains the job's build discarder's
-responsibility.
-
 From an authenticated repository checkout, the handoff can be done without
 printing the token:
 
