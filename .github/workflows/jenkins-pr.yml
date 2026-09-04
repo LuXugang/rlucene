@@ -79,7 +79,7 @@ jobs:
             rm -rf "${work_dir}"
           }
           preserve_latest_pr_build() {
-            local current_number keep_log builds_json older_build_url
+            local current_number keep_log builds_json older_build_url older_keep_log
             current_number="$(jq -er '.number' <<<"${build_json}")" || {
               echo "Warning: Jenkins did not return the current build number; older retained builds were left unchanged." >&2
               return
@@ -121,6 +121,14 @@ jobs:
                 --output /dev/null \
                 "${older_build_url}toggleLogKeep"; then
                 echo "Warning: unable to release an older retained build for PR #${PR_NUMBER}." >&2
+                continue
+              fi
+              older_keep_log="$(curl --fail --silent --show-error \
+                --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
+                "${older_build_url}api/json?tree=keepLog" \
+                | jq -r '.keepLog // "unknown"')" || older_keep_log="unknown"
+              if [[ "${older_keep_log}" != "false" ]]; then
+                echo "Warning: Jenkins did not release an older retained build for PR #${PR_NUMBER}." >&2
               fi
             done < <(jq -r \
               --arg pr_number "${PR_NUMBER}" \
@@ -129,7 +137,7 @@ jobs:
                 | select(.number != $current_number and .keepLog == true)
                 | select(any(.actions[]?.parameters[]?;
                     .name == "PR_NUMBER" and (.value | tostring) == $pr_number))
-                | .url + "toggleLogKeep"' \
+                | .url' \
               <<<"${builds_json}")
           }
           trap cleanup EXIT
