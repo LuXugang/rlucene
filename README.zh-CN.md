@@ -24,6 +24,11 @@ RLucene 还在积极开发中。最常用的功能已经实现，不过距离完
 有关 Lucene 基本概念和使用方式的介绍，请参考
 [Apache Lucene 文档](https://lucene.apache.org/core/documentation.html)。
 
+## 持续集成
+
+RLucene 使用 Jenkins 进行持续集成。可以在
+[jenkins.amazingkoala.com.cn](https://jenkins.amazingkoala.com.cn/) 查看构建状态和测试结果。
+
 ## 开发
 
 项目使用的 Rust 工具链固定在 [`rust-toolchain.toml`](rust-toolchain.toml) 中。

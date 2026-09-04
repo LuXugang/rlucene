@@ -28,6 +28,11 @@ Expect a few rough edges for now—we're working through them one by one.
 For a general introduction to Lucene concepts and usage, see the
 [Apache Lucene documentation](https://lucene.apache.org/core/documentation.html).
 
+## Continuous Integration
+
+RLucene uses Jenkins for continuous integration. You can follow build status
+and test results at [jenkins.amazingkoala.com.cn](https://jenkins.amazingkoala.com.cn/).
+
 ## Development
 
 The Rust toolchain used by the project is pinned in
