@@ -1,4 +1,5 @@
 import hudson.model.Item
+import hudson.model.Run
 import hudson.model.User
 import hudson.security.AuthorizationMatrixProperty
 import hudson.security.HudsonPrivateSecurityRealm
@@ -75,7 +76,8 @@ if (jobAuthorization == null) {
   def permissions = [
     (Item.READ): ([PermissionEntry.user(triggerUser)] as Set),
     (Item.BUILD): ([PermissionEntry.user(triggerUser)] as Set),
-    (Item.CANCEL): ([PermissionEntry.user(triggerUser)] as Set)
+    (Item.CANCEL): ([PermissionEntry.user(triggerUser)] as Set),
+    (Run.UPDATE): ([PermissionEntry.user(triggerUser)] as Set)
   ]
   job.addProperty(new AuthorizationMatrixProperty(
     permissions,
@@ -85,6 +87,7 @@ if (jobAuthorization == null) {
   jobAuthorization.add(Item.READ, PermissionEntry.user(triggerUser))
   jobAuthorization.add(Item.BUILD, PermissionEntry.user(triggerUser))
   jobAuthorization.add(Item.CANCEL, PermissionEntry.user(triggerUser))
+  jobAuthorization.add(Run.UPDATE, PermissionEntry.user(triggerUser))
 }
 job.save()
 jenkins.save()

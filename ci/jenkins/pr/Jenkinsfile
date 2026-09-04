@@ -19,6 +19,10 @@ pipeline {
     stage('Authorize request') {
       steps {
         script {
+          // The global build discarder must never remove the newest run for a PR.
+          // GitHub Actions unlocks the older kept run only after this one finishes.
+          currentBuild.keepLog = true
+
           if (!(params.PR_NUMBER ==~ /[1-9][0-9]*/)) {
             error('PR_NUMBER is invalid')
           }

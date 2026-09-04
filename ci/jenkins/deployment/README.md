@@ -168,8 +168,9 @@ custom authorization strategy is left unchanged.
 The resulting anonymous access is deliberately narrow:
 
 - global `Overall/Read` and `View/Read`, so Jenkins pages and views can open;
-- `Job/Read` on only the job named by `RLUCENE_JOB_NAME`, so its builds, console
-  logs and artifacts can be viewed;
+- `Job/Read` on only the jobs named by `RLUCENE_JOB_NAME` and
+  `RLUCENE_PR_JOB_NAME`, so their builds, console logs and artifacts can be
+  viewed;
 - no build, cancel, configure, workspace, credential or administration grants.
 
 Existing matrix grants are retained. While the option remains enabled, a

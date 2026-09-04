@@ -61,26 +61,31 @@ strategy.add(Jenkins.READ, PermissionEntry.user('anonymous'))
 strategy.add(View.READ, PermissionEntry.user('anonymous'))
 jenkins.setAuthorizationStrategy(strategy)
 
-def jobName = setting('RLUCENE_JOB_NAME', 'rlucene-ci')
-if (!(jobName ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/)) {
-  throw new IllegalArgumentException('RLUCENE_JOB_NAME must be a simple job name')
-}
-def job = jenkins.getItem(jobName)
-if (job == null) {
-  println("RLucene job ${jobName} does not exist; public Item/Read permission was not added")
-} else {
-  def jobAuthorization = job.getProperty(AuthorizationMatrixProperty.class)
-  if (jobAuthorization == null) {
-    def permissions = [(Item.READ): ([PermissionEntry.user('anonymous')] as Set)]
-    job.addProperty(new AuthorizationMatrixProperty(
-      permissions,
-      new org.jenkinsci.plugins.matrixauth.inheritance.InheritParentStrategy()
-    ))
-  } else {
-    jobAuthorization.add(Item.READ, PermissionEntry.user('anonymous'))
+def jobNames = [
+  setting('RLUCENE_JOB_NAME', 'rlucene-ci'),
+  setting('RLUCENE_PR_JOB_NAME', 'rlucene-pr')
+].unique()
+jobNames.each { jobName ->
+  if (!(jobName ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/)) {
+    throw new IllegalArgumentException('RLUCENE job names must be simple job names')
   }
-  job.save()
+  def job = jenkins.getItem(jobName)
+  if (job == null) {
+    println("RLucene job ${jobName} does not exist; public Item/Read permission was not added")
+  } else {
+    def jobAuthorization = job.getProperty(AuthorizationMatrixProperty.class)
+    if (jobAuthorization == null) {
+      def permissions = [(Item.READ): ([PermissionEntry.user('anonymous')] as Set)]
+      job.addProperty(new AuthorizationMatrixProperty(
+        permissions,
+        new org.jenkinsci.plugins.matrixauth.inheritance.InheritParentStrategy()
+      ))
+    } else {
+      jobAuthorization.add(Item.READ, PermissionEntry.user('anonymous'))
+    }
+    job.save()
+  }
 }
 
 jenkins.save()
-println("Enabled anonymous read-only access for Jenkins job ${jobName}")
+println("Enabled anonymous read-only access for Jenkins jobs ${jobNames.join(', ')}")
