@@ -12,6 +12,7 @@ services:
         RUSTUP_UPDATE_ROOT: ${RUSTUP_UPDATE_ROOT:-https://rsproxy.cn/rustup}
         CARGO_REGISTRY: ${CARGO_REGISTRY:-sparse+https://rsproxy.cn/index/}
     image: ${JENKINS_IMAGE:-local-jenkins-rust:2.568.3}
+    container_name: ${JENKINS_CONTAINER_NAME:-jenkins}
     restart: unless-stopped
     cap_add:
       - SYS_PTRACE

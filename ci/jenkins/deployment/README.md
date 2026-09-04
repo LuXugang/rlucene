@@ -83,6 +83,7 @@ the image builder.
 | --- | --- |
 | `COMPOSE_PROJECT_NAME` | Names the stack and its volume; default example is `rlucene-jenkins` |
 | `JENKINS_HTTP_PORT` / `JENKINS_AGENT_PORT` | Host ports; defaults are 8080 / 50000 |
+| `JENKINS_CONTAINER_NAME` | Controller container name; defaults to `jenkins` for existing operational commands |
 | `JAVA_OPTS` | Java controller heap only; reduce it for a smaller development machine |
 | `PLUGINS_FORCE_UPGRADE` | Non-empty tells the official image to replace manually upgraded plugins when the image pins a newer version |
 | `TRY_UPGRADE_IF_NO_MARKER` | Non-empty allows replacing older plugins from installations that have no image-version marker |
