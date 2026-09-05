@@ -49,6 +49,8 @@ services:
       RLUCENE_PR_JOB_NAME: ${RLUCENE_PR_JOB_NAME:-rlucene-pr}
       RLUCENE_PR_JOB_DISABLED: ${RLUCENE_PR_JOB_DISABLED:-true}
       RLUCENE_PR_TRIGGER_USER: ${RLUCENE_PR_TRIGGER_USER:-rlucene-github}
+      RLUCENE_COMMIT_JOB_NAME: ${RLUCENE_COMMIT_JOB_NAME:-rlucene-commit}
+      RLUCENE_COMMIT_JOB_DISABLED: ${RLUCENE_COMMIT_JOB_DISABLED:-true}
     volumes:
       - jenkins_home:/var/jenkins_home
       - pr_agent_bootstrap:/run/rlucene-pr-agent

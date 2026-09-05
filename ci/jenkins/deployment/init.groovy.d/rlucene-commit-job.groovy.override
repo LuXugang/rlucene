@@ -1,0 +1,56 @@
+import hudson.model.ParametersDefinitionProperty
+import hudson.model.StringParameterDefinition
+import hudson.plugins.git.BranchSpec
+import hudson.plugins.git.GitSCM
+import hudson.plugins.git.UserRemoteConfig
+import hudson.plugins.git.extensions.impl.CleanBeforeCheckout
+import hudson.plugins.git.extensions.impl.CloneOption
+import jenkins.model.Jenkins
+import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
+import org.jenkinsci.plugins.workflow.job.WorkflowJob
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty
+
+def setting = { String name, String fallback ->
+  System.getenv(name) ?: fallback
+}
+def jenkins = Jenkins.get()
+def jobName = setting('RLUCENE_COMMIT_JOB_NAME', 'rlucene-commit')
+if (!(jobName ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/)) {
+  throw new IllegalArgumentException('RLUCENE_COMMIT_JOB_NAME must be a simple job name')
+}
+
+// Creation only: never rewrite an existing job, its history, or its credentials.
+if (jenkins.getItem(jobName) != null) {
+  println("Keeping existing Jenkins job ${jobName}")
+  return
+}
+
+def repository = 'git@github.com:Rustify-All/rlucene.git'
+def branch = 'main'
+def credentialsId = 'github-ssh'
+def clean = new CleanBeforeCheckout()
+clean.setDeleteUntrackedNestedRepositories(true)
+def clone = new CloneOption(true, true, '', 10)
+clone.setDepth(1)
+clone.setHonorRefspec(true)
+def scm = new GitSCM(
+  [new UserRemoteConfig(repository, 'origin',
+    "+refs/heads/${branch}:refs/remotes/origin/${branch}", credentialsId)],
+  [new BranchSpec("*/${branch}")],
+  false, [], null, null, [clean, clone]
+)
+def definition = new CpsScmFlowDefinition(scm, 'ci/jenkins/commit/Jenkinsfile')
+definition.setLightweight(true)
+
+def job = jenkins.createProject(WorkflowJob.class, jobName)
+job.setDescription(
+  'Runs cargo test-light for the exact commit from each main branch push.'
+)
+job.setDefinition(definition)
+job.addProperty(new DisableConcurrentBuildsJobProperty())
+job.addProperty(new ParametersDefinitionProperty([
+  new StringParameterDefinition('COMMIT_SHA', '', 'Exact commit SHA from a main branch push')
+]))
+job.setDisabled(setting('RLUCENE_COMMIT_JOB_DISABLED', 'true').toBoolean())
+job.save()
+println("Created Jenkins job ${jobName}")

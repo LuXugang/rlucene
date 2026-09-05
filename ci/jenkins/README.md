@@ -30,6 +30,9 @@ The GitHub Actions run waits for Jenkins. Jenkins `SUCCESS` becomes a green
 GitHub check; any other terminal result or timeout becomes a failed check. The
 Actions summary links to the Jenkins build. A superseding update to the same PR
 cancels the older Actions run and asks Jenkins to stop its obsolete build.
+If the obsolete request is still queued, it cancels the queue item and checks
+whether a build started during that handoff. Different PRs do not cancel each
+other; cancelled build records remain retained.
 Every Jenkins PR build is protected from automatic deletion, including its log
 and archived test output. The normal 200-build history limit applies only to a
 run that fails before the Pipeline can mark it for retention.
@@ -37,6 +40,26 @@ run that fails before the Pipeline can mark it for retention.
 PR code runs only on the exclusive `rlucene-pr` inbound agent. That container
 does not mount Jenkins home or the Docker socket. The existing scheduled
 `rlucene-ci` job remains on the built-in node and is unchanged.
+
+## Main branch test-light job
+
+The `Jenkins main test-light` workflow starts `rlucene-commit` once for each
+push to `Rustify-All/rlucene:main`, including merge, squash and rebase merges
+and direct pushes. It tests the final SHA of that push, not every intermediate
+commit in a multi-commit push. Closing an unmerged PR does not trigger it.
+The workflow is restricted to the upstream repository so pushing the same
+branch to a fork does not create a duplicate Jenkins build.
+
+The Pipeline fetches the requested SHA directly, verifies the checkout, and
+runs `cargo test-light`. Later main updates do not cancel earlier runs or
+change the revision being tested. Each push has its own GitHub check and
+Jenkins build link. The workflow allows 40 minutes to start a build and
+35 minutes for it to finish; queue or build timeouts fail the GitHub check.
+
+`rlucene-commit` shares the existing single-executor `rlucene-pr` agent with
+PR testing. Each job has a separate workspace and Cargo target cache; their
+tests run serially on that agent. All commit builds are retained, with no
+age or count limit. The scheduled `rlucene-ci` release job remains separate.
 
 ## Jenkins prerequisites
 

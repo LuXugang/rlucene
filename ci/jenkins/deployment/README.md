@@ -81,6 +81,21 @@ SCM and PR checkout both use the Jenkins SSH credential ID `github-ssh`. Create
 that credential before enabling the PR job. The private key is supplied only to
 Git checkout and is not stored in the agent image or Compose configuration.
 
+## Enable testing after main updates
+
+The `rlucene-commit-job.groovy.override` hook creates `rlucene-commit` from
+`ci/jenkins/commit/Jenkinsfile`. Set `RLUCENE_COMMIT_JOB_DISABLED=false` before
+its first startup, or enable the existing job in Jenkins. It uses the same
+`github-ssh` checkout credential and isolated agent as `rlucene-pr`.
+
+The existing `rlucene-github` service account receives read/build/cancel
+permission on both jobs. The main workflow reuses the `JENKINS_PR_USER` and
+`JENKINS_PR_API_TOKEN` secrets; no additional secret is needed. Build deletion
+and configuration permissions are not granted. Rebuild and recreate the
+controller to install the new job and permissions before pushing the workflow
+to upstream main. Once installed, each main push automatically tests its final
+commit SHA and returns the result as a GitHub check.
+
 ## What is reproduced
 
 | Component | Source |
@@ -169,7 +184,7 @@ The resulting anonymous access is deliberately narrow:
 
 - global `Overall/Read` and `View/Read`, so Jenkins pages and views can open;
 - `Job/Read` on only the jobs named by `RLUCENE_JOB_NAME` and
-  `RLUCENE_PR_JOB_NAME`, so their builds, console logs and artifacts can be
+  `RLUCENE_PR_JOB_NAME`, and `RLUCENE_COMMIT_JOB_NAME`, so their builds, console logs and artifacts can be
   viewed;
 - no build, cancel, configure, workspace, credential or administration grants.
 

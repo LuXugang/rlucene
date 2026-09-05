@@ -1,62 +1,25 @@
-name: Jenkins PR test-light
+name: Jenkins main test-light
 
 on:
-  pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
-concurrency:
-  group: jenkins-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
+# Keep one run per push: a newer main update must not cancel an older test.
 jobs:
   test-light:
-    if: github.event.pull_request.draft == false
+    if: github.repository == 'Rustify-All/rlucene' && github.event.deleted == false
     runs-on: ubuntu-latest
     timeout-minutes: 80
     steps:
-      - name: Check repository permission
-        id: permission
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          response="$(curl --fail-with-body --silent --show-error \
-            --header "Accept: application/vnd.github+json" \
-            --header "Authorization: Bearer ${GH_TOKEN}" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/collaborators/${PR_AUTHOR}/permission")"
-          permission="$(jq -er '.permission' <<<"${response}")"
-
-          case "${permission}" in
-            admin|write)
-              echo "allowed=true" >> "${GITHUB_OUTPUT}"
-              echo "permission=${permission}" >> "${GITHUB_OUTPUT}"
-              ;;
-            *)
-              echo "allowed=false" >> "${GITHUB_OUTPUT}"
-              echo "PR author ${PR_AUTHOR} has ${permission} permission; Jenkins was not started."
-              ;;
-          esac
-
-      - name: Skip untrusted PR
-        if: steps.permission.outputs.allowed != 'true'
-        run: echo "Only repository members with write or admin permission run cargo test-light."
-
       - name: Run cargo test-light in Jenkins
-        if: steps.permission.outputs.allowed == 'true'
         env:
           JENKINS_URL: https://jenkins.amazingkoala.com.cn
           JENKINS_USER: ${{ secrets.JENKINS_PR_USER }}
           JENKINS_TOKEN: ${{ secrets.JENKINS_PR_API_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
-          PR_PERMISSION: ${{ steps.permission.outputs.permission }}
+          COMMIT_SHA: ${{ github.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -67,28 +30,10 @@ jobs:
 
           work_dir="$(mktemp -d)"
           build_url=""
-          queue_url=""
           build_finished=false
           cleanup() {
-            # A superseded PR can still be queued, or start while cancellation
-            # is being processed. Check both sides of the queue-to-build handoff.
-            if [[ -n "${queue_url}" && -z "${build_url}" ]]; then
-              queue_id="${queue_url%/}"
-              queue_id="${queue_id##*/}"
-              if [[ "${queue_id}" =~ ^[0-9]+$ ]]; then
-                curl --silent --show-error --max-time 2 \
-                  --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
-                  --request POST --data-urlencode "id=${queue_id}" \
-                  --output /dev/null \
-                  "${JENKINS_URL}/queue/cancelItem" || true
-              fi
-              build_url="$(curl --fail --silent --show-error --max-time 2 \
-                --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
-                "${queue_url}api/json" \
-                | jq -r '.executable.url // empty')" || build_url=""
-            fi
             if [[ -n "${build_url}" && "${build_finished}" != "true" ]]; then
-              curl --silent --show-error --max-time 2 \
+              curl --silent --show-error \
                 --user "${JENKINS_USER}:${JENKINS_TOKEN}" \
                 --request POST \
                 --output /dev/null \
@@ -106,11 +51,8 @@ jobs:
             --dump-header "${headers}" \
             --output /dev/null \
             --write-out '%{http_code}' \
-            --data-urlencode "PR_NUMBER=${PR_NUMBER}" \
-            --data-urlencode "PR_HEAD_SHA=${PR_HEAD_SHA}" \
-            --data-urlencode "PR_AUTHOR=${PR_AUTHOR}" \
-            --data-urlencode "PR_PERMISSION=${PR_PERMISSION}" \
-            "${JENKINS_URL}/job/rlucene-pr/buildWithParameters")"
+            --data-urlencode "COMMIT_SHA=${COMMIT_SHA}" \
+            "${JENKINS_URL}/job/rlucene-commit/buildWithParameters")"
           if [[ "${status}" != "201" ]]; then
             echo "Jenkins rejected the build request with HTTP ${status}." >&2
             exit 1

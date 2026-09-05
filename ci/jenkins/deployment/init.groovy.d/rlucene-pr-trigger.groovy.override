@@ -66,37 +66,42 @@ user.save()
 strategy.add(Jenkins.READ, PermissionEntry.user(triggerUser))
 jenkins.setAuthorizationStrategy(strategy)
 
-def jobName = setting('RLUCENE_PR_JOB_NAME', 'rlucene-pr')
-def job = jenkins.getItem(jobName)
-if (job == null) {
-  throw new IllegalStateException("Jenkins job ${jobName} does not exist")
-}
-def jobAuthorization = job.getProperty(AuthorizationMatrixProperty.class)
-if (jobAuthorization == null) {
-  def permissions = [
-    (Item.READ): ([PermissionEntry.user(triggerUser)] as Set),
-    (Item.BUILD): ([PermissionEntry.user(triggerUser)] as Set),
-    (Item.CANCEL): ([PermissionEntry.user(triggerUser)] as Set)
-  ]
-  job.addProperty(new AuthorizationMatrixProperty(
-    permissions,
-    new org.jenkinsci.plugins.matrixauth.inheritance.InheritParentStrategy()
-  ))
-} else {
-  jobAuthorization.add(Item.READ, PermissionEntry.user(triggerUser))
-  jobAuthorization.add(Item.BUILD, PermissionEntry.user(triggerUser))
-  jobAuthorization.add(Item.CANCEL, PermissionEntry.user(triggerUser))
-  // Remove permissions used by the former per-PR latest-only retention design.
-  [Run.DELETE, Run.UPDATE].each { permission ->
-    def entries = jobAuthorization.getGrantedPermissionEntries().get(permission)
-    if (entries != null) {
-      entries.remove(PermissionEntry.user(triggerUser))
-      if (entries.isEmpty()) {
-        jobAuthorization.getGrantedPermissionEntries().remove(permission)
+def jobNames = [
+  setting('RLUCENE_PR_JOB_NAME', 'rlucene-pr'),
+  setting('RLUCENE_COMMIT_JOB_NAME', 'rlucene-commit')
+].unique()
+jobNames.each { jobName ->
+  def job = jenkins.getItem(jobName)
+  if (job == null) {
+    throw new IllegalStateException("Jenkins job ${jobName} does not exist")
+  }
+  def jobAuthorization = job.getProperty(AuthorizationMatrixProperty.class)
+  if (jobAuthorization == null) {
+    def permissions = [
+      (Item.READ): ([PermissionEntry.user(triggerUser)] as Set),
+      (Item.BUILD): ([PermissionEntry.user(triggerUser)] as Set),
+      (Item.CANCEL): ([PermissionEntry.user(triggerUser)] as Set)
+    ]
+    job.addProperty(new AuthorizationMatrixProperty(
+      permissions,
+      new org.jenkinsci.plugins.matrixauth.inheritance.InheritParentStrategy()
+    ))
+  } else {
+    jobAuthorization.add(Item.READ, PermissionEntry.user(triggerUser))
+    jobAuthorization.add(Item.BUILD, PermissionEntry.user(triggerUser))
+    jobAuthorization.add(Item.CANCEL, PermissionEntry.user(triggerUser))
+    // Remove permissions used by the former per-PR latest-only retention design.
+    [Run.DELETE, Run.UPDATE].each { permission ->
+      def entries = jobAuthorization.getGrantedPermissionEntries().get(permission)
+      if (entries != null) {
+        entries.remove(PermissionEntry.user(triggerUser))
+        if (entries.isEmpty()) {
+          jobAuthorization.getGrantedPermissionEntries().remove(permission)
+        }
       }
     }
   }
+  job.save()
+  println("Configured dedicated trigger access for Jenkins job ${jobName}")
 }
-job.save()
 jenkins.save()
-println("Configured dedicated trigger access for Jenkins job ${jobName}")
