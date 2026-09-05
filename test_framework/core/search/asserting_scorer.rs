@@ -20,6 +20,7 @@ use crate::core::search::scorable::{ChildScorable, FixedScore, Scorable};
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -101,7 +102,7 @@ impl Scorable for AssertingScorer {
       let doc = self.doc_id()?;
       assert!(score <= self.get_max_score(doc)?);
     }
-    assert!(score >= 0.0, "{}", score);
+    assert!(CoreHelper::compare_f32(score, 0.0).is_ge(), "{}", score);
     Ok(score)
   }
 

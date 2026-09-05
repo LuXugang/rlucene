@@ -19,6 +19,7 @@ use crate::core::document::float_range::FloatRange;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_writer::IndexWriter;
 use crate::core::search::query::Query;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::base_range_field_query_test_case::{
   BaseRangeFieldQueryTestCase, Range, RangeBase,
@@ -184,8 +185,8 @@ impl BaseRangeFieldQueryTestCase for TestFloatRangeFieldQueries {
     for d in 0..dimensions {
       let min_v = self.next_float_internal(random);
       let max_v = self.next_float_internal(random);
-      min[d] = min_v.min(max_v);
-      max[d] = min_v.max(max_v);
+      min[d] = CoreHelper::min_f32(min_v, max_v);
+      max[d] = CoreHelper::max_f32(min_v, max_v);
     }
     Ok(FloatTestRange::new(min, max))
   }
@@ -271,7 +272,8 @@ impl Range for FloatTestRange {
   }
 
   fn is_equal(&self, other: &Self) -> bool {
-    self.min == other.min && self.max == other.max
+    CoreHelper::array_equals_f32(&self.min, &other.min)
+      && CoreHelper::array_equals_f32(&self.max, &other.max)
   }
 
   fn is_disjoint(&self, other: &Self) -> bool {

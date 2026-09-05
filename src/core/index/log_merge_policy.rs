@@ -521,7 +521,7 @@ where
     let level_floor: f32 = if self.min_merge_size <= 0 {
       0.0
     } else {
-      ((self.min_merge_size as f64).ln() as f32) / norm
+      ((self.min_merge_size as f64).ln() / norm as f64) as f32
     };
 
     // Now, we quantize the log values into levels.  The

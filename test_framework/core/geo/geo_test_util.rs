@@ -20,9 +20,9 @@ use crate::core::geo::line::Line;
 use crate::core::geo::point::Point;
 use crate::core::geo::polygon::Polygon;
 use crate::core::geo::rectangle::Rectangle;
-use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::numeric_utils::NumericUtils;
+use crate::core::util::{CoreHelper, SloppyMath};
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 
@@ -116,12 +116,12 @@ impl GeoTestUtil {
       Ok(GeoTestUtil::next_double_internal(
         random,
         other_latitude,
-        f64::min(90.0, other_latitude + delta),
+        CoreHelper::min_f64(90.0, other_latitude + delta),
       ))
     } else {
       Ok(GeoTestUtil::next_double_internal(
         random,
-        f64::max(-90.0, other_latitude - delta),
+        CoreHelper::max_f64(-90.0, other_latitude - delta),
         other_latitude,
       ))
     }
@@ -140,12 +140,12 @@ impl GeoTestUtil {
       Ok(GeoTestUtil::next_double_internal(
         random,
         other_longitude,
-        f64::min(180.0, other_longitude + delta),
+        CoreHelper::min_f64(180.0, other_longitude + delta),
       ))
     } else {
       Ok(GeoTestUtil::next_double_internal(
         random,
-        f64::max(-180.0, other_longitude - delta),
+        CoreHelper::max_f64(-180.0, other_longitude - delta),
         other_longitude,
       ))
     }
@@ -168,8 +168,8 @@ impl GeoTestUtil {
       Ok(GeoTestUtil::next_latitude(random))
     } else {
       let difference = (max_latitude - min_latitude) / 100.0;
-      let lower = f64::max(-90.0, min_latitude - difference);
-      let upper = f64::min(90.0, max_latitude + difference);
+      let lower = CoreHelper::max_f64(-90.0, min_latitude - difference);
+      let upper = CoreHelper::min_f64(90.0, max_latitude + difference);
       Ok(GeoTestUtil::next_double_internal(random, lower, upper))
     }
   }
@@ -191,8 +191,8 @@ impl GeoTestUtil {
       Ok(GeoTestUtil::next_longitude(random))
     } else {
       let difference = (max_longitude - min_longitude) / 100.0;
-      let lower = f64::max(-180.0, min_longitude - difference);
-      let upper = f64::min(180.0, max_longitude + difference);
+      let lower = CoreHelper::max_f64(-180.0, min_longitude - difference);
+      let upper = CoreHelper::min_f64(180.0, max_longitude + difference);
       Ok(GeoTestUtil::next_double_internal(random, lower, upper))
     }
   }
@@ -211,10 +211,10 @@ impl GeoTestUtil {
     let x2 = lon2;
     let y1 = lat1;
     let y2 = lat2;
-    let min_x = f64::min(x1, x2);
-    let max_x = f64::max(x1, x2);
-    let min_y = f64::min(y1, y2);
-    let max_y = f64::max(y1, y2);
+    let min_x = CoreHelper::min_f64(x1, x2);
+    let max_x = CoreHelper::max_f64(x1, x2);
+    let min_y = CoreHelper::min_f64(y1, y2);
+    let max_y = CoreHelper::max_f64(y1, y2);
 
     if min_x == max_x {
       Ok([
@@ -233,8 +233,8 @@ impl GeoTestUtil {
         y = 90.0f64.copysign(x1);
       }
       let delta = (max_y - min_y) * 0.01;
-      y = f64::min(90.0, y);
-      y = f64::max(-90.0, y);
+      y = CoreHelper::min_f64(90.0, y);
+      y = CoreHelper::max_f64(-90.0, y);
       Ok([Self::next_latitude_near(random, y, delta)?, x])
     }
   }
@@ -368,10 +368,10 @@ impl GeoTestUtil {
       ];
     }
 
-    let min_lat = point1[0].min(point2[0]);
-    let max_lat = point1[0].max(point2[0]);
-    let min_lon = point1[1].min(point2[1]);
-    let max_lon = point1[1].max(point2[1]);
+    let min_lat = CoreHelper::min_f64(point1[0], point2[0]);
+    let max_lat = CoreHelper::max_f64(point1[0], point2[0]);
+    let min_lon = CoreHelper::min_f64(point1[1], point2[1]);
+    let max_lon = CoreHelper::max_f64(point1[1], point2[1]);
     Rectangle::new(min_lat, max_lat, min_lon, max_lon)
   }
   /// returns next pseudorandom box: can cross the 180th meridian
@@ -589,7 +589,8 @@ impl GeoTestUtil {
         let lon = center_lon + len * angle.to_radians().sin();
         if lon <= GeoUtils::MIN_LON_INCL
           || lon >= GeoUtils::MAX_LON_INCL
-          || !(-90.0..=90.0).contains(&lat)
+          || lat > 90.0
+          || lat < -90.0
         {
           continue 'new_poly;
         }

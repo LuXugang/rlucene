@@ -28,7 +28,9 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{MissingValueEnum, SortField, SortFieldType, SortFiledBase};
 use crate::core::search::sort_field_enum::SortFieldEnum;
 use crate::core::search::top_docs::TopDocsLike;
+use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::CloseableRef;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::sloppy_math::SloppyMath;
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
@@ -189,7 +191,8 @@ struct ResultItem {
 
 impl PartialEq for ResultItem {
   fn eq(&self, other: &Self) -> bool {
-    self.id == other.id && self.distance.to_bits() == other.distance.to_bits()
+    self.id == other.id
+      && BitUtil::double_to_long_bits(self.distance) == BitUtil::double_to_long_bits(other.distance)
   }
 }
 
@@ -203,7 +206,7 @@ impl PartialOrd for ResultItem {
 
 impl Ord for ResultItem {
   fn cmp(&self, other: &Self) -> Ordering {
-    match self.distance.total_cmp(&other.distance) {
+    match CoreHelper::compare_f64(self.distance, other.distance) {
       Ordering::Equal => self.id.cmp(&other.id),
       cmp => cmp,
     }
@@ -212,7 +215,7 @@ impl Ord for ResultItem {
 
 impl Hash for ResultItem {
   fn hash<H: Hasher>(&self, state: &mut H) {
-    self.distance.to_bits().hash(state);
+    BitUtil::double_to_long_bits(self.distance).hash(state);
     self.id.hash(state);
   }
 }

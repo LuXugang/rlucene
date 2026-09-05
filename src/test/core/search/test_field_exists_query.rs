@@ -20,7 +20,6 @@ use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
 };
-use std::cmp::Ordering;
 
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
 
@@ -58,6 +57,7 @@ use crate::core::search::constant_score_query::ConstantScoreQuery;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -1171,10 +1171,15 @@ where
 
     assert_eq!(sd1.doc(), sd2.doc());
 
-    if sd1.score().total_cmp(&sd2.score()) != Ordering::Equal {
-      let diff = (sd1.score() - sd2.score()).abs();
-      assert!(diff <= 1e-7, "score diff={} idx={}", diff, i);
-    }
+    let score1 = sd1.score();
+    let score2 = sd2.score();
+    assert!(
+      CoreHelper::compare_f32(score1, score2).is_eq()
+        || (score1 as f64 - score2 as f64).abs() <= 10e-7,
+      "score diff={} idx={}",
+      (score1 as f64 - score2 as f64).abs(),
+      i
+    );
   }
 
   Ok(())

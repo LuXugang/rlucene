@@ -47,6 +47,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::packed::PackedInts;
+use crate::test_framework::array_equals_f32;
 use crate::test_framework::core::util::test_util::TestUtil;
 
 pub const EXTRA_FILE_NAME: &str = "extra0";
@@ -477,7 +478,7 @@ pub trait BaseDirectoryTestCase {
       assert_eq!(12, IndexInput::length(&input)?);
       let mut floats = vec![0.0f32; 4];
       input.read_floats(&mut floats, 1, 3)?;
-      assert_eq!(vec![0.0, 3.0, f32::MAX, -3.0], floats);
+      assert!(array_equals_f32(&[0.0, 3.0, f32::MAX, -3.0], &floats, 0.0));
       assert_eq!(12, input.get_file_pointer()?);
       CloseableRef::close(&input)?;
     }
@@ -513,7 +514,7 @@ pub trait BaseDirectoryTestCase {
 
     let mut ff = vec![0f32; 4];
     input.read_floats(&mut ff, 1, 3)?;
-    assert_eq!(ff, vec![0.0, 3.0, f32::MAX, -3.0]);
+    assert!(array_equals_f32(&[0.0, 3.0, f32::MAX, -3.0], &ff, 0.0));
     assert_eq!(12 + padding, input.get_file_pointer()?);
     CloseableRef::close(&input)?;
 

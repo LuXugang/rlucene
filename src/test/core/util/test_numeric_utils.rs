@@ -21,12 +21,13 @@ use std::cmp::Ordering;
 use std::ops::{Add, Sub};
 
 use num_bigint::{BigInt, Sign};
-use num_traits::{Float, FromPrimitive};
+use num_traits::FromPrimitive;
 use rand::{Rng, RngExt};
 
 use crate::core::index::BytesRef;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::bit_util::BitUtil;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::numeric_utils::NumericUtils;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -741,7 +742,7 @@ fn test_longs_compare() -> Result<()> {
   Ok(())
 }
 /// Checks that the sort order of encoded `f32` values is consistent with
-/// `f32::total_cmp`.
+/// Java `Float.compare`.
 ///
 /// This test ensures that when two random `f32` values are encoded using
 /// `NumericUtils::float_to_sortable_int`, the lexicographic comparison of
@@ -753,8 +754,8 @@ fn test_floats_compare() -> Result<()> {
   let mut left = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
   let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::FLOAT_BYTES]);
   for _ in 0..10_000 {
-    let left_value = to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
-    let right_value = to_positive_nan::<f32>(f32::from_bits(random.random::<u32>()));
+    let left_value = f32::from_bits(random.random::<u32>());
+    let right_value = f32::from_bits(random.random::<u32>());
     NumericUtils::int_to_sortable_bytes(
       NumericUtils::float_to_sortable_int(left_value),
       left.bytes.as_mut_slice(),
@@ -765,7 +766,7 @@ fn test_floats_compare() -> Result<()> {
       right.bytes.as_mut_slice(),
       right.offset,
     );
-    let expected_order = left_value.total_cmp(&right_value);
+    let expected_order = CoreHelper::compare_f32(left_value, right_value);
     let actual_order = left.cmp(&right);
     assert_eq!(
       expected_order, actual_order,
@@ -777,7 +778,7 @@ fn test_floats_compare() -> Result<()> {
   Ok(())
 }
 /// Checks that the sort order of encoded `f64` values is consistent with
-/// `f64::total_cmp`.
+/// Java `Double.compare`.
 ///
 /// This test ensures that when two random `f64` values are encoded using
 /// `NumericUtils::double_to_sortable_long`, the lexicographic comparison of
@@ -790,14 +791,8 @@ fn test_doubles_compare() -> Result<()> {
   let mut right = BytesRef::from_bytes(vec![0u8; BitUtil::DOUBLE_BYTES]);
 
   for _ in 0..10_000 {
-    let left_value =
-      to_positive_nan::<f64>(f64::from_bits(
-        TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64,
-      ));
-    let right_value =
-      to_positive_nan::<f64>(f64::from_bits(
-        TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64,
-      ));
+    let left_value = f64::from_bits(TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64);
+    let right_value = f64::from_bits(TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64);
     NumericUtils::long_to_sortable_bytes(
       NumericUtils::double_to_sortable_long(left_value),
       &mut left.bytes,
@@ -808,7 +803,7 @@ fn test_doubles_compare() -> Result<()> {
       &mut right.bytes,
       right.offset,
     );
-    let expected_sign = left_value.total_cmp(&right_value) as i32;
+    let expected_sign = CoreHelper::compare_f64(left_value, right_value) as i32;
     let actual_sign = left.cmp(&right) as i32;
 
     // Assert that the numerical comparison matches the lexicographic
@@ -846,11 +841,4 @@ fn test_big_ints_compare() -> Result<()> {
   }
 
   Ok(())
-}
-
-fn to_positive_nan<T>(value: T) -> T
-where
-  T: Float,
-{
-  if value.is_nan() { Float::nan() } else { value }
 }

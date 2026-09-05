@@ -330,8 +330,8 @@ impl ScalarQuantizer {
       // `SCRATCH_SIZE` vectors, mainly because if we are sampling so few vectors then we don't
       // want to be adversely affected by the extreme confidence intervals over small sample sizes
       return Self::new(
-        (lower_sum[0] / count as f64) as f32,
-        (upper_sum[0] / count as f64) as f32,
+        (lower_sum[0] as f32) / count as f32,
+        (upper_sum[0] as f32) / count as f32,
         bits,
       );
     }
@@ -363,8 +363,8 @@ impl ScalarQuantizer {
       }
     }
     Self::new(
-      (lower_sum[0] / count as f64) as f32,
-      (upper_sum[0] / count as f64) as f32,
+      (lower_sum[0] as f32) / count as f32,
+      (upper_sum[0] as f32) / count as f32,
       bits,
     )
   }
@@ -456,10 +456,10 @@ impl ScalarQuantizer {
     }
 
     // Here we gather the upper and lower bounds for the quantile grid search
-    let al = (lower_sum[1] / count as f64) as f32;
-    let bu = (upper_sum[1] / count as f64) as f32;
-    let au = (lower_sum[0] / count as f64) as f32;
-    let bl = (upper_sum[0] / count as f64) as f32;
+    let al = (lower_sum[1] as f32) / count as f32;
+    let bu = (upper_sum[1] as f32) / count as f32;
+    let au = (lower_sum[0] as f32) / count as f32;
+    let bl = (upper_sum[0] as f32) / count as f32;
     if al.is_nan()
       || al.is_infinite()
       || au.is_nan()

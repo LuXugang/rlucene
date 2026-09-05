@@ -28,9 +28,9 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::{DefaultScorerSupplier, Weight};
-use crate::core::util::HasIdentity;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{CoreHelper, HasIdentity};
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -304,7 +304,7 @@ impl Scorer for BlockScoreScorer {
       if self.docs[j] > upto {
         break;
       }
-      max_score = max_score.max(self.scores[j]);
+      max_score = CoreHelper::max_f32(max_score, self.scores[j]);
       if j == self.docs.len() - 1 {
         break;
       }

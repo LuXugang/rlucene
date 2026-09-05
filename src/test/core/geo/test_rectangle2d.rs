@@ -18,6 +18,7 @@ use crate::core::geo::component2d::{Component2D, WithinRelation};
 use crate::core::geo::rectangle2d::create_from_xy_rectangle;
 use crate::core::geo::xy_rectangle::XYRectangle;
 use crate::core::index::point_values::Relation::{CellInsideQuery, CellOutsideQuery};
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -112,10 +113,10 @@ fn test_random_triangles() -> Result<()> {
     let cx = ShapeTestUtil::next_float(&mut rng) as f64;
     let cy = ShapeTestUtil::next_float(&mut rng) as f64;
 
-    let t_min_x = ax.min(bx).min(cx);
-    let t_max_x = ax.max(bx).max(cx);
-    let t_min_y = ay.min(by).min(cy);
-    let t_max_y = ay.max(by).max(cy);
+    let t_min_x = CoreHelper::min_f64(CoreHelper::min_f64(ax, bx), cx);
+    let t_max_x = CoreHelper::max_f64(CoreHelper::max_f64(ax, bx), cx);
+    let t_min_y = CoreHelper::min_f64(CoreHelper::min_f64(ay, by), cy);
+    let t_max_y = CoreHelper::max_f64(CoreHelper::max_f64(ay, by), cy);
 
     let r = rectangle_2d.relate(t_min_x, t_max_x, t_min_y, t_max_y)?;
     if r == CellOutsideQuery {
@@ -158,10 +159,10 @@ fn test_equals_and_hash_code() -> Result<()> {
   let other_xy_rectangle = ShapeTestUtil::next_box(&mut rng)?;
   let other_rectangle_2d = create_from_xy_rectangle(&other_xy_rectangle);
 
-  if rectangle_2d.get_min_x().to_bits() != other_rectangle_2d.get_min_x().to_bits()
-    || rectangle_2d.get_max_x().to_bits() != other_rectangle_2d.get_max_x().to_bits()
-    || rectangle_2d.get_min_y().to_bits() != other_rectangle_2d.get_min_y().to_bits()
-    || rectangle_2d.get_max_y().to_bits() != other_rectangle_2d.get_max_y().to_bits()
+  if !CoreHelper::compare_f64(rectangle_2d.get_min_x(), other_rectangle_2d.get_min_x()).is_eq()
+    || !CoreHelper::compare_f64(rectangle_2d.get_max_x(), other_rectangle_2d.get_max_x()).is_eq()
+    || !CoreHelper::compare_f64(rectangle_2d.get_min_y(), other_rectangle_2d.get_min_y()).is_eq()
+    || !CoreHelper::compare_f64(rectangle_2d.get_max_y(), other_rectangle_2d.get_max_y()).is_eq()
   {
     assert_ne!(rectangle_2d, other_rectangle_2d);
 

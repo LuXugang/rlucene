@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::xy_polygon::XYPolygon;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -129,8 +130,8 @@ fn test_equals_and_hash_code() -> Result<()> {
   assert_eq!(hash1, h2.finish());
 
   let other_polygon = ShapeTestUtil::next_polygon(&mut rng)?;
-  let same = polygon.get_poly_x() == other_polygon.get_poly_x()
-    && polygon.get_poly_y() == other_polygon.get_poly_y()
+  let same = CoreHelper::array_equals_f32(polygon.get_poly_x(), other_polygon.get_poly_x())
+    && CoreHelper::array_equals_f32(polygon.get_poly_y(), other_polygon.get_poly_y())
     && polygon.get_holes() == other_polygon.get_holes();
 
   let mut h3 = DefaultHasher::new();

@@ -71,6 +71,7 @@ use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::store::{
   ByteBuffersDirectory, IO_CONTEXT_DEFAULT, IO_CONTEXT_READ_ONCE, IOContext,
 };
+use crate::core::util::CoreHelper;
 use crate::core::util::SliceCopyOps;
 use crate::core::util::access::SharedAccessVec;
 use crate::core::util::close::CloseableRef;
@@ -338,7 +339,7 @@ where
   R: Rng + ?Sized,
 {
   let mut p = if is_night_mode() { 5 } else { 1 };
-  p += (p as f64 * (random_multiplier() as f64).ln()).round() as i32;
+  p = (p as f64 + p as f64 * (random_multiplier() as f64).ln()) as i32;
   let min = 100 - p.min(20); // Never more than 20% chance
   random.random_range(0..100) >= min
 }
@@ -1453,7 +1454,8 @@ where
     }
 
     let no_cfs_ratio = mp.get_base().get_no_cfs_ratio();
-    mp.get_base_mut().set_no_cfs_ratio(no_cfs_ratio.max(0.25))?;
+    mp.get_base_mut()
+      .set_no_cfs_ratio(CoreHelper::max_f64(no_cfs_ratio, 0.25))?;
   }
   Ok(())
 }

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::xy_circle::XYCircle;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -112,9 +113,9 @@ fn test_equals_and_hash_code() -> Result<()> {
   other_circle.hash(&mut h3);
   let hash3 = h3.finish();
 
-  if circle.get_x() != other_circle.get_x()
-    || circle.get_y() != other_circle.get_y()
-    || circle.get_radius() != other_circle.get_radius()
+  if !CoreHelper::compare_f32(circle.get_x(), other_circle.get_x()).is_eq()
+    || !CoreHelper::compare_f32(circle.get_y(), other_circle.get_y()).is_eq()
+    || !CoreHelper::compare_f32(circle.get_radius(), other_circle.get_radius()).is_eq()
   {
     assert_ne!(circle, other_circle);
     assert_ne!(h1.finish(), hash3);

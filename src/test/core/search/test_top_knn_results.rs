@@ -18,6 +18,7 @@
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::top_knn_collector::TopKnnCollector;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::array_equals_f32;
 
 #[allow(dead_code)] // for quick search
 struct TestTopKnnResults;
@@ -36,13 +37,10 @@ fn test_collect_and_provide_results() -> Result<()> {
   let sorted_scores: Vec<f32> = top_docs.score_docs.iter().map(|doc| doc.score).collect();
 
   assert_eq!(sorted_nodes, vec![2, 7, 8, 10, 4]);
-  assert!(
-    sorted_scores
-      .iter()
-      .zip([4.0, 2.0, 2.0, 1.2, 1.0].iter())
-      .all(|(a, b)| (a - b).abs() < f32::EPSILON),
-    "Scores do not match: {:?} vs expected",
-    sorted_scores
-  );
+  assert!(array_equals_f32(
+    &[4.0, 2.0, 2.0, 1.2, 1.0],
+    &sorted_scores,
+    0.0
+  ));
   Ok(())
 }

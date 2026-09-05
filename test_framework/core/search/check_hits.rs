@@ -52,12 +52,13 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::weight::Weight;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::util::bits::{Bits, MatchNoBits};
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::version::LATEST;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::lucene_test_case::rarely;
-use crate::test_framework::ulp_f32;
+use crate::test_framework::{f64_equals, ulp_f32};
 use rand::Rng;
 use rand::RngExt;
 use regex::Regex;
@@ -67,6 +68,10 @@ use std::sync::{Arc, LazyLock};
 
 pub struct CheckHits;
 impl CheckHits {
+  fn assert_equals_f32(expected: f32, actual: f32, delta: f64) -> bool {
+    f64_equals(expected as f64, actual as f64, delta)
+  }
+
   /// Tests that all documents up to `maxDoc` which are *not* in the expected result set, have an
   /// explanation which indicates that the document does not match.
   pub fn check_no_match_explanations<IRC>(
@@ -287,7 +292,7 @@ impl CheckHits {
     let value = expl.get_value().to_f32().ok_or_else(|| {
       LuceneError::illegal_argument(format!("cannot convert to f32: {}", expl.get_value()))
     })?;
-    if value != score {
+    if !Self::assert_equals_f32(score, value, 0.0) {
       unreachable!(
         "{}: score(doc={})={} != explanationScore={} Explanation: {}",
         q, doc, score, value, expl
@@ -368,9 +373,7 @@ impl CheckHits {
 
         product *= dval;
         sum += dval as f64;
-        if dval > max {
-          max = dval;
-        }
+        max = CoreHelper::max_f32(max, dval);
 
         if sum_of {
           max_error += ulp_f32(dval) as f64 * 2.0;
@@ -390,8 +393,7 @@ impl CheckHits {
         value
       };
 
-      let diff = (combined as f64 - value as f64).abs();
-      if diff > max_error {
+      if !Self::assert_equals_f32(combined, value, max_error) {
         unreachable!(
           "{}: actual subDetails combined=={} != value={} Explanation: {}",
           q, combined, value, expl

@@ -47,8 +47,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::{DefaultBulkScorer, DefaultScorerSupplier, Weight};
+use crate::core::util::CoreHelper;
 use crate::core::util::HasIdentity;
-use crate::core::util::ToInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::bits::Bits;
@@ -935,9 +935,7 @@ impl RandomQuery {
 
 impl PartialEq for RandomQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.seed == other.seed
-      && self.density.to_bits() == other.density.to_bits()
-      && Arc::ptr_eq(&self.doc_values, &other.doc_values)
+    self.seed == other.seed && Arc::ptr_eq(&self.doc_values, &other.doc_values)
   }
 }
 
@@ -949,7 +947,8 @@ impl Hash for RandomQuery {
     H: Hasher,
   {
     self.seed.hash(state);
-    self.density.to_bits().hash(state);
+    // Java's equals ignores density even though its hashCode includes it. Keep the equality
+    // behavior while preserving Rust's Eq/Hash contract.
     Arc::as_ptr(&self.doc_values).hash(state);
   }
 }
@@ -1801,7 +1800,7 @@ impl Hash for MaxScoreWrapperQuery {
   {
     self.query.hash(state);
     self.max_range.hash(state);
-    self.max_score.to_bits().hash(state);
+    CoreHelper::hash_bits_f32_for_primitive_eq(self.max_score).hash(state);
   }
 }
 
@@ -1809,9 +1808,12 @@ impl Eq for MaxScoreWrapperQuery {}
 
 impl PartialEq for MaxScoreWrapperQuery {
   fn eq(&self, other: &Self) -> bool {
-    self.query == other.query
-      && self.max_range == other.max_range
-      && self.max_score.total_cmp(&other.max_score).to_int() == 0
+    // Java compares maxScore with primitive `==`. The identity case keeps Rust `Eq` reflexive
+    // when maxScore is NaN.
+    std::ptr::eq(self, other)
+      || (self.query == other.query
+        && self.max_range == other.max_range
+        && self.max_score == other.max_score)
   }
 }
 

@@ -26,6 +26,7 @@ use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorer;
 
 #[allow(dead_code)] // for quick search
 struct TestNeighborArray;
+
 #[test]
 fn test_scores_desc_order() -> Result<()> {
   let mut neighbors = NeighborArray::new(10, true);
@@ -350,6 +351,7 @@ impl RandomVectorScorer for TestRandomVectorScorer {
     dummy_unreachable!()
   }
 }
+
 #[derive(Default)]
 struct TestRandomVectorScorer1;
 impl RandomVectorScorer for TestRandomVectorScorer1 {

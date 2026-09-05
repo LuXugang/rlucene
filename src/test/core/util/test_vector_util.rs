@@ -24,6 +24,7 @@ use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
 use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use crate::test_framework::core::util::test_util::TestUtil;
 use crate::test_framework::core::util::test_vector_util::random_vector_dim;
+use crate::test_framework::f32_equals;
 use rand::{Rng, RngExt};
 
 const DELTA: f32 = 1e-4;
@@ -460,7 +461,7 @@ fn bytes(values: &[i8]) -> Vec<u8> {
 
 fn assert_approx_eq(expected: f32, actual: f32, delta: f32) {
   assert!(
-    (expected - actual).abs() <= delta,
+    f32_equals(expected, actual, delta),
     "expected {expected}, got {actual}, delta {delta}"
   );
 }

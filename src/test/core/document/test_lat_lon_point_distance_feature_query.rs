@@ -147,11 +147,11 @@ fn test_basics() -> Result<()> {
     &[
       ScoreDoc::new(
         1,
-        3f32 * (pivot_distance / (pivot_distance + distance1)) as f32,
+        (3.0 * (pivot_distance / (pivot_distance + distance1))) as f32,
       ),
       ScoreDoc::new(
         2,
-        3f32 * (pivot_distance / (pivot_distance + distance2)) as f32,
+        (3.0 * (pivot_distance / (pivot_distance + distance2))) as f32,
       ),
     ],
     top_hits.score_docs(),
@@ -181,11 +181,11 @@ fn test_basics() -> Result<()> {
     &[
       ScoreDoc::new(
         1,
-        3f32 * (pivot_distance / (pivot_distance + distance1)) as f32,
+        (3.0 * (pivot_distance / (pivot_distance + distance1))) as f32,
       ),
       ScoreDoc::new(
         2,
-        3f32 * (pivot_distance / (pivot_distance + distance2)) as f32,
+        (3.0 * (pivot_distance / (pivot_distance + distance2))) as f32,
       ),
     ],
     top_hits.score_docs(),
@@ -270,11 +270,11 @@ fn test_crosses_date_line() -> Result<()> {
     &[
       ScoreDoc::new(
         0,
-        3f32 * ((pivot_distance / (pivot_distance + distance1)) as f32),
+        (3.0 * (pivot_distance / (pivot_distance + distance1))) as f32,
       ),
       ScoreDoc::new(
         1,
-        3f32 * ((pivot_distance / (pivot_distance + distance2)) as f32),
+        (3.0 * (pivot_distance / (pivot_distance + distance2))) as f32,
       ),
     ],
     top_hits.score_docs(),
@@ -348,8 +348,8 @@ fn test_missing_value() -> Result<()> {
   CheckHits::check_equal(
     &q,
     &[
-      ScoreDoc::new(2, 3f32 * ((5.0 / (5.0 + distance1)) as f32)),
-      ScoreDoc::new(0, 3f32 * ((5.0 / (5.0 + distance2)) as f32)),
+      ScoreDoc::new(2, (3.0 * (5.0 / (5.0 + distance1))) as f32),
+      ScoreDoc::new(0, (3.0 * (5.0 / (5.0 + distance2))) as f32),
     ],
     top_hits.score_docs(),
   )?;
@@ -430,8 +430,8 @@ fn test_multi_valued() -> Result<()> {
   CheckHits::check_equal(
     &q,
     &[
-      ScoreDoc::new(0, 3f32 * ((200.0 / (200.0 + distance1)) as f32)),
-      ScoreDoc::new(3, 3f32 * ((200.0 / (200.0 + distance2)) as f32)),
+      ScoreDoc::new(0, (3.0 * (200.0 / (200.0 + distance1))) as f32),
+      ScoreDoc::new(3, (3.0 * (200.0 / (200.0 + distance2))) as f32),
     ],
     top_hits.score_docs(),
   )?;
@@ -458,8 +458,8 @@ fn test_multi_valued() -> Result<()> {
   CheckHits::check_equal(
     &q,
     &[
-      ScoreDoc::new(1, 3f32 * ((10000.0 / (10000.0 + distance1)) as f32)),
-      ScoreDoc::new(4, 3f32 * ((10000.0 / (10000.0 + distance2)) as f32)),
+      ScoreDoc::new(1, (3.0 * (10000.0 / (10000.0 + distance1))) as f32),
+      ScoreDoc::new(4, (3.0 * (10000.0 / (10000.0 + distance2))) as f32),
     ],
     top_hits.score_docs(),
   )?;

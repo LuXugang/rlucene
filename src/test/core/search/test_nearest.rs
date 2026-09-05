@@ -37,8 +37,8 @@ use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::store::directory::Directory;
-use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{CoreHelper, SloppyMath};
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
@@ -315,10 +315,10 @@ fn test_nearest_neighbor_random() -> Result<()> {
     }
 
     expected_hits.sort_by(|a, b| {
-      let cmp = a.fields[0]
-        .as_f64()
-        .unwrap()
-        .total_cmp(b.fields[0].as_f64().unwrap());
+      let cmp = CoreHelper::compare_f64(
+        *a.fields[0].as_f64().unwrap(),
+        *b.fields[0].as_f64().unwrap(),
+      );
       if cmp != Ordering::Equal {
         return cmp;
       }

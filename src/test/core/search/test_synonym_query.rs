@@ -40,6 +40,7 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorManager;
 use crate::core::search::total_hits::Relation;
 use crate::core::util::close::CloseableRef;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::check_hits::CheckHits;
@@ -517,12 +518,12 @@ fn test_random_top_docs() -> Result<()> {
       term2 = random.random_range(0..15);
     }
     let boost1 = if random.random_bool(0.5) {
-      random.random::<f32>().max(f32::MIN_POSITIVE)
+      CoreHelper::max_f32(random.random::<f32>(), f32::MIN_POSITIVE)
     } else {
       1.0
     };
     let boost2 = if random.random_bool(0.5) {
-      random.random::<f32>().max(f32::MIN_POSITIVE)
+      CoreHelper::max_f32(random.random::<f32>(), f32::MIN_POSITIVE)
     } else {
       1.0
     };

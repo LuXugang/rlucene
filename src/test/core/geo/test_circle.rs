@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::circle::Circle;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -76,9 +77,9 @@ fn test_equals_and_hash_code() -> Result<()> {
   assert_eq!(h1.finish(), h2.finish());
 
   let other_circle = GeoTestUtil::next_circle(&mut rng)?;
-  if circle.get_lon().to_bits() != other_circle.get_lon().to_bits()
-    || circle.get_lat().to_bits() != other_circle.get_lat().to_bits()
-    || circle.get_radius().to_bits() != other_circle.get_radius().to_bits()
+  if !CoreHelper::compare_f64(circle.get_lon(), other_circle.get_lon()).is_eq()
+    || !CoreHelper::compare_f64(circle.get_lat(), other_circle.get_lat()).is_eq()
+    || !CoreHelper::compare_f64(circle.get_radius(), other_circle.get_radius()).is_eq()
   {
     assert_ne!(circle, other_circle);
 

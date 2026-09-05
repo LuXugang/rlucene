@@ -17,6 +17,7 @@
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::vector_similarity_collector::VectorSimilarityCollector;
 use crate::core::util::error::lucene_error::Result;
+use crate::test_framework::array_equals_f32;
 
 #[allow(dead_code)] // for quick search
 struct TestVectorSimilarityCollector;
@@ -51,14 +52,5 @@ fn test_result_collection() -> Result<()> {
 }
 
 fn assert_eq_approx(actual: &[f32], expected: &[f32], epsilon: f32) {
-  assert_eq!(actual.len(), expected.len(), "length mismatch");
-  for (i, (a, b)) in actual.iter().zip(expected.iter()).enumerate() {
-    assert!(
-      (a - b).abs() <= epsilon,
-      "difference at index {}: actual={}, expected={}",
-      i,
-      a,
-      b
-    );
-  }
+  assert!(array_equals_f32(expected, actual, epsilon));
 }

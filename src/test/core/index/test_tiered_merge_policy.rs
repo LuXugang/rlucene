@@ -41,6 +41,7 @@ use crate::core::util::LATEST;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::base_merge_policy_test_case::{
@@ -226,8 +227,14 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
       );
     }
 
-    allowed_seg_count = allowed_seg_count.max(too_big_count as f64 + tmp.get_segments_per_tier());
-    allowed_seg_count = allowed_seg_count.max(tmp.get_target_search_concurrency() as f64);
+    allowed_seg_count = CoreHelper::max_f64(
+      allowed_seg_count,
+      too_big_count as f64 + tmp.get_segments_per_tier(),
+    );
+    allowed_seg_count = CoreHelper::max_f64(
+      allowed_seg_count,
+      tmp.get_target_search_concurrency() as f64,
+    );
 
     let max_docs_per_segment = tmp.get_max_allowed_docs(infos.total_max_doc()?, total_del_count);
     let mut has_legal_merges = false;
@@ -420,7 +427,7 @@ fn test_partial_merge() -> Result<()> {
 
     w.force_merge(target_count)?;
 
-    let max_segment_size = f64::max(max_merged_segment_mb, floor_segment_mb);
+    let max_segment_size = CoreHelper::max_f64(max_merged_segment_mb, floor_segment_mb);
 
     let max125_pct = (max_segment_size * 1024.0 * 1024.0 * 1.25) as i64;
 
@@ -684,7 +691,8 @@ where
     }
 
     let limit_bytes =
-      (1024.0 * 1024.0 * f64::max(max_mb_per_segment, max_merged_segment_size_mb) * 1.5) as i64;
+      (1024.0 * 1024.0 * CoreHelper::max_f64(max_mb_per_segment, max_merged_segment_size_mb) * 1.5)
+        as i64;
 
     assert!(
       merge_total_size_in_bytes < limit_bytes,

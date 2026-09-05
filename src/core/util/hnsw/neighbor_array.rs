@@ -17,6 +17,7 @@
 use std::fmt;
 
 use crate::core::util::accountable::Accountable;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
 use crate::core::util::hnsw::dummy::dummy_random_vector_scorer::DummyRandomVectorScorer;
@@ -186,7 +187,7 @@ impl NeighborArray {
     let insertion_point = if self.scores_desc_order {
       self.desc_sort_find_rightmost_insertion_point(tmp_score, self.sorted_node_size)
     } else {
-      self.asc_sort_find_rightmost_insertion_point(tmp_score, self.sorted_node_size)?
+      self.asc_sort_find_rightmost_insertion_point(tmp_score, self.sorted_node_size)
     };
 
     // Move [insertion_point..sorted_node_size) one position to the right
@@ -252,33 +253,27 @@ impl NeighborArray {
 
     self.size -= 1;
   }
-  fn asc_sort_find_rightmost_insertion_point(&self, new_score: f32, bound: usize) -> Result<usize> {
-    if new_score.is_nan() || self.scores[..bound].iter().any(|score| score.is_nan()) {
-      return Err(LuceneError::illegal_argument(
-        "HNSW similarity scores must not be NaN",
-      ));
-    }
-
-    // Find the first score that is not less than the new score.  Using
-    // `partial_cmp` here matches Java's ordering for the finite scores that
-    // are valid in an HNSW graph, while the explicit check above propagates
-    // malformed scores instead of panicking.
-    let mut insertion_point = 0;
-    let mut high = bound;
-    while insertion_point < high {
-      let mid = insertion_point + (high - insertion_point) / 2;
-      match self.scores[mid].partial_cmp(&new_score) {
-        Some(std::cmp::Ordering::Less) => insertion_point = mid + 1,
-        Some(std::cmp::Ordering::Equal | std::cmp::Ordering::Greater) => high = mid,
-        None => {
-          return Err(LuceneError::illegal_argument(
-            "HNSW similarity scores must not be NaN",
-          ));
+  fn asc_sort_find_rightmost_insertion_point(&self, new_score: f32, bound: usize) -> usize {
+    let mut low = 0;
+    let mut high = bound as isize - 1;
+    let mut insertion_point = None;
+    while low as isize <= high {
+      let mid = (low + high as usize) / 2;
+      match CoreHelper::compare_f32(self.scores[mid], new_score) {
+        std::cmp::Ordering::Less => low = mid + 1,
+        std::cmp::Ordering::Greater => high = mid as isize - 1,
+        std::cmp::Ordering::Equal => {
+          insertion_point = Some(mid);
+          break;
         },
       }
     }
 
-    if insertion_point < bound && self.scores[insertion_point] == new_score {
+    let Some(mut insertion_point) = insertion_point else {
+      return low;
+    };
+
+    if insertion_point < bound {
       // Move right over equal values.
       while insertion_point < bound - 1
         && self.scores[insertion_point + 1] == self.scores[insertion_point]
@@ -288,7 +283,7 @@ impl NeighborArray {
       insertion_point += 1;
     }
 
-    Ok(insertion_point)
+    insertion_point
   }
 
   /// Finds the rightmost insertion point in descending order (stable insert).

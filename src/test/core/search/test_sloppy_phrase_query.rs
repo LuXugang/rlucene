@@ -38,6 +38,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::top_docs::TopDocsLike;
 use crate::core::search::weight::Weight;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
@@ -309,7 +310,7 @@ impl CollectorManager for MaxFreqCollectorManager {
   fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
     let mut result = QueryResult::default();
     for collector in collectors {
-      result.max = result.max.max(collector.max);
+      result.max = CoreHelper::max_f32(result.max, collector.max);
       result.total_hits += collector.total_hits;
     }
     Ok(result)
@@ -370,7 +371,7 @@ impl LeafCollector for MaxFreqCollector {
       }
       freq += matcher.sloppy_weight();
     }
-    self.max = self.max.max(freq);
+    self.max = CoreHelper::max_f32(self.max, freq);
     Ok(())
   }
 }

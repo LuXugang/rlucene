@@ -17,6 +17,7 @@
 use crate::core::geo::component2d::Component2D;
 use crate::core::geo::geometry::Geometry;
 use crate::core::geo::xy_rectangle::XYRectangle;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
@@ -100,10 +101,10 @@ fn test_equals_and_hash_code() -> Result<()> {
   assert_eq!(h1.finish(), h2.finish());
 
   let other_rectangle = ShapeTestUtil::next_box(&mut rng)?;
-  if rectangle.min_x.to_bits() != other_rectangle.min_x.to_bits()
-    || rectangle.max_x.to_bits() != other_rectangle.max_x.to_bits()
-    || rectangle.min_y.to_bits() != other_rectangle.min_y.to_bits()
-    || rectangle.max_y.to_bits() != other_rectangle.max_y.to_bits()
+  if !CoreHelper::compare_f32(rectangle.min_x, other_rectangle.min_x).is_eq()
+    || !CoreHelper::compare_f32(rectangle.max_x, other_rectangle.max_x).is_eq()
+    || !CoreHelper::compare_f32(rectangle.min_y, other_rectangle.min_y).is_eq()
+    || !CoreHelper::compare_f32(rectangle.max_y, other_rectangle.max_y).is_eq()
   {
     assert_ne!(rectangle, other_rectangle);
 
@@ -146,15 +147,27 @@ fn test_random_circle_to_bbox() -> Result<()> {
     let num_points_to_try = 1000;
     for _ in 0..num_points_to_try {
       let x = if rng.random_bool(0.5) {
-        f32::MAX.min(center_x + radius + rng.random::<f64>() as f32) as f64
+        CoreHelper::min_f64(
+          f32::MAX as f64,
+          (center_x + radius) as f64 + rng.random::<f64>(),
+        )
       } else {
-        (-f32::MAX).max(center_x + radius - rng.random::<f64>() as f32) as f64
+        CoreHelper::max_f64(
+          -f32::MAX as f64,
+          (center_x + radius) as f64 - rng.random::<f64>(),
+        )
       };
 
       let y = if rng.random_bool(0.5) {
-        f32::MAX.min(center_y + radius + rng.random::<f64>() as f32) as f64
+        CoreHelper::min_f64(
+          f32::MAX as f64,
+          (center_y + radius) as f64 + rng.random::<f64>(),
+        )
       } else {
-        (-f32::MAX).max(center_y + radius - rng.random::<f64>() as f32) as f64
+        CoreHelper::max_f64(
+          -f32::MAX as f64,
+          (center_y + radius) as f64 - rng.random::<f64>(),
+        )
       };
 
       let cartesian_says = component_2d.contains(x, y);

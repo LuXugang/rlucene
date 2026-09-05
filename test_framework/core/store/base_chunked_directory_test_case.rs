@@ -38,6 +38,7 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::group_vint_util::GroupVIntUtil;
 use crate::core::util::io_utils::IOUtils;
+use crate::test_framework::array_equals_f32;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::store::base_directory_test_case::BaseDirectoryTestCase;
@@ -549,7 +550,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     assert_eq!(2_u8, DataInput::read_byte(&mut input)?);
     let mut ff = vec![0.0_f32; 4];
     input.read_floats(&mut ff, 1, 3)?;
-    assert_eq!(vec![0.0, 3.0, f32::MAX, -3.0], ff);
+    assert!(array_equals_f32(&[0.0, 3.0, f32::MAX, -3.0], &ff, 0.0));
     assert_eq!(13, input.get_file_pointer()?);
     CloseableRef::close(&input)?;
     dir.close()?;

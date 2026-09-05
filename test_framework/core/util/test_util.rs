@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::store::IO_CONTEXT_DEFAULT;
+use crate::core::util::CoreHelper;
 
 use num_bigint::BigInt;
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -348,7 +349,7 @@ impl TestUtil {
       },
       MergePolicyEnum::Tiered(tmp) => {
         tmp.set_max_merge_at_once(std::cmp::min(5, tmp.get_max_merge_at_once()))?;
-        tmp.set_segments_per_tier(tmp.get_segments_per_tier().min(5.0))?;
+        tmp.set_segments_per_tier(CoreHelper::min_f64(tmp.get_segments_per_tier(), 5.0))?;
       },
       _ => {},
     }

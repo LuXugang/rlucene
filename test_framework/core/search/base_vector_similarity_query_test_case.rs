@@ -41,13 +41,14 @@ use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
 use crate::core::store::directory::{DirEnum, Directory};
-use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::hnsw::hnsw_util::HnswUtil;
+use crate::core::util::{CoreHelper, HasIdentity};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, new_directory_shared, new_index_writer_config, new_searcher_with_reader,
 };
+use crate::test_framework::f32_equals;
 use rand::{Rng, RngExt};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
@@ -588,7 +589,11 @@ pub trait BaseVectorSimilarityQueryTestCase {
     for score_doc in &score_docs {
       let id = self.get_id(&searcher, id_field, score_doc.doc)? as usize;
       assert!(scores.contains_key(&id));
-      assert!(scores.get(&id).unwrap() - score_doc.score.abs() <= delta);
+      assert!(f32_equals(
+        *scores.get(&id).unwrap(),
+        score_doc.score,
+        delta
+      ));
     }
     assert_eq!(scores.len(), score_docs.len());
     Ok(())
@@ -752,7 +757,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
       scores.push(self.compare(query_vector, vector)?);
     }
 
-    scores.sort_by(|a, b| a.total_cmp(b));
+    scores.sort_by(|a, b| CoreHelper::compare_f32(*a, *b));
 
     Ok(scores[num_docs - target_visited])
   }

@@ -49,6 +49,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 use crate::core::util::hnsw::hnsw_graph_builder::TestRandSeedGuard;
 use crate::core::util::vector_util::VectorUtil;
+use crate::test_framework::array_equals_f32;
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodec;
 use crate::test_framework::core::util::lucene_test_case::{
   at_least_usize, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
@@ -209,7 +210,11 @@ impl TestKnnGraph {
           .expect("numeric stored id");
         let expected = values[id].as_ref().expect("document should have a vector");
         let actual = vector_values.vector_value(iterator.index()?.try_convert()?)?;
-        assert_eq!(expected.as_slice(), actual.as_ref().as_floats()?);
+        assert!(array_equals_f32(
+          expected,
+          actual.as_ref().as_floats()?,
+          0.0
+        ));
         num_docs_with_vectors += 1;
         doc = iterator.next_doc()?;
       }

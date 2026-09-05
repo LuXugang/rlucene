@@ -441,7 +441,7 @@ fn intersects_line(
 
   let distance = dot_product / magnitude_ab;
 
-  if !(0.0..=1.0).contains(&distance) {
+  if distance < 0.0 || distance > 1.0 {
     return false;
   }
 

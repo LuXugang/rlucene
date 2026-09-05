@@ -101,8 +101,8 @@ impl XYPolygon {
       min_y = CoreHelper::min_f32(XYEncodingUtils::check_val(y[i])?, min_y);
       max_y = CoreHelper::max_f32(y[i], max_y);
 
-      winding_sum += ((x[j] - x[num_pts]) as f64) * ((y[i] - y[num_pts]) as f64)
-        - ((y[j] - y[num_pts]) as f64) * ((x[i] - x[num_pts]) as f64);
+      winding_sum += ((x[j] - x[num_pts]) * (y[i] - y[num_pts])
+        - (y[j] - y[num_pts]) * (x[i] - x[num_pts])) as f64;
 
       j = i;
       i += 1;

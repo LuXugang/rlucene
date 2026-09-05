@@ -76,6 +76,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::info_stream::get_default_info_stream;
 use crate::core::util::io_utils::IOUtils;
 use crate::core::util::vector_util::VectorUtil;
+use crate::test_framework::array_equals_f32;
 use crate::test_framework::core::codecs::asserting_codec::AssertingCodecKnnVectorsFormat;
 use crate::test_framework::core::index::base_index_file_format_test_case::{
   BaseIndexFileFormatTestCase, BaseIndexFileFormatTestCaseDefaults,
@@ -2052,7 +2053,7 @@ pub trait BaseKnnVectorsFormatTestCase:
           .as_ref()
           .is_none_or(|bits| bits.get(doc_id as usize).expect(""))
         {
-          assert_eq!(values[id].as_ref().unwrap(), &v);
+          assert!(array_equals_f32(values[id].as_ref().unwrap(), v, 0.0));
           value_count += 1;
         } else {
           num_deletes += 1;
@@ -2333,9 +2334,8 @@ pub trait BaseKnnVectorsFormatTestCase:
           .as_ref()
           .is_none_or(|bits| bits.get(doc_id as usize).expect(""))
         {
-          assert_eq!(
-            id2value[id].as_ref().unwrap(),
-            &v,
+          assert!(
+            array_equals_f32(id2value[id].as_ref().unwrap(), v, 0.0),
             "values differ for id={}, docid={} leaf={}",
             id,
             doc_id,

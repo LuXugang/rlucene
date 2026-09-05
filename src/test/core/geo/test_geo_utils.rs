@@ -16,8 +16,8 @@
  */
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
-use crate::core::util::SloppyMath;
 use crate::core::util::error::lucene_error::Result;
+use crate::core::util::{CoreHelper, SloppyMath};
 use crate::test_framework::core::geo::earth_debugger::EarthDebugger;
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
@@ -139,7 +139,7 @@ fn test_haversin_opto() -> Result<()> {
     let box_ = Rectangle::from_point_distance(lat, lon, radius)?;
 
     if box_.max_lon - lon < 90.0 && lon - box_.min_lon < 90.0 {
-      let min_partial_distance = f64::max(
+      let min_partial_distance = CoreHelper::max_f64(
         SloppyMath::haversin_sort_key(lat, lon, lat, box_.max_lon),
         SloppyMath::haversin_sort_key(lat, lon, box_.max_lat, lon),
       );
@@ -266,14 +266,14 @@ fn test_circle_opto() -> Result<()> {
       let lat_min = random_in_range(
         &mut random,
         lat_bounds[min_lat_row],
-        f64::min(lat_bounds[min_lat_row + 1], lat_max),
+        CoreHelper::min_f64(lat_bounds[min_lat_row + 1], lat_max),
       );
 
       let max_lon_min_col = usize::max(min_lon_col, 1);
       let max_lon_col = max_lon_min_col + random.random_range(0..(4 - max_lon_min_col));
       let lon_max = random_in_range(
         &mut random,
-        f64::max(lon_bounds[max_lon_col], lon_min),
+        CoreHelper::max_f64(lon_bounds[max_lon_col], lon_min),
         lon_bounds[max_lon_col + 1],
       );
 

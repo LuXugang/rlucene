@@ -413,7 +413,11 @@ impl<P> LRUQueryCache<P> {
     skip_cache_factor: f32,
     leaves_to_cache: P,
   ) -> Result<Self> {
-    if skip_cache_factor < 1.0 {
+    // Keep the negated comparison semantics from Java: NaN must be rejected as well.
+    if matches!(
+      skip_cache_factor.partial_cmp(&1.0),
+      None | Some(std::cmp::Ordering::Less)
+    ) {
       return Err(LuceneError::illegal_argument(format!(
         "skipCacheFactor must be no less than 1, get {}",
         skip_cache_factor

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::xy_line::XYLine;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -110,7 +111,9 @@ fn test_equals_and_hash_code() -> Result<()> {
   assert_eq!(h1.finish(), h2.finish());
 
   let other_line = ShapeTestUtil::next_line(&mut rng)?;
-  if line.get_xs() != other_line.get_xs() || line.get_ys() != other_line.get_ys() {
+  if !CoreHelper::array_equals_f32(line.get_xs(), other_line.get_xs())
+    || !CoreHelper::array_equals_f32(line.get_ys(), other_line.get_ys())
+  {
     assert_ne!(line, other_line);
 
     let mut h3 = DefaultHasher::new();

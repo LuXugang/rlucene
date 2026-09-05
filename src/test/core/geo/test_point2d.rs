@@ -18,6 +18,7 @@ use crate::core::geo::component2d::{Component2D, WithinRelation};
 use crate::core::geo::point::Point;
 use crate::core::geo::point2d::create_from_point;
 use crate::core::index::point_values::Relation;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -127,10 +128,10 @@ fn test_random_triangles() -> Result<()> {
     let cx = GeoTestUtil::next_longitude(&mut rng);
     let cy = GeoTestUtil::next_latitude(&mut rng);
 
-    let t_min_x = ax.min(bx).min(cx);
-    let t_max_x = ax.max(bx).max(cx);
-    let t_min_y = ay.min(by).min(cy);
-    let t_max_y = ay.max(by).max(cy);
+    let t_min_x = CoreHelper::min_f64(CoreHelper::min_f64(ax, bx), cx);
+    let t_max_x = CoreHelper::max_f64(CoreHelper::max_f64(ax, bx), cx);
+    let t_min_y = CoreHelper::min_f64(CoreHelper::min_f64(ay, by), cy);
+    let t_max_y = CoreHelper::max_f64(CoreHelper::max_f64(ay, by), cy);
 
     let r = point2d.relate(t_min_x, t_max_x, t_min_y, t_max_y)?;
     if r == Relation::CellOutsideQuery {

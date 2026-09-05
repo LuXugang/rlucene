@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::xy_point::XYPoint;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::geo::ShapeTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -88,7 +89,9 @@ fn test_equals_and_hash_code() -> Result<()> {
     ShapeTestUtil::next_float(&mut rng),
     ShapeTestUtil::next_float(&mut rng),
   )?;
-  if point.get_x() != other_point.get_x() || point.get_y() != other_point.get_y() {
+  if !CoreHelper::compare_f32(point.get_x(), other_point.get_x()).is_eq()
+    || !CoreHelper::compare_f32(point.get_y(), other_point.get_y()).is_eq()
+  {
     assert_ne!(point, other_point);
   } else {
     assert_eq!(point, other_point);

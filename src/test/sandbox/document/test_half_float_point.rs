@@ -18,6 +18,7 @@ use crate::core::document::document::Document;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::{Closeable, CloseableRef};
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::sandbox::document::half_float_point::HalfFloatPoint;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
@@ -127,7 +128,7 @@ fn test_rounding() -> Result<()> {
       assert!(!rounded.is_nan());
       assert!(f.abs() >= 65520.0);
     } else {
-      let index = values.binary_search_by(|probe| probe.total_cmp(&f));
+      let index = values.binary_search_by(|probe| CoreHelper::compare_f32(*probe, f));
       let closest = match index {
         Ok(index) => values[index],
         Err(index) => {
@@ -175,7 +176,7 @@ fn test_sortable_bits() {
       i as i16,
       HalfFloatPoint::half_float_to_sortable_short(current)
     );
-    assert!(previous.total_cmp(&current).is_lt());
+    assert!(CoreHelper::compare_f32(previous, current).is_lt());
   }
 }
 

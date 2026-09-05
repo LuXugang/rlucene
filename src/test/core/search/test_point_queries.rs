@@ -3254,44 +3254,44 @@ fn test_invalid_point_length() -> Result<()> {
 #[test]
 fn test_next_up() -> Result<()> {
   assert_eq!(
-    0.0f64.total_cmp(&DoublePoint::next_up(-0.0)),
+    CoreHelper::compare_f64(0.0, DoublePoint::next_up(-0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    BitUtil::F64_MIN_VALUE.total_cmp(&DoublePoint::next_up(0.0)),
+    CoreHelper::compare_f64(BitUtil::F64_MIN_VALUE, DoublePoint::next_up(0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f64::INFINITY.total_cmp(&DoublePoint::next_up(f64::MAX)),
+    CoreHelper::compare_f64(f64::INFINITY, DoublePoint::next_up(f64::MAX)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f64::INFINITY.total_cmp(&DoublePoint::next_up(f64::INFINITY)),
+    CoreHelper::compare_f64(f64::INFINITY, DoublePoint::next_up(f64::INFINITY)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    (-f64::MAX).total_cmp(&DoublePoint::next_up(f64::NEG_INFINITY)),
+    CoreHelper::compare_f64(-f64::MAX, DoublePoint::next_up(f64::NEG_INFINITY)),
     std::cmp::Ordering::Equal
   );
 
   assert_eq!(
-    0.0f32.total_cmp(&FloatPoint::next_up(-0.0)),
+    CoreHelper::compare_f32(0.0, FloatPoint::next_up(-0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    BitUtil::F32_MIN_VALUE.total_cmp(&FloatPoint::next_up(0.0)),
+    CoreHelper::compare_f32(BitUtil::F32_MIN_VALUE, FloatPoint::next_up(0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f32::INFINITY.total_cmp(&FloatPoint::next_up(f32::MAX)),
+    CoreHelper::compare_f32(f32::INFINITY, FloatPoint::next_up(f32::MAX)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f32::INFINITY.total_cmp(&FloatPoint::next_up(f32::INFINITY)),
+    CoreHelper::compare_f32(f32::INFINITY, FloatPoint::next_up(f32::INFINITY)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    (-f32::MAX).total_cmp(&FloatPoint::next_up(f32::NEG_INFINITY)),
+    CoreHelper::compare_f32(-f32::MAX, FloatPoint::next_up(f32::NEG_INFINITY)),
     std::cmp::Ordering::Equal
   );
 
@@ -3301,44 +3301,44 @@ fn test_next_up() -> Result<()> {
 #[test]
 fn test_next_down() -> Result<()> {
   assert_eq!(
-    (-0.0f64).total_cmp(&DoublePoint::next_down(0.0)),
+    CoreHelper::compare_f64(-0.0, DoublePoint::next_down(0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    (-BitUtil::F64_MIN_VALUE).total_cmp(&DoublePoint::next_down(-0.0)),
+    CoreHelper::compare_f64(-BitUtil::F64_MIN_VALUE, DoublePoint::next_down(-0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f64::NEG_INFINITY.total_cmp(&DoublePoint::next_down(-f64::MAX)),
+    CoreHelper::compare_f64(f64::NEG_INFINITY, DoublePoint::next_down(-f64::MAX)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f64::NEG_INFINITY.total_cmp(&DoublePoint::next_down(f64::NEG_INFINITY)),
+    CoreHelper::compare_f64(f64::NEG_INFINITY, DoublePoint::next_down(f64::NEG_INFINITY)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f64::MAX.total_cmp(&DoublePoint::next_down(f64::INFINITY)),
+    CoreHelper::compare_f64(f64::MAX, DoublePoint::next_down(f64::INFINITY)),
     std::cmp::Ordering::Equal
   );
 
   assert_eq!(
-    (-0.0f32).total_cmp(&FloatPoint::next_down(0.0)),
+    CoreHelper::compare_f32(-0.0, FloatPoint::next_down(0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    (-BitUtil::F32_MIN_VALUE).total_cmp(&FloatPoint::next_down(-0.0)),
+    CoreHelper::compare_f32(-BitUtil::F32_MIN_VALUE, FloatPoint::next_down(-0.0)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f32::NEG_INFINITY.total_cmp(&FloatPoint::next_down(-f32::MAX)),
+    CoreHelper::compare_f32(f32::NEG_INFINITY, FloatPoint::next_down(-f32::MAX)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f32::NEG_INFINITY.total_cmp(&FloatPoint::next_down(f32::NEG_INFINITY)),
+    CoreHelper::compare_f32(f32::NEG_INFINITY, FloatPoint::next_down(f32::NEG_INFINITY)),
     std::cmp::Ordering::Equal
   );
   assert_eq!(
-    f32::MAX.total_cmp(&FloatPoint::next_down(f32::INFINITY)),
+    CoreHelper::compare_f32(f32::MAX, FloatPoint::next_down(f32::INFINITY)),
     std::cmp::Ordering::Equal
   );
 

@@ -20,6 +20,7 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::float_vector_similarity_query::FloatVectorSimilarityQuery;
 use crate::core::search::query::Query;
 use crate::core::store::directory::DirEnum;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::base_vector_similarity_query_test_case::{
   BaseVectorSimilarityQueryBase, BaseVectorSimilarityQueryTestCase,
@@ -90,7 +91,7 @@ impl BaseVectorSimilarityQueryTestCase for TestFloatVectorSimilarityQuery {
   }
 
   fn check_equals(&self, vector1: &Self::Vector, vector2: &Self::Vector) -> bool {
-    vector1 == vector2
+    CoreHelper::array_equals_f32(vector1, vector2)
   }
 
   fn get_vector_field(

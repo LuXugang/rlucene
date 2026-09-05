@@ -15,12 +15,14 @@
  * limitations under the License.
  */
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::quantization::scalar_quantizer::{
   ScalarQuantizedVectorSimilarity, ScalarQuantizer,
 };
 use crate::core::util::vector_util::VectorUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::f32_equals;
 use rand::{Rng, RngExt};
 use std::collections::HashSet;
 use strum::EnumCount;
@@ -73,7 +75,7 @@ fn test_to_euclidean() -> Result<()> {
 
   let floats = random_floats(&mut random, num_vecs, dims);
   for confidence_interval in confidence_intervals(dims) {
-    let error = ((100.0 - confidence_interval) * 0.01).max(0.01);
+    let error = CoreHelper::max_f32((100.0 - confidence_interval) * 0.01, 0.01);
     let float_vector_values = from_floats(floats.clone());
     let scalar_quantizer =
       ScalarQuantizer::from_vectors(&float_vector_values, confidence_interval, num_vecs, 7)?;
@@ -113,7 +115,7 @@ fn test_to_cosine() -> Result<()> {
   let floats = random_floats(&mut random, num_vecs, dims);
 
   for confidence_interval in confidence_intervals(dims) {
-    let error = ((100.0 - confidence_interval) * 0.01).max(0.01);
+    let error = CoreHelper::max_f32((100.0 - confidence_interval) * 0.01, 0.01);
     let float_vector_values = from_floats_normalized(floats.clone(), None)?;
     let scalar_quantizer =
       ScalarQuantizer::from_vectors(&float_vector_values, confidence_interval, num_vecs, 7)?;
@@ -156,7 +158,7 @@ fn test_to_dot_product() -> Result<()> {
     VectorUtil::l2normalize(fs)?;
   }
   for confidence_interval in confidence_intervals(dims) {
-    let error = ((100.0 - confidence_interval) * 0.01).max(0.01);
+    let error = CoreHelper::max_f32((100.0 - confidence_interval) * 0.01, 0.01);
     let float_vector_values = from_floats(floats.clone());
     let scalar_quantizer =
       ScalarQuantizer::from_vectors(&float_vector_values, confidence_interval, num_vecs, 7)?;
@@ -196,7 +198,7 @@ fn test_to_max_inner_product() -> Result<()> {
 
   let floats = random_floats(&mut random, num_vecs, dims);
   for confidence_interval in confidence_intervals(dims) {
-    let error = ((100.0 - confidence_interval) * 0.5).max(0.5);
+    let error = CoreHelper::max_f32((100.0 - confidence_interval) * 0.5, 0.5);
     let float_vector_values = from_floats(floats.clone());
     let scalar_quantizer =
       ScalarQuantizer::from_vectors(&float_vector_values, confidence_interval, num_vecs, 7)?;
@@ -303,7 +305,7 @@ fn confidence_intervals(dims: usize) -> [f32; 5] {
 
 fn assert_approx_eq(expected: f32, actual: f32, delta: f32, message: &str) {
   assert!(
-    (expected - actual).abs() <= delta,
+    f32_equals(expected, actual, delta),
     "{message} [{delta}]: expected {expected}, got {actual}"
   );
 }

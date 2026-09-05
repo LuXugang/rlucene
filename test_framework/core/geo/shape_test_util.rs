@@ -21,6 +21,7 @@ use crate::core::geo::xy_line::XYLine;
 use crate::core::geo::xy_point::XYPoint;
 use crate::core::geo::xy_polygon::XYPolygon;
 use crate::core::geo::xy_rectangle::XYRectangle;
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::util::lucene_test_case::is_night_mode;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -153,16 +154,16 @@ impl ShapeTestUtil {
       }
 
       let mut len = radius * (1.0 - radius_delta + radius_delta * random.random::<f64>());
-      let max_x = f32::min(
+      let max_x = CoreHelper::min_f32(
         ((f32::MAX as f64) - center_x as f64).abs() as f32,
         ((-f32::MAX as f64) - center_x as f64).abs() as f32,
       );
-      let max_y = f32::min(
+      let max_y = CoreHelper::min_f32(
         ((f32::MAX as f64) - center_y as f64).abs() as f32,
         ((-f32::MAX as f64) - center_y as f64).abs() as f32,
       );
 
-      len = f64::min(len, f64::min(max_x as f64, max_y as f64));
+      len = CoreHelper::min_f64(len, CoreHelper::min_f64(max_x as f64, max_y as f64));
 
       let x = (center_x as f64 + len * angle.to_radians().cos()) as f32;
       let y = (center_y as f64 + len * angle.to_radians().sin()) as f32;
@@ -186,16 +187,16 @@ impl ShapeTestUtil {
     mut radius: f64,
     gons: usize,
   ) -> Result<XYPolygon> {
-    let max_x = f64::min(
+    let max_x = CoreHelper::min_f64(
       (f32::MAX as f64 - center_x).abs(),
       (-f32::MAX as f64 - center_x).abs(),
     );
-    let max_y = f64::min(
+    let max_y = CoreHelper::min_f64(
       (f32::MAX as f64 - center_y).abs(),
       (-f32::MAX as f64 - center_y).abs(),
     );
 
-    radius = f64::min(radius, f64::min(max_x, max_y));
+    radius = CoreHelper::min_f64(radius, CoreHelper::min_f64(max_x, max_y));
 
     let mut y = vec![0f32; gons + 1];
     let mut x = vec![0f32; gons + 1];

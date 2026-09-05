@@ -30,6 +30,7 @@ use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{NaturalOrder, ReverseOrder, SliceCopyOps, ToInt};
 use crate::test_framework::core::util::test_util::TestUtil;
+use crate::test_framework::{array_equals_f32, array_equals_f64};
 
 #[allow(dead_code)] // for quick search
 pub struct TestArrayUtil;
@@ -450,22 +451,20 @@ fn test_grow_exact() -> Result<()> {
 
   let mut arr: Vec<f32> = vec![0.1, 0.2, 0.3];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert!((arr[3] - 0.0).abs() < 0.001);
+  assert!(array_equals_f32(&[0.1, 0.2, 0.3, 0.0], &arr, 0.001));
   let mut arr: Vec<f32> = vec![0.1, 0.2, 0.3];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert!((arr[3] - 0.0).abs() < 0.001);
-  assert!((arr[4] - 0.0).abs() < 0.001);
+  assert!(array_equals_f32(&[0.1, 0.2, 0.3, 0.0, 0.0], &arr, 0.001));
   let mut arr: Vec<f32> = vec![1.0, 2.0, 3.0];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert!((arr[3] - 0.0).abs() < 0.001);
+  assert!(array_equals_f64(&[0.1, 0.2, 0.3, 0.0], &arr, 0.001));
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert!((arr[3] - 0.0).abs() < 0.001);
-  assert!((arr[4] - 0.0).abs() < 0.001);
+  assert!(array_equals_f64(&[0.1, 0.2, 0.3, 0.0, 0.0], &arr, 0.001));
   let mut arr: Vec<f64> = vec![0.1, 0.2, 0.3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
@@ -603,25 +602,32 @@ fn test_copy_of_sub_array() {
   );
 
   let float_array: Vec<f32> = vec![0.1, 0.2, 0.3];
-  assert_eq!(
-    vec![0.2, 0.3],
-    ArrayUtil::copy_of_sub_array(&float_array, 1, 3)
-  );
-  assert_eq!(
-    vec![0.1, 0.2, 0.3],
-    ArrayUtil::copy_of_sub_array(&float_array, 0, 3)
-  );
+  assert!(array_equals_f32(
+    &[0.2, 0.3],
+    &ArrayUtil::copy_of_sub_array(&float_array, 1, 3),
+    0.001
+  ));
+  assert!(array_equals_f32(
+    &[0.1, 0.2, 0.3],
+    &ArrayUtil::copy_of_sub_array(&float_array, 0, 3),
+    0.001
+  ));
   assert_eq!(
     Vec::<f32>::new(),
     ArrayUtil::copy_of_sub_array(&float_array, 0, 0)
   );
 
   let double_array: Vec<f64> = vec![0.1, 0.2, 0.3];
-  assert_eq!(vec![0.3], ArrayUtil::copy_of_sub_array(&double_array, 2, 3));
-  assert_eq!(
-    vec![0.1, 0.2, 0.3],
-    ArrayUtil::copy_of_sub_array(&double_array, 0, 3)
-  );
+  assert!(array_equals_f64(
+    &[0.3],
+    &ArrayUtil::copy_of_sub_array(&double_array, 2, 3),
+    0.001
+  ));
+  assert!(array_equals_f64(
+    &[0.1, 0.2, 0.3],
+    &ArrayUtil::copy_of_sub_array(&double_array, 0, 3),
+    0.001
+  ));
   assert_eq!(
     Vec::<f64>::new(),
     ArrayUtil::copy_of_sub_array(&double_array, 1, 1)

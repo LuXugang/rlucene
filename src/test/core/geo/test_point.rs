@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::geo::point::Point;
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::geo::geo_test_util::GeoTestUtil;
 use crate::test_framework::core::util::lucene_test_case::random;
@@ -62,7 +63,9 @@ fn test_equals_and_hash_code() -> Result<()> {
   assert_eq!(h1.finish(), h2.finish());
 
   let other_point = GeoTestUtil::next_point(&mut rng)?;
-  if point.get_lat() != other_point.get_lat() || point.get_lon() != other_point.get_lon() {
+  if !CoreHelper::compare_f64(point.get_lat(), other_point.get_lat()).is_eq()
+    || !CoreHelper::compare_f64(point.get_lon(), other_point.get_lon()).is_eq()
+  {
     assert_ne!(point, other_point);
   } else {
     assert_eq!(point, other_point);

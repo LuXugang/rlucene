@@ -186,7 +186,7 @@ mod compression_numeric_encoding_tests {
       let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
       let g = read_zfloat(&mut input)?;
       assert!(input.eof());
-      assert_eq!(f.to_bits(), g.to_bits());
+      assert_eq!(BitUtil::float_to_int_bits(f), BitUtil::float_to_int_bits(g));
 
       // check that compression actually works
       if (-1..=123).contains(&i) {
@@ -211,7 +211,7 @@ mod compression_numeric_encoding_tests {
       let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
       let g = read_zfloat(&mut input)?;
       assert!(input.eof());
-      assert_eq!(f.to_bits(), g.to_bits());
+      assert_eq!(BitUtil::float_to_int_bits(f), BitUtil::float_to_int_bits(g));
       out.reset()?;
     }
 
@@ -222,7 +222,12 @@ mod compression_numeric_encoding_tests {
       write_zfloat(&mut out, f)?;
       let len = out.get_position();
       assert!(
-        len <= if (f.to_bits() >> 31) == 1 { 5 } else { 4 },
+        len
+          <= if ((BitUtil::float_to_int_bits(f) as u32) >> 31) == 1 {
+            5
+          } else {
+            4
+          },
         "length={}, f={}",
         len,
         f
@@ -230,7 +235,7 @@ mod compression_numeric_encoding_tests {
       let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, len);
       let g = read_zfloat(&mut input)?;
       assert!(input.eof());
-      assert_eq!(f.to_bits(), g.to_bits());
+      assert_eq!(BitUtil::float_to_int_bits(f), BitUtil::float_to_int_bits(g));
       out.reset()?;
     }
 
@@ -249,7 +254,10 @@ mod compression_numeric_encoding_tests {
       let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
-      assert_eq!(x.to_bits(), y.to_bits());
+      assert_eq!(
+        BitUtil::double_to_long_bits(x),
+        BitUtil::double_to_long_bits(y)
+      );
 
       // check that compression actually works
       if (-1..=124).contains(&i) {
@@ -274,7 +282,10 @@ mod compression_numeric_encoding_tests {
       let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, out.get_position());
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
-      assert_eq!(x.to_bits(), y.to_bits());
+      assert_eq!(
+        BitUtil::double_to_long_bits(x),
+        BitUtil::double_to_long_bits(y)
+      );
       out.reset()?;
     }
 
@@ -293,7 +304,10 @@ mod compression_numeric_encoding_tests {
       let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, len);
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
-      assert_eq!(x.to_bits(), y.to_bits());
+      assert_eq!(
+        BitUtil::double_to_long_bits(x),
+        BitUtil::double_to_long_bits(y)
+      );
       out.reset()?;
     }
 
@@ -306,7 +320,10 @@ mod compression_numeric_encoding_tests {
       let mut input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, len);
       let y = read_zdouble(&mut input)?;
       assert!(input.eof());
-      assert_eq!(x.to_bits(), y.to_bits());
+      assert_eq!(
+        BitUtil::double_to_long_bits(x),
+        BitUtil::double_to_long_bits(y)
+      );
       out.reset()?;
     }
 
