@@ -1,0 +1,42 @@
+import hudson.plugins.git.BranchSpec
+import hudson.plugins.git.GitSCM
+import hudson.plugins.git.UserRemoteConfig
+import hudson.plugins.git.extensions.impl.CleanBeforeCheckout
+import hudson.plugins.git.extensions.impl.CloneOption
+import jenkins.model.Jenkins
+import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
+import org.jenkinsci.plugins.workflow.job.WorkflowJob
+import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty
+
+def repository = System.getenv('RLUCENE_REPOSITORY_URL') ?: 'https://github.com/Rustify-All/rlucene.git'
+def branch = System.getenv('RLUCENE_BRANCH') ?: 'main'
+if (!(branch ==~ /[A-Za-z0-9][A-Za-z0-9_.\/-]*/) || branch.contains('..')) {
+  throw new IllegalArgumentException('RLUCENE_BRANCH must name a Git branch')
+}
+def credentialsId = System.getenv('RLUCENE_GIT_CREDENTIALS_ID') ?: ''
+def jenkins = Jenkins.get()
+['rlucene-nightly', 'rlucene-monster'].each { name ->
+  if (jenkins.getItem(name) != null) {
+    println("Keeping existing Jenkins job ${name}")
+    return
+  }
+  def clone = new CloneOption(true, true, '', 10)
+  clone.setDepth(1)
+  clone.setHonorRefspec(true)
+  def scm = new GitSCM(
+    [new UserRemoteConfig(repository, 'origin',
+      "+refs/heads/${branch}:refs/remotes/origin/${branch}", credentialsId)],
+    [new BranchSpec("*/${branch}")], false, [], null, null,
+    [new CleanBeforeCheckout(), clone]
+  )
+  def definition = new CpsScmFlowDefinition(scm, 'ci/jenkins/manual/Jenkinsfile')
+  definition.setLightweight(true)
+  def job = jenkins.createProject(WorkflowJob.class, name)
+  job.setDescription('Manual only: release ordinary tests plus ' + name.substring(8) +
+    '. Definition: ci/jenkins/manual/Jenkinsfile. No automatic triggers.')
+  job.setDefinition(definition)
+  job.addProperty(new DisableConcurrentBuildsJobProperty())
+  job.setDisabled(false)
+  job.save()
+  println("Created manual-only Jenkins job ${name}; not scheduled")
+}

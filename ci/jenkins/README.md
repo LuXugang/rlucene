@@ -117,6 +117,46 @@ cleanup also runs after test failures and timeouts. This is safe because the
 Pipeline disables concurrent builds. Do not clean the controller's global
 `/tmp` from a scheduled build.
 
+## Manual nightly and monster jobs
+
+`rlucene-nightly` and `rlucene-monster` are **manual only**: click **Build Now**
+while signed in. They have no cron, SCM polling, webhook, or upstream trigger;
+the Pipeline also rejects requests without a Jenkins user cause. GitHub's
+PR/commit service account does not receive build permission on these jobs.
+Both use `main` and `ci/jenkins/manual/Jenkinsfile` from SCM, on the controller
+like `rlucene-ci`. No pause/priority scheduler is installed.
+
+- `rlucene-nightly`: ordinary tests plus tests enabled by the `nightly` feature,
+  with `tests.nightly=true` and `tests.light=false`.
+- `rlucene-monster`: ordinary tests plus tests enabled by the `monster` feature,
+  with `tests.nightly=false` and `tests.light=false`; it does not enable nightly.
+- Both use `--release` and the same release debug-assertion setting as
+  `rlucene-ci`, not the Rust nightly toolchain or a custom Cargo build profile.
+
+The helper first compiles the requested feature's binaries, then inventories
+the default-feature tests. It runs the feature binaries with ignored tests
+enabled **except** tests already ignored in the default inventory. Thus known
+bugs, Java-only placeholders and unrelated deliberately skipped tests remain
+skipped; feature-only heavy tests run even if their ignore reason describes
+their resource requirements rather than saying `nightly`/`monster`. Full binary
+IDs and test names are matched, and workspace doctests run separately.
+
+The two feature variants must be compiled on the first run. Each job has its
+own persistent `cargo-target/${JOB_NAME}` cache, reused by subsequent builds;
+neither clears or borrows the `rlucene-ci` target. The `manual` nextest profile
+runs tests **one at a time**, warns after 60 seconds and terminates an individual
+test after 12 hours (plus 30 seconds grace). The entire Pipeline has a 72-hour
+safety limit. These jobs can use large amounts of RAM and disk; serial execution
+does not guarantee that the server can accommodate every monster test.
+
+Builds that reach the manual-request stage are kept forever, including aborted
+smoke builds. Logs, JUnit when available, and the exact selection filter are
+archived. A new-server deployment smoke check should start each job in turn,
+confirm `rustc` is compiling with `--cfg feature="nightly"` or `monster` and
+release optimization, then **cancel immediately** and check its subprocesses
+have exited. This validates startup/command wiring, not successful compilation,
+test completion, or hardware capacity for the full heavy suites.
+
 ## Tests, timeouts, and diagnostics
 
 The main release test command is run with debug assertions enabled:

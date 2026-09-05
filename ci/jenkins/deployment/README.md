@@ -98,6 +98,30 @@ commit SHA and returns the result as a GitHub check.
 
 ## What is reproduced
 
+### Manual heavy-test jobs
+
+`init.groovy.d/rlucene-manual-jobs.groovy.override` creates `rlucene-nightly`
+and `rlucene-monster` from `ci/jenkins/manual/Jenkinsfile`. They are enabled for
+**Build Now**, but never automatically scheduled. Both use the configured
+`RLUCENE_REPOSITORY_URL`, `RLUCENE_BRANCH` and `RLUCENE_GIT_CREDENTIALS_ID`;
+defaults select upstream `main`. Existing jobs are left unchanged.
+
+The controller image includes `jq` for selecting the heavy suites without
+enabling ordinary tests ignored for unrelated reasons. Rebuild the image before
+recreating the controller; copying the initializer alone is not sufficient.
+Use a maintenance window with no running builds, preserve the named Jenkins
+home volume and the local `.env`, and run `docker compose config --quiet` before
+applying the deployment. No extra plugin, credential, GitHub workflow, or
+priority/pause scheduler is required.
+
+After deployment, start the jobs **one at a time**, observe actual release
+compilation with the corresponding feature enabled, cancel, and verify there
+are no remaining compiler/test subprocesses. Do not wait for the full expensive
+compile or suite for this startup smoke check. See the main CI README for test
+selection, persistent caches, resource requirements and timeout settings.
+
+### Reproduced components
+
 | Component | Source |
 | --- | --- |
 | Jenkins 2.568.3 / Java 21 | Version and image digest in `Dockerfile` and `.env.example` |
@@ -107,6 +131,7 @@ commit SHA and returns the result as a GitHub check.
 | 98 Jenkins plugins and dependencies | `plugins.txt`, installed with `--latest=false` |
 | Pipeline job, SCM branch/refspec, shallow clean checkout | `init.groovy.d/rlucene-job.groovy.override` |
 | Trusted-PR job, service account and exclusive inbound agent | `init.groovy.d/rlucene-pr-*.groovy.override` and `Dockerfile.agent` |
+| Manual nightly/monster jobs and suite selection | `init.groovy.d/rlucene-manual-jobs.groovy.override`, `../manual/`, `.config/nextest.toml`; `jq` in the controller image |
 | Optional public read-only authorization | `init.groovy.d/rlucene-public-read-only.groovy.override` |
 | Schedule, 500-build retention, no concurrent builds, test commands, timeouts and failure handling | `../Jenkinsfile` |
 | Slow-test diagnostics and classic console theme | `../capture-slow-test-diagnostics.sh` and `init.groovy.d/rlucene-console-theme.groovy.override` |
@@ -184,7 +209,8 @@ The resulting anonymous access is deliberately narrow:
 
 - global `Overall/Read` and `View/Read`, so Jenkins pages and views can open;
 - `Job/Read` on only the jobs named by `RLUCENE_JOB_NAME` and
-  `RLUCENE_PR_JOB_NAME`, and `RLUCENE_COMMIT_JOB_NAME`, so their builds, console logs and artifacts can be
+  `RLUCENE_PR_JOB_NAME`, and `RLUCENE_COMMIT_JOB_NAME`, plus `rlucene-nightly`
+  and `rlucene-monster`, so their builds, console logs and artifacts can be
   viewed;
 - no build, cancel, configure, workspace, credential or administration grants.
 

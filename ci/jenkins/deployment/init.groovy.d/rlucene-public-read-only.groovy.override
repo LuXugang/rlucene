@@ -64,7 +64,9 @@ jenkins.setAuthorizationStrategy(strategy)
 def jobNames = [
   setting('RLUCENE_JOB_NAME', 'rlucene-ci'),
   setting('RLUCENE_PR_JOB_NAME', 'rlucene-pr'),
-  setting('RLUCENE_COMMIT_JOB_NAME', 'rlucene-commit')
+  setting('RLUCENE_COMMIT_JOB_NAME', 'rlucene-commit'),
+  'rlucene-nightly',
+  'rlucene-monster'
 ].unique()
 jobNames.each { jobName ->
   if (!(jobName ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/)) {

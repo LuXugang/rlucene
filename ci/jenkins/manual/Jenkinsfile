@@ -1,0 +1,109 @@
+pipeline {
+  agent { label 'built-in' }
+
+  options {
+    skipDefaultCheckout(true)
+    timestamps()
+    disableConcurrentBuilds()
+    // Heavy tests can legitimately take hours; do not inherit the CI 30m limit.
+    timeout(time: 72, unit: 'HOURS')
+    buildDiscarder(logRotator(numToKeepStr: '200'))
+  }
+
+  // Deliberately no cron, pollSCM, GitHub webhook or upstream trigger.
+  environment {
+    RUSTUP_HOME = '/opt/rustup'
+    CARGO_HOME = '/opt/cargo'
+    CARGO_TARGET_DIR = "${JENKINS_HOME}/cargo-target/${JOB_NAME}"
+    CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = 'true'
+    CARGO_TERM_COLOR = 'never'
+    CARGO_NET_RETRY = '10'
+    CARGO_HTTP_TIMEOUT = '120'
+    CARGO_HTTP_MULTIPLEXING = 'false'
+    RUST_BACKTRACE = 'full'
+    NO_COLOR = '1'
+  }
+
+  stages {
+    stage('Manual request') {
+      steps {
+        script {
+          if (currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause').isEmpty()) {
+            error('This job requires a manual Build Now request.')
+          }
+          if (!(env.JOB_NAME in ['rlucene-nightly', 'rlucene-monster'])) {
+            error('This Pipeline belongs to rlucene-nightly or rlucene-monster.')
+          }
+          env.HEAVY_SUITE = env.JOB_NAME.substring('rlucene-'.length())
+          if (!env.WORKSPACE_TMP) {
+            error('WORKSPACE_TMP is unavailable')
+          }
+          env.TMPDIR = "${env.WORKSPACE_TMP}/manual-tests-${env.BUILD_NUMBER}"
+          currentBuild.keepLog = true
+          currentBuild.description = "manual release: ordinary + ${env.HEAVY_SUITE}"
+        }
+      }
+    }
+
+    stage('Checkout') {
+      steps {
+        checkout(scm)
+        script {
+          env.TESTED_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+          currentBuild.description = "${env.TESTED_SHA.take(12)}: ordinary + ${env.HEAVY_SUITE} (release)"
+        }
+        sh '''#!/bin/bash
+          set -euo pipefail
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+          df -h . /tmp "$CARGO_TARGET_DIR"
+          du -sh "$CARGO_TARGET_DIR"
+          git diff --exit-code
+          rustup show
+          cargo nextest --version
+          jq --version
+        '''
+      }
+    }
+
+    stage('Release ordinary and heavy tests') {
+      steps {
+        sh '''#!/bin/bash
+          set -euo pipefail
+          bash ci/jenkins/manual/run-tests.sh "$HEAVY_SUITE"
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      archiveArtifacts(
+        artifacts: 'manual-tests.log,manual-junit.xml,manual-selection.txt,manual-doctest.log',
+        allowEmptyArchive: true
+      )
+      sh '''#!/bin/bash
+        set -eu
+        df -h /var/jenkins_home /tmp
+        if [ -d "$CARGO_TARGET_DIR" ]; then du -sh "$CARGO_TARGET_DIR"; fi
+        expected="${WORKSPACE_TMP}/manual-tests-${BUILD_NUMBER}"
+        if [ "${TMPDIR:-}" = "$expected" ] && [ -d "$expected" ]; then
+          rm -rf -- "$expected"
+        fi
+      '''
+    }
+    failure {
+      script {
+        if (env.RLUCENE_FAILURE_EMAIL?.trim()) {
+          emailext(
+            to: env.RLUCENE_FAILURE_EMAIL,
+            subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} failed",
+            body: "Build: ${env.BUILD_URL}\nCommit: ${env.TESTED_SHA}\nSuite: ordinary + ${env.HEAVY_SUITE} (release)\n",
+            attachLog: true,
+            compressLog: true,
+            attachmentsPattern: 'manual-tests.log,manual-selection.txt,manual-doctest.log'
+          )
+        }
+      }
+    }
+  }
+}

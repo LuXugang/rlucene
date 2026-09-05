@@ -49,3 +49,11 @@ COPY --chown=jenkins:jenkins ci/jenkins/deployment/plugins.txt /usr/share/jenkin
 RUN jenkins-plugin-cli --latest=false --plugin-file /usr/share/jenkins/ref/plugins.txt
 
 COPY --chown=jenkins:jenkins ci/jenkins/deployment/init.groovy.d/ /usr/share/jenkins/ref/init.groovy.d/
+
+# JSON inventory selection for manual nightly/monster jobs. Keep the small
+# runtime layer after the expensive Rust installation to preserve build cache.
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends jq \
+    && rm -rf /var/lib/apt/lists/*
+USER jenkins
