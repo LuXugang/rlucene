@@ -8,13 +8,19 @@ import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition
 import org.jenkinsci.plugins.workflow.job.WorkflowJob
 import org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty
 
+def jenkins = Jenkins.get()
+def ciJob = jenkins.getItem(System.getenv('RLUCENE_JOB_NAME') ?: 'rlucene-ci')
+def existingScm = ciJob instanceof WorkflowJob &&
+  ciJob.definition instanceof CpsScmFlowDefinition &&
+  ciJob.definition.scm instanceof GitSCM ? ciJob.definition.scm : null
+// Existing homes can have a working SSH SCM while the old bootstrap .env still
+// says HTTPS. Inherit the operational CI SCM as a unit (URL + credentials + ref).
 def repository = System.getenv('RLUCENE_REPOSITORY_URL') ?: 'https://github.com/Rustify-All/rlucene.git'
 def branch = System.getenv('RLUCENE_BRANCH') ?: 'main'
 if (!(branch ==~ /[A-Za-z0-9][A-Za-z0-9_.\/-]*/) || branch.contains('..')) {
   throw new IllegalArgumentException('RLUCENE_BRANCH must name a Git branch')
 }
 def credentialsId = System.getenv('RLUCENE_GIT_CREDENTIALS_ID') ?: ''
-def jenkins = Jenkins.get()
 ['rlucene-nightly', 'rlucene-monster'].each { name ->
   if (jenkins.getItem(name) != null) {
     println("Keeping existing Jenkins job ${name}")
@@ -24,9 +30,11 @@ def jenkins = Jenkins.get()
   clone.setDepth(1)
   clone.setHonorRefspec(true)
   def scm = new GitSCM(
-    [new UserRemoteConfig(repository, 'origin',
-      "+refs/heads/${branch}:refs/remotes/origin/${branch}", credentialsId)],
-    [new BranchSpec("*/${branch}")], false, [], null, null,
+    existingScm != null ? existingScm.userRemoteConfigs :
+      [new UserRemoteConfig(repository, 'origin',
+        "+refs/heads/${branch}:refs/remotes/origin/${branch}", credentialsId)],
+    existingScm != null ? existingScm.branches : [new BranchSpec("*/${branch}")],
+    false, [], null, null,
     [new CleanBeforeCheckout(), clone]
   )
   def definition = new CpsScmFlowDefinition(scm, 'ci/jenkins/manual/Jenkinsfile')

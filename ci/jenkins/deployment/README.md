@@ -102,9 +102,15 @@ commit SHA and returns the result as a GitHub check.
 
 `init.groovy.d/rlucene-manual-jobs.groovy.override` creates `rlucene-nightly`
 and `rlucene-monster` from `ci/jenkins/manual/Jenkinsfile`. They are enabled for
-**Build Now**, but never automatically scheduled. Both use the configured
+**Build Now**, but never automatically scheduled. On an existing installation,
+both inherit the operational `rlucene-ci` Git SCM (URL, credentials and branch)
+when first created, avoiding stale bootstrap settings such as an HTTPS URL with
+an SSH credential. Without an existing CI Git SCM they use the configured
 `RLUCENE_REPOSITORY_URL`, `RLUCENE_BRANCH` and `RLUCENE_GIT_CREDENTIALS_ID`;
-defaults select upstream `main`. Existing jobs are left unchanged.
+defaults select upstream `main`. Existing manual jobs are left unchanged. If an
+earlier deployment created them with incorrect SCM settings, explicitly align
+their Pipeline-from-SCM connection with `rlucene-ci`; do not delete the jobs or
+their existing build history.
 
 The controller image includes `jq` for selecting the heavy suites without
 enabling ordinary tests ignored for unrelated reasons. Rebuild the image before
