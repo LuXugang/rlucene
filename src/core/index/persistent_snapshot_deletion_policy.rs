@@ -17,16 +17,13 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
-
-use parking_lot::Mutex;
+use std::sync::atomic::{AtomicI64, Ordering};
 
 use crate::core::codecs::codec_util::CodecUtil;
 use crate::core::index::index_deletion_policy::{IndexDeletionPolicy, IndexDeletionPolicyEnum};
 use crate::core::index::index_file_deleter::CommitPoint;
 use crate::core::index::index_writer_config::OpenMode;
-use crate::core::index::snapshot_deletion_policy::{
-  SnapshotDeletionPolicy, SnapshotDeletionPolicyLock,
-};
+use crate::core::index::snapshot_deletion_policy::SnapshotDeletionPolicy;
 use crate::core::store::directory::Directory;
 use crate::core::store::{DataInput, DataOutput, IO_CONTEXT_DEFAULT};
 use crate::core::util::close::{Closeable, CloseableRef};
@@ -54,7 +51,8 @@ use crate::test_framework::core::util::failure_context::{
 pub struct PersistentSnapshotDeletionPolicy<D> {
   /// Wrapped in-memory snapshot deletion policy.
   pub base: SnapshotDeletionPolicy<D>,
-  next_write_gen: Arc<Mutex<i64>>,
+  // Writes are serialized by the base policy monitor; Java leaves getLastSaveFile unsynchronized.
+  next_write_gen: Arc<AtomicI64>,
   dir: Arc<D>,
 }
 
@@ -111,19 +109,19 @@ where
   {
     let policy = PersistentSnapshotDeletionPolicy {
       base: SnapshotDeletionPolicy::new(primary),
-      next_write_gen: Arc::new(Mutex::new(0)),
+      next_write_gen: Arc::new(AtomicI64::new(0)),
       dir,
     };
 
     {
-      let op_lock = policy.base.lock();
+      let _guard = policy.base.lock();
       if mode == OpenMode::Create {
         policy.clear_prior_snapshots()?;
       }
 
-      policy.load_prior_snapshots(&op_lock)?;
+      policy.load_prior_snapshots()?;
 
-      if mode == OpenMode::Append && *policy.next_write_gen.lock() == 0 {
+      if mode == OpenMode::Append && policy.next_write_gen.load(Ordering::Relaxed) == 0 {
         return Err(LuceneError::illegal_state(
           "no snapshots stored in this directory",
         ));
@@ -136,16 +134,16 @@ where
   /// Snapshots the last commit. Once this method returns, the snapshot information is persisted in
   /// the directory.
   pub fn snapshot(&self) -> Result<Arc<CommitPoint<D>>> {
-    let op_lock = self.base.lock();
-    let index_commit = self.base.snapshot_with_lock(Some(&op_lock))?;
+    let _guard = self.base.lock();
+    let index_commit = self.base.snapshot()?;
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      self.persist(&op_lock)?;
+      self.persist()?;
       success = true;
       Ok(())
     }));
     if !success {
-      let _ = self.base.release_with_lock(&index_commit, Some(&op_lock));
+      let _ = self.base.release(&index_commit);
     }
     unwrap_caught_result!(result)?;
     Ok(index_commit)
@@ -154,16 +152,16 @@ where
   /// Deletes a snapshotted commit. Once this method returns, the snapshot information is persisted
   /// in the directory.
   pub fn release(&self, commit: &Arc<CommitPoint<D>>) -> Result<()> {
-    let op_lock = self.base.lock();
-    self.base.release_with_lock(commit, Some(&op_lock))?;
+    let _guard = self.base.lock();
+    self.base.release(commit)?;
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      self.persist(&op_lock)?;
+      self.persist()?;
       success = true;
       Ok(())
     }));
     if !success {
-      self.base.inc_ref_with_lock(commit, Some(&op_lock));
+      self.base.inc_ref(commit);
     }
     unwrap_caught_result!(result)
   }
@@ -175,21 +173,20 @@ where
   ///
   /// [`IndexCommit::get_generation`](crate::core::index::index_commit::IndexCommit::get_generation)
   pub fn release_gen(&self, generation: i64) -> Result<()> {
-    let op_lock = self.base.lock();
-    self
-      .base
-      .release_gen_with_lock(generation, Some(&op_lock))?;
-    self.persist(&op_lock)
+    let _guard = self.base.lock();
+    self.base.release_gen(generation)?;
+    self.persist()
   }
 
-  fn persist(&self, op_lock: &SnapshotDeletionPolicyLock<'_>) -> Result<()> {
+  fn persist(&self) -> Result<()> {
+    let guard = self.base.lock();
     #[cfg(test)]
     let _execution_scope = ExecutionScope::enter(
       ExecutionOwner::PersistentSnapshotDeletionPolicy,
       ExecutionMethod::Persist,
     );
-    let mut next_write_gen = self.next_write_gen.lock();
-    let file_name = format!("{SNAPSHOTS_PREFIX}{}", *next_write_gen);
+    let next_write_gen = self.next_write_gen.load(Ordering::Relaxed);
+    let file_name = format!("{SNAPSHOTS_PREFIX}{next_write_gen}");
     let mut success = false;
     let mut out = None;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -203,7 +200,7 @@ where
             .as_mut()
             .ok_or_else(|| LuceneError::illegal_state("snapshot output is missing"))?;
           CodecUtil::write_header(out, CODEC_NAME, VERSION_CURRENT)?;
-          let ref_counts = self.base.ref_counts_with_lock(Some(op_lock));
+          let ref_counts = guard.borrow().ref_counts.clone();
           out.write_vint(ref_counts.len() as i32)?;
           for (generation, ref_count) in ref_counts {
             out.write_vlong(generation)?;
@@ -227,8 +224,8 @@ where
 
     self.dir.sync(std::slice::from_ref(&file_name))?;
 
-    if *next_write_gen > 0 {
-      let last_save_file = format!("{SNAPSHOTS_PREFIX}{}", *next_write_gen - 1);
+    if next_write_gen > 0 {
+      let last_save_file = format!("{SNAPSHOTS_PREFIX}{}", next_write_gen - 1);
       // The error is acceptable: the snapshot likely did not exist.
       IOUtils::delete_files_ignoring_exceptions(
         self.dir.as_ref(),
@@ -236,11 +233,12 @@ where
       );
     }
 
-    *next_write_gen += 1;
+    self.next_write_gen.fetch_add(1, Ordering::Relaxed);
     Ok(())
   }
 
   fn clear_prior_snapshots(&self) -> Result<()> {
+    let _guard = self.base.lock();
     for file in self.dir.list_all()? {
       if file.starts_with(SNAPSHOTS_PREFIX) {
         self.dir.delete_file(&file)?;
@@ -252,7 +250,7 @@ where
   /// Returns the file name the snapshots are currently saved to, or `None` if no snapshots have
   /// been saved.
   pub fn get_last_save_file(&self) -> Option<String> {
-    let next_write_gen = *self.next_write_gen.lock();
+    let next_write_gen = self.next_write_gen.load(Ordering::Relaxed);
     if next_write_gen == 0 {
       None
     } else {
@@ -277,7 +275,8 @@ where
   }
 
   /// Reads the snapshots information from the given [`Directory`].
-  fn load_prior_snapshots(&self, op_lock: &SnapshotDeletionPolicyLock<'_>) -> Result<()> {
+  fn load_prior_snapshots(&self) -> Result<()> {
+    let guard = self.base.lock();
     let mut gen_loaded = -1;
     let mut io_error = None;
     let mut snapshot_files = Vec::new();
@@ -318,9 +317,9 @@ where
           IOUtils::finally_caught_result(read_result, close_result)?;
 
           gen_loaded = gen_;
-          self
-            .base
-            .set_ref_counts_with_lock(ref_counts, Some(op_lock));
+          let mut inner = guard.borrow_mut();
+          inner.ref_counts = ref_counts;
+          inner.index_commits.clear();
         }
       }
     }
@@ -341,7 +340,7 @@ where
           }
         }
       }
-      *self.next_write_gen.lock() = 1 + gen_loaded;
+      self.next_write_gen.store(1 + gen_loaded, Ordering::Relaxed);
     }
 
     Ok(())
