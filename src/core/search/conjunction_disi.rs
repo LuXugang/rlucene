@@ -14,8 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
 use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::scorer_util::ScorerUtil;
@@ -28,6 +28,29 @@ use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
+
+/// Statically typed result of `create_conjunction` for a non-bit-set iterator and
+/// one known bit-set iterator, as used by the vector queries.
+pub type ConjunctionDISIWithBitSet<D, B> = DocIdSetIteratorEnum2<
+  ConjunctionDISI<DocIdSetIteratorEnum2<D, BitSetIterator<B>>>,
+  BitSetConjunctionDISI<D, B>,
+>;
+
+impl<D, B> ConjunctionDISIWithBitSet<D, B> {
+  /// Returns the original non-bit-set iterator, regardless of which iterator
+  /// leads the conjunction after cost ordering.
+  pub(crate) fn non_bit_set_iterator(&self) -> Result<&D> {
+    match self {
+      Self::A(iterators) => match &iterators.all_disi[0] {
+        DocIdSetIteratorEnum2::A(iterator) => Ok(iterator),
+        DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
+          "Expected the non-bit-set iterator first in the conjunction",
+        )),
+      },
+      Self::B(bit_set) => Ok(&bit_set.lead),
+    }
+  }
+}
 
 pub struct ConjunctionDISI<D> {
   lead1: usize,
@@ -51,6 +74,32 @@ impl<D> ConjunctionDISI<D>
 where
   D: DocIdSetIterator,
 {
+  /// Java `createConjunction` specialized for a non-bit-set iterator and one
+  /// bit-set iterator, without two-phase matching.
+  pub(crate) fn create_conjunction<B: BitSet>(
+    iterator: D,
+    bit_set_iterator: BitSetIterator<B>,
+  ) -> Result<ConjunctionDISIWithBitSet<D, B>> {
+    if iterator.doc_id() != bit_set_iterator.doc_id() {
+      return Err(LuceneError::illegal_argument(
+        "Sub-iterators of ConjunctionDISI are not on the same document!",
+      ));
+    }
+    // Keep minimum-cost bit-set iterators in the ordinary conjunction so they
+    // can lead iteration. Only more costly bit sets use random access.
+    if bit_set_iterator.cost()? > iterator.cost()? {
+      Ok(DocIdSetIteratorEnum2::B(BitSetConjunctionDISI::new(
+        iterator,
+        vec![bit_set_iterator],
+      )?))
+    } else {
+      Ok(DocIdSetIteratorEnum2::A(ConjunctionDISI::from_disi(vec![
+        DocIdSetIteratorEnum2::A(iterator),
+        DocIdSetIteratorEnum2::B(bit_set_iterator),
+      ])?))
+    }
+  }
+
   pub(crate) fn from_disi(iterators: Vec<D>) -> Result<Self> {
     let mut iters = Vec::with_capacity(iterators.len());
     for x in iterators.into_iter() {

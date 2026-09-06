@@ -20,7 +20,9 @@ use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::abstract_knn_vector_query::FilteredDocIdSetIteratorImpl;
-use crate::core::search::conjunction_disi::{BitSetConjunctionDISI, VectorScorerDisi};
+use crate::core::search::conjunction_disi::{
+  ConjunctionDISI, ConjunctionDISIWithBitSet, VectorScorerDisi,
+};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
@@ -597,7 +599,7 @@ struct FilteredDocIdSetIteratorImpl1<V, B> {
   boost: f32,
   threshold: f32,
   cached_score: f32,
-  base: FilteredDocIdSetIteratorBase<BitSetConjunctionDISI<VectorScorerDisi<V>, B>>,
+  base: FilteredDocIdSetIteratorBase<ConjunctionDISIWithBitSet<VectorScorerDisi<V>, B>>,
 }
 
 impl<V, B> FilteredDocIdSetIteratorImpl1<V, B>
@@ -612,7 +614,7 @@ where
     threshold: f32,
   ) -> Result<Self> {
     let vector_iterator = VectorScorerDisi::new(vector_scorer);
-    let conjunction = BitSetConjunctionDISI::new(vector_iterator, vec![accept_docs])?;
+    let conjunction = ConjunctionDISI::create_conjunction(vector_iterator, accept_docs)?;
     let base = FilteredDocIdSetIteratorBase::new(conjunction);
     Ok(Self {
       boost,
@@ -656,7 +658,7 @@ where
   V: VectorScorer,
   B: BitSet,
 {
-  type DocIdSetIterator = BitSetConjunctionDISI<VectorScorerDisi<V>, B>;
+  type DocIdSetIterator = ConjunctionDISIWithBitSet<VectorScorerDisi<V>, B>;
 
   fn base(&self) -> &FilteredDocIdSetIteratorBase<Self::DocIdSetIterator> {
     &self.base
@@ -667,7 +669,7 @@ where
   }
 
   fn match_(&mut self, doc: i32) -> Result<bool> {
-    let vector_scorer = &self.base.inner_iter.lead;
+    let vector_scorer = self.base.inner_iter.non_bit_set_iterator()?;
     debug_assert_eq!(vector_scorer.doc_id(), doc);
     let score = vector_scorer.score()?;
     self.cached_score = score * self.boost;

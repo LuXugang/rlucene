@@ -22,7 +22,7 @@ use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::query_timeout::QueryTimeout;
 use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
-use crate::core::search::conjunction_disi::{BitSetConjunctionDISI, VectorScorerDisi};
+use crate::core::search::conjunction_disi::{ConjunctionDISI, VectorScorerDisi};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
@@ -106,7 +106,7 @@ impl AbstractKnnVectorQueryDefaults {
       .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
 
     let vector_iterator = VectorScorerDisi::new(vector_scorer);
-    let mut conjunction = BitSetConjunctionDISI::new(vector_iterator, vec![accept_iterator])?;
+    let mut conjunction = ConjunctionDISI::create_conjunction(vector_iterator, accept_iterator)?;
 
     loop {
       let doc = conjunction.next_doc()?;
@@ -118,8 +118,9 @@ impl AbstractKnnVectorQueryDefaults {
         relation = GreaterThanOrEqualTo;
         break;
       }
-      debug_assert_eq!(conjunction.lead.doc_id(), doc);
-      let score = conjunction.lead.score()?;
+      let vector_scorer = conjunction.non_bit_set_iterator()?;
+      debug_assert_eq!(vector_scorer.doc_id(), doc);
+      let score = vector_scorer.score()?;
       if score > top_doc.score {
         top_doc.score = score;
         top_doc.doc = doc;
