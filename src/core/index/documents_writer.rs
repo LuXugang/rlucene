@@ -710,18 +710,9 @@ where
   }
 
   pub(crate) fn subtract_flushed_num_docs(&self, num_flushed: i32) {
-    let mut old_value = self.num_docs_in_ram.load(Ordering::SeqCst);
-    loop {
-      let new_value = old_value - num_flushed;
-      if self
-        .num_docs_in_ram
-        .compare_exchange(old_value, new_value, Ordering::SeqCst, Ordering::SeqCst)
-        .is_ok()
-      {
-        break;
-      }
-      old_value = self.num_docs_in_ram.load(Ordering::SeqCst);
-    }
+    self
+      .num_docs_in_ram
+      .fetch_sub(num_flushed, Ordering::SeqCst);
     debug_assert!(self.num_docs_in_ram.load(Ordering::SeqCst) >= 0);
   }
 

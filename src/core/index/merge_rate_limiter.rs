@@ -102,13 +102,13 @@ impl MergeRateLimiter {
 
     let cur_pause_ns = AtomicI64::new(0);
 
-    // While we use fetch_update to avoid a race condition between multiple threads, this doesn't
+    // While we use update to avoid a race condition between multiple threads, this doesn't
     // mean that multiple threads will end up getting paused at the same time.
     // We only pause the calling thread. This means if the upstream caller (e.g.
     // ConcurrentMergeScheduler) is using multiple intra-threads, they will all be paused independently.
     self
       .last_ns
-      .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |last| {
+      .update(Ordering::SeqCst, Ordering::SeqCst, |last| {
         let cur_ns = nano_time();
 
         // Time we should sleep until; this is purely instantaneous
@@ -122,13 +122,12 @@ impl MergeRateLimiter {
           // Set to curNS, not targetNS, to enforce the instant rate, not
           // the "averaged over all history" rate:
           cur_pause_ns.store(0, Ordering::SeqCst);
-          Some(cur_ns)
+          cur_ns
         } else {
           cur_pause_ns.store(cur_pause, Ordering::SeqCst);
-          Some(last)
+          last
         }
-      })
-      .ok();
+      });
 
     let cur_pause_ns_val = cur_pause_ns.load(Ordering::SeqCst);
     if cur_pause_ns_val == 0 {

@@ -315,22 +315,17 @@ pub trait IndexReader: Display {
   /// returns `true`.
   fn try_inc_ref(&self) -> bool {
     let base = self.index_base();
-    loop {
-      let count = base.state.ref_count.load(Ordering::SeqCst);
-      if count <= 0 {
-        return false;
-      }
-
-      match base.state.ref_count.compare_exchange(
-        count,
-        count + 1,
-        Ordering::SeqCst,
-        Ordering::SeqCst,
-      ) {
-        Ok(_) => return true,
-        Err(_) => continue,
-      }
-    }
+    base
+      .state
+      .ref_count
+      .try_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+        if count > 0 {
+          Some(count.wrapping_add(1))
+        } else {
+          None
+        }
+      })
+      .is_ok()
   }
 
   /// Expert: returns the current ref count for this reader.

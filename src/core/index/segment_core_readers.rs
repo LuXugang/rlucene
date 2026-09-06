@@ -234,25 +234,19 @@ where
   }
 
   pub(crate) fn inc_ref(&self) -> Result<()> {
-    loop {
-      let count = self.ref_.load(Ordering::SeqCst);
-
-      if count == 0 {
-        return Err(LuceneError::already_closed(
-          "SegmentCoreReaders is already closed".to_string(),
-        ));
-      }
-      if count == i32::MAX {
-        return Err(LuceneError::illegal_state("ref_count overflow".to_string()));
-      }
-
-      match self
-        .ref_
-        .compare_exchange_weak(count, count + 1, Ordering::SeqCst, Ordering::SeqCst)
-      {
-        Ok(_) => return Ok(()),
-        Err(_) => continue,
-      }
+    match self
+      .ref_
+      .try_update(Ordering::SeqCst, Ordering::SeqCst, |count| {
+        if count > 0 {
+          Some(count.wrapping_add(1))
+        } else {
+          None
+        }
+      }) {
+      Ok(_) => Ok(()),
+      Err(_) => Err(LuceneError::already_closed(
+        "SegmentCoreReaders is already closed".to_string(),
+      )),
     }
   }
   pub(crate) fn dec_ref(&self) -> Result<()> {
