@@ -21,6 +21,7 @@ use std::collections::LinkedList;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
+use crate::core::util::tim_sorter::min_run;
 use crate::core::util::{Sorter, TimSorter, TimSorterBase};
 use crate::test_framework::core::util::lucene_test_case::{is_night_mode, random};
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -58,7 +59,7 @@ fn create_array(length: usize, runs: LinkedList<usize>) -> Result<MutablePacked6
 
 /// Create an array that triggers a worst-case sequence of run lengths.
 fn generate_worst_case_array(length: usize) -> Result<MutablePacked64Enum> {
-  let min_run = TimSorter::<WorstCaseSorter>::min_run(length);
+  let min_run = min_run(length);
   let runs = runs_worst_case(length, min_run);
   create_array(length, runs)
 }

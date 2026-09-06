@@ -932,7 +932,7 @@ pub trait BaseKnnVectorQueryTestCase {
     let delete_terms = to_delete
       .iter()
       .map(|index| Term::from_text("index", index.as_str()))
-      .collect::<Vec<_>>();
+      .collect();
     writer.delete_documents_with_terms(delete_terms)?;
     writer.commit()?;
     writer.close()?;

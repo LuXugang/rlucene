@@ -26,9 +26,7 @@ use crate::core::codecs::knn_vectors_writer::{
 use crate::core::codecs::lucene95::has_index_slice::HasIndexSlice;
 use crate::core::codecs::lucene95::ord_to_doc_disi_reader_configuration::OrdToDocDISIReaderConfiguration;
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONIC_BLOCK_SHIFT;
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
-  DefaultRandomVectorScorerSupplier, FieldWriter as HnswFieldWriter,
-};
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriter as HnswFieldWriter;
 use crate::core::codecs::lucene99::lucene99_scalar_quantized_vector_scorer::{
   Lucene99ScalarQuantizedVectorScorer, ScalarQuantizedRandomVectorScorerSupplier,
   ScalarQuantizedVectorsScorer,
@@ -693,19 +691,19 @@ where
     Ok(raw_vector_delegate)
   }
 
-  fn flat_flush<DM, F1>(
+  fn flat_flush<DM, SS>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[HnswFieldWriter<DefaultRandomVectorScorerSupplier<F1>>],
+    fields: &[HnswFieldWriter<SS>],
   ) -> Result<()>
   where
     DM: DocMap,
-    F1: FlatVectorsWriter,
+    SS: RandomVectorScorerSupplier,
   {
     self
       .raw_vector_delegate
-      .flat_flush::<DM, F1>(max_doc, sort_map, fields)?;
+      .flat_flush(max_doc, sort_map, fields)?;
 
     for field_idx in 0..self.fields.len() {
       let field = &self.fields[field_idx];
@@ -2249,9 +2247,7 @@ where
     OffsetCorrectedQuantizedByteVectorValues<Q::QuantizedByteVectorValues>;
 
   fn copy(&self) -> Result<Self::QuantizedByteVectorValues> {
-    Ok(OffsetCorrectedQuantizedByteVectorValues::<
-      Q::QuantizedByteVectorValues,
-    >::new(
+    Ok(OffsetCorrectedQuantizedByteVectorValues::new(
       QuantizedByteVectorValues::copy(&self.in_)?,
       self.vector_similarity_function,
       self.scalar_quantizer.clone(),

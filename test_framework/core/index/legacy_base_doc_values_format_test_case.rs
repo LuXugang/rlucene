@@ -53,8 +53,7 @@ use crate::core::search::boolean_query::Builder as BooleanQueryBuilder;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::term_query::TermQuery;
-use crate::core::store::directory::{Directory, DirectoryEnum};
-use crate::core::store::lock::LockEnum;
+use crate::core::store::directory::Directory;
 use crate::core::util::IOUtils;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::automation::operations::Operations;
@@ -77,7 +76,6 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::{IndexedRandom, SliceRandom};
 use rand::{Rng, RngExt};
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::io::Sink;
 use std::sync::{Arc, Barrier};
 use std::thread;
 
@@ -4370,11 +4368,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
             let context = reader.clone().get_context()?;
             let mut output = Vec::with_capacity(1024);
             for leaf in context.leaves()? {
-              let status = CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_doc_values(
-                leaf.reader(),
-                Some(&mut output),
-                true,
-              )?;
+              let status = CheckIndex::test_doc_values(leaf.reader(), Some(&mut output), true)?;
               if let Some(error) = status.error {
                 return IOUtils::rethrow_always(error);
               }

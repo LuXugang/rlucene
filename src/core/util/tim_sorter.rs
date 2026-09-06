@@ -51,6 +51,19 @@ pub struct TimSorter<T> {
   run_ends: Vec<usize>,
   delegate: T,
 }
+pub(crate) fn min_run(length: usize) -> usize {
+  debug_assert!(length >= MIN_RUN);
+  let mut n = length;
+  let mut r = 0;
+  while n >= 64 {
+    r |= n & 1;
+    n >>= 1;
+  }
+  let min_run = n + r;
+  debug_assert!((MIN_RUN..=THRESHOLD).contains(&min_run));
+  min_run
+}
+
 impl<T: TimSorterBase> TimSorter<T> {
   pub fn new(max_temp_slots: usize, delegate: T) -> TimSorter<T> {
     TimSorter {
@@ -61,18 +74,6 @@ impl<T: TimSorterBase> TimSorter<T> {
       run_ends: vec![0; STACK_SIZE + 1],
       delegate,
     }
-  }
-  pub(crate) fn min_run(length: usize) -> usize {
-    debug_assert!(length >= MIN_RUN);
-    let mut n = length;
-    let mut r = 0;
-    while n >= 64 {
-      r |= n & 1;
-      n >>= 1;
-    }
-    let min_run = n + r;
-    debug_assert!((MIN_RUN..=THRESHOLD).contains(&min_run));
-    min_run
   }
   fn run_len(&self, i: usize) -> usize {
     let off = self.stack_size - i;
@@ -159,7 +160,7 @@ impl<T: TimSorterBase> TimSorter<T> {
     self.min_run = if length <= THRESHOLD {
       length
     } else {
-      Self::min_run(length)
+      min_run(length)
     };
   }
 

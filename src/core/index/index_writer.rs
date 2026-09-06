@@ -23,8 +23,7 @@ use crate::core::index::index_file_deleter::IndexFileDeleter;
 use crate::core::index::indexable_field_type::IndexableFieldType;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::merge_policy::{
-  DefaultMergeSpecification, MergeContext, MergePolicy, MergeReaderSR, MergeSpecification,
-  MergeStat, OneMergeSR,
+  DefaultMergeSpecification, MergeContext, MergePolicy, MergeReaderSR, MergeStat, OneMergeSR,
 };
 use crate::core::index::merge_scheduler::{MergeScheduler, MergeSource};
 use crate::core::index::merge_state::{DocMap, DocMapEnum2};
@@ -136,7 +135,7 @@ where
 /// Expert: [`IndexWriter`] allows you to separately change the [`MergePolicy`] and the
 /// [`MergeScheduler`]. The [`MergePolicy`] is invoked whenever there are changes to the segments in
 /// the index. Its role is to select which merges to do, if any, and return a
-/// [`MergeSpecification`] describing the merges. The default is
+/// [`MergeSpecification`](crate::core::index::merge_policy::MergeSpecification) describing the merges. The default is
 /// [`LogByteSizeMergePolicy`](crate::core::index::log_byte_size_merge_policy::LogByteSizeMergePolicy).
 /// Then, the [`MergeScheduler`] is invoked with the requested merges
 /// and it decides when and how to run the merges. The default is
@@ -3557,7 +3556,7 @@ where
           let run_result =
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
               IOUtils::use_or_suppress_caught_result(schedule_result, Ok(abort_result))?;
-              MergeSpecification::<D, Arc<CR>>::await_(&merge_stats);
+              MergeStat::await_all(&merge_stats);
               Ok(())
             }));
           let merges = merge_source.take_processed_merges();
@@ -4229,7 +4228,7 @@ where
     let mut point_in_time_merges = self.update_pending_merges(
       &OneMergeWrappingMergePolicy::new(
         self.config.get_merge_policy().clone(),
-        PointInTimeOneMerge::<D, DefaultLeafReader<D>>::new(
+        PointInTimeOneMerge::new(
           merging_segment_infos,
           stop_collecting_merge_results,
           trigger,

@@ -75,7 +75,7 @@ pub trait AbstractVectorSimilarityQuery: QueryBase {
     Ok(Box::new(AbstractVectorSimilarityQueryWeight::new(
       self,
       filter_weight,
-      searcher.get_timeout::<()>(),
+      searcher.get_timeout(),
       boost,
     )))
   }

@@ -355,7 +355,7 @@ where
 
   if leaves.len() == 1 {
     return match leaves[0].reader().terms(field)? {
-      Some(terms) => Ok(Some(TermsType::<IR>::A(terms))),
+      Some(terms) => Ok(Some(MultiTermsType::A(terms))),
       None => return Ok(None),
     };
   }
@@ -377,7 +377,7 @@ where
   if terms_per_leaf.is_empty() {
     Ok(None)
   } else {
-    Ok(Some(TermsType::<IR>::B(MultiTerms::new(
+    Ok(Some(MultiTermsType::B(MultiTerms::new(
       terms_per_leaf,
       slice_per_leaf,
     )?)))

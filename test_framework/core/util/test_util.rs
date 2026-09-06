@@ -56,8 +56,7 @@ use crate::core::search::top_docs::TopDocs;
 use crate::core::search::total_hits::Relation;
 use crate::core::store::ByteBuffersDirectory;
 
-use crate::core::store::directory::{Directory, DirectoryEnum};
-use crate::core::store::lock::LockEnum;
+use crate::core::store::directory::Directory;
 use crate::core::store::no_lock_factory::NoLock;
 use crate::core::store::single_instance_lock_factory::SingleInstanceLockFactory;
 use crate::core::util::access::SharedAccessVec;
@@ -68,7 +67,6 @@ use crate::test_framework::core::codecs::asserting_codec::{
   AssertingCodec, AssertingCodecDocValuesFormat, AssertingCodecKnnVectorsFormat,
   AssertingCodecPostingsFormat,
 };
-use std::io::Sink;
 
 pub struct TestUtil;
 
@@ -456,7 +454,7 @@ impl TestUtil {
     let mut default_output = Vec::with_capacity(1024);
     let output = output.unwrap_or(&mut default_output);
 
-    let mut checker = CheckIndex::<D, NoLock, &mut Vec<u8>>::with_lock(dir, NoLock);
+    let mut checker = CheckIndex::with_lock(dir, NoLock);
     checker.set_level(level)?;
     checker.set_fail_fast(fail_fast);
     checker.set_info_stream_with_verbose(&mut *output, false);
@@ -513,50 +511,14 @@ impl TestUtil {
     }
     let codec_reader = SlowCodecReaderWrapper::wrap_leaf_reader(reader);
 
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_live_docs(
-      &codec_reader,
-      Some(&mut output),
-      true,
-    )?;
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_field_infos(
-      &codec_reader,
-      Some(&mut output),
-      true,
-    )?;
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_field_norms(
-      &codec_reader,
-      Some(&mut output),
-      true,
-    )?;
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_postings(
-      &codec_reader,
-      Some(&mut output),
-      false,
-      level,
-      true,
-    )?;
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_stored_fields(
-      &codec_reader,
-      Some(&mut output),
-      true,
-    )?;
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_term_vectors(
-      &codec_reader,
-      Some(&mut output),
-      false,
-      level,
-      true,
-    )?;
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_doc_values(
-      &codec_reader,
-      Some(&mut output),
-      true,
-    )?;
-    CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_points(
-      &codec_reader,
-      Some(&mut output),
-      true,
-    )?;
+    CheckIndex::test_live_docs(&codec_reader, Some(&mut output), true)?;
+    CheckIndex::test_field_infos(&codec_reader, Some(&mut output), true)?;
+    CheckIndex::test_field_norms(&codec_reader, Some(&mut output), true)?;
+    CheckIndex::test_postings(&codec_reader, Some(&mut output), false, level, true)?;
+    CheckIndex::test_stored_fields(&codec_reader, Some(&mut output), true)?;
+    CheckIndex::test_term_vectors(&codec_reader, Some(&mut output), false, level, true)?;
+    CheckIndex::test_doc_values(&codec_reader, Some(&mut output), true)?;
+    CheckIndex::test_points(&codec_reader, Some(&mut output), true)?;
 
     // some checks really against the reader API
     Self::check_reader_sanity(reader)?;

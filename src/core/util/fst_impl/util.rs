@@ -79,7 +79,7 @@ impl Util {
     debug_assert_eq!(fst.metadata.input_type, InputType::Byte1);
 
     let mut fst_reader = fst.get_bytes_reader()?;
-    let mut arc = Arc::<O::V>::default();
+    let mut arc = Arc::default();
     fst.get_first_arc(&mut arc);
     let mut output = fst.outputs.get_no_output();
 

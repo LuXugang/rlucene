@@ -232,140 +232,6 @@ where
     }
     Ok(now)
   }
-  fn add_diverse_neighbors(
-    hnsw: &mut Arc<OnHeapHnswGraph>,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
-    m: usize,
-    hnsw_lock: Option<&HnswLock>,
-    level: usize,
-    node: usize,
-    candidates: &NeighborArray,
-  ) -> Result<()> {
-    let max_conn_on_level = if level == 0 { m * 2 } else { m };
-    /* For each of the beamWidth nearest candidates (going from best to worst),
-     * select it only if it is closer to target than it is to any of the
-     * already-selected neighbors (ie selected in this method,
-     * since the node is new and has no prior neighbors).
-     */
-    let mask = Self::select_and_link_diverse(
-      hnsw,
-      scorer_supplier,
-      candidates,
-      max_conn_on_level,
-      level,
-      node,
-    )?;
-
-    // Link the selected nodes to the new node, and the new node to the selected
-    // nodes (again applying diversity heuristic)
-    // NOTE: here we're using candidates and mask but not the neighbour array
-    // because once we have added incoming link there will be possibilities
-    // of this node being discovered and neighbour array being modified. So
-    // using local candidates and mask is a safer option.
-    #[allow(clippy::needless_range_loop)]
-    for i in 0..candidates.size() {
-      if !mask[i] {
-        continue;
-      }
-      let nbr = candidates.nodes()[i];
-      let score = candidates.scores()[i];
-      let guard = hnsw_lock.map(|lock| lock.write(level, nbr));
-      hnsw.with_neighbors_mut(level, nbr, |neighbors| {
-        neighbors.add_and_ensure_diversity(node, score, nbr, scorer_supplier)
-      })?;
-      drop(guard);
-    }
-
-    Ok(())
-  }
-  ///  This method will select neighbors to add and return a mask telling the
-  /// caller which candidates are selected
-  pub(crate) fn select_and_link_diverse(
-    hnsw: &Arc<OnHeapHnswGraph>,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
-    candidates: &NeighborArray,
-    max_conn_on_level: usize,
-    level: usize,
-    node: usize,
-  ) -> Result<Vec<bool>> {
-    let max_node_id = hnsw.max_node_id();
-    hnsw.with_neighbors_mut(level, node, |neighbors| {
-      debug_assert_eq!(neighbors.size(), 0); // new node
-      let mut mask = vec![false; candidates.size()];
-      let mut i = candidates.size();
-      // Select the best maxConnOnLevel neighbors of the new node, applying the
-      // diversity heuristic
-      while neighbors.size() < max_conn_on_level && i > 0 {
-        i -= 1;
-        // compare each neighbor (in distance order) against the closer neighbors
-        // selected so far, only adding it if it is closer to the target
-        // than to any of the other selected neighbors
-        let c_node = candidates.nodes()[i];
-        let c_score = candidates.scores()[i];
-        debug_assert!({
-          match max_node_id {
-            Some(v) => c_node <= v,
-            None => false,
-          }
-        });
-        let mut v = scorer_supplier.scorer(c_node)?;
-        if Self::diversity_check(c_score, &mut v, neighbors)? {
-          mask[i] = true;
-          // here we don't need to lock, because there's no incoming link so no others is
-          // able to discover this node such that no others will modify
-          // this neighbor array as well
-          neighbors.add_in_order(c_node, c_score)?;
-        }
-      }
-      Ok(mask)
-    })
-  }
-  pub(crate) fn pop_to_scratch(
-    candidates: &mut GraphBuilderKnnCollector,
-    scratch: &mut NeighborArray,
-  ) -> Result<()> {
-    scratch.clear();
-    let candidate_count = candidates.size();
-
-    for _ in 0..candidate_count {
-      let max_similarity = candidates.minimum_score();
-      let node = candidates.pop_node()?;
-      scratch.add_in_order(node, max_similarity)?;
-    }
-
-    Ok(())
-  }
-  /// # Arguments
-  ///
-  /// * `candidate` - The vector of a new candidate neighbor of a node `n`.
-  /// * `score` - The score of the new candidate and node `n`, to be compared
-  ///   with scores of the candidate and `n`'s neighbors.
-  /// * `neighbors` - The neighbors selected so far.
-  ///
-  /// # Returns
-  ///
-  /// Whether the candidate is diverse given the existing neighbors.
-  fn diversity_check(
-    score: f32,
-    scorer: &mut impl RandomVectorScorer,
-    neighbors: &NeighborArray,
-  ) -> Result<bool> {
-    for i in 0..neighbors.size() {
-      let neighbor_similarity = scorer.score(neighbors.nodes()[i])?;
-      if neighbor_similarity >= score {
-        return Ok(false);
-      }
-    }
-    Ok(true)
-  }
-  pub(crate) fn get_random_graph_level(ml: f64, random: &mut impl Rng) -> usize {
-    loop {
-      let rand_double: f64 = random.random();
-      if rand_double > 0.0 {
-        return (-rand_double.ln() * ml) as usize;
-      }
-    }
-  }
   pub(crate) fn finish(&mut self) -> Result<()> {
     self.connect_components()?;
     self.frozen = true;
@@ -608,6 +474,141 @@ where
 }
 
 impl HnswGraphBuilderDefaults {
+  fn add_diverse_neighbors(
+    hnsw: &mut Arc<OnHeapHnswGraph>,
+    scorer_supplier: &impl RandomVectorScorerSupplier,
+    m: usize,
+    hnsw_lock: Option<&HnswLock>,
+    level: usize,
+    node: usize,
+    candidates: &NeighborArray,
+  ) -> Result<()> {
+    let max_conn_on_level = if level == 0 { m * 2 } else { m };
+    /* For each of the beamWidth nearest candidates (going from best to worst),
+     * select it only if it is closer to target than it is to any of the
+     * already-selected neighbors (ie selected in this method,
+     * since the node is new and has no prior neighbors).
+     */
+    let mask = Self::select_and_link_diverse(
+      hnsw,
+      scorer_supplier,
+      candidates,
+      max_conn_on_level,
+      level,
+      node,
+    )?;
+
+    // Link the selected nodes to the new node, and the new node to the selected
+    // nodes (again applying diversity heuristic)
+    // NOTE: here we're using candidates and mask but not the neighbour array
+    // because once we have added incoming link there will be possibilities
+    // of this node being discovered and neighbour array being modified. So
+    // using local candidates and mask is a safer option.
+    #[allow(clippy::needless_range_loop)]
+    for i in 0..candidates.size() {
+      if !mask[i] {
+        continue;
+      }
+      let nbr = candidates.nodes()[i];
+      let score = candidates.scores()[i];
+      let guard = hnsw_lock.map(|lock| lock.write(level, nbr));
+      hnsw.with_neighbors_mut(level, nbr, |neighbors| {
+        neighbors.add_and_ensure_diversity(node, score, nbr, scorer_supplier)
+      })?;
+      drop(guard);
+    }
+
+    Ok(())
+  }
+  ///  This method will select neighbors to add and return a mask telling the
+  /// caller which candidates are selected
+  pub(crate) fn select_and_link_diverse(
+    hnsw: &Arc<OnHeapHnswGraph>,
+    scorer_supplier: &impl RandomVectorScorerSupplier,
+    candidates: &NeighborArray,
+    max_conn_on_level: usize,
+    level: usize,
+    node: usize,
+  ) -> Result<Vec<bool>> {
+    let max_node_id = hnsw.max_node_id();
+    hnsw.with_neighbors_mut(level, node, |neighbors| {
+      debug_assert_eq!(neighbors.size(), 0); // new node
+      let mut mask = vec![false; candidates.size()];
+      let mut i = candidates.size();
+      // Select the best maxConnOnLevel neighbors of the new node, applying the
+      // diversity heuristic
+      while neighbors.size() < max_conn_on_level && i > 0 {
+        i -= 1;
+        // compare each neighbor (in distance order) against the closer neighbors
+        // selected so far, only adding it if it is closer to the target
+        // than to any of the other selected neighbors
+        let c_node = candidates.nodes()[i];
+        let c_score = candidates.scores()[i];
+        debug_assert!({
+          match max_node_id {
+            Some(v) => c_node <= v,
+            None => false,
+          }
+        });
+        let mut v = scorer_supplier.scorer(c_node)?;
+        if Self::diversity_check(c_score, &mut v, neighbors)? {
+          mask[i] = true;
+          // here we don't need to lock, because there's no incoming link so no others is
+          // able to discover this node such that no others will modify
+          // this neighbor array as well
+          neighbors.add_in_order(c_node, c_score)?;
+        }
+      }
+      Ok(mask)
+    })
+  }
+  pub(crate) fn pop_to_scratch(
+    candidates: &mut GraphBuilderKnnCollector,
+    scratch: &mut NeighborArray,
+  ) -> Result<()> {
+    scratch.clear();
+    let candidate_count = candidates.size();
+
+    for _ in 0..candidate_count {
+      let max_similarity = candidates.minimum_score();
+      let node = candidates.pop_node()?;
+      scratch.add_in_order(node, max_similarity)?;
+    }
+
+    Ok(())
+  }
+  /// # Arguments
+  ///
+  /// * `candidate` - The vector of a new candidate neighbor of a node `n`.
+  /// * `score` - The score of the new candidate and node `n`, to be compared
+  ///   with scores of the candidate and `n`'s neighbors.
+  /// * `neighbors` - The neighbors selected so far.
+  ///
+  /// # Returns
+  ///
+  /// Whether the candidate is diverse given the existing neighbors.
+  fn diversity_check(
+    score: f32,
+    scorer: &mut impl RandomVectorScorer,
+    neighbors: &NeighborArray,
+  ) -> Result<bool> {
+    for i in 0..neighbors.size() {
+      let neighbor_similarity = scorer.score(neighbors.nodes()[i])?;
+      if neighbor_similarity >= score {
+        return Ok(false);
+      }
+    }
+    Ok(true)
+  }
+  pub(crate) fn get_random_graph_level(ml: f64, random: &mut impl Rng) -> usize {
+    loop {
+      let rand_double: f64 = random.random();
+      if rand_double > 0.0 {
+        return (-rand_double.ln() * ml) as usize;
+      }
+    }
+  }
+
   pub(crate) fn add_graph_node<B, S, BS>(
     builder: &mut HnswGraphBuilder<B, S, BS>,
     node: usize,
@@ -643,8 +644,7 @@ impl HnswGraphBuilderDefaults {
     }
 
     let scorer = builder.scorer_supplier.scorer(node)?;
-    let node_level =
-      HnswGraphBuilder::<B, S, BS>::get_random_graph_level(builder.ml, &mut builder.random);
+    let node_level = Self::get_random_graph_level(builder.ml, &mut builder.random);
 
     // first add nodes to all levels
     for level in (0..=node_level).rev() {
@@ -711,14 +711,14 @@ impl HnswGraphBuilderDefaults {
         )?;
         eps = candidates.pop_until_nearest_k_nodes()?;
         let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), builder.m + 1), false);
-        HnswGraphBuilder::<B, S, BS>::pop_to_scratch(candidates, &mut scratch)?;
+        Self::pop_to_scratch(candidates, &mut scratch)?;
         scratch_per_level[i] = scratch;
       }
 
       // then do connections from bottom up
       let len = scratch_per_level.len();
       for (i, scratch) in scratch_per_level.into_iter().enumerate() {
-        HnswGraphBuilder::<B, S, BS>::add_diverse_neighbors(
+        Self::add_diverse_neighbors(
           &mut builder.hnsw,
           &builder.scorer_supplier,
           builder.m,

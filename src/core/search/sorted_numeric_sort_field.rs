@@ -584,13 +584,13 @@ macro_rules! impl_sorted_numeric_comparator {
       where
         LR: LeafReader,
       {
-        let selector_a = NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
+        let selector_a = NumericLeafComparatorDocValues::A(SortedNumericSelector::wrap(
           DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
           self.selector,
           self.type_,
         )?);
 
-        let selector_b = NumericLeafComparatorDocValues::<LR>::A(SortedNumericSelector::wrap(
+        let selector_b = NumericLeafComparatorDocValues::A(SortedNumericSelector::wrap(
           DocValues::get_sorted_numeric(context.reader(), &self.base.base.field)?,
           self.selector,
           self.type_,

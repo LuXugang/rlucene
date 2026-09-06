@@ -445,7 +445,7 @@ where
       self.get_disi_input(field, &entry)?,
     ) {
       (Some(RandomAccessSliceEnum::Shared(jt)), SliceEnum::Shared(input)) => {
-        IndexedDISIEnum::<I>::Shared(IndexedDISIImpl::from_components(
+        IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
           input,
           Some(jt),
           entry.jump_table_entry_count as i32,
@@ -455,7 +455,7 @@ where
       },
 
       (Some(RandomAccessSliceEnum::Owned(jt)), SliceEnum::Owned(input)) => {
-        IndexedDISIEnum::<I>::Owned(IndexedDISIImpl::from_components(
+        IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
           input,
           Some(jt),
           entry.jump_table_entry_count as i32,
@@ -464,7 +464,7 @@ where
         )?)
       },
       (None, SliceEnum::Shared(input)) => {
-        IndexedDISIEnum::<I>::Shared(IndexedDISIImpl::from_components(
+        IndexedDISIEnum::Shared(IndexedDISIImpl::from_components(
           input,
           None,
           entry.jump_table_entry_count as i32,
@@ -473,15 +473,13 @@ where
         )?)
       },
 
-      (None, SliceEnum::Owned(input)) => {
-        IndexedDISIEnum::<I>::Owned(IndexedDISIImpl::from_components(
-          input,
-          None,
-          entry.jump_table_entry_count as i32,
-          entry.dense_rank_power,
-          entry.num_docs_with_field as i64,
-        )?)
-      },
+      (None, SliceEnum::Owned(input)) => IndexedDISIEnum::Owned(IndexedDISIImpl::from_components(
+        input,
+        None,
+        entry.jump_table_entry_count as i32,
+        entry.dense_rank_power,
+        entry.num_docs_with_field as i64,
+      )?),
       _ => {
         return Err(LuceneError::illegal_state(
           "should have same ownership: Shared or Owned",

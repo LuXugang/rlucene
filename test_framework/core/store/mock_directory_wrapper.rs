@@ -782,7 +782,7 @@ where
       .map(|(handle_id, handle)| (*handle_id, handle.clone()))
       .collect();
     for (handle_id, handle) in open_output_handles {
-      let _ = MockIndexOutputWrapper::<D>::force_close(self, handle_id, &handle);
+      let _ = MockIndexOutputWrapper::force_close(self, handle_id, &handle);
     }
     self.state.open_output_handles.lock().clear();
     self.state.open_file_handles.lock().clear();

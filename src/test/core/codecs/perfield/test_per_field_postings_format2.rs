@@ -60,7 +60,7 @@ fn new_writer(
   dir: Arc<DirEnum>,
   mut conf: IndexWriterConfig<DirEnum>,
 ) -> Result<DefaultIndexWriter<DirEnum>> {
-  let mut log_byte_size_merge_policy = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let mut log_byte_size_merge_policy = LogMergePolicy::log_doc();
   <LogMergePolicy<LogDocMergePolicy> as MergePolicy<DirEnum>>::get_base_mut(
     &mut log_byte_size_merge_policy,
   )

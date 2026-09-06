@@ -30,7 +30,7 @@ use crate::core::index::terms::Terms;
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::search::constant_score_scorer::ConstantScoreScorer;
 use crate::core::search::constant_score_weight::ConstantScoreWeight;
-use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum4;
+use crate::core::search::doc_id_set_iterator::{DocIdSetIteratorEnum4, DocIdSetIteratorEnum5};
 use crate::core::search::explanation::Explanation;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
@@ -307,19 +307,17 @@ where
     };
     let disi_opt = if fi.has_norms() {
       // the field indexes norms
-      reader
-        .get_norm_values(field)?
-        .map(Disi::<IRCLeafReader<IRC>>::C)
+      reader.get_norm_values(field)?.map(DocIdSetIteratorEnum4::C)
     } else if fi.get_vector_dimension() != 0 {
       match fi.get_vector_encoding() {
-        VectorEncoding::BYTE(_) => Some(Disi::<IRCLeafReader<IRC>>::A(
+        VectorEncoding::BYTE(_) => Some(DocIdSetIteratorEnum4::A(
           context
             .reader()
             .get_byte_vector_values(field)?
             .ok_or_else(|| LuceneError::illegal_state("unexpected null byte vector values"))?
             .iterator()?,
         )),
-        VectorEncoding::FLOAT32(_) => Some(Disi::<IRCLeafReader<IRC>>::B(
+        VectorEncoding::FLOAT32(_) => Some(DocIdSetIteratorEnum4::B(
           context
             .reader()
             .get_float_vector_values(field)?
@@ -331,27 +329,23 @@ where
       match *fi.get_doc_values_type() {
         DocValuesType::Numeric => reader
           .get_numeric_doc_values(field)?
-          .map(|numeric| Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::A(numeric))),
+          .map(|numeric| DocIdSetIteratorEnum4::D(DocIdSetIteratorEnum5::A(numeric))),
 
         DocValuesType::Binary => reader
           .get_binary_doc_values(field)?
-          .map(|binary| Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::B(binary))),
+          .map(|binary| DocIdSetIteratorEnum4::D(DocIdSetIteratorEnum5::B(binary))),
 
         DocValuesType::Sorted => reader
           .get_sorted_doc_values(field)?
-          .map(|sorted| Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::C(sorted))),
+          .map(|sorted| DocIdSetIteratorEnum4::D(DocIdSetIteratorEnum5::C(sorted))),
 
-        DocValuesType::SortedNumeric => {
-          reader
-            .get_sorted_numeric_doc_values(field)?
-            .map(|sorted_numeric| {
-              Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::D(sorted_numeric))
-            })
-        },
+        DocValuesType::SortedNumeric => reader
+          .get_sorted_numeric_doc_values(field)?
+          .map(|sorted_numeric| DocIdSetIteratorEnum4::D(DocIdSetIteratorEnum5::D(sorted_numeric))),
 
-        DocValuesType::SortedSet => reader.get_sorted_set_doc_values(field)?.map(|sorted_set| {
-          Disi::<IRCLeafReader<IRC>>::D(LRDisis::<IRCLeafReader<IRC>>::E(sorted_set))
-        }),
+        DocValuesType::SortedSet => reader
+          .get_sorted_set_doc_values(field)?
+          .map(|sorted_set| DocIdSetIteratorEnum4::D(DocIdSetIteratorEnum5::E(sorted_set))),
         DocValuesType::None => None,
       }
     } else {
@@ -448,27 +442,27 @@ where
   let doc_value_type = *fi.get_doc_values_type();
   match doc_value_type {
     DocValuesType::Numeric => match reader.get_numeric_doc_values(field)? {
-      Some(numeric) => Ok(Some(LRDisis::<LR>::A(numeric))),
+      Some(numeric) => Ok(Some(DocIdSetIteratorEnum5::A(numeric))),
       None => Ok(None),
     },
 
     DocValuesType::Binary => match reader.get_binary_doc_values(field)? {
-      Some(binary) => Ok(Some(LRDisis::<LR>::B(binary))),
+      Some(binary) => Ok(Some(DocIdSetIteratorEnum5::B(binary))),
       None => Ok(None),
     },
 
     DocValuesType::Sorted => match reader.get_sorted_doc_values(field)? {
-      Some(sorted) => Ok(Some(LRDisis::<LR>::C(sorted))),
+      Some(sorted) => Ok(Some(DocIdSetIteratorEnum5::C(sorted))),
       None => Ok(None),
     },
 
     DocValuesType::SortedNumeric => match reader.get_sorted_numeric_doc_values(field)? {
-      Some(sorted_numeric) => Ok(Some(LRDisis::<LR>::D(sorted_numeric))),
+      Some(sorted_numeric) => Ok(Some(DocIdSetIteratorEnum5::D(sorted_numeric))),
       None => Ok(None),
     },
 
     DocValuesType::SortedSet => match reader.get_sorted_set_doc_values(field)? {
-      Some(sorted_set) => Ok(Some(LRDisis::<LR>::E(sorted_set))),
+      Some(sorted_set) => Ok(Some(DocIdSetIteratorEnum5::E(sorted_set))),
       None => Ok(None),
     },
     DocValuesType::None => Ok(None),

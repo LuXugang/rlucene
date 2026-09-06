@@ -1110,7 +1110,7 @@ fn test_custom_directory_reader() -> Result<()> {
 fn test_previous_reader_is_passed() -> Result<()> {
   let mut random = random();
   let directory = new_directory_shared(&mut random)?;
-  let config = new_index_writer_config::<DirEnum, _>(&mut random)?;
+  let config = new_index_writer_config(&mut random)?;
   let writer = IndexWriter::new(directory.clone(), config)?;
   writer.add_document(Document::new())?;
   let factory_state = Arc::new(TrackingSearcherFactoryState::default());

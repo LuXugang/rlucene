@@ -49,22 +49,22 @@ struct TestLatLonPointDistanceFeatureQuery;
 fn test_equals_and_hashcode() -> Result<()> {
   let q1 = LatLonPoint::new_distance_feature_query("foo", 3f32, 10.0, 10.0, 5.0)?;
   let q2 = LatLonPoint::new_distance_feature_query("foo", 3f32, 10.0, 10.0, 5.0)?;
-  QueryUtils::check_equal::<Query>(&q1, &q2);
+  QueryUtils::check_equal(&q1, &q2);
 
   let q3 = LatLonPoint::new_distance_feature_query("bar", 3f32, 10.0, 10.0, 5.0)?;
-  QueryUtils::check_unequal::<Query>(&q1, &q3);
+  QueryUtils::check_unequal(&q1, &q3);
 
   let q4 = LatLonPoint::new_distance_feature_query("foo", 4f32, 10.0, 10.0, 5.0)?;
-  QueryUtils::check_unequal::<Query>(&q1, &q4);
+  QueryUtils::check_unequal(&q1, &q4);
 
   let q5 = LatLonPoint::new_distance_feature_query("foo", 3f32, 9.0, 10.0, 5.0)?;
-  QueryUtils::check_unequal::<Query>(&q1, &q5);
+  QueryUtils::check_unequal(&q1, &q5);
 
   let q6 = LatLonPoint::new_distance_feature_query("foo", 3f32, 10.0, 9.0, 5.0)?;
-  QueryUtils::check_unequal::<Query>(&q1, &q6);
+  QueryUtils::check_unequal(&q1, &q6);
 
   let q7 = LatLonPoint::new_distance_feature_query("foo", 3f32, 10.0, 10.0, 6.0)?;
-  QueryUtils::check_unequal::<Query>(&q1, &q7);
+  QueryUtils::check_unequal(&q1, &q7);
 
   Ok(())
 }

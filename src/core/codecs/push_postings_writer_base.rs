@@ -20,6 +20,7 @@ use crate::core::codecs::postings_writer_base::PostingsWriterBase;
 use crate::core::index::BytesRef;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::index_options::IndexOptions;
+use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::postings_enum::{FREQS, OFFSETS, PAYLOADS, POSITIONS, PostingsEnum};
 use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::segment_write_state::SegmentWriteState;
@@ -158,7 +159,7 @@ where
 
       self
         .sub
-        .start_doc::<N>(norm_values.as_mut(), doc_id, freq, &self.options)?;
+        .start_doc(norm_values.as_mut(), doc_id, freq, &self.options)?;
 
       if self.options.write_positions {
         for _ in 0..freq {
@@ -255,15 +256,15 @@ pub trait PushPostingsWriterBaseAbstract {
 
   /// Adds a new doc in this term. `freq` will be -1 when term
   /// frequencies are omitted for the field.
-  fn start_doc<N>(
+  fn start_doc<NDV>(
     &mut self,
-    norms: Option<&mut N::NumericDocValues>,
+    norms: Option<&mut NDV>,
     doc_id: i32,
     freq: i32,
     options: &FieldWriteOptions,
   ) -> Result<()>
   where
-    N: NormsProducer;
+    NDV: NumericDocValues;
 
   /// Add a new position and payload, and start/end offset.
   /// An absent payload means no payload; a present payload with zero length

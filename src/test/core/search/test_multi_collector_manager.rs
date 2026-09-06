@@ -261,8 +261,8 @@ where
     }
     let mut scorer = Score::new(0.0);
     let collector_idx = collectors.len() - 1;
-    let mut leaf_collector = collectors[collector_idx]
-      .get_leaf_collector::<_, LeafReaderContext<LR>>(ctx, Some(&dummy_weight), &searcher)?;
+    let mut leaf_collector =
+      collectors[collector_idx].get_leaf_collector(ctx, Some(&dummy_weight), &searcher)?;
     leaf_collector.collect(*v, &mut scorer)?;
   }
   collector_manager.reduce(collectors)

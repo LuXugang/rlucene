@@ -46,7 +46,7 @@ impl<T> BufferedIndexInput<T> {
     buffer_size: usize,
   ) -> Result<BufferedIndexInput<T>> {
     let buffer = Cursor::new(vec![0u8; buffer_size]);
-    Self::check_buffer_size(buffer_size)?;
+    check_buffer_size(buffer_size)?;
     Ok(BufferedIndexInput {
       buffer_size,
       resource_desc: resource_desc.to_string(),
@@ -69,25 +69,25 @@ impl<T> BufferedIndexInput<T> {
     resource_desc: &str,
     context: &IOContext,
   ) -> Result<BufferedIndexInput<T>> {
-    Self::with_buffer_size(sub_index_input, resource_desc, Self::buffer_size(context))
+    Self::with_buffer_size(sub_index_input, resource_desc, buffer_size(context))
   }
+}
 
-  /// Returns default buffer sizes for the given [`IOContext`].
-  pub fn buffer_size(io_context: &IOContext) -> usize {
-    match io_context.get_context() {
-      Context::Merge => MERGE_BUFFER_SIZE,
-      Context::Default | Context::Flush => BUFFER_SIZE,
-    }
+/// Returns default buffer sizes for the given [`IOContext`].
+pub fn buffer_size(io_context: &IOContext) -> usize {
+  match io_context.get_context() {
+    Context::Merge => MERGE_BUFFER_SIZE,
+    Context::Default | Context::Flush => BUFFER_SIZE,
   }
+}
 
-  fn check_buffer_size(buffer_size: usize) -> Result<()> {
-    if buffer_size < MIN_BUFFER_SIZE {
-      return Err(LuceneError::illegal_argument(format!(
-        "bufferSize must be at least MIN_BUFFER_SIZE (got {buffer_size})"
-      )));
-    }
-    Ok(())
+fn check_buffer_size(buffer_size: usize) -> Result<()> {
+  if buffer_size < MIN_BUFFER_SIZE {
+    return Err(LuceneError::illegal_argument(format!(
+      "bufferSize must be at least MIN_BUFFER_SIZE (got {buffer_size})"
+    )));
   }
+  Ok(())
 }
 
 impl<T> BufferedIndexInput<T>

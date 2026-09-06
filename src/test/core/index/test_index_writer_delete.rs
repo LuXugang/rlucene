@@ -1484,7 +1484,7 @@ fn test_deletes_check_index_output() -> Result<()> {
   w.close()?;
 
   let mut output = Vec::with_capacity(1024);
-  let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(dir.clone())?;
+  let mut checker = CheckIndex::new(dir.clone())?;
   checker.set_info_stream(&mut output);
   let index_status = checker.check_index()?;
   assert!(index_status.clean);
@@ -1501,7 +1501,7 @@ fn test_deletes_check_index_output() -> Result<()> {
   w.close()?;
 
   let mut output = Vec::with_capacity(1024);
-  let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(dir.clone())?;
+  let mut checker = CheckIndex::new(dir.clone())?;
   checker.set_info_stream(&mut output);
   let index_status = checker.check_index()?;
   assert!(index_status.clean);

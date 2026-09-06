@@ -212,7 +212,7 @@ where
 
   if size == 1 {
     return match leaves[0].reader().get_live_docs()? {
-      Some(bits) => Ok(Some(BitsType::<IR>::A(bits))),
+      Some(bits) => Ok(Some(MultiBitsType::A(bits))),
       None => Ok(None),
     };
   }
@@ -228,7 +228,7 @@ where
 
   starts.push(max_doc.try_convert()?);
 
-  Ok(Some(BitsType::<IR>::B(MultiBits::new(
+  Ok(Some(MultiBitsType::B(MultiBits::new(
     live_docs, starts, true,
   ))))
 }

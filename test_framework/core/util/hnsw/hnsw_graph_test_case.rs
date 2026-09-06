@@ -57,7 +57,6 @@ use crate::core::search::sort::Sort;
 use crate::core::search::sort_field::{SortField, SortFieldType};
 use crate::core::search::task_executor::TaskExecutor;
 use crate::core::search::top_knn_collector::TopKnnCollector;
-use crate::core::store::directory::DirEnum;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -218,7 +217,7 @@ where
     config.set_codec(TestUtil::always_knn_vectors_format(
       Lucene99HnswVectorsFormat::with_graph_para(m, beam_width)?,
     ));
-    config.set_merge_policy(new_merge_policy::<DirEnum, _>(random)?);
+    config.set_merge_policy(new_merge_policy(random)?);
     let writer = IndexWriter::new(dir.clone(), config)?;
     for i in 0..segment_sizes.len() {
       let size = segment_sizes[i];

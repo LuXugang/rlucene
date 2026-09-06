@@ -646,7 +646,7 @@ where
   {
     self
       .flat_vector_writer
-      .flat_flush::<DM, F>(max_doc, sort_map, &self.fields)?;
+      .flat_flush(max_doc, sort_map, &self.fields)?;
 
     for field_idx in 0..self.fields.len() {
       if let Some(sm) = sort_map {
@@ -939,7 +939,7 @@ where
       .ok_or_else(|| LuceneError::illegal_state("Invalid flat field vectors writer index"))?;
     let ss = self.hnsw_graph_builder.get_scorer_supplier_mut();
     let vectors = ss.get_vector_mut()?;
-    FlatFieldVectorsWriter::flat_add_value::<F>(
+    FlatFieldVectorsWriter::flat_add_value(
       flat_field_vectors_writer,
       doc_id,
       vector_value,

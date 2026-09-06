@@ -111,7 +111,7 @@ impl TestFSTs {
           input: term.clone(),
           output: no_output.clone(),
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -134,7 +134,7 @@ impl TestFSTs {
           input: term,
           output: Arc::new(idx as i64),
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -159,7 +159,7 @@ impl TestFSTs {
             output: Arc::new(last_output),
           }
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -179,7 +179,7 @@ impl TestFSTs {
           input: term.clone(),
           output: Arc::new(random.random_range(0..=i64::MAX)),
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -213,7 +213,7 @@ impl TestFSTs {
             output,
           }
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -232,13 +232,13 @@ impl TestFSTs {
         .enumerate()
         .map(|(idx, term)| {
           let s = idx.to_string();
-          let vec = s.chars().map(|ch| ch as i32).collect::<Vec<_>>();
+          let vec = s.chars().map(|ch| ch as i32).collect();
           InputOutput {
             input: term.clone(),
             output: IntsRef::from_slice(Arc::new(vec), 0, s.len()),
           }
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -334,7 +334,7 @@ fn test_basic_fsa() -> Result<()> {
           input: term.clone(),
           output: no_output.clone(),
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -359,7 +359,7 @@ fn test_basic_fsa() -> Result<()> {
           input: term.clone(),
           output: Arc::new(idx as i64),
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),
@@ -387,7 +387,7 @@ fn test_basic_fsa() -> Result<()> {
             output,
           }
         })
-        .collect::<Vec<_>>();
+        .collect();
 
       let mut tester: FSTTester<_, _, _, DummyFSTTesterBaseImpl> = FSTTester::new(
         random_from_seed(random_seed),

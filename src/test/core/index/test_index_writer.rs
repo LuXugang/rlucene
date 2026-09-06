@@ -2360,7 +2360,7 @@ fn test_get_commit_data() -> Result<()> {
   drop(writer);
 
   // Validate that it's also visible when opening a new IndexWriter.
-  let mut iwc = new_index_writer_config::<DirEnum, _>(&mut random)?;
+  let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_open_mode(OpenMode::Append);
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
@@ -2420,8 +2420,7 @@ fn test_get_commit_data_from_old_snapshot() -> Result<()> {
   // the old commit data is visible.
   let mut iwc = new_snapshot_index_writer_config(&mut random)?;
   iwc.set_open_mode(OpenMode::Append);
-  let index_commit_wrapper =
-    IndexCommitWrapper::<Arc<CommitPoint<DirEnum>>, DirEnum>::new(Some(index_commit), None)?;
+  let index_commit_wrapper = IndexCommitWrapper::new(Some(index_commit), None)?;
   let writer = IndexWriter::with_index_commit(dir.clone(), iwc, index_commit_wrapper)?;
   assert_eq!(
     Some("value"),
@@ -2979,7 +2978,7 @@ fn test_close_while_merge_is_running() -> Result<()> {
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   iwc.set_commit_on_close(false);
-  let mut mp = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let mut mp = LogMergePolicy::log_doc();
   mp.set_merge_factor(2)?;
   iwc.set_merge_policy(mp);
   iwc.set_info_stream(InfoStreamEnum::Custom(Box::new(
@@ -3094,7 +3093,7 @@ fn test_ids() -> Result<()> {
 
   // Make sure CheckIndex includes id output:
   let mut output = Vec::with_capacity(1024);
-  let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(d.clone())?;
+  let mut checker = CheckIndex::new(d.clone())?;
   checker.set_level(Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS)?;
   checker.set_info_stream_with_verbose(&mut output, false);
   let index_status = checker.check_index()?;
@@ -4206,15 +4205,7 @@ fn soft_updates_concurrently(mix_deletes: bool) -> Result<()> {
             let mut doc = Document::new();
             doc.add(StringField::from_string("id", &id, Store::Yes)?);
             if update_several_docs {
-              let docs = vec![
-                doc
-                  .clone()
-                  .into_iter()
-                  .collect::<Vec<crate::core::document::fields::Fields>>(),
-                doc
-                  .into_iter()
-                  .collect::<Vec<crate::core::document::fields::Fields>>(),
-              ];
+              let docs = vec![doc.clone().into_iter().collect(), doc.into_iter().collect()];
               if mix_deletes && random.random_bool(0.5) {
                 if random.random_bool(0.5) {
                   writer.update_documents_with_term(Term::from_text("id", &id), docs)?;
@@ -5739,8 +5730,7 @@ fn test_segment_commit_info_id() -> Result<()> {
 
 #[test]
 fn test_merge_zero_docs_merge_is_closed_once() -> Result<()> {
-  let keep_all_segments =
-    KeepFullyDeletedSegmentsMergePolicy::new(LogMergePolicy::<LogDocMergePolicy>::log_doc());
+  let keep_all_segments = KeepFullyDeletedSegmentsMergePolicy::new(LogMergePolicy::log_doc());
   let merge_policy = OneMergeWrappingMergePolicy::new(
     keep_all_segments,
     OneMergeUnaryOperator::custom(MergeFinishedOnceOneMergeUnaryOperator),

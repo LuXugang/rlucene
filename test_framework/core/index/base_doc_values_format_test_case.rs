@@ -39,8 +39,6 @@ use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
-use crate::core::store::directory::DirectoryEnum;
-use crate::core::store::lock::LockEnum;
 use crate::core::util::IOUtils;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
@@ -57,7 +55,6 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
 use rand::RngExt;
 use std::collections::HashMap;
-use std::io::Sink;
 
 pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
   /// Return `false` if the [`DocValuesSkipper`] produced by this format
@@ -695,11 +692,7 @@ pub trait BaseDocValuesFormatTestCase: LegacyBaseDocValuesFormatTestCase {
     for reader_context in context.leaves()? {
       let reader = reader_context.reader();
       let mut output = Vec::with_capacity(1024);
-      let status = CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_doc_values(
-        reader,
-        Some(&mut output),
-        true,
-      )?;
+      let status = CheckIndex::test_doc_values(reader, Some(&mut output), true)?;
       if let Some(error) = status.error {
         return IOUtils::rethrow_always(error);
       }

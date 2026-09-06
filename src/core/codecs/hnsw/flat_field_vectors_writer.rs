@@ -35,7 +35,7 @@ pub trait FlatFieldVectorsWriter: KnnFieldVectorsWriter {
   /// Returns true if the writer is done and no new vectors are allowed to be added.
   fn is_finished(&self) -> bool;
 
-  fn flat_add_value<F>(
+  fn flat_add_value(
     &mut self,
     doc_id: i32,
     vector_value: &VectorValueEnum,

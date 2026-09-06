@@ -19,7 +19,7 @@ use crate::core::geo::geo_encoding_utils::GeoEncodingUtils;
 use crate::core::geo::geo_utils::GeoUtils;
 use crate::core::geo::rectangle::Rectangle;
 use crate::core::index::doc_values::{
-  DocValues, NumericDocValuesEnum3WithEmpty, SortedNumeric, SortedNumericDocValuesEnum3WithEmpty,
+  DocValues, NumericDocValuesEnum3WithEmpty, SortedNumericDocValuesEnum3WithEmpty,
 };
 use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::index_reader::{Identity, IndexReader};
@@ -32,6 +32,7 @@ use crate::core::index::numeric_doc_values::NumericDocValues;
 use crate::core::index::point_values::{
   IntersectVisitor, PointValues, Relation, is_estimated_point_count_greater_than_or_equal_to,
 };
+use crate::core::index::singleton_sorted_numeric_doc_values::SingletonSortedNumericDocValues;
 use crate::core::index::sorted_numeric_doc_values::SortedNumericDocValues;
 use crate::core::search::doc_id_set::DocIdSet;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
@@ -181,13 +182,17 @@ impl LatLonPointDistanceFeatureWeight {
     }
   }
 }
-fn select_value_with_geo<IRC>(
-  multi_doc_values: SortedNumeric<IRCLeafReader<IRC>>,
+fn select_value_with_geo<SNDV, NDV>(
+  multi_doc_values: SortedNumericDocValuesEnum3WithEmpty<
+    SNDV,
+    SingletonSortedNumericDocValues<NDV>,
+  >,
   origin_lat: f64,
   origin_lon: f64,
-) -> Result<SelectValue<IRC>>
+) -> Result<NumericDocValuesEnum3WithEmpty<NumericDocValuesImpl<SNDV>, NDV>>
 where
-  IRC: IndexReaderContext,
+  SNDV: SortedNumericDocValues,
+  NDV: NumericDocValues,
 {
   let r = match multi_doc_values {
     SortedNumericDocValuesEnum3WithEmpty::A(v) => {
@@ -284,7 +289,7 @@ where
     }
     let multi_doc_values = DocValues::get_sorted_numeric(reader, &self.query_meta.field)?;
     let max_doc = reader.max_doc()?;
-    let doc_values = select_value_with_geo::<IRC>(
+    let doc_values = select_value_with_geo(
       multi_doc_values,
       self.query_meta.origin_lat,
       self.query_meta.origin_lon,

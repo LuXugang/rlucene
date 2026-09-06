@@ -335,13 +335,8 @@ where
           .subtract(&last_output, &common_output_prefix);
         debug_assert!(self.valid_output(&word_suffix));
 
-        UnCompiledNode::<O::V>::set_last_output(
-          label,
-          common_output_prefix.clone(),
-          self,
-          idx - 1,
-        )?;
-        UnCompiledNode::<O::V>::prepend_output(&word_suffix, self, idx)?;
+        UnCompiledNode::set_last_output(label, common_output_prefix.clone(), self, idx - 1)?;
+        UnCompiledNode::prepend_output(&word_suffix, self, idx)?;
       } else {
         common_output_prefix = self.no_output.clone();
       }
@@ -360,7 +355,7 @@ where
       // this new arc is private to this new input; set its
       // arc output to the leftover output:
       let label = ints[input.offset + prefix_len_plus1 - 1];
-      UnCompiledNode::<O::V>::set_last_output(label, output, self, prefix_len_plus1 - 1)?;
+      UnCompiledNode::set_last_output(label, output, self, prefix_len_plus1 - 1)?;
     }
 
     // Save last input
@@ -1422,7 +1417,7 @@ where
     node_idx: usize,
   ) -> Result<()>
   where
-    O: Outputs,
+    O: Outputs<V = T>,
     DO: IndexOutput,
   {
     debug_assert!(compiler.valid_output(&new_output));
@@ -1441,7 +1436,7 @@ where
     node_index: usize,
   ) -> Result<()>
   where
-    O: Outputs,
+    O: Outputs<V = T>,
     DO: IndexOutput,
   {
     debug_assert!(compiler.valid_output(output_prefix));

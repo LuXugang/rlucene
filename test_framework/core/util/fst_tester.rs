@@ -84,90 +84,6 @@ where
       sub: None,
     }
   }
-  // runs the term, returning the output, or None if term
-  // isn't accepted. If `prefix_length` is present, it must be
-  // a one-element `i32` slice; element 0 is set to the length
-  // of the term prefix that matches
-  pub fn run<F, AV>(
-    fst: &FST<O, F>,
-    term: &IntsRef<AV>,
-    mut prefix_length: Option<&mut [i32]>,
-  ) -> Result<Option<O::V>>
-  where
-    F: FstReader,
-    AV: SharedAccessVec<i32> + WritableVec<i32>,
-  {
-    assert!(prefix_length.is_none() || prefix_length.as_ref().unwrap().len() == 1);
-    let mut arc = Arc::default();
-    fst.get_first_arc(&mut arc);
-    let mut output = fst.outputs.get_no_output();
-    let mut reader = fst.get_bytes_reader()?;
-
-    for i in 0..=term.length {
-      let label = if i == term.length {
-        END_LABEL
-      } else {
-        term.ints.access(|ints| ints[term.offset + i])
-      };
-
-      let find = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut reader)?;
-      if find.is_none() {
-        if let Some(prefix) = prefix_length.as_mut() {
-          prefix[0] = i as i32;
-          return Ok(Some(output));
-        } else {
-          return Ok(None);
-        }
-      }
-      output = fst.outputs.add(&output, &arc.output());
-    }
-    if let Some(prefix) = prefix_length.as_mut() {
-      prefix[0] = term.length as i32;
-    }
-
-    Ok(Some(output))
-  }
-  pub fn random_accepted_word<F, AV>(
-    fst: &FST<O, F>,
-    in_builder: &mut IntsRefBuilder<AV>,
-    random: &mut impl Rng,
-  ) -> Result<O::V>
-  where
-    F: FstReader,
-    AV: SharedAccessVec<i32> + WritableVec<i32>,
-  {
-    let mut arc = Arc::default();
-    fst.get_first_arc(&mut arc);
-    let mut arcs = Vec::new();
-    in_builder.clear();
-    let mut output = fst.outputs.get_no_output();
-    let mut reader = fst.get_bytes_reader()?;
-
-    loop {
-      fst.read_first_target_arc(&arc.clone(), &mut arc, &mut reader)?;
-      let mut new_arc = Arc::default();
-      new_arc.copy_from(&arc);
-      arcs.push(new_arc);
-      while !arc.is_last() {
-        fst.read_next_arc(&mut arc, &mut reader)?;
-        let mut new_arc = Arc::default();
-        new_arc.copy_from(&arc);
-        arcs.push(new_arc);
-      }
-      let idx = random.random_range(0..arcs.len());
-      arc = arcs[idx].clone();
-      arcs.clear();
-      output = fst.outputs.add(&output, &arc.output());
-
-      if arc.label() == END_LABEL {
-        break;
-      }
-      in_builder.append(arc.label())?;
-    }
-
-    Ok(output)
-  }
-
   // Using the same seed to generate the same type of FST object allows the fst
   // inside IntsRefFSTEnum to be replaced using std::mem::replace. The purpose
   // of this is to remain consistent with the behavior in Java Lucene.
@@ -514,11 +430,7 @@ where
     let mut scratch = IntsRefBuilder::default();
     let num = at_least(&mut self.random, 500);
     for _ in 0..num {
-      let output = FSTTester::<D, R, O, S>::random_accepted_word(
-        fst.as_mut().unwrap(),
-        &mut scratch,
-        &mut self.random,
-      )?;
+      let output = random_accepted_word(fst.as_mut().unwrap(), &mut scratch, &mut self.random)?;
       let key = scratch.get();
       let error_msg = format!(
         "accepted word {} is not valid",
@@ -693,7 +605,7 @@ where
 
     for pair in &self.pairs {
       let term = &pair.input;
-      let output = FSTTester::<D, R, O, S>::run(&fst_enum.base.fst, term, None)?;
+      let output = run(&fst_enum.base.fst, term, None)?;
       assert!(
         output.is_some(),
         "term {} is not accepted",
@@ -966,4 +878,90 @@ where
     }
   });
   ir.get_owner()
+}
+
+// runs the term, returning the output, or None if term
+// isn't accepted. If `prefix_length` is present, it must be
+// a one-element `i32` slice; element 0 is set to the length
+// of the term prefix that matches
+pub fn run<O, F, AV>(
+  fst: &FST<O, F>,
+  term: &IntsRef<AV>,
+  mut prefix_length: Option<&mut [i32]>,
+) -> Result<Option<O::V>>
+where
+  O: Outputs,
+  F: FstReader,
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
+  assert!(prefix_length.is_none() || prefix_length.as_ref().unwrap().len() == 1);
+  let mut arc = Arc::default();
+  fst.get_first_arc(&mut arc);
+  let mut output = fst.outputs.get_no_output();
+  let mut reader = fst.get_bytes_reader()?;
+
+  for i in 0..=term.length {
+    let label = if i == term.length {
+      END_LABEL
+    } else {
+      term.ints.access(|ints| ints[term.offset + i])
+    };
+
+    let find = fst.find_target_arc(label, &arc.clone(), &mut arc, &mut reader)?;
+    if find.is_none() {
+      if let Some(prefix) = prefix_length.as_mut() {
+        prefix[0] = i as i32;
+        return Ok(Some(output));
+      } else {
+        return Ok(None);
+      }
+    }
+    output = fst.outputs.add(&output, &arc.output());
+  }
+  if let Some(prefix) = prefix_length.as_mut() {
+    prefix[0] = term.length as i32;
+  }
+
+  Ok(Some(output))
+}
+pub fn random_accepted_word<O, F, AV>(
+  fst: &FST<O, F>,
+  in_builder: &mut IntsRefBuilder<AV>,
+  random: &mut impl Rng,
+) -> Result<O::V>
+where
+  O: Outputs,
+  F: FstReader,
+  AV: SharedAccessVec<i32> + WritableVec<i32>,
+{
+  let mut arc = Arc::default();
+  fst.get_first_arc(&mut arc);
+  let mut arcs = Vec::new();
+  in_builder.clear();
+  let mut output = fst.outputs.get_no_output();
+  let mut reader = fst.get_bytes_reader()?;
+
+  loop {
+    fst.read_first_target_arc(&arc.clone(), &mut arc, &mut reader)?;
+    let mut new_arc = Arc::default();
+    new_arc.copy_from(&arc);
+    arcs.push(new_arc);
+    while !arc.is_last() {
+      fst.read_next_arc(&mut arc, &mut reader)?;
+      let mut new_arc = Arc::default();
+      new_arc.copy_from(&arc);
+      arcs.push(new_arc);
+    }
+    let idx = random.random_range(0..arcs.len());
+    arc = arcs[idx].clone();
+    arcs.clear();
+    output = fst.outputs.add(&output, &arc.output());
+
+    if arc.label() == END_LABEL {
+      break;
+    }
+    in_builder.append(arc.label())?;
+  }
+
+  Ok(output)
 }

@@ -45,7 +45,7 @@ fn test_multi_polygon() -> Result<()> {
     vec![-5.0, 5.0, 5.0, -5.0, -5.0],
     vec![],
   )?;
-  let polygon = lat_lon_geometry::create::<Polygon>(&[outer, island])?;
+  let polygon = lat_lon_geometry::create(&[outer, island])?;
 
   assert!(polygon.contains(-2.0, 2.0));
   assert!(!polygon.contains(-6.0, 6.0));

@@ -155,11 +155,11 @@ where
     let (doc_value, candidate) = match (doc_values, candidate) {
       (Some(v1), Some(v2)) => (v1, v2),
       (None, None) => {
-        let v1 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
+        let v1 = NumericLeafComparatorDocValues::B(DocValues::get_numeric(
           context.reader(),
           &comparator.base.field,
         )?);
-        let v2 = NumericLeafComparatorDocValues::<LR>::B(DocValues::get_numeric(
+        let v2 = NumericLeafComparatorDocValues::B(DocValues::get_numeric(
           context.reader(),
           &comparator.base.field,
         )?);

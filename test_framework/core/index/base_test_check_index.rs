@@ -71,7 +71,7 @@ pub trait BaseTestCheckIndex {
     writer.close()?;
 
     let mut output = Vec::with_capacity(1024);
-    let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(Arc::clone(dir))?;
+    let mut checker = CheckIndex::new(Arc::clone(dir))?;
     checker.set_info_stream(&mut output);
     checker.set_level(Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS)?;
     let index_status = checker.check_index()?;
@@ -148,7 +148,7 @@ pub trait BaseTestCheckIndex {
     line_file_docs.close();
 
     let mut output = Vec::with_capacity(1024);
-    let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(Arc::clone(dir))?;
+    let mut checker = CheckIndex::new(Arc::clone(dir))?;
     checker.set_info_stream(&mut output);
     let index_status = checker.check_index()?;
     assert!(index_status.clean);
@@ -175,7 +175,7 @@ pub trait BaseTestCheckIndex {
     line_file_docs.close();
 
     let mut output = Vec::with_capacity(1024);
-    let mut checker = CheckIndex::<_, _, &mut Vec<u8>>::new(Arc::clone(dir))?;
+    let mut checker = CheckIndex::new(Arc::clone(dir))?;
     checker.set_info_stream(&mut output);
     let index_status = checker.check_index()?;
     assert!(index_status.clean);

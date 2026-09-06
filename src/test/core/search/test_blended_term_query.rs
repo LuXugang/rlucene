@@ -44,7 +44,7 @@ fn test_equals() -> Result<()> {
   builder.add(t1.clone())?;
   let bt2: Query = builder.build()?.into();
 
-  QueryUtils::check_equal::<Query>(&bt1, &bt2);
+  QueryUtils::check_equal(&bt1, &bt2);
 
   let mut builder = blended_term_query::Builder::new();
   builder.set_rewrite_method(BooleanRewrite);
@@ -56,7 +56,7 @@ fn test_equals() -> Result<()> {
   builder.add(t1.clone())?;
   let bt2: Query = builder.build()?.into();
 
-  QueryUtils::check_unequal::<Query>(&bt1, &bt2);
+  QueryUtils::check_unequal(&bt1, &bt2);
 
   let t2 = Term::from_text("foo", "baz");
 
@@ -70,7 +70,7 @@ fn test_equals() -> Result<()> {
   builder.add(t1.clone())?;
   let bt2: Query = builder.build()?.into();
 
-  QueryUtils::check_equal::<Query>(&bt1, &bt2);
+  QueryUtils::check_equal(&bt1, &bt2);
 
   let boost1 = random.random::<f32>();
   let boost2 = random.random::<f32>();
@@ -85,7 +85,7 @@ fn test_equals() -> Result<()> {
   builder.add_with_boost(t1, boost1)?;
   let bt2: Query = builder.build()?.into();
 
-  QueryUtils::check_equal::<Query>(&bt1, &bt2);
+  QueryUtils::check_equal(&bt1, &bt2);
 
   Ok(())
 }

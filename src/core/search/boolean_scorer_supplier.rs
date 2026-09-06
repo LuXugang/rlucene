@@ -713,7 +713,7 @@ where
       }
     } else {
       let mut required = Vec::with_capacity(required_scoring.len() + required_no_scoring.len());
-      let scoring_scorers_idx = (0..required_scoring.len()).collect::<Vec<_>>();
+      let scoring_scorers_idx = (0..required_scoring.len()).collect();
       required.extend(required_scoring);
       required.extend(required_no_scoring);
       ScorerEnum3::C(ConjunctionScorer::new(required, scoring_scorers_idx)?)
@@ -778,9 +778,7 @@ where
       vec![required_scorers.len() - 1]
     } else {
       let base = required_scorers.len();
-      let scoring_scorers_idx = (0..scoring_scorers.len())
-        .map(|i| base + i)
-        .collect::<Vec<_>>();
+      let scoring_scorers_idx = (0..scoring_scorers.len()).map(|i| base + i).collect();
       required_scorers.extend(scoring_scorers.into_iter().map(ScorerEnum2::A));
       scoring_scorers_idx
     };

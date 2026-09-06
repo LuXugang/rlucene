@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use parking_lot::RwLock;
 
+use crate::core::store::buffered_index_input::buffer_size;
 use crate::core::store::fs_directory::FSDirectory;
 use crate::core::store::fs_directory_base::FSDirectoryBase;
 use crate::core::store::lock_factory::LockFactory;
@@ -91,7 +92,7 @@ impl FSDirectoryBase for NIOFSDirectory {
       },
     };
     let resource_desc = format!("NIOFSIndexInput(path=\"{}\")", file_path.display());
-    let buffer_size = BufferedIndexInput::<NIOFSIndexInput>::buffer_size(context);
+    let buffer_size = buffer_size(context);
     let index_input = NIOFSIndexInput::new(file, &resource_desc, buffer_size)?;
     BufferedIndexInput::with_buffer_size(index_input, &resource_desc, buffer_size)
   }

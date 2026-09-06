@@ -30,9 +30,7 @@ use crate::core::codecs::lucene99::lucene99_flat_vectors_format::DIRECT_MONOTONI
 use crate::core::codecs::lucene99::lucene99_flat_vectors_format::{
   META_CODEC_NAME, META_EXTENSION, VECTOR_DATA_CODEC_NAME, VECTOR_DATA_EXTENSION, VERSION_CURRENT,
 };
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
-  DefaultRandomVectorScorerSupplier, FieldWriter,
-};
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriter;
 use crate::core::index::IndexFileNames;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::codec_reader::CodecReader;
@@ -467,15 +465,15 @@ where
     Ok(len)
   }
 
-  fn flat_flush<DM, F1>(
+  fn flat_flush<DM, S>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriter<DefaultRandomVectorScorerSupplier<F1>>],
+    fields: &[FieldWriter<S>],
   ) -> Result<()>
   where
     DM: DocMap,
-    F1: FlatVectorsWriter,
+    S: RandomVectorScorerSupplier,
   {
     for idx in 0..self.fields.len() {
       let fields = &fields[idx];
@@ -785,7 +783,7 @@ impl FlatFieldVectorsWriter for FlatFieldWriter {
     self.finished
   }
 
-  fn flat_add_value<F>(
+  fn flat_add_value(
     &mut self,
     doc_id: i32,
     vector_value: &VectorValueEnum,

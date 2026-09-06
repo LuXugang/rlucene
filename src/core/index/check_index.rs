@@ -1228,109 +1228,92 @@ where
       }
       if level >= Level::MIN_LEVEL_FOR_INTEGRITY_CHECKS {
         // Test Livedocs
-        segment_status.live_doc_status =
-          Some(CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_live_docs(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            fail_fast,
-          )?);
+        segment_status.live_doc_status = Some(CheckIndex::test_live_docs(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          fail_fast,
+        )?);
 
         // Test Fieldinfos
-        segment_status.field_info_status = Some(
-          CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_field_infos(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            fail_fast,
-          )?,
-        );
+        segment_status.field_info_status = Some(CheckIndex::test_field_infos(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          fail_fast,
+        )?);
 
         // Test Field Norms
-        segment_status.field_norm_status = Some(
-          CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_field_norms(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            fail_fast,
-          )?,
-        );
+        segment_status.field_norm_status = Some(CheckIndex::test_field_norms(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          fail_fast,
+        )?);
 
         // Test the Term Index
-        segment_status.term_index_status =
-          Some(CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_postings(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            verbose,
-            level,
-            fail_fast,
-          )?);
+        segment_status.term_index_status = Some(CheckIndex::test_postings(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          verbose,
+          level,
+          fail_fast,
+        )?);
 
         // Test Stored Fields
-        segment_status.stored_field_status = Some(
-          CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_stored_fields(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            fail_fast,
-          )?,
-        );
+        segment_status.stored_field_status = Some(CheckIndex::test_stored_fields(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          fail_fast,
+        )?);
 
         // Test Term Vectors
-        segment_status.term_vector_status = Some(
-          CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_term_vectors(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            verbose,
-            level,
-            fail_fast,
-          )?,
-        );
+        segment_status.term_vector_status = Some(CheckIndex::test_term_vectors(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          verbose,
+          level,
+          fail_fast,
+        )?);
 
         // Test Docvalues
-        segment_status.doc_values_status = Some(
-          CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_doc_values(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            fail_fast,
-          )?,
-        );
+        segment_status.doc_values_status = Some(CheckIndex::test_doc_values(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          fail_fast,
+        )?);
 
         // Test PointValues
-        segment_status.points_status =
-          Some(CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_points(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            fail_fast,
-          )?);
+        segment_status.points_status = Some(CheckIndex::test_points(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          fail_fast,
+        )?);
 
         // Test FloatVectorValues and ByteVectorValues
-        segment_status.vector_values_status =
-          Some(CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_vectors(
-            opened_reader,
-            info_stream.as_deref_mut(),
-            fail_fast,
-          )?);
+        segment_status.vector_values_status = Some(CheckIndex::test_vectors(
+          opened_reader,
+          info_stream.as_deref_mut(),
+          fail_fast,
+        )?);
 
         // Test Index Sort
         if let Some(index_sort) = info.info.get_index_sort() {
-          segment_status.index_sort_status =
-            Some(CheckIndex::<DirectoryEnum, LockEnum, Sink>::test_sort(
-              opened_reader,
-              Some(index_sort.as_ref()),
-              info_stream.as_deref_mut(),
-              fail_fast,
-            )?);
+          segment_status.index_sort_status = Some(CheckIndex::test_sort(
+            opened_reader,
+            Some(index_sort.as_ref()),
+            info_stream.as_deref_mut(),
+            fail_fast,
+          )?);
         }
 
         // Test Soft Deletes
         let field_infos = opened_reader.get_field_infos()?;
         if let Some(soft_deletes_field) = field_infos.get_soft_deletes_field() {
-          segment_status.soft_deletes_status = Some(
-            CheckIndex::<DirectoryEnum, LockEnum, Sink>::check_soft_deletes(
-              soft_deletes_field,
-              info,
-              opened_reader,
-              info_stream.as_deref_mut(),
-              fail_fast,
-            )?,
-          );
+          segment_status.soft_deletes_status = Some(CheckIndex::check_soft_deletes(
+            soft_deletes_field,
+            info,
+            opened_reader,
+            info_stream.as_deref_mut(),
+            fail_fast,
+          )?);
         }
 
         // Return the first error encountered.

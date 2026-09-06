@@ -514,40 +514,40 @@ where
       (Self::Relevance(_comparator), FieldComparatorEnum::Relevance(_c)) => Ok(None),
       (Self::Doc(comparator), FieldComparatorEnum::Doc(c)) => comparator
         .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::A)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::A)),
       (Self::Double(comparator), FieldComparatorEnum::Double(c)) => comparator
         .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::Double(comparator), FieldComparatorEnum::SortedNumericDouble(c)) => comparator
         .competitive_iterator(&mut c.base)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::Float(comparator), FieldComparatorEnum::Float(c)) => comparator
         .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::Float(comparator), FieldComparatorEnum::SortedNumericFloat(c)) => comparator
         .competitive_iterator(&mut c.base)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::Int(comparator), FieldComparatorEnum::Int(c)) => comparator
         .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::Int(comparator), FieldComparatorEnum::SortedNumericInt(c)) => comparator
         .competitive_iterator(&mut c.base)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::Long(comparator), FieldComparatorEnum::Long(c)) => comparator
         .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::Long(comparator), FieldComparatorEnum::SortedNumericLong(c)) => comparator
         .competitive_iterator(&mut c.base)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::B)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::B)),
       (Self::TermVal(_comparator), FieldComparatorEnum::TermVal(_c)) => Ok(None),
       (Self::TermOrdVal(comparator), FieldComparatorEnum::TermOrdValue(c)) => comparator
         .competitive_iterator(c)
-        .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C)),
+        .map(|opt| opt.map(DocIdSetIteratorEnum3::C)),
 
       (Self::TermOrdVal(comparator), FieldComparatorEnum::SortedDocValuesTermOrdVal(c)) => {
         comparator
           .competitive_iterator(&mut c.base)
-          .map(|opt| opt.map(LeafFieldComparatorDocIdSetIteratorRef::<'_, LR>::C))
+          .map(|opt| opt.map(DocIdSetIteratorEnum3::C))
       },
       (Self::LatLonPointDistance(_comparator), FieldComparatorEnum::LatLonPointDistance(_c)) => {
         Ok(None)

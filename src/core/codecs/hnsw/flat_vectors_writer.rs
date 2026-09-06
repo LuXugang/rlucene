@@ -17,9 +17,7 @@
 use crate::core::codecs::hnsw::flat_field_vectors_writer::FlatFieldVectorsWriter;
 use crate::core::codecs::hnsw::flat_vectors_scorer::FlatVectorsScorer;
 use crate::core::codecs::knn_vectors_writer::KnnVectorsWriter;
-use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::{
-  DefaultRandomVectorScorerSupplier, FieldWriter,
-};
+use crate::core::codecs::lucene99::lucene99_hnsw_vectors_writer::FieldWriter;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::MergeState;
@@ -29,6 +27,7 @@ use crate::core::store::directory::Directory;
 use crate::core::store::index_output::IndexOutput;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::closeable_random_vector_scorer_supplier::CloseableRandomVectorScorerSupplier;
+use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSupplier;
 use std::sync::Arc;
 
 /// Vectors' writer for a field that allows additional indexing logic to be implemented by the caller
@@ -52,15 +51,15 @@ pub trait FlatVectorsWriter: KnnVectorsWriter<Self::IndexOutput> {
   fn flat_add_field(&mut self, field_info: Arc<FieldInfo>) -> Result<usize>;
 
   /// Flushes all buffered data on disk.
-  fn flat_flush<DM, F>(
+  fn flat_flush<DM, S>(
     &mut self,
     max_doc: i32,
     sort_map: Option<&DM>,
-    fields: &[FieldWriter<DefaultRandomVectorScorerSupplier<F>>],
+    fields: &[FieldWriter<S>],
   ) -> Result<()>
   where
     DM: DocMap,
-    F: FlatVectorsWriter;
+    S: RandomVectorScorerSupplier;
 
   type FlatFieldVectorsWriter: FlatFieldVectorsWriter;
   fn get_fields_mut(&mut self) -> &mut [Self::FlatFieldVectorsWriter];

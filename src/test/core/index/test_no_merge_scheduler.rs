@@ -56,7 +56,7 @@ fn test_no_merge_scheduler() -> Result<()> {
   let mut random = random();
   let merge_scheduler = NoMergeSchedulerImpl::new();
   merge_scheduler.close()?;
-  merge_scheduler.merge::<UnreachableMergeSource, DummyDirectory>(
+  merge_scheduler.merge(
     UnreachableMergeSource,
     MergeTrigger::random_trigger(&mut random),
   )?;

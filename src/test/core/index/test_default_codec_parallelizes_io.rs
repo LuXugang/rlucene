@@ -68,9 +68,7 @@ impl TestDefaultCodecParallelizesIO {
       // RANDOM_PRELOAD advice, which CFS doesn't allow us to detect.
       config
         .set_use_compound_file(false)
-        .set_merge_policy(new_log_merge_policy_with_cfs::<InnerDirectory, _>(
-          random, false,
-        )?);
+        .set_merge_policy(new_log_merge_policy_with_cfs(random, false)?);
       config.set_codec(TestUtil::get_default_codec());
       IndexWriter::new(bb_dir.clone(), config)
     })() {

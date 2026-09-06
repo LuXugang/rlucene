@@ -20,7 +20,7 @@ use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::index::codec_reader::CodecReader;
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::field_infos::FieldInfos;
-use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
+use crate::core::index::merge_state::{DocMap, MergeState};
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::{BytesRef, DocIDMerger, Sub, SubBase, of};
@@ -142,7 +142,7 @@ impl StoredFieldsWriterDefaults {
       }
       let visitor = MergeVisitor::new(merge_state, i)?;
 
-      subs.push(Sub::new(StoredFieldsMergeSub::<MergeStateDocMap<CR>>::new(
+      subs.push(Sub::new(StoredFieldsMergeSub::new(
         visitor,
         merge_state.doc_maps[i].clone(),
         i,

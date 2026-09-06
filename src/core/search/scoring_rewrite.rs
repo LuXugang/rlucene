@@ -16,7 +16,8 @@
  */
 use crate::core::index::BytesRef;
 use crate::core::index::index_reader::IndexReader;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
@@ -180,12 +181,9 @@ impl<F> TermCollector for ParallelArraysTermCollector<F>
 where
   F: FnMut(usize) -> Result<()>,
 {
-  fn set_reader_context<IRC>(
-    &mut self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-  ) -> Result<()>
+  fn set_reader_context<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
   {
     self.ord = context.ord;
     Ok(())

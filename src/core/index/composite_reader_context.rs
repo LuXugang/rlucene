@@ -35,7 +35,7 @@ where
   CR: CompositeReader,
 {
   let base = IndexReaderContextBase::new(true, 0, 0);
-  let mut builder = Builder::<CR::LeafReader>::new();
+  let mut builder = Builder::new();
   reader.visit_leaves(&mut |leaf_reader| builder.add_leaf(leaf_reader))?;
   let max_doc = builder.max_doc;
   let leaves = builder.leaves;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::cell::Cell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt;
 use std::io::ErrorKind;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -919,7 +919,7 @@ where
   let primary_extensions = file_extensions[..length]
     .iter()
     .map(|extension| (*extension).to_string())
-    .collect::<HashSet<_>>();
+    .collect();
   Ok(RawDirEnum::FileSwitch(FileSwitchDirectory::new(
     primary_extensions,
     dir1,

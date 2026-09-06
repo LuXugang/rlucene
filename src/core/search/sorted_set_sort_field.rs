@@ -320,7 +320,7 @@ impl FieldComparator for SortedDocValuesTermOrdValComparator {
   {
     self.base.current_reader_gen += 1;
     let c = |context: &LeafReaderContext<LR>, field: &str| -> Result<TermOrdValDocValues<LR>> {
-      Ok(TermOrdValDocValues::<LR>::A(SortedSetSelector::wrap(
+      Ok(TermOrdValDocValues::A(SortedSetSelector::wrap(
         DocValues::get_sorted_set(context.reader(), field)?,
         self.selector,
       )?))

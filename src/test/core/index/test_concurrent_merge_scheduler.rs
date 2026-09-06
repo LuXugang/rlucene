@@ -585,7 +585,7 @@ fn test_maybe_stall_called() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let analyzer = MockAnalyzer::new(&mut random);
   let mut iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
-  iwc.set_merge_policy(LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size());
+  iwc.set_merge_policy(LogMergePolicy::log_bytes_size());
   let test_scheduler = MaybeStallCalledConcurrentMergeScheduler::default();
   iwc.set_merge_scheduler(ConcurrentMergeScheduler::with_hook(
     ConcurrentMergeSchedulerHook::MaybeStallCalled(test_scheduler.clone()),

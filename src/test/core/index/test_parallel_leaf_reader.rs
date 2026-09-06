@@ -487,7 +487,7 @@ where
   let dir1 = new_directory_shared(random)?;
   let analyzer = MockAnalyzer::new(random);
   let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
-  config.set_merge_policy(LogMergePolicy::<LogDocMergePolicy>::log_doc());
+  config.set_merge_policy(LogMergePolicy::log_doc());
   let writer = IndexWriter::new(dir1.clone(), config)?;
   let mut field_types = HashMap::<String, FieldType>::new();
   let mut d1 = Document::new();
@@ -534,7 +534,7 @@ where
   let dir2 = new_directory_shared(random)?;
   let analyzer = MockAnalyzer::new(random);
   let mut config = new_index_writer_config_with_analyzer(random, analyzer)?;
-  config.set_merge_policy(LogMergePolicy::<LogDocMergePolicy>::log_doc());
+  config.set_merge_policy(LogMergePolicy::log_doc());
   let writer = IndexWriter::new(dir2.clone(), config)?;
   let mut field_types = HashMap::<String, FieldType>::new();
   let mut d3 = Document::new();

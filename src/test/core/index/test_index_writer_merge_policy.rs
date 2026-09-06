@@ -401,7 +401,7 @@ where
 
 #[test]
 fn test_setters() -> Result<()> {
-  let mut lmp = LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size();
+  let mut lmp = LogMergePolicy::log_bytes_size();
   assert_setters::<crate::core::store::dummy::dummy_directory::DummyDirectory, _>(&mut lmp)?;
 
   let mut mock = MockMergePolicy::default();

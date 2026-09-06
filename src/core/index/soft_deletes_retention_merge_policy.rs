@@ -105,13 +105,13 @@ where
     let operator = SoftDeletesRetentionOneMergeUnaryOperator::new(
       field.clone(),
       retention_query_supplier.clone(),
-      apply_retention_query::<D>,
+      apply_retention_query,
     );
     Self {
       base: OneMergeWrappingMergePolicy::new(in_, operator),
       field,
       retention_query_supplier,
-      matching_docs: matching_docs::<D>,
+      matching_docs,
     }
   }
 }

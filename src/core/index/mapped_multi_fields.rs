@@ -22,8 +22,8 @@ use crate::core::index::filtered_terms_enum::{FilteredTermsEnum, FilteredTermsEn
 use crate::core::index::mapping_multi_postings_enum::MappingMultiPostingsEnum;
 use crate::core::index::merge_state::{DocMap, MergeStateMeta};
 use crate::core::index::multi_fields::{MultiFields, MultiFieldsTerms};
-use crate::core::index::multi_terms::IteratorType;
 use crate::core::index::multi_terms_enum::MultiTermsEnum;
+use crate::core::index::multi_terms_enum::MultiTermsEnumType;
 use crate::core::index::terms::Terms;
 use crate::core::index::terms_enum::{EmptyTermsEnum, SeekStatus, TermsEnum};
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
@@ -281,10 +281,10 @@ where
   fn iterator(&self) -> Result<Self::TermsEnum> {
     let iterator = self.inner.iterator()?;
     match iterator {
-      IteratorType::<T>::B(empty) => Ok(MappedMultiTermsTE::<T, DM>::A(empty)),
-      IteratorType::<T>::A(v) => {
+      MultiTermsEnumType::B(empty) => Ok(MappedMultiTermsTE::A(empty)),
+      MultiTermsEnumType::A(v) => {
         let v = MappedMultiTermsEnum::new(self.field.clone(), self.merge_state.clone(), v);
-        Ok(MappedMultiTermsTE::<T, DM>::B(v))
+        Ok(MappedMultiTermsTE::B(v))
       },
     }
   }

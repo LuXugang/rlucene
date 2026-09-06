@@ -746,20 +746,14 @@ pub trait BaseDirectoryTestCase {
         ["test1".to_string(), "test2".to_string()]
           .iter()
           .cloned()
-          .collect::<HashSet<_>>()
+          .collect()
       );
 
       let set2 = input.read_set_of_strings()?;
       assert_eq!(set2, HashSet::new());
 
       let set3 = input.read_set_of_strings()?;
-      assert_eq!(
-        set3,
-        ["test3".to_string()]
-          .iter()
-          .cloned()
-          .collect::<HashSet<_>>()
-      );
+      assert_eq!(set3, ["test3".to_string()].iter().cloned().collect());
 
       assert_eq!(IndexInput::length(&input)?, input.get_file_pointer()?);
       CloseableRef::close(&input)?;

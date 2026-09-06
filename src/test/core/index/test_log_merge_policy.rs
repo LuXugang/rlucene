@@ -122,14 +122,14 @@ impl BaseMergePolicyTestCase for TestLogMergePolicy {
 
 #[test]
 fn test_default_forced_merge_mb() {
-  let mp = LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size();
+  let mp = LogMergePolicy::log_bytes_size();
   assert!(mp.get_max_merge_mb_for_forced_merge() > 0.0);
 }
 
 #[test]
 fn test_increasing_segment_sizes() -> Result<()> {
   let mut r = random();
-  let merge_policy = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let merge_policy = LogMergePolicy::log_doc();
   let mut stats = IOStats::default();
   let seg_name_generator = AtomicU64::new(0);
   let merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
@@ -173,7 +173,7 @@ fn test_increasing_segment_sizes() -> Result<()> {
 #[test]
 fn test_one_small_middle_segment() -> Result<()> {
   let mut r = random();
-  let merge_policy = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let merge_policy = LogMergePolicy::log_doc();
   let mut stats = IOStats::default();
   let seg_name_generator = AtomicU64::new(0);
   let merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
@@ -239,7 +239,7 @@ fn test_one_small_middle_segment() -> Result<()> {
 #[test]
 fn test_many_small_middle_segment() -> Result<()> {
   let mut r = random();
-  let merge_policy = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let merge_policy = LogMergePolicy::log_doc();
   let mut stats = IOStats::default();
   let seg_name_generator = AtomicU64::new(0);
   let merge_context = MockMergeContext::new(|s: &SegmentCommitInfo<_>| Ok(s.get_del_count()));
@@ -303,7 +303,7 @@ fn test_many_small_middle_segment() -> Result<()> {
 #[test]
 fn test_reject_unbalanced_merges() -> Result<()> {
   let mut r = random();
-  let mut merge_policy = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let mut merge_policy = LogMergePolicy::log_doc();
   merge_policy.set_min_merge_docs(10_000);
   let mut stats = IOStats::default();
   let seg_name_generator = AtomicU64::new(0);
@@ -372,7 +372,7 @@ fn test_reject_unbalanced_merges() -> Result<()> {
 #[test]
 fn test_pack_large_segments() -> Result<()> {
   let mut r = random();
-  let mut merge_policy = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let mut merge_policy = LogMergePolicy::log_doc();
   merge_policy.set_max_merge_docs(10_000);
   let mut stats = IOStats::default();
   let seg_name_generator = AtomicU64::new(0);
@@ -415,7 +415,7 @@ fn test_pack_large_segments() -> Result<()> {
 #[test]
 fn test_ignore_large_segments() -> Result<()> {
   let mut r = random();
-  let mut merge_policy = LogMergePolicy::<LogDocMergePolicy>::log_doc();
+  let mut merge_policy = LogMergePolicy::log_doc();
   merge_policy.set_max_merge_docs(10_000);
   let mut stats = IOStats::default();
   let seg_name_generator = AtomicU64::new(0);

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::index::BytesRef;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
@@ -75,7 +75,7 @@ pub trait TermCollectingRewrite: RewriteMethod {
       let mut terms_enum = self.get_terms_enum(query, Rc::new(terms))?;
 
       // TODO IMPORTANT 这里要判断是否为 EMPTY
-      collector.set_reader_context::<IRC>(context)?;
+      collector.set_reader_context(context)?;
       collector.set_next_enum(&mut terms_enum)?;
       while let Some(bytes) = terms_enum.next()? {
         let bytes = bytes.into_owned();
@@ -90,12 +90,9 @@ pub trait TermCollectingRewrite: RewriteMethod {
   }
 }
 pub trait TermCollector {
-  fn set_reader_context<IRC>(
-    &mut self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-  ) -> Result<()>
+  fn set_reader_context<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
-    IRC: IndexReaderContext;
+    LR: LeafReader;
 
   /// Return false to stop collecting.
   fn collect<TE, IRC>(

@@ -155,7 +155,7 @@ impl FieldComparator for TermOrdValComparator {
   {
     self.current_reader_gen += 1;
     let c = |context: &LeafReaderContext<LR>, field: &str| -> Result<TermOrdValDocValues<LR>> {
-      Ok(TermOrdValDocValues::<LR>::B(get_sorted_doc_values(
+      Ok(TermOrdValDocValues::B(get_sorted_doc_values(
         context, field,
       )?))
     };

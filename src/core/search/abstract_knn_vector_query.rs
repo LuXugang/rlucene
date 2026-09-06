@@ -179,7 +179,7 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
 
     let kcm = self.get_knn_collector_manager(self.base().k, index_searcher)?;
     let knn_collector_manager =
-      TimeLimitingKnnCollectorManager::new(kcm, index_searcher.get_timeout::<()>());
+      TimeLimitingKnnCollectorManager::new(kcm, index_searcher.get_timeout());
 
     let leaf_reader_contexts = index_searcher.get_leaf_contexts()?;
     let query = &self;

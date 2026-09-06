@@ -357,7 +357,7 @@ where
   }
   /// Get the configured [`QueryTimeout`](crate::core::index::query_timeout::QueryTimeout) for all searches that run through this [`IndexSearcher`],
   /// or `None` if not set.
-  pub fn get_timeout<T>(&self) -> Option<Arc<QueryTimeoutEnum>> {
+  pub fn get_timeout(&self) -> Option<Arc<QueryTimeoutEnum>> {
     self.query_timeout.clone()
   }
   /// Set a [`QueryTimeout`](crate::core::index::query_timeout::QueryTimeout) for all searches that run through this [`IndexSearcher`].

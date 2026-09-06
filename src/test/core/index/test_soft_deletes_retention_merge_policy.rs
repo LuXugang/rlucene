@@ -96,7 +96,7 @@ fn test_force_merge_fully_deleted() -> Result<()> {
         Ok(MatchAllDocsQuery::new().into())
       }
     },
-    LogMergePolicy::<LogDocMergePolicy>::log_doc(),
+    LogMergePolicy::log_doc(),
   );
   let mut index_writer_config = new_index_writer_config(&mut random)?;
   index_writer_config
@@ -237,7 +237,7 @@ fn test_field_based_retention() -> Result<()> {
     .set_merge_policy(SoftDeletesRetentionMergePolicy::new(
       soft_deletes_field,
       move || Ok(LongPoint::new_range_query("creation_date", time_24_hours_ago, now)?.into()),
-      LogMergePolicy::<LogDocMergePolicy>::log_doc(),
+      LogMergePolicy::log_doc(),
     ))
     .set_soft_deletes_field(soft_deletes_field);
   let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
@@ -340,7 +340,7 @@ fn test_keep_all_docs_across_merges() -> Result<()> {
     .set_merge_policy(SoftDeletesRetentionMergePolicy::new(
       "soft_delete",
       || Ok(MatchAllDocsQuery::new().into()),
-      LogMergePolicy::<LogDocMergePolicy>::log_doc(),
+      LogMergePolicy::log_doc(),
     ))
     .set_soft_deletes_field("soft_delete");
   let writer = IndexWriter::new(dir.clone(), index_writer_config)?;
@@ -445,10 +445,7 @@ fn test_soft_delete_with_retention() -> Result<()> {
             if update_several_docs {
               writer.soft_update_documents(
                 Term::from_text("id", &id),
-                vec![
-                  doc.clone().into_iter().collect::<Vec<Fields>>(),
-                  doc.into_iter().collect::<Vec<Fields>>(),
-                ],
+                vec![doc.clone().into_iter().collect(), doc.into_iter().collect()],
                 vec![NumericDocValuesField::new("soft_delete", 1).into()],
               )?;
             } else {
@@ -673,7 +670,7 @@ fn test_soft_delete_while_merge_survives() -> Result<()> {
     .set_merge_policy(SoftDeletesRetentionMergePolicy::new(
       "soft_delete",
       || Ok(FieldExistsQuery::new("keep").into()),
-      LogMergePolicy::<LogDocMergePolicy>::log_doc(),
+      LogMergePolicy::log_doc(),
     ));
   let update = Arc::new(AtomicBool::new(true));
   let writer = IndexWriter::new(dir.clone(), config)?;
@@ -732,7 +729,7 @@ fn test_delete_doc_while_merge_that_is_soft_deleted() -> Result<()> {
   config
     .set_soft_deletes_field(soft_delete)
     .set_reader_pooling(true)
-    .set_merge_policy(LogMergePolicy::<LogDocMergePolicy>::log_doc());
+    .set_merge_policy(LogMergePolicy::log_doc());
   let delete = Arc::new(AtomicBool::new(true));
   let writer = IndexWriter::new(dir.clone(), config)?;
 
@@ -792,11 +789,11 @@ fn test_undelete_document() -> Result<()> {
     SoftDeletesRetentionMergePolicy::new(
       "soft_delete",
       || Ok(MatchAllDocsQuery::new().into()),
-      LogMergePolicy::<LogDocMergePolicy>::log_doc(),
+      LogMergePolicy::log_doc(),
     ),
   );
   config.set_reader_pooling(true);
-  config.set_merge_policy(LogMergePolicy::<LogDocMergePolicy>::log_doc());
+  config.set_merge_policy(LogMergePolicy::log_doc());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let body_result = (|| -> Result<()> {
@@ -844,7 +841,7 @@ fn test_merge_soft_delete_and_hard_delete() -> Result<()> {
     SoftDeletesRetentionMergePolicy::new(
       "soft_delete",
       || Ok(MatchAllDocsQuery::new().into()),
-      LogMergePolicy::<LogDocMergePolicy>::log_doc(),
+      LogMergePolicy::log_doc(),
     ),
   );
   config.set_reader_pooling(true);

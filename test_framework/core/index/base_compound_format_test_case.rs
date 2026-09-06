@@ -965,10 +965,7 @@ pub trait BaseCompoundFormatTestCase:
       .get_compound_reader(read_tracking_dir.as_ref(), &si)?;
     compound_dir.check_integrity()?;
     let read_bytes = read_tracking_dir.get_read_bytes();
-    assert_eq!(
-      created_files,
-      read_bytes.keys().cloned().collect::<HashSet<_>>()
-    );
+    assert_eq!(created_files, read_bytes.keys().cloned().collect());
     for (file, read) in read_bytes {
       let mut unread_bytes = read.clone();
       unread_bytes.flip_range(0, unread_bytes.length());

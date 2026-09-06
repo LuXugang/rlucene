@@ -348,10 +348,7 @@ where
       // docID space
       build_deletion_doc_maps(readers)?
     };
-    self.doc_maps = v
-      .into_iter()
-      .map(Rc::new)
-      .collect::<Vec<Rc<MergeStateDocMap<CR>>>>();
+    self.doc_maps = v.into_iter().map(Rc::new).collect();
     Ok(())
   }
 }

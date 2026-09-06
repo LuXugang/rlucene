@@ -1164,7 +1164,7 @@ pub trait BasePointsFormatTestCase:
           .leaves()?
           .iter()
           .map(|context| context.reader().clone())
-          .collect::<Vec<_>>();
+          .collect();
         if cfg!(feature = "test_log_verbose") {
           println!("TEST: now use addIndexes(CodecReader[]) to switch writers");
         }

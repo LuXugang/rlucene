@@ -392,7 +392,7 @@ where
     let len = self.heap.len();
     let mut heap = std::mem::take(&mut self.heap);
     self.heap.resize_with(len, || None);
-    let taken = heap.drain(1..=self.size).flatten().collect::<Vec<_>>();
+    let taken = heap.drain(1..=self.size).flatten().collect();
     self.size = 0;
     taken
   }

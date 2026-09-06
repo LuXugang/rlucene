@@ -780,12 +780,7 @@ impl SynonymImpacts {
 
   fn merge_impacts(to_merge: Vec<Vec<Impact>>) -> Result<Vec<Impact>> {
     let mut pq = PriorityQueue::new(to_merge.len(), SynonymSubIteratorCmp)?;
-    pq.add_all(
-      to_merge
-        .into_iter()
-        .map(SynonymSubIterator::new)
-        .collect::<Vec<_>>(),
-    )?;
+    pq.add_all(to_merge.into_iter().map(SynonymSubIterator::new).collect())?;
 
     let mut merged_impacts = Vec::new();
 

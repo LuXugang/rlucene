@@ -28,7 +28,6 @@ use crate::core::codecs::postings_writer_base::PostingsWriterBase;
 use crate::core::codecs::push_postings_writer_base::{
   FieldWriteOptions, PushPostingsWriterBaseAbstract,
 };
-use crate::core::index::doc_values_iterator::DocValuesIterator;
 use crate::core::index::field_info::FieldInfo;
 
 use crate::core::index::index_writer::MAX_POSITION;
@@ -713,15 +712,15 @@ where
     Ok(())
   }
 
-  fn start_doc<N>(
+  fn start_doc<NDV>(
     &mut self,
-    norms: Option<&mut N::NumericDocValues>,
+    norms: Option<&mut NDV>,
     doc_id: i32,
     term_doc_freq: i32,
     options: &FieldWriteOptions,
   ) -> Result<()>
   where
-    N: NormsProducer,
+    NDV: NumericDocValues,
   {
     if self.doc_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
       self.flush_doc_block(false, options)?;

@@ -1985,13 +1985,13 @@ impl Hash for MergeStat {
 }
 
 impl MergeStat {
-  pub(crate) fn await_all(merges: &[MergeStat]) {
+  pub fn await_all(merges: &[MergeStat]) {
     for merge in merges {
       merge.await_();
     }
   }
 
-  fn await_all_with_timeout(merges: &[MergeStat], timeout: Duration) -> bool {
+  pub fn await_all_with_timeout(merges: &[MergeStat], timeout: Duration) -> bool {
     let deadline = Instant::now() + timeout;
     for merge in merges {
       if !merge.await_until(deadline) {
@@ -2105,7 +2105,7 @@ where
 
     let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
-      hook: OneMergeHook::<D, CR>::Default,
+      hook: OneMergeHook::Default,
       is_external: false,
       uses_pooled_readers: true,
       estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
@@ -2152,7 +2152,7 @@ where
 
     let merge_progress = Arc::new(OneMergeProgress::new());
     Ok(Self {
-      hook: OneMergeHook::<D, CR>::Default,
+      hook: OneMergeHook::Default,
       is_external: false,
       uses_pooled_readers: false,
       estimated_merge_bytes: Arc::new(AtomicI64::new(0)),
@@ -2255,7 +2255,7 @@ where
     CR1: CodecReader,
     D1: Directory,
   {
-    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::reorder::<CR1, D1>(&self.hook, reader, dir)
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::reorder(&self.hook, reader, dir)
   }
 
   pub fn set_merge_info(&mut self, info: SegmentCommitInfo<D>) {
@@ -2300,7 +2300,7 @@ where
   where
     F: FnMut(&String) -> Result<MergeReader<CR>>,
   {
-    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::init_merge_readers::<F>(
+    <OneMergeHook<D, CR> as OneMergeBase<D, CR>>::init_merge_readers(
       &self.hook,
       &mut self.merge_readers,
       &self.stat,
@@ -2902,14 +2902,6 @@ where
 {
   pub fn add(&mut self, merge: OneMerge<D, CR>) {
     self.merges.push(merge);
-  }
-
-  pub fn await_(merges: &[MergeStat]) {
-    MergeStat::await_all(merges);
-  }
-
-  pub fn await_with_timeout(merges: &[MergeStat], timeout: Duration) -> bool {
-    MergeStat::await_all_with_timeout(merges, timeout)
   }
 }
 

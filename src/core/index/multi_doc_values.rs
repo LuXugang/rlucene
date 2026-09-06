@@ -110,7 +110,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_norm_values(field)? {
-        Some(v) => Ok(Some(MultiNormNumericDocValues::<IR>::A(v))),
+        Some(v) => Ok(Some(NumericDocValuesEnum2::A(v))),
         None => Ok(None),
       };
     }
@@ -128,9 +128,10 @@ impl MultiDocValues {
     if !norm_found {
       return Ok(None);
     }
-    Ok(Some(MultiNormNumericDocValues::<IR>::B(
-      NumericDocValuesImpl::new(reader, field.to_string()),
-    )))
+    Ok(Some(NumericDocValuesEnum2::B(NumericDocValuesImpl::new(
+      reader,
+      field.to_string(),
+    ))))
   }
 
   /// Returns a NumericDocValues for a reader's docvalues (potentially merging on-the-fly)
@@ -149,7 +150,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_numeric_doc_values(field)? {
-        Some(v) => Ok(Some(MultiNumericDocValues::<IR>::A(v))),
+        Some(v) => Ok(Some(NumericDocValuesEnum2::A(v))),
         None => Ok(None),
       };
     }
@@ -168,9 +169,10 @@ impl MultiDocValues {
       return Ok(None);
     }
 
-    Ok(Some(MultiNumericDocValues::<IR>::B(
-      NumericDocValuesImpl1::new(reader, field.to_string()),
-    )))
+    Ok(Some(NumericDocValuesEnum2::B(NumericDocValuesImpl1::new(
+      reader,
+      field.to_string(),
+    ))))
   }
 
   /// Returns a BinaryDocValues for a reader's docvalues (potentially merging on-the-fly)
@@ -186,7 +188,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_binary_doc_values(field)? {
-        Some(v) => Ok(Some(MultiBinaryDocValues::<IR>::A(v))),
+        Some(v) => Ok(Some(BinaryDocValuesEnum2::A(v))),
         None => Ok(None),
       };
     }
@@ -205,9 +207,10 @@ impl MultiDocValues {
       return Ok(None);
     }
 
-    Ok(Some(MultiBinaryDocValues::<IR>::B(
-      BinaryDocValuesImpl::new(reader, field.to_string()),
-    )))
+    Ok(Some(BinaryDocValuesEnum2::B(BinaryDocValuesImpl::new(
+      reader,
+      field.to_string(),
+    ))))
   }
   pub fn get_sorted_numeric_values<IR>(
     reader: IR,
@@ -224,7 +227,9 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_sorted_numeric_doc_values(field)? {
-        Some(v) => Ok(Some(MultiSortedNumericDocValues::<IR>::Singleton(v))),
+        Some(v) => Ok(Some(SingletonOrMultiSortedNumericDocValuesEnum::Singleton(
+          v,
+        ))),
         None => Ok(None),
       };
     }
@@ -251,7 +256,7 @@ impl MultiDocValues {
       return Ok(None);
     }
 
-    Ok(Some(MultiSortedNumericDocValues::<IR>::Multi(
+    Ok(Some(SingletonOrMultiSortedNumericDocValuesEnum::Multi(
       SortedNumericDocValuesImpl::new(reader, values, total_cost),
     )))
   }
@@ -272,7 +277,9 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_sorted_doc_values(field)? {
-        Some(v) => Ok(Some(MultiSortedDocValuesType::<IR>::A(v))),
+        Some(v) => Ok(Some(
+          SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes::A(v),
+        )),
         None => Ok(None),
       };
     }
@@ -309,9 +316,11 @@ impl MultiDocValues {
       let mapping =
         OrdinalMap::build_from_sorted(owner, values.as_mut_slice(), PackedInts::DEFAULT)?;
 
-      Ok(Some(MultiSortedDocValuesType::<IR>::B(
-        MultiSortedDocValues::new(starts, values, mapping, total_cost),
-      )))
+      Ok(Some(
+        SortedDocValuesEnum2WithUnsupportedSecondPostingsAndAttributes::B(
+          MultiSortedDocValues::new(starts, values, mapping, total_cost),
+        ),
+      ))
     }
   }
   /// Returns a [`SortedSetDocValues`] for a reader's docvalues (potentially doing extremely slow
@@ -335,7 +344,7 @@ impl MultiDocValues {
       return Ok(None);
     } else if size == 1 {
       return match leaves[0].reader().get_sorted_set_doc_values(field)? {
-        Some(v) => Ok(Some(MultiSortedSetDocValuesType::<IR>::Singleton(v))),
+        Some(v) => Ok(Some(SingletonOrMultiSortedSetDocValuesEnum::Singleton(v))),
         None => Ok(None),
       };
     }
@@ -372,7 +381,7 @@ impl MultiDocValues {
       let mapping =
         OrdinalMap::build_from_sorted_set(owner, values.as_mut_slice(), PackedInts::DEFAULT)?;
 
-      Ok(Some(MultiSortedSetDocValuesType::<IR>::Multi(
+      Ok(Some(SingletonOrMultiSortedSetDocValuesEnum::Multi(
         MultiSortedSetDocValues::new(values, starts, mapping, total_cost),
       )))
     }

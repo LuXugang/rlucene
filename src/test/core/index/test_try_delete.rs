@@ -46,7 +46,7 @@ mod tests {
 
   fn get_writer(directory: Arc<DirEnum>) -> Result<Arc<IndexWriter<DirEnum>>> {
     let mut random = random();
-    let mp = LogMergePolicy::<LogByteSizeMergePolicy>::log_bytes_size();
+    let mp = LogMergePolicy::log_bytes_size();
     let a = MockAnalyzer::new(&mut random);
     let mut conf = IndexWriterConfig::with_analyzer(a)?;
     conf.set_merge_policy(mp);

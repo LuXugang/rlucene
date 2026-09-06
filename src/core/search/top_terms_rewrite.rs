@@ -17,7 +17,8 @@
 use crate::core::index::BytesRef;
 #[cfg(debug_assertions)]
 use crate::core::index::BytesRefBuilder;
-use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
+use crate::core::index::index_reader_context::IndexReaderContext;
+use crate::core::index::leaf_reader::LeafReader;
 use crate::core::index::leaf_reader_context::LeafReaderContext;
 use crate::core::index::term::Term;
 use crate::core::index::term_states::TermStates;
@@ -164,12 +165,9 @@ impl TermCollectorImpl {
 }
 
 impl TermCollector for TermCollectorImpl {
-  fn set_reader_context<IRC>(
-    &mut self,
-    context: &LeafReaderContext<IRCLeafReader<IRC>>,
-  ) -> Result<()>
+  fn set_reader_context<LR>(&mut self, context: &LeafReaderContext<LR>) -> Result<()>
   where
-    IRC: IndexReaderContext,
+    LR: LeafReader,
   {
     self.ord = context.ord;
     Ok(())
