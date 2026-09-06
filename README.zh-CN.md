@@ -8,6 +8,11 @@
 RLucene 是高性能、功能完善的搜索引擎库
 [Apache Lucene](https://lucene.apache.org/) 的 Rust 移植版本。
 
+## 索引兼容性
+
+**在已支持的功能范围内，RLucene 与 Apache Lucene 10.1 保持索引格式兼容，双方生成的
+索引可以相互读取。**
+
 项目的目标是尽可能贴近 Apache Lucene，在架构、行为、语义和日常使用方式上接近
 100% 对齐。如果你以前使用过 Lucene，RLucene 用起来应该会很熟悉。文档、字段、
 分析器、索引写入器、读取器、搜索器和查询等核心概念及工作流程都保持一致。

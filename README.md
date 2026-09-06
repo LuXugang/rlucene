@@ -9,6 +9,11 @@ to the public on September 5, 2026.
 RLucene is a Rust port of [Apache Lucene](https://lucene.apache.org/), the
 high-performance, full-featured search engine library.
 
+## Index Compatibility
+
+**For supported features, RLucene is index-compatible with Apache Lucene 10.1,
+and each can read indexes created by the other.**
+
 The goal is to stay as close to Apache Lucene as possible—nearly 100% aligned
 in architecture, behavior, semantics, and everyday usage. If you've used
 Lucene before, RLucene should feel familiar. It keeps the same core concepts
