@@ -1373,10 +1373,19 @@ where
       ));
     }
     let count = source_count;
-    let mut reader = source.get_reader(0, source_count, &self.temp_dir)?;
-    let mut writer = HeapPointWriter::new(self.config.clone(), count);
-
+    let mut reader = None;
+    let mut writer = None;
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      reader = Some(source.get_reader(0, source_count, &self.temp_dir)?);
+      writer = Some(HeapPointWriter::new(self.config.clone(), count));
+      let reader = expect_invariant!(
+        reader.as_mut(),
+        "reader initialization succeeded before copying points"
+      );
+      let writer = expect_invariant!(
+        writer.as_mut(),
+        "writer initialization succeeded before copying points"
+      );
       for _ in 0..count {
         let has_next = reader.next()?;
         debug_assert!(has_next);
@@ -1386,20 +1395,22 @@ where
       Ok(())
     }));
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      IOUtils::close_with(0..2, |operation| match operation {
-        0 => writer.close(),
-        _ => reader.close(),
-      })
+      IOUtils::close((writer.as_mut(), reader.as_mut()))
     }));
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       IOUtils::use_or_suppress_caught_result(body_result, close_result)
     }));
-    source.take_data(reader.remove_points());
+    if let Some(reader) = reader.as_mut() {
+      source.take_data(reader.remove_points());
+    }
     if !matches!(&result, Ok(Ok(()))) {
       return self.verify_checksum(result, source);
     }
 
-    Ok(PointWriterEnum::Heap(writer))
+    Ok(PointWriterEnum::Heap(expect_invariant!(
+      writer,
+      "successful point copy and close require an initialized heap writer"
+    )))
   }
 
   /// Recursively reorders the provided reader and writes the bkd-tree on the

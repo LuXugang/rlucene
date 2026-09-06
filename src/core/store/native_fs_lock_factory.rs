@@ -31,8 +31,9 @@ use parking_lot::Mutex;
 use crate::core::store::fs_lock_factory::FSLockFactory;
 use crate::core::store::lock::Lock;
 use crate::core::store::lock_factory::LockFactory;
-use crate::core::util::close::CloseableRef;
+use crate::core::util::close::{CloseableRef, CloseableWrite};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::io_utils::IOUtils;
 
 /// Implements [`lock_factory`](crate::core::store::lock_factory) using native OS file
 /// locks.
@@ -248,13 +249,19 @@ impl CloseableRef for NativeFSLock {
     if !self.closed.load(Ordering::SeqCst) {
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         if let Some(file) = self.file.lock().take() {
-          let unlock_result = if self.lock_valid.swap(false, Ordering::SeqCst) {
-            file.unlock()
-          } else {
-            Ok(())
-          };
-          drop(file);
-          unlock_result?;
+          let unlock_result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+              let unlock_result = if self.lock_valid.swap(false, Ordering::SeqCst) {
+                file.unlock()
+              } else {
+                Ok(())
+              };
+              unlock_result?;
+              Ok(())
+            }));
+          let close_result =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| file.close()));
+          IOUtils::use_or_suppress_caught_result(unlock_result, close_result)?;
         }
         Ok(())
       }));
