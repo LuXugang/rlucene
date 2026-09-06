@@ -27,10 +27,14 @@ struct TestTermAutomatonQuery;
 pub(crate) struct CustomTermAutomatonQuery;
 
 impl TermAutomatonQueryBase for CustomTermAutomatonQuery {
-  fn rewrite<IRC>(&self, query: TermAutomatonQuery, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(
+    &self,
+    _query: &TermAutomatonQuery,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
   {
-    Ok(query.into())
+    Ok(None)
   }
 }

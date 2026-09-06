@@ -59,7 +59,9 @@ fn test_simple() -> Result<()> {
       "MatchNoDocsQuery(\"field 'title' not found\")"
     );
     let dummy_searcher = dummy_index_searcher(dummy_directory()?)?;
-    let rewrite = query.rewrite(&dummy_searcher)?;
+    let rewrite = query
+      .rewrite(&dummy_searcher)?
+      .unwrap_or_else(|| query.clone().into());
     assert!(matches!(rewrite, Query::MatchNoDocs(_)));
     assert_eq!(
       rewrite.to_string("")?,

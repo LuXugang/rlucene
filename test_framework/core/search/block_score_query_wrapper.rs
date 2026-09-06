@@ -101,19 +101,18 @@ impl QueryBase for BlockScoreQueryWrapper {
     Ok(Box::new(BlockScoreWeight::new(self, in_weight)))
   }
 
-  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let query_id = self.query.identity().clone();
-    let rewritten = self.query.rewrite(searcher)?;
-    if rewritten.identity() != &query_id {
-      return Ok(BlockScoreQueryWrapper::new(rewritten, self.block_length).into());
+    match self.query.rewrite(searcher)? {
+      Some(rewritten) => Ok(Some(
+        BlockScoreQueryWrapper::new(rewritten, self.block_length).into(),
+      )),
+      None => Ok(None),
     }
-    self.query = Box::new(rewritten);
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

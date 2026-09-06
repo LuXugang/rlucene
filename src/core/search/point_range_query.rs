@@ -229,14 +229,6 @@ impl QueryBase for PointRangeQuery {
     Ok(Box::new(PointRangeWeight::new(boost, self, *score_mode)))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
-  }
-
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,

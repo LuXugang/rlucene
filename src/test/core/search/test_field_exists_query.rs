@@ -96,7 +96,7 @@ fn test_doc_values_rewrite_with_terms_present() -> Result<()> {
   let query = FieldExistsQuery::new("f");
   let rewritten = query.rewrite(&searcher)?;
 
-  assert!(matches!(rewritten, Query::MatchAllDocs(_)));
+  assert!(matches!(rewritten, Some(Query::MatchAllDocs(_))));
 
   Ok(())
 }
@@ -124,7 +124,7 @@ fn test_doc_values_rewrite_with_point_values_present() -> Result<()> {
   let query = FieldExistsQuery::new("dim");
   let rewritten = query.rewrite(&searcher)?;
 
-  assert!(matches!(rewritten, Query::MatchAllDocs(_)));
+  assert!(matches!(rewritten, Some(Query::MatchAllDocs(_))));
 
   Ok(())
 }
@@ -162,10 +162,10 @@ fn test_doc_values_no_rewrite() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   let rewritten_dim = FieldExistsQuery::new("dim").rewrite(&searcher)?;
-  assert!(!matches!(rewritten_dim, Query::MatchAllDocs(_)));
+  assert!(!matches!(rewritten_dim, Some(Query::MatchAllDocs(_))));
 
   let rewritten_f = FieldExistsQuery::new("f").rewrite(&searcher)?;
-  assert!(!matches!(rewritten_f, Query::MatchAllDocs(_)));
+  assert!(!matches!(rewritten_f, Some(Query::MatchAllDocs(_))));
 
   Ok(())
 }
@@ -194,13 +194,13 @@ fn test_doc_values_no_rewrite_with_doc_values() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   let rewritten_dv1 = FieldExistsQuery::new("dv1").rewrite(&searcher)?;
-  assert!(!matches!(rewritten_dv1, Query::MatchAllDocs(_)));
+  assert!(!matches!(rewritten_dv1, Some(Query::MatchAllDocs(_))));
 
   let rewritten_dv2 = FieldExistsQuery::new("dv2").rewrite(&searcher)?;
-  assert!(!matches!(rewritten_dv2, Query::MatchAllDocs(_)));
+  assert!(!matches!(rewritten_dv2, Some(Query::MatchAllDocs(_))));
 
   let rewritten_dv3 = FieldExistsQuery::new("dv3").rewrite(&searcher)?;
-  assert!(!matches!(rewritten_dv3, Query::MatchAllDocs(_)));
+  assert!(!matches!(rewritten_dv3, Some(Query::MatchAllDocs(_))));
 
   Ok(())
 }
@@ -934,7 +934,7 @@ fn test_knn_vector_all_docs_have_field() -> Result<()> {
 
   let query = FieldExistsQuery::new("vector");
   let rewritten = query.clone().rewrite(&searcher)?;
-  assert!(matches!(rewritten, Query::MatchAllDocs(_)));
+  assert!(matches!(rewritten, Some(Query::MatchAllDocs(_))));
   assert_eq!(100, searcher.count(query)?);
 
   Ok(())

@@ -149,7 +149,7 @@ impl QueryBase for BlendedTermQuery {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
@@ -157,7 +157,7 @@ impl QueryBase for BlendedTermQuery {
     let term_len = self.terms.len();
     let top_reader_context = index_searcher.get_top_reader_context();
     let mut contexts = Vec::with_capacity(self.contexts.len());
-    for (i, context) in self.contexts.into_iter().enumerate() {
+    for (i, context) in self.contexts.iter().cloned().enumerate() {
       match context {
         Some(v) => contexts.push(v),
         None => contexts.push(term_states::build(
@@ -185,7 +185,13 @@ impl QueryBase for BlendedTermQuery {
     }
 
     let mut term_queries = Vec::with_capacity(term_len);
-    for ((term, boost), context) in self.terms.into_iter().zip(self.boosts).zip(contexts) {
+    for ((term, boost), context) in self
+      .terms
+      .iter()
+      .cloned()
+      .zip(self.boosts.iter().copied())
+      .zip(contexts)
+    {
       let mut term_query: Query = TermQuery::with_term_state(term, Some(context)).into();
 
       if boost != 1.0 {
@@ -195,7 +201,7 @@ impl QueryBase for BlendedTermQuery {
       term_queries.push(term_query);
     }
 
-    self.rewrite_method.rewrite(term_queries)
+    self.rewrite_method.rewrite(term_queries).map(Some)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

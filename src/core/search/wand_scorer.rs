@@ -247,7 +247,7 @@ where
   ) -> Result<DocIdSetIteratorImpl<S>> {
     let num_scorers = scorers.len();
 
-    if min_should_match as usize >= num_scorers {
+    if i64::from(min_should_match) >= num_scorers as i64 {
       return Err(LuceneError::illegal_argument(
         "minShouldMatch should be < the number of scorers",
       ));

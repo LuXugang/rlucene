@@ -55,8 +55,10 @@ fn test_rewrite() -> Result<()> {
   // bi-gram test ABC => AB/BC => AB/BC
   let pq1 = NGramPhraseQuery::new(2, PhraseQuery::from_terms_no_slop("f", &["AB", "BC"])?);
 
-  let q = pq1.rewrite(searcher)?;
-  assert_eq!(q.clone().rewrite(searcher)?, q);
+  let q = pq1
+    .rewrite(searcher)?
+    .expect("NGramPhraseQuery rewrites to its phrase query");
+  assert_eq!(q.rewrite(searcher)?.unwrap_or_else(|| q.clone()), q);
   let Query::Phrase(rewritten1) = q else {
     panic!("expected PhraseQuery");
   };
@@ -72,7 +74,9 @@ fn test_rewrite() -> Result<()> {
     PhraseQuery::from_terms_no_slop("f", &["AB", "BC", "CD"])?,
   );
 
-  let q = pq2.rewrite(searcher)?;
+  let q = pq2
+    .rewrite(searcher)?
+    .expect("NGramPhraseQuery rewrites to its phrase query");
   assert!(matches!(q, Query::Phrase(_)));
   let Query::Phrase(rewritten2) = q else {
     panic!("expected PhraseQuery");
@@ -89,7 +93,9 @@ fn test_rewrite() -> Result<()> {
     PhraseQuery::from_terms_no_slop("f", &["ABC", "BCD", "CDE", "DEF", "EFG", "FGH"])?,
   );
 
-  let q = pq3.rewrite(searcher)?;
+  let q = pq3
+    .rewrite(searcher)?
+    .expect("NGramPhraseQuery rewrites to its phrase query");
   assert!(matches!(q, Query::Phrase(_)));
   let Query::Phrase(rewritten3) = q else {
     panic!("expected PhraseQuery");

@@ -146,14 +146,6 @@ impl QueryBase for BrokenExplainTermQuery {
     Ok(Box::new(BrokenExplainWeight::new(self, inner_weight)))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
-  }
-
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
@@ -311,13 +303,13 @@ impl QueryBase for TestRewriteQuery {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     self.num_rewrites.fetch_add(1, Ordering::Relaxed);
-    Ok(self.into())
+    Ok(None)
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -409,14 +401,6 @@ impl QueryBase for CrazyMustUseBulkScorerQuery {
     Self: Sized,
   {
     Ok(Box::new(CrazyMustUseBulkScorerWeight::new(self)))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -623,19 +607,15 @@ impl QueryBase for AssertNeedsScores {
     Ok(Box::new(AssertNeedsScoresWeight::new(self, inner_weight)))
   }
 
-  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let query_id = self.query.identity().clone();
-    let rewritten = self.query.rewrite(searcher)?;
-    if rewritten.identity() != &query_id {
-      Ok(AssertNeedsScores::new(rewritten, self.value).into())
-    } else {
-      self.query = Box::new(rewritten);
-      Ok(self.into())
+    match self.query.rewrite(searcher)? {
+      Some(rewritten) => Ok(Some(AssertNeedsScores::new(rewritten, self.value).into())),
+      None => Ok(None),
     }
   }
 
@@ -767,14 +747,6 @@ impl QueryBase for BitSetQuery {
     Self: Sized,
   {
     Ok(Box::new(BitSetQueryWeight::new(boost, self, *score_mode)))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -977,14 +949,6 @@ impl QueryBase for RandomQuery {
     Ok(Box::new(RandomQueryWeight::new(self, *score_mode, boost)))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
-  }
-
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
@@ -1122,14 +1086,6 @@ impl QueryBase for DummyQuery1 {
   {
     let base = ConstantScoreWeight::new(boost);
     Ok(Box::new(DummyQueryWeight1::new(*score_mode, base, self)))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -1339,14 +1295,6 @@ impl QueryBase for TestLRUQuery {
     }))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
-  }
-
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,
@@ -1549,14 +1497,6 @@ impl QueryBase for DVCacheQuery {
       scorer_created_count: self.scorer_created_count,
       score_mode: *score_mode,
     }))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -1841,14 +1781,19 @@ impl QueryBase for MaxScoreWrapperQuery {
     )))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let rewritten = self.query.rewrite(searcher)?;
-    Ok(MaxScoreWrapperQuery::new(rewritten, self.max_range, self.max_score).into())
+    let rewritten = self
+      .query
+      .rewrite(searcher)?
+      .unwrap_or_else(|| self.query.as_ref().clone());
+    Ok(Some(
+      MaxScoreWrapperQuery::new(rewritten, self.max_range, self.max_score).into(),
+    ))
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -2036,14 +1981,6 @@ impl QueryBase for WANDScorerQuery {
       *score_mode,
       boost,
     )))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>

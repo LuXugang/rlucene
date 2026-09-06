@@ -193,14 +193,6 @@ impl QueryBase for RangeFieldQuery {
     Ok(Box::new(RangeFieldWeight::new(self, *score_mode, boost)))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
-  }
-
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
     QV: QueryVisitor,

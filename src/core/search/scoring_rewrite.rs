@@ -41,7 +41,7 @@ use crate::core::util::{ByteBlockPool, SharedCounter};
 /// Base rewrite method that translates each term into a query, and keeps the scores as computed by
 /// the query.
 pub trait ScoringRewrite: TermCollectingRewrite {
-  fn default_rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
+  fn default_rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -52,7 +52,7 @@ pub trait ScoringRewrite: TermCollectingRewrite {
 
     let mut col = ParallelArraysTermCollector::new(|size| self.check_max_clause_count(size))?;
 
-    self.collect_terms(index_searcher.get_top_reader_context(), &query, &mut col)?;
+    self.collect_terms(index_searcher.get_top_reader_context(), query, &mut col)?;
 
     let size = col.terms.size();
     let mut br = BytesRef::new();
@@ -121,7 +121,7 @@ impl TermCollectingRewrite for ScoringBooleanRewrite {
 }
 
 impl RewriteMethod for ScoringBooleanRewrite {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
+  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
@@ -147,7 +147,7 @@ impl ScoringRewrite for ScoringBooleanRewrite {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ConstantScoreBooleanRewrite;
 impl RewriteMethod for ConstantScoreBooleanRewrite {
-  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
+  fn rewrite<IRC, Q>(self, index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,

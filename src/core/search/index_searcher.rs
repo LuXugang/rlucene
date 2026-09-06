@@ -54,10 +54,10 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::Weight;
+use crate::core::util::TryIntoInt;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{HasIdentity, TryIntoInt};
 #[cfg(test)]
 use crate::test_framework::core::index::test_segment_to_thread_mapping::IntraSliceDocIdOrderWithPartitionsIndexSearcher;
 #[cfg(test)]
@@ -2038,13 +2038,8 @@ impl IndexSearcherDefaults {
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
   {
-    let mut query_id = query.identity().clone();
-    loop {
-      query = query.rewrite(searcher)?;
-      if query.identity() == &query_id {
-        break;
-      }
-      query_id = query.identity().clone();
+    while let Some(rewritten) = query.rewrite(searcher)? {
+      query = rewritten;
     }
     query.visit(&mut Self::get_num_clauses_check_visitor())?;
     Ok(query)

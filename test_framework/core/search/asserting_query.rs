@@ -20,7 +20,6 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::query::{IntoBoxQuery, Query, QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
-use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::asserting_weight::AssertingWeight;
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
@@ -119,20 +118,17 @@ impl QueryBase for AssertingQuery {
     )))
   }
 
-  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let query_id = self.in_.identity().clone();
-    let rewritten = self.in_.rewrite(searcher)?;
-    if rewritten.identity() != &query_id {
+    if let Some(rewritten) = self.in_.rewrite(searcher)? {
       let mut random = random_from_seed(self.random_seed);
-      Ok(Self::wrap(&mut random, rewritten).into())
+      Ok(Some(Self::wrap(&mut random, rewritten).into()))
     } else {
-      self.in_ = rewritten.into();
-      Ok(self.into())
+      Ok(None)
     }
   }
 

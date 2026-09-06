@@ -137,7 +137,7 @@ impl QueryBase for FieldExistsQuery {
     Ok(Box::new(FieldExistsWeight::new(boost, self, *score_mode)))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
@@ -208,10 +208,10 @@ impl QueryBase for FieldExistsQuery {
     }
 
     if all_readers_rewritable {
-      return Ok(MatchAllDocsQuery::new().into());
+      return Ok(Some(MatchAllDocsQuery::new().into()));
     }
 
-    Ok(self.into())
+    Ok(None)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

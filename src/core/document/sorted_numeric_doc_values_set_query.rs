@@ -103,15 +103,15 @@ impl QueryBase for SortedNumericDocValuesSetQuery {
     )))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     if self.numbers.size() == 0 {
-      return Ok(MatchNoDocsQuery::new().into());
+      return Ok(Some(MatchNoDocsQuery::new().into()));
     }
-    Ok(self.into())
+    Ok(None)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

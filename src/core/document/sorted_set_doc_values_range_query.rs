@@ -143,15 +143,15 @@ impl QueryBase for SortedSetDocValuesRangeQuery {
     )))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     if self.lower_value.is_none() && self.upper_value.is_none() {
-      return Ok(FieldExistsQuery::new(self.field).into());
+      return Ok(Some(FieldExistsQuery::new(&self.field).into()));
     }
-    Ok(self.into())
+    Ok(None)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

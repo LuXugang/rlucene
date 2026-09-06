@@ -457,7 +457,9 @@ fn test_rewrite_exhaustive_range() -> Result<()> {
 
   let query = create_query("field", i64::MIN, i64::MAX);
   let searcher = new_searcher_with_reader(reader)?;
-  let rewritten_query = query.rewrite(&searcher)?;
+  let rewritten_query = query
+    .rewrite(&searcher)?
+    .unwrap_or_else(|| query.clone().into());
 
   assert_eq!(
     Query::FieldExists(FieldExistsQuery::new("field")),
@@ -482,7 +484,7 @@ fn test_rewrite_fallback_query() -> Result<()> {
 
   let searcher = new_searcher_with_reader(reader)?;
   let id = query.identity().clone();
-  let rewritten_query = query.rewrite(&searcher)?;
+  let rewritten_query = query.rewrite(&searcher)?.unwrap_or_else(|| query.clone());
 
   assert_ne!(&id, rewritten_query.identity());
   matches!(

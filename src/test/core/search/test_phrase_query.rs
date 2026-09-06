@@ -732,7 +732,7 @@ fn test_rewrite() -> Result<()> {
   let pq: Query = PhraseQuery::from_terms(0, "foo", &["bar"])?.into();
   let rewritten = pq.rewrite(searcher)?;
 
-  assert!(matches!(rewritten, Query::Term(_)));
+  assert!(matches!(rewritten, Some(Query::Term(_))));
   Ok(())
 }
 #[test]

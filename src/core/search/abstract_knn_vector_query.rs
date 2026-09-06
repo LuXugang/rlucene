@@ -160,7 +160,7 @@ impl AbstractKnnVectorQueryDefaults {
 /// - If the kNN search visits too many vectors without completing, stop and run an exact search
 pub trait AbstractKnnVectorQuery: QueryBase + Sync {
   fn base(&self) -> &AbstractKnnVectorQueryBase;
-  fn rewrite<IRC>(self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
@@ -182,7 +182,7 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
       TimeLimitingKnnCollectorManager::new(kcm, index_searcher.get_timeout());
 
     let leaf_reader_contexts = index_searcher.get_leaf_contexts()?;
-    let query = &self;
+    let query = self;
     let mut tasks = Vec::with_capacity(leaf_reader_contexts.len());
     for ctx in leaf_reader_contexts {
       let ctx_ord = ctx.ord;
@@ -626,14 +626,6 @@ impl QueryBase for DocAndScoreQuery {
       ));
     }
     Ok(Box::new(DocAndScoreQueryWeight::new(self, _boost)))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

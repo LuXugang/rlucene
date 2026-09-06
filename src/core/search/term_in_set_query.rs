@@ -174,13 +174,13 @@ impl QueryBase for TermInSetQuery {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     let rewrite_method = self.rewrite_method.clone();
-    rewrite_method.rewrite(searcher, self)
+    rewrite_method.rewrite(searcher, self).map(Some)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

@@ -365,7 +365,11 @@ impl Accountable for TermAutomatonQuery {
 }
 
 pub trait TermAutomatonQueryBase {
-  fn rewrite<IRC>(&self, query: TermAutomatonQuery, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(
+    &self,
+    query: &TermAutomatonQuery,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext;
 }
@@ -374,7 +378,11 @@ pub trait TermAutomatonQueryBase {
 pub(crate) struct TermAutomatonQueryDefault;
 
 impl TermAutomatonQueryBase for TermAutomatonQueryDefault {
-  fn rewrite<IRC>(&self, query: TermAutomatonQuery, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(
+    &self,
+    query: &TermAutomatonQuery,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
   {
@@ -390,7 +398,11 @@ enum TermAutomatonQueryHook {
 }
 
 impl TermAutomatonQueryBase for TermAutomatonQueryHook {
-  fn rewrite<IRC>(&self, query: TermAutomatonQuery, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(
+    &self,
+    query: &TermAutomatonQuery,
+    searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
   {
@@ -405,7 +417,10 @@ impl TermAutomatonQueryBase for TermAutomatonQueryHook {
 pub struct TermAutomatonQueryDefaults;
 
 impl TermAutomatonQueryDefaults {
-  pub fn rewrite<IRC>(query: TermAutomatonQuery, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  pub fn rewrite<IRC>(
+    query: &TermAutomatonQuery,
+    _searcher: &IndexSearcher<IRC>,
+  ) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
   {
@@ -414,7 +429,7 @@ impl TermAutomatonQueryDefaults {
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("Call finish first"))?;
     if Operations::is_empty(det) {
-      return Ok(MatchNoDocsQuery::new().into());
+      return Ok(Some(MatchNoDocsQuery::new().into()));
     }
 
     if let Some(single) = Operations::get_singleton(det)?
@@ -424,7 +439,9 @@ impl TermAutomatonQueryDefaults {
       let term = query.id_to_term[term_id]
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("singleton term is ANY"))?;
-      return Ok(TermQuery::new(Term::new(query.field, term.clone())).into());
+      return Ok(Some(
+        TermQuery::new(Term::new(query.field.clone(), term.clone())).into(),
+      ));
     }
 
     // Try for either PhraseQuery or MultiPhraseQuery, which only works when the automaton is a
@@ -491,13 +508,13 @@ impl TermAutomatonQueryDefaults {
     }
 
     if let Some(builder) = phrase_builder {
-      return Ok(builder.build()?.into());
+      return Ok(Some(builder.build()?.into()));
     }
     if let Some(builder) = multi_phrase_builder {
-      return Ok(builder.build().into());
+      return Ok(Some(builder.build().into()));
     }
 
-    Ok(query.into())
+    Ok(None)
   }
 }
 
@@ -526,12 +543,11 @@ impl QueryBase for TermAutomatonQuery {
     )?))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
   {
-    let hook = self.hook.clone();
-    hook.rewrite(self, searcher)
+    self.hook.rewrite(self, searcher)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

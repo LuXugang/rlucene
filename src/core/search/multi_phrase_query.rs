@@ -274,21 +274,23 @@ impl QueryBase for MultiPhraseQuery {
     Ok(Box::new(weight))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     if self.term_arrays.is_empty() {
-      Ok(MatchNoDocsQuery::with_reason("empty MultiPhraseQuery").into())
+      Ok(Some(
+        MatchNoDocsQuery::with_reason("empty MultiPhraseQuery").into(),
+      ))
     } else if self.term_arrays.len() == 1 {
       let mut builder = BooleanQueryBuilder::new();
       for term in &self.term_arrays[0] {
         builder.add(TermQuery::new(term.clone()), Occur::Should)?;
       }
-      Ok(builder.build().into())
+      Ok(Some(builder.build().into()))
     } else {
-      Ok(self.into())
+      Ok(None)
     }
   }
 

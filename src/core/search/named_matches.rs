@@ -139,19 +139,18 @@ impl QueryBase for NamedQuery {
     }))
   }
 
-  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let query_id = self.in_.identity().clone();
-    let rewritten = self.in_.rewrite(searcher)?;
-    if rewritten.identity() != &query_id {
-      return Ok(NamedQuery::new(self.name, Box::new(rewritten)).into());
+    match self.in_.rewrite(searcher)? {
+      Some(rewritten) => Ok(Some(
+        NamedQuery::new(self.name.clone(), Box::new(rewritten)).into(),
+      )),
+      None => Ok(None),
     }
-    self.in_ = Box::new(rewritten);
-    Ok(self.into())
   }
 
   fn to_string(&self, field: &str) -> Result<String> {

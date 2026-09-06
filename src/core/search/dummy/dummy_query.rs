@@ -81,9 +81,9 @@ impl QueryBase for DummyQuery {
   }
 
   fn rewrite<IRC>(
-    self,
+    &self,
     _searcher: &IndexSearcher<IRC>,
-  ) -> crate::core::util::error::lucene_error::Result<Query>
+  ) -> crate::core::util::error::lucene_error::Result<Option<Query>>
   where
     IRC: IndexReaderContext,
   {

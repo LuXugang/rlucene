@@ -356,11 +356,17 @@ pub trait QueryBase: Debug + HasIdentity + Accountable {
     IndexSearcher<IRC>: Sync,
     Self: Sized;
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  /// Returns `None` when Java would return this query, or a replacement query otherwise.
+  /// The default leaves this query unchanged, matching Java's `Query.rewrite`.
+  /// An unchanged result still performs the rewrite call and its observable side effects.
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
-    Self: Sized;
+    Self: Sized,
+  {
+    Ok(None)
+  }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
   where
@@ -701,7 +707,7 @@ impl QueryBase for Query {
     dispatch_query!(self, |q| q.create_weight(searcher, score_mode, boost,))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
@@ -766,7 +772,7 @@ where
     )))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
   {

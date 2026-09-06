@@ -135,7 +135,7 @@ impl QueryBase for IndexOrDocValuesQuery {
     )))
   }
 
-  fn rewrite<IRC>(mut self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
@@ -143,20 +143,20 @@ impl QueryBase for IndexOrDocValuesQuery {
   {
     let index_rewrite_id = self.index_query.identity().clone();
     let dv_rewrite_id = self.dv_query.identity().clone();
-    let index_rewrite = index_searcher.rewrite(*(self.index_query))?;
-    let dv_rewrite = index_searcher.rewrite(*(self.dv_query))?;
+    let index_rewrite = index_searcher.rewrite(self.index_query.as_ref().clone())?;
+    let dv_rewrite = index_searcher.rewrite(self.dv_query.as_ref().clone())?;
 
     if matches!(index_rewrite, Query::MatchAllDocs(_))
       || matches!(dv_rewrite, Query::MatchAllDocs(_))
     {
-      return Ok(MatchAllDocsQuery::new().into());
+      return Ok(Some(MatchAllDocsQuery::new().into()));
     }
     if &index_rewrite_id != index_rewrite.identity() || &dv_rewrite_id != dv_rewrite.identity() {
-      Ok(IndexOrDocValuesQuery::new(index_rewrite, dv_rewrite).into())
+      Ok(Some(
+        IndexOrDocValuesQuery::new(index_rewrite, dv_rewrite).into(),
+      ))
     } else {
-      self.index_query = Box::new(index_rewrite);
-      self.dv_query = Box::new(dv_rewrite);
-      Ok(self.into())
+      Ok(None)
     }
   }
 

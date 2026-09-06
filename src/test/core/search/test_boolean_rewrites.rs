@@ -122,7 +122,7 @@ fn test_single_filter_clause() -> Result<()> {
   query1.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
   let rewritten1 = query1.build().rewrite(&searcher)?;
   match rewritten1 {
-    Query::Boost(bq) => {
+    Some(Query::Boost(bq)) => {
       assert_eq!(0.0, bq.get_boost());
     },
     _ => return Err(LuceneError::illegal_state("expected BoostQuery")),
@@ -430,7 +430,6 @@ fn test_match_all_must_not() -> Result<()> {
 }
 
 #[test]
-#[ignore = "known bug: deeply nested SHOULD-clause rewrite currently overflows the Rust stack"]
 fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
   let mut random = random();
 
@@ -490,7 +489,6 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
   Ok(())
 }
 #[test]
-#[ignore = "known bug: deeply nested BooleanQuery rewrite currently overflows the Rust stack"]
 fn test_deeply_nested_boolean_rewrite() -> Result<()> {
   let mut random = random();
 
@@ -675,7 +673,7 @@ fn test_random() -> Result<()> {
       let mut rewritten = query.clone();
       loop {
         query = rewritten;
-        rewritten = query.clone().rewrite(&searcher1)?;
+        rewritten = query.rewrite(&searcher1)?.unwrap_or_else(|| query.clone());
         println!("{}", rewritten.to_string("")?);
         let tdx = searcher2.search(rewritten.clone(), 100)?;
         if td2.total_hits.value() != tdx.total_hits.value() {

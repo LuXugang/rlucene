@@ -214,18 +214,20 @@ impl QueryBase for SynonymQuery {
     }
   }
 
-  fn rewrite<IRC>(mut self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     if self.terms.is_empty() {
-      return Ok(boolean_query::Builder::new().build().into());
+      return Ok(Some(boolean_query::Builder::new().build().into()));
     }
     if self.terms.len() == 1 && self.terms[0].boost == 1.0 {
-      return Ok(TermQuery::new(Term::new(self.field, self.terms.remove(0).term)).into());
+      return Ok(Some(
+        TermQuery::new(Term::new(self.field.clone(), self.terms[0].term.clone())).into(),
+      ));
     }
-    Ok(self.into())
+    Ok(None)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

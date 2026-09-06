@@ -749,11 +749,15 @@ fn test_slow_range_query_rewrite() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   QueryUtils::check_equal(
-    &NumericDocValuesField::new_slow_range_query("foo", 10, 1).rewrite(&searcher)?,
+    &NumericDocValuesField::new_slow_range_query("foo", 10, 1)
+      .rewrite(&searcher)?
+      .expect("range query must simplify"),
     &MatchNoDocsQuery::new().into(),
   );
   QueryUtils::check_equal(
-    &NumericDocValuesField::new_slow_range_query("foo", i64::MIN, i64::MAX).rewrite(&searcher)?,
+    &NumericDocValuesField::new_slow_range_query("foo", i64::MIN, i64::MAX)
+      .rewrite(&searcher)?
+      .expect("range query must simplify"),
     &FieldExistsQuery::new("foo").into(),
   );
 

@@ -151,42 +151,52 @@ impl QueryBase for DisjunctionMaxQuery {
     )?))
   }
 
-  fn rewrite<IRC>(mut self, index_searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, index_searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if self.ordered_queries.is_empty() {
-      return Ok(MatchNoDocsQuery::with_reason("empty DisjunctionMaxQuery").into());
+      return Ok(Some(
+        MatchNoDocsQuery::with_reason("empty DisjunctionMaxQuery").into(),
+      ));
     }
 
     if self.ordered_queries.len() == 1 {
-      return Ok(self.ordered_queries.remove(0));
+      return Ok(Some(self.ordered_queries[0].clone()));
     }
 
     if self.tie_breaker_multiplier == 1.0 {
       let mut builder = Builder::new();
-      for sub in self.ordered_queries {
-        builder.add(sub, Occur::Should)?;
+      for sub in &self.ordered_queries {
+        builder.add(sub.clone(), Occur::Should)?;
       }
-      return Ok(builder.build().into());
+      return Ok(Some(builder.build().into()));
     }
 
     let mut actually_rewritten = false;
     let mut rewritten_disjuncts = Vec::with_capacity(self.ordered_queries.len());
-    for sub in self.ordered_queries {
-      let sub_id = sub.identity().clone();
+    for sub in &self.ordered_queries {
       let rewritten_sub = sub.rewrite(index_searcher)?;
-      actually_rewritten |= rewritten_sub.identity() != &sub_id;
+      actually_rewritten |= rewritten_sub.is_some();
       rewritten_disjuncts.push(rewritten_sub);
     }
 
     if actually_rewritten {
-      Ok(DisjunctionMaxQuery::new(rewritten_disjuncts, self.tie_breaker_multiplier)?.into())
+      Ok(Some(
+        DisjunctionMaxQuery::new(
+          rewritten_disjuncts
+            .into_iter()
+            .zip(&self.ordered_queries)
+            .map(|(rewritten, original)| rewritten.unwrap_or_else(|| original.clone()))
+            .collect(),
+          self.tie_breaker_multiplier,
+        )?
+        .into(),
+      ))
     } else {
-      self.ordered_queries = rewritten_disjuncts;
-      Ok(self.into())
+      Ok(None)
     }
   }
 

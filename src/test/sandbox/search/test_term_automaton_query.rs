@@ -897,7 +897,10 @@ fn test_rewrite_no_match() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  assert!(matches!(query.rewrite(&searcher)?, Query::MatchNoDocs(_)));
+  assert!(matches!(
+    query.rewrite(&searcher)?,
+    Some(Query::MatchNoDocs(_))
+  ));
   let close_result = IOUtils::use_or_suppress_result(
     writer.close(&mut random),
     searcher.get_index_reader().close(),
@@ -930,7 +933,9 @@ fn test_rewrite_term() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let rewrite = query.rewrite(&searcher)?;
+  let rewrite = query
+    .rewrite(&searcher)?
+    .unwrap_or_else(|| query.clone().into());
   let Query::Term(rewrite) = rewrite else {
     panic!("rewrite should be a TermQuery");
   };
@@ -969,7 +974,9 @@ fn test_rewrite_simple_phrase() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let rewrite = query.rewrite(&searcher)?;
+  let rewrite = query
+    .rewrite(&searcher)?
+    .unwrap_or_else(|| query.clone().into());
   let Query::Phrase(rewrite) = rewrite else {
     panic!("rewrite should be a PhraseQuery");
   };
@@ -1116,7 +1123,9 @@ fn test_rewrite_phrase_with_any() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let rewrite = query.rewrite(&searcher)?;
+  let rewrite = query
+    .rewrite(&searcher)?
+    .unwrap_or_else(|| query.clone().into());
   let Query::Phrase(rewrite) = rewrite else {
     panic!("rewrite should be a PhraseQuery");
   };
@@ -1160,7 +1169,9 @@ fn test_rewrite_simple_multi_phrase() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let rewrite = query.rewrite(&searcher)?;
+  let rewrite = query
+    .rewrite(&searcher)?
+    .unwrap_or_else(|| query.clone().into());
   let Query::MultiPhrase(rewrite) = rewrite else {
     panic!("rewrite should be a MultiPhraseQuery");
   };
@@ -1210,7 +1221,9 @@ fn test_rewrite_multi_phrase_with_any() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let rewrite = query.rewrite(&searcher)?;
+  let rewrite = query
+    .rewrite(&searcher)?
+    .unwrap_or_else(|| query.clone().into());
   let Query::MultiPhrase(rewrite) = rewrite else {
     panic!("rewrite should be a MultiPhraseQuery");
   };

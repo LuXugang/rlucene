@@ -287,28 +287,32 @@ impl QueryBase for PhraseQuery {
     Ok(Box::new(weight))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     let len = self.terms.len();
     if len == 0 {
-      Ok(MatchNoDocsQuery::with_reason("empty PhraseQuery").into())
+      Ok(Some(
+        MatchNoDocsQuery::with_reason("empty PhraseQuery").into(),
+      ))
     } else if len == 1 {
-      Ok(TermQuery::new(self.terms[0].clone()).into())
+      Ok(Some(TermQuery::new(self.terms[0].clone()).into()))
     } else if let Some(&first_pos) = self.positions.first() {
       if first_pos != 0 {
         let mut new_positions = Vec::with_capacity(self.positions.len());
         for &p in self.positions.iter() {
           new_positions.push(p - first_pos);
         }
-        Ok(PhraseQuery::new(self.slop, (*self.terms).clone(), new_positions)?.into())
+        Ok(Some(
+          PhraseQuery::new(self.slop, (*self.terms).clone(), new_positions)?.into(),
+        ))
       } else {
-        Ok(self.into())
+        Ok(None)
       }
     } else {
-      Ok(self.into())
+      Ok(None)
     }
   }
 

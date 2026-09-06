@@ -119,18 +119,18 @@ impl QueryBase for SortedNumericDocValuesRangeQuery {
     )))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
     if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
-      return Ok(FieldExistsQuery::new(self.field).into());
+      return Ok(Some(FieldExistsQuery::new(&self.field).into()));
     }
     if self.lower_value > self.upper_value {
-      return Ok(MatchNoDocsQuery::new().into());
+      return Ok(Some(MatchNoDocsQuery::new().into()));
     }
-    Ok(self.into())
+    Ok(None)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

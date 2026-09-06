@@ -38,7 +38,7 @@ use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::multi_term_query::{
   MultiTermQuery, MultiTermQuerySet, dispatch_multi_term_query,
 };
-use crate::core::search::query::{Query, QueryBase, QueryWeight};
+use crate::core::search::query::{QueryBase, QueryWeight};
 use crate::core::search::query_visitor::QueryVisitor;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::score_mode::ScoreMode::CompleteNoScores;
@@ -109,14 +109,6 @@ impl QueryBase for MultiTermQueryConstantScoreBlendedWrapper {
       q,
       sub.into(),
     ))))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

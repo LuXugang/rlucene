@@ -150,37 +150,32 @@ impl QueryBase for IndexSortSortedNumericDocValuesRangeQuery {
     ))
   }
 
-  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if self.lower_value == i64::MIN && self.upper_value == i64::MAX {
-      return Ok(FieldExistsQuery::new(self.field).into());
+      return Ok(Some(FieldExistsQuery::new(&self.field).into()));
     }
-
-    let fallback_id = self.fallback_query.identity().clone();
-    let rewritten_fallback = self.fallback_query.clone().rewrite(searcher)?;
-
-    if matches!(rewritten_fallback, Query::MatchAllDocs(_)) {
-      return Ok(MatchAllDocsQuery::new().into());
+    let rewritten = self.fallback_query.rewrite(searcher)?;
+    let query = rewritten.as_ref().unwrap_or(&self.fallback_query);
+    if matches!(query, Query::MatchAllDocs(_)) {
+      return Ok(Some(MatchAllDocsQuery::new().into()));
     }
-
-    if rewritten_fallback.identity() == &fallback_id {
-      self.fallback_query = Box::new(rewritten_fallback);
-      return Ok(self.into());
+    match rewritten {
+      Some(query) => Ok(Some(
+        IndexSortSortedNumericDocValuesRangeQuery::new(
+          self.field.clone(),
+          self.lower_value,
+          self.upper_value,
+          Box::new(query),
+        )
+        .into(),
+      )),
+      None => Ok(None),
     }
-
-    Ok(
-      IndexSortSortedNumericDocValuesRangeQuery::new(
-        self.field,
-        self.lower_value,
-        self.upper_value,
-        Box::new(rewritten_fallback),
-      )
-      .into(),
-    )
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

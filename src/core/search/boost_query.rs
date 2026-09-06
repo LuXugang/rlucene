@@ -33,6 +33,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::hash::{Hash, Hasher};
 
 #[derive(Debug, Clone)]
@@ -105,39 +106,45 @@ impl QueryBase for BoostQuery {
       .create_weight(searcher, score_mode, self.boost * boost)
   }
 
-  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let query_id = self.query.identity().clone();
-
-    let rewritten = self.query.rewrite(searcher)?;
-
+    let rewritten = match self.query.rewrite(searcher)? {
+      Some(query) => Cow::Owned(query),
+      None => Cow::Borrowed(self.query.as_ref()),
+    };
     if self.boost == 1.0 {
-      return Ok(rewritten);
+      return Ok(Some(rewritten.into_owned()));
     }
-
     let rewritten = match rewritten {
-      Query::Boost(in_boost) => {
-        return Ok(BoostQuery::new(in_boost.query, self.boost * in_boost.boost)?.into());
+      Cow::Owned(Query::Boost(inner)) => {
+        let boost = self.boost * inner.boost;
+        return Ok(Some(BoostQuery::new(inner.query, boost)?.into()));
       },
-      Query::MatchNoDocs(_) => {
-        return Ok(rewritten);
+      Cow::Borrowed(Query::Boost(inner)) => {
+        return Ok(Some(
+          BoostQuery::new(inner.query.clone(), self.boost * inner.boost)?.into(),
+        ));
       },
       other => other,
     };
-
-    if self.boost == 0.0 && !matches!(rewritten, Query::ConstantScore(_)) {
-      return Ok(BoostQuery::new(ConstantScoreQuery::new(rewritten), 0.0)?.into());
+    if matches!(rewritten.as_ref(), Query::MatchNoDocs(_)) {
+      return Ok(Some(rewritten.into_owned()));
     }
-
-    if &query_id != rewritten.identity() {
-      return Ok(BoostQuery::new(rewritten, self.boost)?.into());
+    if self.boost == 0.0 && !matches!(rewritten.as_ref(), Query::ConstantScore(_)) {
+      return Ok(Some(
+        BoostQuery::new(ConstantScoreQuery::new(rewritten.into_owned()), 0.0)?.into(),
+      ));
     }
-    self.query = Box::new(rewritten);
-    Ok(self.into())
+    if rewritten.identity() != self.query.identity() {
+      return Ok(Some(
+        BoostQuery::new(rewritten.into_owned(), self.boost)?.into(),
+      ));
+    }
+    Ok(None)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

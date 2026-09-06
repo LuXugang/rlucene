@@ -76,12 +76,16 @@ impl QueryBase for BoostCheckingQuery {
     unreachable!("BoostCheckingQuery must be rewritten before weighting")
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    self.rewrite_method.clone().rewrite(searcher, self)
+    self
+      .rewrite_method
+      .clone()
+      .rewrite(searcher, self)
+      .map(Some)
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -212,12 +216,14 @@ impl QueryBase for DumbPrefixQuery {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    ConstantScoreBlendedRewrite.rewrite(searcher, self)
+    ConstantScoreBlendedRewrite
+      .rewrite(searcher, self)
+      .map(Some)
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>
@@ -362,12 +368,14 @@ impl QueryBase for DumbRegexpQuery {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    ConstantScoreBlendedRewrite.rewrite(searcher, self)
+    ConstantScoreBlendedRewrite
+      .rewrite(searcher, self)
+      .map(Some)
   }
 
   fn visit<QV>(&self, _visitor: &mut QV) -> Result<()>

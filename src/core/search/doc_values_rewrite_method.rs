@@ -75,12 +75,12 @@ use std::sync::Arc;
 #[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DocValuesRewriteMethod;
 impl RewriteMethod for DocValuesRewriteMethod {
-  fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: Q) -> Result<Query>
+  fn rewrite<IRC, Q>(self, _index_searcher: &IndexSearcher<IRC>, query: &Q) -> Result<Query>
   where
     Q: MultiTermQuery + Into<MultiTermQuerySet>,
     IRC: IndexReaderContext,
   {
-    Ok(ConstantScoreQuery::new(MultiTermQueryDocValuesWrapper::new(query)).into())
+    Ok(ConstantScoreQuery::new(MultiTermQueryDocValuesWrapper::new(query.clone())).into())
   }
 }
 
@@ -141,14 +141,6 @@ impl QueryBase for MultiTermQueryDocValuesWrapper {
       boost,
       *score_mode,
     )))
-  }
-
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
-  where
-    IRC: IndexReaderContext,
-    Self: Sized,
-  {
-    Ok(self.into())
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

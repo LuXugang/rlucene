@@ -108,19 +108,20 @@ impl QueryBase for RandomApproximationQuery {
     )))
   }
 
-  fn rewrite<IRC>(self, _searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, _searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    let query_id = self.query.identity().clone();
-    let rewritten = self.query.rewrite(_searcher)?;
-    if query_id != *rewritten.identity() {
-      let mut random = random_from_seed(self.random_seed);
-      Ok(RandomApproximationQuery::new(rewritten, &mut random).into())
-    } else {
-      Ok(rewritten)
+    match self.query.rewrite(_searcher)? {
+      Some(rewritten) => {
+        let mut random = random_from_seed(self.random_seed);
+        Ok(Some(
+          RandomApproximationQuery::new(rewritten, &mut random).into(),
+        ))
+      },
+      None => Ok(Some(self.query.as_ref().clone())),
     }
   }
 

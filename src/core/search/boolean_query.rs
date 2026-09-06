@@ -29,6 +29,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::term_query::TermQuery;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -106,67 +107,68 @@ impl BooleanQuery {
       && matches!(self.clauses[0].query, Query::Term(_))
       && matches!(self.clauses[1].query, Query::Term(_))
   }
-  pub fn rewrite_no_scoring(self) -> Result<Query> {
+  pub fn rewrite_no_scoring(&self) -> Result<Option<Query>> {
     let mut actually_rewritten = false;
-
-    let mut new_query = Builder::new();
-    new_query.set_minimum_number_should_match(self.get_minimum_number_should_match());
-
-    let keep_should = self.get_minimum_number_should_match() > 0 || {
-      let must = self
-        .clause_sets
-        .get(&Occur::Must)
-        .map(|v| v.len())
-        .unwrap_or(0);
-      let filter = self
-        .clause_sets
-        .get(&Occur::Filter)
-        .map(|v| v.len())
-        .unwrap_or(0);
-      must + filter == 0
+    // Retain Java's Builder.add checks while borrowing clauses until a replacement is needed.
+    let mut new_query = Vec::with_capacity(self.clauses.len());
+    let mut add_clause = |query, occur| -> Result<()> {
+      if new_query.len() >= get_max_clause_count() {
+        return Err(LuceneError::too_many_clauses(""));
+      }
+      new_query.push((query, occur));
+      Ok(())
     };
 
+    let keep_should = self.get_minimum_number_should_match() > 0
+      || (self.get_clauses_idx(Occur::Must).len() + self.get_clauses_idx(Occur::Filter).len() == 0);
+
     for clause in &self.clauses {
-      let mut rewritten = clause.query.clone();
-      // NOTE: rewritingNoScoring() should not call rewrite(), otherwise this
+      let query = &clause.query;
+      // NOTE: rewrite_no_scoring() should not call rewrite(), otherwise this
       // method could run in exponential time with the depth of the query as
       // every new level would rewrite 2x more than its parent level.
-      match rewritten {
-        Query::Boost(b) => {
-          rewritten = b.into_inner();
-        },
-        Query::ConstantScore(cs) => {
-          rewritten = cs.into_inner();
-        },
-        Query::Boolean(b) => {
-          rewritten = b.rewrite_no_scoring()?;
-        },
-        _ => {},
+      let mut rewritten = query;
+      if let Query::Boost(boost_query) = rewritten {
+        rewritten = boost_query.get_query();
       }
-
-      match clause.occur {
-        Occur::Should if !keep_should => {
-          actually_rewritten = true;
-        },
-        Occur::Must => {
-          new_query.add(rewritten, Occur::Filter)?;
-          actually_rewritten = true;
-        },
-        _ if clause.query.identity() != rewritten.identity() => {
-          new_query.add(rewritten, clause.occur)?;
-          actually_rewritten = true;
-        },
-        _ => {
-          new_query.add_clause(clause.clone())?;
-        },
+      if let Query::ConstantScore(constant_score_query) = rewritten {
+        rewritten = constant_score_query.get_query();
+      }
+      let rewritten = if let Query::Boolean(boolean_query) = rewritten {
+        match boolean_query.rewrite_no_scoring()? {
+          Some(query) => Cow::Owned(query),
+          None => Cow::Borrowed(rewritten),
+        }
+      } else {
+        Cow::Borrowed(rewritten)
+      };
+      let occur = clause.occur;
+      if occur == Occur::Should && !keep_should {
+        // ignore clause
+        actually_rewritten = true;
+      } else if occur == Occur::Must {
+        // replace MUST clauses with FILTER clauses
+        add_clause(rewritten, Occur::Filter)?;
+        actually_rewritten = true;
+      } else if query.identity() != rewritten.identity() {
+        add_clause(rewritten, occur)?;
+        actually_rewritten = true;
+      } else {
+        add_clause(Cow::Borrowed(query), occur)?;
       }
     }
 
     if !actually_rewritten {
-      return Ok(self.into());
+      return Ok(None);
     }
 
-    Ok(new_query.build().into())
+    let clauses = new_query
+      .into_iter()
+      .map(|(query, occur)| BooleanClause::new(query.into_owned(), occur))
+      .collect();
+    Ok(Some(
+      BooleanQuery::new(self.get_minimum_number_should_match(), clauses).into(),
+    ))
   }
   #[cfg_attr(test, allow(clippy::mutable_key_type))]
   fn as_counts_map(&self) -> HashMap<(Occur, &Query), usize> {
@@ -338,14 +340,16 @@ impl QueryBase for BooleanQuery {
     let weight = self.raw_weight(searcher, score_mode, boost)?;
     Ok(Box::new(weight))
   }
-  fn rewrite<IRC>(mut self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
     if self.clauses.is_empty() {
-      return Ok(MatchNoDocsQuery::with_reason("empty BooleanQuery").into());
+      return Ok(Some(
+        MatchNoDocsQuery::with_reason("empty BooleanQuery").into(),
+      ));
     }
     let must_not_len = self
       .clause_sets
@@ -353,9 +357,9 @@ impl QueryBase for BooleanQuery {
       .map(|v| v.len())
       .unwrap_or(0);
     if self.clauses.len() == must_not_len {
-      return Ok(Query::MatchNoDocs(MatchNoDocsQuery::with_reason(
+      return Ok(Some(Query::MatchNoDocs(MatchNoDocsQuery::with_reason(
         "pure negative BooleanQuery",
-      )));
+      ))));
     }
 
     // optimize 1-clause queries
@@ -363,22 +367,22 @@ impl QueryBase for BooleanQuery {
       let clause = &self.clauses[0];
 
       if self.minimum_number_should_match == 1 && clause.occur == Occur::Should {
-        let v = std::mem::take(&mut self.clauses[0]);
-        return Ok(v.query);
+        let v = self.clauses[0].clone();
+        return Ok(Some(v.query));
       } else if self.minimum_number_should_match == 0 {
         match clause.occur {
           Occur::Should | Occur::Must => {
-            let v = std::mem::take(&mut self.clauses[0]);
-            return Ok(v.query);
+            let v = self.clauses[0].clone();
+            return Ok(Some(v.query));
           },
           Occur::Filter => {
             // no scoring clauses, so return a score of 0
             {
-              let v = std::mem::take(&mut self.clauses[0]);
-              return Ok(Query::Boost(BoostQuery::new(
+              let v = self.clauses[0].clone();
+              return Ok(Some(Query::Boost(BoostQuery::new(
                 Query::ConstantScore(ConstantScoreQuery::new(v.query)),
                 0.0,
-              )?));
+              )?)));
             };
           },
           Occur::MustNot => return Err(LuceneError::illegal_state("should not be here")),
@@ -387,310 +391,177 @@ impl QueryBase for BooleanQuery {
     }
     // recursively rewrite
     {
-      let mut builder = Builder::new();
-      builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
+      let mut clauses = Vec::with_capacity(self.clauses.len());
       let mut actually_rewritten = false;
-
       for clause in &self.clauses {
-        let query = clause.query.clone();
+        let query = &clause.query;
         let occur = clause.occur;
-        let query_id = query.identity().clone();
-        let is_match_no_doc = matches!(query, Query::MatchNoDocs(_));
         let rewritten = match occur {
           Occur::Filter | Occur::MustNot => {
-            // Clauses that are not involved in scoring can get some extra simplifications
-            let rewritten =
-              Query::ConstantScore(ConstantScoreQuery::new(query)).rewrite(searcher)?;
+            // Clauses that are not involved in scoring can get some extra simplifications.
+            let rewritten = ConstantScoreQuery::new(query.clone()).rewrite(searcher)?;
             match rewritten {
-              Query::ConstantScore(cs) => cs.into_inner(),
-              q => q,
+              Some(Query::ConstantScore(constant_score_query)) => {
+                Some(constant_score_query.into_inner())
+              },
+              rewritten => rewritten,
             }
           },
           _ => query.rewrite(searcher)?,
         };
-
-        if rewritten.identity() != &query_id || is_match_no_doc {
-          // rewrite clause
+        let rewritten = match rewritten {
+          Some(query) => Cow::Owned(query),
+          None => Cow::Borrowed(query),
+        };
+        if rewritten.identity() != query.identity() || matches!(query, Query::MatchNoDocs(_)) {
           actually_rewritten = true;
-
-          if matches!(rewritten, Query::MatchNoDocs(_)) {
+          if matches!(rewritten.as_ref(), Query::MatchNoDocs(_)) {
             match occur {
-              Occur::Should | Occur::MustNot => {},
-              Occur::Must | Occur::Filter => {
-                return Ok(rewritten);
-              },
+              Occur::Should | Occur::MustNot => continue,
+              Occur::Must | Occur::Filter => return Ok(Some(rewritten.into_owned())),
             }
-          } else {
-            builder.add(rewritten, occur)?;
           }
-        } else {
-          // leave as-is
-          builder.add_clause(clause.clone())?;
         }
+        // This is the same check as Builder::add_clause, at the same point in traversal.
+        if clauses.len() >= get_max_clause_count() {
+          return Err(LuceneError::too_many_clauses(""));
+        }
+        clauses.push((rewritten, occur));
       }
-
       if actually_rewritten {
-        return Ok(builder.build().into());
+        let clauses = clauses
+          .into_iter()
+          .map(|(query, occur)| BooleanClause::new(query.into_owned(), occur))
+          .collect();
+        return Ok(Some(
+          BooleanQuery::new(self.minimum_number_should_match, clauses).into(),
+        ));
       }
     }
-    // remove duplicate FILTER and MUST_NOT clauses
-    {
-      let mut clause_count = 0;
-      for queries in self.clause_sets.values() {
-        clause_count += queries.len();
-      }
-
-      if clause_count != self.clauses.len() {
-        // since clause_sets implicitly deduplicates FILTER and MUST_NOT clauses,
-        // this means there were duplicates
-        let mut rewritten = Builder::new();
-        rewritten.set_minimum_number_should_match(self.minimum_number_should_match);
-
-        for (occur, indices) in &self.clause_sets {
-          for &idx in indices {
-            let clause = std::mem::take(&mut self.clauses[idx]);
-            rewritten.add(clause.query, *occur)?;
-          }
+    // Keep the later rules in a separate call frame: their owned Query temporaries must not
+    // occupy the stack at every level while recursively rewriting children in debug builds.
+    let rewrite_non_recursive = || -> Result<Option<Query>> {
+      // remove duplicate FILTER and MUST_NOT clauses
+      {
+        let mut clause_count = 0;
+        for queries in self.clause_sets.values() {
+          clause_count += queries.len();
         }
 
-        return Ok(rewritten.build().into());
+        if clause_count != self.clauses.len() {
+          // since clause_sets implicitly deduplicates FILTER and MUST_NOT clauses,
+          // this means there were duplicates
+          let mut rewritten = Builder::new();
+          rewritten.set_minimum_number_should_match(self.minimum_number_should_match);
+
+          for (occur, indices) in &self.clause_sets {
+            for &idx in indices {
+              let clause = self.clauses[idx].clone();
+              rewritten.add(clause.query, *occur)?;
+            }
+          }
+
+          return Ok(Some(rewritten.build().into()));
+        }
       }
-    }
 
-    // Check whether some clauses are both required and excluded
-    let must_not = self
-      .clause_sets
-      .get(&Occur::MustNot)
-      .map(|v| v.as_slice())
-      .unwrap_or(&[]);
-
-    if !must_not.is_empty() {
-      let must = self
+      // Check whether some clauses are both required and excluded
+      let must_not = self
         .clause_sets
-        .get(&Occur::Must)
+        .get(&Occur::MustNot)
         .map(|v| v.as_slice())
         .unwrap_or(&[]);
-      let filter = self
+
+      if !must_not.is_empty() {
+        let must = self
+          .clause_sets
+          .get(&Occur::Must)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
+        let filter = self
+          .clause_sets
+          .get(&Occur::Filter)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
+
+        if must_not.iter().any(|&mn_idx| {
+          let q = &self.clauses[mn_idx].query;
+          must.iter().any(|&m_idx| self.clauses[m_idx].query == *q)
+            || filter.iter().any(|&f_idx| self.clauses[f_idx].query == *q)
+        }) {
+          return Ok(Some(
+            MatchNoDocsQuery::with_reason("FILTER or MUST clause also in MUST_NOT").into(),
+          ));
+        }
+
+        if must_not
+          .iter()
+          .any(|&idx| matches!(self.clauses[idx].query, Query::MatchAllDocs(_)))
+        {
+          return Ok(Some(
+            MatchNoDocsQuery::with_reason("MUST_NOT clause is MatchAllDocsQuery").into(),
+          ));
+        }
+      }
+
+      // remove FILTER clauses that are also MUST clauses or that match all documents
+      let filter_idx = self
         .clause_sets
         .get(&Occur::Filter)
         .map(|v| v.as_slice())
         .unwrap_or(&[]);
 
-      if must_not.iter().any(|&mn_idx| {
-        let q = &self.clauses[mn_idx].query;
-        must.iter().any(|&m_idx| self.clauses[m_idx].query == *q)
-          || filter.iter().any(|&f_idx| self.clauses[f_idx].query == *q)
-      }) {
-        return Ok(MatchNoDocsQuery::with_reason("FILTER or MUST clause also in MUST_NOT").into());
-      }
+      if !filter_idx.is_empty() {
+        let must_indices = self
+          .clause_sets
+          .get(&Occur::Must)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
 
-      if must_not
-        .iter()
-        .any(|&idx| matches!(self.clauses[idx].query, Query::MatchAllDocs(_)))
-      {
-        return Ok(MatchNoDocsQuery::with_reason("MUST_NOT clause is MatchAllDocsQuery").into());
-      }
-    }
+        let mut new_filter_ixd: Vec<usize> = filter_idx.to_vec();
+        let mut modified = false;
 
-    // remove FILTER clauses that are also MUST clauses or that match all documents
-    let filter_idx = self
-      .clause_sets
-      .get(&Occur::Filter)
-      .map(|v| v.as_slice())
-      .unwrap_or(&[]);
+        // remove MatchAllDocsQuery if needed
+        if new_filter_ixd.len() > 1 || !must_indices.is_empty() {
+          let before = new_filter_ixd.len();
+          new_filter_ixd.retain(|&idx| !matches!(self.clauses[idx].query, Query::MatchAllDocs(_)));
+          modified |= new_filter_ixd.len() != before;
+        }
 
-    if !filter_idx.is_empty() {
-      let must_indices = self
-        .clause_sets
-        .get(&Occur::Must)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
-
-      let mut new_filter_ixd: Vec<usize> = filter_idx.to_vec();
-      let mut modified = false;
-
-      // remove MatchAllDocsQuery if needed
-      if new_filter_ixd.len() > 1 || !must_indices.is_empty() {
         let before = new_filter_ixd.len();
-        new_filter_ixd.retain(|&idx| !matches!(self.clauses[idx].query, Query::MatchAllDocs(_)));
-        modified |= new_filter_ixd.len() != before;
-      }
-
-      let before = new_filter_ixd.len();
-      new_filter_ixd.retain(|&f_idx| {
-        let fq = &self.clauses[f_idx].query;
-        !must_indices
-          .iter()
-          .any(|&m_idx| self.clauses[m_idx].query == *fq)
-      });
-
-      modified |= new_filter_ixd.len() != before;
-
-      if modified {
-        let mut builder = Builder::new();
-        builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
-
-        for clause in &mut self.clauses {
-          if clause.occur != Occur::Filter {
-            builder.add_clause(std::mem::take(clause))?;
-          }
-        }
-
-        for idx in new_filter_ixd {
-          let v = std::mem::take(&mut self.clauses[idx]);
-          debug_assert!(!matches!(v.query, Query::Dummy(_)));
-          builder.add(v.query, Occur::Filter)?;
-        }
-
-        return Ok(builder.build().into());
-      }
-    }
-
-    // convert FILTER clauses that are also SHOULD clauses to MUST clauses
-    let should_indices = self
-      .clause_sets
-      .get(&Occur::Should)
-      .map(|v| v.as_slice())
-      .unwrap_or(&[]);
-    let filter_indices = self
-      .clause_sets
-      .get(&Occur::Filter)
-      .map(|v| v.as_slice())
-      .unwrap_or(&[]);
-
-    if !should_indices.is_empty() && !filter_indices.is_empty() {
-      // compute intersection by Query equality (not identity)
-      let intersection: Vec<usize> = filter_indices
-        .iter()
-        .cloned()
-        .filter(|&f_idx| {
+        new_filter_ixd.retain(|&f_idx| {
           let fq = &self.clauses[f_idx].query;
-          should_indices
+          !must_indices
             .iter()
-            .any(|&s_idx| self.clauses[s_idx].query == *fq)
-        })
-        .collect();
+            .any(|&m_idx| self.clauses[m_idx].query == *fq)
+        });
 
-      if !intersection.is_empty() {
-        let mut builder = Builder::new();
-        let mut min_should_match = self.get_minimum_number_should_match();
-        for clause in &self.clauses {
-          let in_intersection = intersection
-            .iter()
-            .any(|&idx| self.clauses[idx].query == clause.query);
+        modified |= new_filter_ixd.len() != before;
 
-          // TODO IMPORTANT avoid query copy here
-          if in_intersection && clause.occur == Occur::Should {
-            builder.add(clause.query.clone(), Occur::Must)?;
-            min_should_match -= 1;
-          } else {
-            builder.add_clause(clause.clone())?;
+        if modified {
+          let mut builder = Builder::new();
+          builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
+
+          for clause in &self.clauses {
+            if clause.occur != Occur::Filter {
+              builder.add_clause(clause.clone())?;
+            }
           }
+
+          for idx in new_filter_ixd {
+            let v = self.clauses[idx].clone();
+            debug_assert!(!matches!(v.query, Query::Dummy(_)));
+            builder.add(v.query, Occur::Filter)?;
+          }
+
+          return Ok(Some(builder.build().into()));
         }
-
-        builder.set_minimum_number_should_match(min_should_match.max(0));
-        return Ok(builder.build().into());
-      }
-    }
-
-    // Deduplicate SHOULD clauses by summing up their boosts
-    let should_indices = self
-      .clause_sets
-      .get(&Occur::Should)
-      .map(|v| v.as_slice())
-      .unwrap_or(&[]);
-
-    if !should_indices.is_empty() && self.minimum_number_should_match <= 1 {
-      #[cfg_attr(test, allow(clippy::mutable_key_type))]
-      let mut should_clauses = HashMap::new();
-
-      for &idx in should_indices {
-        let mut query = self.clauses[idx].query.clone();
-        let mut boost = 1.0;
-
-        while let Query::Boost(bq) = query {
-          boost *= bq.get_boost() as f64;
-          query = bq.into_inner();
-        }
-
-        *should_clauses.entry(query).or_insert(0.0) += boost;
       }
 
-      if should_clauses.len() != should_indices.len() {
-        let mut builder = Builder::new();
-        builder.set_minimum_number_should_match(self.minimum_number_should_match);
-
-        for (mut query, boost) in should_clauses {
-          let boost = boost as f32;
-          if boost != 1.0 {
-            query = Query::Boost(BoostQuery::new(query, boost)?);
-          }
-          builder.add(query, Occur::Should)?;
-        }
-
-        for clause in &mut self.clauses {
-          if clause.occur != Occur::Should {
-            let v = std::mem::take(clause);
-            builder.add_clause(v)?;
-          }
-        }
-
-        return Ok(builder.build().into());
-      }
-    }
-
-    // Deduplicate MUST clauses by summing up their boosts
-    let must_indices = self
-      .clause_sets
-      .get(&Occur::Must)
-      .map(|v| v.as_slice())
-      .unwrap_or(&[]);
-
-    if !must_indices.is_empty() {
-      #[cfg_attr(test, allow(clippy::mutable_key_type))]
-      let mut must_clauses = HashMap::new();
-
-      for &idx in must_indices {
-        let mut query = self.clauses[idx].query.clone();
-        let mut boost: f64 = 1.0;
-
-        while let Query::Boost(bq) = query {
-          boost *= bq.get_boost() as f64;
-          query = bq.into_inner();
-        }
-
-        *must_clauses.entry(query).or_insert(0.0) += boost;
-      }
-
-      if must_clauses.len() != must_indices.len() {
-        let mut builder = Builder::new();
-        builder.set_minimum_number_should_match(self.minimum_number_should_match);
-
-        for (mut query, boost) in must_clauses {
-          let boost = boost as f32;
-          if boost != 1.0 {
-            query = Query::Boost(BoostQuery::new(query, boost)?);
-          }
-          builder.add(query, Occur::Must)?;
-        }
-
-        for clause in &mut self.clauses {
-          if clause.occur != Occur::Must {
-            let v = std::mem::take(clause);
-            builder.add_clause(v)?;
-          }
-        }
-
-        return Ok(builder.build().into());
-      }
-    }
-
-    // Rewrite queries whose single scoring clause is a MUST clause on a
-    // MatchAllDocsQuery to a ConstantScoreQuery
-    {
-      let must_indices = self
+      // convert FILTER clauses that are also SHOULD clauses to MUST clauses
+      let should_indices = self
         .clause_sets
-        .get(&Occur::Must)
+        .get(&Occur::Should)
         .map(|v| v.as_slice())
         .unwrap_or(&[]);
       let filter_indices = self
@@ -699,226 +570,397 @@ impl QueryBase for BooleanQuery {
         .map(|v| v.as_slice())
         .unwrap_or(&[]);
 
-      if must_indices.len() == 1 && !filter_indices.is_empty() {
-        let mut must = self.clauses[must_indices[0]].query.clone();
-        let mut boost = 1.0f32;
+      if !should_indices.is_empty() && !filter_indices.is_empty() {
+        // compute intersection by Query equality (not identity)
+        let intersection: Vec<usize> = filter_indices
+          .iter()
+          .cloned()
+          .filter(|&f_idx| {
+            let fq = &self.clauses[f_idx].query;
+            should_indices
+              .iter()
+              .any(|&s_idx| self.clauses[s_idx].query == *fq)
+          })
+          .collect();
 
-        if let Query::Boost(bq) = must {
-          boost = bq.get_boost();
-          must = bq.into_inner();
-        }
-
-        if matches!(must, Query::MatchAllDocs(_)) {
-          // our single scoring clause matches everything: rewrite to a CSQ on the filter
-          // ignore SHOULD clause for now
+        if !intersection.is_empty() {
           let mut builder = Builder::new();
-          for clause in &mut self.clauses {
-            match clause.occur {
-              Occur::Filter | Occur::MustNot => {
-                let v = std::mem::take(clause);
-                builder.add_clause(v)?;
-              },
-              Occur::Must | Occur::Should => {
-                // ignore
-              },
-            }
-          }
+          let mut min_should_match = self.get_minimum_number_should_match();
+          for clause in &self.clauses {
+            let in_intersection = intersection
+              .iter()
+              .any(|&idx| self.clauses[idx].query == clause.query);
 
-          let mut rewritten = builder.build().into();
-          rewritten = Query::ConstantScore(ConstantScoreQuery::new(rewritten));
-
-          if boost != 1.0 {
-            rewritten = Query::Boost(BoostQuery::new(rewritten, boost)?);
-          }
-
-          // now add back the SHOULD clauses
-          let mut builder = Builder::new();
-          builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
-          builder.add(rewritten, Occur::Must)?;
-
-          let should_indices = self
-            .clause_sets
-            .get(&Occur::Should)
-            .map(|v| v.as_slice())
-            .unwrap_or(&[]);
-          for &idx in should_indices {
-            let v = std::mem::take(&mut self.clauses[idx]);
-            debug_assert!(!matches!(v.query, Query::Dummy(_)));
-            builder.add(v.query, Occur::Should)?;
-          }
-
-          return Ok(builder.build().into());
-        }
-      }
-    }
-
-    // Flatten nested disjunctions, this is important for block-max WAND to perform well
-    if self.minimum_number_should_match <= 1 {
-      let mut builder = Builder::new();
-      builder.set_minimum_number_should_match(self.minimum_number_should_match);
-      let mut actually_rewritten = false;
-
-      for clause in &self.clauses {
-        if clause.occur == Occur::Should {
-          if let Query::Boolean(inner) = &clause.query {
-            if inner.is_pure_disjunction() {
-              actually_rewritten = true;
-              for inner_clause in inner.clauses.iter() {
-                builder.add_clause(inner_clause.clone())?;
+            // TODO IMPORTANT avoid query copy here
+            if in_intersection {
+              if clause.occur == Occur::Should {
+                builder.add(clause.query.clone(), Occur::Must)?;
+                min_should_match = min_should_match.wrapping_sub(1);
               }
             } else {
               builder.add_clause(clause.clone())?;
             }
-          } else {
-            builder.add_clause(clause.clone())?;
           }
-        } else {
-          builder.add_clause(clause.clone())?;
+
+          builder.set_minimum_number_should_match(min_should_match.max(0));
+          return Ok(Some(builder.build().into()));
         }
       }
 
-      if actually_rewritten {
-        return Ok(builder.build().into());
-      }
-    }
+      // Deduplicate SHOULD clauses by summing up their boosts
+      let should_indices = self
+        .clause_sets
+        .get(&Occur::Should)
+        .map(|v| v.as_slice())
+        .unwrap_or(&[]);
 
-    // Inline required / prohibited clauses. This helps run filtered conjunctive queries more
-    // efficiently by providing all clauses to the block-max AND scorer.
-    {
-      let mut builder = Builder::new();
-      builder.set_minimum_number_should_match(self.minimum_number_should_match);
-      let mut actually_rewritten = false;
+      if !should_indices.is_empty() && self.minimum_number_should_match <= 1 {
+        #[cfg_attr(test, allow(clippy::mutable_key_type))]
+        let mut should_clauses = HashMap::new();
 
-      for outer_clause in &self.clauses {
-        if outer_clause.is_required() {
-          if let Query::Boolean(inner_query) = &outer_clause.query {
-            // Inlining prohibited clauses is not legal if the query is a pure negation, since pure
-            // negations have no matches. It works because the inner BooleanQuery would have first
-            // rewritten to a MatchNoDocsQuery if it only had prohibited clauses.
-            debug_assert!(
-              inner_query
-                .clause_sets
-                .get(&Occur::MustNot)
-                .map(|v| v.len())
-                .unwrap_or(0)
-                != inner_query.clauses.len()
-            );
+        for &idx in should_indices {
+          let mut query = &self.clauses[idx].query;
+          let mut boost = 1.0;
 
-            let inner_should_len = inner_query
-              .clause_sets
-              .get(&Occur::Should)
-              .map(|v| v.len())
-              .unwrap_or(0);
+          while let Query::Boost(bq) = query {
+            boost *= bq.get_boost() as f64;
+            query = bq.get_query();
+          }
 
-            if inner_query.get_minimum_number_should_match() == 0 && inner_should_len == 0 {
-              actually_rewritten = true;
+          *should_clauses.entry(query).or_insert(0.0) += boost;
+        }
 
-              for inner_clause in &inner_query.clauses {
-                let inner_occur = inner_clause.occur;
+        if should_clauses.len() != should_indices.len() {
+          let mut builder = Builder::new();
+          builder.set_minimum_number_should_match(self.minimum_number_should_match);
 
-                if inner_occur == Occur::Filter
-                  || inner_occur == Occur::MustNot
-                  || outer_clause.occur == Occur::Must
-                {
-                  builder.add_clause(inner_clause.clone())?;
-                } else {
-                  debug_assert!(outer_clause.occur == Occur::Filter);
-                  debug_assert!(inner_occur == Occur::Must);
-                  // In this case we need to change the occur of the inner query from MUST to FILTER.
-                  builder.add(inner_clause.query.clone(), Occur::Filter)?;
-                }
-              }
-            } else {
-              builder.add_clause(outer_clause.clone())?;
+          for (query, boost) in should_clauses {
+            let mut query = query.clone();
+            let boost = boost as f32;
+            if boost != 1.0 {
+              query = Query::Boost(BoostQuery::new(query, boost)?);
             }
-          } else {
-            builder.add_clause(outer_clause.clone())?;
+            builder.add(query, Occur::Should)?;
           }
-        } else {
-          builder.add_clause(outer_clause.clone())?;
+
+          for clause in &self.clauses {
+            if clause.occur != Occur::Should {
+              let v = clause.clone();
+              builder.add_clause(v)?;
+            }
+          }
+
+          return Ok(Some(builder.build().into()));
         }
       }
 
-      if actually_rewritten {
-        return Ok(builder.build().into());
-      }
-    }
-    // SHOULD clause count less than or equal to minimum_number_should_match
-    // Important(this can only be processed after nested clauses have been flattened)
-    {
-      let should_indices = self
-        .clause_sets
-        .get(&Occur::Should)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
-      let should_len = should_indices.len();
-
-      if should_len < self.minimum_number_should_match as usize {
-        return Ok(
-          MatchNoDocsQuery::with_reason("SHOULD clause count less than minimumNumberShouldMatch")
-            .into(),
-        );
-      }
-
-      if should_len > 0 && should_len == self.minimum_number_should_match as usize {
-        let mut builder = Builder::new();
-
-        for clause in &mut self.clauses {
-          let v = std::mem::take(clause);
-          if v.occur == Occur::Should {
-            builder.add(v.query, Occur::Must)?;
-          } else {
-            builder.add_clause(v)?;
-          }
-        }
-
-        return Ok(builder.build().into());
-      }
-    }
-    // Inline SHOULD clauses from the only MUST clause
-    {
-      let should_indices = self
-        .clause_sets
-        .get(&Occur::Should)
-        .map(|v| v.as_slice())
-        .unwrap_or(&[]);
+      // Deduplicate MUST clauses by summing up their boosts
       let must_indices = self
         .clause_sets
         .get(&Occur::Must)
         .map(|v| v.as_slice())
         .unwrap_or(&[]);
 
-      if should_indices.is_empty() && must_indices.len() == 1 {
-        let must_clause = &self.clauses[must_indices[0]];
-        if let Query::Boolean(inner) = &must_clause.query {
-          let inner_should_len = inner
-            .clause_sets
-            .get(&Occur::Should)
-            .map(|v| v.len())
-            .unwrap_or(0);
+      if !must_indices.is_empty() {
+        #[cfg_attr(test, allow(clippy::mutable_key_type))]
+        let mut must_clauses = HashMap::new();
 
-          if inner.clauses.len() == inner_should_len {
-            let mut rewritten = Builder::new();
+        for &idx in must_indices {
+          let mut query = &self.clauses[idx].query;
+          let mut boost: f64 = 1.0;
 
+          while let Query::Boost(bq) = query {
+            boost *= bq.get_boost() as f64;
+            query = bq.get_query();
+          }
+
+          *must_clauses.entry(query).or_insert(0.0) += boost;
+        }
+
+        if must_clauses.len() != must_indices.len() {
+          let mut builder = Builder::new();
+          builder.set_minimum_number_should_match(self.minimum_number_should_match);
+
+          for (query, boost) in must_clauses {
+            let mut query = query.clone();
+            let boost = boost as f32;
+            if boost != 1.0 {
+              query = Query::Boost(BoostQuery::new(query, boost)?);
+            }
+            builder.add(query, Occur::Must)?;
+          }
+
+          for clause in &self.clauses {
+            if clause.occur != Occur::Must {
+              let v = clause.clone();
+              builder.add_clause(v)?;
+            }
+          }
+
+          return Ok(Some(builder.build().into()));
+        }
+      }
+
+      // Rewrite queries whose single scoring clause is a MUST clause on a
+      // MatchAllDocsQuery to a ConstantScoreQuery
+      {
+        let must_indices = self
+          .clause_sets
+          .get(&Occur::Must)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
+        let filter_indices = self
+          .clause_sets
+          .get(&Occur::Filter)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
+
+        if must_indices.len() == 1 && !filter_indices.is_empty() {
+          let mut must = &self.clauses[must_indices[0]].query;
+          let mut boost = 1.0f32;
+
+          if let Query::Boost(bq) = must {
+            boost = bq.get_boost();
+            must = bq.get_query();
+          }
+
+          if matches!(must, Query::MatchAllDocs(_)) {
+            // our single scoring clause matches everything: rewrite to a CSQ on the filter
+            // ignore SHOULD clause for now
+            let mut builder = Builder::new();
             for clause in &self.clauses {
-              if clause.occur != Occur::Must {
-                rewritten.add_clause(clause.clone())?;
+              match clause.occur {
+                Occur::Filter | Occur::MustNot => {
+                  let v = clause.clone();
+                  builder.add_clause(v)?;
+                },
+                Occur::Must | Occur::Should => {
+                  // ignore
+                },
               }
             }
 
-            for inner_clause in &inner.clauses {
-              rewritten.add_clause(inner_clause.clone())?;
+            let mut rewritten = builder.build().into();
+            rewritten = Query::ConstantScore(ConstantScoreQuery::new(rewritten));
+
+            if boost != 1.0 {
+              rewritten = Query::Boost(BoostQuery::new(rewritten, boost)?);
             }
 
-            let msm = inner.get_minimum_number_should_match().max(1);
-            rewritten.set_minimum_number_should_match(msm);
+            // now add back the SHOULD clauses
+            let mut builder = Builder::new();
+            builder.set_minimum_number_should_match(self.get_minimum_number_should_match());
+            builder.add(rewritten, Occur::Must)?;
 
-            return Ok(rewritten.build().into());
+            let should_indices = self
+              .clause_sets
+              .get(&Occur::Should)
+              .map(|v| v.as_slice())
+              .unwrap_or(&[]);
+            for &idx in should_indices {
+              let v = self.clauses[idx].clone();
+              debug_assert!(!matches!(v.query, Query::Dummy(_)));
+              builder.add(v.query, Occur::Should)?;
+            }
+
+            return Ok(Some(builder.build().into()));
           }
         }
       }
-    }
-    Ok(self.into())
+
+      // Flatten nested disjunctions, this is important for block-max WAND to perform well
+      if self.minimum_number_should_match <= 1 {
+        let mut clauses: Vec<(&Query, Occur)> = Vec::new();
+        let mut add_clause = |query, occur| {
+          if clauses.len() >= get_max_clause_count() {
+            return Err(LuceneError::too_many_clauses(""));
+          }
+          clauses.push((query, occur));
+          Ok(())
+        };
+        let mut actually_rewritten = false;
+
+        for clause in &self.clauses {
+          if clause.occur == Occur::Should {
+            if let Query::Boolean(inner) = &clause.query {
+              if inner.is_pure_disjunction() {
+                actually_rewritten = true;
+                for inner_clause in inner.clauses.iter() {
+                  add_clause(&inner_clause.query, inner_clause.occur)?;
+                }
+              } else {
+                add_clause(&clause.query, clause.occur)?;
+              }
+            } else {
+              add_clause(&clause.query, clause.occur)?;
+            }
+          } else {
+            add_clause(&clause.query, clause.occur)?;
+          }
+        }
+
+        if actually_rewritten {
+          let clauses = clauses
+            .into_iter()
+            .map(|(query, occur)| BooleanClause::new(query.clone(), occur))
+            .collect();
+          return Ok(Some(
+            BooleanQuery::new(self.minimum_number_should_match, clauses).into(),
+          ));
+        }
+      }
+
+      // Inline required / prohibited clauses. This helps run filtered conjunctive queries more
+      // efficiently by providing all clauses to the block-max AND scorer.
+      {
+        let mut clauses: Vec<(&Query, Occur)> = Vec::new();
+        let mut add_clause = |query, occur| {
+          if clauses.len() >= get_max_clause_count() {
+            return Err(LuceneError::too_many_clauses(""));
+          }
+          clauses.push((query, occur));
+          Ok(())
+        };
+        let mut actually_rewritten = false;
+
+        for outer_clause in &self.clauses {
+          if outer_clause.is_required() {
+            if let Query::Boolean(inner_query) = &outer_clause.query {
+              // Inlining prohibited clauses is not legal if the query is a pure negation, since pure
+              // negations have no matches. It works because the inner BooleanQuery would have first
+              // rewritten to a MatchNoDocsQuery if it only had prohibited clauses.
+              debug_assert!(
+                inner_query
+                  .clause_sets
+                  .get(&Occur::MustNot)
+                  .map(|v| v.len())
+                  .unwrap_or(0)
+                  != inner_query.clauses.len()
+              );
+
+              let inner_should_len = inner_query
+                .clause_sets
+                .get(&Occur::Should)
+                .map(|v| v.len())
+                .unwrap_or(0);
+
+              if inner_query.get_minimum_number_should_match() == 0 && inner_should_len == 0 {
+                actually_rewritten = true;
+
+                for inner_clause in &inner_query.clauses {
+                  let inner_occur = inner_clause.occur;
+
+                  if inner_occur == Occur::Filter
+                    || inner_occur == Occur::MustNot
+                    || outer_clause.occur == Occur::Must
+                  {
+                    add_clause(&inner_clause.query, inner_clause.occur)?;
+                  } else {
+                    debug_assert!(outer_clause.occur == Occur::Filter);
+                    debug_assert!(inner_occur == Occur::Must);
+                    // In this case we need to change the occur of the inner query from MUST to FILTER.
+                    add_clause(&inner_clause.query, Occur::Filter)?;
+                  }
+                }
+              } else {
+                add_clause(&outer_clause.query, outer_clause.occur)?;
+              }
+            } else {
+              add_clause(&outer_clause.query, outer_clause.occur)?;
+            }
+          } else {
+            add_clause(&outer_clause.query, outer_clause.occur)?;
+          }
+        }
+
+        if actually_rewritten {
+          let clauses = clauses
+            .into_iter()
+            .map(|(query, occur)| BooleanClause::new(query.clone(), occur))
+            .collect();
+          return Ok(Some(
+            BooleanQuery::new(self.minimum_number_should_match, clauses).into(),
+          ));
+        }
+      }
+      // SHOULD clause count less than or equal to minimum_number_should_match
+      // Important(this can only be processed after nested clauses have been flattened)
+      {
+        let should_indices = self
+          .clause_sets
+          .get(&Occur::Should)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
+        let should_len = should_indices.len() as i64;
+
+        if should_len < i64::from(self.minimum_number_should_match) {
+          return Ok(Some(
+            MatchNoDocsQuery::with_reason("SHOULD clause count less than minimumNumberShouldMatch")
+              .into(),
+          ));
+        }
+
+        if should_len > 0 && should_len == i64::from(self.minimum_number_should_match) {
+          let mut builder = Builder::new();
+
+          for clause in &self.clauses {
+            let v = clause.clone();
+            if v.occur == Occur::Should {
+              builder.add(v.query, Occur::Must)?;
+            } else {
+              builder.add_clause(v)?;
+            }
+          }
+
+          return Ok(Some(builder.build().into()));
+        }
+      }
+      // Inline SHOULD clauses from the only MUST clause
+      {
+        let should_indices = self
+          .clause_sets
+          .get(&Occur::Should)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
+        let must_indices = self
+          .clause_sets
+          .get(&Occur::Must)
+          .map(|v| v.as_slice())
+          .unwrap_or(&[]);
+
+        if should_indices.is_empty() && must_indices.len() == 1 {
+          let must_clause = &self.clauses[must_indices[0]];
+          if let Query::Boolean(inner) = &must_clause.query {
+            let inner_should_len = inner
+              .clause_sets
+              .get(&Occur::Should)
+              .map(|v| v.len())
+              .unwrap_or(0);
+
+            if inner.clauses.len() == inner_should_len {
+              let mut rewritten = Builder::new();
+
+              for clause in &self.clauses {
+                if clause.occur != Occur::Must {
+                  rewritten.add_clause(clause.clone())?;
+                }
+              }
+
+              for inner_clause in &inner.clauses {
+                rewritten.add_clause(inner_clause.clone())?;
+              }
+
+              let msm = inner.get_minimum_number_should_match().max(1);
+              rewritten.set_minimum_number_should_match(msm);
+
+              return Ok(Some(rewritten.build().into()));
+            }
+          }
+        }
+      }
+      Ok(None)
+    };
+    rewrite_non_recursive()
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

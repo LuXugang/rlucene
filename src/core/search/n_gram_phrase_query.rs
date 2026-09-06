@@ -26,7 +26,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 /// This is a [`PhraseQuery`] which is optimized for n-gram phrase query. For example, when you
 /// query "ABCD" on a 2-gram field, you may want to use NGramPhraseQuery rather than
@@ -109,7 +108,7 @@ impl QueryBase for NGramPhraseQuery {
     self.phrase_query.create_weight(searcher, score_mode, boost)
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
@@ -126,22 +125,25 @@ impl QueryBase for NGramPhraseQuery {
         .all(|window| window[1] == window[0] + 1);
 
     if !is_optimizable {
-      return self.phrase_query.rewrite(searcher);
+      return Ok(Some(
+        self
+          .phrase_query
+          .rewrite(searcher)?
+          .unwrap_or_else(|| self.phrase_query.clone().into()),
+      ));
     }
     let n = self.n;
-    let terms = self.phrase_query.get_term_arc();
-    drop(self);
-    let terms = Arc::try_unwrap(terms).unwrap_or_else(|terms| terms.as_ref().clone());
+    let terms = self.phrase_query.get_terms();
 
     let terms_len = terms.len();
     let mut builder = PhraseQueryBuilder::new();
 
-    for (i, term) in terms.into_iter().enumerate() {
+    for (i, term) in terms.iter().enumerate() {
       if i % n == 0 || i == terms_len - 1 {
-        builder.add(term, i)?;
+        builder.add(term.clone(), i)?;
       }
     }
-    Ok(builder.build()?.into())
+    Ok(Some(builder.build()?.into()))
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>

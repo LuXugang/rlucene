@@ -189,13 +189,13 @@ impl QueryBase for KnnByteVectorQuery {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn rewrite<IRC>(self, searcher: &IndexSearcher<IRC>) -> Result<Query>
+  fn rewrite<IRC>(&self, searcher: &IndexSearcher<IRC>) -> Result<Option<Query>>
   where
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
     Self: Sized,
   {
-    AbstractKnnVectorQuery::rewrite(self, searcher)
+    AbstractKnnVectorQuery::rewrite(self, searcher).map(Some)
   }
 
   fn visit<QV>(&self, visitor: &mut QV) -> Result<()>
