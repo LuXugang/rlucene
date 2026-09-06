@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use std::fmt::{Display, Formatter};
 use std::io::{Cursor, Read, Seek};
@@ -122,6 +124,8 @@ impl<R: Read + Seek> DataInput for NoReadInputStreamDataInput<R> {
     self.input.skip_bytes(num_bytes)
   }
 }
+
+impl<R: Read + Seek> DataInputExt for NoReadInputStreamDataInput<R> {}
 
 impl<R: Read + Seek> crate::core::util::close::Closeable for NoReadInputStreamDataInput<R> {}
 

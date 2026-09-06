@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::store::byte_buffers_index_input::ByteBuffersIndexInputOwned;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::memory_segment_index_input::MemorySegmentIndexInput;
 use crate::core::store::nio_fs_directory::NIOFSIndexInput;
 use crate::core::store::random_access_input::{
@@ -326,27 +328,10 @@ impl DataInput for IndexInputEnum {
       IndexInputEnum::Custom(inner) => DataInput::skip_bytes(inner, num_bytes),
     }
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    match self {
-      IndexInputEnum::Fs(inner) => inner.is_index_input(),
-      IndexInputEnum::Custom(inner) => inner.is_index_input(),
-    }
-  }
-
-  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-    match self {
-      IndexInputEnum::Fs(inner) => inner.seek_in_data_input(_pos),
-      IndexInputEnum::Custom(inner) => inner.seek_in_data_input(_pos),
-    }
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    match self {
-      IndexInputEnum::Fs(inner) => inner.get_file_pointer_in_data_input(),
-      IndexInputEnum::Custom(inner) => inner.get_file_pointer_in_data_input(),
-    }
-  }
+impl DataInputExt for IndexInputEnum {
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl Display for IndexInputEnum {
@@ -660,7 +645,12 @@ macro_rules! either_index_input {
                     $( Self::$Variant(inner) => DataInput::skip_bytes(inner, num_bytes), )+
                 }
             }
+        }
 
+        impl $($generics)* $crate::core::store::data_input_ext::DataInputExt for $name $($generics)*
+        where
+            $( $T: DataInput ),+
+        {
             fn is_index_input(&self) -> bool {
                 match self {
                     $( Self::$Variant(inner) => inner.is_index_input(), )+
@@ -931,7 +921,12 @@ where
   fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
     Err(LuceneError::unsupported_operation(""))
   }
+}
 
+impl<I> DataInputExt for Arc<I>
+where
+  I: IndexInput,
+{
   fn is_index_input(&self) -> bool {
     (**self).is_index_input()
   }

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::DataInput;
@@ -41,6 +43,8 @@ impl DataInput for DummyBytesReader {
     dummy_unreachable!()
   }
 }
+
+impl DataInputExt for DummyBytesReader {}
 
 impl Display for DummyBytesReader {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -83,6 +85,8 @@ impl DataInput for OnHeapFSTBytesReader {
     }
   }
 }
+
+impl DataInputExt for OnHeapFSTBytesReader {}
 
 impl BytesReader for OnHeapFSTBytesReader {
   fn get_position(&self) -> i64 {

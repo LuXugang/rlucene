@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
@@ -1045,3 +1047,5 @@ impl DataInput for OutputAccumulator {
     Err(LuceneError::unsupported_operation(""))
   }
 }
+
+impl DataInputExt for OutputAccumulator {}

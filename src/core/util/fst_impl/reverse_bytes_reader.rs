@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::rc::Rc;
 
 use crate::core::store::DataInput;
@@ -61,6 +63,8 @@ impl DataInput for ReverseBytesReader {
     Ok(())
   }
 }
+
+impl DataInputExt for ReverseBytesReader {}
 
 impl BytesReader for ReverseBytesReader {
   fn get_position(&self) -> i64 {

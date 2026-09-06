@@ -18,6 +18,7 @@
 use crate::core::index::index_reader::Identity;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::data_input::DataInput;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInputWrapper;
@@ -326,18 +327,13 @@ where
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(self, num_bytes)
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    true
-  }
-
-  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
-    self.seek(pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    self.get_file_pointer()
-  }
+impl<I> DataInputExt for SerializedIOCountingIndexInput<I>
+where
+  I: IndexInput<IndexInput = I>,
+{
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl<I> IndexInput for SerializedIOCountingIndexInput<I>

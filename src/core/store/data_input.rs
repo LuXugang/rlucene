@@ -14,9 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::close::Closeable;
-use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{CoreHelper, TryIntoInt};
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
@@ -26,7 +28,7 @@ use std::fmt::Display;
 /// # Note
 /// [`DataInput`] is not thread-safe as it maintains internal state (e.g., file
 /// position).
-pub trait DataInput: Display {
+pub trait DataInput: Display + DataInputExt {
   /// Reads and returns a single byte.
   ///
   /// # See Also
@@ -271,24 +273,6 @@ pub trait DataInput: Display {
   /// is most optimal, and may not behave the same as reading the skipped
   /// bytes.
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()>;
-
-  /// Reports whether this input supports the [`IndexInput`](crate::core::store::index_input::IndexInput)-specific seek path.
-  /// This avoids runtime downcasting through a trait object.
-  fn is_index_input(&self) -> bool {
-    false
-  }
-  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-    debug_assert!(self.is_index_input());
-    Err(LuceneError::unsupported_operation(
-      "Seek not implement for this DataInput",
-    ))
-  }
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    debug_assert!(self.is_index_input());
-    Err(LuceneError::unsupported_operation(
-      "get_file_pointer not implement for this DataInput",
-    ))
-  }
 }
 
 impl<T: ?Sized + Closeable> Closeable for Box<T> {
@@ -375,18 +359,6 @@ impl<T: ?Sized + DataInput> DataInput for &mut T {
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     (**self).skip_bytes(num_bytes)
   }
-
-  fn is_index_input(&self) -> bool {
-    (**self).is_index_input()
-  }
-
-  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-    (**self).seek_in_data_input(_pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    (**self).get_file_pointer_in_data_input()
-  }
 }
 
 impl<T: ?Sized + DataInput> DataInput for Box<T> {
@@ -467,19 +439,8 @@ impl<T: ?Sized + DataInput> DataInput for Box<T> {
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     (**self).skip_bytes(num_bytes)
   }
-
-  fn is_index_input(&self) -> bool {
-    (**self).is_index_input()
-  }
-
-  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-    (**self).seek_in_data_input(_pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    (**self).get_file_pointer_in_data_input()
-  }
 }
+
 macro_rules! define_data_input_enum {
     (
         $vis:vis enum $name:ident < $( $T:ident => $V:ident ),+ $(,)? >
@@ -658,7 +619,12 @@ macro_rules! define_data_input_enum {
                     )+
                 }
             }
+        }
 
+        impl<$( $T ),+> $crate::core::store::data_input_ext::DataInputExt for $name<$( $T ),+>
+        where
+            $( $T: DataInput ),+
+        {
             fn is_index_input(&self) -> bool {
                 match self {
                     $(

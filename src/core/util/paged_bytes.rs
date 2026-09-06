@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::BytesRef;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::{DataInput, DataOutput, IndexInput};
 use crate::core::util::SliceCopyOps;
 use crate::core::util::accountable::Accountable;
@@ -488,6 +490,8 @@ impl DataInput for PagedBytesDataInput {
     Ok(())
   }
 }
+
+impl DataInputExt for PagedBytesDataInput {}
 
 pub struct PagedBytesDataOutput {
   pub paged_bytes: PagedBytes,

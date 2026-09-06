@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 use std::io::{Read, Seek, SeekFrom};
 
@@ -77,6 +79,8 @@ impl<R: Read + Seek> DataInput for InputStreamDataInput<R> {
     Ok(())
   }
 }
+
+impl<R: Read + Seek> DataInputExt for InputStreamDataInput<R> {}
 
 impl<R> Display for InputStreamDataInput<R> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

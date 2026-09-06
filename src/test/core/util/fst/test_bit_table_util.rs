@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
 use std::fmt::{Display, Formatter};
 
@@ -197,6 +199,8 @@ impl DataInput for BytesReaderImpl<'_> {
     Ok(())
   }
 }
+
+impl DataInputExt for BytesReaderImpl<'_> {}
 
 impl crate::core::util::close::Closeable for BytesReaderImpl<'_> {}
 

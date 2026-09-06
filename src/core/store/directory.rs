@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::IndexFileNames;
 use crate::core::index::index_reader::Identity;
 #[cfg(test)]
@@ -28,6 +29,8 @@ use crate::core::store::byte_buffers_directory::DirectoryByteBuffersIndexOutput;
 use crate::core::store::byte_buffers_index_input::ByteBuffersIndexInputOwned;
 #[cfg(test)]
 use crate::core::store::data_input::DataInput;
+#[cfg(test)]
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::data_output::DataOutput;
 #[cfg(test)]
 use crate::core::store::file_switch_directory::FileSwitchDirectory;
@@ -1546,18 +1549,11 @@ impl DataInput for DirIndexInput {
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     DataInput::skip_bytes(&mut self.0, num_bytes)
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    self.0.is_index_input()
-  }
-
-  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
-    self.0.seek_in_data_input(pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    self.0.get_file_pointer_in_data_input()
-  }
+#[cfg(test)]
+impl DataInputExt for DirIndexInput {
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 #[cfg(test)]

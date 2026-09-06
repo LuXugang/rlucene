@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -230,6 +232,8 @@ impl DataInput for BytesReaderImpl {
     Ok(())
   }
 }
+
+impl DataInputExt for BytesReaderImpl {}
 
 impl Display for BytesReaderImpl {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

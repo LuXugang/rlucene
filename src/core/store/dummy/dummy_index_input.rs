@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 
 use crate::core::store::random_access_input::RandomAccessInput;
@@ -40,6 +42,10 @@ impl DataInput for DummyIndexInput {
   fn skip_bytes(&mut self, _num_bytes: i64) -> Result<()> {
     dummy_unreachable!()
   }
+}
+
+impl DataInputExt for DummyIndexInput {
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl Display for DummyIndexInput {

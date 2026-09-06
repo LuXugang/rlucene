@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::store::data_input::DataInput;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::directory::Directory;
 use crate::core::store::index_input::IndexInput;
 use crate::core::store::random_access_input::RandomAccessInput;
@@ -321,18 +323,14 @@ where
     self.ensure_accessible()?;
     DataInput::skip_bytes(&mut self.in_, num_bytes)
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    true
-  }
-
-  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
-    self.seek(pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    self.get_file_pointer()
-  }
+impl<D> DataInputExt for MockIndexInputWrapper<D>
+where
+  D: Directory,
+  D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
+{
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl<D> IndexInput for MockIndexInputWrapper<D>

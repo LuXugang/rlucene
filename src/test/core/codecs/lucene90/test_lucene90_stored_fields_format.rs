@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::codecs::Codecs;
 use crate::core::document::document::Document;
 use crate::core::document::stored_field::StoredField;
@@ -24,6 +25,7 @@ use crate::core::index::index_writer::IndexWriter;
 use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::stored_fields::StoredFields;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::directory::Directory;
 use crate::core::store::random_access_input::RandomAccessInputWrapper;
 use crate::core::store::{DataInput, IOContext, IndexInput};
@@ -349,6 +351,23 @@ where
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(&mut self.in_, num_bytes)
+  }
+}
+
+impl<I> DataInputExt for CountingPrefetchIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn is_index_input(&self) -> bool {
+    true
+  }
+
+  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
+    self.in_.seek(pos)
+  }
+
+  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+    self.in_.get_file_pointer()
   }
 }
 

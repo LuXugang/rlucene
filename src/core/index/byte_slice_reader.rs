@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::byte_slice_pool::ByteSlicePool;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -200,6 +202,8 @@ where
     Ok(())
   }
 }
+
+impl<P> DataInputExt for ByteSliceReader<P> where P: Deref<Target = ByteBlockPool> {}
 
 impl<P> Display for ByteSliceReader<P> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::hint::black_box;
@@ -613,18 +615,10 @@ impl DataInput for MemorySegmentIndexInput {
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(self, num_bytes)
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    true
-  }
-
-  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
-    IndexInput::seek(self, pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    IndexInput::get_file_pointer(self)
-  }
+impl DataInputExt for MemorySegmentIndexInput {
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl IntReader for MemorySegmentIndexInput {

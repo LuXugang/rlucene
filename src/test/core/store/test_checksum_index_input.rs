@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::test_framework::core::util::lucene_test_case::{new_directory, new_io_context, random};
 use std::fmt::{Display, Formatter};
 
@@ -107,20 +109,13 @@ where
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(self, num_bytes)
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    true
-  }
-
-  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
-    assert!(self.is_index_input());
-    IndexInput::seek(self, pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    assert!(self.is_index_input());
-    IndexInput::get_file_pointer(self)
-  }
+impl<T> DataInputExt for InterceptingChecksumIndexInput<T>
+where
+  T: IndexInput,
+{
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl<T: IndexInput> CloseableRef for InterceptingChecksumIndexInput<T> {

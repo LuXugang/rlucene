@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::codecs::CodecUtil;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteBuffersDataOutput, DataInput, DataOutput};
 use crate::core::util::IOUtils;
@@ -1215,6 +1217,13 @@ where
       BytesReaderEnum2::B(reader) => reader.skip_bytes(num_bytes),
     }
   }
+}
+
+impl<A, B> DataInputExt for BytesReaderEnum2<A, B>
+where
+  A: BytesReader,
+  B: BytesReader,
+{
 }
 
 impl<A, B> Display for BytesReaderEnum2<A, B>

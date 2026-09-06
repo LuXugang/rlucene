@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
@@ -156,20 +158,13 @@ where
     self.ensure_open()?;
     DataInput::skip_bytes(&mut self.in_, num_bytes)
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    true
-  }
-
-  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-    debug_assert!(self.is_index_input());
-    IndexInput::seek(self, _pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    debug_assert!(self.is_index_input());
-    IndexInput::get_file_pointer(self)
-  }
+impl<B> DataInputExt for ByteBuffersIndexInput<B>
+where
+  B: ByteBuffersDataInputBlock + Clone,
+{
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 impl<B> RandomAccessInput for ByteBuffersIndexInput<B>
 where

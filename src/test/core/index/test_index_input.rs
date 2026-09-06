@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::directory::Directory;
 use crate::core::store::dummy::dummy_index_input::DummyIndexInput;
 use crate::core::store::{
@@ -304,6 +306,10 @@ impl DataInput for InterceptingIndexInput {
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(self, num_bytes)
   }
+}
+
+impl DataInputExt for InterceptingIndexInput {
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl Display for InterceptingIndexInput {

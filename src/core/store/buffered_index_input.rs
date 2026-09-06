@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
 
@@ -639,20 +641,13 @@ where
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(self, num_bytes)
   }
+}
 
-  fn is_index_input(&self) -> bool {
-    true
-  }
-
-  fn seek_in_data_input(&mut self, _pos: usize) -> Result<()> {
-    debug_assert!(self.is_index_input());
-    IndexInput::seek(self, _pos)
-  }
-
-  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
-    debug_assert!(self.is_index_input());
-    IndexInput::get_file_pointer(self)
-  }
+impl<T> DataInputExt for BufferedIndexInput<T>
+where
+  T: BufferedIndexInputBase<Slice = BufferedIndexInput<T>>,
+{
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl<T> Display for BufferedIndexInput<T> {

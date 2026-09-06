@@ -14,8 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::index::knn_vector_values::{DenseDocIndexIterator, DocIndexIterator};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::dummy::dummy_random_access_input::DummyRandomAccessInput;
 use crate::core::store::random_access_input::RandomAccessInput;
 use crate::core::store::{DataInput, IndexInput, IndexOutput};
@@ -832,6 +834,13 @@ where
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(self, num_bytes)
   }
+}
+
+impl<I> DataInputExt for IndexInputImpl<I>
+where
+  I: IndexInput,
+{
+  crate::core::store::data_input_ext::impl_index_input_ext!();
 }
 
 impl<I> std::fmt::Display for IndexInputImpl<I> {

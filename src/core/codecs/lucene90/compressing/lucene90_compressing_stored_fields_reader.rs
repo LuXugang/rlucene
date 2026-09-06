@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer::{
   BYTE_ARR, DAY, DAY_ENCODING, FIELDS_EXTENSION, HOUR, HOUR_ENCODING, INDEX_CODEC_NAME,
@@ -36,6 +37,7 @@ use crate::core::index::segment_info::SegmentInfo;
 use crate::core::index::stored_field_visitor::{Status, StoredFieldVisitor};
 use crate::core::index::stored_fields::{RawStoredFieldsReader, StoredFields};
 use crate::core::index::{BytesRef, IndexFileNames};
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::directory::Directory;
 use crate::core::store::{
   ByteArrayDataInput, DataInput, DataInputEnum3, IOContext, IndexInput, ReadAdvice,
@@ -961,6 +963,8 @@ where
     Ok(())
   }
 }
+
+impl<I> DataInputExt for DataInputImpl<'_, I> where I: DataInput {}
 
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::group_vint_util::GroupVIntUtil;

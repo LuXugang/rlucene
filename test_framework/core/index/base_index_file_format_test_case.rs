@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
@@ -63,6 +64,7 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::index::{CODEC_FILE_PATTERN, IndexFileNames};
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, NO_MORE_DOCS};
 use crate::core::store::IO_CONTEXT_DEFAULT;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::core::store::directory::{DirEnum, Directory};
 use crate::core::store::dummy::dummy_index_output::DummyIndexOutput;
 use crate::core::store::flush_info::FlushInfo;
@@ -535,6 +537,23 @@ where
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     IndexInput::skip_bytes(&mut self.in_, num_bytes)
+  }
+}
+
+impl<I> DataInputExt for ReadBytesIndexInputWrapper<I>
+where
+  I: IndexInput,
+{
+  fn is_index_input(&self) -> bool {
+    true
+  }
+
+  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
+    self.in_.seek(pos)
+  }
+
+  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+    self.in_.get_file_pointer()
   }
 }
 

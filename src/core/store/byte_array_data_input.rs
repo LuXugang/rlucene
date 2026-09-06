@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::any::type_name;
 use std::fmt::{Display, Formatter};
 
@@ -147,3 +149,5 @@ where
     Ok(())
   }
 }
+
+impl<B> DataInputExt for ByteArrayDataInput<B> where B: ByteSource {}

@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
 use crate::core::document::field_type::FieldType;
@@ -58,6 +59,7 @@ use crate::core::search::index_searcher::{self, IndexSearcher};
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::term_query::TermQuery;
 use crate::core::store::data_input::DataInput;
+use crate::core::store::data_input_ext::DataInputExt;
 use crate::test_framework::core::util::lucene_test_case::{
   create_temp_dir_with_prefix, new_directory_shared, new_fs_directory, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy_with_merge_factor, new_merge_policy,
@@ -1644,6 +1646,24 @@ where
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
     self.check_file_exists()?;
     IndexInput::skip_bytes(&mut self.delegate, num_bytes)
+  }
+}
+
+impl<I> DataInputExt for MockAssertFileExistIndexInput<I>
+where
+  I: IndexInput,
+{
+  fn is_index_input(&self) -> bool {
+    true
+  }
+
+  fn seek_in_data_input(&mut self, pos: usize) -> Result<()> {
+    self.check_file_exists()?;
+    self.delegate.seek(pos)
+  }
+
+  fn get_file_pointer_in_data_input(&self) -> Result<usize> {
+    self.delegate.get_file_pointer()
   }
 }
 

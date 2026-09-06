@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
@@ -466,6 +468,8 @@ where
     self.seek(skip_to)
   }
 }
+
+impl<B> DataInputExt for ByteBuffersDataInput<B> where B: ByteBuffersDataInputBlock {}
 // TODO: In the current implementation, after performing a random read of a
 // specific value, it is not possible to use sequential reads to access the next
 // value at the subsequent position. TODO: should we support this feature?
