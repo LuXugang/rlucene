@@ -3,6 +3,8 @@
 <a href="README.md"><kbd>English</kbd></a>
 <a href="README.zh-CN.md"><kbd>简体中文</kbd></a>
 
+经过一段较长时间的私有开发，RLucene 仓库于 2026 年 9 月 5 日正式向公众开放。
+
 RLucene 是高性能、功能完善的搜索引擎库
 [Apache Lucene](https://lucene.apache.org/) 的 Rust 移植版本。
 

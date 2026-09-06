@@ -3,6 +3,9 @@
 <a href="README.md"><kbd>English</kbd></a>
 <a href="README.zh-CN.md"><kbd>简体中文</kbd></a>
 
+After a long period of private development, the RLucene repository was opened
+to the public on September 5, 2026.
+
 RLucene is a Rust port of [Apache Lucene](https://lucene.apache.org/), the
 high-performance, full-featured search engine library.
 
