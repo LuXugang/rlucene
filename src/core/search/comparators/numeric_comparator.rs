@@ -493,6 +493,11 @@ where
   D: DocIdSetIterator,
 {
 }
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for CompetitiveIterator<D> where
+  D: DocIdSetIterator
+{
+}
+
 impl<D> DocIdSetIterator for CompetitiveIterator<D>
 where
   D: DocIdSetIterator,
@@ -617,6 +622,13 @@ where
   LR: LeafReader,
 {
 }
+impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for NumericLeafComparatorDocValues<LR>
+where
+  LR: LeafReader,
+{
+}
+
 impl<LR> DocIdSetIterator for NumericLeafComparatorDocValues<LR>
 where
   LR: LeafReader,

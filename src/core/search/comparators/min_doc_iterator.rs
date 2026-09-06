@@ -34,6 +34,8 @@ impl MinDocIterator {
   }
 }
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for MinDocIterator {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MinDocIterator {}
+
 impl DocIdSetIterator for MinDocIterator {
   fn doc_id(&self) -> i32 {
     self.doc

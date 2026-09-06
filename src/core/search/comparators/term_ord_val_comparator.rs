@@ -736,6 +736,13 @@ where
   LR: LeafReader,
 {
 }
+impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for TermOrdValCompetitiveIterator<LR>
+where
+  LR: LeafReader,
+{
+}
+
 impl<LR> DocIdSetIterator for TermOrdValCompetitiveIterator<LR>
 where
   LR: LeafReader,
@@ -834,6 +841,11 @@ where
   LR: LeafReader,
 {
 }
+impl<LR> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for TermOrdValDocValues<LR> where
+  LR: LeafReader
+{
+}
+
 impl<LR> DocIdSetIterator for TermOrdValDocValues<LR>
 where
   LR: LeafReader,

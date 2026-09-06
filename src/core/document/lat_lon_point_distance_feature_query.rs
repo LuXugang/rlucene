@@ -696,6 +696,11 @@ where
   ND: NumericDocValues,
 {
 }
+impl<ND> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIdSetIteratorImpl<ND> where
+  ND: NumericDocValues
+{
+}
+
 impl<ND> DocIdSetIterator for DocIdSetIteratorImpl<ND>
 where
   ND: NumericDocValues,
@@ -765,6 +770,11 @@ where
   T: SortedNumericDocValues,
 {
 }
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for NumericDocValuesImpl<T> where
+  T: SortedNumericDocValues
+{
+}
+
 impl<T> DocIdSetIterator for NumericDocValuesImpl<T>
 where
   T: SortedNumericDocValues,

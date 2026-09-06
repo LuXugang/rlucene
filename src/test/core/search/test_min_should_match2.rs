@@ -691,6 +691,13 @@ where
   IRC: IndexReaderContext,
 {
 }
+impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DocIdSetIteratorImpl<IRC>
+where
+  IRC: IndexReaderContext,
+{
+}
+
 impl<IRC> DocIdSetIterator for DocIdSetIteratorImpl<IRC>
 where
   IRC: IndexReaderContext,

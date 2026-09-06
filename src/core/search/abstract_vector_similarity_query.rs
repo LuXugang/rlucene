@@ -553,6 +553,8 @@ impl DocsIteratorImpl {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DocsIteratorImpl {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocsIteratorImpl {}
+
 impl DocIdSetIterator for DocsIteratorImpl {
   fn doc_id(&self) -> i32 {
     if self.index < 0 {
@@ -632,6 +634,14 @@ where
   B: BitSet,
 {
 }
+impl<V, B> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for FilteredDocIdSetIteratorImpl1<V, B>
+where
+  V: VectorScorer,
+  B: BitSet,
+{
+}
+
 impl<V, B> DocIdSetIterator for FilteredDocIdSetIteratorImpl1<V, B>
 where
   V: VectorScorer,

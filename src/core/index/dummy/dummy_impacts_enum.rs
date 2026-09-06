@@ -48,6 +48,8 @@ impl PostingsEnum for DummyImpactsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DummyImpactsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DummyImpactsEnum {}
+
 impl DocIdSetIterator for DummyImpactsEnum {
   fn doc_id(&self) -> i32 {
     dummy_unreachable!()

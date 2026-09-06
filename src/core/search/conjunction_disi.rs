@@ -184,6 +184,11 @@ impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   D: DocIdSetIterator
 {
 }
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ConjunctionDISI<D> where
+  D: DocIdSetIterator
+{
+}
+
 impl<D> DocIdSetIterator for ConjunctionDISI<D>
 where
   D: DocIdSetIterator,
@@ -490,6 +495,11 @@ impl<V> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   V: VectorScorer
 {
 }
+impl<V> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for VectorScorerDisi<V> where
+  V: VectorScorer
+{
+}
+
 impl<V> DocIdSetIterator for VectorScorerDisi<V>
 where
   V: VectorScorer,

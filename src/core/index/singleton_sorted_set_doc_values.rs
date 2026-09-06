@@ -86,6 +86,13 @@ where
   S: SortedDocValues,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SingletonSortedSetDocValues<S>
+where
+  S: SortedDocValues,
+{
+}
+
 impl<S> DocIdSetIterator for SingletonSortedSetDocValues<S>
 where
   S: SortedDocValues,

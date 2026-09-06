@@ -65,6 +65,11 @@ impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   P: PostingsEnum
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SlowImpactsEnum<P> where
+  P: PostingsEnum
+{
+}
+
 impl<P> DocIdSetIterator for SlowImpactsEnum<P>
 where
   P: PostingsEnum,

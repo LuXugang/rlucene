@@ -330,6 +330,11 @@ impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   D: DocIdSetIterator
 {
 }
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DisiDelegate<D> where
+  D: DocIdSetIterator
+{
+}
+
 impl<D> DocIdSetIterator for DisiDelegate<D>
 where
   D: DocIdSetIterator,
@@ -378,6 +383,11 @@ impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   T: TwoPhaseIterator
 {
 }
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for TwoPhaseDelegate<T> where
+  T: TwoPhaseIterator
+{
+}
+
 impl<T> DocIdSetIterator for TwoPhaseDelegate<T>
 where
   T: TwoPhaseIterator,
@@ -435,6 +445,13 @@ where
   D: DocIdSetIterator,
 {
 }
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DocIdSetIteratorWrapper<D>
+where
+  D: DocIdSetIterator,
+{
+}
+
 impl<D> DocIdSetIterator for DocIdSetIteratorWrapper<D>
 where
   D: DocIdSetIterator,

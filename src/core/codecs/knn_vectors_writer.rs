@@ -643,6 +643,14 @@ where
   DM: MergeDocMap,
 {
 }
+impl<F, DM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for MergedFloat32VectorValuesIterator<F, DM>
+where
+  F: FloatVectorValues,
+  DM: MergeDocMap,
+{
+}
+
 impl<F, DM> DocIdSetIterator for MergedFloat32VectorValuesIterator<F, DM>
 where
   F: FloatVectorValues,
@@ -865,6 +873,14 @@ where
   DM: MergeDocMap,
 {
 }
+impl<B, DM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for MergedByteVectorValuesIterator<B, DM>
+where
+  B: ByteVectorValues,
+  DM: MergeDocMap,
+{
+}
+
 impl<B, DM> DocIdSetIterator for MergedByteVectorValuesIterator<B, DM>
 where
   B: ByteVectorValues,

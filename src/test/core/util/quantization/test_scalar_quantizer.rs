@@ -451,6 +451,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for TestSimpleDocIndexIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for TestSimpleDocIndexIterator {}
+
 impl DocIdSetIterator for TestSimpleDocIndexIterator {
   fn doc_id(&self) -> i32 {
     self.doc

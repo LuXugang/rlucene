@@ -652,6 +652,11 @@ where
   D: DocIdSetIterator,
 {
 }
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIdSetIteratorImpl<D> where
+  D: DocIdSetIterator
+{
+}
+
 impl<D> DocIdSetIterator for DocIdSetIteratorImpl<D>
 where
   D: DocIdSetIterator,

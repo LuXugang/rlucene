@@ -598,6 +598,11 @@ where
   R: RandomAccessInput,
 {
 }
+impl<R> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DenseNormsIterator<R> where
+  R: RandomAccessInput
+{
+}
+
 impl<R> DocIdSetIterator for DenseNormsIterator<R>
 where
   R: RandomAccessInput,
@@ -773,6 +778,11 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SparseNormsIterator<I> where
+  I: IndexInput
+{
+}
+
 impl<I> DocIdSetIterator for SparseNormsIterator<I>
 where
   I: IndexInput,

@@ -235,6 +235,11 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for SortedDocValuesWriterValues
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedDocValuesWriterValues
+{
+}
+
 impl DocIdSetIterator for SortedDocValuesWriterValues {
   fn doc_id(&self) -> i32 {
     match self {
@@ -664,6 +669,13 @@ where
   D: DocIdSetIterator,
 {
 }
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortedDocValues<D>
+where
+  D: DocIdSetIterator,
+{
+}
+
 impl<D> DocIdSetIterator for BufferedSortedDocValues<D>
 where
   D: DocIdSetIterator,
@@ -759,6 +771,11 @@ where
   S: SortedDocValues,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SortingSortedDocValues<S> where
+  S: SortedDocValues
+{
+}
+
 impl<S> DocIdSetIterator for SortingSortedDocValues<S>
 where
   S: SortedDocValues,

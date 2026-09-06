@@ -74,6 +74,11 @@ macro_rules! define_impacts_enum_enum {
         where
             $($V: ImpactsEnum,)+
         {}
+        impl<$($V),+> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for $enum_name<$($V),+>
+        where
+            $($V: ImpactsEnum,)+
+        {}
+
         impl<$($V),+> DocIdSetIterator for $enum_name<$($V),+>
         where
             $($V: ImpactsEnum,)+

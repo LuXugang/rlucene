@@ -402,6 +402,14 @@ where
   DISI: DocIdSetIterator,
 {
 }
+impl<RNG, DISI> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for RandomApproximation<RNG, DISI>
+where
+  RNG: Rng,
+  DISI: DocIdSetIterator,
+{
+}
+
 impl<RNG, DISI> DocIdSetIterator for RandomApproximation<RNG, DISI>
 where
   RNG: Rng,
@@ -450,6 +458,11 @@ impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   S: Scorer
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerDISI<S> where
+  S: Scorer
+{
+}
+
 impl<S> DocIdSetIterator for ScorerDISI<S>
 where
   S: Scorer,

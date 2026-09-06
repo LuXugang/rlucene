@@ -249,6 +249,10 @@ impl<M> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   M: ImpactsDISIMode
 {
 }
+impl<M> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ImpactsDISI<M> where
+  M: ImpactsDISIMode
+{
+}
 
 impl<M> DocIdSetIterator for ImpactsDISI<M>
 where

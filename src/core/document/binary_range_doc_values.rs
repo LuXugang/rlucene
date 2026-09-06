@@ -65,6 +65,11 @@ impl<T: BinaryDocValues> crate::core::search::doc_id_set_iterator::DocIdSetItera
   for BinaryRangeDocValues<T>
 {
 }
+impl<T: BinaryDocValues> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BinaryRangeDocValues<T>
+{
+}
+
 impl<T: BinaryDocValues> DocIdSetIterator for BinaryRangeDocValues<T> {
   fn doc_id(&self) -> i32 {
     self.in_.doc_id()

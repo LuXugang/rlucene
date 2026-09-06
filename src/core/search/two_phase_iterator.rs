@@ -170,6 +170,13 @@ where
   TPI: TwoPhaseIterator,
 {
 }
+impl<TPI> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for TwoPhaseIteratorAsDocIdSetIterator<TPI>
+where
+  TPI: TwoPhaseIterator,
+{
+}
+
 impl<TPI> DocIdSetIterator for TwoPhaseIteratorAsDocIdSetIterator<TPI>
 where
   TPI: TwoPhaseIterator,

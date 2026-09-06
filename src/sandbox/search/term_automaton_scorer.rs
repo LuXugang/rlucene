@@ -314,6 +314,15 @@ where
   N: NumericDocValues,
 {
 }
+impl<PE, SS, N> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for TermAutomatonScorer<PE, SS, N>
+where
+  PE: PostingsEnum,
+  SS: SimScorer,
+  N: NumericDocValues,
+{
+}
+
 impl<PE, SS, N> DocIdSetIterator for TermAutomatonScorer<PE, SS, N>
 where
   PE: PostingsEnum,

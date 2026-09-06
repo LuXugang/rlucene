@@ -755,6 +755,11 @@ where
   S: Scorer,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIdSetIteratorImpl<S> where
+  S: Scorer
+{
+}
+
 impl<S> DocIdSetIterator for DocIdSetIteratorImpl<S>
 where
   S: Scorer,

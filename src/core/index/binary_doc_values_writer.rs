@@ -269,6 +269,11 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for BufferedSortingBinaryDocValues
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedSortingBinaryDocValues
+{
+}
+
 impl DocIdSetIterator for BufferedSortingBinaryDocValues {
   fn doc_id(&self) -> i32 {
     match self {
@@ -370,6 +375,14 @@ where
   DI: DataInput,
 {
 }
+impl<D, DI> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BufferedBinaryDocValues<D, DI>
+where
+  D: DocIdSetIterator,
+  DI: DataInput,
+{
+}
+
 impl<D, DI> DocIdSetIterator for BufferedBinaryDocValues<D, DI>
 where
   D: DocIdSetIterator,
@@ -440,6 +453,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for SortingBinaryDocValues
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SortingBinaryDocValues {}
+
 impl DocIdSetIterator for SortingBinaryDocValues {
   fn doc_id(&self) -> i32 {
     self.doc_id

@@ -125,6 +125,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for SimpleScorerIterator<'_>
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SimpleScorerIterator<'_> {}
+
 impl DocIdSetIterator for SimpleScorerIterator<'_> {
   fn doc_id(&self) -> i32 {
     self.idx.get()
@@ -163,6 +165,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for OwnedSimpleScorerIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for OwnedSimpleScorerIterator {}
+
 impl DocIdSetIterator for OwnedSimpleScorerIterator {
   fn doc_id(&self) -> i32 {
     self.idx

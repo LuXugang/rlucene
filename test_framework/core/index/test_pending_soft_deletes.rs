@@ -137,6 +137,11 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for TestSingleUpdateDocValuesFieldIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for TestSingleUpdateDocValuesFieldIterator
+{
+}
+
 impl DocIdSetIterator for TestSingleUpdateDocValuesFieldIterator {
   fn doc_id(&self) -> i32 {
     self.doc

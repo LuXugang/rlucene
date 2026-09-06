@@ -1412,6 +1412,11 @@ where
   S: SortedDocValues,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for NumericDocValuesImpl<S> where
+  S: SortedDocValues
+{
+}
+
 impl<S> DocIdSetIterator for NumericDocValuesImpl<S>
 where
   S: SortedDocValues,
@@ -1466,6 +1471,13 @@ where
   D: DocValuesProducer,
 {
 }
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedNumericDocValuesImpl<D>
+where
+  D: DocValuesProducer,
+{
+}
+
 impl<D> DocIdSetIterator for SortedNumericDocValuesImpl<D>
 where
   D: DocValuesProducer,

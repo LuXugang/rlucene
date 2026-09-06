@@ -471,6 +471,14 @@ where
   DM: DocMap,
 {
 }
+impl<N, DM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for NumericDocValuesMerge<N, DM>
+where
+  N: NumericDocValues,
+  DM: DocMap,
+{
+}
+
 impl<N, DM> DocIdSetIterator for NumericDocValuesMerge<N, DM>
 where
   N: NumericDocValues,
@@ -629,6 +637,14 @@ where
   DM: DocMap,
 {
 }
+impl<B, DM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BinaryDocValuesMerge<B, DM>
+where
+  B: BinaryDocValues,
+  DM: DocMap,
+{
+}
+
 impl<B, DM> DocIdSetIterator for BinaryDocValuesMerge<B, DM>
 where
   B: BinaryDocValues,
@@ -796,6 +812,14 @@ where
   DM: DocMap,
 {
 }
+impl<SN, DM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedNumericDocValuesMerge<SN, DM>
+where
+  SN: SortedNumericDocValues,
+  DM: DocMap,
+{
+}
+
 impl<SN, DM> DocIdSetIterator for SortedNumericDocValuesMerge<SN, DM>
 where
   SN: SortedNumericDocValues,
@@ -1095,6 +1119,14 @@ where
   DM: DocMap,
 {
 }
+impl<S, DM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedDocValuesMerge<S, DM>
+where
+  S: SortedDocValues,
+  DM: DocMap,
+{
+}
+
 impl<S, DM> DocIdSetIterator for SortedDocValuesMerge<S, DM>
 where
   S: SortedDocValues,
@@ -1385,6 +1417,14 @@ where
   DM: DocMap,
 {
 }
+impl<S, DM> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedSetDocValuesMerge<S, DM>
+where
+  S: SortedSetDocValues,
+  DM: DocMap,
+{
+}
+
 impl<S, DM> DocIdSetIterator for SortedSetDocValuesMerge<S, DM>
 where
   S: SortedSetDocValues,

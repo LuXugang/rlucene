@@ -132,6 +132,11 @@ where
   PE: PostingsEnum,
 {
 }
+impl<PE> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MultiPostingsEnum<PE> where
+  PE: PostingsEnum
+{
+}
+
 impl<PE> DocIdSetIterator for MultiPostingsEnum<PE>
 where
   PE: PostingsEnum,

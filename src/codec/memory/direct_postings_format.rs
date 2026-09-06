@@ -1737,6 +1737,8 @@ impl DirectPostingsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DirectPostingsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DirectPostingsEnum {}
+
 impl DocIdSetIterator for DirectPostingsEnum {
   fn doc_id(&self) -> i32 {
     match self {
@@ -1862,6 +1864,8 @@ impl LowFreqDocsEnumNoTf {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for LowFreqDocsEnumNoTf {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for LowFreqDocsEnumNoTf {}
+
 impl DocIdSetIterator for LowFreqDocsEnumNoTf {
   fn doc_id(&self) -> i32 {
     if self.upto < 0 {
@@ -1931,6 +1935,8 @@ impl LowFreqDocsEnumNoPos {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for LowFreqDocsEnumNoPos {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for LowFreqDocsEnumNoPos {}
+
 impl DocIdSetIterator for LowFreqDocsEnumNoPos {
   fn doc_id(&self) -> i32 {
     if self.upto < 0 {
@@ -2012,6 +2018,8 @@ impl LowFreqDocsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for LowFreqDocsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for LowFreqDocsEnum {}
+
 impl DocIdSetIterator for LowFreqDocsEnum {
   fn doc_id(&self) -> i32 {
     if self.upto < 0 {
@@ -2113,6 +2121,8 @@ impl LowFreqPostingsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for LowFreqPostingsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for LowFreqPostingsEnum {}
+
 impl DocIdSetIterator for LowFreqPostingsEnum {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -2233,6 +2243,8 @@ impl HighFreqDocsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for HighFreqDocsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for HighFreqDocsEnum {}
+
 impl DocIdSetIterator for HighFreqDocsEnum {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -2359,6 +2371,8 @@ impl HighFreqPostingsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for HighFreqPostingsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for HighFreqPostingsEnum {}
+
 impl DocIdSetIterator for HighFreqPostingsEnum {
   fn doc_id(&self) -> i32 {
     self.doc_id

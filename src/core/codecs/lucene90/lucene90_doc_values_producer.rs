@@ -1164,6 +1164,11 @@ where
   R: RandomAccessInput,
 {
 }
+impl<R> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DenseNumericDocValues<R> where
+  R: RandomAccessInput
+{
+}
+
 impl<R> DocIdSetIterator for DenseNumericDocValues<R>
 where
   R: RandomAccessInput,
@@ -1234,6 +1239,11 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SparseNumericDocValues<I> where
+  I: IndexInput
+{
+}
+
 impl<I> DocIdSetIterator for SparseNumericDocValues<I>
 where
   I: IndexInput,
@@ -1298,6 +1308,11 @@ where
   R: RandomAccessInput,
 {
 }
+impl<R> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DenseBinaryDocValues<R> where
+  R: RandomAccessInput
+{
+}
+
 impl<R> DocIdSetIterator for DenseBinaryDocValues<R>
 where
   R: RandomAccessInput,
@@ -1368,6 +1383,11 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SparseBinaryDocValues<I> where
+  I: IndexInput
+{
+}
+
 impl<I> DocIdSetIterator for SparseBinaryDocValues<I>
 where
   I: IndexInput,
@@ -2013,6 +2033,13 @@ where
   R: RandomAccessInput,
 {
 }
+impl<R> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DenseBaseSortedDocValues<R>
+where
+  R: RandomAccessInput,
+{
+}
+
 impl<R> DocIdSetIterator for DenseBaseSortedDocValues<R>
 where
   R: RandomAccessInput,
@@ -2092,6 +2119,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SparseBaseSortedDocValues<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for SparseBaseSortedDocValues<I>
 where
   I: IndexInput,
@@ -2161,6 +2195,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BaseSortedDocValuesOrdinals<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for BaseSortedDocValuesOrdinals<I>
 where
   I: IndexInput,
@@ -2247,6 +2288,11 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BaseSortedDocValues<I> where
+  I: IndexInput
+{
+}
+
 impl<I> DocIdSetIterator for BaseSortedDocValues<I>
 where
   I: IndexInput,
@@ -2351,6 +2397,13 @@ where
   R: RandomAccessInput,
 {
 }
+impl<R> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DenseBaseSortedSetDocValues<R>
+where
+  R: RandomAccessInput,
+{
+}
+
 impl<R> DocIdSetIterator for DenseBaseSortedSetDocValues<R>
 where
   R: RandomAccessInput,
@@ -2466,6 +2519,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SparseBaseSortedSetDocValues<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for SparseBaseSortedSetDocValues<I>
 where
   I: IndexInput,
@@ -2548,6 +2608,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BaseSortedSetDocValuesOrdinals<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for BaseSortedSetDocValuesOrdinals<I>
 where
   I: IndexInput,
@@ -2644,6 +2711,11 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BaseSortedSetDocValues<I> where
+  I: IndexInput
+{
+}
+
 impl<I> DocIdSetIterator for BaseSortedSetDocValues<I>
 where
   I: IndexInput,
@@ -3219,6 +3291,13 @@ where
   R: RandomAccessInput,
 {
 }
+impl<R> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DenseSortedNumericDocValues<R>
+where
+  R: RandomAccessInput,
+{
+}
+
 impl<R> DocIdSetIterator for DenseSortedNumericDocValues<R>
 where
   R: RandomAccessInput,
@@ -3314,6 +3393,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SpareSortedNumericDocValues<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for SpareSortedNumericDocValues<I>
 where
   I: IndexInput,
@@ -3395,6 +3481,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for Lucene90NumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for Lucene90NumericDocValuesEnum<I>
 where
   I: IndexInput,
@@ -3489,6 +3582,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for Lucene90SortedNumericDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for Lucene90SortedNumericDocValuesEnum<I>
 where
   I: IndexInput,
@@ -3610,6 +3710,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for Lucene90BinaryDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for Lucene90BinaryDocValuesEnum<I>
 where
   I: IndexInput,
@@ -3846,6 +3953,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for Lucene90SortedSetDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for Lucene90SortedSetDocValuesEnum<I>
 where
   I: IndexInput,

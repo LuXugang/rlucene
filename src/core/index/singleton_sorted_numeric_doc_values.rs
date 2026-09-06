@@ -64,6 +64,13 @@ where
   N: NumericDocValues,
 {
 }
+impl<N> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SingletonSortedNumericDocValues<N>
+where
+  N: NumericDocValues,
+{
+}
+
 impl<N> DocIdSetIterator for SingletonSortedNumericDocValues<N>
 where
   N: NumericDocValues,

@@ -120,6 +120,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for IntArrayDocIdSetIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for IntArrayDocIdSetIterator {}
+
 impl DocIdSetIterator for IntArrayDocIdSetIterator {
   fn doc_id(&self) -> i32 {
     self.doc

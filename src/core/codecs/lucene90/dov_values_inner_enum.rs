@@ -76,6 +76,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BaseSortedDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for BaseSortedDocValuesEnum<I>
 where
   I: IndexInput,
@@ -171,6 +178,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BaseSortedSetDocValuesEnum<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for BaseSortedSetDocValuesEnum<I>
 where
   I: IndexInput,

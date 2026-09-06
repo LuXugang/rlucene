@@ -1270,6 +1270,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for BKDReaderDocIDSetIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BKDReaderDocIDSetIterator {}
+
 impl DocIdSetIterator for BKDReaderDocIDSetIterator {
   fn doc_id(&self) -> i32 {
     self.doc_id

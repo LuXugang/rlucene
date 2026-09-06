@@ -203,6 +203,11 @@ impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   S: DocIdSetIterator
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for Rc<RefCell<S>> where
+  S: DocIdSetIterator
+{
+}
+
 impl<S> DocIdSetIterator for Rc<RefCell<S>>
 where
   S: DocIdSetIterator,

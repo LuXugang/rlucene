@@ -376,6 +376,13 @@ where
   R: RandomAccessInput,
 {
 }
+impl<I, R> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for IndexedDISIImpl<I, R>
+where
+  I: IndexInput,
+  R: RandomAccessInput,
+{
+}
+
 impl<I, R> DocIdSetIterator for IndexedDISIImpl<I, R>
 where
   I: IndexInput,
@@ -685,6 +692,11 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIndexIteratorImpl<I> where
+  I: IndexInput
+{
+}
+
 impl<I> DocIdSetIterator for DocIndexIteratorImpl<I>
 where
   I: IndexInput,
@@ -728,6 +740,13 @@ where
   I: IndexInput,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for IndexedDISIDocIndexIterator<I>
+where
+  I: IndexInput,
+{
+}
+
 impl<I> DocIdSetIterator for IndexedDISIDocIndexIterator<I>
 where
   I: IndexInput,
@@ -1386,6 +1405,11 @@ impl<I> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   I: IndexInput
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for IndexedDISIEnum<I> where
+  I: IndexInput
+{
+}
+
 impl<I> DocIdSetIterator for IndexedDISIEnum<I>
 where
   I: IndexInput,

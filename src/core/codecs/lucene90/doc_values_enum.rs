@@ -50,6 +50,13 @@ pub mod norms {
     I: IndexInput,
   {
   }
+  impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+    for Lucene90NormNumericDocValuesEnum<I>
+  where
+    I: IndexInput,
+  {
+  }
+
   impl<I> DocIdSetIterator for Lucene90NormNumericDocValuesEnum<I>
   where
     I: IndexInput,

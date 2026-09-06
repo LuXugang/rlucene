@@ -119,6 +119,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for SimpleDocIdSetIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SimpleDocIdSetIterator {}
+
 impl DocIdSetIterator for SimpleDocIdSetIterator {
   fn doc_id(&self) -> i32 {
     self.doc.get()

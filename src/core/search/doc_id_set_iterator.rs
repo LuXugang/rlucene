@@ -18,6 +18,33 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 
+/// Random access supported by Java's `BitSetIterator` specialization.
+/// Ordinary iterators keep the defaults; Rust-only ownership wrappers forward
+/// these methods only when they represent the same Java iterator.
+pub trait BitSetIteratorAccess {
+  fn is_bit_iter(&self) -> bool {
+    false
+  }
+
+  fn get(&self, _index: usize) -> Result<bool> {
+    Err(LuceneError::unsupported_operation(
+      "Iterator does not support bit-set access",
+    ))
+  }
+
+  fn set_doc_id(&mut self, _doc: i32) -> Result<()> {
+    Err(LuceneError::unsupported_operation(
+      "Iterator does not support setting its document ID",
+    ))
+  }
+
+  fn bit_set_length(&self) -> Result<usize> {
+    Err(LuceneError::unsupported_operation(
+      "Iterator does not expose a bit-set length",
+    ))
+  }
+}
+
 /// Rust-side specialization hooks for [`DocIdSetIterator`].
 pub trait DocIdSetIteratorExtensions {
   /// Returns the wrapped fixed bit set when this iterator has the same shape
@@ -287,8 +314,14 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIteratorExtensions for Box<T> {
   }
 }
 impl DocIdSetIteratorExtensions for EmptyDISI {}
+impl BitSetIteratorAccess for EmptyDISI {}
+
 impl DocIdSetIteratorExtensions for AllDISI {}
+impl BitSetIteratorAccess for AllDISI {}
+
 impl DocIdSetIteratorExtensions for RangeDISI {}
+impl BitSetIteratorAccess for RangeDISI {}
+
 impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &mut T {
   fn doc_id(&self) -> i32 {
     (**self).doc_id()

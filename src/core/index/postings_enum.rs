@@ -76,6 +76,11 @@ macro_rules! define_postings_enum_enum {
         where
             $($V: PostingsEnum,)+
         {}
+        impl<$($V),+> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for $enum_name<$($V),+>
+        where
+            $($V: PostingsEnum,)+
+        {}
+
         impl<$($V),+> DocIdSetIterator for $enum_name<$($V),+>
         where
             $($V: PostingsEnum,)+

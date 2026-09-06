@@ -66,6 +66,14 @@ where
   B: DocIdSetIterator,
 {
 }
+impl<A, B> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SingletonOrMultiSortedNumericDocValuesEnum<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+
 impl<A, B> DocIdSetIterator for SingletonOrMultiSortedNumericDocValuesEnum<A, B>
 where
   A: DocIdSetIterator,
@@ -163,6 +171,11 @@ macro_rules! either_sorted_numeric_docvalues {
         where
             $( $T: DocIdSetIterator ),+
         {}
+        impl<$( $T ),+> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for $name<$( $T ),+>
+        where
+            $( $T: DocIdSetIterator ),+
+        {}
+
         impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
         where
             $( $T: DocIdSetIterator ),+
@@ -248,6 +261,13 @@ where
 }
 
 impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+impl<A, B> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
   for SortedNumericDocValuesEnum2WithUnsupportedSecondNumeric<A, B>
 where
   A: DocIdSetIterator,

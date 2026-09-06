@@ -513,6 +513,11 @@ where
   P: PostingsEnum,
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SharedPostingsEnum<P> where
+  P: PostingsEnum
+{
+}
+
 impl<P> DocIdSetIterator for SharedPostingsEnum<P>
 where
   P: PostingsEnum,
@@ -591,6 +596,11 @@ where
   I: ImpactsEnum,
 {
 }
+impl<I> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SharedImpactsEnum<I> where
+  I: ImpactsEnum
+{
+}
+
 impl<I> DocIdSetIterator for SharedImpactsEnum<I>
 where
   I: ImpactsEnum,

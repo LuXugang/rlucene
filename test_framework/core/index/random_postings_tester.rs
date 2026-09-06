@@ -1247,6 +1247,8 @@ impl SeedPostings {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for SeedPostings {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SeedPostings {}
+
 impl DocIdSetIterator for SeedPostings {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -1628,6 +1630,8 @@ impl DocValuesIterator for NumericDocValuesImpl {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for NumericDocValuesImpl {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for NumericDocValuesImpl {}
+
 impl DocIdSetIterator for NumericDocValuesImpl {
   fn doc_id(&self) -> i32 {
     self.doc

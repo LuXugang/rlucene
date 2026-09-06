@@ -527,6 +527,13 @@ where
   P: PostingsEnum,
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortingPostingsEnumType<P>
+where
+  P: PostingsEnum,
+{
+}
+
 impl<P> DocIdSetIterator for SortingPostingsEnumType<P>
 where
   P: PostingsEnum,
@@ -665,6 +672,11 @@ impl<P> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   P: PostingsEnum
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SortingDocsEnum<P> where
+  P: PostingsEnum
+{
+}
+
 impl<P> DocIdSetIterator for SortingDocsEnum<P>
 where
   P: PostingsEnum,
@@ -926,6 +938,11 @@ where
   P: PostingsEnum,
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SortingPostingsEnum<P> where
+  P: PostingsEnum
+{
+}
+
 impl<P> DocIdSetIterator for SortingPostingsEnum<P>
 where
   P: PostingsEnum,

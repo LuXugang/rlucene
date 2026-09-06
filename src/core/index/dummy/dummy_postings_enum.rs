@@ -23,6 +23,8 @@ use std::borrow::Cow;
 pub struct DummyPostingsEnum;
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DummyPostingsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DummyPostingsEnum {}
+
 impl DocIdSetIterator for DummyPostingsEnum {
   fn doc_id(&self) -> i32 {
     dummy_unreachable!()

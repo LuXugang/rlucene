@@ -292,6 +292,8 @@ impl EmptyBinary {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for EmptyBinary {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for EmptyBinary {}
+
 impl DocIdSetIterator for EmptyBinary {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -346,6 +348,12 @@ where
 }
 
 impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BinaryDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+impl<A> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
   for BinaryDocValuesWithEmpty<A>
 where
   A: DocIdSetIterator,
@@ -427,6 +435,8 @@ impl DocValuesIterator for EmptyNumeric {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for EmptyNumeric {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for EmptyNumeric {}
+
 impl DocIdSetIterator for EmptyNumeric {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -472,6 +482,12 @@ where
 }
 
 impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+impl<A> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
   for NumericDocValuesWithEmpty<A>
 where
   A: DocIdSetIterator,
@@ -551,6 +567,13 @@ where
 }
 
 impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for NumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+impl<A, B> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
   for NumericDocValuesEnum3WithEmpty<A, B>
 where
   A: DocIdSetIterator,
@@ -639,6 +662,13 @@ where
 }
 
 impl<A, B> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedNumericDocValuesEnum3WithEmpty<A, B>
+where
+  A: DocIdSetIterator,
+  B: DocIdSetIterator,
+{
+}
+impl<A, B> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
   for SortedNumericDocValuesEnum3WithEmpty<A, B>
 where
   A: DocIdSetIterator,
@@ -761,6 +791,12 @@ where
   A: DocIdSetIterator,
 {
 }
+impl<A> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedNumericDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
 
 impl<A> DocIdSetIterator for SortedNumericDocValuesWithEmpty<A>
 where
@@ -871,6 +907,8 @@ impl DocValuesIterator for EmptySorted {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for EmptySorted {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for EmptySorted {}
+
 impl DocIdSetIterator for EmptySorted {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -1095,6 +1133,12 @@ where
 }
 
 impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for SortedDocValuesWithEmpty<A>
+where
+  A: DocIdSetIterator,
+{
+}
+impl<A> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
   for SortedDocValuesWithEmpty<A>
 where
   A: DocIdSetIterator,

@@ -112,3 +112,4 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
     Some((self.doc_base, &self.bits))
   }
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocBaseBitSetIterator {}

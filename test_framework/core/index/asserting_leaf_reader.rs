@@ -840,6 +840,13 @@ where
   PE: PostingsEnum,
 {
 }
+impl<PE> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for AssertingPostingsEnum<PE>
+where
+  PE: PostingsEnum,
+{
+}
+
 impl<PE> DocIdSetIterator for AssertingPostingsEnum<PE>
 where
   PE: PostingsEnum,
@@ -1150,6 +1157,11 @@ where
   IE: ImpactsEnum,
 {
 }
+impl<IE> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for AssertingImpactsEnum<IE> where
+  IE: ImpactsEnum
+{
+}
+
 impl<IE> DocIdSetIterator for AssertingImpactsEnum<IE>
 where
   IE: ImpactsEnum,
@@ -1333,6 +1345,13 @@ where
   DV: NumericDocValues,
 {
 }
+impl<DV> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for AssertingNumericDocValues<DV>
+where
+  DV: NumericDocValues,
+{
+}
+
 impl<DV> DocIdSetIterator for AssertingNumericDocValues<DV>
 where
   DV: NumericDocValues,
@@ -1465,6 +1484,13 @@ where
   DV: BinaryDocValues,
 {
 }
+impl<DV> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for AssertingBinaryDocValues<DV>
+where
+  DV: BinaryDocValues,
+{
+}
+
 impl<DV> DocIdSetIterator for AssertingBinaryDocValues<DV>
 where
   DV: BinaryDocValues,
@@ -1600,6 +1626,13 @@ where
   DV: SortedDocValues,
 {
 }
+impl<DV> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for AssertingSortedDocValues<DV>
+where
+  DV: SortedDocValues,
+{
+}
+
 impl<DV> DocIdSetIterator for AssertingSortedDocValues<DV>
 where
   DV: SortedDocValues,
@@ -1791,6 +1824,13 @@ where
   DV: SortedNumericDocValues,
 {
 }
+impl<DV> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for AssertingSortedNumericDocValues<DV>
+where
+  DV: SortedNumericDocValues,
+{
+}
+
 impl<DV> DocIdSetIterator for AssertingSortedNumericDocValues<DV>
 where
   DV: SortedNumericDocValues,
@@ -2034,6 +2074,13 @@ where
   DV: SortedSetDocValues,
 {
 }
+impl<DV> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for AssertingSortedSetDocValues<DV>
+where
+  DV: SortedSetDocValues,
+{
+}
+
 impl<DV> DocIdSetIterator for AssertingSortedSetDocValues<DV>
 where
   DV: SortedSetDocValues,

@@ -208,6 +208,8 @@ impl OneDocDocValues {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for OneDocDocValues {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for OneDocDocValues {}
+
 impl DocIdSetIterator for OneDocDocValues {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -275,6 +277,8 @@ impl OneDocNormValues {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for OneDocNormValues {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for OneDocNormValues {}
+
 impl DocIdSetIterator for OneDocNormValues {
   fn doc_id(&self) -> i32 {
     self.doc_id

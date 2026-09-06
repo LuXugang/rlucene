@@ -511,6 +511,14 @@ where
   D: DocIdSetIterator,
 {
 }
+impl<B, D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for FilteredDocIdSetIteratorImpl<'_, B, D>
+where
+  B: Bits,
+  D: DocIdSetIterator,
+{
+}
+
 impl<B, D> DocIdSetIterator for FilteredDocIdSetIteratorImpl<'_, B, D>
 where
   B: Bits,
@@ -764,6 +772,8 @@ impl DocIdSetIteratorImpl {
   }
 }
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DocIdSetIteratorImpl {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIdSetIteratorImpl {}
+
 impl DocIdSetIterator for DocIdSetIteratorImpl {
   fn doc_id(&self) -> i32 {
     doc_id_no_shadow(self.upto, self.upper, self.docs.as_ref(), self.doc_base)

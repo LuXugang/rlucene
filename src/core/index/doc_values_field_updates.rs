@@ -662,6 +662,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for DocValuesFieldIteratorEnum
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocValuesFieldIteratorEnum {}
+
 impl DocIdSetIterator for DocValuesFieldIteratorEnum {
   fn doc_id(&self) -> i32 {
     match self {
@@ -783,6 +785,11 @@ where
   T: DocValuesFieldIterator,
 {
 }
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BinaryDocValuesDVFU<T> where
+  T: DocValuesFieldIterator
+{
+}
+
 impl<T> DocIdSetIterator for BinaryDocValuesDVFU<T>
 where
   T: DocValuesFieldIterator,
@@ -838,6 +845,11 @@ where
   T: DocValuesFieldIterator,
 {
 }
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for NumericDocValuesDVFU<T> where
+  T: DocValuesFieldIterator
+{
+}
+
 impl<T> DocIdSetIterator for NumericDocValuesDVFU<T>
 where
   T: DocValuesFieldIterator,
@@ -943,6 +955,11 @@ impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   T: DocValuesFieldIterator
 {
 }
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MergedIterator<T> where
+  T: DocValuesFieldIterator
+{
+}
+
 impl<T> DocIdSetIterator for MergedIterator<T>
 where
   T: DocValuesFieldIterator,
@@ -1014,6 +1031,11 @@ impl<A> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   A: AbstractIteratorBase
 {
 }
+impl<A> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for AbstractIterator<A> where
+  A: AbstractIteratorBase
+{
+}
+
 impl<A> DocIdSetIterator for AbstractIterator<A>
 where
   A: AbstractIteratorBase,
@@ -1303,6 +1325,11 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for SingleValueDocValuesFieldUpdatesIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SingleValueDocValuesFieldUpdatesIterator
+{
+}
+
 impl DocIdSetIterator for SingleValueDocValuesFieldUpdatesIterator {
   fn doc_id(&self) -> i32 {
     self.iterator.doc_id()

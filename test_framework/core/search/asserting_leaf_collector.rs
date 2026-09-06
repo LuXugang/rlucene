@@ -111,6 +111,11 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for AssertingCompetitiveIterator<'_>
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for AssertingCompetitiveIterator<'_>
+{
+}
+
 impl DocIdSetIterator for AssertingCompetitiveIterator<'_> {
   fn doc_id(&self) -> i32 {
     self.in_.doc_id()

@@ -116,6 +116,13 @@ where
   S: Scorer,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for DisjunctionDISIApproximation<S>
+where
+  S: Scorer,
+{
+}
+
 impl<S> DocIdSetIterator for DisjunctionDISIApproximation<S>
 where
   S: Scorer,

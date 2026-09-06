@@ -30,6 +30,8 @@ impl DocValuesIterator for DummyBinaryDocValues {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for DummyBinaryDocValues {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DummyBinaryDocValues {}
+
 impl DocIdSetIterator for DummyBinaryDocValues {
   fn doc_id(&self) -> i32 {
     dummy_unreachable!()

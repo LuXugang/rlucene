@@ -115,6 +115,11 @@ impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   S: SortedNumericDocValues
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MinValue<S> where
+  S: SortedNumericDocValues
+{
+}
+
 impl<S> DocIdSetIterator for MinValue<S>
 where
   S: SortedNumericDocValues,
@@ -181,6 +186,11 @@ impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   S: SortedNumericDocValues
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MaxValue<S> where
+  S: SortedNumericDocValues
+{
+}
+
 impl<S> DocIdSetIterator for MaxValue<S>
 where
   S: SortedNumericDocValues,
@@ -257,6 +267,13 @@ where
   N: NumericDocValues,
 {
 }
+impl<N> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for FilterNumericDocValuesImpl1<N>
+where
+  N: NumericDocValues,
+{
+}
+
 impl<N> DocIdSetIterator for FilterNumericDocValuesImpl1<N>
 where
   N: NumericDocValues,
@@ -311,6 +328,13 @@ where
   N: NumericDocValues,
 {
 }
+impl<N> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for FilterNumericDocValuesImpl2<N>
+where
+  N: NumericDocValues,
+{
+}
+
 impl<N> DocIdSetIterator for FilterNumericDocValuesImpl2<N>
 where
   N: NumericDocValues,
@@ -370,6 +394,13 @@ where
   S: SortedNumericDocValues,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SelectedNumericDocValues<S>
+where
+  S: SortedNumericDocValues,
+{
+}
+
 impl<S> DocIdSetIterator for SelectedNumericDocValues<S>
 where
   S: SortedNumericDocValues,
@@ -456,6 +487,13 @@ where
   S: SortedNumericDocValues,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedNumericSelectorWrap<S>
+where
+  S: SortedNumericDocValues,
+{
+}
+
 impl<S> DocIdSetIterator for SortedNumericSelectorWrap<S>
 where
   S: SortedNumericDocValues,

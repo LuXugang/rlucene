@@ -2000,6 +2000,12 @@ impl<I: IndexInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorEx
 {
 }
 #[cfg(test)]
+impl<I: IndexInput> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for CodecNormNumericDocValues<I>
+{
+}
+
+#[cfg(test)]
 impl<I: IndexInput> DocIdSetIterator for CodecNormNumericDocValues<I> {
   fn doc_id(&self) -> i32 {
     match self {
@@ -3098,6 +3104,12 @@ impl<I: IndexInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorEx
 {
 }
 #[cfg(test)]
+impl<I: IndexInput> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for CodecFloatDocIndexIterator<I>
+{
+}
+
+#[cfg(test)]
 impl<I: IndexInput> DocIdSetIterator for CodecFloatDocIndexIterator<I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3146,6 +3158,12 @@ impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetI
 {
 }
 #[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for CodecFloatVectorScorerIteratorRef<'a, I>
+{
+}
+
+#[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorRef<'a, I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3182,6 +3200,12 @@ impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetI
   for CodecFloatVectorScorerIteratorMut<'a, I>
 {
 }
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for CodecFloatVectorScorerIteratorMut<'a, I>
+{
+}
+
 #[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecFloatVectorScorerIteratorMut<'a, I> {
   fn doc_id(&self) -> i32 {
@@ -3359,6 +3383,12 @@ impl<I: IndexInput> crate::core::search::doc_id_set_iterator::DocIdSetIteratorEx
 {
 }
 #[cfg(test)]
+impl<I: IndexInput> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for CodecByteDocIndexIterator<I>
+{
+}
+
+#[cfg(test)]
 impl<I: IndexInput> DocIdSetIterator for CodecByteDocIndexIterator<I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3407,6 +3437,12 @@ impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetI
 {
 }
 #[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for CodecByteVectorScorerIteratorRef<'a, I>
+{
+}
+
+#[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorRef<'a, I> {
   fn doc_id(&self) -> i32 {
     self.0.doc_id()
@@ -3443,6 +3479,12 @@ impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::DocIdSetI
   for CodecByteVectorScorerIteratorMut<'a, I>
 {
 }
+#[cfg(test)]
+impl<'a, I: IndexInput + 'a> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for CodecByteVectorScorerIteratorMut<'a, I>
+{
+}
+
 #[cfg(test)]
 impl<'a, I: IndexInput + 'a> DocIdSetIterator for CodecByteVectorScorerIteratorMut<'a, I> {
   fn doc_id(&self) -> i32 {

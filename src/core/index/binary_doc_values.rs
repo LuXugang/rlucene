@@ -54,6 +54,11 @@ macro_rules! either_binary_docvalues {
         where
             $( $T: DocIdSetIterator ),+
         {}
+        impl<$( $T ),+> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for $name<$( $T ),+>
+        where
+            $( $T: DocIdSetIterator ),+
+        {}
+
         impl<$( $T ),+> DocIdSetIterator for $name<$( $T ),+>
         where
             $( $T: DocIdSetIterator ),+

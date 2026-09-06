@@ -220,6 +220,13 @@ macro_rules! either_doc_index_iterator_named {
         where
             $( $T: $crate::core::search::doc_id_set_iterator::DocIdSetIterator ),+
         {}
+        impl<$( $T ),+>
+          $crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+          for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::search::doc_id_set_iterator::DocIdSetIterator ),+
+        {}
+
 
         impl<$( $T ),+> $crate::core::index::knn_vector_values::DocIndexIterator for $name<$( $T ),+>
         where
@@ -250,6 +257,7 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for DenseDocIndexIterator
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DenseDocIndexIterator {}
 
 impl DocIdSetIterator for DenseDocIndexIterator {
   fn doc_id(&self) -> i32 {
@@ -303,6 +311,10 @@ impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for DocIndexIteratorImpl2<D>
 where
   D: DocIdSetIterator,
+{
+}
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIndexIteratorImpl2<D> where
+  D: DocIdSetIterator
 {
 }
 
@@ -360,6 +372,10 @@ impl<T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for SparseDocIndexIterator<T>
 where
   T: OrdToDoc,
+{
+}
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for SparseDocIndexIterator<T> where
+  T: OrdToDoc
 {
 }
 

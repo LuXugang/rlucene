@@ -120,6 +120,14 @@ where
   DVS: DocValuesSkipper,
 {
 }
+impl<TPI, DVS> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for Approximation<TPI, DVS>
+where
+  TPI: TwoPhaseIterator,
+  DVS: DocValuesSkipper,
+{
+}
+
 impl<TPI, DVS> DocIdSetIterator for Approximation<TPI, DVS>
 where
   TPI: TwoPhaseIterator,

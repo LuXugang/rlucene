@@ -191,6 +191,8 @@ impl DocValuesIterator for BufferedSortingNorms {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BufferedSortingNorms {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BufferedSortingNorms {}
+
 impl DocIdSetIterator for BufferedSortingNorms {
   fn doc_id(&self) -> i32 {
     match self {
@@ -244,6 +246,8 @@ impl DocValuesIterator for BufferedNorms {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for BufferedNorms {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BufferedNorms {}
+
 impl DocIdSetIterator for BufferedNorms {
   fn doc_id(&self) -> i32 {
     self.doc_with_field.doc_id()

@@ -293,6 +293,8 @@ impl ShortArrayDISI {
   }
 }
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ShortArrayDISI {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ShortArrayDISI {}
+
 impl DocIdSetIterator for ShortArrayDISI {
   fn doc_id(&self) -> i32 {
     self.doc
@@ -375,6 +377,8 @@ impl Iterator {
   }
 }
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for Iterator {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for Iterator {}
+
 impl DocIdSetIterator for Iterator {
   fn doc_id(&self) -> i32 {
     self.doc

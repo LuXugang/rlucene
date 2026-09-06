@@ -526,6 +526,8 @@ impl FreqProxDocsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for FreqProxDocsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FreqProxDocsEnum {}
+
 impl DocIdSetIterator for FreqProxDocsEnum {
   fn doc_id(&self) -> i32 {
     self.doc_id
@@ -679,6 +681,8 @@ impl FreqProxPostingsEnum {
 }
 
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for FreqProxPostingsEnum {}
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for FreqProxPostingsEnum {}
+
 impl DocIdSetIterator for FreqProxPostingsEnum {
   fn doc_id(&self) -> i32 {
     self.doc_id

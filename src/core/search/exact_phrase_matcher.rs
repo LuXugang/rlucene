@@ -277,6 +277,11 @@ where
   IE: ImpactsEnum,
 {
 }
+impl<IE> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ImpactsSourceImpl<IE> where
+  IE: ImpactsEnum
+{
+}
+
 impl<IE> DocIdSetIterator for ImpactsSourceImpl<IE>
 where
   IE: ImpactsEnum,

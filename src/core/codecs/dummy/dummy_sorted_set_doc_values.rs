@@ -35,6 +35,8 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for DummySortedSetDocValues
 {
 }
+impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DummySortedSetDocValues {}
+
 impl DocIdSetIterator for DummySortedSetDocValues {
   fn doc_id(&self) -> i32 {
     dummy_unreachable!()

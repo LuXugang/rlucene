@@ -582,6 +582,11 @@ where
   P: PostingsEnum,
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for UnionPostingsEnum<P> where
+  P: PostingsEnum
+{
+}
+
 impl<P> DocIdSetIterator for UnionPostingsEnum<P>
 where
   P: PostingsEnum,
@@ -800,6 +805,11 @@ where
   P: PostingsEnum,
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for UnionFullPostingsEnum<P> where
+  P: PostingsEnum
+{
+}
+
 impl<P> DocIdSetIterator for UnionFullPostingsEnum<P>
 where
   P: PostingsEnum,
@@ -922,6 +932,13 @@ where
   P: PostingsEnum,
 {
 }
+impl<P> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for MultiPhrasePostingsEnum<P>
+where
+  P: PostingsEnum,
+{
+}
+
 impl<P> DocIdSetIterator for MultiPhrasePostingsEnum<P>
 where
   P: PostingsEnum,

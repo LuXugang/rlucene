@@ -473,6 +473,11 @@ where
   S: SortedDocValues,
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for MultiSortedDocValues<S> where
+  S: SortedDocValues
+{
+}
+
 impl<S> DocIdSetIterator for MultiSortedDocValues<S>
 where
   S: SortedDocValues,
@@ -683,6 +688,13 @@ where
   T: SortedSetDocValues,
 {
 }
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for MultiSortedSetDocValues<T>
+where
+  T: SortedSetDocValues,
+{
+}
+
 impl<T> DocIdSetIterator for MultiSortedSetDocValues<T>
 where
   T: SortedSetDocValues,
@@ -849,6 +861,13 @@ where
   IRC: IndexReaderContext,
 {
 }
+impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for NumericDocValuesImpl<IRC>
+where
+  IRC: IndexReaderContext,
+{
+}
+
 impl<IRC> DocIdSetIterator for NumericDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
@@ -1022,6 +1041,13 @@ where
   IRC: IndexReaderContext,
 {
 }
+impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for NumericDocValuesImpl1<IRC>
+where
+  IRC: IndexReaderContext,
+{
+}
+
 impl<IRC> DocIdSetIterator for NumericDocValuesImpl1<IRC>
 where
   IRC: IndexReaderContext,
@@ -1188,6 +1214,13 @@ where
   IRC: IndexReaderContext,
 {
 }
+impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for BinaryDocValuesImpl<IRC>
+where
+  IRC: IndexReaderContext,
+{
+}
+
 impl<IRC> DocIdSetIterator for BinaryDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
@@ -1371,6 +1404,13 @@ where
   IRC: IndexReaderContext,
 {
 }
+impl<IRC> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for SortedNumericDocValuesImpl<IRC>
+where
+  IRC: IndexReaderContext,
+{
+}
+
 impl<IRC> DocIdSetIterator for SortedNumericDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
