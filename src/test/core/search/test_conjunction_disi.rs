@@ -476,10 +476,10 @@ fn test_illegal_advancement_of_sub_iterators_trips_assertion() -> Result<()> {
     iterators.push(BitDocIdSet::new(Some(set.clone()))?.iterator()?);
   }
   let len = iterators.len();
-  let mut conjunction = ConjunctionDISI::from_disi(iterators)?;
+  let mut conjunction = ConjunctionDISI::create_conjunction(iterators)?;
 
   let idx = TestUtil::next_usize(&mut random, 0, len - 1);
-  let rogue = &mut conjunction.all_disi[idx];
+  let rogue = conjunction.iterator_at_mut(idx);
   let _ = rogue.next_doc()?;
   let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
     let _ = conjunction.next_doc();
@@ -523,7 +523,7 @@ fn test_bit_set_conjunction_disi_doc_id_on_exhaust() -> Result<()> {
     iterators.push(DocIdSetIteratorEnum2::B(it));
   }
 
-  let mut conjunction = ConjunctionDISI::from_disi(iterators)?;
+  let mut conjunction = ConjunctionDISI::create_conjunction(iterators)?;
 
   assert_eq!(NO_MORE_DOCS, conjunction.next_doc()?);
   assert_eq!(NO_MORE_DOCS, conjunction.doc_id());

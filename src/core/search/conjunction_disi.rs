@@ -22,32 +22,61 @@ use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::vector_scorer::VectorScorer;
 use crate::core::util::array_util::ArrayUtil;
-use crate::core::util::bit_set::BitSet;
 use crate::core::util::bit_set_iterator::BitSetIterator;
 use crate::core::util::collection_util::CollectionUtil;
 use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{Comparator, ToInt, TryIntoInt};
 
-/// Statically typed result of `create_conjunction` for a non-bit-set iterator and
-/// one known bit-set iterator, as used by the vector queries.
-pub type ConjunctionDISIWithBitSet<D, B> = DocIdSetIteratorEnum2<
-  ConjunctionDISI<DocIdSetIteratorEnum2<D, BitSetIterator<B>>>,
-  BitSetConjunctionDISI<D, B>,
->;
+/// The two implementations selected by Java's `createConjunction`.
+pub type ConjunctionDISIEnum<D> =
+  DocIdSetIteratorEnum2<ConjunctionDISI<D>, BitSetConjunctionDISI<D>>;
+
+pub type ConjunctionDISIWithBitSet<D, B> =
+  ConjunctionDISIEnum<DocIdSetIteratorEnum2<D, BitSetIterator<B>>>;
+
+impl<D> ConjunctionDISIEnum<D> {
+  pub(crate) fn len(&self) -> usize {
+    match self {
+      Self::A(conjunction) => conjunction.all_disi.len(),
+      Self::B(conjunction) => conjunction.iterator_locations.len(),
+    }
+  }
+
+  pub(crate) fn iterator_at(&self, index: usize) -> &D {
+    match self {
+      Self::A(conjunction) => &conjunction.all_disi[index],
+      Self::B(conjunction) => match conjunction.iterator_locations[index] {
+        IteratorLocation::Lead(index) => match &conjunction.lead {
+          DocIdSetIteratorEnum2::A(iterator) => iterator,
+          DocIdSetIteratorEnum2::B(lead) => &lead.all_disi[index],
+        },
+        IteratorLocation::BitSet(index) => &conjunction.bit_set_iterators[index],
+      },
+    }
+  }
+
+  pub(crate) fn iterator_at_mut(&mut self, index: usize) -> &mut D {
+    match self {
+      Self::A(conjunction) => &mut conjunction.all_disi[index],
+      Self::B(conjunction) => match conjunction.iterator_locations[index] {
+        IteratorLocation::Lead(index) => match &mut conjunction.lead {
+          DocIdSetIteratorEnum2::A(iterator) => iterator,
+          DocIdSetIteratorEnum2::B(lead) => &mut lead.all_disi[index],
+        },
+        IteratorLocation::BitSet(index) => &mut conjunction.bit_set_iterators[index],
+      },
+    }
+  }
+}
 
 impl<D, B> ConjunctionDISIWithBitSet<D, B> {
-  /// Returns the original non-bit-set iterator, regardless of which iterator
-  /// leads the conjunction after cost ordering.
   pub(crate) fn non_bit_set_iterator(&self) -> Result<&D> {
-    match self {
-      Self::A(iterators) => match &iterators.all_disi[0] {
-        DocIdSetIteratorEnum2::A(iterator) => Ok(iterator),
-        DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
-          "Expected the non-bit-set iterator first in the conjunction",
-        )),
-      },
-      Self::B(bit_set) => Ok(&bit_set.lead),
+    match self.iterator_at(0) {
+      DocIdSetIteratorEnum2::A(iterator) => Ok(iterator),
+      DocIdSetIteratorEnum2::B(_) => Err(LuceneError::illegal_state(
+        "Expected the non-bit-set iterator first in the conjunction",
+      )),
     }
   }
 }
@@ -62,50 +91,66 @@ impl<S> ConjunctionDISI<ScorerDisi<S>>
 where
   S: Scorer,
 {
-  pub(crate) fn from_scorer(scorers: Vec<S>) -> Result<Self> {
+  pub(crate) fn from_scorer(scorers: Vec<S>) -> Result<ConjunctionDISIEnum<ScorerDisi<S>>> {
     let mut iters = Vec::with_capacity(scorers.len());
     for x in scorers.into_iter() {
       iters.push(ScorerDisi::new(x));
     }
-    Self::new(iters)
+    Self::create_conjunction(iters)
   }
 }
 impl<D> ConjunctionDISI<D>
 where
   D: DocIdSetIterator,
 {
-  /// Java `createConjunction` specialized for a non-bit-set iterator and one
-  /// bit-set iterator, without two-phase matching.
-  pub(crate) fn create_conjunction<B: BitSet>(
-    iterator: D,
-    bit_set_iterator: BitSetIterator<B>,
-  ) -> Result<ConjunctionDISIWithBitSet<D, B>> {
-    if iterator.doc_id() != bit_set_iterator.doc_id() {
-      return Err(LuceneError::illegal_argument(
-        "Sub-iterators of ConjunctionDISI are not on the same document!",
-      ));
+  /// Select the conjunction implementation using Java's `createConjunction`
+  /// cost rule. Minimum-cost bit sets remain eligible to lead iteration.
+  pub(crate) fn create_conjunction(iterators: Vec<D>) -> Result<ConjunctionDISIEnum<D>> {
+    debug_assert!(iterators.len() >= 2);
+    let cur_doc = iterators[0].doc_id();
+    let mut min_cost = i64::MAX;
+    for iterator in &iterators {
+      if iterator.doc_id() != cur_doc {
+        return Err(LuceneError::illegal_argument(
+          "Sub-iterators of ConjunctionDISI are not on the same document!",
+        ));
+      }
+      min_cost = min_cost.min(iterator.cost()?);
     }
-    // Keep minimum-cost bit-set iterators in the ordinary conjunction so they
-    // can lead iteration. Only more costly bit sets use random access.
-    if bit_set_iterator.cost()? > iterator.cost()? {
-      Ok(DocIdSetIteratorEnum2::B(BitSetConjunctionDISI::new(
-        iterator,
-        vec![bit_set_iterator],
-      )?))
+
+    let mut ordinary = Vec::with_capacity(iterators.len());
+    let mut bit_sets = Vec::new();
+    let input_count = iterators.len();
+    let mut iterator_locations = Vec::new();
+    for iterator in iterators {
+      if iterator.is_bit_iter() && iterator.cost()? > min_cost {
+        if bit_sets.is_empty() {
+          iterator_locations.reserve(input_count);
+          iterator_locations.extend((0..ordinary.len()).map(IteratorLocation::Lead));
+        }
+        iterator_locations.push(IteratorLocation::BitSet(bit_sets.len()));
+        bit_sets.push(iterator);
+      } else {
+        if !bit_sets.is_empty() {
+          iterator_locations.push(IteratorLocation::Lead(ordinary.len()));
+        }
+        ordinary.push(iterator);
+      }
+    }
+
+    if bit_sets.is_empty() {
+      return Ok(ConjunctionDISIEnum::A(Self::new(ordinary)?));
+    }
+    let lead = if ordinary.len() == 1 {
+      DocIdSetIteratorEnum2::A(ordinary.remove(0))
     } else {
-      Ok(DocIdSetIteratorEnum2::A(ConjunctionDISI::from_disi(vec![
-        DocIdSetIteratorEnum2::A(iterator),
-        DocIdSetIteratorEnum2::B(bit_set_iterator),
-      ])?))
-    }
-  }
-
-  pub(crate) fn from_disi(iterators: Vec<D>) -> Result<Self> {
-    let mut iters = Vec::with_capacity(iterators.len());
-    for x in iterators.into_iter() {
-      iters.push(x);
-    }
-    Self::new(iters)
+      DocIdSetIteratorEnum2::B(Self::new(ordinary)?)
+    };
+    Ok(ConjunctionDISIEnum::B(BitSetConjunctionDISI::new(
+      lead,
+      bit_sets,
+      iterator_locations,
+    )?))
   }
 }
 
@@ -113,7 +158,7 @@ impl<D> ConjunctionDISI<D>
 where
   D: DocIdSetIterator,
 {
-  fn new(iterators: Vec<D>) -> Result<Self> {
+  pub(crate) fn new(iterators: Vec<D>) -> Result<Self> {
     debug_assert!(iterators.len() >= 2);
     let mut cost = Vec::with_capacity(iterators.len());
     for idx in 0..iterators.len() {
@@ -239,18 +284,28 @@ where
     Ok(lf.cmp(&rg).to_int())
   }
 }
-/// Conjunction between a [`DocIdSetIterator`] and one or more BitSetIterators.
-pub struct BitSetConjunctionDISI<DISI, T> {
-  pub(crate) lead: DISI,
-  pub(crate) bit_set_iterators: Vec<BitSetIterator<T>>,
-  min_length: usize,
+#[derive(Clone, Copy)]
+enum IteratorLocation {
+  Lead(usize),
+  BitSet(usize),
 }
-impl<DISI, T> BitSetConjunctionDISI<DISI, T>
+
+/// Conjunction between a [`DocIdSetIterator`] and one or more BitSetIterators.
+pub struct BitSetConjunctionDISI<D> {
+  lead: DocIdSetIteratorEnum2<D, ConjunctionDISI<D>>,
+  bit_set_iterators: Vec<D>,
+  min_length: usize,
+  iterator_locations: Vec<IteratorLocation>,
+}
+impl<D> BitSetConjunctionDISI<D>
 where
-  DISI: DocIdSetIterator,
-  T: BitSet,
+  D: DocIdSetIterator,
 {
-  pub fn new(lead: DISI, bit_set_iterators: Vec<BitSetIterator<T>>) -> Result<Self> {
+  fn new(
+    lead: DocIdSetIteratorEnum2<D, ConjunctionDISI<D>>,
+    bit_set_iterators: Vec<D>,
+    mut iterator_locations: Vec<IteratorLocation>,
+  ) -> Result<Self> {
     debug_assert!(!bit_set_iterators.is_empty());
     let mut temp_bit_set_iterators = Vec::with_capacity(bit_set_iterators.len());
     let mut cost = Vec::with_capacity(bit_set_iterators.len());
@@ -262,23 +317,30 @@ where
     ArrayUtil::tim_sort_with_comparator(&mut cost, cmp)?;
 
     let mut bit_set_iterators = Vec::with_capacity(cost.len());
-    for idx in cost {
+    let mut sorted_indices = vec![0; cost.len()];
+    for (sorted_idx, idx) in cost.into_iter().enumerate() {
+      sorted_indices[idx] = sorted_idx;
       bit_set_iterators.push(
         temp_bit_set_iterators[idx]
           .take()
           .ok_or_else(|| LuceneError::illegal_state("sorted bit-set iterator is missing"))?,
       );
     }
+    for location in &mut iterator_locations {
+      if let IteratorLocation::BitSet(index) = location {
+        *index = sorted_indices[*index];
+      }
+    }
     let mut min_length = i32::MAX;
     for iter in &bit_set_iterators {
-      let bit_set = iter.get_bit_set();
-      min_length = min_length.min(bit_set.length() as i32);
+      min_length = min_length.min(iter.bit_set_length()? as i32);
     }
 
     Ok(Self {
       lead,
       bit_set_iterators,
       min_length: min_length.try_convert()?,
+      iterator_locations,
     })
   }
   fn do_next(&mut self, mut doc: i32) -> Result<i32> {
@@ -291,15 +353,14 @@ where
       }
 
       for bs_iter in &self.bit_set_iterators {
-        let bs = bs_iter.get_bit_set();
-        if !bs.get(doc as usize)? {
+        if !bs_iter.get(doc as usize)? {
           doc = self.lead.next_doc()?;
           continue 'advance_lead;
         }
       }
 
       for iter in &mut self.bit_set_iterators {
-        iter.set_doc_id(doc);
+        iter.set_doc_id(doc)?;
       }
 
       return Ok(doc);
@@ -315,17 +376,20 @@ where
     true
   }
 }
-impl<DISI, T> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
-  for BitSetConjunctionDISI<DISI, T>
+impl<D> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
+  for BitSetConjunctionDISI<D>
 where
-  DISI: DocIdSetIterator,
-  T: BitSet,
+  D: DocIdSetIterator,
 {
 }
-impl<DISI, T> DocIdSetIterator for BitSetConjunctionDISI<DISI, T>
+impl<D> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BitSetConjunctionDISI<D> where
+  D: DocIdSetIterator
+{
+}
+
+impl<D> DocIdSetIterator for BitSetConjunctionDISI<D>
 where
-  DISI: DocIdSetIterator,
-  T: BitSet,
+  D: DocIdSetIterator,
 {
   fn doc_id(&self) -> i32 {
     self.lead.doc_id()
@@ -354,16 +418,16 @@ where
   }
 }
 struct BitSetIteratorCmp<'a, B> {
-  disi: &'a [Option<BitSetIterator<B>>],
+  disi: &'a [Option<B>],
 }
 impl<'a, B> BitSetIteratorCmp<'a, B> {
-  fn new(disi: &'a [Option<BitSetIterator<B>>]) -> Self {
+  fn new(disi: &'a [Option<B>]) -> Self {
     BitSetIteratorCmp { disi }
   }
 }
 impl<B> Comparator<usize> for BitSetIteratorCmp<'_, B>
 where
-  B: BitSet,
+  B: DocIdSetIterator,
 {
   const TYPE: &'static str = "BitSetIteratorCmp";
 
@@ -380,18 +444,19 @@ where
 /// [`TwoPhaseIterator`] implementing a conjunction.
 pub struct ConjunctionTwoPhaseIterator<S> {
   two_phase_iterator_idx: Vec<usize>,
-  pub(crate) approximation: ConjunctionDISI<ScorerDisi<S>>,
+  pub(crate) approximation: ConjunctionDISIEnum<ScorerDisi<S>>,
   match_cost: f32,
 }
 impl<S> ConjunctionTwoPhaseIterator<S>
 where
   S: Scorer,
 {
-  pub(crate) fn new(mut approximation: ConjunctionDISI<ScorerDisi<S>>) -> Result<Self> {
+  pub(crate) fn new(approximation: ConjunctionDISIEnum<ScorerDisi<S>>) -> Result<Self> {
     debug_assert!(
       {
         let mut has_tpi = false;
-        for x in approximation.all_disi.iter() {
+        for idx in 0..approximation.len() {
+          let x = approximation.iterator_at(idx);
           if x.two_phase_iterator().is_some() {
             has_tpi = true;
             break;
@@ -402,10 +467,10 @@ where
       "ConjunctionTwoPhaseIterator requires at least one TwoPhaseIterator"
     );
     let (two_phase_iterator_idx, total_match_cost) = {
-      let mut tpis = Vec::with_capacity(approximation.all_disi.len());
+      let mut tpis = Vec::with_capacity(approximation.len());
       let mut two_phase_iterator_idx = Vec::with_capacity(tpis.len());
-      for (idx, x) in approximation.all_disi.iter_mut().enumerate() {
-        if let Some(tpi) = x.two_phase_iterator_mut() {
+      for idx in 0..approximation.len() {
+        if let Some(tpi) = approximation.iterator_at(idx).two_phase_iterator() {
           two_phase_iterator_idx.push(idx);
           tpis.push(Some(tpi));
         } else {
@@ -442,7 +507,11 @@ where
 
   fn matches(&mut self) -> Result<bool> {
     for idx in self.two_phase_iterator_idx.iter() {
-      match self.approximation.all_disi[*idx].two_phase_iterator_mut() {
+      match self
+        .approximation
+        .iterator_at_mut(*idx)
+        .two_phase_iterator_mut()
+      {
         Some(ref mut tpi) => {
           if !tpi.matches()? {
             return Ok(false);
@@ -563,6 +632,24 @@ impl<S> crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for
   S: Scorer
 {
 }
+impl<S> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for ScorerDisi<S>
+where
+  S: Scorer,
+{
+  fn is_bit_iter(&self) -> bool {
+    self.scorer.approximation().is_bit_iter()
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    self.scorer.approximation().get(index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    self.scorer.approximation_mut().set_doc_id(doc)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    self.scorer.approximation().bit_set_length()
+  }
+}
+
 impl<S> DocIdSetIterator for ScorerDisi<S>
 where
   S: Scorer,

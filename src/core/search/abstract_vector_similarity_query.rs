@@ -24,6 +24,7 @@ use crate::core::search::conjunction_disi::{
   ConjunctionDISI, ConjunctionDISIWithBitSet, VectorScorerDisi,
 };
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::filtered_doc_id_set_iterator::{
@@ -616,7 +617,10 @@ where
     threshold: f32,
   ) -> Result<Self> {
     let vector_iterator = VectorScorerDisi::new(vector_scorer);
-    let conjunction = ConjunctionDISI::create_conjunction(vector_iterator, accept_docs)?;
+    let conjunction = ConjunctionDISI::create_conjunction(vec![
+      DocIdSetIteratorEnum2::A(vector_iterator),
+      DocIdSetIteratorEnum2::B(accept_docs),
+    ])?;
     let base = FilteredDocIdSetIteratorBase::new(conjunction);
     Ok(Self {
       boost,

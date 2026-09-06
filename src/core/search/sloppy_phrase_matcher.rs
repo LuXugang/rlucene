@@ -19,7 +19,7 @@ use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
 use crate::core::index::term::Term;
-use crate::core::search::conjunction_disi::ConjunctionDISI;
+use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionDISIEnum};
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::impacts_disi::SeparateImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
@@ -40,7 +40,7 @@ use std::rc::Rc;
 use std::vec;
 
 pub type SloopyImpactsDISI<IE, SS> =
-  SeparateImpactsDISI<ConjunctionDISI<IE>, ImpactsSourceImpl, SS>;
+  SeparateImpactsDISI<ConjunctionDISIEnum<IE>, ImpactsSourceImpl, SS>;
 /**
  * Find all slop-valid position-combinations (matches) encountered while traversing/hopping the
  * PhrasePositions. <br>
@@ -111,7 +111,7 @@ where
     let cmp = PhraseQueueCmp::new(phrase_positions);
     let pq = PriorityQueue::new(num_postings, cmp)?;
 
-    let approximation = ConjunctionDISI::from_disi(posting_vec)?;
+    let approximation = ConjunctionDISI::create_conjunction(posting_vec)?;
 
     // What would be a good upper bound of the sloppy frequency? A sum of the
     // sub frequencies would be correct, but it is usually so much higher than
@@ -655,18 +655,18 @@ where
   #[inline]
   pub(crate) fn posting_mut(&mut self, posting_idx: usize) -> &mut IE {
     let impacts = self.impacts_approximation.iterator_mut();
-    &mut impacts.all_disi[posting_idx]
+    impacts.iterator_at_mut(posting_idx)
   }
   #[inline]
   pub(crate) fn posting(&self, posting_idx: usize) -> &IE {
     let impacts = self.impacts_approximation.iterator();
-    &impacts.all_disi[posting_idx]
+    impacts.iterator_at(posting_idx)
   }
 
-  pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<IE> {
+  pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISIEnum<IE> {
     self.impacts_approximation.iterator_mut()
   }
-  pub(crate) fn approximation(&self) -> &ConjunctionDISI<IE> {
+  pub(crate) fn approximation(&self) -> &ConjunctionDISIEnum<IE> {
     self.impacts_approximation.iterator()
   }
 }
@@ -684,7 +684,7 @@ where
     let mut max_freq = 0f32;
     for phrase_position in &self.pq.compare.phrase_positions {
       let idx = phrase_position.postings_idx;
-      let freq = impacts.all_disi[idx].freq()?;
+      let freq = impacts.iterator_at_mut(idx).freq()?;
       max_freq += freq as f32;
     }
     Ok(max_freq)

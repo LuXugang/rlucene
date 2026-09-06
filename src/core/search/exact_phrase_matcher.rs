@@ -18,7 +18,7 @@ use crate::core::index::impact::Impact;
 use crate::core::index::impacts::Impacts;
 use crate::core::index::impacts_enum::ImpactsEnum;
 use crate::core::index::impacts_source::ImpactsSource;
-use crate::core::search::conjunction_disi::ConjunctionDISI;
+use crate::core::search::conjunction_disi::{ConjunctionDISI, ConjunctionDISIEnum};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::impacts_disi::SourceImpactsDISI;
 use crate::core::search::max_score_cache::MaxScoreCache;
@@ -55,7 +55,7 @@ where
       impacts_enum.push(p.postings);
       postings_and_positions.push(PostingsAndPosition::new(i, p.position as usize))
     }
-    let wrapped_impacts_enum = ConjunctionDISI::from_disi(impacts_enum)?;
+    let wrapped_impacts_enum = ConjunctionDISI::create_conjunction(impacts_enum)?;
     let impacts_source = merge_impacts(wrapped_impacts_enum)?;
     let impacts_approximation =
       SourceImpactsDISI::from_source(MaxScoreCache::new(impacts_source, scorer));
@@ -90,15 +90,19 @@ where
 
   #[inline]
   fn posting(&self, idx: usize) -> &IE {
-    &self.impacts_approximation.iterator().impacts_enums.all_disi[idx]
+    self
+      .impacts_approximation
+      .iterator()
+      .impacts_enums
+      .iterator_at(idx)
   }
   #[inline]
   fn posting_mut(&mut self, idx: usize) -> &mut IE {
-    &mut self
+    self
       .impacts_approximation
       .iterator_mut()
       .impacts_enums
-      .all_disi[idx]
+      .iterator_at_mut(idx)
   }
   pub(crate) fn approximation_top_scorers_mut(&mut self) -> &mut ImpactsApproximationType<IE, SS> {
     &mut self.impacts_approximation
@@ -106,10 +110,10 @@ where
   pub(crate) fn approximation_top_scorers(&self) -> &ImpactsApproximationType<IE, SS> {
     &self.impacts_approximation
   }
-  pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISI<IE> {
+  pub(crate) fn approximation_mut(&mut self) -> &mut ConjunctionDISIEnum<IE> {
     &mut self.impacts_approximation.iterator_mut().impacts_enums
   }
-  pub(crate) fn approximation(&self) -> &ConjunctionDISI<IE> {
+  pub(crate) fn approximation(&self) -> &ConjunctionDISIEnum<IE> {
     &self.impacts_approximation.iterator().impacts_enums
   }
 }
@@ -208,23 +212,26 @@ pub(crate) fn merge_impacts_from_ie<IE>(
 where
   IE: ImpactsEnum,
 {
-  merge_impacts(ConjunctionDISI::from_disi(wrapped_impacts_enums)?)
+  merge_impacts(ConjunctionDISIEnum::A(ConjunctionDISI::new(
+    wrapped_impacts_enums,
+  )?))
 }
 
 /// Merge impacts for multiple terms of an exact phrase.
 pub(crate) fn merge_impacts<IE>(
-  wrapped_impacts_enums: ConjunctionDISI<IE>,
+  wrapped_impacts_enums: ConjunctionDISIEnum<IE>,
 ) -> Result<ImpactsSourceImpl<IE>>
 where
   IE: ImpactsEnum,
 {
   // Iteration of block boundaries uses the impacts enum with the lower cost.
   // This is consistent with BlockMaxConjunctionScorer.
-  let impacts_enums = &wrapped_impacts_enums.all_disi;
+  let impacts_enums = &wrapped_impacts_enums;
   let mut tmp_lead_index: i32 = -1;
   for i in 0..impacts_enums.len() {
     if tmp_lead_index == -1
-      || impacts_enums[i].cost()? < impacts_enums[tmp_lead_index as usize].cost()?
+      || impacts_enums.iterator_at(i).cost()?
+        < impacts_enums.iterator_at(tmp_lead_index as usize).cost()?
     {
       tmp_lead_index = i as i32;
     }
@@ -234,11 +241,11 @@ where
 }
 
 pub struct ImpactsSourceImpl<IE> {
-  pub(crate) impacts_enums: ConjunctionDISI<IE>,
+  pub(crate) impacts_enums: ConjunctionDISIEnum<IE>,
   lead_index: usize,
 }
 impl<IE> ImpactsSourceImpl<IE> {
-  pub(crate) fn new(impacts_enums: ConjunctionDISI<IE>, lead_index: usize) -> Self {
+  pub(crate) fn new(impacts_enums: ConjunctionDISIEnum<IE>, lead_index: usize) -> Self {
     Self {
       impacts_enums,
       lead_index,
@@ -251,7 +258,8 @@ where
   IE: ImpactsEnum,
 {
   fn advance_shallow(&mut self, target: i32) -> Result<()> {
-    for impacts_enum in self.impacts_enums.all_disi.iter_mut() {
+    for idx in 0..self.impacts_enums.len() {
+      let impacts_enum = self.impacts_enums.iterator_at_mut(idx);
       impacts_enum.advance_shallow(target)?;
     }
     Ok(())
@@ -263,8 +271,9 @@ where
     Self: 'a;
 
   fn get_impacts(&self) -> Result<Self::Impacts<'_>> {
-    let mut impacts = Vec::with_capacity(self.impacts_enums.all_disi.len());
-    for v in self.impacts_enums.all_disi.iter() {
+    let mut impacts = Vec::with_capacity(self.impacts_enums.len());
+    for idx in 0..self.impacts_enums.len() {
+      let v = self.impacts_enums.iterator_at(idx);
       impacts.push(v.get_impacts()?);
     }
     Ok(ImpactsImpl::new(impacts, self.lead_index))

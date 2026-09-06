@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use crate::core::search::conjunction_disi::{
-  ConjunctionDISI, ConjunctionTwoPhaseIterator, ScorerDisi,
+  ConjunctionDISI, ConjunctionDISIEnum, ConjunctionTwoPhaseIterator, ScorerDisi,
 };
 use crate::core::search::doc_id_set_iterator::{DocIdSetIterator, DocIdSetIteratorEnum2};
 use crate::core::search::scorable::{ChildScorable, Scorable};
@@ -28,7 +28,7 @@ use crate::core::search::two_phase_iterator::{
 use crate::core::util::error::lucene_error::Result;
 
 pub type ConjunctionScorerDisi<S> = DocIdSetIteratorEnum2<
-  ConjunctionDISI<ScorerDisi<S>>,
+  ConjunctionDISIEnum<ScorerDisi<S>>,
   TwoPhaseIteratorAsDocIdSetIterator<ConjunctionTwoPhaseIterator<S>>,
 >;
 // TODO IMPORTANT This implementation is quite different from the Java version, and performance is worse in some scenarios.
@@ -74,10 +74,12 @@ where
     let mut sum = 0f64;
     for x in self.scoring_idx.iter() {
       let score = match self.disi {
-        DocIdSetIteratorEnum2::A(ref mut v) => v.all_disi[*x].score()?,
-        DocIdSetIteratorEnum2::B(ref mut v) => {
-          v.two_phase_iterator.approximation.all_disi[*x].score()?
-        },
+        DocIdSetIteratorEnum2::A(ref mut v) => v.iterator_at_mut(*x).score()?,
+        DocIdSetIteratorEnum2::B(ref mut v) => v
+          .two_phase_iterator
+          .approximation
+          .iterator_at_mut(*x)
+          .score()?,
       };
       sum += score as f64;
     }
@@ -89,10 +91,12 @@ where
     if self.scoring_idx.len() == 1 {
       let i = self.scoring_idx[0];
       match &mut self.disi {
-        DocIdSetIteratorEnum2::A(v) => v.all_disi[i].set_min_competitive_score(min_score)?,
-        DocIdSetIteratorEnum2::B(v) => {
-          v.two_phase_iterator.approximation.all_disi[i].set_min_competitive_score(min_score)?
-        },
+        DocIdSetIteratorEnum2::A(v) => v.iterator_at_mut(i).set_min_competitive_score(min_score)?,
+        DocIdSetIteratorEnum2::B(v) => v
+          .two_phase_iterator
+          .approximation
+          .iterator_at_mut(i)
+          .set_min_competitive_score(min_score)?,
       }
     }
     Ok(())
@@ -168,21 +172,25 @@ where
     if self.scoring_idx.len() == 1 {
       let i = self.scoring_idx[0];
       return match &mut self.disi {
-        DocIdSetIteratorEnum2::A(v) => v.all_disi[i].advance_shallow(target),
-        DocIdSetIteratorEnum2::B(v) => {
-          v.two_phase_iterator.approximation.all_disi[i].advance_shallow(target)
-        },
+        DocIdSetIteratorEnum2::A(v) => v.iterator_at_mut(i).advance_shallow(target),
+        DocIdSetIteratorEnum2::B(v) => v
+          .two_phase_iterator
+          .approximation
+          .iterator_at_mut(i)
+          .advance_shallow(target),
       };
     }
 
     match &mut self.disi {
       DocIdSetIteratorEnum2::A(v) => {
-        for s in v.all_disi.iter_mut() {
+        for idx in 0..v.len() {
+          let s = v.iterator_at_mut(idx);
           s.advance_shallow(target)?;
         }
       },
       DocIdSetIteratorEnum2::B(v) => {
-        for s in v.two_phase_iterator.approximation.all_disi.iter_mut() {
+        for idx in 0..v.two_phase_iterator.approximation.len() {
+          let s = v.two_phase_iterator.approximation.iterator_at_mut(idx);
           s.advance_shallow(target)?;
         }
       },
@@ -196,14 +204,16 @@ where
 
     match &mut self.disi {
       DocIdSetIteratorEnum2::A(v) => {
-        for s in v.all_disi.iter_mut() {
+        for idx in 0..v.len() {
+          let s = v.iterator_at_mut(idx);
           if s.doc_id()? <= upto {
             max_score += s.get_max_score(upto)? as f64;
           }
         }
       },
       DocIdSetIteratorEnum2::B(v) => {
-        for s in v.two_phase_iterator.approximation.all_disi.iter_mut() {
+        for idx in 0..v.two_phase_iterator.approximation.len() {
+          let s = v.two_phase_iterator.approximation.iterator_at_mut(idx);
           if s.doc_id()? <= upto {
             max_score += s.get_max_score(upto)? as f64;
           }

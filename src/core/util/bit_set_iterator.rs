@@ -98,3 +98,21 @@ where
     self.bits.as_sparse_fixed_bit_set()
   }
 }
+impl<T> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for BitSetIterator<T>
+where
+  T: BitSet,
+{
+  fn is_bit_iter(&self) -> bool {
+    true
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    self.bits.get(index)
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    BitSetIterator::set_doc_id(self, doc);
+    Ok(())
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    Ok(self.bits.length())
+  }
+}

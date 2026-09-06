@@ -24,6 +24,7 @@ use crate::core::search::boolean_clause::Occur;
 use crate::core::search::boolean_query::Builder;
 use crate::core::search::conjunction_disi::{ConjunctionDISI, VectorScorerDisi};
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
+use crate::core::search::doc_id_set_iterator::DocIdSetIteratorEnum2;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::explanation::Explanation;
 use crate::core::search::field_exists_query::FieldExistsQuery;
@@ -106,7 +107,10 @@ impl AbstractKnnVectorQueryDefaults {
       .ok_or_else(|| LuceneError::illegal_state("top is None"))?;
 
     let vector_iterator = VectorScorerDisi::new(vector_scorer);
-    let mut conjunction = ConjunctionDISI::create_conjunction(vector_iterator, accept_iterator)?;
+    let mut conjunction = ConjunctionDISI::create_conjunction(vec![
+      DocIdSetIteratorEnum2::A(vector_iterator),
+      DocIdSetIteratorEnum2::B(accept_iterator),
+    ])?;
 
     loop {
       let doc = conjunction.next_doc()?;

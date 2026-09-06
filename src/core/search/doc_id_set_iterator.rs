@@ -74,7 +74,7 @@ pub trait DocIdSetIteratorExtensions {
 ///
 /// Implementations of this trait are expected to treat `i32::MAX` as an
 /// invalid value.
-pub trait DocIdSetIterator: DocIdSetIteratorExtensions {
+pub trait DocIdSetIterator: DocIdSetIteratorExtensions + BitSetIteratorAccess {
   /// Returns the following:
   ///
   /// - `-1` if [`next_doc`](DocIdSetIterator::next_doc) or
@@ -313,6 +313,21 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIteratorExtensions for Box<T> {
     (**self).get_doc_base_fixed_bit_set()
   }
 }
+impl<T: DocIdSetIterator + ?Sized> BitSetIteratorAccess for Box<T> {
+  fn is_bit_iter(&self) -> bool {
+    (**self).is_bit_iter()
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    (**self).get(index)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    (**self).bit_set_length()
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    (**self).set_doc_id(doc)
+  }
+}
+
 impl DocIdSetIteratorExtensions for EmptyDISI {}
 impl BitSetIteratorAccess for EmptyDISI {}
 
@@ -356,6 +371,21 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIteratorExtensions for &mut T {
     (**self).get_doc_base_fixed_bit_set()
   }
 }
+impl<T: DocIdSetIterator + ?Sized> BitSetIteratorAccess for &mut T {
+  fn is_bit_iter(&self) -> bool {
+    (**self).is_bit_iter()
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    (**self).get(index)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    (**self).bit_set_length()
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    (**self).set_doc_id(doc)
+  }
+}
+
 impl<T: DocIdSetIterator + ?Sized> DocIdSetIterator for &T {
   fn doc_id(&self) -> i32 {
     (**self).doc_id()
@@ -394,6 +424,17 @@ impl<T: DocIdSetIterator + ?Sized> DocIdSetIteratorExtensions for &T {
 
   fn get_doc_base_fixed_bit_set(&self) -> Option<(usize, &FixedBitSet)> {
     (**self).get_doc_base_fixed_bit_set()
+  }
+}
+impl<T: DocIdSetIterator + ?Sized> BitSetIteratorAccess for &T {
+  fn is_bit_iter(&self) -> bool {
+    (**self).is_bit_iter()
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    (**self).get(index)
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    (**self).bit_set_length()
   }
 }
 
@@ -455,6 +496,25 @@ macro_rules! either_docidsetiterator_named {
         where
             $( $T: $crate::core::search::doc_id_set_iterator::DocIdSetIterator ),+
         {}
+        impl<$( $T ),+> $crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+          for $name<$( $T ),+>
+        where
+            $( $T: $crate::core::search::doc_id_set_iterator::DocIdSetIterator ),+
+        {
+            fn is_bit_iter(&self) -> bool {
+                match self { $( Self::$Variant(inner) => inner.is_bit_iter(), )+ }
+            }
+            fn get(&self, index: usize) -> Result<bool> {
+                match self { $( Self::$Variant(inner) => inner.get(index), )+ }
+            }
+            fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+                match self { $( Self::$Variant(inner) => inner.set_doc_id(doc), )+ }
+            }
+            fn bit_set_length(&self) -> Result<usize> {
+                match self { $( Self::$Variant(inner) => inner.bit_set_length(), )+ }
+            }
+        }
+
     };
 }
 either_docidsetiterator_named!(pub DocIdSetIteratorEnum2 { A: A, B: B});

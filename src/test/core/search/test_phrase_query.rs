@@ -982,7 +982,7 @@ fn test_merge_impacts() -> Result<()> {
 
   let mut merged_impacts = merge_impacts_from_ie(vec![impacts1, impacts2])?;
 
-  merged_impacts.impacts_enums.all_disi[0].reset(
+  merged_impacts.impacts_enums.iterator_at_mut(0).reset(
     vec![
       vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
       vec![
@@ -996,7 +996,10 @@ fn test_merge_impacts() -> Result<()> {
   );
 
   // Merge with empty impacts
-  merged_impacts.impacts_enums.all_disi[1].reset(vec![], vec![]);
+  merged_impacts
+    .impacts_enums
+    .iterator_at_mut(1)
+    .reset(vec![], vec![]);
   assert_impacts_eq(
     vec![
       vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
@@ -1012,7 +1015,10 @@ fn test_merge_impacts() -> Result<()> {
   )?;
 
   // Merge with dummy impacts
-  merged_impacts.impacts_enums.all_disi[1].reset(vec![vec![Impact::new(i32::MAX, 1)]], vec![5000]);
+  merged_impacts
+    .impacts_enums
+    .iterator_at_mut(1)
+    .reset(vec![vec![Impact::new(i32::MAX, 1)]], vec![5000]);
   assert_impacts_eq(
     vec![
       vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
@@ -1028,7 +1034,10 @@ fn test_merge_impacts() -> Result<()> {
   )?;
 
   // Merge with dummy impacts that we don't special case
-  merged_impacts.impacts_enums.all_disi[1].reset(vec![vec![Impact::new(i32::MAX, 2)]], vec![5000]);
+  merged_impacts
+    .impacts_enums
+    .iterator_at_mut(1)
+    .reset(vec![vec![Impact::new(i32::MAX, 2)]], vec![5000]);
   assert_impacts_eq(
     vec![
       vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
@@ -1044,7 +1053,7 @@ fn test_merge_impacts() -> Result<()> {
   )?;
 
   // First level of impacts2 doesn't cover the first level of impacts1
-  merged_impacts.impacts_enums.all_disi[1].reset(
+  merged_impacts.impacts_enums.iterator_at_mut(1).reset(
     vec![
       vec![Impact::new(2, 10), Impact::new(6, 13)],
       vec![Impact::new(3, 9), Impact::new(5, 11), Impact::new(7, 13)],
@@ -1061,7 +1070,7 @@ fn test_merge_impacts() -> Result<()> {
   )?;
 
   // First level of impacts2 doesn't cover the first level of impacts1
-  merged_impacts.impacts_enums.all_disi[1].reset(
+  merged_impacts.impacts_enums.iterator_at_mut(1).reset(
     vec![
       vec![Impact::new(2, 10), Impact::new(6, 11)],
       vec![Impact::new(3, 9), Impact::new(5, 11), Impact::new(7, 13)],
@@ -1087,7 +1096,7 @@ fn test_merge_impacts() -> Result<()> {
     &merged_impacts.get_impacts()?,
   )?;
 
-  merged_impacts.impacts_enums.all_disi[1].reset(
+  merged_impacts.impacts_enums.iterator_at_mut(1).reset(
     vec![
       vec![Impact::new(4, 10), Impact::new(9, 13)],
       vec![
@@ -1116,7 +1125,7 @@ fn test_merge_impacts() -> Result<()> {
   )?;
 
   // Make sure negative norms are treated as unsigned
-  merged_impacts.impacts_enums.all_disi[0].reset(
+  merged_impacts.impacts_enums.iterator_at_mut(0).reset(
     vec![
       vec![Impact::new(3, 10), Impact::new(5, -10), Impact::new(8, -5)],
       vec![
@@ -1129,7 +1138,7 @@ fn test_merge_impacts() -> Result<()> {
     vec![110, 945],
   );
 
-  merged_impacts.impacts_enums.all_disi[1].reset(
+  merged_impacts.impacts_enums.iterator_at_mut(1).reset(
     vec![
       vec![Impact::new(2, 10), Impact::new(12, -4)],
       vec![Impact::new(3, 9), Impact::new(12, -4), Impact::new(20, -1)],

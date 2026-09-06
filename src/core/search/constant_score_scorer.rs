@@ -216,6 +216,7 @@ where
       },
     }
   }
+
   #[cfg(test)]
   fn kind(&self) -> ScorerKind {
     ScorerKind::ConstantScore
@@ -271,6 +272,41 @@ where
   TPI: TwoPhaseIterator,
 {
 }
+impl<DISI, TPI> crate::core::search::doc_id_set_iterator::BitSetIteratorAccess
+  for ConstantScoreIterator<DISI, TPI>
+where
+  DISI: DocIdSetIterator,
+  TPI: TwoPhaseIterator,
+{
+  fn is_bit_iter(&self) -> bool {
+    matches!(self, Self::Disi(iterator) if iterator.is_bit_iter())
+  }
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      Self::Disi(iterator) => iterator.get(index),
+      _ => Err(LuceneError::unsupported_operation(
+        "Wrapped iterator is not a BitSetIterator",
+      )),
+    }
+  }
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    match self {
+      Self::Disi(iterator) => iterator.set_doc_id(doc),
+      _ => Err(LuceneError::unsupported_operation(
+        "Wrapped iterator is not a BitSetIterator",
+      )),
+    }
+  }
+  fn bit_set_length(&self) -> Result<usize> {
+    match self {
+      Self::Disi(iterator) => iterator.bit_set_length(),
+      _ => Err(LuceneError::unsupported_operation(
+        "Wrapped iterator is not a BitSetIterator",
+      )),
+    }
+  }
+}
+
 impl<DISI, TPI> DocIdSetIterator for ConstantScoreIterator<DISI, TPI>
 where
   DISI: DocIdSetIterator,
