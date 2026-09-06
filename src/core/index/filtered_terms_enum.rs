@@ -223,14 +223,20 @@ where
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
     match &self.hook {
       FilteredTermsEnumHook::Default => self.tenum.prepare_seek_exact(text),
-      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation("")),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(format!(
+        "{} does not support seeking",
+        std::any::type_name::<F>()
+      ))),
     }
   }
 
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
     match &self.hook {
       FilteredTermsEnumHook::Default => self.tenum.get_prepare_seek_exact_status(target),
-      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation("")),
+      FilteredTermsEnumHook::Filtered(_) => Err(LuceneError::unsupported_operation(format!(
+        "{} does not support seeking",
+        std::any::type_name::<F>()
+      ))),
     }
   }
 

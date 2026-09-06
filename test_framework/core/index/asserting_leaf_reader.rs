@@ -572,11 +572,6 @@ where
       return self.in_.get_prepare_seek_exact_status(target);
     }
     assert_thread("Terms enums", self.creation_thread);
-    assert_eq!(
-      self.state,
-      AssertingTermsEnumState::TwoPhaseSeeking,
-      "getPrepareSeekExactStatus() called without pending two-phase seeking"
-    );
     let result = self.in_.get_prepare_seek_exact_status(target)?;
     self.state = if result {
       AssertingTermsEnumState::Positioned

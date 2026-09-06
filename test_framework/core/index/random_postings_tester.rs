@@ -1439,16 +1439,12 @@ impl TermsEnum for SeedTermsEnum {
     Ok(self.seek_ceil(term)? == SeekStatus::Found)
   }
 
-  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::unsupported_operation(format!(
-      "prepare_seek_exact({text})"
-    )))
+  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    Ok(Some(()))
   }
 
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(format!(
-      "get_prepare_seek_exact_status({target})"
-    )))
+    self.seek_exact(target)
   }
 
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {

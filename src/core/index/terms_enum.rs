@@ -62,21 +62,26 @@ pub trait TermsEnum: BytesRefIterator {
   /// unpositioned.
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool>;
   /// Two-phase [`seek_exact`](TermsEnum::seek_exact). The first phase
-  /// typically calls [`IndexInput::prefetch`](crate::core::store::index_input::IndexInput) on the right range of bytes
-  /// under the hood, while the second phase
-  /// [`see.exact`](TermsEnum::seek_exact) actually seeks the term within
-  /// these bytes. This can be used to parallelize I/O across multiple
-  /// terms by calling [`prepare_seek_exact`](TermsEnum::prepare_seek_exact)
-  /// on multiple terms enums before calling `IOBooleanSupplier::get()`.
+  /// typically calls [`IndexInput::prefetch`](crate::core::store::index_input::IndexInput::prefetch)
+  /// on the relevant bytes. The second phase,
+  /// [`get_prepare_seek_exact_status`](Self::get_prepare_seek_exact_status),
+  /// actually seeks the term within those bytes.
   ///
-  /// **NOTE**: It is illegal to call other methods on this [`TermsEnum`]
-  /// after calling this method until
-  /// [`seek_exact`](TermsEnum::seek_exact) is called.
+  /// Prepare multiple terms enums before completing their seeks to allow
+  /// their I/O to run in parallel.
   ///
-  /// ⚠️ **Warning:** After calling this method, you **must** call
-  /// [`Self::get_prepare_seek_exact_status`] to retrieve the final result,
-  /// otherwise the state remains incomplete.
+  /// Returns `None` if the term can be ruled out without performing I/O.
+  /// Returns `Some(())` when a second phase is available; this does not mean
+  /// that the term has been found.
+  ///
+  /// After `Some(())`, complete the seek on the same thread with the same
+  /// target term before calling other methods on this terms enum. A `None`
+  /// result has no second phase to complete.
   fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>>;
+  /// Executes a prepared seek and returns whether the target term exists.
+  ///
+  /// This may perform I/O and is not a cached-status accessor. The target
+  /// must be the same term passed to [`prepare_seek_exact`](Self::prepare_seek_exact).
   fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool>;
 
   /// Seeks to the specified term, if it exists, or to the next (ceiling)

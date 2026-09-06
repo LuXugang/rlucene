@@ -656,16 +656,18 @@ where
     ))
   }
 
-  fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::unsupported_operation(
-      "MigratingTermsEnum::prepare_seek_exact",
-    ))
+  fn prepare_seek_exact(&mut self, text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
+    match self {
+      Self::Delegate(terms) => terms.prepare_seek_exact(text),
+      Self::Filtered(terms) => terms.prepare_seek_exact(text),
+    }
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(
-      "MigratingTermsEnum::get_prepare_seek_exact_status",
-    ))
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    match self {
+      Self::Delegate(terms) => terms.get_prepare_seek_exact_status(target),
+      Self::Filtered(terms) => terms.get_prepare_seek_exact_status(target),
+    }
   }
 
   fn seek_ceil(&mut self, _term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {

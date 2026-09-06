@@ -1419,11 +1419,11 @@ impl TermsEnum for TVTermsEnum {
   }
 
   fn prepare_seek_exact(&mut self, _text: &BytesRef<Vec<u8>>) -> Result<Option<()>> {
-    Err(LuceneError::unsupported_operation(""))
+    Ok(Some(()))
   }
 
-  fn get_prepare_seek_exact_status(&mut self, _target: &BytesRef<Vec<u8>>) -> Result<bool> {
-    Err(LuceneError::unsupported_operation(""))
+  fn get_prepare_seek_exact_status(&mut self, target: &BytesRef<Vec<u8>>) -> Result<bool> {
+    self.seek_exact(target)
   }
 
   fn seek_ceil(&mut self, text: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
