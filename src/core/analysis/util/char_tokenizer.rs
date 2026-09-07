@@ -211,56 +211,72 @@ pub trait CharTokenizerBase {
 /// Creates a new instance of [`CharTokenizer`] using a custom predicate, supplied as a method
 /// reference or lambda expression.
 /// The predicate should return `true` for all valid token characters.
-pub fn from_token_char_predicate(
-  token_char_predicate: fn(i32) -> bool,
-) -> Result<CharTokenizer<CharTokenizerImpl>> {
+/// Function pointers and closures with captured state are both accepted.
+pub fn from_token_char_predicate<P>(
+  token_char_predicate: P,
+) -> Result<CharTokenizer<CharTokenizerImpl<P>>>
+where
+  P: Fn(i32) -> bool,
+{
   from_token_char_predicate_with_attr(default_attribute()?, token_char_predicate)
 }
 
 /// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate, supplied as method reference or lambda expression. The predicate should return true for all valid token characters.
-pub fn from_token_char_predicate_with_attr(
+pub fn from_token_char_predicate_with_attr<P>(
   att: Attributes,
-  f: fn(i32) -> bool,
-) -> Result<CharTokenizer<CharTokenizerImpl>> {
+  f: P,
+) -> Result<CharTokenizer<CharTokenizerImpl<P>>>
+where
+  P: Fn(i32) -> bool,
+{
   CharTokenizerImpl::new(att, f)
 }
 /// Creates a new instance of CharTokenizer using a custom predicate,
 /// supplied as method reference or lambda expression.
 /// The predicate should return true for all valid token separator characters.
 /// This method is provided for convenience to easily use predicates that are negated (they match the separator characters, not the token characters).
-pub fn from_separator_char_predicate(
-  separator_char_predicate: fn(i32) -> bool,
-) -> Result<CharTokenizer<CharTokenizerImpl>> {
+pub fn from_separator_char_predicate<P>(
+  separator_char_predicate: P,
+) -> Result<CharTokenizer<CharTokenizerImpl<P>>>
+where
+  P: Fn(i32) -> bool,
+{
   from_separator_char_predicate_with_attr(default_attribute()?, separator_char_predicate)
 }
 /// Creates a new instance of CharTokenizer with the supplied attribute factory using a custom predicate,
 /// supplied as method reference or lambda expression.
 /// The predicate should return true for all valid token separator characters.
-pub fn from_separator_char_predicate_with_attr(
+pub fn from_separator_char_predicate_with_attr<P>(
   att: Attributes,
-  separator_char_predicate: fn(i32) -> bool,
-) -> Result<CharTokenizer<CharTokenizerImpl>> {
+  separator_char_predicate: P,
+) -> Result<CharTokenizer<CharTokenizerImpl<P>>>
+where
+  P: Fn(i32) -> bool,
+{
   from_token_char_predicate_with_attr(att, separator_char_predicate)
 }
 
 pub const DEFAULT_MAX_WORD_LEN: usize = 255;
 const I_BUFFER_SIZE: i32 = 4096;
 
-pub struct CharTokenizerImpl {
-  token_char_predicate: fn(i32) -> bool,
+pub struct CharTokenizerImpl<P = fn(i32) -> bool> {
+  token_char_predicate: P,
 }
-impl CharTokenizerImpl {
-  fn new(
-    att: Attributes,
-    token_char_predicate: fn(i32) -> bool,
-  ) -> Result<CharTokenizer<CharTokenizerImpl>> {
+impl<P> CharTokenizerImpl<P>
+where
+  P: Fn(i32) -> bool,
+{
+  fn new(att: Attributes, token_char_predicate: P) -> Result<CharTokenizer<CharTokenizerImpl<P>>> {
     let v = CharTokenizerImpl {
       token_char_predicate,
     };
     CharTokenizer::with_att(att, v)
   }
 }
-impl CharTokenizerBase for CharTokenizerImpl {
+impl<P> CharTokenizerBase for CharTokenizerImpl<P>
+where
+  P: Fn(i32) -> bool,
+{
   fn is_token_char(&self, c: &char) -> bool {
     (self.token_char_predicate)(*c as i32)
   }

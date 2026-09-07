@@ -251,8 +251,8 @@ pub(crate) trait ComplexExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut qb = MultiPhraseQuery::builder();
-    qb.add_terms(&self.ta(&["w1"]))?;
-    qb.add_terms(&self.ta(&["w2"]))?;
+    qb.add_terms(self.ta(&["w1"]))?;
+    qb.add_terms(self.ta(&["w2"]))?;
     qb.set_slop(1)?;
     let q: Query = qb.build().into();
     self.bq_test(

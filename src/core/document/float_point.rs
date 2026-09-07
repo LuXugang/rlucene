@@ -105,7 +105,11 @@ impl FloatPoint {
   }
 
   /// Change the values of this field
-  pub fn set_float_values(&mut self, point: &[f32]) -> Result<()> {
+  pub fn set_float_values<P>(&mut self, point: P) -> Result<()>
+  where
+    P: AsRef<[f32]>,
+  {
+    let point = point.as_ref();
     if self.parent_field.field_type().point_dimension_count() != point.len() {
       return Err(LuceneError::illegal_argument(format!(
         "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
@@ -128,7 +132,11 @@ impl FloatPoint {
   /// # Errors
   ///
   /// Returns an error if the value has zero dimensions.
-  pub fn pack(point: &[f32]) -> Result<BytesRef<Vec<u8>>> {
+  pub fn pack<P>(point: P) -> Result<BytesRef<Vec<u8>>>
+  where
+    P: AsRef<[f32]>,
+  {
+    let point = point.as_ref();
     if point.is_empty() {
       return Err(LuceneError::illegal_argument(
         "point must not be 0 dimensions".to_string(),
@@ -233,14 +241,17 @@ impl FloatPoint {
   /// * `field` - Field name.
   /// * `lower_value` - Lower portion of the range (inclusive).
   /// * `upper_value` - Upper portion of the range (inclusive).
-  pub fn new_range_query_n<T, V>(
+  ///
+  /// Lower and upper bounds may independently use arrays, vectors, or slices.
+  pub fn new_range_query_n<T, L, U>(
     field: T,
-    lower_value: V,
-    upper_value: V,
+    lower_value: L,
+    upper_value: U,
   ) -> Result<PointRangeQuery>
   where
     T: Into<String>,
-    V: AsRef<[f32]>,
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
   {
     let field = field.into();
     let len = lower_value.as_ref().len();
@@ -289,14 +300,17 @@ impl BytesRefIterator for FloatPointSetBytesRefIterator {
 }
 
 impl FieldBase for FloatPoint {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::illegal_argument(
       "cannot change value type from float to BytesRef".to_string(),
     ))
   }
 
   fn set_float_value(&mut self, value: f32) -> Result<()> {
-    self.set_float_values(&[value])
+    self.set_float_values([value])
   }
 }
 

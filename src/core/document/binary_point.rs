@@ -64,11 +64,12 @@ impl BinaryPoint {
   /// # Arguments
   ///
   /// * `name` - Field name.
-  /// * `point` - Binary point value.
-  pub fn new<T, P>(name: T, point: P) -> Result<BinaryPoint>
+  /// * `point` - Binary dimensions supplied as byte arrays, vectors, or slices.
+  pub fn new<T, P, B>(name: T, point: P) -> Result<BinaryPoint>
   where
     T: Into<String>,
-    P: AsRef<[Vec<u8>]>,
+    P: AsRef<[B]>,
+    B: AsRef<[u8]>,
   {
     let point = point.as_ref();
     let packed = Self::pack(point)?;
@@ -78,10 +79,12 @@ impl BinaryPoint {
   }
 
   /// Expert API.
-  pub fn with_type<T>(name: T, packed_point: Vec<u8>, field_type: FieldType) -> Result<BinaryPoint>
+  pub fn with_type<T, V>(name: T, packed_point: V, field_type: FieldType) -> Result<BinaryPoint>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
+    let packed_point = packed_point.into();
     let expected = field_type.point_dimension_count() * field_type.point_num_bytes();
     if packed_point.len() != expected {
       return Err(LuceneError::illegal_argument(format!(
@@ -96,7 +99,10 @@ impl BinaryPoint {
     Ok(BinaryPoint { parent_field })
   }
 
-  fn get_type_from_dims(point: &[Vec<u8>]) -> Result<FieldType> {
+  fn get_type_from_dims<B>(point: &[B]) -> Result<FieldType>
+  where
+    B: AsRef<[u8]>,
+  {
     if point.is_empty() {
       return Err(LuceneError::illegal_argument(
         "point must not be 0 dimensions".to_string(),
@@ -108,6 +114,7 @@ impl BinaryPoint {
         "point must not be 0 dimensions".to_string(),
       ));
     };
+    let first_dim = first_dim.as_ref();
     if first_dim.is_empty() {
       return Err(LuceneError::illegal_argument(
         "point must not have 0-length values".to_string(),
@@ -116,6 +123,7 @@ impl BinaryPoint {
     let bytes_per_dim = first_dim.len();
 
     for one_dim in remaining_dims {
+      let one_dim = one_dim.as_ref();
       if one_dim.is_empty() {
         return Err(LuceneError::illegal_argument(
           "point must not have 0-length values".to_string(),
@@ -140,7 +148,11 @@ impl BinaryPoint {
     Ok(ty)
   }
 
-  pub fn pack(point: &[Vec<u8>]) -> Result<BytesRef<Vec<u8>>> {
+  /// Packs dimensions supplied as byte arrays, vectors, or slices.
+  pub fn pack<B>(point: &[B]) -> Result<BytesRef<Vec<u8>>>
+  where
+    B: AsRef<[u8]>,
+  {
     if point.is_empty() {
       return Err(LuceneError::illegal_argument(
         "point must not be 0 dimensions".to_string(),
@@ -148,7 +160,7 @@ impl BinaryPoint {
     }
 
     if point.len() == 1 {
-      return Ok(BytesRef::from_bytes(point[0].clone()));
+      return Ok(BytesRef::from_bytes(point[0].as_ref().to_vec()));
     }
 
     let Some((first_dim, remaining_dims)) = point.split_first() else {
@@ -156,6 +168,7 @@ impl BinaryPoint {
         "point must not be 0 dimensions".to_string(),
       ));
     };
+    let first_dim = first_dim.as_ref();
     if first_dim.is_empty() {
       return Err(LuceneError::illegal_argument(
         "point must not have 0-length values".to_string(),
@@ -163,6 +176,7 @@ impl BinaryPoint {
     }
     let bytes_per_dim = first_dim.len();
     for d in remaining_dims {
+      let d = d.as_ref();
       if d.is_empty() {
         return Err(LuceneError::illegal_argument(
           "point must not have 0-length values".to_string(),
@@ -179,7 +193,7 @@ impl BinaryPoint {
 
     let mut packed = vec![0u8; bytes_per_dim * point.len()];
     for (i, dim) in point.iter().enumerate() {
-      packed.copy_from(&dim[0..bytes_per_dim], i * bytes_per_dim);
+      packed.copy_from(&dim.as_ref()[0..bytes_per_dim], i * bytes_per_dim);
     }
 
     Ok(BytesRef::from_bytes(packed))
@@ -194,10 +208,12 @@ impl BinaryPoint {
   ///
   /// * `field` - Field name.
   /// * `value` - Binary value.
-  pub fn new_exact_query<T>(field: T, value: Vec<u8>) -> Result<PointRangeQuery>
+  pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
+    let value = value.into();
     Self::new_range_query(field, value.clone(), value)
   }
 
@@ -211,11 +227,15 @@ impl BinaryPoint {
   /// * `field` - Field name.
   /// * `lower` - Lower portion of the range (inclusive).
   /// * `upper` - Upper portion of the range (inclusive).
-  pub fn new_range_query<T>(field: T, lower: Vec<u8>, upper: Vec<u8>) -> Result<PointRangeQuery>
+  pub fn new_range_query<T, L, U>(field: T, lower: L, upper: U) -> Result<PointRangeQuery>
   where
     T: Into<String>,
+    L: Into<Vec<u8>>,
+    U: Into<Vec<u8>>,
   {
     let field = field.into();
+    let lower = lower.into();
+    let upper = upper.into();
     #[cfg(debug_assertions)]
     check_args(&field, lower.as_ref(), upper.as_ref())?;
     Self::new_range_query_multi_dim(field, &[lower], &[upper])
@@ -228,14 +248,20 @@ impl BinaryPoint {
   /// * `field` - Field name.
   /// * `lower` - Lower portion of the range (inclusive).
   /// * `upper` - Upper portion of the range (inclusive).
-  pub fn new_range_query_multi_dim<T>(
+  pub fn new_range_query_multi_dim<T, L, U, LB, UB>(
     field: T,
-    lower: &[Vec<u8>],
-    upper: &[Vec<u8>],
+    lower: L,
+    upper: U,
   ) -> Result<PointRangeQuery>
   where
     T: Into<String>,
+    L: AsRef<[LB]>,
+    U: AsRef<[UB]>,
+    LB: AsRef<[u8]>,
+    UB: AsRef<[u8]>,
   {
+    let lower = lower.as_ref();
+    let upper = upper.as_ref();
     if lower.len() != upper.len() {
       return Err(LuceneError::illegal_argument(
         "lowerValue.length != upperValue.length".to_string(),
@@ -264,17 +290,21 @@ impl BinaryPoint {
   /// # Arguments
   ///
   /// * `field` - Field name.
-  /// * `values` - All values to match.
-  pub fn new_set_query<T, V>(field: T, values: V) -> Result<Query>
+  /// * `values` - All values to match, as byte arrays, vectors, or slices.
+  ///
+  /// For an empty set, pass `Vec::<Vec<u8>>::new()`.
+  pub fn new_set_query<T, V, B>(field: T, values: V) -> Result<Query>
   where
     T: Into<String>,
-    V: AsRef<[Vec<u8>]>,
+    V: AsRef<[B]>,
+    B: AsRef<[u8]>,
   {
     let field = field.into();
     let values = values.as_ref();
 
     let mut bytes_per_dim = None;
     for value in values {
+      let value = value.as_ref();
       match bytes_per_dim {
         None => bytes_per_dim = Some(value.len()),
         Some(bytes_per_dim) if value.len() != bytes_per_dim => {
@@ -292,7 +322,8 @@ impl BinaryPoint {
       return Ok(MatchNoDocsQuery::with_reason("empty BinaryPoint.newSetQuery").into());
     };
 
-    let mut sorted_values = values.to_vec();
+    let mut sorted_values: Vec<Vec<u8>> =
+      values.iter().map(|value| value.as_ref().to_vec()).collect();
     sorted_values.sort();
 
     Ok(
@@ -342,7 +373,10 @@ impl BytesRefIterator for BinaryPointSetBytesRefIterator {
 }
 
 impl FieldBase for BinaryPoint {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::illegal_argument(
       "cannot change value type from binary point to BytesRef".to_string(),
     ))

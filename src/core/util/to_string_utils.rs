@@ -51,7 +51,10 @@ impl ToStringUtils {
   {
     Self::bytes_ref_to_string(b.get_bytes_ref())
   }
-  pub fn bytes_ref_to_string_from_bytes(b: Vec<u8>) -> String {
-    Self::bytes_ref_to_string(&BytesRef::from_bytes(b))
+  pub fn bytes_ref_to_string_from_bytes<B>(b: B) -> String
+  where
+    B: Into<Vec<u8>>,
+  {
+    Self::bytes_ref_to_string(&BytesRef::from_bytes(b.into()))
   }
 }

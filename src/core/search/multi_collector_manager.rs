@@ -26,7 +26,11 @@ pub struct MultiCollectorManager<M> {
 }
 
 impl<M> MultiCollectorManager<M> {
-  pub fn new(collector_managers: Vec<M>) -> Result<Self> {
+  pub fn new<I>(collector_managers: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = M>,
+  {
+    let collector_managers = collector_managers.into_iter().collect::<Vec<M>>();
     if collector_managers.is_empty() {
       return Err(LuceneError::illegal_argument(
         "There must be at least one collector manager",

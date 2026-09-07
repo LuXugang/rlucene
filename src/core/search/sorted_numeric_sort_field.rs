@@ -442,11 +442,15 @@ pub struct NPImpl2 {
   field: String,
 }
 impl NPImpl2 {
-  pub fn new(
+  pub fn new<FName>(
     selector: SortedNumericSelectorType,
     sort_field_type: SortFieldType,
-    field: String,
-  ) -> Self {
+    field: FName,
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       selector,
       sort_field_type,

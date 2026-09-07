@@ -84,13 +84,17 @@ pub struct TermOrdValComparator {
   hits_threshold_reached: bool,
 }
 impl TermOrdValComparator {
-  pub fn new(
-    field: String,
+  pub fn new<FName>(
+    field: FName,
     num_hits: usize,
     sort_missing_last: bool,
     reverse: bool,
     pruning: Pruning,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     let can_skip_documents = pruning != Pruning::None;
     Self {
       ords: vec![0; num_hits],

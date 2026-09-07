@@ -393,14 +393,18 @@ impl<D> ScorerSupplierImpl<D>
 where
   D: DocIdSetIterator,
 {
-  pub fn new(
+  pub fn new<FName>(
     disi: IteratorAndCountDisi<D>,
     score_mode: ScoreMode,
     lower_value: i64,
     upper_value: i64,
-    field: String,
+    field: FName,
     score: f32,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     let cost = disi.cost()?;
     Ok(Self {
       disi: Some(disi),

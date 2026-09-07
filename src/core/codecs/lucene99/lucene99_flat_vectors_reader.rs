@@ -295,31 +295,35 @@ where
     true
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     FlatVectorsReader::search_f32(self, field, target, knn_collector, accept_docs)
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     FlatVectorsReader::search_u8(self, field, target, knn_collector, accept_docs)
   }
 
@@ -358,11 +362,15 @@ where
 
   type RandomVectorScorerF32 = F::RandomVectorScorerF32<OffHeapFloatVectorValuesEnum<Arc<I>, F>>;
 
-  fn get_random_vector_scorer_f32(
+  fn get_random_vector_scorer_f32<TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
-  ) -> Result<Self::RandomVectorScorerF32> {
+    target: TV,
+  ) -> Result<Self::RandomVectorScorerF32>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
     let off_heap_float_vector_values = OffHeapFloatVectorValuesEnum::load(
       field_entry.similarity_function,
@@ -383,11 +391,15 @@ where
 
   type RandomVectorScorerU8 = F::RandomVectorScorerU8<OffHeapByteVectorValuesEnum<Arc<I>, F>>;
 
-  fn get_random_vector_scorer_u8(
+  fn get_random_vector_scorer_u8<TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
-  ) -> Result<Self::RandomVectorScorerU8> {
+    target: TV,
+  ) -> Result<Self::RandomVectorScorerU8>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
     let off_heap_float_vector_values = OffHeapByteVectorValuesEnum::load(
       field_entry.similarity_function,

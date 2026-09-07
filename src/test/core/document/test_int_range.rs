@@ -22,7 +22,7 @@ use crate::core::util::error::lucene_error::Result;
 struct TestIntRange;
 #[test]
 fn test_to_string_int_range() -> Result<()> {
-  let range = IntRange::new("foo", &[1, 11, 21, 31], &[2, 12, 22, 32])?;
+  let range = IntRange::new("foo", [1, 11, 21, 31], [2, 12, 22, 32])?;
 
   assert_eq!(
     "IntRange <foo: [1 : 2] [11 : 12] [21 : 22] [31 : 32]>",

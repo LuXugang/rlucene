@@ -816,7 +816,10 @@ impl ByteVectorValues for EmptyOffHeapVectorValues {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, _query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
     Ok(None)
   }
 }

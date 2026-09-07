@@ -50,9 +50,10 @@ impl TokenStreamToTermAutomatonQuery {
 
   /// Pulls the graph (including [`PositionLengthAttribute`](crate::core::analysis::token_attributes::position_length_attribute::PositionLengthAttribute)) from the provided [`TokenStream`], and
   /// creates the corresponding automaton where arcs are bytes from each term.
-  pub fn to_query<TS>(&self, field: &str, input: &mut TS) -> Result<TermAutomatonQuery>
+  pub fn to_query<TS, F>(&self, field: F, input: &mut TS) -> Result<TermAutomatonQuery>
   where
     TS: TokenStream,
+    F: Into<String>,
   {
     input.reset()?;
 
@@ -94,7 +95,7 @@ impl TokenStreamToTermAutomatonQuery {
       if term.length == 1 && term.bytes[term.offset] == b'*' {
         query.add_any_transition(pos, end_pos)?;
       } else {
-        query.add_transition_bytes(pos, end_pos, &term)?;
+        query.add_transition_bytes(pos, end_pos, term)?;
       }
 
       max_offset = max_offset.max(end_offset);

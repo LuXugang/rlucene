@@ -231,23 +231,20 @@ impl Field {
   /// Creates a field with a binary value.
   ///
   /// # Note
-  /// The provided [`BytesRef`] is **not copied**, so ensure that it is not
-  /// modified until you are done using this field.
+  /// Owned bytes and `BytesRef` values are moved without cloning their buffers.
+  /// Borrowed bytes are copied; existing `BytesRef` offsets are preserved.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `bytes`: [`BytesRef`] pointing to binary content (**not copied**).
+  /// - `bytes`: Binary content convertible to `BytesRef<Vec<u8>>`.
   /// - `field_type`: Field type.
   ///
   /// # Errors
   /// - Returns an error if the field's type is `indexed()`.
-  pub fn from_bytes_ref<T>(
-    name: T,
-    bytes: BytesRef<Vec<u8>>,
-    indexable_field_type: FieldType,
-  ) -> Result<Self>
+  pub fn from_bytes_ref<T, B>(name: T, bytes: B, indexable_field_type: FieldType) -> Result<Self>
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     if indexable_field_type
       .index_options()
@@ -278,7 +275,7 @@ impl Field {
     Ok(Field {
       indexable_field_type,
       name: name.into(),
-      fields_data: FieldDataEnum::Binary(bytes),
+      fields_data: FieldDataEnum::Binary(bytes.into()),
     })
   }
   /// Creates a field with a `String` value.
@@ -346,7 +343,10 @@ impl Field {
   }
   /// Expert: changes the value of this field. See
   /// [`set_string_value`](Field::set_string_value).
-  pub fn set_reader_value(&mut self, value: ReaderEnum) -> Result<()> {
+  pub fn set_reader_value<R>(&mut self, value: R) -> Result<()>
+  where
+    R: Into<ReaderEnum>,
+  {
     match &self.fields_data {
       FieldDataEnum::Reader(_) => {},
       _ => {
@@ -357,18 +357,25 @@ impl Field {
       },
     }
 
-    self.fields_data = FieldDataEnum::Reader(value);
+    self.fields_data = FieldDataEnum::Reader(value.into());
     Ok(())
   }
-  pub fn set_vec_value(&mut self, value: Vec<u8>) -> Result<()> {
-    self.set_bytes_value(BytesRef::from_bytes(value))
+  pub fn set_vec_value<V>(&mut self, value: V) -> Result<()>
+  where
+    V: Into<Vec<u8>>,
+  {
+    self.set_bytes_value(BytesRef::from_bytes(value.into()))
   }
   /// Expert: changes the value of this field. See
   /// [`set_string_value`](Field::set_string_value).
   ///
-  /// NOTE: the provided [`BytesRef`] is not copied, so be sure not to change
-  /// it until you're done with this field.
-  pub fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+  /// Accepts text, byte arrays, vectors, slices, and `BytesRef` values.
+  /// Owned buffers are moved; borrowed inputs are copied. `BytesRef` offsets
+  /// and lengths are preserved.
+  pub fn set_bytes_value<B>(&mut self, value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     match &self.fields_data {
       FieldDataEnum::Binary(_) => {},
       _ => {
@@ -378,7 +385,7 @@ impl Field {
         )));
       },
     }
-    self.fields_data = FieldDataEnum::Binary(value);
+    self.fields_data = FieldDataEnum::Binary(value.into());
     Ok(())
   }
   /// Expert: changes the value of this field. See
@@ -476,7 +483,10 @@ impl Field {
     Ok(())
   }
   /// Expert: sets the token stream to be used for indexing.
-  pub fn set_token_stream(&mut self, token_stream: FieldTokenStreamEnum) -> Result<()> {
+  pub fn set_token_stream<S>(&mut self, token_stream: S) -> Result<()>
+  where
+    S: Into<FieldTokenStreamEnum>,
+  {
     match &self.fields_data {
       FieldDataEnum::TokenStream(_) => {},
       _ => {
@@ -487,7 +497,7 @@ impl Field {
       },
     }
 
-    self.fields_data = FieldDataEnum::TokenStream(token_stream);
+    self.fields_data = FieldDataEnum::TokenStream(token_stream.into());
     Ok(())
   }
 }
@@ -702,7 +712,12 @@ impl Display for Field {
 }
 
 pub trait FieldBase {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  /// Updates binary content from text, byte arrays, vectors, slices, or `BytesRef`.
+  /// Supporting fields move owned buffers and copy borrowed inputs.
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::not_implemented(
       "set_bytes_value not implement",
     ))
@@ -731,7 +746,10 @@ pub trait FieldBase {
       "set_double_value not implement",
     ))
   }
-  fn set_token_stream(&mut self, _token_stream: FieldTokenStreamEnum) -> Result<()> {
+  fn set_token_stream<S>(&mut self, _token_stream: S) -> Result<()>
+  where
+    S: Into<FieldTokenStreamEnum>,
+  {
     Err(LuceneError::not_implemented(
       "set_token_stream not implement",
     ))
@@ -744,7 +762,11 @@ pub trait FieldBase {
       "set_string_value not implement",
     ))
   }
-  fn set_reader_value(&mut self, _value: ReaderEnum) -> Result<()> {
+  /// Updates reader content from a concrete reader or another `ReaderEnum` input.
+  fn set_reader_value<R>(&mut self, _value: R) -> Result<()>
+  where
+    R: Into<ReaderEnum>,
+  {
     Err(LuceneError::not_implemented(
       "set_reader_value not implement",
     ))

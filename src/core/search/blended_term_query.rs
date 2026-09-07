@@ -296,24 +296,36 @@ impl Builder {
   ///
   /// See also:
   /// - [`Self::add_with_boost`]
-  pub fn add(&mut self, term: Term) -> Result<&mut Self> {
+  pub fn add<TermInput>(&mut self, term: TermInput) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     self.add_with_boost(term, 1.0)
   }
 
   /// Add a [`Term`] with the provided boost. The higher the boost, the more this term will
   /// contribute to the overall score of the [`BlendedTermQuery`].
-  pub fn add_with_boost(&mut self, term: Term, boost: f32) -> Result<&mut Self> {
+  pub fn add_with_boost<TermInput>(&mut self, term: TermInput, boost: f32) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     self.add_with_term_states(term, boost, None)
   }
 
   /// Expert: Add a [`Term`] with the provided boost and context. This method is useful if you
   /// already have a [`TermStates`] object constructed for the given term.
-  pub fn add_with_term_states(
+  pub fn add_with_term_states<TermInput>(
     &mut self,
-    term: Term,
+    term: TermInput,
     boost: f32,
     context: Option<TermStates>,
-  ) -> Result<&mut Self> {
+  ) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     if self.num_terms >= index_searcher::get_max_clause_count() {
       return Err(index_searcher::new_nested());
     }

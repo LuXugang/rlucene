@@ -95,12 +95,19 @@ impl PhraseQuery {
   /// list of terms at consecutive positions in `field`, and at a maximum edit
   /// distance of `slop`.
   ///
+  /// Accepts arrays, vectors, or iterators of byte buffers or `BytesRef` values.
+  /// For an empty query, pass `std::iter::empty::<BytesRef<Vec<u8>>>()`.
+  ///
   /// For more complicated use-cases, use [`PhraseQuery::builder`](Builder).
   ///
   /// # See also
   ///
   /// - [`PhraseQuery::get_slop`]
-  pub fn from_bytes(slop: usize, field: &str, terms: Vec<BytesRef<Vec<u8>>>) -> Result<Self> {
+  pub fn from_bytes<I, B>(slop: usize, field: &str, terms: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = B>,
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     let terms = to_terms_from_bytes(field, terms);
     let positions = incremental_positions(terms.len());
     PhraseQuery::new(slop, terms, positions)
@@ -108,7 +115,11 @@ impl PhraseQuery {
 
   /// Create a phrase query which will match documents that contain the given
   /// list of terms at consecutive positions in `field`.
-  pub fn from_bytes_no_slop(field: &str, terms: Vec<BytesRef<Vec<u8>>>) -> Result<Self> {
+  pub fn from_bytes_no_slop<I, B>(field: &str, terms: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = B>,
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Self::from_bytes(0, field, terms)
   }
 
@@ -381,7 +392,11 @@ impl Builder {
   ///
   /// The relative position of the term is the one immediately after the last
   /// term added.
-  pub fn add_term(&mut self, term: Term) -> Result<&mut Self> {
+  pub fn add_term<TermInput>(&mut self, term: TermInput) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     let position = match self.positions.last() {
       None => 0,
       Some(&last) => last + 1,
@@ -398,7 +413,11 @@ impl Builder {
   /// If the position is equal, you most likely should be using
   /// [`MultiPhraseQuery`](crate::core::search::multi_phrase_query::MultiPhraseQuery) instead, which only requires one term at each position
   /// to match; this query requires all of them.
-  pub fn add(&mut self, term: Term, position: usize) -> Result<&mut Self> {
+  pub fn add<TermInput>(&mut self, term: TermInput, position: usize) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     if let Some(&last_position) = self.positions.last()
       && position < last_position
     {
@@ -444,12 +463,15 @@ where
   terms
 }
 
-fn to_terms_from_bytes(field: &str, term_bytes: Vec<BytesRef<Vec<u8>>>) -> Vec<Term> {
-  let mut terms = Vec::with_capacity(term_bytes.len());
-  for b in term_bytes {
-    terms.push(Term::new(field, b));
-  }
-  terms
+fn to_terms_from_bytes<I, B>(field: &str, term_bytes: I) -> Vec<Term>
+where
+  I: IntoIterator<Item = B>,
+  B: Into<BytesRef<Vec<u8>>>,
+{
+  term_bytes
+    .into_iter()
+    .map(|bytes| Term::new(field, bytes))
+    .collect()
 }
 /// A guess of the average number of simple operations for the initial seek and buffer refill per
 /// document for the positions of a term. See also

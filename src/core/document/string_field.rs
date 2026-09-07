@@ -116,13 +116,13 @@ impl StringField {
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `value`: [`BytesRef`] value. The provided value is **not cloned**, so it
-  ///   must not be modified until the document(s) holding it have been
-  ///   indexed.
+  /// - `value`: Binary content convertible to `BytesRef<Vec<u8>>`. Owned buffers
+  ///   are moved, borrowed bytes are copied, and `BytesRef` offsets are preserved.
   /// - `stored`: [`Store::Yes`] if the content should also be stored.
-  pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
+  pub fn from_bytes_ref<T, B>(name: T, value: B, store: Store) -> Result<Self>
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     let store = store.into();
     let (field_type, has_stored_value) = if store {
@@ -140,7 +140,10 @@ impl StringField {
 }
 
 impl FieldBase for StringField {
-  fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     self.parent_field.set_bytes_value(value)?;
     self.has_stored_value = true;
     Ok(())

@@ -192,7 +192,7 @@ impl DoubleField {
       values
         .into_iter()
         .map(NumericUtils::double_to_sortable_long)
-        .collect(),
+        .collect::<Vec<_>>(),
     )?;
     Ok(IndexOrDocValuesQuery::new(point_query, dv_query))
   }

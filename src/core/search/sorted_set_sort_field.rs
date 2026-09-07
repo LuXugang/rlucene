@@ -272,7 +272,11 @@ pub struct SProviderImpl1 {
   field: String,
 }
 impl SProviderImpl1 {
-  pub fn new(selector: SortedSetSelectorType, field: String) -> Self {
+  pub fn new<FName>(selector: SortedSetSelectorType, field: FName) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     SProviderImpl1 { selector, field }
   }
 }

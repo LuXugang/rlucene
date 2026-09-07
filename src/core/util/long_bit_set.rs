@@ -88,7 +88,11 @@ impl LongBitSet {
   /// # Arguments
   /// * `stored_bits` - The vector to use as backing storage.
   /// * `num_bits` - the number of bits actually needed
-  pub fn from_bits(stored_bits: Vec<i64>, num_bits: usize) -> Result<Self> {
+  pub fn from_bits<B>(stored_bits: B, num_bits: usize) -> Result<Self>
+  where
+    B: Into<Vec<i64>>,
+  {
+    let stored_bits = stored_bits.into();
     let num_words = Self::bits2words(num_bits)?;
     if num_words > stored_bits.len() {
       return Err(LuceneError::illegal_argument(format!(

@@ -136,15 +136,12 @@ fn output_as_many_buffers(
   mut output: ByteBuffersDataOutput,
 ) -> Result<ByteBuffersIndexInputOwned> {
   let (length, buffers) = output.to_buffer_list_owner(false);
-  let buffers = buffers
-    .into_iter()
-    .map(|buffer| {
-      let position = buffer.position();
-      let mut shared = Cursor::new(Arc::new(buffer.into_inner()));
-      shared.set_position(position);
-      shared
-    })
-    .collect();
+  let buffers = buffers.into_iter().map(|buffer| {
+    let position = buffer.position();
+    let mut shared = Cursor::new(Arc::new(buffer.into_inner()));
+    shared.set_position(position);
+    shared
+  });
   let data_input = ByteBuffersDataInput::new(buffers, length)?;
   let input_name = format!(
     "{} (file={}, buffers={})",

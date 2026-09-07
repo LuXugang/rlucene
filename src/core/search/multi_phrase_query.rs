@@ -161,11 +161,23 @@ impl Builder {
     Ok(self)
   }
 
-  pub fn add_term(&mut self, term: Term) -> Result<&mut Self> {
-    self.add_terms(&[term])
+  pub fn add_term<TermInput>(&mut self, term: TermInput) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
+    self.add_terms([term])
   }
 
-  pub fn add_terms(&mut self, terms: &[Term]) -> Result<&mut Self> {
+  /// Adds alternatives at the next position from an array, vector, or iterator.
+  /// Owned terms are moved; borrowed terms are cloned.
+  /// An empty input can be written as `std::iter::empty::<Term>()`; the first
+  /// group of alternatives must not be empty.
+  pub fn add_terms<I, T>(&mut self, terms: I) -> Result<&mut Self>
+  where
+    I: IntoIterator<Item = T>,
+    T: Into<Term>,
+  {
     let position = if self.positions.is_empty() {
       0
     } else {
@@ -174,7 +186,14 @@ impl Builder {
     self.add_terms_with_position(terms, position)
   }
 
-  pub fn add_terms_with_position(&mut self, terms: &[Term], position: i32) -> Result<&mut Self> {
+  /// Adds alternatives at an explicit position. Owned terms are moved;
+  /// borrowed terms are cloned. Accepts arrays, vectors, and iterators.
+  pub fn add_terms_with_position<I, T>(&mut self, terms: I, position: i32) -> Result<&mut Self>
+  where
+    I: IntoIterator<Item = T>,
+    T: Into<Term>,
+  {
+    let terms: Vec<Term> = terms.into_iter().map(Into::into).collect();
     if self.term_arrays.is_empty() {
       let first_term = terms
         .first()
@@ -185,7 +204,7 @@ impl Builder {
       .field
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("field is not set"))?;
-    for term in terms {
+    for term in &terms {
       if term.field() != field {
         return Err(LuceneError::illegal_argument(format!(
           "All phrase terms must be in the same field ({}): {}",
@@ -193,7 +212,7 @@ impl Builder {
         )));
       }
     }
-    self.term_arrays.push(terms.to_vec());
+    self.term_arrays.push(terms);
     self.positions.push(position);
     Ok(self)
   }

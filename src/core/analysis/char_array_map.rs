@@ -36,8 +36,9 @@ impl<T> CharArrayMap<T> {
       map: HashMap::new(),
     }
   }
-  fn put_all_with<K, F>(&mut self, v: HashMap<K, T>, mut key_fn: F)
+  fn put_all_with<I, K, F>(&mut self, v: I, mut key_fn: F)
   where
+    I: IntoIterator<Item = (K, T)>,
     F: FnMut(K) -> Vec<char>,
   {
     for (k, val) in v {
@@ -53,16 +54,26 @@ impl<T> CharArrayMap<T> {
     }
   }
 
-  pub fn put_all(&mut self, v: HashMap<Vec<char>, T>) {
+  /// Inserts owned character keys from a map, array, or iterator.
+  pub fn put_all<I>(&mut self, v: I)
+  where
+    I: IntoIterator<Item = (Vec<char>, T)>,
+  {
     self.put_all_with(v, |k| k);
   }
 
-  pub fn put_all_str(&mut self, v: HashMap<String, T>) {
-    self.put_all_with(v, |k| k.chars().collect());
+  /// Inserts string keys from a map, array, or iterator.
+  pub fn put_all_str<I, K>(&mut self, v: I)
+  where
+    I: IntoIterator<Item = (K, T)>,
+    K: AsRef<str>,
+  {
+    self.put_all_with(v, |k| k.as_ref().chars().collect());
   }
 
-  pub fn put_all_any<V>(&mut self, v: HashMap<V, T>)
+  pub fn put_all_any<I, V>(&mut self, v: I)
   where
+    I: IntoIterator<Item = (V, T)>,
     V: Display,
   {
     self.put_all_with(v, |k| k.to_string().chars().collect());

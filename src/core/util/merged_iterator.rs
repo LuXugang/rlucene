@@ -53,10 +53,17 @@ where
   E: IteratorExt,
   E::Item: Ord + Clone,
 {
-  pub fn new(iterators: Vec<E>) -> Result<Self> {
+  pub fn new<I>(iterators: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = E>,
+  {
     Self::with_remove_duplicates(true, iterators)
   }
-  pub fn with_remove_duplicates(remove_duplicates: bool, iterators: Vec<E>) -> Result<Self> {
+  pub fn with_remove_duplicates<I>(remove_duplicates: bool, iterators: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = E>,
+  {
+    let iterators = iterators.into_iter().collect::<Vec<_>>();
     let len = iterators.len();
     let mut sub_iterators = Vec::new();
     for (index, mut it) in iterators.into_iter().enumerate() {

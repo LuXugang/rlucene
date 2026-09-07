@@ -52,7 +52,11 @@ pub struct SortedNumericDocValuesRangeQuery {
   upper_value: i64,
 }
 impl SortedNumericDocValuesRangeQuery {
-  pub fn new(field: String, lower_value: i64, upper_value: i64) -> Self {
+  pub fn new<FName>(field: FName, lower_value: i64, upper_value: i64) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       id: Identity::new(),
       field,
@@ -265,8 +269,8 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = vec![self.query.field.clone()];
-    DocValues::is_cacheable(ctx, field.as_ref())
+    let field = [self.query.field.as_str()];
+    DocValues::is_cacheable(ctx, field)
   }
 }
 

@@ -53,28 +53,30 @@ impl KnnVectorsReader for DummyKnnVectorsReader {
 
   type QuantizedByteVectorValues = DummyByteVectorValues;
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<f32>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
     dummy_unreachable!()
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<u8>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> crate::core::util::error::lucene_error::Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {

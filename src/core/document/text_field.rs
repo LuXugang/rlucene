@@ -148,7 +148,10 @@ impl FieldBase for TextField {
     Ok(())
   }
 
-  fn set_reader_value(&mut self, value: ReaderEnum) -> Result<()> {
+  fn set_reader_value<R>(&mut self, value: R) -> Result<()>
+  where
+    R: Into<ReaderEnum>,
+  {
     self.parent_field.set_reader_value(value)
   }
 }

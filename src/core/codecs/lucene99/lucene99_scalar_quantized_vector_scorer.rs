@@ -60,15 +60,17 @@ where
     ScalarQuantizedRandomVectorScorerSupplier::new(vector_values, similarity_function)
   }
 
-  pub(crate) fn get_random_vector_scorer_f32<V>(
+  pub(crate) fn get_random_vector_scorer_f32<V, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: V,
-    target: Vec<f32>,
+    target: TV,
   ) -> Result<ScalarQuantizedRandomVectorScorerEnum<V>>
   where
+    TV: Into<Vec<f32>>,
     V: QuantizedByteVectorValues,
   {
+    let target = target.into();
     let scalar_quantizer = vector_values.get_scalar_quantizer()?;
     let mut target_bytes = vec![0; target.len()];
     let offset_correction = quantize_query(
@@ -104,13 +106,14 @@ pub trait ScalarQuantizedVectorsScorer: FlatVectorsScorer + Clone {
   where
     V: QuantizedByteVectorValues;
 
-  fn get_random_vector_scorer_f32_quantized<V>(
+  fn get_random_vector_scorer_f32_quantized<V, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: V,
-    target: Vec<f32>,
+    target: TV,
   ) -> Result<Self::QuantizedRandomVectorScorer<V>>
   where
+    TV: Into<Vec<f32>>,
     V: QuantizedByteVectorValues;
 }
 
@@ -139,15 +142,17 @@ where
   where
     V: QuantizedByteVectorValues;
 
-  fn get_random_vector_scorer_f32_quantized<V>(
+  fn get_random_vector_scorer_f32_quantized<V, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: V,
-    target: Vec<f32>,
+    target: TV,
   ) -> Result<Self::QuantizedRandomVectorScorer<V>>
   where
+    TV: Into<Vec<f32>>,
     V: QuantizedByteVectorValues,
   {
+    let target = target.into();
     self.get_random_vector_scorer_f32(similarity_function, vector_values, target)
   }
 }
@@ -199,15 +204,17 @@ where
   where
     T: FloatVectorValues;
 
-  fn get_random_vector_scorer_f32<K>(
+  fn get_random_vector_scorer_f32<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<f32>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerF32<K>>
   where
+    TV: Into<Vec<f32>>,
     K: FloatVectorValues,
   {
+    let target = target.into();
     // It is possible to get to this branch during initial indexing and flush.
     self.non_quantized_delegate.get_random_vector_scorer_f32(
       similarity_function,
@@ -221,15 +228,17 @@ where
   where
     T: ByteVectorValues;
 
-  fn get_random_vector_scorer_u8<K>(
+  fn get_random_vector_scorer_u8<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<u8>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerU8<K>>
   where
+    TV: Into<Vec<u8>>,
     K: ByteVectorValues,
   {
+    let target = target.into();
     self.non_quantized_delegate.get_random_vector_scorer_u8(
       similarity_function,
       vector_values,

@@ -213,8 +213,14 @@ pub struct SizedFile {
 
 impl SizedFile {
   /// Creates a new [`SizedFile`] instance.
-  pub fn new(name: String, length: i64) -> Self {
-    SizedFile { name, length }
+  pub fn new<N>(name: N, length: i64) -> Self
+  where
+    N: Into<String>,
+  {
+    SizedFile {
+      name: name.into(),
+      length,
+    }
   }
 }
 

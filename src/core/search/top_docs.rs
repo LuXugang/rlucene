@@ -37,7 +37,11 @@ pub struct TopDocs<S> {
 }
 impl<S> TopDocs<S> {
   /// Constructs a new [`TopDocs`].
-  pub fn new(total_hits: TotalHits, score_docs: Vec<S>) -> Self {
+  pub fn new<I>(total_hits: TotalHits, score_docs: I) -> Self
+  where
+    I: IntoIterator<Item = S>,
+  {
+    let score_docs = score_docs.into_iter().collect::<Vec<S>>();
     Self {
       total_hits,
       score_docs,
@@ -52,13 +56,16 @@ impl<S> TopDocs<S> {
 /// See also: [`merge_top_field_docs_with_start(Sort, int, int, TopFieldDocs[])`](merge_top_field_docs_with_start)
 ///
 /// lucene.experimental
-pub fn merge_top_field_docs(
+pub fn merge_top_field_docs<I>(
   sort: &Sort,
   top_n: usize,
   // The reason the type of shard_hits is Vec<TopDocs<TopFieldScoreDoc>> instead of Vec<TopFieldDocs>
   // is that the field property inside TopFieldDocs is currently unused.
-  shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
-) -> Result<TopFieldDocs> {
+  shard_hits: I,
+) -> Result<TopFieldDocs>
+where
+  I: IntoIterator<Item = TopDocs<TopFieldScoreDoc>>,
+{
   merge_top_field_docs_with_start(sort, 0, top_n, shard_hits)
 }
 /// Same as [`merge_top_field_docs(Sort, int, TopFieldDocs[])`](merge_top_field_docs) but also ignores the top `start` top docs.
@@ -67,25 +74,32 @@ pub fn merge_top_field_docs(
 /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
 /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
 /// belong to the same searcher).
-pub fn merge_top_field_docs_with_start(
+pub fn merge_top_field_docs_with_start<I>(
   sort: &Sort,
   start: usize,
   top_n: usize,
-  shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
-) -> Result<TopFieldDocs> {
+  shard_hits: I,
+) -> Result<TopFieldDocs>
+where
+  I: IntoIterator<Item = TopDocs<TopFieldScoreDoc>>,
+{
   merge_top_field_docs_with_comparator(sort, start, top_n, shard_hits, DefaultTieBreaker::default())
 }
 /// Pass in a custom tie breaker for ordering results
-pub fn merge_top_field_docs_with_comparator<C>(
+pub fn merge_top_field_docs_with_comparator<C, I>(
   sort: &Sort,
   start: usize,
   size: usize,
-  shard_hits: Vec<TopDocs<TopFieldScoreDoc>>,
+  shard_hits: I,
   tie_breaker: C,
 ) -> Result<TopFieldDocs>
 where
   C: Comparator<TopFieldScoreDoc>,
+  I: IntoIterator<Item = TopDocs<TopFieldScoreDoc>>,
 {
+  let shard_hits = shard_hits
+    .into_iter()
+    .collect::<Vec<TopDocs<TopFieldScoreDoc>>>();
   let len = shard_hits.len();
   let cmp = MergeSortQueueCmp::new(sort, &shard_hits, tie_breaker)?;
   let queue = PriorityQueue::new(len, &cmp)?;
@@ -96,9 +110,10 @@ where
 /// sorting by score. Each [`TopDocs`] instance must be sorted.
 ///
 /// See also: [`merge_top_docs_with_start`].
-pub fn merge_top_docs<S>(top_n: usize, shard_hits: Vec<TopDocs<S>>) -> Result<TopDocs<S>>
+pub fn merge_top_docs<S, I>(top_n: usize, shard_hits: I) -> Result<TopDocs<S>>
 where
   S: ScoreDocLike,
+  I: IntoIterator<Item = TopDocs<S>>,
 {
   merge_top_docs_with_start(0, top_n, shard_hits)
 }
@@ -108,13 +123,14 @@ where
 /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
 /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
 /// belong to the same searcher).
-pub fn merge_top_docs_with_start<S>(
+pub fn merge_top_docs_with_start<S, I>(
   start: usize,
   top_n: usize,
-  shard_hits: Vec<TopDocs<S>>,
+  shard_hits: I,
 ) -> Result<TopDocs<S>>
 where
   S: ScoreDocLike,
+  I: IntoIterator<Item = TopDocs<S>>,
 {
   merge_top_docs_with_comparator(start, top_n, shard_hits, DefaultTieBreaker::default())
 }
@@ -123,16 +139,18 @@ where
 /// docIDs are expected to be in consistent pattern, i.e. either all [`ScoreDoc`](crate::core::search::score_doc::ScoreDoc)s
 /// have their `shardIndex` set, or all have them as `-1` (signifying that all hits
 /// belong to the same searcher).
-pub fn merge_top_docs_with_comparator<C, S>(
+pub fn merge_top_docs_with_comparator<C, S, I>(
   start: usize,
   size: usize,
-  shard_hits: Vec<TopDocs<S>>,
+  shard_hits: I,
   tie_breaker: C,
 ) -> Result<TopDocs<S>>
 where
   C: Comparator<S>,
   S: ScoreDocLike,
+  I: IntoIterator<Item = TopDocs<S>>,
 {
+  let shard_hits = shard_hits.into_iter().collect::<Vec<TopDocs<S>>>();
   let len = shard_hits.len();
   debug_assert!(len <= i32::MAX as usize);
   let cmp = ScoreMergeSortQueueCmp::new(&shard_hits, tie_breaker);
@@ -328,11 +346,11 @@ where
 }
 
 pub(crate) struct ScoreMergeSortQueueCmp<'a, C, S> {
-  shard_hits: &'a Vec<TopDocs<S>>,
+  shard_hits: &'a [TopDocs<S>],
   tie_breaker_comparator: C,
 }
 impl<'a, C, S> ScoreMergeSortQueueCmp<'a, C, S> {
-  pub fn new(shard_hits: &'a Vec<TopDocs<S>>, tie_breaker_comparator: C) -> Self {
+  pub fn new(shard_hits: &'a [TopDocs<S>], tie_breaker_comparator: C) -> Self {
     Self {
       shard_hits,
       tie_breaker_comparator,
@@ -370,7 +388,7 @@ where
 }
 
 pub(crate) struct MergeSortQueueCmp<'a, C> {
-  shard_hits: &'a Vec<TopDocs<TopFieldScoreDoc>>,
+  shard_hits: &'a [TopDocs<TopFieldScoreDoc>],
   comparators: Vec<FieldComparatorEnum>,
   reverse_mul: Vec<i32>,
   tie_breaker: C,
@@ -379,7 +397,7 @@ pub(crate) struct MergeSortQueueCmp<'a, C> {
 impl<'a, C> MergeSortQueueCmp<'a, C> {
   pub fn new(
     sort: &Sort,
-    shard_hits: &'a Vec<TopDocs<TopFieldScoreDoc>>,
+    shard_hits: &'a [TopDocs<TopFieldScoreDoc>],
     tie_breaker: C,
   ) -> Result<Self> {
     for (shard_index, shard) in shard_hits.iter().enumerate() {

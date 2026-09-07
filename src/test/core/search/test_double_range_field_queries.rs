@@ -63,43 +63,35 @@ impl TestDoubleRangeFieldQueries {
 
     // intersects (within)
     let mut document = Document::new();
-    document.add(DoubleRange::new(FIELD_NAME, &[-10.0, -10.0], &[9.1, 10.1])?);
+    document.add(DoubleRange::new(FIELD_NAME, [-10.0, -10.0], [9.1, 10.1])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(DoubleRange::new(FIELD_NAME, &[10.0, -10.0], &[20.0, 10.0])?);
+    document.add(DoubleRange::new(FIELD_NAME, [10.0, -10.0], [20.0, 10.0])?);
     writer.add_document(document)?;
 
     // intersects (contains, crosses)
     let mut document = Document::new();
-    document.add(DoubleRange::new(
-      FIELD_NAME,
-      &[-20.0, -20.0],
-      &[30.0, 30.1],
-    )?);
+    document.add(DoubleRange::new(FIELD_NAME, [-20.0, -20.0], [30.0, 30.1])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(DoubleRange::new(
-      FIELD_NAME,
-      &[-11.1, -11.2],
-      &[1.23, 11.5],
-    )?);
+    document.add(DoubleRange::new(FIELD_NAME, [-11.1, -11.2], [1.23, 11.5])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(DoubleRange::new(FIELD_NAME, &[12.33, 1.2], &[15.1, 29.9])?);
+    document.add(DoubleRange::new(FIELD_NAME, [12.33, 1.2], [15.1, 29.9])?);
     writer.add_document(document)?;
 
     // disjoint
     let mut document = Document::new();
     document.add(DoubleRange::new(
       FIELD_NAME,
-      &[-122.33, 1.2],
-      &[-115.1, 29.9],
+      [-122.33, 1.2],
+      [-115.1, 29.9],
     )?);
     writer.add_document(document)?;
 
@@ -107,18 +99,14 @@ impl TestDoubleRangeFieldQueries {
     let mut document = Document::new();
     document.add(DoubleRange::new(
       FIELD_NAME,
-      &[f64::NEG_INFINITY, 1.2],
-      &[-11.0, 29.9],
+      [f64::NEG_INFINITY, 1.2],
+      [-11.0, 29.9],
     )?);
     writer.add_document(document)?;
 
     // equal (within, contains, intersects)
     let mut document = Document::new();
-    document.add(DoubleRange::new(
-      FIELD_NAME,
-      &[-11.0, -15.0],
-      &[15.0, 20.0],
-    )?);
+    document.add(DoubleRange::new(FIELD_NAME, [-11.0, -15.0], [15.0, 20.0])?);
     writer.add_document(document)?;
 
     // search
@@ -128,32 +116,32 @@ impl TestDoubleRangeFieldQueries {
       7,
       searcher.count(DoubleRange::new_intersects_query(
         FIELD_NAME,
-        &[-11.0, -15.0],
-        &[15.0, 20.0]
+        [-11.0, -15.0],
+        [15.0, 20.0]
       )?)?
     );
     assert_eq!(
       2,
       searcher.count(DoubleRange::new_within_query(
         FIELD_NAME,
-        &[-11.0, -15.0],
-        &[15.0, 20.0]
+        [-11.0, -15.0],
+        [15.0, 20.0]
       )?)?
     );
     assert_eq!(
       2,
       searcher.count(DoubleRange::new_contains_query(
         FIELD_NAME,
-        &[-11.0, -15.0],
-        &[15.0, 20.0]
+        [-11.0, -15.0],
+        [15.0, 20.0]
       )?)?
     );
     assert_eq!(
       5,
       searcher.count(DoubleRange::new_crosses_query(
         FIELD_NAME,
-        &[-11.0, -15.0],
-        &[15.0, 20.0]
+        [-11.0, -15.0],
+        [15.0, 20.0]
       )?)?
     );
 

@@ -441,17 +441,19 @@ where
     Ok(None)
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     assert!(!self.merge_instance);
     let field_info = self.fis.field_info_by_name(field)?;
     assert!(field_info.as_ref().is_some_and(|field_info| {
@@ -463,17 +465,19 @@ where
       .search_f32(field, target, knn_collector, accept_docs)
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     assert!(!self.merge_instance);
     let field_info = self.fis.field_info_by_name(field)?;
     assert!(field_info.as_ref().is_some_and(|field_info| {

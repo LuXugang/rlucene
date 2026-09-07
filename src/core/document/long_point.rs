@@ -151,14 +151,17 @@ impl LongPoint {
     )
   }
 
-  pub fn new_range_query_n<T, V>(
+  ///
+  /// Lower and upper bounds may independently use arrays, vectors, or slices.
+  pub fn new_range_query_n<T, L, U>(
     field: T,
-    lower_value: V,
-    upper_value: V,
+    lower_value: L,
+    upper_value: U,
   ) -> Result<PointRangeQuery>
   where
     T: Into<String>,
-    V: AsRef<[i64]>,
+    L: AsRef<[i64]>,
+    U: AsRef<[i64]>,
   {
     let field = field.into();
     let len = lower_value.as_ref().len();
@@ -207,7 +210,10 @@ impl BytesRefIterator for LongPointSetBytesRefIterator {
 }
 
 impl FieldBase for LongPoint {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::illegal_argument(
       "cannot change value type from long to BytesRef",
     ))

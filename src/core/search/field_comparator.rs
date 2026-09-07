@@ -883,7 +883,11 @@ pub struct TermValComparator {
 }
 
 impl TermValComparator {
-  pub fn new(field: String, num_hits: usize, sort_missing_last: bool) -> Self {
+  pub fn new<FName>(field: FName, num_hits: usize, sort_missing_last: bool) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       values: vec![None; num_hits],
       field,

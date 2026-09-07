@@ -387,31 +387,35 @@ where
     LeafReader::get_byte_vector_values(&self.reader, field)
   }
 
-  fn search_nearest_vectors_f32<BitsT, K>(
+  fn search_nearest_vectors_f32<BitsT, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<BitsT>,
   ) -> Result<()>
   where
     BitsT: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_f32(&self.reader, field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<BitsT, K>(
+  fn search_nearest_vectors_u8<BitsT, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<BitsT>,
   ) -> Result<()>
   where
     BitsT: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_u8(&self.reader, field, target, knn_collector, accept_docs)
   }
 

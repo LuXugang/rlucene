@@ -917,7 +917,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
       let q3 = BoostQuery::new(
         SortedNumericDocValuesField::new_slow_set_query(
           "twolongs",
-          query_numbers.iter().copied().collect(),
+          query_numbers.iter().copied().collect::<Vec<_>>(),
         )?,
         boost,
       )?;

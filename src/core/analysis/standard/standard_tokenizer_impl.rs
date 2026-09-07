@@ -429,10 +429,13 @@ pub struct StandardTokenizerImpl {
 }
 
 impl StandardTokenizerImpl {
-  pub fn new(input: ReaderEnum) -> Self {
+  pub fn new<R>(input: R) -> Self
+  where
+    R: Into<ReaderEnum>,
+  {
     let zz_buffer_size = 255;
     Self {
-      zz_reader: input,
+      zz_reader: input.into(),
       zz_buffer: vec!['\0'; zz_buffer_size],
       zz_current_pos: 0,
       zz_marked_pos: 0,
@@ -556,8 +559,11 @@ impl StandardTokenizerImpl {
   /// # Parameters
   ///
   /// * `reader` - The new input stream.
-  pub fn yyreset(&mut self, input: ReaderEnum) {
-    self.zz_reader = input;
+  pub fn yyreset<R>(&mut self, input: R)
+  where
+    R: Into<ReaderEnum>,
+  {
+    self.zz_reader = input.into();
     self.yy_reset_position();
     self.lexical_state = YYINITIAL;
   }

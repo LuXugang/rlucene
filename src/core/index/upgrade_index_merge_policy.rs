@@ -83,7 +83,11 @@ where
 {
   /// Wrap the given [`MergePolicy`] and intercept `force_merge` requests to only upgrade
   /// segments written with previous Lucene versions.
-  pub fn new(inner: MergePolicyEnum<D>) -> Self {
+  pub fn new<M>(inner: M) -> Self
+  where
+    M: Into<MergePolicyEnum<D>>,
+  {
+    let inner = inner.into();
     Self {
       base: MergePolicyBase::default(),
       inner: Box::new(inner),

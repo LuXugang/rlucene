@@ -52,7 +52,10 @@ pub trait ByteVectorValues: KnnVectorValues {
   }
 
   type VectorScorer: VectorScorer;
-  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, _query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
     Err(LuceneError::unsupported_operation(""))
   }
 
@@ -88,7 +91,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer(&self, query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let query = query.into();
     (**self).scorer(query)
   }
 

@@ -920,10 +920,7 @@ where
   ];
   file_extensions.shuffle(random);
   let length = random.random_range(1..=file_extensions.len());
-  let primary_extensions = file_extensions[..length]
-    .iter()
-    .map(|extension| (*extension).to_string())
-    .collect();
+  let primary_extensions = file_extensions[..length].iter().copied();
   Ok(RawDirEnum::FileSwitch(FileSwitchDirectory::new(
     primary_extensions,
     dir1,

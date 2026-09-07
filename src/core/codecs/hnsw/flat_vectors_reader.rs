@@ -36,14 +36,15 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   /// Returns the [`FlatVectorsScorer`] for this reader.
   fn get_flat_vector_scorer(&self) -> &Self::FlatVectorsScorer;
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<f32>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
@@ -51,14 +52,15 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
     Ok(())
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<u8>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
@@ -78,11 +80,13 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   ///
   /// # Errors
   /// if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_f32(
+  fn get_random_vector_scorer_f32<TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
-  ) -> Result<Self::RandomVectorScorerF32>;
+    target: TV,
+  ) -> Result<Self::RandomVectorScorerF32>
+  where
+    TV: Into<Vec<f32>>;
 
   type RandomVectorScorerU8: RandomVectorScorer;
   /// Returns a `RandomVectorScorer` for the given field and target vector.
@@ -96,11 +100,13 @@ pub trait FlatVectorsReader: KnnVectorsReader + Accountable {
   ///
   /// # Errors
   /// if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_u8(
+  fn get_random_vector_scorer_u8<TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
-  ) -> Result<Self::RandomVectorScorerU8>;
+    target: TV,
+  ) -> Result<Self::RandomVectorScorerU8>
+  where
+    TV: Into<Vec<u8>>;
 
   /// Returns an instance optimized for merging. This instance may only be consumed in the thread
   /// that called `get_merge_instance`.

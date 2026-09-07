@@ -787,7 +787,7 @@ impl SynonymImpacts {
 
   fn merge_impacts(to_merge: Vec<Vec<Impact>>) -> Result<Vec<Impact>> {
     let mut pq = PriorityQueue::new(to_merge.len(), SynonymSubIteratorCmp)?;
-    pq.add_all(to_merge.into_iter().map(SynonymSubIterator::new).collect())?;
+    pq.add_all(to_merge.into_iter().map(SynonymSubIterator::new))?;
 
     let mut merged_impacts = Vec::new();
 
@@ -1553,12 +1553,20 @@ impl Builder {
   }
 
   /// Adds the provided [`Term`] as a synonym.
-  pub fn add_term(&mut self, term: Term) -> Result<&mut Self> {
+  pub fn add_term<TermInput>(&mut self, term: TermInput) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     self.add_term_with_boost(term, 1.0)
   }
 
   /// Adds the provided [`Term`] as a synonym with a document-frequency boost.
-  pub fn add_term_with_boost(&mut self, term: Term, boost: f32) -> Result<&mut Self> {
+  pub fn add_term_with_boost<TermInput>(&mut self, term: TermInput, boost: f32) -> Result<&mut Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     if self.field != term.field {
       return Err(LuceneError::illegal_argument(
         "Synonyms must be across the same field",
@@ -1568,7 +1576,11 @@ impl Builder {
   }
 
   /// Adds the provided term bytes as a synonym with a document-frequency boost.
-  pub fn add_bytes_with_boost(&mut self, term: BytesRef<Vec<u8>>, boost: f32) -> Result<&mut Self> {
+  /// Accepts text, owned or borrowed bytes, and `BytesRef` values.
+  pub fn add_bytes_with_boost<B>(&mut self, term: B, boost: f32) -> Result<&mut Self>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     if boost.is_nan() || boost <= 0.0 || boost > 1.0 {
       return Err(LuceneError::illegal_argument(
         "boost must be a positive float between 0 (exclusive) and 1 (inclusive)",
@@ -1577,7 +1589,10 @@ impl Builder {
     if self.terms.len() >= index_searcher::get_max_clause_count() {
       return Err(index_searcher::new_nested());
     }
-    self.terms.push(TermAndBoost { term, boost });
+    self.terms.push(TermAndBoost {
+      term: term.into(),
+      boost,
+    });
     Ok(self)
   }
 

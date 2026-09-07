@@ -72,7 +72,11 @@ impl LongsRef {
   /// * `longs` - The vector to reference. May be empty.
   /// * `offset` - The offset where valid longs start.
   /// * `length` - The number of valid longs.
-  pub fn from_slice(longs: Vec<i64>, offset: usize, length: usize) -> Self {
+  pub fn from_slice<L>(longs: L, offset: usize, length: usize) -> Self
+  where
+    L: Into<Vec<i64>>,
+  {
+    let longs = longs.into();
     debug_assert!(matches!(
       Self::is_valid(longs.as_slice(), offset, length),
       Ok(true)

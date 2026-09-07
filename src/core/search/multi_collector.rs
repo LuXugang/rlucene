@@ -47,7 +47,11 @@ impl<C> MultiCollector<C>
 where
   C: Collector,
 {
-  pub fn new(collectors: Vec<C>) -> Result<Self> {
+  pub fn new<I>(collectors: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = C>,
+  {
+    let collectors = collectors.into_iter().collect::<Vec<C>>();
     if collectors.is_empty() {
       return Err(LuceneError::illegal_argument(
         "At least 1 collector must not be None",

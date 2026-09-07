@@ -1725,8 +1725,7 @@ fn test_to_string() -> Result<()> {
   // n-dimensional double
   assert_eq!(
     "field:[1.3 TO 2.5],[-2.9 TO 1]",
-    DoublePoint::new_range_query_n("field", &[1.3f64, -2.9f64], &[2.5f64, 1.0f64])?
-      .to_string("")?
+    DoublePoint::new_range_query_n("field", [1.3f64, -2.9f64], [2.5f64, 1.0f64])?.to_string("")?
   );
 
   Ok(())
@@ -3442,7 +3441,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
       .is_none()
   );
 
-  let query = IntPoint::new_range_query_n("field2d", &[0i32, 0i32], &[2i32, 2i32])?;
+  let query = IntPoint::new_range_query_n("field2d", [0i32, 0i32], [2i32, 2i32])?;
   let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
   assert!(
     weight
@@ -3450,7 +3449,7 @@ fn test_range_query_skips_non_matching_segments() -> Result<()> {
       .is_none()
   );
 
-  let query = IntPoint::new_range_query_n("field2d", &[2i32, 2i32], &[4i32, 4i32])?;
+  let query = IntPoint::new_range_query_n("field2d", [2i32, 2i32], [4i32, 4i32])?;
   let weight = searcher.create_weight(query, CompleteNoScores, 1.0)?;
   assert!(
     weight

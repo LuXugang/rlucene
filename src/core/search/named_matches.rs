@@ -49,7 +49,11 @@ pub struct NamedMatches<'a> {
 
 impl<'a> NamedMatches<'a> {
   /// Wraps a [`Matches`] value and associates a name with it.
-  pub fn new(name: String, in_: QueryWeightMatches<'a>) -> Self {
+  pub fn new<FName>(name: FName, in_: QueryWeightMatches<'a>) -> Self
+  where
+    FName: Into<String>,
+  {
+    let name = name.into();
     Self { in_, name }
   }
 

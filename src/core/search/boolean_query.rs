@@ -1047,11 +1047,18 @@ impl Builder {
   /// Add a collection of [`BooleanClause`]s to this [`Builder`]. Note that the order in which
   /// clauses are added does not have any impact on matching documents or query performance.
   ///
+  /// Accepts arrays, vectors, or iterators. The complete batch is checked against
+  /// the clause limit before any clauses are added to the builder.
+  ///
   /// # Errors
   ///
   /// Returns [`LuceneError::TooManyClauses`] if the new number of clauses exceeds
   /// the maximum clause count.
-  pub fn add_all(&mut self, collection: Vec<BooleanClause>) -> Result<&mut Self> {
+  pub fn add_all<I>(&mut self, collection: I) -> Result<&mut Self>
+  where
+    I: IntoIterator<Item = BooleanClause>,
+  {
+    let collection: Vec<BooleanClause> = collection.into_iter().collect();
     let len = collection.len();
 
     if self.clauses.len() + len > get_max_clause_count() {
@@ -1071,7 +1078,7 @@ impl Builder {
   where
     Q: IntoQuery,
   {
-    self.add_clause(BooleanClause::new(query.into_query(), occur))
+    self.add_clause(BooleanClause::new(query, occur))
   }
 
   /// Create a new [`BooleanQuery`] based on the parameters that have been set on this builder.

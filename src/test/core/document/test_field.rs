@@ -146,7 +146,7 @@ fn test_double_point_2d() -> Result<()> {
     try_set_double_value(&mut field),
     Err(LuceneError::IllegalArgument(_))
   ));
-  field.set_double_values(&[6.0, 7.0])?;
+  field.set_double_values([6.0, 7.0])?;
   assert!(matches!(
     try_set_int_value(&mut field),
     Err(LuceneError::NotImplemented(_))
@@ -391,7 +391,7 @@ fn test_float_point_2d() -> Result<()> {
     try_set_float_value(&mut field),
     Err(LuceneError::IllegalArgument(_))
   ));
-  field.set_float_values(&[6.0, 7.0])?;
+  field.set_float_values([6.0, 7.0])?;
   assert!(matches!(
     try_set_long_value(&mut field),
     Err(LuceneError::NotImplemented(_))
@@ -512,7 +512,7 @@ fn test_int_point_2d() -> Result<()> {
     try_set_int_value(&mut field),
     Err(LuceneError::IllegalArgument(_))
   ));
-  field.set_int_values(&[6, 7])?;
+  field.set_int_values([6, 7])?;
   assert!(matches!(
     try_set_float_value(&mut field),
     Err(LuceneError::NotImplemented(_))
@@ -1106,7 +1106,7 @@ fn test_sorted_bytes_doc_values_field() -> Result<()> {
     try_set_byte_value(&mut field),
     Err(LuceneError::NotImplemented(_))
   ));
-  field.set_bytes_value("fubar".into())?;
+  field.set_bytes_value("fubar")?;
   field.set_bytes_value(new_bytes_ref_from_string(&mut random, "baz")?)?;
   assert!(matches!(
     try_set_double_value(&mut field),
@@ -1153,7 +1153,7 @@ fn test_binary_doc_values_field() -> Result<()> {
     try_set_byte_value(&mut field),
     Err(LuceneError::NotImplemented(_))
   ));
-  field.set_bytes_value("fubar".into())?;
+  field.set_bytes_value("fubar")?;
   field.set_bytes_value(new_bytes_ref_from_string(&mut random, "baz")?)?;
   assert!(matches!(
     try_set_double_value(&mut field),
@@ -1261,8 +1261,8 @@ fn test_string_field() -> Result<()> {
 #[test]
 fn test_binary_string_field() -> Result<()> {
   let fields = vec![
-    StringField::from_bytes_ref("foo", "bar".into(), Store::No)?,
-    StringField::from_bytes_ref("foo", "bar".into(), Store::Yes)?,
+    StringField::from_bytes_ref("foo", "bar", Store::No)?,
+    StringField::from_bytes_ref("foo", "bar", Store::Yes)?,
   ];
 
   for mut field in fields {
@@ -1270,12 +1270,12 @@ fn test_binary_string_field() -> Result<()> {
       try_set_byte_value(&mut field),
       Err(LuceneError::NotImplemented(_))
     ));
-    field.set_bytes_value("baz".into())?;
+    field.set_bytes_value("baz")?;
     assert_eq!(
       field.binary_value()?.as_ref().unwrap().as_ref(),
       &BytesRef::from_string("baz")
     );
-    field.set_bytes_value("baz".into())?;
+    field.set_bytes_value("baz")?;
     assert!(matches!(
       try_set_double_value(&mut field),
       Err(LuceneError::NotImplemented(_))
@@ -1461,7 +1461,7 @@ fn test_stored_field_bytes() -> Result<()> {
       try_set_byte_value(&mut field),
       Err(LuceneError::NotImplemented(_))
     ));
-    field.set_bytes_value("baz".into())?;
+    field.set_bytes_value("baz")?;
     field.set_bytes_value(new_bytes_ref_from_string(&mut random, "baz")?)?;
     assert!(matches!(
       try_set_double_value(&mut field),

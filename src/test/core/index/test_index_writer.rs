@@ -4205,7 +4205,7 @@ fn soft_updates_concurrently(mix_deletes: bool) -> Result<()> {
             let mut doc = Document::new();
             doc.add(StringField::from_string("id", &id, Store::Yes)?);
             if update_several_docs {
-              let docs = vec![doc.clone().into_iter().collect(), doc.into_iter().collect()];
+              let docs = vec![doc.clone(), doc];
               if mix_deletes && random.random_bool(0.5) {
                 if random.random_bool(0.5) {
                   writer.update_documents_with_term(Term::from_text("id", &id), docs)?;

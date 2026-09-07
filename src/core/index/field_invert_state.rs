@@ -53,7 +53,15 @@ impl Default for FieldInvertState {
 
 impl FieldInvertState {
   /// Creates {code FieldInvertState} for the specified field name.
-  pub fn new(index_created_version_major: i32, name: String, index_options: IndexOptions) -> Self {
+  pub fn new<FName>(
+    index_created_version_major: i32,
+    name: FName,
+    index_options: IndexOptions,
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let name = name.into();
     FieldInvertState {
       index_created_version_major,
       name,
@@ -71,9 +79,9 @@ impl FieldInvertState {
   /// Creates {code FieldInvertState} for the specified field name and values
   /// for all fields.
   #[allow(clippy::too_many_arguments)]
-  pub fn with_states(
+  pub fn with_states<FName>(
     index_created_version_major: i32,
-    name: String,
+    name: FName,
     index_options: IndexOptions,
     position: i32,
     length: i32,
@@ -81,7 +89,11 @@ impl FieldInvertState {
     offset: i32,
     max_term_frequency: i32,
     unique_term_count: i32,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let name = name.into();
     let mut state = Self::new(index_created_version_major, name, index_options);
     state.position = position;
     state.length = length;

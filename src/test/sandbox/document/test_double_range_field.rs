@@ -26,12 +26,12 @@ const FIELD_NAME: &str = "rangeField";
 /// Test illegal NaN range values.
 #[test]
 fn test_illegal_na_n_values() -> Result<()> {
-  let error = DoubleRange::new(FIELD_NAME, &[f64::NAN], &[5.0])
+  let error = DoubleRange::new(FIELD_NAME, [f64::NAN], [5.0])
     .err()
     .expect("NaN minimum must fail");
   assert!(error.to_string().contains("invalid min value"));
 
-  let error = DoubleRange::new(FIELD_NAME, &[5.0], &[f64::NAN])
+  let error = DoubleRange::new(FIELD_NAME, [5.0], [f64::NAN])
     .err()
     .expect("NaN maximum must fail");
   assert!(error.to_string().contains("invalid max value"));
@@ -65,7 +65,7 @@ fn test_oversize_dimensions() -> Result<()> {
 /// Min cannot be greater than max.
 #[test]
 fn test_min_greater_than_max() -> Result<()> {
-  let error = DoubleRange::new(FIELD_NAME, &[3.0, 4.0], &[1.0, 2.0])
+  let error = DoubleRange::new(FIELD_NAME, [3.0, 4.0], [1.0, 2.0])
     .err()
     .expect("minimum greater than maximum must fail");
   assert!(error.to_string().contains("is greater than max value"));

@@ -593,7 +593,13 @@ impl FieldInfo {
   /// with the new value. If the value of the attributes for the same
   /// field is changed between documents, the behavior after merge is
   /// undefined.
-  pub fn put_attribute(&self, key: String, value: String) -> Option<String> {
+  pub fn put_attribute<K, V>(&self, key: K, value: V) -> Option<String>
+  where
+    K: Into<String>,
+    V: Into<String>,
+  {
+    let value = value.into();
+    let key = key.into();
     let mut attributes = self.attributes.lock();
     Arc::make_mut(&mut attributes).insert(key, value)
   }

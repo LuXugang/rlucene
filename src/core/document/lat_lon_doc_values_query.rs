@@ -219,8 +219,8 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = vec![self.query.field.clone()];
-    DocValues::is_cacheable(ctx, field.as_ref())
+    let field = [self.query.field.as_str()];
+    DocValues::is_cacheable(ctx, field)
   }
 }
 

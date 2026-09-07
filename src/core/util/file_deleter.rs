@@ -79,14 +79,16 @@ where
 
   /// Decrease ref counts for all provided files, delete them if ref counts down to 0, even on
   /// error. Returns the first error encountered, if any.
-  pub fn dec_ref<'a, I>(&mut self, file_names: I) -> Result<()>
+  pub fn dec_ref<'a, I, S>(&mut self, file_names: I) -> Result<()>
   where
-    I: IntoIterator<Item = &'a String>,
+    I: IntoIterator<Item = &'a S>,
+    S: AsRef<str> + ?Sized + 'a,
   {
     let mut to_delete = HashSet::new();
     let dec_ref_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       IOUtils::close_with(file_names, |file_name| {
-        if self.dec_ref_single(file_name.as_str())? {
+        let file_name = file_name.as_ref();
+        if self.dec_ref_single(file_name)? {
           to_delete.insert(file_name);
         }
         Ok(())
@@ -164,13 +166,15 @@ where
     Ok(unrefed)
   }
   /// delete only files that are unref'ed
-  pub fn delete_files_if_no_ref<'a, I>(&self, files: I) -> Result<()>
+  pub fn delete_files_if_no_ref<'a, I, S>(&self, files: I) -> Result<()>
   where
-    I: IntoIterator<Item = &'a String>,
+    I: IntoIterator<Item = &'a S>,
+    S: AsRef<str> + ?Sized + 'a,
   {
     let mut to_delete = HashSet::new();
 
     for file_name in files {
+      let file_name = file_name.as_ref();
       // NOTE: it's very unusual yet possible for the
       // refCount to be present and 0: it can happen if you
       // open IW on a crashed index, and it removes a bunch
@@ -209,11 +213,12 @@ where
     Ok(())
   }
 
-  pub fn delete_files<'a, I>(&self, file_names: I) -> Result<()>
+  pub fn delete_files<'a, I, S>(&self, file_names: I) -> Result<()>
   where
-    I: IntoIterator<Item = &'a String>,
+    I: IntoIterator<Item = &'a S>,
+    S: AsRef<str> + ?Sized + 'a,
   {
-    let files: Vec<&'a String> = file_names.into_iter().collect();
+    let files: Vec<&str> = file_names.into_iter().map(AsRef::as_ref).collect();
 
     if let Some(messenger) = &self.messenger {
       messenger.accept(

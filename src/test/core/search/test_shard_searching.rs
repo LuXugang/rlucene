@@ -335,19 +335,14 @@ where
     (
       TopDocs::new(
         hits.total_hits,
-        hits
-          .score_docs
-          .into_iter()
-          .map(TopFieldScoreDoc::from)
-          .collect(),
+        hits.score_docs.into_iter().map(TopFieldScoreDoc::from),
       ),
       TopDocs::new(
         shard_hits.total_hits,
         shard_hits
           .score_docs
           .into_iter()
-          .map(TopFieldScoreDoc::from)
-          .collect(),
+          .map(TopFieldScoreDoc::from),
       ),
     )
   };

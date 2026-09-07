@@ -239,31 +239,35 @@ where
     LeafReader::get_byte_vector_values(&self.in_, field)
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_f32(&self.in_, field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_u8(&self.in_, field, target, knn_collector, accept_docs)
   }
 
@@ -2146,28 +2150,30 @@ where
 
   type QuantizedByteVectorValues = DummyByteVectorValues;
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<f32>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<u8>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
@@ -2278,7 +2284,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let target = target.into();
     match self {
       Self::Filter(values) => values.scorer(target),
       Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
@@ -2417,7 +2427,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let target = target.into();
     match self {
       Self::Filter(values) => values.scorer(target),
       Self::Sorting(_) => Err(LuceneError::unsupported_operation("")),
@@ -2722,34 +2736,38 @@ where
     }
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     match self {
       Self::Filter(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
       Self::Sorting(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
     }
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     match self {
       Self::Filter(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
       Self::Sorting(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
@@ -3805,31 +3823,35 @@ where
     LeafReader::get_byte_vector_values(&self.in_, field)
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_f32(&self.in_, field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_u8(&self.in_, field, target, knn_collector, accept_docs)
   }
 
@@ -4120,17 +4142,19 @@ where
     }
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     match self {
       SortingCodecReaderEnum::Filter(reader) => {
         LeafReader::search_nearest_vectors_f32(reader, field, target, knn_collector, accept_docs)
@@ -4141,17 +4165,19 @@ where
     }
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     match self {
       SortingCodecReaderEnum::Filter(reader) => {
         LeafReader::search_nearest_vectors_u8(reader, field, target, knn_collector, accept_docs)
@@ -4624,7 +4650,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let target = target.into();
     match self {
       Self::A(values) => values.scorer(target),
       Self::B(_) => Err(LuceneError::unsupported_operation("")),
@@ -4768,7 +4798,11 @@ where
 
   type VectorScorer = T::VectorScorer;
 
-  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let target = target.into();
     match self {
       Self::A(values) => values.scorer(target),
       Self::B(_) => Err(LuceneError::unsupported_operation("")),

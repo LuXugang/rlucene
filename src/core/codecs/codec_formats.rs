@@ -3060,34 +3060,38 @@ impl<I: IndexInput> KnnVectorsReader for CodecKnnVectorsReaderInner<I> {
     }
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: crate::core::search::knn_collector::KnnCollector,
   {
+    let target = target.into();
     match self {
       Self::Lucene101(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
       Self::Asserting(reader) => reader.search_f32(field, target, knn_collector, accept_docs),
     }
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: crate::core::search::knn_collector::KnnCollector,
   {
+    let target = target.into();
     match self {
       Self::Lucene101(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
       Self::Asserting(reader) => reader.search_u8(field, target, knn_collector, accept_docs),
@@ -3364,7 +3368,11 @@ where
 
   type VectorScorer = CodecFloatVectorScorer<I>;
 
-  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let target = target.into();
     self
       .0
       .scorer(target)
@@ -3643,7 +3651,11 @@ where
 
   type VectorScorer = CodecByteVectorScorer<I>;
 
-  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let target = target.into();
     self
       .0
       .scorer(target)
@@ -3837,31 +3849,35 @@ where
     self.0.is_flat_vectors_reader(field)
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: crate::core::search::knn_collector::KnnCollector,
   {
+    let target = target.into();
     self.0.search_f32(field, target, knn_collector, accept_docs)
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: crate::core::search::knn_collector::KnnCollector,
   {
+    let target = target.into();
     self.0.search_u8(field, target, knn_collector, accept_docs)
   }
 

@@ -104,7 +104,11 @@ impl DoublePoint {
     Ok(field_type)
   }
   /// Change the values of this field
-  pub fn set_double_values(&mut self, point: &[f64]) -> Result<()> {
+  pub fn set_double_values<P>(&mut self, point: P) -> Result<()>
+  where
+    P: AsRef<[f64]>,
+  {
+    let point = point.as_ref();
     if self.parent_field.field_type().point_dimension_count() != point.len() {
       return Err(LuceneError::illegal_argument(format!(
         "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
@@ -233,14 +237,17 @@ impl DoublePoint {
   /// * `field` - Field name.
   /// * `lower_value` - Lower portion of the range (inclusive).
   /// * `upper_value` - Upper portion of the range (inclusive).
-  pub fn new_range_query_n<T, V>(
+  ///
+  /// Lower and upper bounds may independently use arrays, vectors, or slices.
+  pub fn new_range_query_n<T, L, U>(
     field: T,
-    lower_value: V,
-    upper_value: V,
+    lower_value: L,
+    upper_value: U,
   ) -> Result<PointRangeQuery>
   where
     T: Into<String>,
-    V: AsRef<[f64]>,
+    L: AsRef<[f64]>,
+    U: AsRef<[f64]>,
   {
     let field = field.into();
     let len = lower_value.as_ref().len();
@@ -287,14 +294,17 @@ impl BytesRefIterator for DoublePointSetBytesRefIterator {
   }
 }
 impl FieldBase for DoublePoint {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::illegal_argument(
       "cannot change value type from double to BytesRef",
     ))
   }
 
   fn set_double_value(&mut self, value: f64) -> Result<()> {
-    self.set_double_values(&[value])
+    self.set_double_values([value])
   }
 }
 impl IndexableField for DoublePoint {

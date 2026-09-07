@@ -720,7 +720,7 @@ fn test_zero_pos_incr_sloppy_mpq_and() -> Result<()> {
   for tap in incr_0_query_tokens_and()? {
     pos += tap.get_position_increment()?;
     let terms = vec![Term::from_text("field", tap.to_string())];
-    mpqb.add_terms_with_position(terms.as_ref(), pos)?; // AND logic
+    mpqb.add_terms_with_position(terms, pos)?; // AND logic
   }
 
   do_test_zero_pos_incr_sloppy(mpqb.clone().build(), 0)?;
@@ -741,7 +741,7 @@ fn test_zero_pos_incr_sloppy_mpq_and_or_match() -> Result<()> {
   for tap in incr_0_query_tokens_and_or_match()? {
     let terms = tap_terms(&tap);
     let pos = tap[0].get_position_increment()? - 1;
-    mpqb.add_terms_with_position(terms.as_ref(), pos)?; // AND logic in pos, OR across lines
+    mpqb.add_terms_with_position(terms, pos)?; // AND logic in pos, OR across lines
   }
 
   do_test_zero_pos_incr_sloppy(mpqb.clone().build(), 0)?;
@@ -763,7 +763,7 @@ fn test_zero_pos_incr_sloppy_mpq_and_or_no_match() -> Result<()> {
   for tap in incr_0_query_tokens_and_or_no_match()? {
     let terms = tap_terms(&tap);
     let pos = tap[0].get_position_increment()? - 1;
-    mpqb.add_terms_with_position(terms.as_ref(), pos)?; // AND logic in pos, OR across lines
+    mpqb.add_terms_with_position(terms, pos)?; // AND logic in pos, OR across lines
   }
 
   do_test_zero_pos_incr_sloppy(mpqb.clone().build(), 0)?;

@@ -45,11 +45,13 @@ pub struct LongRangeDocValuesField {
 }
 
 impl LongRangeDocValuesField {
-  /// Creates a new instance.
-  pub fn new<T, P>(field: T, min: P, max: P) -> Result<Self>
+  /// Creates a new instance. Lower and upper bounds may independently use
+  /// arrays, vectors, or slices.
+  pub fn new<T, L, U>(field: T, min: L, max: U) -> Result<Self>
   where
     T: Into<String>,
-    P: AsRef<[i64]>,
+    L: AsRef<[i64]>,
+    U: AsRef<[i64]>,
   {
     let field = field.into();
     let min = min.as_ref();
@@ -77,15 +79,16 @@ impl LongRangeDocValuesField {
     Ok(self.max[dimension])
   }
 
-  fn new_slow_range_query<T, P>(
+  fn new_slow_range_query<T, L, U>(
     field: T,
-    min: P,
-    max: P,
+    min: L,
+    max: U,
     query_type: QueryType,
   ) -> Result<BinaryRangeFieldRangeQuery>
   where
     T: Into<String>,
-    P: AsRef<[i64]>,
+    L: AsRef<[i64]>,
+    U: AsRef<[i64]>,
   {
     let min = min.as_ref();
     let max = max.as_ref();
@@ -95,14 +98,16 @@ impl LongRangeDocValuesField {
 
   /// Create a new range query that finds all ranges that intersect using doc values. NOTE: This
   /// doesn't leverage indexing and may be slow.
-  pub fn new_slow_intersects_query<T, P>(
+  /// Lower and upper bounds may independently use arrays, vectors, or slices.
+  pub fn new_slow_intersects_query<T, L, U>(
     field: T,
-    min: P,
-    max: P,
+    min: L,
+    max: U,
   ) -> Result<BinaryRangeFieldRangeQuery>
   where
     T: Into<String>,
-    P: AsRef<[i64]>,
+    L: AsRef<[i64]>,
+    U: AsRef<[i64]>,
   {
     Self::new_slow_range_query(field, min, max, QueryType::Intersects)
   }
@@ -127,7 +132,10 @@ impl LongRangeDocValuesField {
 }
 
 impl FieldBase for LongRangeDocValuesField {
-  fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     self.base.set_bytes_value(value)
   }
 }

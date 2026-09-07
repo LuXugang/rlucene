@@ -176,30 +176,32 @@ impl LeafReader for DummyLeafReader {
     dummy_unreachable!()
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<f32>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
     dummy_unreachable!()
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<u8>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
     dummy_unreachable!()
   }

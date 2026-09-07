@@ -95,11 +95,15 @@ pub struct MappedMultiTerms<T, DM> {
   inner: MultiFieldsTerms<T>,
 }
 impl<T, DM> MappedMultiTerms<T, DM> {
-  pub fn new(
-    field: String,
+  pub fn new<FName>(
+    field: FName,
     merge_state: MergeStateMeta<DM>,
     multi_terms: MultiFieldsTerms<T>,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     MappedMultiTerms {
       merge_state,
       field,
@@ -354,11 +358,15 @@ pub struct MappedMultiTermsEnum<TE, DM> {
   in_: MultiTermsEnum<TE>,
 }
 impl<TE, DM> MappedMultiTermsEnum<TE, DM> {
-  pub fn new(
-    field: String,
+  pub fn new<FName>(
+    field: FName,
     merge_state: MergeStateMeta<DM>,
     multi_terms_enum: MultiTermsEnum<TE>,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       field,
       merge_state_meta: merge_state,

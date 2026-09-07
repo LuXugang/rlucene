@@ -57,8 +57,8 @@ pub struct BinaryRangeFieldRangeQuery {
 }
 
 impl BinaryRangeFieldRangeQuery {
-  pub fn new<T>(
-    query_packed_value: Vec<u8>,
+  pub fn new<T, V>(
+    query_packed_value: V,
     num_bytes_per_dimension: usize,
     num_dims: usize,
     query_type: QueryType,
@@ -66,6 +66,7 @@ impl BinaryRangeFieldRangeQuery {
   ) -> Result<Self>
   where
     T: Into<BinaryRangeFieldRangeQueryEnum>,
+    V: Into<Vec<u8>>,
   {
     if query_type != QueryType::Intersects {
       return Err(LuceneError::unsupported_operation(
@@ -76,7 +77,7 @@ impl BinaryRangeFieldRangeQuery {
     let sub = sub.into();
     Ok(Self {
       id: Identity::new(),
-      query_packed_value,
+      query_packed_value: query_packed_value.into(),
       num_dims,
       num_bytes_per_dimension,
       query_type,
@@ -184,8 +185,8 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = vec![self.query.sub.field().to_string()];
-    DocValues::is_cacheable(ctx, field.as_ref())
+    let field = [self.query.sub.field()];
+    DocValues::is_cacheable(ctx, field)
   }
 }
 

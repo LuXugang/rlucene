@@ -313,7 +313,11 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerU8<DenseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer(&self, query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let query = query.into();
     let copy = self.byte_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support byte_copy()")
     })?;
@@ -531,7 +535,11 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerU8<SparseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer(&self, query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let query = query.into();
     let copy = self.byte_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("SparseOffHeapVectorValues should support byte_copy()")
     })?;
@@ -661,7 +669,10 @@ impl ByteVectorValues for EmptyOffHeapVectorValues {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, _query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
     Ok(None)
   }
 }
@@ -785,7 +796,11 @@ where
 
   type VectorScorer = VectorScorerEnum<I, F>;
 
-  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let target = target.into();
     match self {
       Self::Dense(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Dense)),
       Self::Sparse(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Sparse)),
@@ -926,7 +941,11 @@ where
 
   type VectorScorer = VectorScorerEnum<I, F>;
 
-  fn scorer(&self, target: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let target = target.into();
     match self {
       Self::Empty(_) => Ok(None),
 

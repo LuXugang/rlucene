@@ -3344,10 +3344,12 @@ pub struct VerifyPointsVisitor {
 
 impl VerifyPointsVisitor {
   /// Sole constructor
-  pub fn new<P>(field_name: String, max_doc: i32, values: &P) -> Result<Self>
+  pub fn new<P, FName>(field_name: FName, max_doc: i32, values: &P) -> Result<Self>
   where
     P: PointValues,
+    FName: Into<String>,
   {
+    let field_name = field_name.into();
     let num_data_dims = values.get_num_dimensions()?;
     let num_index_dims = values.get_num_index_dimensions()?;
     let bytes_per_dim = values.get_bytes_per_dimension()?;

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::search::query::Query;
+use crate::core::search::query::{IntoQuery, Query};
 
 /// A clause in a BooleanQuery.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -35,10 +35,15 @@ impl Default for BooleanClause {
 impl BooleanClause {
   /// Constructs a BooleanClause.
   ///
-  /// In Java this validated present arguments. In Rust, `Q` is a value type,
-  /// so we just take ownership.
-  pub fn new(query: Query, occur: Occur) -> Self {
-    Self { query, occur }
+  /// Accepts a concrete query or a `Query` value through `IntoQuery`.
+  pub fn new<Q>(query: Q, occur: Occur) -> Self
+  where
+    Q: IntoQuery,
+  {
+    Self {
+      query: query.into_query(),
+      occur,
+    }
   }
 
   pub fn is_prohibited(&self) -> bool {

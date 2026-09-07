@@ -767,8 +767,8 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut qb = MultiPhraseQuery::builder();
-    qb.add_terms(&self.ta(&["w1"]))?;
-    qb.add_terms(&self.ta(&["w2", "w3", "xx"]))?;
+    qb.add_terms(self.ta(&["w1"]))?;
+    qb.add_terms(self.ta(&["w2", "w3", "xx"]))?;
     self.q_test(random, &self.context().searcher, qb.build(), &[0, 1, 2, 3])
   }
 
@@ -777,8 +777,8 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut qb = MultiPhraseQuery::builder();
-    qb.add_terms(&self.ta(&["w1"]))?;
-    qb.add_terms(&self.ta(&["w2", "w3"]))?;
+    qb.add_terms(self.ta(&["w1"]))?;
+    qb.add_terms(self.ta(&["w2", "w3"]))?;
     self.q_test(random, &self.context().searcher, qb.build(), &[0, 1, 3])
   }
 
@@ -787,8 +787,8 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut qb = MultiPhraseQuery::builder();
-    qb.add_terms(&self.ta(&["w1", "xx"]))?;
-    qb.add_terms(&self.ta(&["w2", "w3"]))?;
+    qb.add_terms(self.ta(&["w1", "xx"]))?;
+    qb.add_terms(self.ta(&["w2", "w3"]))?;
     self.q_test(random, &self.context().searcher, qb.build(), &[0, 1, 2, 3])
   }
 
@@ -797,8 +797,8 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut qb = MultiPhraseQuery::builder();
-    qb.add_terms(&self.ta(&["w1"]))?;
-    qb.add_terms(&self.ta(&["w2"]))?;
+    qb.add_terms(self.ta(&["w1"]))?;
+    qb.add_terms(self.ta(&["w2"]))?;
     self.q_test(random, &self.context().searcher, qb.build(), &[0])
   }
 
@@ -807,8 +807,8 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut qb = MultiPhraseQuery::builder();
-    qb.add_terms(&self.ta(&["w1"]))?;
-    qb.add_terms(&self.ta(&["w2"]))?;
+    qb.add_terms(self.ta(&["w1"]))?;
+    qb.add_terms(self.ta(&["w2"]))?;
     qb.set_slop(1)?;
     self.q_test(random, &self.context().searcher, qb.build(), &[0, 1, 2])
   }
@@ -818,8 +818,8 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut qb = MultiPhraseQuery::builder();
-    qb.add_terms(&self.ta(&["w1", "w3"]))?;
-    qb.add_terms(&self.ta(&["w2"]))?;
+    qb.add_terms(self.ta(&["w1", "w3"]))?;
+    qb.add_terms(self.ta(&["w2"]))?;
     qb.set_slop(1)?;
     self.q_test(random, &self.context().searcher, qb.build(), &[0, 1, 2, 3])
   }
@@ -1577,8 +1577,8 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
     R: Rng + ?Sized,
   {
     let mut query = SynonymQueryBuilder::new(FIELD);
-    query.add_term(Term::new(FIELD, "w1".into()))?;
-    query.add_term(Term::new(FIELD, "w2".into()))?;
+    query.add_term(Term::new(FIELD, "w1"))?;
+    query.add_term(Term::new(FIELD, "w2"))?;
     self.q_test(
       random,
       &self.context().searcher,

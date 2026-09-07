@@ -82,7 +82,11 @@ impl IntPoint {
   }
 
   /// Change the values of this field
-  pub fn set_int_values(&mut self, point: &[i32]) -> Result<()> {
+  pub fn set_int_values<P>(&mut self, point: P) -> Result<()>
+  where
+    P: AsRef<[i32]>,
+  {
+    let point = point.as_ref();
     if self.parent_field.field_type().point_dimension_count() != point.len() {
       return Err(LuceneError::illegal_argument(format!(
         "this field (name={}) uses {} dimensions; cannot change to (incoming) {} dimensions",
@@ -206,14 +210,17 @@ impl IntPoint {
   /// * `field` - Field name.
   /// * `lower_value` - Lower portion of the range (inclusive).
   /// * `upper_value` - Upper portion of the range (inclusive).
-  pub fn new_range_query_n<T, V>(
+  ///
+  /// Lower and upper bounds may independently use arrays, vectors, or slices.
+  pub fn new_range_query_n<T, L, U>(
     field: T,
-    lower_value: V,
-    upper_value: V,
+    lower_value: L,
+    upper_value: U,
   ) -> Result<PointRangeQuery>
   where
     T: Into<String>,
-    V: AsRef<[i32]>,
+    L: AsRef<[i32]>,
+    U: AsRef<[i32]>,
   {
     let field = field.into();
     let len = lower_value.as_ref().len();
@@ -260,14 +267,17 @@ impl BytesRefIterator for IntPointSetBytesRefIterator {
 }
 
 impl FieldBase for IntPoint {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::illegal_argument(
       "cannot change value type from int to BytesRef".to_string(),
     ))
   }
 
   fn set_int_value(&mut self, value: i32) -> Result<()> {
-    self.set_int_values(&[value])
+    self.set_int_values([value])
   }
 }
 

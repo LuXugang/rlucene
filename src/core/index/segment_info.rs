@@ -200,11 +200,14 @@ impl<D> SegmentInfo<D> {
   }
 
   /// Can only be called once.
-  pub fn set_codec(&mut self, codec: Codecs) -> Result<()> {
+  pub fn set_codec<C>(&mut self, codec: C) -> Result<()>
+  where
+    C: Into<Codecs>,
+  {
     if self.codec.is_some() {
       return Err(LuceneError::illegal_state("codec can only be set once"));
     }
-    self.codec = Some(codec);
+    self.codec = Some(codec.into());
     Ok(())
   }
 
@@ -401,7 +404,11 @@ impl<D> SegmentInfo<D> {
   }
 
   /// Add this file to the set of files written for this segment.
-  pub fn add_file(&mut self, file: String) -> Result<()> {
+  pub fn add_file<F>(&mut self, file: F) -> Result<()>
+  where
+    F: Into<String>,
+  {
+    let file = file.into();
     self.add_files(HashSet::from([file]))
   }
 
@@ -442,7 +449,13 @@ impl<D> SegmentInfo<D> {
   /// If a value already exists for the field, it will be replaced with the
   /// new value. This method ensures thread safety by making a
   /// copy-on-write for every attribute change.
-  pub fn put_attribute(&mut self, key: String, value: String) -> Option<String> {
+  pub fn put_attribute<K, V>(&mut self, key: K, value: V) -> Option<String>
+  where
+    K: Into<String>,
+    V: Into<String>,
+  {
+    let value = value.into();
+    let key = key.into();
     // This needs to be thread-safe because multiple threads may be updating
     // (different) attributes at the same time due to concurrent
     // merging, while other threads may be formatting

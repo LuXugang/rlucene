@@ -59,7 +59,11 @@ pub struct LatLonPointDistanceQuery {
 }
 
 impl LatLonPointDistanceQuery {
-  pub fn new(field: String, latitude: f64, longitude: f64, radius_meters: f64) -> Result<Self> {
+  pub fn new<FName>(field: FName, latitude: f64, longitude: f64, radius_meters: f64) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     if !radius_meters.is_finite() || radius_meters < 0.0 {
       return Err(LuceneError::illegal_argument(format!(
         "radiusMeters: '{}' is invalid",

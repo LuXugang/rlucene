@@ -50,7 +50,13 @@ pub struct SortedNumericDocValuesSetQuery {
   numbers: Arc<DocValuesLongHashSet>,
 }
 impl SortedNumericDocValuesSetQuery {
-  pub fn new(field: String, mut numbers: Vec<i64>) -> Result<Self> {
+  pub fn new<FName, V>(field: FName, numbers: V) -> Result<Self>
+  where
+    FName: Into<String>,
+    V: Into<Vec<i64>>,
+  {
+    let field = field.into();
+    let mut numbers = numbers.into();
     numbers.sort_unstable();
     Ok(SortedNumericDocValuesSetQuery {
       id: Identity::new(),
@@ -166,8 +172,8 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = vec![self.query.field.clone()];
-    DocValues::is_cacheable(ctx, field.as_ref())
+    let field = [self.query.field.as_str()];
+    DocValues::is_cacheable(ctx, field)
   }
 }
 

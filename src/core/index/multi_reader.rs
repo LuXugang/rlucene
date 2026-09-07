@@ -104,11 +104,22 @@ where
   R: IndexReader,
   R::ContextKind: MultiReaderKind<R>,
 {
-  pub fn new(sub_readers: Vec<R>) -> Result<Self> {
+  pub fn new<Readers>(sub_readers: Readers) -> Result<Self>
+  where
+    Readers: Into<Vec<R>>,
+  {
+    let sub_readers = sub_readers.into();
     Self::new_with_close_sub_readers(true, sub_readers)
   }
 
-  pub fn new_with_close_sub_readers(close_sub_readers: bool, sub_readers: Vec<R>) -> Result<Self> {
+  pub fn new_with_close_sub_readers<Readers>(
+    close_sub_readers: bool,
+    sub_readers: Readers,
+  ) -> Result<Self>
+  where
+    Readers: Into<Vec<R>>,
+  {
+    let sub_readers = sub_readers.into();
     let index_reader_base = IndexReaderBase::new();
     let base_composite_reader_base =
       BaseCompositeReaderBase::new::<DummyComparator>(sub_readers, None, &index_reader_base)?;

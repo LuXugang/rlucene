@@ -50,11 +50,13 @@ impl TopFieldDocs {
   /// - `total_hits`: Total number of hits for the query.
   /// - `score_docs`: The top hits for the query.
   /// - `fields`: The sort criteria used to find the top hits.
-  pub fn new(
-    total_hits: TotalHits,
-    score_docs: Vec<TopFieldScoreDoc>,
-    fields: Vec<SortFieldEnum>,
-  ) -> Self {
+  pub fn new<I, F>(total_hits: TotalHits, score_docs: I, fields: F) -> Self
+  where
+    I: IntoIterator<Item = TopFieldScoreDoc>,
+    F: IntoIterator<Item = SortFieldEnum>,
+  {
+    let fields = fields.into_iter().collect::<Vec<_>>();
+    let score_docs = score_docs.into_iter().collect::<Vec<TopFieldScoreDoc>>();
     let base = TopDocs::new(total_hits, score_docs);
     Self { base, fields }
   }

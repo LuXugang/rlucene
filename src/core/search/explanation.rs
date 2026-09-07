@@ -90,11 +90,13 @@ impl Explanation {
   /// * `value` - The contribution to the score of the document.
   /// * `description` - How `value` was computed.
   /// * `details` - Sub explanations that contributed to this explanation.
-  pub fn match_<N, S>(value: N, description: S, details: Vec<Explanation>) -> Explanation
+  pub fn match_<N, S, I>(value: N, description: S, details: I) -> Explanation
   where
     N: Into<Number>,
     S: Into<String>,
+    I: IntoIterator<Item = Explanation>,
   {
+    let details = details.into_iter().collect::<Vec<Explanation>>();
     Explanation::new(true, value, description, details)
   }
   pub fn no_match_no_details<S>(description: S) -> Explanation
@@ -104,10 +106,12 @@ impl Explanation {
     Self::no_match(description, vec![])
   }
   /// Create a new explanation for a document which does not match.
-  pub fn no_match<S>(description: S, details: Vec<Explanation>) -> Explanation
+  pub fn no_match<S, I>(description: S, details: I) -> Explanation
   where
     S: Into<String>,
+    I: IntoIterator<Item = Explanation>,
   {
+    let details = details.into_iter().collect::<Vec<Explanation>>();
     Explanation::new(false, Number::F32(0.0), description, details)
   }
 

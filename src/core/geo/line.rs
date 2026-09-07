@@ -54,7 +54,13 @@ pub struct Line {
 
 impl Line {
   /// Creates a new [`Line`] from the supplied latitude/longitude array.
-  pub fn new(lats: Vec<f64>, lons: Vec<f64>) -> Result<Self> {
+  pub fn new<A, B>(lats: A, lons: B) -> Result<Self>
+  where
+    A: Into<Vec<f64>>,
+    B: Into<Vec<f64>>,
+  {
+    let lats = lats.into();
+    let lons = lons.into();
     if lats.len() != lons.len() {
       return Err(LuceneError::illegal_argument(
         "lats and lons must be equal length",
@@ -104,12 +110,12 @@ impl Line {
     self.lons[vertex]
   }
 
-  /// Returns a copy of the internal latitude array.
+  /// Borrows the internal latitude array.
   pub fn get_lats(&self) -> &[f64] {
     self.lats.as_slice()
   }
 
-  /// Returns a copy of the internal longitude array.
+  /// Borrows the internal longitude array.
   pub fn get_lons(&self) -> &[f64] {
     self.lons.as_slice()
   }

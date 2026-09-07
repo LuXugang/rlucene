@@ -55,10 +55,12 @@ pub struct FloatRange {
 pub const BYTES: usize = std::mem::size_of::<f32>();
 
 impl FloatRange {
-  pub fn new<T, P>(name: T, min: P, max: P) -> Result<Self>
+  /// Lower and upper bounds may independently use arrays, vectors, or slices.
+  pub fn new<T, L, U>(name: T, min: L, max: U) -> Result<Self>
   where
     T: Into<String>,
-    P: AsRef<[f32]>,
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
   {
     let min = min.as_ref();
     let field_type = Self::get_type(min.len())?;
@@ -79,8 +81,13 @@ impl FloatRange {
     Ok(ft)
   }
 
-  pub fn set_range_values(&mut self, min: &[f32], max: &[f32]) -> Result<()> {
-    Self::set_range_values_internal(&mut self.parent_field, min, max)
+  /// Updates the range using independently supplied arrays, vectors, or slices.
+  pub fn set_range_values<L, U>(&mut self, min: L, max: U) -> Result<()>
+  where
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
+  {
+    Self::set_range_values_internal(&mut self.parent_field, min.as_ref(), max.as_ref())
   }
 
   fn set_range_values_internal(parent_field: &mut Field, min: &[f32], max: &[f32]) -> Result<()> {
@@ -152,10 +159,11 @@ impl FloatRange {
   ///
   /// # Errors
   /// Returns an error if `min` or `max` is invalid.
-  pub fn new_intersects_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  pub fn new_intersects_query<T, L, U>(field: T, min: L, max: U) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
-    P: AsRef<[f32]>,
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
   {
     Self::new_relation_query(field, min, max, QueryType::Intersects)
   }
@@ -172,10 +180,11 @@ impl FloatRange {
   ///
   /// # Errors
   /// Returns an error if `min` or `max` is invalid.
-  pub fn new_contains_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  pub fn new_contains_query<T, L, U>(field: T, min: L, max: U) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
-    P: AsRef<[f32]>,
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
   {
     Self::new_relation_query(field, min, max, QueryType::Contains)
   }
@@ -192,10 +201,11 @@ impl FloatRange {
   ///
   /// # Errors
   /// Returns an error if `min` or `max` is invalid.
-  pub fn new_within_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  pub fn new_within_query<T, L, U>(field: T, min: L, max: U) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
-    P: AsRef<[f32]>,
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
   {
     Self::new_relation_query(field, min, max, QueryType::Within)
   }
@@ -214,24 +224,26 @@ impl FloatRange {
   ///
   /// # Errors
   /// Returns an error if `min` or `max` is invalid.
-  pub fn new_crosses_query<T, P>(field: T, min: P, max: P) -> Result<RangeFieldQuery>
+  pub fn new_crosses_query<T, L, U>(field: T, min: L, max: U) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
-    P: AsRef<[f32]>,
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
   {
     Self::new_relation_query(field, min, max, QueryType::Crosses)
   }
 
   /// Helper method for creating the desired relational query.
-  fn new_relation_query<T, P>(
+  fn new_relation_query<T, L, U>(
     field: T,
-    min: P,
-    max: P,
+    min: L,
+    max: U,
     relation: QueryType,
   ) -> Result<RangeFieldQuery>
   where
     T: Into<String>,
-    P: AsRef<[f32]>,
+    L: AsRef<[f32]>,
+    U: AsRef<[f32]>,
   {
     let min = min.as_ref();
     let max = max.as_ref();

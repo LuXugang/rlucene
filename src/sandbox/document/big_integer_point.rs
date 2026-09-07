@@ -142,11 +142,13 @@ impl BigIntegerPoint {
   ///
   /// This is for simple one-dimension points, for multidimensional points use
   /// [`new_range_query_n`](Self::new_range_query_n) instead.
-  pub fn new_exact_query<T>(field: T, value: BigInt) -> Result<PointRangeQuery>
+  pub fn new_exact_query<T, V>(field: T, value: V) -> Result<PointRangeQuery>
   where
     T: Into<String>,
+    V: std::borrow::Borrow<BigInt>,
   {
-    Self::new_range_query(field, value.clone(), value)
+    let value = value.borrow();
+    Self::new_range_query(field, value, value)
   }
 
   /// Create a range query for big integer values.
@@ -159,15 +161,21 @@ impl BigIntegerPoint {
   /// `upper_value = BigIntegerPoint::max_value()`.
   ///
   /// Ranges are inclusive. For exclusive ranges, pass `lower_value + 1` or `upper_value - 1`.
-  pub fn new_range_query<T>(
+  pub fn new_range_query<T, L, U>(
     field: T,
-    lower_value: BigInt,
-    upper_value: BigInt,
+    lower_value: L,
+    upper_value: U,
   ) -> Result<PointRangeQuery>
   where
     T: Into<String>,
+    L: std::borrow::Borrow<BigInt>,
+    U: std::borrow::Borrow<BigInt>,
   {
-    Self::new_range_query_n(field, [lower_value], [upper_value])
+    Self::new_range_query_n(
+      field,
+      std::slice::from_ref(lower_value.borrow()),
+      std::slice::from_ref(upper_value.borrow()),
+    )
   }
 
   /// Create a range query for n-dimensional big integer values.
@@ -268,7 +276,10 @@ impl BytesRefIterator for BigIntegerPointSetBytesRefIterator {
 }
 
 impl FieldBase for BigIntegerPoint {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::illegal_argument(
       "cannot change value type from BigInteger to BytesRef",
     ))

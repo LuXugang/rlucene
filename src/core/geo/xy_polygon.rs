@@ -51,7 +51,15 @@ pub struct XYPolygon {
 
 impl XYPolygon {
   /// Creates a new Polygon from the supplied x, y arrays, and optionally any holes.
-  pub fn new(x: Vec<f32>, y: Vec<f32>, holes: Vec<XYPolygon>) -> Result<Self> {
+  pub fn new<A, B, H>(x: A, y: B, holes: H) -> Result<Self>
+  where
+    A: Into<Vec<f32>>,
+    B: Into<Vec<f32>>,
+    H: Into<Vec<XYPolygon>>,
+  {
+    let x = x.into();
+    let y = y.into();
+    let holes = holes.into();
     if x.len() != y.len() {
       return Err(LuceneError::illegal_argument(
         "x and y must be equal length",
@@ -130,7 +138,7 @@ impl XYPolygon {
     self.x.len()
   }
 
-  /// Returns a copy of the internal x array
+  /// Borrows the internal x array
   pub fn get_poly_x(&self) -> &[f32] {
     self.x.as_slice()
   }
@@ -140,7 +148,7 @@ impl XYPolygon {
     self.x[vertex]
   }
 
-  /// Returns a copy of the internal y array
+  /// Borrows the internal y array
   pub fn get_poly_y(&self) -> &[f32] {
     self.y.as_slice()
   }
@@ -150,7 +158,7 @@ impl XYPolygon {
     self.y[vertex]
   }
 
-  /// Returns a copy of the internal holes array
+  /// Borrows the internal holes array
   pub fn get_holes(&self) -> &[XYPolygon] {
     self.holes.as_slice()
   }

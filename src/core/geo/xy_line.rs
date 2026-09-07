@@ -48,7 +48,13 @@ pub struct XYLine {
 
 impl XYLine {
   /// Creates a new [`XYLine`] from the supplied X/Y array.
-  pub fn new(x: Vec<f32>, y: Vec<f32>) -> Result<Self> {
+  pub fn new<A, B>(x: A, y: B) -> Result<Self>
+  where
+    A: Into<Vec<f32>>,
+    B: Into<Vec<f32>>,
+  {
+    let x = x.into();
+    let y = y.into();
     if x.len() != y.len() {
       return Err(LuceneError::illegal_argument(
         "x and y must be equal length",
@@ -96,12 +102,12 @@ impl XYLine {
     self.y[vertex]
   }
 
-  /// Returns a copy of the internal x array.
+  /// Borrows the internal x array.
   pub fn get_xs(&self) -> &[f32] {
     self.x.as_slice()
   }
 
-  /// Returns a copy of the internal y array.
+  /// Borrows the internal y array.
   pub fn get_ys(&self) -> &[f32] {
     self.y.as_slice()
   }

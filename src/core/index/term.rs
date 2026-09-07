@@ -37,14 +37,16 @@ pub struct Term {
 }
 impl Term {
   /// Constructs a [`Term`] with the given field and bytes.
-  /// The provided [`BytesRef`] is copied when it is non-`None`.
-  pub fn new<T>(fld: T, bytes: BytesRef<Vec<u8>>) -> Self
+  /// Accepts a `BytesRef`, owned bytes, text, or borrowed bytes. Owned buffers
+  /// are moved; borrowed inputs are copied. Existing `BytesRef` offsets are preserved.
+  pub fn new<T, B>(fld: T, bytes: B) -> Self
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     Term {
       field: fld.into(),
-      bytes,
+      bytes: bytes.into(),
     }
   }
 
@@ -104,6 +106,13 @@ impl Term {
     &self.bytes
   }
 }
+/// Clones a borrowed term, including its field name and byte buffer.
+impl From<&Term> for Term {
+  fn from(term: &Term) -> Self {
+    term.clone()
+  }
+}
+
 impl Display for Term {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self.text() {

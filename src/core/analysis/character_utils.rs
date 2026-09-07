@@ -140,9 +140,12 @@ pub struct CharacterBuffer {
   pub(crate) length: usize,
 }
 impl CharacterBuffer {
-  pub fn new(buffer: Vec<char>, offset: usize, length: usize) -> Self {
+  pub fn new<B>(buffer: B, offset: usize, length: usize) -> Self
+  where
+    B: Into<Vec<char>>,
+  {
     CharacterBuffer {
-      buffer,
+      buffer: buffer.into(),
       offset,
       length,
     }

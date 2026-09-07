@@ -64,13 +64,17 @@ struct MemorySegmentIndexInputShared {
 }
 
 impl MemorySegmentIndexInput {
-  pub fn new(
-    resource_desc: String,
+  pub fn new<S>(
+    resource_desc: S,
     path: &Path,
     read_advice: ReadAdvice,
     chunk_size_power: u32,
     preload: bool,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    S: Into<String>,
+  {
+    let resource_desc = resource_desc.into();
     let file =
       File::open(path).map_err(|e| LuceneError::io_with_path(path.display().to_string(), e))?;
     let file_size_u64 = file

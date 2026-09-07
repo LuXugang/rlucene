@@ -52,7 +52,7 @@ impl BaseMergePolicyTestCase for TestUpgradeIndexMergePolicy {
       new_tiered_merge_policy(random).expect("randomized TieredMergePolicy settings must be valid");
     let size = TestUtil::next_int(random, 1024, 10 * 1024);
     inner.set_max_merged_segment_mb(size as f64).expect("");
-    UpgradeIndexMergePolicy::new(inner.into()).into()
+    UpgradeIndexMergePolicy::new(inner).into()
   }
 
   fn assert_segment_infos<D>(_policy: &Self::MergePolicy<D>, _infos: &SegmentInfos<D>) -> Result<()>

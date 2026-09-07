@@ -993,7 +993,11 @@ pub fn new() -> LuceneError {
     get_max_clause_count()
   ))
 }
-pub fn with_msg(msg: String) -> LuceneError {
+pub fn with_msg<FName>(msg: FName) -> LuceneError
+where
+  FName: Into<String>,
+{
+  let msg = msg.into();
   LuceneError::too_many_clauses(msg)
 }
 pub struct TooManyNestedClauses;

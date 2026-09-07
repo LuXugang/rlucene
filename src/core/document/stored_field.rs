@@ -56,22 +56,19 @@ impl StoredField {
   /// Expert: allows you to customize the [`FieldType`].
   ///
   /// # Note
-  /// The provided byte array is **not copied**, so ensure that it is not
-  /// modified until you are done using this field.
+  /// Owned buffers are moved without cloning; borrowed bytes are copied.
+  /// Existing `BytesRef` offsets and lengths are preserved.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `bytes`: Byte array pointing to binary content (**not copied**).
+  /// - `bytes`: Binary content convertible to `BytesRef<Vec<u8>>`.
   /// - `field_type`: Custom [`FieldType`] for this field.
-  pub fn from_bytes_ref_and_type<T>(
-    name: T,
-    bytes: BytesRef<Vec<u8>>,
-    file_type: FieldType,
-  ) -> Result<Self>
+  pub fn from_bytes_ref_and_type<T, B>(name: T, bytes: B, file_type: FieldType) -> Result<Self>
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
-    let parent_field = Field::from_bytes_ref(name, bytes.clone(), file_type)?;
+    let parent_field = Field::from_bytes_ref(name, bytes, file_type)?;
     Ok(Self { parent_field })
   }
   /// Creates a stored-only field with the given binary value.
@@ -119,15 +116,16 @@ impl StoredField {
   /// Creates a stored-only field with the given binary value.
   ///
   /// # Note
-  /// The provided [`BytesRef`] is **not copied**, so ensure that it is not
-  /// modified until you are done using this field.
+  /// Owned bytes and `BytesRef` values are moved without cloning their buffers.
+  /// Borrowed bytes are copied; existing `BytesRef` offsets are preserved.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `value`: [`BytesRef`] pointing to binary content (**not copied**).
-  pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>) -> Result<Self>
+  /// - `value`: Binary content convertible to `BytesRef<Vec<u8>>`.
+  pub fn from_bytes_ref<T, B>(name: T, value: B) -> Result<Self>
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     let parent_field = Field::from_bytes_ref(name, value, stored_field_type::TYPE.clone())?;
     Ok(Self { parent_field })
@@ -209,7 +207,10 @@ impl StoredField {
   }
 }
 impl FieldBase for StoredField {
-  fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     self.parent_field.set_bytes_value(value)
   }
 

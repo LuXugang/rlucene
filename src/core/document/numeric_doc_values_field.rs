@@ -137,12 +137,15 @@ impl NumericDocValuesField {
   /// they are not ANDed with a selective query. As a consequence, they are best used wrapped in an
   /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery), alongside a set query that executes on points, such as
   /// [`LongPoint::new_set_query`](crate::core::document::long_point::LongPoint::new_set_query).
-  pub fn new_slow_set_query<T>(field: T, values: Vec<i64>) -> Result<SortedNumericDocValuesSetQuery>
+  ///
+  /// Accepts an owned vector, array, or borrowed slice of values.
+  pub fn new_slow_set_query<T, V>(field: T, values: V) -> Result<SortedNumericDocValuesSetQuery>
   where
     T: Into<String>,
+    V: Into<Vec<i64>>,
   {
     let field = field.into();
-    SortedNumericDocValuesSetQuery::new(field, values)
+    SortedNumericDocValuesSetQuery::new(field, values.into())
   }
 }
 

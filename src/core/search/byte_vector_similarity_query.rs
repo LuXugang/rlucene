@@ -56,7 +56,7 @@ impl ByteVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
   /// * `filter` - a filter applied before the vector search.
@@ -65,17 +65,19 @@ impl ByteVectorSimilarityQuery {
   ///
   /// Returns an error if `traversal_similarity` is greater than
   /// `result_similarity`.
-  pub fn with_traversal_similarity_and_filter<T>(
+  pub fn with_traversal_similarity_and_filter<T, V>(
     field: T,
-    target: Vec<u8>,
+    target: V,
     traversal_similarity: f32,
     result_similarity: f32,
     filter: Option<Query>,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
     let field = field.into();
+    let target = target.into();
     Ok(Self {
       base: AbstractVectorSimilarityQueryBase::new(
         field,
@@ -95,17 +97,18 @@ impl ByteVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
-  pub fn with_traversal_similarity<T>(
+  pub fn with_traversal_similarity<T, V>(
     field: T,
-    target: Vec<u8>,
+    target: V,
     traversal_similarity: f32,
     result_similarity: f32,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
     Self::with_traversal_similarity_and_filter(
       field,
@@ -125,17 +128,18 @@ impl ByteVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `result_similarity` - similarity score for result collection.
   /// * `filter` - a filter applied before the vector search.
-  pub fn with_filter<T>(
+  pub fn with_filter<T, V>(
     field: T,
-    target: Vec<u8>,
+    target: V,
     result_similarity: f32,
     filter: Option<Query>,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
     Self::with_traversal_similarity_and_filter(
       field,
@@ -151,11 +155,12 @@ impl ByteVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnByteVectorField`](crate::core::document::knn_byte_vector_field::KnnByteVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `result_similarity` - similarity score for result collection.
-  pub fn new<T>(field: T, target: Vec<u8>, result_similarity: f32) -> Result<Self>
+  pub fn new<T, V>(field: T, target: V, result_similarity: f32) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
     Self::with_filter(field, target, result_similarity, None)
   }

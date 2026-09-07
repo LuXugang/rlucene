@@ -83,15 +83,17 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
   where
     T: FloatVectorValues;
 
-  fn get_random_vector_scorer_f32<K>(
+  fn get_random_vector_scorer_f32<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<f32>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerF32<K>>
   where
+    TV: Into<Vec<f32>>,
     K: FloatVectorValues,
   {
+    let target = target.into();
     if target.len() != vector_values.dimension() {
       return Err(LuceneError::illegal_argument(format!(
         "vector query dimension: {} differs from field dimension: {}",
@@ -112,15 +114,17 @@ impl FlatVectorsScorer for DefaultFlatVectorScorer {
   where
     T: ByteVectorValues;
 
-  fn get_random_vector_scorer_u8<K>(
+  fn get_random_vector_scorer_u8<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<u8>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerU8<K>>
   where
+    TV: Into<Vec<u8>>,
     K: ByteVectorValues,
   {
+    let target = target.into();
     if target.len() != vector_values.dimension() {
       return Err(LuceneError::illegal_argument(format!(
         "vector query dimension: {} differs from field dimension: {}",

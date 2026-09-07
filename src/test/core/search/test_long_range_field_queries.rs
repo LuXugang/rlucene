@@ -70,42 +70,42 @@ impl TestLongRangeFieldQueries {
 
     // intersects (within)
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[-10, -10], &[9, 10])?);
+    document.add(LongRange::new(FIELD_NAME, [-10, -10], [9, 10])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[10, -10], &[20, 10])?);
+    document.add(LongRange::new(FIELD_NAME, [10, -10], [20, 10])?);
     writer.add_document(document)?;
 
     // intersects (contains, crosses)
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[-20, -20], &[30, 30])?);
+    document.add(LongRange::new(FIELD_NAME, [-20, -20], [30, 30])?);
     writer.add_document(document)?;
 
     // intersects (within)
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[-11, -11], &[1, 11])?);
+    document.add(LongRange::new(FIELD_NAME, [-11, -11], [1, 11])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[12, 1], &[15, 29])?);
+    document.add(LongRange::new(FIELD_NAME, [12, 1], [15, 29])?);
     writer.add_document(document)?;
 
     // disjoint
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[-122, 1], &[-115, 29])?);
+    document.add(LongRange::new(FIELD_NAME, [-122, 1], [-115, 29])?);
     writer.add_document(document)?;
 
     // intersects (crosses)
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[i64::MIN, 1], &[-11, 29])?);
+    document.add(LongRange::new(FIELD_NAME, [i64::MIN, 1], [-11, 29])?);
     writer.add_document(document)?;
 
     // equal (within, contains, intersects)
     let mut document = Document::new();
-    document.add(LongRange::new(FIELD_NAME, &[-11, -15], &[15, 20])?);
+    document.add(LongRange::new(FIELD_NAME, [-11, -15], [15, 20])?);
     writer.add_document(document)?;
 
     // search
@@ -115,32 +115,32 @@ impl TestLongRangeFieldQueries {
       7,
       searcher.count(LongRange::new_intersects_query(
         FIELD_NAME,
-        &[-11, -15],
-        &[15, 20]
+        [-11, -15],
+        [15, 20]
       )?)?
     );
     assert_eq!(
       3,
       searcher.count(LongRange::new_within_query(
         FIELD_NAME,
-        &[-11, -15],
-        &[15, 20]
+        [-11, -15],
+        [15, 20]
       )?)?
     );
     assert_eq!(
       2,
       searcher.count(LongRange::new_contains_query(
         FIELD_NAME,
-        &[-11, -15],
-        &[15, 20]
+        [-11, -15],
+        [15, 20]
       )?)?
     );
     assert_eq!(
       4,
       searcher.count(LongRange::new_crosses_query(
         FIELD_NAME,
-        &[-11, -15],
-        &[15, 20]
+        [-11, -15],
+        [15, 20]
       )?)?
     );
 

@@ -23,7 +23,7 @@ struct TestLongRange;
 
 #[test]
 fn test_to_string_long_range() -> Result<()> {
-  let range = LongRange::new("foo", &[1, 11, 21, 31], &[2, 12, 22, 32])?;
+  let range = LongRange::new("foo", [1, 11, 21, 31], [2, 12, 22, 32])?;
 
   assert_eq!(
     "LongRange <foo: [1 : 2] [11 : 12] [21 : 22] [31 : 32]>",

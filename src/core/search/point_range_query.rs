@@ -92,16 +92,22 @@ impl PointRangeQuery {
   /// # Errors
   /// Returns an error if `field` is empty or if the lengths of `lower_point` and
   /// `upper_point` do not match.
-  pub fn new<S>(
-    field: String,
-    lower_point: Vec<u8>,
-    upper_point: Vec<u8>,
+  pub fn new<S, FName, L, U>(
+    field: FName,
+    lower_point: L,
+    upper_point: U,
     num_dims: usize,
     sub: S,
   ) -> Result<Self>
   where
     S: Into<PointRangeBaseEnum>,
+    FName: Into<String>,
+    L: Into<Vec<u8>>,
+    U: Into<Vec<u8>>,
   {
+    let upper_point = upper_point.into();
+    let lower_point = lower_point.into();
+    let field = field.into();
     #[cfg(debug_assertions)]
     check_args(&field, lower_point.as_ref(), upper_point.as_ref())?;
     if lower_point.is_empty() {

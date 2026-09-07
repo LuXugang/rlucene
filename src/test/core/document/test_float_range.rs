@@ -25,8 +25,8 @@ struct TestFloatRange;
 fn test_to_string_float_range() -> Result<()> {
   let range = FloatRange::new(
     "foo",
-    &[0.1_f32, 1.1_f32, 2.1_f32, 3.1_f32],
-    &[0.2_f32, 1.2_f32, 2.2_f32, 3.2_f32],
+    [0.1_f32, 1.1_f32, 2.1_f32, 3.1_f32],
+    [0.2_f32, 1.2_f32, 2.2_f32, 3.2_f32],
   )?;
 
   assert_eq!(

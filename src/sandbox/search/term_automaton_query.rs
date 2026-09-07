@@ -128,17 +128,15 @@ impl TermAutomatonQuery {
 
   /// Adds a transition to the automaton.
   pub fn add_transition(&mut self, source: i32, dest: i32, term: &str) -> Result<()> {
-    self.add_transition_bytes(source, dest, &BytesRef::from(term))
+    self.add_transition_bytes(source, dest, BytesRef::from(term))
   }
 
   /// Adds a transition to the automaton.
-  pub fn add_transition_bytes(
-    &mut self,
-    source: i32,
-    dest: i32,
-    term: &BytesRef<Vec<u8>>,
-  ) -> Result<()> {
-    let term_id = self.get_term_id(Some(term))?;
+  pub fn add_transition_bytes<T>(&mut self, source: i32, dest: i32, term: T) -> Result<()>
+  where
+    T: std::borrow::Borrow<BytesRef<Vec<u8>>>,
+  {
+    let term_id = self.get_term_id(Some(term.borrow()))?;
     self.builder.add_transition_label(source, dest, term_id)
   }
 

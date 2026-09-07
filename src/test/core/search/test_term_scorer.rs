@@ -557,33 +557,37 @@ where
     self.in_.get_byte_vector_values(field)
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     self
       .in_
       .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     self
       .in_
       .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)

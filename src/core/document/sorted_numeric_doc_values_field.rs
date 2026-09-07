@@ -99,12 +99,15 @@ impl SortedNumericDocValuesField {
     let field = field.into();
     SortedNumericDocValuesRangeQuery::new(field, lower_value, upper_value)
   }
-  pub fn new_slow_set_query<T>(field: T, values: Vec<i64>) -> Result<SortedNumericDocValuesSetQuery>
+  ///
+  /// Accepts an owned vector, array, or borrowed slice of values.
+  pub fn new_slow_set_query<T, V>(field: T, values: V) -> Result<SortedNumericDocValuesSetQuery>
   where
     T: Into<String>,
+    V: Into<Vec<i64>>,
   {
     let field = field.into();
-    SortedNumericDocValuesSetQuery::new(field, values)
+    SortedNumericDocValuesSetQuery::new(field, values.into())
   }
 }
 

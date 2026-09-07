@@ -304,7 +304,10 @@ impl LatLonPoint {
   /// Returns [`LuceneError::IllegalArgument`] if `polygons` is empty.
   ///
   /// See also [`Polygon`].
-  pub fn new_polygon_query(field: &str, polygons: Vec<Polygon>) -> Result<Query> {
+  pub fn new_polygon_query<I>(field: &str, polygons: I) -> Result<Query>
+  where
+    I: IntoIterator<Item = Polygon>,
+  {
     Self::new_geometry_query(field, QueryRelation::Intersects, polygons)
   }
 
@@ -323,13 +326,14 @@ impl LatLonPoint {
   /// Returns [`LuceneError::IllegalArgument`] if `lat_lon_geometries` is empty.
   ///
   /// See also [`LatLonGeometry`].
-  pub fn new_geometry_query<T>(
+  pub fn new_geometry_query<T, I>(
     field: &str,
     query_relation: QueryRelation,
-    lat_lon_geometries: Vec<T>,
+    lat_lon_geometries: I,
   ) -> Result<Query>
   where
     T: LatLonGeometry + Into<LatLonGeometryEnum>,
+    I: IntoIterator<Item = T>,
   {
     let lat_lon_geometries: Vec<LatLonGeometryEnum> =
       lat_lon_geometries.into_iter().map(Into::into).collect();

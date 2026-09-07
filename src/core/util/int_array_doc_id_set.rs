@@ -41,7 +41,11 @@ pub struct IntArrayDocIdSet {
 ///   [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS).
 /// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
-  pub fn new(docs: Vec<i32>, length: i32) -> Result<IntArrayDocIdSet> {
+  pub fn new<D>(docs: D, length: i32) -> Result<IntArrayDocIdSet>
+  where
+    D: Into<Vec<i32>>,
+  {
+    let docs = docs.into();
     let length_as_usize = usize::try_from(length).map_err(|_| {
       LuceneError::array_index_out_of_bounds(format!("length must be non-negative, got {length}"))
     })?;

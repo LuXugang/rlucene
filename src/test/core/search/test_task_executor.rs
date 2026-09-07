@@ -216,7 +216,7 @@ fn test_invoke_all_does_not_leave_tasks_behind() -> Result<()> {
         }
       }
     })
-    .collect();
+    .collect::<Vec<_>>();
   let error = task_executor
     .invoke_all(tasks)
     .expect_err("the first callable must fail");
@@ -240,7 +240,7 @@ fn test_invoke_all_catches_multiple_exceptions() -> Result<()> {
         Err(LuceneError::illegal_state(message))
       }
     })
-    .collect();
+    .collect::<Vec<_>>();
 
   let error = task_executor
     .invoke_all(tasks)
@@ -280,7 +280,7 @@ fn test_cancel_tasks_on_exception() -> Result<()> {
         Ok(())
       }
     })
-    .collect();
+    .collect::<Vec<_>>();
 
   if error {
     let panic = catch_unwind(AssertUnwindSafe(|| task_executor.invoke_all(tasks)))
@@ -310,7 +310,7 @@ fn test_results_keep_callable_order() -> Result<()> {
         Ok(index)
       }
     })
-    .collect();
+    .collect::<Vec<_>>();
   assert_eq!(
     (0..10).collect::<Vec<_>>(),
     task_executor.invoke_all(tasks)?

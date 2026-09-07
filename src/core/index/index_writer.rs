@@ -1082,17 +1082,20 @@ where
   /// # Errors
   /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
   /// * [`LuceneError::Io`] - If there is a low-level I/O error.
-  pub fn soft_update_documents<T, DF>(
+  pub fn soft_update_documents<T, DF, Updates>(
     &self,
     term: T,
     docs: DF,
-    soft_deletes: Vec<Fields>,
+    soft_deletes: Updates,
   ) -> Result<i64>
   where
     T: Into<Arc<Term>>,
-    DF: IntoFallibleIterator<Item = Vec<Fields>>,
+    DF: IntoFallibleIterator,
+    DF::Item: IntoFallibleIterator<Item = Fields>,
     D: 'static,
+    Updates: IntoIterator<Item = Fields>,
   {
+    let soft_deletes = soft_deletes.into_iter().collect::<Vec<Fields>>();
     if soft_deletes.is_empty() {
       return Err(LuceneError::illegal_argument(
         "at least one soft delete must be present",
@@ -1135,16 +1138,18 @@ where
   /// **NOTE**: this method can only update documents visible to the currently open NRT reader.
   /// If you need to update documents indexed after opening the NRT reader you must use
   /// [`Self::update_doc_values`].
-  pub fn try_update_doc_value<IR>(
+  pub fn try_update_doc_value<IR, Updates>(
     &self,
     reader: IR,
     doc_id: i32,
-    fields: Vec<Fields>,
+    fields: Updates,
   ) -> Result<i64>
   where
     IR: IndexReader,
     IndexReaderContextType<IR>: IndexReaderContext<LeafReader = DefaultLeafReader<D>>,
+    Updates: IntoIterator<Item = Fields>,
   {
+    let fields = fields.into_iter().collect::<Vec<Fields>>();
     let mut inner = self.inner.lock();
     let dv_updates = self.build_doc_values_update(None::<Arc<Term>>, fields)?;
     let modifier = DocModifierImpl2 { dv_updates };
@@ -1252,17 +1257,19 @@ where
   /// # Errors
   /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
   /// * [`LuceneError::Io`] - If there is a low-level I/O error.
-  pub fn soft_update_document<T, DF>(
+  pub fn soft_update_document<T, DF, Updates>(
     &self,
     term: T,
     docs: DF,
-    soft_deletes: Vec<Fields>,
+    soft_deletes: Updates,
   ) -> Result<i64>
   where
     T: Into<Arc<Term>>,
     DF: IntoFallibleIterator<Item = Fields>,
     D: 'static,
+    Updates: IntoIterator<Item = Fields>,
   {
+    let soft_deletes = soft_deletes.into_iter().collect::<Vec<Fields>>();
     if soft_deletes.is_empty() {
       return Err(LuceneError::illegal_argument(
         "at least one soft delete must be present",
@@ -1364,17 +1371,14 @@ where
   /// # Errors
   /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
   /// * [`LuceneError::Io`] - If there is a low-level I/O error.
-  pub fn update_binary_doc_value<T, F>(
-    &self,
-    term: T,
-    field: F,
-    value: BytesRef<Vec<u8>>,
-  ) -> Result<i64>
+  pub fn update_binary_doc_value<T, F, B>(&self, term: T, field: F, value: B) -> Result<i64>
   where
     T: Into<Arc<Term>>,
     F: Into<String>,
     D: 'static,
+    B: Into<BytesRef<Vec<u8>>>,
   {
+    let value = value.into();
     #[cfg(test)]
     let _execution_scope =
       ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
@@ -1423,12 +1427,14 @@ where
   /// # Errors
   /// * [`LuceneError::CorruptIndex`] - If the index is corrupt.
   /// * [`LuceneError::Io`] - If there is a low-level I/O error.
-  pub fn update_doc_values<T>(&self, term: T, updates: Vec<Fields>) -> Result<i64>
+  pub fn update_doc_values<T, Updates>(&self, term: T, updates: Updates) -> Result<i64>
   where
     T: Into<Arc<Term>>,
     D: 'static,
+    Updates: IntoIterator<Item = Fields>,
   {
     self.do_ensure_open(true)?;
+    let updates = updates.into_iter().collect::<Vec<Fields>>();
     let dv_updates = self.build_doc_values_update(Some(term), updates)?;
 
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -3495,11 +3501,12 @@ where
   /// - [`LuceneError::CorruptIndex`] if the index is corrupt
   /// - an error if there is a low-level IO error
   /// - [`LuceneError::IllegalArgument`] if `add_indexes` would cause the index to exceed [`MAX_DOCS`]
-  pub fn add_indexes_from_codec_readers<CR>(&self, readers: Vec<CR>) -> Result<i64>
+  pub fn add_indexes_from_codec_readers<CR, Readers>(&self, readers: Readers) -> Result<i64>
   where
     D: 'static,
     CR: CodecReader + 'static,
     OneMerge<D, Arc<CR>>: Send + 'static,
+    Readers: IntoIterator<Item = CR>,
   {
     self.ensure_open()?;
     let readers: Vec<_> = readers.into_iter().map(Arc::new).collect();

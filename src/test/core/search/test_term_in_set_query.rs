@@ -378,7 +378,7 @@ fn test_hash_code_and_equals() -> Result<()> {
     let string = TestUtil::random_realistic_unicode_string(&mut random);
     terms.push(new_bytes_ref_from_string(&mut random, &string)?);
     unique_terms.insert(new_bytes_ref_from_string(&mut random, &string)?);
-    let left = TermInSetQuery::new("field", unique_terms.iter().cloned().collect())?;
+    let left = TermInSetQuery::new("field", unique_terms.iter().cloned())?;
     terms.shuffle(&mut random);
     let right = TermInSetQuery::new("field", terms.clone())?;
     assert_eq!(right, left);
@@ -760,33 +760,37 @@ where
     self.in_.get_byte_vector_values(field)
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     self
       .in_
       .search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     self
       .in_
       .search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
@@ -1222,7 +1226,7 @@ fn test_visitor() -> Result<()> {
 #[test]
 fn test_terms_iterator() -> Result<()> {
   let mut random = random();
-  let empty = TermInSetQuery::new("field", Vec::new())?;
+  let empty = TermInSetQuery::new("field", std::iter::empty::<BytesRef<Vec<u8>>>())?;
   let mut iterator = empty.get_bytes_ref_iterator()?;
   assert!(iterator.next()?.is_none());
 

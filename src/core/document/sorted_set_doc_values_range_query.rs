@@ -56,13 +56,17 @@ pub struct SortedSetDocValuesRangeQuery {
   pub upper_inclusive: bool,
 }
 impl SortedSetDocValuesRangeQuery {
-  pub fn new(
-    field: String,
+  pub fn new<FName>(
+    field: FName,
     lower_value: Option<BytesRef<Vec<u8>>>,
     upper_value: Option<BytesRef<Vec<u8>>>,
     lower_inclusive: bool,
     upper_inclusive: bool,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     let lower_inclusive = lower_inclusive && lower_value.is_some();
     let upper_inclusive = upper_inclusive && upper_value.is_some();
 
@@ -194,8 +198,8 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = vec![self.query.field.clone()];
-    DocValues::is_cacheable(ctx, field.as_ref())
+    let field = [self.query.field.as_str()];
+    DocValues::is_cacheable(ctx, field)
   }
 }
 

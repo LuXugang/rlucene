@@ -81,8 +81,8 @@ pub struct PointInSetQuery {
 
 impl PointInSetQuery {
   /// The `packed_points` iterator must be in sorted order.
-  pub fn new<S, I>(
-    field: String,
+  pub fn new<S, I, FName>(
+    field: FName,
     num_dims: usize,
     bytes_per_dim: usize,
     mut packed_points: I,
@@ -91,7 +91,9 @@ impl PointInSetQuery {
   where
     S: Into<PointInSetBaseEnum>,
     I: BytesRefIterator,
+    FName: Into<String>,
   {
+    let field = field.into();
     if !(1..=MAX_NUM_BYTES).contains(&bytes_per_dim) {
       return Err(LuceneError::illegal_argument(format!(
         "bytesPerDim must be > 0 and <= {}; got {}",
@@ -384,15 +386,19 @@ pub struct MergePointScorerSupplier<PV> {
 }
 
 impl<PV> MergePointScorerSupplier<PV> {
-  pub fn new(
+  pub fn new<FName>(
     score: f32,
     score_mode: ScoreMode,
     values: PV,
     max_doc: i32,
-    field: String,
+    field: FName,
     sorted_packed_points: PrefixCodedTermsArc,
     bytes_per_dim: usize,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       score,
       score_mode,
@@ -475,16 +481,20 @@ pub struct SinglePointScorerSupplier<PV> {
 
 impl<PV> SinglePointScorerSupplier<PV> {
   #[allow(clippy::too_many_arguments)]
-  pub fn new(
+  pub fn new<FName>(
     score: f32,
     score_mode: ScoreMode,
     values: PV,
     max_doc: i32,
-    field: String,
+    field: FName,
     sorted_packed_points: PrefixCodedTermsArc,
     num_dims: usize,
     bytes_per_dim: usize,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       score,
       score_mode,

@@ -228,9 +228,10 @@ impl XYPointField {
   /// Returns an error if `polygons` is empty.
   ///
   /// See [`Polygon`](crate::core::geo::polygon::Polygon).
-  pub fn new_polygon_query<T>(field: T, polygons: Vec<XYPolygon>) -> Result<Query>
+  pub fn new_polygon_query<T, I>(field: T, polygons: I) -> Result<Query>
   where
     T: Into<String>,
+    I: IntoIterator<Item = XYPolygon>,
   {
     Self::new_geometry_query(field, polygons)
   }
@@ -252,10 +253,11 @@ impl XYPointField {
   /// Returns an error if `xy_geometries` is empty or contains an unsupported [`XYLine`](crate::core::geo::xy_line::XYLine) geometry.
   ///
   /// See [`XYGeometry`].
-  pub fn new_geometry_query<S, T>(field: S, xy_geometries: Vec<T>) -> Result<Query>
+  pub fn new_geometry_query<S, T, I>(field: S, xy_geometries: I) -> Result<Query>
   where
     S: Into<String>,
     T: XYGeometry + Into<XYGeometryEnum>,
+    I: IntoIterator<Item = T>,
   {
     let xy_geometries: Vec<XYGeometryEnum> = xy_geometries.into_iter().map(Into::into).collect();
     Ok(XYPointInGeometryQuery::new(field.into(), xy_geometries)?.into())

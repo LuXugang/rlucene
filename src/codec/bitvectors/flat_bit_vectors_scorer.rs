@@ -74,13 +74,14 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
   where
     T: FloatVectorValues;
 
-  fn get_random_vector_scorer_f32<K>(
+  fn get_random_vector_scorer_f32<K, TV>(
     &self,
     _similarity_function: VectorSimilarityFunction,
     _vector_values: K,
-    _target: Vec<f32>,
+    _target: TV,
   ) -> Result<Self::RandomVectorScorerF32<K>>
   where
+    TV: Into<Vec<f32>>,
     K: FloatVectorValues,
   {
     Err(LuceneError::illegal_argument(
@@ -93,15 +94,17 @@ impl FlatVectorsScorer for FlatBitVectorsScorer {
   where
     T: ByteVectorValues;
 
-  fn get_random_vector_scorer_u8<K>(
+  fn get_random_vector_scorer_u8<K, TV>(
     &self,
     _similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<u8>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerU8<K>>
   where
+    TV: Into<Vec<u8>>,
     K: ByteVectorValues,
   {
+    let target = target.into();
     debug_assert!(KnnVectorValues::get_encoding(&vector_values) == VectorEncoding::BYTE(1));
     Ok(BitRandomVectorScorer::new(vector_values, target))
   }

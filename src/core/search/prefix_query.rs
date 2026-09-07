@@ -45,15 +45,21 @@ impl PrefixQuery {
   /// Constructs a query for terms starting with `prefix`.
   ///
   /// Uses `CONSTANT_SCORE_BLENDED_REWRITE` as the default rewrite method.
-  pub fn new(prefix: Term) -> Result<Self> {
+  pub fn new<TermInput>(prefix: TermInput) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let prefix = prefix.into();
     Self::with_rewrite(prefix, ConstantScoreBlendedRewrite)
   }
 
   /// Constructs a query for terms starting with `prefix` using a defined rewrite method.
-  pub fn with_rewrite<R>(prefix: Term, rewrite_method: R) -> Result<Self>
+  pub fn with_rewrite<R, TermInput>(prefix: TermInput, rewrite_method: R) -> Result<Self>
   where
     R: Into<RewriteMethodEnum>,
+    TermInput: Into<Term>,
   {
+    let prefix = prefix.into();
     let automaton = to_automaton(prefix.bytes())?;
     let base = AutomatonQuery::new(prefix, automaton, true, rewrite_method)?;
     Ok(Self {

@@ -47,12 +47,13 @@ impl StringHelper {
   /// # Returns
   ///
   /// The number of common elements (from the start of each).
-  pub fn bytes_difference<AV>(
+  pub fn bytes_difference<AV, BV>(
     prior_term: &BytesRef<AV>,
-    current_term: &BytesRef<AV>,
+    current_term: &BytesRef<BV>,
   ) -> Result<usize>
   where
     AV: SharedAccessVec<u8>,
+    BV: SharedAccessVec<u8>,
   {
     with_other!(
       prior_term.bytes,
@@ -84,12 +85,13 @@ impl StringHelper {
   /// # Returns
   ///
   /// The length needed for the sort key.
-  pub fn sort_key_length<AV>(
+  pub fn sort_key_length<AV, BV>(
     prior_term: &BytesRef<AV>,
-    current_term: &BytesRef<AV>,
+    current_term: &BytesRef<BV>,
   ) -> Result<usize>
   where
     AV: SharedAccessVec<u8>,
+    BV: SharedAccessVec<u8>,
   {
     let difference = Self::bytes_difference(prior_term, current_term)?;
     Ok(difference + 1)
@@ -131,9 +133,10 @@ impl StringHelper {
   /// # Returns
   ///
   /// `true` if `ref_bytes` starts with the given `prefix`, otherwise `false`.
-  pub fn starts_with_byte_ref<AV>(ref_bytes: &BytesRef<AV>, prefix: &BytesRef<AV>) -> bool
+  pub fn starts_with_byte_ref<AV, BV>(ref_bytes: &BytesRef<AV>, prefix: &BytesRef<BV>) -> bool
   where
     AV: SharedAccessVec<u8>,
+    BV: SharedAccessVec<u8>,
   {
     with_other!(
       ref_bytes.bytes,
@@ -181,9 +184,10 @@ impl StringHelper {
   /// # Returns
   ///
   /// `true` if `reference` ends with the given `suffix`, otherwise `false`.
-  pub fn ends_with<AV>(ref_bytes: &BytesRef<AV>, suffix: &BytesRef<AV>) -> bool
+  pub fn ends_with<AV, BV>(ref_bytes: &BytesRef<AV>, suffix: &BytesRef<BV>) -> bool
   where
     AV: SharedAccessVec<u8>,
+    BV: SharedAccessVec<u8>,
   {
     with_other!(
       ref_bytes.bytes,

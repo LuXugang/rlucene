@@ -31,7 +31,7 @@ use parking_lot::Mutex;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 pub struct FST<O, F>
@@ -120,8 +120,11 @@ where
   }
 
   /// Writes the automaton to a file.
-  pub fn save_to_path(&mut self, path: &PathBuf) -> Result<()> {
-    let file = File::create(path)?; // or: path.as_path()
+  pub fn save_to_path<P>(&mut self, path: P) -> Result<()>
+  where
+    P: AsRef<Path>,
+  {
+    let file = File::create(path)?;
     let mut out = OutputStreamDataOutput::new(file);
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
       self.save_with_same_data_out(&mut out)

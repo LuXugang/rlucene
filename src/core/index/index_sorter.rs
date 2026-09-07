@@ -105,12 +105,16 @@ pub struct DoubleSorter<NP> {
   values_provider: NP,
 }
 impl<NP> DoubleSorter<NP> {
-  pub fn new(
-    provider_name: String,
+  pub fn new<FName>(
+    provider_name: FName,
     missing_value: Option<MissingValueEnum>,
     reverse: bool,
     values_provider: NP,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
       match mv {
         MissingValueEnum::Double(value) => Some(value),
@@ -255,12 +259,16 @@ pub struct IntSorter<NP> {
   values_provider: NP,
 }
 impl<NP> IntSorter<NP> {
-  pub fn new(
-    provider_name: String,
+  pub fn new<FName>(
+    provider_name: FName,
     missing_value: Option<MissingValueEnum>,
     reverse: bool,
     values_provider: NP,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
       match mv {
         MissingValueEnum::Int(value) => Some(value),
@@ -393,12 +401,16 @@ pub struct LongSorter<NP> {
   values_provider: NP,
 }
 impl<NP> LongSorter<NP> {
-  pub fn new(
-    provider_name: String,
+  pub fn new<FName>(
+    provider_name: FName,
     missing_value: Option<MissingValueEnum>,
     reverse: bool,
     values_provider: NP,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
       match mv {
         MissingValueEnum::Long(value) => Some(value),
@@ -537,12 +549,16 @@ pub struct FloatSorter<NP> {
 }
 
 impl<NP> FloatSorter<NP> {
-  pub fn new(
-    provider_name: String,
+  pub fn new<FName>(
+    provider_name: FName,
     missing_value: Option<MissingValueEnum>,
     reverse: bool,
     values_provider: NP,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let provider_name = provider_name.into();
     let missing_value = if let Some(mv) = missing_value {
       match mv {
         MissingValueEnum::Float(value) => Some(value),
@@ -692,12 +708,16 @@ pub struct StringSorter<SP> {
 }
 
 impl<SP> StringSorter<SP> {
-  pub fn new(
-    provider_name: String,
+  pub fn new<FName>(
+    provider_name: FName,
     missing_value: Option<MissingValueEnum>,
     reverse: bool,
     values_provider: SP,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let provider_name = provider_name.into();
     Self {
       provider_name,
       missing_value,

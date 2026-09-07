@@ -83,19 +83,31 @@ impl FuzzyQuery {
     TopTermsBlendedFreqScoringRewrite::new(max_expansions)
   }
 
-  pub fn new(term: Term) -> Result<Self> {
+  pub fn new<TermInput>(term: TermInput) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_max_edits(term, Self::DEFAULT_MAX_EDITS)
   }
 
-  pub fn with_max_edits(term: Term, max_edits: i32) -> Result<Self> {
+  pub fn with_max_edits<TermInput>(term: TermInput, max_edits: i32) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_max_edits_and_prefix(term, max_edits, Self::DEFAULT_PREFIX_LENGTH)
   }
 
-  pub fn with_max_edits_and_prefix(
-    term: Term,
+  pub fn with_max_edits_and_prefix<TermInput>(
+    term: TermInput,
     max_edits: i32,
     prefix_length: usize,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_options(
       term,
       max_edits,
@@ -105,13 +117,17 @@ impl FuzzyQuery {
     )
   }
 
-  pub fn with_options(
-    term: Term,
+  pub fn with_options<TermInput>(
+    term: TermInput,
     max_edits: i32,
     prefix_length: usize,
     max_expansions: usize,
     transpositions: bool,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_rewrite(
       term,
       max_edits,
@@ -135,8 +151,8 @@ impl FuzzyQuery {
   /// - `transpositions`: `true` if transpositions should be treated as a primitive edit operation.
   ///   If this is `false`, comparisons will implement the classic Levenshtein algorithm.
   /// - `rewrite_method`: the rewrite method to use to build the final query.
-  pub fn with_rewrite<R>(
-    term: Term,
+  pub fn with_rewrite<R, TermInput>(
+    term: TermInput,
     max_edits: i32,
     prefix_length: usize,
     max_expansions: usize,
@@ -145,7 +161,9 @@ impl FuzzyQuery {
   ) -> Result<Self>
   where
     R: Into<RewriteMethodEnum>,
+    TermInput: Into<Term>,
   {
+    let term = term.into();
     if !(0..=LevenshteinAutomata::MAXIMUM_SUPPORTED_DISTANCE).contains(&max_edits) {
       return Err(LuceneError::illegal_argument(format!(
         "maxEdits must be between 0 and {}",

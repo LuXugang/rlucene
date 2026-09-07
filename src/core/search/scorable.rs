@@ -105,7 +105,11 @@ pub struct ChildScorable<T> {
 }
 
 impl<T> ChildScorable<T> {
-  pub fn new(child: T, relationship: String) -> Self {
+  pub fn new<FName>(child: T, relationship: FName) -> Self
+  where
+    FName: Into<String>,
+  {
+    let relationship = relationship.into();
     Self {
       child,
       relationship,

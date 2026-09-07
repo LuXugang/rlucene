@@ -66,17 +66,21 @@ pub struct RangeFieldQuery {
 }
 
 impl RangeFieldQuery {
-  pub fn new<T>(
-    field: String,
-    ranges: Vec<u8>,
+  pub fn new<T, FName, V>(
+    field: FName,
+    ranges: V,
     num_dims: usize,
     query_type: QueryType,
     sub: T,
   ) -> Result<Self>
   where
+    FName: Into<String>,
+    V: Into<Vec<u8>>,
     T: Into<RangeFieldQueryBaseEnum>,
   {
+    let field = field.into();
     let sub = sub.into();
+    let ranges = ranges.into();
     Self::check_args(&ranges, num_dims)?;
     let bytes_per_dim = ranges.len() / (2 * num_dims);
     let comparator = ArrayUtil::get_unsigned_comparator(bytes_per_dim);

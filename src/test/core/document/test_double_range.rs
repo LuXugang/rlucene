@@ -23,7 +23,7 @@ struct TestDoubleRange;
 
 #[test]
 fn test_to_string_double_range() -> Result<()> {
-  let range = DoubleRange::new("foo", &[0.1, 1.1, 2.1, 3.1], &[0.2, 1.2, 2.2, 3.2])?;
+  let range = DoubleRange::new("foo", [0.1, 1.1, 2.1, 3.1], [0.2, 1.2, 2.2, 3.2])?;
 
   assert_eq!(
     "DoubleRange <foo: [0.1 : 0.2] [1.1 : 1.2] [2.1 : 2.2] [3.1 : 3.2]>",

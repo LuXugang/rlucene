@@ -75,13 +75,14 @@ pub trait FlatVectorsScorer: Display {
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_f32<K>(
+  fn get_random_vector_scorer_f32<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<f32>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerF32<K>>
   where
+    TV: Into<Vec<f32>>,
     K: FloatVectorValues;
 
   type RandomVectorScorerU8<T>: RandomVectorScorer
@@ -99,13 +100,14 @@ pub trait FlatVectorsScorer: Display {
   ///
   /// # Errors
   /// Returns an error if an I/O error occurs when reading from the index.
-  fn get_random_vector_scorer_u8<K>(
+  fn get_random_vector_scorer_u8<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<u8>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerU8<K>>
   where
+    TV: Into<Vec<u8>>,
     K: ByteVectorValues;
 }
 
@@ -140,15 +142,17 @@ where
   where
     T: FloatVectorValues;
 
-  fn get_random_vector_scorer_f32<K>(
+  fn get_random_vector_scorer_f32<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<f32>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerF32<K>>
   where
+    TV: Into<Vec<f32>>,
     K: FloatVectorValues,
   {
+    let target = target.into();
     (**self).get_random_vector_scorer_f32(similarity_function, vector_values, target)
   }
 
@@ -157,15 +161,17 @@ where
   where
     T: ByteVectorValues;
 
-  fn get_random_vector_scorer_u8<K>(
+  fn get_random_vector_scorer_u8<K, TV>(
     &self,
     similarity_function: VectorSimilarityFunction,
     vector_values: K,
-    target: Vec<u8>,
+    target: TV,
   ) -> Result<Self::RandomVectorScorerU8<K>>
   where
+    TV: Into<Vec<u8>>,
     K: ByteVectorValues,
   {
+    let target = target.into();
     (**self).get_random_vector_scorer_u8(similarity_function, vector_values, target)
   }
 }

@@ -143,7 +143,7 @@ fn test_large_disjunction_max_query() -> Result<()> {
     clauses.push(TermQuery::new(Term::from_text("field", "a")).into());
   }
 
-  let pq = PhraseQuery::from_bytes_no_slop("field", vec![])?;
+  let pq = PhraseQuery::from_bytes_no_slop("field", std::iter::empty::<&[u8]>())?;
   clauses.push(pq.into());
 
   let dmq = DisjunctionMaxQuery::new(clauses, 0.5f32)?;

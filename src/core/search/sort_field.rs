@@ -985,7 +985,11 @@ pub struct SProviderImpl2 {
   field: String,
 }
 impl SProviderImpl2 {
-  pub fn new(field: String) -> Self {
+  pub fn new<FName>(field: FName) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     SProviderImpl2 { field }
   }
 }
@@ -1006,7 +1010,11 @@ pub struct NPImpl1 {
   field: String,
 }
 impl NPImpl1 {
-  pub fn new(field: String) -> Self {
+  pub fn new<FName>(field: FName) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     NPImpl1 { field }
   }
 }

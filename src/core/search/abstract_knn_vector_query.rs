@@ -370,7 +370,11 @@ pub struct AbstractKnnVectorQueryBase {
   pub(crate) filter: Option<Box<Query>>,
 }
 impl AbstractKnnVectorQueryBase {
-  pub fn new(field: String, k: usize, filter: Option<Query>) -> Result<Self> {
+  pub fn new<FName>(field: FName, k: usize, filter: Option<Query>) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     if k < 1 {
       return Err(LuceneError::illegal_argument(format!(
         "k must be at least 1, got: {}",

@@ -392,7 +392,7 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
               &id,
               IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
             )?;
-            si.set_codec(codec.clone().into())?;
+            si.set_codec(codec.clone())?;
             let sci = SegmentCommitInfo::new(si, 0, 0, -1, -1, -1, Some(StringHelper::random_id()));
             let sr = SegmentReader::new(
               &sci,

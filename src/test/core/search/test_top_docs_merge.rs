@@ -320,8 +320,7 @@ fn test_sort(use_from: bool) -> Result<()> {
               temp_top_hits.score_docs[from as usize..end]
                 .iter()
                 .cloned()
-                .map(TopFieldScoreDoc::from)
-                .collect(),
+                .map(TopFieldScoreDoc::from),
             );
           } else {
             top_hits = TopDocs::new(temp_top_hits.total_hits, vec![]);
@@ -330,11 +329,7 @@ fn test_sort(use_from: bool) -> Result<()> {
           let hits = searcher.search(query.clone(), num_hits)?;
           top_hits = TopDocs::new(
             hits.total_hits,
-            hits
-              .score_docs
-              .into_iter()
-              .map(TopFieldScoreDoc::from)
-              .collect(),
+            hits.score_docs.into_iter().map(TopFieldScoreDoc::from),
           );
         }
       },
@@ -378,11 +373,7 @@ fn test_sort(use_from: bool) -> Result<()> {
         let sub_hits = sub_searcher.search_top_docs(&weight, num_hits)?;
         TopDocs::new(
           sub_hits.total_hits,
-          sub_hits
-            .score_docs
-            .into_iter()
-            .map(TopFieldScoreDoc::from)
-            .collect(),
+          sub_hits.score_docs.into_iter().map(TopFieldScoreDoc::from),
         )
       };
 

@@ -45,13 +45,17 @@ pub struct DoubleComparator {
 }
 
 impl DoubleComparator {
-  pub fn new(
-    field: String,
+  pub fn new<FName>(
+    field: FName,
     num_hits: usize,
     missing_value: Option<f64>,
     reverse: bool,
     pruning: Pruning,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     let missing_value = missing_value.unwrap_or(0f64);
     let base = NumericComparator::new(
       field,

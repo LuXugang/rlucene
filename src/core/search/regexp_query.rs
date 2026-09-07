@@ -65,7 +65,11 @@ impl RegexpQuery {
   /// Constructs a query for terms matching `term`.
   ///
   /// By default, all regular expression features are enabled.
-  pub fn new(term: Term) -> Result<Self> {
+  pub fn new<TermInput>(term: TermInput) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_flags(term, RegExp::ALL)
   }
 
@@ -73,7 +77,11 @@ impl RegexpQuery {
   ///
   /// - `term`: regular expression.
   /// - `flags`: optional RegExp features from [`RegExp`]
-  pub fn with_flags(term: Term, flags: i32) -> Result<Self> {
+  pub fn with_flags<TermInput>(term: TermInput, flags: i32) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_provider(
       term,
       flags,
@@ -90,11 +98,15 @@ impl RegexpQuery {
   ///   regexp. Set higher to allow more complex queries and lower to prevent memory exhaustion.
   ///   Use [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`] as a decent default if you don't
   ///   otherwise know what to specify.
-  pub fn with_flags_and_work_limit(
-    term: Term,
+  pub fn with_flags_and_work_limit<TermInput>(
+    term: TermInput,
     flags: i32,
     determinize_work_limit: i32,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_provider(term, flags, &DefaultProvider, determinize_work_limit)
   }
 
@@ -109,12 +121,16 @@ impl RegexpQuery {
   ///   regexp. Set higher to allow more complex queries and lower to prevent memory exhaustion.
   ///   Use [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`] as a decent default if you don't
   ///   otherwise know what to specify.
-  pub fn with_syntax_and_match_flags(
-    term: Term,
+  pub fn with_syntax_and_match_flags<TermInput>(
+    term: TermInput,
     syntax_flags: i32,
     match_flags: i32,
     determinize_work_limit: i32,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_all(
       term,
       syntax_flags,
@@ -134,15 +150,17 @@ impl RegexpQuery {
   ///   regexp. Set higher to allow more complex queries and lower to prevent memory exhaustion.
   ///   Use [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`] as a decent default if you don't
   ///   otherwise know what to specify.
-  pub fn with_provider<T>(
-    term: Term,
+  pub fn with_provider<T, TermInput>(
+    term: TermInput,
     syntax_flags: i32,
     provider: &T,
     determinize_work_limit: i32,
   ) -> Result<Self>
   where
     T: AutomatonProvider,
+    TermInput: Into<Term>,
   {
+    let term = term.into();
     Self::with_all(
       term,
       syntax_flags,
@@ -164,8 +182,8 @@ impl RegexpQuery {
   ///   Use [`Operations::DEFAULT_DETERMINIZE_WORK_LIMIT`] as a decent default if you don't
   ///   otherwise know what to specify.
   /// - `rewrite_method`: the rewrite method to use to build the final query
-  pub fn with_all<R, T>(
-    term: Term,
+  pub fn with_all<R, T, TermInput>(
+    term: TermInput,
     syntax_flags: i32,
     match_flags: i32,
     provider: &T,
@@ -175,7 +193,9 @@ impl RegexpQuery {
   where
     R: Into<RewriteMethodEnum>,
     T: AutomatonProvider,
+    TermInput: Into<Term>,
   {
+    let term = term.into();
     Self::with_all_and_determinization(
       term,
       syntax_flags,
@@ -205,8 +225,8 @@ impl RegexpQuery {
   ///   that [`NFARunAutomaton`](crate::core::util::automation::nfa_run_automaton::NFARunAutomaton) is not thread-safe, so better
   ///   to avoid rewritten method like [`ConstantScoreBlendedRewrite`] when searcher is
   ///   configured with an executor service
-  pub fn with_all_and_determinization<R, T>(
-    term: Term,
+  pub fn with_all_and_determinization<R, T, TermInput>(
+    term: TermInput,
     syntax_flags: i32,
     match_flags: i32,
     provider: &T,
@@ -217,7 +237,9 @@ impl RegexpQuery {
   where
     R: Into<RewriteMethodEnum>,
     T: AutomatonProvider,
+    TermInput: Into<Term>,
   {
+    let term = term.into();
     let re = RegExp::parse(&term.text()?, syntax_flags, match_flags)?;
     let automaton = to_automaton(&re, determinize_work_limit, provider, do_determinization)?;
     let base = AutomatonQuery::new(term, automaton, false, rewrite_method)?;

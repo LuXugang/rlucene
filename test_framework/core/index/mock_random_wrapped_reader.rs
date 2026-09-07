@@ -1027,17 +1027,19 @@ where
     }
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     match &self.inner {
       KnnVectorsReaderInner::Direct(inner) => {
         inner.search_f32(field, target, knn_collector, accept_docs)
@@ -1048,17 +1050,19 @@ where
     }
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     match &self.inner {
       KnnVectorsReaderInner::Direct(inner) => {
         inner.search_u8(field, target, knn_collector, accept_docs)
@@ -1225,31 +1229,35 @@ where
     LeafReader::get_byte_vector_values(&self.reader, field)
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_f32(&self.reader, field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     LeafReader::search_nearest_vectors_u8(&self.reader, field, target, knn_collector, accept_docs)
   }
 

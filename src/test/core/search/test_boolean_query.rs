@@ -1195,7 +1195,7 @@ fn test_disjunction_matches_count() -> Result<()> {
   // Unknown-count query on a 3D `i64` point range.
   let lower = [4i64, 5i64, 6i64];
   let upper = [9i64, 10i64, 11i64];
-  let unknown_count_query = LongPoint::new_range_query_n("long3dim", &lower, &upper)?;
+  let unknown_count_query = LongPoint::new_range_query_n("long3dim", lower, upper)?;
 
   assert_eq!(1, searcher.get_leaf_contexts()?.len());
   let w = searcher.create_weight(unknown_count_query.clone(), ScoreMode::Complete, 1.0)?;

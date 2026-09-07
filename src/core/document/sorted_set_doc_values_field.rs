@@ -164,12 +164,14 @@ impl SortedSetDocValuesField {
   /// consequence, they are best used wrapped in an
   /// [`IndexOrDocValuesQuery`](crate::core::search::index_or_doc_values_query::IndexOrDocValuesQuery),
   /// alongside a set query that executes on postings, such as [`TermInSetQuery`].
-  pub fn new_slow_set_query<T>(
-    field: T,
-    values: Vec<BytesRef<Vec<u8>>>,
-  ) -> Result<MultiTermQuerySet>
+  ///
+  /// Accepts arrays, vectors, or iterators of text, bytes, or `BytesRef` values.
+  /// For an empty set, pass `std::iter::empty::<&str>()`.
+  pub fn new_slow_set_query<T, I, B>(field: T, values: I) -> Result<MultiTermQuerySet>
   where
     T: Into<String>,
+    I: IntoIterator<Item = B>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     Ok(TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values)?.into())
   }

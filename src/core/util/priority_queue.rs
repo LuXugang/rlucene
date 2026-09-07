@@ -214,7 +214,11 @@ where
   /// If one tries to add more objects than the `max_size` passed in the
   /// initialization method, an
   /// [`ArrayIndexOutOfBoundsError`](crate::core::util::error::ArrayIndexOutOfBoundsError) is returned.
-  pub fn add_all(&mut self, elements: Vec<T>) -> Result<()> {
+  pub fn add_all<I>(&mut self, elements: I) -> Result<()>
+  where
+    I: IntoIterator<Item = T>,
+  {
+    let elements = elements.into_iter().collect::<Vec<_>>();
     if (self.size + elements.len()) > self.max_size {
       return Err(LuceneError::array_index_out_of_bounds(format!(
         "Cannot add {} elements to a queue with remaining capacity: {}",

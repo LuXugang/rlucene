@@ -60,7 +60,7 @@ impl FloatVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
   /// * `filter` - a filter applied before the vector search.
@@ -69,17 +69,19 @@ impl FloatVectorSimilarityQuery {
   ///
   /// Returns an error if `target` contains non-finite values, or if
   /// `traversal_similarity` is greater than `result_similarity`.
-  pub fn with_traversal_similarity_and_filter<T>(
+  pub fn with_traversal_similarity_and_filter<T, V>(
     field: T,
-    target: Vec<f32>,
+    target: V,
     traversal_similarity: f32,
     result_similarity: f32,
     filter: Option<Query>,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<f32>>,
   {
     let field = field.into();
+    let target = target.into();
     VectorUtil::check_finite(target.as_ref())?;
     Ok(Self {
       base: AbstractVectorSimilarityQueryBase::new(
@@ -100,17 +102,18 @@ impl FloatVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `traversal_similarity` - lower similarity score for graph traversal.
   /// * `result_similarity` - higher similarity score for result collection.
-  pub fn with_traversal_similarity<T>(
+  pub fn with_traversal_similarity<T, V>(
     field: T,
-    target: Vec<f32>,
+    target: V,
     traversal_similarity: f32,
     result_similarity: f32,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<f32>>,
   {
     Self::with_traversal_similarity_and_filter(
       field,
@@ -130,17 +133,18 @@ impl FloatVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `result_similarity` - similarity score for result collection.
   /// * `filter` - a filter applied before the vector search.
-  pub fn with_filter<T>(
+  pub fn with_filter<T, V>(
     field: T,
-    target: Vec<f32>,
+    target: V,
     result_similarity: f32,
     filter: Option<Query>,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<f32>>,
   {
     Self::with_traversal_similarity_and_filter(
       field,
@@ -156,11 +160,12 @@ impl FloatVectorSimilarityQuery {
   /// # Arguments
   ///
   /// * `field` - a field that has been indexed as a [`KnnFloatVectorField`](crate::core::document::knn_float_vector_field::KnnFloatVectorField).
-  /// * `target` - the target vector of the search.
+  /// * `target` - the target vector, as an owned vector, array, or borrowed slice.
   /// * `result_similarity` - similarity score for result collection.
-  pub fn new<T>(field: T, target: Vec<f32>, result_similarity: f32) -> Result<Self>
+  pub fn new<T, V>(field: T, target: V, result_similarity: f32) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<f32>>,
   {
     Self::with_filter(field, target, result_similarity, None)
   }

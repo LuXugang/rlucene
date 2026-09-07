@@ -77,16 +77,12 @@ impl<B> PrefixCodedTerms<B> {
 
 impl PrefixCodedTerms<Vec<u8>> {
   pub fn iterator(&self) -> Result<TermIteratorRef<'_>> {
-    let content = self
-      .content
-      .iter()
-      .map(|cursor| {
-        let slice = cursor.get_ref().as_slice();
-        let mut cursor = Cursor::new(slice);
-        cursor.set_position(0);
-        cursor
-      })
-      .collect();
+    let content = self.content.iter().map(|cursor| {
+      let slice = cursor.get_ref().as_slice();
+      let mut cursor = Cursor::new(slice);
+      cursor.set_position(0);
+      cursor
+    });
     Ok(TermIterator::new(
       self.del_gen,
       ByteBuffersDataInput::new(content, self.content_len)?,
@@ -96,15 +92,11 @@ impl PrefixCodedTerms<Vec<u8>> {
 
 impl PrefixCodedTerms<Rc<Vec<u8>>> {
   pub fn iterator(&self) -> Result<TermIteratorRc> {
-    let content = self
-      .content
-      .iter()
-      .map(|cursor| {
-        let mut cursor = Cursor::new(cursor.get_ref().clone());
-        cursor.set_position(0);
-        cursor
-      })
-      .collect();
+    let content = self.content.iter().map(|cursor| {
+      let mut cursor = Cursor::new(cursor.get_ref().clone());
+      cursor.set_position(0);
+      cursor
+    });
     Ok(TermIterator::new(
       self.del_gen,
       ByteBuffersDataInput::new(content, self.content_len)?,
@@ -114,15 +106,11 @@ impl PrefixCodedTerms<Rc<Vec<u8>>> {
 
 impl PrefixCodedTerms<Arc<Vec<u8>>> {
   pub fn iterator(&self) -> Result<TermIteratorArc> {
-    let content = self
-      .content
-      .iter()
-      .map(|cursor| {
-        let mut cursor = Cursor::new(cursor.get_ref().clone());
-        cursor.set_position(0);
-        cursor
-      })
-      .collect();
+    let content = self.content.iter().map(|cursor| {
+      let mut cursor = Cursor::new(cursor.get_ref().clone());
+      cursor.set_position(0);
+      cursor
+    });
     Ok(TermIterator::new(
       self.del_gen,
       ByteBuffersDataInput::new(content, self.content_len)?,
@@ -270,7 +258,11 @@ impl PrefixCodedTermsBuilder {
     self.add(term.field.to_string(), &term.bytes)
   }
   /// Add a term. This fully consumes the incoming [`BytesRef`].
-  pub fn add(&mut self, field: String, bytes: &BytesRef<Vec<u8>>) -> Result<()> {
+  pub fn add<FName>(&mut self, field: FName, bytes: &BytesRef<Vec<u8>>) -> Result<()>
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     debug_assert!(
       self.last_term == Term::from_empty("".to_string())
         || Term::new(field.clone(), bytes.clone()).cmp(&self.last_term) == Ordering::Greater,

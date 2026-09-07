@@ -67,16 +67,21 @@ pub struct SpatialQuery<G, C> {
 }
 
 impl<G, C> SpatialQuery<G, C> {
-  pub fn new(
-    field: String,
+  pub fn new<FName, I>(
+    field: FName,
     query_relation: QueryRelation,
-    geometries: Vec<G>,
+    geometries: I,
     sub: C,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    FName: Into<String>,
+    I: IntoIterator<Item = G>,
+  {
+    let field = field.into();
     Ok(Self {
       field,
       query_relation,
-      geometries,
+      geometries: geometries.into_iter().collect(),
       sub,
       id: Identity::new(),
     })
@@ -469,15 +474,19 @@ pub struct RelationScorerSupplier<PV, V> {
 
 impl<PV, V> RelationScorerSupplier<PV, V> {
   #[allow(clippy::too_many_arguments)]
-  pub fn new(
+  pub fn new<FName>(
     values: PV,
     spatial_visitor: V,
     query_relation: QueryRelation,
-    field: String,
+    field: FName,
     score: f32,
     score_mode: ScoreMode,
     max_doc: i32,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       values,
       spatial_visitor,

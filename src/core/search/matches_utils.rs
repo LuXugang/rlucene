@@ -136,10 +136,12 @@ where
   }
 }
 
-pub fn for_field<'a, F>(field: String, supplier: F) -> Result<Option<QueryWeightMatches<'a>>>
+pub fn for_field<'a, F, FName>(field: FName, supplier: F) -> Result<Option<QueryWeightMatches<'a>>>
 where
   F: Fn() -> Result<Option<QueryWeightMatchesIterator<'a>>> + 'a,
+  FName: Into<String>,
 {
+  let field = field.into();
   let first = supplier()?;
   let Some(first) = first else {
     return Ok(None);

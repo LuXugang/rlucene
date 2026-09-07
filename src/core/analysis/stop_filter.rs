@@ -45,11 +45,14 @@ impl StopFilter {
     Arc::new(stop_set)
   }
 
-  pub fn new<T>(input: T, stop_words: Arc<CharArraySet>) -> FilteringTokenFilter<T, StopFilter>
+  pub fn new<T, S>(input: T, stop_words: S) -> FilteringTokenFilter<T, StopFilter>
   where
     T: TokenStream,
+    S: Into<Arc<CharArraySet>>,
   {
-    let v = StopFilter { stop_words };
+    let v = StopFilter {
+      stop_words: stop_words.into(),
+    };
     FilteringTokenFilter::new(input, v)
   }
 }

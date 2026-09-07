@@ -67,7 +67,11 @@ impl LevenshteinAutomata {
 
   /// Expert: specify a custom maximum possible symbol (`alpha_max`); default is
   /// `char::MAX`.
-  pub fn from_word(word: Vec<i32>, alpha_max: i32, with_transpositions: bool) -> Result<Self> {
+  pub fn from_word<W>(word: W, alpha_max: i32, with_transpositions: bool) -> Result<Self>
+  where
+    W: Into<Vec<i32>>,
+  {
+    let word = word.into();
     let mut set = BTreeSet::new();
     for &v in &word {
       if v > alpha_max {

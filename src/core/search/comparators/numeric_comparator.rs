@@ -60,14 +60,18 @@ pub struct NumericComparator<V> {
 }
 
 impl<V> NumericComparator<V> {
-  pub fn new(
-    field: String,
+  pub fn new<FName>(
+    field: FName,
     missing_value: V,
     reverse: bool,
     pruning: Pruning,
     bytes_count: usize,
     missing_value_as_long: i64,
-  ) -> Self {
+  ) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       field,
       missing_value_as_long,

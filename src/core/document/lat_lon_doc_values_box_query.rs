@@ -50,13 +50,17 @@ pub struct LatLonDocValuesBoxQuery {
 }
 
 impl LatLonDocValuesBoxQuery {
-  pub fn new(
-    field: String,
+  pub fn new<FName>(
+    field: FName,
     min_latitude: f64,
     max_latitude: f64,
     min_longitude: f64,
     max_longitude: f64,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     GeoUtils::check_latitude(min_latitude)?;
     GeoUtils::check_latitude(max_latitude)?;
     GeoUtils::check_longitude(min_longitude)?;
@@ -182,8 +186,8 @@ where
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
-    let field = vec![self.query.field.clone()];
-    DocValues::is_cacheable(ctx, field.as_ref())
+    let field = [self.query.field.as_str()];
+    DocValues::is_cacheable(ctx, field)
   }
 }
 

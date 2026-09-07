@@ -314,7 +314,11 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerF32<DenseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer(&self, query: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let query = query.into();
     let copy = self.float_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
     })?;
@@ -529,7 +533,11 @@ where
     <F as FlatVectorsScorer>::RandomVectorScorerF32<SparseOffHeapVectorValues<I, F>>,
   >;
 
-  fn scorer(&self, query: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let query = query.into();
     let copy = self.float_copy()?.ok_or_else(|| {
       LuceneError::illegal_state("DenseOffHeapVectorValues should support float_copy()")
     })?;
@@ -656,7 +664,10 @@ impl FloatVectorValues for EmptyOffHeapVectorValues {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(&self, _target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
     Ok(None)
   }
 }
@@ -780,7 +791,11 @@ where
 
   type VectorScorer = VectorScorerEnum<I, F>;
 
-  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let target = target.into();
     match self {
       Self::Dense(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Dense)),
       Self::Sparse(values) => Ok(values.scorer(target)?.map(VectorScorerEnum::Sparse)),
@@ -935,7 +950,11 @@ where
 
   type VectorScorer = VectorScorerEnum<I, F>;
 
-  fn scorer(&self, target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let target = target.into();
     match self {
       OffHeapFloatVectorValuesEnum::Empty(_) => Ok(None),
 

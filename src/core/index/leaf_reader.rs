@@ -277,17 +277,19 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   /// that the search is allowed to visit.
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  fn search_nearest_vectors_f32_with_limit<T>(
+  fn search_nearest_vectors_f32_with_limit<T, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     mut k: usize,
     accept_docs: Option<T>,
     visited_limit: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
     T: Bits,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());
@@ -336,17 +338,19 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   /// that the search is allowed to visit.
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  fn search_nearest_vectors_u8_with_limit<T>(
+  fn search_nearest_vectors_u8_with_limit<T, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     mut k: usize,
     accept_docs: Option<T>,
     visited_limit: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
     T: Bits,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());
@@ -390,16 +394,17 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   /// enabled on its [`FieldInfo`](crate::core::index::field_info::FieldInfo).
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
-    K: KnnCollector;
+    K: KnnCollector,
+    TV: Into<Vec<f32>>;
 
   /// Finds nearest neighbor documents by comparing their vector values for this
   /// field to the given vector, by the field's similarity function.
@@ -420,16 +425,17 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   /// enabled on its [`FieldInfo`](crate::core::index::field_info::FieldInfo).
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
-    K: KnnCollector;
+    K: KnnCollector,
+    TV: Into<Vec<u8>>;
 
   /// Gets the [`FieldInfos`] describing all fields in this reader.
   ///
@@ -640,31 +646,35 @@ where
     (**self).get_byte_vector_values(field)
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     (**self).search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     (**self).search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
   }
 
@@ -819,31 +829,35 @@ where
     (**self).get_byte_vector_values(field)
   }
 
-  fn search_nearest_vectors_f32<B, K>(
+  fn search_nearest_vectors_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<f32>>,
   {
+    let target = target.into();
     (**self).search_nearest_vectors_f32(field, target, knn_collector, accept_docs)
   }
 
-  fn search_nearest_vectors_u8<B, K>(
+  fn search_nearest_vectors_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
     B: Bits,
     K: KnnCollector,
+    TV: Into<Vec<u8>>,
   {
+    let target = target.into();
     (**self).search_nearest_vectors_u8(field, target, knn_collector, accept_docs)
   }
 

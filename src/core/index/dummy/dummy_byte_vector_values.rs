@@ -74,10 +74,13 @@ impl ByteVectorValues for DummyByteVectorValues {
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(
+  fn scorer<TV>(
     &self,
-    _query: Vec<u8>,
-  ) -> crate::core::util::error::lucene_error::Result<Option<Self::VectorScorer>> {
+    _query: TV,
+  ) -> crate::core::util::error::lucene_error::Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
     dummy_unreachable!()
   }
 

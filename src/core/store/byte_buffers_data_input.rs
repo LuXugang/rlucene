@@ -78,7 +78,11 @@ pub struct ByteBuffersDataInput<B> {
 /// remaining bytes (which must be a power of two). The last buffer can have an
 /// arbitrary remaining length.
 impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
-  pub fn new(blocks: Vec<Cursor<B>>, length: usize) -> Result<Self> {
+  pub fn new<I>(blocks: I, length: usize) -> Result<Self>
+  where
+    I: IntoIterator<Item = Cursor<B>>,
+  {
+    let blocks = blocks.into_iter().collect::<Vec<_>>();
     let (block_bits, block_mask) = if blocks.len() <= 1 {
       (32, !0)
     } else {

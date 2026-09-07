@@ -64,12 +64,14 @@ impl TaskExecutor {
   /// will be added as suppressed errors to the first one that was caught. Additionally, if one
   /// task returns an error, all other tasks from the same group are cancelled, to avoid needless
   /// computation as their results would not be exposed anyways.
-  pub fn invoke_all<T, F>(&self, callables: Vec<F>) -> Result<Vec<T>>
+  pub fn invoke_all<T, F, I>(&self, callables: I) -> Result<Vec<T>>
   where
     T: Send,
     F: FnOnce() -> Result<T> + Send,
+    I: IntoIterator<Item = F>,
   {
-    let mut tasks = Vec::with_capacity(callables.len());
+    let callables = callables.into_iter();
+    let mut tasks = Vec::with_capacity(callables.size_hint().0);
     for callable in callables {
       tasks.push(Task::new(callable));
     }

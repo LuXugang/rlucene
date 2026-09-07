@@ -493,17 +493,19 @@ where
     self.flat_vectors_reader.get_quantization_state(field)
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::FLOAT32(4))?;
     self.search(field_entry, knn_collector, accept_docs, || {
       self
@@ -512,17 +514,19 @@ where
     })
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
+    target: TV,
     knn_collector: &mut K,
     accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
+    let target = target.into();
     let field_entry = self.get_field_entry(field, VectorEncoding::BYTE(1))?;
     self.search(field_entry, knn_collector, accept_docs, || {
       self

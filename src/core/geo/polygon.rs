@@ -64,7 +64,15 @@ pub struct Polygon {
 
 impl Polygon {
   /// Creates a new Polygon from the supplied latitude/longitude array, and optionally any holes.
-  pub fn new(poly_lats: Vec<f64>, poly_lons: Vec<f64>, holes: Vec<Polygon>) -> Result<Self> {
+  pub fn new<A, B, H>(poly_lats: A, poly_lons: B, holes: H) -> Result<Self>
+  where
+    A: Into<Vec<f64>>,
+    B: Into<Vec<f64>>,
+    H: Into<Vec<Polygon>>,
+  {
+    let poly_lats = poly_lats.into();
+    let poly_lons = poly_lons.into();
+    let holes = holes.into();
     if poly_lats.len() != poly_lons.len() {
       return Err(LuceneError::illegal_argument(
         "polyLats and polyLons must be equal length",
@@ -144,7 +152,7 @@ impl Polygon {
     self.poly_lats.len()
   }
 
-  /// Returns a copy of the internal latitude array
+  /// Borrows the internal latitude array
   pub fn get_poly_lats(&self) -> &[f64] {
     self.poly_lats.as_slice()
   }
@@ -154,7 +162,7 @@ impl Polygon {
     self.poly_lats[vertex]
   }
 
-  /// Returns a copy of the internal longitude array
+  /// Borrows the internal longitude array
   pub fn get_poly_lons(&self) -> &[f64] {
     self.poly_lons.as_slice()
   }
@@ -164,7 +172,7 @@ impl Polygon {
     self.poly_lons[vertex]
   }
 
-  /// Returns a copy of the internal holes array
+  /// Borrows the internal holes array
   pub fn get_holes(&self) -> &[Polygon] {
     self.holes.as_slice()
   }

@@ -28,46 +28,46 @@ pub struct TestStringHelper;
 fn test_bytes_difference() -> Result<()> {
   let mut random = random();
   let left: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
-  let right = new_bytes_ref_from_string(&mut random, "foozo")?;
+  let right: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foozo")?;
   assert_eq!(StringHelper::bytes_difference(&left, &right)?, 3);
 
   assert_eq!(
-    StringHelper::bytes_difference::<Vec<u8>>(
+    StringHelper::bytes_difference::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "for")?
     )?,
     2
   );
   assert_eq!(
-    StringHelper::bytes_difference::<Vec<u8>>(
+    StringHelper::bytes_difference::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo1234")?,
       &new_bytes_ref_from_string(&mut random, "for1234")?
     )?,
     2
   );
   assert_eq!(
-    StringHelper::bytes_difference::<Vec<u8>>(
+    StringHelper::bytes_difference::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "fz")?
     )?,
     1
   );
   assert_eq!(
-    StringHelper::bytes_difference::<Vec<u8>>(
+    StringHelper::bytes_difference::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "g")?
     )?,
     0
   );
   assert_eq!(
-    StringHelper::bytes_difference::<Vec<u8>>(
+    StringHelper::bytes_difference::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "food")?
     )?,
     3
   );
   // we can detect terms are out of order if we see a duplicate
-  let result = StringHelper::bytes_difference::<Vec<u8>>(
+  let result = StringHelper::bytes_difference::<Vec<u8>, Vec<u8>>(
     &new_bytes_ref_from_string(&mut random, "ab")?,
     &new_bytes_ref_from_string(&mut random, "ab")?,
   );
@@ -78,7 +78,7 @@ fn test_bytes_difference() -> Result<()> {
 fn test_starts_with() -> Result<()> {
   let mut random = random();
   let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
-  let slice = new_bytes_ref_from_string(&mut random, "foo")?;
+  let slice: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foo")?;
   assert!(StringHelper::starts_with_byte_ref(&ref_bytes, &slice));
   Ok(())
 }
@@ -86,7 +86,7 @@ fn test_starts_with() -> Result<()> {
 fn test_ends_with() -> Result<()> {
   let mut random = random();
   let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
-  let slice = new_bytes_ref_from_string(&mut random, "bar")?;
+  let slice: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "bar")?;
   assert!(StringHelper::ends_with(&ref_bytes, &slice));
   Ok(())
 }
@@ -94,7 +94,7 @@ fn test_ends_with() -> Result<()> {
 fn test_starts_with_whole() -> Result<()> {
   let mut random = random();
   let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
-  let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
+  let slice: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
   assert!(StringHelper::starts_with_byte_ref(&ref_bytes, &slice));
   Ok(())
 }
@@ -102,7 +102,7 @@ fn test_starts_with_whole() -> Result<()> {
 fn test_ends_with_whole() -> Result<()> {
   let mut random = random();
   let ref_bytes: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
-  let slice = new_bytes_ref_from_string(&mut random, "foobar")?;
+  let slice: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, "foobar")?;
   assert!(StringHelper::ends_with(&ref_bytes, &slice));
   Ok(())
 }
@@ -147,35 +147,35 @@ fn test_murmur_hash3() -> Result<()> {
 fn test_sort_key_length() -> Result<()> {
   let mut random = random();
   assert_eq!(
-    StringHelper::sort_key_length::<Vec<u8>>(
+    StringHelper::sort_key_length::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "for")?
     )?,
     3
   );
   assert_eq!(
-    StringHelper::sort_key_length::<Vec<u8>>(
+    StringHelper::sort_key_length::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo1234")?,
       &new_bytes_ref_from_string(&mut random, "for1234")?
     )?,
     3
   );
   assert_eq!(
-    StringHelper::sort_key_length::<Vec<u8>>(
+    StringHelper::sort_key_length::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "fz")?
     )?,
     2
   );
   assert_eq!(
-    StringHelper::sort_key_length::<Vec<u8>>(
+    StringHelper::sort_key_length::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "g")?
     )?,
     1
   );
   assert_eq!(
-    StringHelper::sort_key_length::<Vec<u8>>(
+    StringHelper::sort_key_length::<Vec<u8>, Vec<u8>>(
       &new_bytes_ref_from_string(&mut random, "foo")?,
       &new_bytes_ref_from_string(&mut random, "food")?
     )?,
@@ -183,7 +183,7 @@ fn test_sort_key_length() -> Result<()> {
   );
 
   // We can detect terms are out of order if we see a duplicate
-  let result = StringHelper::sort_key_length::<Vec<u8>>(
+  let result = StringHelper::sort_key_length::<Vec<u8>, Vec<u8>>(
     &new_bytes_ref_from_string(&mut random, "ab")?,
     &new_bytes_ref_from_string(&mut random, "ab")?,
   );

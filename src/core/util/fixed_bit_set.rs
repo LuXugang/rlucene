@@ -91,7 +91,13 @@ impl FixedBitSet {
 
   /// Returns the popcount or cardinality of the intersection of the two sets.
   /// Neither set is modified.
-  pub fn intersection_count(a: FixedBitSet, b: FixedBitSet) -> i64 {
+  pub fn intersection_count<A, B>(a: A, b: B) -> i64
+  where
+    A: std::borrow::Borrow<FixedBitSet>,
+    B: std::borrow::Borrow<FixedBitSet>,
+  {
+    let a = a.borrow();
+    let b = b.borrow();
     // Depends on the ghost bits being clear!
     let mut tot = 0;
     let num_common_words = std::cmp::min(a.num_words, b.num_words);
@@ -144,7 +150,7 @@ impl FixedBitSet {
     let exact_size = bits.len();
     Self::from_validated_parts(bits, num_bits, exact_size)
   }
-  /// Creates a new [`FixedBitSet`] using the provided `Vec<u64>` array as the
+  /// Creates a new [`FixedBitSet`] using the provided bits as the
   /// backing store. The `stored_bits` array must be large enough to
   /// accommodate the `num_bits` specified, but may be larger. In that
   /// case, the 'extra' or 'ghost' bits must be clear (or they may provoke
@@ -153,7 +159,11 @@ impl FixedBitSet {
   /// # Arguments
   /// * `stored_bits` - The array to use as the backing store (`Vec<i64>`).
   /// * `num_bits` - The number of bits actually needed.
-  pub fn with_capacity(stored_bits: Vec<i64>, num_bits: usize) -> Result<FixedBitSet> {
+  pub fn with_capacity<B>(stored_bits: B, num_bits: usize) -> Result<FixedBitSet>
+  where
+    B: Into<Vec<i64>>,
+  {
+    let stored_bits = stored_bits.into();
     let num_words = Self::bits2words(num_bits);
     if num_words > stored_bits.len() {
       return Err(LuceneError::illegal_argument(format!(

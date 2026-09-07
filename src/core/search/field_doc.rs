@@ -53,7 +53,11 @@ impl FieldDoc {
   }
 
   /// Creates one of these objects with the given sort information.
-  pub fn with_fields(doc: i32, score: f32, fields: Vec<FieldsValue>) -> Self {
+  pub fn with_fields<I>(doc: i32, score: f32, fields: I) -> Self
+  where
+    I: IntoIterator<Item = FieldsValue>,
+  {
+    let fields = fields.into_iter().collect::<Vec<FieldsValue>>();
     Self {
       base: ScoreDoc::new(doc, score),
       fields,
@@ -61,12 +65,11 @@ impl FieldDoc {
   }
 
   /// Creates one of these objects with the given sort information and shard_index.
-  pub fn with_fields_and_shard_index(
-    doc: i32,
-    score: f32,
-    fields: Vec<FieldsValue>,
-    shard_index: i32,
-  ) -> Self {
+  pub fn with_fields_and_shard_index<I>(doc: i32, score: f32, fields: I, shard_index: i32) -> Self
+  where
+    I: IntoIterator<Item = FieldsValue>,
+  {
+    let fields = fields.into_iter().collect::<Vec<FieldsValue>>();
     Self {
       base: ScoreDoc::with_shard_index(doc, score, shard_index),
       fields,

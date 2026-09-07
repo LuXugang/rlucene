@@ -67,14 +67,17 @@ impl DisjunctionMaxQuery {
   ///
   /// # Parameters
   ///
-  /// - `disjuncts`: a [`Vec<Query>`] containing all disjuncts to add
+  /// - `disjuncts`: an array, vector, or iterator of [`Query`] values to add
   /// - `tie_breaker_multiplier`: the score of each non-maximum disjunct for a document is multiplied
   ///   by this weight and added into the final score. If non-zero, the value should be small, on
   ///   the order of 0.1, which says that 10 occurrences of word in a lower-scored field that is
   ///   also in a higher scored field is just as good as a unique word in the lower scored field
   ///   (i.e., one that is not in any higher scored field.
   #[cfg_attr(test, allow(clippy::mutable_key_type))]
-  pub fn new(disjuncts: Vec<Query>, tie_breaker_multiplier: f32) -> Result<Self> {
+  pub fn new<I>(disjuncts: I, tie_breaker_multiplier: f32) -> Result<Self>
+  where
+    I: IntoIterator<Item = Query>,
+  {
     // Keep Java's pair of primitive comparisons: NaN passes this check.
     if tie_breaker_multiplier < 0.0 || tie_breaker_multiplier > 1.0 {
       return Err(LuceneError::illegal_argument(
@@ -82,6 +85,7 @@ impl DisjunctionMaxQuery {
       ));
     }
 
+    let disjuncts: Vec<Query> = disjuncts.into_iter().collect();
     let mut multiset = HashMap::new();
     for query in disjuncts.iter() {
       *multiset.entry(query.clone()).or_insert(0usize) += 1;
@@ -189,8 +193,7 @@ impl QueryBase for DisjunctionMaxQuery {
           rewritten_disjuncts
             .into_iter()
             .zip(&self.ordered_queries)
-            .map(|(rewritten, original)| rewritten.unwrap_or_else(|| original.clone()))
-            .collect(),
+            .map(|(rewritten, original)| rewritten.unwrap_or_else(|| original.clone())),
           self.tie_breaker_multiplier,
         )?
         .into(),

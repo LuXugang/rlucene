@@ -54,7 +54,11 @@ impl<D> MergeOnFlushMergePolicy<D>
 where
   D: Directory,
 {
-  pub fn new(inner: MergePolicyEnum<D>) -> Self {
+  pub fn new<P>(inner: P) -> Self
+  where
+    P: Into<MergePolicyEnum<D>>,
+  {
+    let inner = inner.into();
     Self {
       inner: Box::new(inner),
       small_segment_threshold_bytes: Units::mb_to_bytes(100.0),

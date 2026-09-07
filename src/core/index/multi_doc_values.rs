@@ -841,7 +841,11 @@ impl<IRC> NumericDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
 {
-  pub fn new(reader: IRC, field: String) -> Self {
+  pub fn new<FName>(reader: IRC, field: FName) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       next_leaf: 0,
       current_values: None,
@@ -985,7 +989,11 @@ impl<IRC> NumericDocValuesImpl1<IRC>
 where
   IRC: IndexReaderContext,
 {
-  pub fn new(reader: IRC, field: String) -> Self {
+  pub fn new<FName>(reader: IRC, field: FName) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       next_leaf: 0,
       current_values: None,
@@ -1160,7 +1168,11 @@ impl<IRC> BinaryDocValuesImpl<IRC>
 where
   IRC: IndexReaderContext,
 {
-  pub fn new(reader: IRC, field: String) -> Self {
+  pub fn new<FName>(reader: IRC, field: FName) -> Self
+  where
+    FName: Into<String>,
+  {
+    let field = field.into();
     Self {
       next_leaf: 0,
       current_values: None,

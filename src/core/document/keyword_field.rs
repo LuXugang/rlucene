@@ -83,9 +83,12 @@ pub struct KeywordField {
 }
 
 impl KeywordField {
-  pub fn from_bytes_ref<T>(name: T, value: BytesRef<Vec<u8>>, store: Store) -> Result<Self>
+  /// Accepts text, owned or borrowed bytes, and `BytesRef` values.
+  /// Owned buffers are moved; borrowed inputs are copied.
+  pub fn from_bytes_ref<T, B>(name: T, value: B, store: Store) -> Result<Self>
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     let store = store.into();
     let (ft, has_stored_value) = if store {
@@ -148,11 +151,17 @@ impl KeywordField {
   ///
   /// * `field` - Field name.
   /// * `values` - Values to match.
-  pub fn new_set_query<T>(field: T, values: Vec<BytesRef<Vec<u8>>>) -> Result<IndexOrDocValuesQuery>
+  ///
+  /// Accepts arrays, vectors, or iterators of text, bytes, or `BytesRef` values.
+  /// For an empty set, pass `std::iter::empty::<&str>()`.
+  pub fn new_set_query<T, I, B>(field: T, values: I) -> Result<IndexOrDocValuesQuery>
   where
     T: Into<String>,
+    I: IntoIterator<Item = B>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     let field = field.into();
+    let values: Vec<BytesRef<Vec<u8>>> = values.into_iter().map(Into::into).collect();
     let index_query = TermInSetQuery::new(field.clone(), values.clone())?;
     let dv_query = TermInSetQuery::new_with_rewrite_method(DOC_VALUES_REWRITE, field, values)?;
     Ok(IndexOrDocValuesQuery::new(
@@ -179,7 +188,10 @@ impl FieldBase for KeywordField {
     Ok(())
   }
 
-  fn set_bytes_value(&mut self, value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     debug_assert!(self.binary_value.is_none());
     self.parent_field.set_bytes_value(value)?;
     self.has_stored_value = true;

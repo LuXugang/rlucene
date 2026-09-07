@@ -54,27 +54,33 @@ pub struct TermInSetQuery {
 
 impl TermInSetQuery {
   /// Create a new TermInSetQuery that matches documents containing any of the specified terms.
-  pub fn new<T>(field: T, terms: Vec<BytesRef<Vec<u8>>>) -> Result<Self>
+  ///
+  /// Accepts arrays, vectors, or iterators of text, byte buffers, or `BytesRef` values.
+  /// For an empty query, pass `std::iter::empty::<BytesRef<Vec<u8>>>()`.
+  pub fn new<T, I, B>(field: T, terms: I) -> Result<Self>
   where
     T: Into<String>,
+    I: IntoIterator<Item = B>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     let field = field.into();
-    let term_data = Self::pack_terms(&field, terms)?;
+    let term_data = Self::pack_terms(&field, terms.into_iter().map(Into::into).collect())?;
     Ok(Self::from_term_data(field, term_data))
   }
 
   /// Create a new TermInSetQuery that matches documents containing any of the specified terms.
-  pub fn new_with_rewrite_method<R, T>(
-    rewrite_method: R,
-    field: T,
-    terms: Vec<BytesRef<Vec<u8>>>,
-  ) -> Result<Self>
+  ///
+  /// Accepts arrays, vectors, or iterators of text, byte buffers, or `BytesRef` values.
+  /// For an empty query, pass `std::iter::empty::<BytesRef<Vec<u8>>>()`.
+  pub fn new_with_rewrite_method<R, T, I, B>(rewrite_method: R, field: T, terms: I) -> Result<Self>
   where
     R: Into<RewriteMethodEnum>,
     T: Into<String>,
+    I: IntoIterator<Item = B>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     let field = field.into();
-    let term_data = Self::pack_terms(&field, terms)?;
+    let term_data = Self::pack_terms(&field, terms.into_iter().map(Into::into).collect())?;
     Ok(Self::from_rewrite_method_and_term_data(
       rewrite_method,
       field,

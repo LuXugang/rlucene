@@ -61,20 +61,37 @@ impl WildcardQuery {
   pub const WILDCARD_ESCAPE: char = '\\';
 
   /// Constructs a query for terms matching `term`.
-  pub fn new(term: Term) -> Result<Self> {
+  pub fn new<TermInput>(term: TermInput) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_determinize_work_limit(term, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32)
   }
 
   /// Constructs a query for terms matching `term`.
-  pub fn with_determinize_work_limit(term: Term, determinize_work_limit: i32) -> Result<Self> {
+  pub fn with_determinize_work_limit<TermInput>(
+    term: TermInput,
+    determinize_work_limit: i32,
+  ) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::with_rewrite(term, determinize_work_limit, ConstantScoreBlendedRewrite)
   }
 
   /// Constructs a query for terms matching `term`.
-  pub fn with_rewrite<R>(term: Term, determinize_work_limit: i32, rewrite_method: R) -> Result<Self>
+  pub fn with_rewrite<R, TermInput>(
+    term: TermInput,
+    determinize_work_limit: i32,
+    rewrite_method: R,
+  ) -> Result<Self>
   where
     R: Into<RewriteMethodEnum>,
+    TermInput: Into<Term>,
   {
+    let term = term.into();
     let automaton = to_automaton(&term, determinize_work_limit)?;
     let base = AutomatonQuery::new(term, automaton, false, rewrite_method)?;
     Ok(Self {

@@ -258,8 +258,8 @@ where
     if let Some(fi) = field_info
       && *fi.get_doc_values_type() != DocValuesType::None
     {
-      let field = vec![self.query.field.clone()];
-      return DocValues::is_cacheable(ctx, field.as_ref());
+      let field = [self.query.field.as_str()];
+      return DocValues::is_cacheable(ctx, field);
     }
     Ok(true)
   }

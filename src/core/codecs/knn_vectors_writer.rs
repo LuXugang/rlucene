@@ -623,7 +623,10 @@ where
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(&self, _target: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, _target: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -853,7 +856,10 @@ where
 
   type VectorScorer = DummyVectorScorer;
 
-  fn scorer(&self, _query: Vec<u8>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, _query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<u8>>,
+  {
     Err(LuceneError::unsupported_operation(""))
   }
 }

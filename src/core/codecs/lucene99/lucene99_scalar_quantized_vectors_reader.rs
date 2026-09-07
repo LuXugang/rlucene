@@ -389,14 +389,15 @@ where
     true
   }
 
-  fn search_f32<B, K>(
+  fn search_f32<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<f32>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<f32>>,
     B: Bits,
     K: KnnCollector,
   {
@@ -404,14 +405,15 @@ where
     Ok(())
   }
 
-  fn search_u8<B, K>(
+  fn search_u8<B, K, TV>(
     &self,
     _field: &str,
-    _target: Vec<u8>,
+    _target: TV,
     _knn_collector: &mut K,
     _accept_docs: Option<B>,
   ) -> Result<()>
   where
+    TV: Into<Vec<u8>>,
     B: Bits,
     K: KnnCollector,
   {
@@ -452,11 +454,15 @@ where
     F::QuantizedRandomVectorScorer<OffHeapQuantizedByteVectorValuesEnum<Arc<I>, F>>,
   >;
 
-  fn get_random_vector_scorer_f32(
+  fn get_random_vector_scorer_f32<TV>(
     &self,
     field: &str,
-    target: Vec<f32>,
-  ) -> Result<Self::RandomVectorScorerF32> {
+    target: TV,
+  ) -> Result<Self::RandomVectorScorerF32>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let target = target.into();
     let field_entry = self.get_field_entry(field)?;
     if field_entry.scalar_quantizer.is_none() {
       return self
@@ -488,11 +494,15 @@ where
 
   type RandomVectorScorerU8 = R::RandomVectorScorerU8;
 
-  fn get_random_vector_scorer_u8(
+  fn get_random_vector_scorer_u8<TV>(
     &self,
     field: &str,
-    target: Vec<u8>,
-  ) -> Result<Self::RandomVectorScorerU8> {
+    target: TV,
+  ) -> Result<Self::RandomVectorScorerU8>
+  where
+    TV: Into<Vec<u8>>,
+  {
+    let target = target.into();
     self
       .raw_vectors_reader
       .get_random_vector_scorer_u8(field, target)
@@ -712,7 +722,11 @@ where
 
   type VectorScorer = Q::QuantizedVectorScorer;
 
-  fn scorer(&self, query: Vec<f32>) -> Result<Option<Self::VectorScorer>> {
+  fn scorer<TV>(&self, query: TV) -> Result<Option<Self::VectorScorer>>
+  where
+    TV: Into<Vec<f32>>,
+  {
+    let query = query.into();
     QuantizedByteVectorValues::scorer(&self.quantized_vector_values, &query)
   }
 

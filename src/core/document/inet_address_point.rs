@@ -349,7 +349,10 @@ impl BytesRefIterator for InetAddressPointSetBytesRefIterator {
 }
 
 impl FieldBase for InetAddressPoint {
-  fn set_bytes_value(&mut self, _value: BytesRef<Vec<u8>>) -> Result<()> {
+  fn set_bytes_value<B>(&mut self, _value: B) -> Result<()>
+  where
+    B: Into<BytesRef<Vec<u8>>>,
+  {
     Err(LuceneError::illegal_argument(
       "cannot change value type from InetAddress to BytesRef",
     ))

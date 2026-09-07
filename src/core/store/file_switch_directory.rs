@@ -79,12 +79,20 @@ impl<D> FileSwitchDirectory<D>
 where
   D: Directory,
 {
-  pub fn new(
-    primary_extensions: HashSet<String>,
+  pub fn new<I, S>(
+    primary_extensions: I,
     primary_dir: D,
     secondary_dir: D,
     do_close: bool,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    I: IntoIterator<Item = S>,
+    S: Into<String>,
+  {
+    let primary_extensions = primary_extensions
+      .into_iter()
+      .map(Into::into)
+      .collect::<HashSet<String>>();
     if primary_extensions.contains("tmp") {
       return Err(LuceneError::illegal_argument("tmp is a reserved extension"));
     }

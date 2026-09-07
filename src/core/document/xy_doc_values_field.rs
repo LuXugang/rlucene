@@ -240,9 +240,10 @@ impl XYDocValuesField {
   /// # Errors
   ///
   /// Returns an error if `polygons` is empty.
-  pub fn new_slow_polygon_query<T>(field: T, polygons: Vec<XYPolygon>) -> Result<Query>
+  pub fn new_slow_polygon_query<T, I>(field: T, polygons: I) -> Result<Query>
   where
     T: Into<String>,
+    I: IntoIterator<Item = XYPolygon>,
   {
     Self::new_slow_geometry_query(field, polygons)
   }
@@ -264,10 +265,11 @@ impl XYDocValuesField {
   /// # Errors
   ///
   /// Returns an error if `geometries` is empty or contains an unsupported [`XYLine`](crate::core::geo::xy_line::XYLine) geometry.
-  pub fn new_slow_geometry_query<S, T>(field: S, geometries: Vec<T>) -> Result<Query>
+  pub fn new_slow_geometry_query<S, T, I>(field: S, geometries: I) -> Result<Query>
   where
     S: Into<String>,
     T: XYGeometry + Into<XYGeometryEnum>,
+    I: IntoIterator<Item = T>,
   {
     let geometries: Vec<XYGeometryEnum> = geometries.into_iter().map(Into::into).collect();
     Ok(XYDocValuesPointInGeometryQuery::new(field.into(), geometries)?.into())

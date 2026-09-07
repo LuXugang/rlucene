@@ -172,7 +172,7 @@ impl FloatField {
       values
         .into_iter()
         .map(|v| NumericUtils::float_to_sortable_int(v) as i64)
-        .collect(),
+        .collect::<Vec<_>>(),
     )?;
     Ok(IndexOrDocValuesQuery::new(point_query, dv_query))
   }

@@ -60,7 +60,11 @@ impl AutomatonQuery {
   /// - `term`: [`Term`] containing field and possibly some pattern structure. The term text is
   ///   ignored.
   /// - `automaton`: [`Automaton`] to run, terms that are accepted are considered a match.
-  pub fn from_automaton(term: Term, automaton: Automaton) -> Result<Self> {
+  pub fn from_automaton<TermInput>(term: TermInput, automaton: Automaton) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::from_automaton_with_binary(term, automaton, false)
   }
 
@@ -71,11 +75,15 @@ impl AutomatonQuery {
   /// - `automaton`: [`Automaton`] to run, terms that are accepted are considered a match.
   /// - `is_binary`: if `true`, this automaton is already binary and will not go through the
   ///   UTF32ToUTF8 conversion.
-  pub fn from_automaton_with_binary(
-    term: Term,
+  pub fn from_automaton_with_binary<TermInput>(
+    term: TermInput,
     automaton: Automaton,
     is_binary: bool,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    TermInput: Into<Term>,
+  {
+    let term = term.into();
     Self::new(term, automaton, is_binary, ConstantScoreBlendedRewrite)
   }
   /// Create a new [`AutomatonQuery`] from an [`Automaton`].
@@ -85,15 +93,17 @@ impl AutomatonQuery {
   /// - `automaton`: [`Automaton`] to run, terms that are accepted are considered a match.
   /// - `is_binary`: unused.
   /// - `rewrite_method`: the rewrite method to use to build the final query from the automaton.
-  pub fn new<T>(
-    term: Term,
+  pub fn new<T, TermInput>(
+    term: TermInput,
     automaton: Automaton,
     is_binary: bool,
     rewrite_method: T,
   ) -> Result<Self>
   where
     T: Into<RewriteMethodEnum>,
+    TermInput: Into<Term>,
   {
+    let term = term.into();
     let rewrite_method = rewrite_method.into();
     let compiled = CompiledAutomaton::with_binary(automaton, false, true, is_binary)?;
     let ram_bytes_used = term

@@ -67,23 +67,40 @@ where
 {
   /// Creates a [`ParallelCompositeReader`] based on the provided readers and
   /// automatically closes them when this reader is closed.
-  pub fn new(readers: Vec<R>) -> Result<Self> {
+  pub fn new<Readers>(readers: Readers) -> Result<Self>
+  where
+    Readers: Into<Vec<R>>,
+  {
+    let readers = readers.into();
     Self::new_with_close_sub_readers(true, readers)
   }
 
   /// Creates a [`ParallelCompositeReader`] based on the provided readers.
-  pub fn new_with_close_sub_readers(close_sub_readers: bool, readers: Vec<R>) -> Result<Self> {
+  pub fn new_with_close_sub_readers<Readers>(
+    close_sub_readers: bool,
+    readers: Readers,
+  ) -> Result<Self>
+  where
+    Readers: Into<Vec<R>>,
+  {
+    let readers = readers.into();
     Self::new_internal(close_sub_readers, readers, None)
   }
 
   /// Expert: creates a [`ParallelCompositeReader`] based on the provided readers
   /// and stored-fields readers. When a document is loaded, only
   /// `stored_fields_readers` are used.
-  pub fn new_with_stored_fields(
+  pub fn new_with_stored_fields<Readers, StoredReaders>(
     close_sub_readers: bool,
-    readers: Vec<R>,
-    stored_fields_readers: Vec<R>,
-  ) -> Result<Self> {
+    readers: Readers,
+    stored_fields_readers: StoredReaders,
+  ) -> Result<Self>
+  where
+    Readers: Into<Vec<R>>,
+    StoredReaders: Into<Vec<R>>,
+  {
+    let stored_fields_readers = stored_fields_readers.into();
+    let readers = readers.into();
     Self::new_internal(close_sub_readers, readers, Some(stored_fields_readers))
   }
 

@@ -178,7 +178,7 @@ impl IntField {
     let point_query = IntPoint::new_set_query(field.clone(), values.clone())?;
     let dv_query = SortedNumericDocValuesField::new_slow_set_query(
       field,
-      values.into_iter().map(|v| v as i64).collect(),
+      values.into_iter().map(|v| v as i64).collect::<Vec<_>>(),
     )?;
     Ok(IndexOrDocValuesQuery::new(point_query, dv_query))
   }
