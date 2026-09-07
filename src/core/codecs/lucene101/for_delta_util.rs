@@ -206,7 +206,10 @@ impl ForDeltaUtil {
   /// Encode deltas of a strictly monotonically increasing sequence of
   /// integers. The provided ints are expected to be deltas between
   /// consecutive values.
-  pub fn encode_deltas(&mut self, ints: &mut [i32], out: &mut impl DataOutput) -> Result<()> {
+  pub fn encode_deltas<DO>(&mut self, ints: &mut [i32], out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     if ints[0] == 1 && PForUtil::all_equal(ints) {
       out.write_byte(0)?;
     } else {

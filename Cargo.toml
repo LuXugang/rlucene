@@ -7,6 +7,9 @@ version = "0.1.0"
 [lib]
 doctest = false
 
+[lints.clippy]
+impl_trait_in_params = "forbid"
+
 [dependencies]
 bit-set = "0.11.1"
 byteorder = "1.5.0"

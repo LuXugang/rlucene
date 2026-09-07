@@ -59,7 +59,7 @@ where
     } else if q_type < 4 {
       let t1 = &vals[rnd.random_range(0..vals.len())];
       let t2 = &vals[rnd.random_range(0..vals.len())];
-      PhraseQuery::from_terms(10, field, &[t1.as_str(), t2.as_str()])?.into()
+      PhraseQuery::from_terms(10, field, [t1.as_str(), t2.as_str()])?.into()
     } else if q_type < 7 {
       WildcardQuery::new(Term::from_text(field, "w*"))?.into_query()
     } else {

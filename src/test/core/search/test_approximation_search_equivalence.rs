@@ -49,9 +49,10 @@ impl TestApproximationSearchEquivalence {
     &CONTEXT
   }
 
-  fn random_approximation_query<R>(&self, query: impl Into<Query>, random: &mut R) -> Query
+  fn random_approximation_query<R, T>(&self, query: T, random: &mut R) -> Query
   where
     R: Rng + ?Sized,
+    T: Into<Query>,
   {
     RandomApproximationQuery::new(query.into(), random).into()
   }

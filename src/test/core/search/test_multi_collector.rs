@@ -600,7 +600,7 @@ impl LeafCollector for TerminatingDummyCollector {
 fn test_null_collectors() -> Result<()> {
   // Tests that the collector rejects all None collectors.
   assert!(matches!(
-    wrap::<DummyCollector>(vec![None, None]),
+    wrap::<DummyCollector, _>(vec![None, None]),
     Err(LuceneError::IllegalArgument(_))
   ));
 

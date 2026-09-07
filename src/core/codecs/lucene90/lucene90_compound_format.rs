@@ -80,13 +80,18 @@ impl Lucene90CompoundFormat {
   pub fn new() -> Lucene90CompoundFormat {
     Lucene90CompoundFormat {}
   }
-  pub fn write_compound_file<D>(
+  pub fn write_compound_file<D, IO, IO2, D2>(
     &self,
-    entries: &mut impl IndexOutput,
-    data: &mut impl IndexOutput,
-    directory: &impl Directory,
+    entries: &mut IO,
+    data: &mut IO2,
+    directory: &D2,
     si: &SegmentInfo<D>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    IO: IndexOutput,
+    IO2: IndexOutput,
+    D2: Directory,
+  {
     let mut pq;
     {
       // write number of files
@@ -156,7 +161,10 @@ impl CompoundFormat for Lucene90CompoundFormat {
     Lucene90CompoundReader::new(dir, si)
   }
 
-  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()> {
+  fn write<D, D2>(&self, dir: &D2, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
+  where
+    D2: Directory,
+  {
     let data_file =
       IndexFileNames::segment_file_name(&si.name, "", Lucene90CompoundFormat::DATA_EXTENSION);
     let entries_file =

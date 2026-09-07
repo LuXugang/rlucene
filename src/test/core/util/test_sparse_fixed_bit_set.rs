@@ -61,13 +61,15 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
     Ok((set, None))
   }
 
-  fn assert_equals(
+  fn assert_equals<T>(
     &self,
     set1: &RustUtilBitSet,
-    set2: &impl BitSet,
+    set2: &T,
     max_doc: usize,
     sfbs: Option<&SparseFixedBitSet>,
-  ) {
+  ) where
+    T: BitSet,
+  {
     BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
     let mut non_zero_long_count = 0;
     let sparse_fixed_bit_set = set2.as_sparse_fixed_bit_set().unwrap();
@@ -92,7 +94,10 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
 }
 
 impl TestSparseFixedBitSet {
-  fn copy_of(&self, bit_set: &impl BitSet, length: usize) -> Result<SparseFixedBitSet> {
+  fn copy_of<T>(&self, bit_set: &T, length: usize) -> Result<SparseFixedBitSet>
+  where
+    T: BitSet,
+  {
     let mut copy = SparseFixedBitSet::new(length)?;
     let mut doc = bit_set.next_set_bit(0);
     while doc != NO_MORE_DOCS as usize {

@@ -35,12 +35,10 @@ impl IndexFormatTooNewError {
   /// `resource_description` describes the file that was too new, `version` is
   /// the version of the file that was too new, and `min_version` and
   /// `max_version` are the minimum and maximum versions accepted.
-  pub fn new(
-    resource_description: impl Into<String>,
-    version: i32,
-    min_version: i32,
-    max_version: i32,
-  ) -> Self {
+  pub fn new<T>(resource_description: T, version: i32, min_version: i32, max_version: i32) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       resource_description: resource_description.into(),
       version,
@@ -55,12 +53,10 @@ impl IndexFormatTooNewError {
   /// `input` is the open file that is too new, `version` is the version of the
   /// file that was too new, and `min_version` and `max_version` are the minimum
   /// and maximum versions accepted.
-  pub fn from_input(
-    input: &impl fmt::Display,
-    version: i32,
-    min_version: i32,
-    max_version: i32,
-  ) -> Self {
+  pub fn from_input<T>(input: &T, version: i32, min_version: i32, max_version: i32) -> Self
+  where
+    T: fmt::Display,
+  {
     Self::new(input.to_string(), version, min_version, max_version)
   }
 

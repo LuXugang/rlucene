@@ -427,14 +427,15 @@ impl<SFR> StoredFields for MigratingStoredFieldsReader<SFR>
 where
   SFR: StoredFieldsReader + RawStoredFieldsReader,
 {
-  fn document_with_visitor<S>(
+  fn document_with_visitor<S, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     self.in_.document_with_visitor(doc_id, visitor, writer)
   }

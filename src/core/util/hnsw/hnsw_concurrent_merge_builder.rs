@@ -289,12 +289,10 @@ impl MergeSearcher {
 }
 
 impl HnswGraphSearcherBase for MergeSearcher {
-  fn graph_seek(
-    &mut self,
-    graph: &mut impl HnswGraph,
-    level: usize,
-    target_node: usize,
-  ) -> Result<()> {
+  fn graph_seek<T>(&mut self, graph: &mut T, level: usize, target_node: usize) -> Result<()>
+  where
+    T: HnswGraph,
+  {
     let hnsw_lock = self.hnsw_lock.clone();
     let guard = hnsw_lock.read(level, target_node);
     let result = graph.with_neighbors(level, target_node, |neighbors| {
@@ -310,7 +308,10 @@ impl HnswGraphSearcherBase for MergeSearcher {
     Ok(())
   }
 
-  fn graph_next_neighbor(&mut self, _graph: &mut impl HnswGraph) -> Result<usize> {
+  fn graph_next_neighbor<T>(&mut self, _graph: &mut T) -> Result<usize>
+  where
+    T: HnswGraph,
+  {
     if self.upto < self.node_buffer.len() {
       let node = self.node_buffer[self.upto];
       self.upto += 1;

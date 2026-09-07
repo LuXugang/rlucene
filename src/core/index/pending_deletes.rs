@@ -159,12 +159,15 @@ impl PendingDeletes {
     }
   }
 
-  fn assert_check_live_docs(
+  fn assert_check_live_docs<T>(
     &self,
-    bits: &impl Bits,
+    bits: &T,
     expected_length: i32,
     expected_delete_count: i32,
-  ) -> Result<bool> {
+  ) -> Result<bool>
+  where
+    T: Bits,
+  {
     debug_assert_eq!(
       bits.length(),
       expected_length as usize,
@@ -464,11 +467,10 @@ pub(crate) trait PendingDeletesBase: Display {
     Ok(max_doc - self.get_del_count(info))
   }
   // Call only from assert!
-  fn verify_doc_counts<D>(
-    &mut self,
-    reader: &impl CodecReader,
-    info: &SegmentCommitInfo<D>,
-  ) -> Result<bool> {
+  fn verify_doc_counts<D, T>(&mut self, reader: &T, info: &SegmentCommitInfo<D>) -> Result<bool>
+  where
+    T: CodecReader,
+  {
     debug_assert!(info.info.max_doc()? == self.max_doc());
     let max_doc = info.info.max_doc()?;
     let mut count = 0;

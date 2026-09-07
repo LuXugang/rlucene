@@ -250,9 +250,9 @@ where
 
 impl IncrementalHnswGraphMergerDefaults {
   #[allow(clippy::too_many_arguments)]
-  fn create_builder<KV, R, D>(
+  fn create_builder<KV, R, D, T>(
     field_info: &FieldInfo,
-    scorer_supplier: impl RandomVectorScorerSupplier,
+    scorer_supplier: T,
     m: usize,
     beam_width: usize,
     init_reader: Option<usize>,
@@ -268,6 +268,7 @@ impl IncrementalHnswGraphMergerDefaults {
     KV: KnnVectorValues,
     R: KnnVectorsReader,
     D: DocMap,
+    T: RandomVectorScorerSupplier,
   {
     match init_reader {
       Some(init_reader_idx) => {

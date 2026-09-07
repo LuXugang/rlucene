@@ -308,13 +308,22 @@ pub enum VersionError {
 }
 
 impl VersionError {
-  pub fn parse_error_with_pos(msg: impl Into<String>, position: i32) -> Self {
+  pub fn parse_error_with_pos<T>(msg: T, position: i32) -> Self
+  where
+    T: Into<String>,
+  {
     VersionError::Parse(Parse::new(msg, position))
   }
-  pub fn parse_error_with_error(msg: impl Into<String>, error: LuceneError) -> Self {
+  pub fn parse_error_with_error<T>(msg: T, error: LuceneError) -> Self
+  where
+    T: Into<String>,
+  {
     VersionError::Parse(Parse::with_error(msg, Option::from(error)))
   }
-  pub fn parse_int_error(input: impl Into<String>, source: ParseIntError) -> Self {
+  pub fn parse_int_error<T>(input: T, source: ParseIntError) -> Self
+  where
+    T: Into<String>,
+  {
     VersionError::ParseIntError {
       message: input.into(),
       source,

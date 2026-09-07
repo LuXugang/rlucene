@@ -191,7 +191,10 @@ pub struct StringReader {
 }
 
 impl StringReader {
-  pub fn new(s: impl Into<String>) -> Self {
+  pub fn new<T>(s: T) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       chars: Some(s.into().chars().collect()),
       next: 0,

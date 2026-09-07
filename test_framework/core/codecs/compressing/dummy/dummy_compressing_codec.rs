@@ -59,14 +59,17 @@ impl CompressionModeBase for DummyCompressionMode {
 pub struct DummyDecompressor;
 
 impl Decompressor for DummyDecompressor {
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     assert!(offset + length <= original_length);
     let original_length = original_length as usize;
     if bytes.bytes.len() < original_length {
@@ -83,11 +86,14 @@ impl Decompressor for DummyDecompressor {
 pub struct DummyCompressor;
 
 impl Compressor for DummyCompressor {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let length = buffers_input.length();
     out.copy_bytes(buffers_input, length)
   }

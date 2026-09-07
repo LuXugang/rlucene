@@ -80,9 +80,10 @@ impl KnnFloatVectorQuery {
   /// # Errors
   ///
   /// Returns an error if `k` is less than `1`.
-  pub fn new<T>(field: T, target: Vec<f32>, k: usize) -> Result<Self>
+  pub fn new<T, V>(field: T, target: V, k: usize) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<f32>>,
   {
     Self::with_filter(field, target, k, None)
   }
@@ -100,10 +101,12 @@ impl KnnFloatVectorQuery {
   /// # Errors
   ///
   /// Returns an error if `k` is less than `1`.
-  pub fn with_filter<T>(field: T, target: Vec<f32>, k: usize, filter: Option<Query>) -> Result<Self>
+  pub fn with_filter<T, V>(field: T, target: V, k: usize, filter: Option<Query>) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<f32>>,
   {
+    let target = target.into();
     let field = field.into();
     VectorUtil::check_finite(target.as_ref())?;
     Ok(Self {

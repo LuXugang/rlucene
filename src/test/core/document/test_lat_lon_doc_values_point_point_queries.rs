@@ -93,11 +93,10 @@ impl Validator for PointValidator {
     self.query_relation = relation;
   }
 
-  fn test_component_query_with_shape(
-    &self,
-    query: &impl Component2D,
-    point: &Point,
-  ) -> Result<bool> {
+  fn test_component_query_with_shape<T>(&self, query: &T, point: &Point) -> Result<bool>
+  where
+    T: Component2D,
+  {
     if self.query_relation == QueryRelation::Contains {
       return Ok(
         self.test_within_query(

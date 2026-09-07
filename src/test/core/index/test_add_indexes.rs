@@ -259,7 +259,7 @@ fn test_with_pending_deletes() -> Result<()> {
     writer.update_document_with_term(Term::from_text("id", (i % 10).to_string()), doc)?;
   }
   // Deletes one of the 10 added docs, leaving 9:
-  let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
+  let q = PhraseQuery::from_terms_no_slop("content", ["bbb", "14"])?;
   writer.delete_documents_with_queries(vec![q.into()])?;
 
   writer.force_merge(1)?;
@@ -322,7 +322,7 @@ fn test_with_pending_deletes2() -> Result<()> {
   writer.add_indexes_from_directory(std::slice::from_ref(&aux))?;
 
   // Deletes one of the 10 added docs, leaving 9:
-  let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
+  let q = PhraseQuery::from_terms_no_slop("content", ["bbb", "14"])?;
   writer.delete_documents_with_queries(vec![q.into()])?;
 
   writer.force_merge(1)?;
@@ -383,7 +383,7 @@ fn test_with_pending_deletes3() -> Result<()> {
   }
 
   // Deletes one of the 10 added docs, leaving 9:
-  let q = PhraseQuery::from_terms_no_slop("content", &["bbb", "14"])?;
+  let q = PhraseQuery::from_terms_no_slop("content", ["bbb", "14"])?;
   writer.delete_documents_with_queries(vec![q.into()])?;
 
   writer.add_indexes_from_directory(std::slice::from_ref(&aux))?;

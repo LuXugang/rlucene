@@ -834,7 +834,11 @@ where
   pub(crate) fn pending_files_to_delete(&self) -> &HashSet<String> {
     &self.files_to_delete
   }
-  fn sort_live_docs(live_docs: &impl Bits, sort_map: &impl DocMap) -> Result<FixedBitSet> {
+  fn sort_live_docs<T, T2>(live_docs: &T, sort_map: &T2) -> Result<FixedBitSet>
+  where
+    T: Bits,
+    T2: DocMap,
+  {
     let live_docs_len = live_docs.length();
     let mut sorted_live_docs = FixedBitSet::new(live_docs_len);
     sorted_live_docs.set_with_range(0, live_docs_len);
@@ -848,16 +852,17 @@ where
     Ok(sorted_live_docs)
   }
   /// Seals the [`SegmentInfo`](crate::core::index::segment_info::SegmentInfo) for the new flushed segment and persists the deleted documents [`FixedBitSet`].
-  pub(crate) fn seal_flushed_segment<FN, DM>(
+  pub(crate) fn seal_flushed_segment<FN, DM, T>(
     &mut self,
     flushed_segment: &mut FlushedSegment<D>,
     sort_map: Option<Arc<DM>>,
     flush_notifications: &FN,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
   ) -> Result<()>
   where
     FN: FlushNotifications,
     DM: DocMap,
+    T: LiveIndexWriterConfig,
   {
     let new_segment = &mut flushed_segment.segment_info;
     let res: Result<()> = (|| {

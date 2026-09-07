@@ -39,11 +39,10 @@ fn test(refs: Vec<BytesRef<Vec<u8>>>, len: usize) -> Result<()> {
   Ok(())
 }
 
-fn test_impl(
-  refs: Vec<BytesRef<Vec<u8>>>,
-  len: usize,
-  comparator: impl BytesRefComparator,
-) -> Result<()> {
+fn test_impl<C>(refs: Vec<BytesRef<Vec<u8>>>, len: usize, comparator: C) -> Result<()>
+where
+  C: BytesRefComparator,
+{
   let mut expected: Vec<BytesRef<Vec<u8>>> = refs.clone();
   expected.sort();
   let delegate = StringSorterTestImpl::new(refs.clone());
@@ -54,11 +53,10 @@ fn test_impl(
   Ok(())
 }
 
-fn test_stable(
-  refs: Vec<BytesRef<Vec<u8>>>,
-  len: usize,
-  comparator: impl BytesRefComparator,
-) -> Result<()> {
+fn test_stable<C>(refs: Vec<BytesRef<Vec<u8>>>, len: usize, comparator: C) -> Result<()>
+where
+  C: BytesRefComparator,
+{
   let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
   let mut actual = refs[..len].to_vec();
   expected.sort();

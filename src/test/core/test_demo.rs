@@ -88,7 +88,7 @@ fn test_demo() -> Result<()> {
         assert_eq!(text.as_str(), hit_doc.get("fieldname")?.unwrap().as_str());
       }
 
-      let phrase_query = PhraseQuery::from_terms_no_slop("fieldname", &["to", "be"])?;
+      let phrase_query = PhraseQuery::from_terms_no_slop("fieldname", ["to", "be"])?;
       assert_eq!(1, searcher.count(phrase_query)?);
       Ok(())
     })();

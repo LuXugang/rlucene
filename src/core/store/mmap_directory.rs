@@ -114,7 +114,10 @@ impl MMapDirectory {
   /// the default lock factory.
   ///
   /// The directory is created at the named location if it does not yet exist.
-  pub fn new(directory: PathBuf) -> Result<FSDirectory<NativeFSLockFactory, Self>> {
+  pub fn new<P>(directory: P) -> Result<FSDirectory<NativeFSLockFactory, Self>>
+  where
+    P: Into<PathBuf>,
+  {
     Self::with_lock_factory(directory, fs_lock_factory::get_default())
   }
 
@@ -122,9 +125,10 @@ impl MMapDirectory {
   /// the provided lock factory.
   ///
   /// The directory is created at the named location if it does not yet exist.
-  pub fn with_lock_factory<D>(directory: PathBuf, lock_factory: D) -> Result<FSDirectory<D, Self>>
+  pub fn with_lock_factory<D, P>(directory: P, lock_factory: D) -> Result<FSDirectory<D, Self>>
   where
     D: LockFactory,
+    P: Into<PathBuf>,
   {
     Self::with_lock_factory_and_max_chunk_size(directory, lock_factory, DEFAULT_MAX_CHUNK_SIZE)
   }
@@ -133,10 +137,13 @@ impl MMapDirectory {
   /// the default lock factory and the provided maximum mmap chunk size.
   ///
   /// The chunk size is rounded down to a power of two.
-  pub fn with_max_chunk_size(
-    directory: PathBuf,
+  pub fn with_max_chunk_size<P>(
+    directory: P,
     max_chunk_size: u64,
-  ) -> Result<FSDirectory<NativeFSLockFactory, Self>> {
+  ) -> Result<FSDirectory<NativeFSLockFactory, Self>>
+  where
+    P: Into<PathBuf>,
+  {
     Self::with_lock_factory_and_max_chunk_size(
       directory,
       fs_lock_factory::get_default(),
@@ -150,13 +157,14 @@ impl MMapDirectory {
   /// Using a smaller chunk size can help on address-space constrained
   /// platforms. The chunk size is rounded down to a power of two, matching
   /// Java Lucene's constructor behavior.
-  pub fn with_lock_factory_and_max_chunk_size<D>(
-    directory: PathBuf,
+  pub fn with_lock_factory_and_max_chunk_size<D, P>(
+    directory: P,
     lock_factory: D,
     max_chunk_size: u64,
   ) -> Result<FSDirectory<D, Self>>
   where
     D: LockFactory,
+    P: Into<PathBuf>,
   {
     let mut directory = FSDirectory::with_lock_factory(directory, lock_factory, Self::default())?;
     directory.sub_fs_directory.chunk_size_power = Self::chunk_size_power(max_chunk_size)?;

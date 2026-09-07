@@ -109,13 +109,16 @@ impl NeighborArray {
   /// # Arguments
   ///
   /// * `node_id` - Node ID of the owner of this [`NeighborArray`](crate::core::util::hnsw::neighbor_array::NeighborArray).
-  pub(crate) fn add_and_ensure_diversity(
+  pub(crate) fn add_and_ensure_diversity<T>(
     &mut self,
     new_node: usize,
     new_score: f32,
     node_id: usize,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
-  ) -> Result<()> {
+    scorer_supplier: &T,
+  ) -> Result<()>
+  where
+    T: RandomVectorScorerSupplier,
+  {
     self.add_out_of_order(new_node, new_score)?;
 
     if self.size < self.nodes.len() {

@@ -148,7 +148,10 @@ impl<'a, D> FieldsGroupBuilder<'a, D> {
   }
 }
 
-fn get_suffix(format_name: &str, suffix: impl Display) -> String {
+fn get_suffix<T>(format_name: &str, suffix: T) -> String
+where
+  T: Display,
+{
   format!("{format_name}_{suffix}")
 }
 

@@ -797,7 +797,10 @@ pub fn get_default() -> Codecs {
 /// Sets the default codec used by newly created index writer configurations.
 ///
 /// This mirrors Java Lucene's `Codec.setDefault` entry point.
-pub fn set_default(codec: impl Into<Codecs>) {
+pub fn set_default<T>(codec: T)
+where
+  T: Into<Codecs>,
+{
   let codec = codec.into();
   #[cfg(not(test))]
   {

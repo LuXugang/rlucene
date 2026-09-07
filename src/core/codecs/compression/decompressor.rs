@@ -35,12 +35,14 @@ pub trait Decompressor: Clone {
   ///   decompressed.
   /// - `bytes`: A reference to a [`BytesRef`] where to store the decompressed
   ///   data.
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    DI: DataInput;
 }

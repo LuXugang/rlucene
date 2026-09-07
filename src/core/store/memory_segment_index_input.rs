@@ -267,7 +267,10 @@ impl MemorySegmentIndexInput {
     }
   }
 
-  fn read_current_buffer<R>(&mut self, len: usize, read: impl FnOnce(&[u8]) -> R) -> Result<R> {
+  fn read_current_buffer<R, F>(&mut self, len: usize, read: F) -> Result<R>
+  where
+    F: FnOnce(&[u8]) -> R,
+  {
     if let Some(bytes) = self.current_segment_slice(len)? {
       let value = read(bytes);
       self.cur_position += len;
@@ -369,7 +372,10 @@ impl MemorySegmentIndexInput {
     }
   }
 
-  fn read_buffer<R>(&self, pos: usize, len: usize, read: impl FnOnce(&[u8]) -> R) -> Result<R> {
+  fn read_buffer<R, F>(&self, pos: usize, len: usize, read: F) -> Result<R>
+  where
+    F: FnOnce(&[u8]) -> R,
+  {
     if let Some(bytes) = self.segment_slice_at(pos, len)? {
       return Ok(read(bytes));
     }
@@ -406,12 +412,10 @@ impl MemorySegmentIndexInput {
   }
 
   #[cfg(unix)]
-  fn advise(
-    &self,
-    offset: usize,
-    length: usize,
-    mut advice: impl FnMut(&Mmap, usize, usize) -> io::Result<()>,
-  ) -> Result<()> {
+  fn advise<F>(&self, offset: usize, length: usize, mut advice: F) -> Result<()>
+  where
+    F: FnMut(&Mmap, usize, usize) -> io::Result<()>,
+  {
     let end = offset
       .checked_add(length)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;
@@ -435,12 +439,10 @@ impl MemorySegmentIndexInput {
   }
 
   #[cfg(unix)]
-  fn advise_first(
-    &self,
-    offset: usize,
-    length: usize,
-    advice: impl FnOnce(&Mmap, usize, usize) -> io::Result<()>,
-  ) -> Result<()> {
+  fn advise_first<F>(&self, offset: usize, length: usize, advice: F) -> Result<()>
+  where
+    F: FnOnce(&Mmap, usize, usize) -> io::Result<()>,
+  {
     let end = offset
       .checked_add(length)
       .ok_or_else(|| LuceneError::eof(format!("read past EOF: {self}")))?;

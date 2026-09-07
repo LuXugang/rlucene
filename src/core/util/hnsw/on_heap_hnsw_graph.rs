@@ -168,12 +168,10 @@ impl OnHeapHnswGraph {
     Ok(neighbors.read())
   }
 
-  pub(crate) fn with_neighbors_mut<T>(
-    &self,
-    level: usize,
-    node: usize,
-    action: impl FnOnce(&mut NeighborArray) -> Result<T>,
-  ) -> Result<T> {
+  pub(crate) fn with_neighbors_mut<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
+  where
+    F: FnOnce(&mut NeighborArray) -> Result<T>,
+  {
     #[cfg(debug_assertions)]
     check_graph(&self.graph, level, node);
     let levels = self
@@ -405,12 +403,10 @@ impl HnswGraph for OnHeapHnswGraph {
     }
   }
 
-  fn with_neighbors<T>(
-    &self,
-    level: usize,
-    node: usize,
-    action: impl FnOnce(&NeighborArray) -> Result<T>,
-  ) -> Result<T> {
+  fn with_neighbors<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
+  where
+    F: FnOnce(&NeighborArray) -> Result<T>,
+  {
     let neighbors = OnHeapHnswGraph::get_neighbors(self, level, node)?;
     action(&neighbors)
   }
@@ -446,12 +442,10 @@ impl HnswGraph for &OnHeapHnswGraph {
     Err(LuceneError::unsupported_operation(""))
   }
 
-  fn with_neighbors<T>(
-    &self,
-    level: usize,
-    node: usize,
-    action: impl FnOnce(&NeighborArray) -> Result<T>,
-  ) -> Result<T> {
+  fn with_neighbors<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
+  where
+    F: FnOnce(&NeighborArray) -> Result<T>,
+  {
     let neighbors = (*self).get_neighbors(level, node)?;
     action(&neighbors)
   }
@@ -570,12 +564,10 @@ impl HnswGraph for Arc<OnHeapHnswGraph> {
       .get_nodes_on_level(level)
   }
 
-  fn with_neighbors<T>(
-    &self,
-    level: usize,
-    node: usize,
-    action: impl FnOnce(&NeighborArray) -> Result<T>,
-  ) -> Result<T> {
+  fn with_neighbors<T, F>(&self, level: usize, node: usize, action: F) -> Result<T>
+  where
+    F: FnOnce(&NeighborArray) -> Result<T>,
+  {
     let neighbors = self.as_ref().get_neighbors(level, node)?;
     action(&neighbors)
   }

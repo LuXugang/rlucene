@@ -371,25 +371,29 @@ impl TermsHashPerField {
 
 pub(crate) trait TermsHashPerFieldBase {
   /// Called when a term is seen for the first time.
-  fn new_term(
+  fn new_term<AS>(
     &mut self,
     term_id: i32,
     doc_id: i32,
     state: &mut FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    AS: AttributeSource;
   /// Called when a previously seen term is seen again.
-  fn add_term(
+  fn add_term<AS>(
     &mut self,
     term_id: i32,
     doc_id: i32,
     state: &mut FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    AS: AttributeSource;
   /// Called when the postings array is initialized or resized.
   /// # Note
   /// In rust Lucene, we do not need to init new postings array

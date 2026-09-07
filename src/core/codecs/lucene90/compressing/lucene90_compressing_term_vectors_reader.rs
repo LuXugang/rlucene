@@ -232,7 +232,7 @@ where
         closed: AtomicBool::new(false),
         block_state: BlockState::new(None, None, 0),
       });
-      CodecUtil::check_footer_with_error::<()>(meta, None)?;
+      CodecUtil::check_footer_with_error::<(), _>(meta, None)?;
       meta.close()?;
       success = true;
       Ok(())
@@ -359,12 +359,15 @@ where
     };
     doc_base <= doc_id && doc_id < doc_base + bs.chunk_docs
   }
-  fn position_index(
+  fn position_index<T>(
     skip: usize,
     num_fields: usize,
-    num_terms: &mut impl LongValues,
+    num_terms: &mut T,
     term_freqs: &[usize],
-  ) -> Result<Vec<Vec<usize>>> {
+  ) -> Result<Vec<Vec<usize>>>
+  where
+    T: LongValues,
+  {
     let mut position_index = vec![Vec::new(); num_fields];
     let mut term_index = 0;
     for i in 0..skip {
@@ -386,17 +389,21 @@ where
   }
 
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn read_positions(
+  pub(crate) fn read_positions<T, T2>(
     &mut self,
     skip: usize,
     num_fields: usize,
-    flags: &mut impl LongValues,
-    num_terms: &mut impl LongValues,
+    flags: &mut T,
+    num_terms: &mut T2,
     term_freqs: &[usize],
     flag: i32,
     total_positions: usize,
     position_index: &[Vec<usize>],
-  ) -> Result<Vec<Vec<i32>>> {
+  ) -> Result<Vec<Vec<i32>>>
+  where
+    T: LongValues,
+    T2: LongValues,
+  {
     let mut positions = vec![Vec::new(); num_fields];
     // reset reader
     let mut reader =

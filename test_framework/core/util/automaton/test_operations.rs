@@ -55,9 +55,10 @@ impl TestOperations {
   }
 
   /// Get all finite strings of an iterator.
-  pub fn get_finite_strings_impl(
-    mut iterator: impl FiniteStringsIteratorBase,
-  ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
+  pub fn get_finite_strings_impl<T>(mut iterator: T) -> Result<HashSet<IntsRef<Vec<i32>>>>
+  where
+    T: FiniteStringsIteratorBase,
+  {
     let mut result = HashSet::new();
     while let Some(finite_string) = iterator.next()? {
       result.insert(IntsRef::deep_copy_of(&finite_string));

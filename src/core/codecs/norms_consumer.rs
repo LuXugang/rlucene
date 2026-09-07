@@ -51,11 +51,9 @@ pub trait NormsConsumer: Closeable {
   ///
   /// # Errors
   /// If an I/O error occurs during writing.
-  fn add_norms_field(
-    &mut self,
-    field: &Arc<FieldInfo>,
-    norms_producer: &mut impl NormsProducer,
-  ) -> Result<()>;
+  fn add_norms_field<T>(&mut self, field: &Arc<FieldInfo>, norms_producer: &mut T) -> Result<()>
+  where
+    T: NormsProducer;
   /// Merges in the fields from the readers in `merge_state`.
   ///
   /// The default implementation calls
@@ -125,11 +123,10 @@ where
   A: NormsConsumer,
   B: NormsConsumer,
 {
-  fn add_norms_field(
-    &mut self,
-    field: &Arc<FieldInfo>,
-    norms_producer: &mut impl NormsProducer,
-  ) -> Result<()> {
+  fn add_norms_field<T>(&mut self, field: &Arc<FieldInfo>, norms_producer: &mut T) -> Result<()>
+  where
+    T: NormsProducer,
+  {
     match self {
       Self::A(inner) => inner.add_norms_field(field, norms_producer),
       Self::B(inner) => inner.add_norms_field(field, norms_producer),

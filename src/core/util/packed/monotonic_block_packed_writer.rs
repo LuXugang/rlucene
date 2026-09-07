@@ -54,13 +54,16 @@ use crate::core::util::packed::monotonic_block_packed_reader::expected;
 /// This is an internal implementation detail of the Lucene-like system.
 pub struct MonotonicBlockPackedWriter;
 impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
-  fn flush(
+  fn flush<DO>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     off: &mut usize,
     values: &mut [i64],
     blocks: &mut Vec<u8>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     debug_assert!(*off > 0);
     let avg = if *off == 1 {
       0.0f32

@@ -76,11 +76,10 @@ where
   D: Directory,
 {
   /// Construct an empty output buffer.
-  pub(crate) fn new(
-    dir: MockDirectoryWrapper<D>,
-    out: D::IndexOutput,
-    name: impl Into<String>,
-  ) -> Self {
+  pub(crate) fn new<T>(dir: MockDirectoryWrapper<D>, out: D::IndexOutput, name: T) -> Self
+  where
+    T: Into<String>,
+  {
     let name = name.into();
     Self {
       dir,

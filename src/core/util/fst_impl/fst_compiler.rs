@@ -1021,7 +1021,10 @@ impl FstReader for NullFSTReader {
     ))
   }
 
-  fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
+  fn write_to<DO>(&self, _out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     Err(LuceneError::unsupported_operation(
       "FST was not constructed with getOnHeapReaderWriter()",
     ))
@@ -1232,7 +1235,10 @@ impl<O> FstReader for DataOutputEnum<O> {
     }
   }
 
-  fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
+  fn write_to<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     match self {
       DataOutputEnum::FromDir(_) => Err(LuceneError::unsupported_operation("")),
       DataOutputEnum::ReadWriter(rw) => rw.write_to(out),

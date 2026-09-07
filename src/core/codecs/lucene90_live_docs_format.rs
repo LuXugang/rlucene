@@ -76,13 +76,20 @@ impl Lucene90LiveDocsFormat {
   pub fn new() -> Lucene90LiveDocsFormat {
     Lucene90LiveDocsFormat {}
   }
-  fn read_fixed_bit_set(input: &mut impl IndexInput, length: usize) -> Result<FixedBitSet> {
+  fn read_fixed_bit_set<II>(input: &mut II, length: usize) -> Result<FixedBitSet>
+  where
+    II: IndexInput,
+  {
     let num_words = FixedBitSet::bits2words(length);
     let mut data = vec![0i64; num_words];
     input.read_longs(&mut data, 0, num_words)?;
     FixedBitSet::with_capacity(data, length)
   }
-  fn write_bits(output: &mut impl IndexOutput, bits: &impl Bits) -> Result<i32> {
+  fn write_bits<IO, T>(output: &mut IO, bits: &T) -> Result<i32>
+  where
+    IO: IndexOutput,
+    T: Bits,
+  {
     let mut del_count = 0;
     let long_count = FixedBitSet::bits2words(bits.length());
     for i in 0..long_count {
@@ -107,12 +114,15 @@ impl Lucene90LiveDocsFormat {
 impl LiveDocsFormat for Lucene90LiveDocsFormat {
   type Bits = FixedBit;
 
-  fn read_live_docs<D>(
+  fn read_live_docs<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     info: &SegmentCommitInfo<D>,
     _context: &IOContext,
-  ) -> Result<Self::Bits> {
+  ) -> Result<Self::Bits>
+  where
+    D2: Directory,
+  {
     #[cfg(test)]
     let _execution_scope = ExecutionScope::enter(
       ExecutionOwner::Lucene90LiveDocsFormat,
@@ -167,14 +177,18 @@ impl LiveDocsFormat for Lucene90LiveDocsFormat {
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }
 
-  fn write_live_docs<D>(
+  fn write_live_docs<D, T, D2>(
     &self,
-    bits: &impl Bits,
-    directory: &impl Directory,
+    bits: &T,
+    directory: &D2,
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Bits,
+    D2: Directory,
+  {
     #[cfg(test)]
     let _execution_scope = ExecutionScope::enter(
       ExecutionOwner::Lucene90LiveDocsFormat,

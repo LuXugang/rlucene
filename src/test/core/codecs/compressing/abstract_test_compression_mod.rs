@@ -72,12 +72,15 @@ pub(crate) trait AbstractTestCompressionMode {
     Self::compress_with_compressor(&mut compressor, decompressed, off, len)
   }
 
-  fn compress_with_compressor(
-    compressor: &mut impl Compressor,
+  fn compress_with_compressor<T>(
+    compressor: &mut T,
     decompressed: &[u8],
     off: i32,
     len: i32,
-  ) -> crate::core::util::error::lucene_error::Result<Vec<u8>> {
+  ) -> crate::core::util::error::lucene_error::Result<Vec<u8>>
+  where
+    T: Compressor,
+  {
     let compressed_len = len * 3 + 16;
     let compressed = vec![0; compressed_len as usize]; // should be enough
     let mut input = ByteBuffersDataInput::new(vec![Cursor::new(decompressed)], decompressed.len())?
@@ -99,11 +102,14 @@ pub(crate) trait AbstractTestCompressionMode {
     Self::decompress_with_decompressor(&mut decompressor, compressed, original_length)
   }
 
-  fn decompress_with_decompressor(
-    decompressor: &mut impl Decompressor,
+  fn decompress_with_decompressor<T>(
+    decompressor: &mut T,
     compressed: &[u8],
     original_length: i32,
-  ) -> crate::core::util::error::lucene_error::Result<Vec<u8>> {
+  ) -> crate::core::util::error::lucene_error::Result<Vec<u8>>
+  where
+    T: Decompressor,
+  {
     let mut bytes = BytesRef::default();
     let mut input = ByteArrayDataInput::with_bytes(compressed);
     decompressor.decompress(&mut input, original_length, 0, original_length, &mut bytes)?;

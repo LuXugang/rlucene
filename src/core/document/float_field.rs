@@ -153,14 +153,18 @@ impl FloatField {
 
   /// Create a query matching values in a supplied set.
   ///
+  /// Accepts a vector, array or slice. Owned vectors are moved; borrowed slices are copied.
+  ///
   /// # Arguments
   ///
   /// * `field` - Field name.
   /// * `values` - Float values.
-  pub fn new_set_query<T>(field: T, values: Vec<f32>) -> Result<IndexOrDocValuesQuery>
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<IndexOrDocValuesQuery>
   where
     T: Into<String>,
+    V: Into<Vec<f32>>,
   {
+    let values = values.into();
     let field = field.into();
     let point_query = FloatPoint::new_set_query(field.clone(), values.clone())?;
     let dv_query = SortedNumericDocValuesField::new_slow_set_query(

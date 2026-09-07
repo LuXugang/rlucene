@@ -41,26 +41,32 @@ impl<FIF> FieldInfosFormat for CrankyFieldInfosFormat<FIF>
 where
   FIF: FieldInfosFormat,
 {
-  fn read<D>(
+  fn read<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     io_context: &IOContext,
-  ) -> Result<FieldInfos> {
+  ) -> Result<FieldInfos>
+  where
+    D2: Directory,
+  {
     self
       .delegate
       .read(directory, segment_info, segment_suffix, io_context)
   }
 
-  fn write<D>(
+  fn write<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     infos: &FieldInfos,
     io_context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D2: Directory,
+  {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from FieldInfosFormat::get_field_infos_writer()",

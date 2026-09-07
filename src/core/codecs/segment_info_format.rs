@@ -56,10 +56,12 @@ pub trait SegmentInfoFormat {
   ///
   /// The codec must add its SegmentInfo filename(s) to `info` before doing
   /// I/O.
-  fn write<D>(
+  fn write<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     info: &mut SegmentInfo<D>,
     context: &IOContext,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    D2: Directory;
 }

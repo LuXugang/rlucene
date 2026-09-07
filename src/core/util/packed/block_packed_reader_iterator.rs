@@ -58,7 +58,10 @@ impl BlockPackedReaderIterator {
   ///
   /// Returns [`LuceneError::Io`] if the
   /// read fails.
-  fn read_vlong(data_input: &mut impl DataInput) -> Result<i64> {
+  fn read_vlong<DI>(data_input: &mut DI) -> Result<i64>
+  where
+    DI: DataInput,
+  {
     let mut l = 0u64;
     for shift in (0..56).step_by(7) {
       let b = data_input.read_byte()?;
@@ -107,7 +110,10 @@ impl BlockPackedReaderIterator {
   ///
   /// Returns a [`LuceneError`] if `count` is invalid or if there is an issue
   /// reading the input.
-  pub fn skip(&mut self, mut count: usize, data_input: &mut impl DataInput) -> Result<()> {
+  pub fn skip<DI>(&mut self, mut count: usize, data_input: &mut DI) -> Result<()>
+  where
+    DI: DataInput,
+  {
     // debug_assert!(count >= 0);
     if self.ord + count > self.value_count {
       return Err(LuceneError::eof("Attempt to skip past end of file"));
@@ -157,7 +163,10 @@ impl BlockPackedReaderIterator {
     self.off += count;
     Ok(())
   }
-  fn skip_bytes(&mut self, count: i64, data_input: &mut impl DataInput) -> Result<()> {
+  fn skip_bytes<DI>(&mut self, count: i64, data_input: &mut DI) -> Result<()>
+  where
+    DI: DataInput,
+  {
     if data_input.is_index_input() {
       let new_position = data_input.get_file_pointer_in_data_input()? as i64 + count;
       data_input.seek_in_data_input(new_position as usize)?;
@@ -188,7 +197,10 @@ impl BlockPackedReaderIterator {
   ///   refill the block.
   /// - Increments the `ord` to track the current position in the stream.
   /// - Returns the next value from the `values` buffer.
-  pub fn next_value(&mut self, data_input: &mut impl DataInput) -> Result<i64> {
+  pub fn next_value<DI>(&mut self, data_input: &mut DI) -> Result<i64>
+  where
+    DI: DataInput,
+  {
     if self.ord == self.value_count {
       return Err(LuceneError::eof("Reached end of value stream"));
     }
@@ -217,11 +229,10 @@ impl BlockPackedReaderIterator {
   ///
   /// Returns [`LuceneError::Io`] if the
   /// reader has reached the end of the value stream.
-  pub fn next_batch(
-    &mut self,
-    mut count: usize,
-    data_input: &mut impl DataInput,
-  ) -> Result<&LongsRef> {
+  pub fn next_batch<DI>(&mut self, mut count: usize, data_input: &mut DI) -> Result<&LongsRef>
+  where
+    DI: DataInput,
+  {
     debug_assert!(count > 0);
     if self.ord == self.value_count {
       return Err(LuceneError::eof("Reached end of value stream"));
@@ -239,7 +250,10 @@ impl BlockPackedReaderIterator {
     Ok(&self.values_ref)
   }
 
-  fn refill(&mut self, data_input: &mut impl DataInput) -> Result<()> {
+  fn refill<DI>(&mut self, data_input: &mut DI) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let token = data_input.read_byte()? as i32;
     let min_equals_0 = (token & MIN_VALUE_EQUALS_0) != 0;
     let bits_per_value = token >> BPV_SHIFT;

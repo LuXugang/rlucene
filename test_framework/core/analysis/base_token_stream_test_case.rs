@@ -1261,27 +1261,29 @@ where
   assert_analyzes_to6(random, a, input, &[expect])?;
   Ok(())
 }
-pub fn check_analysis_consistency1<R>(
+pub fn check_analysis_consistency1<R, A>(
   random: &mut R,
-  a: &impl Analyzer,
+  a: &A,
   use_char_filter: bool,
   text: &str,
 ) -> Result<()>
 where
   R: Rng + ?Sized,
+  A: Analyzer,
 {
   check_analysis_consistency2(random, a, use_char_filter, text, true)
 }
 
-pub fn check_analysis_consistency2<R>(
+pub fn check_analysis_consistency2<R, A>(
   random: &mut R,
-  a: &impl Analyzer,
+  a: &A,
   use_char_filter: bool,
   text: &str,
   graph_offsets_are_correct: bool,
 ) -> Result<()>
 where
   R: Rng + ?Sized,
+  A: Analyzer,
 {
   check_analysis_consistenc3(
     random,
@@ -1292,9 +1294,9 @@ where
     None,
   )
 }
-pub fn check_analysis_consistenc3<R>(
+pub fn check_analysis_consistenc3<R, A>(
   _random: &mut R,
-  _a: &impl Analyzer,
+  _a: &A,
   _use_char_filter: bool,
   _text: &str,
   _graph_offsets_are_correct: bool,
@@ -1302,6 +1304,7 @@ pub fn check_analysis_consistenc3<R>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
+  A: Analyzer,
 {
   // TODO IMPORTANT 未实现
   Ok(())

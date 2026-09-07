@@ -165,15 +165,11 @@ where
   })
 }
 
-fn count_hits<A>(
-  random: &mut impl Rng,
-  analyzer: A,
-  docs: &str,
-  q: impl IntoQuery,
-  expected: i32,
-) -> Result<()>
+fn count_hits<A, R, Q>(random: &mut R, analyzer: A, docs: &str, q: Q, expected: i32) -> Result<()>
 where
   A: Into<AnalyzerEnum>,
+  R: Rng,
+  Q: IntoQuery,
 {
   let q = q.into_query();
   let d = get_directory(random, analyzer, docs)?;

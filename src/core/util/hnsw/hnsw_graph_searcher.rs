@@ -91,16 +91,17 @@ where
   /// # Returns
   ///
   /// A set of collected vectors holding the nearest neighbors found
-  pub fn search_level<S>(
+  pub fn search_level<S, T>(
     &mut self,
     scorer: &S,
     top_k: usize,
     level: usize,
     eps: &[usize],
-    graph: &mut impl HnswGraph,
+    graph: &mut T,
   ) -> Result<GraphBuilderKnnCollector>
   where
     S: RandomVectorScorer,
+    T: HnswGraph,
   {
     let mut results = GraphBuilderKnnCollector::new(top_k)?;
     self.search_level_with_collector(
@@ -126,14 +127,16 @@ where
   ///
   /// The best entry point. `-1` indicates the graph entry node is not set, or
   /// the visitation limit was exceeded.
-  fn find_best_entry_point<S>(
+  fn find_best_entry_point<S, T, V>(
     &mut self,
     scorer: &S,
-    graph: &mut impl HnswGraph,
-    collector: &mut impl KnnCollector,
+    graph: &mut T,
+    collector: &mut V,
   ) -> Result<Option<usize>>
   where
     S: RandomVectorScorer,
+    T: HnswGraph,
+    V: KnnCollector,
   {
     let Some(mut current_ep) = graph.entry_node()? else {
       return Ok(None);
@@ -194,17 +197,20 @@ where
   /// the most distant neighbor of the topK found (i.e., the one with the
   /// lowest score/comparison value) will be at the top of the heap, while
   /// the closest neighbor will be the last to be popped.
-  pub(crate) fn search_level_with_collector<S>(
+  pub(crate) fn search_level_with_collector<S, V, T, T2>(
     &mut self,
-    results: &mut impl KnnCollector,
+    results: &mut V,
     scorer: &S,
     level: usize,
     eps: &[usize],
-    graph: &mut impl HnswGraph,
-    accept_ords: Option<&impl Bits>,
+    graph: &mut T,
+    accept_ords: Option<&T2>,
   ) -> Result<()>
   where
     S: RandomVectorScorer,
+    V: KnnCollector,
+    T: HnswGraph,
+    T2: Bits,
   {
     let size = get_graph_size(graph);
     self.prepare_scratch_state(size)?;
@@ -269,15 +275,16 @@ where
 
     Ok(())
   }
-  fn graph_seek(
-    &mut self,
-    graph: &mut impl HnswGraph,
-    level: usize,
-    target_node: usize,
-  ) -> Result<()> {
+  fn graph_seek<T>(&mut self, graph: &mut T, level: usize, target_node: usize) -> Result<()>
+  where
+    T: HnswGraph,
+  {
     self.hook.graph_seek(graph, level, target_node)
   }
-  fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
+  fn graph_next_neighbor<T>(&mut self, graph: &mut T) -> Result<usize>
+  where
+    T: HnswGraph,
+  {
     self.hook.graph_next_neighbor(graph)
   }
   fn prepare_scratch_state(&mut self, capacity: usize) -> Result<()> {
@@ -299,12 +306,10 @@ pub(crate) trait HnswGraphSearcherBase {
   /// # Errors
   ///
   /// Returns an error if seeking the graph fails.
-  fn graph_seek(
-    &mut self,
-    graph: &mut impl HnswGraph,
-    level: usize,
-    target_node: usize,
-  ) -> Result<()> {
+  fn graph_seek<T>(&mut self, graph: &mut T, level: usize, target_node: usize) -> Result<()>
+  where
+    T: HnswGraph,
+  {
     HnswGraphSearcherDefaults::graph_seek(graph, level, target_node)
   }
   /// Get the next neighbor from the graph.
@@ -319,27 +324,34 @@ pub(crate) trait HnswGraphSearcherBase {
   /// # Errors
   ///
   /// Returns an error if advancing to the next neighbor fails.
-  fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
+  fn graph_next_neighbor<T>(&mut self, graph: &mut T) -> Result<usize>
+  where
+    T: HnswGraph,
+  {
     HnswGraphSearcherDefaults::graph_next_neighbor(graph)
   }
 }
 
 impl HnswGraphSearcherDefaults {
-  fn graph_seek(graph: &mut impl HnswGraph, level: usize, target_node: usize) -> Result<()> {
+  fn graph_seek<T>(graph: &mut T, level: usize, target_node: usize) -> Result<()>
+  where
+    T: HnswGraph,
+  {
     graph.seek(level, target_node)
   }
-  fn graph_next_neighbor(graph: &mut impl HnswGraph) -> Result<usize> {
+  fn graph_next_neighbor<T>(graph: &mut T) -> Result<usize>
+  where
+    T: HnswGraph,
+  {
     graph.next_neighbor()
   }
 }
 
 impl HnswGraphSearcherBase for HnswGraphSearcherHook {
-  fn graph_seek(
-    &mut self,
-    graph: &mut impl HnswGraph,
-    level: usize,
-    target_node: usize,
-  ) -> Result<()> {
+  fn graph_seek<T>(&mut self, graph: &mut T, level: usize, target_node: usize) -> Result<()>
+  where
+    T: HnswGraph,
+  {
     match self {
       Self::Default => HnswGraphSearcherDefaults::graph_seek(graph, level, target_node),
       Self::OnHeap(hook) => hook.graph_seek(graph, level, target_node),
@@ -347,7 +359,10 @@ impl HnswGraphSearcherBase for HnswGraphSearcherHook {
     }
   }
 
-  fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
+  fn graph_next_neighbor<T>(&mut self, graph: &mut T) -> Result<usize>
+  where
+    T: HnswGraph,
+  {
     match self {
       Self::Default => HnswGraphSearcherDefaults::graph_next_neighbor(graph),
       Self::OnHeap(hook) => hook.graph_next_neighbor(graph),
@@ -379,19 +394,20 @@ impl Default for OnHeapHnswGraphSearcher {
   }
 }
 impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
-  fn graph_seek(
-    &mut self,
-    _graph: &mut impl HnswGraph,
-    level: usize,
-    target_node: usize,
-  ) -> Result<()> {
+  fn graph_seek<T>(&mut self, _graph: &mut T, level: usize, target_node: usize) -> Result<()>
+  where
+    T: HnswGraph,
+  {
     self.cur_level = level;
     self.cur_node = target_node;
     self.upto = None;
     Ok(())
   }
 
-  fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
+  fn graph_next_neighbor<T>(&mut self, graph: &mut T) -> Result<usize>
+  where
+    T: HnswGraph,
+  {
     graph.with_neighbors(self.cur_level, self.cur_node, |neighbors| {
       let upto = self.upto.map_or(0, |upto| upto + 1);
       self.upto = Some(upto);
@@ -416,14 +432,17 @@ use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
 ///   in a hierarchical graph
 /// * `accept_ords` - a [`Bits`] instance that represents the allowed
 ///   document ordinals to match, or `None` if all are allowed to match
-pub fn search<S>(
+pub fn search<S, V, T, T2>(
   scorer: &S,
-  knn_collector: &mut impl KnnCollector,
-  graph: &mut impl HnswGraph,
-  accept_ords: Option<&impl Bits>,
+  knn_collector: &mut V,
+  graph: &mut T,
+  accept_ords: Option<&T2>,
 ) -> Result<()>
 where
   S: RandomVectorScorer,
+  V: KnnCollector,
+  T: HnswGraph,
+  T2: Bits,
 {
   let bitset = SparseFixedBitSet::new(get_graph_size(graph))?;
   let top_k = knn_collector.k();
@@ -453,15 +472,16 @@ where
 /// # Returns
 ///
 /// A set of collected vectors holding the nearest neighbors found
-pub fn search_with_top_k<S>(
+pub fn search_with_top_k<S, T>(
   scorer: &S,
   top_k: usize,
   graph: &OnHeapHnswGraph,
-  accept_ords: Option<&impl Bits>,
+  accept_ords: Option<&T>,
   visited_limit: usize,
 ) -> Result<TopKnnCollector>
 where
   S: RandomVectorScorer,
+  T: Bits,
 {
   let mut graph = graph;
   let mut knn_collector = TopKnnCollector::new(top_k, visited_limit)?;
@@ -482,16 +502,19 @@ where
 
   Ok(knn_collector)
 }
-fn search_with_searcher<S, B>(
+fn search_with_searcher<S, B, V, T, T2>(
   scorer: &S,
-  knn_collector: &mut impl KnnCollector,
-  graph: &mut impl HnswGraph,
+  knn_collector: &mut V,
+  graph: &mut T,
   graph_searcher: &mut HnswGraphSearcher<B>,
-  accept_ords: Option<&impl Bits>,
+  accept_ords: Option<&T2>,
 ) -> Result<()>
 where
   B: BitSet,
   S: RandomVectorScorer,
+  V: KnnCollector,
+  T: HnswGraph,
+  T2: Bits,
 {
   if let Some(ep) = graph_searcher.find_best_entry_point(scorer, graph, knn_collector)? {
     graph_searcher.search_level_with_collector(

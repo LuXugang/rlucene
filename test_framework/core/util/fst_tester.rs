@@ -634,15 +634,16 @@ where
   }
 
   #[allow(unused)]
-  pub fn verify_unpruned<F>(
+  pub fn verify_unpruned<F, R2>(
     &self,
     _input_mode: i32,
     _fst: Option<FST<O, F>>,
-    _random: &mut impl Rng,
+    _random: &mut R2,
     _seed: u64,
   ) -> Result<()>
   where
     F: FstReader,
+    R2: Rng,
   {
     // Due to Rust's ownership and borrowing rules, once ownership of fst is
     // transferred to IntsRefFSTEnum, it can no longer be reused.
@@ -924,15 +925,16 @@ where
 
   Ok(Some(output))
 }
-pub fn random_accepted_word<O, F, AV>(
+pub fn random_accepted_word<O, F, AV, R>(
   fst: &FST<O, F>,
   in_builder: &mut IntsRefBuilder<AV>,
-  random: &mut impl Rng,
+  random: &mut R,
 ) -> Result<O::V>
 where
   O: Outputs,
   F: FstReader,
   AV: SharedAccessVec<i32> + WritableVec<i32>,
+  R: Rng,
 {
   let mut arc = Arc::default();
   fst.get_first_arc(&mut arc);

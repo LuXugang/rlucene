@@ -24,9 +24,11 @@ pub trait Compressor: Closeable {
   /// Compress bytes into `out`. It is the responsibility of the compressor to
   /// add all necessary information so that a [`Decompressor`](crate::core::codecs::compression::decompressor::Decompressor) will know
   /// when to stop decompressing bytes from the stream.
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()>;
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput;
 }

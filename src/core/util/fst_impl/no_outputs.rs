@@ -64,11 +64,17 @@ impl Outputs for NoOutputs {
     NO_OUTPUT.clone()
   }
 
-  fn write(&self, _output: &Self::V, _out: &mut impl DataOutput) -> Result<()> {
+  fn write<DO>(&self, _output: &Self::V, _out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     Ok(())
   }
 
-  fn read(&self, _input: &mut impl DataInput) -> Result<Self::V> {
+  fn read<DI>(&self, _input: &mut DI) -> Result<Self::V>
+  where
+    DI: DataInput,
+  {
     Ok(NO_OUTPUT.clone())
   }
 

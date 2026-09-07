@@ -153,23 +153,28 @@ const BLOCK_ENDS: &[u32] = &[
 impl TestUtil {
   /// Return a Codec that can read any of the default codecs and formats, but always writes in the
   /// specified format.
-  pub fn always_postings_format(format: impl Into<AssertingCodecPostingsFormat>) -> AssertingCodec {
+  pub fn always_postings_format<T>(format: T) -> AssertingCodec
+  where
+    T: Into<AssertingCodecPostingsFormat>,
+  {
     AssertingCodec::with_postings_format(format)
   }
 
   /// Return a Codec that can read any of the default codecs and formats, but always writes in the
   /// specified format.
-  pub fn always_doc_values_format(
-    format: impl Into<AssertingCodecDocValuesFormat>,
-  ) -> AssertingCodec {
+  pub fn always_doc_values_format<T>(format: T) -> AssertingCodec
+  where
+    T: Into<AssertingCodecDocValuesFormat>,
+  {
     AssertingCodec::with_doc_values_format(format)
   }
 
   /// Return a Codec that can read any of the default codecs and formats, but always writes in the
   /// specified format.
-  pub fn always_knn_vectors_format(
-    format: impl Into<AssertingCodecKnnVectorsFormat>,
-  ) -> AssertingCodec {
+  pub fn always_knn_vectors_format<T>(format: T) -> AssertingCodec
+  where
+    T: Into<AssertingCodecKnnVectorsFormat>,
+  {
     AssertingCodec::with_knn_vectors_format(format)
   }
 

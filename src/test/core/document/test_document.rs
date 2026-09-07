@@ -264,7 +264,7 @@ fn test_position_increment_multi_fields() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let query = PhraseQuery::from_terms(0, "indexed_not_tokenized", &["test1", "test2"])?;
+  let query = PhraseQuery::from_terms(0, "indexed_not_tokenized", ["test1", "test2"])?;
 
   let top_docs = searcher.search(query, 1000)?;
   let hits = top_docs.score_docs();

@@ -151,7 +151,10 @@ impl BytesRefArray {
   /// # Returns
   /// A [`SortState`] that can be used in
   /// [`BytesRefArray::iterator_with_state`] with the given sort state.
-  pub fn sort(&self, comp: impl BytesRefComparator, stable: bool) -> Result<SortState> {
+  pub fn sort<C>(&self, comp: C, stable: bool) -> Result<SortState>
+  where
+    C: BytesRefComparator,
+  {
     let size = self.size();
     let mut ordered_entries: Vec<usize> = (0..size).collect();
     if stable {
@@ -250,7 +253,10 @@ impl<'a> SortableBytesRefArray<'a> for BytesRefArray {
   /// - This is a non-destructive operation.
   type Iter = IndexedBytesRefIteratorImpl<'a>;
 
-  fn iterator(&'a self, comp: impl BytesRefComparator) -> Result<Self::Iter> {
+  fn iterator<C>(&'a self, comp: C) -> Result<Self::Iter>
+  where
+    C: BytesRefComparator,
+  {
     let ords = self.sort(comp, false)?;
     Ok(self.iterator_with_state(Arc::from(ords)))
   }

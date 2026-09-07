@@ -164,10 +164,13 @@ where
     }
     unwrap_caught_result!(result)
   }
-  fn read_fields(
-    meta: &mut impl IndexInput,
+  fn read_fields<II>(
+    meta: &mut II,
     field_infos: &Arc<FieldInfos>,
-  ) -> Result<HashMap<i32, NormsEntry>> {
+  ) -> Result<HashMap<i32, NormsEntry>>
+  where
+    II: IndexInput,
+  {
     let mut norms = HashMap::new();
     loop {
       let field_number = meta.read_int()?;

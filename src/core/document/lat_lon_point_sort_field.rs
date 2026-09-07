@@ -101,7 +101,10 @@ impl SortFiledBase for LatLonPointSortField {
     self.base.get_index_sorter()
   }
 
-  fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
+  fn serialize<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     self.base.serialize(out)
   }
 

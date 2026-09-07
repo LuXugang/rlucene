@@ -124,7 +124,10 @@ where
 /// with real-world use-cases. Note that it's possible this will generate fewer than 'count'
 /// entries because of de-duping, but that should be quite rare and probably isn't worth worrying
 /// about for these testing purposes.
-fn generate_doc_ids(count: i32, random: &mut impl RngExt) -> BTreeSet<i32> {
+fn generate_doc_ids<R>(count: i32, random: &mut R) -> BTreeSet<i32>
+where
+  R: RngExt,
+{
   let mut generated = BTreeSet::new();
   for _ in 0..count {
     generated.insert(random.random());

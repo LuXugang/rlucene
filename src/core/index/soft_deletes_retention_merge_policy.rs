@@ -94,11 +94,12 @@ where
   /// * `field` — the soft-delete field
   /// * `retention_query_supplier` — a supplier for the retention query
   /// * `in_` — the wrapped merge policy
-  pub fn new<T, S>(field: impl Into<String>, retention_query_supplier: S, in_: T) -> Self
+  pub fn new<T, S, T2>(field: T2, retention_query_supplier: S, in_: T) -> Self
   where
     D: 'static,
     T: Into<MergePolicyEnum<D>>,
     S: Fn() -> Result<Query> + Send + Sync + 'static,
+    T2: Into<String>,
   {
     let field = field.into();
     let retention_query_supplier: RetentionQuerySupplier = Arc::new(retention_query_supplier);

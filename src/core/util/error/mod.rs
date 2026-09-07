@@ -32,7 +32,10 @@ macro_rules! message_error {
     }
 
     impl $name {
-      pub fn new(msg: impl Into<String>) -> Self {
+      pub fn new<T>(msg: T) -> Self
+      where
+        T: Into<String>,
+      {
         Self {
           message: msg.into(),
           source: None,

@@ -117,7 +117,7 @@ fn test_to_string() -> Result<()> {
 fn test_rewrite() -> Result<()> {
   let searcher = new_searcher_with_reader(MultiReader::empty()?)?;
 
-  let q = BoostQuery::new(PhraseQuery::from_terms_no_slop("foo", &["bar"])?, 2.0)?;
+  let q = BoostQuery::new(PhraseQuery::from_terms_no_slop("foo", ["bar"])?, 2.0)?;
   let v: Query = BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?.into();
   assert_eq!(v, searcher.rewrite(q)?);
 

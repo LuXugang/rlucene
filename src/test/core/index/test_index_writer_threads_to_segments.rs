@@ -135,12 +135,15 @@ struct CheckSegmentCount {
 }
 
 impl CheckSegmentCount {
-  fn new(
+  fn new<R>(
     w: &Arc<IndexWriter<DirEnum>>,
     max_thread_count_per_iter: Arc<AtomicUsize>,
     indexing_count: Arc<AtomicUsize>,
-    random: &mut impl rand::Rng,
-  ) -> Result<Self> {
+    random: &mut R,
+  ) -> Result<Self>
+  where
+    R: rand::Rng,
+  {
     let r = directory_reader::open_from_writer(w)?;
     assert_eq!(0, (&r).get_context()?.leaves()?.len());
     let mut checker = CheckSegmentCount {
@@ -152,7 +155,10 @@ impl CheckSegmentCount {
     Ok(checker)
   }
 
-  fn run(&mut self, random: &mut impl rand::Rng) -> Result<()> {
+  fn run<R>(&mut self, random: &mut R) -> Result<()>
+  where
+    R: rand::Rng,
+  {
     let old_segment_count = (&self.r).get_context()?.leaves()?.len();
     let r2 = directory_reader::open_if_changed(&self.r)?.unwrap();
     self.r.close()?;
@@ -164,7 +170,10 @@ impl CheckSegmentCount {
     Ok(())
   }
 
-  fn set_next_iter_thread_count(&mut self, random: &mut impl rand::Rng) {
+  fn set_next_iter_thread_count<R>(&mut self, random: &mut R)
+  where
+    R: rand::Rng,
+  {
     self.indexing_count.store(0, Ordering::SeqCst);
     self.max_thread_count_per_iter.store(
       TestUtil::next_int(random, 1, MAX_THREADS_AT_ONCE as i32) as usize,

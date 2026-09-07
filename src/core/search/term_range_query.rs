@@ -143,15 +143,17 @@ impl TermRangeQuery {
   /// for term text.
   ///
   /// Uses [`ConstantScoreBlendedRewrite`] as the default rewrite method.
-  pub fn new_string_range<F>(
+  pub fn new_string_range<F, T, T2>(
     field: F,
-    lower_term: Option<impl AsRef<str>>,
-    upper_term: Option<impl AsRef<str>>,
+    lower_term: Option<T>,
+    upper_term: Option<T2>,
     include_lower: bool,
     include_upper: bool,
   ) -> Result<Self>
   where
     F: Into<String>,
+    T: AsRef<str>,
+    T2: AsRef<str>,
   {
     Self::new_string_range_with_rewrite(
       field,
@@ -165,10 +167,10 @@ impl TermRangeQuery {
 
   /// Factory that creates a new [`TermRangeQuery`] using `String` values
   /// for term text.
-  pub fn new_string_range_with_rewrite<F, R>(
+  pub fn new_string_range_with_rewrite<F, R, T, T2>(
     field: F,
-    lower_term: Option<impl AsRef<str>>,
-    upper_term: Option<impl AsRef<str>>,
+    lower_term: Option<T>,
+    upper_term: Option<T2>,
     include_lower: bool,
     include_upper: bool,
     rewrite_method: R,
@@ -176,6 +178,8 @@ impl TermRangeQuery {
   where
     F: Into<String>,
     R: Into<RewriteMethodEnum>,
+    T: AsRef<str>,
+    T2: AsRef<str>,
   {
     let lower = lower_term.map(|s| BytesRef::from_string(s.as_ref()));
     let upper = upper_term.map(|s| BytesRef::from_string(s.as_ref()));

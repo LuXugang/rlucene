@@ -277,14 +277,17 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   /// that the search is allowed to visit.
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  fn search_nearest_vectors_f32_with_limit(
+  fn search_nearest_vectors_f32_with_limit<T>(
     &self,
     field: &str,
     target: Vec<f32>,
     mut k: usize,
-    accept_docs: Option<impl Bits>,
+    accept_docs: Option<T>,
     visited_limit: usize,
-  ) -> Result<TopDocs<ScoreDoc>> {
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    T: Bits,
+  {
     let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());
@@ -333,14 +336,17 @@ pub trait LeafReader: IndexReader<ContextKind = LeafReaderContextKind> + Sized {
   /// that the search is allowed to visit.
   ///
   /// Experimental: this API follows the original Lucene experimental status.
-  fn search_nearest_vectors_u8_with_limit(
+  fn search_nearest_vectors_u8_with_limit<T>(
     &self,
     field: &str,
     target: Vec<u8>,
     mut k: usize,
-    accept_docs: Option<impl Bits>,
+    accept_docs: Option<T>,
     visited_limit: usize,
-  ) -> Result<TopDocs<ScoreDoc>> {
+  ) -> Result<TopDocs<ScoreDoc>>
+  where
+    T: Bits,
+  {
     let fi = self.get_field_infos()?.field_info_by_name(field)?;
     let Some(fi) = fi else {
       return Ok(EMPTY_TOP_DOCS.clone());

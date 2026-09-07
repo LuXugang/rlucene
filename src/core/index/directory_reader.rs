@@ -446,7 +446,10 @@ where
 /// # Returns
 ///
 /// `true` if an index exists; `false` otherwise
-pub fn index_exists(directory: &impl Directory) -> Result<bool> {
+pub fn index_exists<D>(directory: &D) -> Result<bool>
+where
+  D: Directory,
+{
   // LUCENE-2812, LUCENE-2727, LUCENE-4738: this logic will
   // return true in cases that should arguably be false,
   // such as only IW.prepareCommit has been called, or a

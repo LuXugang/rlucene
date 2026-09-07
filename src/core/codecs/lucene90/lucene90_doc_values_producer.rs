@@ -232,8 +232,8 @@ where
   }
 
   #[allow(clippy::too_many_arguments)]
-  fn read_fields(
-    meta: &mut impl IndexInput,
+  fn read_fields<II>(
+    meta: &mut II,
     infos: &Arc<FieldInfos>,
     numerics: &mut HashMap<i32, Arc<NumericEntry>>,
     binaries: &mut HashMap<i32, Arc<BinaryEntry>>,
@@ -241,7 +241,10 @@ where
     sorted_sets: &mut HashMap<i32, Arc<SortedSetEntry>>,
     sorted_numerics: &mut HashMap<i32, Arc<SortedNumericEntry>>,
     skippers: &mut HashMap<i32, Arc<DocValuesSkipperEntry>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    II: IndexInput,
+  {
     loop {
       let field_number = meta.read_int()?;
       if field_number == -1 {
@@ -290,12 +293,18 @@ where
     }
     Ok(())
   }
-  fn read_numeric(meta: &mut impl IndexInput) -> Result<NumericEntry> {
+  fn read_numeric<II>(meta: &mut II) -> Result<NumericEntry>
+  where
+    II: IndexInput,
+  {
     let mut entry = NumericEntry::default();
     Self::read_numeric_with_entry(meta, &mut entry)?;
     Ok(entry)
   }
-  fn read_doc_value_skipper_meta(meta: &mut impl IndexInput) -> Result<DocValuesSkipperEntry> {
+  fn read_doc_value_skipper_meta<II>(meta: &mut II) -> Result<DocValuesSkipperEntry>
+  where
+    II: IndexInput,
+  {
     let offset = meta.read_long()?;
     let length = meta.read_long()?;
     let max_value = meta.read_long()?;
@@ -312,7 +321,10 @@ where
       max_doc_id,
     })
   }
-  fn read_numeric_with_entry(meta: &mut impl IndexInput, entry: &mut NumericEntry) -> Result<()> {
+  fn read_numeric_with_entry<II>(meta: &mut II, entry: &mut NumericEntry) -> Result<()>
+  where
+    II: IndexInput,
+  {
     entry.docs_with_field_offset = meta.read_long()?;
     entry.docs_with_field_length = meta.read_long()? as usize;
     entry.jump_table_entry_count = meta.read_short()?;
@@ -346,7 +358,10 @@ where
     entry.value_jump_table_offset = meta.read_long()?;
     Ok(())
   }
-  fn read_binary(meta: &mut impl IndexInput) -> Result<BinaryEntry> {
+  fn read_binary<II>(meta: &mut II) -> Result<BinaryEntry>
+  where
+    II: IndexInput,
+  {
     let data_offset = meta.read_long()? as usize;
     let data_length = meta.read_long()? as usize;
     let docs_with_field_offset = meta.read_long()?;
@@ -386,7 +401,10 @@ where
       addresses_meta,
     })
   }
-  fn read_sorted(meta: &mut impl IndexInput) -> Result<SortedEntry> {
+  fn read_sorted<II>(meta: &mut II) -> Result<SortedEntry>
+  where
+    II: IndexInput,
+  {
     let mut ords_entry = NumericEntry::default();
     Self::read_numeric_with_entry(meta, &mut ords_entry)?;
     let mut terms_dict_entry = TermsDictEntry::default();
@@ -396,7 +414,10 @@ where
       terms_dict_entry: Arc::new(terms_dict_entry),
     })
   }
-  fn read_sorted_set(meta: &mut impl IndexInput) -> Result<SortedSetEntry> {
+  fn read_sorted_set<II>(meta: &mut II) -> Result<SortedSetEntry>
+  where
+    II: IndexInput,
+  {
     let multi_valued = meta.read_byte()?;
     let mut entry = SortedSetEntry::default();
     match multi_valued {
@@ -420,10 +441,10 @@ where
     entry.terms_dict_entry = Some(Arc::new(terms_dict_entry));
     Ok(entry)
   }
-  fn read_term_dict_with_entry(
-    meta: &mut impl IndexInput,
-    entry: &mut TermsDictEntry,
-  ) -> Result<()> {
+  fn read_term_dict_with_entry<II>(meta: &mut II, entry: &mut TermsDictEntry) -> Result<()>
+  where
+    II: IndexInput,
+  {
     entry.terms_dict_size = meta.read_vlong()?;
     let block_shift = meta.read_int()?;
 
@@ -452,15 +473,18 @@ where
 
     Ok(())
   }
-  fn read_sorted_numeric(meta: &mut impl IndexInput) -> Result<SortedNumericEntry> {
+  fn read_sorted_numeric<II>(meta: &mut II) -> Result<SortedNumericEntry>
+  where
+    II: IndexInput,
+  {
     let mut entry = SortedNumericEntry::default();
     Self::read_sorted_numeric_with_entry(meta, &mut entry)?;
     Ok(entry)
   }
-  fn read_sorted_numeric_with_entry(
-    meta: &mut impl IndexInput,
-    entry: &mut SortedNumericEntry,
-  ) -> Result<()> {
+  fn read_sorted_numeric_with_entry<II>(meta: &mut II, entry: &mut SortedNumericEntry) -> Result<()>
+  where
+    II: IndexInput,
+  {
     debug_assert!(*entry.base == NumericEntry::default());
     let mut numeric_entry = NumericEntry::default();
     Self::read_numeric_with_entry(meta, &mut numeric_entry)?;

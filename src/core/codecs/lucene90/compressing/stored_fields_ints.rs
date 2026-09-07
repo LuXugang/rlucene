@@ -20,12 +20,15 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub(crate) struct StoredFieldsInts;
 impl StoredFieldsInts {
   const BLOCK_SIZE: usize = 128;
-  pub(crate) fn write_ints(
+  pub(crate) fn write_ints<DO>(
     values: &[i32],
     start: usize,
     count: usize,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let mut all_equal = true;
     for i in 1..count {
       if values[start + i] != values[start] {
@@ -57,12 +60,10 @@ impl StoredFieldsInts {
     Ok(())
   }
 
-  fn write_ints8(
-    out: &mut impl DataOutput,
-    count: usize,
-    values: &[i32],
-    offset: usize,
-  ) -> Result<()> {
+  fn write_ints8<DO>(out: &mut DO, count: usize, values: &[i32], offset: usize) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let mut k = 0;
     while count - k >= Self::BLOCK_SIZE {
       let step = offset + k;
@@ -85,12 +86,10 @@ impl StoredFieldsInts {
 
     Ok(())
   }
-  fn write_ints16(
-    out: &mut impl DataOutput,
-    count: usize,
-    values: &[i32],
-    offset: usize,
-  ) -> Result<()> {
+  fn write_ints16<DO>(out: &mut DO, count: usize, values: &[i32], offset: usize) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let mut k = 0;
     while count - k >= Self::BLOCK_SIZE {
       let step = offset + k;
@@ -110,12 +109,10 @@ impl StoredFieldsInts {
     Ok(())
   }
 
-  fn write_ints32(
-    out: &mut impl DataOutput,
-    count: usize,
-    values: &[i32],
-    offset: usize,
-  ) -> Result<()> {
+  fn write_ints32<DO>(out: &mut DO, count: usize, values: &[i32], offset: usize) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let mut k = 0;
     while count - k >= Self::BLOCK_SIZE {
       let step = offset + k;
@@ -131,12 +128,15 @@ impl StoredFieldsInts {
 
     Ok(())
   }
-  pub(crate) fn read_ints(
-    input: &mut impl IndexInput,
+  pub(crate) fn read_ints<II>(
+    input: &mut II,
     count: usize,
     values: &mut [i64],
     offset: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let bpv = input.read_byte()? as i32;
     match bpv {
       0 => {
@@ -157,12 +157,10 @@ impl StoredFieldsInts {
     Ok(())
   }
 
-  fn read_ints8(
-    input: &mut impl IndexInput,
-    count: usize,
-    values: &mut [i64],
-    offset: usize,
-  ) -> Result<()> {
+  fn read_ints8<II>(input: &mut II, count: usize, values: &mut [i64], offset: usize) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let mut k = 0;
     while count - k >= Self::BLOCK_SIZE {
       let step = offset + k;
@@ -186,12 +184,10 @@ impl StoredFieldsInts {
     Ok(())
   }
 
-  fn read_ints16(
-    input: &mut impl IndexInput,
-    count: usize,
-    values: &mut [i64],
-    offset: usize,
-  ) -> Result<()> {
+  fn read_ints16<II>(input: &mut II, count: usize, values: &mut [i64], offset: usize) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let mut k = 0;
     while count - k >= Self::BLOCK_SIZE {
       let step = offset + k;
@@ -211,12 +207,10 @@ impl StoredFieldsInts {
     Ok(())
   }
 
-  fn read_ints32(
-    input: &mut impl IndexInput,
-    count: usize,
-    values: &mut [i64],
-    offset: usize,
-  ) -> Result<()> {
+  fn read_ints32<II>(input: &mut II, count: usize, values: &mut [i64], offset: usize) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let mut k = 0;
     while count - k >= Self::BLOCK_SIZE {
       let step = offset + k;

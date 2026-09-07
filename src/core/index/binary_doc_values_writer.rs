@@ -504,13 +504,10 @@ pub struct BinaryDVs {
 }
 
 impl BinaryDVs {
-  pub(crate) fn new<DM>(
-    max_doc: usize,
-    sort_map: &DM,
-    old_values: &mut impl BinaryDocValues,
-  ) -> Result<Self>
+  pub(crate) fn new<DM, T>(max_doc: usize, sort_map: &DM, old_values: &mut T) -> Result<Self>
   where
     DM: DocMap,
+    T: BinaryDocValues,
   {
     let mut offsets = vec![0; max_doc];
     let counter = Arc::new(AtomicCounter::new());

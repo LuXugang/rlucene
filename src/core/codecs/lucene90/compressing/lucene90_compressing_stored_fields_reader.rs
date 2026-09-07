@@ -222,7 +222,7 @@ where
         prefetched_block_id_cache_index: 0,
         closed: AtomicBool::new(false),
       });
-      CodecUtil::check_footer_with_error::<()>(meta, None)?;
+      CodecUtil::check_footer_with_error::<(), _>(meta, None)?;
       meta.close()?;
       success = true;
       Ok(())
@@ -293,15 +293,17 @@ where
       Ok(())
     }
   }
-  pub fn read_field<S>(
-    input: &mut impl DataInput,
-    visitor: &mut impl StoredFieldVisitor,
+  pub fn read_field<S, DI, V>(
+    input: &mut DI,
+    visitor: &mut V,
     info: Arc<FieldInfo>,
     bits: i32,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    DI: DataInput,
+    V: StoredFieldVisitor,
   {
     match bits & *TYPE_MASK as i32 {
       BYTE_ARR => {
@@ -336,7 +338,10 @@ where
     }
     Ok(())
   }
-  fn skip_field(input: &mut impl DataInput, bits: i32) -> Result<()> {
+  fn skip_field<DI>(input: &mut DI, bits: i32) -> Result<()>
+  where
+    DI: DataInput,
+  {
     match bits & *TYPE_MASK as i32 {
       BYTE_ARR | STRING => {
         let length = input.read_vint()?;
@@ -484,14 +489,15 @@ where
     Ok(())
   }
 
-  fn document_with_visitor<S>(
+  fn document_with_visitor<S, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     mut writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     let field_infos = &self.field_infos.clone();
     let mut doc = self.serialized_document(doc_id)?;
@@ -971,7 +977,10 @@ use crate::core::util::group_vint_util::GroupVIntUtil;
 
 /// Reads a float in a variable-length format. Reads between one and five
 /// bytes. Small integral values typically take fewer bytes.
-pub fn read_zfloat(input: &mut impl DataInput) -> Result<f32> {
+pub fn read_zfloat<DI>(input: &mut DI) -> Result<f32>
+where
+  DI: DataInput,
+{
   let b = input.read_byte()? as i32;
   if b == 0xFF {
     // negative value
@@ -991,7 +1000,10 @@ pub fn read_zfloat(input: &mut impl DataInput) -> Result<f32> {
 }
 /// Reads a double in a variable-length format. Reads between one and nine
 /// bytes. Small integral values typically take fewer bytes.
-pub fn read_zdouble(input: &mut impl DataInput) -> Result<f64> {
+pub fn read_zdouble<DI>(input: &mut DI) -> Result<f64>
+where
+  DI: DataInput,
+{
   let b = input.read_byte()? as i32;
   if b == 0xFF {
     // negative value (full i64 bits)
@@ -1016,7 +1028,10 @@ pub fn read_zdouble(input: &mut impl DataInput) -> Result<f64> {
 }
 /// Reads a long in a variable-length format. Reads between one and nine
 /// bytes. Small values typically take fewer bytes.
-pub fn read_tlong(input: &mut impl DataInput) -> Result<i64> {
+pub fn read_tlong<DI>(input: &mut DI) -> Result<i64>
+where
+  DI: DataInput,
+{
   let header = input.read_byte()? as i32;
 
   let mut bits = (header & 0x1F) as i64;

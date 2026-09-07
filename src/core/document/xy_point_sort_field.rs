@@ -78,7 +78,10 @@ impl SortFiledBase for XYPointSortField {
     self.base.get_index_sorter()
   }
 
-  fn serialize(&self, _out: &mut impl DataOutput) -> Result<()> {
+  fn serialize<DO>(&self, _out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     Ok(())
   }
 

@@ -79,13 +79,16 @@ impl LZ4WithPresetDictDecompressor {
     }
   }
 
-  fn read_compressed_lengths(
+  fn read_compressed_lengths<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     dict_length: i32,
     block_length: i32,
-  ) -> Result<usize> {
+  ) -> Result<usize>
+  where
+    DI: DataInput,
+  {
     input.read_vint()?; // Compressed length of the dictionary, unused
     let mut total_length = dict_length;
     let mut i = 0;
@@ -109,14 +112,17 @@ impl Clone for LZ4WithPresetDictDecompressor {
 }
 
 impl Decompressor for LZ4WithPresetDictDecompressor {
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     debug_assert!(offset + length <= original_length);
 
     if length == 0 {
@@ -208,7 +214,10 @@ impl LZ4WithPresetDictCompressor {
       buffer: Vec::new(),
     }
   }
-  fn do_compress(&mut self, dict_len: i32, len: i32, out: &mut impl DataOutput) -> Result<()> {
+  fn do_compress<DO>(&mut self, dict_len: i32, len: i32, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let prev_compressed_size = self.compressed.size();
     LZ4::compress_with_dictionary(
       self.buffer.as_slice(),
@@ -223,11 +232,14 @@ impl LZ4WithPresetDictCompressor {
   }
 }
 impl Compressor for LZ4WithPresetDictCompressor {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let len = (buffers_input.length() - buffers_input.position()?) as i32;
     let dict_length = (len
       / (LZ4WithPresetDictCompressionMode::NUM_SUB_BLOCKS

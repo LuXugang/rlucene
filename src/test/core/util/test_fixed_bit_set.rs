@@ -88,13 +88,15 @@ impl BaseBitSetTestCase for TestFixedBitSet {
     Ok((set, None))
   }
 
-  fn assert_equals(
+  fn assert_equals<T>(
     &self,
     set1: &RustUtilBitSet,
-    set2: &impl BitSet,
+    set2: &T,
     max_doc: usize,
     sfbs: Option<&SparseFixedBitSet>,
-  ) {
+  ) where
+    T: BitSet,
+  {
     BaseBitSetTestCaseSupperImpl::assert_equals(self, set1, set2, max_doc, sfbs);
   }
 

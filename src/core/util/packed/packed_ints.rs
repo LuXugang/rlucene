@@ -292,14 +292,18 @@ impl PackedInts {
   }
   /// Copy `src[src_pos..src_pos+len]` into `dest[dest_pos..dest_pos+len]`
   /// using at most `mem` bytes.
-  pub fn copy(
-    src: &mut impl Reader,
+  pub fn copy<T, T2>(
+    src: &mut T,
     src_pos: i32,
-    dest: &mut impl Mutable,
+    dest: &mut T2,
     dest_pos: i32,
     len: i32,
     mem: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Reader,
+    T2: Mutable,
+  {
     debug_assert!(
       src_pos + len <= src.size(),
       "Source position and length out of bounds"
@@ -323,14 +327,18 @@ impl PackedInts {
     Ok(())
   }
   /// Same as `copy` but uses a pre-allocated buffer.
-  pub fn copy_with_buffer(
-    src: &impl Reader,
+  pub fn copy_with_buffer<T, T2>(
+    src: &T,
     mut src_pos: i32,
-    dest: &mut impl Mutable,
+    dest: &mut T2,
     mut dest_pos: i32,
     mut len: i32,
     buf: &mut [i64],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Reader,
+    T2: Mutable,
+  {
     debug_assert!(!buf.is_empty(), "Buffer length must be greater than 0");
 
     let mut remaining = 0;

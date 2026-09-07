@@ -161,22 +161,31 @@ where
   writer.close(random)?;
   Ok((small, reader))
 }
-fn csrq(
+fn csrq<T>(
   f: &str,
   l: Option<&str>,
   h: Option<&str>,
   il: bool,
   ih: bool,
-  method: impl Into<RewriteMethodEnum>,
-) -> Result<Query> {
+  method: T,
+) -> Result<Query>
+where
+  T: Into<RewriteMethodEnum>,
+{
   Ok(TermRangeQuery::new_string_range_with_rewrite(f, l, h, il, ih, method)?.into_query())
 }
 
-fn cspq(prefix: Term, method: impl Into<RewriteMethodEnum>) -> Result<Query> {
+fn cspq<T>(prefix: Term, method: T) -> Result<Query>
+where
+  T: Into<RewriteMethodEnum>,
+{
   Ok(PrefixQuery::with_rewrite(prefix, method)?.into_query())
 }
 
-fn cswcq(wild: Term, method: impl Into<RewriteMethodEnum>) -> Result<Query> {
+fn cswcq<T>(wild: Term, method: T) -> Result<Query>
+where
+  T: Into<RewriteMethodEnum>,
+{
   Ok(
     WildcardQuery::with_rewrite(
       wild,

@@ -1457,7 +1457,10 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
 
   // The only one SHOULD clause is MatchNoDocsQuery
   let mut b = Builder::new();
-  b.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
+  b.add(
+    PhraseQuery::from_terms(0, "field", std::iter::empty::<&str>())?,
+    Occur::Should,
+  )?;
   b.set_minimum_number_should_match(1);
   let query: Query = b.build().into();
   assert_eq!(
@@ -1466,7 +1469,10 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
   );
 
   let mut b = Builder::new();
-  b.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
+  b.add(
+    PhraseQuery::from_terms(0, "field", std::iter::empty::<&str>())?,
+    Occur::Should,
+  )?;
   b.set_minimum_number_should_match(0);
   let query: Query = b.build().into();
   assert_eq!(
@@ -1476,8 +1482,11 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
 
   // Meaningful SHOULD clause count is less than MinimumNumberShouldMatch
   let mut b = Builder::new();
-  b.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
-  b.add(PhraseQuery::from_terms(0, "field", &["a"])?, Occur::Should)?;
+  b.add(
+    PhraseQuery::from_terms(0, "field", std::iter::empty::<&str>())?,
+    Occur::Should,
+  )?;
+  b.add(PhraseQuery::from_terms(0, "field", ["a"])?, Occur::Should)?;
   b.set_minimum_number_should_match(2);
   let query: Query = b.build().into();
   assert_eq!(
@@ -1487,9 +1496,9 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
 
   // Meaningful SHOULD clause count is equal to MinimumNumberShouldMatch
   let mut b = Builder::new();
-  b.add(PhraseQuery::from_terms(0, "field", &["b"])?, Occur::Should)?;
+  b.add(PhraseQuery::from_terms(0, "field", ["b"])?, Occur::Should)?;
   b.add(
-    PhraseQuery::from_terms(0, "field", &["a", "c"])?,
+    PhraseQuery::from_terms(0, "field", ["a", "c"])?,
     Occur::Should,
   )?;
   b.set_minimum_number_should_match(2);
@@ -1498,7 +1507,7 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
   let mut eb = Builder::new();
   eb.add(TermQuery::new(Term::from_text("field", "b")), Occur::Must)?;
   eb.add(
-    PhraseQuery::from_terms(0, "field", &["a", "c"])?,
+    PhraseQuery::from_terms(0, "field", ["a", "c"])?,
     Occur::Must,
   )?;
   let expected: Query = eb.build().into();
@@ -1507,16 +1516,19 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
 
   // Invalid Inner query get removed after rewrite
   let mut ib = Builder::new();
-  ib.add(PhraseQuery::from_terms(0, "field", &[])?, Occur::Should)?;
-  ib.add(PhraseQuery::from_terms(0, "field", &["a"])?, Occur::Should)?;
+  ib.add(
+    PhraseQuery::from_terms(0, "field", std::iter::empty::<&str>())?,
+    Occur::Should,
+  )?;
+  ib.add(PhraseQuery::from_terms(0, "field", ["a"])?, Occur::Should)?;
   ib.set_minimum_number_should_match(2);
   let inner: Query = ib.build().into();
 
   let mut b = Builder::new();
   b.add(inner.clone(), Occur::Should)?;
-  b.add(PhraseQuery::from_terms(0, "field", &["b"])?, Occur::Should)?;
+  b.add(PhraseQuery::from_terms(0, "field", ["b"])?, Occur::Should)?;
   b.add(
-    PhraseQuery::from_terms(0, "field", &["a", "c"])?,
+    PhraseQuery::from_terms(0, "field", ["a", "c"])?,
     Occur::Should,
   )?;
   b.set_minimum_number_should_match(2);
@@ -1525,7 +1537,7 @@ fn test_should_clauses_less_than_or_equal_to_minimum_number_should_match() -> Re
 
   let mut b = Builder::new();
   b.add(inner, Occur::Should)?;
-  b.add(PhraseQuery::from_terms(0, "field", &["b"])?, Occur::Should)?;
+  b.add(PhraseQuery::from_terms(0, "field", ["b"])?, Occur::Should)?;
   b.set_minimum_number_should_match(2);
   let query: Query = b.build().into();
   assert_eq!(

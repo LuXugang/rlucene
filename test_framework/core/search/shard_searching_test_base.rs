@@ -70,7 +70,10 @@ pub struct SearcherExpiredException {
 const SEARCHER_EXPIRED_PREFIX: &str = "searcher expired: ";
 
 impl SearcherExpiredException {
-  pub fn new(message: impl Into<String>) -> Self {
+  pub fn new<T>(message: T) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       message: message.into(),
     }

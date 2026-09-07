@@ -179,15 +179,18 @@ impl TermVectorsConsumerPerField {
   // because token text has already been "interned" into
   // textStart, so we hash by textStart.  term vectors use
   // this API.
-  pub(crate) fn add_with_text_start(
+  pub(crate) fn add_with_text_start<AS>(
     &mut self,
     text_start: i32,
     doc_id: i32,
     state: &mut FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     let term_id = self
       .base
       .bytes_hash
@@ -309,14 +312,17 @@ impl TermVectorsConsumerPerField {
     }
     Ok(self.do_vectors)
   }
-  pub(crate) fn write_prox(
+  pub(crate) fn write_prox<AS>(
     &mut self,
     term_id: usize,
     field_state: &FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     let postings = self
       .base
       .postings_array()
@@ -396,7 +402,10 @@ impl TermVectorsConsumerPerField {
 
     Ok(())
   }
-  pub(crate) fn get_term_freq(&self, attribute_source: &impl AttributeSource) -> Result<i32> {
+  pub(crate) fn get_term_freq<AS>(&self, attribute_source: &AS) -> Result<i32>
+  where
+    AS: AttributeSource,
+  {
     let freq = attribute_source.get_term_frequency().unwrap_or(1);
 
     if freq != 1 {
@@ -431,15 +440,18 @@ impl TermVectorsConsumerPerField {
   }
 }
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
-  fn new_term(
+  fn new_term<AS>(
     &mut self,
     term_id: i32,
     _doc_id: i32,
     field_state: &mut FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     let term_id = term_id as usize;
     let freq = self.get_term_freq(attribute_source)?;
     let postings_enum = self
@@ -458,15 +470,18 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
     Ok(())
   }
 
-  fn add_term(
+  fn add_term<AS>(
     &mut self,
     term_id: i32,
     _doc_id: i32,
     state: &mut FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     let term_id = term_id as usize;
     let freq = self.get_term_freq(attribute_source)?;
     let postings_enum = self

@@ -181,7 +181,10 @@ impl SortFiledBase for SortFieldEnum {
     }
   }
 
-  fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
+  fn serialize<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     dispatch_sort_field!(self, |sort_field| sort_field.serialize(out))
   }
 

@@ -58,7 +58,9 @@ pub trait Spans: DocIdSetIterator {
   /// [`NO_MORE_POSITIONS`] has been reached.
   ///
   /// * `collector` a SpanCollector
-  fn collect(&self, collector: &mut impl SpanCollector) -> Result<()>;
+  fn collect<V>(&self, collector: &mut V) -> Result<()>
+  where
+    V: SpanCollector;
 
   /// Return an estimation of the cost of using the positions of this
   /// [`Spans`] for any single document, but only after

@@ -61,10 +61,12 @@ impl BinaryDocValuesField {
   ///
   /// * `name` - Field name.
   /// * `value` - Binary content.
-  pub fn new<T>(name: T, value: BytesRef<Vec<u8>>) -> Self
+  pub fn new<T, B>(name: T, value: B) -> Self
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
+    let value = value.into();
     let parent_field = Field::new(name, value, TYPE.clone());
     Self { parent_field }
   }

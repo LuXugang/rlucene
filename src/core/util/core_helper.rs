@@ -442,7 +442,9 @@ pub trait OptionTakeExt<T> {
   ///
   /// Returns `Err(LuceneError::illegal_state)` if the `Option` is empty,
   /// or propagates any `Err` returned by the closure.
-  fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R>;
+  fn take_do_return<R, F>(&mut self, f: F) -> Result<R>
+  where
+    F: FnOnce(&mut T) -> Result<R>;
 }
 
 impl<T> OptionTakeExt<T> for Option<T> {
@@ -453,7 +455,10 @@ impl<T> OptionTakeExt<T> for Option<T> {
   /// 2. Runs the user-provided closure on a mutable reference to the value.
   /// 3. Restores the value back into `self` regardless of success or failure.
   /// 4. Returns the `Result<R>` produced by the closure.
-  fn take_do_return<R>(&mut self, f: impl FnOnce(&mut T) -> Result<R>) -> Result<R> {
+  fn take_do_return<R, F>(&mut self, f: F) -> Result<R>
+  where
+    F: FnOnce(&mut T) -> Result<R>,
+  {
     let mut val = self
       .take()
       .ok_or_else(|| LuceneError::illegal_state("Option was None"))?;

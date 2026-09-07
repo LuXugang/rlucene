@@ -24,14 +24,20 @@ pub struct Parse {
 }
 
 impl Parse {
-  pub fn new(msg: impl Into<String>, position: i32) -> Self {
+  pub fn new<T>(msg: T, position: i32) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       message: msg.into(),
       position,
       error: None,
     }
   }
-  pub fn with_error(msg: impl Into<String>, error: Option<LuceneError>) -> Self {
+  pub fn with_error<T>(msg: T, error: Option<LuceneError>) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       message: msg.into(),
       position: 0,

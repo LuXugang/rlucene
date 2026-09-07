@@ -90,9 +90,10 @@ impl<C> MultiCollector<C> {
 /// # Errors
 ///
 /// Returns an error if either 0 collectors were input, or all collectors are `None`.
-pub fn wrap<C>(collectors: impl IntoIterator<Item = Option<C>>) -> Result<OneOrMultiCollector<C>>
+pub fn wrap<C, I>(collectors: I) -> Result<OneOrMultiCollector<C>>
 where
   C: Collector,
+  I: IntoIterator<Item = Option<C>>,
 {
   // For the user's convenience, we allow None collectors to be passed.
   // However, to improve performance, these None collectors are found

@@ -250,13 +250,16 @@ impl Lucene94FieldInfosFormat {
   }
 }
 impl FieldInfosFormat for Lucene94FieldInfosFormat {
-  fn read<D>(
+  fn read<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     _io_context: &IOContext,
-  ) -> Result<FieldInfos> {
+  ) -> Result<FieldInfos>
+  where
+    D2: Directory,
+  {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
     let mut input = directory.open_checksum_input(&file_name)?;
@@ -396,14 +399,17 @@ impl FieldInfosFormat for Lucene94FieldInfosFormat {
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }
 
-  fn write<D>(
+  fn write<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     infos: &FieldInfos,
     io_context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D2: Directory,
+  {
     let file_name =
       IndexFileNames::segment_file_name(&segment_info.name, segment_suffix, Self::EXTENSION);
     let mut output = directory.create_output(&file_name, io_context)?;

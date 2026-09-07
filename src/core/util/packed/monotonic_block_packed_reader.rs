@@ -46,20 +46,26 @@ pub struct MonotonicBlockPackedReader {
 }
 
 impl MonotonicBlockPackedReader {
-  pub fn of(
-    input: &mut impl IndexInput,
+  pub fn of<II>(
+    input: &mut II,
     packed_ints_version: i32,
     block_size: i32,
     value_count: usize,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    II: IndexInput,
+  {
     Self::new(input, packed_ints_version, block_size, value_count)
   }
-  fn new(
-    input: &mut impl IndexInput,
+  fn new<II>(
+    input: &mut II,
     packed_ints_version: i32,
     block_size: i32,
     value_count: usize,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    II: IndexInput,
+  {
     let block_shift = PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
     let block_mask = (block_size - 1) as u32;
     let num_blocks = PackedInts::num_blocks(value_count, block_size)?;

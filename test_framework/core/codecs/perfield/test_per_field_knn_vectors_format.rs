@@ -54,7 +54,10 @@ pub struct WriteRecordingKnnVectorsFormat {
 }
 
 impl WriteRecordingKnnVectorsFormat {
-  pub(crate) fn new(delegate: impl Into<KnnVectorsFormats>) -> Self {
+  pub(crate) fn new<T>(delegate: T) -> Self
+  where
+    T: Into<KnnVectorsFormats>,
+  {
     Self {
       delegate: Arc::new(delegate.into()),
       fields_written: Arc::new(Mutex::new(HashSet::new())),
@@ -216,7 +219,10 @@ pub struct KnnVectorsFormatMaxDims32 {
 }
 
 impl KnnVectorsFormatMaxDims32 {
-  pub(crate) fn new(delegate: impl Into<KnnVectorsFormats>) -> Self {
+  pub(crate) fn new<T>(delegate: T) -> Self
+  where
+    T: Into<KnnVectorsFormats>,
+  {
     Self {
       delegate: Arc::new(delegate.into()),
       identity: Identity::new(),

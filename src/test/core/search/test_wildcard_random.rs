@@ -37,7 +37,10 @@ use std::collections::HashMap;
 #[allow(dead_code)] // for quick search
 pub struct TestWildcardRandom;
 
-fn fill_pattern(wildcard_pattern: &str, random: &mut impl RngExt) -> String {
+fn fill_pattern<R>(wildcard_pattern: &str, random: &mut R) -> String
+where
+  R: RngExt,
+{
   wildcard_pattern
     .chars()
     .map(|ch| match ch {
@@ -47,14 +50,15 @@ fn fill_pattern(wildcard_pattern: &str, random: &mut impl RngExt) -> String {
     .collect()
 }
 
-fn assert_pattern_hits<IRC>(
+fn assert_pattern_hits<IRC, R>(
   searcher: &IndexSearcher<IRC>,
-  random: &mut impl RngExt,
+  random: &mut R,
   pattern: &str,
   num_hits: usize,
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  R: RngExt,
 {
   let wq = WildcardQuery::new(Term::from_text("field", fill_pattern(pattern, random)))?;
   let docs = searcher.search(wq, 25)?;

@@ -115,7 +115,7 @@ where
         } else {
           (-1, -1)
         };
-        CodecUtil::check_footer_with_error::<()>(meta_in, None)?;
+        CodecUtil::check_footer_with_error::<(), _>(meta_in, None)?;
       }
       Ok(())
     }));
@@ -252,14 +252,15 @@ impl<I> PostingsReaderBase for Lucene101PostingsReader<I>
 where
   I: IndexInput,
 {
-  fn init<D1, D2>(
+  fn init<D1, D2, II>(
     &self,
-    terms_in: &mut impl IndexInput,
+    terms_in: &mut II,
     state: &SegmentReadState<D1>,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
     D1: Directory,
+    II: IndexInput,
   {
     // Make sure we are talking to the matching postings writer
     CodecUtil::check_index_header(
@@ -286,13 +287,16 @@ where
     Ok(TermStateEnum::Int(IntBlockTermState::new()))
   }
 
-  fn decode_term(
+  fn decode_term<DI>(
     &self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     field_info: &Arc<FieldInfo>,
     term_state: &mut TermStateEnum,
     absolute: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let term_state = match term_state {
       TermStateEnum::Int(s) => s,
       _ => {
@@ -1675,7 +1679,10 @@ fn prefix_sum(buffer: &mut [i32], count: usize, base: i32) {
 }
 
 /// See also [`write_vint15`](crate::core::codecs::lucene101::lucene101_postings_writer::write_vint15).
-pub(crate) fn read_vint15(input: &mut impl DataInput) -> Result<i32> {
+pub(crate) fn read_vint15<DI>(input: &mut DI) -> Result<i32>
+where
+  DI: DataInput,
+{
   let s = input.read_short()?;
   if s >= 0 {
     Ok(s as i32)
@@ -1685,7 +1692,10 @@ pub(crate) fn read_vint15(input: &mut impl DataInput) -> Result<i32> {
 }
 
 /// See also [`write_vlong15`](crate::core::codecs::lucene101::lucene101_postings_writer::write_vlong15).
-pub(crate) fn read_vlong15(input: &mut impl DataInput) -> Result<i64> {
+pub(crate) fn read_vlong15<DI>(input: &mut DI) -> Result<i64>
+where
+  DI: DataInput,
+{
   let s = input.read_short()?;
   if s >= 0 {
     Ok(s as i64)
@@ -1721,7 +1731,10 @@ fn sum_over_range(arr: &[i32], start: usize, end: usize) -> i32 {
   arr[start..end].iter().sum()
 }
 
-fn prefetch_postings(doc_in: &mut impl IndexInput, state: &IntBlockTermState) -> Result<()> {
+fn prefetch_postings<II>(doc_in: &mut II, state: &IntBlockTermState) -> Result<()>
+where
+  II: IndexInput,
+{
   debug_assert!(state.base.doc_freq > 1);
   if doc_in.get_file_pointer()? as i64 != state.doc_start_fp {
     // Don't prefetch if the input is already positioned at the right

@@ -53,23 +53,38 @@ impl ScorerUtil {
   }
 
   #[inline]
-  pub fn doc_id(s: &impl Scorer) -> i32 {
+  pub fn doc_id<T>(s: &T) -> i32
+  where
+    T: Scorer,
+  {
     s.approximation().doc_id()
   }
   #[inline]
-  pub fn next_doc(s: &mut impl Scorer) -> Result<i32> {
+  pub fn next_doc<T>(s: &mut T) -> Result<i32>
+  where
+    T: Scorer,
+  {
     s.approximation_mut().next_doc()
   }
   #[inline]
-  pub fn advance(s: &mut impl Scorer, target: i32) -> Result<i32> {
+  pub fn advance<T>(s: &mut T, target: i32) -> Result<i32>
+  where
+    T: Scorer,
+  {
     s.approximation_mut().advance(target)
   }
   #[inline]
-  pub fn slow_advance(s: &mut impl Scorer, target: i32) -> Result<i32> {
+  pub fn slow_advance<T>(s: &mut T, target: i32) -> Result<i32>
+  where
+    T: Scorer,
+  {
     s.approximation_mut().slow_advance(target)
   }
   #[inline]
-  pub fn cost(s: &impl Scorer) -> Result<i64> {
+  pub fn cost<T>(s: &T) -> Result<i64>
+  where
+    T: Scorer,
+  {
     s.approximation().cost()
   }
 }

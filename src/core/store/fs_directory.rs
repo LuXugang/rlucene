@@ -78,11 +78,15 @@ where
   D: LockFactory,
   T: FSDirectoryBase,
 {
-  pub fn with_lock_factory(
-    directory: PathBuf,
+  pub fn with_lock_factory<P>(
+    directory: P,
     lock_factory: D,
     sub_fs_directory: T,
-  ) -> Result<FSDirectory<D, T>> {
+  ) -> Result<FSDirectory<D, T>>
+  where
+    P: Into<PathBuf>,
+  {
+    let directory = directory.into();
     if !directory.is_dir() {
       fs::create_dir(&directory)?;
     }
@@ -216,14 +220,18 @@ where
 impl FSDirectory<LockFactoryEnum, FSDirectoryBaseEnum> {
   /// Creates an [`FSDirectory`] instance, selecting the best implementation
   /// for the current platform and using the default lock factory.
-  pub fn open(directory: PathBuf) -> Result<FSDirectories> {
+  pub fn open<P>(directory: P) -> Result<FSDirectories>
+  where
+    P: Into<PathBuf>,
+  {
     Self::open_with_lock(directory, fs_lock_factory::get_default())
   }
 
   /// Just like [`FSDirectory::open`], but uses the provided lock factory.
-  pub fn open_with_lock<L>(directory: PathBuf, lock_factory: L) -> Result<FSDirectories>
+  pub fn open_with_lock<L, P>(directory: P, lock_factory: L) -> Result<FSDirectories>
   where
     L: Into<LockFactoryEnum>,
+    P: Into<PathBuf>,
   {
     #[cfg(target_pointer_width = "64")]
     let sub_fs_directory = FSDirectoryBaseEnum::MMap(MMapDirectory::default());
@@ -238,10 +246,10 @@ impl<T> FSDirectory<NativeFSLockFactory, T>
 where
   T: FSDirectoryBase,
 {
-  pub fn new(
-    directory: PathBuf,
-    sub_fs_directory: T,
-  ) -> Result<FSDirectory<NativeFSLockFactory, T>> {
+  pub fn new<P>(directory: P, sub_fs_directory: T) -> Result<FSDirectory<NativeFSLockFactory, T>>
+  where
+    P: Into<PathBuf>,
+  {
     Self::with_lock_factory(directory, NativeFSLockFactory::new(), sub_fs_directory)
   }
 }

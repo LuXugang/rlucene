@@ -38,7 +38,9 @@ pub trait CompoundFormat {
   /// written using
   /// [`CodecUtil::write_index_header`](crate::core::codecs::codec_util::CodecUtil::write_index_header)
   /// and [`CodecUtil::write_footer`](crate::core::codecs::codec_util::CodecUtil::write_footer).
-  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>;
+  fn write<D, D2>(&self, dir: &D2, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
+  where
+    D2: Directory;
 }
 pub type DefaultCompoundReaderImpl<I> = Lucene90CompoundReader<I>;
 pub type DefaultCompoundReader<D> = DefaultCompoundReaderImpl<<D as Directory>::IndexInput>;

@@ -778,13 +778,14 @@ pub trait Validator {
 
   fn set_relation(&mut self, relation: QueryRelation);
 
-  fn test_component_query_with_shape(
-    &self,
-    query: &impl Component2D,
-    shape: &Self::Shape,
-  ) -> Result<bool>;
+  fn test_component_query_with_shape<T>(&self, query: &T, shape: &Self::Shape) -> Result<bool>
+  where
+    T: Component2D;
 
-  fn test_component_query(&self, query: &impl Component2D, fields: &[Fields]) -> Result<bool> {
+  fn test_component_query<T>(&self, query: &T, fields: &[Fields]) -> Result<bool>
+  where
+    T: Component2D,
+  {
     let mut decoded_triangle = DecodedTriangle::default();
 
     for field in fields {
@@ -842,11 +843,10 @@ pub trait Validator {
     Ok(!matches!(self.query_relation(), QueryRelation::Intersects))
   }
 
-  fn test_within_query(
-    &self,
-    query: &impl Component2D,
-    fields: &[Fields],
-  ) -> Result<WithinRelation> {
+  fn test_within_query<T>(&self, query: &T, fields: &[Fields]) -> Result<WithinRelation>
+  where
+    T: Component2D,
+  {
     let mut answer = WithinRelation::Disjoint;
     let mut decoded_triangle = DecodedTriangle::default();
 

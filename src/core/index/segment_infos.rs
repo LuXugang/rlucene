@@ -324,25 +324,27 @@ impl<D> SegmentInfos<D> {
   }
 
   /// Read the commit from the provided [`ChecksumIndexInput`].
-  pub fn read_commit_with_input(
+  pub fn read_commit_with_input<II>(
     directory: Arc<D>,
-    input: &mut impl ChecksumIndexInput,
+    input: &mut II,
     generation: i64,
   ) -> Result<Self>
   where
     D: Directory,
+    II: ChecksumIndexInput,
   {
     Self::read_commit_impl(directory, input, generation, *MIN_SUPPORTED_MAJOR)
   }
   /// Read the commit from the provided [`ChecksumIndexInput`].
-  pub fn read_commit_impl(
+  pub fn read_commit_impl<II>(
     directory: Arc<D>,
-    input: &mut impl ChecksumIndexInput,
+    input: &mut II,
     generation: i64,
     min_supported_major_version: i32,
   ) -> Result<Self>
   where
     D: Directory,
+    II: ChecksumIndexInput,
   {
     let mut format = -1;
     let read_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<Self> {
@@ -403,7 +405,7 @@ impl<D> SegmentInfos<D> {
     if format >= VERSION_74 {
       match read_result {
         Ok(Ok(infos)) => {
-          CodecUtil::check_footer_with_error::<()>(input, None)?;
+          CodecUtil::check_footer_with_error::<(), _>(input, None)?;
           Ok(infos)
         },
         read_result => {
@@ -417,14 +419,15 @@ impl<D> SegmentInfos<D> {
       IOUtils::rethrow_always(read_result)
     }
   }
-  pub fn parse_segment_infos(
+  pub fn parse_segment_infos<DI>(
     directory: Arc<D>,
-    input: &mut impl DataInput,
+    input: &mut DI,
     infos: &mut SegmentInfos<D>,
     format: i32,
   ) -> Result<()>
   where
     D: Directory,
+    DI: DataInput,
   {
     infos.version = CodecUtil::read_be_long(input)?;
     let counter_value = input.read_vlong()?;
@@ -582,7 +585,10 @@ impl<D> SegmentInfos<D> {
     Ok(())
   }
 
-  pub fn read_codec(input: &mut impl DataInput) -> Result<Codecs> {
+  pub fn read_codec<DI>(input: &mut DI) -> Result<Codecs>
+  where
+    DI: DataInput,
+  {
     let name = input.read_string()?;
     match codec::for_name(&name) {
       Err(LuceneError::IllegalArgument(_)) if name.starts_with("Lucene") => {
@@ -618,7 +624,10 @@ impl<D> SegmentInfos<D> {
     find_segments_file.run()
   }
 
-  fn write_with_directory(&mut self, directory: &impl Directory) -> Result<()> {
+  fn write_with_directory<D2>(&mut self, directory: &D2) -> Result<()>
+  where
+    D2: Directory,
+  {
     let next_generation = self.get_next_pending_generation();
     let segment_file_name_wrap = IndexFileNames::file_name_from_generation(
       IndexFileNames::PENDING_SEGMENTS,
@@ -668,7 +677,10 @@ impl<D> SegmentInfos<D> {
   ///
   /// Returns a [`LuceneError`] if there is an issue writing the segment
   /// information.
-  pub fn write(&self, out: &mut impl IndexOutput) -> Result<()> {
+  pub fn write<IO>(&self, out: &mut IO) -> Result<()>
+  where
+    IO: IndexOutput,
+  {
     let v = BigInt::from(self.generation).to_str_radix(36).to_string();
     CodecUtil::write_index_header(
       out,
@@ -849,7 +861,10 @@ impl<D> SegmentInfos<D> {
   }
 
   /// Rollback a pending commit.
-  pub fn rollback_commit(&mut self, directory: &impl Directory) {
+  pub fn rollback_commit<D2>(&mut self, directory: &D2)
+  where
+    D2: Directory,
+  {
     if self.pending_commit {
       self.pending_commit = false;
 
@@ -877,7 +892,10 @@ impl<D> SegmentInfos<D> {
   ///
   /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
   /// this method if changes have been made to this [`SegmentInfos`] instance.
-  pub fn prepare_commit(&mut self, directory: &impl Directory) -> Result<()> {
+  pub fn prepare_commit<D2>(&mut self, directory: &D2) -> Result<()>
+  where
+    D2: Directory,
+  {
     #[cfg(test)]
     let _execution_scope =
       ExecutionScope::enter(ExecutionOwner::SegmentInfos, ExecutionMethod::PrepareCommit);
@@ -908,7 +926,10 @@ impl<D> SegmentInfos<D> {
     Ok(files)
   }
   /// Returns the committed `segments_N` filename.
-  pub fn finish_commit(&mut self, directory: &impl Directory) -> Result<String> {
+  pub fn finish_commit<D2>(&mut self, directory: &D2) -> Result<String>
+  where
+    D2: Directory,
+  {
     #[cfg(test)]
     let _execution_scope =
       ExecutionScope::enter(ExecutionOwner::SegmentInfos, ExecutionMethod::FinishCommit);
@@ -959,7 +980,10 @@ impl<D> SegmentInfos<D> {
   ///
   /// Note: [`changed()`](SegmentInfos::changed) should be called prior to
   /// this method if changes have been made to this [`SegmentInfos`] instance.
-  pub fn commit(&mut self, dir: &impl Directory) -> Result<()> {
+  pub fn commit<D2>(&mut self, dir: &D2) -> Result<()>
+  where
+    D2: Directory,
+  {
     self.prepare_commit(dir)?;
     self.finish_commit(dir)?;
     Ok(())
@@ -1120,7 +1144,10 @@ impl<D> SegmentInfos<D> {
   }
 
   /// Appends the provided [`SegmentCommitInfo`]s.
-  pub fn add_all(&mut self, sis: impl IntoIterator<Item = SegmentCommitInfo<D>>) -> Result<()> {
+  pub fn add_all<I>(&mut self, sis: I) -> Result<()>
+  where
+    I: IntoIterator<Item = SegmentCommitInfo<D>>,
+  {
     for si in sis {
       self.add(si)?;
     }
@@ -1229,10 +1256,10 @@ pub trait FindSegmentsFile {
   type D: Directory;
   fn get_directory_point(&self) -> Arc<Self::D>;
   /// Run doBody on the provided commit.
-  fn run_with_commit(
-    &mut self,
-    commit: &impl IndexCommit<Directory = Arc<Self::D>>,
-  ) -> Result<Self::V> {
+  fn run_with_commit<T>(&mut self, commit: &T) -> Result<Self::V>
+  where
+    T: IndexCommit<Directory = Arc<Self::D>>,
+  {
     if !self
       .get_directory_point()
       .is_same_identity(&*commit.get_directory())
@@ -1348,7 +1375,10 @@ pub(crate) const VERSION_CURRENT: i32 = VERSION_86;
 /// Name of the generation reference file name.
 pub(crate) const OLD_SEGMENTS_GEN: &str = "segments.gen";
 /// Sets the global INFO_STREAM to the given optional [`OutputEnum`].
-pub fn set_info_stream(output: impl Into<Option<OutputEnum>>) -> Result<()> {
+pub fn set_info_stream<T>(output: T) -> Result<()>
+where
+  T: Into<Option<OutputEnum>>,
+{
   let mut info_stream = INFO_STREAM.lock();
   *info_stream = output.into();
   Ok(())

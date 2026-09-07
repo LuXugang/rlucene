@@ -1189,16 +1189,17 @@ where
       sub_indices,
     ))
   }
-  pub fn write<N, PE>(
+  pub fn write<N, PE, T>(
     &mut self,
     text: BytesRef<Vec<u8>>,
-    terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
+    terms_enum: &mut T,
     norms: Option<&N>,
     postings_enum: Option<PE>,
   ) -> Result<Option<PE>>
   where
     N: NormsProducer,
     PE: PostingsEnum,
+    T: TermsEnum<PostingsEnum = PE>,
   {
     let (reuse, state_opt) = self.postings_writer.write_term(
       &text,
@@ -1354,9 +1355,10 @@ where
 
     Ok(())
   }
-  fn write_bytes_ref<AV>(&self, out: &mut impl DataOutput, bytes: &BytesRef<AV>) -> Result<()>
+  fn write_bytes_ref<AV, DO>(&self, out: &mut DO, bytes: &BytesRef<AV>) -> Result<()>
   where
     AV: SharedAccessVec<u8>,
+    DO: DataOutput,
   {
     debug_assert!(bytes.length <= i32::MAX as usize);
     out.write_vint(bytes.length as i32)?;
@@ -1398,7 +1400,10 @@ pub fn encode_output(fp: i64, has_terms: bool, is_floor: bool) -> i64 {
     }
 }
 /// Encodes an `i64` value into variable-length bytes in MSB order.
-pub(crate) fn write_msb_vlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
+pub(crate) fn write_msb_vlong<DO>(out: &mut DO, mut l: i64) -> Result<()>
+where
+  DO: DataOutput,
+{
   debug_assert!(l >= 0);
   // Keep zero bits on most significant byte to have more chance to get prefix
   // bytes shared. e.g. we expect 0x7FFF stored as [0x81, 0xFF, 0x7F] but

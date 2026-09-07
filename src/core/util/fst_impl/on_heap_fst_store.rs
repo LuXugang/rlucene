@@ -116,7 +116,10 @@ pub struct OnHeapFSTStore {
 }
 
 impl OnHeapFSTStore {
-  pub fn new(max_block_bits: i32, input: &mut impl DataInput, num_bytes: i64) -> Result<Self> {
+  pub fn new<DI>(max_block_bits: i32, input: &mut DI, num_bytes: i64) -> Result<Self>
+  where
+    DI: DataInput,
+  {
     if !(1..=30).contains(&max_block_bits) {
       return Err(LuceneError::illegal_argument(format!(
         "max_block_bits should be in 1..=30; got {max_block_bits}"
@@ -184,7 +187,10 @@ impl FstReader for OnHeapFSTStore {
   }
   // Note: After calling get_reverse_bytes_reader, the ownership of data_output
   // will be moved.
-  fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
+  fn write_to<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     if let Some(data_output) = &self.data_output {
       data_output.write_to(out)?;
     } else if let Some(bytes_array) = &self.bytes_array {

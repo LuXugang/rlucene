@@ -45,11 +45,10 @@ impl GroupVIntUtil {
   ///
   /// # Note
   /// This is an experimental API.
-  pub fn read_group_vints_i64(
-    input: &mut impl DataInput,
-    dst: &mut [i64],
-    limit: usize,
-  ) -> Result<()> {
+  pub fn read_group_vints_i64<DI>(input: &mut DI, dst: &mut [i64], limit: usize) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let mut i = 0;
     while i + 4 <= limit {
       Self::read_group_vint_i64(input, dst, i)?;
@@ -71,11 +70,10 @@ impl GroupVIntUtil {
   ///
   /// # Note
   /// This is an experimental API.
-  pub fn read_group_vints_i32(
-    input: &mut impl DataInput,
-    dst: &mut [i32],
-    limit: usize,
-  ) -> Result<()> {
+  pub fn read_group_vints_i32<DI>(input: &mut DI, dst: &mut [i32], limit: usize) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let mut i = 0;
     while i + 4 <= limit {
       input.read_group_vint(dst, i)?;
@@ -98,11 +96,10 @@ impl GroupVIntUtil {
   /// * `in` - The input to use to read data.
   /// * `dst` - The array to read `i64` values into.
   /// * `offset` - The offset in the array to start storing `i64` values.
-  pub fn read_group_vint_i64(
-    data_input: &mut impl DataInput,
-    dst: &mut [i64],
-    offset: usize,
-  ) -> Result<()> {
+  pub fn read_group_vint_i64<DI>(data_input: &mut DI, dst: &mut [i64], offset: usize) -> Result<()>
+  where
+    DI: DataInput,
+  {
     {
       let flag = data_input.read_byte()? as usize;
 
@@ -128,11 +125,10 @@ impl GroupVIntUtil {
   /// * `in` - The input to use to read data.
   /// * `dst` - The array to read `i64` values into.
   /// * `offset` - The offset in the array to start storing `i64` values.
-  pub fn read_group_vint_i32(
-    data_input: &mut impl DataInput,
-    dst: &mut [i32],
-    offset: usize,
-  ) -> Result<()> {
+  pub fn read_group_vint_i32<DI>(data_input: &mut DI, dst: &mut [i32], offset: usize) -> Result<()>
+  where
+    DI: DataInput,
+  {
     {
       let flag = data_input.read_byte()? as usize;
 
@@ -149,7 +145,10 @@ impl GroupVIntUtil {
       Ok(())
     }
   }
-  fn read_int_in_group(data_input: &mut impl DataInput, num_bytes_minus1: usize) -> Result<i32> {
+  fn read_int_in_group<DI>(data_input: &mut DI, num_bytes_minus1: usize) -> Result<i32>
+  where
+    DI: DataInput,
+  {
     match num_bytes_minus1 {
       0 => Ok(data_input.read_byte()? as i32),
       1 => Ok(data_input.read_short()? as u16 as i32),
@@ -176,13 +175,16 @@ impl GroupVIntUtil {
   /// The number of bytes read excluding the flag. This indicates the number
   /// of positions that should be increased for the caller. It is a
   /// non-negative number less than `MAX_LENGTH_PER_GROUP`.
-  pub fn read_group_vint_i64_with_reader(
-    data_input: &mut (impl DataInput + IntReader),
+  pub fn read_group_vint_i64_with_reader<DI>(
+    data_input: &mut DI,
     remaining: u64,
     mut pos: usize,
     dst: &mut [i64],
     offset: usize,
-  ) -> Result<usize> {
+  ) -> Result<usize>
+  where
+    DI: DataInput + IntReader,
+  {
     if remaining < Self::MAX_LENGTH_PER_GROUP as u64 {
       Self::read_group_vint_i64(data_input, dst, offset)?;
       return Ok(0);
@@ -231,13 +233,16 @@ impl GroupVIntUtil {
   /// The number of bytes read excluding the flag. This indicates the number
   /// of positions that should be increased for the caller. It is a
   /// non-negative number less than `MAX_LENGTH_PER_GROUP`.
-  pub fn read_group_vint_i32_with_reader(
-    data_input: &mut (impl DataInput + IntReader),
+  pub fn read_group_vint_i32_with_reader<DI>(
+    data_input: &mut DI,
     remaining: u64,
     mut pos: usize,
     dst: &mut [i32],
     offset: usize,
-  ) -> Result<usize> {
+  ) -> Result<usize>
+  where
+    DI: DataInput + IntReader,
+  {
     if remaining < Self::MAX_LENGTH_PER_GROUP as u64 {
       Self::read_group_vint_i32(data_input, dst, offset)?;
       return Ok(0);
@@ -289,12 +294,15 @@ impl GroupVIntUtil {
   /// The implementation for group-varint encoding. It uses a maximum of
   /// [`MAX_LENGTH_PER_GROUP`](GroupVIntUtil::MAX_LENGTH_PER_GROUP) bytes
   /// scratch buffer.
-  pub fn write_group_vints_i64(
-    data_output: &mut impl DataOutput,
+  pub fn write_group_vints_i64<DO>(
+    data_output: &mut DO,
     scratch: &mut [u8],
     values: &mut [i64],
     limit: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let mut read_pos: usize = 0;
 
     // encode each group
@@ -357,12 +365,15 @@ impl GroupVIntUtil {
   /// The implementation for group-varint encoding. It uses a maximum of
   /// [`MAX_LENGTH_PER_GROUP`](GroupVIntUtil::MAX_LENGTH_PER_GROUP) bytes
   /// scratch buffer.
-  pub fn write_group_vints_i32(
-    data_output: &mut impl DataOutput,
+  pub fn write_group_vints_i32<DO>(
+    data_output: &mut DO,
     scratch: &mut [u8],
     values: &mut [i32],
     limit: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let mut read_pos: usize = 0;
 
     // encode each group

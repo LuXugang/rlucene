@@ -130,11 +130,15 @@ impl DataInputAction {
 
 const GENERATOR_COUNT: usize = 11;
 
-pub fn add_random_data(
-  dst: &mut impl DataOutput,
-  rnd: &mut impl Rng,
+pub fn add_random_data<DO, R>(
+  dst: &mut DO,
+  rnd: &mut R,
   max_add_calls: i32,
-) -> Result<Vec<DataInputAction>> {
+) -> Result<Vec<DataInputAction>>
+where
+  DO: DataOutput,
+  R: Rng,
+{
   let mut vec: Vec<DataInputAction> = Vec::new();
   for _i in 0..max_add_calls {
     let action = match rnd.random_range(0..GENERATOR_COUNT) {

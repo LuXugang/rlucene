@@ -67,12 +67,15 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
   fn write_field_f64(&mut self, field_info: &FieldInfo, value: f64) -> Result<()>;
 
   /// Writes a stored binary value from a [`DataInput`] and a `length`.
-  fn write_field_with_input(
+  fn write_field_with_input<DI>(
     &mut self,
     field_info: &FieldInfo,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let length = length as usize;
     let mut buf = vec![0u8; length];
     input.read_bytes(&mut buf, 0, length)?;
@@ -260,15 +263,16 @@ impl MergeVisitor {
   }
 }
 impl StoredFieldVisitor for MergeVisitor {
-  fn binary_field_with_input<S>(
+  fn binary_field_with_input<S, DI>(
     &mut self,
     field_info: Arc<FieldInfo>,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    DI: DataInput,
   {
     let writer =
       writer.ok_or_else(|| LuceneError::illegal_state("StoredFieldsWriter is required"))?;
@@ -452,12 +456,15 @@ where
     }
   }
 
-  fn write_field_with_input(
+  fn write_field_with_input<DI>(
     &mut self,
     field_info: &FieldInfo,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     match self {
       Self::A(inner) => inner.write_field_with_input(field_info, input, length),
       Self::B(inner) => inner.write_field_with_input(field_info, input, length),

@@ -342,14 +342,15 @@ where
       .ok_or_else(|| LuceneError::illegal_state("leaf slices are missing"))
   }
 
-  pub fn search_after_score(
+  pub fn search_after_score<Q>(
     &self,
     after: Option<ScoreDoc>,
-    query: impl IntoQuery,
+    query: Q,
     num_hits: usize,
   ) -> Result<TopDocs<ScoreDoc>>
   where
     Self: Sync,
+    Q: IntoQuery,
   {
     self
       .hook
@@ -367,9 +368,10 @@ where
   {
     self.query_timeout = Some(Arc::new(query_timeout.into()))
   }
-  pub fn search(&self, query: impl IntoQuery, n: usize) -> Result<TopDocs<ScoreDoc>>
+  pub fn search<Q>(&self, query: Q, n: usize) -> Result<TopDocs<ScoreDoc>>
   where
     Self: Sync,
+    Q: IntoQuery,
   {
     self.hook.search(self, query.into_query(), n)
   }
@@ -382,9 +384,9 @@ where
   /// # Errors
   /// Returns a [`LuceneError::TooManyClauses`] if a query would exceed
   /// [`get_max_clause_count()`] clauses.
-  pub fn search_with_sort_score<T>(
+  pub fn search_with_sort_score<T, Q>(
     &self,
-    query: impl IntoQuery,
+    query: Q,
     n: usize,
     sort: T,
     do_doc_scores: bool,
@@ -392,6 +394,7 @@ where
   where
     T: Into<Arc<Sort>>,
     Self: Sync,
+    Q: IntoQuery,
   {
     self.search_after_field_with_score(None, query, n, sort, do_doc_scores)
   }
@@ -406,15 +409,11 @@ where
   ///
   /// # Errors
   /// Returns an error if a low-level I/O error occurs.
-  pub fn search_with_sort<T>(
-    &self,
-    query: impl IntoQuery,
-    n: usize,
-    sort: T,
-  ) -> Result<TopFieldDocs>
+  pub fn search_with_sort<T, Q>(&self, query: Q, n: usize, sort: T) -> Result<TopFieldDocs>
   where
     T: Into<Arc<Sort>>,
     Self: Sync,
+    Q: IntoQuery,
   {
     self
       .hook
@@ -431,9 +430,10 @@ where
   /// Count how many documents match the given query.
   /// May be faster than counting number of hits by collecting all matches,
   /// as the number of hits is retrieved from the index statistics when possible.
-  pub fn count(&self, query: impl IntoQuery) -> Result<i32>
+  pub fn count<Q>(&self, query: Q) -> Result<i32>
   where
     Self: Sync,
+    Q: IntoQuery,
   {
     self.hook.count(self, query.into_query())
   }
@@ -514,24 +514,26 @@ where
     Ok(top_field_docs)
   }
 
-  pub fn search_with_collector_manager<CM>(
+  pub fn search_with_collector_manager<CM, Q>(
     &self,
-    query: impl IntoQuery,
+    query: Q,
     collector_manager: &CM,
   ) -> Result<CM::T>
   where
     Self: Sync,
     CM: CollectorManager,
     CM::C: Send,
+    Q: IntoQuery,
   {
     self
       .hook
       .search_with_collector_manager(self, query.into_query(), collector_manager)
   }
-  pub fn search_with_collector<C>(&self, query: impl IntoQuery, collector: &mut C) -> Result<()>
+  pub fn search_with_collector<C, Q>(&self, query: Q, collector: &mut C) -> Result<()>
   where
     C: Collector,
     Self: Sync,
+    Q: IntoQuery,
   {
     self
       .hook

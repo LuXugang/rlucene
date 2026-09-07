@@ -32,14 +32,15 @@ impl StoredFields for DummyStoredFields {
     dummy_unreachable!()
   }
 
-  fn document_with_visitor<S>(
+  fn document_with_visitor<S, V>(
     &mut self,
     _doc_id: i32,
-    _visitor: &mut impl StoredFieldVisitor,
+    _visitor: &mut V,
     _writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     dummy_unreachable!()
   }

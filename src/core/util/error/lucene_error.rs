@@ -529,7 +529,10 @@ macro_rules! error_ctor {
   };
 
   ($fn_name:ident, $variant:ident, $error_type:ident) => {
-    pub fn $fn_name(err: impl Into<$error_type>) -> Self {
+    pub fn $fn_name<T>(err: T) -> Self
+    where
+      T: Into<$error_type>,
+    {
       LuceneError::$variant(err.into())
     }
   };
@@ -563,7 +566,10 @@ impl LuceneError {
     ))
   }
 
-  pub fn io_with_path(path: impl Into<String>, err: std::io::Error) -> Self {
+  pub fn io_with_path<T>(path: T, err: std::io::Error) -> Self
+  where
+    T: Into<String>,
+  {
     let message = err.kind().to_string();
     LuceneError::IoWithPath {
       source: err,
@@ -630,12 +636,15 @@ impl LuceneError {
   error_ctor!(fuzzy_terms, FuzzyTerms, FuzzyTermsError);
   error_ctor!(illegal_argument, IllegalArgument, IllegalArgumentError);
   error_ctor!(illegal_state, IllegalState, IllegalStateError);
-  pub fn index_format_too_new(
-    input: &impl fmt::Display,
+  pub fn index_format_too_new<T>(
+    input: &T,
     version: i32,
     min_version: i32,
     max_version: i32,
-  ) -> Self {
+  ) -> Self
+  where
+    T: fmt::Display,
+  {
     LuceneError::IndexFormatTooNew(IndexFormatTooNewError::from_input(
       input,
       version,
@@ -643,16 +652,23 @@ impl LuceneError {
       max_version,
     ))
   }
-  pub fn index_format_too_old(input: &impl fmt::Display, reason: impl Into<String>) -> Self {
+  pub fn index_format_too_old<T, T2>(input: &T, reason: T2) -> Self
+  where
+    T: fmt::Display,
+    T2: Into<String>,
+  {
     LuceneError::IndexFormatTooOld(IndexFormatTooOldError::from_input(input, reason))
   }
 
-  pub fn index_format_too_old_with_version(
-    input: &impl fmt::Display,
+  pub fn index_format_too_old_with_version<T>(
+    input: &T,
     version: i32,
     min_version: i32,
     max_version: i32,
-  ) -> Self {
+  ) -> Self
+  where
+    T: fmt::Display,
+  {
     LuceneError::IndexFormatTooOld(IndexFormatTooOldError::from_input_with_version(
       input,
       version,

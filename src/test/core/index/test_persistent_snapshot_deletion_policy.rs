@@ -89,10 +89,11 @@ where
   }
 }
 
-fn get_config<D, T>(random: &mut impl rand::Rng, deletion_policy: T) -> Result<IndexWriterConfig<D>>
+fn get_config<D, T, R>(random: &mut R, deletion_policy: T) -> Result<IndexWriterConfig<D>>
 where
   D: Directory,
   T: Into<IndexDeletionPolicyEnum<D>>,
+  R: rand::Rng,
 {
   let mock = MockAnalyzer::new(random);
   let mut conf = new_index_writer_config_with_analyzer(random, mock)?;

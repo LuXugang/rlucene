@@ -173,14 +173,18 @@ impl DoubleField {
 
   /// Create a query matching values in a supplied set.
   ///
+  /// Accepts a vector, array or slice. Owned vectors are moved; borrowed slices are copied.
+  ///
   /// # Arguments
   ///
   /// * `field` - Field name.
   /// * `values` - Double values.
-  pub fn new_set_query<T>(field: T, values: Vec<f64>) -> Result<IndexOrDocValuesQuery>
+  pub fn new_set_query<T, V>(field: T, values: V) -> Result<IndexOrDocValuesQuery>
   where
     T: Into<String>,
+    V: Into<Vec<f64>>,
   {
+    let values = values.into();
     let field = field.into();
     let point_query = DoublePoint::new_set_query(field.clone(), values.clone())?;
     let dv_query = SortedNumericDocValuesField::new_slow_set_query(

@@ -85,7 +85,7 @@ fn test_set_position() -> Result<()> {
   // second token should be at position 2
   assert_eq!(2, pos.next_position()?);
 
-  let mut q = PhraseQuery::from_terms_no_slop("field", &["1", "2"])?;
+  let mut q = PhraseQuery::from_terms_no_slop("field", ["1", "2"])?;
   let mut hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(0, hits.len());
 
@@ -113,11 +113,11 @@ fn test_set_position() -> Result<()> {
   hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  q = PhraseQuery::from_terms_no_slop("field", &["2", "3"])?;
+  q = PhraseQuery::from_terms_no_slop("field", ["2", "3"])?;
   hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  q = PhraseQuery::from_terms_no_slop("field", &["3", "4"])?;
+  q = PhraseQuery::from_terms_no_slop("field", ["3", "4"])?;
   hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(0, hits.len());
 
@@ -148,19 +148,19 @@ fn test_set_position() -> Result<()> {
   hits = searcher.search(mqb.build(), 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  q = PhraseQuery::from_terms_no_slop("field", &["2", "4"])?;
+  q = PhraseQuery::from_terms_no_slop("field", ["2", "4"])?;
   hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  q = PhraseQuery::from_terms_no_slop("field", &["3", "5"])?;
+  q = PhraseQuery::from_terms_no_slop("field", ["3", "5"])?;
   hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  q = PhraseQuery::from_terms_no_slop("field", &["4", "5"])?;
+  q = PhraseQuery::from_terms_no_slop("field", ["4", "5"])?;
   hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(1, hits.len());
 
-  q = PhraseQuery::from_terms_no_slop("field", &["2", "5"])?;
+  q = PhraseQuery::from_terms_no_slop("field", ["2", "5"])?;
   hits = searcher.search(q, 1000)?.score_docs;
   assert_eq!(0, hits.len());
 

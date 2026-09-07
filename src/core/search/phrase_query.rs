@@ -63,12 +63,19 @@ impl PhraseQuery {
   /// list of terms at consecutive positions in `field`, and at a maximum edit
   /// distance of `slop`.
   ///
+  /// Accepts arrays, vectors and iterators of strings or string references.
+  /// For an empty query, pass `std::iter::empty::<&str>()`.
+  ///
   /// For more complicated use-cases, use [PhraseQuery::builder](Builder).
   ///
   /// # See also
   ///
   /// - [`PhraseQuery::get_slop`]
-  pub fn from_terms(slop: usize, field: &str, terms: &[&str]) -> Result<Self> {
+  pub fn from_terms<I, S>(slop: usize, field: &str, terms: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
     let terms = to_terms(field, terms);
     let positions = incremental_positions(terms.len());
     PhraseQuery::new(slop, terms, positions)
@@ -76,7 +83,11 @@ impl PhraseQuery {
 
   /// Create a phrase query which will match documents that contain the given
   /// list of terms at consecutive positions in `field`.
-  pub fn from_terms_no_slop(field: &str, terms: &[&str]) -> Result<Self> {
+  pub fn from_terms_no_slop<I, S>(field: &str, terms: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+  {
     Self::from_terms(0, field, terms)
   }
 
@@ -420,10 +431,15 @@ fn incremental_positions(length: usize) -> Vec<usize> {
   (0..length).collect()
 }
 
-fn to_terms(field: &str, term_strings: &[&str]) -> Vec<Term> {
-  let mut terms = Vec::with_capacity(term_strings.len());
-  for &s in term_strings {
-    terms.push(Term::from_text(field, s));
+fn to_terms<I, S>(field: &str, term_strings: I) -> Vec<Term>
+where
+  I: IntoIterator<Item = S>,
+  S: AsRef<str>,
+{
+  let term_strings = term_strings.into_iter();
+  let mut terms = Vec::with_capacity(term_strings.size_hint().0);
+  for s in term_strings {
+    terms.push(Term::from_text(field, s.as_ref()));
   }
   terms
 }

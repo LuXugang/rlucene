@@ -1003,9 +1003,10 @@ pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
 /// # Errors
 /// Returns an error if writing to the output fails.
 #[allow(dead_code)] // Mirrors Java's retained package-private two-argument overload; production callers pass the rank power explicitly.
-pub(crate) fn write_bitset<O>(it: &mut impl DocIdSetIterator, out: &mut O) -> Result<i16>
+pub(crate) fn write_bitset<O, I>(it: &mut I, out: &mut O) -> Result<i16>
 where
   O: IndexOutput,
+  I: DocIdSetIterator,
 {
   write_bitset_with_dense_rank_power(it, out, DEFAULT_DENSE_RANK_POWER)
 }
@@ -1037,13 +1038,14 @@ where
 ///
 /// # Errors
 /// Returns an error if writing to the output fails.
-pub fn write_bitset_with_dense_rank_power<O>(
-  it: &mut impl DocIdSetIterator,
+pub fn write_bitset_with_dense_rank_power<O, I>(
+  it: &mut I,
   out: &mut O,
   dense_rank_power: i8,
 ) -> Result<i16>
 where
   O: IndexOutput,
+  I: DocIdSetIterator,
 {
   let origo = out.get_file_pointer()?;
   if !(7..=15).contains(&dense_rank_power) && dense_rank_power != -1 {

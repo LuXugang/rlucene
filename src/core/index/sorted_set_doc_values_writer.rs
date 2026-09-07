@@ -973,15 +973,16 @@ pub struct DocOrds {
 }
 pub const START_BITS_PER_VALUE: i32 = 2;
 impl DocOrds {
-  pub(crate) fn new<DM>(
+  pub(crate) fn new<DM, T>(
     max_doc: i32,
     sort_map: &DM,
-    old_values: &mut impl SortedSetDocValues,
+    old_values: &mut T,
     acceptable_overhead_ratio: f32,
     bits_per_value: i32,
   ) -> Result<Self>
   where
     DM: DocMap,
+    T: SortedSetDocValues,
   {
     let mut offsets = vec![0; max_doc as usize];
     let mut builder =

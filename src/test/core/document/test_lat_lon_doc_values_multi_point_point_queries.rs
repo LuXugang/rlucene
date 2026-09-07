@@ -105,11 +105,10 @@ impl Validator for MultiPointValidator {
   }
 
   #[allow(clippy::if_same_then_else)]
-  fn test_component_query_with_shape(
-    &self,
-    query: &impl Component2D,
-    points: &Self::Shape,
-  ) -> Result<bool> {
+  fn test_component_query_with_shape<T>(&self, query: &T, points: &Self::Shape) -> Result<bool>
+  where
+    T: Component2D,
+  {
     for point in points {
       let matches = self
         .point_validator

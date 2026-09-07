@@ -53,7 +53,7 @@ fn test_rewrite() -> Result<()> {
   let searcher = &*CONTEXT;
 
   // bi-gram test ABC => AB/BC => AB/BC
-  let pq1 = NGramPhraseQuery::new(2, PhraseQuery::from_terms_no_slop("f", &["AB", "BC"])?);
+  let pq1 = NGramPhraseQuery::new(2, PhraseQuery::from_terms_no_slop("f", ["AB", "BC"])?);
 
   let q = pq1
     .rewrite(searcher)?
@@ -69,10 +69,7 @@ fn test_rewrite() -> Result<()> {
   assert_eq!(&vec![0, 1], rewritten1.get_positions());
 
   // bi-gram test ABCD => AB/BC/CD => AB//CD
-  let pq2 = NGramPhraseQuery::new(
-    2,
-    PhraseQuery::from_terms_no_slop("f", &["AB", "BC", "CD"])?,
-  );
+  let pq2 = NGramPhraseQuery::new(2, PhraseQuery::from_terms_no_slop("f", ["AB", "BC", "CD"])?);
 
   let q = pq2
     .rewrite(searcher)?
@@ -90,7 +87,7 @@ fn test_rewrite() -> Result<()> {
   // tri-gram test ABCDEFGH => ABC/BCD/CDE/DEF/EFG/FGH => ABC///DEF//FGH
   let pq3 = NGramPhraseQuery::new(
     3,
-    PhraseQuery::from_terms_no_slop("f", &["ABC", "BCD", "CDE", "DEF", "EFG", "FGH"])?,
+    PhraseQuery::from_terms_no_slop("f", ["ABC", "BCD", "CDE", "DEF", "EFG", "FGH"])?,
   );
 
   let q = pq3

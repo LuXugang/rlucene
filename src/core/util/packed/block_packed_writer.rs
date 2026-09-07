@@ -51,13 +51,16 @@ use crate::core::util::packed::abstract_block_packed_writer::{
 #[derive(Default)]
 pub struct BlockPackedWriter;
 impl AbstractBlockPackedWriterBase for BlockPackedWriter {
-  fn flush(
+  fn flush<DO>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     off: &mut usize,
     values: &mut [i64],
     blocks: &mut Vec<u8>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     debug_assert!(*off > 0);
     let mut min = i64::MAX;
     let mut max = i64::MIN;

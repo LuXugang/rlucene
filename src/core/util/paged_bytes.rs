@@ -78,11 +78,10 @@ impl PagedBytes {
     Ok(())
   }
   /// Read this many bytes from in
-  pub fn copy_with_input(
-    &mut self,
-    input: &mut impl IndexInput,
-    mut byte_count: usize,
-  ) -> Result<()> {
+  pub fn copy_with_input<II>(&mut self, input: &mut II, mut byte_count: usize) -> Result<()>
+  where
+    II: IndexInput,
+  {
     while byte_count > 0 {
       let mut left = self.block_size - self.upto;
       if left == 0 {

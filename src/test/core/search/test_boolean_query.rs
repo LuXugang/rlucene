@@ -748,7 +748,7 @@ fn test_conjunction_propagates_approximations() -> Result<()> {
   let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
-  let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+  let pq: Query = PhraseQuery::from_terms(0, "field", ["a", "b"])?.into();
 
   let mut b = Builder::new();
   b.add(pq, Occur::Must)?;
@@ -790,7 +790,7 @@ fn test_disjunction_propagates_approximations() -> Result<()> {
   let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
-  let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+  let pq: Query = PhraseQuery::from_terms(0, "field", ["a", "b"])?.into();
 
   let mut b = Builder::new();
   b.add(pq, Occur::Should)?;
@@ -834,7 +834,7 @@ fn test_boosted_scorer_propagates_approximations() -> Result<()> {
   let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
-  let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+  let pq: Query = PhraseQuery::from_terms(0, "field", ["a", "b"])?.into();
 
   let mut b = Builder::new();
   b.add(pq, Occur::Should)?;
@@ -876,7 +876,7 @@ fn test_exclusion_propagates_approximations() -> Result<()> {
   let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
-  let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+  let pq: Query = PhraseQuery::from_terms(0, "field", ["a", "b"])?.into();
 
   let mut b = Builder::new();
   b.add(pq, Occur::Should)?;
@@ -921,7 +921,7 @@ fn test_req_opt_propagates_approximations() -> Result<()> {
   let mut searcher = index_searcher::from_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
-  let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+  let pq: Query = PhraseQuery::from_terms(0, "field", ["a", "b"])?.into();
 
   let mut b = Builder::new();
   b.add(pq, Occur::Must)?;
@@ -984,7 +984,7 @@ fn test_query_matches_count() -> Result<()> {
 
   let mut b = Builder::new();
   b.add(
-    PhraseQuery::from_terms(0, "field", &["a", "b"])?,
+    PhraseQuery::from_terms(0, "field", ["a", "b"])?,
     Occur::Should,
   )?;
   b.add(TermQuery::new(Term::from_text("field", "c")), Occur::Should)?;

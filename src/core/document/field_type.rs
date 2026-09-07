@@ -83,7 +83,10 @@ impl FieldType {
 
   /// Creates a new mutable FieldType with all of the properties from
   /// `ref_field`.
-  pub fn from_ref(ref_field: &impl IndexableFieldType) -> Result<Self> {
+  pub fn from_ref<FT>(ref_field: &FT) -> Result<Self>
+  where
+    FT: IndexableFieldType,
+  {
     Ok(Self {
       stored: ref_field.stored(),
       tokenized: ref_field.tokenized(),

@@ -334,27 +334,33 @@ pub enum CodecFieldInfosFormat {
 
 #[cfg(test)]
 impl FieldInfosFormat for CodecFieldInfosFormat {
-  fn read<D>(
+  fn read<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     io_context: &IOContext,
-  ) -> Result<FieldInfos> {
+  ) -> Result<FieldInfos>
+  where
+    D2: Directory,
+  {
     match self {
       Self::Lucene101(format) => format.read(directory, segment_info, segment_suffix, io_context),
       Self::Cranky(format) => format.read(directory, segment_info, segment_suffix, io_context),
     }
   }
 
-  fn write<D>(
+  fn write<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     segment_info: &SegmentInfo<D>,
     segment_suffix: &str,
     infos: &FieldInfos,
     io_context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D2: Directory,
+  {
     match self {
       Self::Lucene101(format) => {
         format.write(directory, segment_info, segment_suffix, infos, io_context)
@@ -390,12 +396,15 @@ impl SegmentInfoFormat for CodecSegmentInfoFormat {
     }
   }
 
-  fn write<D>(
+  fn write<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     info: &mut SegmentInfo<D>,
     context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D2: Directory,
+  {
     match self {
       Self::Lucene101(format) => format.write(directory, info, context),
       Self::Cranky(format) => format.write(directory, info, context),
@@ -426,7 +435,10 @@ impl CompoundFormat for CodecCompoundFormat {
     }
   }
 
-  fn write<D>(&self, dir: &impl Directory, si: &SegmentInfo<D>, context: &IOContext) -> Result<()> {
+  fn write<D, D2>(&self, dir: &D2, si: &SegmentInfo<D>, context: &IOContext) -> Result<()>
+  where
+    D2: Directory,
+  {
     match self {
       Self::Lucene101(format) => format.write(dir, si, context),
       Self::Cranky(format) => format.write(dir, si, context),
@@ -1080,12 +1092,15 @@ impl<I: IndexInput> StoredFields for CodecStoredFieldsReader<I> {
     }
   }
 
-  fn document_with_visitor<W: StoredFieldsWriter>(
+  fn document_with_visitor<W: StoredFieldsWriter, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut W>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    V: StoredFieldVisitor,
+  {
     match self {
       Self::Lucene90(reader) => reader.document_with_visitor(doc_id, visitor, writer),
       Self::Asserting(reader) => reader.document_with_visitor(doc_id, visitor, writer),
@@ -1226,12 +1241,15 @@ impl<D: Directory> StoredFieldsWriter for CodecStoredFieldsWriter<D> {
     }
   }
 
-  fn write_field_with_input(
+  fn write_field_with_input<DI>(
     &mut self,
     field_info: &FieldInfo,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     match self {
       Self::Lucene90(writer) => writer.write_field_with_input(field_info, input, length),
       Self::Asserting(writer) => writer.write_field_with_input(field_info, input, length),
@@ -1786,12 +1804,16 @@ impl<D: Directory> TermVectorsWriter for CodecTermVectorsWriter<D> {
     }
   }
 
-  fn add_prox(
+  fn add_prox<DI, DI2>(
     &mut self,
     num_prox: usize,
-    positions: Option<&mut impl DataInput>,
-    offsets: Option<&mut impl DataInput>,
-  ) -> Result<()> {
+    positions: Option<&mut DI>,
+    offsets: Option<&mut DI2>,
+  ) -> Result<()>
+  where
+    DI: DataInput,
+    DI2: DataInput,
+  {
     match self {
       Self::Lucene90(writer) => writer.add_prox(num_prox, positions, offsets),
       Self::Asserting(writer) => writer.add_prox(num_prox, positions, offsets),
@@ -1926,11 +1948,10 @@ impl<O: IndexOutput> Closeable for CodecNormsConsumer<O> {
 
 #[cfg(test)]
 impl<O: IndexOutput> NormsConsumer for CodecNormsConsumer<O> {
-  fn add_norms_field(
-    &mut self,
-    field: &Arc<FieldInfo>,
-    norms_producer: &mut impl NormsProducer,
-  ) -> Result<()> {
+  fn add_norms_field<T>(&mut self, field: &Arc<FieldInfo>, norms_producer: &mut T) -> Result<()>
+  where
+    T: NormsProducer,
+  {
     match self {
       Self::Lucene90(consumer) => consumer.add_norms_field(field, norms_producer),
       Self::Asserting(consumer) => consumer.add_norms_field(field, norms_producer),
@@ -2240,12 +2261,15 @@ impl Bits for CodecLiveDocsBits {
 impl LiveDocsFormat for CodecLiveDocsFormat {
   type Bits = CodecLiveDocsBits;
 
-  fn read_live_docs<D>(
+  fn read_live_docs<D, D2>(
     &self,
-    dir: &impl Directory,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits> {
+  ) -> Result<Self::Bits>
+  where
+    D2: Directory,
+  {
     match self {
       Self::Lucene90(format) => {
         #[cfg(not(test))]
@@ -2274,14 +2298,18 @@ impl LiveDocsFormat for CodecLiveDocsFormat {
     }
   }
 
-  fn write_live_docs<D>(
+  fn write_live_docs<D, T, D2>(
     &self,
-    bits: &impl Bits,
-    dir: &impl Directory,
+    bits: &T,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Bits,
+    D2: Directory,
+  {
     match self {
       Self::Lucene90(format) => format.write_live_docs(bits, dir, info, new_del_count, context),
       #[cfg(test)]

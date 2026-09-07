@@ -39,14 +39,15 @@ use std::sync::Arc;
 pub trait PostingsWriterBase: Closeable {
   /// Called once after startup, before any terms have been added.
   /// Implementations typically write a header to the provided `termsOut`.
-  fn init<D1, D2>(
+  fn init<D1, D2, IO>(
     &mut self,
-    terms_out: &mut impl IndexOutput,
+    terms_out: &mut IO,
     state: &SegmentWriteState<D1>,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D1: Directory;
+    D1: Directory,
+    IO: IndexOutput;
 
   /// Write all postings for one term; use the provided [`TermsEnum`] to pull
   /// a [`PostingsEnum`]. This
@@ -55,30 +56,33 @@ pub trait PostingsWriterBase: Closeable {
   /// bit in the provided [`FixedBitSet`] for every docID written. If no
   /// docs were written, this method should return `None`, and the terms
   /// dict will skip the term.
-  fn write_term<N, PE>(
+  fn write_term<N, PE, T>(
     &mut self,
     term: &BytesRef<Vec<u8>>,
-    terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
+    terms_enum: &mut T,
     docs_seen: &mut FixedBitSet,
     norms: Option<&N>,
     postings_enum: Option<PE>,
   ) -> Result<(Option<PE>, Option<TermStateEnum>)>
   where
     N: NormsProducer,
-    PE: PostingsEnum;
+    PE: PostingsEnum,
+    T: TermsEnum<PostingsEnum = PE>;
 
   /// Encode metadata as `&[i64]` and `&[u8]`. `absolute` controls whether the
   /// current term is delta encoded according to the latest term. Usually
   /// elements in `longs` are file pointers, so each one always increases
   /// when a new term is consumed. `out` is used to write generic bytes,
   /// which are not monotonic.
-  fn encode_term(
+  fn encode_term<DO>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     field_info: &FieldInfo,
     state: Cow<TermStateEnum>,
     absolute: bool,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    DO: DataOutput;
 
   /// Sets the current field for writing.
   fn set_field(&mut self, field_info: Arc<FieldInfo>);

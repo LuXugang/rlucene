@@ -75,26 +75,30 @@ pub struct SortedDocValuesField {
 
 impl SortedDocValuesField {
   /// Create a new sorted DocValues field.
-  pub fn new<T>(name: T, bytes: BytesRef<Vec<u8>>) -> Self
+  pub fn new<T, B>(name: T, bytes: B) -> Self
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     Self::with_type(name, bytes, TYPE.clone())
   }
 
   /// Creates a new [`SortedDocValuesField`] that also creates a
   /// doc-values skip index configured on its [`FieldType`].
-  pub fn indexed_field<T>(name: T, bytes: BytesRef<Vec<u8>>) -> Self
+  pub fn indexed_field<T, B>(name: T, bytes: B) -> Self
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
     Self::with_type(name, bytes, INDEXED_TYPE.clone())
   }
 
-  pub fn with_type<T>(name: T, bytes: BytesRef<Vec<u8>>, field_type: FieldType) -> Self
+  pub fn with_type<T, B>(name: T, bytes: B, field_type: FieldType) -> Self
   where
     T: Into<String>,
+    B: Into<BytesRef<Vec<u8>>>,
   {
+    let bytes = bytes.into();
     let parent_field = Field::new(name, bytes, field_type);
     Self { parent_field }
   }

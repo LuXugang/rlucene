@@ -408,7 +408,10 @@ impl SortFiledBase for SortField {
     }
   }
 
-  fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
+  fn serialize<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let field = self
       .field
       .as_deref()
@@ -668,7 +671,10 @@ impl Provider {
   pub const NAME: &'static str = "SortField";
 }
 impl SortFieldProvider for Provider {
-  fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+  fn read_sort_field<DI>(&self, data_input: &mut DI) -> Result<SortFieldEnum>
+  where
+    DI: DataInput,
+  {
     let field_name = data_input.read_string()?;
     let field_type = SortFieldType::read_type(data_input)?;
     let reverse = data_input.read_int()? == 1;
@@ -714,7 +720,10 @@ impl SortFieldProvider for Provider {
     Ok(sort_field.into())
   }
 
-  fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+  fn write_sort_field<DO>(&self, sf: &SortFieldEnum, output: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     sf.serialize(output)
   }
 }
@@ -1184,7 +1193,9 @@ pub trait SortFiledBase: Display {
   /// SortFields that implement this method should also implement a companion [`SortFieldProvider`] to
   /// serialize and deserialize the sort in index segment headers.
   fn get_index_sorter(&self) -> Result<Option<Self::IndexSort>>;
-  fn serialize(&self, out: &mut impl DataOutput) -> Result<()>;
+  fn serialize<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput;
   type FieldComparator: FieldComparator;
   fn get_comparator(&self, num_hits: usize, pruning: Pruning) -> Result<Self::FieldComparator>;
 }

@@ -95,7 +95,7 @@ fn do_test_read_only_index(
     );
   }
 
-  let phrase_query = PhraseQuery::from_terms_no_slop("fieldname", &["to", "be"])?;
+  let phrase_query = PhraseQuery::from_terms_no_slop("fieldname", ["to", "be"])?;
   assert_eq!(1, isearcher.count(phrase_query)?);
 
   Ok(())

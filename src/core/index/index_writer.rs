@@ -821,6 +821,7 @@ where
     self.directory_orig.clone()
   }
   /// Deletes the document(s) containing any of the given terms.
+  /// Accepts an array, vector or iterator of terms.
   /// All provided deletes are applied and flushed atomically at the same time.
   ///
   /// # Returns
@@ -829,14 +830,16 @@ where
   /// # Errors
   /// - `CorruptIndex` if the index is corrupt.
   /// - `Io` if a low-level IO error occurs.
-  pub fn delete_documents_with_terms(&self, terms: Vec<Term>) -> Result<i64>
+  pub fn delete_documents_with_terms<I>(&self, terms: I) -> Result<i64>
   where
     D: 'static,
+    I: IntoIterator<Item = Term>,
   {
     #[cfg(test)]
     let _execution_scope =
       ExecutionScope::enter(ExecutionOwner::IndexWriter, ExecutionMethod::Operation);
     self.do_ensure_open(true)?;
+    let terms = terms.into_iter().collect();
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
       let seq = self.maybe_process_events(self.doc_writer.delete_terms(&self.config, terms)?)?;
       Ok(seq)
@@ -848,6 +851,8 @@ where
     unwrap_caught_result!(res)
   }
   /// Deletes the document(s) matching any of the provided queries.
+  /// Accepts an array, vector or iterator of queries. Use [`queries!`](crate::queries)
+  /// to combine different concrete query types.
   /// All given deletes are applied and flushed atomically at the same time.
   ///
   /// # Returns
@@ -856,11 +861,13 @@ where
   /// # Errors
   /// - `CorruptIndex` if the index is corrupt.
   /// - `Io` if a low-level IO error occurs.
-  pub fn delete_documents_with_queries(&self, queries: Vec<Query>) -> Result<i64>
+  pub fn delete_documents_with_queries<I>(&self, queries: I) -> Result<i64>
   where
     D: 'static,
+    I: IntoIterator<Item = Query>,
   {
     self.do_ensure_open(true)?;
+    let queries: Vec<Query> = queries.into_iter().collect();
 
     // LUCENE-6379: Specialize MatchAllDocsQuery
     for query in &queries {
@@ -4324,6 +4331,7 @@ where
     Ok(())
   }
   /// Sets the iterator that provides the commit user data map at commit time.
+  /// Keys and values may independently be owned strings or string references.
   ///
   /// Calling this method is considered a **committable change** and will be
   /// [`commit`](Self::commit) committed even if there are no other changes in this writer.
@@ -4335,24 +4343,33 @@ where
   /// The iterator is *late-binding*: it is only consumed **after** all documents for the
   /// commit have been written to their segments, and **before** the next `segments_N` file
   /// is written.
-  pub fn set_live_commit_data<I>(&self, commit_user_data: I)
+  pub fn set_live_commit_data<I, K, V>(&self, commit_user_data: I)
   where
-    I: IntoIterator<Item = (String, String)>,
+    I: IntoIterator<Item = (K, V)>,
+    K: Into<String>,
+    V: Into<String>,
   {
     self.set_live_commit_data_with_version(commit_user_data, true);
   }
   /// Sets the commit user data iterator, controlling whether to advance the
   /// [`SegmentInfos::get_version`].
-  pub fn set_live_commit_data_with_version<I>(
+  pub fn set_live_commit_data_with_version<I, K, V>(
     &self,
     commit_user_data: I,
     do_increment_version: bool,
   ) where
-    I: IntoIterator<Item = (String, String)>,
+    I: IntoIterator<Item = (K, V)>,
+    K: Into<String>,
+    V: Into<String>,
   {
     let mut inner = self.inner.lock();
 
-    inner.commit_user_data = Some(commit_user_data.into_iter().collect());
+    inner.commit_user_data = Some(
+      commit_user_data
+        .into_iter()
+        .map(|(key, value)| (key.into(), value.into()))
+        .collect(),
+    );
     if do_increment_version {
       inner.segment_infos.changed();
     }
@@ -7231,16 +7248,20 @@ where
   /// Updates the provided counters.
   ///
   /// Counts soft deletes for a codec reader and updates the supplied counters.
-  fn count_soft_deletes<L>(
+  fn count_soft_deletes<L, T, T2, T3, T4>(
     &self,
     reader: &L,
-    wrapped_live_docs: Option<&impl Bits>,
-    hard_live_docs: Option<&impl Bits>,
-    soft_delete_counter: &impl Counter,
-    hard_delete_counter: &impl Counter,
+    wrapped_live_docs: Option<&T>,
+    hard_live_docs: Option<&T2>,
+    soft_delete_counter: &T3,
+    hard_delete_counter: &T4,
   ) -> Result<()>
   where
     L: LeafReader,
+    T: Bits,
+    T2: Bits,
+    T3: Counter,
+    T4: Counter,
   {
     let soft_deletes_field = self.config.get_soft_deletes_field().ok_or_else(|| {
       LuceneError::illegal_state(

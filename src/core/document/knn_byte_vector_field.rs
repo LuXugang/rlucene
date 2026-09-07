@@ -103,18 +103,24 @@ impl KnnByteVectorField {
   /// # Arguments
   ///
   /// * `name` - field name
-  /// * `vector` - value
+  /// * `vector` - Values from a vector, array or slice. Owned vectors are moved; borrowed slices
+  ///   are copied.
   /// * `similarity_function` - a function defining vector proximity.
   ///
   /// # Errors
   ///
   /// returns [`LuceneError::IllegalArgument`] if the vector is empty or has
   /// dimension > 1024.
-  pub fn with_similarity_function(
-    name: &str,
-    vector: Vec<u8>,
+  pub fn with_similarity_function<N, V>(
+    name: N,
+    vector: V,
     similarity_function: VectorSimilarityFunction,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    N: Into<String>,
+    V: Into<Vec<u8>>,
+  {
+    let vector = vector.into();
     let field_type = Self::create_type(vector.as_ref(), similarity_function)?;
     let v: VectorValueEnum = vector.into();
     let field = Field::new(name, v, field_type);
@@ -131,13 +137,18 @@ impl KnnByteVectorField {
   /// # Arguments
   ///
   /// * `name` - field name
-  /// * `vector` - value
+  /// * `vector` - Values from a vector, array or slice. Owned vectors are moved; borrowed slices
+  ///   are copied.
   ///
   /// # Errors
   ///
   /// returns [`LuceneError::IllegalArgument`] if the vector is empty or has
   /// dimension > 1024.
-  pub fn new(name: &str, vector: Vec<u8>) -> Result<Self> {
+  pub fn new<N, V>(name: N, vector: V) -> Result<Self>
+  where
+    N: Into<String>,
+    V: Into<Vec<u8>>,
+  {
     Self::with_similarity_function(name, vector, VectorSimilarityFunction::Euclidean)
   }
 
@@ -147,14 +158,21 @@ impl KnnByteVectorField {
   /// # Arguments
   ///
   /// * `name` - field name
-  /// * `vector` - value
+  /// * `vector` - Values from a vector, array or slice. Owned vectors are moved; borrowed slices
+  ///   are copied.
   /// * `field_type` - field type
   ///
   /// # Errors
   ///
   /// returns [`LuceneError::IllegalArgument`] if the vector is empty or has
   /// dimension > 1024.
-  pub fn with_type(name: &str, vector: Vec<u8>, field_type: FieldType) -> Result<Self> {
+  pub fn with_type<N, V>(name: N, vector: V, field_type: FieldType) -> Result<Self>
+  where
+    N: Into<String>,
+    V: Into<Vec<u8>>,
+  {
+    let name = name.into();
+    let vector = vector.into();
     if *field_type.vector_encoding() != VectorEncoding::BYTE(1) {
       return Err(LuceneError::illegal_argument(format!(
         "Attempt to create a vector for field {} using bytes but the field encoding is {:?}",
@@ -196,7 +214,11 @@ impl KnnByteVectorField {
   /// # Errors
   ///
   /// returns [`LuceneError::IllegalArgument`] if value is invalid
-  pub fn set_vector_value(&mut self, value: Vec<u8>) -> Result<()> {
+  pub fn set_vector_value<V>(&mut self, value: V) -> Result<()>
+  where
+    V: Into<Vec<u8>>,
+  {
+    let value = value.into();
     if value.len() != self.parent_field.field_type().vector_dimension() as usize {
       return Err(LuceneError::illegal_argument(format!(
         "value length {} must match field dimension {}",

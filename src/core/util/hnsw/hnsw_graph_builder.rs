@@ -474,15 +474,18 @@ where
 }
 
 impl HnswGraphBuilderDefaults {
-  fn add_diverse_neighbors(
+  fn add_diverse_neighbors<T>(
     hnsw: &mut Arc<OnHeapHnswGraph>,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
+    scorer_supplier: &T,
     m: usize,
     hnsw_lock: Option<&HnswLock>,
     level: usize,
     node: usize,
     candidates: &NeighborArray,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: RandomVectorScorerSupplier,
+  {
     let max_conn_on_level = if level == 0 { m * 2 } else { m };
     /* For each of the beamWidth nearest candidates (going from best to worst),
      * select it only if it is closer to target than it is to any of the
@@ -522,14 +525,17 @@ impl HnswGraphBuilderDefaults {
   }
   ///  This method will select neighbors to add and return a mask telling the
   /// caller which candidates are selected
-  pub(crate) fn select_and_link_diverse(
+  pub(crate) fn select_and_link_diverse<T>(
     hnsw: &Arc<OnHeapHnswGraph>,
-    scorer_supplier: &impl RandomVectorScorerSupplier,
+    scorer_supplier: &T,
     candidates: &NeighborArray,
     max_conn_on_level: usize,
     level: usize,
     node: usize,
-  ) -> Result<Vec<bool>> {
+  ) -> Result<Vec<bool>>
+  where
+    T: RandomVectorScorerSupplier,
+  {
     let max_node_id = hnsw.max_node_id();
     hnsw.with_neighbors_mut(level, node, |neighbors| {
       debug_assert_eq!(neighbors.size(), 0); // new node
@@ -587,11 +593,10 @@ impl HnswGraphBuilderDefaults {
   /// # Returns
   ///
   /// Whether the candidate is diverse given the existing neighbors.
-  fn diversity_check(
-    score: f32,
-    scorer: &mut impl RandomVectorScorer,
-    neighbors: &NeighborArray,
-  ) -> Result<bool> {
+  fn diversity_check<T>(score: f32, scorer: &mut T, neighbors: &NeighborArray) -> Result<bool>
+  where
+    T: RandomVectorScorer,
+  {
     for i in 0..neighbors.size() {
       let neighbor_similarity = scorer.score(neighbors.nodes()[i])?;
       if neighbor_similarity >= score {
@@ -600,7 +605,10 @@ impl HnswGraphBuilderDefaults {
     }
     Ok(true)
   }
-  pub(crate) fn get_random_graph_level(ml: f64, random: &mut impl Rng) -> usize {
+  pub(crate) fn get_random_graph_level<R>(ml: f64, random: &mut R) -> usize
+  where
+    R: Rng,
+  {
     loop {
       let rand_double: f64 = random.random();
       if rand_double > 0.0 {

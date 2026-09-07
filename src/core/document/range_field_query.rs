@@ -457,7 +457,10 @@ impl IntersectVisitor for RangeFieldIntersectVisitor {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.add_disi(iterator)?;
     Ok(())
   }
@@ -475,11 +478,10 @@ impl IntersectVisitor for RangeFieldIntersectVisitor {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
-    &mut self,
-    iterator: &mut impl DocIdSetIterator,
-    leaf: &[u8],
-  ) -> Result<()> {
+  fn visit_iterator_with_packed_value<I>(&mut self, iterator: &mut I, leaf: &[u8]) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self.query.query_type.matches(
       &self.query.ranges,
       leaf,

@@ -496,11 +496,17 @@ where
     self.corrupt_files(to_corrupt)
   }
 
-  pub fn corrupt_files(&self, files: impl IntoIterator<Item = String>) -> Result<()> {
+  pub fn corrupt_files<I>(&self, files: I) -> Result<()>
+  where
+    I: IntoIterator<Item = String>,
+  {
     self._corrupt_files(files)
   }
 
-  fn _corrupt_files(&self, files: impl IntoIterator<Item = String>) -> Result<()> {
+  fn _corrupt_files<I>(&self, files: I) -> Result<()>
+  where
+    I: IntoIterator<Item = String>,
+  {
     // Must make a copy because we change the incoming unsyncedFiles
     // when we create temp files, delete, etc., below:
     let mut files_to_corrupt: Vec<String> = files.into_iter().collect();

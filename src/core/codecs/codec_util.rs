@@ -73,7 +73,10 @@ impl CodecUtil {
   /// # See Also
   /// - [`check_header`](CodecUtil::check_header)
   /// - [`header_length`](CodecUtil::header_length)
-  pub fn write_header(out: &mut impl DataOutput, codec: &str, version: i32) -> Result<()> {
+  pub fn write_header<DO>(out: &mut DO, codec: &str, version: i32) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(codec);
     if bytes.length != codec.encode_utf16().count() || bytes.length >= 128 {
       return Err(LuceneError::illegal_argument(format!(
@@ -122,13 +125,16 @@ impl CodecUtil {
   /// # See Also
   /// - [`check_header`](CodecUtil::check_header)
   /// - [`header_length`](CodecUtil::header_length)
-  pub fn write_index_header(
-    out: &mut impl DataOutput,
+  pub fn write_index_header<DO>(
+    out: &mut DO,
     codec: &str,
     version: i32,
     id: &[u8; StringHelper::ID_LENGTH],
     suffix: &str,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     Self::write_header(out, codec, version)?;
     out.write_bytes_range(id, 0, StringHelper::ID_LENGTH)?;
     let suffix_bytes: BytesRef<Vec<u8>> = BytesRef::from_string(suffix);
@@ -204,12 +210,15 @@ impl CodecUtil {
   ///
   /// # See Also
   /// - [`write_header`](CodecUtil::write_header)
-  pub fn check_header(
-    data_input: &mut impl DataInput,
+  pub fn check_header<DI>(
+    data_input: &mut DI,
     codec: &str,
     min_version: i32,
     max_version: i32,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    DI: DataInput,
+  {
     let actual_header = Self::read_be_int(data_input)?;
     if actual_header != CodecUtil::CODEC_MAGIC {
       return Err(LuceneError::corrupt_index(format!(
@@ -226,12 +235,15 @@ impl CodecUtil {
   ///
   /// # See Also
   /// - [`check_header`](CodecUtil::check_header)
-  pub fn check_header_no_magic(
-    data_input: &mut impl DataInput,
+  pub fn check_header_no_magic<DI>(
+    data_input: &mut DI,
     codec: &str,
     min_version: i32,
     max_version: i32,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    DI: DataInput,
+  {
     let actual_codec = data_input.read_string()?;
     if actual_codec != codec {
       return Err(LuceneError::corrupt_index(format!(
@@ -293,14 +305,17 @@ impl CodecUtil {
   ///
   /// # See Also
   /// - [`write_index_header`](CodecUtil::write_index_header)
-  pub fn check_index_header(
-    data_input: &mut impl DataInput,
+  pub fn check_index_header<DI>(
+    data_input: &mut DI,
     codec: &str,
     min_version: i32,
     max_version: i32,
     expected_id: &[u8; StringHelper::ID_LENGTH],
     expected_suffix: &str,
-  ) -> Result<i32> {
+  ) -> Result<i32>
+  where
+    DI: DataInput,
+  {
     let version = Self::check_header(data_input, codec, min_version, max_version)?;
     Self::check_index_header_id(data_input, expected_id)?;
     Self::check_index_header_suffix(data_input, expected_suffix)?;
@@ -328,11 +343,15 @@ impl CodecUtil {
   /// # Internal
   /// This is an internal API and is intended for use within Lucene-like
   /// systems.
-  pub fn verify_and_copy_index_header(
-    data_in: &mut impl IndexInput,
-    data_out: &mut impl DataOutput,
+  pub fn verify_and_copy_index_header<II, DO>(
+    data_in: &mut II,
+    data_out: &mut DO,
     expected_id: &[u8; StringHelper::ID_LENGTH],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    II: IndexInput,
+    DO: DataOutput,
+  {
     let length = data_in.length()?;
     if length < (Self::footer_length() + Self::header_length("")) {
       return Err(LuceneError::corrupt_index(format!(
@@ -368,7 +387,10 @@ impl CodecUtil {
   /// # Errors
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the file does not appear to be a valid index
   ///   file.
-  pub fn read_index_header(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
+  pub fn read_index_header<II>(data_input: &mut II) -> Result<Vec<u8>>
+  where
+    II: IndexInput,
+  {
     data_input.seek(0)?;
     let actual_header = Self::read_be_int(data_input)?;
     if actual_header != CodecUtil::CODEC_MAGIC {
@@ -394,7 +416,10 @@ impl CodecUtil {
   ///
   /// # Errors
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the file does not have a valid footer.
-  pub fn read_footer(data_input: &mut impl IndexInput) -> Result<Vec<u8>> {
+  pub fn read_footer<II>(data_input: &mut II) -> Result<Vec<u8>>
+  where
+    II: IndexInput,
+  {
     let length = data_input.length()?;
     if length < Self::footer_length() {
       return Err(LuceneError::corrupt_index(format!(
@@ -413,10 +438,13 @@ impl CodecUtil {
     Ok(bytes)
   }
   /// Expert: reads and verifies the object ID of an index header.
-  pub fn check_index_header_id(
-    data_input: &mut impl DataInput,
+  pub fn check_index_header_id<DI>(
+    data_input: &mut DI,
     expected_id: &[u8; StringHelper::ID_LENGTH],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let mut id = [0u8; StringHelper::ID_LENGTH];
     data_input.read_bytes(&mut id, 0, StringHelper::ID_LENGTH)?;
     if id != *expected_id {
@@ -430,10 +458,10 @@ impl CodecUtil {
     Ok(())
   }
   /// Expert: reads and verifies the suffix of an index header.
-  pub fn check_index_header_suffix(
-    data_input: &mut impl DataInput,
-    expected_suffix: &str,
-  ) -> Result<()> {
+  pub fn check_index_header_suffix<DI>(data_input: &mut DI, expected_suffix: &str) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let suffix_length = data_input.read_byte()?;
     let mut suffix: Vec<u8> = vec![0u8; suffix_length as usize];
     data_input.read_bytes(&mut suffix, 0, suffix_length as usize)?;
@@ -468,7 +496,10 @@ impl CodecUtil {
   ///
   /// # Errors
   /// - [`LuceneError::Io`]: If there is an I/O error writing to the underlying medium.
-  pub fn write_footer(out: &mut impl IndexOutput) -> Result<()> {
+  pub fn write_footer<IO>(out: &mut IO) -> Result<()>
+  where
+    IO: IndexOutput,
+  {
     Self::write_be_int(out, CodecUtil::FOOTER_MAGIC)?;
     Self::write_be_int(out, 0)?;
     Self::write_crc(out)?;
@@ -496,7 +527,10 @@ impl CodecUtil {
   /// - [`LuceneError::Io`]: If the footer is invalid, the checksum does not match, or
   ///   the input is not properly positioned before the footer at the end of
   ///   the stream.
-  pub fn check_footer(checksum_in: &mut impl ChecksumIndexInput) -> Result<i64> {
+  pub fn check_footer<II>(checksum_in: &mut II) -> Result<i64>
+  where
+    II: ChecksumIndexInput,
+  {
     Self::validate_footer(checksum_in)?;
     let actual_checksum = checksum_in.get_checksum();
     let expected_checksum = Self::read_crc(checksum_in)?;
@@ -529,10 +563,13 @@ impl CodecUtil {
   ///   the stream.
   /// - `prior_result`: If a prior failure is provided, it is propagated after
   ///   adding supplemental information unless footer corruption replaces it.
-  pub fn check_footer_with_error<T>(
-    checksum_in: &mut impl ChecksumIndexInput,
+  pub fn check_footer_with_error<T, II>(
+    checksum_in: &mut II,
     prior_result: Option<CaughtResult<T>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    II: ChecksumIndexInput,
+  {
     let Some(mut prior_result) = prior_result else {
       return Self::check_footer(checksum_in).map(|_| ());
     };
@@ -612,7 +649,10 @@ impl CodecUtil {
   ///
   /// # Errors
   /// - [`LuceneError::Io`]: If the footer is invalid.
-  pub fn retrieve_checksum(input: &mut impl IndexInput) -> Result<i64> {
+  pub fn retrieve_checksum<II>(input: &mut II) -> Result<i64>
+  where
+    II: IndexInput,
+  {
     let length = input.length()?;
     if length < Self::footer_length() {
       return Err(LuceneError::corrupt_index(format!(
@@ -635,10 +675,13 @@ impl CodecUtil {
   ///
   /// # Errors
   /// - [`LuceneError::Io`]: If the footer is invalid.
-  pub(crate) fn retrieve_checksum_with_expected(
-    input: &mut impl IndexInput,
+  pub(crate) fn retrieve_checksum_with_expected<II>(
+    input: &mut II,
     expected_length: usize,
-  ) -> Result<i64> {
+  ) -> Result<i64>
+  where
+    II: IndexInput,
+  {
     if expected_length < Self::footer_length() {
       return Err(LuceneError::illegal_argument(
         "expectedLength cannot be less than the footer length".to_string(),
@@ -663,7 +706,10 @@ impl CodecUtil {
     Self::retrieve_checksum(input)
   }
 
-  fn validate_footer(input: &mut impl IndexInput) -> Result<()> {
+  fn validate_footer<II>(input: &mut II) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let remaining = input.length()? - input.get_file_pointer()?;
     let expected = Self::footer_length();
     match remaining.cmp(&(expected)) {
@@ -712,7 +758,10 @@ impl CodecUtil {
   /// This method may be slow, as it must process the entire file.  
   /// If you just need to extract the checksum value, call
   /// [`retrieve_checksum`](CodecUtil::retrieve_checksum).
-  pub fn checksum_entire_file(input: &impl IndexInput) -> Result<i64> {
+  pub fn checksum_entire_file<II>(input: &II) -> Result<i64>
+  where
+    II: IndexInput,
+  {
     let mut clone = input.try_clone()?;
     clone.seek(0)?;
     let mut checksum_in = BufferedChecksumIndexInput::new(clone);
@@ -745,7 +794,10 @@ impl CodecUtil {
   /// - [`CorruptIndexError`](crate::core::util::error::CorruptIndexError): If the CRC is formatted incorrectly (wrong bits
   ///   set).
   /// - [`LuceneError::Io`]: If an I/O error occurs.
-  pub fn read_crc(input: &mut impl IndexInput) -> Result<i64> {
+  pub fn read_crc<II>(input: &mut II) -> Result<i64>
+  where
+    II: IndexInput,
+  {
     let value = Self::read_be_long(input)?;
     if (value as u64) & 0xFFFFFFFF00000000 != 0 {
       return Err(LuceneError::corrupt_index(format!(
@@ -761,7 +813,10 @@ impl CodecUtil {
   /// - [`IllegalStateError`](crate::core::util::error::IllegalStateError): If the CRC is formatted incorrectly (wrong bits
   ///   set).
   /// - [`LuceneError::Io`]: If an I/O error occurs.
-  pub fn write_crc(out: &mut impl IndexOutput) -> Result<()> {
+  pub fn write_crc<IO>(out: &mut IO) -> Result<()>
+  where
+    IO: IndexOutput,
+  {
     let value = out.get_checksum()?;
     if value & 0xFFFFFFFF00000000 != 0 {
       return Err(LuceneError::illegal_state(format!(
@@ -773,7 +828,10 @@ impl CodecUtil {
   }
 
   /// Writes an integer value to the header or footer in big-endian order.
-  pub fn write_be_int(out: &mut impl DataOutput, i: i32) -> Result<()> {
+  pub fn write_be_int<DO>(out: &mut DO, i: i32) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let bytes = [
       ((i >> 24) & 0xFF) as u8,
       ((i >> 16) & 0xFF) as u8,
@@ -784,7 +842,10 @@ impl CodecUtil {
     Ok(())
   }
   /// Writes an `i64` value to the header or footer in big-endian order.
-  pub fn write_be_long(out: &mut impl DataOutput, i: i64) -> Result<()> {
+  pub fn write_be_long<DO>(out: &mut DO, i: i64) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let bytes = [
       ((i >> 56) & 0xFF) as u8,
       ((i >> 48) & 0xFF) as u8,
@@ -799,7 +860,10 @@ impl CodecUtil {
     Ok(())
   }
   /// Reads an integer value from the header or footer in big-endian order.
-  pub fn read_be_int(out: &mut impl DataInput) -> Result<i32> {
+  pub fn read_be_int<DI>(out: &mut DI) -> Result<i32>
+  where
+    DI: DataInput,
+  {
     let byte1 = out.read_byte()? as i32;
     let byte2 = out.read_byte()? as i32;
     let byte3 = out.read_byte()? as i32;
@@ -809,7 +873,10 @@ impl CodecUtil {
   }
 
   /// Reads an `i64` value from the header or footer in big-endian order.
-  pub fn read_be_long(out: &mut impl DataInput) -> Result<i64> {
+  pub fn read_be_long<DI>(out: &mut DI) -> Result<i64>
+  where
+    DI: DataInput,
+  {
     let mut buffer = [0u8; 8];
     out.read_bytes(&mut buffer, 0, 8)?;
     Ok(i64::from_be_bytes(buffer))

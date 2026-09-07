@@ -36,7 +36,11 @@ impl IndexFormatTooOldError {
   ///
   /// `resource_description` describes the file that was too old, and `reason`
   /// is the reason for this error if the version is not available.
-  pub fn new(resource_description: impl Into<String>, reason: impl Into<String>) -> Self {
+  pub fn new<T, T2>(resource_description: T, reason: T2) -> Self
+  where
+    T: Into<String>,
+    T2: Into<String>,
+  {
     Self {
       resource_description: resource_description.into(),
       reason: Some(reason.into()),
@@ -51,7 +55,11 @@ impl IndexFormatTooOldError {
   ///
   /// `input` is the open file that is too old, and `reason` is the reason for
   /// this error if the version is not available.
-  pub fn from_input(input: &impl fmt::Display, reason: impl Into<String>) -> Self {
+  pub fn from_input<T, T2>(input: &T, reason: T2) -> Self
+  where
+    T: fmt::Display,
+    T2: Into<String>,
+  {
     Self::new(input.to_string(), reason)
   }
 
@@ -60,12 +68,15 @@ impl IndexFormatTooOldError {
   /// `resource_description` describes the file that was too old, `version` is
   /// the version of the file that was too old, and `min_version` and
   /// `max_version` are the minimum and maximum versions accepted.
-  pub fn with_version(
-    resource_description: impl Into<String>,
+  pub fn with_version<T>(
+    resource_description: T,
     version: i32,
     min_version: i32,
     max_version: i32,
-  ) -> Self {
+  ) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       resource_description: resource_description.into(),
       reason: None,
@@ -81,12 +92,15 @@ impl IndexFormatTooOldError {
   /// `input` is the open file that is too old, `version` is the version of the
   /// file that was too old, and `min_version` and `max_version` are the minimum
   /// and maximum versions accepted.
-  pub fn from_input_with_version(
-    input: &impl fmt::Display,
+  pub fn from_input_with_version<T>(
+    input: &T,
     version: i32,
     min_version: i32,
     max_version: i32,
-  ) -> Self {
+  ) -> Self
+  where
+    T: fmt::Display,
+  {
     Self::with_version(input.to_string(), version, min_version, max_version)
   }
 

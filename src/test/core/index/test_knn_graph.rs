@@ -435,7 +435,7 @@ fn test_multiple_vector_fields() -> Result<()> {
       for (field, field_values) in values.iter().enumerate() {
         if let Some(vector) = &field_values[doc_id] {
           doc.add(KnnFloatVectorField::with_similarity_function(
-            &format!("{KNN_GRAPH_FIELD}{field}"),
+            format!("{KNN_GRAPH_FIELD}{field}"),
             vector.clone(),
             case.similarity_function,
           )?);

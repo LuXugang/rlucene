@@ -1073,14 +1073,15 @@ where
     self.reader.prefetch(doc_id)
   }
 
-  fn document_with_visitor<S>(
+  fn document_with_visitor<S, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     CoreHelper::check_index(doc_id, self.max_doc)?;
     self.reader.document_with_visitor(doc_id, visitor, writer)
@@ -1141,14 +1142,15 @@ where
     reader.prefetch(doc_id - self.doc_starts[reader_id] as i32)
   }
 
-  fn document_with_visitor<S>(
+  fn document_with_visitor<S, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     let reader_id = doc_id_to_reader_id(doc_id, self.doc_starts.as_slice())?;
     let mut sf_visitor = StoredFieldVisitorImpl::new(visitor, self.field_infos.clone());

@@ -137,7 +137,10 @@ impl Drop for ExpectedPanicGuard {
 /// Rust equivalent of `LuceneTestCase.expectThrows` for an expected Java
 /// `Error`. The panic hook is suppressed only on the thread that is currently
 /// checking the expected panic, since Java does not print expected throwables.
-pub(crate) fn expect_panic<T>(f: impl FnOnce() -> T) {
+pub(crate) fn expect_panic<T, F>(f: F)
+where
+  F: FnOnce() -> T,
+{
   let guard = ExpectedPanicGuard::new();
   let result = catch_unwind(AssertUnwindSafe(f));
   drop(guard);
@@ -564,20 +567,21 @@ where
 {
   let logmp = if r.random_bool(0.5) {
     let mut v = LogMergePolicy::log_doc();
-    set_meta::<D, R>(r, &mut v)?;
+    set_meta::<D, R, _>(r, &mut v)?;
     v.into()
   } else {
     let mut v = LogMergePolicy::log_bytes_size();
-    set_meta::<D, R>(r, &mut v)?;
+    set_meta::<D, R, _>(r, &mut v)?;
     v.into()
   };
 
   Ok(logmp)
 }
-fn set_meta<D, R>(r: &mut R, mp: &mut LogMergePolicy<impl LogMergePolicyBase>) -> Result<()>
+fn set_meta<D, R, T>(r: &mut R, mp: &mut LogMergePolicy<T>) -> Result<()>
 where
   D: Directory,
   R: Rng + ?Sized,
+  T: LogMergePolicyBase,
 {
   mp.set_calibrate_size_by_deletes(r.random_bool(0.5));
   mp.set_target_search_concurrency(TestUtil::next_int(r, 1, 16))?;
@@ -1395,7 +1399,10 @@ where
   }
 }
 
-pub(crate) fn slow_file_exists(dir: &impl Directory, name: &str) -> Result<bool> {
+pub(crate) fn slow_file_exists<D>(dir: &D, name: &str) -> Result<bool>
+where
+  D: Directory,
+{
   let _execution_scope = ExecutionScope::enter(
     ExecutionOwner::LuceneTestCase,
     ExecutionMethod::SlowFileExists,

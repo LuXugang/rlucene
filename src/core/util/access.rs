@@ -34,29 +34,45 @@ use std::sync::Arc;
 /// In the shared case, they correspond to locking a mutex for the
 /// duration of the closure.
 pub trait MutAccess<T> {
-  fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R;
-  fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R;
+  fn with_mut<R, F>(&mut self, f: F) -> R
+  where
+    F: FnOnce(&mut T) -> R;
+  fn with_ref<R, F>(&self, f: F) -> R
+  where
+    F: FnOnce(&T) -> R;
 }
 
 impl<T> MutAccess<T> for T {
   #[inline]
-  fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
+  fn with_mut<R, F>(&mut self, f: F) -> R
+  where
+    F: FnOnce(&mut T) -> R,
+  {
     f(self)
   }
   #[inline]
-  fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+  fn with_ref<R, F>(&self, f: F) -> R
+  where
+    F: FnOnce(&T) -> R,
+  {
     f(self)
   }
 }
 
 impl<T> MutAccess<T> for Arc<Mutex<T>> {
   #[inline]
-  fn with_mut<R>(&mut self, f: impl FnOnce(&mut T) -> R) -> R {
+  fn with_mut<R, F>(&mut self, f: F) -> R
+  where
+    F: FnOnce(&mut T) -> R,
+  {
     let mut guard = self.lock();
     f(&mut *guard)
   }
   #[inline]
-  fn with_ref<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+  fn with_ref<R, F>(&self, f: F) -> R
+  where
+    F: FnOnce(&T) -> R,
+  {
     let guard = self.lock();
     f(&*guard)
   }

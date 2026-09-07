@@ -74,13 +74,16 @@ impl DocIdsWriter {
       max_points_in_leaf,
     }
   }
-  pub(crate) fn write_doc_ids(
+  pub(crate) fn write_doc_ids<DO>(
     &self,
     doc_ids: &[i32],
     start: usize,
     count: usize,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     // docs can be sorted either when all docs in a block have the same
     // value or when a segment is sorted
     let mut strictly_sorted = true;
@@ -173,12 +176,15 @@ impl DocIdsWriter {
     }
     Ok(())
   }
-  fn write_ids_as_bit_set(
+  fn write_ids_as_bit_set<DO>(
     doc_ids: &[i32],
     start: usize,
     count: usize,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let min = doc_ids[start];
     let max = doc_ids[start + count - 1];
 
@@ -220,12 +226,15 @@ impl DocIdsWriter {
   }
 
   /// Read `count` integers into `doc_ids`.
-  pub(crate) fn read_ints(
+  pub(crate) fn read_ints<II>(
     &mut self,
-    input: &mut impl IndexInput,
+    input: &mut II,
     count: usize,
     doc_ids: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let bpv = input.read_byte()? as i8;
     match bpv {
       DocIdsWriter::CONTINUOUS_IDS => Self::read_continuous_ids(input, count, doc_ids),
@@ -239,11 +248,14 @@ impl DocIdsWriter {
       ))),
     }
   }
-  fn read_bit_set_iterator(
+  fn read_bit_set_iterator<II>(
     &mut self,
-    input: &mut impl IndexInput,
+    input: &mut II,
     count: usize,
-  ) -> Result<impl DocIdSetIterator> {
+  ) -> Result<impl DocIdSetIterator>
+  where
+    II: IndexInput,
+  {
     let offset_words = input.read_vint()?;
     let long_len = input.read_vint()?.try_convert()?;
     ArrayUtil::grow_no_copy(&mut self.scratch_longs.longs, long_len)?;
@@ -258,11 +270,10 @@ impl DocIdsWriter {
     DocBaseBitSetIterator::new(bit_set, count as i64, (offset_words << 6).try_convert()?)
   }
 
-  fn read_continuous_ids(
-    input: &mut impl IndexInput,
-    count: usize,
-    doc_ids: &mut [i32],
-  ) -> Result<()> {
+  fn read_continuous_ids<II>(input: &mut II, count: usize, doc_ids: &mut [i32]) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let start = input.read_vint()?;
     for (i, doc_id) in doc_ids.iter_mut().take(count).enumerate() {
       *doc_id = start + i as i32;
@@ -270,11 +281,10 @@ impl DocIdsWriter {
     Ok(())
   }
 
-  fn read_legacy_delta_vints(
-    input: &mut impl IndexInput,
-    count: usize,
-    doc_ids: &mut [i32],
-  ) -> Result<()> {
+  fn read_legacy_delta_vints<II>(input: &mut II, count: usize, doc_ids: &mut [i32]) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let mut doc = 0;
     for doc_id in doc_ids.iter_mut().take(count) {
       doc += input.read_vint()?;
@@ -283,12 +293,10 @@ impl DocIdsWriter {
     Ok(())
   }
 
-  fn read_bit_set(
-    &mut self,
-    input: &mut impl IndexInput,
-    count: usize,
-    doc_ids: &mut [i32],
-  ) -> Result<()> {
+  fn read_bit_set<II>(&mut self, input: &mut II, count: usize, doc_ids: &mut [i32]) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let mut iterator = self.read_bit_set_iterator(input, count)?;
     let mut pos = 0;
     let mut doc_id;
@@ -303,7 +311,10 @@ impl DocIdsWriter {
     Ok(())
   }
 
-  fn read_delta16(input: &mut impl IndexInput, count: usize, doc_ids: &mut [i32]) -> Result<()> {
+  fn read_delta16<II>(input: &mut II, count: usize, doc_ids: &mut [i32]) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let min = input.read_vint()?;
     let half_len = count >> 1;
     input.read_ints(doc_ids, 0, half_len)?;
@@ -318,7 +329,10 @@ impl DocIdsWriter {
     Ok(())
   }
 
-  fn read_ints24(input: &mut impl IndexInput, count: usize, doc_ids: &mut [i32]) -> Result<()> {
+  fn read_ints24<II>(input: &mut II, count: usize, doc_ids: &mut [i32]) -> Result<()>
+  where
+    II: IndexInput,
+  {
     let mut i = 0;
     let count_usize = count;
     while i < count_usize.saturating_sub(7) {
@@ -343,16 +357,23 @@ impl DocIdsWriter {
     Ok(())
   }
 
-  fn read_ints32(input: &mut impl IndexInput, count: usize, doc_ids: &mut [i32]) -> Result<()> {
+  fn read_ints32<II>(input: &mut II, count: usize, doc_ids: &mut [i32]) -> Result<()>
+  where
+    II: IndexInput,
+  {
     input.read_ints(doc_ids, 0, count)?;
     Ok(())
   }
-  pub(crate) fn read_ints_with_visitor(
+  pub(crate) fn read_ints_with_visitor<II, V>(
     &mut self,
-    input: &mut impl IndexInput,
+    input: &mut II,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+    visitor: &mut V,
+  ) -> Result<()>
+  where
+    II: IndexInput,
+    V: IntersectVisitor,
+  {
     let bpv = input.read_byte()? as i8;
     match bpv {
       DocIdsWriter::CONTINUOUS_IDS => Self::read_continuous_ids_with_visitor(input, count, visitor),
@@ -369,21 +390,29 @@ impl DocIdsWriter {
     }
   }
 
-  fn read_bit_set_with_visitor(
+  fn read_bit_set_with_visitor<II, V>(
     &mut self,
-    input: &mut impl IndexInput,
+    input: &mut II,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+    visitor: &mut V,
+  ) -> Result<()>
+  where
+    II: IndexInput,
+    V: IntersectVisitor,
+  {
     let mut bit_set_iterator = self.read_bit_set_iterator(input, count)?;
     visitor.visit_with_iterator(&mut bit_set_iterator)?;
     Ok(())
   }
-  fn read_continuous_ids_with_visitor(
-    input: &mut impl IndexInput,
+  fn read_continuous_ids_with_visitor<II, V>(
+    input: &mut II,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+    visitor: &mut V,
+  ) -> Result<()>
+  where
+    II: IndexInput,
+    V: IntersectVisitor,
+  {
     let start: usize = input.read_vint()?.try_convert()?;
     let extra = start & 63;
     let offset = start - extra;
@@ -394,11 +423,15 @@ impl DocIdsWriter {
     visitor.visit_with_iterator(&mut disi)?;
     Ok(())
   }
-  fn read_legacy_delta_vints_with_visitor(
-    input: &mut impl IndexInput,
+  fn read_legacy_delta_vints_with_visitor<II, V>(
+    input: &mut II,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+    visitor: &mut V,
+  ) -> Result<()>
+  where
+    II: IndexInput,
+    V: IntersectVisitor,
+  {
     let mut doc = 0;
     for _ in 0..count {
       doc += input.read_vint()?;
@@ -406,12 +439,16 @@ impl DocIdsWriter {
     }
     Ok(())
   }
-  fn read_delta16_with_visitor(
+  fn read_delta16_with_visitor<II, V>(
     &mut self,
-    input: &mut impl IndexInput,
+    input: &mut II,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+    visitor: &mut V,
+  ) -> Result<()>
+  where
+    II: IndexInput,
+    V: IntersectVisitor,
+  {
     Self::read_delta16(input, count, &mut self.scratch)?;
     self.scratch_ints_ref.ints =
       CoreHelper::take_and_reset(&mut self.scratch, |_| vec![0; self.max_points_in_leaf]);
@@ -420,11 +457,11 @@ impl DocIdsWriter {
     visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
     Ok(())
   }
-  fn read_ints24_with_visitor(
-    input: &mut impl IndexInput,
-    count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+  fn read_ints24_with_visitor<II, V>(input: &mut II, count: usize, visitor: &mut V) -> Result<()>
+  where
+    II: IndexInput,
+    V: IntersectVisitor,
+  {
     let mut i = 0;
     let count_usize = count;
     while i < count_usize.saturating_sub(7) {
@@ -449,12 +486,16 @@ impl DocIdsWriter {
     }
     Ok(())
   }
-  fn read_ints32_with_visitor(
+  fn read_ints32_with_visitor<II, V>(
     &mut self,
-    input: &mut impl IndexInput,
+    input: &mut II,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+    visitor: &mut V,
+  ) -> Result<()>
+  where
+    II: IndexInput,
+    V: IntersectVisitor,
+  {
     input.read_ints(&mut self.scratch, 0, count)?;
     self.scratch_ints_ref.ints =
       CoreHelper::take_and_reset(&mut self.scratch, |old| vec![0; old.len()]);

@@ -94,13 +94,19 @@ impl Outputs for PositiveIntOutputs {
     }
   }
 
-  fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
+  fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     #[cfg(debug_assertions)]
     debug_assert!(self.valid(output));
     out.write_vlong(**output)
   }
 
-  fn read(&self, input: &mut impl DataInput) -> Result<Arc<i64>> {
+  fn read<DI>(&self, input: &mut DI) -> Result<Arc<i64>>
+  where
+    DI: DataInput,
+  {
     let v = input.read_vlong()?;
     if v == 0 {
       Ok(self.get_no_output())

@@ -474,7 +474,10 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
     matches!(ch, ' ' | '\t' | '\n' | '\r')
   }
 
-  fn new_parse_error(&self, details: impl AsRef<str>) -> LuceneError {
+  fn new_parse_error<T>(&self, details: T) -> LuceneError
+  where
+    T: AsRef<str>,
+  {
     let end = self.input.len().min(self.upto + 1);
     let fragment = if self.upto < 50 {
       self.input[..end].to_string()

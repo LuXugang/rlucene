@@ -206,15 +206,16 @@ impl<S> StoredFieldVisitor for CopyVisitor<'_, S>
 where
   S: StoredFieldsWriter,
 {
-  fn binary_field_with_input<S1>(
+  fn binary_field_with_input<S1, DI>(
     &mut self,
     field_info: Arc<FieldInfo>,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
     S1: StoredFieldsWriter,
+    DI: DataInput,
   {
     self
       .writer
@@ -334,11 +335,14 @@ impl CompressionModeBase for NoCompression {
 pub struct CompressorImpl;
 
 impl Compressor for CompressorImpl {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let len = buffers_input.length();
     out.copy_bytes(buffers_input, len)
   }
@@ -355,14 +359,17 @@ impl Clone for DecompressorImpl {
 }
 
 impl Decompressor for DecompressorImpl {
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     _original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     ArrayUtil::grow_no_copy(&mut bytes.bytes, length as usize)?;
     input.skip_bytes(offset as i64)?;
     input.read_bytes(&mut bytes.bytes, 0, length as usize)?;

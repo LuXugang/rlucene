@@ -136,14 +136,15 @@ impl<SFR> StoredFields for AssertingStoredFieldsReader<SFR>
 where
   SFR: StoredFieldsReader,
 {
-  fn document_with_visitor<W>(
+  fn document_with_visitor<W, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut W>,
   ) -> Result<()>
   where
     W: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     assert_thread("StoredFieldsReader", self.creation_thread);
     assert!(doc_id >= 0 && doc_id < self.max_doc);
@@ -251,12 +252,15 @@ where
     self.in_.write_field_f64(field_info, value)
   }
 
-  fn write_field_with_input(
+  fn write_field_with_input<DI>(
     &mut self,
     field_info: &FieldInfo,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     assert!(self.doc_status == Status::Started);
     self.in_.write_field_with_input(field_info, input, length)
   }

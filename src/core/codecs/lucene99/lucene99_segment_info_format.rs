@@ -88,14 +88,15 @@ impl Lucene99SegmentInfoFormat {
   const CODEC_NAME: &'static str = "Lucene90SegmentInfo";
   const VERSION_START: i32 = 0;
   const VERSION_CURRENT: i32 = Lucene99SegmentInfoFormat::VERSION_START;
-  fn parse_segment_info<D>(
+  fn parse_segment_info<D, DI>(
     dir: Arc<D>,
-    input: &mut impl DataInput,
+    input: &mut DI,
     segment: &str,
     segment_id: &[u8; StringHelper::ID_LENGTH],
   ) -> Result<SegmentInfo<D>>
   where
     D: Directory,
+    DI: DataInput,
   {
     let major = input.read_int()?;
     debug_assert!(major >= 0);
@@ -171,7 +172,10 @@ impl Lucene99SegmentInfoFormat {
     si.set_files(files)?;
     Ok(si)
   }
-  fn write_segment_info<D>(output: &mut impl DataOutput, si: &SegmentInfo<D>) -> Result<()> {
+  fn write_segment_info<D, DO>(output: &mut DO, si: &SegmentInfo<D>) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let version = si
       .get_version_ref()
       .ok_or_else(|| LuceneError::illegal_state("segment version is missing"))?;
@@ -277,7 +281,7 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
         ));
         match prior_result {
           Ok(Ok(segment_info)) => {
-            CodecUtil::check_footer_with_error::<()>(&mut input, None)?;
+            CodecUtil::check_footer_with_error::<(), _>(&mut input, None)?;
             Ok(segment_info)
           },
           prior_result => {
@@ -293,12 +297,10 @@ impl SegmentInfoFormat for Lucene99SegmentInfoFormat {
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }
 
-  fn write<D>(
-    &self,
-    dir: &impl Directory,
-    si: &mut SegmentInfo<D>,
-    io_context: &IOContext,
-  ) -> Result<()> {
+  fn write<D, D2>(&self, dir: &D2, si: &mut SegmentInfo<D>, io_context: &IOContext) -> Result<()>
+  where
+    D2: Directory,
+  {
     let file_name = IndexFileNames::segment_file_name(&si.name, "", SI_EXTENSION);
     let mut output = dir.create_output(&file_name, io_context)?;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {

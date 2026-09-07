@@ -179,48 +179,52 @@ impl Field {
   /// Creates a field with a binary value.
   ///
   /// # Note
-  /// The provided byte array is **not copied**, so ensure that it is not
-  /// modified until you are done using this field.
+  /// An owned `Vec<u8>` is moved into the field without copying its contents.
+  /// Borrowed slices are copied; arrays are moved into a new vector.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `value`: Byte array pointing to binary content (**not copied**).
+  /// - `value`: Binary content from a vector, array or slice.
   /// - `field_type`: Field type.
   ///
   /// # Errors
   /// - Returns an error if the field's type is `indexed()`.
-  pub fn from_binary<T>(name: T, value: Vec<u8>, indexable_field_type: FieldType) -> Result<Self>
+  pub fn from_binary<T, V>(name: T, value: V, indexable_field_type: FieldType) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
+    let value = value.into();
     let len = value.len();
     Self::from_binary_range(name, value, 0, len, indexable_field_type)
   }
   /// Creates a field with a binary value.
   ///
   /// # Note
-  /// The provided byte array is **not copied**, so ensure that it is not
-  /// modified until you are done using this field.
+  /// An owned `Vec<u8>` is moved into the field without copying its contents.
+  /// Borrowed slices are copied; arrays are moved into a new vector.
   ///
   /// # Parameters
   /// - `name`: Field name.
-  /// - `value`: Byte array pointing to binary content (**not copied**).
+  /// - `value`: Binary content from a vector, array or slice.
   /// - `offset`: Starting position in the byte array.
   /// - `length`: Valid length of the byte array.
   /// - `field_type`: Field type.
   ///
   /// # Errors
   /// - Returns an error if the field's type is `indexed()`.
-  pub fn from_binary_range<T>(
+  pub fn from_binary_range<T, V>(
     name: T,
-    value: Vec<u8>,
+    value: V,
     offset: usize,
     length: usize,
     indexable_field_type: FieldType,
   ) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
+    let value = value.into();
     let value = BytesRef::from_slice(value, offset, length);
     Self::from_bytes_ref(name, value, indexable_field_type)
   }

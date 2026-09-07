@@ -86,12 +86,15 @@ impl ForUtil {
   }
 
   /// Encode 128 integers from `ints` into out`.
-  pub(crate) fn encode(
+  pub(crate) fn encode<DO>(
     &mut self,
     ints: &mut [i32],
     bits_per_value: i32,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let next_primitive = if bits_per_value <= 8 {
       Self::collapse8(ints);
       8
@@ -104,13 +107,16 @@ impl ForUtil {
     Self::encode_with_tmp(ints, bits_per_value, next_primitive, out, &mut self.tmp)
   }
 
-  pub(crate) fn encode_with_tmp(
+  pub(crate) fn encode_with_tmp<DO>(
     ints: &[i32],
     bits_per_value: i32,
     primitive_size: i32,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     tmp: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let num_ints = Self::BLOCK_SIZE * (primitive_size as usize) / i32::BITS as usize;
     let num_ints_per_shift = (bits_per_value * 4) as usize;
 

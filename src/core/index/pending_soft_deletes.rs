@@ -358,10 +358,14 @@ where
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::bits::Bits;
-pub(crate) fn count_soft_deletes(
-  soft_deleted_docs: Option<&mut impl DocIdSetIterator>,
-  hard_deletes: Option<&impl Bits>,
-) -> Result<i32> {
+pub(crate) fn count_soft_deletes<I, T>(
+  soft_deleted_docs: Option<&mut I>,
+  hard_deletes: Option<&T>,
+) -> Result<i32>
+where
+  I: DocIdSetIterator,
+  T: Bits,
+{
   let mut count = 0;
   if let Some(docs) = soft_deleted_docs {
     loop {

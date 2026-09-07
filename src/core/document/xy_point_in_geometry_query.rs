@@ -346,7 +346,10 @@ impl IntersectVisitor for XYPointInGeometryIntersectVisitor {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.adder.add_disi(iterator)
   }
 
@@ -359,11 +362,14 @@ impl IntersectVisitor for XYPointInGeometryIntersectVisitor {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     let x = XYEncodingUtils::decode_bytes(packed_value, 0) as f64;
     let y = XYEncodingUtils::decode_bytes(packed_value, BitUtil::INT_BYTES) as f64;
     if self.component2d.contains(x, y) {

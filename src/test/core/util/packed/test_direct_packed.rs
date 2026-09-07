@@ -133,15 +133,16 @@ fn test_random_merge_with_offset() -> Result<()> {
   Ok(())
 }
 
-fn do_test_bpv<R>(
+fn do_test_bpv<R, D>(
   random: &mut R,
-  directory: &impl Directory,
+  directory: &D,
   bpv: i32,
   offset: usize,
   merge: bool,
 ) -> Result<()>
 where
   R: Rng + ?Sized,
+  D: Directory,
 {
   let num_iters = if is_night_mode() { 100 } else { 10 };
   for i in 0..num_iters {

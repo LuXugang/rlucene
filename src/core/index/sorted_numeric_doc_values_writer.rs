@@ -689,14 +689,15 @@ pub struct LongValues {
   pub(crate) values: PackedLongValues,
 }
 impl LongValues {
-  pub(crate) fn new<DM>(
+  pub(crate) fn new<DM, T>(
     max_doc: usize,
     sort_map: &DM,
-    old_values: &mut impl SortedNumericDocValues,
+    old_values: &mut T,
     acceptable_overhead_ratio: f32,
   ) -> Result<Self>
   where
     DM: DocMap,
+    T: SortedNumericDocValues,
   {
     let mut offsets = vec![0; max_doc];
     let mut value_builder =

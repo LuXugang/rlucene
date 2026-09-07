@@ -169,7 +169,10 @@ where
     })?;
     Ok((version, mapping))
   }
-  fn read_mapping(entries_stream: &mut impl IndexInput) -> Result<HashMap<String, FileEntry>> {
+  fn read_mapping<II>(entries_stream: &mut II) -> Result<HashMap<String, FileEntry>>
+  where
+    II: IndexInput,
+  {
     let num_entries = entries_stream.read_vint()?;
     let mut mapping = HashMap::with_capacity(num_entries as usize);
     for _ in 0..num_entries {

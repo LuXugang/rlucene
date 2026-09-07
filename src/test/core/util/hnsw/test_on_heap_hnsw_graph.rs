@@ -132,7 +132,10 @@ fn test_graph_build_out_of_order() -> Result<()> {
   Ok(())
 }
 
-fn assert_graph_equals(graph: &mut impl HnswGraph, level_to_nodes: &[Vec<usize>]) -> Result<()> {
+fn assert_graph_equals<T>(graph: &mut T, level_to_nodes: &[Vec<usize>]) -> Result<()>
+where
+  T: HnswGraph,
+{
   let num_levels = graph.num_levels()?;
 
   for (level, expected) in level_to_nodes.iter().enumerate().take(num_levels) {

@@ -77,9 +77,10 @@ impl KnnByteVectorQuery {
   /// # Errors
   ///
   /// Returns an error if `k` is less than `1`.
-  pub fn new<T>(field: T, target: Vec<u8>, k: usize) -> Result<Self>
+  pub fn new<T, V>(field: T, target: V, k: usize) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
     Self::with_filter(field, target, k, None)
   }
@@ -97,10 +98,12 @@ impl KnnByteVectorQuery {
   /// # Errors
   ///
   /// Returns an error if `k` is less than `1`.
-  pub fn with_filter<T>(field: T, target: Vec<u8>, k: usize, filter: Option<Query>) -> Result<Self>
+  pub fn with_filter<T, V>(field: T, target: V, k: usize, filter: Option<Query>) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
+    let target = target.into();
     let field = field.into();
     Ok(Self {
       base: AbstractKnnVectorQueryBase::new(field, k, filter)?,

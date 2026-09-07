@@ -84,7 +84,7 @@ pub static TERM_QUERY: LazyLock<BooleanQuery> = LazyLock::new(|| {
 });
 
 pub static PHRASE_QUERY: LazyLock<PhraseQuery> =
-  LazyLock::new(|| PhraseQuery::from_terms_no_slop(FIELD, &["foo", "bar"]).unwrap());
+  LazyLock::new(|| PhraseQuery::from_terms_no_slop(FIELD, ["foo", "bar"]).unwrap());
 #[test]
 fn test_matching_score_mode_complete() -> Result<()> {
   let mut random = random();

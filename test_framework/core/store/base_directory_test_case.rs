@@ -82,9 +82,11 @@ pub trait BaseDirectoryTestCase {
     Ok(())
   }
 
-  fn run_copy_from<R>(source: &impl Directory, dest: &impl Directory, random: &mut R) -> Result<()>
+  fn run_copy_from<R, D, D2>(source: &D, dest: &D2, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,
+    D: Directory,
+    D2: Directory,
   {
     let mut bytes = vec![0u8; 20000];
     let io_context = new_io_context(random)?;
@@ -1645,14 +1647,15 @@ pub trait BaseDirectoryTestCase {
     let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| dir.close()));
     IOUtils::use_or_suppress_caught_result(body_result, close_result)
   }
-  fn assert_bytes<R>(
-    slice: &mut impl RandomAccessInput,
+  fn assert_bytes<R, T>(
+    slice: &mut T,
     bytes: &[u8],
     bytes_offset: usize,
     random: &mut R,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
+    T: RandomAccessInput,
   {
     let to_read = bytes.len() - bytes_offset;
 
@@ -2114,8 +2117,8 @@ pub trait BaseDirectoryTestCase {
     // implementation
     dir.close()
   }
-  fn do_test_group_vint<R>(
-    dir: &impl Directory,
+  fn do_test_group_vint<R, D>(
+    dir: &D,
     random: &mut R,
     iterations: usize,
     min_bpv: usize,
@@ -2124,6 +2127,7 @@ pub trait BaseDirectoryTestCase {
   ) -> Result<()>
   where
     R: Rng + ?Sized,
+    D: Directory,
   {
     let mut values = vec![0i64; max_num_values];
     let mut num_values_array = vec![0usize; iterations];

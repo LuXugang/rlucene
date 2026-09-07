@@ -309,14 +309,20 @@ impl RegExp {
   /// Errors:
   /// - Returns an error if this regular expression uses a named identifier
   ///   that is not available from the automaton provider.
-  pub fn to_automaton_from_provider(&self, provider: &impl AutomatonProvider) -> Result<Automaton> {
+  pub fn to_automaton_from_provider<T>(&self, provider: &T) -> Result<Automaton>
+  where
+    T: AutomatonProvider,
+  {
     self.to_automaton_impl(&HashMap::new(), provider)
   }
-  fn to_automaton_impl(
+  fn to_automaton_impl<T>(
     &self,
     automata: &HashMap<String, Automaton>,
-    provider: &impl AutomatonProvider,
-  ) -> Result<Automaton> {
+    provider: &T,
+  ) -> Result<Automaton>
+  where
+    T: AutomatonProvider,
+  {
     use RegExpKind::*;
     let a = match self.kind {
       PreClass => self
@@ -510,13 +516,16 @@ impl RegExp {
     Operations::concatenate_with_list(&refs)
   }
 
-  fn find_leaves(
+  fn find_leaves<T>(
     &self,
     kind: RegExpKind,
     list: &mut Vec<Automaton>,
     automata: &HashMap<String, Automaton>,
-    provider: &impl AutomatonProvider,
-  ) -> Result<()> {
+    provider: &T,
+  ) -> Result<()>
+  where
+    T: AutomatonProvider,
+  {
     if self.kind == kind {
       if let Some(e1) = &self.exp1 {
         e1.find_leaves(kind, list, automata, provider)?;

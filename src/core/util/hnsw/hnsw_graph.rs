@@ -97,12 +97,10 @@ pub trait HnswGraph {
   /// * `level` - The level of the graph.
   /// * `node` - The node whose neighbors are returned, represented as an
   ///   ordinal on level 0.
-  fn with_neighbors<T>(
-    &self,
-    _level: usize,
-    _node: usize,
-    _action: impl FnOnce(&NeighborArray) -> Result<T>,
-  ) -> Result<T> {
+  fn with_neighbors<T, F>(&self, _level: usize, _node: usize, _action: F) -> Result<T>
+  where
+    F: FnOnce(&NeighborArray) -> Result<T>,
+  {
     Err(LuceneError::unsupported_operation(""))
   }
 }
@@ -140,12 +138,10 @@ where
     (**self).get_nodes_on_level(level)
   }
 
-  fn with_neighbors<R>(
-    &self,
-    level: usize,
-    node: usize,
-    action: impl FnOnce(&NeighborArray) -> Result<R>,
-  ) -> Result<R> {
+  fn with_neighbors<R, F>(&self, level: usize, node: usize, action: F) -> Result<R>
+  where
+    F: FnOnce(&NeighborArray) -> Result<R>,
+  {
     (**self).with_neighbors(level, node, action)
   }
 }

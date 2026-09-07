@@ -242,7 +242,10 @@ impl FixedBitSet {
     self.xor_impl(&other.bits, other.num_words);
   }
   /// Does in-place XOR of the bits provided by the iterator.
-  pub fn xor_disi(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
+  pub fn xor_disi<I>(&mut self, iter: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     check_unpositioned(iter)?;
     if let Some(bits) = iter.get_fixed_bit_set() {
       self.xor(bits);
@@ -299,7 +302,10 @@ impl FixedBitSet {
     }
   }
 
-  pub fn and_not_iter(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
+  pub fn and_not_iter<I>(&mut self, iter: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if let Some(bits) = iter.get_fixed_bit_set() {
       check_unpositioned(iter)?;
       self.and_not_fixed_bit_set(bits);

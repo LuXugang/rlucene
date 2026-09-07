@@ -97,7 +97,10 @@ impl DocIdSetBuilder {
       counter: 0,
     }
   }
-  pub fn add_disi(&mut self, iter: &mut impl DocIdSetIterator) -> Result<()> {
+  pub fn add_disi<I>(&mut self, iter: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     let cost = std::cmp::min(iter.cost()?, i32::MAX as i64);
     self.grow(cost as i32)?;
     if let Some(bit_set) = self.bit_set.as_mut() {

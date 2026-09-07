@@ -91,7 +91,7 @@ where
     let mut doc = Document::new();
     match encoding {
       VectorEncoding::BYTE(_) => {
-        let vector = vector.iter().map(|value| *value as u8).collect();
+        let vector: Vec<u8> = vector.iter().map(|value| *value as u8).collect();
         doc.add(KnnByteVectorField::with_similarity_function(
           "field", vector, Euclidean,
         )?);

@@ -97,7 +97,10 @@ impl SortedSetSortField {
     self.selector
   }
 
-  fn read_selector_type(data_input: &mut impl DataInput) -> Result<SortedSetSelectorType> {
+  fn read_selector_type<DI>(data_input: &mut DI) -> Result<SortedSetSelectorType>
+  where
+    DI: DataInput,
+  {
     let selector_type = data_input.read_int()?;
 
     match selector_type {
@@ -165,7 +168,10 @@ impl SortFiledBase for SortedSetSortField {
     )))
   }
 
-  fn serialize(&self, out: &mut impl DataOutput) -> Result<()> {
+  fn serialize<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let field = self
       .base
       .get_field()
@@ -225,7 +231,10 @@ impl SetProvider {
   pub const NAME: &'static str = "SortedSetSortField";
 }
 impl SortFieldProvider for SetProvider {
-  fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+  fn read_sort_field<DI>(&self, data_input: &mut DI) -> Result<SortFieldEnum>
+  where
+    DI: DataInput,
+  {
     let field_name = data_input.read_string()?;
     let reverse = data_input.read_int()? == 1;
     let selector = SortedSetSortField::read_selector_type(data_input)?;
@@ -241,7 +250,10 @@ impl SortFieldProvider for SetProvider {
     Ok(sorted_set_sort_field.into())
   }
 
-  fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+  fn write_sort_field<DO>(&self, sf: &SortFieldEnum, output: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     sf.serialize(output)
   }
 }

@@ -75,13 +75,14 @@ pub trait BaseBitSetTestCase {
     bs: &RustUtilBitSet,
     length: usize,
   ) -> Result<(Self::TestBitSet, Option<SparseFixedBitSet>)>;
-  fn assert_equals(
+  fn assert_equals<T>(
     &self,
     set1: &RustUtilBitSet,
-    set2: &impl BitSet,
+    set2: &T,
     max_doc: usize,
     sfbs: Option<&SparseFixedBitSet>,
-  );
+  ) where
+    T: BitSet;
   fn test_cardinality<R>(&mut self, random: &mut R) -> Result<()>
   where
     R: Rng + ?Sized,

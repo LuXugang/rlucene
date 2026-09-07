@@ -85,7 +85,10 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   ///
   /// Returns an error if the writer has already finished or if flushing
   /// fails.
-  pub fn add(&mut self, value: i64, out: &mut impl DataOutput) -> Result<()> {
+  pub fn add<DO>(&mut self, value: i64, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     self.sub_writer.add(value);
     self.check_not_finished()?;
     if self.off == self.values.len() {
@@ -106,7 +109,10 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   /// invalid.
   #[cfg(test)]
   #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
-  pub(crate) fn add_block_of_zeros(&mut self, out: &mut impl DataOutput) -> Result<()> {
+  pub(crate) fn add_block_of_zeros<DO>(&mut self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     self.check_not_finished()?;
     if self.off != 0 && self.off != self.values.len() {
       return Err(LuceneError::illegal_state(format!("{}", self.off)));
@@ -129,7 +135,10 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   ///
   /// Returns an error if the writer has already finished or if flushing
   /// fails.
-  pub fn finish(&mut self, out: &mut impl DataOutput) -> Result<()> {
+  pub fn finish<DO>(&mut self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     self.check_not_finished()?;
     if self.off > 0 {
       self
@@ -154,13 +163,16 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
 /// # Errors
 ///
 /// Returns an error if writing to the output stream fails.
-pub(crate) fn write_values(
+pub(crate) fn write_values<DO>(
   bits_required: i32,
-  out: &mut impl DataOutput,
+  out: &mut DO,
   blocks: &mut Vec<u8>,
   values: &mut [i64],
   off: usize,
-) -> Result<()> {
+) -> Result<()>
+where
+  DO: DataOutput,
+{
   let encoder = PackedInts::get_encoder(
     Packed(PackedImpl::new(0)),
     PackedInts::VERSION_CURRENT,
@@ -182,7 +194,10 @@ pub(crate) fn write_values(
   Ok(())
 }
 /// Same as DataOutput::writeVLong but accepts negative values.
-pub(crate) fn write_vlong(out: &mut impl DataOutput, mut i: i64) -> Result<()> {
+pub(crate) fn write_vlong<DO>(out: &mut DO, mut i: i64) -> Result<()>
+where
+  DO: DataOutput,
+{
   let mut k = 0;
   while (i & !0x7F) != 0 && k < 8 {
     out.write_byte(((i & 0x7F) | 0x80) as u8)?;
@@ -193,12 +208,14 @@ pub(crate) fn write_vlong(out: &mut impl DataOutput, mut i: i64) -> Result<()> {
   Ok(())
 }
 pub(crate) trait AbstractBlockPackedWriterBase {
-  fn flush(
+  fn flush<DO>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     off: &mut usize,
     values: &mut [i64],
     blocks: &mut Vec<u8>,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    DO: DataOutput;
   fn add(&mut self, _value: i64) {}
 }

@@ -264,13 +264,14 @@ fn test_index_sort_doc_values_with_even_length_inner(
   Ok(())
 }
 
-fn assert_number_of_hits<IRC>(
+fn assert_number_of_hits<IRC, T>(
   searcher: &IndexSearcher<IRC>,
-  query: impl Into<Query>,
+  query: T,
   number_of_hits: i32,
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  T: Into<Query>,
 {
   let query = query.into();
 

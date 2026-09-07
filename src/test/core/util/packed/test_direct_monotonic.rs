@@ -322,14 +322,15 @@ pub fn test_monotonic_binary_search_random() -> Result<()> {
   Ok(())
 }
 
-fn do_test_monotonic_binary_search_against_long_array<R>(
+fn do_test_monotonic_binary_search_against_long_array<R, D>(
   random: &mut R,
-  dir: &impl Directory,
+  dir: &D,
   array: &[i64],
   block_shift: i32,
 ) -> Result<()>
 where
   R: Rng + ?Sized,
+  D: Directory,
 {
   {
     let mut meta_out =

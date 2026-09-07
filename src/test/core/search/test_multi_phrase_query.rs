@@ -667,7 +667,10 @@ fn test_zero_pos_incr_sloppy_parsed_and() -> Result<()> {
 
   Ok(())
 }
-fn do_test_zero_pos_incr_sloppy(query: impl Into<Query>, n_expected: i32) -> Result<()> {
+fn do_test_zero_pos_incr_sloppy<T>(query: T, n_expected: i32) -> Result<()>
+where
+  T: Into<Query>,
+{
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let config = new_index_writer_config(&mut random)?;

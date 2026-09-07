@@ -146,15 +146,16 @@ impl Util {
   ///   makes the output FST's structure a bit clearer.
   /// * `label_states` - If `true`, states will have labels equal to their
   ///   offsets in their binary format. Expands the graph considerably.
-  pub fn to_dot<O, F>(
+  pub fn to_dot<O, F, T>(
     fst: &FST<O, F>,
-    out: &mut impl Write,
+    out: &mut T,
     same_rank: bool,
     label_states: bool,
   ) -> Result<()>
   where
     O: Outputs,
     F: FstReader,
+    T: Write,
   {
     let expanded_node_color = "blue";
 
@@ -323,13 +324,16 @@ impl Util {
   }
 
   /// Emit a single state in the dot language.
-  fn emit_dot_state(
-    out: &mut impl Write,
+  fn emit_dot_state<T>(
+    out: &mut T,
     name: &str,
     shape: Option<&str>,
     color: Option<&str>,
     label: Option<&str>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Write,
+  {
     out.write_all(
       format!(
         "  {} [{} {} {} ]\n",
@@ -849,16 +853,19 @@ where
   /// Adds all leaving arcs, including 'finished' arc, if the node is final, from this node into
   /// the queue.
   #[allow(clippy::too_many_arguments)]
-  pub fn add_start_paths_with_context(
+  pub fn add_start_paths_with_context<T>(
     &mut self,
     node: &Arc<O::V>,
     mut start_output: O::V,
     allow_empty_string: bool,
     input: IntsRefBuilder<Vec<i32>>,
     boost: f32,
-    context: impl Into<String>,
+    context: T,
     payload: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Into<String>,
+  {
     if start_output == self.fst.outputs.get_no_output() {
       start_output = self.fst.outputs.get_no_output();
     }

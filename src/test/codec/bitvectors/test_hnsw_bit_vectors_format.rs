@@ -72,7 +72,7 @@ impl BaseIndexFileFormatTestCaseDefaults<TestHnswBitVectorsFormat>
       }
     }
     VectorUtil::l2normalize(&mut vector)?;
-    let vector = vector
+    let vector: Vec<u8> = vector
       .into_iter()
       .map(|value| (value * 127.0) as i8 as u8)
       .collect();

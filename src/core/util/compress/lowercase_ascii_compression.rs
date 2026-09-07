@@ -32,12 +32,10 @@ impl LowercaseAsciiCompression {
   /// Returns `false` if the content cannot be compressed.
   /// If compression succeeds, the number of bytes written is guaranteed to be
   /// less than `len`.
-  pub fn compress(
-    input: &[u8],
-    len: usize,
-    tmp: &mut [u8],
-    out: &mut impl DataOutput,
-  ) -> Result<bool> {
+  pub fn compress<DO>(input: &[u8], len: usize, tmp: &mut [u8], out: &mut DO) -> Result<bool>
+  where
+    DO: DataOutput,
+  {
     if len < 8 {
       return Ok(false);
     }
@@ -134,7 +132,10 @@ impl LowercaseAsciiCompression {
   ///
   /// `len` must be the original (uncompressed) length, not the compressed
   /// length.
-  pub fn decompress(input: &mut impl DataInput, out: &mut [u8], len: usize) -> Result<()> {
+  pub fn decompress<DI>(input: &mut DI, out: &mut [u8], len: usize) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let saved = len >> 2;
     let compressed_len = len - saved;
 

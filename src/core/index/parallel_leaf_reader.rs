@@ -402,14 +402,15 @@ where
     Ok(())
   }
 
-  fn document_with_visitor<W>(
+  fn document_with_visitor<W, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut W>,
   ) -> Result<()>
   where
     W: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     match writer {
       Some(writer) => {
@@ -419,7 +420,7 @@ where
       },
       None => {
         for reader in &mut self.fields {
-          reader.document_with_visitor::<W>(doc_id, visitor, None)?;
+          reader.document_with_visitor::<W, _>(doc_id, visitor, None)?;
         }
       },
     }

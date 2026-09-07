@@ -176,14 +176,15 @@ impl<D> IndexingChain<D>
 where
   D: Directory + Clone,
 {
-  pub(crate) fn new<D1>(
+  pub(crate) fn new<D1, T>(
     index_created_version_major: i32,
     segment_info: &SegmentInfo<D1>,
     directory: D,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
   ) -> Result<Self>
   where
     D: Clone,
+    T: LiveIndexWriterConfig,
   {
     let bytes_used = Arc::new(AtomicCounter::new());
     let codec = index_writer_config.get_codec().clone();
@@ -325,14 +326,17 @@ where
       None => Ok(None),
     }
   }
-  pub(crate) fn flush<D1>(
+  pub(crate) fn flush<D1, T>(
     &mut self,
     state: &mut SegmentWriteState<D>,
     segment_info: &mut SegmentInfo<D1>,
     seg_updates: Option<&mut BufferedUpdates>,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
     field_info: &mut Builder,
-  ) -> Result<Option<Arc<DocMapImpl>>> {
+  ) -> Result<Option<Arc<DocMapImpl>>>
+  where
+    T: LiveIndexWriterConfig,
+  {
     #[cfg(test)]
     let _execution_scope =
       ExecutionScope::enter(ExecutionOwner::IndexingChain, ExecutionMethod::Flush);
@@ -491,15 +495,16 @@ where
     Ok(sort_map)
   }
   ///  Writes all buffered points.
-  pub fn write_points<DM, D1>(
+  pub fn write_points<DM, D1, T>(
     &mut self,
     state: &SegmentWriteState<D>,
     sort_map: Option<&DM>,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
     info: &SegmentInfo<D1>,
   ) -> Result<()>
   where
     DM: DocMap + Clone,
+    T: LiveIndexWriterConfig,
   {
     let mut points_writer = None;
     let mut success = false;
@@ -567,15 +572,16 @@ where
   }
 
   /// Writes all buffered doc values.
-  fn write_doc_values<DM, D1>(
+  fn write_doc_values<DM, D1, T>(
     &mut self,
     state: &SegmentWriteState<D>,
     sort_map: Option<&DM>,
     segment_info: &SegmentInfo<D1>,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
   ) -> Result<()>
   where
     DM: DocMap,
+    T: LiveIndexWriterConfig,
   {
     let mut dv_consumer = None;
     let mut success = false;
@@ -649,15 +655,16 @@ where
     Ok(())
   }
 
-  fn write_norms<DM, D1>(
+  fn write_norms<DM, D1, T>(
     &mut self,
     state: &SegmentWriteState<D>,
     sort_map: Option<&DM>,
     segment_info: &SegmentInfo<D1>,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
   ) -> Result<()>
   where
     DM: DocMap,
+    T: LiveIndexWriterConfig,
   {
     if !state.field_infos.has_norms() {
       return Ok(());
@@ -770,17 +777,18 @@ where
       self.stored_fields_consumer.finish_document()
     )
   }
-  pub(crate) fn process_document<DF, D1>(
+  pub(crate) fn process_document<DF, D1, T>(
     &mut self,
     doc_id: i32,
     document: DF,
     info: &mut SegmentInfo<D1>,
     field_infos: &mut Builder,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
     aborting_exception_consumer: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
     DF: IntoIterator<Item = Result<Fields>>,
+    T: LiveIndexWriterConfig,
   {
     // number of unique fields by names (collapses multiple field instances by the same name)
     let mut field_count = 0;
@@ -908,14 +916,17 @@ where
     ArrayUtil::grow_with_len(&mut self.doc_fields, required)?;
     Ok(())
   }
-  pub(crate) fn initialize_field_info<D1>(
+  pub(crate) fn initialize_field_info<D1, T>(
     &mut self,
     per_field_index: usize,
     field_infos: &mut Builder,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T,
     segment_info: &SegmentInfo<D1>,
     aborting_exception: &OnceLock<CaughtResult>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: LiveIndexWriterConfig,
+  {
     // Create and add a new fieldInfo to fieldInfos for this segment.
     // During the creation of FieldInfo there is also verification of the correctness of all its
     // parameters.
@@ -1021,14 +1032,18 @@ where
     Ok(())
   }
 
-  fn process_field(
+  fn process_field<T, T2>(
     &mut self,
     doc_id: i32,
-    field: &mut impl IndexableField,
+    field: &mut T,
     per_field_index: usize,
-    index_writer_config: &impl LiveIndexWriterConfig,
+    index_writer_config: &T2,
     aborting_exception: &OnceLock<CaughtResult>,
-  ) -> Result<bool> {
+  ) -> Result<bool>
+  where
+    T: IndexableField,
+    T2: LiveIndexWriterConfig,
+  {
     let pf = &mut self.per_fields[per_field_index];
     let mut indexed_field = false;
 
@@ -1271,13 +1286,16 @@ where
     Ok(())
   }
 
-  pub fn index_doc_value(
+  pub fn index_doc_value<T>(
     doc_id: i32,
     fp: &mut PerField,
     dv_type: DocValuesType,
-    field: &impl IndexableField,
+    field: &T,
     pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: IndexableField,
+  {
     let field_name = fp
       .field_info
       .as_ref()
@@ -1354,12 +1372,10 @@ where
     Ok(())
   }
 
-  fn index_vector_value(
-    &mut self,
-    doc_id: i32,
-    field_writer_idx: usize,
-    field: &impl IndexableField,
-  ) -> Result<()> {
+  fn index_vector_value<T>(&mut self, doc_id: i32, field_writer_idx: usize, field: &T) -> Result<()>
+  where
+    T: IndexableField,
+  {
     let writer = self
       .vector_values_consumer
       .writer
@@ -1586,10 +1602,10 @@ impl PerField {
   /// Inverts one field for one document; first is true if this is the first time we are seeing
   /// this field name in this document.
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn invert<A>(
+  pub(crate) fn invert<A, T>(
     &mut self,
     doc_id: i32,
-    field: &mut impl IndexableField,
+    field: &mut T,
     first: bool,
     analyzer: &A,
     info_stream: &InfoStreamEnum,
@@ -1599,6 +1615,7 @@ impl PerField {
   ) -> Result<()>
   where
     A: Analyzer,
+    T: IndexableField,
   {
     debug_assert!(
       *field.field_type().index_options() >= IndexOptions::Docs,
@@ -1638,10 +1655,10 @@ impl PerField {
     Ok(())
   }
   #[allow(clippy::too_many_arguments)]
-  fn invert_token_stream<A>(
+  fn invert_token_stream<A, T>(
     &mut self,
     doc_id: i32,
-    field: &mut impl IndexableField,
+    field: &mut T,
     first: bool,
     analyzer: &A,
     info_stream: &InfoStreamEnum,
@@ -1651,6 +1668,7 @@ impl PerField {
   ) -> Result<()>
   where
     A: Analyzer,
+    T: IndexableField,
   {
     let analyzed = field.field_type().tokenized();
     /*

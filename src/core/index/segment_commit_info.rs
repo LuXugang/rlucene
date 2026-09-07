@@ -77,15 +77,18 @@ impl<D> SegmentCommitInfo<D> {
   /// - `Doc_values_gen`: DocValues generation number (used to name doc-values
   ///   updates files).
   /// - `ID`: ID that uniquely identifies this segment commit.
-  pub fn new(
-    info: impl Into<Arc<SegmentInfo<D>>>,
+  pub fn new<T>(
+    info: T,
     del_count: i32,
     soft_del_count: i32,
     del_gen: i64,
     field_infos_gen: i64,
     doc_values_gen: i64,
     id: Option<[u8; StringHelper::ID_LENGTH]>,
-  ) -> Self {
+  ) -> Self
+  where
+    T: Into<Arc<SegmentInfo<D>>>,
+  {
     Self {
       info: info.into(),
       del_count,

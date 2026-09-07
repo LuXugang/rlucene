@@ -238,7 +238,10 @@ fn update_by_chunk_of_longs<R: Rng + ?Sized>(
   }
 }
 
-fn check_checksum_value_and_reset(expected: i64, checksum: &mut impl Checksum) {
+fn check_checksum_value_and_reset<T>(expected: i64, checksum: &mut T)
+where
+  T: Checksum,
+{
   assert_eq!(expected, checksum.get_value());
   checksum.reset();
 }

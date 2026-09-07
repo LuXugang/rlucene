@@ -466,7 +466,10 @@ impl IntersectVisitor for LatLonDistanceIntersectVisitor {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.add_disi(iterator)
   }
 
@@ -477,11 +480,14 @@ impl IntersectVisitor for LatLonDistanceIntersectVisitor {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self.ctx.matches(packed_value) {
       self.result.add_disi(iterator)?;
     }
@@ -512,7 +518,10 @@ impl IntersectVisitor for LatLonDistanceInverseIntersectVisitor<'_> {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.and_not_iter(iterator)?;
     self.cost = (self.cost - iterator.cost()?).max(0);
     Ok(())
@@ -525,11 +534,14 @@ impl IntersectVisitor for LatLonDistanceInverseIntersectVisitor<'_> {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if !self.ctx.matches(packed_value) {
       self.visit_with_iterator(iterator)?;
     }

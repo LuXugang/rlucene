@@ -74,9 +74,10 @@ static LIGHT_CONTEXT: LazyLock<Arc<TestBooleanOr>> = LazyLock::new(|| {
   Arc::new(build_set_up(&mut random).expect("failed to initialize TestBooleanOr"))
 });
 
-fn search<R>(random: &mut R, case: &TestBooleanOr, q: impl Into<Query>) -> Result<usize>
+fn search<R, T>(random: &mut R, case: &TestBooleanOr, q: T) -> Result<usize>
 where
   R: Rng + ?Sized,
+  T: Into<Query>,
 {
   let q = q.into();
   QueryUtils::check_from_searcher(random, q.clone(), &case.searcher)?;

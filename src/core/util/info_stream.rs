@@ -81,7 +81,10 @@ pub fn get_default_info_stream() -> Arc<InfoStreamEnum> {
 }
 
 /// Sets the default [`InfoStream`] used by newly created types.
-pub fn set_default(info_stream: impl Into<InfoStreamMT>) {
+pub fn set_default<T>(info_stream: T)
+where
+  T: Into<InfoStreamMT>,
+{
   let info_stream = info_stream.into();
   let previous = std::mem::replace(&mut *DEFAULT_INFO_STREAM.write(), info_stream);
   // Release the old Rust owner after unlocking: a custom destructor may use InfoStream.

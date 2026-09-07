@@ -134,15 +134,16 @@ pub trait BaseDocIdSetTestCase {
     R: Rng + ?Sized;
 }
 pub trait BaseDocIdSetTestCaseSupperImpl {
-  fn assert_equals<R>(
+  fn assert_equals<R, T>(
     &self,
     random: &mut R,
     num_bits: usize,
     ds1: &bit_set::BitSet,
-    ds2: impl DocIdSet,
+    ds2: T,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
+    T: DocIdSet,
   {
     // nextDoc
     let it2 = ds2.iterator()?;

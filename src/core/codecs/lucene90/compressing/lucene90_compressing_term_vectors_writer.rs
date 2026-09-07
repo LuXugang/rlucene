@@ -1137,12 +1137,16 @@ where
     Ok(())
   }
 
-  fn add_prox(
+  fn add_prox<DI, DI2>(
     &mut self,
     num_prox: usize,
-    positions: Option<&mut impl DataInput>,
-    offsets: Option<&mut impl DataInput>,
-  ) -> Result<()> {
+    positions: Option<&mut DI>,
+    offsets: Option<&mut DI2>,
+  ) -> Result<()>
+  where
+    DI: DataInput,
+    DI2: DataInput,
+  {
     let cur_field = match self.pending_docs[self.cur_doc]
       .fields
       .get_mut(self.cur_field)

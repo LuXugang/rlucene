@@ -160,11 +160,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       closed: false,
     })
   }
-  fn write_skip_index(
-    &mut self,
-    field: &Arc<FieldInfo>,
-    values_producer: &impl DocValuesProducer,
-  ) -> Result<()> {
+  fn write_skip_index<T>(&mut self, field: &Arc<FieldInfo>, values_producer: &T) -> Result<()>
+  where
+    T: DocValuesProducer,
+  {
     debug_assert!(*field.doc_values_skip_index_type() != DocValuesSkipIndexType::None);
     let start = self.data.get_file_pointer()?;
     let mut values = values_producer.get_sorted_numeric(field)?;
@@ -303,12 +302,15 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     }
     1
   }
-  fn write_values(
+  fn write_values<T>(
     &mut self,
     field: &Arc<FieldInfo>,
-    values_producer: &impl DocValuesProducer,
+    values_producer: &T,
     ords: bool,
-  ) -> Result<(i32, i64)> {
+  ) -> Result<(i32, i64)>
+  where
+    T: DocValuesProducer,
+  {
     let mut values = values_producer.get_sorted_numeric(field)?;
     let first_value = if values.next_doc()? != NO_MORE_DOCS {
       values.next_value()?
@@ -497,15 +499,18 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     Ok((num_docs_with_value, num_values))
   }
 
-  fn write_values_single_block(
+  fn write_values_single_block<T>(
     &mut self,
-    values: &mut impl SortedNumericDocValues,
+    values: &mut T,
     num_values: i64,
     num_bits_per_value: i32,
     min: i64,
     gcd: i64,
     encode: Option<HashMap<i64, i32>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: SortedNumericDocValues,
+  {
     let mut writer = DirectWriter::get_instance(&mut self.data, num_values, num_bits_per_value)?;
 
     let mut doc = values.next_doc()?;
@@ -526,11 +531,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     Ok(())
   }
 
-  fn write_values_multiple_blocks(
-    &mut self,
-    values: &mut impl SortedNumericDocValues,
-    gcd: i64,
-  ) -> Result<i64> {
+  fn write_values_multiple_blocks<T>(&mut self, values: &mut T, gcd: i64) -> Result<i64>
+  where
+    T: SortedNumericDocValues,
+  {
     let mut offsets: Vec<i64> = vec![0; ArrayUtil::oversize(1, BitUtil::LONG_BYTES)?];
     let mut offsets_index: usize = 0;
     const NUMERIC_BLOCK_SIZE: usize = Lucene90DocValuesFormat::NUMERIC_BLOCK_SIZE as usize;
@@ -641,7 +645,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     Ok(())
   }
 
-  fn add_terms_dict(&mut self, values: &mut impl SortedSetDocValues) -> Result<()> {
+  fn add_terms_dict<T>(&mut self, values: &mut T) -> Result<()>
+  where
+    T: SortedSetDocValues,
+  {
     let size = values.get_value_count()?;
     let meta = &mut self.meta;
     meta.write_vlong(size)?;
@@ -791,7 +798,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     Ok(())
   }
 
-  fn write_terms_index(&mut self, values: &mut impl SortedSetDocValues) -> Result<()> {
+  fn write_terms_index<T>(&mut self, values: &mut T) -> Result<()>
+  where
+    T: SortedSetDocValues,
+  {
     let size = values.get_value_count()?;
     self
       .meta
@@ -862,12 +872,15 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| address_output.close()));
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }
-  fn do_add_sorted_numeric_field(
+  fn do_add_sorted_numeric_field<T>(
     &mut self,
     field: &Arc<FieldInfo>,
-    values_producer: &impl DocValuesProducer,
+    values_producer: &T,
     ords: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: DocValuesProducer,
+  {
     if *field.doc_values_skip_index_type() != DocValuesSkipIndexType::None {
       self.write_skip_index(field, values_producer)?;
     }

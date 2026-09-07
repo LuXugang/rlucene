@@ -95,11 +95,14 @@ fn test_change_index_options_via_add_indexes_codec_reader() -> Result<()> {
   }
   Ok(())
 }
-fn do_test_change_index_options_add_indexes_codec_reader(
-  random: &mut impl Rng,
+fn do_test_change_index_options_add_indexes_codec_reader<R>(
+  random: &mut R,
   from: IndexOptions,
   to: IndexOptions,
-) -> Result<()> {
+) -> Result<()>
+where
+  R: Rng,
+{
   let dir1 = new_directory_shared(random)?;
   let w1 = IndexWriter::new(dir1.clone(), new_index_writer_config(random)?)?;
 

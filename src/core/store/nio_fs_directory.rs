@@ -55,7 +55,10 @@ impl NIOFSDirectory {
   /// the default lock factory.
   ///
   /// The directory is created at the named location if it does not yet exist.
-  pub fn new(directory: PathBuf) -> Result<FSDirectory<NativeFSLockFactory, Self>> {
+  pub fn new<P>(directory: P) -> Result<FSDirectory<NativeFSLockFactory, Self>>
+  where
+    P: Into<PathBuf>,
+  {
     Self::with_lock_factory(directory, fs_lock_factory::get_default())
   }
 
@@ -63,9 +66,10 @@ impl NIOFSDirectory {
   /// the provided lock factory.
   ///
   /// The directory is created at the named location if it does not yet exist.
-  pub fn with_lock_factory<D>(directory: PathBuf, lock_factory: D) -> Result<FSDirectory<D, Self>>
+  pub fn with_lock_factory<D, P>(directory: P, lock_factory: D) -> Result<FSDirectory<D, Self>>
   where
     D: LockFactory,
+    P: Into<PathBuf>,
   {
     FSDirectory::with_lock_factory(directory, lock_factory, Self)
   }

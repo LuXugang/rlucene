@@ -77,16 +77,18 @@ impl StoredField {
   /// Creates a stored-only field with the given binary value.
   ///
   /// # Note
-  /// The provided byte array is **not copied**, so ensure that it is not
-  /// modified until you are done using this field.
+  /// An owned `Vec<u8>` is moved into the field without copying its contents.
+  /// Borrowed slices are copied; arrays are moved into a new vector.
   ///
   /// # Parameters
   /// - `name`: Field name.
   /// - `value`: Byte array pointing to binary content.
-  pub fn from_binary<T>(name: T, value: Vec<u8>) -> Result<Self>
+  pub fn from_binary<T, V>(name: T, value: V) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
+    let value = value.into();
     let len = value.len();
     debug_assert!(len <= i32::MAX as usize);
     let bytes_ref = BytesRef::from_slice(value, 0, len);
@@ -96,23 +98,20 @@ impl StoredField {
   /// Creates a stored-only field with the given binary value.
   ///
   /// # Note
-  /// The provided byte array is **not copied**, so ensure that it is not
-  /// modified until you are done using this field.
+  /// An owned `Vec<u8>` is moved into the field without copying its contents.
+  /// Borrowed slices are copied; arrays are moved into a new vector.
   ///
   /// # Parameters
   /// - `name`: Field name.
   /// - `value`: Byte array pointing to binary content .
   /// - `offset`: Starting position in the byte array.
   /// - `length`: Valid length of the byte array.
-  pub fn from_binary_with_range<T>(
-    name: T,
-    value: Vec<u8>,
-    offset: i32,
-    length: i32,
-  ) -> Result<Self>
+  pub fn from_binary_with_range<T, V>(name: T, value: V, offset: i32, length: i32) -> Result<Self>
   where
     T: Into<String>,
+    V: Into<Vec<u8>>,
   {
+    let value = value.into();
     let bytes_ref = BytesRef::from_slice(value, offset as usize, length as usize);
     let parent_field = Field::from_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
     Ok(Self { parent_field })

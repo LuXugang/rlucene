@@ -313,17 +313,23 @@ impl PointRangeWeight {
   ///
   /// # Returns
   /// The number of points that match the queried range.
-  fn point_count(&self, point_tree: &mut impl PointTree) -> Result<i64> {
+  fn point_count<T>(&self, point_tree: &mut T) -> Result<i64>
+  where
+    T: PointTree,
+  {
     let mut visitor = IntersectVisitorImpl2::new(self.query.clone(), self.comparator.clone());
     self.point_count_with_visitor(&mut visitor, point_tree)?;
     Ok(visitor.matching_node_count)
   }
 
-  fn point_count_with_visitor(
+  fn point_count_with_visitor<T>(
     &self,
     visitor: &mut IntersectVisitorImpl2,
-    point_tree: &mut impl PointTree,
-  ) -> Result<()> {
+    point_tree: &mut T,
+  ) -> Result<()>
+  where
+    T: PointTree,
+  {
     let relation = visitor.compare(
       point_tree.get_min_packed_value()?.as_ref(),
       point_tree.get_max_packed_value()?.as_ref(),
@@ -794,7 +800,10 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.and_not_iter(iterator)?;
     self.cost = (self.cost - iterator.cost()?).max(0);
     Ok(())
@@ -815,11 +824,14 @@ impl IntersectVisitor for IntersectVisitorImpl<'_> {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if !matches(self.query, self.comparator, packed_value)? {
       self.visit_with_iterator(iterator)?;
     }
@@ -874,7 +886,10 @@ impl IntersectVisitor for IntersectVisitorImpl1 {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.add_disi(iterator)?;
     Ok(())
   }
@@ -893,11 +908,14 @@ impl IntersectVisitor for IntersectVisitorImpl1 {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if matches(&self.query, &self.comparator, packed_value)? {
       self.result.add_disi(iterator)?;
     }

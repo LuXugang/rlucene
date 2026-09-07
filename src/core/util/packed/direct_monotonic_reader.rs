@@ -224,7 +224,10 @@ use crate::core::util::TryIntoInt;
 ///
 /// # See also
 /// [`DirectMonotonicReader::get_instance`]
-pub fn load_meta(meta_in: &mut impl IndexInput, num_values: i64, block_shift: i32) -> Result<Meta> {
+pub fn load_meta<II>(meta_in: &mut II, num_values: i64, block_shift: i32) -> Result<Meta>
+where
+  II: IndexInput,
+{
   let mut all_values_zero = true;
   let mut meta = Meta::new(num_values, block_shift);
   for i in 0..meta.num_blocks {

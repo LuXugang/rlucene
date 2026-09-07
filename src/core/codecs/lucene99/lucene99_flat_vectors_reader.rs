@@ -171,11 +171,14 @@ where
     unwrap_caught_result!(result)?;
     Ok(input)
   }
-  fn read_fields(
-    meta: &mut impl ChecksumIndexInput,
+  fn read_fields<II>(
+    meta: &mut II,
     infos: &FieldInfos,
     fields: &mut HashMap<i32, FieldEntry>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    II: ChecksumIndexInput,
+  {
     let mut field_number = meta.read_int()?;
     while field_number != -1 {
       let info = match infos.field_info_by_number(field_number)? {
@@ -414,7 +417,10 @@ struct FieldEntry {
   ord_to_doc: Arc<OrdToDocDISIReaderConfiguration>,
 }
 impl FieldEntry {
-  pub fn create(input: &mut impl IndexInput, info: &FieldInfo) -> Result<Self> {
+  pub fn create<II>(input: &mut II, info: &FieldInfo) -> Result<Self>
+  where
+    II: IndexInput,
+  {
     let vector_encoding = read_vector_encoding(input)?;
     let similarity_function = read_similarity_function(input)?;
     let vector_data_offset = input.read_vlong()? as usize;

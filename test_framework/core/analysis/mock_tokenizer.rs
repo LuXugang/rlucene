@@ -151,7 +151,10 @@ where
     self.enable_checks = enable_checks;
   }
 
-  fn fail(&self, message: impl Into<String>) -> Result<()> {
+  fn fail<T>(&self, message: T) -> Result<()>
+  where
+    T: Into<String>,
+  {
     if self.enable_checks {
       Err(LuceneError::illegal_state(format!(
         "TokenStream contract violation: {}",
@@ -162,7 +165,10 @@ where
     }
   }
 
-  fn fail_always(&self, message: impl Into<String>) -> Result<()> {
+  fn fail_always<T>(&self, message: T) -> Result<()>
+  where
+    T: Into<String>,
+  {
     Err(LuceneError::illegal_state(message.into()))
   }
 

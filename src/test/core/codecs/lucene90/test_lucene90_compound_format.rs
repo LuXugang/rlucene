@@ -251,9 +251,9 @@ impl TestLucene90CompoundFormat {
     }
 
     if let Some(e) = prior_e {
-      return CodecUtil::check_footer_with_error::<()>(&mut entries_stream, Some(Ok(Err(e))));
+      return CodecUtil::check_footer_with_error::<(), _>(&mut entries_stream, Some(Ok(Err(e))));
     } else {
-      CodecUtil::check_footer_with_error::<()>(&mut entries_stream, None)?;
+      CodecUtil::check_footer_with_error::<(), _>(&mut entries_stream, None)?;
     }
 
     Ok(())

@@ -287,7 +287,7 @@ fn test_extract_matching_term_set() -> Result<()> {
   let mut outer = BooleanQueryBuilder::new();
   outer.add(inner.build(), Occur::Should)?;
   outer.add(
-    PhraseQuery::from_terms_no_slop("f", &["3333", "44444"])?,
+    PhraseQuery::from_terms_no_slop("f", ["3333", "44444"])?,
     Occur::Should,
   )?;
   let query: BooleanQuery = outer.build();

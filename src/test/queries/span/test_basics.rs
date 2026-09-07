@@ -56,7 +56,10 @@ static CONTEXT: LazyLock<DefaultIndexSearchCR> = LazyLock::new(|| {
 });
 
 impl TestBasics {
-  fn set_up(random: &mut impl Rng) -> Result<DefaultIndexSearchCR> {
+  fn set_up<R>(random: &mut R) -> Result<DefaultIndexSearchCR>
+  where
+    R: Rng,
+  {
     let dir = new_directory_shared(random)?;
     let a = MockAnalyzer::with_automaton(random, mock_tokenizer::SIMPLE.clone(), true);
     let mut iwc = new_index_writer_config_with_analyzer(random, a)?;
@@ -82,12 +85,15 @@ impl TestBasics {
     Ok(searcher)
   }
 
-  fn check_hits(
-    random: &mut impl Rng,
+  fn check_hits<R>(
+    random: &mut R,
     query: Query,
     searcher: &DefaultIndexSearchCR,
     results: &[i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    R: Rng,
+  {
     CheckHits::check_hits(random, query, "field", searcher, results)
   }
 }
@@ -131,7 +137,7 @@ fn test_term2() -> Result<()> {
 fn test_phrase() -> Result<()> {
   let mut random = random();
   let searcher = &*CONTEXT;
-  let query = PhraseQuery::from_terms_no_slop("field", &["seventy", "seven"])?;
+  let query = PhraseQuery::from_terms_no_slop("field", ["seventy", "seven"])?;
   TestBasics::check_hits(
     &mut random,
     query.into(),
@@ -147,7 +153,7 @@ fn test_phrase() -> Result<()> {
 fn test_phrase2() -> Result<()> {
   let mut random = random();
   let searcher = &*CONTEXT;
-  let query = PhraseQuery::from_terms_no_slop("field", &["seventish", "seven"])?;
+  let query = PhraseQuery::from_terms_no_slop("field", ["seventish", "seven"])?;
   TestBasics::check_hits(&mut random, query.into(), searcher, &[])
 }
 

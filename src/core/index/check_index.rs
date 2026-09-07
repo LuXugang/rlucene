@@ -552,14 +552,20 @@ where
 
   /// Sets the output stream where messages should go. If `out` is `None`, no
   /// messages are printed. If `verbose` is true, more details are printed.
-  pub fn set_info_stream_with_verbose(&mut self, out: impl Into<Option<W>>, verbose: bool) {
+  pub fn set_info_stream_with_verbose<T>(&mut self, out: T, verbose: bool)
+  where
+    T: Into<Option<W>>,
+  {
     self.info_stream = out.into();
     self.verbose = verbose;
   }
 
   /// Sets the output stream where messages should go without verbose output.
   /// See [`Self::set_info_stream_with_verbose`].
-  pub fn set_info_stream(&mut self, out: impl Into<Option<W>>) {
+  pub fn set_info_stream<T>(&mut self, out: T)
+  where
+    T: Into<Option<W>>,
+  {
     self.set_info_stream_with_verbose(out, false);
   }
 

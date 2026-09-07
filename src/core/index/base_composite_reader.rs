@@ -132,7 +132,10 @@ where
     })
   }
 
-  pub fn term_vector(&self, reader: &impl BaseCompositeReader) -> Result<BCRTermVectorsImpl<R>> {
+  pub fn term_vector<T>(&self, reader: &T) -> Result<BCRTermVectorsImpl<R>>
+  where
+    T: BaseCompositeReader,
+  {
     reader.ensure_open()?;
     Ok(TermVectorsImpl::new(
       self.sub_reader.clone(),
@@ -167,7 +170,10 @@ where
   pub fn max_doc(&self) -> i32 {
     self.max_doc
   }
-  pub fn stored_fields(&self, reader: &impl BaseCompositeReader) -> Result<BCRStoredFieldsImpl<R>> {
+  pub fn stored_fields<T>(&self, reader: &T) -> Result<BCRStoredFieldsImpl<R>>
+  where
+    T: BaseCompositeReader,
+  {
     reader.ensure_open()?;
     Ok(StoredFieldsImpl::new(
       self.sub_reader.clone(),
@@ -175,7 +181,10 @@ where
       self.max_doc,
     ))
   }
-  pub fn doc_freq(&self, term: &Term, reader: &impl BaseCompositeReader) -> Result<i32> {
+  pub fn doc_freq<T>(&self, term: &Term, reader: &T) -> Result<i32>
+  where
+    T: BaseCompositeReader,
+  {
     reader.ensure_open()?;
 
     let mut total: i32 = 0;
@@ -187,7 +196,10 @@ where
     }
     Ok(total)
   }
-  pub fn total_term_freq(&self, term: &Term, reader: &impl BaseCompositeReader) -> Result<i64> {
+  pub fn total_term_freq<T>(&self, term: &Term, reader: &T) -> Result<i64>
+  where
+    T: BaseCompositeReader,
+  {
     reader.ensure_open()?;
 
     let mut total: i64 = 0;
@@ -200,7 +212,10 @@ where
     Ok(total)
   }
 
-  pub fn get_sum_doc_freq(&self, field: &str, reader: &impl BaseCompositeReader) -> Result<i64> {
+  pub fn get_sum_doc_freq<T>(&self, field: &str, reader: &T) -> Result<i64>
+  where
+    T: BaseCompositeReader,
+  {
     reader.ensure_open()?;
 
     let mut total: i64 = 0;
@@ -213,7 +228,10 @@ where
     Ok(total)
   }
 
-  pub fn get_doc_count(&self, field: &str, reader: &impl BaseCompositeReader) -> Result<i32> {
+  pub fn get_doc_count<T>(&self, field: &str, reader: &T) -> Result<i32>
+  where
+    T: BaseCompositeReader,
+  {
     reader.ensure_open()?;
 
     let mut total: i32 = 0;
@@ -225,11 +243,10 @@ where
     }
     Ok(total)
   }
-  pub fn get_sum_total_term_freq(
-    &self,
-    field: &str,
-    reader: &impl BaseCompositeReader,
-  ) -> Result<i64> {
+  pub fn get_sum_total_term_freq<T>(&self, field: &str, reader: &T) -> Result<i64>
+  where
+    T: BaseCompositeReader,
+  {
     reader.ensure_open()?;
 
     let mut total: i64 = 0;
@@ -393,14 +410,15 @@ where
     Ok(())
   }
 
-  fn document_with_visitor<S>(
+  fn document_with_visitor<S, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     let i = reader_index(doc_id, self.max_doc, self.starts.as_ref())?;
 

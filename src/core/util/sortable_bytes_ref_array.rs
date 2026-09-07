@@ -28,5 +28,7 @@ pub trait SortableBytesRefArray<'a> {
   /// Sort all values by the provided comparator and return an iterator over
   /// the sorted values  */
   type Iter;
-  fn iterator(&'a self, comp: impl BytesRefComparator) -> Result<Self::Iter>;
+  fn iterator<C>(&'a self, comp: C) -> Result<Self::Iter>
+  where
+    C: BytesRefComparator;
 }

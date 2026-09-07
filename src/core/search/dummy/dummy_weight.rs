@@ -30,7 +30,10 @@ use std::sync::Arc;
 pub struct DummyWeight;
 
 impl DummyWeight {
-  pub fn new(_lr: impl LeafReader) -> Self {
+  pub fn new<T>(_lr: T) -> Self
+  where
+    T: LeafReader,
+  {
     Self
   }
 }

@@ -433,7 +433,10 @@ impl<T> CrashingFilter<T>
 where
   T: TokenStream,
 {
-  fn new(field_name: impl Into<String>, input: T) -> Self {
+  fn new<T2>(field_name: T2, input: T) -> Self
+  where
+    T2: Into<String>,
+  {
     Self {
       base: TokenFilterBase::new(input),
       field_name: field_name.into(),
@@ -2353,10 +2356,10 @@ fn test_add_docs_non_aborting_exception() -> Result<()> {
   writer.close(&mut random)?;
 
   let searcher = new_searcher(&mut random, reader)?;
-  let query = PhraseQuery::from_terms_no_slop("content", &["silly", "good"])?;
+  let query = PhraseQuery::from_terms_no_slop("content", ["silly", "good"])?;
   assert_eq!(0, searcher.count(query)?);
 
-  let query = PhraseQuery::from_terms_no_slop("content", &["good", "content"])?;
+  let query = PhraseQuery::from_terms_no_slop("content", ["good", "content"])?;
   assert_eq!(num_docs1 + num_docs2, searcher.count(query)?);
   searcher.get_index_reader().close()?;
   dir.as_ref().close()?;
@@ -2463,10 +2466,10 @@ fn test_update_docs_non_aborting_exception() -> Result<()> {
   writer.close(&mut random)?;
 
   let searcher = new_searcher(&mut random, reader)?;
-  let query = PhraseQuery::from_terms_no_slop("content", &["silly", "content"])?;
+  let query = PhraseQuery::from_terms_no_slop("content", ["silly", "content"])?;
   assert_eq!(num_docs2, searcher.count(query)?);
 
-  let query = PhraseQuery::from_terms_no_slop("content", &["good", "content"])?;
+  let query = PhraseQuery::from_terms_no_slop("content", ["good", "content"])?;
   assert_eq!(num_docs1 + num_docs3 + num_docs4, searcher.count(query)?);
   searcher.get_index_reader().close()?;
   dir.as_ref().close()?;

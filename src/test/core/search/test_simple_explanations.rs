@@ -510,7 +510,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    let phrase_query = PhraseQuery::from_terms_no_slop(FIELD, &["w1", "w2"])?;
+    let phrase_query = PhraseQuery::from_terms_no_slop(FIELD, ["w1", "w2"])?;
     self.q_test(random, &self.context().searcher, phrase_query, &[0])
   }
 
@@ -518,7 +518,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    let phrase_query = PhraseQuery::from_terms_no_slop(FIELD, &["w1", "w3"])?;
+    let phrase_query = PhraseQuery::from_terms_no_slop(FIELD, ["w1", "w3"])?;
     self.q_test(random, &self.context().searcher, phrase_query, &[1, 3])
   }
 
@@ -526,7 +526,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    let phrase_query = PhraseQuery::from_terms(1, FIELD, &["w1", "w2"])?;
+    let phrase_query = PhraseQuery::from_terms(1, FIELD, ["w1", "w2"])?;
     self.q_test(random, &self.context().searcher, phrase_query, &[0, 1, 2])
   }
 
@@ -534,7 +534,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    let phrase_query = PhraseQuery::from_terms(1, FIELD, &["w2", "w3"])?;
+    let phrase_query = PhraseQuery::from_terms(1, FIELD, ["w2", "w3"])?;
     self.q_test(
       random,
       &self.context().searcher,
@@ -547,7 +547,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    let phrase_query = PhraseQuery::from_terms(1, FIELD, &["w3", "w2"])?;
+    let phrase_query = PhraseQuery::from_terms(1, FIELD, ["w3", "w2"])?;
     self.q_test(random, &self.context().searcher, phrase_query, &[1, 3])
   }
 
@@ -555,7 +555,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    let phrase_query = PhraseQuery::from_terms(2, FIELD, &["w3", "w2"])?;
+    let phrase_query = PhraseQuery::from_terms(2, FIELD, ["w3", "w2"])?;
     self.q_test(random, &self.context().searcher, phrase_query, &[0, 1, 3])
   }
 
@@ -563,7 +563,7 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   where
     R: Rng + ?Sized,
   {
-    let phrase_query = PhraseQuery::from_terms(3, FIELD, &["w3", "w2"])?;
+    let phrase_query = PhraseQuery::from_terms(3, FIELD, ["w3", "w2"])?;
     self.q_test(
       random,
       &self.context().searcher,
@@ -1463,10 +1463,10 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   {
     let mut query = BooleanQueryBuilder::new();
 
-    let left_child = PhraseQuery::from_terms_no_slop(FIELD, &["w1", "w2"])?;
+    let left_child = PhraseQuery::from_terms_no_slop(FIELD, ["w1", "w2"])?;
     query.add(left_child, Occur::Should)?;
 
-    let right_child = PhraseQuery::from_terms_no_slop(ALTFIELD, &["w1", "w2"])?;
+    let right_child = PhraseQuery::from_terms_no_slop(ALTFIELD, ["w1", "w2"])?;
     query.add(right_child, Occur::Should)?;
 
     self.q_test(random, &self.context().searcher, query.build(), &[0])
@@ -1478,10 +1478,10 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   {
     let mut query = BooleanQueryBuilder::new();
 
-    let left_child = PhraseQuery::from_terms_no_slop(FIELD, &["w1", "w3"])?;
+    let left_child = PhraseQuery::from_terms_no_slop(FIELD, ["w1", "w3"])?;
     query.add(left_child, Occur::Should)?;
 
-    let right_child = PhraseQuery::from_terms_no_slop(ALTFIELD, &["w1", "w3"])?;
+    let right_child = PhraseQuery::from_terms_no_slop(ALTFIELD, ["w1", "w3"])?;
     query.add(right_child, Occur::Should)?;
 
     self.q_test(random, &self.context().searcher, query.build(), &[1, 3])
@@ -1493,10 +1493,10 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   {
     let mut query = BooleanQueryBuilder::new();
 
-    let left_child = PhraseQuery::from_terms(1, FIELD, &["w1", "w2"])?;
+    let left_child = PhraseQuery::from_terms(1, FIELD, ["w1", "w2"])?;
     query.add(left_child, Occur::Should)?;
 
-    let right_child = PhraseQuery::from_terms(1, ALTFIELD, &["w1", "w2"])?;
+    let right_child = PhraseQuery::from_terms(1, ALTFIELD, ["w1", "w2"])?;
     query.add(right_child, Occur::Should)?;
 
     self.q_test(random, &self.context().searcher, query.build(), &[0, 1, 2])
@@ -1508,10 +1508,10 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   {
     let mut query = BooleanQueryBuilder::new();
 
-    let left_child = PhraseQuery::from_terms(1, FIELD, &["w2", "w3"])?;
+    let left_child = PhraseQuery::from_terms(1, FIELD, ["w2", "w3"])?;
     query.add(left_child, Occur::Should)?;
 
-    let right_child = PhraseQuery::from_terms(1, ALTFIELD, &["w2", "w3"])?;
+    let right_child = PhraseQuery::from_terms(1, ALTFIELD, ["w2", "w3"])?;
     query.add(right_child, Occur::Should)?;
 
     self.q_test(
@@ -1528,10 +1528,10 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   {
     let mut query = BooleanQueryBuilder::new();
 
-    let left_child = PhraseQuery::from_terms(1, FIELD, &["w3", "w2"])?;
+    let left_child = PhraseQuery::from_terms(1, FIELD, ["w3", "w2"])?;
     query.add(left_child, Occur::Should)?;
 
-    let right_child = PhraseQuery::from_terms(1, ALTFIELD, &["w3", "w2"])?;
+    let right_child = PhraseQuery::from_terms(1, ALTFIELD, ["w3", "w2"])?;
     query.add(right_child, Occur::Should)?;
 
     self.q_test(random, &self.context().searcher, query.build(), &[1, 3])
@@ -1543,10 +1543,10 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   {
     let mut query = BooleanQueryBuilder::new();
 
-    let left_child = PhraseQuery::from_terms(2, FIELD, &["w3", "w2"])?;
+    let left_child = PhraseQuery::from_terms(2, FIELD, ["w3", "w2"])?;
     query.add(left_child, Occur::Should)?;
 
-    let right_child = PhraseQuery::from_terms(2, ALTFIELD, &["w3", "w2"])?;
+    let right_child = PhraseQuery::from_terms(2, ALTFIELD, ["w3", "w2"])?;
     query.add(right_child, Occur::Should)?;
 
     self.q_test(random, &self.context().searcher, query.build(), &[0, 1, 3])
@@ -1558,10 +1558,10 @@ pub(crate) trait SimpleExplanations: BaseExplanationTestCase {
   {
     let mut query = BooleanQueryBuilder::new();
 
-    let left_child = PhraseQuery::from_terms(3, FIELD, &["w3", "w2"])?;
+    let left_child = PhraseQuery::from_terms(3, FIELD, ["w3", "w2"])?;
     query.add(left_child, Occur::Should)?;
 
-    let right_child = PhraseQuery::from_terms(1, ALTFIELD, &["w3", "w2"])?;
+    let right_child = PhraseQuery::from_terms(1, ALTFIELD, ["w3", "w2"])?;
     query.add(right_child, Occur::Should)?;
 
     self.q_test(

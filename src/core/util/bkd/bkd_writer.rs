@@ -268,14 +268,15 @@ where
   /// faster than regular writes with `BKDWriter::add` since there is
   /// opportunity for reordering points before writing them to disk. This
   /// method does not use transient disk in order to reorder points.
-  pub fn write_field<M>(
+  pub fn write_field<M, IO>(
     &mut self,
-    data_out: &mut impl IndexOutput,
+    data_out: &mut IO,
     reader: &mut M,
     filename: &str,
   ) -> Result<Option<IORunnable>>
   where
     M: MutablePointTree,
+    IO: IndexOutput,
   {
     if self.config.num_dims == 1 {
       self.write_field_1dim(data_out, filename, reader)
@@ -343,13 +344,14 @@ where
   }
   /// In the 2+D case, we recursively pick the split dimension, compute the
   /// median value and partition other values around it.
-  pub fn write_field_n_dims<M>(
+  pub fn write_field_n_dims<M, IO>(
     &mut self,
-    data_out: &mut impl IndexOutput,
+    data_out: &mut IO,
     values: &mut M,
   ) -> Result<Option<IORunnable>>
   where
     M: MutablePointTree,
+    IO: IndexOutput,
   {
     if self.point_count != 0 {
       return Err(LuceneError::illegal_state("cannot mix add and write_field"));
@@ -456,15 +458,16 @@ where
   /// This does a merge sort of the already sorted values and currently only
   /// works when num_dims==1. This returns `None` if all documents
   /// containing dimensional values were deleted.
-  pub fn merge<S, DM>(
+  pub fn merge<S, DM, IO>(
     &mut self,
-    data_out: &mut impl IndexOutput,
+    data_out: &mut IO,
     doc_maps: Option<Vec<Rc<DM>>>,
     readers: Vec<S>,
   ) -> Result<Option<IORunnable>>
   where
     S: PointValues,
     DM: DocMap,
+    IO: IndexOutput,
   {
     let readers_len = readers.len();
     debug_assert!(match doc_maps {
@@ -547,7 +550,10 @@ where
   /// Writes the BKD tree to the provided [`IndexOutput`](crate::core::store::index_output::IndexOutput)s and returns an
   /// `IORunnable` that writes the index of the tree if at least one point
   /// has been added, or `None` otherwise.
-  pub fn finish(&mut self, data_out: &mut impl IndexOutput) -> Result<Option<IORunnable>> {
+  pub fn finish<IO>(&mut self, data_out: &mut IO) -> Result<Option<IORunnable>>
+  where
+    IO: IndexOutput,
+  {
     if self.finished {
       return Err(LuceneError::illegal_state("already finished"));
     }
@@ -904,13 +910,17 @@ where
     let packed_index = self.pack_index(&data.leaf_nodes)?;
     self.write_index_with_packed_index(meta_out, index_out, &packed_index, data)
   }
-  pub fn write_index_with_packed_index(
+  pub fn write_index_with_packed_index<IO, IO2>(
     &self,
-    meta_out: &mut impl IndexOutput,
-    index_out: Option<&mut impl IndexOutput>,
+    meta_out: &mut IO,
+    index_out: Option<&mut IO2>,
     packed_index: &[u8],
     data: &IORunnable,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    IO: IndexOutput,
+    IO2: IndexOutput,
+  {
     let packed_index_len = packed_index.len();
     CodecUtil::write_header(&mut *meta_out, CODEC_NAME, VERSION_CURRENT)?;
     meta_out.write_vint(self.config.num_dims as i32)?;
@@ -954,13 +964,16 @@ where
     }
     Ok(())
   }
-  fn write_leaf_block_docs(
+  fn write_leaf_block_docs<IO>(
     &mut self,
-    out: &mut impl IndexOutput,
+    out: &mut IO,
     doc_ids: &[i32],
     start: usize,
     count: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    IO: IndexOutput,
+  {
     debug_assert!(
       count > 0,
       "config.max_points_in_leaf_node()={}",
@@ -972,14 +985,18 @@ where
       .write_doc_ids(doc_ids, start, count, out)?;
     Ok(())
   }
-  fn write_leaf_block_packed_values(
+  fn write_leaf_block_packed_values<DO, T>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     count: usize,
     sorted_dim: usize,
-    packed_values: &mut impl PackedValues,
+    packed_values: &mut T,
     leaf_cardinality: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+    T: PackedValues,
+  {
     let prefix_len_sum: usize = self.common_prefix_lengths.iter().sum();
     if prefix_len_sum == self.config.packed_bytes_length() {
       // all values in this block are equal
@@ -1047,12 +1064,16 @@ where
     }
     Ok(())
   }
-  fn write_low_cardinality_leaf_block_packed_values(
+  fn write_low_cardinality_leaf_block_packed_values<DO, T>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     count: usize,
-    packed_values: &mut impl PackedValues,
-  ) -> Result<()> {
+    packed_values: &mut T,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+    T: PackedValues,
+  {
     if self.config.num_index_dims != 1 {
       self.write_actual_bounds(out, count, packed_values)?;
     }
@@ -1103,14 +1124,18 @@ where
 
     Ok(())
   }
-  fn write_high_cardinality_leaf_block_packed_values(
+  fn write_high_cardinality_leaf_block_packed_values<DO, T>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     count: usize,
     sorted_dim: usize,
-    packed_values: &mut impl PackedValues,
+    packed_values: &mut T,
     compressed_byte_offset: usize,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+    T: PackedValues,
+  {
     if self.config.num_index_dims != 1 {
       self.write_actual_bounds(out, count, packed_values)?;
     }
@@ -1141,12 +1166,16 @@ where
 
     Ok(())
   }
-  fn write_actual_bounds(
+  fn write_actual_bounds<DO, T>(
     &self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     count: usize,
-    packed_values: &mut impl PackedValues,
-  ) -> Result<()> {
+    packed_values: &mut T,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+    T: PackedValues,
+  {
     for dim in 0..self.config.num_index_dims {
       let common_prefix_length = self.common_prefix_lengths[dim];
       let suffix_length = self.config.bytes_per_dim - common_prefix_length;
@@ -1169,13 +1198,16 @@ where
   ///
   /// `offset..offset + length` interval of the given [`BytesRef`] values.
   #[allow(clippy::type_complexity)]
-  fn compute_min_max(
+  fn compute_min_max<T>(
     &self,
     count: usize,
-    packed_values: &mut impl PackedValues,
+    packed_values: &mut T,
     offset: usize,
     length: usize,
-  ) -> Result<(BytesRef<Vec<u8>>, BytesRef<Vec<u8>>)> {
+  ) -> Result<(BytesRef<Vec<u8>>, BytesRef<Vec<u8>>)>
+  where
+    T: PackedValues,
+  {
     debug_assert!(length > 0);
     let (bytes_ref, first_offset, _first_length) = packed_values.get_value(0)?;
     let mut min: BytesRefBuilder<Vec<u8>> = BytesRefBuilder::new();
@@ -1212,13 +1244,17 @@ where
     }
     Ok((min.get_bytes_owner(), max.get_bytes_owner()))
   }
-  fn write_leaf_block_packed_values_range(
+  fn write_leaf_block_packed_values_range<DO, T>(
     &self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     start: usize,
     end: usize,
-    packed_values: &mut impl PackedValues,
-  ) -> Result<()> {
+    packed_values: &mut T,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+    T: PackedValues,
+  {
     for i in start..end {
       let (bytes_ref, offset, length) = packed_values.get_value(i)?;
       debug_assert!(length == self.config.packed_bytes_length());
@@ -1235,12 +1271,15 @@ where
     Ok(())
   }
 
-  fn run_len(
-    packed_values: &mut impl PackedValues,
+  fn run_len<T>(
+    packed_values: &mut T,
     start: usize,
     end: usize,
     byte_offset: usize,
-  ) -> Result<usize> {
+  ) -> Result<usize>
+  where
+    T: PackedValues,
+  {
     let (bytes_ref, offset, _) = packed_values.get_value(start)?;
     let b = bytes_ref[offset + byte_offset];
     for i in (start + 1)..end {
@@ -1253,12 +1292,15 @@ where
     }
     Ok(end - start)
   }
-  fn write_common_prefixes(
+  fn write_common_prefixes<DO>(
     &self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     common_prefixes: &[usize],
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     for (dim, &prefix) in common_prefixes
       .iter()
       .enumerate()
@@ -1417,14 +1459,14 @@ where
   /// fly; this method is used when we are writing a new segment directly
   /// from IndexWriter's indexing buffer (MutablePointsReader).
   #[allow(clippy::too_many_arguments)]
-  fn build_with_reader<M>(
+  fn build_with_reader<M, IO>(
     &mut self,
     leaves_offset: usize,
     num_leaves: usize,
     reader: &mut M,
     from: usize,
     to: usize,
-    out: &mut impl IndexOutput,
+    out: &mut IO,
     mut min_packed_value: Vec<u8>,
     mut max_packed_value: Vec<u8>,
     parent_splits: &mut [i32],
@@ -1435,6 +1477,7 @@ where
   ) -> Result<()>
   where
     M: MutablePointTree,
+    IO: IndexOutput,
   {
     if num_leaves == 1 {
       // leaf node
@@ -1755,12 +1798,12 @@ where
   /// radix selection. /* This method is used when we are merging
   /// previously written segments, in the numDims > 1 case.
   #[allow(clippy::too_many_arguments)]
-  fn build(
+  fn build<IO>(
     &mut self,
     leaves_offset: usize,
     num_leaves: usize,
     points: &mut PathSlice<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>,
-    out: &mut impl IndexOutput,
+    out: &mut IO,
     radix_selector: &mut BKDRadixSelector,
     min_packed_value: &mut [u8],
     max_packed_value: &mut [u8],
@@ -1769,7 +1812,10 @@ where
     split_dimension_values: &mut [u8],
     leaf_block_fps: &mut [usize],
     spare_doc_ids: &mut [i32],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    IO: IndexOutput,
+  {
     if num_leaves == 1 {
       let is_heap = { matches!(&points.writer, PointWriterEnum::Heap(_)) };
       let heap_source = if is_heap {
@@ -2295,16 +2341,19 @@ where
 }
 // only called from assert
 #[allow(clippy::too_many_arguments)]
-fn values_in_order_and_bounds(
+fn values_in_order_and_bounds<T>(
   config: BKDConfig,
   count: usize,
   sorted_dim: usize,
   min_packed_value: &[u8],
   max_packed_value: &[u8],
-  values: &mut impl PackedValues,
+  values: &mut T,
   docs: &[i32],
   docs_offset: usize,
-) -> Result<bool> {
+) -> Result<bool>
+where
+  T: PackedValues,
+{
   let mut last_packed_value = vec![0u8; config.packed_bytes_length()];
   let mut last_doc = -1;
   for i in 0..count {

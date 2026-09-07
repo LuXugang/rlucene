@@ -81,14 +81,18 @@ impl OrdToDocDISIReaderConfiguration {
   /// # Errors
   ///
   /// Returns an error when writing data fails to either output.
-  pub fn write_stored_meta(
+  pub fn write_stored_meta<IO, IO2>(
     direct_monotonic_block_shift: i32,
-    output_meta: &mut impl IndexOutput,
-    vector_data: &mut impl IndexOutput,
+    output_meta: &mut IO,
+    vector_data: &mut IO2,
     count: i32,
     max_doc: i32,
     docs_with_field: &DocsWithFieldSet,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    IO: IndexOutput,
+    IO2: IndexOutput,
+  {
     if count == 0 {
       output_meta.write_long(-2)?; // docsWithFieldOffset
       output_meta.write_long(0)?; // docsWithFieldLength
@@ -156,7 +160,10 @@ impl OrdToDocDISIReaderConfiguration {
   /// # Errors
   ///
   /// Returns an error when reading data fails
-  pub fn from_stored_meta(input_meta: &mut impl IndexInput, size: i32) -> Result<Self> {
+  pub fn from_stored_meta<II>(input_meta: &mut II, size: i32) -> Result<Self>
+  where
+    II: IndexInput,
+  {
     let docs_with_field_offset = input_meta.read_long()?;
     let docs_with_field_length = input_meta.read_long()?.try_convert()?;
     let jump_table_entry_count = input_meta.read_short()?;

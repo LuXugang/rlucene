@@ -100,7 +100,10 @@ impl Outputs for IntSequenceOutputs {
     IntsRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
   }
 
-  fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
+  fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     out.write_vint(output.length as i32)?;
     for i in 0..output.length {
       out.write_vint(output.ints[output.offset + i])?;
@@ -108,7 +111,10 @@ impl Outputs for IntSequenceOutputs {
     Ok(())
   }
 
-  fn read(&self, input: &mut impl DataInput) -> Result<Self::V> {
+  fn read<DI>(&self, input: &mut DI) -> Result<Self::V>
+  where
+    DI: DataInput,
+  {
     let len = input.read_vint()?;
     if len == 0 {
       Ok(self.get_no_output())
@@ -121,7 +127,10 @@ impl Outputs for IntSequenceOutputs {
     }
   }
 
-  fn skip_output(&self, input: &mut impl DataInput) -> Result<()> {
+  fn skip_output<DI>(&self, input: &mut DI) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let len = input.read_vint()?;
     if len == 0 {
       return Ok(());

@@ -98,22 +98,23 @@ impl<S> PostingsWriterBase for PushPostingsWriterBase<S>
 where
   S: PushPostingsWriterBaseAbstract + PostingsWriterBase,
 {
-  fn init<D1, D2>(
+  fn init<D1, D2, IO>(
     &mut self,
-    terms_out: &mut impl IndexOutput,
+    terms_out: &mut IO,
     state: &SegmentWriteState<D1>,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
     D1: Directory,
+    IO: IndexOutput,
   {
     self.sub.init(terms_out, state, segment_info)
   }
 
-  fn write_term<N, PE>(
+  fn write_term<N, PE, T>(
     &mut self,
     _term: &BytesRef<Vec<u8>>,
-    terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
+    terms_enum: &mut T,
     docs_seen: &mut FixedBitSet,
     norms: Option<&N>,
     postings_enum: Option<PE>,
@@ -121,6 +122,7 @@ where
   where
     N: NormsProducer,
     PE: PostingsEnum,
+    T: TermsEnum<PostingsEnum = PE>,
   {
     let field_info = self
       .field_info
@@ -199,13 +201,16 @@ where
     Ok((Some(postings_enum), Some(upper)))
   }
 
-  fn encode_term(
+  fn encode_term<DO>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     field_info: &FieldInfo,
     state: Cow<TermStateEnum>,
     absolute: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     self
       .sub
       .encode_term_with_option(out, field_info, state, absolute, &self.options)
@@ -282,12 +287,14 @@ pub trait PushPostingsWriterBaseAbstract {
 
   /// Called when we are done adding positions and payloads for each doc.
   fn finish_doc(&mut self) -> Result<()>;
-  fn encode_term_with_option(
+  fn encode_term_with_option<DO>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     field_info: &FieldInfo,
     state: Cow<TermStateEnum>,
     absolute: bool,
     options: &FieldWriteOptions,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    DO: DataOutput;
 }

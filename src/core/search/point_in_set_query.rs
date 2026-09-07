@@ -626,7 +626,10 @@ impl IntersectVisitor for MergePointVisitor {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.add_disi(iterator)?;
     Ok(())
   }
@@ -638,11 +641,14 @@ impl IntersectVisitor for MergePointVisitor {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self.matches(packed_value)? {
       self.result.add_disi(iterator)?;
     }
@@ -722,7 +728,10 @@ impl IntersectVisitor for SinglePointVisitor {
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.add_disi(iterator)?;
     Ok(())
   }
@@ -735,11 +744,14 @@ impl IntersectVisitor for SinglePointVisitor {
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     debug_assert!(packed_value.len() == self.point_bytes.len());
     if packed_value == self.point_bytes {
       self.result.add_disi(iterator)?;

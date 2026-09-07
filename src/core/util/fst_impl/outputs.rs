@@ -41,34 +41,50 @@ pub trait Outputs: Display + Clone + Default {
   fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V;
 
   /// Encode an output value into a `Write` stream.
-  fn write(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()>;
+  fn write<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput;
 
   /// Encode a final node output value into a `Write` stream.
   /// By default this just calls [`Self::write`].
-  fn write_final_output(&self, output: &Self::V, out: &mut impl DataOutput) -> Result<()> {
+  fn write_final_output<DO>(&self, output: &Self::V, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     self.write(output, out)
   }
 
   /// Decode an output value previously written with [`Self::write`].
-  fn read(&self, input: &mut impl DataInput) -> Result<Self::V>;
+  fn read<DI>(&self, input: &mut DI) -> Result<Self::V>
+  where
+    DI: DataInput;
 
   /// Skip the output; defaults to just calling [`Self::read`] and discarding the
   /// result.
-  fn skip_output(&self, input: &mut impl DataInput) -> Result<()> {
+  fn skip_output<DI>(&self, input: &mut DI) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let _ = self.read(input)?;
     Ok(())
   }
 
   /// Decode an output value previously written with [`Self::write_final_output`].
   /// By default this just calls [`Self::read`].
-  fn read_final_output(&self, input: &mut impl DataInput) -> Result<Self::V> {
+  fn read_final_output<DI>(&self, input: &mut DI) -> Result<Self::V>
+  where
+    DI: DataInput,
+  {
     self.read(input)
   }
 
   /// Skip the output previously written with [`Self::write_final_output`];
   /// defaults to just calling [`Self::read_final_output`] and discarding the
   /// result.
-  fn skip_final_output(&self, input: &mut impl DataInput) -> Result<()> {
+  fn skip_final_output<DI>(&self, input: &mut DI) -> Result<()>
+  where
+    DI: DataInput,
+  {
     self.skip_output(input)?;
     Ok(())
   }

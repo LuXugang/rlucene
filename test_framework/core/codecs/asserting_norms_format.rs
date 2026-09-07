@@ -103,11 +103,10 @@ impl<NC> NormsConsumer for AssertingNormsConsumer<NC>
 where
   NC: NormsConsumer,
 {
-  fn add_norms_field(
-    &mut self,
-    field: &Arc<FieldInfo>,
-    values_producer: &mut impl NormsProducer,
-  ) -> Result<()> {
+  fn add_norms_field<T>(&mut self, field: &Arc<FieldInfo>, values_producer: &mut T) -> Result<()>
+  where
+    T: NormsProducer,
+  {
     let mut values = values_producer.get_norms(field)?;
 
     let mut last_doc_id = -1;

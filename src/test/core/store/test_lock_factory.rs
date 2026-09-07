@@ -164,11 +164,15 @@ impl LockFactory for MockLockFactory {
   }
 }
 
-fn add_doc(
-  writer: &IndexWriter<impl crate::core::store::directory::Directory + 'static>,
-  random: &mut impl rand::Rng,
+fn add_doc<D, R>(
+  writer: &IndexWriter<D>,
+  random: &mut R,
   field_to_type: &mut HashMap<String, crate::core::document::field_type::FieldType>,
-) -> Result<()> {
+) -> Result<()>
+where
+  D: crate::core::store::directory::Directory + 'static,
+  R: rand::Rng,
+{
   let mut doc = Document::new();
   doc.add(new_text_field(
     random,

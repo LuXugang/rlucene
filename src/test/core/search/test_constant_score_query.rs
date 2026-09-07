@@ -210,7 +210,7 @@ fn test_propagates_approximations() -> Result<()> {
   let mut searcher = new_searcher_with_reader(reader)?;
   searcher.set_query_cache(None); // to still have approximations
 
-  let pq: Query = PhraseQuery::from_terms(0, "field", &["a", "b"])?.into();
+  let pq: Query = PhraseQuery::from_terms(0, "field", ["a", "b"])?.into();
   let csq: Query = ConstantScoreQuery::new(pq).into();
 
   let rewritten = searcher.rewrite(csq)?;

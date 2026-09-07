@@ -1198,9 +1198,10 @@ where
 
   result
 }
-fn assert_size<R>(tree: &mut impl PointTree, random: &mut R) -> Result<()>
+fn assert_size<R, T>(tree: &mut T, random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
+  T: PointTree,
 {
   // TODO:do we need clone?
   // let mut clone = tree.clone();
@@ -1260,9 +1261,10 @@ impl IntersectVisitor for IntersectVisitorMock1<'_> {
     Ok(Relation::CellCrossesQuery)
   }
 }
-fn random_point_tree_navigation<R>(tree: &mut impl PointTree, random: &mut R) -> Result<()>
+fn random_point_tree_navigation<R, T>(tree: &mut T, random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
+  T: PointTree,
 {
   let min_packed_value = tree.get_min_packed_value()?.as_ref().to_vec();
   let max_packed_value = tree.get_max_packed_value()?.as_ref().to_vec();
@@ -1365,11 +1367,14 @@ where
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self.random.random_bool(0.5) {
       // Check the default method is correct
       IntersectVisitor::default_visit_iterator_with_packed_value_(self, iterator, packed_value)?;

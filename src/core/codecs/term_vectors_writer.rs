@@ -124,12 +124,16 @@ pub trait TermVectorsWriter: Accountable + Closeable {
   /// the positions, then all the offsets, for example.
   ///
   /// NOTE: This API is extremely expert and subject to change or removal!!!
-  fn add_prox(
+  fn add_prox<DI, DI2>(
     &mut self,
     num_prox: usize,
-    positions: Option<&mut impl DataInput>,
-    offsets: Option<&mut impl DataInput>,
-  ) -> Result<()> {
+    positions: Option<&mut DI>,
+    offsets: Option<&mut DI2>,
+  ) -> Result<()>
+  where
+    DI: DataInput,
+    DI2: DataInput,
+  {
     TermVectorsWriterDefaults::add_prox(self, num_prox, positions, offsets)
   }
   /// Merges in the term vectors from the readers in `merge_state`. The default
@@ -272,14 +276,16 @@ pub trait TermVectorsWriter: Accountable + Closeable {
 pub struct TermVectorsWriterDefaults;
 
 impl TermVectorsWriterDefaults {
-  pub fn add_prox<W>(
+  pub fn add_prox<W, DI, DI2>(
     writer: &mut W,
     num_prox: usize,
-    mut positions: Option<&mut impl DataInput>,
-    mut offsets: Option<&mut impl DataInput>,
+    mut positions: Option<&mut DI>,
+    mut offsets: Option<&mut DI2>,
   ) -> Result<()>
   where
     W: TermVectorsWriter + ?Sized,
+    DI: DataInput,
+    DI2: DataInput,
   {
     let mut position = 0;
     let mut last_offset = 0;
@@ -466,12 +472,16 @@ where
     }
   }
 
-  fn add_prox(
+  fn add_prox<DI, DI2>(
     &mut self,
     num_prox: usize,
-    positions: Option<&mut impl DataInput>,
-    offsets: Option<&mut impl DataInput>,
-  ) -> Result<()> {
+    positions: Option<&mut DI>,
+    offsets: Option<&mut DI2>,
+  ) -> Result<()>
+  where
+    DI: DataInput,
+    DI2: DataInput,
+  {
     match self {
       Self::A(inner) => inner.add_prox(num_prox, positions, offsets),
       Self::B(inner) => inner.add_prox(num_prox, positions, offsets),

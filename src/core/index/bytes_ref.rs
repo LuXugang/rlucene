@@ -253,11 +253,47 @@ where
 }
 impl From<String> for BytesRef<Vec<u8>> {
   fn from(value: String) -> Self {
-    BytesRef::from_string(value.as_ref())
+    BytesRef::from_bytes(value.into_bytes())
   }
 }
 impl From<&str> for BytesRef<Vec<u8>> {
   fn from(value: &str) -> Self {
     BytesRef::from_string(value)
+  }
+}
+
+impl From<&String> for BytesRef<Vec<u8>> {
+  fn from(value: &String) -> Self {
+    BytesRef::from_string(value)
+  }
+}
+
+impl From<Vec<u8>> for BytesRef<Vec<u8>> {
+  fn from(value: Vec<u8>) -> Self {
+    BytesRef::from_bytes(value)
+  }
+}
+
+impl From<&[u8]> for BytesRef<Vec<u8>> {
+  fn from(value: &[u8]) -> Self {
+    BytesRef::from_bytes(value.to_vec())
+  }
+}
+
+impl From<&Vec<u8>> for BytesRef<Vec<u8>> {
+  fn from(value: &Vec<u8>) -> Self {
+    BytesRef::from(value.as_slice())
+  }
+}
+
+impl<const N: usize> From<[u8; N]> for BytesRef<Vec<u8>> {
+  fn from(value: [u8; N]) -> Self {
+    BytesRef::from_bytes(Vec::from(value))
+  }
+}
+
+impl<const N: usize> From<&[u8; N]> for BytesRef<Vec<u8>> {
+  fn from(value: &[u8; N]) -> Self {
+    BytesRef::from(value.as_slice())
   }
 }

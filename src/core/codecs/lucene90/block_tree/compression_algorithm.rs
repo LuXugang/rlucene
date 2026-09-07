@@ -47,7 +47,10 @@ impl CompressionAlgorithm {
     }
   }
 
-  pub fn read(&self, input: &mut impl DataInput, out: &mut [u8], len: i32) -> Result<()> {
+  pub fn read<DI>(&self, input: &mut DI, out: &mut [u8], len: i32) -> Result<()>
+  where
+    DI: DataInput,
+  {
     match self {
       CompressionAlgorithm::NoCompression => {
         input.read_bytes(out, 0, len as usize)?;

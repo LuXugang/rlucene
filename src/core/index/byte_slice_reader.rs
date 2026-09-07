@@ -83,7 +83,10 @@ where
   }
 
   #[allow(dead_code)]
-  pub(crate) fn write(&mut self, out: &mut impl DataOutput) -> Result<i64> {
+  pub(crate) fn write<DO>(&mut self, out: &mut DO) -> Result<i64>
+  where
+    DO: DataOutput,
+  {
     let mut size = 0;
     loop {
       if self.limit + self.buffer_offset == self.end_index {

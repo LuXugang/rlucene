@@ -929,7 +929,7 @@ pub trait BaseKnnVectorQueryTestCase {
       let index = random.random_range(0..num_docs);
       to_delete.insert(index.to_string());
     }
-    let delete_terms = to_delete
+    let delete_terms: Vec<Term> = to_delete
       .iter()
       .map(|index| Term::from_text("index", index.as_str()))
       .collect();
@@ -1302,14 +1302,15 @@ pub trait BaseKnnVectorQueryTestCase {
     Ok(index_store)
   }
 
-  fn assert_matches<IRC>(
+  fn assert_matches<IRC, T>(
     &self,
     searcher: &IndexSearcher<IRC>,
-    q: impl Into<Query>,
+    q: T,
     expected_matches: usize,
   ) -> Result<()>
   where
     IRC: crate::core::index::index_reader_context::IndexReaderContext + Sync,
+    T: Into<Query>,
   {
     let result = searcher.search(q, 1000)?.score_docs;
     assert_eq!(expected_matches, result.len());

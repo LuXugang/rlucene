@@ -75,13 +75,15 @@ impl Sort {
   /// internal Lucene doc ID is used to break it.
   ///
   /// # Arguments
-  /// - `fields`: A vector of [`SortField`] to define the sorting order.
+  /// - `fields`: Sort criteria in priority order, from an array, vector or iterator.
+  ///   Use [`sort_fields!`](crate::sort_fields) to combine different sort field types.
   ///
   /// # Errors
-  /// Returns an error if the provided `fields` vector is empty.
-  pub fn with_fields<T>(fields: Vec<T>) -> Result<Self>
+  /// Returns an error if the provided collection is empty.
+  pub fn with_fields<T, I>(fields: I) -> Result<Self>
   where
     T: Into<SortFieldEnum>,
+    I: IntoIterator<Item = T>,
   {
     let fields: Vec<SortFieldEnum> = fields.into_iter().map(Into::into).collect();
     if fields.is_empty() {

@@ -1436,19 +1436,28 @@ impl AssertingCodec {
     Self::with_hook(AssertingCodecHook::default())
   }
 
-  pub(crate) fn with_postings_format(format: impl Into<AssertingCodecPostingsFormat>) -> Self {
+  pub(crate) fn with_postings_format<T>(format: T) -> Self
+  where
+    T: Into<AssertingCodecPostingsFormat>,
+  {
     Self::with_hook(AssertingCodecHook::AlwaysPostingsFormat(
       AlwaysPostingsFormatAssertingCodec::new(format.into()),
     ))
   }
 
-  pub(crate) fn with_doc_values_format(format: impl Into<AssertingCodecDocValuesFormat>) -> Self {
+  pub(crate) fn with_doc_values_format<T>(format: T) -> Self
+  where
+    T: Into<AssertingCodecDocValuesFormat>,
+  {
     Self::with_hook(AssertingCodecHook::AlwaysDocValuesFormat(
       AlwaysDocValuesFormatAssertingCodec::new(format.into()),
     ))
   }
 
-  pub(crate) fn with_knn_vectors_format(format: impl Into<AssertingCodecKnnVectorsFormat>) -> Self {
+  pub(crate) fn with_knn_vectors_format<T>(format: T) -> Self
+  where
+    T: Into<AssertingCodecKnnVectorsFormat>,
+  {
     Self::with_hook(AssertingCodecHook::AlwaysKnnVectorsFormat(
       AlwaysKnnVectorsFormatAssertingCodec::new(format.into()),
     ))

@@ -62,7 +62,10 @@ where
     Ok(ReverseRandomAccessReader::new(slice))
   }
 
-  fn write_to(&self, _out: &mut impl DataOutput) -> Result<()> {
+  fn write_to<DO>(&self, _out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     Err(LuceneError::unsupported_operation(
       "write_to is not supported for OffHeapFSTStore",
     ))

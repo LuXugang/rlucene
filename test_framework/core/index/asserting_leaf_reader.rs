@@ -171,14 +171,15 @@ where
     self.in_.prefetch(doc_id)
   }
 
-  fn document_with_visitor<W>(
+  fn document_with_visitor<W, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut W>,
   ) -> Result<()>
   where
     W: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     assert_thread("StoredFields", self.creation_thread);
     self.in_.document_with_visitor(doc_id, visitor, writer)
@@ -308,7 +309,10 @@ where
     }
   }
 
-  pub(crate) fn with_inner<R>(&self, f: impl FnOnce(&T) -> R) -> R {
+  pub(crate) fn with_inner<R, F>(&self, f: F) -> R
+  where
+    F: FnOnce(&T) -> R,
+  {
     f(&self.in_)
   }
 }

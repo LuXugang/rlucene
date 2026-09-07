@@ -122,11 +122,10 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
   /// Skips entries to the first beyond the current whose document number is
   /// greater than or equal to `target`.  
   /// Returns the current doc count.
-  pub fn skip_to(
-    &mut self,
-    target: i32,
-    base: &mut impl MultiLevelSkipListReaderBase,
-  ) -> Result<i32> {
+  pub fn skip_to<T>(&mut self, target: i32, base: &mut T) -> Result<i32>
+  where
+    T: MultiLevelSkipListReaderBase,
+  {
     // walk up the levels until highest level is found that has a skip
     // for this target
     let mut level = 0;
@@ -154,11 +153,10 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
     }
     Ok(self.num_skipped[0] - self.skip_interval[0] - 1)
   }
-  fn load_next_skip(
-    &mut self,
-    level: usize,
-    base: &mut impl MultiLevelSkipListReaderBase,
-  ) -> Result<bool> {
+  fn load_next_skip<T>(&mut self, level: usize, base: &mut T) -> Result<bool>
+  where
+    T: MultiLevelSkipListReaderBase,
+  {
     // we have to skip, the target document is greater than the current
     // skip list entry
     self.set_last_skip_data(level);
@@ -254,7 +252,10 @@ impl<I: IndexInput> MultiLevelSkipListReader<I> {
   ///
   /// Returns:
   /// - level length
-  fn read_level_length(&mut self, skip_stream: &mut impl IndexInput) -> Result<i64> {
+  fn read_level_length<II>(&mut self, skip_stream: &mut II) -> Result<i64>
+  where
+    II: IndexInput,
+  {
     skip_stream.read_vlong()
   }
 
@@ -316,5 +317,7 @@ pub trait MultiLevelSkipListReaderBase {
   /// Parameters:
   /// - `level`: the level skip data shall be read from
   /// - `skipStream`: the skip stream to read from
-  fn read_skip_data(&mut self, level: usize, skip_stream: &mut impl IndexInput) -> Result<i32>;
+  fn read_skip_data<II>(&mut self, level: usize, skip_stream: &mut II) -> Result<i32>
+  where
+    II: IndexInput;
 }

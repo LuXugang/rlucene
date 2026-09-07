@@ -1139,15 +1139,16 @@ where
   Ok(value)
 }
 /// Creates a file of the specified size with random data.
-pub(crate) fn create_random_file<R>(
+pub(crate) fn create_random_file<R, D>(
   random: &mut R,
-  dir: &impl Directory,
+  dir: &D,
   name: &str,
   size: i32,
   seg_id: &[u8; StringHelper::ID_LENGTH],
 ) -> Result<()>
 where
   R: Rng + ?Sized,
+  D: Directory,
 {
   let mut os = dir.create_output(name, &new_io_context(random)?)?;
   CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, "suffix")?;
@@ -1163,9 +1164,9 @@ where
 /// Creates a file of the specified size with sequential data. The first byte is
 /// written as the start byte provided. All subsequent bytes are computed as
 /// start + offset where offset is the number of the byte.
-fn create_sequence_file<R>(
+fn create_sequence_file<R, D>(
   random: &mut R,
-  dir: &impl Directory,
+  dir: &D,
   name: &str,
   mut start: u8,
   size: i32,
@@ -1174,6 +1175,7 @@ fn create_sequence_file<R>(
 ) -> Result<()>
 where
   R: Rng + ?Sized,
+  D: Directory,
 {
   let mut os = dir.create_output(name, &new_io_context(random)?)?;
   CodecUtil::write_index_header(&mut os, "Foo", 0, seg_id, seg_suffix)?;
@@ -1186,11 +1188,11 @@ where
   Ok(())
 }
 
-fn assert_same_streams(
-  msg: &str,
-  expected: &mut impl IndexInput,
-  test: &mut impl IndexInput,
-) -> Result<()> {
+fn assert_same_streams<II, II2>(msg: &str, expected: &mut II, test: &mut II2) -> Result<()>
+where
+  II: IndexInput,
+  II2: IndexInput,
+{
   assert_eq!(expected.length()?, test.length()?, "{} length", msg);
   assert_eq!(
     expected.get_file_pointer()?,
@@ -1213,12 +1215,16 @@ fn assert_same_streams(
   }
   Ok(())
 }
-fn assert_same_streams_seek_with_seek(
+fn assert_same_streams_seek_with_seek<II, II2>(
   msg: &str,
-  expected: &mut impl IndexInput,
-  actual: &mut impl IndexInput,
+  expected: &mut II,
+  actual: &mut II2,
   seek_to: usize,
-) -> Result<()> {
+) -> Result<()>
+where
+  II: IndexInput,
+  II2: IndexInput,
+{
   if seek_to < expected.length()? {
     expected.seek(seek_to)?;
     actual.seek(seek_to)?;
@@ -1227,11 +1233,11 @@ fn assert_same_streams_seek_with_seek(
   Ok(())
 }
 
-fn assert_same_seek_behavior(
-  msg: &str,
-  expected: &mut impl IndexInput,
-  actual: &mut impl IndexInput,
-) -> Result<()> {
+fn assert_same_seek_behavior<II, II2>(msg: &str, expected: &mut II, actual: &mut II2) -> Result<()>
+where
+  II: IndexInput,
+  II2: IndexInput,
+{
   // Seek to 0
   let point = 0;
   assert_same_streams_seek_with_seek(msg, expected, actual, point)?;

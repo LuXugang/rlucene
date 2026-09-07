@@ -94,8 +94,8 @@ where
   /// Initialize the deleter: find all previous commits in the Directory, incref the files they reference, call the policy to let it delete commits.
   /// This will remove any files not referenced by any of the commits.
   #[allow(clippy::too_many_arguments)]
-  pub fn new<P>(
-    files: impl IntoIterator<Item = String>,
+  pub fn new<P, I>(
+    files: I,
     directory_orig: Arc<D>,
     directory: Arc<IndexWriterDir<D>>,
     policy: &P,
@@ -106,6 +106,7 @@ where
   ) -> Result<Self>
   where
     P: IndexDeletionPolicy<Arc<CommitPoint<D>>>,
+    I: IntoIterator<Item = String>,
   {
     // init fields
     let commits = Vec::new();
@@ -536,10 +537,10 @@ where
     self.file_deleter.exists(file_name)
   }
   /// Deletes the specified files, but only if they are new (have not yet been incref'd)
-  pub(crate) fn delete_new_files<'a>(
-    &self,
-    files: impl IntoIterator<Item = &'a String>,
-  ) -> Result<()> {
+  pub(crate) fn delete_new_files<'a, I>(&self, files: I) -> Result<()>
+  where
+    I: IntoIterator<Item = &'a String>,
+  {
     self.file_deleter.delete_files_if_no_ref(files)
   }
 }

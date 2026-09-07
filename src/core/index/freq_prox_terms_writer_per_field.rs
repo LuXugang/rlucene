@@ -100,15 +100,18 @@ impl FreqProxTermsWriterPerField {
       base,
     })
   }
-  pub(crate) fn write_prox(
+  pub(crate) fn write_prox<AS>(
     &mut self,
     term_id: usize,
     prox_code: i32,
     field_state: &FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     if let Some(payload) = attribute_source.get_payload()? {
       if payload.length > 0 {
         self
@@ -156,14 +159,17 @@ impl FreqProxTermsWriterPerField {
 
     Ok(())
   }
-  pub(crate) fn write_offsets(
+  pub(crate) fn write_offsets<AS>(
     &mut self,
     term_id: usize,
     offset_accum: i32,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     let start = attribute_source.start_offset()?;
     let end = attribute_source.end_offset()?;
 
@@ -205,7 +211,10 @@ impl FreqProxTermsWriterPerField {
 
     Ok(())
   }
-  fn get_term_freq(&self, attribute_source: &impl AttributeSource) -> Result<i32> {
+  fn get_term_freq<AS>(&self, attribute_source: &AS) -> Result<i32>
+  where
+    AS: AttributeSource,
+  {
     let freq = attribute_source.get_term_frequency().unwrap_or(1);
 
     if freq != 1 && self.has_prox {
@@ -243,14 +252,17 @@ impl FreqProxTermsWriterPerField {
   }
   /// Called once per inverted token. This is the primary entry point (for
   /// first TermsHash); postings use this API.
-  pub(crate) fn add_with_bytes_ref(
+  pub(crate) fn add_with_bytes_ref<AS>(
     &mut self,
     term_bytes: Option<&BytesRef<Vec<u8>>>,
     doc_id: i32,
     field_state: &mut FieldInvertState,
-    attribute_source: &mut impl AttributeSource,
+    attribute_source: &mut AS,
     context: &mut IndexContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     debug_assert!(self.base.assert_doc_id(doc_id));
     // We are first in the chain so we must "intern" the
     // term text into textStart address
@@ -313,15 +325,18 @@ impl FreqProxTermsWriterPerField {
     Ok(())
   }
   #[cfg(test)]
-  pub(crate) fn add_with_bytes_ref_with_test(
+  pub(crate) fn add_with_bytes_ref_with_test<AS>(
     &mut self,
     term_bytes: &BytesRef<Vec<u8>>,
     doc_id: i32,
     sub: &mut TermsHashPerFieldMock,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     debug_assert!(self.base.assert_doc_id(doc_id));
     // We are first in the chain so we must "intern" the
     // term text into textStart address
@@ -371,15 +386,18 @@ impl FreqProxTermsWriterPerField {
   }
 }
 impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
-  fn new_term(
+  fn new_term<AS>(
     &mut self,
     term_id: i32,
     doc_id: i32,
     field_state: &mut FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     let term_id = term_id as usize;
     // First time we're seeing this term since the last
     // flush
@@ -440,15 +458,18 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
     Ok(())
   }
 
-  fn add_term(
+  fn add_term<AS>(
     &mut self,
     term_id: i32,
     doc_id: i32,
     field_state: &mut FieldInvertState,
-    attribute_source: &impl AttributeSource,
+    attribute_source: &AS,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    AS: AttributeSource,
+  {
     let term_id = term_id as usize;
 
     let tf = self.get_term_freq(attribute_source)?;

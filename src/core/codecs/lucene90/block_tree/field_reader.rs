@@ -164,7 +164,10 @@ where
     Ok(())
   }
 
-  pub(crate) fn read_vlong_output(&self, input: &mut impl DataInput) -> Result<i64> {
+  pub(crate) fn read_vlong_output<DI>(&self, input: &mut DI) -> Result<i64>
+  where
+    DI: DataInput,
+  {
     let version = self
       .parent
       .as_ref()
@@ -327,7 +330,10 @@ where
 ///
 ///
 /// Visible within the crate for testing.
-pub(crate) fn read_msb_vlong(input: &mut impl DataInput) -> Result<i64> {
+pub(crate) fn read_msb_vlong<DI>(input: &mut DI) -> Result<i64>
+where
+  DI: DataInput,
+{
   let mut l: i64 = 0;
   loop {
     let b = input.read_byte()?;

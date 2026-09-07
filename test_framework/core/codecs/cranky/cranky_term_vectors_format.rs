@@ -194,12 +194,16 @@ where
     self.delegate.finish(num_docs)
   }
 
-  fn add_prox(
+  fn add_prox<DI, DI2>(
     &mut self,
     num_prox: usize,
-    positions: Option<&mut impl DataInput>,
-    offsets: Option<&mut impl DataInput>,
-  ) -> Result<()> {
+    positions: Option<&mut DI>,
+    offsets: Option<&mut DI2>,
+  ) -> Result<()>
+  where
+    DI: DataInput,
+    DI2: DataInput,
+  {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from TermVectorsWriter::add_prox()",

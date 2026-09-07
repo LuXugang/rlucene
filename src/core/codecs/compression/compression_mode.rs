@@ -252,14 +252,17 @@ impl Clone for LZ4Decompressor {
 }
 
 impl Decompressor for LZ4Decompressor {
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     debug_assert!(offset + length <= original_length);
 
     // Add 7 padding bytes, not necessary but helps with decompression
@@ -306,14 +309,17 @@ impl Clone for DecompressorEnum {
 }
 
 impl Decompressor for DecompressorEnum {
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     match self {
       DecompressorEnum::LZ4(decompressor) => {
         decompressor.decompress(input, original_length, offset, length, bytes)
@@ -350,11 +356,14 @@ impl LZ4FastCompressor {
 }
 
 impl Compressor for LZ4FastCompressor {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let len = buffers_input.length();
     let mut bytes = vec![0u8; len];
     DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
@@ -377,11 +386,14 @@ impl LZ4HighCompressor {
 }
 
 impl Compressor for LZ4HighCompressor {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let len = buffers_input.length();
     let mut bytes = vec![0u8; len];
     DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
@@ -411,14 +423,17 @@ impl Clone for DeflateDecompressor {
 }
 
 impl Decompressor for DeflateDecompressor {
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     if length == 0 {
       bytes.length = 0;
       return Ok(());
@@ -462,11 +477,14 @@ impl DeflateCompressor {
 }
 
 impl Compressor for DeflateCompressor {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let len = buffers_input.length();
     let mut bytes = vec![0; len];
     DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
@@ -511,11 +529,14 @@ impl Closeable for CompressorEnum {
 }
 
 impl Compressor for CompressorEnum {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     match self {
       CompressorEnum::LZ4Fast(compressor) => compressor.compress(buffers_input, out),
       CompressorEnum::LZ4High(compressor) => compressor.compress(buffers_input, out),

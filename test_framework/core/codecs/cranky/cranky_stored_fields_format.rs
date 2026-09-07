@@ -159,12 +159,15 @@ where
     self.delegate.write_field_f64(field_info, value)
   }
 
-  fn write_field_with_input(
+  fn write_field_with_input<DI>(
     &mut self,
     field_info: &FieldInfo,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     if self.random.lock().random_range(0..10000) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from StoredFieldsWriter::write_field_with_input()",

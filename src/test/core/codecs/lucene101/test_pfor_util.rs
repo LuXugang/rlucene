@@ -85,7 +85,10 @@ where
   }
   values
 }
-fn encode_test_data(iterations: usize, values: &[i32], dir: &impl Directory) -> Result<usize> {
+fn encode_test_data<D>(iterations: usize, values: &[i32], dir: &D) -> Result<usize>
+where
+  D: Directory,
+{
   let mut out = dir.create_output(
     "test.bin",
     IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,

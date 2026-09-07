@@ -131,7 +131,10 @@ impl FstReader for ReadWriteDataOutput {
     }
   }
 
-  fn write_to(&self, out: &mut impl DataOutput) -> Result<()> {
+  fn write_to<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     debug_assert!(!self.finish);
     // Note: After calling get_reverse_bytes_reader, the ownership of data_output
     // will be moved.

@@ -745,10 +745,13 @@ where
   }
 }
 /// create a visitor for calculating point count estimates for the provided relation
-fn get_estimate_visitor(
-  spatial_visitor: impl SpatialVisitor,
+fn get_estimate_visitor<V>(
+  spatial_visitor: V,
   query_relation: QueryRelation,
-) -> EstimateVisitor<impl SpatialVisitor> {
+) -> EstimateVisitor<impl SpatialVisitor>
+where
+  V: SpatialVisitor,
+{
   EstimateVisitor::new(spatial_visitor, query_relation)
 }
 struct EstimateVisitor<V> {
@@ -785,11 +788,14 @@ where
 }
 /// create a visitor that adds documents that match the query using a sparse bitset.
 /// (Used by INTERSECT when the number of docs <= 4 * number of points )
-fn get_sparse_visitor(
-  spatial_visitor: impl SpatialVisitor,
+fn get_sparse_visitor<V>(
+  spatial_visitor: V,
   query_relation: QueryRelation,
   result: &mut DocIdSetBuilder,
-) -> SparseVisitor<'_, impl SpatialVisitor> {
+) -> SparseVisitor<'_, impl SpatialVisitor>
+where
+  V: SpatialVisitor,
+{
   SparseVisitor::new(spatial_visitor, query_relation, result)
 }
 struct SparseVisitor<'a, V> {
@@ -826,7 +832,10 @@ where
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.add_disi(iterator)
   }
 
@@ -840,11 +849,14 @@ where
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self
       .spatial_visitor
       .get_leaf_predicate(self.query_relation, packed_value)?
@@ -902,7 +914,10 @@ where
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     BitSet::or(self.result, iterator)?;
     self.cost += iterator.cost()?;
     Ok(())
@@ -919,11 +934,14 @@ where
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self
       .spatial_visitor
       .get_leaf_predicate(self.query_relation, packed_value)?
@@ -983,7 +1001,10 @@ where
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     BitSet::or(self.result, iterator)?;
     self.cost += iterator.cost()?;
     Ok(())
@@ -1003,11 +1024,14 @@ where
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self
       .spatial_visitor
       .get_leaf_predicate(self.query_relation, packed_value)?
@@ -1068,7 +1092,10 @@ where
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     BitSet::or(self.excluded, iterator)
   }
 
@@ -1086,11 +1113,14 @@ where
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     let within = self.spatial_visitor.contains(packed_value)?;
     loop {
       let doc_id = iterator.next_doc()?;
@@ -1157,7 +1187,10 @@ where
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.and_not_iter(iterator)?;
     self.cost = (self.cost - iterator.cost()?).max(0);
     Ok(())
@@ -1174,11 +1207,14 @@ where
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if !self
       .spatial_visitor
       .get_leaf_predicate(self.query_relation, packed_value)?
@@ -1232,7 +1268,10 @@ where
     Ok(())
   }
 
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.result.and_not_iter(iterator)
   }
 
@@ -1240,11 +1279,14 @@ where
     Ok(())
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    _iterator: &mut impl DocIdSetIterator,
+    _iterator: &mut I,
     _packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     Ok(())
   }
 
@@ -1292,11 +1334,14 @@ where
     }
   }
 
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    _iterator: &mut impl DocIdSetIterator,
+    _iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     if self
       .spatial_visitor
       .get_leaf_predicate(self.query_relation, packed_value)?

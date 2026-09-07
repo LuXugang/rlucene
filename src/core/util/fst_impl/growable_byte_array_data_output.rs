@@ -59,7 +59,10 @@ impl GrowableByteArrayDataOutput {
     ArrayUtil::grow_with_len(&mut self.bytes, self.next_write + capacity_to_write)
   }
   /// Writes all of our bytes to the target `Write`.
-  pub fn write_to_data_output(&self, out: &mut impl DataOutput) -> Result<()> {
+  pub fn write_to_data_output<DO>(&self, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     out.write_bytes_range(&self.bytes, 0, self.next_write)
   }
 

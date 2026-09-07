@@ -59,7 +59,10 @@ pub trait PointValues {
   /// Finds all documents and points matching the provided visitor.
   /// This method does not enforce live documents, so it's up to the caller
   /// to test whether each document is deleted, if necessary.
-  fn intersect(&self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+  fn intersect<V>(&self, visitor: &mut V) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     let mut point_tree = self.get_point_tree()?;
     intersect_with_point_tree(visitor, &mut point_tree)?;
     debug_assert!(!point_tree.move_to_parent()?);
@@ -69,7 +72,10 @@ pub trait PointValues {
   /// Estimate the number of points that would be visited by `intersect`
   /// with the given [`IntersectVisitor`]. This should run many times faster
   /// than `intersect(IntersectVisitor)`.
-  fn estimate_point_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
+  fn estimate_point_count<V>(&self, visitor: &V) -> Result<i64>
+  where
+    V: IntersectVisitor,
+  {
     let mut point_tree = self.get_point_tree()?;
     let count = estimate_point_count_with_point_tree(visitor, &mut point_tree, i64::MAX)?;
     debug_assert!(!point_tree.move_to_parent()?);
@@ -81,7 +87,10 @@ pub trait PointValues {
   /// than `intersect(IntersectVisitor)`.
   ///
   /// See also: [`DocIdSetIterator::cost`]
-  fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
+  fn estimate_doc_count<V>(&self, visitor: &V) -> Result<i64>
+  where
+    V: IntersectVisitor,
+  {
     let estimated_point_count = self.estimate_point_count(visitor)?;
     let doc_count = self.get_doc_count()?;
     let size: i64 = self.size()?.try_convert()?;
@@ -251,17 +260,22 @@ where
 /// Estimate if the point count that would be matched by `intersect`
 /// with the given [`IntersectVisitor`](crate::core::index::point_values::IntersectVisitor) is greater than or equal to the
 /// `upper_bound`.
-pub(crate) fn is_estimated_point_count_greater_than_or_equal_to(
-  visitor: &impl IntersectVisitor,
-  point_tree: &mut impl PointTree,
+pub(crate) fn is_estimated_point_count_greater_than_or_equal_to<V, T>(
+  visitor: &V,
+  point_tree: &mut T,
   upper_bound: i64,
-) -> Result<bool> {
+) -> Result<bool>
+where
+  V: IntersectVisitor,
+  T: PointTree,
+{
   Ok(estimate_point_count_with_point_tree(visitor, point_tree, upper_bound)? >= upper_bound)
 }
-fn intersect_with_point_tree(
-  visitor: &mut impl IntersectVisitor,
-  point_tree: &mut impl PointTree,
-) -> Result<()> {
+fn intersect_with_point_tree<V, T>(visitor: &mut V, point_tree: &mut T) -> Result<()>
+where
+  V: IntersectVisitor,
+  T: PointTree,
+{
   let relation = visitor.compare(
     point_tree.get_min_packed_value()?.as_ref(),
     point_tree.get_max_packed_value()?.as_ref(),
@@ -298,11 +312,15 @@ fn intersect_with_point_tree(
   Ok(())
 }
 
-fn estimate_point_count_with_point_tree(
-  visitor: &impl IntersectVisitor,
-  point_tree: &mut impl PointTree,
+fn estimate_point_count_with_point_tree<V, T>(
+  visitor: &V,
+  point_tree: &mut T,
   upper_bound: i64,
-) -> Result<i64> {
+) -> Result<i64>
+where
+  V: IntersectVisitor,
+  T: PointTree,
+{
   let relation = visitor.compare(
     point_tree.get_min_packed_value()?.as_ref(),
     point_tree.get_max_packed_value()?.as_ref(),
@@ -429,7 +447,10 @@ pub trait IntersectVisitor {
   /// Similar to `visit(doc_id)`, but a bulk visit and implementations may
   /// have their optimizations. Default implementation that iterates over
   /// the provided [`DocIdSetIterator`].
-  fn visit_with_iterator(&mut self, iterator: &mut impl DocIdSetIterator) -> Result<()> {
+  fn visit_with_iterator<I>(&mut self, iterator: &mut I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     loop {
       let doc_id = iterator.next_doc()?;
       if doc_id == NO_MORE_DOCS {
@@ -464,18 +485,24 @@ pub trait IntersectVisitor {
   /// case the `packed_value` can have more than one docID associated to
   /// it. The provided iterator should not escape the scope of this method
   /// so that implementations of PointValues are free to reuse it.
-  fn visit_iterator_with_packed_value(
+  fn visit_iterator_with_packed_value<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     self.default_visit_iterator_with_packed_value_(iterator, packed_value)
   }
-  fn default_visit_iterator_with_packed_value_(
+  fn default_visit_iterator_with_packed_value_<I>(
     &mut self,
-    iterator: &mut impl DocIdSetIterator,
+    iterator: &mut I,
     packed_value: &[u8],
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     loop {
       let doc_id = iterator.next_doc()?;
       if doc_id == NO_MORE_DOCS {
@@ -720,15 +747,24 @@ where
     }
   }
 
-  fn intersect(&self, visitor: &mut impl IntersectVisitor) -> Result<()> {
+  fn intersect<V>(&self, visitor: &mut V) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     (**self).intersect(visitor)
   }
 
-  fn estimate_point_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
+  fn estimate_point_count<V>(&self, visitor: &V) -> Result<i64>
+  where
+    V: IntersectVisitor,
+  {
     (**self).estimate_point_count(visitor)
   }
 
-  fn estimate_doc_count(&self, visitor: &impl IntersectVisitor) -> Result<i64> {
+  fn estimate_doc_count<V>(&self, visitor: &V) -> Result<i64>
+  where
+    V: IntersectVisitor,
+  {
     (**self).estimate_doc_count(visitor)
   }
 }

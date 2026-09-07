@@ -20,9 +20,10 @@ use crate::test_framework::core::util::lucene_test_case::new_bytes_ref_with_leng
 
 #[allow(dead_code)] // for quick search
 struct TestBinaryDocValuesUpdates;
-pub(crate) fn get_value(
-  bdv: &mut impl BinaryDocValues,
-) -> crate::core::util::error::lucene_error::Result<i64> {
+pub(crate) fn get_value<T>(bdv: &mut T) -> crate::core::util::error::lucene_error::Result<i64>
+where
+  T: BinaryDocValues,
+{
   let term = bdv.binary_value()?;
   let mut idx = term.offset;
   assert!(term.length > 0);

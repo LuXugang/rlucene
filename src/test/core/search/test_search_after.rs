@@ -260,8 +260,8 @@ fn test_queries() -> Result<()> {
   Ok(())
 }
 
-fn assert_query<IRC>(
-  random: &mut impl Rng,
+fn assert_query<IRC, R>(
+  random: &mut R,
   searcher: &IndexSearcher<IRC>,
   query: Query,
   sort: Option<Sort>,
@@ -269,6 +269,7 @@ fn assert_query<IRC>(
 ) -> Result<()>
 where
   IRC: IndexReaderContext + Sync,
+  R: Rng,
 {
   let max_doc = searcher.get_index_reader().max_doc()? as usize;
   let page_size = TestUtil::next_usize(random, 1, max_doc * 2);

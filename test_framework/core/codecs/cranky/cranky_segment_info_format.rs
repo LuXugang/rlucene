@@ -56,12 +56,15 @@ where
       .read(directory, segment_name, segment_id, context)
   }
 
-  fn write<D>(
+  fn write<D, D2>(
     &self,
-    directory: &impl Directory,
+    directory: &D2,
     info: &mut SegmentInfo<D>,
     context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    D2: Directory,
+  {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from SegmentInfoFormat::write()",

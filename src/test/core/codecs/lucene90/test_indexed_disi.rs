@@ -100,9 +100,10 @@ fn test_last_empty_blocks() -> Result<()> {
   assert_advance_beyond_end(set, &dir)
 }
 
-fn assert_advance_beyond_end<B>(set: B, dir: &impl Directory) -> Result<()>
+fn assert_advance_beyond_end<B, D>(set: B, dir: &D) -> Result<()>
 where
   B: BitSet,
+  D: Directory,
 {
   let cardinality = set.cardinality();
   let dense_rank_power = 9;
@@ -242,10 +243,11 @@ where
   Ok(set)
 }
 
-fn do_test_all_single_jump<R, B>(random: &mut R, set: B, dir: &impl Directory) -> Result<B>
+fn do_test_all_single_jump<R, B, D>(random: &mut R, set: B, dir: &D) -> Result<B>
 where
   R: Rng + ?Sized,
   B: BitSet,
+  D: Directory,
 {
   let cardinality = set.cardinality();
   let dense_rank_power = if rarely(random) {
@@ -560,9 +562,10 @@ fn test_random() -> Result<()> {
   Ok(())
 }
 
-fn do_test_random<R>(dir: &impl Directory, random: &mut R) -> Result<()>
+fn do_test_random<R, D>(dir: &D, random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
+  D: Directory,
 {
   let end = TestUtil::next_int(random, 2, 20);
   let max_step = TestUtil::next_int(random, 1, 1 << end);
@@ -587,10 +590,11 @@ where
   Ok(())
 }
 
-fn do_test<R, B>(set: B, dir: &impl Directory, random: &mut R) -> Result<B>
+fn do_test<R, B, D>(set: B, dir: &D, random: &mut R) -> Result<B>
 where
   R: Rng + ?Sized,
   B: BitSet,
+  D: Directory,
 {
   let cardinality = set.cardinality() as i64;
   let dense_rank_power = if rarely(random) {

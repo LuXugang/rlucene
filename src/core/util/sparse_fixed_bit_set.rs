@@ -297,7 +297,10 @@ impl SparseFixedBitSet {
     self.non_zero_long_count += non_zero_long_count - (current_index & index).count_ones() as usize;
   }
   /// [`or`](Self::or) implementation that works best when `it` is dense.
-  fn or_dense(&mut self, mut it: impl DocIdSetIterator) -> Result<()> {
+  fn or_dense<I>(&mut self, mut it: I) -> Result<()>
+  where
+    I: DocIdSetIterator,
+  {
     check_unpositioned(&it)?;
     // The goal here is to try to take advantage of the ordering of
     // documents to build the data-structure more efficiently

@@ -62,15 +62,18 @@ where
   D: Directory,
   D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
-  pub(crate) fn new(
+  pub(crate) fn new<T>(
     dir: MockDirectoryWrapper<D>,
-    name: impl Into<String>,
+    name: T,
     delegate: D::IndexInput,
     parent: Option<Arc<AtomicBool>>,
     read_advice: ReadAdvice,
     confined: bool,
     slow_closing: bool,
-  ) -> Self {
+  ) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       dir,
       name: name.into(),

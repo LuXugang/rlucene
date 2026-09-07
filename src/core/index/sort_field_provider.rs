@@ -26,13 +26,20 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// to record index sorts.
 pub trait SortFieldProvider {
   /// Reads a [`SortFieldEnum`] from serialized bytes.
-  fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum>;
+  fn read_sort_field<DI>(&self, data_input: &mut DI) -> Result<SortFieldEnum>
+  where
+    DI: DataInput;
   /// Writes a [`SortFieldEnum`] to a [`DataOutput`].
   /// This is used to record index sort information in segment headers
-  fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()>;
+  fn write_sort_field<DO>(&self, sf: &SortFieldEnum, output: &mut DO) -> Result<()>
+  where
+    DO: DataOutput;
 }
 /// Writes a [`SortFieldEnum`] to a [`DataOutput`].
-pub fn write(sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+pub fn write<DO>(sf: &SortFieldEnum, output: &mut DO) -> Result<()>
+where
+  DO: DataOutput,
+{
   if let Some(index_sort) = sf.get_index_sorter()? {
     let provider = for_name(index_sort.get_provider_name())?;
     provider.write_sort_field(sf, output)?;
@@ -62,7 +69,10 @@ pub enum SortFieldProviderEnum {
   SortProvider(Provider),
 }
 impl SortFieldProvider for SortFieldProviderEnum {
-  fn read_sort_field(&self, data_input: &mut impl DataInput) -> Result<SortFieldEnum> {
+  fn read_sort_field<DI>(&self, data_input: &mut DI) -> Result<SortFieldEnum>
+  where
+    DI: DataInput,
+  {
     match self {
       SortFieldProviderEnum::SortedNumericProvider(provider) => {
         provider.read_sort_field(data_input)
@@ -72,7 +82,10 @@ impl SortFieldProvider for SortFieldProviderEnum {
     }
   }
 
-  fn write_sort_field(&self, sf: &SortFieldEnum, output: &mut impl DataOutput) -> Result<()> {
+  fn write_sort_field<DO>(&self, sf: &SortFieldEnum, output: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     match self {
       SortFieldProviderEnum::SortedNumericProvider(provider) => {
         provider.write_sort_field(sf, output)

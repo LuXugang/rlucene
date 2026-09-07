@@ -476,14 +476,15 @@ impl<O> PostingsWriterBase for Lucene101PostingsWriter<O>
 where
   O: IndexOutput,
 {
-  fn init<D1, D2>(
+  fn init<D1, D2, IO>(
     &mut self,
-    terms_out: &mut impl IndexOutput,
+    terms_out: &mut IO,
     state: &SegmentWriteState<D1>,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
     D1: Directory,
+    IO: IndexOutput,
   {
     CodecUtil::write_index_header(
       terms_out,
@@ -496,10 +497,10 @@ where
     Ok(())
   }
 
-  fn write_term<N, PE>(
+  fn write_term<N, PE, T>(
     &mut self,
     _term: &BytesRef<Vec<u8>>,
-    _terms_enum: &mut impl TermsEnum<PostingsEnum = PE>,
+    _terms_enum: &mut T,
     _docs_seen: &mut FixedBitSet,
     _norms: Option<&N>,
     _postings_enum: Option<PE>,
@@ -507,17 +508,21 @@ where
   where
     N: NormsProducer,
     PE: PostingsEnum,
+    T: TermsEnum<PostingsEnum = PE>,
   {
     Err(LuceneError::not_implemented(""))
   }
 
-  fn encode_term(
+  fn encode_term<DO>(
     &mut self,
-    _out: &mut impl DataOutput,
+    _out: &mut DO,
     _field_info: &FieldInfo,
     _state: Cow<TermStateEnum>,
     _absolute: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     Err(LuceneError::unreachable("should not be called"))
   }
 
@@ -866,14 +871,17 @@ where
     Ok(())
   }
 
-  fn encode_term_with_option(
+  fn encode_term_with_option<DO>(
     &mut self,
-    out: &mut impl DataOutput,
+    out: &mut DO,
     _field_info: &FieldInfo,
     state: Cow<TermStateEnum>,
     absolute: bool,
     options: &FieldWriteOptions,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let state = match state {
       Cow::Borrowed(b) => b.clone(),
       Cow::Owned(o) => o,
@@ -930,13 +938,19 @@ use crate::core::index::impact::Impact;
 /// less. VInt becomes especially slow when the number of bytes is
 /// variable, so this special layout helps in the case when the number
 /// likely requires 15 bits or less.
-pub(crate) fn write_vint15(out: &mut impl DataOutput, v: i32) -> Result<()> {
+pub(crate) fn write_vint15<DO>(out: &mut DO, v: i32) -> Result<()>
+where
+  DO: DataOutput,
+{
   debug_assert!(v >= 0);
   write_vlong15(out, v as i64)
 }
 
 /// See also [`write_vint15`].
-pub(crate) fn write_vlong15(out: &mut impl DataOutput, v: i64) -> Result<()> {
+pub(crate) fn write_vlong15<DO>(out: &mut DO, v: i64) -> Result<()>
+where
+  DO: DataOutput,
+{
   debug_assert!(v >= 0);
   if v & !0x7FFF == 0 {
     out.write_short(v as i16)?;
@@ -947,7 +961,10 @@ pub(crate) fn write_vlong15(out: &mut impl DataOutput, v: i64) -> Result<()> {
   }
   Ok(())
 }
-pub(crate) fn write_impacts(impacts: &[Impact], out: &mut impl DataOutput) -> Result<()> {
+pub(crate) fn write_impacts<DO>(impacts: &[Impact], out: &mut DO) -> Result<()>
+where
+  DO: DataOutput,
+{
   let mut previous = Impact { freq: 0, norm: 0 };
   for impact in impacts {
     debug_assert!(impact.freq > previous.freq);

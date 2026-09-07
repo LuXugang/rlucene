@@ -50,18 +50,19 @@ where
   I: IndexInput,
 {
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new<D>(
+  pub(crate) fn new<D, II>(
     dir: &D,
     name: String,
     suffix: &str,
     extension: &str,
     codec_name: &str,
     id: &[u8; StringHelper::ID_LENGTH],
-    meta_in: &mut impl IndexInput,
+    meta_in: &mut II,
     context: &IOContext,
   ) -> Result<Self>
   where
     D: Directory<IndexInput = I>,
+    II: IndexInput,
   {
     let max_doc = meta_in.read_int()?;
     let block_shift = meta_in.read_int()?;

@@ -497,7 +497,10 @@ use crate::core::util::{HasIdentity, TryIntoInt};
 /// Builds a [`BitSet`] from the content of the provided
 /// [`DocIdSetIterator`]. **Note**: This will fully consume the
 /// [`DocIdSetIterator`].
-pub fn of(it: &mut impl DocIdSetIterator, max_doc: usize) -> Result<SparseFixedBitSetBitSet> {
+pub fn of<I>(it: &mut I, max_doc: usize) -> Result<SparseFixedBitSetBitSet>
+where
+  I: DocIdSetIterator,
+{
   let cost = it.cost()?;
   let threshold = max_doc >> 7;
   let mut set;
@@ -511,7 +514,10 @@ pub fn of(it: &mut impl DocIdSetIterator, max_doc: usize) -> Result<SparseFixedB
   Ok(set)
 }
 ///Assert that the current doc is -1.
-pub(crate) fn check_unpositioned(iter: &impl DocIdSetIterator) -> Result<()> {
+pub(crate) fn check_unpositioned<I>(iter: &I) -> Result<()>
+where
+  I: DocIdSetIterator,
+{
   if iter.doc_id() != -1 {
     return Err(LuceneError::illegal_state(format!(
       "This operation only works with an unpositioned iterator, got current position = {}",

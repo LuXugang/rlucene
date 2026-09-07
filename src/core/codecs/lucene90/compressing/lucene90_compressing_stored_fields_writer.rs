@@ -208,7 +208,10 @@ where
     })
   }
 
-  fn save_ints(values: &[i32], length: usize, out: &mut impl DataOutput) -> Result<()> {
+  fn save_ints<DO>(values: &[i32], length: usize, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     if length == 1 {
       out.write_vint(values[0])?;
     } else {
@@ -584,12 +587,15 @@ where
     write_zdouble(&mut self.buffered_docs, value)?;
     Ok(())
   }
-  fn write_field_with_input(
+  fn write_field_with_input<DI>(
     &mut self,
     info: &FieldInfo,
-    value: &mut impl DataInput,
+    value: &mut DI,
     length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     self.num_stored_fields_in_doc += 1;
     let info_and_bits = ((info.number as i64) << *TYPE_BITS) | BYTE_ARR as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
@@ -877,7 +883,10 @@ pub(crate) const DAY_ENCODING: i32 = 0xC0;
 ///   bytes are read. Otherwise, the value is a positive `f32` whose
 ///   first byte is the header, and 3 bytes need to be read to complete it.
 /// - Bytes --> Potential additional bytes to read depending on the header.
-pub(crate) fn write_zfloat(out: &mut impl DataOutput, f: f32) -> Result<()> {
+pub(crate) fn write_zfloat<DO>(out: &mut DO, f: f32) -> Result<()>
+where
+  DO: DataOutput,
+{
   let int_val = f as i32;
   let float_bits = BitUtil::float_to_int_bits(f) as u32;
 
@@ -911,7 +920,10 @@ pub(crate) fn write_zfloat(out: &mut impl DataOutput, f: f32) -> Result<()> {
 ///   value whose first byte is the header, and 7 bytes need to be read to
 ///   complete it.
 /// - Bytes --> Potential additional bytes to read depending on the header.
-pub(crate) fn write_zdouble(out: &mut impl DataOutput, d: f64) -> Result<()> {
+pub(crate) fn write_zdouble<DO>(out: &mut DO, d: f64) -> Result<()>
+where
+  DO: DataOutput,
+{
   let int_val = d as i32;
   let double_bits = BitUtil::double_to_long_bits(d) as u64;
 
@@ -958,7 +970,10 @@ pub(crate) fn write_zdouble(out: &mut impl DataOutput, d: f64) -> Result<()> {
 ///
 /// - Bytes --> Potential additional bytes to read depending on the header.
 // T for "timestamp"
-pub(crate) fn write_tlong(out: &mut impl DataOutput, mut l: i64) -> Result<()> {
+pub(crate) fn write_tlong<DO>(out: &mut DO, mut l: i64) -> Result<()>
+where
+  DO: DataOutput,
+{
   let mut header;
 
   if l % SECOND != 0 {

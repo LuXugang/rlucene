@@ -48,7 +48,11 @@ fn test_freeze_equality(size: i32) {
   assert_equal(&mut frozen0, &mut frozen1);
 }
 
-fn assert_equal(state_set1: &mut impl IntSet, state2: &mut impl IntSet) {
+fn assert_equal<T, T2>(state_set1: &mut T, state2: &mut T2)
+where
+  T: IntSet,
+  T2: IntSet,
+{
   assert!(
     state_set1.long_hash_code() == state2.long_hash_code()
       && state_set1.get_array() == state2.get_array()

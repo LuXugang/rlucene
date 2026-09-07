@@ -36,15 +36,16 @@ pub trait StoredFieldVisitor {
   /// Implementors of this method must read `length` bytes from the given
   /// [`DataInput`]. Default implementation reads into a byte array and
   /// delegates to `binary_field`.
-  fn binary_field_with_input<S>(
+  fn binary_field_with_input<S, DI>(
     &mut self,
     field_info: Arc<FieldInfo>,
-    input: &mut impl DataInput,
+    input: &mut DI,
     length: i32,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
+    DI: DataInput,
   {
     let length = length as usize;
     let mut buffer = vec![0u8; length];

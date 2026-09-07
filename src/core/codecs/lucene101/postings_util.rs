@@ -23,14 +23,17 @@ pub(crate) struct PostingsUtil;
 impl PostingsUtil {
   /// Read values that have been written using variable-length encoding and
   /// group-varint encoding instead of bit-packing.
-  pub(crate) fn read_vint_block(
-    doc_in: &mut impl IndexInput,
+  pub(crate) fn read_vint_block<II>(
+    doc_in: &mut II,
     doc_buffer: &mut [i32],
     freq_buffer: &mut [i32],
     num: usize,
     index_has_freq: bool,
     decode_freq: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    II: IndexInput,
+  {
     GroupVIntUtil::read_group_vints_i32(doc_in, doc_buffer, num)?;
     if index_has_freq && decode_freq {
       for i in 0..num {
@@ -49,13 +52,16 @@ impl PostingsUtil {
   }
   /// Write freq buffer with variable-length encoding and doc buffer with
   /// group-varint encoding.
-  pub(crate) fn write_vint_block(
-    doc_out: &mut impl DataOutput,
+  pub(crate) fn write_vint_block<DO>(
+    doc_out: &mut DO,
     doc_buffer: &mut [i32],
     freq_buffer: &[i32],
     num: i32,
     write_freqs: bool,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     if write_freqs {
       for i in 0..num as usize {
         doc_buffer[i] = (doc_buffer[i] << 1) | if freq_buffer[i] == 1 { 1 } else { 0 };

@@ -402,7 +402,7 @@ where
   }
 
   #[allow(clippy::too_many_arguments)]
-  pub fn handle_dv_updates<D1, F>(
+  pub fn handle_dv_updates<D1, F, IS>(
     &self,
     infos: &FieldInfos,
     dir: D1,
@@ -411,12 +411,13 @@ where
     reader: &SegmentReader<D>,
     field_files: &mut HashMap<i32, HashSet<String>>,
     max_del_gen: i64,
-    info_stream: &impl InfoStream,
+    info_stream: &IS,
     info: &mut SegmentCommitInfo<D>,
   ) -> Result<()>
   where
     F: DocValuesFormat,
     D1: Directory,
+    IS: InfoStream,
   {
     for (field, updates) in inner.pending_dv_updates.iter() {
       let ty = updates[0].type_;
@@ -545,16 +546,17 @@ where
     info.advance_field_infos_gen();
     Ok(tracking_dir.take_created_files())
   }
-  pub fn write_field_updates<D1>(
+  pub fn write_field_updates<D1, IS>(
     &self,
     dir: D1,
     field_numbers: &FieldNumbersLock,
     max_del_gen: i64,
-    info_stream: &impl InfoStream,
+    info_stream: &IS,
     info: Option<&mut SegmentCommitInfo<D>>,
   ) -> Result<bool>
   where
     D1: Directory,
+    IS: InfoStream,
   {
     let mut inner = self.inner.lock();
     let start_time_ns = std::time::Instant::now();

@@ -806,7 +806,7 @@ where
     )?;
     self.run_query(
       searcher,
-      PhraseQuery::from_terms_no_slop("body", &["united", "states"])?.into(),
+      PhraseQuery::from_terms_no_slop("body", ["united", "states"])?.into(),
     )?;
     Ok(())
   }

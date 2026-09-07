@@ -46,10 +46,13 @@ use std::time::Duration;
 #[allow(dead_code)] // for quick search
 struct TestSnapshotDeletionPolicy;
 
-fn get_config(
-  random: &mut impl rand::Rng,
+fn get_config<R>(
+  random: &mut R,
   dp: Option<SnapshotDeletionPolicy<DirEnum>>,
-) -> Result<crate::core::index::index_writer_config::IndexWriterConfig<DirEnum>> {
+) -> Result<crate::core::index::index_writer_config::IndexWriterConfig<DirEnum>>
+where
+  R: rand::Rng,
+{
   let mock = MockAnalyzer::new(random);
   let mut conf = new_index_writer_config_with_analyzer(random, mock)?;
   if let Some(dp) = dp {
@@ -58,7 +61,11 @@ fn get_config(
   Ok(conf)
 }
 
-pub(crate) fn check_snapshot_exists(dir: &impl Directory, c: &impl IndexCommit) -> Result<()> {
+pub(crate) fn check_snapshot_exists<D, T>(dir: &D, c: &T) -> Result<()>
+where
+  D: Directory,
+  T: IndexCommit,
+{
   let seg_file_name = c.get_segments_file_name();
   assert!(
     slow_file_exists(dir, seg_file_name)?,
@@ -143,7 +150,11 @@ fn backup_index(
   result
 }
 
-fn copy_files(dir: &impl Directory, cp: &impl IndexCommit, buffer: &mut [u8]) -> Result<()> {
+fn copy_files<D, T>(dir: &D, cp: &T, buffer: &mut [u8]) -> Result<()>
+where
+  D: Directory,
+  T: IndexCommit,
+{
   // While we hold the snapshot, and nomatter how long
   // we take to do the backup, the IndexWriter will
   // never delete the files in the snapshot:
@@ -159,7 +170,10 @@ fn copy_files(dir: &impl Directory, cp: &impl IndexCommit, buffer: &mut [u8]) ->
   Ok(())
 }
 
-fn read_file(dir: &impl Directory, name: &str, buffer: &mut [u8]) -> Result<()> {
+fn read_file<D>(dir: &D, name: &str, buffer: &mut [u8]) -> Result<()>
+where
+  D: Directory,
+{
   let mut input = dir.open_input(name, &IOContext::read_once_io_context()?)?;
   let result = (|| {
     let mut bytes_left = dir.file_length(name)?;
@@ -188,7 +202,10 @@ fn test_snapshot_deletion_policy() -> Result<()> {
   run_test(&mut random, dir)
 }
 
-fn run_test(rng: &mut impl rand::Rng, dir: Arc<DirEnum>) -> Result<()> {
+fn run_test<R>(rng: &mut R, dir: Arc<DirEnum>) -> Result<()>
+where
+  R: rand::Rng,
+{
   let max_iterations = if is_night_mode() { 100 } else { 10 };
 
   let dp = get_deletion_policy();

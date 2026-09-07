@@ -473,7 +473,7 @@ where
 #[test]
 fn test_ram_usage_stored() -> Result<()> {
   do_test_ram_usage(|field| {
-    Ok(StoredField::from_binary(field, BytesRef::from_string("Lucene").bytes)?.into())
+    Ok(StoredField::from_binary(field, BytesRef::<Vec<u8>>::from_string("Lucene").bytes)?.into())
   })
 }
 

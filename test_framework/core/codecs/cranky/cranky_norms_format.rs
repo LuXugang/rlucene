@@ -111,11 +111,10 @@ impl<NC> NormsConsumer for CrankyNormsConsumer<NC>
 where
   NC: NormsConsumer,
 {
-  fn add_norms_field(
-    &mut self,
-    field: &Arc<FieldInfo>,
-    values_producer: &mut impl NormsProducer,
-  ) -> Result<()> {
+  fn add_norms_field<T>(&mut self, field: &Arc<FieldInfo>, values_producer: &mut T) -> Result<()>
+  where
+    T: NormsProducer,
+  {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from NormsConsumer::add_norms_field()",

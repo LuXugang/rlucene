@@ -40,7 +40,10 @@ impl AssertingLiveDocsFormat {
 }
 
 impl AssertingLiveDocsFormat {
-  fn check(bits: &impl Bits, expected_length: usize, expected_delete_count: i32) -> Result<()> {
+  fn check<T>(bits: &T, expected_length: usize, expected_delete_count: i32) -> Result<()>
+  where
+    T: Bits,
+  {
     assert_eq!(bits.length(), expected_length);
     let mut deleted_count = 0;
     for i in 0..bits.length() {
@@ -59,25 +62,32 @@ impl AssertingLiveDocsFormat {
 impl LiveDocsFormat for AssertingLiveDocsFormat {
   type Bits = AssertingBits<<DefaultLiveDocsFormat as LiveDocsFormat>::Bits>;
 
-  fn read_live_docs<D>(
+  fn read_live_docs<D, D2>(
     &self,
-    dir: &impl Directory,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits> {
+  ) -> Result<Self::Bits>
+  where
+    D2: Directory,
+  {
     let raw = self.in_.read_live_docs(dir, info, context)?;
     Self::check(&raw, info.info.max_doc()? as usize, info.get_del_count())?;
     Ok(AssertingBits::new(raw))
   }
 
-  fn write_live_docs<D>(
+  fn write_live_docs<D, T, D2>(
     &self,
-    bits: &impl Bits,
-    dir: &impl Directory,
+    bits: &T,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Bits,
+    D2: Directory,
+  {
     Self::check(
       bits,
       info.info.max_doc()? as usize,

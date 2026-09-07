@@ -164,11 +164,11 @@ impl<O: IndexOutput> Lucene90NormsConsumer<O> {
       8
     }
   }
-  fn write_values(
-    values: &mut impl NumericDocValues,
-    num_bytes_per_value: u8,
-    out: &mut impl IndexOutput,
-  ) -> Result<()> {
+  fn write_values<T, IO>(values: &mut T, num_bytes_per_value: u8, out: &mut IO) -> Result<()>
+  where
+    T: NumericDocValues,
+    IO: IndexOutput,
+  {
     while values.next_doc()? != NO_MORE_DOCS {
       let value = values.long_value()?;
       match num_bytes_per_value {
@@ -204,11 +204,10 @@ impl<O> NormsConsumer for Lucene90NormsConsumer<O>
 where
   O: IndexOutput,
 {
-  fn add_norms_field(
-    &mut self,
-    field: &Arc<FieldInfo>,
-    norms_producer: &mut impl NormsProducer,
-  ) -> Result<()> {
+  fn add_norms_field<T>(&mut self, field: &Arc<FieldInfo>, norms_producer: &mut T) -> Result<()>
+  where
+    T: NormsProducer,
+  {
     let mut num_docs_with_value = 0;
     let mut min = i64::MAX;
     let mut max = i64::MIN;

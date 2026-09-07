@@ -59,12 +59,15 @@ impl StoredFieldsWriter for DummyStoredFieldsWriter {
     dummy_unreachable!()
   }
 
-  fn write_field_with_input(
+  fn write_field_with_input<DI>(
     &mut self,
     _field_info: &FieldInfo,
-    _input: &mut impl DataInput,
+    _input: &mut DI,
     _length: i32,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     dummy_unreachable!()
   }
 

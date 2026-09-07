@@ -190,7 +190,11 @@ where
     },
   }
 }
-fn assert_next(expected: &mut impl Scorer, actual: Option<&mut impl Scorer>) -> Result<()> {
+fn assert_next<T, T2>(expected: &mut T, actual: Option<&mut T2>) -> Result<()>
+where
+  T: Scorer,
+  T2: Scorer,
+{
   if actual.is_none() {
     let mut expected_it = expected.iterator();
     assert_eq!(NO_MORE_DOCS, expected_it.next_doc()?);
@@ -217,11 +221,11 @@ fn assert_next(expected: &mut impl Scorer, actual: Option<&mut impl Scorer>) -> 
 
   Ok(())
 }
-fn assert_advance(
-  expected: &mut impl Scorer,
-  actual: Option<&mut impl Scorer>,
-  amount: i32,
-) -> Result<()> {
+fn assert_advance<T, T2>(expected: &mut T, actual: Option<&mut T2>, amount: i32) -> Result<()>
+where
+  T: Scorer,
+  T2: Scorer,
+{
   if actual.is_none() {
     let mut expected_it = expected.iterator();
     assert_eq!(NO_MORE_DOCS, expected_it.next_doc()?);

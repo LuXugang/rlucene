@@ -90,7 +90,10 @@ pub struct TermAutomatonQuery {
 }
 
 impl TermAutomatonQuery {
-  pub fn new(field: impl Into<String>) -> Self {
+  pub fn new<T>(field: T) -> Self
+  where
+    T: Into<String>,
+  {
     Self {
       id: Identity::new(),
       field: field.into(),
@@ -104,7 +107,10 @@ impl TermAutomatonQuery {
   }
 
   #[cfg(test)]
-  pub(crate) fn with_hook(field: impl Into<String>, hook: CustomTermAutomatonQuery) -> Self {
+  pub(crate) fn with_hook<T>(field: T, hook: CustomTermAutomatonQuery) -> Self
+  where
+    T: Into<String>,
+  {
     let mut query = Self::new(field);
     query.hook = TermAutomatonQueryHook::Custom(hook);
     query

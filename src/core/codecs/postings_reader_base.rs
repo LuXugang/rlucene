@@ -37,14 +37,15 @@ use std::sync::Arc;
 pub trait PostingsReaderBase: Display + CloseableRef {
   /// Performs any initialization, such as reading and verifying the header
   /// from the provided terms dictionary [`IndexInput`].
-  fn init<D1, D2>(
+  fn init<D1, D2, II>(
     &self,
-    terms_in: &mut impl IndexInput,
+    terms_in: &mut II,
     state: &SegmentReadState<D1>,
     segment_info: &SegmentInfo<D2>,
   ) -> Result<()>
   where
-    D1: Directory;
+    D1: Directory,
+    II: IndexInput;
 
   /// Return a newly created empty [`TermState`](crate::core::index::term_state::TermState).
   fn new_term_state(&self) -> Result<TermStateEnum>;
@@ -53,13 +54,15 @@ pub trait PostingsReaderBase: Display + CloseableRef {
   ///
   /// See also:
   /// - [`PostingsWriterBase::encode_term`](crate::core::codecs::postings_writer_base::PostingsWriterBase::encode_term)
-  fn decode_term(
+  fn decode_term<DI>(
     &self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     field_info: &Arc<FieldInfo>,
     state: &mut TermStateEnum,
     absolute: bool,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    DI: DataInput;
 
   /// Must fully consume `state`, since after this call that [`TermState`](crate::core::index::term_state::TermState) may
   /// be reused.

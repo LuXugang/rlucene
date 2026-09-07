@@ -626,12 +626,10 @@ where
       Self::balance_tree_node_position(mid, max_node, node, position + (1 << level), level + 1)
     }
   }
-  fn add_all(
-    &mut self,
-    visitor: &mut impl IntersectVisitor,
-    mut grown: bool,
-    leaf_nodes: &mut I,
-  ) -> Result<()> {
+  fn add_all<V>(&mut self, visitor: &mut V, mut grown: bool, leaf_nodes: &mut I) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     if !grown {
       let size = self.size()?;
       if size <= i32::MAX as usize {
@@ -662,11 +660,10 @@ where
 
     Ok(())
   }
-  fn visit_leaves_one_by_one(
-    &mut self,
-    visitor: &mut impl IntersectVisitor,
-    leaf_node: &mut I,
-  ) -> Result<()> {
+  fn visit_leaves_one_by_one<V>(&mut self, visitor: &mut V, leaf_node: &mut I) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     if self.is_leaf_node() {
       let leaf_fp = self.get_leaf_block_fp()?;
       self.visit_doc_values(visitor, leaf_fp, leaf_node)?;
@@ -682,12 +679,10 @@ where
     Ok(())
   }
 
-  fn visit_doc_values(
-    &mut self,
-    visitor: &mut impl IntersectVisitor,
-    fp: usize,
-    leaf_node: &mut I,
-  ) -> Result<()> {
+  fn visit_doc_values<V>(&mut self, visitor: &mut V, fp: usize, leaf_node: &mut I) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     let count = self.read_doc_ids(fp, leaf_node)?;
 
     if self.version >= VERSION_LOW_CARDINALITY_LEAVES {
@@ -799,12 +794,15 @@ where
   fn get_tree_depth(num_leaves: i32) -> Result<i32> {
     Ok(MathUtil::log(num_leaves as i64, 2)? + 2)
   }
-  fn visit_doc_values_no_cardinality(
+  fn visit_doc_values_no_cardinality<V>(
     &mut self,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
+    visitor: &mut V,
     leaf_node: &mut I,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     let packed_index_bytes_length = self.config.packed_index_bytes_length();
 
     self.read_common_prefixes(leaf_node)?;
@@ -858,12 +856,15 @@ where
 
     Ok(())
   }
-  fn visit_doc_values_with_cardinality(
+  fn visit_doc_values_with_cardinality<V>(
     &mut self,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
+    visitor: &mut V,
     leaf_node: &mut I,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     let packed_index_bytes_length = self.config.packed_index_bytes_length();
     self.read_common_prefixes(leaf_node)?;
     let compressed_dim = self.read_compressed_dim(leaf_node)?;
@@ -946,12 +947,15 @@ where
   }
 
   // read cardinality and point
-  fn visit_sparse_raw_doc_values(
+  fn visit_sparse_raw_doc_values<V>(
     &mut self,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
+    visitor: &mut V,
     index_input: &mut I,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     let mut i: usize = 0;
     {
       while i < count {
@@ -985,11 +989,10 @@ where
   }
 
   // point is under commonPrefix
-  pub fn visit_unique_raw_doc_values(
-    &mut self,
-    count: usize,
-    visitor: &mut impl IntersectVisitor,
-  ) -> Result<()> {
+  pub fn visit_unique_raw_doc_values<V>(&mut self, count: usize, visitor: &mut V) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     self.scratch_iterator.reset(0, count);
     visitor.visit_iterator_with_packed_value(
       &mut self.scratch_iterator,
@@ -997,13 +1000,16 @@ where
     )?;
     Ok(())
   }
-  fn visit_compressed_doc_values(
+  fn visit_compressed_doc_values<V>(
     &mut self,
     count: usize,
-    visitor: &mut impl IntersectVisitor,
+    visitor: &mut V,
     compressed_dim: i32,
     index_input: &mut I,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    V: IntersectVisitor,
+  {
     let bytes_per_dim = self.config.bytes_per_dim;
     let compressed_dim = compressed_dim as usize;
 

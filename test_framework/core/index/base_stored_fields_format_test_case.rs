@@ -1284,14 +1284,15 @@ impl<S> StoredFields for ReversedStoredFields<S>
 where
   S: StoredFields,
 {
-  fn document_with_visitor<W>(
+  fn document_with_visitor<W, V>(
     &mut self,
     doc_id: i32,
-    visitor: &mut impl StoredFieldVisitor,
+    visitor: &mut V,
     writer: Option<&mut W>,
   ) -> Result<()>
   where
     W: StoredFieldsWriter,
+    V: StoredFieldVisitor,
   {
     self
       .in_

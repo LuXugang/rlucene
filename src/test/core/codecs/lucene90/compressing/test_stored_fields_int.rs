@@ -67,9 +67,10 @@ fn test_all_equals() -> Result<()> {
   Ok(())
 }
 
-fn test<R>(random: &mut R, dir: &impl Directory, ints: &[i32]) -> Result<()>
+fn test<R, D>(random: &mut R, dir: &D, ints: &[i32]) -> Result<()>
 where
   R: Rng + ?Sized,
+  D: Directory,
 {
   let len;
   {

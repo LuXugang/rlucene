@@ -84,12 +84,15 @@ impl DeflateWithPresetDictDecompressor {
     }
   }
 
-  fn do_decompress(
+  fn do_decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     decompressor: &mut Decompress,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     let compressed_length = input.read_vint()? as usize;
     if compressed_length == 0 {
       return Ok(());
@@ -128,14 +131,17 @@ impl Clone for DeflateWithPresetDictDecompressor {
 }
 
 impl LuceneDecompressor for DeflateWithPresetDictDecompressor {
-  fn decompress(
+  fn decompress<DI>(
     &mut self,
-    input: &mut impl DataInput,
+    input: &mut DI,
     original_length: i32,
     offset: i32,
     length: i32,
     bytes: &mut BytesRef<Vec<u8>>,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    DI: DataInput,
+  {
     debug_assert!(offset + length <= original_length);
     if length == 0 {
       bytes.length = 0;
@@ -203,7 +209,10 @@ impl DeflateWithPresetDictCompressor {
     }
   }
 
-  fn do_compress(&mut self, off: usize, len: usize, out: &mut impl DataOutput) -> Result<()> {
+  fn do_compress<DO>(&mut self, off: usize, len: usize, out: &mut DO) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     if len == 0 {
       out.write_vint(0)?;
       return Ok(());
@@ -239,11 +248,14 @@ impl DeflateWithPresetDictCompressor {
 }
 
 impl Compressor for DeflateWithPresetDictCompressor {
-  fn compress(
+  fn compress<DO>(
     &mut self,
     buffers_input: &mut ByteBuffersDataInput<&[u8]>,
-    out: &mut impl DataOutput,
-  ) -> Result<()> {
+    out: &mut DO,
+  ) -> Result<()>
+  where
+    DO: DataOutput,
+  {
     let len = (buffers_input.length() - buffers_input.position()?) as i32;
     let dict_length = len
       / (DeflateWithPresetDictCompressionMode::NUM_SUB_BLOCKS

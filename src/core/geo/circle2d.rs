@@ -421,15 +421,18 @@ impl DistanceCalculator for CartesianDistance {
     self.center_y
   }
 }
-fn intersects_line(
+fn intersects_line<T>(
   center_x: f64,
   center_y: f64,
   a_x: f64,
   a_y: f64,
   b_x: f64,
   b_y: f64,
-  calculator: &impl DistanceCalculator,
-) -> bool {
+  calculator: &T,
+) -> bool
+where
+  T: DistanceCalculator,
+{
   let vector_apx = center_x - a_x;
   let vector_apy = center_y - a_y;
 

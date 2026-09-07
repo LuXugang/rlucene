@@ -103,12 +103,10 @@ fn test_read_bytes() -> Result<()> {
   Ok(())
 }
 
-fn check_read_bytes(
-  input: &mut impl IndexInput,
-  size: usize,
-  pos: usize,
-  buffer: &mut Vec<u8>,
-) -> Result<()> {
+fn check_read_bytes<II>(input: &mut II, size: usize, pos: usize, buffer: &mut Vec<u8>) -> Result<()>
+where
+  II: IndexInput,
+{
   // Just to see that "offset" is treated properly in read_bytes(), we
   // add an arbitrary offset at the beginning of the array
   let offset = size % 10; // arbitrary offset

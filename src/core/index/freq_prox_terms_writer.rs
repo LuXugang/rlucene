@@ -143,13 +143,13 @@ where
   }
 
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn flush<N, DM, D1>(
+  pub(crate) fn flush<N, DM, D1, T>(
     &mut self,
     fields_to_flush: HashMap<String, FreqProxTermsWriterPerField>,
     state: &mut SegmentWriteState<D>,
     sort_map: Option<&DM>,
     norms: Option<&N>,
-    codec: &impl Codec,
+    codec: &T,
     info: &SegmentInfo<D1>,
     seg_updates: Option<&mut BufferedUpdates>,
     int_pool: IntBlockPool,
@@ -158,6 +158,7 @@ where
   where
     N: NormsProducer,
     DM: DocMap + Clone,
+    T: Codec,
   {
     self.next_terms_hash.flush(state, sort_map, info)?;
     if !state.field_infos.has_postings() {
@@ -632,9 +633,10 @@ impl<P> SortingDocsEnum<P> {
       upto: 0,
     }
   }
-  pub(crate) fn reset(&mut self, doc_map: &impl DocMap, mut postings_enum: P) -> Result<()>
+  pub(crate) fn reset<T>(&mut self, doc_map: &T, mut postings_enum: P) -> Result<()>
   where
     P: PostingsEnum,
+    T: DocMap,
   {
     let mut i = 0;
     loop {
@@ -889,7 +891,10 @@ impl<P> SortingPostingsEnum<P> {
 
     Ok(())
   }
-  fn add_positions(&mut self, postings: &mut impl PostingsEnum) -> Result<()> {
+  fn add_positions<T>(&mut self, postings: &mut T) -> Result<()>
+  where
+    T: PostingsEnum,
+  {
     let freq = postings.freq()?;
     self.buffer.write_vint(freq)?;
 

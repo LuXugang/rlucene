@@ -821,16 +821,19 @@ impl<S> FieldWriter<S>
 where
   S: RandomVectorScorerSupplier,
 {
-  fn new(
-    scorer: &impl FlatVectorsScorer<
-      RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
-    >,
+  fn new<T>(
+    scorer: &T,
     flat_field_vectors_writer_idx: usize,
     field_info: Arc<FieldInfo>,
     m: usize,
     beam_width: usize,
     info_stream: InfoStreamMT,
-  ) -> Result<Self> {
+  ) -> Result<Self>
+  where
+    T: FlatVectorsScorer<
+      RandomVectorScorerSupplier<ByteVectorValuesImpl, FloatVectorValuesImpl> = S,
+    >,
+  {
     let scorer_supplier = match field_info.get_vector_encoding() {
       VectorEncoding::BYTE(_) => {
         let random_vector_scorer_supplier = from_bytes(field_info.get_vector_dimension() as usize);

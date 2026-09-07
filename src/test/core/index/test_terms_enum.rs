@@ -531,13 +531,17 @@ fn test_floor_blocks() -> Result<()> {
   reader.close()?;
   dir.close()
 }
-fn seek_exact<R>(random: &mut R, te: &mut impl TermsEnum, term: &str) -> Result<bool>
+fn seek_exact<R, T>(random: &mut R, te: &mut T, term: &str) -> Result<bool>
 where
   R: Rng + ?Sized,
+  T: TermsEnum,
 {
   te.seek_exact(&new_bytes_ref_from_string(random, term)?)
 }
-fn next_term(te: &mut impl TermsEnum) -> Result<Option<String>> {
+fn next_term<T>(te: &mut T) -> Result<Option<String>>
+where
+  T: TermsEnum,
+{
   match te.next()? {
     Some(br) => Ok(Some(br.utf8_to_string()?)),
     None => Ok(None),

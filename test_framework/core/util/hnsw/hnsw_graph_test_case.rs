@@ -1191,12 +1191,10 @@ where
     self.delegate.get_nodes_on_level(level)
   }
 
-  fn with_neighbors<R>(
-    &self,
-    level: usize,
-    node: usize,
-    action: impl FnOnce(&NeighborArray) -> Result<R>,
-  ) -> Result<R> {
+  fn with_neighbors<R, F>(&self, level: usize, node: usize, action: F) -> Result<R>
+  where
+    F: FnOnce(&NeighborArray) -> Result<R>,
+  {
     self.delegate.with_neighbors(level, node, action)
   }
 }

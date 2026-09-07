@@ -44,23 +44,30 @@ where
 {
   type Bits = LDF::Bits;
 
-  fn read_live_docs<D>(
+  fn read_live_docs<D, D2>(
     &self,
-    dir: &impl Directory,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits> {
+  ) -> Result<Self::Bits>
+  where
+    D2: Directory,
+  {
     self.delegate.read_live_docs(dir, info, context)
   }
 
-  fn write_live_docs<D>(
+  fn write_live_docs<D, T, D2>(
     &self,
-    bits: &impl Bits,
-    dir: &impl Directory,
+    bits: &T,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()> {
+  ) -> Result<()>
+  where
+    T: Bits,
+    D2: Directory,
+  {
     if self.random.lock().random_range(0..100) == 0 {
       return Err(LuceneError::io(Error::other(
         "Fake I/O error from LiveDocsFormat::write_live_docs()",

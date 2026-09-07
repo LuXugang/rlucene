@@ -33,25 +33,30 @@ pub trait LiveDocsFormat {
   ///
   /// # Returns
   /// A [`Bits`] implementation representing the live docs.
-  fn read_live_docs<D>(
+  fn read_live_docs<D, D2>(
     &self,
-    dir: &impl Directory,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     context: &IOContext,
-  ) -> Result<Self::Bits>;
+  ) -> Result<Self::Bits>
+  where
+    D2: Directory;
 
   /// Persist live docs bits. Use
   /// [`SegmentCommitInfo#
   /// getNextDelGen`](SegmentCommitInfo::get_next_write_del_gen) to determine
   /// the generation of the deletes file you should write to.
-  fn write_live_docs<D>(
+  fn write_live_docs<D, T, D2>(
     &self,
-    bits: &impl Bits,
-    dir: &impl Directory,
+    bits: &T,
+    dir: &D2,
     info: &SegmentCommitInfo<D>,
     new_del_count: i32,
     context: &IOContext,
-  ) -> Result<()>;
+  ) -> Result<()>
+  where
+    T: Bits,
+    D2: Directory;
 
   /// Records all files in use by this [`SegmentCommitInfo`] into the files
   /// argument.

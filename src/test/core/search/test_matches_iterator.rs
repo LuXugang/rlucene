@@ -441,7 +441,7 @@ impl TestMatchesIterator {
   // "a phrase sentence with many phrase sentence iterations of a phrase sentence",
   fn test_sloppy_phrase_query_with_repeats(&self) -> Result<()> {
     let query =
-      PhraseQuery::from_terms(10, FIELD_WITH_OFFSETS, &["phrase", "sentence", "sentence"])?;
+      PhraseQuery::from_terms(10, FIELD_WITH_OFFSETS, ["phrase", "sentence", "sentence"])?;
     self.check_matches(
       query.clone().into(),
       FIELD_WITH_OFFSETS,
@@ -458,7 +458,7 @@ impl TestMatchesIterator {
   }
 
   fn test_sloppy_phrase_query(&self) -> Result<()> {
-    let query = PhraseQuery::from_terms(4, FIELD_WITH_OFFSETS, &["a", "sentence"])?;
+    let query = PhraseQuery::from_terms(4, FIELD_WITH_OFFSETS, ["a", "sentence"])?;
     self.check_matches(
       query.clone().into(),
       FIELD_WITH_OFFSETS,
@@ -474,7 +474,7 @@ impl TestMatchesIterator {
   }
 
   fn test_exact_phrase_query(&self) -> Result<()> {
-    let query = PhraseQuery::from_terms_no_slop(FIELD_WITH_OFFSETS, &["phrase", "sentence"])?;
+    let query = PhraseQuery::from_terms_no_slop(FIELD_WITH_OFFSETS, ["phrase", "sentence"])?;
     self.check_matches(
       query.into(),
       FIELD_WITH_OFFSETS,

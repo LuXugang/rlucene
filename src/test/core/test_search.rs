@@ -124,8 +124,8 @@ fn build_queries() -> Result<Vec<Query>> {
   )?;
   queries.push(boolean_ab.build().into());
 
-  queries.push(PhraseQuery::from_terms_no_slop("contents", &["a", "b"])?.into());
-  queries.push(PhraseQuery::from_terms_no_slop("contents", &["a", "b", "c"])?.into());
+  queries.push(PhraseQuery::from_terms_no_slop("contents", ["a", "b"])?.into());
+  queries.push(PhraseQuery::from_terms_no_slop("contents", ["a", "b", "c"])?.into());
 
   let mut boolean_ac = BooleanQueryBuilder::new();
   boolean_ac.add(
@@ -138,8 +138,8 @@ fn build_queries() -> Result<Vec<Query>> {
   )?;
   queries.push(boolean_ac.build().into());
 
-  queries.push(PhraseQuery::from_terms_no_slop("contents", &["a", "c"])?.into());
-  queries.push(PhraseQuery::from_terms_no_slop("contents", &["a", "c", "e"])?.into());
+  queries.push(PhraseQuery::from_terms_no_slop("contents", ["a", "c"])?.into());
+  queries.push(PhraseQuery::from_terms_no_slop("contents", ["a", "c", "e"])?.into());
 
   Ok(queries)
 }
