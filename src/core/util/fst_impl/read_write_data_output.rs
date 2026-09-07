@@ -232,11 +232,6 @@ impl DataInput for BytesReaderImpl {
   }
 
   fn skip_bytes(&mut self, num_bytes: i64) -> Result<()> {
-    let num_bytes = if num_bytes >= 0 {
-      num_bytes
-    } else {
-      -num_bytes
-    };
     self.set_position(self.get_position() - num_bytes);
     Ok(())
   }
