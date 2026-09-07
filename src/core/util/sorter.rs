@@ -108,36 +108,34 @@ pub trait Sorter {
     Ok(())
   }
 
-  fn lower(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
-    let mut from_i32 = from as i32;
-    let mut len: i32 = (to - from) as i32;
+  fn lower(&mut self, mut from: usize, to: usize, val: usize) -> Result<usize> {
+    let mut len = to - from;
     while len > 0 {
       let half = len >> 1;
-      let mid = from_i32 + half;
-      if self.compare(mid as usize, val)? < 0 {
-        from_i32 = mid + 1;
+      let mid = from + half;
+      if self.compare(mid, val)? < 0 {
+        from = mid + 1;
         len = len - half - 1;
       } else {
         len = half;
       }
     }
-    Ok(from_i32 as usize)
+    Ok(from)
   }
 
-  fn upper(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
-    let mut from_i32 = from as i32;
-    let mut len: i32 = (to - from) as i32;
+  fn upper(&mut self, mut from: usize, to: usize, val: usize) -> Result<usize> {
+    let mut len = to - from;
     while len > 0 {
       let half = len >> 1;
-      let mid = from_i32 + half;
-      if self.compare(val, mid as usize)? < 0 {
+      let mid = from + half;
+      if self.compare(val, mid)? < 0 {
         len = half;
       } else {
-        from_i32 = mid + 1;
+        from = mid + 1;
         len = len - half - 1;
       }
     }
-    Ok(from_i32 as usize)
+    Ok(from)
   }
   // faster than lower when val is at the end of [from:to[
   fn lower2(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
@@ -174,13 +172,15 @@ pub trait Sorter {
     self.upper(f as usize, to, val)
   }
 
-  fn reverse(&mut self, from: usize, to: usize) -> Result<()> {
-    let mut to = to as i32 - 1;
-    let mut from_i32 = from as i32;
-    while from_i32 < to {
-      self.swap(from_i32 as usize, to as usize)?;
-      from_i32 += 1;
-      to -= 1;
+  fn reverse(&mut self, mut from: usize, to: usize) -> Result<()> {
+    let mut to = to.checked_sub(1);
+    while let Some(last) = to {
+      if from >= last {
+        break;
+      }
+      self.swap(from, last)?;
+      from += 1;
+      to = last.checked_sub(1);
     }
     Ok(())
   }

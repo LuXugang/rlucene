@@ -2009,13 +2009,13 @@ impl PostingsEnum for LowFreqDocsEnumNoPos {
 // Docs + freqs + positions/offsets:
 pub struct LowFreqDocsEnum {
   term: Arc<LowFreqTerm>,
-  pos_mult: i32,
+  pos_mult: usize,
   upto: Option<usize>,
   freq: i32,
 }
 
 impl LowFreqDocsEnum {
-  fn new(term: Arc<LowFreqTerm>, pos_mult: i32) -> Self {
+  fn new(term: Arc<LowFreqTerm>, pos_mult: usize) -> Self {
     Self {
       term,
       pos_mult,
@@ -2024,7 +2024,7 @@ impl LowFreqDocsEnum {
     }
   }
 
-  fn can_reuse(&self, pos_mult: i32) -> bool {
+  fn can_reuse(&self, pos_mult: usize) -> bool {
     self.pos_mult == pos_mult
   }
 
@@ -2054,7 +2054,7 @@ impl DocIdSetIterator for LowFreqDocsEnum {
   fn next_doc(&mut self) -> Result<i32> {
     let upto = self
       .upto
-      .map_or(0, |upto| upto + (2 + self.freq * self.pos_mult) as usize);
+      .map_or(0, |upto| upto + (2 + self.freq as usize * self.pos_mult));
     self.upto = Some(upto);
     if upto < self.postings().len() {
       self.freq = self.postings()[upto + 1];
@@ -2096,7 +2096,7 @@ impl PostingsEnum for LowFreqDocsEnum {
 
 pub struct LowFreqPostingsEnum {
   term: Arc<LowFreqTerm>,
-  pos_mult: i32,
+  pos_mult: usize,
   has_offsets: bool,
   has_payloads: bool,
   payload: Option<BytesRef<Vec<u8>>>,
@@ -2164,7 +2164,7 @@ impl DocIdSetIterator for LowFreqPostingsEnum {
         self.payload_offset += length;
       }
     } else {
-      self.upto += self.pos_mult as usize * self.skip_positions as usize;
+      self.upto += self.pos_mult * self.skip_positions as usize;
     }
 
     if self.upto < self.low_term().postings.len() {

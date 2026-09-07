@@ -28,7 +28,7 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use crate::core::util::{Comparator, ToInt, TryIntoInt};
+use crate::core::util::{Comparator, ToInt};
 use std::borrow::Cow;
 use std::rc::Rc;
 
@@ -122,7 +122,7 @@ where
     // top term
     debug_assert_eq!(self.num_top, 0);
 
-    self.num_top = self.queue.fill_top(&mut self.top)?.try_convert()?;
+    self.num_top = self.queue.fill_top(&mut self.top)?;
 
     let top0_idx = self.top[0];
     let top0 = self.queue.entry(top0_idx);
@@ -700,7 +700,7 @@ where
 }
 
 struct TermMergeQueue<TE> {
-  stack: Vec<i32>,
+  stack: Vec<usize>,
   q: PriorityQueue<usize, TermMergeQueueCmp<TE>>,
 }
 impl<TE> TermMergeQueue<TE>
@@ -729,7 +729,7 @@ where
   }
 
   /// Add the top() slice as well as all slices that are positionned on the same term to tops and return how many of them there are.
-  pub(crate) fn fill_top(&mut self, tops: &mut [usize]) -> Result<i32> {
+  pub(crate) fn fill_top(&mut self, tops: &mut [usize]) -> Result<usize> {
     let size = self.q.size();
     if size == 0 {
       return Ok(0);
@@ -745,7 +745,7 @@ where
 
     while stack_len != 0 {
       stack_len -= 1;
-      let index = self.stack[stack_len] as usize;
+      let index = self.stack[stack_len];
 
       let left_child = index << 1;
       let end = std::cmp::min(size, left_child + 1);
@@ -764,12 +764,12 @@ where
           tops[num_top] = te_idx;
           num_top += 1;
 
-          self.stack[stack_len] = child.try_convert()?;
+          self.stack[stack_len] = child;
           stack_len += 1;
         }
       }
     }
-    num_top.try_convert()
+    Ok(num_top)
   }
   fn get(&self, i: usize) -> Result<usize> {
     self.q.get_heap_array()[i]

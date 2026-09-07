@@ -29,7 +29,7 @@ pub struct MultiPostingsEnum<PE> {
   parent: Identity,
   pub(crate) sub_postings_enums: Vec<Option<PE>>,
   subs: Vec<EnumWithSlice>,
-  num_subs: i32,
+  num_subs: usize,
   upto: Option<usize>,
   current: Option<usize>,
   current_base: usize,
@@ -60,9 +60,9 @@ impl<PE> MultiPostingsEnum<PE> {
   }
   /// Re-use and reset this instance on the provided slices.
   pub fn reset(&mut self, subs: &[EnumWithSlice], num_subs: i32) {
-    self.num_subs = num_subs;
+    self.num_subs = num_subs as usize;
 
-    for (i, sub) in subs.iter().enumerate().take(num_subs as usize) {
+    for (i, sub) in subs.iter().enumerate().take(self.num_subs) {
       self.subs[i].postings_enum_idx = sub.postings_enum_idx;
       self.subs[i].slice = sub.slice.clone();
     }
@@ -74,7 +74,7 @@ impl<PE> MultiPostingsEnum<PE> {
 
   /// How many sub-readers we are merging.
   pub fn get_num_subs(&self) -> i32 {
-    self.num_subs
+    self.num_subs as i32
   }
 
   /// Returns sub-readers we are merging.
@@ -150,7 +150,7 @@ where
       let current = if let Some(current) = self.current {
         current
       } else {
-        if self.upto.map_or(0, |upto| upto + 1) == self.num_subs as usize {
+        if self.upto.map_or(0, |upto| upto + 1) == self.num_subs {
           self.doc = NO_MORE_DOCS;
           return Ok(self.doc);
         } else {
@@ -192,7 +192,7 @@ where
           self.doc = doc + self.current_base as i32;
           return Ok(self.doc);
         }
-      } else if self.upto.map_or(0, |upto| upto + 1) == self.num_subs as usize {
+      } else if self.upto.map_or(0, |upto| upto + 1) == self.num_subs {
         self.doc = NO_MORE_DOCS;
         return Ok(self.doc);
       } else {
@@ -206,7 +206,7 @@ where
 
   fn cost(&self) -> Result<i64> {
     let mut cost: i64 = 0;
-    for i in 0..(self.num_subs as usize) {
+    for i in 0..(self.num_subs) {
       let pe_idx = self.subs[i].postings_enum_idx;
       cost += self.postings_enum_ref(pe_idx)?.cost()?;
     }

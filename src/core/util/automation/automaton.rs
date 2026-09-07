@@ -606,7 +606,7 @@ pub struct Builder {
   next_state: i32,
   is_accept: BitSet,
   transitions: Vec<i32>,
-  next_transition: i32,
+  next_transition: usize,
 }
 
 impl Accountable for Builder {
@@ -646,11 +646,11 @@ impl Builder {
   }
   /// Add a new transition with the specified source, dest, min, max.
   pub fn add_transition(&mut self, source: i32, dest: i32, min: i32, max: i32) -> Result<()> {
-    let new_len = (self.next_transition + 4) as usize;
+    let new_len = self.next_transition + 4;
     if self.transitions.len() < new_len {
       ArrayUtil::grow_with_len(&mut self.transitions, new_len)?;
     }
-    let mut next_transition = self.next_transition as usize;
+    let mut next_transition = self.next_transition;
     self.transitions[next_transition] = source;
     next_transition += 1;
     self.transitions[next_transition] = dest;
@@ -659,7 +659,7 @@ impl Builder {
     next_transition += 1;
     self.transitions[next_transition] = max;
     next_transition += 1;
-    self.next_transition = next_transition as i32;
+    self.next_transition = next_transition;
     Ok(())
   }
   /// Add a `virtual` epsilon transition between source and dest. Dest state
@@ -667,7 +667,7 @@ impl Builder {
   /// copies those same transitions over to source.
   pub fn add_epsilon(&mut self, source: i32, dest: i32) -> Result<()> {
     let mut upto = 0;
-    while upto < self.next_transition as usize {
+    while upto < self.next_transition {
       if self.transitions[upto] == dest {
         self.add_transition(
           source,
@@ -688,7 +688,7 @@ impl Builder {
   pub fn finish(&mut self) -> Result<Automaton> {
     let num_states = self.next_state;
     let num_transitions = self.next_transition / 4;
-    let mut a = Automaton::with_capacity(num_states as usize, num_transitions as usize);
+    let mut a = Automaton::with_capacity(num_states as usize, num_transitions);
 
     for state in 0..num_states {
       a.create_state()?;
@@ -699,9 +699,9 @@ impl Builder {
     };
     let mut sort = InPlaceMergeSorter::new(sub);
     debug_assert!(num_transitions.to_i32().is_some());
-    sort.sort(0, num_transitions.try_convert()?)?;
+    sort.sort(0, num_transitions)?;
     let mut upto = 0;
-    while upto < self.next_transition as usize {
+    while upto < self.next_transition {
       a.add_transition(
         self.transitions[upto],
         self.transitions[upto + 1],

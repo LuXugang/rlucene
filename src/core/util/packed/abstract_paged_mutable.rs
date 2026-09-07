@@ -16,7 +16,6 @@
  */
 use std::fmt::Display;
 
-use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::long_values::LongValues;
@@ -38,7 +37,7 @@ pub struct AbstractPagedMutable<T> {
   sub_reader: T,
   size: usize,
   page_shift: i32,
-  page_mask: i32,
+  page_mask: usize,
   pub(crate) sub_mutables: Vec<MutableEnum>,
 }
 
@@ -49,7 +48,7 @@ where
 {
   pub fn new(size: usize, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
     let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
-    let page_mask = page_size - 1;
+    let page_mask = (page_size - 1) as usize;
     let num_pages = PackedInts::num_blocks(size, page_size)?;
     let sub_mutables = Vec::with_capacity(num_pages);
     let mut result = AbstractPagedMutable {
@@ -85,10 +84,10 @@ where
   }
   fn last_page_size(&self, size: usize) -> i32 {
     let sz = self.index_in_page(size);
-    if sz == 0 { self.page_size() } else { sz }
+    if sz == 0 { self.page_size() } else { sz as i32 }
   }
   fn page_size(&self) -> i32 {
-    self.page_mask + 1
+    (self.page_mask + 1) as i32
   }
   pub fn size(&self) -> usize {
     self.size
@@ -109,8 +108,8 @@ where
     index >> self.page_shift
   }
 
-  fn index_in_page(&self, index: usize) -> i32 {
-    (index & self.page_mask as usize) as i32
+  fn index_in_page(&self, index: usize) -> usize {
+    index & self.page_mask
   }
   /// Sets the value at the specified index.
   pub fn set(&mut self, index: usize, value: i64) -> Result<()> {
@@ -125,7 +124,7 @@ where
     let sub_mutable = self.sub_mutables.get_mut(page_index).ok_or_else(|| {
       LuceneError::array_index_out_of_bounds(format!("page index out of bounds: {page_index}"))
     })?;
-    sub_mutable.set(index_in_page, value)
+    sub_mutable.set(index_in_page as i32, value)
   }
   pub(crate) fn base_ram_bytes_used(&self) -> i64 {
     self.sub_reader.base_ram_bytes_used_base()
@@ -196,7 +195,7 @@ where
     let sub_mutable = self.sub_mutables.get(page_index).ok_or_else(|| {
       LuceneError::array_index_out_of_bounds(format!("page index out of bounds: {page_index}"))
     })?;
-    Ok(sub_mutable.get(index_in_page.try_convert()?))
+    Ok(sub_mutable.get(index_in_page))
   }
 }
 #[allow(private_bounds)] // Models Java's protected AbstractPagedMutable subclass hooks without exposing Rust's internal enum dispatch type.

@@ -21,7 +21,7 @@ use crate::core::util::error::lucene_error::Result;
 
 /// An LSB radix sorter for values interpreted as `u32`.
 pub struct LSBRadixSorter {
-  histogram: [i32; HISTOGRAM_SIZE],
+  histogram: [usize; HISTOGRAM_SIZE],
   buffer: Vec<i32>,
 }
 impl Default for LSBRadixSorter {
@@ -37,13 +37,13 @@ impl LSBRadixSorter {
       buffer: Vec::new(),
     }
   }
-  fn build_histogram(array: &[i32], len: usize, histogram: &mut [i32; 256], shift: usize) {
+  fn build_histogram(array: &[i32], len: usize, histogram: &mut [usize; 256], shift: usize) {
     for &v in &array[..len] {
       let b = ((v as u32) >> shift) & 0xFF;
       histogram[b as usize] += 1;
     }
   }
-  fn sum_histogram(histogram: &mut [i32; 256]) {
+  fn sum_histogram(histogram: &mut [usize; 256]) {
     let mut accum = 0;
     for h in histogram.iter_mut() {
       let count = *h;
@@ -54,13 +54,13 @@ impl LSBRadixSorter {
   fn reorder(
     array: &[i32],
     len: usize,
-    histogram: &mut [i32; 256],
+    histogram: &mut [usize; 256],
     shift: usize,
     dest: &mut [i32],
   ) {
     for &v in &array[..len] {
       let b = ((v as u32) >> shift) & 0xFF;
-      let idx = histogram[b as usize] as usize;
+      let idx = histogram[b as usize];
       dest[idx] = v;
       histogram[b as usize] += 1;
     }
@@ -68,13 +68,13 @@ impl LSBRadixSorter {
   fn sort_pass(
     array: &[i32],
     len: usize,
-    histogram: &mut [i32; 256],
+    histogram: &mut [usize; 256],
     shift: usize,
     dest: &mut [i32],
   ) -> bool {
     histogram.fill(0);
     Self::build_histogram(array, len, histogram, shift);
-    if histogram[0] == len as i32 {
+    if histogram[0] == len {
       return false;
     }
     Self::sum_histogram(histogram);

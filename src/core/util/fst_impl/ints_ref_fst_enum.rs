@@ -66,7 +66,7 @@ where
   pub fn seek_ceil(&mut self, target: &IntsRef<Vec<i32>>) -> Result<Option<&IOIntRef<O>>> {
     debug_assert!(target.length <= i32::MAX as usize);
     let (base, result) = (&mut self.base, &mut self.result);
-    base.target_length = target.length as i32;
+    base.target_length = target.length;
     let mut ctx = IntsRefFSTEnumContext { result };
     base.do_seek_ceil(&mut ctx, target)?;
     self.set_result()
@@ -76,7 +76,7 @@ where
   pub fn seek_floor(&mut self, target: &IntsRef<Vec<i32>>) -> Result<Option<&IOIntRef<O>>> {
     debug_assert!(target.length <= i32::MAX as usize);
     let (base, result) = (&mut self.base, &mut self.result);
-    base.target_length = target.length as i32;
+    base.target_length = target.length;
     let mut ctx = IntsRefFSTEnumContext { result };
     base.do_seek_floor(&mut ctx, target)?;
     self.set_result()
@@ -88,7 +88,7 @@ where
   pub fn seek_exact(&mut self, target: &IntsRef<Vec<i32>>) -> Result<Option<&IOIntRef<O>>> {
     debug_assert!(target.length <= i32::MAX as usize);
     let (base, result) = (&mut self.base, &mut self.result);
-    base.target_length = target.length as i32;
+    base.target_length = target.length;
     let mut ctx = IntsRefFSTEnumContext { result };
     let found = base.do_seek_exact(&mut ctx, target)?;
     if found {

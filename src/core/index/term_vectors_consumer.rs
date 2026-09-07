@@ -51,7 +51,7 @@ where
   directory: D,
   codec: Codecs,
   has_vectors: bool,
-  num_vector_fields: i32,
+  num_vector_fields: usize,
   pub(crate) last_doc_id: i32,
   per_fields_idxs: Vec<PerFieldMeta>,
   hook: TermVectorsConsumerHook<D>,
@@ -244,18 +244,16 @@ where
       return Ok(());
     }
 
-    ArrayUtil::intro_sort_with_range(
-      &mut self.per_fields_idxs,
-      0,
-      self.num_vector_fields.try_convert()?,
-    )?;
+    ArrayUtil::intro_sort_with_range(&mut self.per_fields_idxs, 0, self.num_vector_fields)?;
 
     self.init_term_vectors_writer(info)?;
     self.fill(doc_id)?;
     // Append term vectors to the real outputs:
-    self.hook.start_document(self.num_vector_fields)?;
+    self
+      .hook
+      .start_document(self.num_vector_fields.try_convert()?)?;
     let idxs = std::mem::take(&mut self.per_fields_idxs);
-    for per_field_idx in idxs.into_iter().take(self.num_vector_fields as usize) {
+    for per_field_idx in idxs.into_iter().take(self.num_vector_fields) {
       let v = &mut per_fields[per_field_idx.idx];
       let terms_hash_per_field = v
         .terms_hash_per_field
@@ -301,7 +299,7 @@ where
     self.hook.write_per_field(per_field, int_pool, byte_pool)
   }
   pub(crate) fn add_field_to_flush(&mut self, meta: PerFieldMeta) -> Result<()> {
-    let num_vector_fields = self.num_vector_fields as usize;
+    let num_vector_fields = self.num_vector_fields;
     if num_vector_fields == self.per_fields_idxs.len() {
       ArrayUtil::grow_with_len(&mut self.per_fields_idxs, num_vector_fields + 1)?;
     }

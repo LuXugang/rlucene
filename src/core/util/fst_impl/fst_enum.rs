@@ -38,7 +38,7 @@ where
   pub(crate) no_output: O::V,
   pub(crate) fst_reader: F::FstBytesReader,
   pub(crate) upto: usize,
-  pub(crate) target_length: i32,
+  pub(crate) target_length: usize,
 }
 impl<O, F> FSTEnum<O, F>
 where
@@ -89,7 +89,7 @@ where
 
     {
       // Borrow fst mutably once for the entire loop.
-      while self.upto < current_limit && self.upto <= self.target_length as usize + 1 {
+      while self.upto < current_limit && self.upto <= self.target_length + 1 {
         let cmp = sub.get_current_label(self)? - sub.get_target_label(self, target)?;
         if cmp < 0 {
           break;

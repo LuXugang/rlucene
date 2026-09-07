@@ -106,8 +106,8 @@ impl SparseFixedBitSet {
       bit_array[o] = 1_u64 << (i % 64);
     } else {
       let old_bytes = size_of_vec(bit_array);
-      let new_size = oversize(bit_array.len() as i32 + 1);
-      let mut new_bit_array = vec![0; new_size as usize];
+      let new_size = oversize(bit_array.len() + 1);
+      let mut new_bit_array = vec![0; new_size];
       new_bit_array.copy_from(&bit_array[..o], 0);
       new_bit_array[o] = 1_u64 << (i % 64);
       new_bit_array.copy_from(&bit_array[o..], o + 1);
@@ -260,12 +260,12 @@ impl SparseFixedBitSet {
     }
     let current_bits = std::mem::take(&mut self.bits[i4096]);
     let new_index = current_index | index;
-    let required_capacity = new_index.count_ones();
+    let required_capacity = new_index.count_ones() as usize;
     let current_bytes = size_of_vec(&current_bits);
-    let (mut new_bits, old_bits) = if current_bits.len() >= required_capacity as usize {
+    let (mut new_bits, old_bits) = if current_bits.len() >= required_capacity {
       (current_bits, None)
     } else {
-      let new_bits = vec![0; oversize(required_capacity as i32) as usize];
+      let new_bits = vec![0; oversize(required_capacity)];
       self.ram_bytes_used = self
         .ram_bytes_used
         .saturating_sub(current_bytes)
@@ -367,7 +367,7 @@ fn mask(from: usize, to: usize) -> usize {
   ((1_u64 << shift << 1).wrapping_sub(1) << (from % 64)) as usize
 }
 
-fn oversize(s: i32) -> i32 {
+fn oversize(s: usize) -> usize {
   let mut new_size = s + (s >> 1);
   if new_size > 50 {
     new_size = 64

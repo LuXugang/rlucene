@@ -284,7 +284,7 @@ pub(crate) struct SortedSetDocValuesWriter {
   current_doc: i32,
   current_values: Vec<i32>,
   current_upto: usize,
-  max_count: i32,
+  max_count: usize,
 
   final_ords: Option<PackedLongValues>,
   final_ord_counts: Option<PackedLongValues>,
@@ -427,7 +427,7 @@ impl SortedSetDocValuesWriter {
     pool: Arc<ByteBlockPool>,
     ords: &PackedLongValues,
     ord_counts: Option<&PackedLongValues>,
-    max_count: i32,
+    max_count: usize,
     docs_with_field: &DocsWithFieldSet,
   ) -> Result<SortedSetDocValuesWriterDocIdSetIterator> {
     let docs_iter = docs_with_field.iterator()?;
@@ -607,7 +607,7 @@ pub(crate) struct DocValuesProducerImpl1<'a> {
   pool: Arc<ByteBlockPool>,
   ords: &'a PackedLongValues,
   ord_counts: &'a PackedLongValues,
-  max_count: i32,
+  max_count: usize,
   docs_with_field: &'a DocsWithFieldSet,
   doc_ords: Option<DocOrds>,
 }
@@ -627,7 +627,7 @@ impl<'a> DocValuesProducerImpl1<'a> {
     pool: Arc<ByteBlockPool>,
     ords: &'a PackedLongValues,
     ord_counts: &'a PackedLongValues,
-    max_count: i32,
+    max_count: usize,
     docs_with_field: &'a DocsWithFieldSet,
     doc_ords: Option<DocOrds>,
   ) -> Self {
@@ -730,7 +730,7 @@ impl<D> BufferedSortedSetDocValues<D> {
     pool: Arc<ByteBlockPool>,
     ords: &PackedLongValues,
     ord_counts: &PackedLongValues,
-    max_count: i32,
+    max_count: usize,
     docs_with_field: D,
   ) -> Result<Self> {
     Ok(Self {
@@ -741,7 +741,7 @@ impl<D> BufferedSortedSetDocValues<D> {
       ords_iter: ords.iterator()?,
       ord_counts_iter: ord_counts.iterator()?,
       docs_with_field,
-      current_doc: vec![0; max_count as usize],
+      current_doc: vec![0; max_count],
       ord_count: 0,
       ord_upto: 0,
     })
@@ -847,7 +847,7 @@ pub struct SortingSortedSetDocValues<S> {
   input: S,
   ords: DocOrds,
   doc_id: i32,
-  ord_upto: i64,
+  ord_upto: Option<usize>,
   count: i32,
 }
 
@@ -857,14 +857,14 @@ impl<S> SortingSortedSetDocValues<S> {
       input,
       ords,
       doc_id: -1,
-      ord_upto: 0,
+      ord_upto: Some(0),
       count: 0,
     }
   }
 
   fn init_count(&mut self) -> Result<()> {
     let doc_id = self.doc_id.try_convert()?;
-    self.ord_upto = self.ords.offsets[doc_id] as i64 - 1;
+    self.ord_upto = self.ords.offsets[doc_id].checked_sub(1);
     self.count = self.ords.doc_value_counts.get(doc_id) as i32;
     Ok(())
   }
@@ -932,8 +932,11 @@ where
   S: SortedSetDocValues,
 {
   fn next_ord(&mut self) -> Result<i64> {
-    let ord = self.ords.ords.get(self.ord_upto.try_convert()?)?;
-    self.ord_upto += 1;
+    let ord_upto = self
+      .ord_upto
+      .ok_or_else(|| LuceneError::illegal_state("value -1 does not fit into usize"))?;
+    let ord = self.ords.ords.get(ord_upto)?;
+    self.ord_upto = Some(ord_upto + 1);
     Ok(ord)
   }
 

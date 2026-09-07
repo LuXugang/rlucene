@@ -62,7 +62,7 @@ pub(crate) struct BinaryDocValuesWriter {
   docs_with_field: DocsWithFieldSet,
   bytes_used: i64,
   last_doc_id: i32,
-  max_length: i32,
+  max_length: usize,
   final_lengths: Option<PackedLongValues>,
 }
 
@@ -102,7 +102,7 @@ impl BinaryDocValuesWriter {
       )));
     }
 
-    self.max_length = self.max_length.max(value.length as i32);
+    self.max_length = self.max_length.max(value.length);
     self.lengths.add(value.length as i64)?;
 
     self
@@ -162,7 +162,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
         };
         let mut buffered_binary_doc_values = BufferedBinaryDocValues::new(
           final_lengths,
-          self.max_length as usize,
+          self.max_length,
           get_data_input(&self.bytes_out.paged_bytes)?,
           self.docs_with_field.iterator()?,
         )?;
@@ -201,7 +201,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
     };
     BufferedBinaryDocValues::new(
       final_lengths,
-      self.max_length as usize,
+      self.max_length,
       get_data_input(&self.bytes_out.paged_bytes)?,
       self.docs_with_field.iterator()?,
     )
@@ -219,7 +219,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
 pub(crate) struct DocValuesProducerImpl<'a> {
   field_info: Arc<FieldInfo>,
   final_lengths: &'a PackedLongValues,
-  max_length: i32,
+  max_length: usize,
   paged_bytes: &'a PagedBytes,
   docs_with_field: &'a DocsWithFieldSet,
   sorted: Option<BinaryDVs>,
@@ -235,7 +235,7 @@ impl<'a> DocValuesProducerImpl<'a> {
   pub(crate) fn new(
     field_info: Arc<FieldInfo>,
     final_lengths: &'a PackedLongValues,
-    max_length: i32,
+    max_length: usize,
     paged_bytes: &'a PagedBytes,
     docs_with_field: &'a DocsWithFieldSet,
     sorted: Option<BinaryDVs>,
@@ -328,7 +328,7 @@ impl DocValuesProducer for DocValuesProducerImpl<'_> {
       None => Ok(BufferedSortingBinaryDocValues::Buffered(
         BufferedBinaryDocValues::new(
           self.final_lengths,
-          self.max_length as usize,
+          self.max_length,
           get_data_input(self.paged_bytes)?,
           self.docs_with_field.iterator()?,
         )?,

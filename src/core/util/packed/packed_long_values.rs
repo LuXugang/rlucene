@@ -32,7 +32,7 @@ use std::sync::Arc;
 /// Utility struct to compress integers into a [`LongValues`] instance.
 pub struct PackedLongValues {
   page_shift: i32,
-  pub(crate) page_mask: i32,
+  pub(crate) page_mask: usize,
   pub(crate) values: Vec<Arc<PackedIntsReadEnum>>,
   pub(crate) size: i64,
 
@@ -116,7 +116,7 @@ impl PackedLongValues {
   }
   fn new(
     page_shift: i32,
-    page_mask: i32,
+    page_mask: usize,
     values: Vec<PackedIntsReadEnum>,
     size: i64,
     sub_packed_long_values: Option<DeltaPackedLongValues>,
@@ -181,7 +181,7 @@ impl LongValues for PackedLongValues {
   fn get(&self, index: usize) -> Result<i64> {
     debug_assert!(index < self.size() as usize);
     let block = index >> self.page_shift;
-    let element = index & self.page_mask as usize;
+    let element = index & self.page_mask;
     Ok(self.get_value(block, element, 0))
   }
 }
@@ -190,7 +190,7 @@ impl LongValues for PackedLongValues {
 #[derive(Default)]
 pub struct Builder {
   pub(crate) page_shift: i32,
-  pub(crate) page_mask: i32,
+  pub(crate) page_mask: usize,
   acceptable_overhead_ratio: f32,
   pending: Vec<i64>,
   pub(crate) size: i64,
@@ -216,7 +216,7 @@ impl Builder {
     sub_packed_long_values_builder: Option<DeltaPackedLongValuesBuilder>,
   ) -> Result<Builder> {
     let page_shift = PackedInts::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE)?;
-    let page_mask = page_size - 1;
+    let page_mask = (page_size - 1) as usize;
     let pending = vec![0; page_size as usize];
     let mut values = Vec::new();
     // TODO: maybe we should impl `Clone` for `PackedIntsReadEnum`

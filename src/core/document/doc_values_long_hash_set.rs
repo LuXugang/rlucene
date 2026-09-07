@@ -28,7 +28,7 @@ const MISSING: i64 = i64::MIN;
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub(crate) struct DocValuesLongHashSet {
   pub(crate) table: Vec<i64>,
-  pub(crate) mask: i32,
+  pub(crate) mask: usize,
   pub(crate) has_missing_value: bool,
   pub(crate) size: i32,
   /// Minimum value in the set, or `i64::MAX` for an empty set.
@@ -44,7 +44,7 @@ impl DocValuesLongHashSet {
     table_size = 1i32 << bits;
     debug_assert!(table_size as usize >= (values.len() * 3 / 2));
     let mut table = vec![MISSING; table_size as usize];
-    let mask = table_size - 1;
+    let mask = (table_size - 1) as usize;
     let mut has_missing_value = false;
     let mut size = 0;
     let mut previous_value = i64::MIN;
@@ -80,9 +80,9 @@ impl DocValuesLongHashSet {
       max_value,
     })
   }
-  fn add(table: &mut [i64], mask: i32, l: i64) -> bool {
+  fn add(table: &mut [i64], mask: usize, l: i64) -> bool {
     debug_assert!(l != MISSING);
-    let hash = (CoreHelper::calculate_hash(&l) & mask as u64) as usize;
+    let hash = CoreHelper::calculate_hash(&l) as usize & mask;
     let mut i = hash;
 
     loop {
@@ -93,7 +93,7 @@ impl DocValuesLongHashSet {
       } else if v == l {
         return false;
       }
-      i = (i + 1) & mask as usize;
+      i = (i + 1) & mask;
     }
   }
   /// check for membership in the set.
@@ -103,8 +103,8 @@ impl DocValuesLongHashSet {
       return self.has_missing_value;
     }
 
-    let hash = CoreHelper::calculate_hash(&l) & self.mask as u64;
-    let mut i = hash as usize;
+    let hash = CoreHelper::calculate_hash(&l) as usize & self.mask;
+    let mut i = hash;
 
     loop {
       let v = self.table[i];
@@ -113,7 +113,7 @@ impl DocValuesLongHashSet {
       } else if v == l {
         return true;
       }
-      i = (i + 1) & self.mask as usize;
+      i = (i + 1) & self.mask;
     }
   }
   /// number of elements in the set
