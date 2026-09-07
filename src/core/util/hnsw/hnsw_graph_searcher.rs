@@ -364,11 +364,19 @@ impl HnswGraphSearcherBase for HnswGraphSearcherHook {
 /// **Note**: The struct itself is **NOT** thread-safe, but since each search
 /// creates a new `Searcher`, the search methods using this struct are
 /// thread-safe.
-#[derive(Default)]
 pub(crate) struct OnHeapHnswGraphSearcher {
   cur_level: usize,
   cur_node: usize,
-  upto: i32,
+  upto: Option<usize>,
+}
+impl Default for OnHeapHnswGraphSearcher {
+  fn default() -> Self {
+    Self {
+      cur_level: 0,
+      cur_node: 0,
+      upto: Some(0),
+    }
+  }
 }
 impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
   fn graph_seek(
@@ -379,15 +387,16 @@ impl HnswGraphSearcherBase for OnHeapHnswGraphSearcher {
   ) -> Result<()> {
     self.cur_level = level;
     self.cur_node = target_node;
-    self.upto = -1;
+    self.upto = None;
     Ok(())
   }
 
   fn graph_next_neighbor(&mut self, graph: &mut impl HnswGraph) -> Result<usize> {
     graph.with_neighbors(self.cur_level, self.cur_node, |neighbors| {
-      self.upto += 1;
-      if (self.upto as usize) < neighbors.size() {
-        Ok(neighbors.nodes()[self.upto as usize])
+      let upto = self.upto.map_or(0, |upto| upto + 1);
+      self.upto = Some(upto);
+      if upto < neighbors.size() {
+        Ok(neighbors.nodes()[upto])
       } else {
         Ok(NO_MORE_DOCS as usize)
       }

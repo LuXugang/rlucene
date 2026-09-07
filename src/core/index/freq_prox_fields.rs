@@ -223,7 +223,7 @@ pub(crate) struct FreqProxTermsEnum {
   terms_pool: BytesRefBlockPool,
   scratch: BytesRef<Vec<u8>>,
   num_terms: i32,
-  ord: i32,
+  ord: Option<usize>,
 }
 impl FreqProxTermsEnum {
   fn new(
@@ -244,22 +244,23 @@ impl FreqProxTermsEnum {
       attributes: EmptyAttributeSource,
       scratch: BytesRef::new(),
       num_terms,
-      ord: 0,
+      ord: Some(0),
     }
   }
   pub fn reset(&mut self) {
-    self.ord = -1;
+    self.ord = None;
   }
 }
 
 impl BytesRefIterator for FreqProxTermsEnum {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    self.ord += 1;
-    if self.ord >= self.num_terms {
+    let ord = self.ord.map_or(0, |ord| ord + 1);
+    self.ord = Some(ord);
+    if ord >= self.num_terms as usize {
       return Ok(None);
     }
 
-    let term_id = self.terms.base.get_sorted_term_ids()[self.ord as usize];
+    let term_id = self.terms.base.get_sorted_term_ids()[ord];
 
     let postings_array_enum = self.terms.base.postings_array();
 
@@ -339,18 +340,18 @@ impl TermsEnum for FreqProxTermsEnum {
         hi = mid - 1;
       } else {
         // found
-        self.ord = mid;
+        self.ord = Some(mid as usize);
         debug_assert_eq!((*self.term()?).cmp(text).to_int(), 0);
         return Ok(SeekStatus::Found);
       }
     }
 
     // not found
-    self.ord = lo;
-    if self.ord >= self.num_terms {
+    self.ord = Some(lo as usize);
+    if lo >= self.num_terms {
       Ok(SeekStatus::End)
     } else {
-      let term_id = sorted_term_ids[self.ord as usize];
+      let term_id = sorted_term_ids[lo as usize];
       let text_start = postings_array.parent.text_starts[term_id as usize];
       self
         .terms_pool
@@ -362,9 +363,10 @@ impl TermsEnum for FreqProxTermsEnum {
 
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
     let ord = ord as i32;
-    self.ord = ord;
+    self.ord = (ord != -1).then_some(ord as usize);
+    let ord = ord as usize;
 
-    let term_id = self.terms.base.get_sorted_term_ids()[ord as usize];
+    let term_id = self.terms.base.get_sorted_term_ids()[ord];
 
     let postings_array_enum = self.terms.base.postings_array();
 
@@ -401,7 +403,7 @@ impl TermsEnum for FreqProxTermsEnum {
   }
 
   fn ord(&self) -> Result<i64> {
-    Ok(self.ord as i64)
+    Ok(self.ord.map_or(-1, |ord| ord as i64))
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
@@ -453,7 +455,11 @@ impl TermsEnum for FreqProxTermsEnum {
           self.byte_pool.clone(),
         ),
       };
-      pos_enum.reset(sorted_term_ids[self.ord as usize])?;
+      pos_enum.reset(
+        sorted_term_ids[self
+          .ord
+          .ok_or_else(|| LuceneError::illegal_state("terms enum has no current term"))?],
+      )?;
       return Ok(PostingsEnumEnum2::A(pos_enum));
     }
 
@@ -470,7 +476,11 @@ impl TermsEnum for FreqProxTermsEnum {
         self.byte_pool.clone(),
       ),
     };
-    docs_enum.reset(sorted_term_ids[self.ord as usize])?;
+    docs_enum.reset(
+      sorted_term_ids[self
+        .ord
+        .ok_or_else(|| LuceneError::illegal_state("terms enum has no current term"))?],
+    )?;
     Ok(PostingsEnumEnum2::B(docs_enum))
   }
 
@@ -493,7 +503,7 @@ pub(crate) struct FreqProxDocsEnum {
   pub(crate) doc_id: i32,
   pub(crate) freq: i32,
   pub(crate) ended: bool,
-  pub(crate) term_id: i32,
+  pub(crate) term_id: Option<usize>,
 }
 impl FreqProxDocsEnum {
   pub fn new(
@@ -510,11 +520,11 @@ impl FreqProxDocsEnum {
       doc_id: -1,
       freq: 0,
       ended: false,
-      term_id: -1,
+      term_id: None,
     }
   }
   pub fn reset(&mut self, term_id: i32) -> Result<()> {
-    self.term_id = term_id;
+    self.term_id = (term_id != -1).then_some(term_id as usize);
     self
       .terms
       .base
@@ -552,13 +562,15 @@ impl DocIdSetIterator for FreqProxDocsEnum {
           let PostingsArrayEnum::FreqProx(p) = postings_array else {
             return Err(LuceneError::illegal_state("Unexpected postings array type"));
           };
-          self.doc_id = p.last_doc_ids[self.term_id as usize];
+          let term_id = self
+            .term_id
+            .ok_or_else(|| LuceneError::illegal_state("postings enum has no current term"))?;
+          self.doc_id = p.last_doc_ids[term_id];
           if self.read_term_freq {
             self.freq = p
               .term_freqs
               .as_ref()
-              .ok_or_else(|| LuceneError::illegal_state("term_freqs not available"))?
-              [self.term_id as usize];
+              .ok_or_else(|| LuceneError::illegal_state("term_freqs not available"))?[term_id];
           }
         }
       }
@@ -576,7 +588,7 @@ impl DocIdSetIterator for FreqProxDocsEnum {
       }
       debug_assert!(matches!(
         self.terms.base.postings_array(),
-        Some(PostingsArrayEnum::FreqProx(p)) if self.doc_id != p.last_doc_ids[self.term_id as usize]
+        Some(PostingsArrayEnum::FreqProx(p)) if self.term_id.is_some_and(|term_id| self.doc_id != p.last_doc_ids[term_id])
       ));
     }
 

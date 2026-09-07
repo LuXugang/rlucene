@@ -180,18 +180,15 @@ impl SparseFixedBitSet {
   }
   /// Return the last document that occurs on or before the provided block
   /// index.
-  fn last_doc(&self, mut i4096: isize) -> Option<usize> {
-    let mut index;
-    while i4096 >= 0 {
-      index = self.indices[i4096 as usize];
+  fn last_doc(&self, mut i4096: Option<usize>) -> Option<usize> {
+    while let Some(block) = i4096 {
+      let index = self.indices[block];
       if index != 0 {
         let i64 = 63 - index.leading_zeros() as usize;
-        let bits = self.bits[i4096 as usize][index.count_ones() as usize - 1];
-        return Option::from(
-          ((i4096 as usize) << 12) | (i64 << 6) | (63 - bits.leading_zeros() as usize),
-        );
+        let bits = self.bits[block][index.count_ones() as usize - 1];
+        return Some((block << 12) | (i64 << 6) | (63 - bits.leading_zeros() as usize));
       }
-      i4096 -= 1;
+      i4096 = block.checked_sub(1);
     }
     None
   }
@@ -279,8 +276,9 @@ impl SparseFixedBitSet {
     // the next iteration if the array is reused
     let new_index = new_index as u64;
     let mut i = new_index.leading_zeros() as usize;
-    let mut new_o = new_index.count_ones() as isize - 1;
+    let mut new_o = new_index.count_ones() as usize;
     while i < 64 {
+      new_o -= 1;
       // bitIndex is the index of a bit which is set in newIndex and newO
       // is the number of 1 bits on its right
       let bit_index = 63 - i;
@@ -291,9 +289,8 @@ impl SparseFixedBitSet {
       let current_bits = old_bits.as_ref().unwrap_or(&new_bits);
       let merged_bits = (long_bits(current_index, current_bits, bit_index)
         | long_bits(index, bits, bit_index)) as u64;
-      new_bits[new_o as usize] = merged_bits;
+      new_bits[new_o] = merged_bits;
       i += 1 + new_index.wrapping_shl((i + 1) as u32).leading_zeros() as usize;
-      new_o -= 1;
     }
     self.indices[i4096] = new_index as usize;
     self.bits[i4096] = new_bits;
@@ -568,7 +565,7 @@ impl BitSet for SparseFixedBitSet {
     if index_bits == 0 {
       // no more bits are set in this block, go find the last bit in the
       // previous block
-      return self.last_doc(i4096 as isize - 1);
+      return self.last_doc(i4096.checked_sub(1));
     }
     // go to the previous long
     i64 = 63 - index_bits.leading_zeros() as usize;

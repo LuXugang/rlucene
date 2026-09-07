@@ -98,7 +98,7 @@ pub struct Builder {
   sets: Vec<Option<DocIdSetEnum>>,
   cardinality: usize,
   last_doc_id: i32,
-  current_block: i32,
+  current_block: Option<usize>,
   current_block_cardinality: usize,
   // We start by filling the buffer and when it's full we copy the
   // content of the buffer to the FixedBitSet and put further
@@ -121,7 +121,7 @@ impl Builder {
       sets,
       cardinality: 0,
       last_doc_id: -1,
-      current_block: -1,
+      current_block: None,
       current_block_cardinality: 0,
       buffer,
       dense_buffer: FixedBitSet::new(0),
@@ -136,10 +136,10 @@ impl Builder {
         self.last_doc_id
       )));
     }
-    let block = doc_id >> 16;
-    if block != self.current_block {
+    let block = (doc_id >> 16) as usize;
+    if Some(block) != self.current_block {
       let _ = self.flush();
-      self.current_block = block;
+      self.current_block = Some(block);
     }
 
     if self.current_block_cardinality < MAX_ARRAY_LENGTH {
@@ -149,7 +149,7 @@ impl Builder {
     } else {
       if self.dense_buffer.length() == 0 {
         // the buffer is full, let's move to a fixed bit set
-        let num_bits = std::cmp::min(1 << 16, self.max_doc - (block << 16) as usize);
+        let num_bits = std::cmp::min(1 << 16, self.max_doc - (block << 16));
         self.dense_buffer = FixedBitSet::new(num_bits);
         for i in 0..self.buffer.len() {
           self.dense_buffer.set(self.buffer[i] as usize & 0xFFFF)?;
@@ -189,7 +189,9 @@ impl Builder {
         )));
         self.buffer.clear();
         debug_assert!(self.buffer.is_empty());
-        self.sets[self.current_block as usize] = sparse;
+        self.sets[self.current_block.ok_or_else(|| {
+          LuceneError::illegal_state("non-empty roaring block has no current block")
+        })?] = sparse;
       }
     } else {
       debug_assert_ne!(self.dense_buffer.length(), 0);
@@ -221,7 +223,9 @@ impl Builder {
           ShortArrayDocIdSet::new(excluded_docs),
         )));
         self.buffer.clear();
-        self.sets[self.current_block as usize] = dense;
+        self.sets[self.current_block.ok_or_else(|| {
+          LuceneError::illegal_state("non-empty roaring block has no current block")
+        })?] = dense;
       } else {
         let result = BitDocIdSet::with_cost(
           Some(std::mem::take(&mut self.dense_buffer)),
@@ -230,7 +234,9 @@ impl Builder {
 
         let medium: Option<DocIdSetEnum> = Some(DocIdSetEnum::Medium(result));
         self.buffer.clear();
-        self.sets[self.current_block as usize] = medium;
+        self.sets[self.current_block.ok_or_else(|| {
+          LuceneError::illegal_state("non-empty roaring block has no current block")
+        })?] = medium;
       }
       self.dense_buffer = FixedBitSet::new(0);
     }
@@ -276,20 +282,20 @@ impl DocIdSet for ShortArrayDocIdSet {
 }
 
 pub struct ShortArrayDISI {
-  i: i32,
+  i: Option<usize>,
   doc: i32,
   doc_ids: Arc<Vec<i16>>,
 }
 impl ShortArrayDISI {
   fn new(doc_ids: Arc<Vec<i16>>) -> Self {
     ShortArrayDISI {
-      i: -1,
+      i: None,
       doc: -1,
       doc_ids,
     }
   }
-  fn doc_id_index(&self, i: i32) -> i32 {
-    self.doc_ids[i as usize] as i32 & 0xFFFF
+  fn doc_id_index(&self, i: usize) -> i32 {
+    self.doc_ids[i] as i32 & 0xFFFF
   }
 }
 impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions for ShortArrayDISI {}
@@ -301,21 +307,22 @@ impl DocIdSetIterator for ShortArrayDISI {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.i += 1;
-    if self.i as usize >= self.doc_ids.len() {
+    let i = self.i.map_or(0, |i| i + 1);
+    self.i = Some(i);
+    if i >= self.doc_ids.len() {
       self.doc = NO_MORE_DOCS;
       return Ok(self.doc);
     }
-    self.doc = self.doc_id_index(self.i);
+    self.doc = self.doc_id_index(i);
     Ok(self.doc)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    let mut lo = self.i + 1;
+    let mut lo = self.i.map_or(0, |i| i + 1) as i32;
     let mut hi = self.doc_ids.len() as i32 - 1;
     while lo <= hi {
       let mid = (lo + hi) >> 1;
-      let mid_doc = self.doc_id_index(mid);
+      let mid_doc = self.doc_id_index(mid as usize);
       if mid_doc < target {
         lo = mid + 1;
       } else {
@@ -323,11 +330,11 @@ impl DocIdSetIterator for ShortArrayDISI {
       }
     }
     if lo == self.doc_ids.len() as i32 {
-      self.i = self.doc_ids.len() as i32;
+      self.i = Some(self.doc_ids.len());
       self.doc = NO_MORE_DOCS;
     } else {
-      self.i = lo;
-      self.doc = self.doc_id_index(self.i);
+      self.i = Some(lo as usize);
+      self.doc = self.doc_id_index(lo as usize);
     }
     Ok(self.doc)
   }
@@ -338,7 +345,7 @@ impl DocIdSetIterator for ShortArrayDISI {
 }
 
 pub struct Iterator {
-  block: i32,
+  block: Option<usize>,
   doc: i32,
   set_length: usize,
   sub: Disi,
@@ -349,7 +356,7 @@ impl Iterator {
   fn new(doc_id_sets: Vec<Option<Arc<DocIdSetEnum>>>, cardinality: i64) -> Self {
     let set_length = doc_id_sets.len();
     Iterator {
-      block: -1,
+      block: None,
       doc: -1,
       set_length,
       sub: DocIdSetIteratorEnum::Empty(EmptyDISI::new()),
@@ -359,17 +366,18 @@ impl Iterator {
   }
   fn first_doc_from_next_block(&mut self) -> Result<i32> {
     loop {
-      self.block += 1;
-      if self.block >= self.set_length as i32 {
+      let block = self.block.map_or(0, |block| block + 1);
+      self.block = Some(block);
+      if block >= self.set_length {
         self.doc = NO_MORE_DOCS;
         break;
       }
 
-      if let Some(doc_id_set) = self.doc_id_sets[self.block as usize].as_ref() {
+      if let Some(doc_id_set) = self.doc_id_sets[block].as_ref() {
         self.sub = doc_id_set.iterator()?;
         let sub_next = self.sub.next_doc()?;
         debug_assert!(sub_next != NO_MORE_DOCS);
-        self.doc = (self.block << 16) | sub_next;
+        self.doc = ((block as i32) << 16) | sub_next;
         break;
       }
     }
@@ -389,19 +397,24 @@ impl DocIdSetIterator for Iterator {
     if sub_next == NO_MORE_DOCS {
       return self.first_doc_from_next_block();
     }
-    self.doc = (self.block << 16) | sub_next;
+    self.doc = ((self
+      .block
+      .ok_or_else(|| LuceneError::illegal_state("roaring iterator has no current block"))?
+      as i32)
+      << 16)
+      | sub_next;
     Ok(self.doc)
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    let target_block = target >> 16;
-    if target_block != self.block {
-      self.block = target_block;
-      if self.block >= self.doc_id_sets.len() as i32 {
+    let target_block = (target >> 16) as usize;
+    if Some(target_block) != self.block {
+      self.block = Some(target_block);
+      if target_block >= self.doc_id_sets.len() {
         self.doc = NO_MORE_DOCS;
         return Ok(self.doc);
       }
-      let slot = &self.doc_id_sets[self.block as usize];
+      let slot = &self.doc_id_sets[target_block];
       match slot.as_ref() {
         None => return self.first_doc_from_next_block(),
         Some(doc_id_set) => {
@@ -413,7 +426,12 @@ impl DocIdSetIterator for Iterator {
     if sub_next == NO_MORE_DOCS {
       return self.first_doc_from_next_block();
     }
-    self.doc = (self.block << 16) | sub_next;
+    self.doc = ((self
+      .block
+      .ok_or_else(|| LuceneError::illegal_state("roaring iterator has no current block"))?
+      as i32)
+      << 16)
+      | sub_next;
     Ok(self.doc)
   }
 

@@ -76,7 +76,7 @@ pub(crate) struct TermVectorsConsumerDefaults;
 /// Parameter `field_name` is the field name.
 #[derive(Clone, Default)]
 pub(crate) struct PerFieldMeta {
-  pub(crate) idx: i32,
+  pub(crate) idx: usize,
   pub(crate) field_name: String,
 }
 
@@ -256,7 +256,7 @@ where
     self.hook.start_document(self.num_vector_fields)?;
     let idxs = std::mem::take(&mut self.per_fields_idxs);
     for per_field_idx in idxs.into_iter().take(self.num_vector_fields as usize) {
-      let v = &mut per_fields[per_field_idx.idx as usize];
+      let v = &mut per_fields[per_field_idx.idx];
       let terms_hash_per_field = v
         .terms_hash_per_field
         .as_mut()

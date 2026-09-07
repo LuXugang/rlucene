@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::util::automation::transition::Transition;
+use crate::core::util::error::lucene_error::Result;
 
 /// Trait for accessing an automaton's transitions.
 pub trait TransitionAccessor {
@@ -24,7 +25,7 @@ pub trait TransitionAccessor {
   fn init_transition(&self, state: i32, t: &mut Transition) -> i32;
 
   /// Advance the provided [`Transition`] to the next transition.
-  fn get_next_transition(&self, t: &mut Transition);
+  fn get_next_transition(&self, t: &mut Transition) -> Result<()>;
 
   /// How many transitions this state has.
   fn get_num_transitions_with_state(&self, state: i32) -> i32;

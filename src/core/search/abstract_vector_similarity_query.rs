@@ -537,7 +537,7 @@ where
 
 pub struct DocsIteratorImpl {
   score_docs: Vec<ScoreDoc>,
-  index: i32,
+  index: Option<usize>,
   boost: f32,
   cached_score: Cell<f32>,
 }
@@ -546,7 +546,7 @@ impl DocsIteratorImpl {
   fn new(score_docs: Vec<ScoreDoc>, boost: f32) -> Self {
     Self {
       score_docs,
-      index: -1,
+      index: None,
       boost,
       cached_score: Cell::new(0f32),
     }
@@ -558,12 +558,12 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocsIter
 
 impl DocIdSetIterator for DocsIteratorImpl {
   fn doc_id(&self) -> i32 {
-    if self.index < 0 {
-      -1
-    } else if self.index as usize >= self.score_docs.len() {
+    let Some(index) = self.index else {
+      return -1;
+    };
+    if index >= self.score_docs.len() {
       NO_MORE_DOCS
     } else {
-      let index = self.index as usize;
       self
         .cached_score
         .set(self.boost * self.score_docs[index].score);
@@ -572,7 +572,7 @@ impl DocIdSetIterator for DocsIteratorImpl {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.index += 1;
+    self.index = Some(self.index.map_or(0, |index| index + 1));
     Ok(self.doc_id())
   }
 
@@ -581,7 +581,7 @@ impl DocIdSetIterator for DocsIteratorImpl {
       .score_docs
       .binary_search_by_key(&target, |score_doc| score_doc.doc)
       .unwrap_or_else(|pos| pos);
-    self.index = pos as i32;
+    self.index = Some(pos);
     Ok(self.doc_id())
   }
 

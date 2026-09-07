@@ -160,12 +160,17 @@ where
         }
         let last_fp = self.stack[self.current_frame_idx].fp_orig;
         self.current_frame_idx = self.stack[self.current_frame_idx].ord as usize;
-        debug_assert_eq!(last_fp, self.stack[self.current_frame_idx].last_sub_fp);
+        debug_assert_eq!(
+          Some(last_fp),
+          self.stack[self.current_frame_idx].last_sub_fp
+        );
       }
 
       loop {
         if SegmentTermsEnumFrame::next(self.current_frame_idx, self)? {
-          let last_sub_fp = self.stack[self.current_frame_idx].last_sub_fp;
+          let last_sub_fp = self.stack[self.current_frame_idx]
+            .last_sub_fp
+            .ok_or_else(|| LuceneError::illegal_state("term block has no current sub-block"))?;
           self.current_frame_idx = self.push_frame(None, last_sub_fp, self.term.length())?;
           self.stack[self.current_frame_idx].fp_orig = self.stack[self.current_frame_idx].fp;
           SegmentTermsEnumFrame::load_block(self.current_frame_idx, self)?;
@@ -234,7 +239,7 @@ where
   ) -> Result<usize> {
     self.output_accumulator.prepare_read();
     let code = self.fr.read_vlong_output(&mut self.output_accumulator)?;
-    let fp_seek = ((code as u64) >> OUTPUT_FLAGS_NUM_BITS) as i64;
+    let fp_seek = ((code as u64) >> OUTPUT_FLAGS_NUM_BITS) as usize;
     let current_ord = self.stack[self.current_frame_idx].ord;
     let ord = (current_ord + 1) as usize;
     let frame_idx = self.get_frame(ord)?;
@@ -250,7 +255,12 @@ where
     debug_assert_eq!(pushed_frame_idx, frame_idx);
     Ok(frame_idx)
   }
-  pub(crate) fn push_frame(&mut self, arc: Option<usize>, fp: i64, length: usize) -> Result<usize> {
+  pub(crate) fn push_frame(
+    &mut self,
+    arc: Option<usize>,
+    fp: usize,
+    length: usize,
+  ) -> Result<usize> {
     let current_frame = &self.stack[self.current_frame_idx];
     let ord = (current_frame.ord + 1) as usize;
     let frame_idx = self.get_frame(ord)?;
@@ -268,7 +278,7 @@ where
       f.state.get_block_term_state_mut()?.term_block_ord = 0;
       f.fp_orig = fp;
       f.fp = fp;
-      f.last_sub_fp = -1;
+      f.last_sub_fp = None;
     }
 
     Ok(frame_idx)
@@ -567,7 +577,7 @@ where
             (current_frame.next_ent, current_frame.last_sub_fp, last_fp)
           };
 
-          if next_ent == -1 || last_sub_fp != last_fp {
+          if next_ent == -1 || last_sub_fp != Some(last_fp) {
             // We popped into a frame that's not loaded
             // yet or not scan'd to the right entry
             SegmentTermsEnumFrame::scan_to_floor_frame(self.current_frame_idx, self)?;
@@ -586,7 +596,9 @@ where
     loop {
       let has_next = SegmentTermsEnumFrame::next(self.current_frame_idx, self)?;
       if has_next {
-        let last_sub_fp = self.stack[self.current_frame_idx].last_sub_fp;
+        let last_sub_fp = self.stack[self.current_frame_idx]
+          .last_sub_fp
+          .ok_or_else(|| LuceneError::illegal_state("term block has no current sub-block"))?;
         let length = { self.term.length() };
         self.current_frame_idx = self.push_frame(None, last_sub_fp, length)?;
         // This is a "next" frame -- even if it's

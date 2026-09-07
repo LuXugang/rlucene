@@ -30,7 +30,7 @@ pub struct MultiPostingsEnum<PE> {
   pub(crate) sub_postings_enums: Vec<Option<PE>>,
   subs: Vec<EnumWithSlice>,
   num_subs: i32,
-  upto: i32,
+  upto: Option<usize>,
   current: Option<usize>,
   current_base: usize,
   doc: i32,
@@ -48,7 +48,7 @@ impl<PE> MultiPostingsEnum<PE> {
       sub_postings_enums,
       subs,
       num_subs: 0,
-      upto: -1,
+      upto: None,
       current: None,
       current_base: 0,
       doc: -1,
@@ -67,7 +67,7 @@ impl<PE> MultiPostingsEnum<PE> {
       self.subs[i].slice = sub.slice.clone();
     }
 
-    self.upto = -1;
+    self.upto = None;
     self.doc = -1;
     self.current = None;
   }
@@ -150,12 +150,12 @@ where
       let current = if let Some(current) = self.current {
         current
       } else {
-        if self.upto == self.num_subs - 1 {
+        if self.upto.map_or(0, |upto| upto + 1) == self.num_subs as usize {
           self.doc = NO_MORE_DOCS;
           return Ok(self.doc);
         } else {
-          self.upto += 1;
-          let idx = self.upto as usize;
+          let idx = self.upto.map_or(0, |upto| upto + 1);
+          self.upto = Some(idx);
           self.current = Some(idx);
           self.current_base = self.subs[idx].slice.get_start();
           idx
@@ -192,12 +192,12 @@ where
           self.doc = doc + self.current_base as i32;
           return Ok(self.doc);
         }
-      } else if self.upto == self.num_subs - 1 {
+      } else if self.upto.map_or(0, |upto| upto + 1) == self.num_subs as usize {
         self.doc = NO_MORE_DOCS;
         return Ok(self.doc);
       } else {
-        self.upto += 1;
-        let idx = self.upto as usize;
+        let idx = self.upto.map_or(0, |upto| upto + 1);
+        self.upto = Some(idx);
         self.current = Some(idx);
         self.current_base = self.subs[idx].slice.get_start();
       }

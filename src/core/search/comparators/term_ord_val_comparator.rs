@@ -70,8 +70,8 @@ pub struct TermOrdValComparator {
   sort_missing_last: bool,
   /// Bottom value (same as `values[bottomSlot]` once bottomSlot is set).  Cached for faster compares.
   pub(crate) bottom_value: Option<usize>,
-  /* Bottom slot, or -1 if queue isn't full yet */
-  pub(crate) bottom_slot: i32,
+  /// Bottom slot, or None if the queue isn't full yet.
+  pub(crate) bottom_slot: Option<usize>,
   /// Set by `set_top_value`.
   pub(crate) top_value: Option<BytesRef<Vec<u8>>>,
   /// -1 if missing values are sorted first, 1 if they are sorted last
@@ -101,7 +101,7 @@ impl TermOrdValComparator {
       reverse,
       sort_missing_last,
       bottom_value: None,
-      bottom_slot: -1,
+      bottom_slot: None,
       top_value: None,
       missing_sort_cmp: if sort_missing_last { 1 } else { -1 },
       single_sort: false,
@@ -244,8 +244,8 @@ where
       dense: false,
     };
 
-    if comparator.bottom_slot != -1 {
-      leaf.set_bottom(comparator.bottom_slot as usize, comparator)?;
+    if let Some(bottom_slot) = comparator.bottom_slot {
+      leaf.set_bottom(bottom_slot, comparator)?;
     }
 
     let enable_skipping = if !comparator.can_skip_documents {
@@ -318,7 +318,7 @@ where
   fn update_competitive_iterator(&mut self, comparator: &TermOrdValComparator) -> Result<()> {
     if self.competitive_iterator.is_none()
       || !comparator.hits_threshold_reached
-      || comparator.bottom_slot == -1
+      || comparator.bottom_slot.is_none()
     {
       return Ok(());
     }
@@ -427,7 +427,7 @@ where
     bottom_slot: usize,
     comparator: &mut Self::FieldComparator,
   ) -> Result<()> {
-    comparator.bottom_slot = bottom_slot as i32;
+    comparator.bottom_slot = Some(bottom_slot);
     comparator.bottom_value = Some(bottom_slot);
 
     if comparator.current_reader_gen == comparator.reader_gen[bottom_slot] {
@@ -479,7 +479,7 @@ where
   where
     S: Scorable + ?Sized,
   {
-    debug_assert!(comparator.bottom_slot != -1);
+    debug_assert!(comparator.bottom_slot.is_some());
 
     let mut doc_ord = self.get_ord_for_doc(doc)?;
     if doc_ord == -1 {

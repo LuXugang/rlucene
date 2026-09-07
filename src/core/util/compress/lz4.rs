@@ -263,9 +263,8 @@ impl LZ4 {
             break 'main;
           }
 
-          ref_ = ht.get(off, bytes)?;
-
-          if ref_ != -1 {
+          if let Some(index) = ht.get(off, bytes)? {
+            ref_ = index;
             debug_assert!(ref_ >= dict_off && ref_ < off);
             debug_assert_eq!(LZ4::read_int(bytes, ref_), LZ4::read_int(bytes, off));
             break;
@@ -281,16 +280,16 @@ impl LZ4 {
         // Try to find a better match
         let min = (off - LZ4::MAX_DISTANCE + 1).max(dict_off);
         let mut r = ht.previous(ref_, bytes);
-        while r >= min {
-          debug_assert_eq!(LZ4::read_int(bytes, r), LZ4::read_int(bytes, off));
+        while let Some(r_index) = r.filter(|&r| r >= min) {
+          debug_assert_eq!(LZ4::read_int(bytes, r_index), LZ4::read_int(bytes, off));
           let r_match_len = LZ4::MIN_MATCH
-            + LZ4::common_bytes(bytes, r + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
+            + LZ4::common_bytes(bytes, r_index + LZ4::MIN_MATCH, off + LZ4::MIN_MATCH, limit);
           if r_match_len > match_len {
-            ref_ = r;
+            ref_ = r_index;
             match_len = r_match_len;
           }
 
-          r = ht.previous(r, bytes);
+          r = ht.previous(r_index, bytes);
         }
 
         // Encode match
@@ -318,14 +317,14 @@ pub trait HashTable {
 
   /// Advance the cursor to `off` and return an index that stored the same 4
   /// bytes as `b[off:off+4]`. This may only be called on strictly
-  /// increasing sequences of offsets. A return value of `-1` indicates
+  /// increasing sequences of offsets. A return value of `None` indicates
   /// that no other index could be found.
-  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32>;
+  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<Option<i32>>;
 
   /// Return an index that is less than `off` and stores the same 4 bytes.
   /// Unlike `get`, it doesn't need to be called on increasing offsets.
-  /// A return value of `-1` indicates that no other index could be found.
-  fn previous(&mut self, off: i32, bytes: &[u8]) -> i32;
+  /// A return value of `None` indicates that no other index could be found.
+  fn previous(&mut self, off: i32, bytes: &[u8]) -> Option<i32>;
 
   /// For testing purposes.
   fn assert_reset(&self) -> bool;
@@ -516,7 +515,7 @@ impl HashTable for FastCompressionHashTable {
     self.last_off += dict_len;
   }
 
-  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
+  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<Option<i32>> {
     debug_assert!(off > self.last_off);
     debug_assert!(off < self.end);
     let v = LZ4::read_int(bytes, off);
@@ -531,14 +530,14 @@ impl HashTable for FastCompressionHashTable {
     self.last_off = off;
 
     if ref_ < off && off - ref_ < LZ4::MAX_DISTANCE && LZ4::read_int(bytes, ref_) == v {
-      Ok(ref_)
+      Ok(Some(ref_))
     } else {
-      Ok(-1)
+      Ok(None)
     }
   }
 
-  fn previous(&mut self, _off: i32, _bytes: &[u8]) -> i32 {
-    -1
+  fn previous(&mut self, _off: i32, _bytes: &[u8]) -> Option<i32> {
+    None
   }
 
   fn assert_reset(&self) -> bool {
@@ -633,7 +632,7 @@ impl HashTable for HighCompressionHashTable {
     self.next += dict_len;
   }
 
-  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
+  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<Option<i32>> {
     debug_assert!(off >= self.next);
     debug_assert!(off < self.end);
 
@@ -648,30 +647,30 @@ impl HashTable for HighCompressionHashTable {
     let mut ref_idx = self.hash_table[h as usize];
     if ref_idx >= off {
       // remainder from a previous call to compress()
-      return Ok(-1);
+      return Ok(None);
     }
     let min = std::cmp::max(self.base, off - LZ4::MAX_DISTANCE + 1);
     while ref_idx >= min && self.attempts < Self::MAX_ATTEMPTS {
       if LZ4::read_int(bytes, ref_idx) == v {
-        return Ok(ref_idx);
+        return Ok(Some(ref_idx));
       }
       ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32;
       self.attempts += 1;
     }
-    Ok(-1)
+    Ok(None)
   }
 
-  fn previous(&mut self, off: i32, bytes: &[u8]) -> i32 {
+  fn previous(&mut self, off: i32, bytes: &[u8]) -> Option<i32> {
     let v = LZ4::read_int(bytes, off);
     let mut ref_idx = off - ((self.chain_table[(off & Self::MASK) as usize] as i32) & 0xFFFF);
     while ref_idx >= self.base && self.attempts < Self::MAX_ATTEMPTS {
       if LZ4::read_int(bytes, ref_idx) == v {
-        return ref_idx;
+        return Some(ref_idx);
       }
       ref_idx -= self.chain_table[(ref_idx & Self::MASK) as usize] as i32 & 0xFFFF;
       self.attempts += 1;
     }
-    -1
+    None
   }
 
   fn assert_reset(&self) -> bool {
@@ -701,14 +700,14 @@ impl HashTable for HashTableEnum {
     }
   }
 
-  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
+  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<Option<i32>> {
     match self {
       HashTableEnum::Fast(table) => table.get(off, bytes),
       HashTableEnum::High(table) => table.get(off, bytes),
     }
   }
 
-  fn previous(&mut self, off: i32, bytes: &[u8]) -> i32 {
+  fn previous(&mut self, off: i32, bytes: &[u8]) -> Option<i32> {
     match self {
       HashTableEnum::Fast(table) => table.previous(off, bytes),
       HashTableEnum::High(table) => table.previous(off, bytes),

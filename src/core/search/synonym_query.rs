@@ -781,13 +781,8 @@ pub(crate) struct SynonymImpacts {
 }
 
 impl SynonymImpacts {
-  fn get_level(impacts: &OwnedImpacts, doc_id_up_to: i32) -> i32 {
-    for level in 0..impacts.num_levels() {
-      if impacts.get_doc_id_upto(level) >= doc_id_up_to {
-        return level;
-      }
-    }
-    -1
+  fn get_level(impacts: &OwnedImpacts, doc_id_up_to: i32) -> Option<i32> {
+    (0..impacts.num_levels()).find(|&level| impacts.get_doc_id_upto(level) >= doc_id_up_to)
   }
 
   fn merge_impacts(to_merge: Vec<Vec<Impact>>) -> Result<Vec<Impact>> {
@@ -855,12 +850,11 @@ impl Impacts for SynonymImpacts {
 
     for i in 0..self.impacts.len() {
       if self.doc_ids[i] <= doc_id_up_to {
-        let impacts_level = Self::get_level(&self.impacts[i], doc_id_up_to);
-        if impacts_level == -1 {
+        let Some(impacts_level) = Self::get_level(&self.impacts[i], doc_id_up_to) else {
           // One instance doesn't have impacts that cover up to docIdUpTo.
           // Return impacts that trigger the maximum score.
           return Ok(vec![Impact::new(i32::MAX, 1)]);
-        }
+        };
 
         let mut impact_list = self.impacts[i].get_impacts(impacts_level)?;
         if self.boosts[i] != 1.0 {

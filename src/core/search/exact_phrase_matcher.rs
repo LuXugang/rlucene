@@ -26,7 +26,6 @@ use crate::core::search::phrase_matcher::PhraseMatcher;
 use crate::core::search::phrase_query::PostingsAndFreq;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::similarities_impl::similarities::SimScorer;
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 pub type ImpactsApproximationType<IE, SS> = SourceImpactsDISI<ImpactsSourceImpl<IE>, SS>;
@@ -227,16 +226,22 @@ where
   // Iteration of block boundaries uses the impacts enum with the lower cost.
   // This is consistent with BlockMaxConjunctionScorer.
   let impacts_enums = &wrapped_impacts_enums;
-  let mut tmp_lead_index: i32 = -1;
+  let mut tmp_lead_index: Option<usize> = None;
   for i in 0..impacts_enums.len() {
-    if tmp_lead_index == -1
-      || impacts_enums.iterator_at(i).cost()?
-        < impacts_enums.iterator_at(tmp_lead_index as usize).cost()?
-    {
-      tmp_lead_index = i as i32;
+    let replace_lead = match tmp_lead_index {
+      None => true,
+      Some(lead_index) => {
+        impacts_enums.iterator_at(i).cost()? < impacts_enums.iterator_at(lead_index).cost()?
+      },
+    };
+    if replace_lead {
+      tmp_lead_index = Some(i);
     }
   }
-  let lead_index: usize = tmp_lead_index.try_convert()?;
+  let lead_index = expect_invariant!(
+    tmp_lead_index,
+    "a constructed conjunction contains at least one iterator to lead impacts merging"
+  );
   Ok(ImpactsSourceImpl::new(wrapped_impacts_enums, lead_index))
 }
 
@@ -329,17 +334,12 @@ impl<I> ImpactsImpl<I> {
     }
   }
 }
-fn get_level<I>(impacts: &I, doc_id_up_to: i32) -> i32
+fn get_level<I>(impacts: &I, doc_id_up_to: i32) -> Option<i32>
 where
   I: Impacts,
 {
   let num_levels = impacts.num_levels();
-  for level in 0..num_levels {
-    if impacts.get_doc_id_upto(level) >= doc_id_up_to {
-      return level;
-    }
-  }
-  -1
+  (0..num_levels).find(|&level| impacts.get_doc_id_upto(level) >= doc_id_up_to)
 }
 
 impl<I> Impacts for ImpactsImpl<I>
@@ -365,11 +365,10 @@ where
     let mut pq = PriorityQueue::new(impact_len, SubIteratorCmp)?;
 
     for i in 0..impact_len {
-      let impacts_level = get_level(&self.impacts[i], doc_id_up_to);
-      if impacts_level == -1 {
+      let Some(impacts_level) = get_level(&self.impacts[i], doc_id_up_to) else {
         // This instance doesn't have useful impacts, ignore it: this is safe.
         continue;
-      }
+      };
 
       let impact_list = self.impacts[i].get_impacts(impacts_level)?;
       let first = impact_list

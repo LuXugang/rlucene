@@ -164,7 +164,7 @@ impl TermAutomatonQuery {
       // Make sure there are no leading or trailing ANY:
       let count = automaton.init_transition(0, &mut transition);
       for _ in 0..count {
-        automaton.get_next_transition(&mut transition);
+        automaton.get_next_transition(&mut transition)?;
         if self.any_term_id >= transition.min && self.any_term_id <= transition.max {
           return Err(LuceneError::illegal_state(
             "automaton cannot lead with an ANY transition",
@@ -176,7 +176,7 @@ impl TermAutomatonQuery {
       for state in 0..num_states {
         let count = automaton.init_transition(state, &mut transition);
         for _ in 0..count {
-          automaton.get_next_transition(&mut transition);
+          automaton.get_next_transition(&mut transition)?;
           if automaton.is_accept(transition.dest)
             && self.any_term_id >= transition.min
             && self.any_term_id <= transition.max
@@ -201,7 +201,7 @@ impl TermAutomatonQuery {
       for state in 0..num_states {
         let count = automaton.init_transition(state, &mut transition);
         for _ in 0..count {
-          automaton.get_next_transition(&mut transition);
+          automaton.get_next_transition(&mut transition)?;
           let (min, max) =
             if transition.min <= self.any_term_id && self.any_term_id <= transition.max {
               // Match any term
@@ -285,7 +285,7 @@ impl TermAutomatonQuery {
       builder.push_str("\"]\n");
       let count = det.init_transition(state, &mut transition);
       for _ in 0..count {
-        det.get_next_transition(&mut transition);
+        det.get_next_transition(&mut transition)?;
         debug_assert!(transition.max >= transition.min);
         for term_id in transition.min..=transition.max {
           builder.push_str("  ");
@@ -428,7 +428,7 @@ impl TermAutomatonQueryDefaults {
       .det
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("Call finish first"))?;
-    if Operations::is_empty(det) {
+    if Operations::is_empty(det)? {
       return Ok(Some(MatchNoDocsQuery::new().into()));
     }
 
@@ -469,7 +469,7 @@ impl TermAutomatonQueryDefaults {
       let mut ranges = Vec::new();
       let mut matches_any = false;
       for transition_index in 0..count {
-        det.get_next_transition(&mut transition);
+        det.get_next_transition(&mut transition)?;
         if transition_index == 0 {
           dest = transition.dest;
         } else if dest != transition.dest {

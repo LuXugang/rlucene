@@ -24,7 +24,7 @@ pub struct IntBlockPool {
   pub(crate) buffers: Vec<Vec<i32>>,
   /// index into the buffers array pointing to the current buffer used as the
   /// head.
-  pub(crate) buffer_upto: i32,
+  pub(crate) buffer_upto: Option<usize>,
   /// Pointer to the current position in head buffer.
   pub(crate) int_upto: i32,
   /// Current head offset.
@@ -51,7 +51,7 @@ impl IntBlockPool {
   pub fn with_allocator(allocator: AllocatorIntEnum) -> Self {
     IntBlockPool {
       buffers: vec![],
-      buffer_upto: -1,
+      buffer_upto: None,
       int_upto: INT_BLOCK_SIZE,
       int_offset: -INT_BLOCK_SIZE,
       allocator,
@@ -71,31 +71,31 @@ impl IntBlockPool {
   ///   pool was used before, i.e., `IntBlockPool::next_buffer()` was called
   ///   before.
   pub fn reset(&mut self, zero_fill_buffers: bool, reuse_first: bool) {
-    if self.buffer_upto != -1 {
+    if let Some(buffer_upto) = self.buffer_upto {
       if zero_fill_buffers {
-        for i in 0..self.buffer_upto as usize {
+        for i in 0..buffer_upto {
           // Fully zero fill buffers that we fully used
           self.buffers[i].fill(0);
         }
         // Partial zero fill the final buffer
-        self.buffers[self.buffer_upto as usize][..self.int_upto as usize].fill(0);
+        self.buffers[buffer_upto][..self.int_upto as usize].fill(0);
       }
-      if self.buffer_upto > 0 || !reuse_first {
+      if buffer_upto > 0 || !reuse_first {
         let offset = if reuse_first { 1 } else { 0 };
         self
           .allocator
-          .recycle_int_blocks(&self.buffers, offset, (self.buffer_upto + 1) as usize);
-        for _i in offset..(self.buffer_upto + 1) as usize {
+          .recycle_int_blocks(&self.buffers, offset, buffer_upto + 1);
+        for _i in offset..buffer_upto + 1 {
           self.buffers.pop();
         }
       }
 
       if reuse_first {
-        self.buffer_upto = 0;
+        self.buffer_upto = Some(0);
         self.int_upto = 0;
         self.int_offset = 0;
       } else {
-        self.buffer_upto = -1;
+        self.buffer_upto = None;
         self.int_upto = INT_BLOCK_SIZE;
         self.int_offset = -INT_BLOCK_SIZE;
       }
@@ -106,11 +106,12 @@ impl IntBlockPool {
   /// [`IntBlockPool::reset`](crate::core::util::int_block_pool::IntBlockPool::reset)
   /// call will advance the pool to its first buffer immediately.
   pub fn next_buffer(&mut self) -> Result<()> {
-    if self.buffer_upto + 1 == self.buffers.len() as i32 {
+    let buffer_upto = self.buffer_upto.map_or(0, |buffer_upto| buffer_upto + 1);
+    if buffer_upto == self.buffers.len() {
       self.buffers.push(self.allocator.get_byte_block());
     }
     // Allocate new buffer and advance the pool to it
-    self.buffer_upto += 1;
+    self.buffer_upto = Some(buffer_upto);
     self.int_upto = 0;
     match self.int_offset.checked_add(INT_BLOCK_SIZE) {
       Some(val) => {

@@ -316,25 +316,20 @@ impl NeighborArray {
       "We will always have something unchecked"
     );
 
-    let mut unchecked_cursor = unchecked_indexes.len() as isize - 1;
+    let mut unchecked_cursor = unchecked_indexes.len().checked_sub(1);
 
     for i in (1..self.size).rev() {
-      if unchecked_cursor < 0 {
+      let Some(cursor) = unchecked_cursor else {
         break; // no unchecked node left
-      }
+      };
 
-      let worst = self.is_worst_non_diverse(
-        i,
-        &unchecked_indexes,
-        unchecked_cursor as usize,
-        scorer_supplier,
-      )?;
+      let worst = self.is_worst_non_diverse(i, &unchecked_indexes, cursor, scorer_supplier)?;
       if worst {
         return Ok(i);
       }
 
-      if i == unchecked_indexes[unchecked_cursor as usize] {
-        unchecked_cursor -= 1;
+      if i == unchecked_indexes[cursor] {
+        unchecked_cursor = cursor.checked_sub(1);
       }
     }
 

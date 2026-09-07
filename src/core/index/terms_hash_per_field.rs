@@ -307,7 +307,10 @@ impl TermsHashPerField {
       if self.stream_count + int_pool.int_upto > INT_BLOCK_SIZE {
         int_pool.next_buffer()?;
       }
-      self.term_stream_address_buffer_index = int_pool.buffer_upto;
+      self.term_stream_address_buffer_index = int_pool
+        .buffer_upto
+        .ok_or_else(|| LuceneError::illegal_state("term stream has no current int buffer"))?
+        as i32;
       self.stream_address_offset = int_pool.int_upto;
       int_pool.int_upto += self.stream_count;
       let postings_array_wrapper = &mut self.bytes_hash.bytes_start_array.per_field;

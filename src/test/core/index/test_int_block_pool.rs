@@ -38,7 +38,7 @@ fn test_write_read_reset() -> Result<()> {
     if pool.int_upto == INT_BLOCK_SIZE {
       pool.next_buffer()?;
     }
-    let buffer_index = pool.buffer_upto;
+    let buffer_index = pool.buffer_upto.unwrap() as i32;
     let int_upto = pool.int_upto as usize;
     pool.get_buffer_mut(buffer_index)[int_upto] = i;
     pool.int_upto += 1;

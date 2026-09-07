@@ -113,15 +113,13 @@ impl IndexFileNames {
     // ourselves or not, since there's only 1 '+' operator.
     filename.ends_with(&format!(".{ext}"))
   }
-  /// locates the boundary of the segment name, or -1  */
-  pub fn index_of_segment_name(filename: &str) -> i32 {
+  /// Locates the boundary of the segment name, if present.
+  pub fn index_of_segment_name(filename: &str) -> Option<usize> {
     debug_assert!(filename.len() <= i32::MAX as usize);
     if let Some((idx, _)) = filename.char_indices().skip(1).find(|(_, ch)| *ch == '_') {
-      idx as i32
-    } else if let Some(idx) = filename.find('.') {
-      idx as i32
+      Some(idx)
     } else {
-      -1
+      filename.find('.')
     }
   }
 
@@ -135,9 +133,8 @@ impl IndexFileNames {
   /// The filename with the segment name removed, or the given filename if it
   /// does not contain a `.` and `_`.
   pub fn strip_segment_name(filename: &str) -> &str {
-    let idx = IndexFileNames::index_of_segment_name(filename);
-    if idx != -1 {
-      &filename[idx as usize..]
+    if let Some(idx) = IndexFileNames::index_of_segment_name(filename) {
+      &filename[idx..]
     } else {
       filename
     }
@@ -168,9 +165,8 @@ impl IndexFileNames {
   /// The segment name only, or the filename if it does not contain a `.` and
   /// `_`.
   pub fn parse_segment_name(filename: &str) -> &str {
-    let idx = IndexFileNames::index_of_segment_name(filename);
-    if idx != -1 {
-      &filename[..idx as usize]
+    if let Some(idx) = IndexFileNames::index_of_segment_name(filename) {
+      &filename[..idx]
     } else {
       filename
     }

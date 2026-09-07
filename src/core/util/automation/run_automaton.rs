@@ -65,7 +65,7 @@ impl RunAutomaton {
         accept.set(n as usize)?;
       }
       transition.source = n;
-      transition.transition_upto = -1;
+      transition.transition_upto = None;
 
       for (c_idx, &point) in points.iter().enumerate() {
         let dest = automaton.next(&mut transition, point);

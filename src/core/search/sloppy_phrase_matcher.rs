@@ -180,36 +180,26 @@ where
   /// the two colliding pps. Note that there can only be one collision, as by the initialization
   /// there were no collisions before pp was advanced.
   fn advance_rpts(&mut self, mut pp_idx: usize) -> Result<bool> {
-    if self.pq.compare.phrase_positions[pp_idx].rpt_group < 0 {
+    let Some(g) = self.pq.compare.phrase_positions[pp_idx].rpt_group else {
       return Ok(true); // not a repeater
-    }
-
-    let g = self.pq.compare.phrase_positions[pp_idx]
-      .rpt_group
-      .try_convert()?;
+    };
     let rg = &self.rpt_groups[g].clone();
 
     // for re-queuing after collisions are resolved
     let mut bits = FixedBitSet::new(rg.len());
 
     let k0 = self.pq.compare.phrase_positions[pp_idx].rpt_ind;
-    let mut k;
-
-    while {
-      k = self.collide(pp_idx)?;
-      k >= 0
-    } {
-      let k_usize = k as usize;
-      pp_idx = self.lesser(pp_idx, rg[k_usize]); // always advance the lesser of the (only) two colliding pps
+    while let Some(k) = self.collide(pp_idx)? {
+      pp_idx = self.lesser(pp_idx, rg[k]); // always advance the lesser of the (only) two colliding pps
 
       if !self.advance_pp(pp_idx)? {
         return Ok(false); // exhausted
       }
       // careful: mark only those currently in the queue
-      if k_usize != k0 {
-        FixedBitSet::ensure_capacity(&mut bits, k_usize)?;
+      if k != k0 {
+        FixedBitSet::ensure_capacity(&mut bits, k)?;
         // mark that pp2 need to be re-queued
-        bits.set(k_usize)?;
+        bits.set(k)?;
       }
     }
 
@@ -226,7 +216,10 @@ where
       self.rpt_stack[n] = pp2_idx;
       n += 1;
 
-      if self.pq.compare.phrase_positions[pp2_idx].rpt_group >= 0 {
+      if self.pq.compare.phrase_positions[pp2_idx]
+        .rpt_group
+        .is_some()
+      {
         let ind = self.pq.compare.phrase_positions[pp2_idx].rpt_ind;
         if (ind) < num_bits && bits.get(ind)? {
           bits.clear_with_index(ind)?;
@@ -254,23 +247,20 @@ where
     }
   }
 
-  /// index of a pp2 colliding with pp, or -1 if none
-  fn collide(&self, pp_idx: usize) -> Result<i32> {
+  /// Index of a pp2 colliding with pp, or None if there is no collision.
+  fn collide(&self, pp_idx: usize) -> Result<Option<usize>> {
     let tp_pos = self.tp_pos(pp_idx);
     let rpt_group = self.pq.compare.phrase_positions[pp_idx]
       .rpt_group
-      .try_convert()?;
+      .ok_or_else(|| LuceneError::illegal_state("phrase position has no repetition group"))?;
     let rg = &self.rpt_groups[rpt_group];
 
     for &pp2_idx in rg {
       if pp2_idx != pp_idx && self.tp_pos(pp2_idx) == tp_pos {
-        let v: i32 = self.pq.compare.phrase_positions[pp2_idx]
-          .rpt_ind
-          .try_convert()?;
-        return Ok(v);
+        return Ok(Some(self.pq.compare.phrase_positions[pp2_idx].rpt_ind));
       }
     }
-    Ok(-1)
+    Ok(None)
   }
   /// Initialize PhrasePositions in place. A one time initialization for this scorer (on first doc
   /// matching all terms):
@@ -361,12 +351,7 @@ where
           let mut incr: usize = 1;
           let pp_idx = rg[i];
 
-          loop {
-            let k = self.collide(pp_idx)?;
-            if k < 0 {
-              break;
-            }
-            let k = k as usize;
+          while let Some(k) = self.collide(pp_idx)? {
             let pp2_idx = self.lesser(pp_idx, rg[k]);
 
             // at initialization always advance pp with higher offset
@@ -461,7 +446,7 @@ where
       #[allow(clippy::needless_range_loop)]
       for i in 0..rpp.len() {
         let pp_idx = rpp[i];
-        if self.pq.compare.phrase_positions[pp_idx].rpt_group >= 0 {
+        if self.pq.compare.phrase_positions[pp_idx].rpt_group.is_some() {
           continue; // already marked as a repetition
         }
 
@@ -470,7 +455,9 @@ where
         for j in (i + 1)..rpp.len() {
           let pp2_idx = rpp[j];
 
-          if self.pq.compare.phrase_positions[pp2_idx].rpt_group >= 0
+          if self.pq.compare.phrase_positions[pp2_idx]
+            .rpt_group
+            .is_some()
             || self.pq.compare.phrase_positions[pp2_idx].offset
               == self.pq.compare.phrase_positions[pp_idx].offset
             || self.tp_pos(pp2_idx) != tp_pos
@@ -479,17 +466,20 @@ where
           }
 
           // a repetition
-          let mut g = self.pq.compare.phrase_positions[pp_idx].rpt_group;
-          if g < 0 {
-            g = res.len() as i32;
-            self.pq.compare.phrase_positions[pp_idx].rpt_group = g;
-            let mut rl = Vec::with_capacity(2);
-            rl.push(pp_idx);
-            res.push(rl);
-          }
+          let g = match self.pq.compare.phrase_positions[pp_idx].rpt_group {
+            Some(g) => g,
+            None => {
+              let g = res.len();
+              self.pq.compare.phrase_positions[pp_idx].rpt_group = Some(g);
+              let mut rl = Vec::with_capacity(2);
+              rl.push(pp_idx);
+              res.push(rl);
+              g
+            },
+          };
 
-          self.pq.compare.phrase_positions[pp2_idx].rpt_group = g;
-          res[g as usize].push(pp2_idx);
+          self.pq.compare.phrase_positions[pp2_idx].rpt_group = Some(g);
+          res[g].push(pp2_idx);
         }
       }
     } else {
@@ -501,7 +491,7 @@ where
 
       use std::collections::HashSet;
 
-      let mut ids: HashSet<i32> = HashSet::new();
+      let mut ids: HashSet<usize> = HashSet::new();
       for &v in tg.values() {
         ids.insert(v);
       }
@@ -521,9 +511,9 @@ where
               let g = *tg
                 .get(t)
                 .ok_or_else(|| LuceneError::illegal_state("missing term group id"))?;
-              tmp[g as usize].insert(pp_idx);
-              debug_assert!(gset == -1 || gset == g);
-              gset = g;
+              tmp[g].insert(pp_idx);
+              debug_assert!(gset.is_none() || gset == Some(g));
+              gset = Some(g);
             }
           }
         }
@@ -630,15 +620,15 @@ where
     &self,
     tord: &LinkedHashMap<Term, i32>,
     bb: Vec<FixedBitSet>,
-  ) -> Result<HashMap<Term, i32>> {
-    let mut tg: HashMap<Term, i32> = HashMap::new();
+  ) -> Result<HashMap<Term, usize>> {
+    let mut tg: HashMap<Term, usize> = HashMap::new();
     let terms: Vec<Term> = tord.keys().cloned().collect();
 
     for (i, bits) in bb.iter().enumerate() {
       let mut ord = bits.next_set_bit(0);
 
       while ord != NO_MORE_DOCS as usize {
-        tg.insert(terms[ord].clone(), i as i32);
+        tg.insert(terms[ord].clone(), i);
 
         let next = ord + 1;
         if next >= bits.length() {

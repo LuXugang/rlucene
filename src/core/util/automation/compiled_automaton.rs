@@ -121,21 +121,21 @@ impl CompiledAutomaton {
     Ok(())
   }
   /// Returns sink state, if present, else -1.
-  fn find_sink_state(automaton: &Automaton) -> i32 {
+  fn find_sink_state(automaton: &Automaton) -> Result<i32> {
     let num_states = automaton.get_num_states();
     let mut t = Transition::default();
     for s in 0..num_states {
       if automaton.is_accept(s) {
         let count = automaton.init_transition(s, &mut t);
         for _ in 0..count {
-          automaton.get_next_transition(&mut t);
+          automaton.get_next_transition(&mut t)?;
           if t.dest == s && t.min == 0 && t.max == 0xff {
-            return s;
+            return Ok(s);
           }
         }
       }
     }
-    -1
+    Ok(-1)
   }
   /// Create this. If `simplify` is true, we run possibly expensive operations
   /// to determine if the automaton is one of the cases in
@@ -165,7 +165,7 @@ impl CompiledAutomaton {
       // Test whether the automaton is a "simple" form and
       // if so, don't create a runAutomaton.  Note that on a
       // large automaton these tests could be costly:
-      if Operations::is_empty(&automaton) {
+      if Operations::is_empty(&automaton)? {
         return Ok(Self {
           type_: AutomatonType::None,
           term: None,
@@ -277,7 +277,7 @@ impl CompiledAutomaton {
         Cow::Owned(o) => o,
       };
       let run_automaton = ByteRunAutomaton::with_bool(dfa, true)?;
-      let sink_state = Self::find_sink_state(&run_automaton.base.automaton);
+      let sink_state = Self::find_sink_state(&run_automaton.base.automaton)?;
 
       Ok(Self {
         type_: automaton_type,
@@ -298,7 +298,7 @@ impl CompiledAutomaton {
     mut idx: usize,
     lead_label: i32,
   ) -> Result<BytesRef<Vec<u8>>> {
-    let mut max_index = -1;
+    let mut max_index = None;
     let run_automaton = self
       .run_automaton
       .as_ref()
@@ -306,16 +306,18 @@ impl CompiledAutomaton {
     let automaton = &run_automaton.base.automaton;
     let num_transitions = automaton.init_transition(state, &mut self.transition);
     for i in 0..num_transitions {
-      automaton.get_next_transition(&mut self.transition);
+      automaton.get_next_transition(&mut self.transition)?;
       if self.transition.min < lead_label {
-        max_index = i;
+        max_index = Some(i);
       } else {
         // Transitions are always sorted
         break;
       }
     }
 
-    debug_assert!(max_index != -1);
+    let max_index = max_index.ok_or_else(|| {
+      LuceneError::illegal_state("no transition below the lead label exists in add_tail")
+    })?;
     automaton.get_transition(state, max_index, &mut self.transition);
     // Append floorLabel
     let floor_label = if self.transition.max > lead_label - 1 {
@@ -611,14 +613,8 @@ impl AutomatonEnum {
 
   pub fn get_next_transition(&mut self, t: &mut Transition) -> Result<()> {
     match self {
-      AutomatonEnum::Byte(byte) => {
-        byte.base.automaton.get_next_transition(t);
-        Ok(())
-      },
-      AutomatonEnum::NFA(nfa) => {
-        nfa.get_next_transition(t);
-        Ok(())
-      },
+      AutomatonEnum::Byte(byte) => byte.base.automaton.get_next_transition(t),
+      AutomatonEnum::NFA(nfa) => nfa.get_next_transition(t),
     }
   }
 

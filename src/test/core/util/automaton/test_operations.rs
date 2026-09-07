@@ -85,7 +85,7 @@ fn test_empty_language_concatenate() -> Result<()> {
   let a = Automata::make_string("a")?;
   let empty = Automata::make_empty()?;
   let concat = Operations::concatenate(&a, &empty)?;
-  assert!(Operations::is_empty(&concat));
+  assert!(Operations::is_empty(&concat)?);
   Ok(())
 }
 /// Test case for the topoSortStates method when the input Automaton
@@ -125,7 +125,7 @@ fn test_topo_sort_states() -> Result<()> {
   for &state in &sorted {
     let count = a.init_transition(state, &mut transition);
     for _ in 0..count {
-      a.get_next_transition(&mut transition);
+      a.get_next_transition(&mut transition)?;
       assert!(state_map[transition.dest as usize] > state_map[state as usize]);
     }
   }
@@ -168,7 +168,7 @@ fn test_get_random_accepted_string() -> Result<()> {
     let re = RegExp::from_str_with_flags(&pattern, RegExp::NONE)?;
     let v = re.to_automaton()?;
     let a = Operations::determinize(&v, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-    assert!(!Operations::is_empty(&a));
+    assert!(!Operations::is_empty(&a)?);
 
     let rx = RandomAcceptedStrings::new(&a)?;
     for _ in 0..at_least(&mut random, 100) {
@@ -445,7 +445,7 @@ fn naive_repeat(a: &Automaton) -> Result<Cow<'_, Automaton>> {
   let mut t = Transition::default();
   let count = a.init_transition(0, &mut t);
   for _ in 0..count {
-    a.get_next_transition(&mut t);
+    a.get_next_transition(&mut t)?;
     builder.add_transition(0, t.dest + 1, t.min, t.max)?;
   }
 
@@ -454,7 +454,7 @@ fn naive_repeat(a: &Automaton) -> Result<Cow<'_, Automaton>> {
     if a.is_accept(s) {
       let count = a.init_transition(0, &mut t);
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         builder.add_transition(s + 1, t.dest + 1, t.min, t.max)?;
       }
     }

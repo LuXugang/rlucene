@@ -87,15 +87,15 @@ fn test_reduce_basic() -> Result<()> {
 
   let mut scratch = Transition::default();
   a.init_transition(start, &mut scratch);
-  a.get_next_transition(&mut scratch);
+  a.get_next_transition(&mut scratch)?;
   assert_eq!('a' as i32, scratch.min);
   assert_eq!('b' as i32, scratch.max);
 
-  a.get_next_transition(&mut scratch);
+  a.get_next_transition(&mut scratch)?;
   assert_eq!('m' as i32, scratch.min);
   assert_eq!('m' as i32, scratch.max);
 
-  a.get_next_transition(&mut scratch);
+  a.get_next_transition(&mut scratch)?;
   assert_eq!('x' as i32, scratch.min);
   assert_eq!('y' as i32, scratch.max);
 
@@ -597,8 +597,8 @@ fn test_reverse_random2() -> Result<()> {
     let ra = Operations::reverse(&a)?;
     let rda = Operations::determinize(&ra, i32::MAX as usize)?;
 
-    if Operations::is_empty(&a) {
-      assert!(Operations::is_empty(&rda));
+    if Operations::is_empty(&a)? {
+      assert!(Operations::is_empty(&rda)?);
       continue;
     }
 
@@ -628,7 +628,7 @@ fn test_any_string_empty_string() -> Result<()> {
 fn test_basic_is_empty() -> Result<()> {
   let mut a = Automaton::new();
   a.create_state()?;
-  assert!(Operations::is_empty(&a));
+  assert!(Operations::is_empty(&a)?);
   Ok(())
 }
 
@@ -636,7 +636,7 @@ fn test_basic_is_empty() -> Result<()> {
 fn test_remove_dead_transitions_empty() -> Result<()> {
   let a = Automata::make_empty()?;
   let a2 = Operations::remove_dead_states(&a)?;
-  assert!(Operations::is_empty(&a2));
+  assert!(Operations::is_empty(&a2)?);
   Ok(())
 }
 #[test]
@@ -901,10 +901,10 @@ fn test_remove_dead_states() -> Result<()> {
 fn test_remove_dead_states_empty1() -> Result<()> {
   let mut a = Automaton::new();
   a.finish_state()?;
-  assert!(Operations::is_empty(&a));
+  assert!(Operations::is_empty(&a)?);
 
   let a2 = Operations::remove_dead_states(&a)?;
-  assert!(Operations::is_empty(&a2));
+  assert!(Operations::is_empty(&a2)?);
 
   Ok(())
 }
@@ -913,10 +913,10 @@ fn test_remove_dead_states_empty1() -> Result<()> {
 fn test_remove_dead_states_empty2() -> Result<()> {
   let mut a = Automaton::new();
   a.finish_state()?;
-  assert!(Operations::is_empty(&a));
+  assert!(Operations::is_empty(&a)?);
 
   let a2 = Operations::remove_dead_states(&a)?;
-  assert!(Operations::is_empty(&a2));
+  assert!(Operations::is_empty(&a2)?);
 
   Ok(())
 }
@@ -953,7 +953,7 @@ fn test_seems_non_empty_but_is_not1() -> Result<()> {
   let s = a.create_state()?;
   a.add_transition_label(init, s, 'a' as i32)?;
   a.finish_state()?;
-  assert!(Operations::is_empty(&a));
+  assert!(Operations::is_empty(&a)?);
   Ok(())
 }
 
@@ -966,7 +966,7 @@ fn test_seems_non_empty_but_is_not2() -> Result<()> {
   let orphan = a.create_state()?;
   a.set_accept(orphan, true);
   a.finish_state()?;
-  assert!(Operations::is_empty(&a));
+  assert!(Operations::is_empty(&a)?);
   Ok(())
 }
 #[test]
@@ -1376,7 +1376,7 @@ fn test_random_finite() -> Result<()> {
       _ => {}, // others omitted for brevity
     }
     assert_same(&terms.iter().cloned().collect::<Vec<_>>(), &a, &mut random)?;
-    let left = AutomatonTestUtil::is_deterministic_slow(&a);
+    let left = AutomatonTestUtil::is_deterministic_slow(&a)?;
     let right = a.is_deterministic();
     assert_eq!(left, right);
     if random.random_range(0..10) == 7 {
@@ -1409,7 +1409,7 @@ pub fn verify_topo_sort(a: &Automaton) -> Result<Automaton> {
   for &state in &sorted {
     let count = a.init_transition(state, &mut t);
     for _ in 0..count {
-      a.get_next_transition(&mut t);
+      a.get_next_transition(&mut t)?;
       assert!(state_map[t.dest as usize] > state_map[state as usize]);
       a2.add_transition(
         state_map[state as usize],
@@ -1680,7 +1680,7 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     }
 
     if expected_count <= 0 {
-      assert!(Operations::is_empty(&a));
+      assert!(Operations::is_empty(&a)?);
       continue;
     } else {
       // Enumerate all finite strings and verify the count matches what we expect:

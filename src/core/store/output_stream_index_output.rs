@@ -58,7 +58,7 @@ where
     inner: W,
     buffer_size: i32,
   ) -> Result<OutputStreamIndexOutput<W>> {
-    if (buffer_size as usize) < BitUtil::LONG_BYTES {
+    if i64::from(buffer_size) < BitUtil::LONG_BYTES as i64 {
       return Err(LuceneError::illegal_argument(format!(
         "Buffer size too small, need: {}, got: {}",
         BitUtil::LONG_BYTES,

@@ -31,24 +31,24 @@ pub struct Transition {
   pub min: i32,
   /// Maximum accepted label (inclusive).
   pub max: i32,
-  /// Remembers where we are in the iteration; initialized to -1 to provoke
+  /// Remembers where we are in the iteration; initialized to None to provoke
   /// an error if `get_next_transition` is called without first
   /// `init_transition`.
-  pub transition_upto: i32,
+  pub transition_upto: Option<usize>,
 }
 /// Inline size of a [`Transition`] instance.
 pub const BYTES_USED: usize = size_of::<Transition>();
 
 impl Default for Transition {
   /// Creates a [`Transition`] with zeroed fields and `transition_upto` set to
-  /// -1.
+  /// None.
   fn default() -> Self {
     Transition {
       source: 0,
       dest: 0,
       min: 0,
       max: 0,
-      transition_upto: -1,
+      transition_upto: None,
     }
   }
 }

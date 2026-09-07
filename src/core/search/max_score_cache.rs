@@ -86,69 +86,68 @@ where
   }
   /// Return the maximum score up to upTo included.
   pub fn get_max_score(&mut self, upto: i32) -> Result<f32> {
-    let level = self.get_level(upto)?;
-    if level == -1 {
-      Ok(self.global_max_score)
-    } else {
-      self.get_max_score_with_level(level)
+    match self.get_level(upto)? {
+      Some(level) => self.get_max_score_with_level(level),
+      None => Ok(self.global_max_score),
     }
   }
 
   /// Return the first level that includes all doc IDs up to `upto`,
-  /// or -1 if there is no such level.
-  fn get_level(&self, upto: i32) -> Result<i32> {
+  /// or None if there is no such level.
+  fn get_level(&self, upto: i32) -> Result<Option<usize>> {
     let impacts = self.impacts_source.get_impacts()?;
     let num_levels = impacts.num_levels();
     for level in 0..num_levels {
       let impacts_up_to = impacts.get_doc_id_upto(level);
       if upto <= impacts_up_to {
-        return Ok(level);
+        return Ok(Some(level as usize));
       }
     }
-    Ok(-1)
+    Ok(None)
   }
 
   pub fn get_max_score_with_level_zero(&mut self) -> Result<f32> {
     self.get_max_score_with_level(0)
   }
   /// Return the maximum score for the given `level`.
-  fn get_max_score_with_level(&mut self, level: i32) -> Result<f32> {
-    debug_assert!(level >= 0, "level must not be negative; got {}", level);
-    self.ensure_cache_size((level + 1) as usize)?;
+  fn get_max_score_with_level(&mut self, level: usize) -> Result<f32> {
+    self.ensure_cache_size(level + 1)?;
     let impacts = self.impacts_source.get_impacts()?;
-    let level_up_to = impacts.get_doc_id_upto(level);
-    if self.max_score_cache_upto[level as usize] < level_up_to {
-      let max_score = self.compute_max_score(impacts.get_impacts(level)?.as_ref());
-      self.max_score_cache[level as usize] = max_score;
-      self.max_score_cache_upto[level as usize] = level_up_to;
+    let level_up_to = impacts.get_doc_id_upto(level as i32);
+    if self.max_score_cache_upto[level] < level_up_to {
+      let max_score = self.compute_max_score(impacts.get_impacts(level as i32)?.as_ref());
+      self.max_score_cache[level] = max_score;
+      self.max_score_cache_upto[level] = level_up_to;
     }
-    Ok(self.max_score_cache[level as usize])
+    Ok(self.max_score_cache[level])
   }
 
   /// Return the maximum level at which scores are all less than `min_score`,
-  /// or -1 if none.
-  fn get_skip_level(&mut self, min_score: f32) -> Result<i32> {
+  /// or None if none.
+  fn get_skip_level(&mut self, min_score: f32) -> Result<Option<usize>> {
     let num_levels = {
       let impacts = self.impacts_source.get_impacts()?;
       impacts.num_levels()
     };
+    let mut skip_level = None;
     for level in 0..num_levels {
-      if self.get_max_score_with_level(level)? >= min_score {
-        return Ok(level - 1);
+      if self.get_max_score_with_level(level as usize)? >= min_score {
+        return Ok(skip_level);
       }
+      skip_level = Some(level as usize);
     }
-    Ok(num_levels - 1)
+    Ok(skip_level)
   }
 
   /// Return an inclusive upper bound of documents that all have a score less than `min_score`,
   /// or -1 if the current document may be competitive.
   pub fn get_skip_up_to(&mut self, min_score: f32) -> Result<i32> {
-    let level = self.get_skip_level(min_score)?;
-    if level == -1 {
-      Ok(-1)
-    } else {
-      let impacts = self.impacts_source.get_impacts()?;
-      Ok(impacts.get_doc_id_upto(level))
+    match self.get_skip_level(min_score)? {
+      Some(level) => {
+        let impacts = self.impacts_source.get_impacts()?;
+        Ok(impacts.get_doc_id_upto(level as i32))
+      },
+      None => Ok(-1),
     }
   }
 }

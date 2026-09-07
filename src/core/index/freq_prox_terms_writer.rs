@@ -619,7 +619,7 @@ pub struct SortingDocsEnum<P> {
   sorter: LSBRadixSorter,
   postings_enum: Option<P>,
   docs: Vec<i32>,
-  doc_it: i32,
+  doc_it: Option<usize>,
   upto: i32,
 }
 impl<P> SortingDocsEnum<P> {
@@ -628,7 +628,7 @@ impl<P> SortingDocsEnum<P> {
       sorter: LSBRadixSorter::new(),
       postings_enum: None,
       docs: Vec::new(),
-      doc_it: -1,
+      doc_it: None,
       upto: 0,
     }
   }
@@ -662,7 +662,7 @@ impl<P> SortingDocsEnum<P> {
     self
       .sorter
       .sort(num_bits, &mut self.docs, self.upto as usize)?;
-    self.doc_it = -1;
+    self.doc_it = None;
     self.postings_enum = Some(postings_enum);
     Ok(())
   }
@@ -682,16 +682,13 @@ where
   P: PostingsEnum,
 {
   fn doc_id(&self) -> i32 {
-    if self.doc_it < 0 {
-      -1
-    } else {
-      self.docs[self.doc_it as usize]
-    }
+    self.doc_it.map_or(-1, |doc_it| self.docs[doc_it])
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.doc_it += 1;
-    Ok(self.docs[self.doc_it as usize])
+    let doc_it = self.doc_it.map_or(0, |doc_it| doc_it + 1);
+    self.doc_it = Some(doc_it);
+    Ok(self.docs[doc_it])
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
@@ -814,7 +811,7 @@ pub struct SortingPostingsEnum<P> {
   store_positions: bool,
   store_offsets: bool,
 
-  doc_it: i32,
+  doc_it: Option<usize>,
   pos: i32,
   start_offset: i32,
   end_offset: i32,
@@ -834,7 +831,7 @@ impl<P> SortingPostingsEnum<P> {
       postings_enum: None,
       store_positions: false,
       store_offsets: false,
-      doc_it: -1,
+      doc_it: None,
       pos: 0,
       start_offset: 0,
       end_offset: 0,
@@ -857,7 +854,7 @@ impl<P> SortingPostingsEnum<P> {
     self.store_positions = store_positions;
     self.store_offsets = store_offsets;
 
-    self.doc_it = -1;
+    self.doc_it = None;
     self.start_offset = -1;
     self.end_offset = -1;
 
@@ -948,22 +945,21 @@ where
   P: PostingsEnum,
 {
   fn doc_id(&self) -> i32 {
-    if self.doc_it < 0 {
-      -1
-    } else if self.doc_it as usize >= self.upto {
-      NO_MORE_DOCS
-    } else {
-      self.docs[self.doc_it as usize]
+    match self.doc_it {
+      None => -1,
+      Some(doc_it) if doc_it >= self.upto => NO_MORE_DOCS,
+      Some(doc_it) => self.docs[doc_it],
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.doc_it += 1;
-    if self.doc_it as usize >= self.upto {
+    let doc_it = self.doc_it.map_or(0, |doc_it| doc_it + 1);
+    self.doc_it = Some(doc_it);
+    if doc_it >= self.upto {
       return Ok(NO_MORE_DOCS);
     }
 
-    let offset = self.offsets[self.doc_it as usize];
+    let offset = self.offsets[doc_it];
     let Some(posting_input) = self.posting_input.as_mut() else {
       return Err(LuceneError::illegal_state("posting_input not initialized"));
     };
@@ -974,7 +970,7 @@ where
     self.pos = 0;
     self.end_offset = 0;
 
-    Ok(self.docs[self.doc_it as usize])
+    Ok(self.docs[doc_it])
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {

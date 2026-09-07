@@ -158,8 +158,10 @@ impl Stats {
       return Err(LuceneError::illegal_state("empty terms block"));
     }
     self.end_block_count += 1;
-    let other_bytes =
-      frame.fp_end - frame.fp - frame.total_suffix_bytes - frame.stats_reader.length() as i64;
+    let other_bytes = frame.fp_end as i64
+      - frame.fp as i64
+      - frame.total_suffix_bytes
+      - frame.stats_reader.length() as i64;
     debug_assert!(
       other_bytes > 0,
       "otherBytes={} frame.fp={} frame.fpEnd={}",

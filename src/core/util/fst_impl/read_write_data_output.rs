@@ -170,9 +170,9 @@ impl DataOutput for ReadWriteDataOutput {
 
 pub struct BytesReaderImpl {
   byte_buffers: Rc<Vec<Vec<u8>>>,
-  next_buffer: i32,
-  next_read: i32,
-  current: i32,
+  next_buffer: Option<usize>,
+  next_read: Option<usize>,
+  current: usize,
   block_size: i32,
   block_bits: i32,
   block_mask: i32,
@@ -187,8 +187,8 @@ impl BytesReaderImpl {
   ) -> Self {
     Self {
       byte_buffers,
-      next_buffer: -1,
-      next_read: 0,
+      next_buffer: None,
+      next_read: Some(0),
       current: 0,
       block_size,
       block_bits,
@@ -201,13 +201,19 @@ impl crate::core::util::close::Closeable for BytesReaderImpl {}
 
 impl DataInput for BytesReaderImpl {
   fn read_byte(&mut self) -> Result<u8> {
-    if self.next_read == -1 {
-      self.current = self.next_buffer;
-      self.next_buffer -= 1;
-      self.next_read = self.block_size - 1;
+    if self.next_read.is_none() {
+      let next_buffer = self
+        .next_buffer
+        .ok_or_else(|| LuceneError::illegal_state("reverse reader has no preceding buffer"))?;
+      self.current = next_buffer;
+      self.next_buffer = next_buffer.checked_sub(1);
+      self.next_read = Some((self.block_size - 1) as usize);
     }
-    let byte = &self.byte_buffers[self.current as usize][self.next_read as usize];
-    self.next_read -= 1;
+    let next_read = self
+      .next_read
+      .ok_or_else(|| LuceneError::illegal_state("reverse reader position is not initialized"))?;
+    let byte = &self.byte_buffers[self.current][next_read];
+    self.next_read = next_read.checked_sub(1);
     Ok(*byte)
   }
 
@@ -243,16 +249,21 @@ impl Display for BytesReaderImpl {
 
 impl BytesReader for BytesReaderImpl {
   fn get_position(&self) -> i64 {
-    (((self.next_buffer + 1) * self.block_size) + self.next_read) as i64
+    ((self
+      .next_buffer
+      .map_or(0, |next_buffer| next_buffer as i32 + 1)
+      * self.block_size)
+      + self.next_read.map_or(-1, |next_read| next_read as i32)) as i64
   }
 
   fn set_position(&mut self, pos: i64) {
     let buffer_index = (pos >> self.block_bits) as i32;
-    if self.next_buffer != buffer_index - 1 {
-      self.next_buffer = buffer_index - 1;
-      self.current = buffer_index;
+    let next_buffer = (buffer_index != 0).then(|| (buffer_index - 1) as usize);
+    if self.next_buffer != next_buffer {
+      self.next_buffer = next_buffer;
+      self.current = buffer_index as usize;
     }
-    self.next_read = (pos & self.block_mask as i64) as i32;
+    self.next_read = Some((pos & self.block_mask as i64) as usize);
     debug_assert_eq!(
       self.get_position(),
       pos,

@@ -464,7 +464,7 @@ pub struct BlockPostingsEnum<I> {
   pub(crate) needs_docs_and_freqs_only: bool,
 
   /// offset of the freq block
-  freq_fp: i64,
+  freq_fp: Option<usize>,
   /// current position
   position: i32,
   /// value of docBufferUpto on the last doc ID when positions have been read
@@ -650,7 +650,7 @@ where
       needs_impacts,
       needs_docs_and_freqs_only,
 
-      freq_fp: 0,
+      freq_fp: Some(0),
       position: 0,
       pos_doc_buffer_upto: 0,
       pos_pending_count: 0,
@@ -765,7 +765,7 @@ where
     self.doc = -1;
     self.prev_doc_id = -1;
     self.doc_count_left = self.doc_freq;
-    self.freq_fp = -1;
+    self.freq_fp = None;
     self.level0_last_doc_id = -1;
     if (self.doc_freq) < Lucene101PostingsFormat::LEVEL1_NUM_DOCS {
       self.level1_last_doc_id = NO_MORE_DOCS;
@@ -808,7 +808,7 @@ where
         .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
         .input;
       if self.needs_freq {
-        self.freq_fp = doc_in.get_file_pointer()? as i64;
+        self.freq_fp = Some(doc_in.get_file_pointer()?);
       }
       PForUtil::skip(doc_in)?;
     }
@@ -827,7 +827,7 @@ where
       self.doc_buffer[0] = self.singleton_doc_id;
       self.freq_buffer[0] = self.total_term_freq as i32;
       self.doc_buffer[1] = NO_MORE_DOCS;
-      debug_assert_eq!(self.freq_fp, -1);
+      debug_assert!(self.freq_fp.is_none());
       self.doc_count_left = 0;
       self.doc_buffer_size = 1;
     } else {
@@ -851,7 +851,7 @@ where
         self.prev_doc_id,
       );
       self.doc_buffer[self.doc_count_left as usize] = NO_MORE_DOCS;
-      self.freq_fp = -1;
+      self.freq_fp = None;
       self.doc_buffer_size = self.doc_count_left;
       self.doc_count_left = 0;
     }
@@ -942,7 +942,7 @@ where
         }
         self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
       } else {
-        debug_assert!(self.freq_fp == -1);
+        debug_assert!(self.freq_fp.is_none());
         self.pos_pending_count += sum_over_range(
           &self.freq_buffer,
           self.pos_doc_buffer_upto as usize,
@@ -1403,13 +1403,13 @@ where
   I: IndexInput,
 {
   fn freq(&mut self) -> Result<i32> {
-    if self.freq_fp != -1 {
+    if let Some(freq_fp) = self.freq_fp {
       let doc_in = &mut self
         .doc_in_util
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?
         .input;
-      doc_in.seek(self.freq_fp as usize)?;
+      doc_in.seek(freq_fp)?;
       let pfor_util = self
         .pfor_util
         .as_mut()
@@ -1419,7 +1419,7 @@ where
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("documents input is missing"))?;
       pfor_util.decode(doc_in_util, &mut self.freq_buffer)?;
-      self.freq_fp = -1;
+      self.freq_fp = None;
     }
     Ok(self.freq_buffer[(self.doc_buffer_upto - 1) as usize])
   }

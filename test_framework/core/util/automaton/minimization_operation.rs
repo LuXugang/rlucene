@@ -80,7 +80,7 @@ impl MinimizationOperations {
       partition[j].insert(q);
       block[q] = j;
       transition.source = q as i32;
-      transition.transition_upto = -1;
+      transition.transition_upto = None;
       for (x, &sym) in sigma.iter().enumerate().take(sigma_len) {
         let next = a.next(&mut transition, sym);
         reverse[next as usize][x].push(q);
@@ -215,7 +215,7 @@ impl MinimizationOperations {
     for (n, &rep_state) in state_rep.iter().take(k).enumerate() {
       let num_transitions = a.init_transition(rep_state, &mut t);
       for _ in 0..num_transitions {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         result.add_transition(n as i32, state_map[t.dest as usize], t.min, t.max)?;
       }
     }

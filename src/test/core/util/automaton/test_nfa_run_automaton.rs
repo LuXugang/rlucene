@@ -150,7 +150,7 @@ where
 
   let num_transitions = automaton2.get_num_transitions_with_state(state)?;
   for i in 0..num_transitions {
-    automaton1.get_next_transition(&mut t1);
+    automaton1.get_next_transition(&mut t1)?;
     automaton2.get_transition(state, i, &mut t2)?;
 
     assert_eq!(format!("{:?}", t1), format!("{:?}", t2));

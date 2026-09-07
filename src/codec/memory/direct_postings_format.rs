@@ -952,7 +952,7 @@ impl Terms for DirectField {
 pub struct DirectTermsEnum {
   data: Arc<DirectFieldData>,
   scratch: BytesRef<Vec<u8>>,
-  term_ord: i32,
+  term_ord: Option<usize>,
 }
 
 impl DirectTermsEnum {
@@ -960,15 +960,18 @@ impl DirectTermsEnum {
     Self {
       data,
       scratch: BytesRef::new(),
-      term_ord: -1,
+      term_ord: None,
     }
   }
 
-  fn set_term(&mut self) -> &BytesRef<Vec<u8>> {
-    let start = self.data.term_offsets[self.term_ord as usize] as usize;
-    let end = self.data.term_offsets[self.term_ord as usize + 1] as usize;
+  fn set_term(&mut self) -> Result<&BytesRef<Vec<u8>>> {
+    let term_ord = self
+      .term_ord
+      .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
+    let start = self.data.term_offsets[term_ord] as usize;
+    let end = self.data.term_offsets[term_ord + 1] as usize;
     self.scratch = BytesRef::from_bytes(self.data.term_bytes[start..end].to_vec());
-    &self.scratch
+    Ok(&self.scratch)
   }
 
   // If non-negative, exact match; else, -ord-1, where ord is where the term would be inserted.
@@ -991,18 +994,18 @@ impl DirectTermsEnum {
 
   fn current_term(&self) -> Result<&DirectTerm> {
     self
-      .data
-      .terms
-      .get(self.term_ord as usize)
+      .term_ord
+      .and_then(|term_ord| self.data.terms.get(term_ord))
       .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))
   }
 }
 
 impl BytesRefIterator for DirectTermsEnum {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    self.term_ord += 1;
-    if self.term_ord < self.data.terms.len() as i32 {
-      self.set_term();
+    let term_ord = self.term_ord.map_or(0, |term_ord| term_ord + 1);
+    self.term_ord = Some(term_ord);
+    if term_ord < self.data.terms.len() {
+      self.set_term()?;
       Ok(Some(Cow::Borrowed(&self.scratch)))
     } else {
       Ok(None)
@@ -1031,8 +1034,8 @@ impl TermsEnum for DirectTermsEnum {
   fn seek_exact(&mut self, term: &BytesRef<Vec<u8>>) -> Result<bool> {
     let ord = self.find_term(term);
     if ord >= 0 {
-      self.term_ord = ord;
-      self.set_term();
+      self.term_ord = Some(ord as usize);
+      self.set_term()?;
       Ok(true)
     } else {
       Ok(false)
@@ -1050,21 +1053,22 @@ impl TermsEnum for DirectTermsEnum {
   fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
     let ord = self.find_term(term);
     if ord >= 0 {
-      self.term_ord = ord;
-      self.set_term();
+      self.term_ord = Some(ord as usize);
+      self.set_term()?;
       Ok(SeekStatus::Found)
     } else if ord == -(self.data.terms.len() as i32) - 1 {
       Ok(SeekStatus::End)
     } else {
-      self.term_ord = -ord - 1;
-      self.set_term();
+      self.term_ord = Some((-ord - 1) as usize);
+      self.set_term()?;
       Ok(SeekStatus::NotFound)
     }
   }
 
   fn seek_exact_with_ord(&mut self, ord: i64) -> Result<()> {
-    self.term_ord = ord as i32;
-    self.set_term();
+    let term_ord = ord as i32;
+    self.term_ord = (term_ord != -1).then_some(term_ord as usize);
+    self.set_term()?;
     Ok(())
   }
 
@@ -1073,8 +1077,9 @@ impl TermsEnum for DirectTermsEnum {
     term: &BytesRef<Vec<u8>>,
     state: &TermStateEnum,
   ) -> Result<()> {
-    self.term_ord = state.ord()? as i32;
-    self.set_term();
+    let term_ord = state.ord()? as i32;
+    self.term_ord = (term_ord != -1).then_some(term_ord as usize);
+    self.set_term()?;
     debug_assert!(self.scratch.bytes_equals(term));
     Ok(())
   }
@@ -1084,7 +1089,7 @@ impl TermsEnum for DirectTermsEnum {
   }
 
   fn ord(&self) -> Result<i64> {
-    Ok(self.term_ord as i64)
+    Ok(self.term_ord.map_or(-1, |ord| ord as i64))
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
@@ -1128,7 +1133,7 @@ impl TermsEnum for DirectTermsEnum {
   fn term_state(&mut self) -> Result<TermStateEnum> {
     Ok(
       OrdTermState {
-        ord: self.term_ord as i64,
+        ord: self.term_ord.map_or(-1, |ord| ord as i64),
       }
       .into(),
     )
@@ -1139,7 +1144,7 @@ pub struct DirectIntersectTermsEnum {
   data: Arc<DirectFieldData>,
   automaton: AutomatonEnum,
   common_suffix_ref: Option<Arc<BytesRef<Vec<u8>>>>,
-  term_ord: i32,
+  term_ord: Option<usize>,
   scratch: BytesRef<Vec<u8>>,
   states: Vec<DirectIntersectState>,
   state_upto: usize,
@@ -1185,7 +1190,7 @@ impl DirectIntersectTermsEnum {
       data,
       automaton,
       common_suffix_ref: compiled.common_suffix_ref.clone(),
-      term_ord: -1,
+      term_ord: None,
       scratch: BytesRef::new(),
       states: vec![first_state],
       state_upto: 0,
@@ -1206,10 +1211,10 @@ impl DirectIntersectTermsEnum {
     let mut skip_upto = 0usize;
     if start_term.length == 0 {
       if !self.data.terms.is_empty() && self.data.term_offsets[1] == 0 {
-        self.term_ord = 0;
+        self.term_ord = Some(0);
       }
     } else {
-      self.term_ord += 1;
+      self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
 
       'next_label: for i in 0..start_term.length {
         let label = start_term.bytes[start_term.offset + i] as i32;
@@ -1228,8 +1233,10 @@ impl DirectIntersectTermsEnum {
         }
 
         // Skip forwards until we find a term matching the label at this position.
-        while self.term_ord < self.data.terms.len() as i32 {
-          let term_ord = self.term_ord as usize;
+        while let Some(term_ord) = self
+          .term_ord
+          .filter(|&term_ord| term_ord < self.data.terms.len())
+        {
           let skip_offset = self.data.skip_offsets[term_ord] as usize;
           let num_skips =
             (self.data.skip_offsets[term_ord + 1] - self.data.skip_offsets[term_ord]) as usize;
@@ -1237,17 +1244,17 @@ impl DirectIntersectTermsEnum {
           let term_length =
             (self.data.term_offsets[term_ord + 1] - self.data.term_offsets[term_ord]) as usize;
 
-          if self.term_ord == self.states[self.state_upto].change_ord {
+          if self.term_ord == Some(self.states[self.state_upto].change_ord as usize) {
             self.state_upto -= 1;
-            self.term_ord -= 1;
+            self.term_ord = self.term_ord.and_then(|term_ord| term_ord.checked_sub(1));
             return Ok(());
           }
 
           if term_length == i {
-            self.term_ord += 1;
+            self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
             skip_upto = 0;
           } else if label < self.data.term_bytes[term_offset + i] as i32 {
-            self.term_ord -= 1;
+            self.term_ord = self.term_ord.and_then(|term_ord| term_ord.checked_sub(1));
             self.state_upto -= skip_upto;
             return Ok(());
           } else if label == self.data.term_bytes[term_offset + i] as i32 {
@@ -1272,95 +1279,108 @@ impl DirectIntersectTermsEnum {
             } else {
               // Index exhausted: just scan now (the number of scans required will be less than
               // min_skip_count).
-              let start_term_ord = self.term_ord;
-              while self.term_ord < self.data.terms.len() as i32
-                && DirectField::compare(&self.data, self.term_ord as usize, start_term) <= 0
+              let start_term_ord = term_ord;
+              while let Some(term_ord) = self
+                .term_ord
+                .filter(|&term_ord| term_ord < self.data.terms.len())
+                && DirectField::compare(&self.data, term_ord, start_term) <= 0
               {
                 debug_assert!(
-                  self.term_ord == start_term_ord
-                    || self.data.skip_offsets[self.term_ord as usize]
-                      == self.data.skip_offsets[self.term_ord as usize + 1]
+                  self.term_ord == Some(start_term_ord)
+                    || self.data.skip_offsets[term_ord] == self.data.skip_offsets[term_ord + 1]
                 );
-                self.term_ord += 1;
+                self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
               }
-              debug_assert!(self.term_ord - start_term_ord < self.data.min_skip_count);
-              self.term_ord -= 1;
+              debug_assert!(
+                (self
+                  .term_ord
+                  .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?
+                  as i32
+                  - start_term_ord as i32)
+                  < self.data.min_skip_count
+              );
+              self.term_ord = self.term_ord.and_then(|term_ord| term_ord.checked_sub(1));
               self.state_upto -= skip_upto;
               return Ok(());
             }
           } else {
             if skip_upto < num_skips {
-              self.term_ord = self.data.skips[skip_offset + skip_upto];
+              self.term_ord = Some(self.data.skips[skip_offset + skip_upto] as usize);
             } else {
-              self.term_ord += 1;
+              self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
             }
             skip_upto = 0;
           }
         }
 
         // startTerm is >= last term so this enum will not return any terms.
-        self.term_ord -= 1;
+        self.term_ord = self.term_ord.and_then(|term_ord| term_ord.checked_sub(1));
         return Ok(());
       }
     }
 
-    if self.term_ord >= 0 {
-      let term_offset = self.data.term_offsets[self.term_ord as usize] as usize;
-      let term_len = (self.data.term_offsets[self.term_ord as usize + 1]
-        - self.data.term_offsets[self.term_ord as usize]) as usize;
+    if let Some(term_ord) = self.term_ord {
+      let term_offset = self.data.term_offsets[term_ord] as usize;
+      let term_len =
+        (self.data.term_offsets[term_ord + 1] - self.data.term_offsets[term_ord]) as usize;
       let same = start_term.length == term_len
         && start_term.bytes[start_term.offset..start_term.offset + start_term.length]
           == self.data.term_bytes[term_offset..term_offset + term_len];
       if !same {
         self.state_upto -= skip_upto;
-        self.term_ord -= 1;
+        self.term_ord = self.term_ord.and_then(|term_ord| term_ord.checked_sub(1));
       }
     }
     Ok(())
   }
 
-  fn set_term(&mut self) {
-    let start = self.data.term_offsets[self.term_ord as usize] as usize;
-    let end = self.data.term_offsets[self.term_ord as usize + 1] as usize;
+  fn set_term(&mut self) -> Result<()> {
+    let term_ord = self
+      .term_ord
+      .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
+    let start = self.data.term_offsets[term_ord] as usize;
+    let end = self.data.term_offsets[term_ord + 1] as usize;
     self.scratch = BytesRef::from_bytes(self.data.term_bytes[start..end].to_vec());
+    Ok(())
   }
 
   fn current_term(&self) -> Result<&DirectTerm> {
     self
-      .data
-      .terms
-      .get(self.term_ord as usize)
+      .term_ord
+      .and_then(|term_ord| self.data.terms.get(term_ord))
       .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))
   }
 }
 
 impl BytesRefIterator for DirectIntersectTermsEnum {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
-    self.term_ord += 1;
+    self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
     let mut skip_upto = 0usize;
 
-    if self.term_ord == 0 && self.data.term_offsets[1] == 0 {
+    if self.term_ord == Some(0) && self.data.term_offsets[1] == 0 {
       // Special-case empty string:
       debug_assert_eq!(self.state_upto, 0);
       if self.automaton.is_accept(self.states[0].state)? {
         self.scratch = BytesRef::new();
         return Ok(Some(Cow::Borrowed(&self.scratch)));
       }
-      self.term_ord += 1;
+      self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
     }
 
     'next_term: loop {
-      if self.term_ord == self.data.terms.len() as i32 {
+      if self.term_ord == Some(self.data.terms.len()) {
         return Ok(None);
       }
 
-      if self.term_ord == self.states[self.state_upto].change_ord {
+      if self.term_ord == Some(self.states[self.state_upto].change_ord as usize) {
         // Pop:
         self.state_upto -= 1;
         continue;
       }
 
-      let term_ord = self.term_ord as usize;
+      let term_ord = self
+        .term_ord
+        .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
       let term_offset = self.data.term_offsets[term_ord] as usize;
       let term_length =
         (self.data.term_offsets[term_ord + 1] - self.data.term_offsets[term_ord]) as usize;
@@ -1368,7 +1388,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
       let num_skips =
         (self.data.skip_offsets[term_ord + 1] - self.data.skip_offsets[term_ord]) as usize;
 
-      debug_assert!(self.term_ord < self.states[self.state_upto].change_ord);
+      debug_assert!(term_ord < self.states[self.state_upto].change_ord as usize);
       debug_assert!(self.state_upto <= term_length);
       let label = self.data.term_bytes[term_offset + self.state_upto] as i32;
 
@@ -1379,11 +1399,11 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
         {
           // We've exhausted transitions leaving this state; force pop+next/skip now.
           if self.state_upto == 0 {
-            self.term_ord = self.data.terms.len() as i32;
+            self.term_ord = Some(self.data.terms.len());
             return Ok(None);
           }
-          debug_assert!(self.states[self.state_upto].change_ord > self.term_ord);
-          self.term_ord = self.states[self.state_upto].change_ord;
+          debug_assert!(self.states[self.state_upto].change_ord as usize > term_ord);
+          self.term_ord = Some(self.states[self.state_upto].change_ord as usize);
           skip_upto = 0;
           self.state_upto -= 1;
           continue 'next_term;
@@ -1400,12 +1420,12 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
 
       let target_label = self.states[self.state_upto].transition_min;
       if label < target_label {
-        let mut low = self.term_ord + 1;
+        let mut low = term_ord as i32 + 1;
         let mut high = self.states[self.state_upto].change_ord - 1;
         loop {
           if low > high {
             // Label not found.
-            self.term_ord = low;
+            self.term_ord = Some(low as usize);
             skip_upto = 0;
             continue 'next_term;
           }
@@ -1420,7 +1440,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
             high = mid - 1;
           } else {
             // Label found; walk backwards to the first occurrence.
-            while mid > self.term_ord
+            while mid > term_ord as i32
               && self.data.term_bytes
                 [self.data.term_offsets[mid as usize - 1] as usize + self.state_upto]
                 as i32
@@ -1428,7 +1448,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
             {
               mid -= 1;
             }
-            self.term_ord = mid;
+            self.term_ord = Some(mid as usize);
             skip_upto = 0;
             continue 'next_term;
           }
@@ -1441,9 +1461,9 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
       if next_state == -1 {
         // Skip.
         if skip_upto < num_skips {
-          self.term_ord = self.data.skips[skip_offset + skip_upto];
+          self.term_ord = Some(self.data.skips[skip_offset + skip_upto] as usize);
         } else {
-          self.term_ord += 1;
+          self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
         }
         skip_upto = 0;
       } else if skip_upto < num_skips {
@@ -1462,10 +1482,10 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
 
         if self.state_upto == term_length {
           if self.automaton.is_accept(next_state)? {
-            self.set_term();
+            self.set_term()?;
             return Ok(Some(Cow::Borrowed(&self.scratch)));
           }
-          self.term_ord += 1;
+          self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
           skip_upto = 0;
         }
       } else {
@@ -1473,7 +1493,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
         if let Some(common_suffix_ref) = &self.common_suffix_ref {
           debug_assert_eq!(common_suffix_ref.offset, 0);
           if term_length < common_suffix_ref.length {
-            self.term_ord += 1;
+            self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
             skip_upto = 0;
             continue 'next_term;
           }
@@ -1481,7 +1501,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
           if self.data.term_bytes[offset..offset + common_suffix_ref.length]
             != common_suffix_ref.bytes[..common_suffix_ref.length]
           {
-            self.term_ord += 1;
+            self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
             skip_upto = 0;
             continue 'next_term;
           }
@@ -1493,7 +1513,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
             .automaton
             .step(next_state, self.data.term_bytes[term_offset + upto] as i32)?;
           if next_state == -1 {
-            self.term_ord += 1;
+            self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
             skip_upto = 0;
             continue 'next_term;
           }
@@ -1501,10 +1521,10 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
         }
 
         if self.automaton.is_accept(next_state)? {
-          self.set_term();
+          self.set_term()?;
           return Ok(Some(Cow::Borrowed(&self.scratch)));
         }
-        self.term_ord += 1;
+        self.term_ord = Some(self.term_ord.map_or(0, |term_ord| term_ord + 1));
         skip_upto = 0;
       }
     }
@@ -1567,7 +1587,7 @@ impl TermsEnum for DirectIntersectTermsEnum {
   }
 
   fn ord(&self) -> Result<i64> {
-    Ok(self.term_ord as i64)
+    Ok(self.term_ord.map_or(-1, |term_ord| term_ord as i64))
   }
 
   fn doc_freq(&mut self) -> Result<i32> {
@@ -1611,7 +1631,7 @@ impl TermsEnum for DirectIntersectTermsEnum {
   fn term_state(&mut self) -> Result<TermStateEnum> {
     Ok(
       OrdTermState {
-        ord: self.term_ord as i64,
+        ord: self.term_ord.map_or(-1, |term_ord| term_ord as i64),
       }
       .into(),
     )
@@ -1845,17 +1865,17 @@ impl PostingsEnum for DirectPostingsEnum {
 // Docs only:
 pub struct LowFreqDocsEnumNoTf {
   term: Arc<LowFreqTerm>,
-  upto: i32,
+  upto: Option<usize>,
 }
 
 impl LowFreqDocsEnumNoTf {
   fn new(term: Arc<LowFreqTerm>) -> Self {
-    Self { term, upto: -1 }
+    Self { term, upto: None }
   }
 
   fn reset(&mut self, term: Arc<LowFreqTerm>) {
     self.term = term;
-    self.upto = -1;
+    self.upto = None;
   }
 
   fn postings(&self) -> &[i32] {
@@ -1868,17 +1888,18 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for LowFreqD
 
 impl DocIdSetIterator for LowFreqDocsEnumNoTf {
   fn doc_id(&self) -> i32 {
-    if self.upto < 0 {
-      -1
-    } else if (self.upto as usize) < self.postings().len() {
-      self.postings()[self.upto as usize]
+    let Some(upto) = self.upto else {
+      return -1;
+    };
+    if upto < self.postings().len() {
+      self.postings()[upto]
     } else {
       NO_MORE_DOCS
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.upto += 1;
+    self.upto = Some(self.upto.map_or(0, |upto| upto + 1));
     Ok(self.doc_id())
   }
 
@@ -1916,17 +1937,17 @@ impl PostingsEnum for LowFreqDocsEnumNoTf {
 // Docs + freqs:
 pub struct LowFreqDocsEnumNoPos {
   term: Arc<LowFreqTerm>,
-  upto: i32,
+  upto: Option<usize>,
 }
 
 impl LowFreqDocsEnumNoPos {
   fn new(term: Arc<LowFreqTerm>) -> Self {
-    Self { term, upto: -2 }
+    Self { term, upto: None }
   }
 
   fn reset(&mut self, term: Arc<LowFreqTerm>) {
     self.term = term;
-    self.upto = -2;
+    self.upto = None;
   }
 
   fn postings(&self) -> &[i32] {
@@ -1939,17 +1960,15 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for LowFreqD
 
 impl DocIdSetIterator for LowFreqDocsEnumNoPos {
   fn doc_id(&self) -> i32 {
-    if self.upto < 0 {
-      -1
-    } else if (self.upto as usize) < self.postings().len() {
-      self.postings()[self.upto as usize]
-    } else {
-      NO_MORE_DOCS
+    match self.upto {
+      None => -1,
+      Some(upto) if upto < self.postings().len() => self.postings()[upto],
+      Some(_) => NO_MORE_DOCS,
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.upto += 2;
+    self.upto = Some(self.upto.map_or(0, |upto| upto + 2));
     Ok(self.doc_id())
   }
 
@@ -1964,7 +1983,10 @@ impl DocIdSetIterator for LowFreqDocsEnumNoPos {
 
 impl PostingsEnum for LowFreqDocsEnumNoPos {
   fn freq(&mut self) -> Result<i32> {
-    Ok(self.postings()[self.upto as usize + 1])
+    let upto = self
+      .upto
+      .ok_or_else(|| LuceneError::illegal_state("postings enum has no current document"))?;
+    Ok(self.postings()[upto + 1])
   }
 
   fn next_position(&mut self) -> Result<i32> {
@@ -1988,7 +2010,7 @@ impl PostingsEnum for LowFreqDocsEnumNoPos {
 pub struct LowFreqDocsEnum {
   term: Arc<LowFreqTerm>,
   pos_mult: i32,
-  upto: i32,
+  upto: Option<usize>,
   freq: i32,
 }
 
@@ -1997,7 +2019,7 @@ impl LowFreqDocsEnum {
     Self {
       term,
       pos_mult,
-      upto: -2,
+      upto: None,
       freq: 0,
     }
   }
@@ -2008,7 +2030,7 @@ impl LowFreqDocsEnum {
 
   fn reset(&mut self, term: Arc<LowFreqTerm>) {
     self.term = term;
-    self.upto = -2;
+    self.upto = None;
     self.freq = 0;
   }
 
@@ -2022,19 +2044,20 @@ impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for LowFreqD
 
 impl DocIdSetIterator for LowFreqDocsEnum {
   fn doc_id(&self) -> i32 {
-    if self.upto < 0 {
-      -1
-    } else if (self.upto as usize) < self.postings().len() {
-      self.postings()[self.upto as usize]
-    } else {
-      NO_MORE_DOCS
+    match self.upto {
+      None => -1,
+      Some(upto) if upto < self.postings().len() => self.postings()[upto],
+      Some(_) => NO_MORE_DOCS,
     }
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.upto += 2 + self.freq * self.pos_mult;
-    if (self.upto as usize) < self.postings().len() {
-      self.freq = self.postings()[self.upto as usize + 1];
+    let upto = self
+      .upto
+      .map_or(0, |upto| upto + (2 + self.freq * self.pos_mult) as usize);
+    self.upto = Some(upto);
+    if upto < self.postings().len() {
+      self.freq = self.postings()[upto + 1];
       debug_assert!(self.freq > 0);
     }
     Ok(self.doc_id())
@@ -2218,7 +2241,7 @@ impl PostingsEnum for LowFreqPostingsEnum {
 // Docs + freqs:
 pub struct HighFreqDocsEnum {
   term: Arc<HighFreqTerm>,
-  upto: i32,
+  upto: Option<usize>,
   doc_id: i32,
 }
 
@@ -2226,7 +2249,7 @@ impl HighFreqDocsEnum {
   fn new(term: Arc<HighFreqTerm>) -> Self {
     Self {
       term,
-      upto: -1,
+      upto: None,
       doc_id: -1,
     }
   }
@@ -2234,7 +2257,7 @@ impl HighFreqDocsEnum {
   fn reset(&mut self, term: Arc<HighFreqTerm>) {
     self.term = term;
     self.doc_id = -1;
-    self.upto = -1;
+    self.upto = None;
   }
 
   fn high_term(&self) -> &HighFreqTerm {
@@ -2251,9 +2274,10 @@ impl DocIdSetIterator for HighFreqDocsEnum {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.upto += 1;
-    if (self.upto as usize) < self.high_term().doc_ids.len() {
-      self.doc_id = self.high_term().doc_ids[self.upto as usize];
+    let upto = self.upto.map_or(0, |upto| upto + 1);
+    self.upto = Some(upto);
+    if upto < self.high_term().doc_ids.len() {
+      self.doc_id = self.high_term().doc_ids[upto];
     } else {
       self.doc_id = NO_MORE_DOCS;
     }
@@ -2261,15 +2285,16 @@ impl DocIdSetIterator for HighFreqDocsEnum {
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    self.upto += 1;
+    let mut upto = self.upto.map_or(0, |upto| upto + 1);
+    self.upto = Some(upto);
     let length = self.high_term().doc_ids.len() as i32;
-    if self.upto == length {
+    if upto == length as usize {
       self.doc_id = NO_MORE_DOCS;
       return Ok(self.doc_id);
     }
 
     let mut inc = 10;
-    let mut next_upto = self.upto + 10;
+    let mut next_upto = upto as i32 + 10;
     let (mut low, mut high);
     loop {
       if next_upto >= length {
@@ -2287,7 +2312,8 @@ impl DocIdSetIterator for HighFreqDocsEnum {
     }
     loop {
       if low > high {
-        self.upto = low;
+        upto = low as usize;
+        self.upto = Some(upto);
         break;
       }
       let mid = ((low + high) as u32 >> 1) as i32;
@@ -2297,14 +2323,15 @@ impl DocIdSetIterator for HighFreqDocsEnum {
       } else if cmp > 0 {
         high = mid - 1;
       } else {
-        self.upto = mid;
+        upto = mid as usize;
+        self.upto = Some(upto);
         break;
       }
     }
-    if self.upto == length {
+    if upto == length as usize {
       self.doc_id = NO_MORE_DOCS;
     } else {
-      self.doc_id = self.high_term().doc_ids[self.upto as usize];
+      self.doc_id = self.high_term().doc_ids[upto];
     }
     Ok(self.doc_id)
   }
@@ -2316,13 +2343,14 @@ impl DocIdSetIterator for HighFreqDocsEnum {
 
 impl PostingsEnum for HighFreqDocsEnum {
   fn freq(&mut self) -> Result<i32> {
-    Ok(
-      self
-        .high_term()
-        .freqs
-        .as_ref()
-        .map_or(1, |freqs| freqs[self.upto as usize]),
-    )
+    if let Some(freqs) = &self.high_term().freqs {
+      let upto = self
+        .upto
+        .ok_or_else(|| LuceneError::illegal_state("postings have no current document"))?;
+      Ok(freqs[upto])
+    } else {
+      Ok(1)
+    }
   }
 
   fn next_position(&mut self) -> Result<i32> {
@@ -2346,7 +2374,7 @@ pub struct HighFreqPostingsEnum {
   term: Arc<HighFreqTerm>,
   has_offsets: bool,
   pos_jump: i32,
-  upto: i32,
+  upto: Option<usize>,
   doc_id: i32,
   pos_upto: i32,
   payload: Option<BytesRef<Vec<u8>>>,
@@ -2358,7 +2386,7 @@ impl HighFreqPostingsEnum {
       term,
       has_offsets,
       pos_jump: if has_offsets { 3 } else { 1 },
-      upto: -1,
+      upto: None,
       doc_id: -1,
       pos_upto: 0,
       payload: None,
@@ -2379,10 +2407,11 @@ impl DocIdSetIterator for HighFreqPostingsEnum {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.upto += 1;
-    if (self.upto as usize) < self.high_term().doc_ids.len() {
+    let upto = self.upto.map_or(0, |upto| upto + 1);
+    self.upto = Some(upto);
+    if upto < self.high_term().doc_ids.len() {
       self.pos_upto = -self.pos_jump;
-      self.doc_id = self.high_term().doc_ids[self.upto as usize];
+      self.doc_id = self.high_term().doc_ids[upto];
     } else {
       self.doc_id = NO_MORE_DOCS;
     }
@@ -2390,15 +2419,16 @@ impl DocIdSetIterator for HighFreqPostingsEnum {
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    self.upto += 1;
+    let mut upto = self.upto.map_or(0, |upto| upto + 1);
+    self.upto = Some(upto);
     let length = self.high_term().doc_ids.len() as i32;
-    if self.upto == length {
+    if upto == length as usize {
       self.doc_id = NO_MORE_DOCS;
       return Ok(self.doc_id);
     }
 
     let mut inc = 10;
-    let mut next_upto = self.upto + 10;
+    let mut next_upto = upto as i32 + 10;
     let (mut low, mut high);
     loop {
       if next_upto >= length {
@@ -2416,7 +2446,8 @@ impl DocIdSetIterator for HighFreqPostingsEnum {
     }
     loop {
       if low > high {
-        self.upto = low;
+        upto = low as usize;
+        self.upto = Some(upto);
         break;
       }
       let mid = ((low + high) as u32 >> 1) as i32;
@@ -2426,15 +2457,16 @@ impl DocIdSetIterator for HighFreqPostingsEnum {
       } else if cmp > 0 {
         high = mid - 1;
       } else {
-        self.upto = mid;
+        upto = mid as usize;
+        self.upto = Some(upto);
         break;
       }
     }
-    if self.upto == length {
+    if upto == length as usize {
       self.doc_id = NO_MORE_DOCS;
     } else {
       self.pos_upto = -self.pos_jump;
-      self.doc_id = self.high_term().doc_ids[self.upto as usize];
+      self.doc_id = self.high_term().doc_ids[upto];
     }
     Ok(self.doc_id)
   }
@@ -2446,25 +2478,31 @@ impl DocIdSetIterator for HighFreqPostingsEnum {
 
 impl PostingsEnum for HighFreqPostingsEnum {
   fn freq(&mut self) -> Result<i32> {
+    let upto = self
+      .upto
+      .ok_or_else(|| LuceneError::illegal_state("postings have no current document"))?;
     Ok(
       self
         .high_term()
         .freqs
         .as_ref()
-        .ok_or_else(|| LuceneError::illegal_state("frequencies are missing"))?[self.upto as usize],
+        .ok_or_else(|| LuceneError::illegal_state("frequencies are missing"))?[upto],
     )
   }
 
   fn next_position(&mut self) -> Result<i32> {
     self.pos_upto += self.pos_jump;
+    let upto = self
+      .upto
+      .ok_or_else(|| LuceneError::illegal_state("postings have no current document"))?;
     let position = self
       .high_term()
       .positions
       .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[self.upto as usize]
+      .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[upto]
       [self.pos_upto as usize];
     if let Some(payloads) = &self.high_term().payloads {
-      self.payload = payloads[self.upto as usize][(self.pos_upto / self.pos_jump) as usize]
+      self.payload = payloads[upto][(self.pos_upto / self.pos_jump) as usize]
         .as_ref()
         .map(|bytes| BytesRef::from_bytes(bytes.clone()));
     } else {
@@ -2475,12 +2513,15 @@ impl PostingsEnum for HighFreqPostingsEnum {
 
   fn start_offset(&self) -> Result<i32> {
     if self.has_offsets {
+      let upto = self
+        .upto
+        .ok_or_else(|| LuceneError::illegal_state("postings have no current document"))?;
       Ok(
         self
           .high_term()
           .positions
           .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[self.upto as usize]
+          .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[upto]
           [self.pos_upto as usize + 1],
       )
     } else {
@@ -2490,12 +2531,15 @@ impl PostingsEnum for HighFreqPostingsEnum {
 
   fn end_offset(&self) -> Result<i32> {
     if self.has_offsets {
+      let upto = self
+        .upto
+        .ok_or_else(|| LuceneError::illegal_state("postings have no current document"))?;
       Ok(
         self
           .high_term()
           .positions
           .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[self.upto as usize]
+          .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[upto]
           [self.pos_upto as usize + 2],
       )
     } else {

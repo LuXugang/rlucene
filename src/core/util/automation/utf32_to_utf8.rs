@@ -271,7 +271,7 @@ impl UTF32ToUTF8 {
       utf32.init_transition(current_utf32, &mut scratch);
 
       for _ in 0..num_transitions {
-        utf32.get_next_transition(&mut scratch);
+        utf32.get_next_transition(&mut scratch)?;
 
         let dest_utf32 = scratch.dest;
         let mut dest_utf8 = map[dest_utf32 as usize];

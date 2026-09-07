@@ -272,7 +272,7 @@ impl AutomatonTestUtil {
         for &q in s.iter() {
           let count = a.init_transition(q, &mut t);
           for _ in 0..count {
-            a.get_next_transition(&mut t);
+            a.get_next_transition(&mut t)?;
             if t.min <= points[n] && points[n] <= t.max {
               p.insert(t.dest);
             }
@@ -315,15 +315,18 @@ impl AutomatonTestUtil {
   /// This implementation is recursive: it uses one stack frame for each
   /// character in the returned strings (i.e., the maximum is the maximum
   /// length of the returned strings).
-  pub fn get_finite_strings_recursive(a: &Automaton, limit: i32) -> HashSet<IntsRef<Vec<i32>>> {
+  pub fn get_finite_strings_recursive(
+    a: &Automaton,
+    limit: i32,
+  ) -> Result<HashSet<IntsRef<Vec<i32>>>> {
     let mut strings = HashSet::new();
     let mut path_states = HashSet::new();
     let mut path = IntsRefBuilder::new();
 
-    if !Self::get_finite_strings(a, 0, &mut path_states, &mut strings, &mut path, limit) {
-      return strings;
+    if !Self::get_finite_strings(a, 0, &mut path_states, &mut strings, &mut path, limit)? {
+      return Ok(strings);
     }
-    strings
+    Ok(strings)
   }
   /// Returns the strings that can be produced from the given state,
   /// or `false` if more than `limit` strings are found.
@@ -336,16 +339,16 @@ impl AutomatonTestUtil {
     strings: &mut HashSet<IntsRef<Vec<i32>>>,
     path: &mut IntsRefBuilder<Vec<i32>>,
     limit: i32,
-  ) -> bool {
+  ) -> Result<bool> {
     path_states.insert(s);
 
     let mut t = Transition::default();
     let count = a.init_transition(s, &mut t);
 
     for _ in 0..count {
-      a.get_next_transition(&mut t);
+      a.get_next_transition(&mut t)?;
       if path_states.contains(&t.dest) {
-        return false;
+        return Ok(false);
       }
       for label in t.min..=t.max {
         let _ = path.append(label);
@@ -353,19 +356,19 @@ impl AutomatonTestUtil {
         if a.is_accept(t.dest) {
           strings.insert(path.to_ints_ref());
           if limit >= 0 && strings.len() > limit as usize {
-            return false;
+            return Ok(false);
           }
         }
 
-        if !Self::get_finite_strings(a, t.dest, path_states, strings, path, limit) {
-          return false;
+        if !Self::get_finite_strings(a, t.dest, path_states, strings, path, limit)? {
+          return Ok(false);
         }
         path.set_length(path.length() - 1);
       }
     }
 
     path_states.remove(&s);
-    true
+    Ok(true)
   }
   /// Returns `true` if the language of this automaton is finite.
   /// The automaton must not have any dead states.
@@ -415,24 +418,24 @@ impl AutomatonTestUtil {
     Ok(true)
   }
   /// Returns true if the automaton is deterministic.
-  pub fn is_deterministic_slow(a: &Automaton) -> bool {
+  pub fn is_deterministic_slow(a: &Automaton) -> Result<bool> {
     let mut t = Transition::default();
     let num_states = a.get_num_states();
     for s in 0..num_states {
       let count = a.init_transition(s, &mut t);
       let mut last_max = -1;
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         if t.min <= last_max {
           assert!(!a.is_deterministic());
-          return false;
+          return Ok(false);
         }
         last_max = t.max;
       }
     }
 
     assert!(a.is_deterministic());
-    true
+    Ok(true)
   }
 
   /// Returns `true` if these two automata accept exactly the same language.
@@ -464,7 +467,7 @@ impl AutomatonTestUtil {
     if a1.get_num_states() == 0 {
       return Ok(true);
     } else if a2.get_num_states() == 0 {
-      return Ok(Operations::is_empty(a1));
+      return Operations::is_empty(a1);
     }
 
     let transitions1 = a1.get_sorted_transitions();

@@ -91,7 +91,7 @@ impl Operations {
       for s in 0..num_states {
         let count = a.init_transition(s, &mut t);
         for _ in 0..count {
-          a.get_next_transition(&mut t);
+          a.get_next_transition(&mut t)?;
           result.add_transition(state_offset + s, state_offset + t.dest, t.min, t.max)?;
         }
 
@@ -104,7 +104,7 @@ impl Operations {
             if let Some(fa) = follow_a {
               let num_transitions = fa.init_transition(0, &mut t);
               for _ in 0..num_transitions {
-                fa.get_next_transition(&mut t);
+                fa.get_next_transition(&mut t)?;
                 result.add_transition(
                   state_offset + s,
                   follow_offset + num_states + t.dest,
@@ -156,7 +156,7 @@ impl Operations {
     'outer: for s in 0..a.get_num_states() {
       let count = a.init_transition(s, &mut t) as usize;
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         if t.dest == 0 {
           has_transitions_to_initial = true;
           break 'outer;
@@ -224,7 +224,7 @@ impl Operations {
       let src = state_map[state as usize];
       let count = a.init_transition(state, &mut t) as usize;
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         let dest = state_map[t.dest as usize];
         builder.add_transition(src, dest, t.min, t.max)?;
       }
@@ -233,7 +233,7 @@ impl Operations {
     // Copy initial transitions to new initial state (state 0)
     let count = a.init_transition(0, &mut t) as usize;
     for _ in 0..count {
-      a.get_next_transition(&mut t);
+      a.get_next_transition(&mut t)?;
       builder.add_transition(0, state_map[t.dest as usize], t.min, t.max)?;
     }
 
@@ -243,7 +243,7 @@ impl Operations {
       if state_map[s] != 0 {
         let count = a.init_transition(0, &mut t) as usize;
         for _ in 0..count {
-          a.get_next_transition(&mut t);
+          a.get_next_transition(&mut t)?;
           builder.add_transition(state_map[s], state_map[t.dest as usize], t.min, t.max)?;
         }
       }
@@ -370,10 +370,10 @@ impl Operations {
     a2: &'a Automaton,
     determinize_work_limit: usize,
   ) -> Result<Cow<'a, Automaton>> {
-    if Operations::is_empty(a1) || std::ptr::eq(a1, a2) {
+    if Operations::is_empty(a1)? || std::ptr::eq(a1, a2) {
       return Ok(Cow::Owned(Automata::make_empty()?));
     }
-    if Operations::is_empty(a2) {
+    if Operations::is_empty(a2)? {
       return Ok(Cow::Borrowed(a1));
     }
     let complement_a2 = Operations::complement(a2, determinize_work_limit)?;
@@ -472,7 +472,7 @@ impl Operations {
   }
   ///  Returns true if there are dead states reachable from an initial state.
   pub fn has_dead_states_from_initial(a: &Automaton) -> Result<bool> {
-    let mut reachable_from_initial = Operations::get_live_states_from_initial(a);
+    let mut reachable_from_initial = Operations::get_live_states_from_initial(a)?;
     let reachable_from_accept = Operations::get_live_states_to_accept(a)?;
 
     reachable_from_initial.difference_with(&reachable_from_accept);
@@ -481,7 +481,7 @@ impl Operations {
   }
   /// Returns true if there are dead states that reach an accept state.
   pub fn has_dead_states_to_accept(a: &Automaton) -> Result<bool> {
-    let reachable_from_initial = Operations::get_live_states_from_initial(a);
+    let reachable_from_initial = Operations::get_live_states_from_initial(a)?;
     let mut reachable_from_accept = Operations::get_live_states_to_accept(a)?;
     reachable_from_accept.difference_with(&reachable_from_initial);
     Ok(!reachable_from_accept.is_empty())
@@ -585,7 +585,7 @@ impl Operations {
         let num_transitions = a.get_num_transitions_with_state(s0);
         a.init_transition(s0, &mut t);
         for _ in 0..num_transitions {
-          a.get_next_transition(&mut t);
+          a.get_next_transition(&mut t)?;
           points.add(&t)?;
         }
       }
@@ -667,18 +667,18 @@ impl Operations {
     Ok(Cow::Owned(result))
   }
   /// Returns true if the given automaton accepts no strings.
-  pub fn is_empty(a: &Automaton) -> bool {
+  pub fn is_empty(a: &Automaton) -> Result<bool> {
     if a.get_num_states() == 0 {
-      return true;
+      return Ok(true);
     }
     if !a.is_accept(0) && a.get_num_transitions_with_state(0) == 0 {
       // Common case: just one initial state
-      return true;
+      return Ok(true);
     }
 
     if a.is_accept(0) {
       // Apparently common case: it accepts the damned empty string
-      return false;
+      return Ok(false);
     }
 
     let mut work_list = VecDeque::new();
@@ -690,12 +690,12 @@ impl Operations {
 
     while let Some(state) = work_list.pop_front() {
       if a.is_accept(state) {
-        return false;
+        return Ok(false);
       }
 
       let count = a.init_transition(state, &mut t);
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         if !seen.contains(t.dest as usize) {
           work_list.push_back(t.dest);
           seen.insert(t.dest as usize);
@@ -703,7 +703,7 @@ impl Operations {
       }
     }
 
-    true
+    Ok(true)
   }
   /// Returns `true` if the given automaton accepts all strings.
   ///
@@ -805,16 +805,16 @@ impl Operations {
   /// A state is considered "live" if an accept state is reachable from it
   /// and if it is reachable from the initial state.
   pub fn get_live_states(a: &Automaton) -> Result<BitSet> {
-    let mut live = Operations::get_live_states_from_initial(a);
+    let mut live = Operations::get_live_states_from_initial(a)?;
     live.intersect_with(&Operations::get_live_states_to_accept(a)?);
     Ok(live)
   }
   /// Returns a bitset marking states reachable from the initial state.
-  pub fn get_live_states_from_initial(a: &Automaton) -> BitSet {
+  pub fn get_live_states_from_initial(a: &Automaton) -> Result<BitSet> {
     let num_states = a.get_num_states();
     let mut live = BitSet::with_capacity(num_states as usize);
     if num_states == 0 {
-      return live;
+      return Ok(live);
     }
     let mut work_list = VecDeque::new();
     live.insert(0);
@@ -824,7 +824,7 @@ impl Operations {
     while let Some(s) = work_list.pop_front() {
       let count = a.init_transition(s, &mut t) as usize;
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         let dest = t.dest as usize;
         if !live.contains(dest) {
           live.insert(dest);
@@ -832,7 +832,7 @@ impl Operations {
         }
       }
     }
-    live
+    Ok(live)
   }
   /// Returns a bitset marking states that can reach an accept state.
   fn get_live_states_to_accept(a: &Automaton) -> Result<BitSet> {
@@ -846,7 +846,7 @@ impl Operations {
     for s in 0..num_states {
       let count = a.init_transition(s, &mut t) as usize;
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         builder.add_transition(t.dest, s, t.min, t.max)?;
       }
     }
@@ -870,7 +870,7 @@ impl Operations {
     while let Some(s) = work_list.pop_front() {
       let count = a2.init_transition(s as i32, &mut t) as usize;
       for _ in 0..count {
-        a2.get_next_transition(&mut t);
+        a2.get_next_transition(&mut t)?;
         let dest = t.dest as usize;
         if !live.contains(dest) {
           live.insert(dest);
@@ -906,7 +906,7 @@ impl Operations {
       if live_set.contains(i) {
         let num_transitions = a.init_transition(i as i32, &mut t) as usize;
         for _ in 0..num_transitions {
-          a.get_next_transition(&mut t);
+          a.get_next_transition(&mut t)?;
           let d = t.dest as usize;
           if live_set.contains(d) {
             result.add_transition(map[i], map[d], t.min, t.max)?;
@@ -937,7 +937,7 @@ impl Operations {
       ));
     }
 
-    if Operations::is_empty(a) {
+    if Operations::is_empty(a)? {
       return Ok("".to_string());
     }
 
@@ -1088,7 +1088,7 @@ impl Operations {
     a: &Automaton,
     mut initial_states: Option<&mut BTreeSet<i32>>,
   ) -> Result<Automaton> {
-    if Operations::is_empty(a) {
+    if Operations::is_empty(a)? {
       return Ok(Automaton::new());
     }
 
@@ -1110,7 +1110,7 @@ impl Operations {
       let num_transitions = a.get_num_transitions_with_state(s);
       a.init_transition(s, &mut t);
       for _ in 0..num_transitions {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         builder.add_transition(t.dest + 1, s + 1, t.min, t.max)?;
       }
     }
@@ -1154,7 +1154,7 @@ impl Operations {
       let count = a.init_transition(i, &mut t);
 
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         result.add_transition(i, t.dest, t.min, t.max)?;
 
         if t.min > maxi {
@@ -1238,7 +1238,7 @@ impl Operations {
       let mut pushed = false;
 
       for _ in 0..count {
-        a.get_next_transition(&mut t);
+        a.get_next_transition(&mut t)?;
         if !visited.contains(t.dest as usize) {
           visited.insert(t.dest as usize);
           stack.push(t.dest);

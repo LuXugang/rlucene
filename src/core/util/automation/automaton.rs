@@ -59,7 +59,7 @@ pub struct Automaton {
   /// The current state to which we are adding transitions. The caller must
   /// add all transitions for this state before moving on to another
   /// state.
-  cur_state: i32,
+  cur_state: Option<usize>,
   /// Index in the transitions array where this state's outgoing transitions
   /// are stored, or `-1` if this state has not added any transitions yet.
   /// Followed by the number of transitions.
@@ -95,7 +95,7 @@ impl Automaton {
     Automaton {
       next_state: 0,
       next_transition: 0,
-      cur_state: -1,
+      cur_state: None,
       states: vec![0; num_states * 2],
       is_accept: BitSet::with_capacity(num_states),
       transitions: vec![0; num_transitions * 3],
@@ -161,12 +161,12 @@ impl Automaton {
 
     self.grow_transitions()?;
 
-    if self.cur_state != source {
-      if self.cur_state != -1 {
-        self.finish_current_state()?;
+    let source = source as usize;
+    if self.cur_state != Some(source) {
+      if let Some(state) = self.cur_state {
+        self.finish_current_state(state)?;
       }
-      self.cur_state = source;
-      let source = source as usize;
+      self.cur_state = Some(source);
       if self.states[2 * source] != -1 {
         return Err(LuceneError::illegal_state(format!(
           "from state ({source}) already had transitions added"
@@ -182,7 +182,7 @@ impl Automaton {
     self.transitions[next_transition + 2] = max;
     self.next_transition += 3;
     // Increment transition count for this state
-    self.states[2 * self.cur_state as usize + 1] += 1;
+    self.states[2 * source + 1] += 1;
     Ok(())
   }
   /// Add a `virtual` epsilon transition between `source` and `dest`.
@@ -193,7 +193,7 @@ impl Automaton {
     let mut t = Transition::default();
     let count = self.init_transition(dest, &mut t);
     for _ in 0..count {
-      self.get_next_transition(&mut t);
+      self.get_next_transition(&mut t)?;
       self.add_transition(source, t.dest, t.min, t.max)?;
     }
     if self.is_accept(dest) {
@@ -253,8 +253,7 @@ impl Automaton {
     Ok(())
   }
   /// Freezes the last state, sorting and reducing its transitions.
-  fn finish_current_state(&mut self) -> Result<()> {
-    let state = self.cur_state as usize;
+  fn finish_current_state(&mut self, state: usize) -> Result<()> {
     let num_transitions = self.states[2 * state + 1];
     debug_assert!(num_transitions > 0, "no transitions to finish");
 
@@ -356,9 +355,9 @@ impl Automaton {
   /// adding transitions to a new source state, but for the last state you
   /// add, you need to call this method manually.
   pub fn finish_state(&mut self) -> Result<()> {
-    if self.cur_state != -1 {
-      self.finish_current_state()?;
-      self.cur_state = -1;
+    if let Some(state) = self.cur_state {
+      self.finish_current_state(state)?;
+      self.cur_state = None;
     }
     Ok(())
   }
@@ -386,19 +385,20 @@ impl Automaton {
     Ok(())
   }
 
-  fn transition_sorted(&self, t: &Transition) -> bool {
-    let upto = t.transition_upto;
+  fn transition_sorted(&self, t: &Transition) -> Result<bool> {
+    let upto = t
+      .transition_upto
+      .ok_or_else(|| LuceneError::illegal_state("transition cursor is not initialized"))?;
     // Transition isn't initialized yet (this is the first transition)
-    if upto == self.states[2 * t.source as usize] {
-      return true;
+    if upto as i32 == self.states[2 * t.source as usize] {
+      return Ok(true);
     }
-    let upto = upto as usize;
 
     let next_dest = self.transitions[upto];
     let next_min = self.transitions[upto + 1];
     let next_max = self.transitions[upto + 2];
 
-    if next_min > t.min {
+    Ok(if next_min > t.min {
       true
     } else if next_min < t.min {
       false
@@ -411,7 +411,7 @@ impl Automaton {
     } else {
       // We should never see fully equal transitions here:
       false
-    }
+    })
   }
   /// Returns sorted array of all interval start points.
   pub fn get_start_points(&self) -> Vec<i32> {
@@ -466,7 +466,7 @@ impl Automaton {
   pub fn next(&self, transition: &mut Transition, label: i32) -> i32 {
     self.next_impl(
       transition.source,
-      transition.transition_upto,
+      transition.transition_upto.map_or(-1, |upto| upto as i32),
       label,
       Some(transition),
     )
@@ -517,7 +517,7 @@ impl Automaton {
             tr.dest = dest;
             tr.min = min_label;
             tr.max = max_label;
-            tr.transition_upto = mid;
+            tr.transition_upto = Some(mid as usize);
           }
           return dest;
         }
@@ -527,7 +527,7 @@ impl Automaton {
     let dest_state = -1;
     if let Some(tr) = transition {
       tr.dest = dest_state;
-      tr.transition_upto = low;
+      tr.transition_upto = Some(low as usize);
     }
     dest_state
   }
@@ -548,24 +548,27 @@ impl TransitionAccessor for Automaton {
       self.next_state
     );
     t.source = state;
-    t.transition_upto = self.states[2 * state as usize];
+    let transition_upto = self.states[2 * state as usize];
+    t.transition_upto = (transition_upto != -1).then_some(transition_upto as usize);
     self.get_num_transitions_with_state(state)
   }
 
-  fn get_next_transition(&self, t: &mut Transition) {
+  fn get_next_transition(&self, t: &mut Transition) -> Result<()> {
+    let base = t
+      .transition_upto
+      .ok_or_else(|| LuceneError::illegal_state("transition cursor is not initialized"))?;
     // Make sure there is still a transition left:
     debug_assert!(
-      (t.transition_upto + 3 - self.states[2 * t.source as usize])
+      (base as i32 + 3 - self.states[2 * t.source as usize])
         <= 3 * self.states[2 * t.source as usize + 1]
     );
     // Make sure transitions are in fact sorted:
-    debug_assert!(self.transition_sorted(t));
-    debug_assert!(t.transition_upto >= 0);
-    let base = t.transition_upto as usize;
+    debug_assert!(self.transition_sorted(t)?);
     t.dest = self.transitions[base];
     t.min = self.transitions[base + 1];
     t.max = self.transitions[base + 2];
-    t.transition_upto += 3;
+    t.transition_upto = Some(base + 3);
+    Ok(())
   }
 
   fn get_num_transitions_with_state(&self, state: i32) -> i32 {
@@ -754,7 +757,7 @@ impl Builder {
     for s in 0..other_num_states {
       let count = other.init_transition(s, &mut t);
       for _ in 0..count {
-        other.get_next_transition(&mut t);
+        other.get_next_transition(&mut t)?;
         self.add_transition(offset + s, offset + t.dest, t.min, t.max)?;
       }
     }

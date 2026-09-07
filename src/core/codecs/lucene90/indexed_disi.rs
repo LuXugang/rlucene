@@ -103,7 +103,7 @@ where
   block: i32,
   block_end: i64,
   // Only used for DENSE blocks
-  dense_bitmap_offset: i64,
+  dense_bitmap_offset: Option<usize>,
   next_block_index: i32,
   pub(crate) method: Method,
   doc: i32,
@@ -240,7 +240,7 @@ where
       cost,
       block: -1,
       block_end: 0,
-      dense_bitmap_offset: -1,
+      dense_bitmap_offset: None,
       next_block_index: -1,
       method: Method::Sparse,
       doc: -1,
@@ -312,9 +312,10 @@ where
         self.gap = self.block - self.index - 1;
       } else {
         self.method = Method::Dense;
-        self.dense_bitmap_offset = slice.get_file_pointer()? as i64
-          + self.dense_rank_table.as_ref().map(|v| v.len()).unwrap_or(0) as i64;
-        self.block_end = self.dense_bitmap_offset + (1 << 13);
+        let dense_bitmap_offset =
+          slice.get_file_pointer()? + self.dense_rank_table.as_ref().map(|v| v.len()).unwrap_or(0);
+        self.dense_bitmap_offset = Some(dense_bitmap_offset);
+        self.block_end = dense_bitmap_offset as i64 + (1 << 13);
         // Performance consideration: All rank (default 128 * 16 bits) are
         // loaded up front. This should be fast with the
         // reusable byte buffer, but it is still wasted if the DENSE block
@@ -1353,9 +1354,11 @@ where
   }
   // Position the counting logic just after the rank point
   let rank_aligned_word_index = (rank_index << disi.dense_rank_power) >> 6;
-  let offset =
-    disi.dense_bitmap_offset + (rank_aligned_word_index as i64) * BitUtil::LONG_BYTES as i64;
-  disi.slice.seek(offset as usize)?;
+  let offset = disi
+    .dense_bitmap_offset
+    .ok_or_else(|| LuceneError::illegal_state("dense bitmap offset is not initialized"))?
+    + rank_aligned_word_index as usize * BitUtil::LONG_BYTES;
+  disi.slice.seek(offset)?;
   let rank_word = disi.slice.read_long()?;
   let dense_noo = rank + rank_word.count_ones() as i32;
 

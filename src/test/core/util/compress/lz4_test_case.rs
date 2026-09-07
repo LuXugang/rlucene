@@ -435,11 +435,11 @@ impl HashTable for AssertingHashTable {
     self.ht.init_dictionary(dict_len, bytes)
   }
 
-  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<i32> {
+  fn get(&mut self, off: i32, bytes: &[u8]) -> Result<Option<i32>> {
     self.ht.get(off, bytes)
   }
 
-  fn previous(&mut self, off: i32, bytes: &[u8]) -> i32 {
+  fn previous(&mut self, off: i32, bytes: &[u8]) -> Option<i32> {
     self.ht.previous(off, bytes)
   }
 

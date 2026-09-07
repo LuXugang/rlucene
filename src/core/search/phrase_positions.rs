@@ -33,8 +33,8 @@ pub struct PhrasePositions {
   pub(crate) ord: usize,
   pub(crate) postings_idx: usize,
   /// Repetition group identifier.
-  /// A value >= 0 indicates that this is a repeating `PhrasePositions`.
-  pub(crate) rpt_group: i32,
+  /// None indicates that this is not a repeating `PhrasePositions`.
+  pub(crate) rpt_group: Option<usize>,
   /// Index within the repetition group.
   pub(crate) rpt_ind: usize,
   /// Terms associated with this position, used for repetition initialization.
@@ -49,7 +49,7 @@ impl PhrasePositions {
       terms,
       position: 0,
       count: 0,
-      rpt_group: -1,
+      rpt_group: None,
       rpt_ind: 0,
     })
   }

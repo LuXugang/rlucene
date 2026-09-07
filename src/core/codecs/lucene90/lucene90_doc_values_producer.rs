@@ -1440,7 +1440,7 @@ struct VaryingBPVReader<R> {
   mul: i64,
   mask: usize,
 
-  block: i32,
+  block: Option<usize>,
   delta: i64,
   offset: usize,
   block_end_offset: usize,
@@ -1485,7 +1485,7 @@ where
       shift,
       mul,
       mask: mask as usize,
-      block: -1,
+      block: None,
       delta: 0,
       offset: 0,
       block_end_offset: 0,
@@ -1497,19 +1497,16 @@ where
   fn get_long_value(&mut self, index: usize) -> Result<i64> {
     let block = index >> self.shift;
 
-    if self.block < 0 || self.block as usize != block {
+    if self.block != Some(block) {
       let mut bits_per_value;
       loop {
         if let Some(ref mut rank_slice) = self.rank_slice
-          && block != (self.block + 1) as usize
+          && block != self.block.map_or(0, |block| block + 1)
         {
           self.block_end_offset = (rank_slice.read_long(block * BitUtil::LONG_BYTES)? as usize)
             .checked_sub(self.entry.values_offset)
             .ok_or_else(|| LuceneError::illegal_state("underflow?"))?;
-          self.block = match block.checked_sub(1) {
-            Some(v) => v.try_convert()?,
-            None => -1,
-          }
+          self.block = block.checked_sub(1);
         }
 
         self.offset = self.block_end_offset;
@@ -1527,8 +1524,8 @@ where
           self.block_end_offset = self.offset + length;
         }
 
-        self.block += 1;
-        if self.block as usize == block {
+        self.block = Some(self.block.map_or(0, |block| block + 1));
+        if self.block == Some(block) {
           break;
         }
       }

@@ -637,7 +637,7 @@ fn test_random() -> Result<()> {
     for i in 0..num_states {
       let trans_count = automaton.init_transition(i, &mut transition);
       for _ in 0..trans_count {
-        automaton.get_next_transition(&mut transition);
+        automaton.get_next_transition(&mut transition)?;
         for label in transition.min..=transition.max {
           if label == '*' as i32 {
             query.add_any_transition(transition.source, transition.dest)?;

@@ -153,7 +153,7 @@ where
   doc_values_byte_pool: ByteBlockPool,
   stored_fields_consumer: StoredFieldsConsumer<D>,
   vector_values_consumer: VectorValuesConsumer<D>,
-  field_hash: Vec<i32>,
+  field_hash: Vec<Option<usize>>,
   hash_mask: usize,
   total_field_count: usize,
   next_field_gen: i64,
@@ -241,7 +241,7 @@ where
       doc_values_byte_pool,
       stored_fields_consumer,
       vector_values_consumer,
-      field_hash: vec![-1; 2],
+      field_hash: vec![None; 2],
       hash_mask: 1,
       total_field_count: 0,
       next_field_gen: 0,
@@ -398,8 +398,8 @@ where
     let mut fields_to_flush = HashMap::new();
     for &idx in &self.field_hash {
       let mut fp_idx = idx;
-      while fp_idx >= 0 {
-        let pf = &mut self.per_fields[fp_idx as usize];
+      while let Some(index) = fp_idx {
+        let pf = &mut self.per_fields[index];
         if pf.invert_state.is_some() {
           let field_info = pf
             .field_info
@@ -508,8 +508,8 @@ where
     let body_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
       for bucket in 0..self.field_hash.len() {
         let mut per_field_index = self.field_hash[bucket];
-        while per_field_index >= 0 {
-          let per_field = &mut self.per_fields[per_field_index as usize];
+        while let Some(index) = per_field_index {
+          let per_field = &mut self.per_fields[index];
           if let Some(point_values_writer) = per_field.point_values_writer.as_mut() {
             let field_info = per_field
               .field_info
@@ -555,8 +555,8 @@ where
     let mut per_field_index;
     for i in 0..self.field_hash.len() {
       per_field_index = self.field_hash[i];
-      while per_field_index >= 0 {
-        let per_field = &mut self.per_fields[per_field_index as usize];
+      while let Some(index) = per_field_index {
+        let per_field = &mut self.per_fields[index];
         if let Some(ref mut writer) = per_field.doc_values_writer {
           writer.finish(pool.clone())?;
         }
@@ -586,8 +586,8 @@ where
       debug_assert!(self.field_hash.len() <= i32::MAX as usize);
       for bucket in 0..self.field_hash.len() {
         per_field_index = self.field_hash[bucket];
-        while per_field_index >= 0 {
-          let per_field = &mut self.per_fields[per_field_index as usize];
+        while let Some(index) = per_field_index {
+          let per_field = &mut self.per_fields[index];
           if let Some(ref mut writer) = per_field.doc_values_writer {
             let field_info = per_field
               .field_info
@@ -717,7 +717,7 @@ where
         &mut self.context.term_vectors_int_pool,
       )
     }));
-    self.field_hash.fill(-1);
+    self.field_hash.fill(None);
     IOUtils::use_or_suppress_caught_result(result, close_result)
   }
 
@@ -725,21 +725,17 @@ where
     let new_hash_size = self.field_hash.len() * 2;
     debug_assert!(new_hash_size > self.field_hash.len());
 
-    let mut new_hash_array = vec![-1; new_hash_size];
+    let mut new_hash_array = vec![None; new_hash_size];
     let new_hash_mask = new_hash_size - 1;
     for &idx in &self.field_hash {
       let mut fp_idx = idx;
-      while fp_idx >= 0 {
-        let fp0 = &mut self.per_fields[fp_idx as usize];
+      while let Some(index) = fp_idx {
+        let fp0 = &mut self.per_fields[index];
         let next_fp0 = fp0.next;
         let hash_pos2 = CoreHelper::calculate_hash(&fp0.field_name) & new_hash_mask as u64;
         let idx = new_hash_array[hash_pos2 as usize];
-        if idx < 0 {
-          fp0.next = -1;
-        } else {
-          fp0.next = idx;
-        };
-        new_hash_array[hash_pos2 as usize] = fp_idx;
+        fp0.next = idx;
+        new_hash_array[hash_pos2 as usize] = Some(index);
         fp_idx = next_fp0;
       }
     }
@@ -1124,39 +1120,43 @@ where
     let hash_pos = CoreHelper::calculate_hash(field_name) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
     let mut conflict = false;
-    while per_field_index >= 0 {
+    while let Some(index) = per_field_index {
       conflict = true;
-      debug_assert!(self.per_fields.get(per_field_index as usize).is_some());
-      let pf = &mut self.per_fields[per_field_index as usize];
+      debug_assert!(self.per_fields.get(index).is_some());
+      let pf = &mut self.per_fields[index];
       if pf.field_name != field_name {
         per_field_index = pf.next;
       } else {
-        break;
+        return Ok(index);
       }
     }
-    if per_field_index < 0 {
-      let schema = FieldSchema::new(field_name);
-      let mut pf = PerField::new(field, self.index_created_version_major, schema, reserved);
-      // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
-      if conflict {
-        let old_pos = self.field_hash[hash_pos];
-        pf.next = old_pos;
-      }
-      per_field_index = self.per_fields.len() as i32;
-      pf.idx_in_doc_field = per_field_index;
-      self.per_fields.push(pf);
-      self.field_hash[hash_pos] = per_field_index;
 
-      self.total_field_count += 1;
-
-      if self.total_field_count >= (self.field_hash.len() >> 1) {
-        self.rehash();
-      }
-      if self.total_field_count > self.fields.len() {
-        ArrayUtil::grow_with_len(&mut self.fields, self.total_field_count)?;
-      }
+    let index = self.per_fields.len();
+    let schema = FieldSchema::new(field_name);
+    let mut pf = PerField::new(
+      field,
+      self.index_created_version_major,
+      schema,
+      reserved,
+      index,
+    );
+    // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
+    if conflict {
+      let old_pos = self.field_hash[hash_pos];
+      pf.next = old_pos;
     }
-    Ok(per_field_index as usize)
+    self.per_fields.push(pf);
+    self.field_hash[hash_pos] = Some(index);
+
+    self.total_field_count += 1;
+
+    if self.total_field_count >= (self.field_hash.len() >> 1) {
+      self.rehash();
+    }
+    if self.total_field_count > self.fields.len() {
+      ArrayUtil::grow_with_len(&mut self.fields, self.total_field_count)?;
+    }
+    Ok(index)
   }
   // update schema for field as seen in a particular document
   fn update_doc_field_schema<IFT>(
@@ -1372,10 +1372,10 @@ where
   fn get_per_field(&self, name: &str) -> Option<usize> {
     let hash_pos = CoreHelper::calculate_hash(&name.to_string()) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
-    while per_field_index >= 0 {
-      let pf = &self.per_fields[per_field_index as usize];
+    while let Some(index) = per_field_index {
+      let pf = &self.per_fields[index];
       if pf.field_name == name {
-        return Some(per_field_index as usize);
+        return Some(index);
       }
       per_field_index = pf.next;
     }
@@ -1447,12 +1447,12 @@ pub(crate) struct PerField {
   pub(crate) point_values_writer: Option<PointValuesWriter>,
   pub(crate) knn_field_vectors_writer: Option<usize>,
   pub(crate) field_gen: i64,
-  pub(crate) next: i32,
+  pub(crate) next: Option<usize>,
   pub(crate) norms: Option<NormValuesWriter>,
   // reuse
   pub(crate) token_stream: Option<ReusedIndexingTokenStream>,
   pub(crate) first: bool,
-  pub(crate) idx_in_doc_field: i32,
+  pub(crate) idx_in_doc_field: usize,
 }
 impl PerField {
   fn on_aborting_exception(
@@ -1469,6 +1469,7 @@ impl PerField {
     index_created_version_major: i32,
     schema: FieldSchema,
     reserved: bool,
+    idx_in_doc_field: usize,
   ) -> Self {
     PerField {
       field_name: field.name().to_string(),
@@ -1482,11 +1483,11 @@ impl PerField {
       point_values_writer: None,
       knn_field_vectors_writer: None,
       field_gen: -1,
-      next: -1,
+      next: None,
       norms: None,
       token_stream: None,
       first: false,
-      idx_in_doc_field: -1,
+      idx_in_doc_field,
     }
   }
   pub(crate) fn reset(&mut self, doc_id: i32) {

@@ -664,7 +664,7 @@ impl StandardTokenizerImpl {
     loop {
       let zz_marked_pos = self.zz_marked_pos;
       self.yychar += zz_marked_pos - self.zz_start_read;
-      let mut zz_action = -1;
+      let mut zz_action = None;
 
       let mut zz_current_pos_l = zz_marked_pos;
       let mut zz_marked_pos_l = zz_marked_pos;
@@ -674,7 +674,7 @@ impl StandardTokenizerImpl {
 
       let mut zz_attributes = ZZ_ATTRIBUTE[zz_state];
       if (zz_attributes & 1) == 1 {
-        zz_action = zz_state as i32;
+        zz_action = Some(zz_state);
       }
 
       let zz_input = loop {
@@ -706,7 +706,7 @@ impl StandardTokenizerImpl {
 
         zz_attributes = ZZ_ATTRIBUTE[zz_state];
         if (zz_attributes & 1) == 1 {
-          zz_action = zz_state as i32;
+          zz_action = Some(zz_state);
           zz_marked_pos_l = zz_current_pos_l;
           if (zz_attributes & 8) == 8 {
             break zz_input;
@@ -721,11 +721,7 @@ impl StandardTokenizerImpl {
         return Ok(YYEOF);
       }
 
-      match if zz_action < 0 {
-        zz_action
-      } else {
-        ZZ_ACTION[zz_action as usize]
-      } {
+      match zz_action.map_or(-1, |state| ZZ_ACTION[state]) {
         1 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 => {},
         2 => return Ok(Self::NUMERIC_TYPE),
         3 => return Ok(Self::WORD_TYPE),

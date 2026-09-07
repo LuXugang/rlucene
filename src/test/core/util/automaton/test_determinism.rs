@@ -78,7 +78,7 @@ pub fn assert_automaton(a: &Automaton) -> Result<()> {
 
   // a - a == empty
   let empty = Operations::minus(&a, &a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
-  assert!(Operations::is_empty(&empty));
+  assert!(Operations::is_empty(&empty)?);
 
   // if a doesn't accept empty string: optional(a) - ε == a
   if !Operations::run_str(&a, "") {

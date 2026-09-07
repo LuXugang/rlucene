@@ -40,9 +40,9 @@ pub struct SegmentTermsEnumFrame {
   pub(crate) arc: Option<usize>,
 
   /// File pointer where this block was loaded from
-  pub(crate) fp: i64,
-  pub(crate) fp_orig: i64,
-  pub(crate) fp_end: i64,
+  pub(crate) fp: usize,
+  pub(crate) fp_orig: usize,
+  pub(crate) fp_end: usize,
   pub(crate) total_suffix_bytes: i64, // for stats
   pub(crate) suffixes_reader: ByteArrayDataInput<Vec<u8>>,
 
@@ -71,7 +71,7 @@ pub struct SegmentTermsEnumFrame {
   // True if all entries have the same length.
   pub(crate) all_equal: bool,
 
-  pub(crate) last_sub_fp: i64,
+  pub(crate) last_sub_fp: Option<usize>,
 
   pub(crate) next_floor_label: i32,
   pub(crate) num_follow_floor_blocks: i32,
@@ -146,7 +146,7 @@ impl SegmentTermsEnumFrame {
       is_leaf_block: false,
       all_equal: false,
 
-      last_sub_fp: 0,
+      last_sub_fp: Some(0),
       next_floor_label: 0,
       num_follow_floor_blocks: 0,
 
@@ -221,7 +221,7 @@ impl SegmentTermsEnumFrame {
       .input
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("segment terms input is not initialized"))?
-      .prefetch(fp as usize, 1)?;
+      .prefetch(fp, 1)?;
     Ok(())
   }
   /* Does initial decode of next block of terms; this
@@ -256,7 +256,7 @@ impl SegmentTermsEnumFrame {
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("segment terms input is not initialized"))?;
 
-    input.seek(frame.fp as usize)?;
+    input.seek(frame.fp)?;
     let code = input.read_vint()?;
     frame.ent_count = ((code as u32) >> 1) as i32;
     debug_assert!(frame.ent_count > 0);
@@ -339,7 +339,7 @@ impl SegmentTermsEnumFrame {
 
     frame.state.get_block_term_state_mut()?.term_block_ord = 0;
     frame.next_ent = 0;
-    frame.last_sub_fp = -1;
+    frame.last_sub_fp = None;
     // metadata
     num_bytes = input.read_vint()?.try_convert()?;
     if frame.bytes_reader.bytes.len() < num_bytes {
@@ -348,7 +348,7 @@ impl SegmentTermsEnumFrame {
     input.read_bytes(&mut frame.bytes_reader.bytes, 0, num_bytes)?;
     frame.bytes_reader.reset_meta(0, num_bytes);
 
-    frame.fp_end = input.get_file_pointer()? as i64;
+    frame.fp_end = input.get_file_pointer()?;
 
     Ok(frame.is_leaf_block)
   }
@@ -479,7 +479,7 @@ impl SegmentTermsEnumFrame {
         // A sub-block; make sub-FP absolute:
         ste.term_exists = false;
         frame.sub_code = frame.suffix_lengths_reader.read_vlong()?;
-        frame.last_sub_fp = frame.fp - frame.sub_code;
+        frame.last_sub_fp = Some((frame.fp as i64 - frame.sub_code) as usize);
         Ok(true)
       };
     }
@@ -523,7 +523,7 @@ impl SegmentTermsEnumFrame {
 
     loop {
       let code = frame.floor_data_reader.read_vlong()?;
-      new_fp = frame.fp_orig + ((code as u64) >> 1) as i64;
+      new_fp = (frame.fp_orig as i64 + ((code as u64) >> 1) as i64) as usize;
       frame.has_terms = (code & 1) != 0;
 
       frame.is_last_in_floor = frame.num_follow_floor_blocks == 1;
@@ -625,7 +625,7 @@ impl SegmentTermsEnumFrame {
   // startBytePos/suffix as a side effect
   pub fn scan_to_sub_block<I, P>(
     frame_idx: usize,
-    sub_fp: i64,
+    sub_fp: usize,
     ste: &mut SegmentTermsEnum<I, P>,
   ) -> Result<()>
   where
@@ -634,12 +634,12 @@ impl SegmentTermsEnumFrame {
   {
     let frame = &mut ste.stack[frame_idx];
     debug_assert!(!frame.is_leaf_block);
-    if frame.last_sub_fp == sub_fp {
+    if frame.last_sub_fp == Some(sub_fp) {
       return Ok(());
     }
 
     debug_assert!(sub_fp < frame.fp, "fp={} sub_fp={}", frame.fp, sub_fp);
-    let target_sub_code = frame.fp - sub_fp;
+    let target_sub_code = frame.fp as i64 - sub_fp as i64;
 
     loop {
       debug_assert!(frame.next_ent < frame.ent_count);
@@ -653,7 +653,7 @@ impl SegmentTermsEnumFrame {
       if (code & 1) != 0 {
         let sub_code = frame.suffix_lengths_reader.read_vlong()?;
         if target_sub_code == sub_code {
-          frame.last_sub_fp = sub_fp;
+          frame.last_sub_fp = Some(sub_fp);
           return Ok(());
         }
       } else {
@@ -913,7 +913,7 @@ impl SegmentTermsEnumFrame {
           frame.sub_code = 0;
         } else {
           frame.sub_code = frame.suffix_lengths_reader.read_vlong()?;
-          frame.last_sub_fp = frame.fp - frame.sub_code;
+          frame.last_sub_fp = Some((frame.fp as i64 - frame.sub_code) as usize);
         }
 
         let suffix_start = frame.start_byte_pos;
@@ -936,7 +936,9 @@ impl SegmentTermsEnumFrame {
           // sub-frame(s):
           let last_sub_fp = {
             let current_frame = &mut ste.stack[ste.current_frame_idx];
-            current_frame.last_sub_fp
+            current_frame
+              .last_sub_fp
+              .ok_or_else(|| LuceneError::illegal_state("term block has no current sub-block"))?
           };
           let frame = &mut ste.stack[frame_idx];
           let prefix_len = frame.prefix_length + frame.suffix_length;
@@ -947,7 +949,9 @@ impl SegmentTermsEnumFrame {
           while Self::next(current_frame_idx, ste)? {
             let last_sub_fp = {
               let current_frame = &mut ste.stack[ste.current_frame_idx];
-              current_frame.last_sub_fp
+              current_frame
+                .last_sub_fp
+                .ok_or_else(|| LuceneError::illegal_state("term block has no current sub-block"))?
             };
 
             let next_prefix = ste.term.length();

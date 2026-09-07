@@ -1336,7 +1336,7 @@ where
     }
 
     // Find which dim has the largest span so we can split on it:
-    let mut split_dim: i32 = -1;
+    let mut split_dim: Option<usize> = None;
 
     for dim in 0..self.config.num_index_dims {
       NumericUtils::subtract(
@@ -1346,7 +1346,7 @@ where
         min_packed_value,
         &mut self.scratch_diff,
       )?;
-      if split_dim == -1
+      if split_dim.is_none()
         || self
           .comparator
           .compare(&self.scratch_diff, 0, &self.scratch, 0)
@@ -1355,10 +1355,10 @@ where
         self
           .scratch
           .copy_from(&self.scratch_diff[0..self.config.bytes_per_dim], 0);
-        split_dim = dim as i32;
+        split_dim = Some(dim);
       }
     }
-    split_dim.try_convert()
+    split_dim.ok_or_else(|| LuceneError::illegal_state("no split dimension was selected"))
   }
   /// Pull a partition back into heap once the point count is low enough while
   /// recursing.
