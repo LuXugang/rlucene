@@ -34,7 +34,8 @@ pipeline {
     stage('Initialize') {
       steps {
         script {
-          env.FAILURE_KIND = 'none'
+          // Failures remain infrastructure unless a test stage classifies them.
+          env.FAILURE_KIND = 'infrastructure'
           env.FAILED_SHA = ''
           env.SKIP_PREFLIGHT = 'false'
           if (!env.WORKSPACE_TMP) {
@@ -339,7 +340,19 @@ running cargo nextest directly."""
 
     failure {
       script {
-        if (env.RLUCENE_FAILURE_EMAIL?.trim()) {
+        boolean notifyForFailure = [
+          'code',
+          'test-timeout',
+          'suite-timeout',
+          'doctest-timeout'
+        ].contains(env.FAILURE_KIND)
+
+        if (!notifyForFailure) {
+          echo(
+            "Failure email suppressed for non-test failure " +
+            "(kind: ${env.FAILURE_KIND ?: 'unknown'})."
+          )
+        } else if (env.RLUCENE_FAILURE_EMAIL?.trim()) {
           emailext(
             to: env.RLUCENE_FAILURE_EMAIL,
             subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} failed",

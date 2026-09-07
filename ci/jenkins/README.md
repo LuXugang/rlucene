@@ -207,10 +207,12 @@ a 30-minute timeout for the complete build.
 Jenkins archives `nextest.log`, `nextest-junit.xml`,
 `nextest-diagnostics.log`, and `doctest.log`. When `RLUCENE_FAILURE_EMAIL` is
 configured and SMTP is set up in Jenkins,
-failure emails include the commit SHA, failure classification, compressed
-console log, and the available diagnostic artifacts. Email is disabled by
-default; logs and diagnostics are always archived. Failures are reported for
-human investigation; this
+code or test failure emails include the commit SHA, failure classification,
+compressed console log, and the available diagnostic artifacts. Checkout,
+network, environment preflight, and cleanup failures are treated as
+infrastructure failures and do not send email. Email is disabled by default;
+logs and diagnostics are always archived. Test failures are reported for human
+investigation; this
 repository no longer starts an automatic repair job.
 
 ## Jenkins root URL
