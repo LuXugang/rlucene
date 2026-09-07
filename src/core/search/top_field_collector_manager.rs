@@ -105,6 +105,12 @@ impl TopFieldCollectorManager {
       )));
     }
 
+    if num_hits == 0 {
+      return Err(LuceneError::illegal_argument(
+        "numHits must be > 0; please use TotalHitCountCollector if you just need the total hit count",
+      ));
+    }
+
     if num_hits > i32::MAX as usize {
       return Err(LuceneError::illegal_argument(
         "numHits must be <= i32::MAX; please use TotalHitCountCollector if you just need the total hit count",

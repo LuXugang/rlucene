@@ -145,4 +145,8 @@ impl AttributeSource for BytesTermAttributeImpl {
     self.clear();
     Ok(())
   }
+
+  fn end_attributes(&mut self) {
+    self.end();
+  }
 }

@@ -83,7 +83,7 @@ pub fn create(
   size: usize,
 ) -> Result<PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator>> {
   if fields.is_empty() {
-    return Err(LuceneError::illegal_state(
+    return Err(LuceneError::illegal_argument(
       "Sort must contain at least one field",
     ));
   }

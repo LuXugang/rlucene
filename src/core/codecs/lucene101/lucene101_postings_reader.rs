@@ -1698,16 +1698,16 @@ pub(crate) fn read_impacts(
   reuse: &mut MutableImpactList,
 ) -> Result<()> {
   let mut freq = 0;
-  let mut norm = 0;
+  let mut norm = 0i64;
   let mut length = 0;
 
   while in_.get_position() < in_.length() {
     let freq_delta = in_.read_vint()?;
     freq += 1 + ((freq_delta as u32) >> 1) as i32;
     if (freq_delta & 1) != 0 {
-      norm += 1 + in_.read_zlong()?;
+      norm = norm.wrapping_add(1).wrapping_add(in_.read_zlong()?);
     } else {
-      norm += 1;
+      norm = norm.wrapping_add(1);
     }
     let impact = &mut reuse.impacts[length];
     impact.freq = freq;

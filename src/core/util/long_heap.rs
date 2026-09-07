@@ -113,12 +113,10 @@ impl LongHeap {
   }
   /// Replaces the top of the heap with `new_top`.
   /// This is faster than calling `pop()` followed by `push()`.
-  /// No-op if the heap is empty.
+  /// Does not add an element if the heap is empty.
   pub fn update_top(&mut self, value: i64) -> i64 {
-    if self.size > 0 {
-      self.heap[1] = value;
-      self.down_heap(1);
-    }
+    self.heap[1] = value;
+    self.down_heap(1);
     self.heap[1]
   }
 

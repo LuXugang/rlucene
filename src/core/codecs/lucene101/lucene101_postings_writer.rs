@@ -953,7 +953,7 @@ pub(crate) fn write_impacts(impacts: &[Impact], out: &mut impl DataOutput) -> Re
     debug_assert!(impact.freq > previous.freq);
     debug_assert!((impact.norm as u64) > (previous.norm as u64));
     let freq_delta = impact.freq - previous.freq - 1;
-    let norm_delta = impact.norm - previous.norm - 1;
+    let norm_delta = impact.norm.wrapping_sub(previous.norm).wrapping_sub(1);
     if norm_delta == 0 {
       // most of time, norm only increases by 1, so we can fold
       // everything in a single byte

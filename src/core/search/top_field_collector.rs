@@ -385,7 +385,7 @@ impl TopDocsCollector for TopFieldCollector {
     Self: Sized,
   {
     let result = results.unwrap_or_else(std::vec::Vec::new);
-    // TODO: `TopFieldDocs::fields` is unused in Java Lucene, so set it to an empty vector for now.
+    // The concrete Simple/Paging collector attaches its sort fields in its result callback.
     TopFieldDocs::new(
       TotalHits::new(self.total_hits(), self.get_total_hits_relation()),
       result,
@@ -414,10 +414,9 @@ where
   ) -> Result<Self> {
     // as all segments are sorted in the same way, enough to check only the 1st segment for
     // indexSort
-    if base.search_sort_part_of_index_sort.is_none()
-      && let Some(index_sort) = context.reader().get_metadata()?.get_sort()
-    {
-      let can_early_terminate = can_early_terminate(sort, Some(index_sort))?;
+    if base.search_sort_part_of_index_sort.is_none() {
+      let metadata = context.reader().get_metadata()?;
+      let can_early_terminate = can_early_terminate(sort, metadata.get_sort().as_deref())?;
       base.search_sort_part_of_index_sort = Some(can_early_terminate);
 
       if can_early_terminate {
@@ -758,32 +757,13 @@ impl TopDocsCollector for SimpleFieldCollector {
   where
     Self: Sized,
   {
-    self.base.new_top_docs(results, start)
+    let mut docs = self.base.new_top_docs(results, start);
+    docs.fields = self.sort.get_sort().to_vec();
+    docs
   }
 
   fn top_docs_size(&self) -> usize {
     self.base.top_docs_size()
-  }
-
-  fn top_docs(&mut self) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    self.base.top_docs()
-  }
-
-  fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    self.base.top_docs_with_start(start)
-  }
-
-  fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    self.base.top_docs_with_start_limit(start, how_many)
   }
 }
 pub struct SimpleFieldLeafCollector<'a, LR>
@@ -961,32 +941,13 @@ impl TopDocsCollector for PagingFieldCollector {
   where
     Self: Sized,
   {
-    self.base.new_top_docs(results, start)
+    let mut docs = self.base.new_top_docs(results, start);
+    docs.fields = self.sort.get_sort().to_vec();
+    docs
   }
 
   fn top_docs_size(&self) -> usize {
     self.base.top_docs_size()
-  }
-
-  fn top_docs(&mut self) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    self.base.top_docs()
-  }
-
-  fn top_docs_with_start(&mut self, start: i32) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    self.base.top_docs_with_start(start)
-  }
-
-  fn top_docs_with_start_limit(&mut self, start: i32, how_many: i32) -> Result<Self::TopDocsLike>
-  where
-    Self: Sized,
-  {
-    self.base.top_docs_with_start_limit(start, how_many)
   }
 }
 

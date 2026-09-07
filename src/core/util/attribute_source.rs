@@ -174,6 +174,14 @@ impl<T> AttributeSource for &T
 where
   T: AttributeSource,
 {
+  fn length(&self) -> Result<usize> {
+    (**self).length()
+  }
+
+  fn buffer(&self) -> Result<&[char]> {
+    (**self).buffer()
+  }
+
   fn start_offset(&self) -> Result<i32> {
     (**self).start_offset()
   }
@@ -208,6 +216,18 @@ where
 
   fn get_boost(&self) -> Result<f32> {
     (**self).get_boost()
+  }
+
+  fn get_max_non_competitive_boost(&self) -> Result<f32> {
+    (**self).get_max_non_competitive_boost()
+  }
+
+  fn get_competitive_term(&self) -> Result<Option<&BytesRef<Vec<u8>>>> {
+    (**self).get_competitive_term()
+  }
+
+  fn type_(&self) -> Result<&str> {
+    (**self).type_()
   }
 
   fn clear_attributes(&mut self) -> Result<()> {

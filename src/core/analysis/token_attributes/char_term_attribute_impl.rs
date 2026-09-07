@@ -300,7 +300,7 @@ where
     H: std::hash::Hasher,
   {
     self.term_length.hash(state);
-    self.term_buffer.hash(state);
+    self.term_buffer[..self.term_length].hash(state);
   }
 }
 impl<T> PartialEq for CharTermAttributeImpl<T>

@@ -41,7 +41,7 @@ impl SmallFloat {
   pub fn float_to_byte(f: f32, num_mantissa_bits: i32, zero_exp: i32) -> u8 {
     // Adjustment from a float zero exponent to our zero exponent,
     // shifted over to our exponent position.
-    let fzero = (63 - zero_exp) << num_mantissa_bits;
+    let fzero = 63i32.wrapping_sub(zero_exp) << num_mantissa_bits;
     let bits = f.to_bits() as i32;
     let smallfloat = bits >> (24 - num_mantissa_bits);
     if smallfloat <= fzero {
@@ -64,7 +64,7 @@ impl SmallFloat {
       return 0.0f32;
     }
     let mut bits = (b as i32) << (24 - num_mantissa_bits);
-    bits += (63 - zero_exp) << 24;
+    bits = bits.wrapping_add(63i32.wrapping_sub(zero_exp) << 24);
     f32::from_bits(bits as u32)
   }
 

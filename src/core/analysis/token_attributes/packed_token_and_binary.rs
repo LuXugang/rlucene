@@ -211,6 +211,7 @@ impl AttributeSource for BinaryTokenStreamAttributeImpl {
   }
 
   fn end_attributes(&mut self) {
+    self.binary.end();
     self.packed_token.end_attributes()
   }
 
