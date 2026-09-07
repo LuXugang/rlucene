@@ -44,7 +44,7 @@ impl BaseDocIdSetTestCase for TestRoaringDocIdSet {
     for doc in iter {
       builder.add(doc as i32)?;
     }
-    Ok(builder.build())
+    builder.build()
   }
 
   fn assert_equals<R>(

@@ -49,7 +49,7 @@ fn test_empty() -> Result<()> {
   let max_doc = TestUtil::next_usize(&mut random, 1, 100_000);
   let set = SparseFixedBitSet::new(max_doc)?;
   let dir = new_directory(&mut random)?;
-  let _ = do_test(set, &dir, &mut random);
+  do_test(set, &dir, &mut random)?;
   Ok(())
 }
 

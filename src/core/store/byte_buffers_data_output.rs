@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::collections::VecDeque;
-use std::io::{Cursor, Seek};
+use std::io::Cursor;
 
 use byteorder::WriteBytesExt;
 
@@ -255,7 +255,7 @@ impl ByteBuffersDataOutput {
   pub fn reset(&mut self) {
     if self.reuse {
       for block in &mut self.blocks {
-        let _ = block.rewind();
+        block.set_position(0);
       }
     } else {
       self.blocks = VecDeque::new();

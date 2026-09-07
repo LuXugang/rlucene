@@ -296,7 +296,7 @@ pub trait BaseBitSetTestCase {
             set.next_set_bit(doc + 1)
           };
         }
-        Ok(RandomCopyDocIdSet::Roaring(builder.build()))
+        Ok(RandomCopyDocIdSet::Roaring(builder.build()?))
       },
       3 => {
         let mut bit_set = FixedBitSet::new(num_bits);

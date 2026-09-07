@@ -138,7 +138,7 @@ impl Builder {
     }
     let block = (doc_id >> 16) as usize;
     if Some(block) != self.current_block {
-      let _ = self.flush();
+      self.flush()?;
       self.current_block = Some(block);
     }
 
@@ -174,9 +174,9 @@ impl Builder {
     Ok(())
   }
   /// Build an instance, consuming this builder.
-  pub fn build(mut self) -> RoaringDocIdSet {
-    let _ = self.flush();
-    RoaringDocIdSet::new(self.sets, self.cardinality)
+  pub fn build(mut self) -> Result<RoaringDocIdSet> {
+    self.flush()?;
+    Ok(RoaringDocIdSet::new(self.sets, self.cardinality))
   }
   fn flush(&mut self) -> Result<()> {
     debug_assert!(self.current_block_cardinality <= BLOCK_SIZE);

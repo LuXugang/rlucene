@@ -20,6 +20,7 @@ use crate::core::index::BytesRef;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_impl::AttributeImpl;
 use crate::core::util::attribute_source::AttributeSource;
+use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 #[cfg(test)]
 use crate::test_framework::core::analysis::base_token_stream_test_case::{
@@ -77,11 +78,11 @@ impl Attribute for BytesTermAttributeImpl {
   }
 }
 
-impl Clone for BytesTermAttributeImpl {
-  fn clone(&self) -> Self {
-    let mut c = BytesTermAttributeImpl::new();
-    let _ = self.copy_to(&mut c);
-    c
+impl TryClone for BytesTermAttributeImpl {
+  fn try_clone(&self) -> Result<Self> {
+    let mut copy = Self::new();
+    self.copy_to(&mut copy)?;
+    Ok(copy)
   }
 }
 

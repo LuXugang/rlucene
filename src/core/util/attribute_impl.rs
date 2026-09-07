@@ -17,7 +17,9 @@
 use crate::core::util::attribute::Attribute;
 use crate::core::util::error::lucene_error::Result;
 
-pub trait AttributeImpl: Attribute + Clone {
+/// Attribute state that can be copied through the fallible `copy_to` contract.
+/// Implementations that need fallible cloning can implement `TryClone` rather than `Clone`.
+pub trait AttributeImpl: Attribute {
   fn clear(&mut self);
 
   fn end(&mut self) {

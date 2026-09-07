@@ -254,7 +254,7 @@ where
 
 impl<T> Clone for CharTermAttributeImpl<T>
 where
-  T: AttributeImpl + CharTermAttributeImplBase,
+  T: AttributeImpl + CharTermAttributeImplBase + Clone,
 {
   fn clone(&self) -> Self {
     Self {

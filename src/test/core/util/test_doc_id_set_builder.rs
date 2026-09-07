@@ -100,7 +100,7 @@ fn test_sparse() -> Result<()> {
       fixed_set_bit.set(doc as usize)?;
       doc += base_inc + random.random_range(0..10000);
     }
-    let roaring_doc_id_set = b.build();
+    let roaring_doc_id_set = b.build()?;
     let mut iter = roaring_doc_id_set.iterator()?;
     builder.add_disi(&mut iter)?;
   }
@@ -125,7 +125,7 @@ fn test_dense() -> Result<()> {
       fixed_set_bit.set(doc as usize)?;
       doc += 1 + random.random_range(0..100);
     }
-    let roaring_doc_id_set = b.build();
+    let roaring_doc_id_set = b.build()?;
     let mut iter = roaring_doc_id_set.iterator()?;
     builder.add_disi(&mut iter)?;
   }

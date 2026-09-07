@@ -1465,7 +1465,7 @@ where
 {
   let mut collector = RoaringCollectorImpl::new(max_doc);
   scorer.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;
-  let cache = collector.builder.build();
+  let cache = collector.builder.build()?;
   let cardinality = cache.cardinality();
   Ok(CacheAndCount::new(cache, cardinality))
 }
