@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 80
     steps:
-      - name: Run cargo test-light in Jenkins
+      - name: Run cargo commit in Jenkins
         env:
           JENKINS_URL: https://jenkins.amazingkoala.com.cn
           JENKINS_USER: ${{ secrets.JENKINS_PR_USER }}

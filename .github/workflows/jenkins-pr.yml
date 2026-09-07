@@ -45,9 +45,9 @@ jobs:
 
       - name: Skip untrusted PR
         if: steps.permission.outputs.allowed != 'true'
-        run: echo "Only repository members with write or admin permission run cargo test-light."
+        run: echo "Only repository members with write or admin permission run cargo commit."
 
-      - name: Run cargo test-light in Jenkins
+      - name: Run cargo commit in Jenkins
         if: steps.permission.outputs.allowed == 'true'
         env:
           JENKINS_URL: https://jenkins.amazingkoala.com.cn

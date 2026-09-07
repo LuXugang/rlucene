@@ -44,7 +44,7 @@ definition.setLightweight(true)
 
 def job = jenkins.createProject(WorkflowJob.class, jobName)
 job.setDescription(
-  'Runs cargo test-light for the exact commit from each main branch push.'
+  'Runs cargo commit for the exact commit from each main branch push.'
 )
 job.setDefinition(definition)
 job.addProperty(new DisableConcurrentBuildsJobProperty())

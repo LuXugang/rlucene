@@ -11,7 +11,7 @@ Each job has its own build cache and last-successful-commit state. The original
 controller's disabled `legency` job and historical builds are instance data;
 new installations create only `rlucene-ci`.
 
-## Pull request test-light job
+## Pull request commit-check job
 
 The `Jenkins PR test-light` GitHub Actions workflow handles pull request events.
 It asks GitHub for the PR author's effective repository permission and starts
@@ -23,7 +23,7 @@ validates every parameter, fetches `refs/pull/<number>/head`, verifies that the
 checked-out commit is the exact SHA reported by GitHub, and runs:
 
 ```sh
-cargo test-light
+cargo commit
 ```
 
 The GitHub Actions run waits for Jenkins. Jenkins `SUCCESS` becomes a green
@@ -41,7 +41,7 @@ PR code runs only on the exclusive `rlucene-pr` inbound agent. That container
 does not mount Jenkins home or the Docker socket. The existing scheduled
 `rlucene-ci` job remains on the built-in node and is unchanged.
 
-## Main branch test-light job
+## Main branch commit-check job
 
 The `Jenkins main test-light` workflow starts `rlucene-commit` once for each
 push to `Rustify-All/rlucene:main`, including merge, squash and rebase merges
@@ -51,9 +51,10 @@ The workflow is restricted to the upstream repository so pushing the same
 branch to a fork does not create a duplicate Jenkins build.
 
 The Pipeline fetches the requested SHA directly, verifies the checkout, and
-runs `cargo test-light`. Later main updates do not cancel earlier runs or
-change the revision being tested. Each push has its own GitHub check and
-Jenkins build link. The workflow allows 40 minutes to start a build and
+runs `cargo commit`. This performs `cargo tidy`, verifies that those checks did
+not change the checkout, and then runs the fast test suite. Later main updates
+do not cancel earlier runs or change the revision being tested. Each push has
+its own GitHub check and Jenkins build link. The workflow allows 40 minutes to start a build and
 35 minutes for it to finish; queue or build timeouts fail the GitHub check.
 
 `rlucene-commit` shares the existing single-executor `rlucene-pr` agent with

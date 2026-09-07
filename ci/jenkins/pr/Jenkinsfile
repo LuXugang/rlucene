@@ -71,7 +71,7 @@ pipeline {
       }
     }
 
-    stage('cargo test-light') {
+    stage('cargo commit') {
       steps {
         timeout(time: 30, unit: 'MINUTES') {
           sh '''#!/usr/bin/env bash
@@ -79,7 +79,14 @@ pipeline {
             mkdir -p "${BUILD_TMPDIR}" "${CARGO_TARGET_DIR}"
             export TMPDIR="${BUILD_TMPDIR}"
             set -o pipefail
-            cargo test-light 2>&1 | tee cargo-test-light.log
+            commit_log="${BUILD_TMPDIR}/cargo-commit.log"
+            copy_commit_log() {
+              if test -f "${commit_log}"; then
+                cp "${commit_log}" cargo-commit.log
+              fi
+            }
+            trap copy_commit_log EXIT
+            cargo commit 2>&1 | tee "${commit_log}"
           '''
         }
       }
@@ -88,7 +95,7 @@ pipeline {
 
   post {
     always {
-      archiveArtifacts artifacts: 'cargo-test-light.log', allowEmptyArchive: true
+      archiveArtifacts artifacts: 'cargo-commit.log', allowEmptyArchive: true
       sh '''
         if test -n "${BUILD_TMPDIR:-}"; then
           rm -rf -- "${BUILD_TMPDIR}"

@@ -46,7 +46,7 @@ definition.setLightweight(true)
 
 def job = jenkins.createProject(WorkflowJob.class, jobName)
 job.setDescription(
-  'Runs cargo test-light for pull requests whose authors have repository write permission.'
+  'Runs cargo commit for pull requests whose authors have repository write permission.'
 )
 job.setDefinition(definition)
 job.addProperty(new DisableConcurrentBuildsJobProperty())
