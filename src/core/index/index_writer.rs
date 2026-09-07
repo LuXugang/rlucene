@@ -2941,20 +2941,28 @@ where
 
     // Abort all pending & running merges:
     let mut pending_merges = std::mem::take(&mut inner.pending_merges);
-    IOUtils::close_with(pending_merges.make_contiguous().iter_mut(), |merge| {
-      if self.info_stream.is_enabled("IW") {
-        self.info_stream.message(
-          "IW",
-          &format!(
-            "now abort pending merge {}",
-            Self::segment_ids_to_string(&merge.stat.segments)
-          ),
-        )?;
-      }
-      self.abort_one_merge(merge, inner)?;
-      self.merge_finish(&merge.stat, Some(inner));
-      Ok(())
-    })?;
+    let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      IOUtils::close_with(pending_merges.make_contiguous().iter_mut(), |merge| {
+        if self.info_stream.is_enabled("IW") {
+          self.info_stream.message(
+            "IW",
+            &format!(
+              "now abort pending merge {}",
+              Self::segment_ids_to_string(&merge.stat.segments)
+            ),
+          )?;
+        }
+        self.abort_one_merge(merge, inner)?;
+        self.merge_finish(&merge.stat, Some(inner));
+        Ok(())
+      })
+    }));
+    if !matches!(&abort_result, Ok(Ok(()))) {
+      // Java clears pendingMerges only after every abort succeeds. Restore the
+      // detached queue on either an error or panic so cleanup can be retried.
+      inner.pending_merges = pending_merges;
+    }
+    unwrap_caught_result!(abort_result)?;
 
     // Java keeps one writer-level AddIndexesMergeSource and aborts its pending merges here.
     // Rust needs one typed source per CodecReader type, so keep weak references to all live
@@ -3747,7 +3755,7 @@ where
       UNBOUNDED_MAX_MERGE_SEGMENTS,
     ))?;
 
-    let mut tracking_dir = TrackingDirectoryWrapper::new(merge_directory);
+    let mut tracking_dir = TrackingDirectoryWrapper::new(&merge_directory);
     let mut seg_info = SegmentInfo::new(
       self.directory_orig.clone(),
       Some((*LATEST).clone()),
@@ -3774,13 +3782,20 @@ where
     // Don't reorder if an explicit sort is configured.
     let has_index_sort = self.config.get_index_sort().is_some();
     // Don't reorder if blocks can't be identified using the parent field.
-    let mut has_blocks_but_no_parent_field = false;
+    let mut has_blocks_in_readers = false;
     for reader in &readers {
-      if reader.get_metadata()?.get_has_blocks()
-        && reader.get_field_infos()?.get_parent_field().is_none()
-      {
-        has_blocks_but_no_parent_field = true;
+      if reader.get_metadata()?.get_has_blocks() {
+        has_blocks_in_readers = true;
         break;
+      }
+    }
+    let mut has_blocks_but_no_parent_field = false;
+    if has_blocks_in_readers {
+      for reader in &readers {
+        if reader.get_field_infos()?.get_parent_field().is_none() {
+          has_blocks_but_no_parent_field = true;
+          break;
+        }
       }
     }
     let new_merge_readers;
@@ -3843,7 +3858,7 @@ where
     }
     unwrap_caught_result!(result)?;
 
-    let mut sci = SegmentCommitInfo::new(
+    merge.set_merge_info(SegmentCommitInfo::new(
       seg_info,
       0,
       num_soft_deleted,
@@ -3851,7 +3866,10 @@ where
       -1,
       -1,
       Some(StringHelper::random_id()),
-    );
+    ));
+    let sci = merge
+      .get_merge_info_mut()
+      .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
     Arc::get_mut(&mut sci.info)
       .ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?
       .set_files(tracking_dir.take_created_files())?;
@@ -3864,17 +3882,24 @@ where
     let use_compound_file = {
       let inner = self.inner.lock();
       merge.check_aborted()?;
+      let sci = merge
+        .info
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
       self
         .config
         .get_merge_policy()
-        .use_compound_file(&inner.segment_infos, &sci, self)?
+        .use_compound_file(&inner.segment_infos, sci, self)?
     };
 
     if use_compound_file {
+      let sci = merge
+        .get_merge_info_mut()
+        .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
       let files_to_delete = sci.files()?;
       let info =
         Arc::get_mut(&mut sci.info).ok_or_else(|| LuceneError::illegal_state("Arc not unique"))?;
-      let tracking_cfs_dir = TrackingDirectoryWrapper::new(self.directory.as_ref());
+      let tracking_cfs_dir = TrackingDirectoryWrapper::new(&merge_directory);
       create_compound_file(
         &self.info_stream,
         &tracking_cfs_dir,
@@ -3886,6 +3911,10 @@ where
       info.set_use_compound_file(true);
     }
 
+    let sci = merge
+      .info
+      .take()
+      .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
     merge.set_merge_info(sci);
     let info = merge
       .get_merge_info_mut()
