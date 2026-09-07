@@ -149,7 +149,7 @@ where
     if index + DirectReader::MERGE_BUFFER_SIZE >= self.num_values {
       // 128 values left or less
       let mut slow_instance =
-        DirectReader::get_instance_with_offset::<R>(None, self.bits_per_value, self.base_offset)?;
+        DirectReader::get_instance_with_offset(None, self.bits_per_value, self.base_offset)?;
       let num_values_last_block = self.num_values - index;
       for i in 0..num_values_last_block {
         self.buffer[i] = slow_instance.read_from_slice(index + i, Some(slice))?;

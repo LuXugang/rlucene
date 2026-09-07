@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase, size_bytes};
+use crate::core::index::log_merge_policy::{
+  DEFAULT_MAX_MERGE_DOCS, DEFAULT_MERGE_FACTOR, LogMergePolicy, LogMergePolicyBase, size_bytes,
+};
 use crate::core::index::merge_policy::{
   DEFAULT_MAX_CFS_SEGMENT_SIZE, DEFAULT_NO_CFS_RATIO, MergeContext, MergePolicyBase,
 };
@@ -54,11 +56,11 @@ impl LogMergePolicy<LogByteSizeMergePolicy> {
   pub fn log_bytes_size() -> Self {
     let base = MergePolicyBase::new(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE);
     let mut mp = LogMergePolicy {
-      merge_factor: Self::DEFAULT_MERGE_FACTOR,
+      merge_factor: DEFAULT_MERGE_FACTOR,
       min_merge_size: 0,
       max_merge_size: 0,
       max_merge_size_for_forced_merge: i64::MAX,
-      max_merge_docs: Self::DEFAULT_MAX_MERGE_DOCS,
+      max_merge_docs: DEFAULT_MAX_MERGE_DOCS,
       calibrate_size_by_deletes: true,
       target_search_concurrency: 1,
       base,

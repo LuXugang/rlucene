@@ -26,7 +26,7 @@ pub struct BytesRefBuilder<AV> {
 }
 impl<AV> Default for BytesRefBuilder<AV>
 where
-  AV: SharedAccessVec<u8> + WritableVec<u8>,
+  AV: WritableVec<u8>,
 {
   fn default() -> Self {
     Self::new()
@@ -35,9 +35,12 @@ where
 
 impl<AV> BytesRefBuilder<AV>
 where
-  AV: SharedAccessVec<u8> + WritableVec<u8>,
+  AV: SharedAccessVec<u8>,
 {
-  pub fn new() -> BytesRefBuilder<AV> {
+  pub fn new() -> BytesRefBuilder<AV>
+  where
+    AV: WritableVec<u8>,
+  {
     BytesRefBuilder {
       bytes_ref: BytesRef::new(),
     }
@@ -66,18 +69,27 @@ where
   }
 
   /// Set a byte.
-  pub fn set_byte_at(&mut self, offset: usize, value: u8) {
+  pub fn set_byte_at(&mut self, offset: usize, value: u8)
+  where
+    AV: WritableVec<u8>,
+  {
     self.bytes_ref.bytes.access_mut(|bytes| {
       bytes[offset] = value;
     })
   }
-  pub fn grow(&mut self, capacity: usize) -> Result<()> {
+  pub fn grow(&mut self, capacity: usize) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self
       .bytes_ref
       .bytes
       .access_mut(|bytes| ArrayUtil::grow_with_len(bytes, capacity))
   }
-  pub fn grow_no_copy(&mut self, capacity: usize) -> Result<()> {
+  pub fn grow_no_copy(&mut self, capacity: usize) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self
       .bytes_ref
       .bytes
@@ -85,7 +97,10 @@ where
   }
 
   /// Append a single byte to this builder.
-  pub fn append_byte(&mut self, b: u8) -> Result<()> {
+  pub fn append_byte(&mut self, b: u8) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self.grow(self.bytes_ref.length + 1)?;
     let idx = self.bytes_ref.length;
     self.bytes_ref.bytes.access_mut(|bytes| {
@@ -96,7 +111,10 @@ where
   }
 
   /// Append the provided bytes to this builder.
-  pub fn append_with_range(&mut self, b: &[u8], off: usize, len: usize) -> Result<()> {
+  pub fn append_with_range(&mut self, b: &[u8], off: usize, len: usize) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self.grow(self.bytes_ref.length + len)?;
     let pos = self.bytes_ref.length;
     CoreHelper::check_from_index_size(off, len, b.len())?;
@@ -110,13 +128,19 @@ where
   }
 
   /// Append the provided bytes to this builder.
-  pub fn append(&mut self, b: &BytesRef<AV>) -> Result<()> {
+  pub fn append(&mut self, b: &BytesRef<AV>) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     b.bytes
       .access(|bytes| self.append_with_range(bytes, b.offset, b.length))
   }
 
   /// Reset this builder to the empty state.
-  pub fn append_builder(&mut self, b: &mut BytesRefBuilder<AV>) -> Result<()> {
+  pub fn append_builder(&mut self, b: &mut BytesRefBuilder<AV>) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self.append(b.get_bytes_mut_ref())
   }
   pub fn clear(&mut self) {
@@ -137,7 +161,10 @@ where
   /// # See Also
   /// - [`clear`](BytesRefBuilder::clear)
   /// - [`append`](BytesRefBuilder::append_with_range)
-  pub fn copy_bytes_from_vec(&mut self, b: &[u8], off: usize, len: usize) -> Result<()> {
+  pub fn copy_bytes_from_vec(&mut self, b: &[u8], off: usize, len: usize) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     debug_assert_eq!(self.bytes_ref.offset, 0);
     self.bytes_ref.length = len;
     self.grow_no_copy(len)?;
@@ -149,22 +176,37 @@ where
       .access_mut(|bytes| bytes.copy_from(source, 0));
     Ok(())
   }
-  pub fn copy_bytes_from_ref(&mut self, b: &BytesRef<AV>) -> Result<()> {
+  pub fn copy_bytes_from_ref(&mut self, b: &BytesRef<AV>) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     b.bytes
       .access(|bytes| self.copy_bytes_from_vec(bytes, b.offset, b.length))
   }
-  pub fn copy_bytes_from_builder(&mut self, b: &mut BytesRefBuilder<AV>) -> Result<()> {
+  pub fn copy_bytes_from_builder(&mut self, b: &mut BytesRefBuilder<AV>) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self.copy_bytes_from_ref(b.get_bytes_mut_ref())
   }
-  pub fn copy_chars_from_string(&mut self, s: &str) -> Result<()> {
+  pub fn copy_chars_from_string(&mut self, s: &str) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self.copy_chars_range(s, 0, s.len())
   }
-  pub fn copy_chars_range(&mut self, s: &str, off: usize, len: usize) -> Result<()> {
+  pub fn copy_chars_range(&mut self, s: &str, off: usize, len: usize) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     CoreHelper::check_from_index_size(off, len, s.len())?;
     let sub_bytes = s.as_bytes()[off..off + len].to_vec();
     self.copy_chars_from_vec(&sub_bytes, 0, sub_bytes.len())
   }
-  pub fn copy_chars_from_vec(&mut self, s: &[u8], off: usize, len: usize) -> Result<()> {
+  pub fn copy_chars_from_vec(&mut self, s: &[u8], off: usize, len: usize) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     self.grow(len)?;
     CoreHelper::check_from_index_size(off, len, s.len())?;
     let source = &s[off..off + len];
@@ -176,7 +218,10 @@ where
     self.bytes_ref.offset = 0;
     Ok(())
   }
-  pub fn copy_chars_from_chars(&mut self, s: &[char], off: usize, len: usize) -> Result<()> {
+  pub fn copy_chars_from_chars(&mut self, s: &[char], off: usize, len: usize) -> Result<()>
+  where
+    AV: WritableVec<u8>,
+  {
     let mut bytes = Vec::with_capacity(len);
     CoreHelper::check_from_index_size(off, len, s.len())?;
     let source = &s[off..off + len];
@@ -211,7 +256,10 @@ where
   }
   /// # Note
   /// This method should be only called with `BytesRef<Vec<u8>>`
-  pub fn get_bytes_owner(&mut self) -> BytesRef<AV> {
+  pub fn get_bytes_owner(&mut self) -> BytesRef<AV>
+  where
+    AV: WritableVec<u8>,
+  {
     std::mem::take(&mut self.bytes_ref)
   }
   /// Build a new BytesRef that has the same content as this buffer.

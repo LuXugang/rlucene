@@ -44,7 +44,7 @@ where
 
 impl<AV> Default for IntsRefBuilder<AV>
 where
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
+  AV: WritableVec<i32>,
 {
   fn default() -> Self {
     Self::new()
@@ -53,9 +53,12 @@ where
 
 impl<AV> IntsRefBuilder<AV>
 where
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
+  AV: SharedAccessVec<i32>,
 {
-  pub fn new() -> Self {
+  pub fn new() -> Self
+  where
+    AV: WritableVec<i32>,
+  {
     Self {
       ints_ref: IntsRef::default(),
     }
@@ -86,14 +89,20 @@ where
   }
 
   /// Sets the `i32` at the given offset.
-  pub fn set_int_at(&mut self, offset: usize, value: i32) {
+  pub fn set_int_at(&mut self, offset: usize, value: i32)
+  where
+    AV: WritableVec<i32>,
+  {
     self.ints_ref.ints.access_mut(|ints_bytes| {
       ints_bytes[offset] = value;
     })
   }
 
   /// Appends the provided `i32` to this buffer.
-  pub fn append(&mut self, i: i32) -> Result<()> {
+  pub fn append(&mut self, i: i32) -> Result<()>
+  where
+    AV: WritableVec<i32>,
+  {
     let mut len = self.ints_ref.length;
     self.grow(len + 1)?;
     len = self.ints_ref.length;
@@ -108,7 +117,10 @@ where
   ///
   /// In general, this should not be used directly, as it does not take offset
   /// into account.
-  pub fn grow(&mut self, new_length: usize) -> Result<()> {
+  pub fn grow(&mut self, new_length: usize) -> Result<()>
+  where
+    AV: WritableVec<i32>,
+  {
     self
       .ints_ref
       .ints
@@ -117,7 +129,10 @@ where
 
   /// Grows the reference array to at least `new_length`, without copying
   /// original data.
-  pub fn grow_no_copy(&mut self, new_length: usize) -> Result<()> {
+  pub fn grow_no_copy(&mut self, new_length: usize) -> Result<()>
+  where
+    AV: WritableVec<i32>,
+  {
     self
       .ints_ref
       .ints
@@ -125,12 +140,10 @@ where
   }
 
   /// Copies the given slice into this instance.
-  pub fn copy_ints(
-    &mut self,
-    other: &[i32],
-    other_offset: usize,
-    other_length: usize,
-  ) -> Result<()> {
+  pub fn copy_ints(&mut self, other: &[i32], other_offset: usize, other_length: usize) -> Result<()>
+  where
+    AV: WritableVec<i32>,
+  {
     self.grow_no_copy(other_length)?;
     CoreHelper::check_from_index_size(other_offset, other_length, other.len())?;
     self.ints_ref.ints.access_mut(|ints_bytes| {
@@ -140,7 +153,10 @@ where
     Ok(())
   }
   /// Copies the given [`IntsRef`] into this instance.
-  pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) -> Result<()> {
+  pub fn copy_ints_ref(&mut self, ints: &IntsRef<AV>) -> Result<()>
+  where
+    AV: WritableVec<i32>,
+  {
     ints
       .ints
       .access(|ints_bytes| self.copy_ints(ints_bytes, ints.offset, ints.length))
@@ -156,7 +172,10 @@ where
     );
     &self.ints_ref
   }
-  pub fn get_owner(&mut self) -> IntsRef<AV> {
+  pub fn get_owner(&mut self) -> IntsRef<AV>
+  where
+    AV: WritableVec<i32>,
+  {
     std::mem::take(&mut self.ints_ref)
   }
 

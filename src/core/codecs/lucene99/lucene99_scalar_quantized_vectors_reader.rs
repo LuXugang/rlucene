@@ -84,7 +84,7 @@ where
   where
     D1: Directory<IndexInput = I>,
   {
-    let mut fields = HashMap::<i32, FieldEntry>::new();
+    let mut fields = HashMap::new();
 
     let field_infos = state.field_infos.clone();
     let mut version_meta = -1;

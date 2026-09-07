@@ -940,10 +940,10 @@ where
   /// # Errors
   /// - Returns [`LuceneError::CorruptIndex`] if the index is corrupt.
   /// - Returns an `io::Error` if there is a low-level I/O error.
-  pub fn add_documents<DI, DF>(&self, docs: DI) -> Result<i64>
+  pub fn add_documents<DI>(&self, docs: DI) -> Result<i64>
   where
-    DI: IntoFallibleIterator<Item = DF>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     self.update_documents(None, docs)
@@ -989,11 +989,11 @@ where
   /// # Experimental
   ///
   /// This API is experimental and might change in incompatible ways in the next release.
-  pub fn update_documents_with_term<T, DI, DF>(&self, del_term: T, docs: DI) -> Result<i64>
+  pub fn update_documents_with_term<T, DI>(&self, del_term: T, docs: DI) -> Result<i64>
   where
     T: Into<Option<Term>>,
-    DI: IntoFallibleIterator<Item = DF>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     let del_node = del_term
@@ -1004,11 +1004,11 @@ where
   }
   /// Similar to [`update_documents(Term, Iterable)`](Self::update_document_with_term), but takes a query instead of a term to
   /// identify the documents to be updated.
-  pub fn update_documents_with_query<T, DI, DF>(&self, del_query: T, docs: DI) -> Result<i64>
+  pub fn update_documents_with_query<T, DI>(&self, del_query: T, docs: DI) -> Result<i64>
   where
     T: Into<Option<Query>>,
-    DI: IntoFallibleIterator<Item = DF>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     let del_node = del_query
@@ -1018,10 +1018,10 @@ where
     self.update_documents(del_node, docs)
   }
 
-  fn update_documents<DI, DF>(&self, del_node: Option<Arc<Node>>, docs: DI) -> Result<i64>
+  fn update_documents<DI>(&self, del_node: Option<Arc<Node>>, docs: DI) -> Result<i64>
   where
-    DI: IntoFallibleIterator<Item = DF>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator<Item = Fields>,
     D: 'static,
   {
     #[cfg(test)]
@@ -3523,7 +3523,7 @@ where
       let merge_policy = self.config.get_merge_policy();
       let (mut merges, merge_stats) = match merge_policy.find_merges_readers(readers)? {
         Some(spec) if !spec.merges.is_empty() => {
-          let merge_source = self.new_add_indexes_merge_source::<Arc<CR>>()?;
+          let merge_source = self.new_add_indexes_merge_source()?;
           let mut merge_stats = Vec::with_capacity(spec.merges.len());
           {
             let mut inner = self.inner.lock();

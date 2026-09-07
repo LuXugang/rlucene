@@ -397,7 +397,7 @@ where
     total_positions: usize,
     position_index: &[Vec<usize>],
   ) -> Result<Vec<Vec<i32>>> {
-    let mut positions = vec![Vec::<i32>::new(); num_fields];
+    let mut positions = vec![Vec::new(); num_fields];
     // reset reader
     let mut reader =
       BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
@@ -729,7 +729,7 @@ where
         &position_index,
       )?
     } else {
-      vec![Vec::<i32>::new(); num_fields]
+      vec![Vec::new(); num_fields]
     };
     let (start_offsets, lengths) = if total_offsets > 0 {
       // average number of chars per term
@@ -792,10 +792,7 @@ where
 
       (start_offsets, lengths)
     } else {
-      (
-        vec![Vec::<i32>::new(); num_fields],
-        vec![Vec::<i32>::new(); num_fields],
-      )
+      (vec![Vec::new(); num_fields], vec![Vec::new(); num_fields])
     };
 
     if total_positions > 0 {

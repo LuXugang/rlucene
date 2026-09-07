@@ -107,9 +107,7 @@ fn test_constructor_with_expected_size() -> Result<()> {
 fn test_randomized_writes() -> Result<()> {
   let mut test = TestByteBuffersDataOutput;
   let mut random = random();
-  // here could use any DataInput impl because this test does not test
-  // ByteArrayDataInput
-  test.test_randomized_writes::<ByteArrayDataInput<Vec<u8>>, _>(&mut random)
+  test.test_randomized_writes(&mut random)
 }
 
 #[test]

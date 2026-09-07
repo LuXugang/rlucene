@@ -510,10 +510,10 @@ where
     Ok(())
   }
 
-  pub fn inc_ref_files<I, S>(&mut self, files: I) -> Result<()>
+  pub fn inc_ref_files<I>(&mut self, files: I) -> Result<()>
   where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
+    I: IntoIterator,
+    I::Item: AsRef<str>,
   {
     self.file_deleter.inc_ref(files)
   }

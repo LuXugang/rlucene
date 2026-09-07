@@ -420,10 +420,10 @@ impl IOUtils {
   }
 
   /// Deletes all given directory file names, suppressing all failures.
-  pub fn delete_files_ignoring_exceptions<T, S, D>(dir: &D, files: T)
+  pub fn delete_files_ignoring_exceptions<T, D>(dir: &D, files: T)
   where
-    T: IntoIterator<Item = S>,
-    S: AsRef<str>,
+    T: IntoIterator,
+    T::Item: AsRef<str>,
     D: Directory + ?Sized,
   {
     for name in files {

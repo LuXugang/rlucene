@@ -491,15 +491,15 @@ where
     }
     Ok(has_events)
   }
-  pub(crate) fn update_documents<DI, DF>(
+  pub(crate) fn update_documents<DI>(
     &self,
     docs: DI,
     del_node: Option<Arc<Node>>,
     writer: &IndexWriter<D>,
   ) -> Result<i64>
   where
-    DI: IntoFallibleIterator<Item = DF>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator<Item = Fields>,
   {
     let has_events = self.pre_update(writer)?;
 

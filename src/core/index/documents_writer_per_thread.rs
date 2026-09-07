@@ -354,7 +354,7 @@ where
     }
     Ok(())
   }
-  pub(crate) fn update_documents<DI, DF, FN>(
+  pub(crate) fn update_documents<DI, FN>(
     &mut self,
     docs: DI,
     delete_node: Option<Arc<Node>>,
@@ -363,8 +363,8 @@ where
     writer: &IndexWriter<D>,
   ) -> Result<i64>
   where
-    DI: IntoFallibleIterator<Item = DF>,
-    DF: IntoFallibleIterator<Item = Fields>,
+    DI: IntoFallibleIterator,
+    DI::Item: IntoFallibleIterator<Item = Fields>,
     FN: FlushNotifications,
   {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {

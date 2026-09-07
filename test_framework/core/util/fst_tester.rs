@@ -736,7 +736,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 
 pub fn input_to_string<AV>(input_mode: i32, term: &IntsRef<AV>) -> Result<String>
 where
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
+  AV: SharedAccessVec<i32>,
 {
   input_to_string_with_flag(input_mode, term, true)
 }
@@ -747,7 +747,7 @@ pub fn input_to_string_with_flag<AV>(
   is_valid_unicode: bool,
 ) -> Result<String>
 where
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
+  AV: SharedAccessVec<i32>,
 {
   if !is_valid_unicode {
     Ok(term.to_string())
@@ -765,7 +765,7 @@ where
 
 pub fn get_bytes_ref<AV>(ir: &IntsRef<AV>) -> BytesRef<Vec<u8>>
 where
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
+  AV: SharedAccessVec<i32>,
 {
   let len = ir.length;
   let mut bytes = vec![0u8; len];
@@ -892,7 +892,7 @@ pub fn run<O, F, AV>(
 where
   O: Outputs,
   F: FstReader,
-  AV: SharedAccessVec<i32> + WritableVec<i32>,
+  AV: SharedAccessVec<i32>,
 {
   assert!(prefix_length.is_none() || prefix_length.as_ref().unwrap().len() == 1);
   let mut arc = Arc::default();

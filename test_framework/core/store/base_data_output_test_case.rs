@@ -32,9 +32,8 @@ pub trait BaseDataOutputTestCase {
   fn new_instance(&self) -> Result<Self::DO>;
   fn get_bytes(&mut self, instance: Self::DO) -> Vec<u8>;
 
-  fn test_randomized_writes<DI, R>(&mut self, random: &mut R) -> Result<()>
+  fn test_randomized_writes<R>(&mut self, random: &mut R) -> Result<()>
   where
-    DI: DataInput,
     R: Rng + ?Sized,
   {
     let mut instance = self.new_instance()?;

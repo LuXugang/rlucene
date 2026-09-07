@@ -72,7 +72,7 @@ where
   where
     D1: Directory<IndexInput = I>,
   {
-    let mut fields = HashMap::<i32, FieldEntry>::new();
+    let mut fields = HashMap::new();
     let version_meta = Self::read_metadata(state, segment_info, &mut fields)?;
 
     let context = &state.context.with_read_advice_self(ReadAdvice::Random)?;

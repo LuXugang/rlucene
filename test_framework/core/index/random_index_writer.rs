@@ -337,11 +337,11 @@ where
     Ok(())
   }
 
-  pub fn add_documents<R, DI, DF>(&self, r: &mut R, docs: DI) -> Result<i64>
+  pub fn add_documents<R, DI>(&self, r: &mut R, docs: DI) -> Result<i64>
   where
     R: Rng + ?Sized,
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoIterator,
+    DI::Item: IntoIterator<Item = Fields>,
   {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let docs: Vec<Vec<Fields>> = docs
@@ -353,7 +353,7 @@ where
     Ok(seq_no)
   }
 
-  pub fn update_documents_with_term<R, T, DI, DF>(
+  pub fn update_documents_with_term<R, T, DI>(
     &self,
     r: &mut R,
     del_term: T,
@@ -362,8 +362,8 @@ where
   where
     R: Rng + ?Sized,
     T: Into<Term>,
-    DI: IntoIterator<Item = DF>,
-    DF: IntoIterator<Item = Fields>,
+    DI: IntoIterator,
+    DI::Item: IntoIterator<Item = Fields>,
   {
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let del_term = del_term.into();

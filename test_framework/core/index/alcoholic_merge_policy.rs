@@ -22,7 +22,10 @@ use parking_lot::Mutex;
 use rand::RngExt;
 use rand::prelude::StdRng;
 
-use crate::core::index::log_merge_policy::{LogMergePolicy, LogMergePolicyBase};
+use crate::core::index::log_merge_policy::{
+  DEFAULT_MAX_MERGE_DOCS, DEFAULT_MERGE_FACTOR, DEFAULT_NO_CFS_RATIO, LogMergePolicy,
+  LogMergePolicyBase,
+};
 use crate::core::index::merge_policy::{
   DEFAULT_MAX_CFS_SEGMENT_SIZE, MergeContext, MergePolicyBase,
 };
@@ -66,17 +69,14 @@ impl AlcoholicMergePolicy {
     let max_merge_size = TestUtil::next_int(&mut random, 1024 * 1024, i32::MAX) as i64;
 
     LogMergePolicy {
-      merge_factor: LogMergePolicy::<Self>::DEFAULT_MERGE_FACTOR,
+      merge_factor: DEFAULT_MERGE_FACTOR,
       min_merge_size: 0,
       max_merge_size,
       max_merge_size_for_forced_merge: i64::MAX,
-      max_merge_docs: LogMergePolicy::<Self>::DEFAULT_MAX_MERGE_DOCS,
+      max_merge_docs: DEFAULT_MAX_MERGE_DOCS,
       calibrate_size_by_deletes: true,
       target_search_concurrency: 1,
-      base: MergePolicyBase::new(
-        LogMergePolicy::<Self>::DEFAULT_NO_CFS_RATIO,
-        DEFAULT_MAX_CFS_SEGMENT_SIZE,
-      ),
+      base: MergePolicyBase::new(DEFAULT_NO_CFS_RATIO, DEFAULT_MAX_CFS_SEGMENT_SIZE),
       sub: Self {
         random: Arc::new(Mutex::new(random)),
         calendar,

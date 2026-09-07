@@ -53,10 +53,10 @@ where
   D: Directory,
   M: Messenger,
 {
-  pub fn inc_ref<I, S>(&mut self, file_names: I) -> Result<()>
+  pub fn inc_ref<I>(&mut self, file_names: I) -> Result<()>
   where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
+    I: IntoIterator,
+    I::Item: AsRef<str>,
   {
     for file in file_names {
       self.inc_ref_single(file.as_ref())?;

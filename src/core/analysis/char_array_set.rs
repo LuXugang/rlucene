@@ -34,10 +34,10 @@ impl CharArraySet {
   pub fn empty_set() -> CharArraySet {
     Self::from_map(empty_map())
   }
-  pub fn add_all<I, S>(&mut self, iter: I)
+  pub fn add_all<I>(&mut self, iter: I)
   where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
+    I: IntoIterator,
+    I::Item: AsRef<str>,
   {
     for s in iter {
       self.add_str(s.as_ref());

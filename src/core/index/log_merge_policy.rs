@@ -31,6 +31,20 @@ use crate::core::util::error::lucene_error::Result;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+/// Defines the allowed range of log(size) for each level. A level is computed by taking the max
+/// segment log size, minus LEVEL_LOG_SPAN, and finding all segments falling within that range.
+pub const LEVEL_LOG_SPAN: f64 = 0.75;
+/// Default merge factor, which is how many segments are merged at a time
+pub const DEFAULT_MERGE_FACTOR: usize = 10;
+/// Default maximum segment size. A segment of this size or larger will never be merged.
+/// See [`LogMergePolicy::set_max_merge_docs`].
+pub const DEFAULT_MAX_MERGE_DOCS: i32 = i32::MAX;
+/// Default noCFSRatio. If a merge's size is `>= 10%` of the index, then we disable compound
+/// file for it.
+///
+/// See [`MergePolicyBase::set_no_cfs_ratio`](crate::core::index::merge_policy::MergePolicyBase::set_no_cfs_ratio).
+pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
+
 /// This struct implements a [`MergePolicy`] that tries to merge segments into levels of
 /// exponentially increasing size, where each level has fewer segments than the value of the merge
 /// factor. Whenever extra segments (beyond the merge factor upper bound) are encountered, all
@@ -70,19 +84,6 @@ pub struct LogMergePolicy<T> {
 }
 
 impl<T> LogMergePolicy<T> {
-  /// Defines the allowed range of log(size) for each level. A level is computed by taking the max
-  /// segment log size, minus LEVEL_LOG_SPAN, and finding all segments falling within that range.
-  pub const LEVEL_LOG_SPAN: f64 = 0.75;
-  /// Default merge factor, which is how many segments are merged at a time
-  pub const DEFAULT_MERGE_FACTOR: usize = 10;
-  /// Default maximum segment size. A segment of this size or larger will never be merged.
-  /// See [`Self::set_max_merge_docs`].
-  pub const DEFAULT_MAX_MERGE_DOCS: i32 = i32::MAX;
-  /// Default noCFSRatio. If a merge's size is `>= 10%` of the index, then we disable compound
-  /// file for it.
-  ///
-  /// See [`MergePolicyBase::set_no_cfs_ratio`](crate::core::index::merge_policy::MergePolicyBase::set_no_cfs_ratio).
-  pub const DEFAULT_NO_CFS_RATIO: f64 = 0.1;
   /// Returns the number of segments that are merged at once and also controls the total number of
   /// segments allowed to accumulate in the index.
   pub fn get_merge_factor(&self) -> usize {
@@ -556,13 +557,13 @@ where
       let level_bottom: f32 = if max_level > level_floor {
         // With a merge factor of 10, this means that the biggest segment and the smallest segment
         // that take part of a merge have a size difference of at most 5.6x.
-        (max_level as f64 - Self::LEVEL_LOG_SPAN) as f32
+        (max_level as f64 - LEVEL_LOG_SPAN) as f32
       } else {
         // For segments below the floor size, we allow more unbalanced merges, but still somewhat
         // balanced to avoid running into O(n^2) merging.
         // With a merge factor of 10, this means that the biggest segment and the smallest segment
         // that take part of a merge have a size difference of at most 31.6x.
-        (max_level as f64 - 2.0 * Self::LEVEL_LOG_SPAN) as f32
+        (max_level as f64 - 2.0 * LEVEL_LOG_SPAN) as f32
       };
 
       let mut upto = num_mergeable_segments - 1;
