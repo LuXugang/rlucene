@@ -46,7 +46,7 @@ impl CharArraySet {
   pub fn clear(&mut self) {
     self.map.clear();
   }
-  pub fn contains_key(&self, key: &[char], off: i32, len: i32) -> bool {
+  pub fn contains_key(&self, key: &[char], off: usize, len: usize) -> bool {
     self.map.contains_key(key, off, len)
   }
   pub fn contains_key_str(&self, key: &str) -> bool {
@@ -73,7 +73,7 @@ impl CharArraySet {
   }
   pub fn get(&self, key: &[char]) -> Option<&()> {
     debug_assert!(key.len() <= i32::MAX as usize);
-    self.map.get(key, 0, key.len() as i32)
+    self.map.get(key, 0, key.len())
   }
   pub fn get_str(&self, key: &str) -> Option<&()> {
     self.map.get_str(key)

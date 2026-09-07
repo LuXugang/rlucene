@@ -51,7 +51,7 @@ pub struct TermsHashPerField {
   // either to a brand new per term stream if the term is new or
   // to the addresses where the term stream was written to when we saw it the
   // last time.    term_stream_address_buffer: Vec<i32>,
-  term_stream_address_buffer_index: i32,
+  term_stream_address_buffer_index: usize,
   stream_address_offset: i32,
   stream_count: i32,
   // This stores the actual term bytes for postings and offsets into the
@@ -81,7 +81,7 @@ impl TermsHashPerField {
     let slice_pool = ByteSlicePool;
     let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
-    let bytes_hash = BytesRefHash::from_bytes_start_array(HASH_INIT_SIZE, byte_starts)?;
+    let bytes_hash = BytesRefHash::from_bytes_start_array(HASH_INIT_SIZE as usize, byte_starts)?;
     Ok(TermsHashPerField {
       slice_pool,
       term_stream_address_buffer_index: 0,
@@ -113,7 +113,7 @@ impl TermsHashPerField {
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
       .get_address_offset()[term_id];
-    let buffer_index = stream_start_offset >> INT_BLOCK_SHIFT;
+    let buffer_index = (stream_start_offset >> INT_BLOCK_SHIFT) as usize;
     let offset_in_address_buffer = stream_start_offset & INT_BLOCK_MASK;
     let addr;
     {
@@ -309,8 +309,7 @@ impl TermsHashPerField {
       }
       self.term_stream_address_buffer_index = int_pool
         .buffer_upto
-        .ok_or_else(|| LuceneError::illegal_state("term stream has no current int buffer"))?
-        as i32;
+        .ok_or_else(|| LuceneError::illegal_state("term stream has no current int buffer"))?;
       self.stream_address_offset = int_pool.int_upto;
       int_pool.int_upto += self.stream_count;
       let postings_array_wrapper = &mut self.bytes_hash.bytes_start_array.per_field;
@@ -364,7 +363,7 @@ impl TermsHashPerField {
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
       .get_address_offset()[term_id as usize];
-    self.term_stream_address_buffer_index = int_start >> INT_BLOCK_SHIFT;
+    self.term_stream_address_buffer_index = (int_start >> INT_BLOCK_SHIFT) as usize;
     self.stream_address_offset = int_start & INT_BLOCK_MASK;
     Ok(term_id)
   }

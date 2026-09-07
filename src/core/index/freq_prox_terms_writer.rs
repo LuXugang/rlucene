@@ -620,7 +620,7 @@ pub struct SortingDocsEnum<P> {
   postings_enum: Option<P>,
   docs: Vec<i32>,
   doc_it: Option<usize>,
-  upto: i32,
+  upto: usize,
 }
 impl<P> SortingDocsEnum<P> {
   pub(crate) fn new() -> Self {
@@ -649,19 +649,17 @@ impl<P> SortingDocsEnum<P> {
       i += 1;
     }
 
-    self.upto = i as i32;
-    if self.docs.len() == self.upto as usize {
+    self.upto = i;
+    if self.docs.len() == self.upto {
       ArrayUtil::grow(&mut self.docs)?;
     }
-    self.docs[self.upto as usize] = NO_MORE_DOCS;
+    self.docs[self.upto] = NO_MORE_DOCS;
 
     let max_doc = doc_map.size();
     let num_bits = PackedInts::bits_required(std::cmp::max(0, (max_doc - 1) as i64))? as usize;
     // Even though LSBRadixSorter cannot take advantage of partial ordering like
     // TimSorter it is often still faster for nearly-sorted inputs.
-    self
-      .sorter
-      .sort(num_bits, &mut self.docs, self.upto as usize)?;
+    self.sorter.sort(num_bits, &mut self.docs, self.upto)?;
     self.doc_it = None;
     self.postings_enum = Some(postings_enum);
     Ok(())

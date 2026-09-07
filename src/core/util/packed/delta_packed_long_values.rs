@@ -35,9 +35,9 @@ impl DeltaPackedLongValues {
       mins,
     }
   }
-  pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
-    let min = self.mins[block as usize];
-    for item in dest.iter_mut().take(count as usize) {
+  pub(crate) fn decode_block(&self, block: usize, dest: &mut [i64], count: usize) -> usize {
+    let min = self.mins[block];
+    for item in dest.iter_mut().take(count) {
       *item = item.wrapping_add(min);
     }
     match self.sub_long_value {
@@ -46,8 +46,8 @@ impl DeltaPackedLongValues {
     }
   }
 
-  pub(crate) fn get_value(&self, block: i32, element: i32, _value: u64) -> i64 {
-    let current = self.mins[block as usize];
+  pub(crate) fn get_value(&self, block: usize, element: usize, _value: u64) -> i64 {
+    let current = self.mins[block];
     match self.sub_long_value {
       Some(ref reader) => reader.get_value(block, element, current as u64),
       None => current,
@@ -88,36 +88,36 @@ impl DeltaPackedLongValuesBuilder {
     }
   }
 
-  pub(crate) fn build(mut self, values_off: i32) -> Result<DeltaPackedLongValues> {
+  pub(crate) fn build(mut self, values_off: usize) -> Result<DeltaPackedLongValues> {
     let sub_reader = match self.sub_builder.take() {
       Some(sb) => Some(sb.build(values_off)?),
       None => None,
     };
 
-    self.mins.truncate(values_off as usize);
+    self.mins.truncate(values_off);
 
     Ok(DeltaPackedLongValues::new(self.mins, sub_reader))
   }
-  pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
+  pub(crate) fn pack(&mut self, values: &mut [i64], num_values: usize, block: usize) {
     if let Some(sub_builder) = self.sub_builder.as_mut() {
       sub_builder.pack(values, num_values, block);
     }
 
     let mut min = values[0];
-    for &value in values.iter().take(num_values as usize).skip(1) {
+    for &value in values.iter().take(num_values).skip(1) {
       min = min.min(value);
     }
-    for value in values.iter_mut().take(num_values as usize) {
+    for value in values.iter_mut().take(num_values) {
       *value = value.wrapping_sub(min);
     }
-    self.mins[block as usize] = min;
+    self.mins[block] = min;
   }
 
-  pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
+  pub(crate) fn grow(&mut self, new_block_count: usize) -> Result<()> {
     if let Some(ref mut builder) = self.sub_builder {
       builder.grow(new_block_count)?
     }
-    ArrayUtil::grow_exact(&mut self.mins, new_block_count as usize)?;
+    ArrayUtil::grow_exact(&mut self.mins, new_block_count)?;
     Ok(())
   }
   pub(crate) fn base_ram_bytes_used(&self) -> i64 {

@@ -54,19 +54,13 @@ impl BytesRefBlockPool {
 
     let (length, offset) = if (block[pos] & 0x80) == 0 {
       // Length is 1 byte
-      (block[pos] as i32, (pos + 1) as i32)
+      (block[pos] as usize, pos + 1)
     } else {
       // Length is 2 bytes
-      (
-        (BitUtil::get_i16_be(block, pos) & 0x7FFF) as i32,
-        (pos + 2) as i32,
-      )
+      ((BitUtil::get_i16_be(block, pos) & 0x7FFF) as usize, pos + 2)
     };
-    let length = length as usize;
     ArrayUtil::grow_no_copy(&mut term.bytes, length)?;
-    term
-      .bytes
-      .copy_from(&block[offset as usize..offset as usize + length], 0);
+    term.bytes.copy_from(&block[offset..offset + length], 0);
     term.offset = 0;
     term.length = length;
     Ok(())
@@ -95,8 +89,8 @@ impl BytesRefBlockPool {
       pool.next_buffer()?;
     }
 
-    let buffer_upto = pool.byte_upto;
-    let text_start = buffer_upto + pool.byte_offset;
+    let text_start = pool.byte_upto + pool.byte_offset;
+    let buffer_upto = pool.byte_upto as usize;
     let buffer_index = pool.buffer_upto()?;
     let buffer = pool.get_buffer_mut(buffer_index);
 
@@ -105,19 +99,19 @@ impl BytesRefBlockPool {
     // most (we reject too-long terms, above).
     let new_length = if length < 128 {
       // 1 byte to store length
-      buffer[buffer_upto as usize] = length as u8;
+      buffer[buffer_upto] = length as u8;
       debug_assert!(length >= 0, "Length must be positive: {length}");
       buffer.copy_from(
         &bytes.bytes[bytes.offset..bytes.offset + length as usize],
-        buffer_upto as usize + 1,
+        buffer_upto + 1,
       );
       length + 1
     } else {
       // 2 byte to store length
-      BitUtil::set_i16_be(buffer, buffer_upto as usize, (length | 0x8000) as i16);
+      BitUtil::set_i16_be(buffer, buffer_upto, (length | 0x8000) as i16);
       buffer.copy_from(
         &bytes.bytes[bytes.offset..bytes.offset + length as usize],
-        buffer_upto as usize + 2,
+        buffer_upto + 2,
       );
       length + 2
     };

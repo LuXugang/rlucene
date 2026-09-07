@@ -418,7 +418,7 @@ struct BytesRefIntMap {
 impl BytesRefIntMap {
   pub fn new(counter: SharedCounter) -> Result<Self> {
     let bytes_ref_hash = BytesRefHash::from_bytes_start_array(
-      DEFAULT_CAPACITY,
+      DEFAULT_CAPACITY as usize,
       DirectBytesStartArray::with_counter(DEFAULT_CAPACITY as usize, counter.clone()),
     )?;
     Ok(BytesRefIntMap::new_impl(counter, bytes_ref_hash))

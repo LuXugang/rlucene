@@ -27,7 +27,7 @@ pub(crate) const BPV_SHIFT: i32 = 1;
 pub(crate) struct AbstractBlockPackedWriter<D> {
   values: Vec<i64>,
   blocks: Vec<u8>,
-  off: i32,
+  off: usize,
   ord: usize,
   finished: bool,
   sub_writer: D,
@@ -88,12 +88,12 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   pub fn add(&mut self, value: i64, out: &mut impl DataOutput) -> Result<()> {
     self.sub_writer.add(value);
     self.check_not_finished()?;
-    if self.off as usize == self.values.len() {
+    if self.off == self.values.len() {
       self
         .sub_writer
         .flush(out, &mut self.off, &mut self.values, &mut self.blocks)?;
     }
-    self.values[self.off as usize] = value;
+    self.values[self.off] = value;
     self.off += 1;
     self.ord += 1;
     Ok(())
@@ -108,17 +108,17 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   #[cfg_attr(not(feature = "nightly"), allow(dead_code))]
   pub(crate) fn add_block_of_zeros(&mut self, out: &mut impl DataOutput) -> Result<()> {
     self.check_not_finished()?;
-    if self.off != 0 && self.off as usize != self.values.len() {
+    if self.off != 0 && self.off != self.values.len() {
       return Err(LuceneError::illegal_state(format!("{}", self.off)));
     }
-    if self.off as usize == self.values.len() {
+    if self.off == self.values.len() {
       self
         .sub_writer
         .flush(out, &mut self.off, &mut self.values, &mut self.blocks)?;
     }
     self.values.fill(0);
     debug_assert!(self.values.len() <= i32::MAX as usize);
-    self.off = self.values.len() as i32;
+    self.off = self.values.len();
     self.ord += self.values.len();
     Ok(())
   }
@@ -159,7 +159,7 @@ pub(crate) fn write_values(
   out: &mut impl DataOutput,
   blocks: &mut Vec<u8>,
   values: &mut [i64],
-  off: i32,
+  off: usize,
 ) -> Result<()> {
   let encoder = PackedInts::get_encoder(
     Packed(PackedImpl::new(0)),
@@ -169,15 +169,15 @@ pub(crate) fn write_values(
   let iterations = values.len() / Encoder::byte_value_count(encoder) as usize;
   let block_size = Encoder::byte_block_count(encoder) as usize * iterations;
   ArrayUtil::grow_no_copy(blocks, block_size)?;
-  if (off as usize) < values.len() {
-    for value in values.iter_mut().skip(off as usize) {
+  if off < values.len() {
+    for value in values.iter_mut().skip(off) {
       *value = 0;
     }
   }
   debug_assert!(iterations <= i32::MAX as usize);
   encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
   let block_count =
-    Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
+    Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off as i32, bits_required);
   out.write_bytes_with_len(blocks, block_count as usize)?;
   Ok(())
 }
@@ -196,7 +196,7 @@ pub(crate) trait AbstractBlockPackedWriterBase {
   fn flush(
     &mut self,
     out: &mut impl DataOutput,
-    off: &mut i32,
+    off: &mut usize,
     values: &mut [i64],
     blocks: &mut Vec<u8>,
   ) -> Result<()>;

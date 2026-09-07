@@ -392,7 +392,7 @@ impl PackedInts {
   }
   /// Return the number of blocks required to store `size` values on
   /// `block_size`.
-  pub fn num_blocks(size: usize, block_size: i32) -> Result<i32> {
+  pub fn num_blocks(size: usize, block_size: i32) -> Result<usize> {
     let num_blocks = (size / block_size as usize)
       + if size.is_multiple_of(block_size as usize) {
         0
@@ -402,13 +402,12 @@ impl PackedInts {
     let result = num_blocks.checked_mul(block_size as usize);
     match result {
       Some(result) => {
-        if result < size {
+        if result < size || num_blocks > i32::MAX as usize {
           return Err(LuceneError::illegal_argument(
             "size is too large for this block size",
           ));
         }
-        i32::try_from(num_blocks)
-          .map_err(|_| LuceneError::illegal_argument("size is too large for this block size"))
+        Ok(num_blocks)
       },
       None => Err(LuceneError::illegal_argument(format!(
         "multiply overflow:block_size:{block_size}, num_blocks:{num_blocks} "

@@ -643,7 +643,7 @@ pub(crate) struct FreqProxPostingsEnum {
   start_offset: i32,
   end_offset: i32,
   pos_left: i32,
-  term_id: i32,
+  term_id: usize,
   ended: bool,
   has_payload: bool,
   payload: BytesRefBuilder<Vec<u8>>,
@@ -676,7 +676,7 @@ impl FreqProxPostingsEnum {
     }
   }
   pub fn reset(&mut self, term_id: i32) -> Result<()> {
-    self.term_id = term_id;
+    self.term_id = term_id as usize;
     self
       .terms
       .base
@@ -724,12 +724,11 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
             return Err(LuceneError::illegal_state("Unexpected postings array type"));
           };
 
-          self.doc_id = p.last_doc_ids[self.term_id as usize];
+          self.doc_id = p.last_doc_ids[self.term_id];
           self.freq = p
             .term_freqs
             .as_ref()
-            .ok_or_else(|| LuceneError::illegal_state("term_freqs not available"))?
-            [self.term_id as usize];
+            .ok_or_else(|| LuceneError::illegal_state("term_freqs not available"))?[self.term_id];
         }
       }
     } else {
@@ -742,7 +741,7 @@ impl DocIdSetIterator for FreqProxPostingsEnum {
       }
       debug_assert!(matches!(
         self.terms.base.postings_array(),
-        Some(PostingsArrayEnum::FreqProx(p)) if self.doc_id != p.last_doc_ids[self.term_id as usize]
+        Some(PostingsArrayEnum::FreqProx(p)) if self.doc_id != p.last_doc_ids[self.term_id]
       ));
     }
 

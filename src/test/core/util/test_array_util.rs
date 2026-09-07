@@ -109,7 +109,7 @@ where
   let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
   let s_chars: Vec<char> = s.chars().collect();
   chars.copy_from(&s_chars, start);
-  ArrayUtil::parse_int_default(&chars, start as i32, s.len() as i32)
+  ArrayUtil::parse_int_default(&chars, start, s.len())
 }
 #[test]
 fn test_parse_int() -> Result<()> {

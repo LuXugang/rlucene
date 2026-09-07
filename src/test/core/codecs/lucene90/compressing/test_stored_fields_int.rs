@@ -74,7 +74,7 @@ where
   let len;
   {
     let mut out = dir.create_output("tmp", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
-    StoredFieldsInts::write_ints(ints, 0, ints.len() as i32, &mut out)?;
+    StoredFieldsInts::write_ints(ints, 0, ints.len(), &mut out)?;
     len = out.get_file_pointer()?;
     if random.random_bool(0.5) {
       out.write_long(0)?;
@@ -85,7 +85,7 @@ where
     let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
     let offset = random.random_range(0..=4);
     let mut read = vec![0i64; ints.len() + offset];
-    StoredFieldsInts::read_ints(&mut input, ints.len() as i32, &mut read, offset as i32)?;
+    StoredFieldsInts::read_ints(&mut input, ints.len(), &mut read, offset)?;
 
     let read_ints: Vec<i32> = read[offset..offset + ints.len()]
       .iter()

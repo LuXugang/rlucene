@@ -28,7 +28,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::sortable_bytes_ref_array::SortableBytesRefArray;
 use crate::core::util::{
   ByteBlockPool, BytesRefComparator, Counter, MSBRadixSorterBase, SharedCounter, SliceCopyOps,
-  Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase, TryIntoInt,
+  Sorter, StableStringSorter, StableStringSorterBase, StringSorter, StringSorterBase,
 };
 
 /// A simple append-only random-access array that stores full copies of the
@@ -99,9 +99,7 @@ impl BytesRefArray {
     spare.set_length(length);
 
     spare.bytes_mut().bytes.access_mut(|bytes| {
-      self
-        .pool
-        .read_bytes(offset as i64, bytes, 0, length.try_convert()?)?;
+      self.pool.read_bytes(offset as i64, bytes, 0, length)?;
       // Help the compiler infer types.
       Ok::<(), LuceneError>(())
     })?;
@@ -137,7 +135,7 @@ impl BytesRefArray {
 
     self
       .pool
-      .set_bytes_ref(spare, result, offset as i64, length.try_convert()?)?;
+      .set_bytes_ref(spare, result, offset as i64, length)?;
     Ok(())
   }
 

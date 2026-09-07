@@ -1451,7 +1451,7 @@ where
   D: DocValuesProducer,
 {
   ords: Vec<i64>,
-  i: i32,
+  i: usize,
   doc_value_count: i32,
   value: D::SortedSetDocValues,
 }
@@ -1513,7 +1513,7 @@ where
   D: DocValuesProducer,
 {
   fn next_value(&mut self) -> Result<i64> {
-    let value = self.ords[self.i as usize];
+    let value = self.ords[self.i];
     self.i += 1;
     Ok(value)
   }

@@ -173,9 +173,9 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
 /// To implement Default, we wrap the mutable reference fields here with Option.
 pub struct AbstractIteratorBinary {
   offsets: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
-  offset: i32,
+  offset: usize,
   lengths: Arc<AbstractPagedMutable<PagedGrowableWriter>>,
-  length: i32,
+  length: usize,
   values: BytesRef<Vec<u8>>,
 }
 
@@ -197,9 +197,9 @@ impl AbstractIteratorBinary {
 impl AbstractIteratorBase for AbstractIteratorBinary {
   fn set(&mut self, idx: usize) -> Result<()> {
     debug_assert!(self.offsets.get(idx)? <= i32::MAX as i64);
-    self.offset = self.offsets.get(idx)? as i32;
+    self.offset = self.offsets.get(idx)? as usize;
     debug_assert!(self.lengths.get(idx)? <= i32::MAX as i64);
-    self.length = self.lengths.get(idx)? as i32;
+    self.length = self.lengths.get(idx)? as usize;
     Ok(())
   }
 
@@ -210,8 +210,8 @@ impl AbstractIteratorBase for AbstractIteratorBinary {
   }
 
   fn binary_value(&mut self) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    self.values.offset = self.offset as usize;
-    self.values.length = self.length as usize;
+    self.values.offset = self.offset;
+    self.values.length = self.length;
     Ok(Cow::Borrowed(&self.values))
   }
 }

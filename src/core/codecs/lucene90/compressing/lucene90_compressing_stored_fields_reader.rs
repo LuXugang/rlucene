@@ -678,7 +678,7 @@ where
       // Number of stored fields per document
       StoredFieldsInts::read_ints(
         &mut self.fields_stream,
-        self.chunk_docs,
+        self.chunk_docs as usize,
         &mut self.num_stored_fields,
         0,
       )?;
@@ -686,7 +686,7 @@ where
       // it into a list of monotonically increasing offsets
       StoredFieldsInts::read_ints(
         &mut self.fields_stream,
-        self.chunk_docs,
+        self.chunk_docs as usize,
         &mut self.offsets,
         1,
       )?;

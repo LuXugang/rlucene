@@ -47,7 +47,7 @@ pub struct MultiTermsEnum<TE> {
   last_seek_exact: bool,
   last_seek_scratch: BytesRefBuilder<Vec<u8>>,
   num_top: usize,
-  num_subs: i32,
+  num_subs: usize,
   current: Option<BytesRef<Vec<u8>>>,
   parent: Identity,
 }
@@ -104,7 +104,7 @@ where
         let entry = self.queue.entry_mut(entry_idx);
         entry.base.reset(terms_enum_index);
         self.queue.q.add(entry_idx)?;
-        self.current_subs[self.num_subs as usize] = entry_idx;
+        self.current_subs[self.num_subs] = entry_idx;
         self.num_subs += 1;
       } else {
         // field has no terms
@@ -225,7 +225,7 @@ where
     self.last_seek = None;
     self.last_seek_exact = true;
 
-    for i in 0..(self.num_subs as usize) {
+    for i in 0..self.num_subs {
       let entry_idx = self.current_subs[i];
       let status: bool;
 
@@ -306,7 +306,7 @@ where
     self.last_seek_scratch.copy_bytes_from_ref(term)?;
     self.last_seek = Some(self.last_seek_scratch.get_bytes_owner());
 
-    for i in 0..(self.num_subs as usize) {
+    for i in 0..self.num_subs {
       let entry_idx = self.current_subs[i];
       let status: SeekStatus;
 

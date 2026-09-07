@@ -41,11 +41,11 @@ impl LZ4 {
   pub const HASH_LOG_HC: i32 = 15; // log size of the dictionary for compressHC
   pub const HASH_TABLE_SIZE_HC: i32 = 1 << LZ4::HASH_LOG_HC;
 
-  fn hash(i: i32, hash_bits: i32) -> i32 {
-    ((i.wrapping_mul(-1640531535) as u32) >> (32 - hash_bits)) as i32
+  fn hash(i: i32, hash_bits: i32) -> usize {
+    ((i.wrapping_mul(-1640531535) as u32) >> (32 - hash_bits)) as usize
   }
 
-  fn hash_hc(i: i32) -> i32 {
+  fn hash_hc(i: i32) -> usize {
     Self::hash(i, LZ4::HASH_LOG_HC)
   }
 
@@ -330,10 +330,10 @@ pub trait HashTable {
   fn assert_reset(&self) -> bool;
 }
 trait Table {
-  fn set(&mut self, offset: i32, value: i32);
-  fn get_and_set(&mut self, offset: i32, value: i32) -> i32;
+  fn set(&mut self, offset: usize, value: i32);
+  fn get_and_set(&mut self, offset: usize, value: i32) -> i32;
   fn get_bits_per_value(&self) -> i32;
-  fn size(&self) -> i32;
+  fn size(&self) -> usize;
 }
 /// 16 bits per offset. This is by far the most commonly used table since it
 /// gets used whenever compressing inputs whose size is <= 64kB.
@@ -342,21 +342,21 @@ struct Table16 {
 }
 
 impl Table16 {
-  pub fn new(size: i32) -> Self {
+  pub fn new(size: usize) -> Self {
     Table16 {
-      table: vec![0; size as usize],
+      table: vec![0; size],
     }
   }
 }
 
 impl Table for Table16 {
-  fn set(&mut self, index: i32, value: i32) {
+  fn set(&mut self, index: usize, value: i32) {
     debug_assert!((0..(1 << 16)).contains(&value));
-    self.table[index as usize] = value as u16;
+    self.table[index] = value as u16;
   }
 
-  fn get_and_set(&mut self, index: i32, value: i32) -> i32 {
-    let prev = self.table[index as usize] as i32;
+  fn get_and_set(&mut self, index: usize, value: i32) -> i32 {
+    let prev = self.table[index] as i32;
     self.set(index, value);
     prev
   }
@@ -365,8 +365,8 @@ impl Table for Table16 {
     16
   }
 
-  fn size(&self) -> i32 {
-    self.table.len() as i32
+  fn size(&self) -> usize {
+    self.table.len()
   }
 }
 /// 32 bits per value, only used when inputs exceed 64kB, e.g. very large stored
@@ -376,20 +376,20 @@ pub struct Table32 {
 }
 
 impl Table32 {
-  pub fn new(size: i32) -> Self {
+  pub fn new(size: usize) -> Self {
     Table32 {
-      table: vec![0; size as usize],
+      table: vec![0; size],
     }
   }
 }
 
 impl Table for Table32 {
-  fn set(&mut self, index: i32, value: i32) {
-    self.table[index as usize] = value;
+  fn set(&mut self, index: usize, value: i32) {
+    self.table[index] = value;
   }
 
-  fn get_and_set(&mut self, index: i32, value: i32) -> i32 {
-    let prev = self.table[index as usize];
+  fn get_and_set(&mut self, index: usize, value: i32) -> i32 {
+    let prev = self.table[index];
     self.set(index, value);
     prev
   }
@@ -398,8 +398,8 @@ impl Table for Table32 {
     32
   }
 
-  fn size(&self) -> i32 {
-    self.table.len() as i32
+  fn size(&self) -> usize {
+    self.table.len()
   }
 }
 enum TableEnum {
@@ -407,14 +407,14 @@ enum TableEnum {
   Table32(Table32),
 }
 impl Table for TableEnum {
-  fn set(&mut self, offset: i32, value: i32) {
+  fn set(&mut self, offset: usize, value: i32) {
     match self {
       TableEnum::Table16(table) => table.set(offset, value),
       TableEnum::Table32(table) => table.set(offset, value),
     }
   }
 
-  fn get_and_set(&mut self, offset: i32, value: i32) -> i32 {
+  fn get_and_set(&mut self, offset: usize, value: i32) -> i32 {
     match self {
       TableEnum::Table16(table) => table.get_and_set(offset, value),
       TableEnum::Table32(table) => table.get_and_set(offset, value),
@@ -428,7 +428,7 @@ impl Table for TableEnum {
     }
   }
 
-  fn size(&self) -> i32 {
+  fn size(&self) -> usize {
     match self {
       TableEnum::Table16(table) => table.size(),
       TableEnum::Table32(table) => table.size(),
@@ -579,12 +579,12 @@ impl HighCompressionHashTable {
   fn add_hash(&mut self, off: i32, bytes: &[u8]) {
     let v = LZ4::read_int(bytes, off);
     let h = LZ4::hash_hc(v);
-    let mut delta = off - self.hash_table[h as usize];
+    let mut delta = off - self.hash_table[h];
     if delta <= 0 || delta >= LZ4::MAX_DISTANCE {
       delta = LZ4::MAX_DISTANCE - 1;
     }
     self.chain_table[(off & Self::MASK) as usize] = delta as u16;
-    self.hash_table[h as usize] = off;
+    self.hash_table[h] = off;
   }
 }
 impl HashTable for HighCompressionHashTable {
@@ -644,7 +644,7 @@ impl HashTable for HighCompressionHashTable {
     let h = LZ4::hash_hc(v);
 
     self.attempts = 0;
-    let mut ref_idx = self.hash_table[h as usize];
+    let mut ref_idx = self.hash_table[h];
     if ref_idx >= off {
       // remainder from a previous call to compress()
       return Ok(None);

@@ -72,7 +72,7 @@ fn test_duel_split_ints() -> Result<()> {
         let b_shift = TestUtil::next_int(&mut random, 1, 31);
         let dec = TestUtil::next_int(&mut random, 1, b_shift);
         let num_iters = (b_shift + dec - 1) / dec;
-        let count = TestUtil::next_int(&mut random, 1, 64 / num_iters);
+        let count = TestUtil::next_int(&mut random, 1, 64 / num_iters) as usize;
         let b_mask = random.random();
         let c_index = random.random_range(0..64);
         let c_mask = random.random();
@@ -80,7 +80,7 @@ fn test_duel_split_ints() -> Result<()> {
 
         // Work on slices that have just enough bytes so an implementation that reads more than
         // the allowed padding fails with an out-of-bounds error.
-        let slice_length = start_fp + count as usize * BitUtil::LONG_BYTES;
+        let slice_length = start_fp + count * BitUtil::LONG_BYTES;
         let mut expected_util = PostingDecodingUtil::new(input.slice("test", 0, slice_length)?);
         let mut actual_util = DEFAULT_VECTORIZATION_PROVIDER
           .new_posting_decoding_util(input.slice("test", 0, slice_length)?);

@@ -29,17 +29,17 @@ impl MonotonicLongValues {
   pub(crate) fn new(averages: Vec<f32>) -> Self {
     Self { averages }
   }
-  pub(crate) fn decode_block(&self, block: i32, dest: &mut [i64], count: i32) -> i32 {
-    let average = self.averages[block as usize];
-    for (i, item) in dest.iter_mut().enumerate().take(count as usize) {
+  pub(crate) fn decode_block(&self, block: usize, dest: &mut [i64], count: usize) -> usize {
+    let average = self.averages[block];
+    for (i, item) in dest.iter_mut().enumerate().take(count) {
       debug_assert!(i <= i32::MAX as usize);
       *item = item.wrapping_add(expected(0, average, i as i32));
     }
     count
   }
 
-  pub(crate) fn get_value(&self, block: i32, element: i32, value: u64) -> i64 {
-    expected(value as i64, self.averages[block as usize], element)
+  pub(crate) fn get_value(&self, block: usize, element: usize, value: u64) -> i64 {
+    expected(value as i64, self.averages[block], element as i32)
   }
 }
 
@@ -66,8 +66,8 @@ impl MonotonicLongValuesBuilder {
     }
   }
 
-  pub(crate) fn build(mut self, values_off: i32) -> Result<MonotonicLongValues> {
-    let _ = self.averages.split_off(values_off as usize);
+  pub(crate) fn build(mut self, values_off: usize) -> Result<MonotonicLongValues> {
+    let _ = self.averages.split_off(values_off);
 
     Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
   }
@@ -75,21 +75,21 @@ impl MonotonicLongValuesBuilder {
     size_of_vec(&self.averages)
   }
 
-  pub(crate) fn pack(&mut self, values: &mut [i64], num_values: i32, block: i32) {
+  pub(crate) fn pack(&mut self, values: &mut [i64], num_values: usize, block: usize) {
     let average = if num_values == 1 {
       0.0
     } else {
-      values[num_values as usize - 1].wrapping_sub(values[0]) as f32 / (num_values - 1) as f32
+      values[num_values - 1].wrapping_sub(values[0]) as f32 / (num_values - 1) as f32
     };
 
-    for (i, value) in values.iter_mut().enumerate().take(num_values as usize) {
+    for (i, value) in values.iter_mut().enumerate().take(num_values) {
       debug_assert!(i <= i32::MAX as usize);
       *value = value.wrapping_sub(expected(0, average, i as i32));
     }
-    self.averages[block as usize] = average;
+    self.averages[block] = average;
   }
 
-  pub(crate) fn grow(&mut self, new_block_count: i32) -> Result<()> {
-    ArrayUtil::grow_exact(&mut self.averages, new_block_count as usize)
+  pub(crate) fn grow(&mut self, new_block_count: usize) -> Result<()> {
+    ArrayUtil::grow_exact(&mut self.averages, new_block_count)
   }
 }

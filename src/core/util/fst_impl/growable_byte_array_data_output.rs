@@ -64,12 +64,9 @@ impl GrowableByteArrayDataOutput {
   }
 
   /// Copies bytes from this store to a target buffer.
-  pub fn write_to(&self, src_offset: usize, dest: &mut [u8], dest_offset: i32, len: usize) {
+  pub fn write_to(&self, src_offset: usize, dest: &mut [u8], dest_offset: usize, len: usize) {
     debug_assert!(src_offset + len <= self.next_write);
-    dest.copy_from(
-      &self.bytes[src_offset..(src_offset + len)],
-      dest_offset as usize,
-    );
+    dest.copy_from(&self.bytes[src_offset..(src_offset + len)], dest_offset);
   }
 }
 

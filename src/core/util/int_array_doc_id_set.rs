@@ -30,7 +30,7 @@ use std::rc::Rc;
 /// This is an internal API.
 pub struct IntArrayDocIdSet {
   docs: Rc<Vec<i32>>,
-  length: i32,
+  length: usize,
 }
 /// Builds an [`IntArrayDocIdSet`] from an `i32` array and its length.
 ///
@@ -67,7 +67,7 @@ impl IntArrayDocIdSet {
     );
     Ok(IntArrayDocIdSet {
       docs: Rc::new(docs),
-      length,
+      length: length_as_usize,
     })
   }
 }
@@ -102,12 +102,12 @@ impl Accountable for IntArrayDocIdSet {
 
 pub struct IntArrayDocIdSetIterator {
   docs: Rc<Vec<i32>>,
-  length: i32,
-  i: i32,
+  length: usize,
+  i: usize,
   doc: i32,
 }
 impl IntArrayDocIdSetIterator {
-  pub fn new(docs: Rc<Vec<i32>>, length: i32) -> IntArrayDocIdSetIterator {
+  pub fn new(docs: Rc<Vec<i32>>, length: usize) -> IntArrayDocIdSetIterator {
     IntArrayDocIdSetIterator {
       docs,
       length,
@@ -128,7 +128,7 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator {
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    self.doc = self.docs[self.i as usize];
+    self.doc = self.docs[self.i];
     self.i += 1;
     Ok(self.doc)
   }
@@ -137,17 +137,17 @@ impl DocIdSetIterator for IntArrayDocIdSetIterator {
     let mut bound = 1;
     // given that we use this for small arrays only, this is very unlikely
     // to overflow
-    while (self.i + bound < self.length) && (self.docs[self.i as usize + bound as usize] < target) {
+    while (self.i + bound < self.length) && (self.docs[self.i + bound] < target) {
       bound *= 2;
     }
-    let mut start = self.i as usize + (bound / 2) as usize;
-    let end = std::cmp::min(self.i + bound + 1, self.length) as usize;
+    let mut start = self.i + bound / 2;
+    let end = std::cmp::min(self.i + bound + 1, self.length);
     let index = self.docs[start..end]
       .binary_search(&target)
       .unwrap_or_else(|index| index);
     start += index;
     self.doc = self.docs[start];
-    self.i = start as i32 + 1;
+    self.i = start + 1;
     Ok(self.doc)
   }
 

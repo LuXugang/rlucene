@@ -153,23 +153,22 @@ impl ByteBlockPool {
     _builder: &mut BytesRefBuilder<AV>,
     result: &mut BytesRef<AV>,
     offset: i64,
-    length: i32,
+    length: usize,
   ) -> Result<()>
   where
     AV: SharedAccessVec<u8> + WritableVec<u8>,
   {
     result
       .bytes
-      .access_mut(|bytes| ArrayUtil::grow_no_copy(bytes, length as usize))?;
-    result.length = length as usize;
+      .access_mut(|bytes| ArrayUtil::grow_no_copy(bytes, length))?;
+    result.length = length;
     let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;
-    let pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
-    if pos + length <= BYTE_BLOCK_SIZE {
+    let pos = (offset & BYTE_BLOCK_MASK as i64) as usize;
+    if pos + length <= BYTE_BLOCK_SIZE as usize {
       // Common case: The slice lives in a single block.
-      result.bytes.copy(
-        &self.buffers[buffer_index as usize][pos as usize..(pos + length) as usize],
-        0,
-      );
+      result
+        .bytes
+        .copy(&self.buffers[buffer_index as usize][pos..pos + length], 0);
       result.offset = 0;
     } else {
       // builder.grow_no_copy(length);
@@ -190,7 +189,7 @@ impl ByteBlockPool {
   {
     bytes
       .bytes
-      .access(|bytes_ref| self.append_range(bytes_ref, bytes.offset as i32, bytes.length as i32))
+      .access(|bytes_ref| self.append_range(bytes_ref, bytes.offset, bytes.length))
   }
   /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and
   /// length.
@@ -203,11 +202,11 @@ impl ByteBlockPool {
     &mut self,
     src_pool: &ByteBlockPool,
     mut src_offset: i64,
-    length: i32,
+    length: usize,
   ) -> Result<()> {
     let mut bytes_left = length;
     while bytes_left > 0 {
-      let buffer_left = BYTE_BLOCK_SIZE - self.byte_upto;
+      let buffer_left = (BYTE_BLOCK_SIZE - self.byte_upto) as usize;
       if bytes_left < buffer_left {
         // fits within current buffer
         self.append_bytes_single_buffer(src_pool, src_offset, bytes_left)?;
@@ -228,26 +227,25 @@ impl ByteBlockPool {
     &mut self,
     src_pool: &ByteBlockPool,
     mut src_offset: i64,
-    mut length: i32,
+    mut length: usize,
   ) -> Result<()> {
-    debug_assert!(length <= BYTE_BLOCK_SIZE - self.byte_upto);
+    debug_assert!(length <= (BYTE_BLOCK_SIZE - self.byte_upto) as usize);
     debug_assert!(self.buffer_upto.is_some());
     let buffer_upto = self
       .buffer_upto
       .ok_or_else(|| LuceneError::number_format("buffer not initialized"))?;
     while length > 0 {
       let src_buffer_index: i32 = (src_offset >> BYTE_BLOCK_SHIFT).try_convert()?;
-      let src_pos = src_offset & BYTE_BLOCK_MASK as i64;
-      let bytes_to_copy = std::cmp::min(BYTE_BLOCK_SIZE - src_pos as i32, length);
+      let src_pos = (src_offset & BYTE_BLOCK_MASK as i64) as usize;
+      let bytes_to_copy = std::cmp::min(BYTE_BLOCK_SIZE as usize - src_pos, length);
       self.buffers[buffer_upto].copy_from(
-        &src_pool.buffers[src_buffer_index as usize]
-          [src_pos as usize..(src_pos + bytes_to_copy as i64) as usize],
+        &src_pool.buffers[src_buffer_index as usize][src_pos..src_pos + bytes_to_copy],
         self.byte_upto as usize,
       );
 
       length -= bytes_to_copy;
       src_offset += bytes_to_copy as i64;
-      self.byte_upto += bytes_to_copy;
+      self.byte_upto += bytes_to_copy as i32;
     }
     Ok(())
   }
@@ -257,7 +255,7 @@ impl ByteBlockPool {
   /// # Arguments
   /// * `bytes` - The byte array to write.
   pub fn append(&mut self, bytes: &[u8]) -> Result<()> {
-    let length = bytes.len() as i32;
+    let length = bytes.len();
     self.append_range(bytes, 0, length)
   }
   /// Appends the bytes from a source [`ByteBlockPool`] at a given offset and
@@ -267,24 +265,22 @@ impl ByteBlockPool {
   /// * `src_pool` - The source pool to copy from.
   /// * `src_offset` - The source pool offset.
   /// * `length` - The number of bytes to copy.
-  pub fn append_range(&mut self, bytes: &[u8], mut offset: i32, length: i32) -> Result<()> {
+  pub fn append_range(&mut self, bytes: &[u8], mut offset: usize, length: usize) -> Result<()> {
     let mut bytes_left = length;
     let mut buffer_upto = self.buffer_upto.unwrap_or_default();
     while bytes_left > 0 {
-      let buffer_left = BYTE_BLOCK_SIZE - self.byte_upto;
+      let buffer_left = (BYTE_BLOCK_SIZE - self.byte_upto) as usize;
       if bytes_left < buffer_left {
         // fits within current buffer
-        self.buffers[buffer_upto].copy_from(
-          &bytes[offset as usize..(offset + bytes_left) as usize],
-          self.byte_upto as usize,
-        );
-        self.byte_upto += bytes_left;
+        self.buffers[buffer_upto]
+          .copy_from(&bytes[offset..offset + bytes_left], self.byte_upto as usize);
+        self.byte_upto += bytes_left as i32;
         break;
       } else {
         // fill up this buffer and move to next one
         if buffer_left > 0 {
           self.buffers[buffer_upto].copy_from(
-            &bytes[offset as usize..(offset + buffer_left) as usize],
+            &bytes[offset..offset + buffer_left],
             self.byte_upto as usize,
           );
         }
@@ -305,19 +301,16 @@ impl ByteBlockPool {
     &self,
     offset: i64,
     bytes: &mut [u8],
-    mut bytes_offset: i32,
-    bytes_length: i32,
+    mut bytes_offset: usize,
+    bytes_length: usize,
   ) -> Result<()> {
     let mut bytes_left = bytes_length;
     let buffer_index: i32 = (offset >> BYTE_BLOCK_SHIFT).try_convert()?;
     let mut buffer_index = buffer_index as usize;
-    let mut pos = (offset & BYTE_BLOCK_MASK as i64) as i32;
+    let mut pos = (offset & BYTE_BLOCK_MASK as i64) as usize;
     while bytes_left > 0 {
-      let chunk = std::cmp::min(BYTE_BLOCK_SIZE - pos, bytes_left);
-      bytes.copy_from(
-        &self.buffers[buffer_index][pos as usize..(pos + chunk) as usize],
-        bytes_offset as usize,
-      );
+      let chunk = std::cmp::min(BYTE_BLOCK_SIZE as usize - pos, bytes_left);
+      bytes.copy_from(&self.buffers[buffer_index][pos..pos + chunk], bytes_offset);
 
       bytes_offset += chunk;
       bytes_left -= chunk;

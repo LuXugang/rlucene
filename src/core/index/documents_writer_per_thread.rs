@@ -83,7 +83,7 @@ where
   pending_num_docs: Arc<AtomicI64>,
   enable_test_points: bool,
   delete_doc_ids: Vec<i32>,
-  num_deleted_doc_ids: i32,
+  num_deleted_doc_ids: usize,
   index_major_version_created: i32,
   files_to_delete: HashSet<String>,
   aborting_exception: OnceLock<CaughtResult>,
@@ -510,11 +510,11 @@ where
   fn delete_last_docs(&mut self, doc_count: i32) -> Result<()> {
     let from = self.state.num_docs_in_ram.load(SeqCst) - doc_count;
     let to = self.state.num_docs_in_ram.load(SeqCst);
-    let new_len = self.num_deleted_doc_ids + (to - from);
-    ArrayUtil::grow_i32(&mut self.delete_doc_ids, new_len as usize)?;
+    let new_len = self.num_deleted_doc_ids + (to - from) as usize;
+    ArrayUtil::grow_i32(&mut self.delete_doc_ids, new_len)?;
 
     for doc_id in from..to {
-      self.delete_doc_ids[self.num_deleted_doc_ids as usize] = doc_id;
+      self.delete_doc_ids[self.num_deleted_doc_ids] = doc_id;
       self.num_deleted_doc_ids += 1;
     }
     // NOTE: we do not trigger flush here.  This is
@@ -601,11 +601,11 @@ where
       live_docs.set_with_range(0, self.state.num_docs_in_ram.load(SeqCst) as usize);
 
       for i in 0..self.num_deleted_doc_ids {
-        live_docs.clear_with_index(self.delete_doc_ids[i as usize] as usize)?;
+        live_docs.clear_with_index(self.delete_doc_ids[i] as usize)?;
       }
 
       flush_state.live_docs = Some(live_docs);
-      flush_state.del_count_on_flush = self.num_deleted_doc_ids;
+      flush_state.del_count_on_flush = self.num_deleted_doc_ids as i32;
       self.delete_doc_ids.clear();
       self.num_deleted_doc_ids = 0;
     }

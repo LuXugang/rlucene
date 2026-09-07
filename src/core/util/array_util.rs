@@ -53,7 +53,7 @@ impl ArrayUtil {
   ///
   /// Returns a [`LuceneError::NumberFormat`] if it can't parse the chars into
   /// an integer.
-  pub fn parse_int_default(chars: &[char], offset: i32, len: i32) -> Result<i32> {
+  pub fn parse_int_default(chars: &[char], offset: usize, len: usize) -> Result<i32> {
     Self::parse_int(chars, offset, len, 10)
   }
 
@@ -61,7 +61,7 @@ impl ArrayUtil {
   /// result. Returns an [`LuceneError::NumberFormat`] if the string does not
   /// represent an `i32` quantity. The second argument specifies the radix
   /// to use when parsing the value.
-  pub fn parse_int(chars: &[char], mut offset: i32, mut len: i32, radix: i32) -> Result<i32> {
+  pub fn parse_int(chars: &[char], mut offset: usize, mut len: usize, radix: i32) -> Result<i32> {
     if !(ArrayUtil::MIN_RADIX..=ArrayUtil::MAX_RADIX).contains(&radix) {
       return Err(LuceneError::number_format("Invalid radix"));
     }
@@ -69,7 +69,7 @@ impl ArrayUtil {
       return Err(LuceneError::number_format("chars length is 0"));
     }
     let mut i = 0;
-    let negative = chars[(offset + i) as usize] == '-';
+    let negative = chars[offset + i] == '-';
     if negative {
       i += 1;
       if i == len {
@@ -83,11 +83,17 @@ impl ArrayUtil {
     Self::parse(chars, offset, len, radix, negative)
   }
 
-  pub fn parse(chars: &[char], offset: i32, len: i32, radix: i32, negative: bool) -> Result<i32> {
+  pub fn parse(
+    chars: &[char],
+    offset: usize,
+    len: usize,
+    radix: i32,
+    negative: bool,
+  ) -> Result<i32> {
     let max = i32::MIN / radix;
     let mut result = 0;
     for i in 0..len {
-      let digit = chars[(offset + i) as usize]
+      let digit = chars[offset + i]
         .to_digit(radix as u32)
         .ok_or_else(|| LuceneError::number_format("Unable to parse"))?;
       if max > result {

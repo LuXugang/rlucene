@@ -25,8 +25,8 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 
 pub struct CharTokenizer<S> {
   offset: i32,
-  buffer_index: i32,
-  data_len: i32,
+  buffer_index: usize,
+  data_len: usize,
   final_offset: i32,
   max_token_len: usize,
   io_buffer: CharacterBuffer,
@@ -93,7 +93,7 @@ where
     let mut end: i32 = -1;
     loop {
       if self.buffer_index >= self.data_len {
-        self.offset += self.data_len;
+        self.offset += self.data_len as i32;
         // // read supplementary char aware with CharacterUtils
         CharacterUtils::fill(&mut self.io_buffer, &mut self.tokenizer_base.input)?;
         if self.io_buffer.get_length() == 0 {
@@ -106,16 +106,16 @@ where
             return Ok(false);
           }
         }
-        self.data_len = self.io_buffer.get_length() as i32;
+        self.data_len = self.io_buffer.get_length();
         self.buffer_index = 0;
       }
-      let c = self.io_buffer.get_buffer()[self.buffer_index as usize];
+      let c = self.io_buffer.get_buffer()[self.buffer_index];
       self.buffer_index += 1;
       if self.sub.is_token_char(&c) {
         if length == 0 {
           // start of token
           debug_assert_eq!(start, -1);
-          start = self.offset + self.buffer_index - 1;
+          start = self.offset + self.buffer_index as i32 - 1;
           end = start;
         } else if length
           >= self

@@ -24,7 +24,6 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::index::segment_infos::SegmentInfos;
 use crate::core::store::directory::Directory;
 use crate::core::util::CoreHelper;
-use crate::core::util::TryIntoInt;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -1004,15 +1003,18 @@ where
 
     let mut spec: Option<DefaultMergeSpecification<D>> = None;
 
-    let mut index: i32 = (starting_segment_count - 1).try_convert()?;
+    let mut index = starting_segment_count.checked_sub(1);
     let mut resulting_segments = starting_segment_count;
 
     loop {
       let mut candidate = Vec::new();
       let mut current_candidate_bytes: i64 = 0;
 
-      while index >= 0 && resulting_segments > max_segment_count {
-        let sorted_size_and_doc = &sorted_size_and_docs[index as usize];
+      while let Some(current_index) = index {
+        if resulting_segments <= max_segment_count {
+          break;
+        }
+        let sorted_size_and_doc = &sorted_size_and_docs[current_index];
         let initial_candidate_size = candidate.len();
         let current_segment_size = sorted_size_and_doc.size_in_seg;
         // We either add to the bin because there's space or because the it is the smallest possible
@@ -1026,7 +1028,7 @@ where
             sorted_size_and_doc.size_in_seg,
             sorted_size_and_doc.max_doc,
           ));
-          index -= 1;
+          index = current_index.checked_sub(1);
           current_candidate_bytes += current_segment_size;
           if initial_candidate_size > 0 {
             // Any merge that handles two or more segments reduces the resulting number of segments

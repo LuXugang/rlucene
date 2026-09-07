@@ -34,7 +34,7 @@ pub struct DirectMonotonicWriter<'a, I1, I2> {
   num_values: i64,
   base_data_pointer: usize,
   buffer: Vec<i64>,
-  buffer_size: i32,
+  buffer_size: usize,
   count: i64,
   finished: bool,
   previous: i64,
@@ -80,8 +80,8 @@ where
     }
 
     let block_size = 1i64 << block_shift;
-    let buffer_len = std::cmp::min(num_values, block_size) as i32;
-    let buffer = vec![0i64; buffer_len as usize];
+    let buffer_len = std::cmp::min(num_values, block_size) as usize;
+    let buffer = vec![0i64; buffer_len];
     let base_data_pointer = data_out.get_file_pointer()?;
 
     Ok(DirectMonotonicWriter {
@@ -100,20 +100,20 @@ where
     debug_assert!(self.buffer_size != 0);
 
     let avg_inc = {
-      let numerator = self.buffer[(self.buffer_size - 1) as usize].wrapping_sub(self.buffer[0]);
+      let numerator = self.buffer[self.buffer_size - 1].wrapping_sub(self.buffer[0]);
       let denominator = std::cmp::max(1, self.buffer_size - 1) as f64;
       (numerator as f64 / denominator) as f32
     };
 
     let mut min = i64::MAX;
-    for i in 0..(self.buffer_size as usize) {
+    for i in 0..self.buffer_size {
       let expected = (avg_inc * (i as f32)) as i64;
       self.buffer[i] = self.buffer[i].wrapping_sub(expected);
       min = std::cmp::min(self.buffer[i], min);
     }
 
     let mut max_delta = 0;
-    for i in 0..(self.buffer_size as usize) {
+    for i in 0..self.buffer_size {
       self.buffer[i] = self.buffer[i].wrapping_sub(min);
       // use | will change nothing when it comes to computing required
       // bits but has the benefit of working fine with
@@ -132,7 +132,7 @@ where
       let bits_required = unsigned_bits_required(max_delta);
       let mut writer =
         DirectWriter::get_instance(self.data, self.buffer_size as i64, bits_required)?;
-      for i in 0..(self.buffer_size as usize) {
+      for i in 0..self.buffer_size {
         writer.add(self.buffer[i])?;
       }
       writer.finish()?;
@@ -153,10 +153,10 @@ where
         self.previous, v
       )));
     }
-    if self.buffer_size as usize == self.buffer.len() {
+    if self.buffer_size == self.buffer.len() {
       self.flush()?;
     }
-    self.buffer[self.buffer_size as usize] = v;
+    self.buffer[self.buffer_size] = v;
     self.buffer_size += 1;
     self.previous = v;
     self.count += 1;

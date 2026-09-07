@@ -58,10 +58,6 @@ impl FilteringTokenFilterBase for StopFilter {
   fn accept(&self, att: &Attributes) -> Result<bool> {
     let length = att.length()?;
     debug_assert!(length <= i32::MAX as usize);
-    Ok(
-      !self
-        .stop_words
-        .contains_key(att.buffer()?, 0, length as i32),
-    )
+    Ok(!self.stop_words.contains_key(att.buffer()?, 0, length))
   }
 }

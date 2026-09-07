@@ -420,9 +420,9 @@ where
     self.scratch_bytes.set_position(0)?;
 
     let do_fixed_length_arcs = self.should_expand_node_with_fixed_length_arcs(node_in);
-    if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs as usize {
-      ArrayUtil::grow_no_copy(&mut self.num_bytes_per_arc, node_in.num_arcs as usize)?;
-      ArrayUtil::grow_no_copy(&mut self.num_label_bytes_per_arc, node_in.num_arcs as usize)?;
+    if do_fixed_length_arcs && self.num_bytes_per_arc.len() < node_in.num_arcs {
+      ArrayUtil::grow_no_copy(&mut self.num_bytes_per_arc, node_in.num_arcs)?;
+      ArrayUtil::grow_no_copy(&mut self.num_label_bytes_per_arc, node_in.num_arcs)?;
     }
 
     self.arc_count += node_in.num_arcs as i64;
@@ -432,17 +432,12 @@ where
     let mut max_bytes_per_arc = 0;
     let mut max_bytes_per_arc_without_label = 0;
 
-    for (arc_idx, arc) in node_in
-      .arcs
-      .iter()
-      .enumerate()
-      .take(node_in.num_arcs as usize)
-    {
+    for (arc_idx, arc) in node_in.arcs.iter().enumerate().take(node_in.num_arcs) {
       match &arc.target {
         NodeEnum::CompiledNode(target) => {
           let mut flags = 0;
 
-          if arc_idx == last_arc as usize {
+          if arc_idx == last_arc {
             flags |= BIT_LAST_ARC as i32;
           }
 
@@ -546,9 +541,9 @@ where
      */
     if do_fixed_length_arcs {
       debug_assert!(max_bytes_per_arc > 0);
-      let label_range = node_in.arcs[last_arc as usize].label - node_in.arcs[0].label + 1;
+      let label_range = node_in.arcs[last_arc].label - node_in.arcs[0].label + 1;
       debug_assert!(label_range > 0);
-      let continuous_label = label_range == node_in.num_arcs;
+      let continuous_label = label_range == node_in.num_arcs as i32;
       if continuous_label && self.version >= VERSION_CONTINUOUS_ARCS {
         self.write_node_for_direct_addressing_or_continuous(
           node_in_idx,
@@ -652,8 +647,8 @@ where
   fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<O::V>) -> bool {
     self.allow_fixed_length_arcs
       && ((node.depth <= FIXED_LENGTH_ARC_SHALLOW_DEPTH
-        && node.num_arcs >= FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
-        || node.num_arcs >= FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
+        && node.num_arcs >= FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS as usize)
+        || node.num_arcs >= FIXED_LENGTH_ARC_DEEP_NUM_ARCS as usize)
   }
   /// Returns whether the given node should be expanded with direct addressing
   /// instead of binary search.
@@ -676,10 +671,10 @@ where
   ) -> Result<bool> {
     // Anticipate precisely the size of the encodings.
     let node_in = &self.frontier[node_in_idx];
-    let size_for_binary_search = num_bytes_per_arc * node_in.num_arcs;
+    let size_for_binary_search = num_bytes_per_arc * node_in.num_arcs as i32;
     let size_for_direct_addressing = get_num_presence_bytes(label_range)
       + self.num_label_bytes_per_arc[0]
-      + max_bytes_per_arc_without_label * node_in.num_arcs;
+      + max_bytes_per_arc_without_label * node_in.num_arcs as i32;
 
     // Determine the allowed oversize compared to binary search.
     // This is defined by a parameter of FST Builder (default 1: no
@@ -722,7 +717,9 @@ where
       .fixed_length_arcs_buffer
       .write_byte(ARCS_FOR_BINARY_SEARCH)?;
     let node_in = &self.frontier[node_in_idx];
-    self.fixed_length_arcs_buffer.write_vint(node_in.num_arcs)?;
+    self
+      .fixed_length_arcs_buffer
+      .write_vint(node_in.num_arcs as i32)?;
     self
       .fixed_length_arcs_buffer
       .write_vint(max_bytes_per_arc)?;
@@ -730,7 +727,7 @@ where
     let header_len = self.fixed_length_arcs_buffer.get_position();
     // Expand the arcs in place, backwards.
     let src_pos = self.scratch_bytes.get_position();
-    let dest_pos = (header_len + node_in.num_arcs * max_bytes_per_arc) as usize;
+    let dest_pos = header_len + (node_in.num_arcs as i32 * max_bytes_per_arc) as usize;
 
     debug_assert!(dest_pos >= src_pos);
 
@@ -741,7 +738,7 @@ where
       let mut src_pos = src_pos;
       let mut dest_pos = dest_pos;
       let max_bytes_per_arc = max_bytes_per_arc as usize;
-      for arc_idx in (0..node_in.num_arcs as usize).rev() {
+      for arc_idx in (0..node_in.num_arcs).rev() {
         dest_pos -= max_bytes_per_arc;
         let arc_len = arc_bytes[arc_idx] as usize;
         src_pos -= arc_len;
@@ -762,10 +759,10 @@ where
     }
 
     // Write header at the beginning
-    self.scratch_bytes.get_bytes().copy_from(
-      &self.fixed_length_arcs_buffer.get_bytes()[..header_len as usize],
-      0,
-    );
+    self
+      .scratch_bytes
+      .get_bytes()
+      .copy_from(&self.fixed_length_arcs_buffer.get_bytes()[..header_len], 0);
 
     Ok(())
   }
@@ -814,13 +811,14 @@ where
     let num_presence_bytes = if continuous {
       0
     } else {
-      get_num_presence_bytes(label_range)
+      get_num_presence_bytes(label_range) as usize
     };
 
-    let mut src_pos = self.scratch_bytes.get_position() as i32;
+    let mut src_pos = self.scratch_bytes.get_position();
     let node_in = &self.frontier[node_in_idx];
-    let total_arc_bytes =
-      self.num_label_bytes_per_arc[0] + node_in.num_arcs * max_bytes_per_arc_without_label;
+    let total_arc_bytes = (self.num_label_bytes_per_arc[0]
+      + node_in.num_arcs as i32 * max_bytes_per_arc_without_label)
+      as usize;
 
     let mut buffer_offset = header_max_len + num_presence_bytes + total_arc_bytes;
     self
@@ -828,34 +826,31 @@ where
       .ensure_capacity(buffer_offset)?;
     let buffer = self.fixed_length_arcs_buffer.get_bytes();
     // Copy the arcs to the buffer, dropping all labels except first one.
-    for arc_idx in (0..node_in.num_arcs as usize).rev() {
-      buffer_offset -= max_bytes_per_arc_without_label;
-      let src_arc_len = self.num_bytes_per_arc[arc_idx];
+    for arc_idx in (0..node_in.num_arcs).rev() {
+      buffer_offset -= max_bytes_per_arc_without_label as usize;
+      let src_arc_len = self.num_bytes_per_arc[arc_idx] as usize;
       src_pos -= src_arc_len;
-      let label_len = self.num_label_bytes_per_arc[arc_idx];
+      let label_len = self.num_label_bytes_per_arc[arc_idx] as usize;
       self
         .scratch_bytes
-        .write_to(src_pos as usize, buffer, buffer_offset, 1);
+        .write_to(src_pos, buffer, buffer_offset, 1);
       // Skip the label, copy the remaining.
       let remaining_len = src_arc_len - 1 - label_len;
       if remaining_len != 0 {
         self.scratch_bytes.write_to(
-          (src_pos + 1 + label_len) as usize,
+          src_pos + 1 + label_len,
           buffer,
           buffer_offset + 1,
-          remaining_len as usize,
+          remaining_len,
         );
       }
 
       // Copy label for first arc only
       if arc_idx == 0 {
         buffer_offset -= label_len;
-        self.scratch_bytes.write_to(
-          (src_pos + 1) as usize,
-          buffer,
-          buffer_offset,
-          label_len as usize,
-        );
+        self
+          .scratch_bytes
+          .write_to(src_pos + 1, buffer, buffer_offset, label_len);
       }
     }
 
@@ -884,7 +879,7 @@ where
     self.scratch_bytes.write_bytes_range(
       self.fixed_length_arcs_buffer.get_bytes(),
       0,
-      header_len as usize,
+      header_len,
     )?;
 
     // Write presence bits if not continuous
@@ -892,20 +887,20 @@ where
       self.write_presence_bits(node_in_idx)?;
       debug_assert_eq!(
         self.scratch_bytes.get_position(),
-        (header_len + num_presence_bytes) as usize
+        header_len + num_presence_bytes
       );
     }
 
     // Write first label + arcs
     self.scratch_bytes.write_bytes_range(
       self.fixed_length_arcs_buffer.get_bytes(),
-      buffer_offset as usize,
-      total_arc_bytes as usize,
+      buffer_offset,
+      total_arc_bytes,
     )?;
 
     debug_assert_eq!(
       self.scratch_bytes.get_position(),
-      (header_len + num_presence_bytes + total_arc_bytes) as usize
+      header_len + num_presence_bytes + total_arc_bytes
     );
     Ok(())
   }
@@ -917,7 +912,7 @@ where
     let mut previous_label = node_in.arcs[0].label;
 
     let byte_size = i8::BITS as i32;
-    for arc_idx in 1..node_in.num_arcs as usize {
+    for arc_idx in 1..node_in.num_arcs {
       let label = node_in.arcs[arc_idx].label;
       debug_assert!(label > previous_label);
       presence_index += label - previous_label;
@@ -933,7 +928,7 @@ where
     }
 
     debug_assert!({
-      let last_label = node_in.arcs[node_in.num_arcs as usize - 1].label;
+      let last_label = node_in.arcs[node_in.num_arcs - 1].label;
       let first_label = node_in.arcs[0].label;
       presence_index == (last_label - first_label) % 8
     });
@@ -1324,7 +1319,7 @@ impl Node for CompiledNode {
 }
 /// Expert: holds a pending (seen but not yet serialized) Node.
 pub(crate) struct UnCompiledNode<T> {
-  pub(crate) num_arcs: i32,
+  pub(crate) num_arcs: usize,
   pub(crate) arcs: Vec<Arc<T>>,
   pub(crate) output: T,
   pub(crate) is_final: bool,
@@ -1364,25 +1359,25 @@ where
 
   pub(crate) fn get_last_output(&self, label_to_match: i32) -> T {
     debug_assert!(self.num_arcs > 0);
-    debug_assert!(self.arcs[self.num_arcs as usize - 1].label == label_to_match);
-    self.arcs[self.num_arcs as usize - 1].output.clone()
+    debug_assert!(self.arcs[self.num_arcs - 1].label == label_to_match);
+    self.arcs[self.num_arcs - 1].output.clone()
   }
 
   pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum, no_outputs: T) -> Result<()> {
     debug_assert!(label >= 0);
     debug_assert!(
-      self.num_arcs == 0 || label > self.arcs[self.num_arcs as usize - 1].label,
+      self.num_arcs == 0 || label > self.arcs[self.num_arcs - 1].label,
       "arc[numArcs-1].label={} new label={} numArcs={}",
-      self.arcs[self.num_arcs as usize - 1].label,
+      self.arcs[self.num_arcs - 1].label,
       label,
       self.num_arcs
     );
 
-    if self.num_arcs as usize == self.arcs.len() {
+    if self.num_arcs == self.arcs.len() {
       ArrayUtil::grow(&mut self.arcs)?;
     }
 
-    let arc = &mut self.arcs[self.num_arcs as usize];
+    let arc = &mut self.arcs[self.num_arcs];
     self.num_arcs += 1;
     arc.label = label;
     arc.target = target;
@@ -1399,7 +1394,7 @@ where
     is_final: bool,
   ) {
     debug_assert!(self.num_arcs > 0);
-    let arc = &mut self.arcs[self.num_arcs as usize - 1];
+    let arc = &mut self.arcs[self.num_arcs - 1];
     debug_assert_eq!(
       arc.label, label_to_match,
       "arc.label={} vs {}",
@@ -1423,7 +1418,7 @@ where
     debug_assert!(compiler.valid_output(&new_output));
     let un_compile_node = &mut compiler.frontier[node_idx];
     debug_assert!(un_compile_node.num_arcs > 0);
-    let arc = &mut un_compile_node.arcs[un_compile_node.num_arcs as usize - 1];
+    let arc = &mut un_compile_node.arcs[un_compile_node.num_arcs - 1];
     debug_assert_eq!(arc.label, label_to_match);
     arc.output = new_output;
     Ok(())
@@ -1441,7 +1436,7 @@ where
   {
     debug_assert!(compiler.valid_output(output_prefix));
     let un_compiled_node = &mut compiler.frontier[node_index];
-    for i in 0..un_compiled_node.num_arcs as usize {
+    for i in 0..un_compiled_node.num_arcs {
       let new_output = compiler
         .fst
         .outputs
@@ -1487,9 +1482,9 @@ impl FixedLengthArcsBuffer {
     Self { bado }
   }
   /// Ensures the capacity of the internal byte array. Enlarges it if needed.
-  pub(crate) fn ensure_capacity(&mut self, capacity: i32) -> Result<()> {
-    if self.bado.bytes.len() < capacity as usize {
-      ArrayUtil::grow_no_copy(&mut self.bado.bytes, capacity as usize)?;
+  pub(crate) fn ensure_capacity(&mut self, capacity: usize) -> Result<()> {
+    if self.bado.bytes.len() < capacity {
+      ArrayUtil::grow_no_copy(&mut self.bado.bytes, capacity)?;
       self.bado.reset()?;
     }
     Ok(())
@@ -1507,8 +1502,8 @@ impl FixedLengthArcsBuffer {
     self.bado.write_vint(i)
   }
 
-  pub(crate) fn get_position(&self) -> i32 {
-    self.bado.get_position() as i32
+  pub(crate) fn get_position(&self) -> usize {
+    self.bado.get_position()
   }
 
   /// Gets the internal byte array.

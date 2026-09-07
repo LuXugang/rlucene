@@ -28,7 +28,7 @@ use crate::core::util::error::lucene_error::Result;
 /// score, or the maximum scoring clause if there is no such clause.
 pub struct DisjunctionScoreBlockBoundaryPropagator {
   cost: Vec<Cost>,
-  lead_index: i32,
+  lead_index: usize,
 }
 impl DisjunctionScoreBlockBoundaryPropagator {
   pub(crate) fn new<S>(scorers: &mut [S]) -> Result<Self>
@@ -61,14 +61,14 @@ impl DisjunctionScoreBlockBoundaryPropagator {
   {
     // For scorers that are below the lead index, just propagate.
     for i in 0..self.lead_index {
-      let s = &mut scorers[self.cost[i as usize].idx].scorer;
+      let s = &mut scorers[self.cost[i].idx].scorer;
       if s.doc_id()? < target {
         s.advance_shallow(target)?;
       }
     }
 
     // For scorers above the lead index, we take the minimum boundary.
-    let lead_idx = self.lead_index as usize;
+    let lead_idx = self.lead_index;
     let lead_scorer = &mut scorers[self.cost[lead_idx].idx];
     let doc_id = lead_scorer.scorer.doc_id()?;
     let mut upto = lead_scorer
@@ -87,7 +87,7 @@ impl DisjunctionScoreBlockBoundaryPropagator {
     // docID as a boundary. It helps not consider them when computing the
     // maximum score and get a lower score upper bound.
     let mut i = self.cost.len() - 1;
-    while i > self.lead_index as usize {
+    while i > self.lead_index {
       let scorer = &mut scorers[self.cost[i].idx];
       let doc = scorer.scorer.doc_id()?;
       if doc > target {
@@ -104,8 +104,8 @@ impl DisjunctionScoreBlockBoundaryPropagator {
   /// Set the minimum competitive score to filter out clauses that score less than this threshold.
   pub(crate) fn set_min_competitive_score(&mut self, min_score: f32) {
     // Update the lead index if necessary
-    while ((self.lead_index as usize) < self.cost.len() - 1)
-      && min_score > self.cost[self.lead_index as usize].max_score
+    while (self.lead_index + 1 < self.cost.len())
+      && min_score > self.cost[self.lead_index].max_score
     {
       self.lead_index += 1;
     }

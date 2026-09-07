@@ -37,7 +37,7 @@ pub(crate) struct NearestNeighbor;
 #[derive(Clone)]
 pub(crate) struct Cell<PT> {
   index: PT,
-  reader_index: i32,
+  reader_index: usize,
   min_packed: Vec<u8>,
   max_packed: Vec<u8>,
   distance_sort_key: f64,
@@ -46,7 +46,7 @@ pub(crate) struct Cell<PT> {
 impl<PT> Cell<PT> {
   pub(crate) fn new(
     index: PT,
-    reader_index: i32,
+    reader_index: usize,
     min_packed: Vec<u8>,
     max_packed: Vec<u8>,
     distance_sort_key: f64,
@@ -333,7 +333,7 @@ where
     );
     cell_queue.push(Cell::new(
       index_tree,
-      i as i32,
+      i,
       min_packed_value,
       max_packed_value,
       distance_sort_key,
@@ -347,8 +347,8 @@ where
 
     if !cell.index.move_to_child()? {
       // Leaf block: visit all points and possibly collect them:
-      visitor.cur_doc_base = doc_bases[cell.reader_index as usize];
-      visitor.cur_live_docs = live_docs[cell.reader_index as usize].as_ref();
+      visitor.cur_doc_base = doc_bases[cell.reader_index];
+      visitor.cur_live_docs = live_docs[cell.reader_index].as_ref();
       cell.index.visit_doc_values(&mut visitor)?;
     } else {
       // Non-leaf block: split into two cells and put them back into the queue:

@@ -43,8 +43,8 @@ use crate::core::util::{
 ///
 pub struct BytesRefHash<BSA> {
   pool: BytesRefBlockPool,
-  hash_size: i32,
-  hash_half_size: i32,
+  hash_size: usize,
+  hash_half_size: usize,
   hash_mask: i32,
   pub(crate) count: i32,
   last_count: i32,
@@ -65,17 +65,17 @@ impl<BSA> BytesRefHash<BSA>
 where
   BSA: BytesStartArray,
 {
-  pub fn from_bytes_start_array(capacity: i32, mut bytes_start_array: BSA) -> Result<Self> {
+  pub fn from_bytes_start_array(capacity: usize, mut bytes_start_array: BSA) -> Result<Self> {
     bytes_start_array.init()?;
     let bytes_used = bytes_start_array.bytes_used();
     let ref_pool = BytesRefBlockPool::new();
-    let ids = vec![-1; capacity as usize];
+    let ids = vec![-1; capacity];
     bytes_used.add_and_get(size_of_vec(&ids));
     Ok(BytesRefHash {
       pool: ref_pool,
       hash_size: capacity,
       hash_half_size: capacity >> 1,
-      hash_mask: capacity - 1,
+      hash_mask: capacity as i32 - 1,
       count: 0,
       last_count: -1,
       ids,
@@ -136,7 +136,7 @@ where
     );
 
     let mut upto = 0;
-    for i in 0..self.hash_size as usize {
+    for i in 0..self.hash_size {
       if self.ids[i] != -1 {
         if upto < i {
           self.ids[upto] = self.ids[i];
@@ -175,7 +175,7 @@ where
     }
     Ok(())
   }
-  fn shrink(&mut self, target_size: i32) -> bool {
+  fn shrink(&mut self, target_size: usize) -> bool {
     // Cannot use ArrayUtil.shrink because we require power of 2:
     let mut new_size = self.hash_size;
 
@@ -186,12 +186,12 @@ where
     if new_size != self.hash_size {
       let old_size = size_of_vec(&self.ids);
       self.hash_size = new_size;
-      self.ids = vec![-1; self.hash_size as usize];
+      self.ids = vec![-1; self.hash_size];
       self
         .bytes_used
         .add_and_get(size_of_vec(&self.ids).saturating_sub(old_size));
       self.hash_half_size = new_size / 2;
-      self.hash_mask = new_size - 1;
+      self.hash_mask = (new_size - 1) as i32;
       true
     } else {
       false
@@ -208,7 +208,7 @@ where
 
     self.bytes_start_array.clear();
 
-    if self.last_count != -1 && self.shrink(self.last_count) {
+    if self.last_count != -1 && self.shrink(self.last_count as usize) {
       // shrink clears the hash entries
       return;
     }
@@ -276,7 +276,7 @@ where
         self.ids[hash_pos] = e;
       }
 
-      if self.count == self.hash_half_size {
+      if self.count as usize == self.hash_half_size {
         self.rehash(2 * self.hash_size, true, byte_block_pool)?;
       }
 
@@ -304,8 +304,8 @@ where
     let mut code = do_hash(&bytes.bytes, bytes.offset, bytes.length);
 
     // final position
-    let mut hash_pos = code & self.hash_mask;
-    let mut e = self.ids[hash_pos as usize];
+    let mut hash_pos = (code & self.hash_mask) as usize;
+    let mut e = self.ids[hash_pos];
     if e != -1
       && !self.pool.equals(
         self.bytes_start_array.get_value(e as usize)?,
@@ -315,8 +315,8 @@ where
     {
       loop {
         code = code.wrapping_add(1);
-        hash_pos = code & self.hash_mask;
-        e = self.ids[hash_pos as usize];
+        hash_pos = (code & self.hash_mask) as usize;
+        e = self.ids[hash_pos];
         if e == -1
           || self.pool.equals(
             self.bytes_start_array.get_value(e as usize)?,
@@ -328,8 +328,7 @@ where
         }
       }
     }
-    debug_assert!(hash_pos >= 0);
-    Ok(hash_pos as usize)
+    Ok(hash_pos)
   }
   /// Adds an "arbitrary" integer offset instead of a [`BytesRef`] term.
   ///
@@ -349,14 +348,14 @@ where
 
     // Final position
     let mut code = offset;
-    let mut hash_pos = offset & self.hash_mask;
-    let mut e = self.ids[hash_pos as usize];
+    let mut hash_pos = (offset & self.hash_mask) as usize;
+    let mut e = self.ids[hash_pos];
     let length = self.bytes_start_array.len()?;
     // Resolve hash conflicts
     while e != -1 && self.bytes_start_array.get_value(e as usize)? != offset {
       code = code.wrapping_add(1);
-      hash_pos = code & self.hash_mask;
-      e = self.ids[hash_pos as usize];
+      hash_pos = (code & self.hash_mask) as usize;
+      e = self.ids[hash_pos];
     }
 
     if e == -1 {
@@ -376,10 +375,10 @@ where
       self.count += 1;
       self.bytes_start_array.set_value(e as usize, offset)?;
 
-      debug_assert_eq!(self.ids[hash_pos as usize], -1);
-      self.ids[hash_pos as usize] = e;
+      debug_assert_eq!(self.ids[hash_pos], -1);
+      self.ids[hash_pos] = e;
 
-      if self.count == self.hash_half_size {
+      if self.count as usize == self.hash_half_size {
         self.rehash(2 * self.hash_size, false, byte_block_pool)?;
       }
 
@@ -392,14 +391,14 @@ where
   /// occupied).
   fn rehash(
     &mut self,
-    new_size: i32,
+    new_size: usize,
     hash_on_data: bool,
     byte_block_pool: &mut ByteBlockPool,
   ) -> Result<()> {
-    let new_mask = new_size - 1;
+    let new_mask = (new_size - 1) as i32;
     let old_size = size_of_vec(&self.ids);
-    let mut new_hash = vec![-1; new_size as usize];
-    for i in 0..self.hash_size as usize {
+    let mut new_hash = vec![-1; new_size];
+    for i in 0..self.hash_size {
       let e0 = self.ids[i];
       if e0 != -1 {
         let mut code = if hash_on_data {
@@ -411,18 +410,17 @@ where
           self.bytes_start_array.get_value(e0 as usize)?
         };
 
-        let mut hash_pos = code & new_mask;
-        debug_assert!(hash_pos >= 0);
-        if new_hash[hash_pos as usize] != -1 {
+        let mut hash_pos = (code & new_mask) as usize;
+        if new_hash[hash_pos] != -1 {
           loop {
             code = code.wrapping_add(1);
-            hash_pos = code & new_mask;
-            if new_hash[hash_pos as usize] == -1 {
+            hash_pos = (code & new_mask) as usize;
+            if new_hash[hash_pos] == -1 {
               break;
             }
           }
         }
-        new_hash[hash_pos as usize] = e0;
+        new_hash[hash_pos] = e0;
       }
     }
     self.hash_mask = new_mask;
@@ -443,7 +441,7 @@ where
     }
 
     if self.ids.is_empty() {
-      self.ids = vec![-1; self.hash_size as usize];
+      self.ids = vec![-1; self.hash_size];
       self.bytes_used.add_and_get(size_of_vec(&self.ids));
     }
     Ok(())

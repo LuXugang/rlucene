@@ -28,7 +28,7 @@ pub(crate) struct PackedWriter<'a, T> {
   next_blocks: Vec<u8>,
   next_values: Vec<i64>,
   iterations: i32,
-  off: i32,
+  off: usize,
   written: i32,
   value_count: i32,
   pub bits_per_value: i32,
@@ -73,10 +73,11 @@ where
       0,
       self.iterations,
     );
-    let block_count =
-      self
-        .format
-        .byte_count(PackedInts::VERSION_CURRENT, self.off, self.bits_per_value);
+    let block_count = self.format.byte_count(
+      PackedInts::VERSION_CURRENT,
+      self.off as i32,
+      self.bits_per_value,
+    );
 
     debug_assert!(block_count <= i32::MAX as i64);
     self.data_output.write_bytes_with_len(
@@ -105,9 +106,9 @@ where
     if self.value_count != -1 && self.written >= self.value_count {
       return Err(LuceneError::eof("Writing past end of stream"));
     }
-    self.next_values[self.off as usize] = v;
+    self.next_values[self.off] = v;
     self.off += 1;
-    if self.off as usize == self.next_values.len() {
+    if self.off == self.next_values.len() {
       self.flush()?;
     }
     self.written += 1;

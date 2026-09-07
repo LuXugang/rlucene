@@ -64,16 +64,16 @@ pub struct Lucene101PostingsWriter<O> {
 
   pub(crate) doc_delta_buffer: Vec<i32>,
   pub(crate) freq_buffer: Vec<i32>,
-  doc_buffer_upto: i32,
+  doc_buffer_upto: usize,
 
   pub(crate) pos_delta_buffer: Vec<i32>,
   pub(crate) payload_length_buffer: Vec<i32>,
   pub(crate) offset_start_delta_buffer: Vec<i32>,
   pub(crate) offset_length_buffer: Vec<i32>,
-  pos_buffer_upto: i32,
+  pos_buffer_upto: usize,
 
   payload_bytes: Vec<u8>,
-  payload_byte_upto: i32,
+  payload_byte_upto: usize,
 
   level0_last_doc_id: i32,
   level0_last_pos_fp: i64,
@@ -309,13 +309,13 @@ where
   fn flush_doc_block(&mut self, finish_term: bool, options: &FieldWriteOptions) -> Result<()> {
     debug_assert!(self.doc_buffer_upto != 0);
 
-    if (self.doc_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE {
+    if self.doc_buffer_upto < Lucene101PostingsFormat::BLOCK_SIZE {
       debug_assert!(finish_term);
       PostingsUtil::write_vint_block(
         &mut self.level0_output,
         &mut self.doc_delta_buffer,
         &self.freq_buffer,
-        self.doc_buffer_upto,
+        self.doc_buffer_upto as i32,
         options.write_freqs,
       )?;
     } else {
@@ -352,7 +352,9 @@ where
             self
               .level0_output
               .write_vlong((pay_fp - self.level0_last_pay_fp as usize) as i64)?;
-            self.level0_output.write_vint(self.payload_byte_upto)?;
+            self
+              .level0_output
+              .write_vint(self.payload_byte_upto as i32)?;
             self.level0_last_pay_fp = pay_fp as i64;
           }
         }
@@ -438,7 +440,9 @@ where
           self
             .scratch_output
             .write_vlong(pay_fp - self.level1_last_pay_fp)?;
-          self.scratch_output.write_vint(self.payload_byte_upto)?;
+          self
+            .scratch_output
+            .write_vint(self.payload_byte_upto as i32)?;
           self.level1_last_pay_fp = pay_fp;
         }
       }
@@ -647,15 +651,15 @@ where
         -1
       };
       if self.pos_buffer_upto > 0 {
-        debug_assert!((self.pos_buffer_upto as usize) < Lucene101PostingsFormat::BLOCK_SIZE);
+        debug_assert!(self.pos_buffer_upto < Lucene101PostingsFormat::BLOCK_SIZE);
         let mut last_payload_length = -1;
         let mut last_offset_length = -1;
-        let mut payload_bytes_read_upto: i32 = 0;
+        let mut payload_bytes_read_upto: usize = 0;
         let po_out = self
           .pos_out
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("positions output is missing"))?;
-        for i in 0..self.pos_buffer_upto as usize {
+        for i in 0..self.pos_buffer_upto {
           let pos_delta = self.pos_delta_buffer[i];
           if options.write_payloads {
             let payload_length = self.payload_length_buffer[i];
@@ -669,10 +673,10 @@ where
             if payload_length != 0 {
               po_out.write_bytes_range(
                 &self.payload_bytes,
-                payload_bytes_read_upto as usize,
+                payload_bytes_read_upto,
                 payload_length as usize,
               )?;
-              payload_bytes_read_upto += payload_length;
+              payload_bytes_read_upto += payload_length as usize;
             }
           } else {
             po_out.write_vint(pos_delta)?;
@@ -722,7 +726,7 @@ where
   where
     NDV: NumericDocValues,
   {
-    if self.doc_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
+    if self.doc_buffer_upto == Lucene101PostingsFormat::BLOCK_SIZE {
       self.flush_doc_block(false, options)?;
       self.doc_buffer_upto = 0;
     }
@@ -735,7 +739,7 @@ where
       )));
     }
 
-    let idx = self.doc_buffer_upto as usize;
+    let idx = self.doc_buffer_upto;
     self.doc_delta_buffer[idx] = doc_delta;
     if options.write_freqs {
       self.freq_buffer[idx] = term_doc_freq;
@@ -786,7 +790,7 @@ where
       )));
     }
 
-    let idx = self.pos_buffer_upto as usize;
+    let idx = self.pos_buffer_upto;
     self.pos_delta_buffer[idx] = position - self.last_position;
     if options.write_payloads {
       if let Some(p) = payload.as_ref() {
@@ -794,18 +798,14 @@ where
           self.payload_length_buffer[idx] = 0;
         } else {
           self.payload_length_buffer[idx] = p.length as i32;
-          if self.payload_byte_upto as usize + p.length > self.payload_bytes.len() {
-            ArrayUtil::grow_with_len(
-              &mut self.payload_bytes,
-              self.payload_byte_upto as usize + p.length,
-            )?;
+          if self.payload_byte_upto + p.length > self.payload_bytes.len() {
+            ArrayUtil::grow_with_len(&mut self.payload_bytes, self.payload_byte_upto + p.length)?;
           }
           let start = p.offset;
-          self.payload_bytes.copy_from(
-            &p.bytes[start..start + p.length],
-            self.payload_byte_upto as usize,
-          );
-          self.payload_byte_upto += p.length as i32;
+          self
+            .payload_bytes
+            .copy_from(&p.bytes[start..start + p.length], self.payload_byte_upto);
+          self.payload_byte_upto += p.length;
         }
       } else {
         self.payload_length_buffer[idx] = 0;
@@ -823,7 +823,7 @@ where
     self.pos_buffer_upto += 1;
     self.last_position = position;
 
-    if self.pos_buffer_upto as usize == Lucene101PostingsFormat::BLOCK_SIZE {
+    if self.pos_buffer_upto == Lucene101PostingsFormat::BLOCK_SIZE {
       let po = self
         .pos_out
         .as_mut()
@@ -837,8 +837,8 @@ where
         self
           .pfor_util
           .encode(&mut self.payload_length_buffer, pay_out)?;
-        pay_out.write_vint(self.payload_byte_upto)?;
-        pay_out.write_bytes_range(&self.payload_bytes, 0, self.payload_byte_upto as usize)?;
+        pay_out.write_vint(self.payload_byte_upto as i32)?;
+        pay_out.write_bytes_range(&self.payload_bytes, 0, self.payload_byte_upto)?;
         self.payload_byte_upto = 0;
       }
       if options.write_offsets {

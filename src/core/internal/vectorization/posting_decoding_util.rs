@@ -41,20 +41,16 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
   #[allow(clippy::too_many_arguments)]
   pub fn split_ints_same(
     &mut self,
-    count: i32,
+    count: usize,
     b_and_c: &mut [i32],
     b_shift: i32,
     dec: i32,
     b_mask: i32,
-    c_index: i32,
+    c_index: usize,
     c_mask: i32,
   ) -> Result<()> {
-    self
-      .input
-      .read_ints(b_and_c, c_index as usize, count as usize)?;
+    self.input.read_ints(b_and_c, c_index, count)?;
 
-    let count = count as usize;
-    let c_index = c_index as usize;
     let max_iter = (b_shift - 1) / dec;
     let mask = i32x8::splat(b_mask);
     let c_mask_simd = i32x8::splat(c_mask);
@@ -91,17 +87,15 @@ impl<I: IndexInput> PostingDecodingUtil<I> {
   #[allow(clippy::too_many_arguments)]
   pub fn split_ints_diff(
     &mut self,
-    count: i32,
+    count: usize,
     b: &mut [i32],
     b_shift: i32,
     dec: i32,
     b_mask: i32,
     c: &mut [i32],
-    c_index: i32,
+    c_index: usize,
     c_mask: i32,
   ) -> Result<()> {
-    let count = count as usize;
-    let c_index = c_index as usize;
     self.input.read_ints(c, c_index, count)?;
     let max_iter = (b_shift - 1) / dec;
     let mask = i32x8::splat(b_mask);

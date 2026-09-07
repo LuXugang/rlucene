@@ -423,8 +423,8 @@ pub struct BlockPostingsEnum<I> {
   /// last doc ID of the previous block
   prev_doc_id: i32,
 
-  doc_buffer_size: i32,
-  doc_buffer_upto: i32,
+  doc_buffer_size: usize,
+  doc_buffer_upto: usize,
 
   doc_in_util: Option<PostingDecodingUtil<I>>,
 
@@ -434,14 +434,14 @@ pub struct BlockPostingsEnum<I> {
   payload_bytes: Vec<u8>,
   offset_start_delta_buffer: Vec<i32>,
   offset_length_buffer: Vec<i32>,
-  payload_byte_upto: i32,
+  payload_byte_upto: usize,
   payload_length: i32,
 
   last_start_offset: i32,
   start_offset: i32,
   end_offset: i32,
 
-  pos_buffer_upto: i32,
+  pos_buffer_upto: usize,
 
   pub(crate) pos_in_util: Option<PostingDecodingUtil<I>>,
   pub(crate) pay_in_util: Option<PostingDecodingUtil<I>>,
@@ -468,7 +468,7 @@ pub struct BlockPostingsEnum<I> {
   /// current position
   position: i32,
   /// value of docBufferUpto on the last doc ID when positions have been read
-  pos_doc_buffer_upto: i32,
+  pos_doc_buffer_upto: usize,
   /// how many positions "behind" we are; nextPosition must
   /// skip these to "catch up":
   pos_pending_count: i32,
@@ -760,7 +760,7 @@ where
     self.level1_block_pay_upto = 0;
     self.level0_block_pos_upto = 0;
     self.level0_block_pay_upto = 0;
-    self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
+    self.pos_buffer_upto = ForUtil::BLOCK_SIZE;
 
     self.doc = -1;
     self.prev_doc_id = -1;
@@ -782,9 +782,9 @@ where
       self.level1_doc_end_fp = term_state.doc_start_fp;
     }
     self.level1_doc_count_upto = 0;
-    self.doc_buffer_size = ForUtil::BLOCK_SIZE as i32;
-    self.doc_buffer_upto = ForUtil::BLOCK_SIZE as i32;
-    self.pos_doc_buffer_upto = ForUtil::BLOCK_SIZE as i32;
+    self.doc_buffer_size = ForUtil::BLOCK_SIZE;
+    self.doc_buffer_upto = ForUtil::BLOCK_SIZE;
+    self.pos_doc_buffer_upto = ForUtil::BLOCK_SIZE;
     Ok(self)
   }
   fn refill_full_block(&mut self) -> Result<()> {
@@ -852,13 +852,13 @@ where
       );
       self.doc_buffer[self.doc_count_left as usize] = NO_MORE_DOCS;
       self.freq_fp = None;
-      self.doc_buffer_size = self.doc_count_left;
+      self.doc_buffer_size = self.doc_count_left as usize;
       self.doc_count_left = 0;
     }
     self.prev_doc_id = self.doc_buffer[ForUtil::BLOCK_SIZE - 1];
     self.doc_buffer_upto = 0;
     self.pos_doc_buffer_upto = 0;
-    debug_assert_eq!(self.doc_buffer[self.doc_buffer_size as usize], NO_MORE_DOCS);
+    debug_assert_eq!(self.doc_buffer[self.doc_buffer_size], NO_MORE_DOCS);
     Ok(())
   }
   fn refill_docs(&mut self) -> Result<()> {
@@ -930,7 +930,7 @@ where
     Ok(())
   }
   fn do_move_to_next_level0_block(&mut self) -> Result<()> {
-    debug_assert!(self.doc_buffer_upto as usize == ForUtil::BLOCK_SIZE);
+    debug_assert!(self.doc_buffer_upto == ForUtil::BLOCK_SIZE);
     if let Some(ref mut pos_in) = self.pos_in_util {
       if self.level0_pos_end_fp >= pos_in.input.get_file_pointer()? as i64 {
         pos_in.input.seek(self.level0_pos_end_fp as usize)?;
@@ -938,14 +938,14 @@ where
         if let Some(ref mut pay_in) = self.pay_in_util {
           debug_assert!(self.level0_pay_end_fp >= pay_in.input.get_file_pointer()? as i64);
           pay_in.input.seek(self.level0_pay_end_fp as usize)?;
-          self.payload_byte_upto = self.level0_block_pay_upto;
+          self.payload_byte_upto = self.level0_block_pay_upto as usize;
         }
-        self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
+        self.pos_buffer_upto = ForUtil::BLOCK_SIZE;
       } else {
         debug_assert!(self.freq_fp.is_none());
         self.pos_pending_count += sum_over_range(
           &self.freq_buffer,
-          self.pos_doc_buffer_upto as usize,
+          self.pos_doc_buffer_upto,
           ForUtil::BLOCK_SIZE,
         );
       }
@@ -1050,13 +1050,13 @@ where
       if let Some(ref mut pay_in) = self.pay_in_util {
         debug_assert!(self.level0_pay_end_fp >= pay_in.input.get_file_pointer()? as i64);
         pay_in.input.seek(pay_fp as usize)?;
-        self.payload_byte_upto = pay_upto;
+        self.payload_byte_upto = pay_upto as usize;
       }
-      self.pos_buffer_upto = ForUtil::BLOCK_SIZE as i32;
+      self.pos_buffer_upto = ForUtil::BLOCK_SIZE;
     } else {
       self.pos_pending_count += sum_over_range(
         &self.freq_buffer,
-        self.pos_doc_buffer_upto as usize,
+        self.pos_doc_buffer_upto,
         ForUtil::BLOCK_SIZE,
       );
     }
@@ -1151,16 +1151,13 @@ where
   }
   fn skip_positions(&mut self, freq: i32) -> Result<()> {
     let mut to_skip = self.pos_pending_count - freq;
-    let left_in_block = ForUtil::BLOCK_SIZE as i32 - self.pos_buffer_upto;
+    let left_in_block = ForUtil::BLOCK_SIZE as i32 - self.pos_buffer_upto as i32;
 
     if to_skip < left_in_block {
-      let end = self.pos_buffer_upto + to_skip;
+      let end = (self.pos_buffer_upto as i32 + to_skip) as usize;
       if self.needs_payloads {
-        self.payload_byte_upto += sum_over_range(
-          &self.payload_length_buffer,
-          self.pos_buffer_upto as usize,
-          end as usize,
-        );
+        self.payload_byte_upto +=
+          sum_over_range(&self.payload_length_buffer, self.pos_buffer_upto, end) as usize;
       }
       self.pos_buffer_upto = end;
     } else {
@@ -1196,10 +1193,11 @@ where
       self.refill_positions()?;
 
       if self.needs_payloads {
-        self.payload_byte_upto = sum_over_range(&self.payload_length_buffer, 0, to_skip as usize);
+        self.payload_byte_upto =
+          sum_over_range(&self.payload_length_buffer, 0, to_skip as usize) as usize;
       }
 
-      self.pos_buffer_upto = to_skip;
+      self.pos_buffer_upto = to_skip as usize;
     }
 
     Ok(())
@@ -1227,17 +1225,17 @@ where
           self.pos_delta_buffer[i] = ((code as u32) >> 1) as i32;
 
           if payload_length != 0 {
-            let need = self.payload_byte_upto + payload_length;
-            if need as usize > self.payload_bytes.len() {
-              ArrayUtil::grow_with_len(&mut self.payload_bytes, need as usize)?;
+            let need = self.payload_byte_upto + payload_length as usize;
+            if need > self.payload_bytes.len() {
+              ArrayUtil::grow_with_len(&mut self.payload_bytes, need)?;
             }
 
             pos_in.read_bytes(
               &mut self.payload_bytes,
-              self.payload_byte_upto as usize,
+              self.payload_byte_upto,
               payload_length as usize,
             )?;
-            self.payload_byte_upto += payload_length;
+            self.payload_byte_upto += payload_length as usize;
           }
         } else {
           IndexInput::skip_bytes(&mut *pos_in, payload_length as i64)?;
@@ -1361,8 +1359,8 @@ where
 
     self.pos_pending_count += sum_over_range(
       &self.freq_buffer,
-      self.pos_doc_buffer_upto as usize,
-      self.doc_buffer_upto as usize,
+      self.pos_doc_buffer_upto,
+      self.doc_buffer_upto,
     );
     self.pos_doc_buffer_upto = self.doc_buffer_upto;
 
@@ -1376,20 +1374,20 @@ where
   }
   fn accumulate_payload_and_offsets(&mut self) -> Result<()> {
     if self.needs_payloads {
-      self.payload_length = self.payload_length_buffer[self.pos_buffer_upto as usize];
+      self.payload_length = self.payload_length_buffer[self.pos_buffer_upto];
       let payload = self
         .payload
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
-      payload.offset = self.payload_byte_upto as usize;
+      payload.offset = self.payload_byte_upto;
       payload.length = self.payload_length as usize;
       // TODO IMPORTANT could we avoid copying the payload?
       payload.bytes.clone_from(&self.payload_bytes);
-      self.payload_byte_upto += self.payload_length;
+      self.payload_byte_upto += self.payload_length as usize;
     }
 
     if self.needs_offsets {
-      let pos = self.pos_buffer_upto as usize;
+      let pos = self.pos_buffer_upto;
       self.start_offset = self.last_start_offset + self.offset_start_delta_buffer[pos];
       self.end_offset = self.start_offset + self.offset_length_buffer[pos];
       self.last_start_offset = self.start_offset;
@@ -1421,7 +1419,7 @@ where
       pfor_util.decode(doc_in_util, &mut self.freq_buffer)?;
       self.freq_fp = None;
     }
-    Ok(self.freq_buffer[(self.doc_buffer_upto - 1) as usize])
+    Ok(self.freq_buffer[self.doc_buffer_upto - 1])
   }
 
   fn next_position(&mut self) -> Result<i32> {
@@ -1437,12 +1435,12 @@ where
       self.last_start_offset = 0;
     }
 
-    if self.pos_buffer_upto == ForUtil::BLOCK_SIZE as i32 {
+    if self.pos_buffer_upto == ForUtil::BLOCK_SIZE {
       self.refill_positions()?;
       self.pos_buffer_upto = 0;
     }
 
-    self.position += self.pos_delta_buffer[self.pos_buffer_upto as usize];
+    self.position += self.pos_delta_buffer[self.pos_buffer_upto];
 
     if self.needs_offsets_or_payloads {
       self.accumulate_payload_and_offsets()?;
@@ -1501,10 +1499,10 @@ where
   }
 
   fn next_doc(&mut self) -> Result<i32> {
-    if self.doc_buffer_upto == ForUtil::BLOCK_SIZE as i32 {
+    if self.doc_buffer_upto == ForUtil::BLOCK_SIZE {
       self.move_to_next_level0_block()?;
     }
-    let doc = self.doc_buffer[self.doc_buffer_upto as usize];
+    let doc = self.doc_buffer[self.doc_buffer_upto];
     self.doc = doc;
     self.doc_buffer_upto += 1;
     Ok(doc)
@@ -1521,11 +1519,11 @@ where
     let next = VECTOR_UTIL.find_next_geq(
       &self.doc_buffer,
       target,
-      self.doc_buffer_upto as usize,
-      self.doc_buffer_size as usize,
+      self.doc_buffer_upto,
+      self.doc_buffer_size,
     );
     self.doc = self.doc_buffer[next];
-    self.doc_buffer_upto = (next + 1) as i32;
+    self.doc_buffer_upto = next + 1;
     Ok(self.doc)
   }
 
@@ -1548,7 +1546,7 @@ where
       // block. This may not be necessary, but this helps avoid
       // having to check whether we are in a block that is not decoded yet
       // in `next_doc`.
-      if self.doc_buffer_upto == ForUtil::BLOCK_SIZE as i32 && target == self.doc + 1 {
+      if self.doc_buffer_upto == ForUtil::BLOCK_SIZE && target == self.doc + 1 {
         self.refill_docs()?;
         self.needs_refilling = false;
       } else {

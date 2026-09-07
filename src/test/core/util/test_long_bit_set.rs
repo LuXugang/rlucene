@@ -320,7 +320,7 @@ where
   let mut bs: LongBitSet;
   if random.random_bool(0.5) {
     let bits_2_words = LongBitSet::bits2words(num_bits)?;
-    let mut words: Vec<i64> = Vec::with_capacity(bits_2_words as usize);
+    let mut words: Vec<i64> = Vec::with_capacity(bits_2_words);
     words.resize(num_bits, 0);
     bs = LongBitSet::from_bits(words, num_bits)?
   } else {

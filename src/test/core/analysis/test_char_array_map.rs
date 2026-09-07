@@ -53,12 +53,12 @@ where
     );
     assert_eq!(
       val,
-      *cmap.get(&key, 0, key.len() as i32).unwrap(),
+      *cmap.get(&key, 0, key.len()).unwrap(),
       "get(&[char], off, len) mismatch"
     );
     assert_eq!(
       Some(&val),
-      cmap.get(&key, 0, key.len() as i32),
+      cmap.get(&key, 0, key.len()),
       "get(&[char]) mismatch"
     );
     assert_eq!(Some(&val), cmap.get_str(&key_str), "get(&str) mismatch");

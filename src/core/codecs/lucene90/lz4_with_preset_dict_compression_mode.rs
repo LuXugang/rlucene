@@ -85,7 +85,7 @@ impl LZ4WithPresetDictDecompressor {
     original_length: i32,
     dict_length: i32,
     block_length: i32,
-  ) -> Result<i32> {
+  ) -> Result<usize> {
     input.read_vint()?; // Compressed length of the dictionary, unused
     let mut total_length = dict_length;
     let mut i = 0;
@@ -94,7 +94,7 @@ impl LZ4WithPresetDictDecompressor {
       (original_length / block_length + 1) as usize,
     )?;
     while total_length < original_length {
-      self.compressed_lengths[i as usize] = input.read_vint()?;
+      self.compressed_lengths[i] = input.read_vint()?;
       total_length += block_length;
       i += 1;
     }
@@ -150,7 +150,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
       let mut num_bytes_to_skip = 0;
       for i in 0..num_blocks {
         if offset_in_block + block_length < offset {
-          let compressed_block_length = self.compressed_lengths[i as usize];
+          let compressed_block_length = self.compressed_lengths[i];
           num_bytes_to_skip += compressed_block_length;
           offset_in_block += block_length;
           offset_in_bytes_ref -= block_length;

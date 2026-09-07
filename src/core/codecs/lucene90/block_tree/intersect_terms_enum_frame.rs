@@ -32,11 +32,11 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::sync::Arc;
 
 pub(crate) struct IntersectTermsEnumFrame {
-  pub(crate) ord: i32,
-  pub(crate) fp: i64,
-  pub(crate) fp_orig: i64,
-  fp_end: i64,
-  pub(crate) last_sub_fp: i64,
+  pub(crate) ord: usize,
+  pub(crate) fp: usize,
+  pub(crate) fp_orig: usize,
+  fp_end: usize,
+  pub(crate) last_sub_fp: usize,
 
   /// State in automaton
   pub(crate) state: i32,
@@ -74,7 +74,7 @@ pub(crate) struct IntersectTermsEnumFrame {
   pub(crate) suffix: usize,
 }
 impl IntersectTermsEnumFrame {
-  pub fn new<I, P>(ord: i32, fr: &FieldReader<I, P>) -> Result<Self>
+  pub fn new<I, P>(ord: usize, fr: &FieldReader<I, P>) -> Result<Self>
   where
     I: IndexInput,
     P: PostingsReaderBase,
@@ -152,7 +152,7 @@ impl IntersectTermsEnumFrame {
 
     loop {
       let delta: i64 = (frame.floor_data_reader.read_vlong()? as u64 >> 1).try_convert()?;
-      frame.fp = frame.fp_orig + delta;
+      frame.fp = (frame.fp_orig as i64 + delta) as usize;
       frame.num_follow_floor_blocks -= 1;
       if frame.num_follow_floor_blocks != 0 {
         frame.next_floor_label = frame.floor_data_reader.read_byte()? as i32;
@@ -255,7 +255,7 @@ impl IntersectTermsEnumFrame {
           while frame.num_follow_floor_blocks != 0 && frame.next_floor_label <= frame.transition.min
           {
             let delta: i64 = (frame.floor_data_reader.read_vlong()? as u64 >> 1).try_convert()?;
-            frame.fp = frame.fp_orig + delta;
+            frame.fp = (frame.fp_orig as i64 + delta) as usize;
             frame.num_follow_floor_blocks -= 1;
             if frame.num_follow_floor_blocks != 0 {
               frame.next_floor_label = (frame.floor_data_reader.read_byte()?) as i32;
@@ -267,7 +267,7 @@ impl IntersectTermsEnumFrame {
       }
     }
     let in_ = &mut ite.input;
-    in_.seek(frame.fp as usize)?;
+    in_.seek(frame.fp)?;
 
     let code = in_.read_vint()?;
     frame.ent_count = (code as u32 >> 1).try_convert()?;
@@ -352,7 +352,7 @@ impl IntersectTermsEnumFrame {
       // Sub-blocks of a single floor block are always
       // written one after another -- tail recurse:
       // tail recursion boundary for floor blocks
-      frame.fp_end = in_.get_file_pointer()? as i64;
+      frame.fp_end = in_.get_file_pointer()?;
     }
 
     Ok(())
@@ -398,7 +398,7 @@ impl IntersectTermsEnumFrame {
       Ok(false)
     } else {
       let delta = self.suffix_lengths_reader.read_vlong()?;
-      self.last_sub_fp = self.fp - delta;
+      self.last_sub_fp = (self.fp as i64 - delta) as usize;
       Ok(true)
     }
   }

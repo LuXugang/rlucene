@@ -28,7 +28,7 @@ pub struct LongBitSet {
   bits: Vec<i64>,  // `i64` words holding the bits.
   num_bits: usize, // The number of bits in use
   // The exact number of words needed to hold `num_bits` (`<= bits.len()`).
-  num_words: i32,
+  num_words: usize,
 }
 impl LongBitSet {
   pub const MAX_NUM_BITS: usize = 64 * ArrayUtil::MAX_ARRAY_LENGTH;
@@ -45,8 +45,8 @@ impl LongBitSet {
     } else {
       let num_words = Self::bits2words(num_bits)?;
       let length = bits.bits.len();
-      if num_words as usize >= length {
-        ArrayUtil::grow_with_len(&mut bits.bits, (num_words + 1) as usize)?;
+      if num_words >= length {
+        ArrayUtil::grow_with_len(&mut bits.bits, num_words + 1)?;
       }
       debug_assert!(bits.bits.len() <= i32::MAX as usize);
       bits.num_bits = (bits.bits.len()) << 6;
@@ -55,7 +55,7 @@ impl LongBitSet {
     Ok(())
   }
   /// Returns the number of 64-bit words needed to hold `num_bits`.
-  pub fn bits2words(num_bits: usize) -> Result<i32> {
+  pub fn bits2words(num_bits: usize) -> Result<usize> {
     if !(0..=Self::MAX_NUM_BITS).contains(&num_bits) {
       return Err(LuceneError::illegal_argument(format!(
         "num_bits must be 0..{}; got {}",
@@ -66,7 +66,7 @@ impl LongBitSet {
     if num_bits == 0 {
       Ok(0)
     } else {
-      Ok((((num_bits - 1) >> 6) + 1) as i32)
+      Ok(((num_bits - 1) >> 6) + 1)
     }
   }
   /// Creates a new [`LongBitSet`]. The internally allocated `[i64]` will be
@@ -76,7 +76,7 @@ impl LongBitSet {
   /// * `num_bits` - the number of bits needed
   pub fn new(num_bits: usize) -> Result<Self> {
     let num_words = Self::bits2words(num_bits)?;
-    let bits = vec![0i64; num_words as usize];
+    let bits = vec![0i64; num_words];
     Ok(Self::from_validated_parts(bits, num_bits, num_words))
   }
   /// Creates a new [`LongBitSet`] using the provided `Vec<i64>` as
@@ -90,7 +90,7 @@ impl LongBitSet {
   /// * `num_bits` - the number of bits actually needed
   pub fn from_bits(stored_bits: Vec<i64>, num_bits: usize) -> Result<Self> {
     let num_words = Self::bits2words(num_bits)?;
-    if num_words as usize > stored_bits.len() {
+    if num_words > stored_bits.len() {
       return Err(LuceneError::illegal_argument(format!(
         "The given long array is too small to hold {num_bits} bits"
       )));
@@ -99,13 +99,12 @@ impl LongBitSet {
     Ok(Self::from_validated_parts(stored_bits, num_bits, num_words))
   }
 
-  fn from_validated_parts(bits: Vec<i64>, num_bits: usize, num_words: i32) -> Self {
-    debug_assert!(num_words >= 0);
+  fn from_validated_parts(bits: Vec<i64>, num_bits: usize, num_words: usize) -> Self {
     debug_assert!(matches!(
       Self::bits2words(num_bits),
       Ok(expected_num_words) if expected_num_words == num_words
     ));
-    debug_assert!(num_words as usize <= bits.len());
+    debug_assert!(num_words <= bits.len());
     let bit_set = Self {
       bits,
       num_bits,
@@ -122,7 +121,7 @@ impl LongBitSet {
    * return true if the bits past numBits are clear.
    */
   fn verify_ghost_bits_clear(&self) -> bool {
-    for i in self.num_words as usize..self.bits.len() {
+    for i in self.num_words..self.bits.len() {
       if self.bits[i] != 0 {
         return false;
       }
@@ -133,7 +132,7 @@ impl LongBitSet {
     }
 
     let mask = (!0i64).wrapping_shl(self.num_bits as u32);
-    (self.bits[self.num_words as usize - 1] & mask) == 0
+    (self.bits[self.num_words - 1] & mask) == 0
   }
   /// Returns the number of bits stored in this bitset.
   pub fn length(&self) -> usize {
@@ -153,7 +152,7 @@ impl LongBitSet {
   /// This relies on ghost bits being clear.
   pub fn cardinality(&self) -> usize {
     // Depends on the ghost bits being clear!
-    self.bits[..self.num_words as usize]
+    self.bits[..self.num_words]
       .iter()
       .map(|v| v.count_ones() as usize)
       .sum()
@@ -248,7 +247,7 @@ impl LongBitSet {
     }
 
     i += 1;
-    while i < self.num_words as usize {
+    while i < self.num_words {
       word = self.bits[i];
       if word != 0 {
         return Some(i << 6 | word.trailing_zeros() as usize);
@@ -297,7 +296,7 @@ impl LongBitSet {
     );
 
     let pos = std::cmp::min(self.num_words, other.num_words);
-    for i in 0..pos as usize {
+    for i in 0..pos {
       self.bits[i] |= other.bits[i];
     }
   }
@@ -311,7 +310,7 @@ impl LongBitSet {
     );
 
     let pos = std::cmp::min(self.num_words, other.num_words);
-    for i in 0..pos as usize {
+    for i in 0..pos {
       self.bits[i] ^= other.bits[i];
     }
   }
@@ -321,7 +320,7 @@ impl LongBitSet {
   /// Depends on the ghost bits being clear!
   pub fn intersects(&self, other: &LongBitSet) -> bool {
     let pos = std::cmp::min(self.num_words, other.num_words);
-    for i in 0..pos as usize {
+    for i in 0..pos {
       if (self.bits[i] & other.bits[i]) != 0 {
         return true;
       }
@@ -332,11 +331,11 @@ impl LongBitSet {
   /// Performs bitwise AND: this = this AND other
   pub fn and(&mut self, other: &LongBitSet) {
     let pos = std::cmp::min(self.num_words, other.num_words);
-    for i in 0..pos as usize {
+    for i in 0..pos {
       self.bits[i] &= other.bits[i];
     }
     if self.num_words > other.num_words {
-      for i in other.num_words as usize..self.num_words as usize {
+      for i in other.num_words..self.num_words {
         self.bits[i] = 0;
       }
     }
@@ -345,7 +344,7 @@ impl LongBitSet {
   /// Performs bitwise AND NOT: this = this AND NOT other
   pub fn and_not(&mut self, other: &LongBitSet) {
     let pos = std::cmp::min(self.num_words, other.num_words);
-    for i in 0..pos as usize {
+    for i in 0..pos {
       self.bits[i] &= !other.bits[i];
     }
   }
@@ -356,7 +355,7 @@ impl LongBitSet {
   ///
   /// This depends on the ghost bits being clear!
   pub fn scan_is_empty(&self) -> bool {
-    for i in 0..self.num_words as usize {
+    for i in 0..self.num_words {
       if self.bits[i] != 0 {
         return false;
       }

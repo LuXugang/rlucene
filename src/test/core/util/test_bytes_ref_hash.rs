@@ -47,7 +47,7 @@ where
   if random.random_bool(0.5) {
     BytesRefHash::new()
   } else {
-    BytesRefHash::from_bytes_start_array(init_size, DirectBytesStartArray::new(init_size as usize))
+    BytesRefHash::from_bytes_start_array(init_size, DirectBytesStartArray::new(init_size))
   }
 }
 #[test]

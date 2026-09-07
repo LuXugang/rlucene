@@ -63,14 +63,14 @@ impl MonotonicBlockPackedReader {
     let block_shift = PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
     let block_mask = (block_size - 1) as u32;
     let num_blocks = PackedInts::num_blocks(value_count, block_size)?;
-    let mut min_values = vec![0; num_blocks as usize];
-    let mut averages = vec![0.0; num_blocks as usize];
+    let mut min_values = vec![0; num_blocks];
+    let mut averages = vec![0.0; num_blocks];
     let mut sub_readers: Vec<_> = (0..num_blocks)
       .map(|_| LongValuesEnum2::A(Zeroes))
       .collect();
     let mut sum_bpv: i64 = 0;
     let mut total_byte_count = 0;
-    for i in 0..num_blocks as usize {
+    for i in 0..num_blocks {
       min_values[i] = input.read_zlong()?;
       averages[i] = f32::from_bits(input.read_int()? as u32);
       let bits_per_value = input.read_vint()?;

@@ -193,14 +193,14 @@ where
 #[derive(Debug, Clone, Default)]
 pub(crate) struct ShardRef {
   /// Which shard (index into shardHits[]).
-  pub(crate) shard_index: i32,
+  pub(crate) shard_index: usize,
 
   /// Which hit within the shard.
-  pub(crate) hit_index: i32,
+  pub(crate) hit_index: usize,
 }
 
 impl ShardRef {
-  pub fn new(shard_index: i32) -> Self {
+  pub fn new(shard_index: usize) -> Self {
     ShardRef {
       shard_index,
       hit_index: 0,
@@ -266,7 +266,7 @@ where
     }
     if !shard.score_docs.is_empty() {
       avail_hit_count += shard.score_docs.len();
-      queue.add(ShardRef::new(shard_idx as i32))?;
+      queue.add(ShardRef::new(shard_idx))?;
     }
   }
 
@@ -289,8 +289,8 @@ where
         Some(v) => v,
       };
 
-      let shard = &shard_hits[ref_.shard_index as usize];
-      let hit = &shard.score_docs[ref_.hit_index as usize];
+      let shard = &shard_hits[ref_.shard_index];
+      let hit = &shard.score_docs[ref_.hit_index];
       ref_.hit_index += 1;
 
       // Irrespective of whether we use shard indices for tie breaking or not, we check for
@@ -309,7 +309,7 @@ where
 
       hit_upto += 1;
 
-      if ref_.hit_index < shard.score_docs.len() as i32 {
+      if ref_.hit_index < shard.score_docs.len() {
         queue.update_top()?;
       } else {
         queue.pop_unchecked()?;
@@ -346,11 +346,11 @@ where
   S: ScoreDocLike,
 {
   fn less_than(&self, first: &ShardRef, second: &ShardRef) -> Result<bool> {
-    let first_shard_hits = &self.shard_hits[first.shard_index as usize];
-    let second_shard_hits = &self.shard_hits[second.shard_index as usize];
+    let first_shard_hits = &self.shard_hits[first.shard_index];
+    let second_shard_hits = &self.shard_hits[second.shard_index];
 
-    let first_scorer_doc = &first_shard_hits.score_docs[first.hit_index as usize];
-    let second_scorer_doc = &second_shard_hits.score_docs[second.hit_index as usize];
+    let first_scorer_doc = &first_shard_hits.score_docs[first.hit_index];
+    let second_scorer_doc = &second_shard_hits.score_docs[second.hit_index];
     let first_scorer_doc_score = first_scorer_doc.score();
     let second_scorer_doc_score = second_scorer_doc.score();
     if first_scorer_doc_score < second_scorer_doc_score {
@@ -413,10 +413,8 @@ where
   C: Comparator<TopFieldScoreDoc>,
 {
   fn less_than(&self, first: &ShardRef, second: &ShardRef) -> Result<bool> {
-    let first_fd =
-      &self.shard_hits[first.shard_index as usize].score_docs[first.hit_index as usize];
-    let second_fd =
-      &self.shard_hits[second.shard_index as usize].score_docs[second.hit_index as usize];
+    let first_fd = &self.shard_hits[first.shard_index].score_docs[first.hit_index];
+    let second_fd = &self.shard_hits[second.shard_index].score_docs[second.hit_index];
 
     let first_fields = first_fd.fields()?;
     let second_fields = second_fd.fields()?;

@@ -57,7 +57,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
   fn flush(
     &mut self,
     out: &mut impl DataOutput,
-    off: &mut i32,
+    off: &mut usize,
     values: &mut [i64],
     blocks: &mut Vec<u8>,
   ) -> Result<()> {
@@ -65,12 +65,12 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
     let avg = if *off == 1 {
       0.0f32
     } else {
-      values[*off as usize - 1].wrapping_sub(values[0]) as f32 / (*off - 1) as f32
+      values[*off - 1].wrapping_sub(values[0]) as f32 / (*off - 1) as f32
     };
 
     let mut min = values[0];
     // adjust min so that all deltas will be positive
-    for (i, &actual) in values.iter().enumerate().skip(1).take(*off as usize - 1) {
+    for (i, &actual) in values.iter().enumerate().skip(1).take(*off - 1) {
       debug_assert!(i <= i32::MAX as usize);
       let expected = expected(min, avg, i as i32);
       if expected > actual {
@@ -78,7 +78,7 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
       }
     }
     let mut max_delta = 0;
-    for (i, value) in values.iter_mut().take(*off as usize).enumerate() {
+    for (i, value) in values.iter_mut().take(*off).enumerate() {
       debug_assert!(i <= i32::MAX as usize);
       *value = value.wrapping_sub(expected(min, avg, i as i32));
       max_delta = max_delta.max(*value);

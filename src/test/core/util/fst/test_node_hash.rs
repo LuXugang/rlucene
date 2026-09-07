@@ -32,7 +32,7 @@ fn test_copy_fallback_node_bytes() -> Result<()> {
   let mut primary_hash_table: PagedGrowableHash<Arc<i64>> = PagedGrowableHash::new()?;
   let mut fallback_hash_table = PagedGrowableHash::new()?;
 
-  let node_length = at_least(&mut random, 500);
+  let node_length = at_least(&mut random, 500) as usize;
   let fallback_hash_slot = 1;
   let fallback_bytes: Vec<u8> = (0..node_length).map(|_| random.random()).collect();
 
@@ -40,7 +40,7 @@ fn test_copy_fallback_node_bytes() -> Result<()> {
 
   // Check that fallback bytes stored correctly
   let stored_bytes = fallback_hash_table.get_bytes(fallback_hash_slot, node_length)?;
-  for i in 0..node_length as usize {
+  for i in 0..node_length {
     assert_eq!(fallback_bytes[i], stored_bytes[i], "byte @ index={}", i);
   }
 
@@ -54,7 +54,7 @@ fn test_copy_fallback_node_bytes() -> Result<()> {
 
   // Check that primary copied bytes match original
   let copied_bytes = primary_hash_table.get_bytes(primary_hash_slot, node_length)?;
-  for i in 0..node_length as usize {
+  for i in 0..node_length {
     assert_eq!(fallback_bytes[i], copied_bytes[i], "byte @ index={}", i);
   }
   Ok(())

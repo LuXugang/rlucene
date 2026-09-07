@@ -195,7 +195,7 @@ impl ForUtil {
   where
     I: IndexInput,
   {
-    let num_ints = bits_per_value << 2;
+    let num_ints = (bits_per_value << 2) as usize;
     let mask = Self::MASKS32[bits_per_value as usize];
     pdu.split_ints_diff(num_ints, ints, 32 - bits_per_value, 32, mask, tmp, 0, -1)?;
 
@@ -204,11 +204,7 @@ impl ForUtil {
 
     let mut tmp_idx = 0;
     let mut remaining_bits = remaining_bits_per_int;
-    for out in ints
-      .iter_mut()
-      .take(Self::BLOCK_SIZE)
-      .skip(num_ints as usize)
-    {
+    for out in ints.iter_mut().take(Self::BLOCK_SIZE).skip(num_ints) {
       let mut b = bits_per_value as usize - remaining_bits;
       let mut l = (tmp[tmp_idx] & Self::MASKS32[remaining_bits]) << b;
       tmp_idx += 1;

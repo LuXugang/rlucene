@@ -683,7 +683,7 @@ fn test_and_not() -> Result<()> {
       .collect();
     sorted.push(0);
     sorted[bits1.len()] = NO_MORE_DOCS;
-    let mut disi = IntArrayDocIdSetIterator::new(Rc::new(sorted), count1.try_convert()?);
+    let mut disi = IntArrayDocIdSetIterator::new(Rc::new(sorted), count1);
     fixed_bit_set2.and_not_iter(&mut disi)?;
     do_get(&bitset2, &fixed_bit_set2);
   }

@@ -226,7 +226,7 @@ pub struct DocIdSetIteratorImpl<S> {
   pub(crate) tail: Vec<usize>,
   /// sum of max scores of scorers in tail
   pub(crate) tail_max_score: i64,
-  pub(crate) tail_size: i32,
+  pub(crate) tail_size: usize,
   /// scaled min competitive score
   min_competitive_score: i64,
   pub(crate) min_should_match: i32,
@@ -460,7 +460,7 @@ where
 
     self.tail_max_score = 0;
 
-    for i in 0..(self.tail_size as usize) {
+    for i in 0..self.tail_size {
       let idx = self.tail[i];
       self.all_scorers[idx].scorer.advance_shallow(target)?;
       let v = self.all_scorers[idx].scorer.get_max_score(self.upto)?;
@@ -566,7 +566,7 @@ where
     // match as well
     // since we are advancing all clauses in tail, we just iterate the array
     // without reorganizing the PQ
-    for i in (0..self.tail_size as usize).rev() {
+    for i in (0..self.tail_size).rev() {
       self.advance_tail(self.tail[i])?;
     }
     self.tail_size = 0;
@@ -580,7 +580,7 @@ where
     let s_score = self.all_scorers[s].scaled_max_score;
 
     if self.tail_max_score + s_score < self.min_competitive_score
-      || self.tail_size + 1 < self.min_should_match
+      || self.tail_size as i32 + 1 < self.min_should_match
     {
       // we have free room for this new entry
       self.add_tail(s);
@@ -595,7 +595,7 @@ where
       } else {
         // swap top and s
         self.tail[0] = s;
-        Self::down_heap_max_score(&mut self.tail, self.tail_size as usize, &self.all_scorers);
+        Self::down_heap_max_score(&mut self.tail, self.tail_size, &self.all_scorers);
         self.tail_max_score =
           self.tail_max_score - self.all_scorers[top].scaled_max_score + s_score;
         Some(top)
@@ -605,8 +605,8 @@ where
 
   /// Add an entry to 'tail'. Fails if over capacity.
   fn add_tail(&mut self, idx: usize) {
-    self.tail[self.tail_size as usize] = idx;
-    Self::up_heap_max_score(&mut self.tail, self.tail_size as usize, &self.all_scorers);
+    self.tail[self.tail_size] = idx;
+    Self::up_heap_max_score(&mut self.tail, self.tail_size, &self.all_scorers);
     self.tail_size += 1;
   }
 
@@ -615,8 +615,8 @@ where
     debug_assert!(self.tail_size > 0);
     let result = self.tail[0];
     self.tail_size -= 1;
-    self.tail[0] = self.tail[self.tail_size as usize];
-    Self::down_heap_max_score(&mut self.tail, self.tail_size as usize, &self.all_scorers);
+    self.tail[0] = self.tail[self.tail_size];
+    Self::down_heap_max_score(&mut self.tail, self.tail_size, &self.all_scorers);
     self.tail_max_score -= self.all_scorers[result].scaled_max_score;
 
     result
@@ -686,7 +686,7 @@ where
     if self.score_mode == ScoreMode::TopScores {
       let mut max_score_sum: i64 = 0;
 
-      for i in 0..(self.tail_size as usize) {
+      for i in 0..self.tail_size {
         let idx = self.tail[i];
         let w = &self.all_scorers[idx];
 
@@ -729,7 +729,7 @@ where
       debug_assert!(
         self.min_competitive_score == 0
           || self.tail_max_score < self.min_competitive_score
-          || self.tail_size < self.min_should_match,
+          || (self.tail_size as i32) < self.min_should_match,
       );
 
       debug_assert!(self.doc <= self.upto);
@@ -842,7 +842,7 @@ where
       debug_assert!(approx.ensure_consistent()?);
 
       if scaled_lead_score + approx.tail_max_score < approx.min_competitive_score
-        || approx.freq + approx.tail_size < approx.min_should_match
+        || approx.freq + (approx.tail_size as i32) < approx.min_should_match
       {
         return Ok(false);
       } else {

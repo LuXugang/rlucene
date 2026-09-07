@@ -36,7 +36,7 @@ pub struct DirectWriter<'a, D> {
   output: &'a mut D,
   count: i64,
   finished: bool,
-  off: i32,
+  off: usize,
   next_blocks: Vec<u8>,
   next_values: Vec<i64>,
 }
@@ -79,9 +79,9 @@ where
     if self.count >= self.num_values {
       return Err(LuceneError::eof("Writing past end of stream"));
     }
-    self.next_values[self.off as usize] = l;
+    self.next_values[self.off] = l;
     self.off += 1;
-    if self.off as usize == self.next_values.len() {
+    if self.off == self.next_values.len() {
       self.flush()?;
     }
     self.count += 1;
@@ -93,18 +93,18 @@ where
     }
     // Avoid writing bits from values that are outside of the range we need
     // to encode
-    for i in self.off as usize..self.next_values.len() {
+    for i in self.off..self.next_values.len() {
       self.next_values[i] = 0;
     }
     Self::encode(
       &self.next_values,
-      self.off as usize,
+      self.off,
       &mut self.next_blocks,
       self.bits_per_value,
     );
     let block_count = Packed(PackedImpl::new(0)).byte_count(
       PackedInts::VERSION_CURRENT,
-      self.off,
+      self.off as i32,
       self.bits_per_value,
     ) as i32;
     self

@@ -51,7 +51,7 @@ where
     let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
     let page_mask = page_size - 1;
     let num_pages = PackedInts::num_blocks(size, page_size)?;
-    let sub_mutables = Vec::with_capacity(num_pages as usize);
+    let sub_mutables = Vec::with_capacity(num_pages);
     let mut result = AbstractPagedMutable {
       sub_reader,
       size,
@@ -66,7 +66,7 @@ where
   }
   fn fill_pages(&mut self) -> Result<()> {
     let num_pages = PackedInts::num_blocks(self.size, self.page_size())?;
-    let mut sub_mutables = Vec::with_capacity(num_pages as usize);
+    let mut sub_mutables = Vec::with_capacity(num_pages);
     for i in 0..num_pages {
       // do not allocate for more entries than necessary on the last page
       let value_count = if i == num_pages - 1 {
@@ -136,7 +136,7 @@ where
   pub fn resize(&self, new_size: usize) -> Result<AbstractPagedMutable<T>> {
     let sub = self.sub_reader.new_unfilled_copy();
     let mut copy = AbstractPagedMutable::new(new_size, self.page_size(), sub)?;
-    let num_pages = PackedInts::num_blocks(new_size, self.page_size())? as usize;
+    let num_pages = PackedInts::num_blocks(new_size, self.page_size())?;
     let num_common_pages = std::cmp::min(num_pages, self.sub_mutables.len());
     let mut copy_buffer = vec![0i64; 1024];
     for i in 0..num_pages {

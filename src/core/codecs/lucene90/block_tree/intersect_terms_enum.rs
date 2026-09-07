@@ -102,8 +102,8 @@ where
 
     {
       let f = &mut stack[0];
-      f.fp = fr.root_block_fp;
-      f.fp_orig = fr.root_block_fp;
+      f.fp = fr.root_block_fp as usize;
+      f.fp_orig = fr.root_block_fp as usize;
       f.prefix = 0;
       IntersectTermsEnumFrame::set_state(&mut automaton, f, 0)?;
       f.arc = first_arc_idx;
@@ -161,11 +161,11 @@ where
       let new_len = ArrayUtil::oversize(ord + 1, std::mem::size_of::<IntersectTermsEnumFrame>())?;
 
       for i in self.stack.len()..new_len {
-        let frame = IntersectTermsEnumFrame::new(i as i32, &self.fr)?;
+        let frame = IntersectTermsEnumFrame::new(i, &self.fr)?;
         self.stack.push(frame);
       }
     }
-    debug_assert!(self.stack[ord].ord == ord as i32);
+    debug_assert!(self.stack[ord].ord == ord);
     Ok(())
   }
   pub(crate) fn get_arc(&mut self, ord: usize) -> Result<usize> {
@@ -177,7 +177,7 @@ where
   fn push_frame(&mut self, state: i32) -> Result<usize> {
     debug_assert!(self.current_frame < self.stack.len());
     let ord = self.stack[self.current_frame].ord;
-    let new_ord = (ord + 1) as usize;
+    let new_ord = ord + 1;
 
     self.get_frame(new_ord)?;
 
@@ -392,7 +392,7 @@ where
         let output_num = self.stack[frame_idx].output_num;
         self.output_accumulator.pop_n(output_num.try_convert()?);
 
-        self.current_frame = (ord - 1) as usize;
+        self.current_frame = ord - 1;
         self.current_transition = self.current_frame;
 
         debug_assert!(self.stack[self.current_frame].last_sub_fp == last_fp);
@@ -455,7 +455,7 @@ where
             }
             let output_num = frame.output_num;
             self.output_accumulator.pop_n(output_num as usize);
-            let parent_ord = (frame.ord - 1) as usize;
+            let parent_ord = frame.ord - 1;
             self.current_frame = parent_ord;
             self.current_transition = self.current_frame;
             is_sub_block = self.pop_push_next()?;

@@ -45,10 +45,8 @@ pub struct NodeHash<T> {
   // lowish-RAM-overhead (compared to e.g. LinkedHashMap) LRU behaviour.
   // fallbackTable is read-only.
   fallback_table: Option<PagedGrowableHash<T>>,
-  // store the last fallback table node length in getFallback()
-  last_fallback_node_length: i32,
-  // store the last fallback table hashtable slot in getFallback()
-  last_fallback_hash_slot: Option<usize>,
+  // Store the last fallback table hash slot and node byte length in getFallback().
+  last_fallback_node: Option<(usize, usize)>,
   pub(crate) enable: bool,
 }
 impl<T> NodeHash<T>
@@ -79,8 +77,7 @@ where
       primary_table: PagedGrowableHash::new()?,
       fallback_table: None, // Empty initially
       ram_limit_bytes,
-      last_fallback_node_length: 0,
-      last_fallback_hash_slot: Some(0),
+      last_fallback_node: None,
       enable,
     })
   }
@@ -95,8 +92,7 @@ where
   {
     let fallback_table = {
       let node_hash = &mut fst_compiler.dedup_hash;
-      node_hash.last_fallback_node_length = -1;
-      node_hash.last_fallback_hash_slot = None;
+      node_hash.last_fallback_node = None;
       &mut node_hash.fallback_table
     };
 
@@ -113,12 +109,10 @@ where
           } else {
             let node = &fst_compiler.frontier[node_in_index];
             let fst = &fst_compiler.fst;
-            let length = fallback_table.nodes_equal(node_address, hash_slot, fst, node)?;
-            if length != -1 {
+            if let Some(length) = fallback_table.nodes_equal(node_address, hash_slot, fst, node)? {
               let node_hash = &mut fst_compiler.dedup_hash;
               // store the node length for further use
-              node_hash.last_fallback_node_length = length;
-              node_hash.last_fallback_hash_slot = Some(hash_slot);
+              node_hash.last_fallback_node = Some((hash_slot, length));
               // frozen version of this node is already here
               return Ok(node_address);
             }
@@ -161,16 +155,13 @@ where
         node_address = NodeHash::get_fallback(node_in_index, hash, fst_compiler)?;
         if node_address != 0 {
           let node_hash = &mut fst_compiler.dedup_hash;
-          debug_assert!(
-            node_hash.last_fallback_hash_slot.is_some()
-              && node_hash.last_fallback_node_length != -1
-          );
+          debug_assert!(node_hash.last_fallback_node.is_some());
           // it was already in fallback -- promote to primary
           node_hash
             .primary_table
             .set_node_address(hash_slot, node_address)?;
-          let fallback_hash_slot = node_hash
-            .last_fallback_hash_slot
+          let (fallback_hash_slot, fallback_node_length) = node_hash
+            .last_fallback_node
             .ok_or_else(|| LuceneError::illegal_state("fallback FST hash slot is missing"))?;
           let fallback_table = node_hash
             .fallback_table
@@ -180,7 +171,7 @@ where
             hash_slot,
             fallback_table,
             fallback_hash_slot,
-            node_hash.last_fallback_node_length,
+            fallback_node_length,
           )?;
         } else {
           // not in fallback either -- freeze & add the incoming node
@@ -199,7 +190,7 @@ where
             node_hash.primary_table.copy_node_bytes(
               hash_slot,
               fst_compiler.scratch_bytes.get_bytes(),
-              pos as i32,
+              pos,
             )?;
           }
 
@@ -261,12 +252,11 @@ where
         return Ok(node_address);
       } else {
         let node = &fst_compiler.frontier[node_in_index];
-        if fst_compiler.dedup_hash.primary_table.nodes_equal(
-          node_address,
-          hash_slot,
-          &fst_compiler.fst,
-          node,
-        )? != -1
+        if fst_compiler
+          .dedup_hash
+          .primary_table
+          .nodes_equal(node_address, hash_slot, &fst_compiler.fst, node)?
+          .is_some()
         {
           // same node (in frozen form) is already in primary table
           return Ok(node_address);
@@ -282,7 +272,7 @@ where
     const PRIME: i64 = 31;
     let mut h: i64 = 0;
 
-    for arc in &node.arcs[..node.num_arcs as usize] {
+    for arc in &node.arcs[..node.num_arcs] {
       h = h.wrapping_mul(PRIME).wrapping_add(arc.label as i64);
 
       let n = match &arc.target {
@@ -404,11 +394,11 @@ where
   ///
   /// The copied byte array
   #[cfg(test)]
-  pub fn get_bytes(&self, hash_slot: usize, length: i32) -> Result<Vec<u8>> {
+  pub fn get_bytes(&self, hash_slot: usize, length: usize) -> Result<Vec<u8>> {
     let address = self.inner.copied_node_address.get(hash_slot)?;
     debug_assert!(address - length as i64 + 1 >= 0);
 
-    let mut buf = vec![0u8; length as usize];
+    let mut buf = vec![0u8; length];
     self
       .inner
       .bytes_reader
@@ -432,7 +422,7 @@ where
     &mut self,
     hash_slot: usize,
     bytes: &[u8],
-    length: i32,
+    length: usize,
   ) -> Result<()> {
     debug_assert_eq!(
       self.inner.copied_node_address.get(hash_slot).unwrap_or(-1),
@@ -456,7 +446,7 @@ where
     hash_slot: usize,
     fallback_table: &mut PagedGrowableHash<T>,
     fallback_hash_slot: usize,
-    node_length: i32,
+    node_length: usize,
   ) -> Result<()> {
     debug_assert_eq!(self.inner.copied_node_address.get(hash_slot)?, 0);
 
@@ -576,7 +566,7 @@ where
     hash_slot: usize,
     fst: &FST<O, NullFSTReader>,
     node: &UnCompiledNode<T>,
-  ) -> Result<i32>
+  ) -> Result<Option<usize>>
   where
     O: Outputs<V = T>,
   {
@@ -589,9 +579,9 @@ where
       // bytes per arc), but may be sparse or dense
       match self.scratch_arc.node_flags() {
         ARCS_FOR_BINARY_SEARCH => {
-          if node.num_arcs != self.scratch_arc.num_arcs() {
+          if node.num_arcs as i32 != self.scratch_arc.num_arcs() {
             // sparse
-            return Ok(-1);
+            return Ok(None);
           }
         },
         ARCS_FOR_DIRECT_ADDRESSING => {
@@ -599,18 +589,18 @@ where
           // the array (some of which may
           // not actually be arcs), and the number of arcs
           let first_label = node.arcs[0].label;
-          let last_label = node.arcs[node.num_arcs as usize - 1].label;
+          let last_label = node.arcs[node.num_arcs - 1].label;
           if (last_label - first_label + 1) != self.scratch_arc.num_arcs()
-            || node.num_arcs != BitTable::count_bits(&self.scratch_arc, in_reader)?
+            || node.num_arcs as i32 != BitTable::count_bits(&self.scratch_arc, in_reader)?
           {
-            return Ok(-1);
+            return Ok(None);
           }
         },
         ARCS_FOR_CONTINUOUS => {
           let first_label = node.arcs[0].label;
-          let last_label = node.arcs[node.num_arcs as usize - 1].label;
+          let last_label = node.arcs[node.num_arcs - 1].label;
           if (last_label - first_label + 1) != self.scratch_arc.num_arcs() {
-            return Ok(-1);
+            return Ok(None);
           }
         },
         _ => {
@@ -622,7 +612,7 @@ where
       }
     }
     // compare arc by arc to see if there is a difference
-    for arc_idx in 0..node.num_arcs as usize {
+    for arc_idx in 0..node.num_arcs {
       let arc = &node.arcs[arc_idx];
 
       if arc.label != self.scratch_arc.label()
@@ -636,24 +626,24 @@ where
         || arc.next_final_output != self.scratch_arc.next_final_output()
         || arc.is_final != self.scratch_arc.is_final()
       {
-        return Ok(-1);
+        return Ok(None);
       }
 
       match &arc.target {
         NodeEnum::CompiledNode(compiled) => {
           if compiled.node != self.scratch_arc.target() {
-            return Ok(-1);
+            return Ok(None);
           }
         },
-        _ => return Ok(-1),
+        _ => return Ok(None),
       }
 
       if self.scratch_arc.is_last() {
-        return if arc_idx == (node.num_arcs as usize - 1) {
+        return if arc_idx == (node.num_arcs - 1) {
           let len = address - in_reader.get_position();
-          Ok(len as i32)
+          Ok(Some(len as usize))
         } else {
-          Ok(-1)
+          Ok(None)
         };
       }
 
@@ -661,6 +651,6 @@ where
     }
 
     // unfrozen node has fewer arcs than frozen node
-    Ok(-1)
+    Ok(None)
   }
 }

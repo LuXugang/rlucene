@@ -79,7 +79,7 @@ where
   num_stored_fields: Vec<i32>,
   end_offsets: Vec<i32>,
   doc_base: usize,
-  num_buffered_docs: i32,
+  num_buffered_docs: usize,
   num_chunks: i64,
   num_dirty_chunks: i64,
   num_dirty_docs: i64,
@@ -208,7 +208,7 @@ where
     })
   }
 
-  fn save_ints(values: &[i32], length: i32, out: &mut impl DataOutput) -> Result<()> {
+  fn save_ints(values: &[i32], length: usize, out: &mut impl DataOutput) -> Result<()> {
     if length == 1 {
       out.write_vint(values[0])?;
     } else {
@@ -223,7 +223,7 @@ where
     self.fields_stream.write_vint(self.doc_base as i32)?;
     self
       .fields_stream
-      .write_vint((self.num_buffered_docs << 2) | dirty_bit | sliced_bit)?;
+      .write_vint(((self.num_buffered_docs as i32) << 2) | dirty_bit | sliced_bit)?;
     // save numStoredFields
     Self::save_ints(
       &self.num_stored_fields,
@@ -240,7 +240,7 @@ where
   }
   fn trigger_flush(&self) -> bool {
     self.buffered_docs.size() as i32 >= self.chunk_size
-      || self.num_buffered_docs >= self.max_docs_per_chunk
+      || self.num_buffered_docs as i32 >= self.max_docs_per_chunk
   }
   fn flush(&mut self, force: bool) -> Result<()> {
     debug_assert!(self.trigger_flush() != force);
@@ -252,12 +252,12 @@ where
     }
 
     self.index_writer.write_index(
-      self.num_buffered_docs,
+      self.num_buffered_docs as i32,
       self.fields_stream.get_file_pointer()?,
     )?;
 
     // convert end offsets into lengths
-    for i in (1..self.num_buffered_docs as usize).rev() {
+    for i in (1..self.num_buffered_docs).rev() {
       self.end_offsets[i] -= self.end_offsets[i - 1];
       debug_assert!(self.end_offsets[i] >= 0);
     }
@@ -286,7 +286,7 @@ where
     }
 
     // reset
-    self.doc_base += self.num_buffered_docs as usize;
+    self.doc_base += self.num_buffered_docs;
     self.num_buffered_docs = 0;
     self.buffered_docs.reset();
 
@@ -535,15 +535,15 @@ where
     Ok(())
   }
   fn finish_document(&mut self) -> Result<()> {
-    if self.num_buffered_docs as usize == self.num_stored_fields.len() {
-      let new_len = ArrayUtil::oversize(self.num_buffered_docs as usize + 1, 4)?;
+    if self.num_buffered_docs == self.num_stored_fields.len() {
+      let new_len = ArrayUtil::oversize(self.num_buffered_docs + 1, 4)?;
       ArrayUtil::grow_exact(&mut self.num_stored_fields, new_len)?;
       ArrayUtil::grow_exact(&mut self.end_offsets, new_len)?;
     }
 
-    self.num_stored_fields[self.num_buffered_docs as usize] = self.num_stored_fields_in_doc;
+    self.num_stored_fields[self.num_buffered_docs] = self.num_stored_fields_in_doc;
     self.num_stored_fields_in_doc = 0;
-    self.end_offsets[self.num_buffered_docs as usize] = self.buffered_docs.size().try_convert()?;
+    self.end_offsets[self.num_buffered_docs] = self.buffered_docs.size().try_convert()?;
     self.num_buffered_docs += 1;
 
     if self.trigger_flush() {

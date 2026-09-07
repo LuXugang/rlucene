@@ -346,7 +346,7 @@ impl SortedDocValuesWriter {
   pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
     let bytes_start_array =
       DirectBytesStartArray::with_counter(DEFAULT_CAPACITY as usize, iw_bytes_used.clone());
-    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array)?;
+    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY as usize, bytes_start_array)?;
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
     let bytes_used = pending.ram_bytes_used()? + docs_with_field.ram_bytes_used()?;

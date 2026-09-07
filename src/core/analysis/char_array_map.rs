@@ -70,8 +70,8 @@ impl<T> CharArrayMap<T> {
   pub fn clear(&mut self) {
     self.map.clear();
   }
-  pub fn contains_key(&self, key: &[char], off: i32, len: i32) -> bool {
-    let slice = &key[off as usize..(off + len) as usize];
+  pub fn contains_key(&self, key: &[char], off: usize, len: usize) -> bool {
+    let slice = &key[off..off + len];
     match norm(self.ignore, slice) {
       Cow::Borrowed(_) => self.map.contains_key(slice),
       Cow::Owned(o) => self.map.contains_key(o.as_slice()),
@@ -80,7 +80,7 @@ impl<T> CharArrayMap<T> {
   pub fn contains_key_str(&self, key: &str) -> bool {
     let chars: Vec<char> = key.to_string().chars().collect();
     debug_assert!(chars.len() <= i32::MAX as usize);
-    self.contains_key(chars.as_slice(), 0, chars.len() as i32)
+    self.contains_key(chars.as_slice(), 0, chars.len())
   }
   pub fn contains_key_any<V>(&self, key: &V) -> bool
   where
@@ -111,8 +111,8 @@ impl<T> CharArrayMap<T> {
     let key: Vec<char> = key.to_string().chars().collect();
     self.put(key, val)
   }
-  pub fn get(&self, key: &[char], off: i32, len: i32) -> Option<&T> {
-    let slice = &key[off as usize..(off + len) as usize];
+  pub fn get(&self, key: &[char], off: usize, len: usize) -> Option<&T> {
+    let slice = &key[off..off + len];
     match norm(self.ignore, slice) {
       Cow::Borrowed(_) => self.map.get(slice),
       Cow::Owned(o) => self.map.get(o.as_slice()),
@@ -120,7 +120,7 @@ impl<T> CharArrayMap<T> {
   }
   pub fn get_str(&self, key: &str) -> Option<&T> {
     let chars: Vec<char> = key.chars().collect();
-    self.get(chars.as_slice(), 0, chars.len() as i32)
+    self.get(chars.as_slice(), 0, chars.len())
   }
   pub fn get_any<V>(&self, key: &V) -> Option<&T>
   where

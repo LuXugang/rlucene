@@ -103,16 +103,14 @@ where
         self
           .format
           .byte_count(self.packed_ints_version, remaining, self.bits_per_value);
-      let blocks_to_read = remaining_blocks.min(self.next_blocks.len() as i64);
-      debug_assert!(blocks_to_read <= i32::MAX as i64);
-      self.data_input.read_bytes(
-        &mut self.next_blocks[..blocks_to_read as usize],
-        0,
-        blocks_to_read as usize,
-      )?;
+      let blocks_to_read = remaining_blocks.min(self.next_blocks.len() as i64) as usize;
+      debug_assert!(blocks_to_read <= i32::MAX as usize);
+      self
+        .data_input
+        .read_bytes(&mut self.next_blocks[..blocks_to_read], 0, blocks_to_read)?;
 
-      if (blocks_to_read as usize) < self.next_blocks.len() {
-        self.next_blocks[blocks_to_read as usize..].fill(0);
+      if blocks_to_read < self.next_blocks.len() {
+        self.next_blocks[blocks_to_read..].fill(0);
       }
 
       self.bulk_operation.decode_u8_to_i64(

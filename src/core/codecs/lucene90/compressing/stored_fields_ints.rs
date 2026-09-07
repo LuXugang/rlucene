@@ -20,17 +20,14 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub(crate) struct StoredFieldsInts;
 impl StoredFieldsInts {
   const BLOCK_SIZE: usize = 128;
-  const BLOCK_SIZE_MINUS_ONE: usize = Self::BLOCK_SIZE - 1;
   pub(crate) fn write_ints(
     values: &[i32],
-    start: i32,
-    count: i32,
+    start: usize,
+    count: usize,
     out: &mut impl DataOutput,
   ) -> Result<()> {
-    let start = start as usize;
-
     let mut all_equal = true;
-    for i in 1..count as usize {
+    for i in 1..count {
       if values[start + i] != values[start] {
         all_equal = false;
         break;
@@ -42,28 +39,33 @@ impl StoredFieldsInts {
       out.write_vint(values[0])?;
     } else {
       let mut max: u64 = 0;
-      for i in 0..count as usize {
+      for i in 0..count {
         max |= values[start + i] as u32 as u64;
       }
       if max <= 0xff {
         out.write_byte(8)?;
-        Self::write_ints8(out, count, values, start as i32)?;
+        Self::write_ints8(out, count, values, start)?;
       } else if max <= 0xffff {
         out.write_byte(16)?;
-        Self::write_ints16(out, count, values, start as i32)?;
+        Self::write_ints16(out, count, values, start)?;
       } else {
         out.write_byte(32)?;
-        Self::write_ints32(out, count, values, start as i32)?;
+        Self::write_ints32(out, count, values, start)?;
       }
     }
 
     Ok(())
   }
 
-  fn write_ints8(out: &mut impl DataOutput, count: i32, values: &[i32], offset: i32) -> Result<()> {
+  fn write_ints8(
+    out: &mut impl DataOutput,
+    count: usize,
+    values: &[i32],
+    offset: usize,
+  ) -> Result<()> {
     let mut k = 0;
-    while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-      let step = (offset + k) as usize;
+    while count - k >= Self::BLOCK_SIZE {
+      let step = offset + k;
       for i in 0..16 {
         let l = ((values[step + i] as i64) << 56)
           | ((values[step + 16 + i] as i64) << 48)
@@ -75,10 +77,9 @@ impl StoredFieldsInts {
           | (values[step + 112 + i] as i64);
         out.write_long(l)?;
       }
-      k += Self::BLOCK_SIZE as i32;
+      k += Self::BLOCK_SIZE;
     }
-    let offset = offset as usize;
-    for i in k as usize..count as usize {
+    for i in k..count {
       out.write_byte(values[offset + i] as u8)?;
     }
 
@@ -86,13 +87,13 @@ impl StoredFieldsInts {
   }
   fn write_ints16(
     out: &mut impl DataOutput,
-    count: i32,
+    count: usize,
     values: &[i32],
-    offset: i32,
+    offset: usize,
   ) -> Result<()> {
     let mut k = 0;
-    while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-      let step = (offset + k) as usize;
+    while count - k >= Self::BLOCK_SIZE {
+      let step = offset + k;
       for i in 0..32 {
         let l = ((values[step + i] as i64) << 48)
           | ((values[step + 32 + i] as i64) << 32)
@@ -100,10 +101,9 @@ impl StoredFieldsInts {
           | (values[step + 96 + i] as i64);
         out.write_long(l)?;
       }
-      k += Self::BLOCK_SIZE as i32;
+      k += Self::BLOCK_SIZE;
     }
-    let offset = offset as usize;
-    for i in k as usize..count as usize {
+    for i in k..count {
       out.write_short(values[offset + i] as i16)?;
     }
 
@@ -112,21 +112,20 @@ impl StoredFieldsInts {
 
   fn write_ints32(
     out: &mut impl DataOutput,
-    count: i32,
+    count: usize,
     values: &[i32],
-    offset: i32,
+    offset: usize,
   ) -> Result<()> {
     let mut k = 0;
-    while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-      let step = (offset + k) as usize;
+    while count - k >= Self::BLOCK_SIZE {
+      let step = offset + k;
       for i in 0..64 {
         let l = ((values[step + i] as i64) << 32) | (values[step + 64 + i] as i64);
         out.write_long(l)?;
       }
-      k += Self::BLOCK_SIZE as i32;
+      k += Self::BLOCK_SIZE;
     }
-    let offset = offset as usize;
-    for i in k as usize..count as usize {
+    for i in k..count {
       out.write_int(values[offset + i])?;
     }
 
@@ -134,16 +133,16 @@ impl StoredFieldsInts {
   }
   pub(crate) fn read_ints(
     input: &mut impl IndexInput,
-    count: i32,
+    count: usize,
     values: &mut [i64],
-    offset: i32,
+    offset: usize,
   ) -> Result<()> {
     let bpv = input.read_byte()? as i32;
     match bpv {
       0 => {
         let v = input.read_vint()? as i64;
-        let start = offset as usize;
-        let end = start + count as usize;
+        let start = offset;
+        let end = start + count;
         values[start..end].fill(v);
       },
       8 => Self::read_ints8(input, count, values, offset)?,
@@ -160,13 +159,13 @@ impl StoredFieldsInts {
 
   fn read_ints8(
     input: &mut impl IndexInput,
-    count: i32,
+    count: usize,
     values: &mut [i64],
-    offset: i32,
+    offset: usize,
   ) -> Result<()> {
     let mut k = 0;
-    while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-      let step = (offset + k) as usize;
+    while count - k >= Self::BLOCK_SIZE {
+      let step = offset + k;
       input.read_longs(values, step, 16)?;
       for i in 0..16 {
         let l = values[step + i];
@@ -179,10 +178,9 @@ impl StoredFieldsInts {
         values[step + 96 + i] = (l >> 8) & 0xFF;
         values[step + 112 + i] = l & 0xFF;
       }
-      k += Self::BLOCK_SIZE as i32;
+      k += Self::BLOCK_SIZE;
     }
-    let offset = offset as usize;
-    for i in k as usize..count as usize {
+    for i in k..count {
       values[offset + i] = input.read_byte()? as i64;
     }
     Ok(())
@@ -190,13 +188,13 @@ impl StoredFieldsInts {
 
   fn read_ints16(
     input: &mut impl IndexInput,
-    count: i32,
+    count: usize,
     values: &mut [i64],
-    offset: i32,
+    offset: usize,
   ) -> Result<()> {
     let mut k = 0;
-    while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-      let step = (offset + k) as usize;
+    while count - k >= Self::BLOCK_SIZE {
+      let step = offset + k;
       input.read_longs(values, step, 32)?;
       for i in 0..32 {
         let l = values[step + i];
@@ -205,10 +203,9 @@ impl StoredFieldsInts {
         values[step + 64 + i] = (l >> 16) & 0xFFFF;
         values[step + 96 + i] = l & 0xFFFF;
       }
-      k += Self::BLOCK_SIZE as i32;
+      k += Self::BLOCK_SIZE;
     }
-    let offset = offset as usize;
-    for i in k as usize..count as usize {
+    for i in k..count {
       values[offset + i] = input.read_short()? as u16 as i64;
     }
     Ok(())
@@ -216,23 +213,22 @@ impl StoredFieldsInts {
 
   fn read_ints32(
     input: &mut impl IndexInput,
-    count: i32,
+    count: usize,
     values: &mut [i64],
-    offset: i32,
+    offset: usize,
   ) -> Result<()> {
     let mut k = 0;
-    while k < (count - Self::BLOCK_SIZE_MINUS_ONE as i32) {
-      let step = (offset + k) as usize;
+    while count - k >= Self::BLOCK_SIZE {
+      let step = offset + k;
       input.read_longs(values, step, 64)?;
       for i in 0..64 {
         let l = values[step + i];
         values[step + i] = (l >> 32) & 0xFFFFFFFF;
         values[step + 64 + i] = l & 0xFFFFFFFF;
       }
-      k += Self::BLOCK_SIZE as i32;
+      k += Self::BLOCK_SIZE;
     }
-    let offset = offset as usize;
-    for i in k as usize..count as usize {
+    for i in k..count {
       values[offset + i] = input.read_int()? as u32 as i64;
     }
     Ok(())
