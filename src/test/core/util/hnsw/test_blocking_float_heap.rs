@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test_framework::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
@@ -50,8 +50,8 @@ fn test_basic_operations() -> Result<()> {
 #[test]
 fn test_basic_operations2() -> Result<()> {
   let mut random = random();
-  let size = at_least(&mut random, 10);
-  let heap = BlockingFloatHeap::new(size as usize);
+  let size = at_least_usize(&mut random, 10);
+  let heap = BlockingFloatHeap::new(size);
 
   let mut sum = 0.0;
   for _ in 0..size {

@@ -94,7 +94,7 @@ fn test() -> Result<()> {
   let reader = directory_reader::open(directory)?;
   let reader = Arc::new(reader);
 
-  let mut handles = Vec::with_capacity(num_threads as usize);
+  let mut handles = Vec::with_capacity(num_threads);
 
   for _ in 0..num_threads {
     let reader = reader.clone();

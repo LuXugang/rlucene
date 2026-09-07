@@ -275,9 +275,10 @@ impl SegmentTermsEnumFrame {
     let code_l = input.read_vlong()?;
     frame.is_leaf_block = (code_l & 0x04) != 0;
     let num_suffix_bytes = ((code_l as u64) >> 3) as i32;
+    let suffix_length = num_suffix_bytes as usize;
 
-    if frame.suffixes_reader.bytes.len() < num_suffix_bytes as usize {
-      ArrayUtil::grow_no_copy(&mut frame.suffixes_reader.bytes, num_suffix_bytes as usize)?;
+    if frame.suffixes_reader.bytes.len() < suffix_length {
+      ArrayUtil::grow_no_copy(&mut frame.suffixes_reader.bytes, suffix_length)?;
     }
 
     let alg_code = (code_l & 0x03) as u8;
@@ -293,9 +294,7 @@ impl SegmentTermsEnumFrame {
     frame
       .compression_alg
       .read(input, &mut frame.suffixes_reader.bytes, num_suffix_bytes)?;
-    frame
-      .suffixes_reader
-      .reset_meta(0, num_suffix_bytes as usize);
+    frame.suffixes_reader.reset_meta(0, suffix_length);
 
     let num_suffix_length_bytes = input.read_vint()?;
     debug_assert!(num_suffix_length_bytes >= 0);

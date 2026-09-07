@@ -146,6 +146,7 @@ where
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("input is empty"))?,
     };
+    let bits_per_value_usize = self.bits_per_value as usize;
     if index + DirectReader::MERGE_BUFFER_SIZE >= self.num_values {
       // 128 values left or less
       let mut slow_instance =
@@ -162,7 +163,7 @@ where
       } else {
         (1i64 << self.bits_per_value) - 1
       };
-      let mut offset = self.base_offset + (index * self.bits_per_value as usize) / 8;
+      let mut offset = self.base_offset + (index * bits_per_value_usize) / 8;
       for i in 0..DirectReader::MERGE_BUFFER_SIZE {
         if self.bits_per_value > i32::BITS as i32 {
           self.buffer[i] = slice.read_long(offset)? & mask;
@@ -179,7 +180,7 @@ where
       // bitsPerValue is 1, 2 or 4
       let values_per_long = u64::BITS as i32 / self.bits_per_value;
       let mask = (1i64 << self.bits_per_value) - 1;
-      let mut offset = self.base_offset + (index * self.bits_per_value as usize) / 8;
+      let mut offset = self.base_offset + (index * bits_per_value_usize) / 8;
       let mut i = 0;
       for _ in 0..(2 * self.bits_per_value) {
         let bits = slice.read_long(offset)?;
@@ -193,7 +194,7 @@ where
       // bitsPerValue is 12, 20 or 28; read values 2 by 2
       let num_bytes_for_2_values = ((self.bits_per_value * 2) / i8::BITS as i32) as usize;
       let mask = (1i64 << self.bits_per_value) - 1;
-      let mut offset = self.base_offset + (index * self.bits_per_value as usize) / 8;
+      let mut offset = self.base_offset + (index * bits_per_value_usize) / 8;
       for i in (0..DirectReader::MERGE_BUFFER_SIZE).step_by(2) {
         let l = if num_bytes_for_2_values > BitUtil::INT_BYTES {
           slice.read_long(offset)?

@@ -82,8 +82,9 @@ pub trait MatchesTestBase {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     for (doc, expected) in expected.iter().enumerate() {
       let leaf_contexts = searcher.get_leaf_contexts()?;
-      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc as i32, leaf_contexts)];
-      let leaf_doc = doc as i32 - context.doc_base as i32;
+      let doc_id = doc as i32;
+      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc_id, leaf_contexts)];
+      let leaf_doc = doc_id - context.doc_base as i32;
       let Some(matches) = weight.matches(context, leaf_doc, searcher)? else {
         assert_eq!(0, *expected, "Expected to get matches on document {doc}");
         continue;
@@ -145,8 +146,9 @@ pub trait MatchesTestBase {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     for (doc, expected) in expected.iter().enumerate() {
       let leaf_contexts = searcher.get_leaf_contexts()?;
-      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc as i32, leaf_contexts)];
-      let leaf_doc = doc as i32 - context.doc_base as i32;
+      let doc_id = doc as i32;
+      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc_id, leaf_contexts)];
+      let leaf_doc = doc_id - context.doc_base as i32;
       let matches = weight.matches(context, leaf_doc, searcher)?;
       if *expected {
         let matches = matches.expect("expected matches");
@@ -172,8 +174,9 @@ pub trait MatchesTestBase {
     let weight = searcher.create_weight(rewritten, ScoreMode::CompleteNoScores, 1.0)?;
     for (doc, expected_names) in expected_names.iter().enumerate() {
       let leaf_contexts = searcher.get_leaf_contexts()?;
-      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc as i32, leaf_contexts)];
-      let leaf_doc = doc as i32 - context.doc_base as i32;
+      let doc_id = doc as i32;
+      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc_id, leaf_contexts)];
+      let leaf_doc = doc_id - context.doc_base as i32;
       let Some(matches) = weight.matches(context, leaf_doc, searcher)? else {
         assert!(
           expected_names.is_empty(),
@@ -230,8 +233,9 @@ pub trait MatchesTestBase {
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
     for (doc, expected) in expected.iter().enumerate() {
       let leaf_contexts = searcher.get_leaf_contexts()?;
-      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc as i32, leaf_contexts)];
-      let leaf_doc = doc as i32 - context.doc_base as i32;
+      let doc_id = doc as i32;
+      let context = &leaf_contexts[ReaderUtil::sub_index_with_leaves(doc_id, leaf_contexts)];
+      let leaf_doc = doc_id - context.doc_base as i32;
       let Some(matches) = weight.matches(context, leaf_doc, searcher)? else {
         assert!(expected.is_empty());
         continue;

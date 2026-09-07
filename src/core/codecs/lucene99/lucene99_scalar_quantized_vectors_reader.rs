@@ -195,7 +195,8 @@ where
 
   fn validate_field_entry(info: &FieldInfo, field_entry: &FieldEntry) -> Result<()> {
     let dimension = info.get_vector_dimension();
-    if dimension as usize != field_entry.dimension {
+    let dimension_usize = dimension as usize;
+    if dimension_usize != field_entry.dimension {
       return Err(LuceneError::illegal_state(format!(
         "Inconsistent vector dimension for field=\"{}\"; {} != {}",
         info.name, dimension, field_entry.dimension
@@ -204,10 +205,10 @@ where
 
     let quantized_vector_bytes = if field_entry.bits <= 4 && field_entry.compress {
       // two dimensions -> one byte
-      ((dimension as usize + 1) >> 1) + BitUtil::FLOAT_BYTES
+      ((dimension_usize + 1) >> 1) + BitUtil::FLOAT_BYTES
     } else {
       // one dimension -> one byte
-      dimension as usize + BitUtil::FLOAT_BYTES
+      dimension_usize + BitUtil::FLOAT_BYTES
     };
     let num_quantized_vector_bytes = quantized_vector_bytes
       .checked_mul(field_entry.size)

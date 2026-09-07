@@ -712,8 +712,9 @@ where
   }
 
   fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    debug_assert!(ord >= 0 && (ord as usize) < self.hash.ids.len());
-    let index = self.hash.ids[ord as usize];
+    let ord_index = ord as usize;
+    debug_assert!(ord >= 0 && ord_index < self.hash.ids.len());
+    let index = self.hash.ids[ord_index];
     debug_assert!(
       index >= 0 && (index as usize) < self.hash.ids.len(),
       "sorted_values[ord] out of range"
@@ -787,11 +788,12 @@ where
   fn next_doc(&mut self) -> Result<i32> {
     loop {
       self.doc_id += 1;
-      if self.doc_id as usize == self.ords.len() {
+      let doc_index = self.doc_id as usize;
+      if doc_index == self.ords.len() {
         self.doc_id = NO_MORE_DOCS;
         break;
       }
-      if self.ords[self.doc_id as usize] != -1 {
+      if self.ords[doc_index] != -1 {
         break;
       }
       // skip missing docs

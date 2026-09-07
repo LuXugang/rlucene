@@ -126,8 +126,8 @@ fn test_random_with_lots_of_duplicates() -> Result<()> {
 fn test_random_with_shared_prefix() -> Result<()> {
   let mut random = random();
   for _ in 0..10 {
-    let common_prefix_len = TestUtil::next_int(&mut random, 1, 30);
-    test_random_impl(common_prefix_len as usize, 10, &mut random)?;
+    let common_prefix_len = TestUtil::next_usize(&mut random, 1, 30);
+    test_random_impl(common_prefix_len, 10, &mut random)?;
   }
   Ok(())
 }
@@ -136,8 +136,8 @@ fn test_random_with_shared_prefix() -> Result<()> {
 fn test_random_with_shared_prefix_and_lots_of_duplicates() -> Result<()> {
   let mut random = random();
   for _ in 0..10 {
-    let common_prefix_len = TestUtil::next_int(&mut random, 1, 30);
-    test_random_impl(common_prefix_len as usize, 2, &mut random)?;
+    let common_prefix_len = TestUtil::next_usize(&mut random, 1, 30);
+    test_random_impl(common_prefix_len, 2, &mut random)?;
   }
   Ok(())
 }

@@ -202,16 +202,16 @@ where
     &mut BytesRef::default(),
     &mut BytesRef::default(),
   )?;
-  let pivot_point = &reader.points[pivot as usize];
+  let pivot_point = &reader.points[pivot];
   let pivot_value = &pivot_point.packed_value;
   let offset = split_dim * config.bytes_per_dim;
 
   for i in 0..points.len() {
     let value = &reader.points[i].packed_value;
-    let dim_start = value.offset + offset as usize;
-    let dim_end = value.offset + (offset + config.bytes_per_dim) as usize;
-    let pivot_dim_start = pivot_value.offset + offset as usize;
-    let pivot_dim_end = pivot_value.offset + (offset + config.bytes_per_dim) as usize;
+    let dim_start = value.offset + offset;
+    let dim_end = value.offset + (offset + config.bytes_per_dim);
+    let pivot_dim_start = pivot_value.offset + offset;
+    let pivot_dim_end = pivot_value.offset + (offset + config.bytes_per_dim);
 
     let mut cmp = compare_unsigned(
       &value.bytes[dim_start..dim_end],
@@ -220,10 +220,10 @@ where
     if cmp == 0 {
       let data_dim_offset = config.packed_index_bytes_length();
       let data_dims_length = (config.num_dims - config.num_index_dims) * config.bytes_per_dim;
-      let data_start = value.offset + data_dim_offset as usize;
-      let data_end = data_start + data_dims_length as usize;
-      let pivot_data_start = pivot_value.offset + data_dim_offset as usize;
-      let pivot_data_end = pivot_data_start + data_dims_length as usize;
+      let data_start = value.offset + data_dim_offset;
+      let data_end = data_start + data_dims_length;
+      let pivot_data_start = pivot_value.offset + data_dim_offset;
+      let pivot_data_end = pivot_data_start + data_dims_length;
       cmp = compare_unsigned(
         &value.bytes[data_start..data_end],
         &pivot_value.bytes[pivot_data_start..pivot_data_end],

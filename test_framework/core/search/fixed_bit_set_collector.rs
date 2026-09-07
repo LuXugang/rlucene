@@ -32,19 +32,21 @@ use std::fmt::{Display, Formatter};
 /// Collector that accumulates matching docs in a FixedBitSet
 pub struct FixedBitSetCollector {
   bit_set: FixedBitSet,
-  doc_base: i32,
+  doc_base: usize,
 }
 
 impl FixedBitSetCollector {
-  pub fn new(max_doc: i32) -> Self {
+  pub fn new(max_doc: usize) -> Self {
     Self {
-      bit_set: FixedBitSet::new(max_doc as usize),
+      bit_set: FixedBitSet::new(max_doc),
       doc_base: 0,
     }
   }
 
   pub fn create_manager(max_doc: i32) -> FixedBitSetCollectorManager {
-    FixedBitSetCollectorManager { max_doc }
+    FixedBitSetCollectorManager {
+      max_doc: max_doc as usize,
+    }
   }
 }
 
@@ -76,7 +78,7 @@ impl Collector for FixedBitSetCollector {
 
 impl LeafCollector for FixedBitSetCollector {
   fn collect(&mut self, doc: i32, _scorer: &mut dyn Scorable) -> Result<()> {
-    self.bit_set.set((self.doc_base + doc) as usize)?;
+    self.bit_set.set(self.doc_base + doc as usize)?;
     Ok(())
   }
 }
@@ -86,7 +88,7 @@ impl SimpleCollector for FixedBitSetCollector {
   where
     LR: LeafReader,
   {
-    self.doc_base = context.doc_base as i32;
+    self.doc_base = context.doc_base;
     Ok(())
   }
 }
@@ -98,7 +100,7 @@ impl Display for FixedBitSetCollector {
 }
 
 pub struct FixedBitSetCollectorManager {
-  max_doc: i32,
+  max_doc: usize,
 }
 
 impl CollectorManager for FixedBitSetCollectorManager {
@@ -110,7 +112,7 @@ impl CollectorManager for FixedBitSetCollectorManager {
   }
 
   fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
-    let mut reduced = FixedBitSet::new(self.max_doc as usize);
+    let mut reduced = FixedBitSet::new(self.max_doc);
 
     for collector in collectors {
       reduced.or(&collector.bit_set);

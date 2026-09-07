@@ -73,9 +73,9 @@ fn test() -> Result<()> {
 
   let iw = Arc::new(RandomIndexWriter::with_config(&mut random, dir, iwc));
 
-  let thread_count = TestUtil::next_int(&mut random, 1, 5);
+  let thread_count = TestUtil::next_usize(&mut random, 1, 5);
   let field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
-  let barrier = Arc::new(Barrier::new(thread_count as usize + 1));
+  let barrier = Arc::new(Barrier::new(thread_count + 1));
   let mut handles = Vec::new();
 
   for _thread_id in 0..thread_count {

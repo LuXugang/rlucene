@@ -111,14 +111,15 @@ impl Automaton {
   }
   /// Set or clear this state as an accept state.
   pub fn set_accept(&mut self, state: i32, accept: bool) {
+    let state_index = state as usize;
     debug_assert!(
-      (0..self.get_num_states() as usize).contains(&(state as usize)),
+      (0..self.get_num_states() as usize).contains(&state_index),
       "state {state} out of bounds"
     );
     if accept {
-      self.is_accept.insert(state as usize);
+      self.is_accept.insert(state_index);
     } else {
-      self.is_accept.remove(state as usize);
+      self.is_accept.remove(state_index);
     }
   }
   /// Convenience method to get all transitions for all states. This is

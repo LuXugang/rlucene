@@ -276,7 +276,7 @@ impl SparseFixedBitSet {
     // the next iteration if the array is reused
     let new_index = new_index as u64;
     let mut i = new_index.leading_zeros() as usize;
-    let mut new_o = new_index.count_ones() as usize;
+    let mut new_o = required_capacity;
     while i < 64 {
       new_o -= 1;
       // bitIndex is the index of a bit which is set in newIndex and newO

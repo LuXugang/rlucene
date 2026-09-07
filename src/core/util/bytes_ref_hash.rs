@@ -168,7 +168,7 @@ where
       &self.bytes_start_array,
     );
     let mut sorter = StringSorter::new(sub_sorter, Natural::default());
-    sorter.sort(0, self.count as usize)?;
+    sorter.sort(0, tmp_offset)?;
 
     length = self.ids.len();
     for i in tmp_offset..length {
@@ -257,12 +257,13 @@ where
     if e == -1 {
       {
         let length = self.bytes_start_array.len()?;
+        let index = self.count as usize;
         // new entry
-        if self.count as usize >= length {
+        if index >= length {
           self.bytes_start_array.grow()?;
           let grown_length = self.bytes_start_array.len()?;
           debug_assert!(
-            (self.count as usize) < grown_length + 1,
+            index < grown_length + 1,
             "count: {} len: {}",
             self.count,
             grown_length
@@ -270,7 +271,7 @@ where
         }
 
         let v = self.pool.add_bytes_ref(bytes, byte_block_pool)?;
-        self.bytes_start_array.set_value(self.count as usize, v)?;
+        self.bytes_start_array.set_value(index, v)?;
         e = self.count;
         self.count += 1;
         debug_assert_eq!(self.ids[hash_pos], -1);
@@ -361,7 +362,8 @@ where
 
     if e == -1 {
       // New entry
-      if self.count as usize >= length {
+      let index = self.count as usize;
+      if index >= length {
         self.bytes_start_array.grow()?;
         let grown_length = self.bytes_start_array.len()?;
         debug_assert!(
@@ -374,7 +376,7 @@ where
 
       e = self.count;
       self.count += 1;
-      self.bytes_start_array.set_value(e as usize, offset)?;
+      self.bytes_start_array.set_value(index, offset)?;
 
       debug_assert_eq!(self.ids[hash_pos], -1);
       self.ids[hash_pos] = e;

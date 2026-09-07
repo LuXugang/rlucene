@@ -4483,8 +4483,9 @@ impl DocIdSetIterator for SortingValuesIterator {
 
 impl DocIndexIterator for SortingValuesIterator {
   fn index(&self) -> Result<i32> {
-    debug_assert!(self.docs_with_values.bits.get(self.doc as usize)?);
-    Ok(self.doc_to_ord[self.doc as usize] as i32)
+    let doc_index = self.doc as usize;
+    debug_assert!(self.docs_with_values.bits.get(doc_index)?);
+    Ok(self.doc_to_ord[doc_index] as i32)
   }
 }
 pub struct SortingIteratorSupplier {

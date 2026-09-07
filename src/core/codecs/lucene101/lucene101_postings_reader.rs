@@ -825,7 +825,8 @@ where
   }
 
   fn refill_remainder(&mut self) -> Result<()> {
-    debug_assert!(self.doc_count_left >= 0 && (self.doc_count_left as usize) < ForUtil::BLOCK_SIZE);
+    let doc_count = self.doc_count_left as usize;
+    debug_assert!(self.doc_count_left >= 0 && doc_count < ForUtil::BLOCK_SIZE);
 
     if self.doc_freq == 1 {
       self.doc_buffer[0] = self.singleton_doc_id;
@@ -844,19 +845,15 @@ where
         doc_in,
         &mut self.doc_buffer,
         &mut self.freq_buffer,
-        self.doc_count_left as usize,
+        doc_count,
         self.index_has_freq,
         self.needs_freq,
       )?;
 
-      prefix_sum(
-        &mut self.doc_buffer,
-        self.doc_count_left as usize,
-        self.prev_doc_id,
-      );
-      self.doc_buffer[self.doc_count_left as usize] = NO_MORE_DOCS;
+      prefix_sum(&mut self.doc_buffer, doc_count, self.prev_doc_id);
+      self.doc_buffer[doc_count] = NO_MORE_DOCS;
       self.freq_fp = None;
-      self.doc_buffer_size = self.doc_count_left as usize;
+      self.doc_buffer_size = doc_count;
       self.doc_count_left = 0;
     }
     self.prev_doc_id = self.doc_buffer[ForUtil::BLOCK_SIZE - 1];

@@ -644,11 +644,12 @@ where
   fn next_doc(&mut self) -> Result<i32> {
     loop {
       self.doc_id += 1;
-      if self.doc_id as usize >= self.values.offsets.len() {
+      let doc_index = self.doc_id as usize;
+      if doc_index >= self.values.offsets.len() {
         self.doc_id = NO_MORE_DOCS;
         return Ok(self.doc_id);
       }
-      let offset = self.values.offsets[self.doc_id as usize];
+      let offset = self.values.offsets[doc_index];
       if offset > 0 {
         self.upto = offset;
         self.num_values = self.values.values.get(self.upto - 1)?.try_convert()?;

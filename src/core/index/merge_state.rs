@@ -398,13 +398,14 @@ where
   B: Bits,
 {
   fn get(&self, doc_id: i32) -> Result<i32> {
+    let doc_index = doc_id as usize;
     match &self.hook {
       MergeStateDocMapHook::Sorted { remapped } => {
         if match self.live_docs {
           None => true,
-          Some(ref bits) => bits.get(doc_id as usize)?,
+          Some(ref bits) => bits.get(doc_index)?,
         } {
-          Ok(remapped.get(doc_id as usize)? as i32)
+          Ok(remapped.get(doc_index)? as i32)
         } else {
           Ok(-1)
         }
@@ -415,8 +416,8 @@ where
       } => match (&self.live_docs, del_doc_map) {
         (None, None) => Ok(doc_base + doc_id),
         (Some(bits), Some(map)) => {
-          if bits.get(doc_id as usize)? {
-            Ok(doc_base + map.get(doc_id as usize)? as i32)
+          if bits.get(doc_index)? {
+            Ok(doc_base + map.get(doc_index)? as i32)
           } else {
             Ok(-1)
           }

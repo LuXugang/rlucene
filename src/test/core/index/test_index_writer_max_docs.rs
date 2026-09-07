@@ -625,13 +625,13 @@ fn test_multi_reader_exact_limit() -> Result<()> {
   }
   w.close()?;
 
-  let copies = MAX_DOCS / 100000;
+  let copies = (MAX_DOCS / 100000) as usize;
 
   let ir = Arc::new(directory_reader::open(dir.clone())?);
   let ir2 = Arc::new(directory_reader::open(dir2.clone())?);
 
-  let mut sub_readers = vec![ir.clone(); copies as usize + 1];
-  sub_readers[copies as usize] = ir2;
+  let mut sub_readers = vec![ir.clone(); copies + 1];
+  sub_readers[copies] = ir2;
 
   let mr = MultiReader::new(sub_readers)?;
   assert_eq!(MAX_DOCS, mr.max_doc()?);
@@ -661,13 +661,13 @@ fn test_multi_reader_beyond_limit() -> Result<()> {
   }
   w.close()?;
 
-  let copies = MAX_DOCS / 100000;
+  let copies = (MAX_DOCS / 100000) as usize;
 
   let ir = Arc::new(directory_reader::open(dir.clone())?);
   let ir2 = Arc::new(directory_reader::open(dir2.clone())?);
 
-  let mut sub_readers = vec![ir.clone(); copies as usize + 1];
-  sub_readers[copies as usize] = ir2;
+  let mut sub_readers = vec![ir.clone(); copies + 1];
+  sub_readers[copies] = ir2;
 
   let err = MultiReader::new(sub_readers);
   assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));

@@ -311,6 +311,8 @@ impl TermsHashPerField {
         .buffer_upto
         .ok_or_else(|| LuceneError::illegal_state("term stream has no current int buffer"))?;
       self.stream_address_offset = int_pool.int_upto;
+      let stream_address_index = self.stream_address_offset as usize;
+      let term_index = term_id as usize;
       int_pool.int_upto += self.stream_count;
       let postings_array_wrapper = &mut self.bytes_hash.bytes_start_array.per_field;
       debug_assert!(postings_array_wrapper.postings_array.is_some());
@@ -318,10 +320,7 @@ impl TermsHashPerField {
         .postings_array
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
-        .set_address_offset(
-          term_id as usize,
-          self.stream_address_offset + int_pool.int_offset,
-        );
+        .set_address_offset(term_index, self.stream_address_offset + int_pool.int_offset);
 
       let term_stream_address_buffer =
         int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
@@ -329,16 +328,13 @@ impl TermsHashPerField {
         let upto = self
           .slice_pool
           .new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, byte_pool)?;
-        term_stream_address_buffer[self.stream_address_offset as usize + i] = upto + byte_offset;
+        term_stream_address_buffer[stream_address_index + i] = upto + byte_offset;
       }
       postings_array_wrapper
         .postings_array
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
-        .set_byte_starts(
-          term_id as usize,
-          term_stream_address_buffer[self.stream_address_offset as usize],
-        );
+        .set_byte_starts(term_index, term_stream_address_buffer[stream_address_index]);
     }
     Ok(())
   }

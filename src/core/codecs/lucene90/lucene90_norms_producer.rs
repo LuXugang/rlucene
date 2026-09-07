@@ -265,6 +265,9 @@ where
     field: &Arc<FieldInfo>,
     entry: &NormsEntry,
   ) -> Result<Option<RandomAccessSliceEnum<I::RandomAccessSlice>>> {
+    let docs_with_field_offset = entry.docs_with_field_offset as usize;
+    let docs_with_field_length = entry.docs_with_field_length as usize;
+    let jump_table_entry_count = entry.jump_table_entry_count as i32;
     if self.merging {
       if let Some(cached) = {
         let map = self.disi_jump_tables.lock();
@@ -275,9 +278,9 @@ where
 
       let created = create_jump_table(
         &self.data,
-        entry.docs_with_field_offset as usize,
-        entry.docs_with_field_length as usize,
-        entry.jump_table_entry_count as i32,
+        docs_with_field_offset,
+        docs_with_field_length,
+        jump_table_entry_count,
       )?;
 
       let final_value = {
@@ -292,9 +295,9 @@ where
     } else {
       let jump_table = create_jump_table(
         &self.data,
-        entry.docs_with_field_offset as usize,
-        entry.docs_with_field_length as usize,
-        entry.jump_table_entry_count as i32,
+        docs_with_field_offset,
+        docs_with_field_length,
+        jump_table_entry_count,
       )?;
       Ok(jump_table.map(RandomAccessSliceEnum::Owned))
     }
@@ -313,6 +316,9 @@ where
     field: &FieldInfo,
     entry: &NormsEntry,
   ) -> Result<SliceEnum<I::IndexInput>> {
+    let docs_with_field_offset = entry.docs_with_field_offset as usize;
+    let docs_with_field_length = entry.docs_with_field_length as usize;
+    let jump_table_entry_count = entry.jump_table_entry_count as i32;
     if self.merging {
       if let Some(existing) = {
         let map = self.disi_inputs.lock();
@@ -324,9 +330,9 @@ where
       let new_input = Arc::new(Mutex::new(create_block_slice(
         &self.data,
         "docs",
-        entry.docs_with_field_offset as usize,
-        entry.docs_with_field_length as usize,
-        entry.jump_table_entry_count as i32,
+        docs_with_field_offset,
+        docs_with_field_length,
+        jump_table_entry_count,
       )?));
 
       let input = {
@@ -341,9 +347,9 @@ where
       let input = create_block_slice(
         &self.data,
         "docs",
-        entry.docs_with_field_offset as usize,
-        entry.docs_with_field_length as usize,
-        entry.jump_table_entry_count as i32,
+        docs_with_field_offset,
+        docs_with_field_length,
+        jump_table_entry_count,
       )?;
       Ok(SliceEnum::Owned(input))
     }

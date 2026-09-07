@@ -56,13 +56,15 @@ impl RunAutomaton {
 
     let points = automaton.get_start_points();
     let size = std::cmp::max(1, automaton.get_num_states());
-    let mut accept = FixedBitSet::new(size as usize);
-    let mut transitions = vec![-1; size as usize * points.len()];
+    let size_usize = size as usize;
+    let mut accept = FixedBitSet::new(size_usize);
+    let mut transitions = vec![-1; size_usize * points.len()];
 
     let mut transition = Transition::default();
     for n in 0..size {
+      let state_index = n as usize;
       if automaton.is_accept(n) {
-        accept.set(n as usize)?;
+        accept.set(state_index)?;
       }
       transition.source = n;
       transition.transition_upto = None;
@@ -70,7 +72,7 @@ impl RunAutomaton {
       for (c_idx, &point) in points.iter().enumerate() {
         let dest = automaton.next(&mut transition, point);
         debug_assert!(dest == -1 || dest < size);
-        transitions[n as usize * points.len() + c_idx] = dest;
+        transitions[state_index * points.len() + c_idx] = dest;
       }
     }
 
@@ -137,11 +139,12 @@ impl RunAutomaton {
   /// here if and only if a dead state would be entered in an equivalent
   /// automaton with a total transition function.)
   pub fn step(&self, state: i32, c: i32) -> i32 {
-    debug_assert!((c as usize) < self.alphabet_size);
-    let class = if c as usize >= self.classmap.len() {
+    let char_index = c as usize;
+    debug_assert!(char_index < self.alphabet_size);
+    let class = if char_index >= self.classmap.len() {
       self.get_char_class(c)
     } else {
-      self.classmap[c as usize]
+      self.classmap[char_index]
     };
     self.transitions[state as usize * self.points.len() + class]
   }

@@ -863,12 +863,12 @@ fn test_sparse_points() -> Result<()> {
 
   let dir = new_directory_shared(&mut random)?;
   let num_docs = at_least(&mut random, 1000);
-  let num_fields = TestUtil::next_int(&mut random, 1, 10);
+  let num_fields = TestUtil::next_usize(&mut random, 1, 10);
 
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
-  let mut field_doc_counts = vec![0i32; num_fields as usize];
-  let mut field_sizes = vec![0i32; num_fields as usize];
+  let mut field_doc_counts = vec![0i32; num_fields];
+  let mut field_sizes = vec![0i32; num_fields];
 
   for _ in 0..num_docs {
     let mut doc = Document::new();
@@ -879,13 +879,13 @@ fn test_sparse_points() -> Result<()> {
       if random.random_range(0..100) == 17 {
         let v = random.random();
         doc.add(IntPoint::new(&field_name, vec![v])?);
-        field_doc_counts[field as usize] += 1;
-        field_sizes[field as usize] += 1;
+        field_doc_counts[field] += 1;
+        field_sizes[field] += 1;
 
         if random.random_range(0..10) == 5 {
           let v2 = random.random();
           doc.add(IntPoint::new(&field_name, vec![v2])?);
-          field_sizes[field as usize] += 1;
+          field_sizes[field] += 1;
         }
       }
     }
@@ -909,8 +909,8 @@ fn test_sparse_points() -> Result<()> {
       }
     }
 
-    assert_eq!(field_doc_counts[field as usize], doc_count);
-    assert_eq!(field_sizes[field as usize], size);
+    assert_eq!(field_doc_counts[field], doc_count);
+    assert_eq!(field_sizes[field], size);
   }
 
   reader.close()?;

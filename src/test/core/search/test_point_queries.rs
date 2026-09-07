@@ -61,7 +61,7 @@ pub use crate::test_framework::core::search::point::{
   MultiDimIntPointInSetQuery, PointRangeQueryBaseImpl,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
+  at_least, at_least_usize, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_searcher_with_reader,
   new_searcher_with_wrap, new_string_field, random, random_from_seed,
 };
@@ -616,9 +616,9 @@ fn test_crazy_floats() -> Result<()> {
 #[test]
 fn test_all_equal() -> Result<()> {
   let mut random = random();
-  let num_values = at_least(&mut random, 1000);
+  let num_values = at_least_usize(&mut random, 1000);
   let value = random_value(&mut random);
-  let values = vec![value; num_values as usize];
+  let values = vec![value; num_values];
   verify_longs(&mut random, &values, None)
 }
 #[test]
@@ -1796,10 +1796,10 @@ fn test_random_point_in_set_query() -> Result<()> {
   w.close(&mut random)?;
   let searcher = new_searcher_with_wrap(&mut random, r.clone(), false)?;
 
-  let num_threads = TestUtil::next_int(&mut random, 2, 5);
+  let num_threads = TestUtil::next_usize(&mut random, 2, 5);
   let iters = at_least(&mut random, 100);
   let failed = AtomicBool::new(false);
-  let starting_gun = Arc::new(Barrier::new(num_threads as usize + 1));
+  let starting_gun = Arc::new(Barrier::new(num_threads + 1));
 
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
@@ -2576,7 +2576,7 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
   let mut one_count = 0;
 
   for _ in 0..10_000 {
-    let x: i32 = random.random_range(0..cardinality as usize) as i32;
+    let x: i32 = random.random_range(0..cardinality);
     if x == 0 {
       zero_count += 1;
     } else if x == 1 {
@@ -2982,10 +2982,10 @@ fn test_point_range_weight_count() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
-  let num_points: usize = random.random_range(1..10) as usize;
+  let num_points: usize = random.random_range(1..10);
   let mut points = vec![0i32; num_points];
 
-  let num_queries: usize = random.random_range(1..10) as usize;
+  let num_queries: usize = random.random_range(1..10);
   let mut lower_bound = vec![0i32; num_queries];
   let mut upper_bound = vec![0i32; num_queries];
   let mut expected_count = vec![0i32; num_queries];

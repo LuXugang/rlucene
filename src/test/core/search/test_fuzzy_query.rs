@@ -976,8 +976,8 @@ fn random_simple_string<R>(random: &mut R, digits: i32) -> String
 where
   R: Rng + ?Sized,
 {
-  let term_length = TestUtil::next_int(random, 1, 8);
-  let mut chars = Vec::with_capacity(term_length as usize);
+  let term_length = TestUtil::next_usize(random, 1, 8);
+  let mut chars = Vec::with_capacity(term_length);
 
   for _ in 0..term_length {
     let ch = (b'a' + random.random_range(0..digits) as u8) as char;

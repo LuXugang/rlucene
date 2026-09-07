@@ -248,11 +248,14 @@ where
             [packed_value_offset + offset..packed_value_offset + offset + config.bytes_per_dim],
           &first_value,
         );
-        if diff != -1 && common_prefix_length > diff as usize {
-          if diff == 0 {
-            return Ok(diff as usize);
+        if diff != -1 {
+          let diff = diff as usize;
+          if common_prefix_length > diff {
+            if diff == 0 {
+              return Ok(diff);
+            }
+            common_prefix_length = diff;
           }
-          common_prefix_length = diff as usize;
         }
       }
 

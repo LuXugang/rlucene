@@ -212,14 +212,12 @@ fn test_quantized_vectors_write_and_read() -> Result<()> {
       let mut iterator = quantized_values.iterator()?;
       let mut doc_id = iterator.next_doc()?;
       while doc_id != crate::core::search::doc_id_set_iterator::NO_MORE_DOCS {
+        let doc_index = doc_id as usize;
         let ord = iterator.index()? as usize;
         let vector = quantized_values.vector_value(ord)?;
-        assert_eq!(
-          expected_vectors[doc_id as usize],
-          vector.as_ref().as_bytes()?
-        );
+        assert_eq!(expected_vectors[doc_index], vector.as_ref().as_bytes()?);
         let correction = quantized_values.get_score_correction_constant(ord)?;
-        assert!((expected_corrections[doc_id as usize] - correction).abs() <= 0.00001);
+        assert!((expected_corrections[doc_index] - correction).abs() <= 0.00001);
         doc_id = iterator.next_doc()?;
       }
     }

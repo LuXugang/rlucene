@@ -271,14 +271,17 @@ where
     }
   }
   let top_docs_to_check = at_least_usize(random, 1000);
+  let total_hits_threshold = i32::MAX as usize;
 
-  let collector_manager = TopScoreDocCollectorManager::new(top_docs_to_check, i32::MAX as usize)?;
+  let collector_manager =
+    TopScoreDocCollectorManager::new(top_docs_to_check, total_hits_threshold)?;
   let hits1 = ctx
     .searcher
     .search_with_collector_manager(query.clone(), &collector_manager)?
     .score_docs;
 
-  let collector_manager = TopScoreDocCollectorManager::new(top_docs_to_check, i32::MAX as usize)?;
+  let collector_manager =
+    TopScoreDocCollectorManager::new(top_docs_to_check, total_hits_threshold)?;
   let hits2 = ctx
     .searcher
     .search_with_collector_manager(query.clone(), &collector_manager)?
@@ -286,7 +289,8 @@ where
 
   CheckHits::check_hits_query(&query, &hits1, &hits2, &exp_doc_nrs)?;
 
-  let collector_manager = TopScoreDocCollectorManager::new(top_docs_to_check, i32::MAX as usize)?;
+  let collector_manager =
+    TopScoreDocCollectorManager::new(top_docs_to_check, total_hits_threshold)?;
   let top_docs = ctx
     .single_segment_searcher
     .search_with_collector_manager(query.clone(), &collector_manager)?;
@@ -299,13 +303,15 @@ where
     ctx.big_searcher.count(query.clone())? as usize
   );
 
-  let collector_manager = TopScoreDocCollectorManager::new(top_docs_to_check, i32::MAX as usize)?;
+  let collector_manager =
+    TopScoreDocCollectorManager::new(top_docs_to_check, total_hits_threshold)?;
   let hits1 = ctx
     .big_searcher
     .search_with_collector_manager(query.clone(), &collector_manager)?
     .score_docs;
 
-  let collector_manager = TopScoreDocCollectorManager::new(top_docs_to_check, i32::MAX as usize)?;
+  let collector_manager =
+    TopScoreDocCollectorManager::new(top_docs_to_check, total_hits_threshold)?;
   let hits2 = ctx
     .big_searcher
     .search_with_collector_manager(query.clone(), &collector_manager)?
@@ -502,16 +508,17 @@ fn test_random_queries() -> Result<()> {
         PrefixQuery::new(Term::from_text("field2", "b"))?,
         Occur::Should,
       )?;
+      let mul_factor = ctx.mul_factor as usize;
       assert_eq!(
-        ctx.mul_factor as usize * top_docs.base.total_hits.value() + NUM_EXTRA_DOCS / 2,
+        mul_factor * top_docs.base.total_hits.value() + NUM_EXTRA_DOCS / 2,
         ctx.big_searcher.count(q3.build())? as usize
       );
 
-      let cm = TopFieldCollectorManager::new(sort.clone(), ctx.mul_factor as usize, 1)?;
+      let cm = TopFieldCollectorManager::new(sort.clone(), mul_factor, 1)?;
       let hits1 = ctx
         .big_searcher
         .search_with_collector_manager(query.clone(), &cm)?;
-      let cm = TopFieldCollectorManager::new(sort.clone(), ctx.mul_factor as usize, 1)?;
+      let cm = TopFieldCollectorManager::new(sort.clone(), mul_factor, 1)?;
       let hits2 = ctx
         .big_searcher
         .search_with_collector_manager(query.clone(), &cm)?;

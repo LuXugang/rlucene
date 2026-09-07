@@ -84,7 +84,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
 
   let num_fields = random.random_range(0..4) + 3;
   let num_ndv_fields = random.random_range(0..(num_fields / 2)) + 1;
-  let mut field_values = vec![1_i64; num_fields as usize];
+  let mut field_values = vec![1_i64; num_fields];
 
   let num_rounds = at_least(&mut random, 15);
   let mut doc_id = 0;
@@ -100,7 +100,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
       doc.add(StringField::from_string("key", "all", Store::No)?);
       #[allow(clippy::needless_range_loop)]
       for f in 0..field_values.len() {
-        if f < num_ndv_fields as usize {
+        if f < num_ndv_fields {
           doc.add(NumericDocValuesField::new(format!("f{f}"), field_values[f]));
         } else {
           doc.add(BinaryDocValuesField::new(
@@ -116,7 +116,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
     let field_idx = random.random_range(0..field_values.len());
     let update_field = format!("f{field_idx}");
     field_values[field_idx] += 1;
-    if field_idx < num_ndv_fields as usize {
+    if field_idx < num_ndv_fields {
       writer.update_numeric_doc_value(
         Term::from_text("key", "all"),
         update_field,
@@ -154,7 +154,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
         let f = format!("f{field}");
         let mut bdv = r.get_binary_doc_values(&f)?;
         let mut ndv = r.get_numeric_doc_values(&f)?;
-        if field < num_ndv_fields as usize {
+        if field < num_ndv_fields {
           assert!(ndv.is_some());
           assert!(bdv.is_none());
         } else {
@@ -167,7 +167,7 @@ fn test_many_reopens_and_fields() -> Result<()> {
             .as_ref()
             .is_none_or(|bits| bits.get(doc as usize).expect(""))
           {
-            if field < num_ndv_fields as usize {
+            if field < num_ndv_fields {
               let ndv = ndv.as_mut().unwrap();
               assert_eq!(doc, ndv.advance(doc)?);
               assert_eq!(field_values[field], ndv.long_value()?);
@@ -412,9 +412,9 @@ fn test_tons_of_updates() -> Result<()> {
   // test data: lots of documents (few 10Ks) and lots of update terms (few hundreds)
   let num_docs = at_least(&mut random, 20000);
   let num_binary_fields = at_least(&mut random, 5);
-  let num_terms = TestUtil::next_int(&mut random, 10, 100); // terms should affect many docs
+  let num_terms = TestUtil::next_usize(&mut random, 10, 100); // terms should affect many docs
   let mut update_terms = HashSet::new();
-  while update_terms.len() < num_terms as usize {
+  while update_terms.len() < num_terms {
     update_terms.insert(TestUtil::random_simple_string(&mut random));
   }
   let update_terms: Vec<_> = update_terms.into_iter().collect();
@@ -422,7 +422,7 @@ fn test_tons_of_updates() -> Result<()> {
   // build a large index with many BDV fields and update terms
   for _ in 0..num_docs {
     let mut doc = Document::new();
-    let num_update_terms = TestUtil::next_int(&mut random, 1, num_terms / 10);
+    let num_update_terms = TestUtil::next_usize(&mut random, 1, num_terms / 10);
     for _ in 0..num_update_terms {
       doc.add(StringField::from_string(
         "upd",
@@ -570,7 +570,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
   } else {
     2
   };
-  let barrier = Arc::new(Barrier::new(num_threads as usize + 1));
+  let barrier = Arc::new(Barrier::new(num_threads + 1));
 
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();

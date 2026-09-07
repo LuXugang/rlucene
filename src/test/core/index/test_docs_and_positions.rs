@@ -176,16 +176,16 @@ fn test_random_positions() -> Result<()> {
   let field_name = field_name(&mut random);
   let mut field_types: HashMap<String, FieldType> = HashMap::new();
 
-  let num_docs = at_least(&mut random, 47);
+  let num_docs = at_least_usize(&mut random, 47);
   let max = 1051;
   let term: i32 = random.random_range(0..max);
 
-  let mut positions_in_doc: Vec<Vec<i32>> = vec![Vec::new(); num_docs as usize];
+  let mut positions_in_doc: Vec<Vec<i32>> = vec![Vec::new(); num_docs];
 
   let mut custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
   custom_type.set_omit_norms(true)?;
 
-  for i in 0..num_docs {
+  for doc_positions in &mut positions_in_doc {
     let mut doc = Document::new();
     let mut positions = Vec::new();
 
@@ -212,7 +212,7 @@ fn test_random_positions() -> Result<()> {
       &custom_type,
       &mut field_types,
     )?);
-    positions_in_doc[i as usize] = positions;
+    *doc_positions = positions;
 
     writer.add_document(&mut random, doc)?;
   }

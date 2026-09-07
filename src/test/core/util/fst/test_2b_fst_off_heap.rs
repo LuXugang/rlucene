@@ -355,16 +355,14 @@ fn test() -> Result<()> {
 }
 
 fn next_input(r: &mut StdRng, ints: &mut [i32]) {
-  let mut down_to = 6_i32;
-  while down_to >= 0 {
+  for down_to in (0..=6).rev() {
     // Must add random amounts (and not just 1) because
     // otherwise FST outsmarts us and remains tiny.
-    ints[down_to as usize] += 1 + r.random_range(0..10);
-    if ints[down_to as usize] < 256 {
+    ints[down_to] += 1 + r.random_range(0..10);
+    if ints[down_to] < 256 {
       break;
     } else {
-      ints[down_to as usize] = 0;
-      down_to -= 1;
+      ints[down_to] = 0;
     }
   }
 }

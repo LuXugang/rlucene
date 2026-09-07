@@ -851,14 +851,15 @@ where
     if bytes_slice.length()? > 0 {
       bytes_slice.prefetch(0, 1)?;
     }
+    let max_length = entry.max_length as usize;
     if entry.docs_with_field_offset == -1 {
       let dense = if entry.min_length == entry.max_length {
         // fixed length
-        let vec = vec![0u8; entry.max_length as usize];
+        let vec = vec![0u8; max_length];
         let base = DenseBinaryDocValuesBaseImpl {
           bytes_slice,
           length: entry.max_length,
-          bytes: BytesRef::from_slice(vec, 0, entry.max_length as usize),
+          bytes: BytesRef::from_slice(vec, 0, max_length),
         };
         DenseBinaryDocValuesBaseEnum::Dense(base)
       } else {
@@ -875,10 +876,10 @@ where
           return Err(LuceneError::illegal_state("addresses_meta is None"))?;
         };
         let addresses = DirectMonotonicReader::get_instance(meta, addresses_data)?;
-        let vec = vec![0u8; entry.max_length as usize];
+        let vec = vec![0u8; max_length];
         let base = DenseBinaryDocValuesBaseImpl1 {
           bytes_slice,
-          bytes: BytesRef::from_slice(vec, 0, entry.max_length as usize),
+          bytes: BytesRef::from_slice(vec, 0, max_length),
           addresses,
         };
         DenseBinaryDocValuesBaseEnum::Dense1(base)
@@ -901,7 +902,7 @@ where
         let length = entry.max_length;
         SparseBinaryDocValuesBaseEnum::Sparse(SparseBinaryDocValuesBaseImpl {
           bytes_slice,
-          bytes: BytesRef::from_slice(vec![0u8; length as usize], 0, length as usize),
+          bytes: BytesRef::from_slice(vec![0u8; max_length], 0, max_length),
           length,
         })
       } else {
@@ -919,11 +920,7 @@ where
         let addresses = DirectMonotonicReader::get_instance(meta, addresses_data)?;
         SparseBinaryDocValuesBaseEnum::Sparse1(SparseBinaryDocValuesBaseImpl1 {
           bytes_slice,
-          bytes: BytesRef::from_slice(
-            vec![0u8; entry.max_length as usize],
-            0,
-            entry.max_length as usize,
-          ),
+          bytes: BytesRef::from_slice(vec![0u8; max_length], 0, max_length),
           addresses,
         })
       };
@@ -1488,10 +1485,8 @@ where
     let rank_slice = if entry.value_jump_table_offset == -1 {
       None
     } else {
-      let mut slice = data.random_access_slice(
-        entry.value_jump_table_offset as usize,
-        data.length()? - entry.value_jump_table_offset as usize,
-      )?;
+      let offset = entry.value_jump_table_offset as usize;
+      let mut slice = data.random_access_slice(offset, data.length()? - offset)?;
       if slice.length()? > 0 {
         slice.prefetch(0, 1)?;
       }
@@ -2404,8 +2399,9 @@ where
   R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    self.curr = self.addresses.get_mut(target as usize)?;
-    let end = self.addresses.get_mut((target as usize) + 1)?;
+    let target_index = target as usize;
+    self.curr = self.addresses.get_mut(target_index)?;
+    let end = self.addresses.get_mut(target_index + 1)?;
     self.count = (end - self.curr) as i32;
     self.doc = target;
     Ok(true)
@@ -2875,9 +2871,9 @@ where
     // add the max term length for the dictionary
     // add 7 padding bytes can help decompression run faster.
     let buffer_size =
-      entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING;
+      (entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING) as usize;
 
-    let block_buffer = vec![0u8; buffer_size as usize];
+    let block_buffer = vec![0u8; buffer_size];
     let block_input = ByteArrayDataInput::with_bytes(block_buffer);
 
     let sub = Self {
@@ -2891,7 +2887,7 @@ where
       ord: -1,
       block_input,
       block_buffer_offset: 0,
-      block_buffer_length: buffer_size as usize,
+      block_buffer_length: buffer_size,
       current_compressed_block_start: None,
       current_compressed_block_end: None,
     };
@@ -3298,8 +3294,9 @@ where
   R: RandomAccessInput,
 {
   fn advance_exact(&mut self, target: i32) -> Result<bool> {
-    self.start = self.addresses.get_mut(target as usize)?;
-    self.end = self.addresses.get_mut((target as usize) + 1)?;
+    let target_index = target as usize;
+    self.start = self.addresses.get_mut(target_index)?;
+    self.end = self.addresses.get_mut(target_index + 1)?;
     self.count = (self.end - self.start) as i32;
     self.doc = target;
     Ok(true)

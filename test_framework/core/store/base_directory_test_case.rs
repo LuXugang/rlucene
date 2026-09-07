@@ -1205,10 +1205,7 @@ pub trait BaseDirectoryTestCase {
           output.write_byte(DataInput::read_byte(&mut input)?)?;
           upto += 1;
         } else {
-          let chunk = std::cmp::min(
-            TestUtil::next_usize(random, 1, bytes.len()) as usize,
-            size - upto,
-          );
+          let chunk = std::cmp::min(TestUtil::next_usize(random, 1, bytes.len()), size - upto);
           output.copy_bytes(&mut input, chunk)?;
           upto += chunk;
         }
@@ -1227,10 +1224,7 @@ pub trait BaseDirectoryTestCase {
           assert_eq!(Self::value(upto), v);
           upto += 1;
         } else {
-          let limit = std::cmp::min(
-            TestUtil::next_usize(random, 1, bytes.len()) as usize,
-            size - upto,
-          );
+          let limit = std::cmp::min(TestUtil::next_usize(random, 1, bytes.len()), size - upto);
           DataInput::read_bytes(&mut input2, &mut bytes, 0, limit)?;
           for &byte in bytes.iter().take(limit) {
             assert_eq!(Self::value(upto), byte);
@@ -1738,17 +1732,12 @@ pub trait BaseDirectoryTestCase {
           slice2.seek(seek)?;
           DataInput::read_bytes(
             &mut slice2,
-            &mut data[(i + j + seek as usize)..],
+            &mut data[(i + j + seek)..],
             0,
-            num - i - j - seek as usize,
+            num - i - j - seek,
           )?;
           slice2.seek(0)?;
-          DataInput::read_bytes(
-            &mut slice2,
-            &mut data[i + j..(i + j + seek as usize)],
-            0,
-            seek,
-          )?;
+          DataInput::read_bytes(&mut slice2, &mut data[i + j..(i + j + seek)], 0, seek)?;
         }
 
         assert_eq!(bytes, data);

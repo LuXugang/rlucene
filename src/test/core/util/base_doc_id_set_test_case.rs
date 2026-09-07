@@ -205,8 +205,8 @@ pub trait BaseDocIdSetTestCaseSupperImpl {
         if doc == NO_MORE_DOCS {
           break;
         }
-        previes_doc = Some(doc as usize);
-        assert!(bits.get(doc as usize)?);
+        previes_doc = Some(max);
+        assert!(bits.get(max)?);
       }
     }
     Ok(())

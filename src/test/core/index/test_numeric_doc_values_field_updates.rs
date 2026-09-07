@@ -2080,7 +2080,7 @@ fn test_tons_of_updates() -> Result<()> {
   let num_terms = random.random_range(10..=100); // terms should affect many docs
 
   let mut update_terms = HashSet::new();
-  while update_terms.len() < num_terms as usize {
+  while update_terms.len() < num_terms {
     update_terms.insert(TestUtil::random_simple_string(&mut random));
   }
   let update_terms: Vec<_> = update_terms.into_iter().collect();

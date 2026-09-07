@@ -47,9 +47,9 @@ fn test_data_input_output() -> Result<()> {
     if let DirEnum::B(mock) = dir.as_ref() {
       mock.set_throttling(Throttling::Never);
     }
-    let block_bits = TestUtil::next_int(&mut random, 1, 20);
+    let block_bits = TestUtil::next_usize(&mut random, 1, 20);
     let block_size = 1 << block_bits;
-    let mut paged_bytes = PagedBytes::new(block_bits as usize);
+    let mut paged_bytes = PagedBytes::new(block_bits);
     let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
     let num_bytes = if is_night_mode() {
@@ -130,16 +130,16 @@ fn test_data_input_output_2() -> Result<()> {
   let num_iters = at_least(&mut random, 1);
 
   for _ in 0..num_iters {
-    let block_bits = TestUtil::next_int(&mut random, 1, 20);
+    let block_bits = TestUtil::next_usize(&mut random, 1, 20);
     let block_size = 1 << block_bits;
-    let paged_bytes = PagedBytes::new(block_bits as usize);
+    let paged_bytes = PagedBytes::new(block_bits);
     let mut out = get_data_output(paged_bytes)?;
 
     let num_bytes = if is_night_mode() {
-      TestUtil::next_int(&mut random, 1, 10_000_000)
+      TestUtil::next_usize(&mut random, 1, 10_000_000)
     } else {
-      TestUtil::next_int(&mut random, 1, 1_000_000)
-    } as usize;
+      TestUtil::next_usize(&mut random, 1, 1_000_000)
+    };
 
     let mut answer = vec![0u8; num_bytes];
     random.fill(&mut answer[..]);
@@ -213,7 +213,7 @@ fn test_overflow() -> Result<()> {
   if let DirEnum::B(mock) = dir.as_ref() {
     mock.set_throttling(Throttling::Never);
   }
-  let block_bits = TestUtil::next_int(&mut random, 14, 28);
+  let block_bits = TestUtil::next_usize(&mut random, 14, 28);
   let block_size = 1 << block_bits;
 
   let arr_len = TestUtil::next_usize(&mut random, block_size / 2, block_size * 2);
@@ -225,14 +225,14 @@ fn test_overflow() -> Result<()> {
   let extra = TestUtil::next_usize(&mut random, 1, block_size * 3);
   let num_bytes = (1 << 31) + extra;
 
-  let mut paged_bytes = PagedBytes::new(block_bits as usize);
+  let mut paged_bytes = PagedBytes::new(block_bits);
   {
     let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
 
     let mut written = 0;
     while written < num_bytes {
       assert_eq!(written, out.get_file_pointer()?);
-      let len = std::cmp::min(arr.len(), num_bytes - written) as usize;
+      let len = std::cmp::min(arr.len(), num_bytes - written);
       out.write_bytes_range(&arr, 0, len)?;
       written += len;
     }
@@ -285,10 +285,11 @@ fn test_ram_bytes_used() -> Result<()> {
 
   let end_pointer = untrimmed.get_pointer();
   assert_eq!(end_pointer, trimmed.get_pointer());
+  let end_pointer = end_pointer as usize;
   let allocated_blocks = if end_pointer == 0 {
     0
   } else {
-    (end_pointer as usize).div_ceil(block_size)
+    end_pointer.div_ceil(block_size)
   };
   let expected_bytes = initial_bytes + (allocated_blocks * block_size) as i64;
   assert_eq!(expected_bytes, untrimmed.ram_bytes_used()?);
@@ -296,10 +297,10 @@ fn test_ram_bytes_used() -> Result<()> {
 
   let untrimmed_reader = untrimmed.freeze(false)?;
   let trimmed_reader = trimmed.freeze(true)?;
-  let unused_last_block = if end_pointer == 0 || (end_pointer as usize).is_multiple_of(block_size) {
+  let unused_last_block = if end_pointer == 0 || end_pointer.is_multiple_of(block_size) {
     0
   } else {
-    block_size - end_pointer as usize % block_size
+    block_size - end_pointer % block_size
   } as i64;
 
   assert_eq!(

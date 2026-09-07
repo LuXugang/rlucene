@@ -207,13 +207,14 @@ impl Operations {
     let num_states = a.get_num_states();
     let mut state_map = vec![0; num_states as usize];
     for state in 0..num_states {
+      let state_index = state as usize;
       if !a.is_accept(state) {
-        state_map[state as usize] = builder.create_state();
+        state_map[state_index] = builder.create_state();
       } else if a.get_num_transitions_with_state(state) == 0 {
-        state_map[state as usize] = 0; // merge into initial state
+        state_map[state_index] = 0; // merge into initial state
       } else {
         let new_state = builder.create_state();
-        state_map[state as usize] = new_state;
+        state_map[state_index] = new_state;
         builder.set_accept(new_state, true);
       }
     }
@@ -1234,25 +1235,27 @@ impl Operations {
     let mut t = Transition::default();
 
     while let Some(&state) = stack.last() {
+      let state_index = state as usize;
       let count = a.init_transition(state, &mut t);
       let mut pushed = false;
 
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
-        if !visited.contains(t.dest as usize) {
-          visited.insert(t.dest as usize);
+        let dest_index = t.dest as usize;
+        if !visited.contains(dest_index) {
+          visited.insert(dest_index);
           stack.push(t.dest);
-          on_stack.insert(state as usize);
+          on_stack.insert(state_index);
           pushed = true;
           break;
-        } else if on_stack.contains(t.dest as usize) {
+        } else if on_stack.contains(dest_index) {
           return Err(LuceneError::illegal_argument("input automaton has a cycle"));
         }
       }
       // If we haven't pushed any new state onto the stack, we're done with this state
       if !pushed {
         // remove the node from the current recursion stack
-        on_stack.remove(state as usize);
+        on_stack.remove(state_index);
         stack.pop();
         states[upto] = state;
         upto += 1;

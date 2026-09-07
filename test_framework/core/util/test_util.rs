@@ -270,12 +270,12 @@ impl TestUtil {
     }
   }
   /// Returns a random big integer with `1 .. max_bytes` storage.
-  pub fn next_big_integer<R>(random: &mut R, max_bytes: i32) -> BigInt
+  pub fn next_big_integer<R>(random: &mut R, max_bytes: usize) -> BigInt
   where
     R: Rng + ?Sized,
   {
-    let length = Self::next_int(random, 1, max_bytes);
-    let mut buffer = vec![0u8; length as usize];
+    let length = Self::next_usize(random, 1, max_bytes);
+    let mut buffer = vec![0u8; length];
     random.fill_bytes(&mut buffer);
     BigInt::from_signed_bytes_be(&buffer)
   }

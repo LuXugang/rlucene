@@ -38,19 +38,19 @@ fn test_alloc_known_size_slice() -> Result<()> {
   let mut slice_pool = ByteSlicePool;
 
   for _ in 0..100 {
-    let size: i32 = if random.random_bool(0.5) {
-      TestUtil::next_int(&mut random, 100, 1000)
+    let size: usize = if random.random_bool(0.5) {
+      TestUtil::next_usize(&mut random, 100, 1000)
     } else {
-      TestUtil::next_int(&mut random, 50000, 100000)
+      TestUtil::next_usize(&mut random, 50000, 100000)
     };
 
-    let mut random_data = vec![0u8; size as usize];
+    let mut random_data = vec![0u8; size];
     random.fill(&mut random_data[..]);
 
     let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)?;
 
     let mut offset = 0;
-    while offset < size as usize {
+    while offset < size {
       let mut buffer_upto = block_pool.buffer_upto()?;
       if block_pool.get_buffer(buffer_upto)[upto as usize] & 16 == 0 {
         block_pool.get_buffer_mut(buffer_upto)[upto as usize] = random_data[offset];
@@ -67,7 +67,7 @@ fn test_alloc_known_size_slice() -> Result<()> {
           block_pool.get_buffer(buffer_upto)[(upto + slice_length - 1) as usize]
         );
         assert_eq!(0, block_pool.get_buffer(buffer_upto)[upto as usize]);
-        let write_length = std::cmp::min(slice_length as usize - 1, size as usize - offset);
+        let write_length = std::cmp::min(slice_length as usize - 1, size - offset);
         let buffer = block_pool.get_buffer_mut(buffer_upto);
         buffer.copy_from(&random_data[offset..offset + write_length], upto as usize);
         offset += write_length;

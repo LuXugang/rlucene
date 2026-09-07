@@ -90,7 +90,8 @@ fn do_test_random(two_phase: bool) -> Result<()> {
   };
   let mut req_excl = ReqExclBulkScorer::new(req_bulk_scorer, scorer);
 
-  let mut actual_matches = FixedBitSet::new(max_doc as usize);
+  let capacity = max_doc as usize;
+  let mut actual_matches = FixedBitSet::new(capacity);
 
   if random.random_bool(0.5) {
     req_excl.score(
@@ -114,10 +115,10 @@ fn do_test_random(two_phase: bool) -> Result<()> {
     }
   }
 
-  let mut expected_matches = FixedBitSet::new(max_doc as usize);
+  let mut expected_matches = FixedBitSet::new(capacity);
   BitSet::or(&mut expected_matches, &mut req.iterator()?)?;
 
-  let mut excluded_set = FixedBitSet::new(max_doc as usize);
+  let mut excluded_set = FixedBitSet::new(capacity);
   BitSet::or(&mut excluded_set, &mut excl.iterator()?)?;
 
   expected_matches.and_not_fixed_bit_set(&excluded_set);

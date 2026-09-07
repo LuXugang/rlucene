@@ -411,14 +411,15 @@ where
     if doc_id == NO_MORE_DOCS {
       break;
     }
+    let doc_index = doc_id as usize;
     if has_value(iterator)? {
-      if bits.get_and_clear(doc_id as usize) {
+      if bits.get_and_clear(doc_index) {
         new_deletes += 1;
         // now that we know we deleted it and we fully control the hard deletes we can do correct
         // accounting
         // below.
       }
-    } else if !bits.get_and_set(doc_id as usize)? {
+    } else if !bits.get_and_set(doc_index)? {
       new_deletes -= 1;
     }
   }

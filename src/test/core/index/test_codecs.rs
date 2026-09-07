@@ -79,9 +79,9 @@ static SEGMENT: &str = "0";
 static FIELD_NAMES: [&str; 4] = ["one", "two", "three", "four"];
 const NUM_TEST_THREADS: usize = 3;
 const NUM_FIELDS: usize = 4;
-const NUM_TERMS_RAND: i32 = 50; // must be > 16 to test skipping
-const DOC_FREQ_RAND: i32 = 500; // must be > 16 to test skipping
-const TERM_DOC_FREQ_RAND: i32 = 20;
+const NUM_TERMS_RAND: usize = 50; // must be > 16 to test skipping
+const DOC_FREQ_RAND: usize = 500; // must be > 16 to test skipping
+const TERM_DOC_FREQ_RAND: usize = 20;
 #[test]
 fn test_fixed_postings() -> Result<()> {
   let mut random = random();
@@ -551,7 +551,7 @@ fn make_random_terms<R: Rng + ?Sized>(
   store_payloads: bool,
 ) -> Result<Vec<TermData>> {
   let num_terms = 1 + random.random_range(0..NUM_TERMS_RAND);
-  let mut terms = Vec::with_capacity(num_terms as usize);
+  let mut terms = Vec::with_capacity(num_terms);
   let mut terms_seen = HashSet::new();
 
   for _ in 0..num_terms {
@@ -564,11 +564,11 @@ fn make_random_terms<R: Rng + ?Sized>(
     };
 
     let doc_freq = 1 + random.random_range(0..DOC_FREQ_RAND);
-    let mut docs = Vec::with_capacity(doc_freq as usize);
+    let mut docs = Vec::with_capacity(doc_freq);
     let mut positions = if omit_tf {
       None
     } else {
-      Some(Vec::with_capacity(doc_freq as usize))
+      Some(Vec::with_capacity(doc_freq))
     };
 
     let mut doc_id = 0;
@@ -578,7 +578,7 @@ fn make_random_terms<R: Rng + ?Sized>(
 
       if !omit_tf {
         let term_freq = 1 + random.random_range(0..TERM_DOC_FREQ_RAND);
-        let mut doc_positions = Vec::with_capacity(term_freq as usize);
+        let mut doc_positions = Vec::with_capacity(term_freq);
         let mut position = 0;
 
         for _ in 0..term_freq {
@@ -586,7 +586,7 @@ fn make_random_terms<R: Rng + ?Sized>(
 
           let payload = if store_payloads && random.random_range(0..4) == 0 {
             let len = 1 + random.random_range(0..5);
-            let mut bytes = Vec::with_capacity(len as usize);
+            let mut bytes = Vec::with_capacity(len);
             for _ in 0..len {
               bytes.push(random.random_range(0..255) as u8);
             }

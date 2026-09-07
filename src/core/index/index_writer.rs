@@ -5036,6 +5036,7 @@ where
     // yet this is also required if any MergePolicy modifies the liveDocs since this is
     // what the segDocMap is build on.
     if let Some(current_hard_live_docs) = current_hard_live_docs {
+      let max_doc_usize = max_doc as usize;
       let carry_over_delete = |doc_id: usize| -> Result<bool> {
         Ok(seg_doc_map.get(doc_id as i32)? != -1 && !current_hard_live_docs.get(doc_id)?)
       };
@@ -5043,8 +5044,8 @@ where
       if let Some(prev_hard_live_docs) = prev_hard_live_docs {
         // If we had deletions on starting the merge, we must
         // still have deletions now:
-        debug_assert!(prev_hard_live_docs.length() == max_doc as usize);
-        debug_assert!(current_hard_live_docs.length() == max_doc as usize);
+        debug_assert!(prev_hard_live_docs.length() == max_doc_usize);
+        debug_assert!(current_hard_live_docs.length() == max_doc_usize);
 
         // There were deletes on this segment when the merge
         // started.  The merge has collapsed away this
@@ -5062,7 +5063,7 @@ where
           // This means this segment received new deletes
           // since we started the merge, so we
           // must merge them:
-          for j in 0..max_doc as usize {
+          for j in 0..max_doc_usize {
             if !(prev_hard_live_docs.get(j)?) {
               // if the document was deleted before, it better still be deleted!
               debug_assert!(!(current_hard_live_docs.get(j)?));
@@ -5073,7 +5074,7 @@ where
           }
         }
       } else {
-        debug_assert!(current_hard_live_docs.length() == max_doc as usize);
+        debug_assert!(current_hard_live_docs.length() == max_doc_usize);
         // This segment had no deletes before, but now it
         // does:
         for j in 0..max_doc {

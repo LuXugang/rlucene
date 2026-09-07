@@ -34,7 +34,7 @@ pub struct MockByteVectorValues {
   dimension: usize,
   dense_values: Vec<Vec<u8>>,
   pub(crate) values: Vec<Vec<u8>>,
-  num_vectors: i32,
+  num_vectors: usize,
   seed: u64,
 }
 impl TryClone for MockByteVectorValues {
@@ -58,7 +58,7 @@ impl MockByteVectorValues {
       .filter(|value| !value.is_empty())
       .cloned()
       .collect();
-    let num_vectors = dense_values.len() as i32;
+    let num_vectors = dense_values.len();
     Self::new(values, dimension, dense_values, num_vectors, seed)
   }
 
@@ -66,7 +66,7 @@ impl MockByteVectorValues {
     values: Vec<Vec<u8>>,
     dimension: usize,
     dense_values: Vec<Vec<u8>>,
-    num_vectors: i32,
+    num_vectors: usize,
     seed: u64,
   ) -> Self {
     Self {

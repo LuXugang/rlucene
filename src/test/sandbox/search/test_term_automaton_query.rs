@@ -52,8 +52,8 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::query::RandomQuery;
 use crate::test_framework::core::search::test_term_automaton_query::CustomTermAutomatonQuery;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_text_field, random,
+  at_least, at_least_usize, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -545,7 +545,7 @@ crate::impl_analyzer_close!(RandomSynonymAnalyzer);
 #[test]
 fn test_random() -> Result<()> {
   let mut random = random();
-  let num_docs = at_least(&mut random, 50);
+  let num_docs = at_least_usize(&mut random, 50);
   let dir = new_directory_shared(&mut random)?;
 
   // Adds occasional random synonyms:
@@ -553,7 +553,7 @@ fn test_random() -> Result<()> {
   let iwc = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
   let mut field_to_type = HashMap::new();
-  let mut doc_values = Vec::with_capacity(num_docs as usize);
+  let mut doc_values = Vec::with_capacity(num_docs);
 
   for i in 0..num_docs {
     let mut doc = Document::new();
@@ -684,8 +684,8 @@ fn test_random() -> Result<()> {
       query2 = builder.build().into();
     }
 
-    let hits1 = searcher.search(query1, num_docs as usize)?;
-    let hits2 = searcher.search(query2, num_docs as usize)?;
+    let hits1 = searcher.search(query1, num_docs)?;
+    let hits2 = searcher.search(query2, num_docs)?;
     let hits1_docs = to_doc_ids(&searcher, &hits1)?;
     let hits2_docs = to_doc_ids(&searcher, &hits2)?;
 

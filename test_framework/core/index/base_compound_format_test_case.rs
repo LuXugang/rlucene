@@ -1207,7 +1207,7 @@ where
 
   let mut remainder = expected.length()? - expected.get_file_pointer()?;
   while remainder > 0 {
-    let read_len = remainder.min(expected_buffer.len()) as usize;
+    let read_len = remainder.min(expected_buffer.len());
     expected.read_bytes(&mut expected_buffer[..read_len], 0, read_len)?;
     test.read_bytes(&mut test_buffer[..read_len], 0, read_len)?;
     assert_equal_arrays(msg, &expected_buffer, &test_buffer, 0, read_len);

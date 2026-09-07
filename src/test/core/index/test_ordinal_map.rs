@@ -137,7 +137,7 @@ fn test_one_segment_with_all_values() -> Result<()> {
 
   let iw = IndexWriter::new(dir.clone(), cfg)?;
 
-  let num_terms = 1000;
+  let num_terms = 1000usize;
 
   for i in 0..num_terms {
     let mut d = Document::new();
@@ -181,8 +181,8 @@ fn test_one_segment_with_all_values() -> Result<()> {
   // Check the map's basic behavior.
   assert_eq!(num_terms as i64, map.get_value_count());
   for i in 0..num_terms {
-    assert_eq!(0, map.get_first_segment_number(i as usize)?);
-    assert_eq!(i as i64, map.get_first_segment_ord(i as usize)?);
+    assert_eq!(0, map.get_first_segment_number(i)?);
+    assert_eq!(i as i64, map.get_first_segment_ord(i)?);
   }
 
   iw.close()?;

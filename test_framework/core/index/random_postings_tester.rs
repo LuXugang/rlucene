@@ -1137,7 +1137,7 @@ pub struct SeedPostings {
   random: StdRng,
   pub doc_freq: i32,
   max_doc_spacing: i32,
-  payload_size: i32,
+  payload_size: usize,
   fixed_payloads: bool,
   payload: BytesRef<Vec<u8>>,
   do_positions: bool,
@@ -1176,7 +1176,7 @@ impl SeedPostings {
     };
 
     let fixed_payloads = random.random_bool(0.5);
-    let payload_bytes = vec![0u8; payload_size as usize];
+    let payload_bytes = vec![0u8; payload_size];
     let payload = BytesRef::from_bytes(payload_bytes);
     let do_positions = IndexOptions::DocsAndFreqsAndPositions
       .cmp(&options)
@@ -1290,12 +1290,12 @@ impl PostingsEnum for SeedPostings {
 
     if self.payload_size != 0 {
       if self.fixed_payloads {
-        self.payload.length = self.payload_size as usize;
+        self.payload.length = self.payload_size;
         self.random.fill_bytes(&mut self.payload.bytes);
       } else {
         let this_payload_size = self.random.random_range(0..self.payload_size);
         if this_payload_size != 0 {
-          self.payload.length = self.payload_size as usize;
+          self.payload.length = self.payload_size;
           self.random.fill_bytes(&mut self.payload.bytes);
         } else {
           self.payload.length = 0;

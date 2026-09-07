@@ -824,8 +824,8 @@ fn test_big_ints_compare() -> Result<()> {
   let mut random = random();
   for _ in 0..10_000 {
     let max_length = TestUtil::next_usize(&mut random, 1, 16);
-    let left_value = TestUtil::next_big_integer(&mut random, max_length as i32);
-    let right_value = TestUtil::next_big_integer(&mut random, max_length as i32);
+    let left_value = TestUtil::next_big_integer(&mut random, max_length);
+    let right_value = TestUtil::next_big_integer(&mut random, max_length);
     let mut left = BytesRef::from_bytes(vec![0u8; max_length]);
     NumericUtils::big_int_to_sortable_bytes(&left_value, max_length, &mut left.bytes, 0)?;
     let mut right = BytesRef::from_bytes(vec![0u8; max_length]);

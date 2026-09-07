@@ -1301,16 +1301,15 @@ pub trait BaseKnnVectorsFormatTestCase:
     R: Rng + ?Sized,
   {
     let num_docs = at_least(random, 1000);
-    let num_fields = TestUtil::next_int(random, 1, 10);
-    let mut field_doc_counts = vec![0i32; num_fields as usize];
-    let mut field_totals = vec![0f64; num_fields as usize];
-    let mut field_dims = vec![0usize; num_fields as usize];
-    let mut field_similarity_functions =
-      vec![VectorSimilarityFunction::Euclidean; num_fields as usize];
-    let mut field_vector_encodings = vec![VectorEncoding::FLOAT32(0); num_fields as usize];
+    let num_fields = TestUtil::next_usize(random, 1, 10);
+    let mut field_doc_counts = vec![0usize; num_fields];
+    let mut field_totals = vec![0f64; num_fields];
+    let mut field_dims = vec![0usize; num_fields];
+    let mut field_similarity_functions = vec![VectorSimilarityFunction::Euclidean; num_fields];
+    let mut field_vector_encodings = vec![VectorEncoding::FLOAT32(0); num_fields];
 
-    for i in 0..num_fields as usize {
-      let mut dim = random.random_range(1..=20) as usize;
+    for i in 0..num_fields {
+      let mut dim = TestUtil::next_usize(random, 1, 20);
       if !dim.is_multiple_of(2) {
         dim += 1;
       }
@@ -1325,7 +1324,7 @@ pub trait BaseKnnVectorsFormatTestCase:
 
     for _ in 0..num_docs {
       let mut doc = Document::new();
-      for field in 0..num_fields as usize {
+      for field in 0..num_fields {
         let field_name = format!("int{}", field);
         if random.random_range(0..100) == 17 {
           match field_vector_encodings[field] {
@@ -1356,8 +1355,8 @@ pub trait BaseKnnVectorsFormatTestCase:
 
     let r = w.get_reader(random)?;
     let r = r.get_context()?;
-    for field in 0..num_fields as usize {
-      let mut doc_count = 0i32;
+    for field in 0..num_fields {
+      let mut doc_count = 0usize;
       let mut checksum = 0f64;
       let field_name = format!("int{}", field);
 
@@ -1367,7 +1366,7 @@ pub trait BaseKnnVectorsFormatTestCase:
             let reader = ctx.reader();
             let byte_vector_values = reader.get_byte_vector_values(&field_name)?;
             if let Some(byte_vector_values) = byte_vector_values {
-              doc_count += byte_vector_values.size() as i32;
+              doc_count += byte_vector_values.size();
               let mut iterator = byte_vector_values.iterator()?;
               loop {
                 if iterator.next_doc()? == NO_MORE_DOCS {
@@ -1385,7 +1384,7 @@ pub trait BaseKnnVectorsFormatTestCase:
             let reader = ctx.reader();
             let vector_values = reader.get_float_vector_values(&field_name)?;
             if let Some(vector_values) = vector_values {
-              doc_count += vector_values.size() as i32;
+              doc_count += vector_values.size();
               let mut iterator = vector_values.iterator()?;
               loop {
                 if iterator.next_doc()? == NO_MORE_DOCS {
@@ -1426,27 +1425,20 @@ pub trait BaseKnnVectorsFormatTestCase:
     let dir = new_directory_shared(random)?;
     let iw = IndexWriter::new(dir, iwc)?;
 
-    let num_doc = at_least(random, 100);
+    let num_doc = at_least_usize(random, 100);
     let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }
 
     let similarity = self.random_similarity(random);
-    let mut values = vec![None; num_doc as usize];
-    for i in 0..num_doc {
+    let mut values = vec![None; num_doc];
+    for (i, value) in values.iter_mut().enumerate() {
       if random.random_range(0..7) != 3 {
-        values[i as usize] = Some(Self::random_normalized_vector(random, dimension)?);
+        *value = Some(Self::random_normalized_vector(random, dimension)?);
       }
 
-      self.add_float(
-        random,
-        &iw,
-        field_name,
-        i,
-        values[i as usize].clone(),
-        similarity,
-      )?;
+      self.add_float(random, &iw, field_name, i as i32, value.clone(), similarity)?;
 
       if random.random_range(0..10) == 2 {
         iw.delete_documents_with_terms(vec![Term::from_text(
@@ -1516,27 +1508,20 @@ pub trait BaseKnnVectorsFormatTestCase:
     let dir = new_directory_shared(random)?;
     let iw = IndexWriter::new(dir, iwc)?;
 
-    let num_doc = at_least(random, 100);
+    let num_doc = at_least_usize(random, 100);
     let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }
 
     let similarity = self.random_similarity(random);
-    let mut values = vec![None; num_doc as usize];
-    for i in 0..num_doc {
+    let mut values = vec![None; num_doc];
+    for (i, value) in values.iter_mut().enumerate() {
       if random.random_range(0..7) != 3 {
-        values[i as usize] = Some(Self::random_vector8(random, dimension)?);
+        *value = Some(Self::random_vector8(random, dimension)?);
       }
 
-      self.add_byte(
-        random,
-        &iw,
-        field_name,
-        i,
-        values[i as usize].clone(),
-        similarity,
-      )?;
+      self.add_byte(random, &iw, field_name, i as i32, value.clone(), similarity)?;
 
       if random.random_range(0..10) == 2 {
         iw.delete_documents_with_terms(vec![Term::from_text(
@@ -1965,7 +1950,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let dir = new_directory_shared(random)?;
     let iw = IndexWriter::new(dir, iwc)?;
 
-    let num_doc = at_least(random, 100);
+    let num_doc = at_least_usize(random, 100);
     let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
@@ -1974,21 +1959,21 @@ pub trait BaseKnnVectorsFormatTestCase:
     let mut scratch = vec![0.0f32; dimension];
     let mut num_values = 0i32;
     let similarity = self.random_similarity(random);
-    let mut values = vec![None; num_doc as usize];
+    let mut values = vec![None; num_doc];
 
     for i in 0..num_doc {
       if random.random_range(0..7) != 3 {
-        values[i as usize] = Some(Self::random_normalized_vector(random, dimension)?);
+        values[i] = Some(Self::random_normalized_vector(random, dimension)?);
         num_values += 1;
       }
 
-      if random.random_bool(0.5) && values[i as usize].is_some() {
-        scratch.copy_from_slice(values[i as usize].as_ref().unwrap());
+      if random.random_bool(0.5) && values[i].is_some() {
+        scratch.copy_from_slice(values[i].as_ref().unwrap());
         self.add_float(
           random,
           &iw,
           field_name,
-          i,
+          i as i32,
           Some(scratch.clone()),
           similarity,
         )?;
@@ -1997,8 +1982,8 @@ pub trait BaseKnnVectorsFormatTestCase:
           random,
           &iw,
           field_name,
-          i,
-          values[i as usize].clone(),
+          i as i32,
+          values[i].clone(),
           similarity,
         )?;
       }
@@ -2006,8 +1991,8 @@ pub trait BaseKnnVectorsFormatTestCase:
       if random.random_range(0..10) == 2 {
         let id_to_delete = random.random_range(0..=i);
         iw.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
-        if values[id_to_delete as usize].is_some() {
-          values[id_to_delete as usize] = None;
+        if values[id_to_delete].is_some() {
+          values[id_to_delete] = None;
           num_values -= 1;
         }
       }
@@ -2085,7 +2070,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let dir = new_directory_shared(random)?;
     let iw = IndexWriter::new(dir, iwc)?;
 
-    let num_doc = at_least(random, 100);
+    let num_doc = at_least_usize(random, 100);
     let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
@@ -2094,33 +2079,33 @@ pub trait BaseKnnVectorsFormatTestCase:
     let mut scratch = vec![0u8; dimension];
     let mut num_values = 0i32;
     let similarity = self.random_similarity(random);
-    let mut values = vec![None; num_doc as usize];
+    let mut values = vec![None; num_doc];
 
     for i in 0..num_doc {
       if random.random_range(0..7) != 3 {
-        values[i as usize] = Some(BytesRef::from_bytes(Self::random_vector8(
+        values[i] = Some(BytesRef::from_bytes(Self::random_vector8(
           random, dimension,
         )?));
         num_values += 1;
       }
 
-      if random.random_bool(0.5) && values[i as usize].is_some() {
-        scratch.copy_from_slice(values[i as usize].as_ref().unwrap().bytes.as_slice());
+      if random.random_bool(0.5) && values[i].is_some() {
+        scratch.copy_from_slice(values[i].as_ref().unwrap().bytes.as_slice());
         self.add_byte(
           random,
           &iw,
           field_name,
-          i,
+          i as i32,
           Some(scratch.clone()),
           similarity,
         )?;
       } else {
-        let value = values[i as usize].clone();
+        let value = values[i].clone();
         self.add_byte(
           random,
           &iw,
           field_name,
-          i,
+          i as i32,
           match value {
             Some(v) => Some(v.bytes),
             None => None,
@@ -2132,8 +2117,8 @@ pub trait BaseKnnVectorsFormatTestCase:
       if random.random_range(0..10) == 2 {
         let id_to_delete = random.random_range(0..=i);
         iw.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
-        if values[id_to_delete as usize].is_some() {
-          values[id_to_delete as usize] = None;
+        if values[id_to_delete].is_some() {
+          values[id_to_delete] = None;
           num_values -= 1;
         }
       }
@@ -2279,13 +2264,13 @@ pub trait BaseKnnVectorsFormatTestCase:
     let dir = new_directory_shared(random)?;
     let iw = IndexWriter::new(dir, iwc)?;
 
-    let num_doc = at_least(random, 100);
+    let num_doc = at_least_usize(random, 100);
     let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }
 
-    let mut id2value = vec![None; num_doc as usize];
+    let mut id2value = vec![None; num_doc];
     for _ in 0..num_doc {
       let id = random.random_range(0..num_doc);
       let value = if random.random_range(0..7) != 3 {
@@ -2293,12 +2278,12 @@ pub trait BaseKnnVectorsFormatTestCase:
       } else {
         None
       };
-      id2value[id as usize] = value.clone();
+      id2value[id] = value.clone();
       self.add_float(
         random,
         &iw,
         field_name,
-        id,
+        id as i32,
         value,
         VectorSimilarityFunction::Euclidean,
       )?;
@@ -2667,30 +2652,29 @@ pub trait BaseKnnVectorsFormatTestCase:
       let r = get_only_leaf_reader(&reader)?;
       let mut vector_values = r.get_float_vector_values(field_name)?.unwrap();
       let mut vector_docs = vec![0; vector_values.size() + 1];
-      let mut cur = -1;
       let mut iterator = vector_values.iterator()?;
-      while (cur + 1) < vector_values.size() as i32 + 1 {
-        cur += 1;
-        vector_docs[cur as usize] = iterator.next_doc()?;
+      for cur in 0..vector_docs.len() {
+        vector_docs[cur] = iterator.next_doc()?;
         if cur != 0 {
-          assert!(vector_docs[cur as usize] > vector_docs[(cur - 1) as usize]);
+          assert!(vector_docs[cur] > vector_docs[cur - 1]);
         }
       }
 
       vector_values = r.get_float_vector_values(field_name)?.unwrap();
       let mut iter = vector_values.iterator()?;
-      cur = -1;
+      let mut cur = -1;
       let mut i = 0;
       while i < numdocs {
         if random.random_range(0..4) == 3 {
-          loop {
+          let expected_doc = loop {
             cur += 1;
-            if vector_docs[cur as usize] >= i {
-              break;
+            let doc = vector_docs[cur as usize];
+            if doc >= i {
+              break doc;
             }
-          }
-          assert_eq!(vector_docs[cur as usize], iter.advance(i)?);
-          assert_eq!(vector_docs[cur as usize], iter.doc_id());
+          };
+          assert_eq!(expected_doc, iter.advance(i)?);
+          assert_eq!(expected_doc, iter.doc_id());
           if iter.doc_id() == NO_MORE_DOCS {
             break;
           }
@@ -2710,7 +2694,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     R: Rng + ?Sized,
   {
     let num_docs = at_least(random, 1000);
-    let mut dim = random.random_range(1..=20) as usize;
+    let mut dim = TestUtil::next_usize(random, 1, 20);
     if !dim.is_multiple_of(2) {
       dim += 1;
     }

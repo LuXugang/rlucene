@@ -35,15 +35,15 @@ pub(crate) trait LZ4TestCase {
     let offset = if data.len() >= (1 << 16) || random.random_bool(0.5) {
       random.random_range(0..10)
     } else {
-      (1 << 16) - data.len() as i32 / 2
+      (1 << 16) - data.len() / 2
     };
 
-    let mut copy = vec![0; data.len() + offset as usize + random.random_range(0..10)];
-    copy.copy_from(data, offset as usize);
+    let mut copy = vec![0; data.len() + offset + random.random_range(0..10)];
+    copy.copy_from(data, offset);
     Self::do_test_with_offset(
       random,
       copy.as_slice(),
-      offset,
+      offset as i32,
       data.len() as i32,
       hash_table,
     )

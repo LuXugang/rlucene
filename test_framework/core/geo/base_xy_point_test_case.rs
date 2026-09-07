@@ -619,11 +619,11 @@ pub trait BaseXYPointTestCase {
     self.do_test_random(random, 200_000)
   }
 
-  fn do_test_random<R>(&self, random: &mut R, count: i32) -> Result<()>
+  fn do_test_random<R>(&self, random: &mut R, count: usize) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let num_points = at_least_usize(random, count as usize);
+    let num_points = at_least_usize(random, count);
 
     let mut xs = vec![0.0; num_points];
     let mut ys = vec![0.0; num_points];
@@ -723,8 +723,9 @@ pub trait BaseXYPointTestCase {
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (xs.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((xs.len() / 100) as i32);
+    let min_buffered_docs = (xs.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
 
     let dir = if xs.len() > 100_000 {
@@ -762,10 +763,11 @@ pub trait BaseXYPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         #[allow(clippy::if_same_then_else)]
         let expected = if live_docs
           .as_ref()
-          .is_some_and(|live_docs| !live_docs.get(doc_id as usize).expect(""))
+          .is_some_and(|live_docs| !live_docs.get(doc_index).expect(""))
         {
           false
         } else if xs[id].is_nan() || ys[id].is_nan() {
@@ -774,7 +776,7 @@ pub trait BaseXYPointTestCase {
           Self::rect_contains_point(&rect, xs[id] as f64, ys[id] as f64)
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           unreachable!("")
         }
       }
@@ -792,8 +794,9 @@ pub trait BaseXYPointTestCase {
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (xs.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((xs.len() / 100) as i32);
+    let min_buffered_docs = (xs.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
 
     let dir = if xs.len() > 100_000 {
@@ -836,10 +839,11 @@ pub trait BaseXYPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         #[allow(clippy::if_same_then_else)]
         let expected = if live_docs
           .as_ref()
-          .is_some_and(|live_docs| !live_docs.get(doc_id as usize).expect(""))
+          .is_some_and(|live_docs| !live_docs.get(doc_index).expect(""))
         {
           false
         } else if xs[id].is_nan() || ys[id].is_nan() {
@@ -853,7 +857,7 @@ pub trait BaseXYPointTestCase {
           ) <= radius as f64
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           unreachable!();
         }
       }
@@ -872,8 +876,9 @@ pub trait BaseXYPointTestCase {
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (xs.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((xs.len() / 100) as i32);
+    let min_buffered_docs = (xs.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
 
     let dir = if xs.len() > 100_000 {
@@ -908,10 +913,11 @@ pub trait BaseXYPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         #[allow(clippy::if_same_then_else)]
         let expected = if live_docs
           .as_ref()
-          .is_some_and(|live_docs| !live_docs.get(doc_id as usize).expect(""))
+          .is_some_and(|live_docs| !live_docs.get(doc_index).expect(""))
         {
           false
         } else if xs[id].is_nan() || ys[id].is_nan() {
@@ -920,7 +926,7 @@ pub trait BaseXYPointTestCase {
           ShapeTestUtil::contains_slowly(&polygon, xs[id] as f64, ys[id] as f64)
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           unreachable!();
         }
       }
@@ -939,8 +945,9 @@ pub trait BaseXYPointTestCase {
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
 
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (xs.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((xs.len() / 100) as i32);
+    let min_buffered_docs = (xs.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
 
     let dir = if xs.len() > 100_000 {
@@ -976,10 +983,11 @@ pub trait BaseXYPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         #[allow(clippy::if_same_then_else)]
         let expected = if live_docs
           .as_ref()
-          .is_some_and(|live_docs| !live_docs.get(doc_id as usize).expect(""))
+          .is_some_and(|live_docs| !live_docs.get(doc_index).expect(""))
         {
           false
         } else if xs[id].is_nan() || ys[id].is_nan() {
@@ -988,7 +996,7 @@ pub trait BaseXYPointTestCase {
           component_2d.contains(xs[id] as f64, ys[id] as f64)
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           unreachable!();
         }
       }
@@ -1003,7 +1011,7 @@ pub trait BaseXYPointTestCase {
     random: &mut R,
     xs: &[f32],
     ys: &[f32],
-    deleted: &mut HashSet<i32>,
+    deleted: &mut HashSet<usize>,
     w: &IndexWriter<D>,
   ) -> Result<()>
   where
@@ -1024,7 +1032,7 @@ pub trait BaseXYPointTestCase {
       if id > 0 && random.random_range(0..100) == 42 {
         let id_to_delete = random.random_range(0..id);
         w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
-        deleted.insert(id_to_delete as i32);
+        deleted.insert(id_to_delete);
       }
     }
 
@@ -1210,6 +1218,7 @@ pub trait BaseXYPointTestCase {
     }
     let reader = writer.get_reader(random)?;
     let max_doc = reader.max_doc()?;
+    let doc_capacity = max_doc as usize;
 
     let mut stored_fields = reader.stored_fields()?;
     let searcher = new_searcher_with_reader(reader)?;
@@ -1219,7 +1228,7 @@ pub trait BaseXYPointTestCase {
       let y = circle.get_y();
       let radius = circle.get_radius();
 
-      let mut expected = FixedBitSet::new(max_doc as usize);
+      let mut expected = FixedBitSet::new(doc_capacity);
       for doc in 0..max_doc {
         let document = stored_fields.document(doc)?;
         let doc_x = document
@@ -1245,12 +1254,12 @@ pub trait BaseXYPointTestCase {
       let top_docs = searcher.search_after_field_with_score(
         None,
         self.new_distance_query("field", x, y, radius)?,
-        max_doc as usize,
+        doc_capacity,
         Sort::get_index_order()?,
         false,
       )?;
 
-      let mut actual = FixedBitSet::new(max_doc as usize);
+      let mut actual = FixedBitSet::new(doc_capacity);
       for score_doc in top_docs.score_docs() {
         actual.set(score_doc.doc() as usize)?;
       }

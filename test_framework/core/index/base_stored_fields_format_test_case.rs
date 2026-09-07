@@ -321,8 +321,9 @@ pub trait BaseStoredFieldsFormatTestCase:
 
       let mut doc = Document::new();
       doc.add(nf);
-      doc.add(StoredField::from_i32("id", id as i32)?);
-      doc.add(IntPoint::new("id", [id as i32])?);
+      let doc_id = id as i32;
+      doc.add(StoredField::from_i32("id", doc_id)?);
+      doc.add(IntPoint::new("id", [doc_id])?);
       doc.add(NumericDocValuesField::new("id", id as i64));
       answers[id] = answer;
       type_answers[id] = type_answer;
@@ -645,8 +646,9 @@ pub trait BaseStoredFieldsFormatTestCase:
     let mut id_stored = StoredField::from_i32("id", 0)?;
     #[allow(clippy::needless_range_loop)]
     for i in 0..data.len() {
-      id.set_int_value(i as i32)?;
-      id_stored.set_int_value(i as i32)?;
+      let doc_id = i as i32;
+      id.set_int_value(doc_id)?;
+      id_stored.set_int_value(doc_id)?;
       let mut doc = Document::new();
       doc.add(id.clone());
       doc.add(id_stored.clone());
@@ -700,8 +702,9 @@ pub trait BaseStoredFieldsFormatTestCase:
         .unwrap()
         .to_i32()
         .unwrap();
-      assert_eq!(data[doc_id as usize].len() + 1, doc.get_fields().len());
-      for (j, bytes) in data[doc_id as usize].iter().enumerate() {
+      let expected_fields = &data[doc_id as usize];
+      assert_eq!(expected_fields.len() + 1, doc.get_fields().len());
+      for (j, bytes) in expected_fields.iter().enumerate() {
         let actual = doc.get_binary_value(&format!("bytes{j}"))?.unwrap();
         let actual = actual.as_ref();
         assert_eq!(

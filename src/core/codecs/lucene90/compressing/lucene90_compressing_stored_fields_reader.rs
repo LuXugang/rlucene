@@ -673,9 +673,10 @@ where
     }
 
     self.sliced = (token & 1) != 0;
+    let chunk_docs = self.chunk_docs as usize;
 
-    ArrayUtil::grow_no_copy(&mut self.offsets, self.chunk_docs as usize + 1)?;
-    ArrayUtil::grow_no_copy(&mut self.num_stored_fields, self.chunk_docs as usize)?;
+    ArrayUtil::grow_no_copy(&mut self.offsets, chunk_docs + 1)?;
+    ArrayUtil::grow_no_copy(&mut self.num_stored_fields, chunk_docs)?;
 
     if self.chunk_docs == 1 {
       self.num_stored_fields[0] = self.fields_stream.read_vint()? as i64;
@@ -684,25 +685,20 @@ where
       // Number of stored fields per document
       StoredFieldsInts::read_ints(
         &mut self.fields_stream,
-        self.chunk_docs as usize,
+        chunk_docs,
         &mut self.num_stored_fields,
         0,
       )?;
       // The stream encodes the length of each document and we decode
       // it into a list of monotonically increasing offsets
-      StoredFieldsInts::read_ints(
-        &mut self.fields_stream,
-        self.chunk_docs as usize,
-        &mut self.offsets,
-        1,
-      )?;
+      StoredFieldsInts::read_ints(&mut self.fields_stream, chunk_docs, &mut self.offsets, 1)?;
 
-      for i in 0..self.chunk_docs as usize {
+      for i in 0..chunk_docs {
         self.offsets[i + 1] += self.offsets[i];
       }
       // Additional validation: only the empty document has a serialized
       // length of 0
-      for i in 0..self.chunk_docs as usize {
+      for i in 0..chunk_docs {
         let len = self.offsets[i + 1] - self.offsets[i];
         let stored_fields = self.num_stored_fields[i];
         if (len == 0) != (stored_fields == 0) {
@@ -717,7 +713,7 @@ where
     self.start_pointer = self.fields_stream.get_file_pointer()?;
 
     if self.merging {
-      let total_length = self.offsets[self.chunk_docs as usize].try_convert()?;
+      let total_length = self.offsets[chunk_docs].try_convert()?;
       // decompress eagerly
       if self.sliced {
         self.spare2.offset = 0;

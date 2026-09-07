@@ -44,7 +44,7 @@ pub trait BaseLiveDocsFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let max_doc = TestUtil::next_int(random, 3, 1000);
+    let max_doc = TestUtil::next_usize(random, 3, 1000);
     self.test_serialization(random, max_doc, max_doc - 1, false)?;
     self.test_serialization(random, max_doc, max_doc - 1, true)?;
     Ok(())
@@ -53,7 +53,7 @@ pub trait BaseLiveDocsFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let max_doc = TestUtil::next_int(random, 3, 1000);
+    let max_doc = TestUtil::next_usize(random, 3, 1000);
     self.test_serialization(random, max_doc, 0, false)?;
     self.test_serialization(random, max_doc, 0, true)?;
 
@@ -63,7 +63,7 @@ pub trait BaseLiveDocsFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    let max_doc = TestUtil::next_int(random, 3, 1000);
+    let max_doc = TestUtil::next_usize(random, 3, 1000);
     self.test_serialization(random, max_doc, 1, false)?;
     self.test_serialization(random, max_doc, 1, true)?;
     Ok(())
@@ -73,15 +73,16 @@ pub trait BaseLiveDocsFormatTestCase {
   where
     R: Rng + ?Sized,
   {
-    self.test_serialization(random, MAX_DOCS, MAX_DOCS - 7, false)?;
+    let max_doc = MAX_DOCS as usize;
+    self.test_serialization(random, max_doc, max_doc - 7, false)?;
     Ok(())
   }
 
   fn test_serialization<R>(
     &self,
     random: &mut R,
-    max_doc: i32,
-    num_live_docs: i32,
+    max_doc: usize,
+    num_live_docs: usize,
     fixed_bit_set: bool,
   ) -> Result<()>
   where
@@ -89,29 +90,29 @@ pub trait BaseLiveDocsFormatTestCase {
   {
     let codec = self.get_codec()?;
     let format = codec.live_docs_format();
-    let mut live_docs = FixedBitSet::new(max_doc as usize);
+    let mut live_docs = FixedBitSet::new(max_doc);
     if num_live_docs > max_doc / 2 {
-      live_docs.set_with_range(0, max_doc as usize);
+      live_docs.set_with_range(0, max_doc);
       for _ in 0..(max_doc - num_live_docs) {
         let mut clear_bit;
         loop {
           clear_bit = random.random_range(0..max_doc);
-          if live_docs.get(clear_bit as usize)? {
+          if live_docs.get(clear_bit)? {
             break;
           }
         }
-        live_docs.clear_with_index(clear_bit as usize)?;
+        live_docs.clear_with_index(clear_bit)?;
       }
     } else {
       for _ in 0..num_live_docs {
         let mut set_bit;
         loop {
           set_bit = random.random_range(0..max_doc);
-          if !live_docs.get(set_bit as usize)? {
+          if !live_docs.get(set_bit)? {
             break;
           }
         }
-        live_docs.set(set_bit as usize)?;
+        live_docs.set(set_bit)?;
       }
     }
     let bits = if fixed_bit_set {
@@ -125,7 +126,7 @@ pub trait BaseLiveDocsFormatTestCase {
       Option::from(LATEST.clone()),
       Option::from(LATEST.clone()),
       "foo",
-      max_doc,
+      max_doc as i32,
       rand::random(),
       false,
       Some(codec),
@@ -142,13 +143,13 @@ pub trait BaseLiveDocsFormatTestCase {
       &bits,
       dir.as_ref(),
       &sci,
-      max_doc - num_live_docs,
+      (max_doc - num_live_docs) as i32,
       io_context,
     )?;
 
     sci = SegmentCommitInfo::new(
       si1,
-      max_doc - num_live_docs,
+      (max_doc - num_live_docs) as i32,
       0,
       1,
       -1,
@@ -159,8 +160,8 @@ pub trait BaseLiveDocsFormatTestCase {
     let dir = dir;
     let bits2 = format.read_live_docs(dir.as_ref(), &sci, &io_context)?;
 
-    assert_eq!(max_doc as usize, bits2.length());
-    for i in 0..max_doc as usize {
+    assert_eq!(max_doc, bits2.length());
+    for i in 0..max_doc {
       assert_eq!(bits.get(i)?, bits2.get(i)?);
     }
     Ok(())

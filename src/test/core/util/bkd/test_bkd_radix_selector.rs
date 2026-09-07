@@ -527,20 +527,22 @@ where
 {
   let points_max = get_max(config.clone(), input_slice, split_dim, dir)?;
   let points_min = get_min(config.clone(), input_slice, split_dim, dir)?;
-  let mut common_prefix_length = CoreHelper::miss_match_u8(
+  let common_prefix_length = CoreHelper::miss_match_u8(
     &points_max[0..config.bytes_per_dim],
     &points_min[0..config.bytes_per_dim],
   );
-  if common_prefix_length == -1 {
-    common_prefix_length = config.bytes_per_dim as i32;
-  }
+  let common_prefix_length = if common_prefix_length == -1 {
+    config.bytes_per_dim
+  } else {
+    common_prefix_length as usize
+  };
 
   if random.random_bool(0.5) {
-    Ok(common_prefix_length as usize)
+    Ok(common_prefix_length)
   } else if common_prefix_length == 0 {
     Ok(0)
   } else {
-    Ok(random.random_range(0..common_prefix_length) as usize)
+    Ok(random.random_range(0..common_prefix_length))
   }
 }
 

@@ -450,10 +450,10 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     R: Rng + ?Sized,
   {
     let num = if is_night_mode() {
-      TestUtil::next_int(random, 100, 1000)
+      TestUtil::next_usize(random, 100, 1000)
     } else {
-      TestUtil::next_int(random, 50, 100)
-    } as usize;
+      TestUtil::next_usize(random, 50, 100)
+    };
     let mut bytes = vec![0_u8; num];
     random.fill(&mut bytes[..]);
     let temp_dir = create_temp_dir_with_prefix("testBytesCrossBoundary")?;

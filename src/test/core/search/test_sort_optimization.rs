@@ -778,6 +778,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
   let search_afters = [3, 10, num_docs as i32 - 10];
 
   for &search_after in &search_afters {
+    let after_index = search_after as usize;
     {
       let sort = Sort::with_fields(vec![SortField::get_field_doc()?])?;
       let after = FieldDoc::with_fields(
@@ -789,8 +790,8 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
       let top_docs =
         searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
-      let exp_num_hits = if search_after as usize >= (num_docs - num_hits) {
-        num_docs - (search_after as usize) - 1
+      let exp_num_hits = if after_index >= (num_docs - num_hits) {
+        num_docs - after_index - 1
       } else {
         num_hits
       };
@@ -823,8 +824,8 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
       let top_docs =
         searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
-      let exp_num_hits = if search_after as usize >= (num_docs - num_hits) {
-        num_docs - (search_after as usize) - 1
+      let exp_num_hits = if after_index >= (num_docs - num_hits) {
+        num_docs - after_index - 1
       } else {
         num_hits
       };
@@ -852,8 +853,8 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
       let top_docs =
         searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
-      let exp_num_hits = if (search_after as usize) < num_hits {
-        search_after as usize
+      let exp_num_hits = if after_index < num_hits {
+        after_index
       } else {
         num_hits
       };

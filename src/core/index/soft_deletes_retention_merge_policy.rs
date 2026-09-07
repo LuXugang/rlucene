@@ -506,9 +506,10 @@ where
     None => return Ok(reader), // no deletes - just keep going
   };
   let max_doc = reader.max_doc()?;
+  let max_doc_usize = max_doc as usize;
   // Only search deleted documents.
-  let mut deleted_docs = FixedBitSet::new(max_doc as usize);
-  for doc_id in 0..max_doc as usize {
+  let mut deleted_docs = FixedBitSet::new(max_doc_usize);
+  for doc_id in 0..max_doc_usize {
     if !live_docs.get(doc_id)? {
       deleted_docs.set(doc_id)?;
     }
@@ -533,7 +534,7 @@ where
       // If we bring one back to live, we need to account for it.
       extra_live_docs += 1;
     }
-    doc_id = if doc_id + 1 >= max_doc as usize {
+    doc_id = if doc_id + 1 >= max_doc_usize {
       NO_MORE_DOCS as usize
     } else {
       retained_docs.next_set_bit(doc_id + 1)

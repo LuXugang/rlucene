@@ -270,6 +270,7 @@ impl IncrementalHnswGraphMergerDefaults {
     D: DocMap,
     T: RandomVectorScorerSupplier,
   {
+    let max_ord_usize = max_ord as usize;
     match init_reader {
       Some(init_reader_idx) => {
         let init_reader = readers[init_reader_idx].as_ref().ok_or_else(|| {
@@ -278,7 +279,7 @@ impl IncrementalHnswGraphMergerDefaults {
           ))
         })?;
         let mut initializer_graph = init_reader.get_graph(field_info.name.as_str())?;
-        let mut initialized_nodes = FixedBitSet::new(max_ord as usize);
+        let mut initialized_nodes = FixedBitSet::new(max_ord_usize);
         let init_doc_map_idx = init_doc_map
           .ok_or_else(|| LuceneError::illegal_state("initializer reader has no document map"))?;
         let doc_map = doc_maps.get(init_doc_map_idx).ok_or_else(|| {
@@ -306,7 +307,7 @@ impl IncrementalHnswGraphMergerDefaults {
         )?;
         builder.set_info_stream(info_stream);
         Ok(std::mem::replace(
-          builder.build(max_ord as usize)?,
+          builder.build(max_ord_usize)?,
           OnHeapHnswGraph::new(m, 0),
         ))
       },
@@ -315,7 +316,7 @@ impl IncrementalHnswGraphMergerDefaults {
           create_with_graph_size(scorer_supplier, m, beam_width, rand_seed(), max_ord)?;
         builder.set_info_stream(info_stream);
         Ok(std::mem::replace(
-          builder.build(max_ord as usize)?,
+          builder.build(max_ord_usize)?,
           OnHeapHnswGraph::new(m, 0),
         ))
       },

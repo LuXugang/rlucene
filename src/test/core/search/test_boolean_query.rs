@@ -138,7 +138,7 @@ fn test_equality_does_not_depend_on_order() -> Result<()> {
   ];
 
   for _ in 0..10 {
-    let num_clauses = random.random_range(0..20) as usize;
+    let num_clauses = random.random_range(0..20);
 
     let mut clauses: Vec<BooleanClause> = Vec::with_capacity(num_clauses);
     for _ in 0..num_clauses {
@@ -449,9 +449,9 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
 
   for _ in 0..(10 * random_multiplier()) {
     let mut terms: Vec<&'static str> = vec!["a", "b", "c", "d", "e", "f"];
-    let num_terms = random.random_range(1..(terms.len() + 1)) as usize;
+    let num_terms = random.random_range(1..(terms.len() + 1));
     while terms.len() > num_terms {
-      let idx = random.random_range(0..terms.len()) as usize;
+      let idx = random.random_range(0..terms.len());
       terms.remove(idx);
     }
 
@@ -1514,12 +1514,12 @@ fn test_disjunction_two_clauses_matches_count_and_score() -> Result<()> {
 fn test_disjunction_random_clauses_matches_count() -> Result<()> {
   let mut random = random();
 
-  let num_field_value: i32 = random.random_range(1..=10);
-  let mut num_docs_per_field_value = Vec::with_capacity(num_field_value as usize);
-  let mut all_docs_count: i32 = 0;
+  let num_field_value: usize = random.random_range(1..=10);
+  let mut num_docs_per_field_value = Vec::with_capacity(num_field_value);
+  let mut all_docs_count: usize = 0;
 
   for _ in 0..num_field_value {
-    let num_docs: i32 = random.random_range(10..=50);
+    let num_docs: usize = random.random_range(10..=50);
     num_docs_per_field_value.push(num_docs);
     all_docs_count += num_docs;
   }
@@ -1530,8 +1530,8 @@ fn test_disjunction_random_clauses_matches_count() -> Result<()> {
     iwc.set_merge_policy(new_log_merge_policy(&mut random)?);
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
-    for i in 0..num_field_value {
-      for _ in 0..num_docs_per_field_value[i as usize] {
+    for (i, &num_docs) in num_docs_per_field_value.iter().enumerate() {
+      for _ in 0..num_docs {
         let mut doc = Document::new();
         doc.add(StringField::from_string("field", i.to_string(), No)?);
         w.add_document(doc)?;
@@ -1542,23 +1542,23 @@ fn test_disjunction_random_clauses_matches_count() -> Result<()> {
     w.close()?;
   }
 
-  let mut matched_docs_count: i32 = 0;
+  let mut matched_docs_count: usize = 0;
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut builder = Builder::new();
 
-  for i in 0..num_field_value {
+  for (i, &num_docs) in num_docs_per_field_value.iter().enumerate() {
     if random.random_bool(0.5) {
-      matched_docs_count += num_docs_per_field_value[i as usize];
+      matched_docs_count += num_docs;
       let q = TermQuery::new(Term::from_text("field", i.to_string()));
       builder.add(q, Occur::Should)?;
     }
   }
 
   let query = builder.build();
-  let top_docs = searcher.search(query, all_docs_count as usize)?;
-  assert_eq!(matched_docs_count as usize, top_docs.score_docs().len());
+  let top_docs = searcher.search(query, all_docs_count)?;
+  assert_eq!(matched_docs_count, top_docs.score_docs().len());
 
   Ok(())
 }

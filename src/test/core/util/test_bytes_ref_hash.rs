@@ -145,7 +145,7 @@ fn test_compact() -> Result<()> {
 
   let num = at_least(&mut random, 2);
   for _ in 0..num {
-    let mut num_entries = 0;
+    let mut num_entries = 0usize;
     let size = 797;
     let mut bits = bit_set::BitSet::new();
 
@@ -164,17 +164,19 @@ fn test_compact() -> Result<()> {
       if key < 0 {
         assert!(bits.contains(((-key) - 1) as usize));
       } else {
-        assert!(!bits.contains(key as usize));
-        bits.insert(key as usize);
+        let key = key as usize;
+        assert!(!bits.contains(key));
+        bits.insert(key);
         num_entries += 1;
       }
     }
-    assert_eq!(hash.size() as usize, bits.count());
-    assert_eq!(num_entries as usize, bits.count());
-    assert_eq!(num_entries, hash.size());
+    let hash_size = hash.size() as usize;
+    assert_eq!(hash_size, bits.count());
+    assert_eq!(num_entries, bits.count());
+    assert_eq!(num_entries, hash_size);
 
     let compact = hash.compact()?;
-    assert!(num_entries < compact.len() as i32);
+    assert!(num_entries < compact.len());
 
     for &id in compact {
       bits.remove(id as usize);

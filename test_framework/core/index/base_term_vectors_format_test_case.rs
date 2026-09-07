@@ -1794,8 +1794,8 @@ pub struct RandomTokenStream {
   payloads: Vec<Option<BytesRef<Vec<u8>>>>,
 
   freqs: HashMap<String, i32>,
-  position_to_terms: HashMap<i32, HashSet<i32>>,
-  start_offset_to_terms: HashMap<i32, HashSet<i32>>,
+  position_to_terms: HashMap<i32, HashSet<usize>>,
+  start_offset_to_terms: HashMap<i32, HashSet<usize>>,
   i: usize,
 }
 impl RandomTokenStream {
@@ -1869,19 +1869,19 @@ impl RandomTokenStream {
       }
     }
 
-    let mut position_to_terms: HashMap<i32, HashSet<i32>> = HashMap::with_capacity(len);
-    let mut start_offset_to_terms: HashMap<i32, HashSet<i32>> = HashMap::with_capacity(len);
+    let mut position_to_terms: HashMap<i32, HashSet<usize>> = HashMap::with_capacity(len);
+    let mut start_offset_to_terms: HashMap<i32, HashSet<usize>> = HashMap::with_capacity(len);
 
     for i in 0..len {
       position_to_terms
         .entry(positions[i])
         .or_insert_with(|| HashSet::with_capacity(1))
-        .insert(i as i32);
+        .insert(i);
 
       start_offset_to_terms
         .entry(start_offsets[i])
         .or_insert_with(|| HashSet::with_capacity(1))
-        .insert(i as i32);
+        .insert(i);
     }
 
     let mut freqs = HashMap::new();
@@ -2269,14 +2269,14 @@ where
         };
         if terms.has_positions() {
           assert!(indexes.iter().any(|index| {
-            let index = *index as usize;
+            let index = *index;
             tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
               && tk.positions[index] == position
           }));
         }
         if terms.has_offsets() {
           assert!(indexes.iter().any(|index| {
-            let index = *index as usize;
+            let index = *index;
             tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
               && tk.start_offsets[index]
                 == docs_and_positions_enum
@@ -2290,7 +2290,7 @@ where
         }
         if terms.has_payloads() {
           assert!(indexes.iter().any(|index| {
-            let index = *index as usize;
+            let index = *index;
             tk.term_bytes[index] == *terms_enum.term().expect("term must exist")
               && equals(
                 tk.payloads[index].as_ref(),

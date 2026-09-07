@@ -577,7 +577,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()
       );
       self.finish_current_doc()?;
-      let value_count = self.hash.size();
+      let value_count = self.hash.size() as usize;
       self.final_ords = Some(self.pending.build()?);
       self.final_ord_counts = match std::mem::take(&mut self.pending_counts) {
         Some(mut pc) => Some(pc.build()?),
@@ -585,8 +585,8 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       };
       self.hash.sort(self.pool.as_ref())?;
       self.is_sorted = true;
-      let mut ord_map = vec![0; value_count as usize];
-      for ord in 0..value_count as usize {
+      let mut ord_map = vec![0; value_count];
+      for ord in 0..value_count {
         let index = self.hash.ids[ord] as usize;
         ord_map[index] = ord as i32;
       }
@@ -906,11 +906,12 @@ where
   fn next_doc(&mut self) -> Result<i32> {
     loop {
       self.doc_id += 1;
-      if (self.doc_id as usize) == self.ords.offsets.len() {
+      let doc_index = self.doc_id as usize;
+      if doc_index == self.ords.offsets.len() {
         self.doc_id = NO_MORE_DOCS;
         return Ok(self.doc_id);
       }
-      if self.ords.offsets[self.doc_id as usize] > 0 {
+      if self.ords.offsets[doc_index] > 0 {
         break;
       }
     }

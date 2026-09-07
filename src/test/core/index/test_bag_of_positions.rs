@@ -71,7 +71,7 @@ fn test() -> Result<()> {
   let iwc = new_index_writer_config_with_analyzer(&mut random, a)?;
   let iw = RandomIndexWriter::with_config(&mut random, dir, iwc);
 
-  let thread_count = TestUtil::next_int(&mut random, 1, 5);
+  let thread_count = TestUtil::next_usize(&mut random, 1, 5);
 
   // Build field type
   let mut field_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_NOT_STORED)?;
@@ -89,7 +89,7 @@ fn test() -> Result<()> {
   }
   // else just positions (default)
 
-  let barrier = Barrier::new(thread_count as usize + 1);
+  let barrier = Barrier::new(thread_count + 1);
 
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();

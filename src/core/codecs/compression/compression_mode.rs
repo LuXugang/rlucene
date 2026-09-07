@@ -266,8 +266,9 @@ impl Decompressor for LZ4Decompressor {
 
     // Add 7 padding bytes, not necessary but helps with decompression
     // performance
-    if bytes.bytes.len() < (original_length + 7) as usize {
-      ArrayUtil::grow_no_copy(&mut bytes.bytes, (original_length + 7) as usize)?;
+    let padded_length = (original_length + 7) as usize;
+    if bytes.bytes.len() < padded_length {
+      ArrayUtil::grow_no_copy(&mut bytes.bytes, padded_length)?;
     }
     let decompressed_length = LZ4::decompress(input, offset + length, &mut bytes.bytes, 0)?;
     if decompressed_length > original_length {
@@ -448,12 +449,13 @@ impl Decompressor for DeflateDecompressor {
 
     bytes.offset = 0;
     bytes.length = 0;
-    ArrayUtil::grow_no_copy(&mut bytes.bytes, original_length as usize)?;
+    let output_length = original_length as usize;
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, output_length)?;
     let mut decoder = Decompress::new(false);
     let status = decoder
       .decompress(
         &self.compressed[..padded_length],
-        &mut bytes.bytes[..original_length as usize],
+        &mut bytes.bytes[..output_length],
         FlushDecompress::Finish,
       )
       .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
@@ -463,7 +465,7 @@ impl Decompressor for DeflateDecompressor {
         "Invalid decoder state: status={status:?} (resource={input})"
       )));
     }
-    if bytes.length != original_length as usize {
+    if bytes.length != output_length {
       return Err(LuceneError::corrupt_index(format!(
         "Lengths mismatch: {} != {} (resource={})",
         bytes.length, original_length, input

@@ -511,6 +511,7 @@ where
   }
 
   fn get_sparse_scorer(&mut self) -> Result<QueryWeightSsScorer> {
+    let max_doc = self.max_doc as usize;
     if self.query_relation == QueryRelation::Disjoint
       && self.values.get_doc_count()? == self.max_doc
       && self.values.get_doc_count()? == self.values.size()? as i32
@@ -519,8 +520,8 @@ where
       // If all docs have exactly one value and the cost is greater
       // than half the leaf size then maybe we can make things faster
       // by computing the set of documents that do NOT match the query
-      let mut result = FixedBitSet::new(self.max_doc as usize);
-      result.set_with_range(0, self.max_doc as usize);
+      let mut result = FixedBitSet::new(max_doc);
+      result.set_with_range(0, max_doc);
       let cost = {
         let mut visitor = get_inverse_dense_visitor(
           &self.spatial_visitor,
@@ -538,7 +539,7 @@ where
         iterator,
       )))
     } else if self.values.get_doc_count()? < (self.values.size()? >> 2) as i32 {
-      let mut result = FixedBitSet::new(self.max_doc as usize);
+      let mut result = FixedBitSet::new(max_doc);
       let cost = {
         let mut visitor =
           get_intersect_visitor(&self.spatial_visitor, self.query_relation, &mut result, 0);
@@ -573,12 +574,13 @@ where
   }
 
   fn get_dense_scorer(&mut self) -> Result<QueryWeightSsScorer> {
-    let mut result = FixedBitSet::new(self.max_doc as usize);
+    let max_doc = self.max_doc as usize;
+    let mut result = FixedBitSet::new(max_doc);
     let cost;
     if self.values.get_doc_count()? == self.max_doc {
       // In this case we can spare one visit to the tree, all documents
       // are potential matches
-      result.set_with_range(0, self.max_doc as usize);
+      result.set_with_range(0, max_doc);
       cost = {
         let mut visitor = get_inverse_dense_visitor(
           &self.spatial_visitor,
@@ -591,7 +593,7 @@ where
         visitor.cost
       };
     } else {
-      let mut excluded = FixedBitSet::new(self.max_doc as usize);
+      let mut excluded = FixedBitSet::new(max_doc);
       cost = {
         let mut visitor = get_dense_visitor(
           &self.spatial_visitor,
@@ -623,8 +625,9 @@ where
   }
 
   fn get_contains_dense_scorer(&mut self) -> Result<QueryWeightSsScorer> {
-    let mut result = FixedBitSet::new(self.max_doc as usize);
-    let mut excluded = FixedBitSet::new(self.max_doc as usize);
+    let max_doc = self.max_doc as usize;
+    let mut result = FixedBitSet::new(max_doc);
+    let mut excluded = FixedBitSet::new(max_doc);
     let cost = {
       let mut visitor = get_contains_dense_visitor(
         &self.spatial_visitor,
@@ -1011,14 +1014,15 @@ where
   }
 
   fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-    if !self.excluded.get(doc_id as usize)? {
+    let doc_index = doc_id as usize;
+    if !self.excluded.get(doc_index)? {
       if self
         .spatial_visitor
         .get_leaf_predicate(self.query_relation, packed_value)?
       {
         self.visit(doc_id)?;
       } else {
-        self.excluded.set(doc_id as usize)?;
+        self.excluded.set(doc_index)?;
       }
     }
     Ok(())
@@ -1100,13 +1104,14 @@ where
   }
 
   fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
-    if !self.excluded.get(doc_id as usize)? {
+    let doc_index = doc_id as usize;
+    if !self.excluded.get(doc_index)? {
       match self.spatial_visitor.contains(packed_value)? {
         WithinRelation::Candidate => {
           self.cost += 1;
-          self.result.set(doc_id as usize)?;
+          self.result.set(doc_index)?;
         },
-        WithinRelation::NotWithin => self.excluded.set(doc_id as usize)?,
+        WithinRelation::NotWithin => self.excluded.set(doc_index)?,
         WithinRelation::Disjoint => {},
       }
     }

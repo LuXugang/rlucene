@@ -185,11 +185,11 @@ impl ByteBuffersDataOutput {
           new_block = Cursor::new(vec![0; block_size]);
           available_space = 1 << self.block_bits;
         }
-        let bytes_to_copy = available_space.min(old_block.remain()?) as usize;
+        let bytes_to_copy = available_space.min(old_block.remain()?);
         let old_position = old_block.position() as usize;
         let old_data = &old_block.get_ref()[old_position..old_position + bytes_to_copy];
         debug_assert!(
-          new_block.remain()? as usize >= bytes_to_copy,
+          new_block.remain()? >= bytes_to_copy,
           "Insufficient space in new_block: remaining={}, required={}",
           new_block.remain()?,
           bytes_to_copy

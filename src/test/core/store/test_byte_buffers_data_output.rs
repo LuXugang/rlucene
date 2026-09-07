@@ -87,16 +87,13 @@ fn test_constructor_with_expected_size() -> Result<()> {
   );
 
   let mb = 1024 * 1024;
-  let expected_size: i64 = random.random_range(mb..mb * 1024);
-  let mut o = ByteBuffersDataOutput::with_size(expected_size)?;
+  let expected_size: usize = random.random_range(mb..mb * 1024);
+  let mut o = ByteBuffersDataOutput::with_size(expected_size as i64)?;
   o.write_byte(0)?;
   let (_length, mut result) = o.to_buffer_list_ref();
   let cap = result.get_mut(0).unwrap().get_ref().len();
-  assert!(
-    ((cap >> 1) * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION)
-      < expected_size as usize
-  );
-  assert!(cap * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION >= expected_size as usize);
+  assert!(((cap >> 1) * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION) < expected_size);
+  assert!(cap * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION >= expected_size);
   Ok(())
 }
 

@@ -99,13 +99,14 @@ where
       // Try to run as many iterations of the binary search as possible
       // without hitting the direct readers, since they might
       // hit a page fault.
-      let bounds = self.get_bounds(mid as usize)?;
+      let mid_index = mid as usize;
+      let bounds = self.get_bounds(mid_index)?;
       if bounds[1] < key {
         lo = mid + 1;
       } else if bounds[0] > key {
         hi = mid - 1;
       } else {
-        let mid_val = self.get_mut(mid as usize)?;
+        let mid_val = self.get_mut(mid_index)?;
         match mid_val.cmp(&key) {
           std::cmp::Ordering::Less => lo = mid + 1,
           std::cmp::Ordering::Greater => hi = mid - 1,

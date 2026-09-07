@@ -46,8 +46,8 @@ use crate::test_framework::core::index::base_index_file_format_test_case::{
 };
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, new_directory, new_index_writer_config_with_analyzer,
-  new_log_merge_policy,
+  at_least, at_least_usize, get_only_leaf_reader, new_directory,
+  new_index_writer_config_with_analyzer, new_log_merge_policy,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -462,15 +462,15 @@ pub trait BaseNormsFormatTestCase:
     R: Rng + ?Sized,
     F: FnMut(&mut R) -> i64,
   {
-    let num_docs = at_least(random, 500);
-    let mut docs_with_field = FixedBitSet::new(num_docs as usize);
-    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as i32);
+    let num_docs = at_least_usize(random, 500);
+    let mut docs_with_field = FixedBitSet::new(num_docs);
+    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as i32) as usize;
     if num_docs_with_field == num_docs {
-      docs_with_field.set_with_range(0, num_docs as usize);
+      docs_with_field.set_with_range(0, num_docs);
     } else {
       let mut count = 0;
       while count < num_docs_with_field {
-        let doc = random.random_range(0..num_docs as usize);
+        let doc = random.random_range(0..num_docs);
         if !docs_with_field.get(doc)? {
           docs_with_field.set(doc)?;
           count += 1;
@@ -478,7 +478,7 @@ pub trait BaseNormsFormatTestCase:
       }
     }
 
-    let mut norms = Vec::with_capacity(num_docs_with_field as usize);
+    let mut norms = Vec::with_capacity(num_docs_with_field);
     for _ in 0..num_docs_with_field {
       norms.push(longs(random));
     }
@@ -496,7 +496,7 @@ pub trait BaseNormsFormatTestCase:
     for i in 0..num_docs {
       let mut doc = Document::new();
       doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
-      if !docs_with_field.get(i as usize)? {
+      if !docs_with_field.get(i)? {
         writer.add_document(random, doc)?;
       } else {
         let value = norms[norm_ord];
@@ -624,15 +624,15 @@ pub trait BaseNormsFormatTestCase:
     } else {
       random.random::<f64>()
     };
-    let num_docs = at_least(random, 500);
-    let mut docs_with_field = FixedBitSet::new(num_docs as usize);
-    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as i32);
+    let num_docs = at_least_usize(random, 500);
+    let mut docs_with_field = FixedBitSet::new(num_docs);
+    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as i32) as usize;
     if num_docs_with_field == num_docs {
-      docs_with_field.set_with_range(0, num_docs as usize);
+      docs_with_field.set_with_range(0, num_docs);
     } else {
       let mut count = 0;
       while count < num_docs_with_field {
-        let doc = random.random_range(0..num_docs as usize);
+        let doc = random.random_range(0..num_docs);
         if !docs_with_field.get(doc)? {
           docs_with_field.set(doc)?;
           count += 1;
@@ -640,7 +640,7 @@ pub trait BaseNormsFormatTestCase:
       }
     }
 
-    let mut norms = Vec::with_capacity(num_docs_with_field as usize);
+    let mut norms = Vec::with_capacity(num_docs_with_field);
     for _ in 0..num_docs_with_field {
       norms.push(random.random::<i64>());
     }
@@ -659,7 +659,7 @@ pub trait BaseNormsFormatTestCase:
     for i in 0..num_docs {
       let mut doc = Document::new();
       doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
-      if docs_with_field.get(i as usize)? {
+      if docs_with_field.get(i)? {
         let value = norms[norm_ord];
         norm_ord += 1;
         doc.add(TextField::from_string(

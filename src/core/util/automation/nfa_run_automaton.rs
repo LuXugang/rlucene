@@ -274,7 +274,7 @@ impl NFARunAutomaton {
   fn determinize(&mut self, index: usize) -> Result<()> {
     let len = self.points.len();
     let dstate = &mut self.dstates[index];
-    if dstate.computed_transitions == dstate.transitions.len() as i32 {
+    if dstate.computed_transitions == dstate.transitions.len() {
       return Ok(());
     }
     dstate.init_transitions(len);
@@ -295,7 +295,7 @@ impl NFARunAutomaton {
     {
       if self.state.transition_set.count == 0 {
         dstate.transitions.fill(NFARunAutomaton::MISSING);
-        dstate.computed_transitions = dstate.transitions.len() as i32;
+        dstate.computed_transitions = dstate.transitions.len();
         return Ok(());
       }
     }
@@ -362,7 +362,7 @@ impl NFARunAutomaton {
     }
     let dstate = &mut self.dstates[index];
     debug_assert_eq!(self.states_set.size(), 0);
-    debug_assert!(dstate.computed_transitions >= char_class as i32);
+    debug_assert!(dstate.computed_transitions >= char_class);
     // it's also possible that some transitions after the charClass has already
     // been explored
     // no more outgoing transitions, set rest of transition to MISSING
@@ -376,7 +376,7 @@ impl NFARunAutomaton {
     let len = dstate.transitions.len();
     dstate.transitions[char_class..len].fill(NFARunAutomaton::NOT_COMPUTED);
 
-    dstate.computed_transitions = dstate.transitions.len() as i32;
+    dstate.computed_transitions = dstate.transitions.len();
     Ok(())
   }
 
@@ -489,7 +489,7 @@ struct DState {
   is_accept: bool,
   step_transition: Transition,
   minimal_transition: Option<Transition>,
-  computed_transitions: i32,
+  computed_transitions: usize,
   outgoing_transitions: i32,
 }
 // The purpose of implementing Default is to enable use with Vec::default(),

@@ -26,8 +26,8 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  random, random_from_seed,
+  at_least, at_least_usize, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -46,7 +46,7 @@ struct TestStressDeletes;
 #[test]
 fn test() -> Result<()> {
   let mut random = random();
-  let num_ids = at_least(&mut random, 100);
+  let num_ids = at_least_usize(&mut random, 100);
   let locks: Vec<Mutex<()>> = (0..num_ids).map(|_| Mutex::new(())).collect();
 
   let dir = new_directory_shared(&mut random)?;
@@ -55,8 +55,8 @@ fn test() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let iters = at_least(&mut random, 2000);
   let exists = Mutex::new(HashMap::new());
-  let num_threads = TestUtil::next_int(&mut random, 2, 6);
-  let starting_gun = Arc::new(Barrier::new(num_threads as usize + 1));
+  let num_threads = TestUtil::next_usize(&mut random, 2, 6);
+  let starting_gun = Arc::new(Barrier::new(num_threads + 1));
   let delete_mode = random.random_range(0..3);
 
   let thread_results = thread::scope(|scope| {
@@ -73,7 +73,7 @@ fn test() -> Result<()> {
         for _ in 0..iters {
           let id = random.random_range(0..num_ids);
           {
-            let _id_lock = locks[id as usize].lock().unwrap();
+            let _id_lock = locks[id].lock().unwrap();
             let mut exists = exists.lock().unwrap();
             let v = exists.get(&id).copied().unwrap_or(false);
             if !v {

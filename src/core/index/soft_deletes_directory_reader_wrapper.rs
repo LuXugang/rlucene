@@ -389,9 +389,10 @@ where
   let mut bits = match reader.get_live_docs()? {
     Some(live_docs) => live_docs.copy_of()?,
     None => {
-      let mut bits = FixedBitSet::new(max_doc as usize);
+      let max_doc_usize = max_doc as usize;
+      let mut bits = FixedBitSet::new(max_doc_usize);
       if max_doc > 0 {
-        bits.set_with_range(0, max_doc as usize);
+        bits.set_with_range(0, max_doc_usize);
       }
       bits
     },

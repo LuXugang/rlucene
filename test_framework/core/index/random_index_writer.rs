@@ -630,11 +630,11 @@ where
         self.w.force_merge(1)?;
       } else if r.random() {
         // partial forceMerge
-        let limit = TestUtil::next_int(r, 1, seg_count as i32);
+        let limit = TestUtil::next_usize(r, 1, seg_count);
         if cfg!(feature = "test_log_verbose") {
           println!("RIW: doRandomForceMerge({})", limit);
         }
-        self.w.force_merge(limit)?;
+        self.w.force_merge(limit as i32)?;
         if limit == 1
           || !matches!(
             self.w.get_config()?.get_merge_policy(),
@@ -643,7 +643,7 @@ where
         {
           assert!(
             !self.do_random_force_merge_assert.load(Ordering::SeqCst)
-              || INDEX_WRITER_ACCESS.get_segment_count(&self.w) <= limit as usize,
+              || INDEX_WRITER_ACCESS.get_segment_count(&self.w) <= limit,
             "limit={} actual={}",
             limit,
             INDEX_WRITER_ACCESS.get_segment_count(&self.w)

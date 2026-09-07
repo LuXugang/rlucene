@@ -326,7 +326,8 @@ impl TermsEnum for FreqProxTermsEnum {
 
     while hi >= lo {
       let mid = (lo + hi) >> 1;
-      let term_id = sorted_term_ids[mid as usize];
+      let mid_index = mid as usize;
+      let term_id = sorted_term_ids[mid_index];
       let text_start = postings_array.parent.text_starts[term_id as usize];
 
       self
@@ -340,18 +341,19 @@ impl TermsEnum for FreqProxTermsEnum {
         hi = mid - 1;
       } else {
         // found
-        self.ord = Some(mid as usize);
+        self.ord = Some(mid_index);
         debug_assert_eq!((*self.term()?).cmp(text).to_int(), 0);
         return Ok(SeekStatus::Found);
       }
     }
 
     // not found
-    self.ord = Some(lo as usize);
+    let lo_index = lo as usize;
+    self.ord = Some(lo_index);
     if lo >= self.num_terms {
       Ok(SeekStatus::End)
     } else {
-      let term_id = sorted_term_ids[lo as usize];
+      let term_id = sorted_term_ids[lo_index];
       let text_start = postings_array.parent.text_starts[term_id as usize];
       self
         .terms_pool

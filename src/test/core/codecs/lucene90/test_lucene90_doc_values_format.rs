@@ -1617,9 +1617,10 @@ pub(super) trait TestLucene90DocValuesFormatTests:
   where
     R: Rng + ?Sized,
   {
-    let cardinality = (Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE << 1) + 11;
-    let mut value_set = HashSet::with_capacity(cardinality as usize);
-    while value_set.len() < cardinality as usize {
+    let block_size = Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE as usize;
+    let cardinality = (block_size << 1) + 11;
+    let mut value_set = HashSet::with_capacity(cardinality);
+    while value_set.len() < cardinality {
       value_set.insert(TestUtil::random_simple_string_with_len(random, 64));
     }
 
@@ -1628,7 +1629,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
 
     let nonexistent_value = format!(
       "{}{}",
-      values[(Lucene90DocValuesFormat::TERMS_DICT_BLOCK_LZ4_SIZE - 1) as usize],
+      values[block_size - 1],
       TestUtil::random_simple_string_range(random, 64, 128)
     );
     let doc_values = values.len();
@@ -1652,7 +1653,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       )?);
       doc.add(SortedDocValuesField::new(
         "sdv",
-        new_bytes_ref_from_string(random, &values[i as usize % doc_values])?,
+        new_bytes_ref_from_string(random, &values[i % doc_values])?,
       ));
       writer.add_document(random, doc)?;
     }
@@ -1713,7 +1714,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       )?);
       doc.add(SortedDocValuesField::new(
         "sdv",
-        new_bytes_ref_from_string(random, &values[i as usize % values_count])?,
+        new_bytes_ref_from_string(random, &values[i % values_count])?,
       ));
       writer.add_document(random, doc)?;
     }
@@ -1824,11 +1825,11 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       assert_eq!(expected, terms_enum.term()?.as_ref());
     }
 
-    let mut i = random.random_range(0..5) as usize;
+    let mut i = random.random_range(0..5);
     while i < terms.len() {
       terms_enum.seek_exact_with_ord(i as i64)?;
       assert_eq!(&terms[i], terms_enum.term()?.as_ref());
-      i += 1 + random.random_range(0..5) as usize;
+      i += 1 + random.random_range(0..5);
     }
 
     Ok(())

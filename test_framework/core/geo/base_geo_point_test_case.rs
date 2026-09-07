@@ -804,8 +804,9 @@ pub trait BaseGeoPointTestCase {
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (lats.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((lats.len() / 100) as i32);
+    let min_buffered_docs = (lats.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
     let dir = if lats.len() > 100_000 {
       // Avoid slow codecs like SimpleText
@@ -849,9 +850,10 @@ pub trait BaseGeoPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         let is_live = live_docs
           .as_ref()
-          .is_none_or(|live_docs| live_docs.get(doc_id as usize).expect(""));
+          .is_none_or(|live_docs| live_docs.get(doc_index).expect(""));
 
         let expected = if !is_live || lats[id].is_nan() {
           false
@@ -859,7 +861,7 @@ pub trait BaseGeoPointTestCase {
           self.rect_contains_point(&rect, lats[id], lons[id])
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           self.build_error(
             doc_id,
             expected,
@@ -888,8 +890,9 @@ pub trait BaseGeoPointTestCase {
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (lats.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((lats.len() / 100) as i32);
+    let min_buffered_docs = (lats.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
     let dir = if lats.len() > 100_000 {
       // Avoid slow codecs like SimpleText
@@ -932,9 +935,10 @@ pub trait BaseGeoPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         let is_live = live_docs
           .as_ref()
-          .is_none_or(|live_docs| live_docs.get(doc_id as usize).expect(""));
+          .is_none_or(|live_docs| live_docs.get(doc_index).expect(""));
 
         let expected = if !is_live || lats[id].is_nan() {
           false
@@ -942,7 +946,7 @@ pub trait BaseGeoPointTestCase {
           SloppyMath::haversin_meters(center_lat, center_lon, lats[id], lons[id]) <= radius_meters
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           self.build_error(
             doc_id,
             expected,
@@ -979,8 +983,9 @@ pub trait BaseGeoPointTestCase {
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (lats.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((lats.len() / 100) as i32);
+    let min_buffered_docs = (lats.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
     let dir = if lats.len() > 100_000 {
       // Avoid slow codecs like SimpleText
@@ -1018,9 +1023,10 @@ pub trait BaseGeoPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         let is_live = live_docs
           .as_ref()
-          .is_none_or(|live_docs| live_docs.get(doc_id as usize).expect(""));
+          .is_none_or(|live_docs| live_docs.get(doc_index).expect(""));
 
         let expected = if !is_live || lats[id].is_nan() {
           false
@@ -1028,7 +1034,7 @@ pub trait BaseGeoPointTestCase {
           GeoTestUtil::contains_slowly(&polygon, lats[id], lons[id])
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           self.build_error(
             doc_id,
             expected,
@@ -1057,8 +1063,9 @@ pub trait BaseGeoPointTestCase {
     let mut iwc = new_index_writer_config(random)?;
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (lats.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((lats.len() / 100) as i32);
+    let min_buffered_docs = (lats.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
     let dir = if lats.len() > 100_000 {
       // Avoid slow codecs like SimpleText
@@ -1099,9 +1106,10 @@ pub trait BaseGeoPointTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         let is_live = live_docs
           .as_ref()
-          .is_none_or(|live_docs| live_docs.get(doc_id as usize).expect(""));
+          .is_none_or(|live_docs| live_docs.get(doc_index).expect(""));
 
         let expected = if !is_live || lats[id].is_nan() {
           false
@@ -1109,7 +1117,7 @@ pub trait BaseGeoPointTestCase {
           component2d.contains(self.quantize_lon(lons[id]), self.quantize_lat(lats[id]))
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           self.build_error(
             doc_id,
             expected,
@@ -1142,7 +1150,7 @@ pub trait BaseGeoPointTestCase {
     random: &mut R,
     lats: &[f64],
     lons: &[f64],
-    deleted: &mut HashSet<i32>,
+    deleted: &mut HashSet<usize>,
     w: &DefaultIndexWriter<D>,
   ) -> Result<()>
   where
@@ -1158,7 +1166,7 @@ pub trait BaseGeoPointTestCase {
       }
       w.add_document(doc)?;
       if id > 0 && random.random_range(0..100) == 42 {
-        let id_to_delete = random.random_range(0..id) as i32;
+        let id_to_delete = random.random_range(0..id);
         w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
         deleted.insert(id_to_delete);
       }

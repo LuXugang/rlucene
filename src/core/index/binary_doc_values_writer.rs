@@ -463,11 +463,12 @@ impl DocIdSetIterator for SortingBinaryDocValues {
   fn next_doc(&mut self) -> Result<i32> {
     loop {
       self.doc_id += 1;
-      if self.doc_id as usize == self.dvs.offsets.len() {
+      let doc_index = self.doc_id as usize;
+      if doc_index == self.dvs.offsets.len() {
         self.doc_id = NO_MORE_DOCS;
         break;
       }
-      if self.dvs.offsets[self.doc_id as usize] > 0 {
+      if self.dvs.offsets[doc_index] > 0 {
         break;
       }
     }

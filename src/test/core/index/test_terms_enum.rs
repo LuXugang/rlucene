@@ -203,14 +203,14 @@ fn test_intersect_random() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
 
-  let num_terms = at_least(&mut random, 300);
+  let num_terms = at_least_usize(&mut random, 300);
 
   let mut terms: HashSet<String> = HashSet::new();
   let mut pending_terms: Vec<String> = Vec::new();
   let mut term_to_id: HashMap<BytesRef<Vec<u8>>, i32> = HashMap::new();
   let mut id: i32 = 0;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-  while terms.len() != num_terms as usize {
+  while terms.len() != num_terms {
     let s = get_random_string(&mut random);
     if !terms.contains(&s) {
       terms.insert(s.clone());
@@ -635,17 +635,18 @@ where
     }
 
     // do a bunch of next()
+    let mut loc = loc as usize;
     let num_next = random.random_range(0..valid_terms.len());
     for _ in 0..num_next {
       let t2 = te.next()?;
       loc += 1;
-      if loc as usize == valid_terms.len() {
+      if loc == valid_terms.len() {
         assert!(t2.is_none());
         break;
       } else {
-        assert_eq!(&valid_terms[loc as usize], t2.unwrap().as_ref());
+        assert_eq!(&valid_terms[loc], t2.unwrap().as_ref());
         if random.random_range(0..40) == 17 && term_states.len() < 100 {
-          term_states.push((valid_terms[loc as usize].clone(), te.term_state()?));
+          term_states.push((valid_terms[loc].clone(), te.term_state()?));
         }
       }
     }
@@ -1010,9 +1011,9 @@ fn test_common_prefix_terms() -> Result<()> {
   let w = RandomIndexWriter::new(&mut random, d.clone())?;
   let mut terms: HashSet<String> = HashSet::new();
   let prefix = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 20);
-  let num_terms = at_least(&mut random, 100);
+  let num_terms = at_least_usize(&mut random, 100);
 
-  while terms.len() < num_terms as usize {
+  while terms.len() < num_terms {
     terms.insert(format!(
       "{}{}",
       prefix,
@@ -1040,7 +1041,7 @@ fn test_common_prefix_terms() -> Result<()> {
   let mut pk_lookup = PerThreadPKLookup::new(&context, "id")?;
   let mut stored_fields = r.stored_fields()?;
 
-  let iters = at_least(&mut random, num_terms * 3);
+  let iters = at_least_usize(&mut random, num_terms * 3);
   let terms_list: Vec<String> = terms.iter().cloned().collect();
   for _iter in 0..iters {
     let term;

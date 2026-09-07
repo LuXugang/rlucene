@@ -235,8 +235,8 @@ fn test_sort_on_add_indices_random() -> Result<()> {
   doc_ids.shuffle(&mut random);
 
   let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
-  for i in 0..num_docs {
-    let doc_id = doc_ids[i as usize];
+  for i in 0..doc_ids.len() {
+    let doc_id = doc_ids[i];
     let mut doc = Document::new();
     doc.add(StringField::from_string(
       "string_id",
@@ -303,7 +303,7 @@ fn test_sort_on_add_indices_random() -> Result<()> {
     }
     iw.add_document(&mut random, doc)?;
     if i > 0 && random.random_range(0..5) == 0 {
-      let id = *doc_ids[..i as usize]
+      let id = *doc_ids[..i]
         .choose(&mut random)
         .expect("there must be an earlier document");
       iw.delete_documents_with_terms(

@@ -377,8 +377,9 @@ impl AutomatonTestUtil {
       return Ok(true);
     }
     let mut scratch = Transition::default();
-    let mut path = BitSet::with_capacity(a.get_num_states() as usize);
-    let mut visited = BitSet::with_capacity(a.get_num_states() as usize);
+    let state_count = a.get_num_states() as usize;
+    let mut path = BitSet::with_capacity(state_count);
+    let mut visited = BitSet::with_capacity(state_count);
     Self::is_finite_inner(&mut scratch, a, 0, &mut path, &mut visited, 0)
   }
 
@@ -399,22 +400,24 @@ impl AutomatonTestUtil {
       )));
     }
 
-    path.insert(state as usize);
+    let state_index = state as usize;
+    path.insert(state_index);
     let num_transitions = a.init_transition(state, scratch);
 
     for t in 0..num_transitions {
       a.get_transition(state, t, scratch);
       let dest = scratch.dest;
-      if path.contains(dest as usize)
-        || (!visited.contains(dest as usize)
+      let dest_index = dest as usize;
+      if path.contains(dest_index)
+        || (!visited.contains(dest_index)
           && !Self::is_finite_inner(scratch, a, dest, path, visited, level + 1)?)
       {
         return Ok(false);
       }
     }
 
-    path.remove(state as usize);
-    visited.insert(state as usize);
+    path.remove(state_index);
+    visited.insert(state_index);
     Ok(true)
   }
   /// Returns true if the automaton is deterministic.

@@ -149,7 +149,8 @@ impl LuceneDecompressor for DeflateWithPresetDictDecompressor {
     }
     let dict_length = input.read_vint()?;
     let block_length = input.read_vint()?;
-    ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length as usize)?;
+    let dict_length_usize = dict_length as usize;
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length_usize)?;
     bytes.offset = 0;
     bytes.length = 0;
 
@@ -157,7 +158,7 @@ impl LuceneDecompressor for DeflateWithPresetDictDecompressor {
 
     // Read the dictionary
     self.do_decompress(input, &mut decompressor, bytes)?;
-    if dict_length as usize != bytes.length {
+    if dict_length_usize != bytes.length {
       return Err(LuceneError::corrupt_index(format!(
         "Unexpected dict length (resource={input})"
       )));
@@ -179,7 +180,7 @@ impl LuceneDecompressor for DeflateWithPresetDictDecompressor {
       ArrayUtil::grow_with_len(&mut bytes.bytes, bytes.length + block_length as usize)?;
       decompressor.reset(false);
       decompressor
-        .set_dictionary(&bytes.bytes[..dict_length as usize])
+        .set_dictionary(&bytes.bytes[..dict_length_usize])
         .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
       self.do_decompress(input, &mut decompressor, bytes)?;
       offset_in_block += block_length;
@@ -272,9 +273,10 @@ impl Compressor for DeflateWithPresetDictCompressor {
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("compressor is closed"))?;
     compressor.reset();
+    let dict_length_usize = dict_length as usize;
     ArrayUtil::grow_no_copy(&mut self.buffer, (dict_length + block_length) as usize)?;
-    DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length as usize)?;
-    self.do_compress(0, dict_length as usize, out)?;
+    DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length_usize)?;
+    self.do_compress(0, dict_length_usize, out)?;
 
     // And then sub blocks
     let mut start = dict_length;
@@ -285,16 +287,11 @@ impl Compressor for DeflateWithPresetDictCompressor {
         .ok_or_else(|| LuceneError::illegal_state("compressor is closed"))?;
       compressor.reset();
       compressor
-        .set_dictionary(&self.buffer[..dict_length as usize])
+        .set_dictionary(&self.buffer[..dict_length_usize])
         .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
-      let length = block_length.min(len - start);
-      DataInput::read_bytes(
-        buffers_input,
-        &mut self.buffer,
-        dict_length as usize,
-        length as usize,
-      )?;
-      self.do_compress(dict_length as usize, length as usize, out)?;
+      let length = block_length.min(len - start) as usize;
+      DataInput::read_bytes(buffers_input, &mut self.buffer, dict_length_usize, length)?;
+      self.do_compress(dict_length_usize, length, out)?;
       start += block_length;
     }
     Ok(())

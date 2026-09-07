@@ -306,8 +306,9 @@ pub trait BaseVectorSimilarityQueryTestCase {
     };
     let start_index = random.random_range(0..num_docs);
     let end_index = random.random_range(start_index..num_docs);
-    let filter: Query =
-      IntField::new_range_query(id_field, start_index as i32, end_index as i32)?.into();
+    let start_id = start_index as i32;
+    let end_id = end_index as i32;
+    let filter: Query = IntField::new_range_query(id_field, start_id, end_id)?.into();
 
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
@@ -327,7 +328,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     let score_docs = searcher.search(query, num_docs)?.score_docs;
     for score_doc in &score_docs {
       let id = self.get_id(&searcher, id_field, score_doc.doc)?;
-      assert!(id >= start_index as i32 && id <= end_index as i32);
+      assert!(id >= start_id && id <= end_id);
     }
     assert_eq!(end_index - start_index + 1, score_docs.len());
     Ok(())
@@ -441,8 +442,9 @@ pub trait BaseVectorSimilarityQueryTestCase {
     };
     let start_index = random.random_range(0..num_docs);
     let end_index = random.random_range(start_index..num_docs);
-    let delete: Query =
-      IntField::new_range_query(id_field, start_index as i32, end_index as i32)?.into();
+    let start_id = start_index as i32;
+    let end_id = end_index as i32;
+    let delete: Query = IntField::new_range_query(id_field, start_id, end_id)?.into();
 
     let vectors = self.get_random_vectors(random, num_docs, dim);
     let index_store = self.get_index_store(random, vectors)?;
@@ -470,7 +472,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
       let id = self.get_id(&searcher, id_field, score_doc.doc)?;
 
       // Check that returned document is not deleted
-      assert!(id < start_index as i32 || id > end_index as i32);
+      assert!(id < start_id || id > end_id);
     }
     // Check that all live docs are returned
     assert_eq!(num_docs - end_index + start_index - 1, score_docs.len());
@@ -700,7 +702,8 @@ pub trait BaseVectorSimilarityQueryTestCase {
     )?)
     .into();
 
-    assert_eq!(num_docs as i32, searcher.count(query.clone())?);
+    let expected_count = num_docs as i32;
+    assert_eq!(expected_count, searcher.count(query.clone())?);
 
     searcher.set_timeout(QueryTimeoutEnum::custom(AlwaysTimeout));
     assert_eq!(0, searcher.count(query.clone())?);
@@ -710,7 +713,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
     )));
     let count = searcher.count(query)?;
     assert!(
-      count > 0 && count < num_docs as i32,
+      count > 0 && count < expected_count,
       "0 < count={count} < num_docs={num_docs}"
     );
 
@@ -727,14 +730,18 @@ pub trait BaseVectorSimilarityQueryTestCase {
     .into();
 
     searcher.set_timeout(QueryTimeoutEnum::custom(NeverTimeout));
-    assert_eq!(num_filtered as i32, searcher.count(filtered_query.clone())?);
+    let expected_filtered_count = num_filtered as i32;
+    assert_eq!(
+      expected_filtered_count,
+      searcher.count(filtered_query.clone())?
+    );
 
     searcher.set_timeout(QueryTimeoutEnum::custom(CountingQueryTimeout::new(
       num_filtered - 1,
     )));
     let filtered_count = searcher.count(filtered_query)?;
     assert!(
-      filtered_count > 0 && filtered_count < num_filtered as i32,
+      filtered_count > 0 && filtered_count < expected_filtered_count,
       "0 < filtered_count={filtered_count} < num_filtered={num_filtered}"
     );
     Ok(())
@@ -768,13 +775,13 @@ pub trait BaseVectorSimilarityQueryTestCase {
     let mut i = 0;
     while i < num_filtered {
       let index = random.random_range(0..num_docs);
-      if !accepted.contains(&(index as i32)) {
-        accepted.insert(index as i32);
+      if !accepted.contains(&index) {
+        accepted.insert(index);
         i += 1;
       }
     }
 
-    accepted.into_iter().collect()
+    accepted.into_iter().map(|index| index as i32).collect()
   }
   fn get_id<IRC>(&self, searcher: &IndexSearcher<IRC>, id_field: &str, doc: i32) -> Result<i32>
   where

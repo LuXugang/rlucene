@@ -59,8 +59,9 @@ fn test_data_types() -> Result<()> {
   assert_eq!(buf.read_i16::<LittleEndian>()?, 12345);
   assert_eq!(buf.read_i32::<LittleEndian>()?, 1234567890);
   assert_eq!(buf.read_i64::<LittleEndian>()?, 1234567890123456789);
-  assert_eq!(buf.position() as usize, size);
-  assert_eq!(buf.get_ref().len() - buf.position() as usize, 0);
+  let position = buf.position() as usize;
+  assert_eq!(position, size);
+  assert_eq!(buf.get_ref().len() - position, 0);
 
   // read the primitives using ByteArrayDataInput:
   let mut data_input = ByteArrayDataInput::with_range(out.bytes.as_slice(), 0, size);

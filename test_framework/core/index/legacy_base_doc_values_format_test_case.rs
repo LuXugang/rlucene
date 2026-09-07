@@ -1725,8 +1725,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       .get_numeric_doc_values("docId")?
       .unwrap();
     for (i, score_doc) in search.score_docs.iter().enumerate() {
-      assert_eq!(i as i32, score_doc.doc);
-      assert_eq!(i as i32, doc_values.advance(i as i32)?);
+      let doc_id = i as i32;
+      assert_eq!(doc_id, score_doc.doc);
+      assert_eq!(doc_id, doc_values.advance(doc_id)?);
       assert_eq!(i as i64, doc_values.long_value()?);
     }
     Ok(())
@@ -1812,10 +1813,11 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
     assert_eq!(all_values.len() as i32, doc_values.get_value_count()?);
     for (i, expected) in all_values.iter().enumerate() {
-      let actual = doc_values.lookup_ord(i as i32)?;
+      let ord = i as i32;
+      let actual = doc_values.lookup_ord(ord)?;
       assert_eq!(expected.as_str(), actual.utf8_to_string()?);
       let expected_ref = new_bytes_ref_from_string(random, expected)?;
-      assert_eq!(i as i32, doc_values.lookup_term(&expected_ref)?);
+      assert_eq!(ord, doc_values.lookup_term(&expected_ref)?);
     }
 
     let searcher = new_searcher_with_reader(reader)?;
@@ -1998,9 +2000,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
           if r > 0 || random.random_bool(0.5) {
             assert!(doc_values.advance_exact(doc)?);
           }
-          let count = doc_values.doc_value_count()?;
-          assert_eq!(stored_values.len() as i32, count);
-          for expected in stored_values.iter().take(count as usize) {
+          let count = doc_values.doc_value_count()? as usize;
+          assert_eq!(stored_values.len(), count);
+          for expected in stored_values.iter().take(count) {
             assert_eq!(expected.as_str(), doc_values.next_value()?.to_string());
           }
         }
@@ -2025,9 +2027,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
               if r > 0 || random.random_bool(0.5) {
                 assert!(doc_values.advance_exact(doc)?);
               }
-              let count = doc_values.doc_value_count()?;
-              assert_eq!(stored_values.len() as i32, count);
-              for expected in stored_values.iter().take(count as usize) {
+              let count = doc_values.doc_value_count()? as usize;
+              assert_eq!(stored_values.len(), count);
+              for expected in stored_values.iter().take(count) {
                 assert_eq!(expected.as_str(), doc_values.next_value()?.to_string());
               }
             }
@@ -2070,9 +2072,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
               if r > 0 || random.random_bool(0.5) {
                 assert!(doc_values.advance_exact(doc)?);
               }
-              let count = doc_values.doc_value_count()?;
-              assert_eq!(stored_values.len() as i32, count);
-              for expected in stored_values.iter().take(count as usize) {
+              let count = doc_values.doc_value_count()? as usize;
+              assert_eq!(stored_values.len(), count);
+              for expected in stored_values.iter().take(count) {
                 assert_eq!(expected.as_str(), doc_values.next_value()?.to_string());
               }
             }
@@ -2099,7 +2101,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
   ) -> Result<()>
   where
     R: Rng + ?Sized,
-    FC: FnMut(&mut R) -> i64,
+    FC: FnMut(&mut R) -> usize,
     FV: FnMut(&mut R) -> i64,
   {
     let dir = new_directory_shared(random)?;
@@ -2120,7 +2122,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         &mut field_to_type,
       )?);
 
-      let value_count = counts(random) as usize;
+      let value_count = counts(random);
       let mut value_array = Vec::with_capacity(value_count);
       for _ in 0..value_count {
         let value = values(random);
@@ -3512,7 +3514,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for _ in 0..num_iterations {
       self.do_test_sorted_numerics_vs_stored_fields(
         random,
-        &mut |r| TestUtil::next_long(r, 0, 50),
+        &mut |r| TestUtil::next_usize(r, 0, 50),
         &mut |r| r.random::<i64>(),
       )?;
     }
@@ -3532,7 +3534,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     for _ in 0..num_iterations {
       self.do_test_sorted_numerics_vs_stored_fields(
         random,
-        &mut |r| TestUtil::next_long(r, 0, 6),
+        &mut |r| TestUtil::next_usize(r, 0, 6),
         &mut |r| values[r.random_range(0..values.len())],
       )?;
     }

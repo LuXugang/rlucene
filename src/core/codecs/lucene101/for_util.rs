@@ -137,10 +137,11 @@ impl ForUtil {
     }
 
     let remaining_bits_per_int = shift + bits_per_value;
+    let remaining_bits_per_int_index = remaining_bits_per_int as usize;
     let mask_remaining_bits_per_int = match primitive_size {
-      8 => Self::MASKS8[remaining_bits_per_int as usize],
-      16 => Self::MASKS16[remaining_bits_per_int as usize],
-      _ => Self::MASKS32[remaining_bits_per_int as usize],
+      8 => Self::MASKS8[remaining_bits_per_int_index],
+      16 => Self::MASKS16[remaining_bits_per_int_index],
+      _ => Self::MASKS32[remaining_bits_per_int_index],
     };
 
     let mut tmp_idx = 0;
@@ -157,7 +158,6 @@ impl ForUtil {
         tmp_idx += 1;
       } else {
         let remaining_bits_per_value_index = remaining_bits_per_value as usize;
-        let remaining_bits_per_int_index = remaining_bits_per_int as usize;
         let (mask1, mask2) = match primitive_size {
           8 => (
             Self::MASKS8[remaining_bits_per_value_index],
@@ -202,7 +202,8 @@ impl ForUtil {
     I: IndexInput,
   {
     let num_ints = (bits_per_value << 2) as usize;
-    let mask = Self::MASKS32[bits_per_value as usize];
+    let bits_per_value_index = bits_per_value as usize;
+    let mask = Self::MASKS32[bits_per_value_index];
     pdu.split_ints_diff(num_ints, ints, 32 - bits_per_value, 32, mask, tmp, 0, -1)?;
 
     let remaining_bits_per_int = (32 - bits_per_value) as usize;
@@ -211,7 +212,7 @@ impl ForUtil {
     let mut tmp_idx = 0;
     let mut remaining_bits = remaining_bits_per_int;
     for out in ints.iter_mut().take(Self::BLOCK_SIZE).skip(num_ints) {
-      let mut b = bits_per_value as usize - remaining_bits;
+      let mut b = bits_per_value_index - remaining_bits;
       let mut l = (tmp[tmp_idx] & Self::MASKS32[remaining_bits]) << b;
       tmp_idx += 1;
 

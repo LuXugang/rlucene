@@ -1761,16 +1761,16 @@ fn test_tons_of_updates() -> Result<()> {
   // test data: lots of documents (few 10Ks) and lots of update terms (few hundreds)
   let num_docs = at_least(&mut random, 20000);
   let num_binary_fields = at_least(&mut random, 5);
-  let num_terms = TestUtil::next_int(&mut random, 10, 100); // terms should affect many docs
+  let num_terms = TestUtil::next_usize(&mut random, 10, 100); // terms should affect many docs
   let mut update_terms = HashSet::new();
-  while update_terms.len() < num_terms as usize {
+  while update_terms.len() < num_terms {
     update_terms.insert(TestUtil::random_simple_string(&mut random));
   }
   let update_terms: Vec<_> = update_terms.into_iter().collect();
   for _ in 0..num_docs {
     let mut doc = Document::new();
 
-    let num_update_terms = TestUtil::next_int(&mut random, 1, num_terms / 10);
+    let num_update_terms = TestUtil::next_usize(&mut random, 1, num_terms / 10);
     for _ in 0..num_update_terms {
       let term_value = update_terms.choose(&mut random).unwrap();
       doc.add(StringField::from_string("upd", term_value, Store::No)?);

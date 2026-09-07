@@ -500,17 +500,18 @@ fn test_int_overflow() -> Result<()> {
   // Check index * bits_per_value > i32::MAX. Each array allocates about 256 MB.
   const INDEX: i32 = (1 << 30) + 1;
   const BITS: i32 = 2;
+  let last_index = (INDEX - 1) as usize;
 
   {
     let mut p64 = Packed64::new(INDEX, BITS);
-    p64.set((INDEX - 1) as usize, 1)?;
-    assert_eq!(p64.get((INDEX - 1) as usize), 1);
+    p64.set(last_index, 1)?;
+    assert_eq!(p64.get(last_index), 1);
   }
 
   {
     let mut p64sb = create(INDEX, BITS)?;
-    p64sb.set((INDEX - 1) as usize, 1)?;
-    assert_eq!(p64sb.get((INDEX - 1) as usize), 1);
+    p64sb.set(last_index, 1)?;
+    assert_eq!(p64sb.get(last_index), 1);
   }
   Ok(())
 }

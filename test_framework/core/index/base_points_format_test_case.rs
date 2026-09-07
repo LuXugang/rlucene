@@ -219,7 +219,7 @@ pub trait BasePointsFormatTestCase:
       }
 
       if let Some(values) = values {
-        let mut seen = FixedBitSet::new(ctx.reader().max_doc()? as usize);
+        let mut seen = FixedBitSet::new(doc_id_to_id.len());
         values.intersect(&mut AllPointDocsDeletedIntersectVisitor {
           seen: &mut seen,
           live_docs: live_docs.as_ref(),
@@ -420,7 +420,7 @@ pub trait BasePointsFormatTestCase:
     let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
     let num_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
 
-    let num_docs = at_least(random, 1000);
+    let num_docs = at_least_usize(random, 1000);
     let the_dim = random.random_range(0..num_dims);
 
     let mut value1 = vec![0u8; num_bytes_per_dim];
@@ -428,7 +428,7 @@ pub trait BasePointsFormatTestCase:
     let mut value2 = vec![0u8; num_bytes_per_dim];
     random.fill_bytes(&mut value2);
 
-    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs as usize);
+    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs);
 
     for _doc_id in 0..num_docs {
       let mut values = Vec::with_capacity(num_dims);
@@ -454,8 +454,8 @@ pub trait BasePointsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let num_docs = at_least(random, 200);
-    let dir = get_directory(random, num_docs as usize)?;
+    let num_docs = at_least_usize(random, 200);
+    let dir = get_directory(random, num_docs)?;
     let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
     let num_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
 
@@ -464,7 +464,7 @@ pub trait BasePointsFormatTestCase:
     iwc.set_merge_policy(new_log_merge_policy(random)?);
     let w = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
-    let mut docs: Vec<Vec<num_bigint::BigInt>> = Vec::with_capacity(num_docs as usize);
+    let mut docs: Vec<Vec<num_bigint::BigInt>> = Vec::with_capacity(num_docs);
 
     for doc_id in 0..num_docs {
       let mut values = Vec::with_capacity(num_dims);
@@ -512,14 +512,14 @@ pub trait BasePointsFormatTestCase:
         query_max.push(max);
       }
 
-      let mut hits = FixedBitSet::new(num_docs as usize);
+      let mut hits = FixedBitSet::new(num_docs);
       for ctx in r.leaves()? {
         let dim_values = ctx.reader().get_point_values("field")?;
         if dim_values.is_none() {
           continue;
         }
 
-        let doc_base = ctx.doc_base as i32;
+        let doc_base = ctx.doc_base;
         dim_values
           .unwrap()
           .intersect(&mut BigIntNDimsIntersectVisitor {
@@ -532,8 +532,7 @@ pub trait BasePointsFormatTestCase:
           })?;
       }
 
-      for doc_id in 0..num_docs {
-        let doc_values = &docs[doc_id as usize];
+      for (doc_id, doc_values) in docs.iter().enumerate() {
         let mut expected = true;
         for dim in 0..num_dims {
           let x = &doc_values[dim];
@@ -542,7 +541,7 @@ pub trait BasePointsFormatTestCase:
             break;
           }
         }
-        let actual = hits.get(doc_id as usize)?;
+        let actual = hits.get(doc_id)?;
         assert_eq!(expected, actual, "docID={doc_id}");
       }
     }
@@ -571,16 +570,16 @@ pub trait BasePointsFormatTestCase:
     self.do_test_random_binary(random, 200000)
   }
 
-  fn do_test_random_binary<R>(&self, random: &mut R, count: i32) -> Result<()>
+  fn do_test_random_binary<R>(&self, random: &mut R, count: usize) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let num_docs = TestUtil::next_int(random, count, count * 2);
+    let num_docs = TestUtil::next_usize(random, count, count * 2);
     let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
     let num_data_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
     let num_index_dims = TestUtil::next_usize(random, 1, num_data_dims);
 
-    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs as usize);
+    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs);
 
     for _doc_id in 0..num_docs {
       let mut values = Vec::with_capacity(num_data_dims);
@@ -1056,7 +1055,7 @@ pub trait BasePointsFormatTestCase:
     }
 
     assert_eq!(visitor.visit_doc_id_size, visitor.visit_doc_values_size);
-    assert_eq!(visitor.visit_doc_id_size as usize, tree.size()?);
+    assert_eq!(visitor.visit_doc_id_size, tree.size()?);
 
     if tree.move_to_child()? {
       loop {
@@ -1479,14 +1478,15 @@ where
   }
 
   fn visit_with_packed_value(&mut self, doc_id: i32, packed_value: &[u8]) -> Result<()> {
+    let doc_index = doc_id as usize;
     if self
       .live_docs
-      .is_some_and(|bits| bits.get(doc_id as usize).expect(""))
+      .is_some_and(|bits| bits.get(doc_index).expect(""))
     {
-      self.seen.set(doc_id as usize)?;
+      self.seen.set(doc_index)?;
     }
     assert_eq!(
-      self.doc_id_to_id[doc_id as usize],
+      self.doc_id_to_id[doc_index],
       NumericUtils::sortable_bytes_to_int(packed_value, 0)
     );
     Ok(())
@@ -1494,8 +1494,8 @@ where
 }
 #[derive(Default)]
 struct AssertSizeIntersectVisitor {
-  visit_doc_id_size: i64,
-  visit_doc_values_size: i64,
+  visit_doc_id_size: usize,
+  visit_doc_values_size: usize,
 }
 
 impl IntersectVisitor for AssertSizeIntersectVisitor {
@@ -1515,7 +1515,7 @@ impl IntersectVisitor for AssertSizeIntersectVisitor {
 }
 struct BigIntNDimsIntersectVisitor<'a> {
   hits: &'a mut FixedBitSet,
-  doc_base: i32,
+  doc_base: usize,
   num_dims: usize,
   num_bytes_per_dim: usize,
   query_min: &'a [BigInt],
@@ -1524,7 +1524,7 @@ struct BigIntNDimsIntersectVisitor<'a> {
 
 impl IntersectVisitor for BigIntNDimsIntersectVisitor<'_> {
   fn visit(&mut self, doc_id: i32) -> Result<()> {
-    self.hits.set((self.doc_base + doc_id) as usize)?;
+    self.hits.set(self.doc_base + doc_id as usize)?;
     Ok(())
   }
 
@@ -1540,7 +1540,7 @@ impl IntersectVisitor for BigIntNDimsIntersectVisitor<'_> {
       }
     }
 
-    self.hits.set((self.doc_base + doc_id) as usize)?;
+    self.hits.set(self.doc_base + doc_id as usize)?;
     Ok(())
   }
 

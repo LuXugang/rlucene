@@ -476,13 +476,14 @@ where
   DV: NumericDocValues,
   M: DocMap,
 {
+  let max_doc = max_doc as usize;
   let mut docs_with_field = if !dense {
-    Some(FixedBitSet::new(max_doc as usize))
+    Some(FixedBitSet::new(max_doc))
   } else {
     None
   };
 
-  let mut values = vec![0i64; max_doc as usize];
+  let mut values = vec![0i64; max_doc];
 
   loop {
     let doc_id = old_doc_values.next_doc()?;
@@ -490,12 +491,12 @@ where
       break;
     }
 
-    let new_doc_id = sort_map.old_to_new(doc_id)?;
+    let new_doc_id = sort_map.old_to_new(doc_id)? as usize;
     if let Some(bits) = &mut docs_with_field {
-      bits.set(new_doc_id as usize)?;
+      bits.set(new_doc_id)?;
     }
 
-    values[new_doc_id as usize] = old_doc_values.long_value()?;
+    values[new_doc_id] = old_doc_values.long_value()?;
   }
   Ok(NumericDVs::new(values, docs_with_field))
 }

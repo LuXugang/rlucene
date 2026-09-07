@@ -362,8 +362,10 @@ where
       for &val in array.iter() {
         let index = reader.binary_search(0, array.len() as i64, val)?;
         let len = array.len();
-        assert!(index >= 0 && (index as usize) < len);
-        assert_eq!(val, array[index as usize]);
+        assert!(index >= 0);
+        let index = index as usize;
+        assert!(index < len);
+        assert_eq!(val, array[index]);
       }
       if array[0] != i64::MIN {
         assert_eq!(
@@ -390,9 +392,11 @@ where
             let index = reader.binary_search(0, array.len() as i64, intermediate)?;
             assert!(index < 0);
             let insertion_point: i32 = (-1 - index).try_convert()?;
-            assert!(insertion_point > 0 && (insertion_point as usize) < array.len());
-            assert!(array[insertion_point as usize] > intermediate);
-            assert!(array[(insertion_point - 1) as usize] < intermediate);
+            assert!(insertion_point > 0);
+            let insertion_point = insertion_point as usize;
+            assert!(insertion_point < array.len());
+            assert!(array[insertion_point] > intermediate);
+            assert!(array[insertion_point - 1] < intermediate);
           }
         }
       }

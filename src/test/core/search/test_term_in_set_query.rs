@@ -1081,12 +1081,8 @@ fn test_pull_one_terms_enum() -> Result<()> {
   let wrapped = TermsCountingDirectoryReaderWrapper::new(reader, counter.clone())?;
 
   // enough terms to avoid the rewrite
-  let num_terms = TestUtil::next_int(
-    &mut random,
-    BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD as i32 + 1,
-    100,
-  );
-  let mut terms = Vec::with_capacity(num_terms as usize);
+  let num_terms = TestUtil::next_usize(&mut random, BOOLEAN_REWRITE_TERM_COUNT_THRESHOLD + 1, 100);
+  let mut terms = Vec::with_capacity(num_terms);
   for _ in 0..num_terms {
     let term = TestUtil::random_realistic_unicode_string_range(&mut random, 10, 10);
     terms.push(new_bytes_ref_from_string(&mut random, &term)?);

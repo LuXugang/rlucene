@@ -15,7 +15,8 @@
  * limitations under the License.
  */
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_bytes_ref, new_bytes_ref_empty, new_bytes_ref_from_string, random, random_from_seed,
+  at_least, at_least_usize, new_bytes_ref, new_bytes_ref_empty, new_bytes_ref_from_string, random,
+  random_from_seed,
 };
 use std::borrow::Cow;
 use std::collections::{BTreeSet, HashSet};
@@ -1054,11 +1055,11 @@ where
 #[test]
 fn test_random_finite() -> Result<()> {
   let mut random = random();
-  let num_terms = at_least(&mut random, 10);
+  let num_terms = at_least_usize(&mut random, 10);
   let iters = at_least(&mut random, 100);
 
   let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
-  while terms.len() < num_terms as usize {
+  while terms.len() < num_terms {
     let s = get_random_string(&mut random);
     terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
   }
@@ -1143,8 +1144,8 @@ fn test_random_finite() -> Result<()> {
         let v = Operations::remove_dead_states(&a)?;
         let ras = RandomAcceptedStrings::new(&v)?;
         let mut to_remove = BTreeSet::new();
-        let num_to_remove = TestUtil::next_int(&mut random, 1, terms.len().div_ceil(2) as i32);
-        while to_remove.len() < num_to_remove as usize {
+        let num_to_remove = TestUtil::next_usize(&mut random, 1, terms.len().div_ceil(2));
+        while to_remove.len() < num_to_remove {
           let ints = ras.get_random_accepted_string(&mut random)?;
           let len = ints.len();
           let s = new_bytes_ref_from_string(&mut random, &UnicodeUtil::new_string(&ints, 0, len)?)?;
@@ -1163,9 +1164,9 @@ fn test_random_finite() -> Result<()> {
       },
       7 => {
         // minus infinite
-        let count = TestUtil::next_int(&mut random, 1, 5);
+        let count = TestUtil::next_usize(&mut random, 1, 5);
         let mut prefixes = HashSet::new();
-        while prefixes.len() < count as usize {
+        while prefixes.len() < count {
           let prefix = random.random_range(0..128);
           prefixes.insert(prefix);
         }
@@ -1205,13 +1206,13 @@ fn test_random_finite() -> Result<()> {
         }
       },
       8 => {
-        let count = TestUtil::next_int(&mut random, 10, 20);
+        let count = TestUtil::next_usize(&mut random, 10, 20);
         if cfg!(feature = "test_log_verbose") {
           println!("  op=intersect infinite count={}", count);
         }
 
         let mut prefixes = HashSet::new();
-        while prefixes.len() < count as usize {
+        while prefixes.len() < count {
           let prefix = random.random_range(0..128);
           prefixes.insert(prefix);
         }
@@ -1313,7 +1314,7 @@ fn test_random_finite() -> Result<()> {
         a = Cow::Owned(Operations::union(&a, &Automata::make_empty_string()?)?);
         terms.insert(new_bytes_ref_empty(&mut random)?);
       },
-      14 if terms.len() <= (num_terms * 3) as usize => {
+      14 if terms.len() <= num_terms * 3 => {
         if cfg!(feature = "test_log_verbose") {
           println!("  op=concat finite automaton");
         }

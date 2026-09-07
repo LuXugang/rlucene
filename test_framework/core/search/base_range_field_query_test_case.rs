@@ -216,8 +216,9 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
     iwc.set_merge_scheduler(SerialMergeScheduler::new());
     // Else we can get O(N^2) merging
     let mbd = iwc.get_max_buffered_docs();
-    if mbd != -1 && mbd < (ranges.len() / 100) as i32 {
-      iwc.set_max_buffered_docs((ranges.len() / 100) as i32);
+    let min_buffered_docs = (ranges.len() / 100) as i32;
+    if mbd != -1 && mbd < min_buffered_docs {
+      iwc.set_max_buffered_docs(min_buffered_docs);
     }
     let dir = if ranges.len() > 50000 {
       // Avoid slow codecs like SimpleText
@@ -286,16 +287,17 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
       for doc_id in 0..max_doc {
         assert_eq!(doc_id, doc_id_to_id.next_doc()?);
         let id = doc_id_to_id.long_value()? as usize;
+        let doc_index = doc_id as usize;
         let is_live = live_docs
           .as_ref()
-          .is_none_or(|live_docs| live_docs.get(doc_id as usize).expect(""));
+          .is_none_or(|live_docs| live_docs.get(doc_index).expect(""));
         let expected = if !is_live || ranges[id][0].is_missing() {
           false
         } else {
           self.expected_result(&query_range, &ranges[id], query_type)
         };
 
-        if hits.get(doc_id as usize)? != expected {
+        if hits.get(doc_index)? != expected {
           let mut b = String::new();
           b.push_str(&format!("FAIL (iter {iter}): "));
           if expected {

@@ -138,6 +138,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
     // Grow the buffer to fit the dictionary and block length
     ArrayUtil::grow_no_copy(&mut self.buffer, (dict_length + block_length) as usize)?;
     bytes.length = 0;
+    let dict_length_usize = dict_length as usize;
 
     // Read the dictionary
     if LZ4::decompress(input, dict_length, &mut self.buffer, 0)? != dict_length {
@@ -168,11 +169,9 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
     } else {
       // The dictionary contains some bytes we need, copy its content to
       // the BytesRef
-      ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length as usize)?;
-      bytes
-        .bytes
-        .copy_from(&self.buffer[0..dict_length as usize], 0);
-      bytes.length = dict_length as usize;
+      ArrayUtil::grow_no_copy(&mut bytes.bytes, dict_length_usize)?;
+      bytes.bytes.copy_from(&self.buffer[0..dict_length_usize], 0);
+      bytes.length = dict_length_usize;
     }
 
     // Read blocks that intersect with the interval we need
@@ -187,7 +186,7 @@ impl Decompressor for LZ4WithPresetDictDecompressor {
       let bytes_to_decompress = (offset + length - offset_in_block).min(block_length);
       LZ4::decompress(input, bytes_to_decompress, &mut self.buffer, dict_length)?;
       bytes.bytes.copy_from(
-        &self.buffer[dict_length as usize..(dict_length + bytes_to_decompress) as usize],
+        &self.buffer[dict_length_usize..(dict_length + bytes_to_decompress) as usize],
         bytes.length,
       );
       bytes.length += bytes_to_decompress as usize;
@@ -254,8 +253,9 @@ impl Compressor for LZ4WithPresetDictCompressor {
     out.write_vint(block_length)?;
 
     self.compressed.reset();
+    let dict_length_usize = dict_length as usize;
     // Compress the dictionary first
-    DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length as usize)?;
+    DataInput::read_bytes(buffers_input, &mut self.buffer, 0, dict_length_usize)?;
     self.do_compress(0, dict_length, out)?;
 
     // And then sub blocks
@@ -265,7 +265,7 @@ impl Compressor for LZ4WithPresetDictCompressor {
       DataInput::read_bytes(
         buffers_input,
         &mut self.buffer,
-        dict_length as usize,
+        dict_length_usize,
         l as usize,
       )?;
       self.do_compress(dict_length, l, out)?;

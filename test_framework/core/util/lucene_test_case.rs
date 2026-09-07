@@ -1476,7 +1476,7 @@ where
   AV: SharedAccessVec<u8>,
 {
   let bytes = s.as_bytes();
-  new_bytes_ref(random, bytes, 0, bytes.len() as i32)
+  new_bytes_ref(random, bytes, 0, bytes.len())
 }
 
 /// Creates a copy of the incoming `BytesRef` that sometimes uses a non-zero
@@ -1492,7 +1492,7 @@ where
 {
   assert!(b.is_valid()?);
   b.bytes
-    .access(|bytes| new_bytes_ref(random, bytes, b.offset as i32, b.length as i32))
+    .access(|bytes| new_bytes_ref(random, bytes, b.offset, b.length))
 }
 
 /// Creates a random `BytesRef` from the incoming bytes, sometimes using a
@@ -1506,7 +1506,7 @@ where
   R: Rng + ?Sized,
   AV: SharedAccessVec<u8>,
 {
-  new_bytes_ref(random, bytes_in, 0, bytes_in.len() as i32)
+  new_bytes_ref(random, bytes_in, 0, bytes_in.len())
 }
 
 /// Creates a random empty `BytesRef` that sometimes uses a non-zero offset, and
@@ -1525,14 +1525,14 @@ where
 /// bytes free, that sometimes uses a non-zero offset and non-zero end-padding
 /// to tickle latent bugs that fail to look at `BytesRef.offset`.
 pub(crate) fn new_bytes_ref_with_length<R, AV>(
-  byte_length: i32,
+  byte_length: usize,
   random: &mut R,
 ) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
   AV: SharedAccessVec<u8>,
 {
-  let bytes_in = vec![0u8; byte_length as usize];
+  let bytes_in = vec![0u8; byte_length];
   new_bytes_ref(random, &bytes_in, 0, byte_length)
 }
 
@@ -1542,15 +1542,15 @@ where
 pub(crate) fn new_bytes_ref<R, AV>(
   random: &mut R,
   bytes_in: &[u8],
-  offset: i32,
-  length: i32,
+  offset: usize,
+  length: usize,
 ) -> Result<BytesRef<AV>>
 where
   R: Rng + ?Sized,
   AV: SharedAccessVec<u8>,
 {
   assert!(
-    bytes_in.len() >= (offset + length) as usize,
+    bytes_in.len() >= (offset + length),
     "got offset={} length={} bytesIn.length={}",
     offset,
     length,
@@ -1570,25 +1570,22 @@ where
     0
   };
 
-  let mut bytes = vec![0u8; (start_offset + length + end_padding) as usize];
+  let mut bytes = vec![0u8; start_offset + length + end_padding];
 
-  bytes.copy_from(
-    &bytes_in[offset as usize..(offset + length) as usize],
-    start_offset as usize,
-  );
+  bytes.copy_from(&bytes_in[offset..(offset + length)], start_offset);
   // Create a BytesRef and return it
   let vec = AV::from_vec(bytes);
   let it = BytesRef {
     bytes: vec,
-    offset: start_offset as usize,
-    length: length as usize,
+    offset: start_offset,
+    length,
   };
   assert!(it.is_valid()?);
 
   if random.random_range(1..=17) == 7 {
     return it
       .bytes
-      .access(|bytes| new_bytes_ref(random, bytes, it.offset as i32, it.length as i32));
+      .access(|bytes| new_bytes_ref(random, bytes, it.offset, it.length));
   }
   Ok(it)
 }

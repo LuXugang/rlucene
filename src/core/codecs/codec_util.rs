@@ -372,14 +372,15 @@ impl CodecUtil {
     let version = Self::read_be_int(data_in)?;
     Self::check_index_header_id(data_in, expected_id)?;
     let suffix_length = data_in.read_byte()?;
-    let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_length as usize];
-    data_in.read_bytes(&mut suffix_bytes, 0, suffix_length as usize)?;
+    let suffix_len = suffix_length as usize;
+    let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_len];
+    data_in.read_bytes(&mut suffix_bytes, 0, suffix_len)?;
     Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
     data_out.write_string(&codec)?;
     Self::write_be_int(data_out, version)?;
     data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH)?;
     data_out.write_byte(suffix_length)?;
-    data_out.write_bytes_range(&suffix_bytes, 0, suffix_length as usize)?;
+    data_out.write_bytes_range(&suffix_bytes, 0, suffix_len)?;
     Ok(())
   }
   /// Retrieves the full index header from the provided [`IndexInput`].

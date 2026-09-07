@@ -92,20 +92,17 @@ fn test_skip_bytes() -> Result<()> {
   let mut random = random();
   let context = &*CONTEXT;
   let mut slice_reader = ByteSliceReader::new(&context.block_pool);
-  let max_skip_to = context.random_data.len() as i32 - 1;
+  let max_skip_to = context.random_data.len().saturating_sub(1);
   let iterations = at_least(&mut random, 10);
   for _ in 0..iterations {
     slice_reader.init(0, context.block_pool_end.try_convert()?);
     // Skip random chunks of bytes until exhausted
     let mut curr = 0;
     while curr < max_skip_to {
-      let skip_to = TestUtil::next_int(&mut random, curr, max_skip_to);
+      let skip_to = TestUtil::next_usize(&mut random, curr, max_skip_to);
       let step = skip_to - curr;
       slice_reader.skip_bytes(step as i64)?;
-      assert_eq!(
-        context.random_data[skip_to as usize],
-        slice_reader.read_byte()?
-      );
+      assert_eq!(context.random_data[skip_to], slice_reader.read_byte()?);
       curr = skip_to + 1; // +1 for read byte
     }
   }

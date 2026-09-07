@@ -1177,11 +1177,12 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
   fn add_value(&mut self, doc: i32, value: i64, _index: usize) -> Result<()> {
     debug_assert!(self.long_value()? == value);
-    self.bit_set.set(doc as usize)?;
+    let doc = doc as usize;
+    self.bit_set.set(doc)?;
 
     self.has_at_least_one_value = true;
     if let Some(has_no_value) = self.has_no_value.as_mut() {
-      has_no_value.clear_with_index(doc as usize)?;
+      has_no_value.clear_with_index(doc)?;
     }
 
     Ok(())
@@ -1189,10 +1190,11 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
   fn add_byte_ref(&mut self, doc: i32, value: &BytesRef<Vec<u8>>, _index: usize) -> Result<()> {
     debug_assert!(self.binary_value()?.as_ref() == value);
-    self.bit_set.set(doc as usize)?;
+    let doc = doc as usize;
+    self.bit_set.set(doc)?;
     self.has_at_least_one_value = true;
     if let Some(has_no_value) = self.has_no_value.as_mut() {
-      has_no_value.clear_with_index(doc as usize)?;
+      has_no_value.clear_with_index(doc)?;
     }
     Ok(())
   }
@@ -1227,13 +1229,14 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
 
   fn reset(&mut self, doc: i32) -> Result<()> {
     let _guide = self.lock.lock();
-    self.bit_set.set(doc as usize)?;
+    let doc = doc as usize;
+    self.bit_set.set(doc)?;
     self.has_at_least_one_value = true;
     let has_no_value = match &mut self.has_no_value {
       Some(has_no_value) => has_no_value,
       slot @ None => slot.insert(SparseFixedBitSet::new(self.max_doc as usize)?),
     };
-    has_no_value.set(doc as usize)?;
+    has_no_value.set(doc)?;
     drop(_guide);
     Ok(())
   }

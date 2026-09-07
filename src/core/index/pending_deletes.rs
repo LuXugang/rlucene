@@ -201,10 +201,11 @@ impl PendingDeletesBase for PendingDeletes {
     debug_assert!(self.max_doc > 0);
 
     let mutable_bits = self.get_mutable_bits()?;
+    let doc_index = doc_id as usize;
     debug_assert!(mutable_bits.length() > 0);
 
     debug_assert!(
-      (0..mutable_bits.length()).contains(&(doc_id as usize)),
+      (0..mutable_bits.length()).contains(&doc_index),
       "out of bounds: docID={} liveDocsLength={} seg={} maxDoc={}",
       doc_id,
       mutable_bits.length(),
@@ -212,7 +213,7 @@ impl PendingDeletesBase for PendingDeletes {
       self.max_doc
     );
 
-    let did_delete = mutable_bits.get_and_clear(doc_id as usize);
+    let did_delete = mutable_bits.get_and_clear(doc_index);
     if did_delete {
       self.pending_delete_count += 1;
     }

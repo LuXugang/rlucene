@@ -84,10 +84,10 @@ fn test() -> Result<()> {
 
   if !answers.is_empty() {
     let num_threads = if is_night_mode() {
-      TestUtil::next_int(&mut random, 2, 5)
+      TestUtil::next_usize(&mut random, 2, 5)
     } else {
       2
-    } as usize;
+    };
     let starting_gun = Barrier::new(num_threads + 1);
     thread::scope(|scope| {
       let mut threads = Vec::new();
