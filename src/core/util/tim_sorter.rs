@@ -296,15 +296,15 @@ impl<T: TimSorterBase> TimSorter<T> {
   }
 
   pub fn lower_saved(&self, mut from: usize, to: usize, val: usize) -> Result<usize> {
-    let mut len: i32 = if to >= from {
-      (to - from) as i32
+    let mut len = if to >= from {
+      to - from
     } else {
       return Ok(from);
     };
 
     while len > 0 {
       let half = len >> 1;
-      let mid = from + half as usize;
+      let mid = from + half;
       if self.delegate.compare_saved(val, mid)? > 0 {
         from = mid + 1;
         len -= half + 1;
@@ -316,15 +316,15 @@ impl<T: TimSorterBase> TimSorter<T> {
   }
 
   pub fn upper_saved(&self, mut from: usize, to: usize, val: usize) -> Result<usize> {
-    let mut len: i32 = if to >= from {
-      (to - from) as i32
+    let mut len = if to >= from {
+      to - from
     } else {
       return Ok(from);
     };
 
     while len > 0 {
       let half = len >> 1;
-      let mid = from + half as usize;
+      let mid = from + half;
       if self.delegate.compare_saved(val, mid)? < 0 {
         len = half;
       } else {
@@ -421,19 +421,11 @@ where
       }
     } else if len2 < len1 && len2 <= self.max_temp_slots {
       self.delegate.save(mid, len2)?;
-      let mut i: i32 = (lo + len1) as i32 - 1;
-      let mut j: i32 = hi as i32 - 1;
-      while i >= lo as i32 {
-        self.delegate.copy(i as usize, j as usize)?;
-        i -= 1;
-        j -= 1;
+      for i in (lo..mid).rev() {
+        self.delegate.copy(i, i + len2)?;
       }
-      i = 0;
-      j = lo as i32;
-      while i < len2 as i32 {
-        self.delegate.restore(i as usize, j as usize);
-        i += 1;
-        j += 1;
+      for i in 0..len2 {
+        self.delegate.restore(i, lo + i);
       }
     } else if len1 <= self.max_temp_slots {
       self.delegate.save(lo, len1)?;
