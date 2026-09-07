@@ -85,7 +85,7 @@ impl InetAddressPoint {
     delta[Self::BYTES - 1] = 1;
     let mut next_up_bytes = [0u8; Self::BYTES];
     NumericUtils::add(
-      Self::BYTES as u32,
+      Self::BYTES,
       0,
       &encode_address(address),
       &delta,

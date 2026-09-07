@@ -652,15 +652,11 @@ impl BitSet for FixedBitSet {
     if word != 0 {
       return Option::from((i << 6) + sub_index - word.leading_zeros() as usize);
     }
-    let mut i: i32 = i as i32;
-    i -= 1;
-
-    while i >= 0 {
-      word = self.bits[i as usize];
+    for i in (0..i).rev() {
+      word = self.bits[i];
       if word != 0 {
-        return Option::from(((i as usize) << 6) + 63 - word.leading_zeros() as usize);
+        return Option::from((i << 6) + 63 - word.leading_zeros() as usize);
       }
-      i -= 1;
     }
     None
   }

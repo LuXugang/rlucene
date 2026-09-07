@@ -1229,7 +1229,8 @@ where
           self.pos_delta_buffer[i] = ((code as u32) >> 1) as i32;
 
           if payload_length != 0 {
-            let need = self.payload_byte_upto + payload_length as usize;
+            let payload_length = payload_length as usize;
+            let need = self.payload_byte_upto + payload_length;
             if need > self.payload_bytes.len() {
               ArrayUtil::grow_with_len(&mut self.payload_bytes, need)?;
             }
@@ -1237,9 +1238,9 @@ where
             pos_in.read_bytes(
               &mut self.payload_bytes,
               self.payload_byte_upto,
-              payload_length as usize,
+              payload_length,
             )?;
-            self.payload_byte_upto += payload_length as usize;
+            self.payload_byte_upto += payload_length;
           }
         } else {
           IndexInput::skip_bytes(&mut *pos_in, payload_length as i64)?;

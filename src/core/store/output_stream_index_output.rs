@@ -56,9 +56,9 @@ where
     resource_description: &str,
     name: &str,
     inner: W,
-    buffer_size: i32,
+    buffer_size: usize,
   ) -> Result<OutputStreamIndexOutput<W>> {
-    if i64::from(buffer_size) < BitUtil::LONG_BYTES as i64 {
+    if buffer_size < BitUtil::LONG_BYTES {
       return Err(LuceneError::illegal_argument(format!(
         "Buffer size too small, need: {}, got: {}",
         BitUtil::LONG_BYTES,
@@ -165,9 +165,9 @@ pub struct XBufferedOutputStream<W: Write> {
 }
 
 impl<W: CloseableWrite> XBufferedOutputStream<W> {
-  pub fn new(inner: W, buffer_size: i32) -> Self {
+  pub fn new(inner: W, buffer_size: usize) -> Self {
     Self {
-      inner: BufWriter::with_capacity(buffer_size as usize, inner),
+      inner: BufWriter::with_capacity(buffer_size, inner),
       hasher: Hasher::new(),
       checksum: 0,
     }

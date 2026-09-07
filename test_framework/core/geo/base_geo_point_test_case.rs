@@ -56,7 +56,7 @@ use crate::test_framework::core::geo::random_distance_codec::RandomDistanceCodec
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
+  at_least, at_least_usize, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_searcher_with_reader,
 };
@@ -495,7 +495,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_points = at_least(random, 1000) as usize;
+    let num_points = at_least_usize(random, 1000);
 
     let the_lat = self.next_latitude(random);
     let the_lon = self.next_longitude(random);
@@ -510,7 +510,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_points = at_least(random, 1000) as usize;
+    let num_points = at_least_usize(random, 1000);
     let cardinality = random.random_range(2..=20);
 
     let mut diff_lons = vec![0.0; cardinality];
@@ -535,7 +535,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_points = at_least(random, 1000) as usize;
+    let num_points = at_least_usize(random, 1000);
     let lat = self.next_latitude(random);
     let mut lats = vec![0.0; num_points];
     let mut lons = vec![0.0; num_points];
@@ -571,7 +571,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_points = at_least(random, 1000) as usize;
+    let num_points = at_least_usize(random, 1000);
     let the_lon = self.next_longitude(random);
     let mut lats = vec![0.0; num_points];
     let mut lons = vec![0.0; num_points];
@@ -607,7 +607,7 @@ pub trait BaseGeoPointTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_points = at_least(random, 1000) as usize;
+    let num_points = at_least_usize(random, 1000);
     let mut lats = vec![0.0; 2 * num_points];
     let mut lons = vec![0.0; 2 * num_points];
     let dir = new_directory_shared(random)?;
@@ -713,11 +713,11 @@ pub trait BaseGeoPointTestCase {
     self.do_test_random(random, 200_000)
   }
 
-  fn do_test_random<R>(&self, random: &mut R, count: i32) -> Result<()>
+  fn do_test_random<R>(&self, random: &mut R, count: usize) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let num_points = at_least(random, count) as usize;
+    let num_points = at_least_usize(random, count);
     let mut lats = vec![0.0; num_points];
     let mut lons = vec![0.0; num_points];
     let mut have_real_doc = false;

@@ -83,7 +83,7 @@ fn test_two_values() -> Result<()> {
   test(&mut refs, 2, &mut random)
 }
 
-fn test_random_impl<R>(common_prefix_len: usize, max_len: i32, random: &mut R) -> Result<()>
+fn test_random_impl<R>(common_prefix_len: usize, max_len: usize, random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
 {
@@ -92,7 +92,7 @@ where
   let len = random.random_range(0..100_000);
   let mut bytes: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(len + random.random_range(0..50));
   for _ in 0..len {
-    let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len) as usize];
+    let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
     random.fill_bytes(&mut b);
 
     b.copy_from(&common_prefix, 0);

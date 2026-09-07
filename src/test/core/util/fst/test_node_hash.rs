@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-use crate::test_framework::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least_usize, random};
 use rand::RngExt;
 use std::sync::Arc;
 
@@ -32,7 +32,7 @@ fn test_copy_fallback_node_bytes() -> Result<()> {
   let mut primary_hash_table: PagedGrowableHash<Arc<i64>> = PagedGrowableHash::new()?;
   let mut fallback_hash_table = PagedGrowableHash::new()?;
 
-  let node_length = at_least(&mut random, 500) as usize;
+  let node_length = at_least_usize(&mut random, 500);
   let fallback_hash_slot = 1;
   let fallback_bytes: Vec<u8> = (0..node_length).map(|_| random.random()).collect();
 

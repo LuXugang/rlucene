@@ -591,7 +591,7 @@ where
     &mut self,
     info: &FieldInfo,
     value: &mut DI,
-    length: i32,
+    length: usize,
   ) -> Result<()>
   where
     DI: DataInput,
@@ -599,8 +599,8 @@ where
     self.num_stored_fields_in_doc += 1;
     let info_and_bits = ((info.number as i64) << *TYPE_BITS) | BYTE_ARR as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
-    self.buffered_docs.write_vint(length)?;
-    self.buffered_docs.copy_bytes(value, length as usize)?;
+    self.buffered_docs.write_vint(length as i32)?;
+    self.buffered_docs.copy_bytes(value, length)?;
     Ok(())
   }
 

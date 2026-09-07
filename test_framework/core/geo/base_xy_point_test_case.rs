@@ -414,7 +414,7 @@ pub trait BaseXYPointTestCase {
     R: Rng + ?Sized,
   {
     let num_points = at_least_usize(random, 1000);
-    let cardinality = TestUtil::next_int(random, 2, 20) as usize;
+    let cardinality = TestUtil::next_usize(random, 2, 20);
 
     let mut diff_xs = vec![0.0; cardinality];
     let mut diff_ys = vec![0.0; cardinality];

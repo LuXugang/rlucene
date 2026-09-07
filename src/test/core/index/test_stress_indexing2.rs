@@ -896,7 +896,7 @@ impl IndexingThread {
     if self.same_field_order {
       fields.sort_by(|a: &DocumentFields, b| a.name().cmp(b.name()));
     } else {
-      let pos = Self::next_int(r, fields.len() as i32) as usize;
+      let pos = TestUtil::next_usize(r, 0, fields.len() - 1);
       fields.swap(pos, 0);
     }
 

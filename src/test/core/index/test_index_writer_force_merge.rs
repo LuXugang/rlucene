@@ -106,7 +106,7 @@ fn test_partial_merge() -> Result<()> {
       assert_eq!(3, opt_seg_count);
     }
 
-    num_docs += TestUtil::next_int(&mut random, incr_min, 5 * incr_min) as usize;
+    num_docs += TestUtil::next_usize(&mut random, incr_min, 5 * incr_min);
   }
 
   Ok(())

@@ -238,13 +238,13 @@ where
     let block_shift = TestUtil::next_int(random, MIN_BLOCK_SHIFT, MAX_BLOCK_SHIFT);
     let max_num_values = 1 << 20;
     let num_values = if random.random_bool(0.5) {
-      TestUtil::next_int(random, 1, max_num_values)
+      TestUtil::next_usize(random, 1, max_num_values)
     } else {
-      let num_blocks = TestUtil::next_int(random, 0, max_num_values >> block_shift);
-      TestUtil::next_int(random, 0, num_blocks) << block_shift
+      let num_blocks = TestUtil::next_usize(random, 0, max_num_values >> block_shift);
+      TestUtil::next_usize(random, 0, num_blocks) << block_shift
     };
 
-    let mut actual_values = Vec::with_capacity(num_values as usize);
+    let mut actual_values = Vec::with_capacity(num_values);
     let mut previous: i64 = random.random();
     if num_values > 0 {
       actual_values.push(previous);

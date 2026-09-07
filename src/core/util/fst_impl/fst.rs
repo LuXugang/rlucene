@@ -1197,7 +1197,7 @@ impl<O: Outputs> FSTMetadata<O> {
 
       meta_out.write_vint(empty_len as i32)?;
       debug_assert!(empty_output_bytes.len() <= i32::MAX as usize);
-      meta_out.write_bytes_range(&empty_output_bytes, 0, empty_len as i32 as usize)?;
+      meta_out.write_bytes_range(&empty_output_bytes, 0, empty_len)?;
     } else {
       meta_out.write_byte(0)?;
     }

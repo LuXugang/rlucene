@@ -141,14 +141,14 @@ fn test_large_random_blocks() -> Result<()> {
   let iter = 100;
   let mut iterms: Vec<Vec<u8>> = Vec::new();
 
-  let mut size: i32;
+  let mut size: usize;
   for _i in 0..iter {
     if random.random_bool(0.5) {
-      size = TestUtil::next_int(&mut random, 100, 1000);
+      size = TestUtil::next_usize(&mut random, 100, 1000);
     } else {
-      size = TestUtil::next_int(&mut random, 50000, 100000);
+      size = TestUtil::next_usize(&mut random, 50000, 100000);
     }
-    let mut bytes = vec![0; size as usize];
+    let mut bytes = vec![0; size];
     random.fill_bytes(&mut bytes);
     let bytes_clone = bytes.clone();
     iterms.push(bytes);

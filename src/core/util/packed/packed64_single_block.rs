@@ -26,7 +26,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 
 pub(crate) struct Packed64SingleBlock<T> {
   blocks: Vec<u64>,
-  value_count: i32,
+  value_count: usize,
   bits_per_value: i32,
   sub_reader: T,
 }
@@ -57,7 +57,7 @@ where
     let required_capacity = Self::required_capacity(value_count, values_per_block);
     Self {
       blocks: vec![0; required_capacity as usize],
-      value_count,
+      value_count: value_count as usize,
       bits_per_value,
       sub_reader,
     }
@@ -72,26 +72,32 @@ where
     self.sub_reader.get(index, &self.blocks)
   }
 
-  fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
+  fn get_bulk(
+    &self,
+    mut index: usize,
+    arr: &mut [i64],
+    mut off: usize,
+    mut len: usize,
+  ) -> Result<usize> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(index < self.value_count, "index out of bounds");
     len = len.min(self.value_count - index);
     debug_assert!(
-      (off + len) as usize <= arr.len(),
+      (off + len) <= arr.len(),
       "not enough space in destination array"
     );
 
     let original_index = index;
 
     // Go to the next block boundary
-    let values_per_block = 64 / self.bits_per_value;
+    let values_per_block = (64 / self.bits_per_value) as usize;
     let offset_in_block = index % values_per_block;
     if offset_in_block != 0 {
       for _ in offset_in_block..values_per_block {
         if len == 0 {
           return Ok(index - original_index);
         }
-        arr[off as usize] = self.sub_reader.get(index as usize, &self.blocks);
+        arr[off] = self.sub_reader.get(index, &self.blocks);
         off += 1;
         index += 1;
         len -= 1;
@@ -117,19 +123,13 @@ where
       "Decoder longBlockCount mismatch"
     );
     debug_assert_eq!(
-      Decoder::long_value_count(decoder),
+      Decoder::long_value_count(decoder) as usize,
       values_per_block,
       "Decoder longValueCount mismatch"
     );
     let block_index = index / values_per_block;
     let nblocks = (index + len) / values_per_block - block_index;
-    decoder.decode_u64_to_i64(
-      &self.blocks,
-      block_index as usize,
-      arr,
-      off as usize,
-      nblocks,
-    );
+    decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, nblocks as i32);
     let diff = nblocks * values_per_block;
     index += diff;
     len -= diff;
@@ -145,7 +145,7 @@ where
     }
   }
 
-  fn size(&self) -> i32 {
+  fn size(&self) -> usize {
     self.value_count
   }
 }
@@ -262,24 +262,27 @@ where
     self.bits_per_value
   }
 
-  fn set(&mut self, index: i32, value: i64) -> Result<()> {
-    self.sub_reader.set(index as usize, value, &mut self.blocks);
+  fn set(&mut self, index: usize, value: i64) -> Result<()> {
+    self.sub_reader.set(index, value, &mut self.blocks);
     Ok(())
   }
 
-  fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
+  fn set_bulk(
+    &mut self,
+    mut index: usize,
+    arr: &[i64],
+    mut off: usize,
+    mut len: usize,
+  ) -> Result<usize> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(index < self.value_count, "index out of bounds");
     len = len.min(self.value_count - index);
-    debug_assert!(
-      (off + len) as usize <= arr.len(),
-      "not enough space in source array"
-    );
+    debug_assert!((off + len) <= arr.len(), "not enough space in source array");
 
     let original_index = index;
 
     // go to the next block boundary
-    let values_per_block = 64 / self.bits_per_value;
+    let values_per_block = (64 / self.bits_per_value) as usize;
     let offset_in_block = index % values_per_block;
 
     if offset_in_block != 0 {
@@ -287,9 +290,7 @@ where
         if len == 0 {
           return Ok(index - original_index);
         }
-        self
-          .sub_reader
-          .set(index as usize, arr[off as usize], &mut self.blocks);
+        self.sub_reader.set(index, arr[off], &mut self.blocks);
         off += 1;
         index += 1;
         len -= 1;
@@ -312,7 +313,7 @@ where
     )?;
     debug_assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
     debug_assert_eq!(
-      Decoder::long_value_count(op),
+      Decoder::long_value_count(op) as usize,
       values_per_block,
       "longValueCount mismatch"
     );
@@ -321,11 +322,11 @@ where
     let nblocks = (index + len) / values_per_block - block_index;
 
     op.encode_i64_to_u64(
-      &arr[off as usize..],
+      &arr[off..],
       0,
       &mut self.blocks,
-      block_index as usize,
-      nblocks,
+      block_index,
+      nblocks as i32,
     );
 
     let diff = nblocks * values_per_block;
@@ -343,14 +344,14 @@ where
     }
   }
 
-  fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
+  fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) -> Result<()> {
     debug_assert!(from_index <= to_index, "from_index must be <= to_index");
     debug_assert!(
       PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
       "Value requires more bits than allowed by bits_per_value"
     );
 
-    let values_per_block = 64 / self.bits_per_value;
+    let values_per_block = (64 / self.bits_per_value) as usize;
 
     // If the range is too small, fallback to naive setting
     if to_index - from_index <= (values_per_block * 2) {
@@ -375,10 +376,10 @@ where
 
     let mut block_value: u64 = 0;
     for i in 0..values_per_block {
-      block_value |= (val as u64) << (i * self.bits_per_value);
+      block_value |= (val as u64) << (i * self.bits_per_value as usize);
     }
 
-    self.blocks[from_block as usize..to_block as usize].fill(block_value);
+    self.blocks[from_block..to_block].fill(block_value);
 
     // Fill the gap at the end
     for i in (values_per_block * to_block)..to_index {

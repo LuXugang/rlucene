@@ -61,9 +61,9 @@ use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::lucene_test_case::slow_file_exists;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_mock_directory, new_searcher_with_reader, new_string_field,
-  new_text_field, random,
+  at_least, at_least_usize, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_mock_directory,
+  new_searcher_with_reader, new_string_field, new_text_field, random,
 };
 #[cfg(feature = "nightly")]
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -385,7 +385,7 @@ fn test_delete_all_no_dead_lock() -> Result<()> {
     dir.clone(),
     iwc,
   ));
-  let num_threads = at_least(&mut random, 2) as usize;
+  let num_threads = at_least_usize(&mut random, 2);
   let latch = Arc::new(Barrier::new(num_threads + 1));
   let done_latch = Arc::new((Mutex::new(0_usize), Condvar::new()));
   let mut threads = Vec::new();
@@ -558,7 +558,7 @@ fn test_delete_all_repeated() -> Result<()> {
   let modifier = IndexWriter::new(dir.clone(), conf)?;
   let fields_per_doc = 1_000_i64;
   let num_fields = Arc::new(AtomicI64::new(0));
-  let n_threads = at_least(&mut random, 8) as usize;
+  let n_threads = at_least_usize(&mut random, 8);
   let mut threads = Vec::new();
 
   for _ in 0..n_threads {
@@ -1202,7 +1202,7 @@ fn test_delete_all_slowly() -> Result<()> {
   let iwc = new_index_writer_config(&mut random)?;
   let w = RandomIndexWriter::with_config(&mut random, dir.clone(), iwc);
 
-  let num_docs = at_least(&mut random, 1000) as usize;
+  let num_docs = at_least_usize(&mut random, 1000);
   let mut ids: Vec<i32> = (0..num_docs as i32).collect();
   ids.shuffle(&mut random);
   let mut field_types = HashMap::new();

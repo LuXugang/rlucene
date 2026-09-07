@@ -52,14 +52,18 @@ impl Outputs for ByteSequenceOutputs {
     let a = &output1.bytes[output1.offset..output1.offset + output1.length];
     let b = &output2.bytes[output2.offset..output2.offset + output2.length];
 
-    let mismatch_pos = CoreHelper::miss_match_u8(a, b);
+    let mismatch_pos = match CoreHelper::miss_match_u8(a, b) {
+      -1 => return output1.clone(),
+      0 => return NO_OUTPUT.clone(),
+      n => n as usize,
+    };
 
-    match mismatch_pos {
-      -1 => output1.clone(),
-      0 => NO_OUTPUT.clone(),
-      n if n as usize == output1.length => output1.clone(),
-      n if n as usize == output2.length => output2.clone(),
-      n => BytesRef::from_slice(output1.bytes.clone(), output1.offset, n as usize),
+    if mismatch_pos == output1.length {
+      output1.clone()
+    } else if mismatch_pos == output2.length {
+      output2.clone()
+    } else {
+      BytesRef::from_slice(output1.bytes.clone(), output1.offset, mismatch_pos)
     }
   }
 

@@ -71,12 +71,11 @@ pub trait StoredFieldsWriter: Accountable + Closeable {
     &mut self,
     field_info: &FieldInfo,
     input: &mut DI,
-    length: i32,
+    length: usize,
   ) -> Result<()>
   where
     DI: DataInput,
   {
-    let length = length as usize;
     let mut buf = vec![0u8; length];
     input.read_bytes(&mut buf, 0, length)?;
     self.write_field_bytes(field_info, &BytesRef::from_slice(buf, 0, length))
@@ -267,7 +266,7 @@ impl StoredFieldVisitor for MergeVisitor {
     &mut self,
     field_info: Arc<FieldInfo>,
     input: &mut DI,
-    length: i32,
+    length: usize,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
@@ -460,7 +459,7 @@ where
     &mut self,
     field_info: &FieldInfo,
     input: &mut DI,
-    length: i32,
+    length: usize,
   ) -> Result<()>
   where
     DI: DataInput,

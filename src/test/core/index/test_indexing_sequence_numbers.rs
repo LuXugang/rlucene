@@ -107,7 +107,7 @@ fn test_stress_update_same_id() -> Result<()> {
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
     let w = Arc::new(RandomIndexWriter::new(&mut random, dir)?);
-    let num_threads = TestUtil::next_int(&mut random, 2, 5) as usize;
+    let num_threads = TestUtil::next_usize(&mut random, 2, 5);
     let starting_gun = Arc::new(Barrier::new(num_threads + 1));
     let seq_nos = Arc::new(Mutex::new(vec![0_i64; num_threads]));
     let id = Term::from_text("id", "id");
@@ -179,14 +179,14 @@ struct Operation {
 fn test_stress_concurrent_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);
-  let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
+  let id_count = TestUtil::next_usize(&mut random, 10, 1000);
 
   let dir = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let num_threads = TestUtil::next_int(&mut random, 2, 10) as usize;
+  let num_threads = TestUtil::next_usize(&mut random, 2, 10);
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
   let thread_ops = (0..num_threads)
     .map(|_| Arc::new(Mutex::new(Vec::new())))
@@ -312,14 +312,14 @@ fn test_stress_concurrent_commit() -> Result<()> {
 fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);
-  let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
+  let id_count = TestUtil::next_usize(&mut random, 10, 1000);
 
   let dir = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let num_threads = TestUtil::next_int(&mut random, 2, 10) as usize;
+  let num_threads = TestUtil::next_usize(&mut random, 2, 10);
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
   let thread_ops = (0..num_threads)
     .map(|_| Arc::new(Mutex::new(Vec::new())))
@@ -443,14 +443,14 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
 fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   let mut random = random();
   let op_count = at_least(&mut random, 10000);
-  let id_count = TestUtil::next_int(&mut random, 10, 1000) as usize;
+  let id_count = TestUtil::next_usize(&mut random, 10, 1000);
 
   let dir = new_directory_shared(&mut random)?;
   let mut iwc = new_index_writer_config(&mut random)?;
   iwc.set_index_deletion_policy(NoDeletionPolicy);
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let num_threads = TestUtil::next_int(&mut random, 2, 5) as usize;
+  let num_threads = TestUtil::next_usize(&mut random, 2, 5);
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
   let thread_ops = (0..num_threads)
     .map(|_| Arc::new(Mutex::new(Vec::new())))

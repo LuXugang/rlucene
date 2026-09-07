@@ -80,10 +80,10 @@ where
     );
 
     debug_assert!(block_count <= i32::MAX as i64);
-    self.data_output.write_bytes_with_len(
-      &self.next_blocks[0..block_count as usize],
-      block_count as usize,
-    )?;
+    let block_count = block_count as usize;
+    self
+      .data_output
+      .write_bytes_with_len(&self.next_blocks[0..block_count], block_count)?;
     self.next_values.fill(0);
     self.off = 0;
     Ok(())

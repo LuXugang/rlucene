@@ -72,7 +72,7 @@ use crate::test_framework::core::util::index_package_access::{
   IndexPackageAccess, IndexPackageAccessImpl,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_fs_directory, random_from_seed, random_multiplier,
+  at_least_usize, is_night_mode, new_fs_directory, random_from_seed, random_multiplier,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::SliceRandom;
@@ -149,7 +149,7 @@ impl RandomPostingsTester {
     let mut random = random_from_seed(seed);
 
     let mut fields: HashMap<String, BTreeMap<BytesRef<Vec<u8>>, SeedAndOrd>> = HashMap::new();
-    let num_fields = TestUtil::next_int(&mut random, 1, 5) as usize;
+    let num_fields = TestUtil::next_usize(&mut random, 1, 5);
 
     let mut field_info_array: Vec<Arc<FieldInfo>> = Vec::with_capacity(num_fields);
     let mut max_doc = 0;
@@ -189,9 +189,9 @@ impl RandomPostingsTester {
       let mut seen_terms: HashSet<String> = HashSet::new();
 
       let num_terms = if random.random_range(0..10) == 7 {
-        at_least(&mut random, 50) as usize
+        at_least_usize(&mut random, 50)
       } else {
-        TestUtil::next_int(&mut random, 2, 20) as usize
+        TestUtil::next_usize(&mut random, 2, 20)
       };
 
       while postings.len() < num_terms {
@@ -316,7 +316,7 @@ impl RandomPostingsTester {
       let index_options = if always_test_max {
         values[max_index_option]
       } else {
-        values[TestUtil::next_int(&mut random, 1, max_index_option as i32) as usize]
+        values[TestUtil::next_usize(&mut random, 1, max_index_option)]
       };
       let do_payloads = index_options >= IndexOptions::DocsAndFreqsAndPositions && allow_payloads;
 

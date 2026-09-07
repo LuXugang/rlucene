@@ -93,13 +93,10 @@ fn test_constructor_with_expected_size() -> Result<()> {
   let (_length, mut result) = o.to_buffer_list_ref();
   let cap = result.get_mut(0).unwrap().get_ref().len();
   assert!(
-    ((cap >> 1) * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize)
+    ((cap >> 1) * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION)
       < expected_size as usize
   );
-  assert!(
-    cap * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize
-      >= expected_size as usize
-  );
+  assert!(cap * ByteBuffersDataOutput::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION >= expected_size as usize);
   Ok(())
 }
 

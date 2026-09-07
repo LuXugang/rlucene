@@ -53,7 +53,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     let iwc = IndexWriterConfig::with_analyzer(analyzer)?;
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
-    let unique_value_count = TestUtil::next_int(random, 1, 256) as usize;
+    let unique_value_count = TestUtil::next_usize(random, 1, 256);
     let mut values = Vec::new();
 
     let mut doc = Document::new();

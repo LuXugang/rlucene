@@ -99,11 +99,11 @@ impl DocValuesFieldUpdatesBase for TestSingleUpdateDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn grow(&mut self, _size: i32) -> crate::core::util::error::lucene_error::Result<()> {
+  fn grow(&mut self, _size: usize) -> crate::core::util::error::lucene_error::Result<()> {
     Ok(())
   }
 
-  fn resize(&mut self, _size: i32) -> crate::core::util::error::lucene_error::Result<()> {
+  fn resize(&mut self, _size: usize) -> crate::core::util::error::lucene_error::Result<()> {
     Ok(())
   }
 

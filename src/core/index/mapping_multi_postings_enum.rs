@@ -95,7 +95,7 @@ where
     })
   }
   pub(crate) fn reset(&mut self, mut postings_enum: MultiPostingsEnum<PE>) -> Result<&mut Self> {
-    let count = postings_enum.get_num_subs() as usize;
+    let count = postings_enum.get_num_subs();
     let mut active_subs = Vec::with_capacity(count);
     for sub in postings_enum.get_subs().iter().take(count) {
       active_subs.push((sub.slice.get_reader_index() as usize, sub.postings_enum_idx));
@@ -126,7 +126,7 @@ where
   pub(crate) fn take_multi_docs_and_positions_enum(&mut self) -> Option<MultiPostingsEnum<PE>> {
     let mut postings_enum = self.multi_docs_and_positions_enum.take()?;
 
-    debug_assert!(self.idxs.len() == postings_enum.get_num_subs() as usize);
+    debug_assert!(self.idxs.len() == postings_enum.get_num_subs());
 
     let subs = self.doc_id_merger.get_subs_mut();
     for (idx, enum_with_slice_postings_enum_idx) in &self.idxs {

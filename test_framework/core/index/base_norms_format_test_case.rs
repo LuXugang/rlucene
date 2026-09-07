@@ -372,9 +372,9 @@ pub trait BaseNormsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let n = TestUtil::next_int(random, 2, 15) as usize;
+    let n = TestUtil::next_usize(random, 2, 15);
     let common_values = build_random_values(random, n);
-    let num_other_values = TestUtil::next_int(random, 2, 256 - n as i32) as usize;
+    let num_other_values = TestUtil::next_usize(random, 2, 256 - n);
     let other_values = build_random_values(random, num_other_values);
     self.do_test_norms_versus_doc_values(random, 1.0, move |random| {
       if random.random_range(0..100) == 0 {
@@ -390,9 +390,9 @@ pub trait BaseNormsFormatTestCase:
     R: Rng + ?Sized,
   {
     assert!(self.codec_supports_sparsity());
-    let n = TestUtil::next_int(random, 2, 15) as usize;
+    let n = TestUtil::next_usize(random, 2, 15);
     let common_values = build_random_values(random, n);
-    let num_other_values = TestUtil::next_int(random, 2, 256 - n as i32) as usize;
+    let num_other_values = TestUtil::next_usize(random, 2, 256 - n);
     let other_values = build_random_values(random, num_other_values);
     let density = random.random::<f64>();
     self.do_test_norms_versus_doc_values(random, density, move |random| {
@@ -412,8 +412,8 @@ pub trait BaseNormsFormatTestCase:
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       for n in 2..16 {
-        let common_values = build_random_values(random, n as usize);
-        let num_other_values = TestUtil::next_int(random, 2, 256 - n) as usize;
+        let common_values = build_random_values(random, n);
+        let num_other_values = TestUtil::next_usize(random, 2, 256 - n);
         let other_values = build_random_values(random, num_other_values);
         self.do_test_norms_versus_doc_values(random, 1.0, move |random| {
           if random.random_range(0..100) == 0 {
@@ -436,8 +436,8 @@ pub trait BaseNormsFormatTestCase:
     let iterations = at_least(random, 1);
     for _ in 0..iterations {
       for n in 2..16 {
-        let common_values = build_random_values(random, n as usize);
-        let num_other_values = TestUtil::next_int(random, 2, 256 - n) as usize;
+        let common_values = build_random_values(random, n);
+        let num_other_values = TestUtil::next_usize(random, 2, 256 - n);
         let other_values = build_random_values(random, num_other_values);
         let density = random.random::<f64>();
         self.do_test_norms_versus_doc_values(random, density, move |random| {

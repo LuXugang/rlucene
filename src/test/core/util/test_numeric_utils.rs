@@ -472,8 +472,7 @@ fn test_add() -> Result<()> {
 
     let mut result = vec![0u8; num_bytes];
 
-    assert!(num_bytes <= u32::MAX as usize);
-    NumericUtils::add(num_bytes as u32, 0, &v1_bytes, &v2_bytes, &mut result)?;
+    NumericUtils::add(num_bytes, 0, &v1_bytes, &v2_bytes, &mut result)?;
 
     let v1_clone = v1.clone();
     let v2_clone = v2.clone();

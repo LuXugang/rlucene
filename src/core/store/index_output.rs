@@ -59,7 +59,7 @@ pub trait IndexOutput: DataOutput + Display + Closeable + Send + Sync {
   fn align_file_pointer(&mut self, alignment_bytes: usize) -> Result<usize> {
     let offset = self.get_file_pointer()?;
     let aligned_offset = align_offset(offset, alignment_bytes)?;
-    let count = (aligned_offset - offset) as usize;
+    let count = aligned_offset - offset;
     for _ in 0..count {
       self.write_byte(0)?;
     }

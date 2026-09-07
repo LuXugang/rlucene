@@ -43,7 +43,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 #[derive(Debug, Clone)]
 pub struct PrefixCodedTerms<B = Vec<u8>> {
   content: Vec<Cursor<B>>,
-  content_len: i64,
+  content_len: usize,
   size: i64,
   del_gen: i64,
 
@@ -54,7 +54,7 @@ pub type PrefixCodedTermsRc = PrefixCodedTerms<Rc<Vec<u8>>>;
 pub type PrefixCodedTermsArc = PrefixCodedTerms<Arc<Vec<u8>>>;
 
 impl<B> PrefixCodedTerms<B> {
-  pub fn new(content: Vec<Cursor<B>>, content_len: i64, size: i64) -> Self {
+  pub fn new(content: Vec<Cursor<B>>, content_len: usize, size: i64) -> Self {
     debug_assert!(!content.is_empty());
     PrefixCodedTerms {
       content,
@@ -89,7 +89,7 @@ impl PrefixCodedTerms<Vec<u8>> {
       .collect();
     Ok(TermIterator::new(
       self.del_gen,
-      ByteBuffersDataInput::new(content, self.content_len as usize)?,
+      ByteBuffersDataInput::new(content, self.content_len)?,
     ))
   }
 }
@@ -107,7 +107,7 @@ impl PrefixCodedTerms<Rc<Vec<u8>>> {
       .collect();
     Ok(TermIterator::new(
       self.del_gen,
-      ByteBuffersDataInput::new(content, self.content_len as usize)?,
+      ByteBuffersDataInput::new(content, self.content_len)?,
     ))
   }
 }
@@ -125,7 +125,7 @@ impl PrefixCodedTerms<Arc<Vec<u8>>> {
       .collect();
     Ok(TermIterator::new(
       self.del_gen,
-      ByteBuffersDataInput::new(content, self.content_len as usize)?,
+      ByteBuffersDataInput::new(content, self.content_len)?,
     ))
   }
 }
@@ -305,7 +305,7 @@ impl PrefixCodedTermsBuilder {
   /// return finalized form.
   pub fn finish(&mut self) -> PrefixCodedTerms {
     let content = self.output.to_buffer_list_owner(false);
-    PrefixCodedTerms::new(content.1, content.0 as i64, self.size)
+    PrefixCodedTerms::new(content.1, content.0, self.size)
   }
 }
 /// An iterator over the list of terms stored in a [`PrefixCodedTerms`].
@@ -316,7 +316,7 @@ pub type TermIteratorArc = TermIterator<Arc<Vec<u8>>>;
 pub struct TermIterator<B> {
   input: ByteBuffersDataInput<B>,
   pub(crate) builder: BytesRefBuilder<Vec<u8>>,
-  end: i64,
+  end: usize,
   del_gen: i64,
   pub(crate) field: String,
 }
@@ -327,7 +327,7 @@ where
 {
   pub fn new(del_gen: i64, input: ByteBuffersDataInput<B>) -> Self {
     let builder = BytesRefBuilder::new();
-    let end = input.length() as i64;
+    let end = input.length();
     Self {
       input,
       builder,
@@ -336,11 +336,11 @@ where
       field: "".to_string(),
     }
   }
-  pub fn read_term_bytes(&mut self, prefix: i32, suffix: i32) -> Result<()> {
-    let len = (prefix + suffix) as usize;
+  pub fn read_term_bytes(&mut self, prefix: usize, suffix: usize) -> Result<()> {
+    let len = prefix + suffix;
     self.builder.grow(len)?;
     self.builder.bytes_mut().bytes.access_mut(|bytes| {
-      DataInput::read_bytes(&mut self.input, bytes, prefix as usize, suffix as usize)?;
+      DataInput::read_bytes(&mut self.input, bytes, prefix, suffix)?;
       // Help the compiler infer types.
       Ok::<(), LuceneError>(())
     })?;
@@ -364,14 +364,14 @@ where
   }
 
   fn set_next(&mut self) -> Result<bool> {
-    if self.input.position()? < self.end as usize {
+    if self.input.position()? < self.end {
       let code = self.input.read_vint()?;
       let new_field = (code & 1) != 0;
       if new_field {
         self.field = self.input.read_string()?
       }
-      let prefix = code >> 1;
-      let suffix = self.input.read_vint()?;
+      let prefix = (code >> 1) as usize;
+      let suffix = self.input.read_vint()? as usize;
       self.read_term_bytes(prefix, suffix)?;
       return Ok(true);
     } else {

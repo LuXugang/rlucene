@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test_framework::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, at_least_usize, random};
 use rand::Rng;
 use rand::RngExt;
 use std::sync::LazyLock;
@@ -52,7 +52,7 @@ pub fn set_up<R>(random: &mut R) -> Result<(Vec<u8>, ByteBlockPool, i32)>
 where
   R: Rng + ?Sized,
 {
-  let len = at_least(random, 100) as usize;
+  let len = at_least_usize(random, 100);
   let random_data: Vec<u8> = (0..len).map(|_| random.random()).collect(); // Fill RANDOM_DATA with random bytes
 
   let allocator = DirectAllocatorByte::new();

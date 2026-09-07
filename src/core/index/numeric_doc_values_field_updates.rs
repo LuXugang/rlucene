@@ -121,16 +121,16 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn grow(&mut self, size: i32) -> Result<()> {
-    let value_result = self.values.grow_with_size(size as usize)?;
+  fn grow(&mut self, size: usize) -> Result<()> {
+    let value_result = self.values.grow_with_size(size)?;
     if let Some(values) = value_result {
       self.values = values;
     }
     Ok(())
   }
 
-  fn resize(&mut self, size: i32) -> Result<()> {
-    self.values = self.values.resize(size as usize)?;
+  fn resize(&mut self, size: usize) -> Result<()> {
+    self.values = self.values.resize(size)?;
     Ok(())
   }
 

@@ -111,7 +111,7 @@ where
   let partition_point = TestUtil::next_usize(random, start + 1, end - 1);
   let sorted_on_heap = random.random_range(0..5000);
   let mut points = get_random_point_writer(random, config.clone(), &dir, values)?;
-  let mut value = vec![0u8; packed_bytes_length as usize];
+  let mut value = vec![0u8; packed_bytes_length];
   for i in 0..values {
     random.fill(&mut value[..]);
     points.append_bytes(&value, i as i32)?;
@@ -177,7 +177,7 @@ fn test_random_last_byte_two_values() -> Result<()> {
   let sorted_on_heap = random.random_range(0..5000);
   let config = get_random_config(&mut random)?;
   let mut points = get_random_point_writer(&mut random, config.clone(), &dir, values)?;
-  let mut value = vec![0u8; config.packed_bytes_length() as usize];
+  let mut value = vec![0u8; config.packed_bytes_length()];
   random.fill(&mut value[..]);
   for _ in 0..values {
     if random.random_bool(0.5) {
@@ -204,13 +204,13 @@ fn test_random_last_byte_two_values() -> Result<()> {
 #[test]
 fn test_random_all_docs_equals() -> Result<()> {
   let mut random = random();
-  let values = random.random_range(1..=15000) as usize;
+  let values = TestUtil::next_usize(&mut random, 1, 15000);
   let dir = new_directory(&mut random)?;
   let partition_point = random.random_range(0..values);
   let sorted_on_heap = random.random_range(0..5000);
   let config = get_random_config(&mut random)?;
   let mut points = get_random_point_writer(&mut random, config.clone(), &dir, values)?;
-  let mut value = vec![0u8; config.packed_bytes_length() as usize];
+  let mut value = vec![0u8; config.packed_bytes_length()];
   random.fill(&mut value[..]);
   for _ in 0..values {
     points.append_bytes(&value, 0)?;
@@ -239,15 +239,15 @@ fn test_random_few_different_values() -> Result<()> {
   let partition_point = random.random_range(0..values);
   let sorted_on_heap = random.random_range(0..5000);
   let mut points = get_random_point_writer(&mut random, config.clone(), &dir, values)?;
-  let number_values = random.random_range(2..=9);
-  let mut different_values = Vec::with_capacity(number_values as usize);
+  let number_values = TestUtil::next_usize(&mut random, 2, 9);
+  let mut different_values = Vec::with_capacity(number_values);
   for _ in 0..number_values {
-    let mut buf = vec![0u8; config.packed_bytes_length() as usize];
+    let mut buf = vec![0u8; config.packed_bytes_length()];
     random.fill(&mut buf[..]);
     different_values.push(buf);
   }
   for i in 0..values {
-    let idx = random.random_range(0..number_values) as usize;
+    let idx = TestUtil::next_usize(&mut random, 0, number_values - 1);
     points.append_bytes(&different_values[idx], i as i32)?;
   }
   points.close()?;
@@ -273,14 +273,14 @@ fn test_random_data_dim_diff_values() -> Result<()> {
   let partition_point = random.random_range(0..values);
   let sorted_on_heap = random.random_range(0..5000);
   let mut points = get_random_point_writer(&mut random, config.clone(), &dir, values)?;
-  let mut value = vec![0u8; config.packed_bytes_length() as usize];
+  let mut value = vec![0u8; config.packed_bytes_length()];
   let data_only_dims = config.num_dims - config.num_index_dims;
-  let data_value_len = (data_only_dims * config.bytes_per_dim) as usize;
+  let data_value_len = data_only_dims * config.bytes_per_dim;
   let mut data_value = vec![0u8; data_value_len];
   random.fill(&mut value[..]);
   for i in 0..values {
     random.fill(&mut data_value[..]);
-    let start = (config.num_index_dims * config.bytes_per_dim) as usize;
+    let start = config.num_index_dims * config.bytes_per_dim;
     value.copy_from(&data_value, start);
     points.append_bytes(&value, i as i32)?;
   }

@@ -85,8 +85,8 @@ use crate::test_framework::core::index::force_merge_policy::ForceMergePolicy;
 use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir, get_only_leaf_reader, new_directory_shared, new_index_writer_config,
-  new_io_context, new_log_merge_policy,
+  at_least, at_least_usize, create_temp_dir, get_only_leaf_reader, new_directory_shared,
+  new_index_writer_config, new_io_context, new_log_merge_policy,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -1427,7 +1427,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let iw = IndexWriter::new(dir, iwc)?;
 
     let num_doc = at_least(random, 100);
-    let mut dimension = at_least(random, 10) as usize;
+    let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }
@@ -1517,7 +1517,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let iw = IndexWriter::new(dir, iwc)?;
 
     let num_doc = at_least(random, 100);
-    let mut dimension = at_least(random, 10) as usize;
+    let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }
@@ -1966,7 +1966,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let iw = IndexWriter::new(dir, iwc)?;
 
     let num_doc = at_least(random, 100);
-    let mut dimension = at_least(random, 10) as usize;
+    let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }
@@ -2086,7 +2086,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let iw = IndexWriter::new(dir, iwc)?;
 
     let num_doc = at_least(random, 100);
-    let mut dimension = at_least(random, 10) as usize;
+    let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }
@@ -2280,7 +2280,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let iw = IndexWriter::new(dir, iwc)?;
 
     let num_doc = at_least(random, 100);
-    let mut dimension = at_least(random, 10) as usize;
+    let mut dimension = at_least_usize(random, 10);
     if !dimension.is_multiple_of(2) {
       dimension += 1;
     }

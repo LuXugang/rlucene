@@ -489,7 +489,7 @@ impl GeoTestUtil {
       return Self::surprise_me_polygon(random);
     } else if random.random_range(0..10) == 1 {
       loop {
-        let gons = TestUtil::next_int(random, 4, 500) as usize;
+        let gons = TestUtil::next_usize(random, 4, 500);
         let radius_meters =
           random.random::<f64>() * GeoUtils::EARTH_MEAN_RADIUS_METERS * std::f64::consts::PI / 2.0
             + 1.0;

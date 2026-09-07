@@ -638,11 +638,11 @@ fn test_random_longs_big() -> Result<()> {
   do_test_random_longs(&mut random, 20_000)
 }
 
-fn do_test_random_longs<R>(random: &mut R, count: i32) -> Result<()>
+fn do_test_random_longs<R>(random: &mut R, count: usize) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let num_values = TestUtil::next_int(random, count, count * 2) as usize;
+  let num_values = TestUtil::next_usize(random, count, count * 2);
   let mut values = vec![0i64; num_values];
   let mut ids = vec![0; num_values];
   let single_valued = random.random_bool(0.5);
@@ -878,13 +878,13 @@ fn test_random_binary_medium() -> Result<()> {
   do_test_random_binary(&mut random, 1000)
 }
 
-fn do_test_random_binary<R>(random: &mut R, count: i32) -> Result<()>
+fn do_test_random_binary<R>(random: &mut R, count: usize) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let num_values = TestUtil::next_int(random, count, count * 2) as usize;
-  let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-  let num_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
+  let num_values = TestUtil::next_usize(random, count, count * 2);
+  let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+  let num_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
   let same_value_pct = random.random_range(0..100);
 
   let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_values);
@@ -1757,7 +1757,7 @@ fn test_random_point_in_set_query() -> Result<()> {
     let num_values = TestUtil::next_int(&mut random, 1, gap + 1) as usize;
     (Some(value_min), Some(value_max), num_values)
   } else {
-    (None, None, TestUtil::next_int(&mut random, 1, 100) as usize)
+    (None, None, TestUtil::next_usize(&mut random, 1, 100))
   };
 
   let mut values_set = std::collections::HashSet::new();
@@ -1765,7 +1765,7 @@ fn test_random_point_in_set_query() -> Result<()> {
     values_set.insert(random_int_value(&mut random, value_min, value_max));
   }
   let values = to_array(&values_set);
-  let num_docs = TestUtil::next_int(&mut random, 1, 10000) as usize;
+  let num_docs = TestUtil::next_usize(&mut random, 1, 10000);
 
   let dir = if num_docs > 100000 {
     new_fs_directory(

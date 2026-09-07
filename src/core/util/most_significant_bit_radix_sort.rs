@@ -436,16 +436,16 @@ pub trait MSBRadixSorterBase: Sorter {
       while start_offsets[i] < limit {
         let h1 = start_offsets[i];
         let b = self.get_bucket(from + h1, k)?;
-        let h2 = start_offsets[b as usize];
-        start_offsets[b as usize] += 1;
+        let h2 = start_offsets[b];
+        start_offsets[b] += 1;
         self.swap(from + h1, from + h2)?;
       }
     }
     Ok(())
   }
 
-  fn get_bucket(&mut self, i: usize, k: usize) -> Result<i32> {
-    Ok(self.byte_at(i, k)? + 1)
+  fn get_bucket(&mut self, i: usize, k: usize) -> Result<usize> {
+    Ok((self.byte_at(i, k)? + 1) as usize)
   }
 
   fn build_histogram(
@@ -460,7 +460,7 @@ pub trait MSBRadixSorterBase: Sorter {
     histogram[prefix_common_bucket] = prefix_common_len;
 
     for i in from..to {
-      let b = self.get_bucket(i, k)? as usize;
+      let b = self.get_bucket(i, k)?;
       histogram[b] += 1;
     }
     Ok(())

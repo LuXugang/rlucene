@@ -645,7 +645,7 @@ fn test_open_two_index_writers_on_different_threads() -> Result<()> {
 fn test_rollback_and_commit_with_threads() -> Result<()> {
   let mut rng = random();
   let dir = new_directory_shared(&mut rng)?;
-  let thread_count = TestUtil::next_int(&mut rng, 2, 6) as usize;
+  let thread_count = TestUtil::next_usize(&mut rng, 2, 6);
 
   let mut analyzer = MockAnalyzer::new(&mut rng);
   analyzer.set_max_token_length(TestUtil::next_int(&mut rng, 1, MAX_TERM_LENGTH));

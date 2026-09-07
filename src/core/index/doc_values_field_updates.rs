@@ -45,7 +45,7 @@ use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::ram_usage_estimator::size_of_string;
 use crate::core::util::sparse_fixed_bit_set::SparseFixedBitSet;
-use crate::core::util::{Sorter, ToInt, TryIntoInt};
+use crate::core::util::{Sorter, ToInt};
 use crate::impl_from_for_enum;
 #[cfg(test)]
 use crate::test_framework::core::index::test_pending_soft_deletes::{
@@ -95,12 +95,12 @@ impl DocValuesFieldInner {
       docs_iter: None,
     })
   }
-  pub(crate) fn resize(&mut self, size: i32) -> Result<()> {
-    self.docs = self.docs.resize(size as usize)?;
+  pub(crate) fn resize(&mut self, size: usize) -> Result<()> {
+    self.docs = self.docs.resize(size)?;
     Ok(())
   }
-  pub(crate) fn grow(&mut self, size: i32) -> Result<()> {
-    let result = self.docs.grow_with_size(size as usize)?;
+  pub(crate) fn grow(&mut self, size: usize) -> Result<()> {
+    let result = self.docs.grow_with_size(size)?;
     if let Some(docs) = result {
       self.docs = docs;
     }
@@ -217,8 +217,8 @@ where
     let size = inner.size;
     // shrink wrap
     if inner.size < inner.docs.size() {
-      inner.resize(size as i32)?;
-      self.sub_update.resize(size as i32)?;
+      inner.resize(size)?;
+      self.sub_update.resize(size)?;
     }
 
     if inner.size > 0 {
@@ -235,7 +235,7 @@ where
         PackedInts::DEFAULT,
       )?;
       for i in 0..inner.size {
-        ords.set(i as i32, i as i64)?;
+        ords.set(i, i as i64)?;
       }
       let mut sorter = IntroSorterImpl {
         ords: &mut ords,
@@ -286,8 +286,8 @@ where
     }
     // grow the structures to have room for more elements
     if inner.docs.size() == size {
-      inner.grow(size as i32 + 1)?;
-      self.sub_update.grow(size as i32 + 1)?;
+      inner.grow(size + 1)?;
+      self.sub_update.grow(size + 1)?;
     }
     let value = ((doc as i64) << 1) | has_value_mask;
     inner.docs.set(size, value)?;
@@ -344,10 +344,10 @@ pub(crate) trait DocValuesFieldUpdatesBase: Accountable {
   fn swap(&mut self, _i: usize, _j: usize) -> Result<()> {
     Err(LuceneError::not_implemented(""))
   }
-  fn grow(&mut self, _size: i32) -> Result<()> {
+  fn grow(&mut self, _size: usize) -> Result<()> {
     Err(LuceneError::not_implemented(""))
   }
-  fn resize(&mut self, _size: i32) -> Result<()> {
+  fn resize(&mut self, _size: usize) -> Result<()> {
     Ok(())
   }
   fn reset(&mut self, _doc: i32) -> Result<()> {
@@ -476,7 +476,7 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
     }
   }
 
-  fn grow(&mut self, _size: i32) -> Result<()> {
+  fn grow(&mut self, _size: usize) -> Result<()> {
     match self {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.grow(_size),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.grow(_size),
@@ -486,7 +486,7 @@ impl DocValuesFieldUpdatesBase for DocValuesFieldUpdatesBaseEnum {
     }
   }
 
-  fn resize(&mut self, _size: i32) -> Result<()> {
+  fn resize(&mut self, _size: usize) -> Result<()> {
     match self {
       DocValuesFieldUpdatesBaseEnum::Numeric(n) => n.resize(_size),
       DocValuesFieldUpdatesBaseEnum::Binary(b) => b.resize(_size),
@@ -587,8 +587,8 @@ where
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     let tmp_ord = self.ords.get(i);
     let value = self.ords.get(j);
-    self.ords.set(i.try_convert()?, value)?;
-    self.ords.set(j.try_convert()?, tmp_ord)?;
+    self.ords.set(i, value)?;
+    self.ords.set(j, tmp_ord)?;
     self.inner.swap(i, j)?;
     self.sub_update.swap(i, j)?;
     Ok(())

@@ -48,14 +48,18 @@ impl Outputs for IntSequenceOutputs {
     let a = &output1.ints[output1.offset..output1.offset + output1.length];
     let b = &output2.ints[output2.offset..output2.offset + output2.length];
 
-    let mismatch = CoreHelper::miss_match_i32(a, b);
+    let mismatch = match CoreHelper::miss_match_i32(a, b) {
+      -1 => return output1.clone(),     // exactly equals
+      0 => return self.get_no_output(), // no common prefix
+      n => n as usize,
+    };
 
-    match mismatch {
-      -1 => output1.clone(),     // exactly equals
-      0 => self.get_no_output(), // no common prefix
-      n if n as usize == output1.length => output1.clone(),
-      n if n as usize == output2.length => output2.clone(),
-      n => IntsRef::from_slice(Arc::new(a[..n as usize].to_vec()), 0, n as usize),
+    if mismatch == output1.length {
+      output1.clone()
+    } else if mismatch == output2.length {
+      output2.clone()
+    } else {
+      IntsRef::from_slice(Arc::new(a[..mismatch].to_vec()), 0, mismatch)
     }
   }
 
@@ -115,15 +119,15 @@ impl Outputs for IntSequenceOutputs {
   where
     DI: DataInput,
   {
-    let len = input.read_vint()?;
+    let len = input.read_vint()? as usize;
     if len == 0 {
       Ok(self.get_no_output())
     } else {
-      let mut buf = vec![0; len as usize];
-      for item in buf.iter_mut().take(len as usize) {
+      let mut buf = vec![0; len];
+      for item in buf.iter_mut().take(len) {
         *item = input.read_vint()?;
       }
-      Ok(IntsRef::from_slice(Arc::new(buf), 0, len as usize))
+      Ok(IntsRef::from_slice(Arc::new(buf), 0, len))
     }
   }
 

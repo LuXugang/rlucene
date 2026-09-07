@@ -176,7 +176,7 @@ impl CheckSegmentCount {
   {
     self.indexing_count.store(0, Ordering::SeqCst);
     self.max_thread_count_per_iter.store(
-      TestUtil::next_int(random, 1, MAX_THREADS_AT_ONCE as i32) as usize,
+      TestUtil::next_usize(random, 1, MAX_THREADS_AT_ONCE),
       Ordering::SeqCst,
     );
   }
@@ -278,7 +278,7 @@ fn test_many_threads_close() -> Result<()> {
   TestUtil::reduce_open_files(&writer.w)?;
   writer.set_do_random_force_merge(false);
   let w = Arc::new(writer);
-  let num_threads = TestUtil::next_int(&mut random, 4, 30) as usize;
+  let num_threads = TestUtil::next_usize(&mut random, 4, 30);
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
 
   thread::scope(|scope| -> Result<()> {

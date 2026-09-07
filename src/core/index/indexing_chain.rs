@@ -739,10 +739,11 @@ where
       while let Some(index) = fp_idx {
         let fp0 = &mut self.per_fields[index];
         let next_fp0 = fp0.next;
-        let hash_pos2 = CoreHelper::calculate_hash(&fp0.field_name) & new_hash_mask as u64;
-        let idx = new_hash_array[hash_pos2 as usize];
+        let hash_pos2 =
+          (CoreHelper::calculate_hash(&fp0.field_name) & new_hash_mask as u64) as usize;
+        let idx = new_hash_array[hash_pos2];
         fp0.next = idx;
-        new_hash_array[hash_pos2 as usize] = Some(index);
+        new_hash_array[hash_pos2] = Some(index);
         fp_idx = next_fp0;
       }
     }

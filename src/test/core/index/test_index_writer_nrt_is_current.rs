@@ -64,7 +64,7 @@ fn test_is_current_with_threads() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), conf)?;
   let holder = Arc::new(ReaderHolder::new());
   let num_reader_threads = if is_night_mode() {
-    TestUtil::next_int(&mut random, 2, 5) as usize
+    TestUtil::next_usize(&mut random, 2, 5)
   } else {
     2
   };

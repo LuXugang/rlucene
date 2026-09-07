@@ -43,7 +43,7 @@ fn do_test_select<R>(random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let from = random.random_range(0..5) as usize;
+  let from = TestUtil::next_usize(random, 0, 4);
   let to = from + TestUtil::next_usize(random, 1, 10000);
   let max_len = TestUtil::next_usize(random, 1, 12);
   let arr_len = from + to + random.random_range(0..5);

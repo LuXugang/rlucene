@@ -1245,7 +1245,7 @@ impl<D: Directory> StoredFieldsWriter for CodecStoredFieldsWriter<D> {
     &mut self,
     field_info: &FieldInfo,
     input: &mut DI,
-    length: i32,
+    length: usize,
   ) -> Result<()>
   where
     DI: DataInput,

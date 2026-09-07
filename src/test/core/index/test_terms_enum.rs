@@ -23,7 +23,7 @@ use crate::core::index::automaton_terms_enum::AutomatonTermsEnum;
 use crate::core::index::index_reader::{IndexReader, IndexReaderContextKind};
 use crate::core::index::index_writer::MAX_TERM_LENGTH;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
+  at_least, at_least_usize, get_only_leaf_reader, new_bytes_ref_from_string, new_directory_shared,
   new_index_writer_config_with_analyzer, new_string_field, new_text_field, random,
   random_from_seed, random_multiplier,
 };
@@ -708,8 +708,8 @@ where
 #[test]
 fn test_random_terms() -> Result<()> {
   let mut random = random();
-  let upper = at_least(&mut random, 1000);
-  let terms_len = TestUtil::next_int(&mut random, 1, upper) as usize;
+  let upper = at_least_usize(&mut random, 1000);
+  let terms_len = TestUtil::next_usize(&mut random, 1, upper);
   let mut terms: Vec<String> = Vec::with_capacity(terms_len);
   let mut seen: HashSet<String> = HashSet::with_capacity(terms_len);
 
@@ -1097,7 +1097,7 @@ fn test_varying_terms_per_segment() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let mut terms: HashSet<BytesRef<Vec<u8>>> = HashSet::new();
-  let max_terms = at_least(&mut random, 1000) as usize;
+  let max_terms = at_least_usize(&mut random, 1000);
   while terms.len() < max_terms {
     let term = TestUtil::random_simple_string_range(&mut random, 1, 40);
     terms.insert(BytesRef::from_string(&term));

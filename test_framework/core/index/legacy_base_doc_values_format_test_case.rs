@@ -1743,7 +1743,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let num_docs = at_least(random, 100);
     let mut doc_to_string = HashMap::new();
     let mut all_values = Vec::new();
-    let max_length = TestUtil::next_int(random, 1, 50) as usize;
+    let max_length = TestUtil::next_usize(random, 1, 50);
     let mut field_to_type = HashMap::new();
 
     for i in 0..num_docs {
@@ -2420,7 +2420,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
   {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
-      let fixed_length = TestUtil::next_int(random, 0, 10) as usize;
+      let fixed_length = TestUtil::next_usize(random, 0, 10);
       self.do_test_binary_vs_stored_fields(random, density, &mut |r| {
         let mut buffer = vec![0u8; fixed_length];
         r.fill_bytes(&mut buffer);
@@ -2579,7 +2579,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
   {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
-      let fixed_length = TestUtil::next_int(random, 1, 10);
+      let fixed_length = TestUtil::next_usize(random, 1, 10);
       let num_docs = at_least(random, 300);
       self.do_test_sorted_vs_stored_fields(random, num_docs, 1.0, fixed_length, fixed_length)?;
     }
@@ -2592,7 +2592,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
   {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
-      let fixed_length = TestUtil::next_int(random, 1, 10);
+      let fixed_length = TestUtil::next_usize(random, 1, 10);
       let density = random.random::<f64>();
       let num_docs = at_least(random, 300);
       self.do_test_sorted_vs_stored_fields(
@@ -2635,14 +2635,14 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     random: &mut R,
     num_docs: i32,
     density: f64,
-    min_length: i32,
-    max_length: i32,
+    min_length: usize,
+    max_length: usize,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
     self.do_test_sorted_vs_stored_fields_bytes(random, num_docs, density, &mut |r| {
-      let length = TestUtil::next_int(r, min_length, max_length) as usize;
+      let length = TestUtil::next_usize(r, min_length, max_length);
       let mut buffer = vec![0u8; length];
       r.fill_bytes(&mut buffer);
       buffer
@@ -3375,9 +3375,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     &self,
     random: &mut R,
     num_docs: i32,
-    min_length: i32,
-    max_length: i32,
-    max_values_per_doc: i32,
+    min_length: usize,
+    max_length: usize,
+    max_values_per_doc: usize,
     max_unique_values: usize,
   ) -> Result<()>
   where
@@ -3393,7 +3393,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       if value_set.len() >= max_unique_values {
         break;
       }
-      let length = TestUtil::next_int(random, min_length, max_length) as usize;
+      let length = TestUtil::next_usize(random, min_length, max_length);
       value_set.insert(TestUtil::random_simple_string_range(random, length, length));
     }
     let unique_values = value_set.into_iter().collect::<Vec<_>>();
@@ -3408,7 +3408,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         Store::No,
         &mut field_to_type,
       )?);
-      let num_values = TestUtil::next_int(random, 0, max_values_per_doc) as usize;
+      let num_values = TestUtil::next_usize(random, 0, max_values_per_doc);
       let mut values = BTreeSet::new();
       for _ in 0..num_values {
         values.insert(unique_values.choose(random).unwrap().clone());
@@ -3460,7 +3460,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
   {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
-      let fixed_length = TestUtil::next_int(random, 1, 10);
+      let fixed_length = TestUtil::next_usize(random, 1, 10);
       let num_docs = at_least(random, 300);
       self.do_test_sorted_set_vs_stored_fields(
         random,
@@ -3523,7 +3523,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let values_len = TestUtil::next_int(random, 2, 6) as usize;
+    let values_len = TestUtil::next_usize(random, 2, 6);
     let mut values = vec![0_i64; values_len];
     for value in &mut values {
       *value = random.random::<i64>();
@@ -3560,7 +3560,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
   {
     let num_iterations = at_least(random, 1);
     for _ in 0..num_iterations {
-      let fixed_length = TestUtil::next_int(random, 1, 10);
+      let fixed_length = TestUtil::next_usize(random, 1, 10);
       let num_docs = at_least(random, 300);
       self.do_test_sorted_set_vs_stored_fields(
         random,
@@ -4042,7 +4042,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
       let mut doc = Document::new();
       doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
 
-      let length = TestUtil::next_int(random, 0, 8) as usize;
+      let length = TestUtil::next_usize(random, 0, 8);
       let mut buffer = vec![0u8; length];
       random.fill(&mut buffer[..]);
       let bytes_ref = if buffer.is_empty() {
@@ -4147,7 +4147,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
     let num_docs = TestUtil::next_int(random, 1025, 2047);
     for i in 0..num_docs {
-      let length = TestUtil::next_int(random, 0, 8) as usize;
+      let length = TestUtil::next_usize(random, 0, 8);
       let mut buffer = vec![0u8; length];
       random.fill(&mut buffer[..]);
       let bytes_ref = if buffer.is_empty() {

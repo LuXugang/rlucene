@@ -58,9 +58,9 @@ use crate::test_framework::core::index::base_index_file_format_test_case::{
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::index::term_vectors::RandomTokenStreamAttr;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, expect_panic, get_only_leaf_reader, is_night_mode, new_bytes_ref_from_bytes,
-  new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  random_from_seed, rarely,
+  at_least, at_least_usize, expect_panic, get_only_leaf_reader, is_night_mode,
+  new_bytes_ref_from_bytes, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, random_from_seed, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
@@ -139,7 +139,7 @@ pub trait BaseTermVectorsFormatTestCase:
       let empty_doc = Document::new();
       let dir = new_directory_shared(random)?;
       let writer = RandomIndexWriter::new(random, dir)?;
-      let field_count = TestUtil::next_int(random, 1, 3) as usize;
+      let field_count = TestUtil::next_usize(random, 1, 3);
       let doc = doc_factory.new_document(random, field_count, 20, options)?;
       for i in 0..num_docs {
         if i == doc_with_vectors {
@@ -190,8 +190,8 @@ pub trait BaseTermVectorsFormatTestCase:
       }
       let dir = new_directory_shared(_random)?;
       let writer = RandomIndexWriter::new(_random, dir)?;
-      let field_count = TestUtil::next_int(_random, 1, 2) as usize;
-      let max_term_count = at_least(_random, 2000) as usize;
+      let field_count = TestUtil::next_usize(_random, 1, 2);
+      let max_term_count = at_least_usize(_random, 2000);
       let doc = doc_factory.new_document(_random, field_count, max_term_count, options)?;
       writer.add_document(_random, doc.to_document()?)?;
       let reader = writer.get_reader(_random)?;
@@ -214,15 +214,15 @@ pub trait BaseTermVectorsFormatTestCase:
     R: Rng + ?Sized,
   {
     let field_count = if is_night_mode() {
-      at_least(_random, 100)
+      at_least_usize(_random, 100)
     } else {
-      at_least(_random, 10)
-    } as usize;
+      at_least_usize(_random, 10)
+    };
     let doc_factory = RandomDocumentFactory::new(_random, field_count, 10);
     for options in self.valid_options() {
       let dir = new_directory_shared(_random)?;
       let writer = RandomIndexWriter::new(_random, dir)?;
-      let doc_field_count = TestUtil::next_int(_random, 5, field_count as i32) as usize;
+      let doc_field_count = TestUtil::next_usize(_random, 5, field_count);
       let doc = doc_factory.new_document(_random, doc_field_count, 5, options)?;
       writer.add_document(_random, doc.to_document()?)?;
       let reader = writer.get_reader(_random)?;
@@ -244,7 +244,7 @@ pub trait BaseTermVectorsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let num_fields = TestUtil::next_int(_random, 1, 3) as usize;
+    let num_fields = TestUtil::next_usize(_random, 1, 3);
     let doc_factory = RandomDocumentFactory::new(_random, num_fields, 10);
     for options1 in self.valid_options() {
       for options2 in self.valid_options() {
@@ -293,11 +293,11 @@ pub trait BaseTermVectorsFormatTestCase:
     R: Rng + ?Sized,
   {
     let doc_factory = RandomDocumentFactory::new(_random, 5, 20);
-    let num_docs = at_least(_random, 50) as usize;
+    let num_docs = at_least_usize(_random, 50);
     let mut docs = Vec::with_capacity(num_docs);
     for _ in 0..num_docs {
-      let field_count = TestUtil::next_int(_random, 1, 3) as usize;
-      let max_term_count = TestUtil::next_int(_random, 10, 50) as usize;
+      let field_count = TestUtil::next_usize(_random, 1, 3);
+      let max_term_count = TestUtil::next_usize(_random, 10, 50);
       let options = self.random_options(_random);
       docs.push(doc_factory.new_document(_random, field_count, max_term_count, options)?);
     }
@@ -335,15 +335,15 @@ pub trait BaseTermVectorsFormatTestCase:
   {
     let doc_factory = RandomDocumentFactory::new(random, 5, 20);
     let num_docs = if is_night_mode() {
-      at_least(random, 100)
+      at_least_usize(random, 100)
     } else {
-      at_least(random, 10)
-    } as usize;
+      at_least_usize(random, 10)
+    };
     for options in self.valid_options() {
       let mut docs = HashMap::new();
       for i in 0..num_docs {
-        let field_count = TestUtil::next_int(random, 1, 3) as usize;
-        let max_term_count = at_least(random, 10) as usize;
+        let field_count = TestUtil::next_usize(random, 1, 3);
+        let max_term_count = at_least_usize(random, 10);
         docs.insert(
           i.to_string(),
           doc_factory.new_document(random, field_count, max_term_count, options)?,
@@ -484,12 +484,12 @@ pub trait BaseTermVectorsFormatTestCase:
     R: Rng + ?Sized,
   {
     let doc_factory = RandomDocumentFactory::new(random, 5, 20);
-    let num_docs = at_least(random, 50) as usize;
+    let num_docs = at_least_usize(random, 50);
     for options in self.valid_options() {
       let mut docs = Vec::with_capacity(num_docs);
       for _ in 0..num_docs {
-        let field_count = TestUtil::next_int(random, 1, 3) as usize;
-        let max_term_count = at_least(random, 10) as usize;
+        let field_count = TestUtil::next_usize(random, 1, 3);
+        let max_term_count = at_least_usize(random, 10);
         docs.push(doc_factory.new_document(random, field_count, max_term_count, options)?);
       }
       let dir = new_directory_shared(random)?;
@@ -2075,7 +2075,7 @@ impl RandomDocument {
       };
       doc_field_names.push(field_name);
       doc_field_types.push(field_type(options)?);
-      let term_count = TestUtil::next_int(random, 1, max_term_count as i32) as usize;
+      let term_count = TestUtil::next_usize(random, 1, max_term_count);
       token_streams.push(RandomTokenStream::new(
         random,
         term_count,

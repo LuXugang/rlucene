@@ -52,7 +52,7 @@ impl TestLucene90PointsFormat {
     let default_codec = TestUtil::get_default_codec();
     if random.random_bool(0.5) {
       // randomize parameters
-      let max_points_in_leaf_node = TestUtil::next_int(random, 50, 500) as usize;
+      let max_points_in_leaf_node = TestUtil::next_usize(random, 50, 500);
       let max_mb_sort_in_heap = 3.0 + (3.0 * random.random::<f64>());
       if cfg!(feature = "test_log_verbose") {
         println!(

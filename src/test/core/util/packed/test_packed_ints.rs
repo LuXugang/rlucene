@@ -217,14 +217,14 @@ fn test_packed_ints() -> Result<()> {
             for k in 0..next.length {
               assert_eq!(
                 values[i + k],
-                next.longs[(next.offset + k) as usize],
+                next.longs[next.offset + k],
                 "index={}, value_count={}, nbits={}",
                 i,
                 value_count,
                 nbits
               );
             }
-            i += next.length as usize;
+            i += next.length;
           }
         }
         assert_eq!(fp, input.get_file_pointer()? as i64);
@@ -333,22 +333,22 @@ fn test_random_bulk_copy() -> Result<()> {
     let mut packed2 = PackedInts::get_mutable(value_count, bits2, PackedInts::COMPACT)?;
 
     let max_value = PackedInts::max_value(bits1);
-    for i in 0..value_count {
+    for i in 0..packed1.size() {
       let val = TestUtil::next_long(&mut random, 0, max_value);
       packed1.set(i, val)?;
       packed2.set(i, val)?;
     }
 
-    let mut buffer = vec![0i64; value_count as usize];
+    let mut buffer = vec![0i64; packed1.size()];
 
     // Copy random slices over 20 times:
     for _ in 0..20 {
-      let start = random.random_range(0..value_count - 1);
-      let len = TestUtil::next_int(&mut random, 1, value_count - start);
-      let offset = if len == value_count {
+      let start = TestUtil::next_usize(&mut random, 0, buffer.len() - 2);
+      let len = TestUtil::next_usize(&mut random, 1, buffer.len() - start);
+      let offset = if len == buffer.len() {
         0
       } else {
-        random.random_range(0..(value_count - len))
+        TestUtil::next_usize(&mut random, 0, buffer.len() - len - 1)
       };
 
       if random.random_bool(0.5) {
@@ -363,12 +363,12 @@ fn test_random_bulk_copy() -> Result<()> {
           &mut packed2,
           offset,
           len,
-          random.random_range(1..=(10 * len)),
+          TestUtil::next_usize(&mut random, 1, 10 * len),
         )?;
       }
     }
 
-    for i in 0..value_count as usize {
+    for i in 0..packed1.size() {
       assert_eq!(
         packed1.get(i),
         packed2.get(i),
@@ -433,7 +433,7 @@ fn fill(packed_int: &mut MutablePacked64Enum, bits_per_value: i32, seed: u64) ->
     };
 
     packed_int.set(i, value)?;
-    let retrieved_value = packed_int.get(i as usize);
+    let retrieved_value = packed_int.get(i);
 
     if value != retrieved_value {
       assert_eq!(
@@ -455,7 +455,7 @@ fn assert_list_equality_impl(message: &str, packed_ints: &mut [MutablePacked64En
     return Ok(());
   }
   let length: usize;
-  let value_count: i32;
+  let value_count: usize;
   {
     length = packed_ints.len();
     let base = &mut packed_ints[0];
@@ -470,7 +470,7 @@ fn assert_list_equality_impl(message: &str, packed_ints: &mut [MutablePacked64En
     }
   }
 
-  for i in 0..value_count as usize {
+  for i in 0..value_count {
     for j in 1..length {
       assert_eq!(
         packed_ints[0].get(i),
@@ -503,13 +503,13 @@ fn test_int_overflow() -> Result<()> {
 
   {
     let mut p64 = Packed64::new(INDEX, BITS);
-    p64.set(INDEX - 1, 1)?;
+    p64.set((INDEX - 1) as usize, 1)?;
     assert_eq!(p64.get((INDEX - 1) as usize), 1);
   }
 
   {
     let mut p64sb = create(INDEX, BITS)?;
-    p64sb.set(INDEX - 1, 1)?;
+    p64sb.set((INDEX - 1) as usize, 1)?;
     assert_eq!(p64sb.get((INDEX - 1) as usize), 1);
   }
   Ok(())
@@ -518,12 +518,12 @@ fn test_int_overflow() -> Result<()> {
 fn test_fill() -> Result<()> {
   let mut random = random();
   let value_count = 1111;
-  let from = random.random_range(0..value_count + 1);
-  let to = from + random.random_range(0..value_count + 1 - from);
+  let from = TestUtil::next_usize(&mut random, 0, value_count);
+  let to = TestUtil::next_usize(&mut random, from, value_count);
 
   for bpv in 1..=64 {
     let val = TestUtil::next_long(&mut random, 0, PackedInts::max_value(bpv));
-    let mut packed_ints = create_packed_ints(value_count, bpv)?;
+    let mut packed_ints = create_packed_ints(value_count as i32, bpv)?;
 
     for packed in &mut packed_ints {
       let msg = format!(
@@ -537,7 +537,7 @@ fn test_fill() -> Result<()> {
       for i in 0..packed.size() {
         let expected_value: i64 = if i >= from && i < to { val } else { 1 };
 
-        assert_eq!(packed.get(i as usize), expected_value, "{}: i={}", msg, i);
+        assert_eq!(packed.get(i), expected_value, "{}: i={}", msg, i);
       }
     }
   }
@@ -548,23 +548,23 @@ fn test_fill() -> Result<()> {
 fn test_packed_ints_null() -> Result<()> {
   let mut random = random();
   // must be > 10 for the bulk reads below
-  let size = TestUtil::next_int(&mut random, 11, 256);
-  let packed_ints = NullReader::for_count(size);
-  let random_index = TestUtil::next_int(&mut random, 0, size - 1).try_convert()?;
+  let size = TestUtil::next_usize(&mut random, 11, 256);
+  let packed_ints = NullReader::for_count(size as i32);
+  let random_index = TestUtil::next_usize(&mut random, 0, size - 1);
   assert_eq!(
     packed_ints.get(random_index),
     0,
     "The value at random index {} should be 0",
     random_index
   );
-  let mut arr = vec![1i64; (size + 10) as usize];
+  let mut arr = vec![1i64; size + 10];
   let r = packed_ints.get_bulk(0, &mut arr, 0, size - 1)?;
   assert_eq!(
     r,
     size - 1,
     "The number of values read should match size - 1"
   );
-  for (i, &value) in arr.iter().take(r as usize).enumerate() {
+  for (i, &value) in arr.iter().take(r).enumerate() {
     assert_eq!(value, 0, "The value at position {} should be 0", i);
   }
   arr.fill(1);
@@ -574,12 +574,8 @@ fn test_packed_ints_null() -> Result<()> {
     size - 10,
     "The number of values read should match size - 10"
   );
-  for i in 0..(size - 10) {
-    assert_eq!(
-      arr[i as usize], 0,
-      "The value at position {} should be 0",
-      i
-    );
+  for (i, &value) in arr[..size - 10].iter().enumerate() {
+    assert_eq!(value, 0, "The value at position {} should be 0", i);
   }
 
   Ok(())
@@ -604,21 +600,21 @@ fn test_bulk_get() -> Result<()> {
         "{} valueCount={}, index={}, len={}, off={}",
         ints, value_count, index, len, off
       );
-      let gets = ints.get_bulk(index as i32, &mut arr, off as i32, len as i32)?;
+      let gets = ints.get_bulk(index, &mut arr, off, len)?;
       assert!(gets > 0, "{}: gets should be greater than 0", msg);
       assert!(
-        gets <= len as i32,
+        gets <= len,
         "{}: gets should be less than or equal to len",
         msg
       );
       assert!(
-        gets <= (ints.size() - index as i32),
+        gets <= (ints.size() - index),
         "{}: gets should be less than or equal to remaining values",
         msg
       );
       for (i, &item) in arr.iter().enumerate() {
         let m = format!("{}, i={}", msg, i);
-        if i >= off && i < off + gets as usize {
+        if i >= off && i < off + gets {
           assert_eq!(
             ints.get(i - off + index),
             item,
@@ -656,16 +652,16 @@ fn test_bulk_set() -> Result<()> {
         "{} valueCount={}, index={}, len={}, off={}",
         ints, value_count, index, len, off
       );
-      let sets = ints.set_bulk(index as i32, &arr, off as i32, len as i32)?;
+      let sets = ints.set_bulk(index, &arr, off, len)?;
       assert!(sets > 0, "{}: gets should be greater than 0", msg);
       assert!(
-        sets <= len as i32,
+        sets <= len,
         "{}: gets should be less than or equal to len",
         msg
       );
-      for i in 0..ints.size() as usize {
+      for i in 0..ints.size() {
         let m = format!("{}, i={}", msg, i);
-        if i >= index && i < index + sets as usize {
+        if i >= index && i < index + sets {
           assert_eq!(
             ints.get(i),
             arr[(off as isize - index as isize + i as isize) as usize],
@@ -689,18 +685,22 @@ fn test_bulk_set() -> Result<()> {
 #[test]
 fn test_copy() -> Result<()> {
   let mut random = random();
-  let value_count = TestUtil::next_int(&mut random, 5, 600);
-  let off1 = random.random_range(0..value_count);
-  let off2 = random.random_range(0..value_count);
-  let len = random.random_range(0..(value_count - off1).min(value_count - off2));
-  let mem = random.random_range(0..1024);
+  let value_count = TestUtil::next_usize(&mut random, 5, 600);
+  let off1 = TestUtil::next_usize(&mut random, 0, value_count - 1);
+  let off2 = TestUtil::next_usize(&mut random, 0, value_count - 1);
+  let len = TestUtil::next_usize(
+    &mut random,
+    0,
+    (value_count - off1).min(value_count - off2) - 1,
+  );
+  let mem = TestUtil::next_usize(&mut random, 0, 1023);
   for bpv in 1..=64 {
     let mask = PackedInts::max_value(bpv);
-    for mut r1 in create_packed_ints(value_count, bpv)? {
+    for mut r1 in create_packed_ints(value_count as i32, bpv)? {
       for i in 0..r1.size() {
         r1.set(i, (31 * i as i64 - 1023) & mask)?;
       }
-      for mut r2 in create_packed_ints(value_count, bpv)? {
+      for mut r2 in create_packed_ints(value_count as i32, bpv)? {
         let msg = format!(
           "src={}, dest={}, srcPos={}, destPos={}, len={}, mem={}",
           r1, r2, off1, off2, len, mem
@@ -710,15 +710,15 @@ fn test_copy() -> Result<()> {
           let m = format!("{}, i={}", msg, i);
           if i >= off2 && i < off2 + len {
             assert_eq!(
-              r1.get((i - off2 + off1).try_convert()?),
-              r2.get(i as usize),
+              r1.get(i - off2 + off1),
+              r2.get(i),
               "{}: Values mismatch at index {}",
               m,
               i
             );
           } else {
             assert_eq!(
-              r2.get(i as usize),
+              r2.get(i),
               0,
               "{}: Unexpected non-zero value at index {}",
               m,
@@ -735,36 +735,36 @@ fn test_copy() -> Result<()> {
 #[test]
 fn test_growable_writer() -> Result<()> {
   let mut random = random();
-  let value_count = 113 + random.random_range(0..1111);
+  let value_count = TestUtil::next_usize(&mut random, 113, 1223);
 
-  let mut wrt = GrowableWriter::new(1, value_count, PackedInts::DEFAULT)?;
+  let mut wrt = GrowableWriter::new(1, value_count as i32, PackedInts::DEFAULT)?;
 
   wrt.set(4, 2)?;
   wrt.set(7, 10)?;
   wrt.set(value_count - 10, 99)?;
   wrt.set(99, 999)?;
   wrt.set(value_count - 1, 1 << 10)?;
-  assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
+  assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
   wrt.set(99, (1 << 23) - 1)?;
-  assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
+  assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
   wrt.set(1, i64::MAX)?;
   wrt.set(2, -3)?;
   assert_eq!(wrt.get_bits_per_value(), 64);
-  assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
+  assert_eq!(wrt.get(value_count - 1), 1 << 10);
   assert_eq!(wrt.get(1), i64::MAX);
   assert_eq!(wrt.get(2), -3);
   assert_eq!(wrt.get(4), 2);
   assert_eq!(wrt.get(99), (1 << 23) - 1);
   assert_eq!(wrt.get(7), 10);
-  assert_eq!(wrt.get((value_count - 10).try_convert()?), 99);
-  assert_eq!(wrt.get((value_count - 1).try_convert()?), 1 << 10);
+  assert_eq!(wrt.get(value_count - 10), 99);
+  assert_eq!(wrt.get(value_count - 1), 1 << 10);
 
   // At 64 bits per value, the only owned allocation is the value buffer.
   assert_eq!(
     wrt.ram_bytes_used()?,
-    i64::from(value_count) * size_of::<i64>() as i64
+    value_count as i64 * size_of::<i64>() as i64
   );
 
   Ok(())
@@ -821,8 +821,8 @@ fn test_paged_growable_writer() -> Result<()> {
   // and each buffer independently of Accountable, without JVM object overhead.
   let mut expected_bytes = writer.sub_mutables.len() * size_of::<MutableEnum>();
   for page in &writer.sub_mutables {
-    expected_bytes += (page.size() as usize * page.get_bits_per_value() as usize).div_ceil(64)
-      * BitUtil::LONG_BYTES;
+    expected_bytes +=
+      (page.size() * page.get_bits_per_value() as usize).div_ceil(64) * BitUtil::LONG_BYTES;
   }
   assert_eq!(writer.ram_bytes_used()?, expected_bytes as i64);
 
@@ -900,8 +900,8 @@ fn test_paged_mutable() -> Result<()> {
   // and each buffer independently of Accountable, without JVM object overhead.
   let mut expected_bytes = writer.sub_mutables.len() * size_of::<MutableEnum>();
   for page in &writer.sub_mutables {
-    expected_bytes += (page.size() as usize * page.get_bits_per_value() as usize).div_ceil(64)
-      * BitUtil::LONG_BYTES;
+    expected_bytes +=
+      (page.size() * page.get_bits_per_value() as usize).div_ceil(64) * BitUtil::LONG_BYTES;
   }
   assert_eq!(writer.ram_bytes_used()?, expected_bytes as i64);
 
@@ -992,9 +992,9 @@ fn test_encode_decode() -> Result<()> {
         byte_iterations * byte_value_count
       );
 
-      let blocks_offset = random.random_range(0..100) as usize;
-      let values_offset = random.random_range(0..100) as usize;
-      let blocks_offset2 = random.random_range(0..100) as usize;
+      let blocks_offset = TestUtil::next_usize(&mut random, 0, 99);
+      let values_offset = TestUtil::next_usize(&mut random, 0, 99);
+      let blocks_offset2 = TestUtil::next_usize(&mut random, 0, 99);
       let blocks_len = (long_iterations * long_block_count) as usize;
 
       // 1. generate random inputs
@@ -1217,7 +1217,7 @@ fn test_packed_long_values() -> Result<()> {
       // for data_type in [DataType::Packed].iter() {
       let page_size = 1 << TestUtil::next_int(&mut random, 6, 20);
       let acceptable_overhead_ratio =
-        ratio_options[TestUtil::next_int(&mut random, 0, ratio_options.len() as i32 - 1) as usize];
+        ratio_options[TestUtil::next_usize(&mut random, 0, ratio_options.len() - 1)];
 
       let mut buf: Builder;
       let inc: i64;
@@ -1390,11 +1390,8 @@ fn test_block_packed_reader_writer() -> Result<()> {
         } else {
           let next_values =
             it.next_batch(TestUtil::next_usize(&mut random, 1, 1024), &mut in_ref)?;
-          for j in 0..next_values.length as usize {
-            assert_eq!(
-              values[i + j],
-              next_values.longs[j + next_values.offset as usize]
-            );
+          for j in 0..next_values.length {
+            assert_eq!(values[i + j], next_values.longs[j + next_values.offset]);
           }
           i += next_values.length;
         }
@@ -1438,10 +1435,7 @@ fn test_block_packed_reader_writer() -> Result<()> {
         } else {
           let next_values = it.next_batch(random.random_range(1..=1024), &mut in_ref)?;
           for j in 0..next_values.length {
-            assert_eq!(
-              values[i + j],
-              next_values.longs[(j + next_values.offset) as usize]
-            );
+            assert_eq!(values[i + j], next_values.longs[j + next_values.offset]);
           }
           i += next_values.length;
         }

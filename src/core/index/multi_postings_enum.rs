@@ -59,8 +59,8 @@ impl<PE> MultiPostingsEnum<PE> {
     self.parent == *other
   }
   /// Re-use and reset this instance on the provided slices.
-  pub fn reset(&mut self, subs: &[EnumWithSlice], num_subs: i32) {
-    self.num_subs = num_subs as usize;
+  pub fn reset(&mut self, subs: &[EnumWithSlice], num_subs: usize) {
+    self.num_subs = num_subs;
 
     for (i, sub) in subs.iter().enumerate().take(self.num_subs) {
       self.subs[i].postings_enum_idx = sub.postings_enum_idx;
@@ -73,8 +73,8 @@ impl<PE> MultiPostingsEnum<PE> {
   }
 
   /// How many sub-readers we are merging.
-  pub fn get_num_subs(&self) -> i32 {
-    self.num_subs as i32
+  pub fn get_num_subs(&self) -> usize {
+    self.num_subs
   }
 
   /// Returns sub-readers we are merging.

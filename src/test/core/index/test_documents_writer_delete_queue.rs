@@ -50,8 +50,8 @@ struct TestDocumentsWriterDeleteQueue;
 fn test_update_delete_slices() -> Result<()> {
   let mut random = random();
   let queue = DocumentsWriterDeleteQueue::new(get_default_info_stream());
-  let size = 200 + random.random_range(0..500) * random_multiplier();
-  let mut ids: Vec<i32> = Vec::with_capacity(size as usize);
+  let size = (200 + random.random_range(0..500) * random_multiplier()) as usize;
+  let mut ids: Vec<i32> = Vec::with_capacity(size);
   for _ in 0..size {
     ids.push(random.random());
   }
@@ -71,14 +71,14 @@ fn test_update_delete_slices() -> Result<()> {
     ))));
     queue.add(node.clone())?;
     queue.try_apply_global_slice()?;
-    if random.random_range(0..20) == 0 || j == (size - 1) as usize {
+    if random.random_range(0..20) == 0 || j == size - 1 {
       queue.update_slice(&mut slice1)?;
       assert!(slice1.is_tail_item(&node.item));
       slice1.apply(&mut bd1, j as i32)?;
       test_assert_all_between(last1 as i32, j as i32, &mut bd1, &ids)?;
       last1 = j + 1;
     }
-    if random.random_range(0..10) == 5 || j == size as usize - 1 {
+    if random.random_range(0..10) == 5 || j == size - 1 {
       queue.update_slice(&mut slice2)?;
       assert!(slice2.is_tail_item(&node.item));
       slice2.apply(&mut bd2, j as i32)?;

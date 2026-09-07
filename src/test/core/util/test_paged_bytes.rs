@@ -265,7 +265,7 @@ fn test_overflow() -> Result<()> {
 fn test_ram_bytes_used() -> Result<()> {
   // TODO 未实现RamUsageTester
   let mut random = random();
-  let block_bits = TestUtil::next_int(&mut random, 4, 22) as usize;
+  let block_bits = TestUtil::next_usize(&mut random, 4, 22);
   let block_size = 1usize << block_bits;
   let max_total_bytes = 10_000usize.min(block_size.saturating_mul(8).saturating_sub(12));
   let total_bytes = random.random_range(0..max_total_bytes);

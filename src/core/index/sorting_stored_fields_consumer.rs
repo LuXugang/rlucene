@@ -210,7 +210,7 @@ where
     &mut self,
     field_info: Arc<FieldInfo>,
     input: &mut DI,
-    length: i32,
+    length: usize,
     _writer: Option<&mut S1>,
   ) -> Result<()>
   where
@@ -370,11 +370,12 @@ impl Decompressor for DecompressorImpl {
   where
     DI: DataInput,
   {
-    ArrayUtil::grow_no_copy(&mut bytes.bytes, length as usize)?;
+    let length = length as usize;
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, length)?;
     input.skip_bytes(offset as i64)?;
-    input.read_bytes(&mut bytes.bytes, 0, length as usize)?;
+    input.read_bytes(&mut bytes.bytes, 0, length)?;
     bytes.offset = 0;
-    bytes.length = length as usize;
+    bytes.length = length;
     Ok(())
   }
 }

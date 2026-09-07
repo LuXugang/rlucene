@@ -55,7 +55,7 @@ impl ByteBuffersDataOutput {
   pub const LIMIT_MAX_BITS_PER_BLOCK: i32 = 31;
   ///Maximum number of blocks at the current `blockBits` block size before we
   /// increase the block size (and thus decrease the number of blocks).
-  pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: i32 = 100;
+  pub const MAX_BLOCKS_BEFORE_BLOCK_EXPANSION: usize = 100;
   ///Default `maxBitsPerBlock`
   pub const DEFAULT_MAX_BITS_PER_BLOCK: i32 = 26;
   /// Default `minBitsPerBlock`
@@ -135,7 +135,7 @@ impl ByteBuffersDataOutput {
   }
 
   fn append_block(&mut self) -> Result<()> {
-    if self.blocks.len() > Self::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION as usize
+    if self.blocks.len() > Self::MAX_BLOCKS_BEFORE_BLOCK_EXPANSION
       && self.block_bits < self.max_bits_per_block
     {
       self.rewrite_to_block_size(self.block_bits + 1)?;

@@ -111,13 +111,14 @@ impl TermVectorsConsumerPerField {
   {
     let num_postings = self.base.get_num_terms();
     debug_assert!(num_postings >= 0);
+    let num_postings = num_postings as usize;
 
     self.base.sort_terms(byte_pool)?;
     let term_ids = self.base.get_sorted_term_ids();
 
     tv.start_field(
       &self.field_info,
-      num_postings as usize,
+      num_postings,
       self.do_vector_positions,
       self.do_vector_offsets,
       self.has_payloads,
@@ -131,8 +132,7 @@ impl TermVectorsConsumerPerField {
       PostingsArrayEnum::TermVectors(postings) => {
         let mut off_reader = ByteSliceReader::new(byte_pool);
         let mut pos_reader = ByteSliceReader::new(byte_pool);
-        for i in 0..num_postings {
-          let term_id = term_ids[i as usize];
+        for &term_id in &term_ids[..num_postings] {
           let freq = postings.freqs[term_id as usize];
           self.term_byte_pool.fill_bytes_ref(
             &mut flush_term,

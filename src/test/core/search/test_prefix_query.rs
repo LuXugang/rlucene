@@ -23,7 +23,7 @@ use crate::core::util::StringHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_searcher_with_reader, new_string_field,
+  at_least, at_least_usize, new_directory_shared, new_searcher_with_reader, new_string_field,
   new_string_field_binary, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -113,10 +113,10 @@ fn test_random_binary_prefix() -> Result<()> {
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
-  let num_terms = at_least(&mut random, 1000);
+  let num_terms = at_least_usize(&mut random, 1000);
   let mut terms = HashSet::new();
-  while terms.len() < num_terms as usize {
-    let len = TestUtil::next_int(&mut random, 1, 10) as usize;
+  while terms.len() < num_terms {
+    let len = TestUtil::next_usize(&mut random, 1, 10);
     let mut bytes = vec![0u8; len];
     random.fill_bytes(&mut bytes);
     terms.insert(BytesRef::from_bytes(bytes));

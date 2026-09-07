@@ -56,19 +56,18 @@ impl PostingsUtil {
     doc_out: &mut DO,
     doc_buffer: &mut [i32],
     freq_buffer: &[i32],
-    num: i32,
+    num: usize,
     write_freqs: bool,
   ) -> Result<()>
   where
     DO: DataOutput,
   {
     if write_freqs {
-      for i in 0..num as usize {
+      for i in 0..num {
         doc_buffer[i] = (doc_buffer[i] << 1) | if freq_buffer[i] == 1 { 1 } else { 0 };
       }
     }
     write_group_vints_i32(doc_out, doc_buffer, num)?;
-    let num = num as usize;
 
     if write_freqs {
       for &freq in freq_buffer.iter().take(num) {

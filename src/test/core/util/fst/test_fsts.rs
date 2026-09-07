@@ -20,7 +20,7 @@ use crate::core::document::string_field::StringField;
 use crate::core::index::{BytesRef, directory_reader};
 use crate::core::store::IO_CONTEXT_DEFAULT;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string,
+  at_least, at_least_usize, create_temp_dir_with_prefix, is_night_mode, new_bytes_ref_from_string,
   new_directory_shared, new_fs_directory, new_index_writer_config_with_analyzer,
   new_mock_directory, new_searcher_with_reader, random, random_from_seed, random_multiplier,
 };
@@ -413,8 +413,8 @@ fn test_random_words() -> Result<()> {
     dir: Rc::new(new_mock_directory(&mut random)?),
   };
   if is_night_mode() {
-    let num_iter = at_least(&mut random, 2);
-    test.test_random_words_impl(&mut random, 1000, num_iter as usize)
+    let num_iter = at_least_usize(&mut random, 2);
+    test.test_random_words_impl(&mut random, 1000, num_iter)
   } else {
     test.test_random_words_impl(&mut random, 100, 1)
   }
@@ -700,7 +700,7 @@ fn test_primary_keys() -> Result<()> {
 
     let mut id_field = StringField::from_string("id", "", Store::No)?;
 
-    let num_ids = at_least(&mut random, 200);
+    let num_ids = at_least_usize(&mut random, 200);
     if cfg!(feature = "test_log_verbose") {
       println!("TEST: NUM_IDS={}", num_ids);
     }
@@ -788,7 +788,7 @@ fn test_primary_keys() -> Result<()> {
         (id, None, exists)
       } else {
         // Pick ID between two IDs:
-        let idv = random.random_range(0..num_ids - 1) as usize;
+        let idv = TestUtil::next_usize(&mut random, 0, num_ids - 2);
         let (id, next_id) = if cycle == 0 {
           (format!("{:07}a", idv), format!("{:07}", idv + 1))
         } else {
@@ -923,9 +923,9 @@ fn test_expanded_close_to_root() -> Result<()> {
     fst: &FST<NoOutputs, F>,
     arc: &mut crate::core::util::fst_impl::fst::Arc<Arc<i64>>,
     depth: i32,
-  ) -> Result<i32> {
+  ) -> Result<usize> {
     if target_has_arcs(arc) {
-      let mut child_count = 0i32;
+      let mut child_count = 0usize;
       let mut fst_reader = fst.get_bytes_reader()?;
 
       fst.read_first_target_arc(&arc.clone(), arc, &mut fst_reader)?;
@@ -1333,7 +1333,7 @@ fn test_shortest_paths_wfst() {
 #[test]
 fn test_shortest_paths_random() -> Result<()> {
   let mut random = random();
-  let num_words = at_least(&mut random, 1000) as usize;
+  let num_words = at_least_usize(&mut random, 1000);
 
   let mut slow_completor = BTreeMap::new();
   let mut all_prefixes = BTreeSet::new();
@@ -1379,7 +1379,7 @@ fn test_shortest_paths_random() -> Result<()> {
       prefix_output += *arc.output();
     }
 
-    let top_n = TestUtil::next_int(&mut random, 1, 10) as usize;
+    let top_n = TestUtil::next_usize(&mut random, 1, 10);
 
     let r = Util::shortest_paths(
       &fst,

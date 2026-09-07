@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use std::clone::Clone;
 use std::io::Cursor;
 
@@ -203,7 +204,7 @@ fn test_backwards_byte_reads() -> Result<()> {
   let mut i = 2048;
   while i > 0 {
     assert_eq!(byten(i), RandomAccessInput::read_byte(&mut input, i)?);
-    let v = random.random_range(1..16) as usize;
+    let v = TestUtil::next_usize(&mut random, 1, 15);
     let next = i.saturating_sub(v);
     if next == 0 {
       break;
@@ -232,7 +233,7 @@ fn test_backwards_short_reads() -> Result<()> {
       expected_value,
       RandomAccessInput::read_short(&mut input, i)?
     );
-    let v = random.random_range(1..17) as usize;
+    let v = TestUtil::next_usize(&mut random, 1, 16);
     let next = i.saturating_sub(v);
     if next == 0 {
       break;
@@ -268,7 +269,7 @@ fn test_backwards_int_reads() -> Result<()> {
 
     let expected_value = i32::from_le_bytes(bb.try_into().unwrap());
     assert_eq!(expected_value, RandomAccessInput::read_int(&mut input, i)?);
-    let v = random.random_range(3..19) as usize;
+    let v = TestUtil::next_usize(&mut random, 3, 18);
     let next = i.saturating_sub(v);
     if next == 0 {
       break;
@@ -309,7 +310,7 @@ fn test_backwards_long_reads() -> Result<()> {
     let expected_value = i64::from_le_bytes(bb.try_into().unwrap());
     assert_eq!(expected_value, RandomAccessInput::read_long(&mut input, i)?);
 
-    let v = random.random_range(7..23) as usize;
+    let v = TestUtil::next_usize(&mut random, 7, 22);
     let next = i.saturating_sub(v);
     if next == 0 {
       break;

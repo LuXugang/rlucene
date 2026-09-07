@@ -49,7 +49,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 pub use crate::test_framework::core::search::query::RandomQuery;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_searcher_with_wrap, random,
+  at_least, at_least_usize, new_directory_shared, new_searcher_with_wrap, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -70,12 +70,12 @@ fn test_random_string_sort() -> Result<()> {
 
 fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
   let mut random = random();
-  let num_docs = at_least(&mut random, 100) as usize;
+  let num_docs = at_least_usize(&mut random, 100);
   let dir = new_directory_shared(&mut random)?;
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let allow_dups = random.random_bool(0.5);
   let mut seen = HashSet::new();
-  let max_length = TestUtil::next_int(&mut random, 5, 100) as usize;
+  let max_length = TestUtil::next_usize(&mut random, 5, 100);
 
   let mut num_docs_indexed = 0usize;
   let mut doc_values: Vec<Option<BytesRef<Vec<u8>>>> = Vec::with_capacity(num_docs);

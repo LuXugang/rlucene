@@ -27,18 +27,18 @@ pub struct BufferedChecksum<T> {
 
 impl<T: Checksum> BufferedChecksum<T> {
   /// Default buffer size: 1024
-  pub const DEFAULT_BUFFER_SIZE: u32 = 1024;
+  pub const DEFAULT_BUFFER_SIZE: usize = 1024;
   pub fn new(checksum: T) -> Self {
     Self {
-      buffer: vec![0; Self::DEFAULT_BUFFER_SIZE as usize],
+      buffer: vec![0; Self::DEFAULT_BUFFER_SIZE],
       upto: 0,
       checksum,
     }
   }
   /// Creates a new [`BufferedChecksum`] with the specified `buffer_size`.
-  pub fn with_buffer_size(checksum: T, buffer_size: u32) -> Self {
+  pub fn with_buffer_size(checksum: T, buffer_size: usize) -> Self {
     Self {
-      buffer: vec![0; buffer_size as usize],
+      buffer: vec![0; buffer_size],
       upto: 0,
       checksum,
     }

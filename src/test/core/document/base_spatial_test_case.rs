@@ -47,7 +47,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
+  at_least, at_least_usize, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_searcher,
 };
 use rand::{Rng, RngExt};
@@ -89,10 +89,10 @@ pub trait BaseSpatialTestCase {
     R: Rng + ?Sized,
   {
     let num_shapes = if cfg!(feature = "nightly") {
-      at_least(random, 50)
+      at_least_usize(random, 50)
     } else {
-      at_least(random, 3)
-    } as usize;
+      at_least_usize(random, 3)
+    };
 
     // Every doc has 2 points:
     let the_shape = self.next_shape(random)?;
@@ -106,7 +106,7 @@ pub trait BaseSpatialTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_shapes = at_least(random, 20) as usize;
+    let num_shapes = at_least_usize(random, 20);
     let cardinality = random.random_range(2..=20);
 
     let mut diff_shapes = Vec::with_capacity(cardinality);
@@ -136,7 +136,7 @@ pub trait BaseSpatialTestCase {
   where
     R: Rng + ?Sized,
   {
-    let count = at_least(random, 20);
+    let count = at_least_usize(random, 20);
     self.do_test_random(random, count)
   }
 
@@ -148,11 +148,11 @@ pub trait BaseSpatialTestCase {
     self.do_test_random(random, 20_000)
   }
 
-  fn do_test_random<R>(&self, random: &mut R, count: i32) -> Result<()>
+  fn do_test_random<R>(&self, random: &mut R, count: usize) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let num_shapes = at_least(random, count) as usize;
+    let num_shapes = at_least_usize(random, count);
 
     let mut shapes = Vec::with_capacity(num_shapes);
     for _id in 0..num_shapes {

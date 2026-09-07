@@ -32,7 +32,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::analysis::token::Token;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, random,
+  at_least_usize, new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -130,7 +130,7 @@ fn test_random() -> Result<()> {
   let w = IndexWriter::new(dir, iwc)?;
   let mut doc = Document::new();
 
-  let num_tokens = at_least(&mut random, 10000) as usize;
+  let num_tokens = at_least_usize(&mut random, 10000);
   let mut tokens: Vec<Token> = Vec::with_capacity(num_tokens);
   let mut counts: HashMap<char, i32> = HashMap::new();
   let mut num_stacked = 0;

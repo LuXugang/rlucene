@@ -51,9 +51,9 @@ fn create_array(length: usize, runs: LinkedList<usize>) -> Result<MutablePacked6
   let mut end_run = -1_i32;
   for len in runs {
     end_run += len as i32;
-    array.set(end_run, 1)?;
+    array.set(end_run as usize, 1)?;
   }
-  array.set(length as i32 - 1, 0)?;
+  array.set(length - 1, 0)?;
   Ok(array)
 }
 
@@ -158,8 +158,8 @@ impl WorstCaseSorter {
 impl Sorter for WorstCaseSorter {
   fn swap(&mut self, i: usize, j: usize) -> Result<()> {
     let tmp = self.arr.get(i);
-    self.arr.set(i as i32, self.arr.get(j))?;
-    self.arr.set(j as i32, tmp)?;
+    self.arr.set(i, self.arr.get(j))?;
+    self.arr.set(j, tmp)?;
     Ok(())
   }
 
@@ -183,7 +183,7 @@ impl Sorter for WorstCaseSorter {
 
 impl TimSorterBase for WorstCaseSorter {
   fn copy(&mut self, src: usize, dest: usize) -> Result<()> {
-    self.arr.set(dest as i32, self.arr.get(src))
+    self.arr.set(dest, self.arr.get(src))
   }
 
   fn save(&mut self, _i: usize, _len: usize) -> Result<()> {

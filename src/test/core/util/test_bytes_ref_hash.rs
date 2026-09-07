@@ -16,7 +16,7 @@
  */
 // Migrated from src/core/util/bytes_ref_hash.rs
 
-use crate::test_framework::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::lucene_test_case::{at_least, at_least_usize, random};
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::thread;
@@ -357,8 +357,8 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
     let not_equals = AtomicI32::new(0);
     let wrong_size = AtomicI32::new(0);
 
-    let num_threads = at_least(&mut random, 3);
-    let latch = CountDownLatch::new(num_threads as usize);
+    let num_threads = at_least_usize(&mut random, 3);
+    let latch = CountDownLatch::new(num_threads);
     thread::scope(|scope| -> Result<()> {
       let mut handles = vec![];
       for _ in 0..num_threads {
@@ -368,7 +368,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
         let not_equals = &not_equals;
         let wrong_size = &wrong_size;
         let latch = &latch;
-        let loops = at_least(&mut random, 100);
+        let loops = at_least_usize(&mut random, 100);
         let byte_block_pool = &byte_block_pool;
 
         handles.push(scope.spawn(move || -> Result<()> {
@@ -377,7 +377,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
           latch.wait();
 
           for k in 0..loops {
-            let find = BytesRef::from_string(&strings[k as usize % strings.len()]);
+            let find = BytesRef::from_string(&strings[k % strings.len()]);
             let id = hash.find(&find, byte_block_pool)?;
 
             if id < 0 {
@@ -430,17 +430,18 @@ fn test_large_value() -> Result<()> {
   let mut byte_block_pool = new_pool();
   let mut hash = new_hash(&mut random)?;
 
+  let block_size = BYTE_BLOCK_SIZE as usize;
   let sizes = [
-    random.random_range(0..5),
-    BYTE_BLOCK_SIZE - 33 + random.random_range(0..31),
-    BYTE_BLOCK_SIZE - 1 + random.random_range(0..37),
+    TestUtil::next_usize(&mut random, 0, 4),
+    block_size - 33 + TestUtil::next_usize(&mut random, 0, 30),
+    block_size - 1 + TestUtil::next_usize(&mut random, 0, 36),
   ];
 
   for (i, &size) in sizes.iter().enumerate() {
     let mut ref_bytes = BytesRef::new();
-    ref_bytes.bytes = vec![0; size as usize];
+    ref_bytes.bytes = vec![0; size];
     ref_bytes.offset = 0;
-    ref_bytes.length = size as usize;
+    ref_bytes.length = size;
 
     match hash.add(&ref_bytes, &mut byte_block_pool) {
       Ok(key) => {

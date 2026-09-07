@@ -68,8 +68,11 @@ impl GrowableWriter {
     let bits_required = PackedInts::unsigned_bits_required(value);
     debug_assert!(bits_required > self.current.get_bits_per_value());
     let value_count = self.size();
-    let mut next =
-      PackedInts::get_mutable(value_count, bits_required, self.acceptable_overhead_ratio)?;
+    let mut next = PackedInts::get_mutable(
+      value_count as i32,
+      bits_required,
+      self.acceptable_overhead_ratio,
+    )?;
 
     PackedInts::copy(
       &mut self.current,
@@ -77,7 +80,7 @@ impl GrowableWriter {
       &mut next,
       0,
       value_count,
-      PackedInts::DEFAULT_BUFFER_SIZE,
+      PackedInts::DEFAULT_BUFFER_SIZE as usize,
     )?;
 
     self.current = next;
@@ -91,14 +94,14 @@ impl GrowableWriter {
       new_size,
       self.acceptable_overhead_ratio,
     )?;
-    let limit = std::cmp::min(self.size(), new_size);
+    let limit = std::cmp::min(self.size(), new_size as usize);
     PackedInts::copy(
       &mut self.current,
       0,
       &mut next,
       0,
       limit,
-      PackedInts::DEFAULT_BUFFER_SIZE,
+      PackedInts::DEFAULT_BUFFER_SIZE as usize,
     )?;
     Ok(next)
   }
@@ -109,11 +112,11 @@ impl Reader for GrowableWriter {
     self.current.get(index)
   }
 
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+  fn get_bulk(&self, index: usize, arr: &mut [i64], off: usize, len: usize) -> Result<usize> {
     self.current.get_bulk(index, arr, off, len)
   }
 
-  fn size(&self) -> i32 {
+  fn size(&self) -> usize {
     self.current.size()
   }
 }
@@ -135,15 +138,15 @@ impl Mutable for GrowableWriter {
     self.current.get_bits_per_value()
   }
 
-  fn set(&mut self, index: i32, value: i64) -> Result<()> {
+  fn set(&mut self, index: usize, value: i64) -> Result<()> {
     self.ensure_capacity(value)?;
     self.current.set(index, value)
   }
 
-  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+  fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> Result<usize> {
     let mut max = 0i64;
     for i in off..off.wrapping_add(len) {
-      max |= *arr.get(i as usize).ok_or_else(|| {
+      max |= *arr.get(i).ok_or_else(|| {
         LuceneError::array_index_out_of_bounds(format!(
           "Index {i} out of bounds for length {}",
           arr.len()
@@ -154,7 +157,7 @@ impl Mutable for GrowableWriter {
     self.current.set_bulk(index, arr, off, len)
   }
 
-  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+  fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<()> {
     self.ensure_capacity(val)?;
     self.current.fill(from_index, to_index, val)
   }

@@ -2448,7 +2448,7 @@ fn test_concurrent_updates() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let values = Arc::new(Mutex::new(HashMap::new()));
 
-  let num_docs = at_least(&mut random, 100) as usize;
+  let num_docs = at_least_usize(&mut random, 100);
   let update_count = AtomicI32::new(at_least(&mut random, 1000));
   let latch = Arc::new(Barrier::new(3));
 
@@ -2591,7 +2591,7 @@ fn test_concurrent_dv_updates() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let values = Arc::new(Mutex::new(HashMap::new()));
 
-  let num_docs = at_least(&mut random, 100) as usize;
+  let num_docs = at_least_usize(&mut random, 100);
   for i in 0..num_docs {
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", i.to_string(), Store::No)?);

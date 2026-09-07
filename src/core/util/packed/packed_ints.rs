@@ -294,11 +294,11 @@ impl PackedInts {
   /// using at most `mem` bytes.
   pub fn copy<T, T2>(
     src: &mut T,
-    src_pos: i32,
+    src_pos: usize,
     dest: &mut T2,
-    dest_pos: i32,
-    len: i32,
-    mem: i32,
+    dest_pos: usize,
+    len: usize,
+    mem: usize,
   ) -> Result<()>
   where
     T: Reader,
@@ -316,12 +316,12 @@ impl PackedInts {
     let capacity = mem >> 3;
     if capacity == 0 {
       for i in 0..len {
-        dest.set(dest_pos + i, src.get((src_pos + i) as usize))?;
+        dest.set(dest_pos + i, src.get(src_pos + i))?;
       }
     } else if len > 0 {
       // Use bulk operations
       let buf_size = capacity.min(len);
-      let mut buf = vec![0; buf_size as usize];
+      let mut buf = vec![0; buf_size];
       PackedInts::copy_with_buffer(src, src_pos, dest, dest_pos, len, &mut buf)?;
     }
     Ok(())
@@ -329,10 +329,10 @@ impl PackedInts {
   /// Same as `copy` but uses a pre-allocated buffer.
   pub fn copy_with_buffer<T, T2>(
     src: &T,
-    mut src_pos: i32,
+    mut src_pos: usize,
     dest: &mut T2,
-    mut dest_pos: i32,
-    mut len: i32,
+    mut dest_pos: usize,
+    mut len: usize,
     buf: &mut [i64],
   ) -> Result<()>
   where
@@ -345,12 +345,7 @@ impl PackedInts {
 
     while len > 0 {
       debug_assert!(buf.len() <= i32::MAX as usize);
-      let read = src.get_bulk(
-        src_pos,
-        buf,
-        remaining,
-        len.min(buf.len() as i32 - remaining),
-      )?;
+      let read = src.get_bulk(src_pos, buf, remaining, len.min(buf.len() - remaining))?;
       debug_assert!(read > 0, "Read operation failed");
       src_pos += read;
       len -= read;
@@ -361,7 +356,7 @@ impl PackedInts {
       dest_pos += written;
 
       if written < remaining {
-        buf.copy_within(written as usize..remaining as usize, 0);
+        buf.copy_within(written..remaining, 0);
       }
       remaining -= written;
     }
@@ -371,7 +366,7 @@ impl PackedInts {
       dest_pos += written;
       remaining -= written;
       if remaining > 0 {
-        buf.copy_within(written as usize..(written + remaining) as usize, 0);
+        buf.copy_within(written..written + remaining, 0);
       }
     }
     Ok(())
@@ -401,13 +396,9 @@ impl PackedInts {
   /// Return the number of blocks required to store `size` values on
   /// `block_size`.
   pub fn num_blocks(size: usize, block_size: i32) -> Result<usize> {
-    let num_blocks = (size / block_size as usize)
-      + if size.is_multiple_of(block_size as usize) {
-        0
-      } else {
-        1
-      };
-    let result = num_blocks.checked_mul(block_size as usize);
+    let block_len = block_size as usize;
+    let num_blocks = (size / block_len) + if size.is_multiple_of(block_len) { 0 } else { 1 };
+    let result = num_blocks.checked_mul(block_len);
     match result {
       Some(result) => {
         if result < size || num_blocks > i32::MAX as usize {
@@ -709,26 +700,32 @@ pub trait Reader: Accountable {
   /// Bulk get: read at least one and at most `len` values starting from
   /// `index` into `arr[off.off+len]` and return the actual number of
   /// values that have been read.
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+  fn get_bulk(&self, index: usize, arr: &mut [i64], off: usize, len: usize) -> Result<usize> {
     self.default_get_bulk(index, arr, off, len)
   }
-  fn default_get_bulk(&self, index: i32, arr: &mut [i64], off: i32, len: i32) -> Result<i32> {
+  fn default_get_bulk(
+    &self,
+    index: usize,
+    arr: &mut [i64],
+    off: usize,
+    len: usize,
+  ) -> Result<usize> {
     debug_assert!(len > 0, "len must be > 0");
     debug_assert!(index < self.size(), "index out of bounds: {index}");
     debug_assert!(
-      (off + len) as usize <= arr.len(),
+      (off + len) <= arr.len(),
       "offset + len exceeds array length"
     );
 
     let gets = std::cmp::min(self.size() - index, len);
     for (i, o) in (index..index + gets).zip(off..off + gets) {
-      arr[o as usize] = self.get(i as usize);
+      arr[o] = self.get(i);
     }
     Ok(gets)
   }
 
   /// Returns the number of values in the reader.
-  fn size(&self) -> i32;
+  fn size(&self) -> usize;
 }
 /// Run-once iterator trait for decoding previously saved packed integers.
 pub trait ReaderIterator: Display {
@@ -843,7 +840,7 @@ pub trait Mutable: Reader + Display {
   /// * `index` - The position where the value should be set.
   /// * `value` - The value to be stored, which must conform to the
   ///   constraints of the array.
-  fn set(&mut self, index: i32, value: i64) -> Result<()>;
+  fn set(&mut self, index: usize, value: i64) -> Result<()>;
   /// Sets a range of values in the array.
   ///
   /// # Arguments
@@ -857,24 +854,27 @@ pub trait Mutable: Reader + Display {
   /// # Returns
   ///
   /// The actual number of values that have been set.
-  fn set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+  fn set_bulk(&mut self, index: usize, arr: &[i64], off: usize, len: usize) -> Result<usize> {
     self.default_set_bulk(index, arr, off, len)
   }
-  fn default_set_bulk(&mut self, index: i32, arr: &[i64], off: i32, len: i32) -> Result<i32> {
+  fn default_set_bulk(
+    &mut self,
+    index: usize,
+    arr: &[i64],
+    off: usize,
+    len: usize,
+  ) -> Result<usize> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
-    debug_assert!(
-      index >= 0 && index < self.size(),
-      "Index out of bounds: {index}"
-    );
+    debug_assert!(index < self.size(), "Index out of bounds: {index}");
 
     let len = len.min(self.size() - index);
     debug_assert!(
-      (off + len) as usize <= arr.len(),
+      (off + len) <= arr.len(),
       "Array offset and length out of bounds"
     );
 
     for (i, o) in (index..index + len).zip(off..off + len) {
-      self.set(i, arr[o as usize])?;
+      self.set(i, arr[o])?;
     }
     Ok(len)
   }
@@ -886,10 +886,10 @@ pub trait Mutable: Reader + Display {
   /// * `from_index` - The start index of the range to fill (inclusive).
   /// * `to_index` - The end index of the range to fill (exclusive).
   /// * `val` - The value to fill with.
-  fn fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+  fn fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<()> {
     self.default_fill(from_index, to_index, val)
   }
-  fn default_fill(&mut self, from_index: i32, to_index: i32, val: i64) -> Result<()> {
+  fn default_fill(&mut self, from_index: usize, to_index: usize, val: i64) -> Result<()> {
     debug_assert!(val <= PackedInts::max_value(self.get_bits_per_value()));
     debug_assert!(
       from_index <= to_index,
@@ -912,11 +912,13 @@ pub trait Mutable: Reader + Display {
 pub struct MutableImpl;
 
 pub struct NullReader {
-  value_count: i32,
+  value_count: usize,
 }
 impl NullReader {
   pub fn for_count(value_count: i32) -> Self {
-    Self { value_count }
+    Self {
+      value_count: value_count as usize,
+    }
   }
   pub fn new(value_count: i32) -> Self {
     Self::for_count(value_count)
@@ -932,7 +934,7 @@ impl Reader for NullReader {
     0
   }
 
-  fn get_bulk(&self, index: i32, arr: &mut [i64], off: i32, mut len: i32) -> Result<i32> {
+  fn get_bulk(&self, index: usize, arr: &mut [i64], off: usize, mut len: usize) -> Result<usize> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(
       index < self.value_count,
@@ -943,15 +945,15 @@ impl Reader for NullReader {
 
     len = len.min(self.value_count - index);
     debug_assert!(
-      (off + len) as usize <= arr.len(),
+      (off + len) <= arr.len(),
       "not enough space in destination array"
     );
 
-    arr[off as usize..(off + len) as usize].fill(0);
+    arr[off..(off + len)].fill(0);
     Ok(len)
   }
 
-  fn size(&self) -> i32 {
+  fn size(&self) -> usize {
     self.value_count
   }
 }

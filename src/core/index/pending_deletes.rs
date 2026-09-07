@@ -143,8 +143,9 @@ impl PendingDeletes {
       Some(LiveDocsState::ReadOnly(bits)) => Some(bits.copy_of()?),
       Some(LiveDocsState::Writable(_)) => None,
       None => {
-        let mut bits = FixedBitSet::new(self.max_doc as usize);
-        bits.set_with_range(0, self.max_doc as usize);
+        let max_doc = self.max_doc as usize;
+        let mut bits = FixedBitSet::new(max_doc);
+        bits.set_with_range(0, max_doc);
         Some(bits)
       },
     };

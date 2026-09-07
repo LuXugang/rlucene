@@ -38,7 +38,7 @@ fn test_random() -> Result<()> {
   let config = get_random_config(&mut random)?;
   let num_points = TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
   let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
-  let mut value = vec![0u8; config.packed_bytes_length() as usize];
+  let mut value = vec![0u8; config.packed_bytes_length()];
   for i in 0..num_points {
     random.fill(&mut value[..]);
     heap_points.append_bytes(&value, i as i32)?;
@@ -54,7 +54,7 @@ fn test_random_all_equals() -> Result<()> {
   let config = get_random_config(&mut random)?;
   let num_points = TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
   let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
-  let mut value = vec![0u8; config.packed_bytes_length() as usize];
+  let mut value = vec![0u8; config.packed_bytes_length()];
   random.fill(&mut value[..]);
   for _ in 0..num_points {
     let doc_id = random.random_range(0..num_points);
@@ -71,7 +71,7 @@ fn test_random_last_byte_two_values() -> Result<()> {
   let config = get_random_config(&mut random)?;
   let num_points = TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
   let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
-  let mut value = vec![0u8; config.packed_bytes_length() as usize];
+  let mut value = vec![0u8; config.packed_bytes_length()];
   random.fill(&mut value[..]);
   for _ in 0..num_points {
     if random.random_bool(0.5) {
@@ -92,16 +92,16 @@ fn test_random_few_different_values() -> Result<()> {
   let config = get_random_config(&mut random)?;
   let num_points = TestUtil::next_usize(&mut random, 1, BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE);
   let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
-  let number_values = random.random_range(0..8) + 2; // [2, 9)
-  let mut different_values: Vec<Vec<u8>> = Vec::with_capacity(number_values as usize);
+  let number_values = TestUtil::next_usize(&mut random, 2, 9);
+  let mut different_values: Vec<Vec<u8>> = Vec::with_capacity(number_values);
   for _ in 0..number_values {
-    let mut buf = vec![0u8; config.packed_bytes_length() as usize];
+    let mut buf = vec![0u8; config.packed_bytes_length()];
     random.fill(&mut buf[..]);
     different_values.push(buf);
   }
   for i in 0..num_points {
-    let index = random.random_range(0..number_values);
-    heap_points.append_bytes(&different_values[index as usize], i as i32)?;
+    let index = TestUtil::next_usize(&mut random, 0, number_values - 1);
+    heap_points.append_bytes(&different_values[index], i as i32)?;
   }
   heap_points.close()?;
   let mut points = PointWriterEnum::<DummyIndexOutput>::Heap(heap_points);
@@ -117,12 +117,12 @@ fn test_random_data_dim_different() -> Result<()> {
   let mut heap_points = HeapPointWriter::new(config.clone(), num_points);
   let total_data_dimension = config.num_dims - config.num_index_dims;
   let data_dim_length = total_data_dimension * config.bytes_per_dim;
-  let mut data_dimension_values = vec![0u8; data_dim_length as usize];
-  let mut value = vec![0u8; config.packed_bytes_length() as usize];
+  let mut data_dimension_values = vec![0u8; data_dim_length];
+  let mut value = vec![0u8; config.packed_bytes_length()];
   random.fill(&mut value[..]);
   for _ in 0..num_points {
     random.fill(&mut data_dimension_values[..]);
-    let start = config.packed_index_bytes_length() as usize;
+    let start = config.packed_index_bytes_length();
     value.copy_from(&data_dimension_values, start);
     let doc_id = random.random_range(0..num_points);
     heap_points.append_bytes(&value, doc_id as i32)?;

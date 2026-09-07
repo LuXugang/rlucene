@@ -163,7 +163,7 @@ where
     &mut self,
     field_info: &FieldInfo,
     input: &mut DI,
-    length: i32,
+    length: usize,
   ) -> Result<()>
   where
     DI: DataInput,

@@ -315,7 +315,7 @@ where
         &mut self.level0_output,
         &mut self.doc_delta_buffer,
         &self.freq_buffer,
-        self.doc_buffer_upto as i32,
+        self.doc_buffer_upto,
         options.write_freqs,
       )?;
     } else {
@@ -676,12 +676,13 @@ where
               po_out.write_vint(pos_delta << 1)?;
             }
             if payload_length != 0 {
+              let payload_length = payload_length as usize;
               po_out.write_bytes_range(
                 &self.payload_bytes,
                 payload_bytes_read_upto,
-                payload_length as usize,
+                payload_length,
               )?;
-              payload_bytes_read_upto += payload_length as usize;
+              payload_bytes_read_upto += payload_length;
             }
           } else {
             po_out.write_vint(pos_delta)?;

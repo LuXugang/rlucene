@@ -47,7 +47,8 @@ use crate::core::util::close::{Closeable, CloseableRef};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, new_text_field, random,
+  at_least, at_least_usize, is_night_mode, new_directory_shared, new_searcher_with_reader,
+  new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -197,17 +198,17 @@ fn test_pre_assigned_shard_index() -> Result<()> {
 
 fn test_sort(use_from: bool) -> Result<()> {
   let mut random = random();
-  let num_docs = at_least(&mut random, if is_night_mode() { 1000 } else { 100 }) as usize;
+  let num_docs = at_least_usize(&mut random, if is_night_mode() { 1000 } else { 100 });
   let tokens = ["a", "b", "c", "d", "e"];
 
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-  let mut content = Vec::with_capacity(at_least(&mut random, 20) as usize);
+  let mut content = Vec::with_capacity(at_least_usize(&mut random, 20));
 
   for _ in 0..content.capacity() {
     let mut s = String::new();
-    let num_tokens = TestUtil::next_int(&mut random, 1, 10) as usize;
+    let num_tokens = TestUtil::next_usize(&mut random, 1, 10);
     for _ in 0..num_tokens {
       s.push_str(tokens[random.random_range(0..tokens.len())]);
       s.push(' ');
@@ -285,15 +286,14 @@ fn test_sort(use_from: bool) -> Result<()> {
       // Sort by score.
       None
     } else {
-      let mut random_sort_fields =
-        Vec::with_capacity(TestUtil::next_int(&mut random, 1, 3) as usize);
+      let mut random_sort_fields = Vec::with_capacity(TestUtil::next_usize(&mut random, 1, 3));
       for _ in 0..random_sort_fields.capacity() {
         random_sort_fields.push(sort_fields[random.random_range(0..sort_fields.len())].clone());
       }
       Some(Sort::with_fields(random_sort_fields)?)
     };
 
-    let num_hits = TestUtil::next_int(&mut random, 1, num_docs as i32 + 5) as usize;
+    let num_hits = TestUtil::next_usize(&mut random, 1, num_docs + 5);
     // let num_hits = 5;
 
     let mut from = -1;

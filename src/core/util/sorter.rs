@@ -272,43 +272,41 @@ pub trait Sorter {
   /// (exclusive). This runs in `O(n * log(n))` and is used as a fall-back
   /// by [`IntroSorter`](crate::core::util::intro_sorter). This algorithm is NOT
   /// stable.
-  fn heap_sort(&mut self, from: i32, to: i32) -> Result<()> {
-    if to - from <= 1 {
+  fn heap_sort(&mut self, from: usize, to: usize) -> Result<()> {
+    if to <= from || to - from <= 1 {
       return Ok(());
     }
     self.heapify(from, to)?;
     let mut end = to - 1;
     while end > from {
-      self.swap(from as usize, end as usize)?;
+      self.swap(from, end)?;
       self.sift_down(from, from, end)?;
       end -= 1;
     }
     Ok(())
   }
 
-  fn heapify(&mut self, from: i32, to: i32) -> Result<()> {
-    let mut i = Self::heap_parent(from, to - 1);
-    while i >= from {
+  fn heapify(&mut self, from: usize, to: usize) -> Result<()> {
+    for i in (from..=Self::heap_parent(from, to - 1)).rev() {
       self.sift_down(i, from, to)?;
-      i -= 1;
     }
     Ok(())
   }
 
-  fn sift_down(&mut self, mut i: i32, from: i32, to: i32) -> Result<()> {
+  fn sift_down(&mut self, mut i: usize, from: usize, to: usize) -> Result<()> {
     let mut left_child = Self::heap_child(from, i);
     while left_child < to {
       let right_child = left_child + 1;
-      if self.compare(i as usize, left_child as usize)? < 0 {
-        if right_child < to && self.compare(left_child as usize, right_child as usize)? < 0 {
-          self.swap(i as usize, right_child as usize)?;
+      if self.compare(i, left_child)? < 0 {
+        if right_child < to && self.compare(left_child, right_child)? < 0 {
+          self.swap(i, right_child)?;
           i = right_child;
         } else {
-          self.swap(i as usize, left_child as usize)?;
+          self.swap(i, left_child)?;
           i = left_child;
         }
-      } else if right_child < to && self.compare(i as usize, right_child as usize)? < 0 {
-        self.swap(i as usize, right_child as usize)?;
+      } else if right_child < to && self.compare(i, right_child)? < 0 {
+        self.swap(i, right_child)?;
         i = right_child;
       } else {
         break;
@@ -317,11 +315,11 @@ pub trait Sorter {
     }
     Ok(())
   }
-  fn heap_parent(from: i32, i: i32) -> i32 {
+  fn heap_parent(from: usize, i: usize) -> usize {
     ((i - 1 - from) >> 1) + from
   }
 
-  fn heap_child(from: i32, i: i32) -> i32 {
+  fn heap_child(from: usize, i: usize) -> usize {
     ((i - from) << 1) + 1 + from
   }
 }

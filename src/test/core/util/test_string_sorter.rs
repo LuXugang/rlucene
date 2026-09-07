@@ -62,7 +62,7 @@ where
   expected.sort();
 
   let actual_before_sorted = actual.clone();
-  let mut ord: Vec<i32> = (0..len).map(|i| i as i32).collect();
+  let mut ord: Vec<usize> = (0..len).collect();
   let ord_len = ord.len();
   let delegate = StableStringSorterTestImpl {
     tmp: vec![0; ord_len],
@@ -76,9 +76,9 @@ where
   assert_vecs_equal(&actual_before_sorted, &actual);
   for i in 0..len {
     assert_eq!(
-      &expected[i], &refs[ord[i] as usize],
+      &expected[i], &refs[ord[i]],
       "Mismatch at index {}: expected {:?}, found {:?}",
-      i, expected[i], refs[ord[i] as usize]
+      i, expected[i], refs[ord[i]]
     );
 
     if i > 0 && expected[i] == expected[i - 1] {
@@ -205,8 +205,8 @@ impl StringSorterBase for StringSorterTestImpl {
 }
 
 struct StableStringSorterTestImpl<'a> {
-  tmp: Vec<i32>,
-  ord: &'a mut Vec<i32>,
+  tmp: Vec<usize>,
+  ord: &'a mut Vec<usize>,
   refs: &'a mut [BytesRef<Vec<u8>>],
 }
 
@@ -217,7 +217,7 @@ impl StringSorterBase for StableStringSorterTestImpl<'_> {
     result: &mut BytesRef<Vec<u8>>,
     i: usize,
   ) -> Result<()> {
-    let ref_item = &self.refs[self.ord[i] as usize];
+    let ref_item = &self.refs[self.ord[i]];
     result.offset = ref_item.offset;
     result.length = ref_item.length;
     result.bytes = ref_item.bytes.clone();

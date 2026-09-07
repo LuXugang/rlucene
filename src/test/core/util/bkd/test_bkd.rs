@@ -42,7 +42,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::{SliceCopyOps, ToInt, TryIntoInt};
 use crate::test_framework::core::store::corrupting_index_output::CorruptingIndexOutput;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir, new_directory, new_directory_shared, new_fs_directory,
+  at_least, at_least_usize, create_temp_dir, new_directory, new_directory_shared, new_fs_directory,
   new_mock_directory, new_mock_fs_directory, random, random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -403,7 +403,7 @@ fn test_big_int_n_dims() -> Result<()> {
 #[test]
 fn test_with_exceptions() -> Result<()> {
   let mut random = random();
-  let num_docs = at_least(&mut random, 10000) as usize;
+  let num_docs = at_least_usize(&mut random, 10000);
   let num_bytes_per_dim = TestUtil::next_usize(&mut random, 2, 30);
   let num_data_dims = TestUtil::next_usize(&mut random, 1, MAX_DIMENSIONS);
   let num_index_dims = std::cmp::min(
@@ -1445,7 +1445,7 @@ fn test_bit_flipped_on_partition1() -> Result<()> {
   let mut random = random();
 
   // Generate fixed data set:
-  let num_docs = at_least(&mut random, 10000) as usize;
+  let num_docs = at_least_usize(&mut random, 10000);
   let num_bytes_per_dim = 4;
   let num_dims = 3;
 
@@ -1497,7 +1497,7 @@ fn test_bit_flippedon_partition2() -> Result<()> {
   let mut random = random();
 
   // Generate fixed data set:
-  let num_docs = at_least(&mut random, 10000) as usize;
+  let num_docs = at_least_usize(&mut random, 10000);
   let num_bytes_per_dim = 4;
   let num_dims = 3;
 

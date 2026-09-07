@@ -53,7 +53,7 @@ use crate::core::util::number::Number;
 pub use crate::test_framework::core::document::{CustomField, MyField};
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_searcher_with_reader, new_string_field, random,
+  at_least_usize, new_directory_shared, new_searcher_with_reader, new_string_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 
@@ -68,7 +68,7 @@ fn test_arbitrary_fields() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
-  let num_docs = at_least(&mut random, 27) as usize;
+  let num_docs = at_least_usize(&mut random, 27);
   if cfg!(feature = "test_log_verbose") {
     println!("TEST: {num_docs} docs");
   }
@@ -77,7 +77,7 @@ fn test_arbitrary_fields() -> Result<()> {
   let mut field_to_type = HashMap::new();
 
   for (doc_count, fields_in_doc) in fields_per_doc.iter_mut().enumerate().take(num_docs) {
-    let field_count = TestUtil::next_int(&mut random, 1, 17) as usize;
+    let field_count = TestUtil::next_usize(&mut random, 1, 17);
     *fields_in_doc = field_count - 1;
 
     if cfg!(feature = "test_log_verbose") {

@@ -276,7 +276,7 @@ const COPY_BUFFER_SIZE: usize = 16384;
 ///
 /// # Note
 /// This is an experimental API.
-pub fn write_group_vints_i64<D>(data_output: &mut D, values: &mut [i64], limit: i32) -> Result<()>
+pub fn write_group_vints_i64<D>(data_output: &mut D, values: &mut [i64], limit: usize) -> Result<()>
 where
   D: DataOutput,
 {
@@ -295,7 +295,7 @@ where
 ///
 /// # Note
 /// This is an experimental API.
-pub fn write_group_vints_i32<D>(data_output: &mut D, values: &mut [i32], limit: i32) -> Result<()>
+pub fn write_group_vints_i32<D>(data_output: &mut D, values: &mut [i32], limit: usize) -> Result<()>
 where
   D: DataOutput,
 {

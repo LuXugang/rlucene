@@ -1038,7 +1038,7 @@ fn test_random() -> Result<()> {
     #[allow(clippy::needless_range_loop)]
     for ed in 0..3 {
       expected[ed].sort();
-      let queue_size = TestUtil::next_int(&mut random, 1, terms.len() as i32) as usize;
+      let queue_size = TestUtil::next_usize(&mut random, 1, terms.len());
       let query = FuzzyQuery::with_options(
         Term::from_text("field", query_term.as_str()),
         ed as i32,

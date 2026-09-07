@@ -49,7 +49,7 @@ pub struct Packed64 {
   /// Optimization: Saves one lookup in the `get` method.
   bpv_minus_block_size: i32,
   /// The number of elements in the array.
-  value_count: i32,
+  value_count: usize,
   /// The number of bits available for any given value.
   bits_per_value: i32,
 }
@@ -86,7 +86,7 @@ impl Packed64 {
       blocks,
       mask_right,
       bpv_minus_block_size,
-      value_count,
+      value_count: value_count as usize,
       bits_per_value,
     }
   }
@@ -129,30 +129,34 @@ impl Reader for Packed64 {
       & self.mask_right) as i64
   }
 
-  fn get_bulk(&self, mut index: i32, arr: &mut [i64], mut off: i32, mut len: i32) -> Result<i32> {
+  fn get_bulk(
+    &self,
+    mut index: usize,
+    arr: &mut [i64],
+    mut off: usize,
+    mut len: usize,
+  ) -> Result<usize> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
-    debug_assert!(
-      index >= 0 && index < self.value_count,
-      "index out of bounds"
-    );
+    debug_assert!(index < self.value_count, "index out of bounds");
     len = len.min(self.value_count - index);
     debug_assert!(
-      (off + len) as usize <= arr.len(),
+      (off + len) <= arr.len(),
       "not enough space in the target array"
     );
 
     let original_index = index;
     let decoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value)?;
+    let long_value_count = Decoder::long_value_count(decoder) as usize;
 
     // Go to the next block where the value does not span across two blocks
-    let offset_in_blocks = index % Decoder::long_value_count(decoder);
+    let offset_in_blocks = index % long_value_count;
 
     if offset_in_blocks != 0 {
-      for _i in offset_in_blocks..Decoder::long_value_count(decoder) {
+      for _i in offset_in_blocks..long_value_count {
         if len == 0 {
           return Ok(index - original_index);
         }
-        arr[off as usize] = self.get(index as usize);
+        arr[off] = self.get(index);
         off += 1;
         index += 1;
         len -= 1;
@@ -163,17 +167,17 @@ impl Reader for Packed64 {
     }
 
     // Bulk get
-    debug_assert_eq!(index % Decoder::long_value_count(decoder), 0);
+    debug_assert_eq!(index % long_value_count, 0);
     let block_index = ((index as u64 * self.bits_per_value as u64) >> Self::BLOCK_BITS) as usize;
     debug_assert_eq!(
       (index as u64 * self.bits_per_value as u64) & Self::MOD_MASK as u64,
       0
     );
 
-    let iterations = len / Decoder::long_value_count(decoder);
-    decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off as usize, iterations);
+    let iterations = len / long_value_count;
+    decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, iterations as i32);
 
-    let got_values = iterations * Decoder::long_value_count(decoder);
+    let got_values = iterations * long_value_count;
     index += got_values;
     debug_assert!(len >= got_values, "Remaining length is negative");
     len -= got_values;
@@ -189,7 +193,7 @@ impl Reader for Packed64 {
     }
   }
 
-  fn size(&self) -> i32 {
+  fn size(&self) -> usize {
     self.value_count
   }
 }
@@ -218,7 +222,7 @@ impl Mutable for Packed64 {
     self.bits_per_value
   }
 
-  fn set(&mut self, index: i32, value: i64) -> Result<()> {
+  fn set(&mut self, index: usize, value: i64) -> Result<()> {
     // The abstract index in a contiguous bit stream
     let major_bit_pos = (index as u64) * self.bits_per_value as u64;
     // The index in the backing blocks array
@@ -243,26 +247,33 @@ impl Mutable for Packed64 {
     Ok(())
   }
 
-  fn set_bulk(&mut self, mut index: i32, arr: &[i64], mut off: i32, mut len: i32) -> Result<i32> {
+  fn set_bulk(
+    &mut self,
+    mut index: usize,
+    arr: &[i64],
+    mut off: usize,
+    mut len: usize,
+  ) -> Result<usize> {
     debug_assert!(len > 0, "len must be > 0 (got {len})");
     debug_assert!(index < self.value_count, "index out of bounds");
     len = len.min(self.value_count - index);
     debug_assert!(
-      (off + len) as usize <= arr.len(),
+      (off + len) <= arr.len(),
       "not enough values in the source array"
     );
 
     let original_index = index;
     let encoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value)?;
+    let long_value_count = Encoder::long_value_count(encoder) as usize;
 
     // Go to the next block where the value does not span across two blocks
-    let offset_in_blocks = index % Encoder::long_value_count(encoder);
+    let offset_in_blocks = index % long_value_count;
     if offset_in_blocks != 0 {
-      for _ in offset_in_blocks..Encoder::long_value_count(encoder) {
+      for _ in offset_in_blocks..long_value_count {
         if len == 0 {
           return Ok(index - original_index);
         }
-        self.set(index, arr[off as usize])?;
+        self.set(index, arr[off])?;
         index += 1;
         off += 1;
         len -= 1;
@@ -273,23 +284,23 @@ impl Mutable for Packed64 {
     }
 
     // Bulk set
-    debug_assert_eq!(index % Encoder::long_value_count(encoder), 0);
+    debug_assert_eq!(index % long_value_count, 0);
     let block_index = ((index as u64 * self.bits_per_value as u64) >> Self::BLOCK_BITS) as usize;
     debug_assert_eq!(
       (index as u64 * self.bits_per_value as u64) & Self::MOD_MASK as u64,
       0
     );
 
-    let iterations = len / Encoder::long_value_count(encoder);
+    let iterations = len / long_value_count;
     encoder.encode_i64_to_u64(
-      &arr[off as usize..],
+      &arr[off..],
       0,
       &mut self.blocks,
       block_index,
-      iterations,
+      iterations as i32,
     );
 
-    let set_values = iterations * Encoder::long_value_count(encoder);
+    let set_values = iterations * long_value_count;
     index += set_values;
     len -= set_values;
 
@@ -304,7 +315,7 @@ impl Mutable for Packed64 {
     }
   }
 
-  fn fill(&mut self, mut from_index: i32, to_index: i32, val: i64) -> Result<()> {
+  fn fill(&mut self, mut from_index: usize, to_index: usize, val: i64) -> Result<()> {
     debug_assert!(
       PackedInts::unsigned_bits_required(val) <= self.bits_per_value,
       "Value requires more bits than allowed by bits_per_value"
@@ -312,7 +323,7 @@ impl Mutable for Packed64 {
     debug_assert!(from_index <= to_index, "from_index must be <= to_index");
 
     // Minimum number of values that use an exact number of full blocks
-    let n_aligned_values = 64 / Packed64::gcd(64, self.bits_per_value);
+    let n_aligned_values = (64 / Packed64::gcd(64, self.bits_per_value)) as usize;
     let span = to_index - from_index;
 
     // If the span is too small, fall back to naive filling
@@ -334,27 +345,27 @@ impl Mutable for Packed64 {
     // Compute the `i64` blocks for `n_aligned_values` consecutive values and
     // use them to set as many values as possible without applying any mask
     // or shift
-    let n_aligned_blocks = (n_aligned_values * self.bits_per_value) >> 6;
+    let n_aligned_blocks = (n_aligned_values * self.bits_per_value as usize) >> 6;
     let n_aligned_values_blocks = {
-      let mut values = Packed64::new(n_aligned_values, self.bits_per_value);
+      let mut values = Packed64::new(n_aligned_values as i32, self.bits_per_value);
       for i in 0..n_aligned_values {
         values.set(i, val)?;
       }
       values.blocks
     };
-    debug_assert!(n_aligned_blocks as usize <= n_aligned_values_blocks.len());
+    debug_assert!(n_aligned_blocks <= n_aligned_values_blocks.len());
 
     // Bulk set values using precomputed blocks
-    let start_block = ((from_index as i64 * self.bits_per_value as i64) >> 6) as i32;
-    let end_block = ((to_index as i64 * self.bits_per_value as i64) >> 6) as i32;
+    let start_block = ((from_index as i64 * self.bits_per_value as i64) >> 6) as usize;
+    let end_block = ((to_index as i64 * self.bits_per_value as i64) >> 6) as usize;
     for block in start_block..end_block {
-      let block_value = n_aligned_values_blocks[(block % n_aligned_blocks) as usize];
-      self.blocks[block as usize] = block_value;
+      let block_value = n_aligned_values_blocks[block % n_aligned_blocks];
+      self.blocks[block] = block_value;
     }
 
     // Fill the gap
-    for i in (((end_block as i64) << 6) / self.bits_per_value as i64)..to_index as i64 {
-      self.set(i as i32, val)?;
+    for i in (((end_block as i64) << 6) / self.bits_per_value as i64) as usize..to_index {
+      self.set(i, val)?;
     }
     Ok(())
   }

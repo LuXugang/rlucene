@@ -57,9 +57,10 @@ use crate::test_framework::core::index::base_index_file_format_test_case::{
 use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodecReader;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir, get_only_leaf_reader, is_night_mode, new_directory_shared,
-  new_fs_directory, new_index_writer_config, new_index_writer_config_with_analyzer,
-  new_log_merge_policy, new_mock_fs_directory, new_searcher_with_reader, new_string_field, rarely,
+  at_least, at_least_usize, create_temp_dir, get_only_leaf_reader, is_night_mode,
+  new_directory_shared, new_fs_directory, new_index_writer_config,
+  new_index_writer_config_with_analyzer, new_log_merge_policy, new_mock_fs_directory,
+  new_searcher_with_reader, new_string_field, rarely,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use num_bigint::{BigInt, BigUint};
@@ -235,16 +236,13 @@ pub trait BasePointsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let num_docs = at_least(random, 1000);
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-    let num_dims = TestUtil::next_int(random, 1, MAX_DIMENSIONS as i32) as usize;
-    let num_index_dims = TestUtil::next_int(
-      random,
-      1,
-      std::cmp::min(num_dims as i32, MAX_INDEX_DIMENSIONS as i32),
-    ) as usize;
+    let num_docs = at_least_usize(random, 1000);
+    let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+    let num_dims = TestUtil::next_usize(random, 1, MAX_DIMENSIONS);
+    let num_index_dims =
+      TestUtil::next_usize(random, 1, std::cmp::min(num_dims, MAX_INDEX_DIMENSIONS));
 
-    let mut doc_values = Vec::with_capacity(num_docs as usize);
+    let mut doc_values = Vec::with_capacity(num_docs);
     for _doc_id in 0..num_docs {
       let mut values = Vec::with_capacity(num_dims);
       for _dim in 0..num_dims {
@@ -322,13 +320,10 @@ pub trait BasePointsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-    let num_dims = TestUtil::next_int(random, 1, MAX_DIMENSIONS as i32) as usize;
-    let num_index_dims = TestUtil::next_int(
-      random,
-      1,
-      std::cmp::min(MAX_INDEX_DIMENSIONS as i32, num_dims as i32),
-    ) as usize;
+    let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+    let num_dims = TestUtil::next_usize(random, 1, MAX_DIMENSIONS);
+    let num_index_dims =
+      TestUtil::next_usize(random, 1, std::cmp::min(MAX_INDEX_DIMENSIONS, num_dims));
 
     let num_docs = if is_night_mode() {
       at_least(random, 1000)
@@ -366,11 +361,11 @@ pub trait BasePointsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-    let num_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
+    let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+    let num_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
 
-    let num_docs = at_least(random, 1000);
-    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs as usize);
+    let num_docs = at_least_usize(random, 1000);
+    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs);
 
     let mut first_values: Option<Vec<Vec<u8>>> = None;
     for doc_id in 0..num_docs {
@@ -395,12 +390,12 @@ pub trait BasePointsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-    let num_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
+    let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+    let num_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
 
-    let num_docs = at_least(random, 1000);
+    let num_docs = at_least_usize(random, 1000);
     let the_equal_dim = random.random_range(0..num_dims);
-    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs as usize);
+    let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs);
 
     for doc_id in 0..num_docs {
       let mut values = Vec::with_capacity(num_dims);
@@ -411,7 +406,7 @@ pub trait BasePointsFormatTestCase:
       }
       doc_values.push(values);
       if doc_id > 0 {
-        doc_values[doc_id as usize][the_equal_dim] = doc_values[0][the_equal_dim].clone();
+        doc_values[doc_id][the_equal_dim] = doc_values[0][the_equal_dim].clone();
       }
     }
 
@@ -422,8 +417,8 @@ pub trait BasePointsFormatTestCase:
   where
     R: Rng + ?Sized,
   {
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-    let num_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
+    let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+    let num_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
 
     let num_docs = at_least(random, 1000);
     let the_dim = random.random_range(0..num_dims);
@@ -461,8 +456,8 @@ pub trait BasePointsFormatTestCase:
   {
     let num_docs = at_least(random, 200);
     let dir = get_directory(random, num_docs as usize)?;
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-    let num_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
+    let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+    let num_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
 
     let analyzer = MockAnalyzer::new(random);
     let mut iwc = new_index_writer_config_with_analyzer(random, analyzer)?;
@@ -581,9 +576,9 @@ pub trait BasePointsFormatTestCase:
     R: Rng + ?Sized,
   {
     let num_docs = TestUtil::next_int(random, count, count * 2);
-    let num_bytes_per_dim = TestUtil::next_int(random, 2, MAX_NUM_BYTES as i32) as usize;
-    let num_data_dims = TestUtil::next_int(random, 1, MAX_INDEX_DIMENSIONS as i32) as usize;
-    let num_index_dims = TestUtil::next_int(random, 1, num_data_dims as i32) as usize;
+    let num_bytes_per_dim = TestUtil::next_usize(random, 2, MAX_NUM_BYTES);
+    let num_data_dims = TestUtil::next_usize(random, 1, MAX_INDEX_DIMENSIONS);
+    let num_index_dims = TestUtil::next_usize(random, 1, num_data_dims);
 
     let mut doc_values: Vec<Vec<Vec<u8>>> = Vec::with_capacity(num_docs as usize);
 

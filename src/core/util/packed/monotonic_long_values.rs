@@ -62,7 +62,7 @@ impl Default for MonotonicLongValuesBuilder {
 impl MonotonicLongValuesBuilder {
   pub(crate) fn new() -> Self {
     Self {
-      averages: vec![0.0; INITIAL_PAGE_COUNT as usize],
+      averages: vec![0.0; INITIAL_PAGE_COUNT],
     }
   }
 

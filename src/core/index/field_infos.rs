@@ -373,7 +373,8 @@ impl FieldInfos {
     } else {
       by_number = vec![None; by_number_len];
       for field_info in &infos {
-        match &by_number[field_info.number as usize] {
+        let field_number = field_info.number as usize;
+        match &by_number[field_number] {
           None => {},
           Some(existing) => {
             return Err(LuceneError::illegal_argument(format!(
@@ -382,7 +383,7 @@ impl FieldInfos {
             )));
           },
         }
-        by_number[field_info.number as usize] = Some(field_info.clone());
+        by_number[field_number] = Some(field_info.clone());
       }
       if by_number_len == infos.len() {
         for fi in by_number.iter().flatten() {

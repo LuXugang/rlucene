@@ -188,12 +188,12 @@ fn test_intro_sort() -> Result<()> {
   }
   Ok(())
 }
-fn create_sparse_random_array<R>(random: &mut R, max_size: i32) -> Vec<i32>
+fn create_sparse_random_array<R>(random: &mut R, max_size: usize) -> Vec<i32>
 where
   R: Rng + ?Sized,
 {
-  let size = random.random_range(0..=max_size);
-  let mut array = Vec::with_capacity(size as usize);
+  let size = TestUtil::next_usize(random, 0, max_size);
+  let mut array = Vec::with_capacity(size);
 
   for _ in 0..size {
     array.push(random.random_range(0..2));
@@ -382,7 +382,7 @@ fn do_test_select<R>(random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let from = random.random_range(0..5) as usize;
+  let from = TestUtil::next_usize(random, 0, 4);
   let to = from + TestUtil::next_usize(random, 1, 10_000);
   let max = if random.random_bool(0.5) {
     random.random_range(0..100)
@@ -394,7 +394,7 @@ where
     .map(|_| TestUtil::next_int(random, 0, max))
     .collect();
 
-  let k = TestUtil::next_int(random, from as i32, (to - 1) as i32) as usize;
+  let k = TestUtil::next_usize(random, from, to - 1);
 
   let mut expected = arr.clone();
   expected[from..to].sort();

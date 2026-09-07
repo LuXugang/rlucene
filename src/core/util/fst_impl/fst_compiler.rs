@@ -647,8 +647,8 @@ where
   fn should_expand_node_with_fixed_length_arcs(&self, node: &UnCompiledNode<O::V>) -> bool {
     self.allow_fixed_length_arcs
       && ((node.depth <= FIXED_LENGTH_ARC_SHALLOW_DEPTH
-        && node.num_arcs >= FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS as usize)
-        || node.num_arcs >= FIXED_LENGTH_ARC_DEEP_NUM_ARCS as usize)
+        && node.num_arcs >= FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS)
+        || node.num_arcs >= FIXED_LENGTH_ARC_DEEP_NUM_ARCS)
   }
   /// Returns whether the given node should be expanded with direct addressing
   /// instead of binary search.
@@ -1531,13 +1531,13 @@ pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
 /// depth.
 ///
 /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](FSTCompiler::should_expand_node_with_fixed_length_arcs)..
-pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: i32 = 5;
+pub(crate) const FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS: usize = 5;
 
 /// Minimum number of arcs required to consider fixed-length arcs at deep
 /// depth.
 ///
 /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](FSTCompiler::should_expand_node_with_fixed_length_arcs).
-pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: i32 = 10;
+pub(crate) const FIXED_LENGTH_ARC_DEEP_NUM_ARCS: usize = 10;
 
 /// Maximum oversizing factor allowed for direct addressing compared to
 /// binary search when expansion credits allow the oversizing. This

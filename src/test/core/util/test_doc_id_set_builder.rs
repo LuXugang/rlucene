@@ -88,12 +88,13 @@ where
 fn test_sparse() -> Result<()> {
   let mut random = random();
   let max_doc = 1000000 + random.random_range(0..1000000);
+  let capacity = max_doc as usize;
   let mut builder = DocIdSetBuilder::new(max_doc);
   let num_iterators = 1 + random.random_range(0..10);
-  let mut fixed_set_bit = FixedBitSet::new(max_doc as usize);
+  let mut fixed_set_bit = FixedBitSet::new(capacity);
   for _i in 0..num_iterators {
     let base_inc = 200000 + random.random_range(0..10000);
-    let mut b = Builder::new(max_doc as usize);
+    let mut b = Builder::new(capacity);
     let mut doc = random.random_range(0..100);
     while doc < max_doc {
       b.add(doc)?;
@@ -114,11 +115,12 @@ fn test_sparse() -> Result<()> {
 fn test_dense() -> Result<()> {
   let mut random = random();
   let max_doc = 1000000 + random.random_range(0..1000000);
+  let capacity = max_doc as usize;
   let mut builder = DocIdSetBuilder::new(max_doc);
   let num_iterators = 1 + random.random_range(0..10);
-  let mut fixed_set_bit = FixedBitSet::new(max_doc as usize);
+  let mut fixed_set_bit = FixedBitSet::new(capacity);
   for _i in 0..num_iterators {
-    let mut b = Builder::new(max_doc as usize);
+    let mut b = Builder::new(capacity);
     let mut doc = random.random_range(0..1000);
     while doc < max_doc {
       b.add(doc)?;
@@ -140,23 +142,23 @@ fn test_dense() -> Result<()> {
 fn test_random() -> Result<()> {
   let mut random = random();
   let max_doc = if is_night_mode() {
-    TestUtil::next_int(&mut random, 1, 10000000)
+    TestUtil::next_usize(&mut random, 1, 10000000)
   } else {
-    TestUtil::next_int(&mut random, 1, 100000)
+    TestUtil::next_usize(&mut random, 1, 100000)
   };
   let mut i = 1;
   while i < (max_doc / 2) {
-    let num_docs = TestUtil::next_int(&mut random, 1, i);
-    let mut docs = FixedBitSet::new(max_doc as usize);
+    let num_docs = TestUtil::next_usize(&mut random, 1, i);
+    let mut docs = FixedBitSet::new(max_doc);
     let mut c = 0;
     while c < num_docs {
       let d = random.random_range(0..max_doc);
-      if !docs.get(d as usize)? {
-        docs.set(d as usize)?;
+      if !docs.get(d)? {
+        docs.set(d)?;
         c += 1
       }
     }
-    let mut array = vec![0; num_docs as usize + random.random_range(0..100)];
+    let mut array = vec![0; num_docs + random.random_range(0..100)];
     let (mut j, v) = {
       let mut it = BitSetIterator::new(docs, 0)?;
       let mut j = 0;
@@ -170,10 +172,10 @@ fn test_random() -> Result<()> {
     };
 
     let docs = v;
-    assert_eq!(num_docs, j as i32);
+    assert_eq!(num_docs, j);
     // add some duplicates
     while j < array.len() {
-      array[j] = array[random.random_range(0..num_docs as usize)];
+      array[j] = array[random.random_range(0..num_docs)];
       j += 1;
     }
 
@@ -184,7 +186,7 @@ fn test_random() -> Result<()> {
     }
 
     // add docs out of order
-    let mut builder = DocIdSetBuilder::new(max_doc);
+    let mut builder = DocIdSetBuilder::new(max_doc as i32);
     let mut j = 0;
     while j < array.len() {
       let l = TestUtil::next_int(&mut random, 1, (array.len() - j) as i32);

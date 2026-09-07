@@ -78,7 +78,7 @@ pub trait BaseDocIdSetTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_bits = random.random_range(100..=1 << 20) as usize;
+    let num_bits = TestUtil::next_usize(random, 100, 1 << 20);
     let random_float: f32 = random.random();
     for percent_set in [0f32, 0.0001f32, random_float, 0.9f32, 1f32] {
       let set = random_set(random, num_bits, percent_set);

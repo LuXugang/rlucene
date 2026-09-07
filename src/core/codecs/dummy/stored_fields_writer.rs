@@ -63,7 +63,7 @@ impl StoredFieldsWriter for DummyStoredFieldsWriter {
     &mut self,
     _field_info: &FieldInfo,
     _input: &mut DI,
-    _length: i32,
+    _length: usize,
   ) -> Result<()>
   where
     DI: DataInput,

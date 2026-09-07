@@ -45,7 +45,7 @@ pub struct BKDRadixSelector {
   // reusable buffer
   offline_buffer: Vec<u8>,
   // holder for partition points
-  partition_bucket: Vec<i32>,
+  partition_bucket: Vec<usize>,
   // scratch array to hold temporary data
   scratch: Vec<u8>,
   // prefix for temp files
@@ -285,25 +285,22 @@ impl BKDRadixSelector {
           if common_prefix_position == dim_common_prefix {
             {
               let point_value = reader.point_value()?;
-              histogram_index =
-                self.get_bucket(offset, common_prefix_position, point_value) as usize;
+              histogram_index = self.get_bucket(offset, common_prefix_position, point_value);
               self.histogram[histogram_index] += 1;
             }
             for _ in (i + 1)..to {
               reader.next()?;
               let point_value = reader.point_value()?;
-              histogram_index =
-                self.get_bucket(offset, common_prefix_position, point_value) as usize;
+              histogram_index = self.get_bucket(offset, common_prefix_position, point_value);
               self.histogram[histogram_index] += 1;
             }
             break;
           } else {
             let point_value = reader.point_value()?;
             // Check common prefix and adjust histogram
-            let scratch_start_index =
-              std::cmp::min(dim_common_prefix, self.config.bytes_per_dim) as usize;
+            let scratch_start_index = std::cmp::min(dim_common_prefix, self.config.bytes_per_dim);
             let scratch_end_index =
-              std::cmp::min(common_prefix_position, self.config.bytes_per_dim) as usize;
+              std::cmp::min(common_prefix_position, self.config.bytes_per_dim);
             let (value, packed_value_offset, _length) = point_value.packed_value_doc_id_bytes();
             let packed_value_start_index = (packed_value_offset + offset) + scratch_start_index;
             let packed_value_end_index = (packed_value_offset + offset) + scratch_end_index;
@@ -333,8 +330,7 @@ impl BKDRadixSelector {
               self.histogram[self.scratch[common_prefix_position] as usize] = i - from;
             }
             if common_prefix_position != self.bytes_sorted {
-              histogram_index =
-                self.get_bucket(offset, common_prefix_position, point_value) as usize;
+              histogram_index = self.get_bucket(offset, common_prefix_position, point_value);
               self.histogram[histogram_index] += 1;
             }
           }
@@ -356,7 +352,7 @@ impl BKDRadixSelector {
     let common_prefix_position = IOUtils::use_or_suppress_caught_result(result, close_result)?;
     // Build partition buckets up to commonPrefix
     for i in 0..common_prefix_position {
-      self.partition_bucket[i] = self.scratch[i] as i32;
+      self.partition_bucket[i] = self.scratch[i] as usize;
     }
     Ok(common_prefix_position)
   }
@@ -366,17 +362,17 @@ impl BKDRadixSelector {
     offset: usize,
     common_prefix_position: usize,
     point_value: &PointValueEnum,
-  ) -> i32 {
+  ) -> usize {
     if common_prefix_position < self.config.bytes_per_dim {
       let (packed_value, packed_value_offset, _length) = point_value.packed_value();
       let index = packed_value_offset + offset + common_prefix_position;
-      packed_value[index] as i32
+      packed_value[index] as usize
     } else {
       let (packed_value, packed_value_offset, _length) = point_value.packed_value_doc_id_bytes();
       let index =
         packed_value_offset + self.config.packed_index_bytes_length() + common_prefix_position
           - self.config.bytes_per_dim;
-      packed_value[index] as i32
+      packed_value[index] as usize
     }
   }
   #[allow(clippy::too_many_arguments)]
@@ -424,16 +420,16 @@ impl BKDRadixSelector {
       let size = self.histogram[i];
       debug_assert!(partition_point >= from);
       if left_count + size > partition_point - from {
-        self.partition_bucket[common_prefix] = i as i32;
+        self.partition_bucket[common_prefix] = i;
         break;
       }
       left_count += size;
     }
     // Count right points
-    for i in (self.partition_bucket[common_prefix] as usize + 1)..Self::HISTOGRAM_SIZE {
+    for i in (self.partition_bucket[common_prefix] + 1)..Self::HISTOGRAM_SIZE {
       right_count += self.histogram[i];
     }
-    let delta = self.histogram[self.partition_bucket[common_prefix] as usize];
+    let delta = self.histogram[self.partition_bucket[common_prefix]];
     debug_assert_eq!(
       left_count + right_count + delta,
       to - from,

@@ -116,7 +116,7 @@ fn test_sorted() -> Result<()> {
       *val = a;
     }
 
-    let len = TestUtil::next_int(&mut random, 0, arr.len() as i32) as usize;
+    let len = TestUtil::next_usize(&mut random, 0, arr.len());
     test_with_range(&mut random, &mut sorter, &mut arr, len)?;
   }
 

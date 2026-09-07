@@ -50,7 +50,7 @@ where
     StableMSBRadixSorterBase::get_fallback_sorter(&mut self.delegate, k, self.max_length)
   }
 
-  fn get_bucket(&mut self, i: usize, k: usize) -> Result<i32> {
+  fn get_bucket(&mut self, i: usize, k: usize) -> Result<usize> {
     self.delegate.get_bucket(i, k)
   }
 
@@ -92,8 +92,8 @@ where
       let mut h1 = self.fixed_start_offsets[i];
       while h1 < limit {
         let b = self.get_bucket(from + h1, k)?;
-        let h2 = start_offsets[b as usize];
-        start_offsets[b as usize] += 1;
+        let h2 = start_offsets[b];
+        start_offsets[b] += 1;
         self.delegate.save(from + h1, from + h2);
         h1 += 1;
       }

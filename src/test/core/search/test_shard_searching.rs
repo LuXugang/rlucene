@@ -95,7 +95,7 @@ type MockSearcher = IndexSearcher<IndexReaderContextType<MockReader>>;
 #[test]
 fn test_simple() -> Result<()> {
   let mut random = random();
-  let num_nodes = TestUtil::next_int(&mut random, 1, 10) as usize;
+  let num_nodes = TestUtil::next_usize(&mut random, 1, 10);
 
   let run_time_sec = if is_night_mode() {
     at_least(&mut random, 5)
@@ -218,7 +218,7 @@ fn test_simple() -> Result<()> {
             } else {
               term
                 .chars()
-                .take(TestUtil::next_int(&mut random, 1, 2) as usize)
+                .take(TestUtil::next_usize(&mut random, 1, 2))
                 .collect()
             };
             PrefixQuery::new(Term::from_text("body", prefix))?.into_query()
@@ -302,7 +302,7 @@ fn assert_same<R>(
 where
   R: Rng + ?Sized,
 {
-  let mut num_hits = TestUtil::next_int(random, 1, 100) as usize;
+  let mut num_hits = TestUtil::next_usize(random, 1, 100);
   if let Some(state) = state
     && state.search_after_local.is_none()
   {

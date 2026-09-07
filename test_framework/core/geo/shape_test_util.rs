@@ -38,7 +38,7 @@ impl ShapeTestUtil {
       return Self::surprise_me_polygon(random);
     } else if is_night_mode() && random.random_range(0..10) == 1 {
       loop {
-        let gons = TestUtil::next_int(random, 4, 500) as usize;
+        let gons = TestUtil::next_usize(random, 4, 500);
         let radius = random.random::<f64>() * 0.5 * f32::MAX as f64 + 1.0;
         match Self::create_regular_polygon(
           Self::next_float(random) as f64,

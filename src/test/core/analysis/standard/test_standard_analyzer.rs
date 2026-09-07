@@ -101,7 +101,7 @@ fn test_large_partially_matching_token() -> Result<()> {
 
   let mut random = random();
   let mut builder = String::new();
-  let num_chars = TestUtil::next_int(&mut random, 100 * 1024, 1024 * 1024) as usize;
+  let num_chars = TestUtil::next_usize(&mut random, 100 * 1024, 1024 * 1024);
   let mut i = 0;
   while i < num_chars {
     let ch = word_break_extend_num_let_chars
@@ -130,7 +130,7 @@ fn test_large_partially_matching_token() -> Result<()> {
   tokenizer.end()?;
   tokenizer.close()?;
 
-  let new_buffer_size = TestUtil::next_int(&mut random, 200, 8192) as usize;
+  let new_buffer_size = TestUtil::next_usize(&mut random, 200, 8192);
   tokenizer.set_max_token_length(new_buffer_size)?;
   tokenizer.set_reader(builder.into())?;
   tokenizer.reset()?;

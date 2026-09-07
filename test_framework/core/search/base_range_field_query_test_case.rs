@@ -34,7 +34,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::search::fixed_bit_set_collector::FixedBitSetCollector;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
+  at_least, at_least_usize, create_temp_dir_with_prefix, new_directory_shared, new_fs_directory,
   new_index_writer_config, new_searcher_with_reader,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -104,7 +104,7 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_docs = at_least(random, 1000) as usize;
+    let num_docs = at_least_usize(random, 1000);
     let dimensions = self.dimension(random);
     let the_range = vec![self.next_range(random, dimensions)?];
     let ranges = vec![the_range; num_docs];
@@ -116,10 +116,10 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_docs = at_least(random, 1000) as usize;
+    let num_docs = at_least_usize(random, 1000);
     let dimensions = self.dimension(random);
 
-    let cardinality = TestUtil::next_int(random, 2, 20) as usize;
+    let cardinality = TestUtil::next_usize(random, 2, 20);
     let mut diff_ranges = Vec::with_capacity(cardinality);
     for _ in 0..cardinality {
       diff_ranges.push(vec![self.next_range(random, dimensions)?]);
@@ -132,11 +132,11 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
     self.verify(random, &ranges)
   }
 
-  fn do_test_random<R>(&self, random: &mut R, count: i32, multi_valued: bool) -> Result<()>
+  fn do_test_random<R>(&self, random: &mut R, count: usize, multi_valued: bool) -> Result<()>
   where
     R: Rng + ?Sized,
   {
-    let num_docs = at_least(random, count) as usize;
+    let num_docs = at_least_usize(random, count);
     let dimensions = self.dimension(random);
 
     let mut ranges = vec![Vec::new(); num_docs];

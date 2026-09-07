@@ -40,14 +40,13 @@ pub trait StoredFieldVisitor {
     &mut self,
     field_info: Arc<FieldInfo>,
     input: &mut DI,
-    length: i32,
+    length: usize,
     writer: Option<&mut S>,
   ) -> Result<()>
   where
     S: StoredFieldsWriter,
     DI: DataInput,
   {
-    let length = length as usize;
     let mut buffer = vec![0u8; length];
     input.read_bytes(&mut buffer, 0, length)?;
     self.binary_field(field_info, buffer, writer)

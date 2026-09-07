@@ -35,8 +35,8 @@ use crate::core::search::top_docs::TopDocsLike;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer, new_searcher_with_reader,
-  new_text_field, random,
+  at_least_usize, new_directory_shared, new_index_writer_config_with_analyzer,
+  new_searcher_with_reader, new_text_field, random,
 };
 use rand_chacha::rand_core::Rng;
 use std::collections::HashMap;
@@ -52,7 +52,7 @@ const MED_PRIORITY: &str = "medium";
 #[test]
 fn test_run() -> Result<()> {
   let mut random = random();
-  let max_docs = at_least(&mut random, 225) as usize;
+  let max_docs = at_least_usize(&mut random, 225);
 
   let multi_file_output = do_test(&mut random, false, max_docs)?;
   let single_file_output = do_test(&mut random, true, max_docs)?;

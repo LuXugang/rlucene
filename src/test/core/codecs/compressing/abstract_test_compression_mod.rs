@@ -238,7 +238,7 @@ pub(crate) trait AbstractTestCompressionMode {
   where
     R: Rng + ?Sized,
   {
-    let mut decompressed = vec![0; TestUtil::next_int(random, 1, 10000) as usize];
+    let mut decompressed = vec![0; TestUtil::next_usize(random, 1, 10000)];
     decompressed.fill(random.random());
     self.test(&decompressed)?;
     Ok(())
@@ -246,7 +246,7 @@ pub(crate) trait AbstractTestCompressionMode {
 
   fn test_extremely_large_input(&self) -> crate::core::util::error::lucene_error::Result<()> {
     let limit = 1 << 24; // 16MB
-    let mut decompressed = vec![0u8; limit as usize];
+    let mut decompressed = vec![0u8; limit];
     for (i, byte) in decompressed.iter_mut().enumerate() {
       *byte = (i & 0x0F) as u8
     }

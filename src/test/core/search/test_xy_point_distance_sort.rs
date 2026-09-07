@@ -281,6 +281,7 @@ where
 
   let reader = writer.get_reader(random)?;
   let max_doc = reader.max_doc()?;
+  let doc_count = max_doc as usize;
   let mut stored_fields = reader.stored_fields()?;
   let searcher = new_searcher_with_reader(reader)?;
 
@@ -289,7 +290,7 @@ where
     let y = ShapeTestUtil::next_float(random);
     let missing_value = f64::INFINITY;
 
-    let mut expected = Vec::with_capacity(max_doc as usize);
+    let mut expected = Vec::with_capacity(doc_count);
 
     for doc in 0..max_doc {
       let target_doc = stored_fields.document(doc)?;
@@ -328,7 +329,7 @@ where
     expected.sort();
 
     // randomize the topN a bit
-    let top_n = TestUtil::next_int(random, 1, max_doc) as usize;
+    let top_n = TestUtil::next_usize(random, 1, doc_count);
     // sort by distance, then ID
     let mut distance_sort = XYDocValuesField::new_distance_sort("field", x, y)?;
     distance_sort.set_missing_value(MissingValueEnum::Double(missing_value))?;
@@ -351,8 +352,8 @@ where
     }
 
     // get page2 with searchAfter()
-    if top_n < max_doc as usize {
-      let page2 = TestUtil::next_int(random, 1, max_doc - top_n as i32) as usize;
+    if top_n < doc_count {
+      let page2 = TestUtil::next_usize(random, 1, doc_count - top_n);
       let v = top_docs.score_docs()[top_n - 1].as_field().unwrap().clone();
       let top_docs2 = searcher.search_after(Some(v), MatchAllDocsQuery::new(), page2, sort)?;
 

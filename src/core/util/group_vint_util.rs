@@ -276,9 +276,9 @@ impl GroupVIntUtil {
     let result = pos - pos_start;
     Ok(result)
   }
-  fn num_bytes(v: i32) -> u32 {
+  fn num_bytes(v: i32) -> usize {
     // | 1 ensures it returns 1 when v = 0
-    BitUtil::INT_BYTES as u32 - ((v | 1).leading_zeros() / 8)
+    BitUtil::INT_BYTES - ((v | 1).leading_zeros() / 8) as usize
   }
   /// Converts an i64 value to an i32, ensuring it fits within the valid
   /// range. Returns an error if the value is not within 0 to 0xFFFFFFFF.
@@ -298,7 +298,7 @@ impl GroupVIntUtil {
     data_output: &mut DO,
     scratch: &mut [u8],
     values: &mut [i64],
-    limit: i32,
+    limit: usize,
   ) -> Result<()>
   where
     DO: DataOutput,
@@ -306,7 +306,7 @@ impl GroupVIntUtil {
     let mut read_pos: usize = 0;
 
     // encode each group
-    while (limit as usize - read_pos) >= 4 {
+    while (limit - read_pos) >= 4 {
       let mut write_pos: usize = 0;
       let n1_minus1 = Self::num_bytes(Self::to_int(values[read_pos])?);
       let n2_minus1 = Self::num_bytes(Self::to_int(values[read_pos + 1])?);
@@ -322,40 +322,40 @@ impl GroupVIntUtil {
         &mut scratch[write_pos..],
         0,
         values[read_pos] as i32,
-        n1_minus1 as usize,
+        n1_minus1,
       );
-      write_pos += n1_minus1 as usize;
+      write_pos += n1_minus1;
 
       BitUtil::set_i32_le_with_len(
         &mut scratch[write_pos..],
         0,
         values[read_pos + 1] as i32,
-        n2_minus1 as usize,
+        n2_minus1,
       );
-      write_pos += n2_minus1 as usize;
+      write_pos += n2_minus1;
 
       BitUtil::set_i32_le_with_len(
         &mut scratch[write_pos..],
         0,
         values[read_pos + 2] as i32,
-        n3_minus1 as usize,
+        n3_minus1,
       );
-      write_pos += n3_minus1 as usize;
+      write_pos += n3_minus1;
 
       BitUtil::set_i32_le_with_len(
         &mut scratch[write_pos..],
         0,
         values[read_pos + 3] as i32,
-        n4_minus1 as usize,
+        n4_minus1,
       );
-      write_pos += n4_minus1 as usize;
+      write_pos += n4_minus1;
 
       data_output.write_bytes_with_len(scratch, write_pos)?;
       read_pos += 4;
     }
 
     // tail vints
-    while read_pos < limit as usize {
+    while read_pos < limit {
       data_output.write_vint(Self::to_int(values[read_pos])?)?;
       read_pos += 1;
     }
@@ -369,7 +369,7 @@ impl GroupVIntUtil {
     data_output: &mut DO,
     scratch: &mut [u8],
     values: &mut [i32],
-    limit: i32,
+    limit: usize,
   ) -> Result<()>
   where
     DO: DataOutput,
@@ -377,7 +377,7 @@ impl GroupVIntUtil {
     let mut read_pos: usize = 0;
 
     // encode each group
-    while (limit as usize - read_pos) >= 4 {
+    while (limit - read_pos) >= 4 {
       let mut write_pos: usize = 0;
       let n1_minus1 = Self::num_bytes(values[read_pos]);
       let n2_minus1 = Self::num_bytes(values[read_pos + 1]);
@@ -389,44 +389,39 @@ impl GroupVIntUtil {
       scratch[write_pos] = flag as u8;
       write_pos += 1;
 
-      BitUtil::set_i32_le_with_len(
-        &mut scratch[write_pos..],
-        0,
-        values[read_pos],
-        n1_minus1 as usize,
-      );
-      write_pos += n1_minus1 as usize;
+      BitUtil::set_i32_le_with_len(&mut scratch[write_pos..], 0, values[read_pos], n1_minus1);
+      write_pos += n1_minus1;
 
       BitUtil::set_i32_le_with_len(
         &mut scratch[write_pos..],
         0,
         values[read_pos + 1],
-        n2_minus1 as usize,
+        n2_minus1,
       );
-      write_pos += n2_minus1 as usize;
+      write_pos += n2_minus1;
 
       BitUtil::set_i32_le_with_len(
         &mut scratch[write_pos..],
         0,
         values[read_pos + 2],
-        n3_minus1 as usize,
+        n3_minus1,
       );
-      write_pos += n3_minus1 as usize;
+      write_pos += n3_minus1;
 
       BitUtil::set_i32_le_with_len(
         &mut scratch[write_pos..],
         0,
         values[read_pos + 3],
-        n4_minus1 as usize,
+        n4_minus1,
       );
-      write_pos += n4_minus1 as usize;
+      write_pos += n4_minus1;
 
       data_output.write_bytes_with_len(scratch, write_pos)?;
       read_pos += 4;
     }
 
     // tail vints
-    while read_pos < limit as usize {
+    while read_pos < limit {
       data_output.write_vint(values[read_pos])?;
       read_pos += 1;
     }

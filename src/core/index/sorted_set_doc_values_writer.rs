@@ -300,8 +300,8 @@ pub(crate) struct SortedSetDocValuesWriter {
 impl SortedSetDocValuesWriter {
   pub(crate) fn new(field_info: Arc<FieldInfo>, iw_bytes_used: SharedCounter) -> Result<Self> {
     let bytes_start_array =
-      DirectBytesStartArray::with_counter(DEFAULT_CAPACITY as usize, iw_bytes_used.clone());
-    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY as usize, bytes_start_array)?;
+      DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, iw_bytes_used.clone());
+    let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array)?;
     let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
     let current_values = vec![0i32; 8];
@@ -996,7 +996,7 @@ impl DocOrds {
         break;
       }
 
-      let new_doc_id = sort_map.old_to_new(doc_id)?;
+      let new_doc_id = sort_map.old_to_new(doc_id)? as usize;
       let start_offset = ord_offset;
       let doc_value_count = old_values.doc_value_count()?;
       ord_offset += doc_value_count as usize;
@@ -1009,7 +1009,7 @@ impl DocOrds {
 
       if start_offset != ord_offset {
         // do we have any values?
-        offsets[new_doc_id as usize] = start_offset;
+        offsets[new_doc_id] = start_offset;
       }
     }
     let ords = builder.build()?;

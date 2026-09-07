@@ -59,7 +59,7 @@ pub trait IntroSorter: Sorter {
     while to - from > INSERTION_SORT_THRESHOLD {
       if max_depth == 0 {
         // Max recursion depth exceeded: fallback to heap sort.
-        self.heap_sort(from as i32, to as i32)?;
+        self.heap_sort(from, to)?;
         return Ok(());
       }
       max_depth -= 1;

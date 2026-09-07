@@ -43,7 +43,7 @@ impl ByteSlicePool {
   ///
   /// `NEXT_LEVEL_ARRAY[x] == x + 1`, except for the last element, where
   /// `NEXT_LEVEL_ARRAY[x] == x`, pointing at the maximum slice size.
-  pub(crate) const NEXT_LEVEL_ARRAY: [i32; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 9];
+  pub(crate) const NEXT_LEVEL_ARRAY: [usize; 10] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 9];
 
   /// The first level size for new slices.
   pub(crate) const FIRST_LEVEL_SIZE: i32 = Self::LEVEL_SIZE_ARRAY[0];
@@ -113,7 +113,7 @@ impl ByteSlicePool {
       level = slice[upto] & 15; // The last 4 bits codify the level.
     }
     let new_level = Self::NEXT_LEVEL_ARRAY[level as usize];
-    let new_size = Self::LEVEL_SIZE_ARRAY[new_level as usize];
+    let new_size = Self::LEVEL_SIZE_ARRAY[new_level];
     // Maybe allocate another block
     if pool.byte_upto > BYTE_BLOCK_SIZE - new_size {
       pool.next_buffer()?;
@@ -137,8 +137,9 @@ impl ByteSlicePool {
     let buffer_upto = pool.buffer_upto()?;
     {
       let current_buffer = pool.get_buffer_mut(buffer_upto);
-      debug_assert!(current_buffer[new_upto as usize + 3] == 0);
-      BitUtil::set_i32_le(current_buffer, new_upto as usize, past3_bytes);
+      let new_upto = new_upto as usize;
+      debug_assert!(current_buffer[new_upto + 3] == 0);
+      BitUtil::set_i32_le(current_buffer, new_upto, past3_bytes);
     }
 
     // Write forwarding address at end of last slice:

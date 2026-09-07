@@ -63,8 +63,8 @@ fn test_random() -> Result<()> {
         1 => {
           // write byte array
           let max_len = std::cmp::min(num_bytes - pos, 100);
-          let len = random.random_range(0..max_len) as usize;
-          let mut temp = vec![0u8; len as usize];
+          let len = TestUtil::next_usize(&mut random, 0, max_len - 1);
+          let mut temp = vec![0u8; len];
           random.fill_bytes(&mut temp);
           if cfg!(feature = "test_log_verbose") {
             println!("    write_bytes len={}, bytes={:?}", len, temp);

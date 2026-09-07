@@ -84,7 +84,7 @@ impl DeltaPackedLongValuesBuilder {
   ) -> DeltaPackedLongValuesBuilder {
     Self {
       sub_builder,
-      mins: vec![0; INITIAL_PAGE_COUNT as usize],
+      mins: vec![0; INITIAL_PAGE_COUNT],
     }
   }
 

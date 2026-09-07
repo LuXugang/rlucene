@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::test_framework::core::util::lucene_test_case::{at_least, random};
+use crate::test_framework::core::util::test_util::TestUtil;
 use std::collections::HashSet;
 
 use crate::core::index::index_reader::Identity;
@@ -156,7 +157,7 @@ pub trait BaseBitSetTestCase {
   where
     R: Rng + ?Sized,
   {
-    let num_bits = 1 + random.random_range(0..100000) as usize;
+    let num_bits = TestUtil::next_usize(random, 1, 100000);
     let set3 = RustUtilBitSet::new(random_set_impl(random, num_bits, 0), num_bits);
     let mut set1 = set3.clone();
     let (mut set2, sfbs) = self.copy_of(&set3, num_bits)?;

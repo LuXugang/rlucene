@@ -55,7 +55,7 @@ use crate::test_framework::core::search::check_hits::CheckHits;
 use crate::test_framework::core::search::query_utils::QueryUtils;
 use crate::test_framework::core::util::DefaultIndexSearchCR;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_index_writer_config,
+  at_least, at_least_usize, is_night_mode, new_directory_shared, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_searcher_with_reader,
   new_text_field, random, random_from_seed,
 };
@@ -793,13 +793,13 @@ fn test_random_phrases() -> Result<()> {
   let mut docs: Vec<Vec<String>> = Vec::new();
   let mut field_to_type = HashMap::new();
 
-  let num_docs = at_least(&mut random, 10) as usize;
+  let num_docs = at_least_usize(&mut random, 10);
   for _ in 0..num_docs {
     // at night, must be > 4096 so it spans multiple chunks
     let term_count = if is_night_mode() {
-      at_least(&mut random, 4097) as usize
+      at_least_usize(&mut random, 4097)
     } else {
-      at_least(&mut random, 200) as usize
+      at_least_usize(&mut random, 200)
     };
 
     let mut doc_terms = Vec::new();

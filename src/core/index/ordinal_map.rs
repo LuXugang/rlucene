@@ -358,7 +358,7 @@ impl OrdinalMap {
             PackedInts::get_mutable(size, bits_required, acceptable_overhead_ratio)?;
 
           let mut it = deltas.iterator()?;
-          for ord in 0..size {
+          for ord in 0..size as usize {
             let v = it.next_value()?;
             new_deltas.set(ord, v)?;
           }

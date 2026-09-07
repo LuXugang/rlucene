@@ -51,13 +51,7 @@ where
   let dir = new_directory_shared(random)?;
   {
     let mut out = dir.create_output("test", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
-    PostingsUtil::write_vint_block(
-      &mut out,
-      &mut doc_delta_buffer,
-      &freq_buffer,
-      size as i32,
-      true,
-    )?;
+    PostingsUtil::write_vint_block(&mut out, &mut doc_delta_buffer, &freq_buffer, size, true)?;
   }
 
   let mut restored_docs = vec![0i32; size];

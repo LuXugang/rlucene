@@ -1062,7 +1062,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
   where
     R: Rng + ?Sized,
   {
-    let values_len = TestUtil::next_int(random, 1, 500) as usize;
+    let values_len = TestUtil::next_usize(random, 1, 500);
     let mut values = vec![0_i64; values_len];
     for value in &mut values {
       *value = random.random::<i64>();
@@ -1687,7 +1687,7 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     let cardinality = 64;
     let mut values_set = HashSet::with_capacity(cardinality);
     while values_set.len() < cardinality {
-      let length = TestUtil::next_int(random, 512, 1024) as usize;
+      let length = TestUtil::next_usize(random, 512, 1024);
       values_set.insert(TestUtil::random_simple_string_range(random, length, length));
     }
 

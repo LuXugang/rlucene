@@ -281,7 +281,7 @@ fn test_single_slice() -> Result<()> {
   let result_slices = do_slices(
     &leaf_reader_contexts,
     250_000,
-    TestUtil::next_int(&mut random(), 4, 10) as usize,
+    TestUtil::next_usize(&mut random(), 4, 10),
     false,
   )?;
   assert_eq!(1, result_slices.len());
@@ -295,7 +295,7 @@ fn test_single_slice_with_partitions() -> Result<()> {
   let result_slices = do_slices(
     &leaf_reader_contexts,
     250_000,
-    TestUtil::next_int(&mut random(), 4, 10) as usize,
+    TestUtil::next_usize(&mut random(), 4, 10),
     true,
   )?;
   assert_eq!(1, result_slices.len());
@@ -434,7 +434,7 @@ fn test_large_slices_with_partitions() -> Result<()> {
   let result_slices = do_slices(
     &leaf_reader_contexts,
     250_000,
-    TestUtil::next_int(&mut random(), 5, 10) as usize,
+    TestUtil::next_usize(&mut random(), 5, 10),
     true,
   )?;
   assert_eq!(4, result_slices.len());
@@ -455,7 +455,7 @@ fn test_single_segment_partitions() -> Result<()> {
   let result_slices = do_slices(
     &leaf_reader_contexts,
     250_000,
-    TestUtil::next_int(&mut random(), 1, 10) as usize,
+    TestUtil::next_usize(&mut random(), 1, 10),
     true,
   )?;
   assert_eq!(4, result_slices.len());

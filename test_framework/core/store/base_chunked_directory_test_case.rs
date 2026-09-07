@@ -75,7 +75,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     {
       let mut io = dir.create_output("bytes", &io_context)?;
       io.write_vint(5)?;
-      let values_len = values.len() as i32;
+      let values_len = values.len();
       write_group_vints_i64(&mut io, &mut values, values_len)?;
       io.close()?;
     }
@@ -114,7 +114,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let mut io = dir.create_output("bytes", &io_context)?;
       io.write_int(1)?;
       io.write_int(2)?;
-      let values_len = values.len() as i32;
+      let values_len = values.len();
       write_group_vints_i64(&mut io, &mut values, values_len)?;
       io.close()?;
     }
@@ -397,7 +397,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       3
     };
     for _ in 0..num {
-      let chunk_size = TestUtil::next_int(random, 20, 100) as usize;
+      let chunk_size = TestUtil::next_usize(random, 20, 100);
       self.assert_chunking(random, chunk_size)?;
     }
     Ok(())

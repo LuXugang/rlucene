@@ -81,7 +81,7 @@ impl TermsHashPerField {
     let slice_pool = ByteSlicePool;
     let byte_starts = PostingsBytesStartArray::new(postings_array_wrapper, bytes_used);
 
-    let bytes_hash = BytesRefHash::from_bytes_start_array(HASH_INIT_SIZE as usize, byte_starts)?;
+    let bytes_hash = BytesRefHash::from_bytes_start_array(HASH_INIT_SIZE, byte_starts)?;
     Ok(TermsHashPerField {
       slice_pool,
       term_stream_address_buffer_index: 0,
@@ -557,4 +557,4 @@ impl TermsHashPerFieldType {
   }
 }
 
-pub(crate) const HASH_INIT_SIZE: i32 = 4;
+pub(crate) const HASH_INIT_SIZE: usize = 4;

@@ -343,7 +343,7 @@ fn test_thread_safety() -> Result<()> {
                 if readers.is_empty() {
                   None
                 } else {
-                  let index = TestUtil::next_int(&mut random, 0, readers.len() as i32 - 1) as usize;
+                  let index = TestUtil::next_usize(&mut random, 0, readers.len() - 1);
                   Some(readers[index].clone())
                 }
               };

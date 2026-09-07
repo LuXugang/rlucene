@@ -61,14 +61,14 @@ pub trait BaseSortTestCase {
     }
     self.assert_sorted(&mut arr, &to_sort[o..o + arr_len]);
   }
-  fn test<R>(&self, random: &mut R, strategy: Strategy, length: i32)
+  fn test<R>(&self, random: &mut R, strategy: Strategy, length: usize)
   where
     R: Rng + ?Sized,
   {
-    let mut arr = vec![Entry::default(); length as usize];
+    let mut arr = vec![Entry::default(); length];
     let arr_length = arr.len();
     for i in 0..arr_length {
-      strategy.set(&mut arr, i as i32, random);
+      strategy.set(&mut arr, i, random);
     }
     self.test_impl(random, arr);
   }
@@ -150,65 +150,59 @@ pub enum Strategy {
   MostlyAscending(),
 }
 impl Strategy {
-  fn set<R>(&self, arr: &mut [Entry], i: i32, random: &mut R)
+  fn set<R>(&self, arr: &mut [Entry], i: usize, random: &mut R)
   where
     R: Rng + ?Sized,
   {
     match self {
       Random() => {
-        arr[i as usize] = Entry::new(random.random(), i);
+        arr[i] = Entry::new(random.random(), i);
       },
       RandomLowCardinality() => {
-        arr[i as usize] = Entry::new(random.random_range(0..6), i);
+        arr[i] = Entry::new(random.random_range(0..6), i);
       },
       RandomMediumCardinality() => {
         let length = arr.len() >> 1;
-        arr[i as usize] = Entry::new(random.random_range(0..length) as i32, i);
+        arr[i] = Entry::new(random.random_range(0..length) as i32, i);
       },
       Strategy::Ascending() => {
-        arr[i as usize] = if i == 0 {
+        arr[i] = if i == 0 {
           Entry::new(random.random_range(0..6), 0)
         } else {
-          Entry::new(arr[(i - 1) as usize].value + random.random_range(0..6), i)
+          Entry::new(arr[i - 1].value + random.random_range(0..6), i)
         }
       },
       Strategy::Descending() => {
-        arr[i as usize] = if i == 0 {
+        arr[i] = if i == 0 {
           Entry::new(random.random_range(0..6), 0)
         } else {
-          Entry::new(arr[(i - 1) as usize].value - random.random_range(0..6), i)
+          Entry::new(arr[i - 1].value - random.random_range(0..6), i)
         }
       },
       Strategy::StrictlyDescending() => {
-        arr[i as usize] = if i == 0 {
+        arr[i] = if i == 0 {
           Entry::new(random.random_range(0..6), 0)
         } else {
-          Entry::new(
-            arr[(i - 1) as usize].value - TestUtil::next_int(random, 1, 5),
-            i,
-          )
+          Entry::new(arr[i - 1].value - TestUtil::next_int(random, 1, 5), i)
         }
       },
       Strategy::AscendingSequences() => {
-        arr[i as usize] = if i == 0 {
+        arr[i] = if i == 0 {
           Entry::new(random.random_range(0..6), 0)
         } else {
           let value = if rarely(random) {
             random.random_range(0..1000)
           } else {
-            arr[(i - 1) as usize].value + random.random_range(0..6)
+            arr[i - 1].value + random.random_range(0..6)
           };
           Entry::new(value, i)
         }
       },
       Strategy::MostlyAscending() => {
-        arr[i as usize] = if i == 0 {
+        arr[i] = if i == 0 {
           Entry::new(random.random_range(0..6), 0)
         } else {
-          Entry::new(
-            arr[(i - 1) as usize].value + TestUtil::next_int(random, -8, 10),
-            i,
-          )
+          Entry::new(arr[i - 1].value + TestUtil::next_int(random, -8, 10), i)
         }
       },
     }
@@ -218,10 +212,10 @@ impl Strategy {
 #[derive(Copy, Eq, Debug, Default, Clone)]
 pub struct Entry {
   value: i32,
-  ord: i32,
+  ord: usize,
 }
 impl Entry {
-  fn new(value: i32, ord: i32) -> Entry {
+  fn new(value: i32, ord: usize) -> Entry {
     Entry { value, ord }
   }
 }

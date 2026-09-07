@@ -115,7 +115,7 @@ where
     let buffer = self.pool.get_buffer(self.buffer_upto);
     let next_index = BitUtil::get_i32_le(buffer, self.limit).try_convert()?;
 
-    self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level] as usize;
+    self.level = ByteSlicePool::NEXT_LEVEL_ARRAY[self.level];
     let new_size = ByteSlicePool::LEVEL_SIZE_ARRAY[self.level] as usize;
 
     self.buffer_upto = next_index / BYTE_BLOCK_SIZE as usize;

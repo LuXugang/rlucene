@@ -75,7 +75,7 @@ fn test_term_min_max_random() -> Result<()> {
     let mut tokens = Vec::with_capacity(num_tokens);
 
     for _ in 0..num_tokens {
-      let mut bytes = vec![0u8; TestUtil::next_int(&mut random, 1, 20) as usize];
+      let mut bytes = vec![0u8; TestUtil::next_usize(&mut random, 1, 20)];
       random.fill_bytes(&mut bytes);
       let token_bytes = BytesRef::from_bytes(bytes);
 

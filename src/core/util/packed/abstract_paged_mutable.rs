@@ -124,7 +124,7 @@ where
     let sub_mutable = self.sub_mutables.get_mut(page_index).ok_or_else(|| {
       LuceneError::array_index_out_of_bounds(format!("page index out of bounds: {page_index}"))
     })?;
-    sub_mutable.set(index_in_page as i32, value)
+    sub_mutable.set(index_in_page, value)
   }
   pub(crate) fn base_ram_bytes_used(&self) -> i64 {
     self.sub_reader.base_ram_bytes_used_base()
@@ -153,7 +153,7 @@ where
       let mut sub_mutable = self.sub_reader.new_mutable(value_count, bpv)?;
 
       if i < num_common_pages {
-        let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
+        let copy_length = std::cmp::min(value_count as usize, self.sub_mutables[i].size());
         PackedInts::copy_with_buffer(
           &self.sub_mutables[i],
           0,

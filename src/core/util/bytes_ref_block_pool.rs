@@ -76,8 +76,8 @@ impl BytesRefBlockPool {
     bytes: &BytesRef<Vec<u8>>,
     pool: &mut ByteBlockPool,
   ) -> Result<i32> {
-    let length = bytes.length as i32;
-    let len2 = 2 + bytes.length as i32;
+    let length = bytes.length;
+    let len2 = 2 + length as i32;
     if len2 + pool.byte_upto > BYTE_BLOCK_SIZE {
       if len2 > BYTE_BLOCK_SIZE {
         return Err(LuceneError::max_bytes_length_exceeded(format!(
@@ -100,9 +100,8 @@ impl BytesRefBlockPool {
     let new_length = if length < 128 {
       // 1 byte to store length
       buffer[buffer_upto] = length as u8;
-      debug_assert!(length >= 0, "Length must be positive: {length}");
       buffer.copy_from(
-        &bytes.bytes[bytes.offset..bytes.offset + length as usize],
+        &bytes.bytes[bytes.offset..bytes.offset + length],
         buffer_upto + 1,
       );
       length + 1
@@ -110,12 +109,12 @@ impl BytesRefBlockPool {
       // 2 byte to store length
       BitUtil::set_i16_be(buffer, buffer_upto, (length | 0x8000) as i16);
       buffer.copy_from(
-        &bytes.bytes[bytes.offset..bytes.offset + length as usize],
+        &bytes.bytes[bytes.offset..bytes.offset + length],
         buffer_upto + 2,
       );
       length + 2
     };
-    pool.byte_upto += new_length;
+    pool.byte_upto += new_length as i32;
     Ok(text_start)
   }
   /// Computes the hash of the BytesRef at the given start.

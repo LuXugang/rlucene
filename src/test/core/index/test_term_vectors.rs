@@ -297,7 +297,7 @@ impl TokenStreamGenerator {
   where
     R: Rng + ?Sized,
   {
-    let len = TestUtil::next_int(random, 1, 5) as usize;
+    let len = TestUtil::next_usize(random, 1, 5);
     OptionalNullPayloadTokenStream::new(
       random,
       len,
@@ -342,7 +342,7 @@ impl OptionalNullPayloadTokenStream {
     if !has_payloads {
       return None;
     }
-    let len = TestUtil::next_int(random, 1, 5) as usize;
+    let len = TestUtil::next_usize(random, 1, 5);
     let mut bytes = vec![0; len];
     random.fill_bytes(&mut bytes);
     Some(BytesRef::from_bytes(bytes))

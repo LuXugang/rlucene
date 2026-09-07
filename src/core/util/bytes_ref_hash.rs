@@ -54,7 +54,7 @@ pub struct BytesRefHash<BSA> {
 }
 impl BytesRefHash<DirectBytesStartArray> {
   pub fn new() -> Result<Self> {
-    let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY as usize);
+    let bytes_start_array = DirectBytesStartArray::new(DEFAULT_CAPACITY);
     BytesRefHash::from_bytes_start_array(16, bytes_start_array)
   }
 }
@@ -115,11 +115,12 @@ where
       "bytes_start is null - not initialized"
     );
     let bytes_start_len = self.bytes_start_array.len()?;
+    let bytes_id = bytes_id as usize;
     debug_assert!(
-      (bytes_id as usize) < bytes_start_len,
+      bytes_id < bytes_start_len,
       "bytesID exceeds bytes_start len"
     );
-    let value = self.bytes_start_array.get_value(bytes_id as usize)?;
+    let value = self.bytes_start_array.get_value(bytes_id)?;
     self.pool.fill_bytes_ref(ref_, value, pool)
   }
 
@@ -584,8 +585,8 @@ where
       .fill(prefix_common_bucket as i32);
     for i in from..to {
       let b = self.get_bucket(i, k)?;
-      self.compact[self.tmp_offset + i] = b;
-      histogram[b as usize] += 1;
+      self.compact[self.tmp_offset + i] = b as i32;
+      histogram[b] += 1;
     }
     Ok(())
   }
@@ -814,5 +815,5 @@ where
   }
 }
 
-pub const DEFAULT_CAPACITY: i32 = 16;
+pub const DEFAULT_CAPACITY: usize = 16;
 pub(crate) type DirectBytesRefHash = BytesRefHash<DirectBytesStartArray>;

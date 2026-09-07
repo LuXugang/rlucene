@@ -307,7 +307,7 @@ where
   {
     match bits & *TYPE_MASK as i32 {
       BYTE_ARR => {
-        let length = input.read_vint()?;
+        let length = input.read_vint()? as usize;
         visitor.binary_field_with_input(info, input, length, writer)?;
       },
       STRING => {

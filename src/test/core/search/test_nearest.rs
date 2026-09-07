@@ -327,7 +327,7 @@ fn test_nearest_neighbor_random() -> Result<()> {
       a.doc().cmp(&b.doc())
     });
 
-    let top_n = TestUtil::next_int(&mut random, 1, lats.len() as i32) as usize;
+    let top_n = TestUtil::next_usize(&mut random, 1, lats.len());
     // Also test with MatchAllDocsQuery, sorting by distance:
     let field_docs = s.search_with_sort(
       MatchAllDocsQuery::new(),

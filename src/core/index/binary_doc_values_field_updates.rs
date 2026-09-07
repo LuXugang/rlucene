@@ -145,22 +145,22 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
     Ok(())
   }
 
-  fn grow(&mut self, size: i32) -> Result<()> {
-    let offset_result = self.offsets.grow_with_size(size as usize)?;
+  fn grow(&mut self, size: usize) -> Result<()> {
+    let offset_result = self.offsets.grow_with_size(size)?;
     if let Some(offsets) = offset_result {
       self.offsets = offsets;
     }
 
-    let length_result = self.lengths.grow_with_size(size as usize)?;
+    let length_result = self.lengths.grow_with_size(size)?;
     if let Some(lengths) = length_result {
       self.lengths = lengths;
     }
     Ok(())
   }
 
-  fn resize(&mut self, size: i32) -> Result<()> {
-    self.offsets = self.offsets.resize(size as usize)?;
-    self.lengths = self.lengths.resize(size as usize)?;
+  fn resize(&mut self, size: usize) -> Result<()> {
+    self.offsets = self.offsets.resize(size)?;
+    self.lengths = self.lengths.resize(size)?;
     Ok(())
   }
 

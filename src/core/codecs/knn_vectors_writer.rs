@@ -327,17 +327,18 @@ where
   DM: DocMap,
 {
   debug_assert!(old2new_ord.is_some() || new2old_ord.is_some() || new_docs_with_field.is_some());
+  let value_count = old_doc_ids.cardinality() as usize;
 
   debug_assert!({
     if let Some(ref arr) = old2new_ord {
-      arr.len() == old_doc_ids.cardinality() as usize
+      arr.len() == value_count
     } else {
       true
     }
   });
   debug_assert!({
     if let Some(ref arr) = new2old_ord {
-      arr.len() == old_doc_ids.cardinality() as usize
+      arr.len() == value_count
     } else {
       true
     }
@@ -346,7 +347,7 @@ where
   let mut new_id_to_old_ord = HashMap::new();
 
   let mut iterator = old_doc_ids.iterator()?;
-  let mut new_doc_ids = vec![0; old_doc_ids.cardinality() as usize];
+  let mut new_doc_ids = vec![0; value_count];
 
   let mut old_ord = 0;
 

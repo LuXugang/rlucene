@@ -39,8 +39,8 @@ impl LSBRadixSorter {
   }
   fn build_histogram(array: &[i32], len: usize, histogram: &mut [usize; 256], shift: usize) {
     for &v in &array[..len] {
-      let b = ((v as u32) >> shift) & 0xFF;
-      histogram[b as usize] += 1;
+      let b = (((v as u32) >> shift) & 0xFF) as usize;
+      histogram[b] += 1;
     }
   }
   fn sum_histogram(histogram: &mut [usize; 256]) {
@@ -59,10 +59,10 @@ impl LSBRadixSorter {
     dest: &mut [i32],
   ) {
     for &v in &array[..len] {
-      let b = ((v as u32) >> shift) & 0xFF;
-      let idx = histogram[b as usize];
+      let b = (((v as u32) >> shift) & 0xFF) as usize;
+      let idx = histogram[b];
       dest[idx] = v;
-      histogram[b as usize] += 1;
+      histogram[b] += 1;
     }
   }
   fn sort_pass(

@@ -18,7 +18,8 @@ use crate::core::document::document::Document;
 use crate::core::document::field::{Field, Store};
 use crate::core::document::knn_float_vector_field::KnnFloatVectorField;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config, new_searcher_with_reader, random,
+  at_least, at_least_usize, new_directory_shared, new_index_writer_config,
+  new_searcher_with_reader, random,
 };
 
 use crate::core::document::numeric_doc_values_field::NumericDocValuesField;
@@ -945,7 +946,7 @@ fn test_delete_knn_vector() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
   let iw = RandomIndexWriter::new(&mut random, dir.clone())?;
-  let num_docs = at_least(&mut random, 100) as usize;
+  let num_docs = at_least_usize(&mut random, 100);
 
   let all_docs_have_vector = random.random_bool(0.5);
   let mut docs_with_vector = FixedBitSet::new(num_docs);

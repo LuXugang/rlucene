@@ -2033,7 +2033,7 @@ pub trait BaseDirectoryTestCase {
       out.write_byte(43u8)?;
       out.write_short(12345i16)?;
       out.write_int(1234567890i32)?;
-      let values_len = values.len() as i32;
+      let values_len = values.len();
       write_group_vints_i64(&mut out, &mut values, values_len)?;
       out.write_long(1234567890123456789i64)?;
       out.close()?;
@@ -2081,7 +2081,7 @@ pub trait BaseDirectoryTestCase {
     let limit = random.random_range(1..size);
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     let mut out = dir.create_output("test", io_context)?;
-    write_group_vints_i64(&mut out, &mut values[..values_len], limit as i32)?;
+    write_group_vints_i64(&mut out, &mut values[..values_len], limit)?;
     out.close()?;
     {
       let mut input = dir.open_input("test", io_context)?;
@@ -2152,7 +2152,7 @@ pub trait BaseDirectoryTestCase {
           vint_out.write_vint(*value as i32)?;
         }
 
-        write_group_vints_i64(&mut group_vint_out, &mut values, *num_values as i32)?;
+        write_group_vints_i64(&mut group_vint_out, &mut values, *num_values)?;
       }
       group_vint_out.close()?;
       vint_out.close()?;

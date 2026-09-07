@@ -527,7 +527,7 @@ where
                       .expect("LineFileDocs document must have docid")
                       .into_owned(),
                   ];
-                  let max_doc_count = TestUtil::next_int(&mut random, 1, 10) as usize;
+                  let max_doc_count = TestUtil::next_usize(&mut random, 1, 10);
                   while docs_list.len() < max_doc_count {
                     let mut next_document = docs.lock().next_doc()?;
                     next_document.add(pack_id_field.clone());

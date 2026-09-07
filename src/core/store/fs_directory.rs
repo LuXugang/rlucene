@@ -535,4 +535,4 @@ where
 ///
 /// As a result, in Rust, we can safely rely on `BufWriter` for efficient
 /// buffered writes without manually enforcing a chunk size limit.
-const CHUNK_SIZE: i32 = 8192;
+const CHUNK_SIZE: usize = 8192;

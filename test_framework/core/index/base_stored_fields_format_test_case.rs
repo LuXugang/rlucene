@@ -70,7 +70,7 @@ use crate::test_framework::core::index::mismatched_codec_reader::MismatchedCodec
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
+  at_least, at_least_usize, create_temp_dir, create_temp_dir_with_prefix, get_only_leaf_reader,
   new_directory_shared, new_field, new_fs_directory, new_index_writer_config,
   new_index_writer_config_with_analyzer, new_searcher_with_reader, new_string_field,
 };
@@ -282,7 +282,7 @@ pub trait BaseStoredFieldsFormatTestCase:
   {
     let directory = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, directory)?;
-    let num_docs = at_least(random, 500) as usize;
+    let num_docs = at_least_usize(random, 500);
     let mut answers = vec![Number::I32(0); num_docs];
     let mut type_answers = vec![""; num_docs];
 
@@ -614,14 +614,14 @@ pub trait BaseStoredFieldsFormatTestCase:
     let mut using_other_codec = false;
     let mut writer = RandomIndexWriter::with_config(random, directory.clone(), iwc);
 
-    let doc_count = at_least(random, 200);
-    let mut data: Vec<Vec<Vec<u8>>> = vec![Vec::new(); doc_count as usize];
+    let doc_count = at_least_usize(random, 200);
+    let mut data: Vec<Vec<Vec<u8>>> = vec![Vec::new(); doc_count];
     #[allow(clippy::needless_range_loop)]
-    for i in 0..doc_count as usize {
+    for i in 0..doc_count {
       let field_count = if random.random_bool(0.05) {
-        TestUtil::next_int(random, 1, 500) as usize
+        TestUtil::next_usize(random, 1, 500)
       } else {
-        TestUtil::next_int(random, 1, 5) as usize
+        TestUtil::next_usize(random, 1, 5)
       };
       let mut fields = Vec::with_capacity(field_count);
       for _ in 0..field_count {
@@ -630,12 +630,8 @@ pub trait BaseStoredFieldsFormatTestCase:
         } else {
           random.random_range(0..10)
         };
-        let max = if random.random_bool(0.05) {
-          256usize
-        } else {
-          2usize
-        };
-        let bytes = self.random_byte_array(random, length as usize, max as i32);
+        let max = if random.random_bool(0.05) { 256 } else { 2 };
+        let bytes = self.random_byte_array(random, length, max);
         fields.push(bytes);
       }
       data[i] = fields;
@@ -730,7 +726,7 @@ pub trait BaseStoredFieldsFormatTestCase:
   {
     let dir = new_directory_shared(random)?;
     let writer = RandomIndexWriter::new(random, dir.clone())?;
-    let num_docs = at_least(random, 200) as usize;
+    let num_docs = at_least_usize(random, 200);
     let mut string_values = Vec::with_capacity(10);
     for _ in 0..10 {
       string_values.push(TestUtil::random_realistic_unicode_string_with_len(
@@ -842,7 +838,7 @@ pub trait BaseStoredFieldsFormatTestCase:
     only_stored.set_index_options(IndexOptions::None)?;
     only_stored.freeze();
 
-    let small_length = TestUtil::next_int(random, 0, 9) as usize;
+    let small_length = TestUtil::next_usize(random, 0, 9);
     let small_field = Field::from_binary(
       "fld",
       self.random_byte_array(random, small_length, 256),
@@ -853,7 +849,7 @@ pub trait BaseStoredFieldsFormatTestCase:
       big_doc1.add(small_field.clone());
     }
 
-    let big_length = TestUtil::next_int(random, 1_000_000, 5_000_000) as usize;
+    let big_length = TestUtil::next_usize(random, 1_000_000, 5_000_000);
     let big_field = Field::from_binary(
       "fld",
       self.random_byte_array(random, big_length, 2),
@@ -861,11 +857,11 @@ pub trait BaseStoredFieldsFormatTestCase:
     )?;
     big_doc2.add(big_field);
 
-    let num_docs = at_least(random, 5) as usize;
+    let num_docs = at_least_usize(random, 5);
     let docs = [empty_doc, big_doc1, big_doc2];
     let mut doc_templates = Vec::with_capacity(num_docs);
     for i in 0..num_docs {
-      let template_idx = TestUtil::next_int(random, 0, (docs.len() - 1) as i32) as usize;
+      let template_idx = TestUtil::next_usize(random, 0, docs.len() - 1);
       doc_templates.push(template_idx);
       let mut doc = docs[template_idx].clone();
       doc.remove_field("id");
@@ -918,7 +914,7 @@ pub trait BaseStoredFieldsFormatTestCase:
     iwc.set_merge_policy(NoMergePolicy::default());
     let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
-    let num_docs = at_least(random, 200) as usize;
+    let num_docs = at_least_usize(random, 200);
     for i in 0..num_docs {
       let mut doc = Document::new();
       doc.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
@@ -929,7 +925,7 @@ pub trait BaseStoredFieldsFormatTestCase:
       writer.add_document(random, doc)?;
     }
 
-    let delete_count = TestUtil::next_int(random, 5, num_docs as i32) as usize;
+    let delete_count = TestUtil::next_usize(random, 5, num_docs);
     for _ in 0..delete_count {
       let id = TestUtil::next_int(random, 0, (num_docs - 1) as i32);
       writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;

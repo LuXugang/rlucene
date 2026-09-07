@@ -129,9 +129,15 @@ impl NumericUtils {
   }
   /// Result = a + b, where a and b are unsigned. If there is an overflow,
   /// [`LuceneError`] is returned.
-  pub fn add(bytes_per_dim: u32, dim: u32, a: &[u8], b: &[u8], result: &mut [u8]) -> Result<()> {
-    let start = (dim * bytes_per_dim) as usize;
-    let end = start + bytes_per_dim as usize;
+  pub fn add(
+    bytes_per_dim: usize,
+    dim: usize,
+    a: &[u8],
+    b: &[u8],
+    result: &mut [u8],
+  ) -> Result<()> {
+    let start = dim * bytes_per_dim;
+    let end = start + bytes_per_dim;
     let mut carry = 0;
 
     for i in (start..end).rev() {

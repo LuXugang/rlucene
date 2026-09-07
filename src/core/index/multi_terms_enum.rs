@@ -480,7 +480,7 @@ where
       self.sub_docs[upto].slice = entry.sub_slice.clone();
       upto += 1;
     }
-    docs_enum.reset(&self.sub_docs, upto as i32);
+    docs_enum.reset(&self.sub_docs, upto);
     Ok(docs_enum)
   }
 

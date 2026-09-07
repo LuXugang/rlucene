@@ -155,8 +155,8 @@ impl PackedLongValues {
       k += vals.get_bulk(k, dest, k, size - k)?;
     }
     match self.sub_long_values {
-      Some(ref sub) => Ok(sub.decode_block(block, dest, size as usize)),
-      _ => Ok(size as usize),
+      Some(ref sub) => Ok(sub.decode_block(block, dest, size)),
+      _ => Ok(size),
     }
   }
 
@@ -202,7 +202,7 @@ pub struct Builder {
   sub_builder: Option<DeltaPackedLongValuesBuilder>,
 }
 
-pub(crate) const INITIAL_PAGE_COUNT: i32 = 16;
+pub(crate) const INITIAL_PAGE_COUNT: usize = 16;
 /// A Builder for a [`PackedLongValues`] instance.
 impl Builder {
   // The builder's inline storage is accounted for by its owner.
@@ -216,8 +216,9 @@ impl Builder {
     sub_packed_long_values_builder: Option<DeltaPackedLongValuesBuilder>,
   ) -> Result<Builder> {
     let page_shift = PackedInts::check_block_size(page_size, MIN_PAGE_SIZE, MAX_PAGE_SIZE)?;
-    let page_mask = (page_size - 1) as usize;
-    let pending = vec![0; page_size as usize];
+    let page_size = page_size as usize;
+    let page_mask = page_size - 1;
+    let pending = vec![0; page_size];
     let mut values = Vec::new();
     // TODO: maybe we should impl `Clone` for `PackedIntsReadEnum`
     for _ in 0..INITIAL_PAGE_COUNT {
@@ -339,8 +340,8 @@ impl Builder {
       let mut mutable =
         PackedInts::get_mutable(num_values as i32, bits_required, acceptable_overhead_ratio)?;
       let mut i = 0;
-      while i < num_values as i32 {
-        i += mutable.set_bulk(i, self.pending.as_slice(), i, num_values as i32 - i)?;
+      while i < num_values {
+        i += mutable.set_bulk(i, self.pending.as_slice(), i, num_values - i)?;
       }
 
       self.values[block] = match mutable {

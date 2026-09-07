@@ -87,7 +87,7 @@ use crate::test_framework::core::util::failure_context::{
   ExecutionMethod, ExecutionOwner, FailureContext, FailurePoint,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
+  at_least, at_least_usize, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_mock_directory, new_searcher,
   new_string_field, new_text_field, random, random_from_seed, random_multiplier,
 };
@@ -339,7 +339,7 @@ where
       }
       let id_term = Term::from_text("id", &id);
       let result = if self.r.random() {
-        let count = TestUtil::next_int(&mut self.r, 1, 20) as usize;
+        let count = TestUtil::next_usize(&mut self.r, 1, 20);
         self.writer.update_documents_with_term(
           Some(id_term.clone()),
           DocCopyIterator::new(doc.clone(), count),
@@ -1709,7 +1709,7 @@ fn test_documents_writer_exception_fail_one_doc() -> Result<()> {
 fn test_documents_writer_exception_threads() -> Result<()> {
   let mut random = random();
   const NUM_THREAD: usize = 3;
-  let num_iter = at_least(&mut random, 10) as usize;
+  let num_iter = at_least_usize(&mut random, 10);
 
   for i in 0..2 {
     let dir = new_directory_shared(&mut random)?;

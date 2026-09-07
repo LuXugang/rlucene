@@ -191,18 +191,18 @@ where
       }
     } else {
       // bitsPerValue is 12, 20 or 28; read values 2 by 2
-      let num_bytes_for_2_values = (self.bits_per_value * 2) / i8::BITS as i32;
+      let num_bytes_for_2_values = ((self.bits_per_value * 2) / i8::BITS as i32) as usize;
       let mask = (1i64 << self.bits_per_value) - 1;
       let mut offset = self.base_offset + (index * self.bits_per_value as usize) / 8;
       for i in (0..DirectReader::MERGE_BUFFER_SIZE).step_by(2) {
-        let l = if num_bytes_for_2_values > BitUtil::INT_BYTES as i32 {
+        let l = if num_bytes_for_2_values > BitUtil::INT_BYTES {
           slice.read_long(offset)?
         } else {
           slice.read_int(offset)? as i64
         };
         self.buffer[i] = l & mask;
         self.buffer[i + 1] = (l as u64 >> self.bits_per_value) as i64 & mask;
-        offset += num_bytes_for_2_values as usize;
+        offset += num_bytes_for_2_values;
       }
     }
     Ok(())

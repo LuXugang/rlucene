@@ -43,7 +43,7 @@ impl BaseDirectoryTestCase for TestMultiByteBuffersDirectory {
   where
     R: Rng + ?Sized,
   {
-    let max_chunk_size = 1usize << TestUtil::next_int(random, 10, 20) as usize;
+    let max_chunk_size = 1usize << TestUtil::next_usize(random, 10, 20);
     self.get_directory_with_max_chunk_size(path, max_chunk_size)
   }
 }
