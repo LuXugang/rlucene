@@ -584,7 +584,12 @@ impl CodecUtil {
       // the main error and the prior error gets suppressed.
       // Otherwise, we return the prior error with a suppressed
       // error that notifies the user that checksums matched.
-      let remaining = checksum_in.length()? - checksum_in.get_file_pointer()?;
+      let remaining = checksum_in
+        .length()?
+        .checked_sub(checksum_in.get_file_pointer()?)
+        .ok_or_else(|| LuceneError::corrupt_index(format!(
+          "checksum status indeterminate: file pointer exceeds file length; please run checkindex for more details: {checksum_in}"
+        )))?;
       if remaining < Self::footer_length() {
         // corruption caused us to read into the checksum footer already: we
         // can't proceed
@@ -710,7 +715,14 @@ impl CodecUtil {
   where
     II: IndexInput,
   {
-    let remaining = input.length()? - input.get_file_pointer()?;
+    let remaining = input
+      .length()?
+      .checked_sub(input.get_file_pointer()?)
+      .ok_or_else(|| {
+        LuceneError::corrupt_index(format!(
+          "misplaced codec footer (file truncated?): file pointer exceeds file length (resource={input})"
+        ))
+      })?;
     let expected = Self::footer_length();
     match remaining.cmp(&(expected)) {
       Ordering::Less => {

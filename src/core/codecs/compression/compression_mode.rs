@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::io::{Read, Write};
+use std::io::Write;
 
-use flate2::Compression;
-use flate2::read::DeflateDecoder;
 use flate2::write::DeflateEncoder;
+use flate2::{Compression, Decompress, FlushDecompress, Status};
 
 use crate::core::codecs::compression::compressor::Compressor;
 use crate::core::codecs::compression::decompressor::Decompressor;
@@ -442,18 +441,32 @@ impl Decompressor for DeflateDecompressor {
 
     let compressed_length = input.read_vint()?;
     let compressed_length = compressed_length as usize;
-    ArrayUtil::grow_no_copy(&mut self.compressed, compressed_length)?;
+    let padded_length = compressed_length + 1;
+    ArrayUtil::grow_no_copy(&mut self.compressed, padded_length)?;
     input.read_bytes(&mut self.compressed, 0, compressed_length)?;
+    self.compressed[compressed_length] = 0;
 
-    let mut decoder = DeflateDecoder::new(&self.compressed[..compressed_length]);
-    bytes.bytes.clear();
-    decoder.read_to_end(&mut bytes.bytes)?;
-    if bytes.bytes.len() > original_length as usize {
+    bytes.offset = 0;
+    bytes.length = 0;
+    ArrayUtil::grow_no_copy(&mut bytes.bytes, original_length as usize)?;
+    let mut decoder = Decompress::new(false);
+    let status = decoder
+      .decompress(
+        &self.compressed[..padded_length],
+        &mut bytes.bytes[..original_length as usize],
+        FlushDecompress::Finish,
+      )
+      .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
+    bytes.length = decoder.total_out() as usize;
+    if status != Status::StreamEnd {
+      return Err(LuceneError::corrupt_index(format!(
+        "Invalid decoder state: status={status:?} (resource={input})"
+      )));
+    }
+    if bytes.length != original_length as usize {
       return Err(LuceneError::corrupt_index(format!(
         "Lengths mismatch: {} != {} (resource={})",
-        bytes.bytes.len(),
-        original_length,
-        input
+        bytes.length, original_length, input
       )));
     }
     bytes.offset = offset as usize;
@@ -488,6 +501,10 @@ impl Compressor for DeflateCompressor {
     let len = buffers_input.length();
     let mut bytes = vec![0; len];
     DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
+    if len == 0 {
+      out.write_vint(0)?;
+      return Ok(());
+    }
     self.compressed.clear();
     let compressed = std::mem::take(&mut self.compressed);
     let mut compressor = DeflateEncoder::new(compressed, Compression::new(self.level));
