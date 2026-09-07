@@ -82,7 +82,8 @@ const MIN_PAUSE_CHECK_MSEC: i64 = 5;
 pub struct SimpleRateLimiter {
   mb_per_sec: AtomicU64,
   min_pause_check_bytes: AtomicU64,
-  last_instant: Mutex<Instant>,
+  time_origin: Instant,
+  last_ns: Mutex<i64>,
 }
 
 impl SimpleRateLimiter {
@@ -91,7 +92,8 @@ impl SimpleRateLimiter {
     let limiter = Self {
       mb_per_sec: AtomicU64::new(0),
       min_pause_check_bytes: AtomicU64::new(0),
-      last_instant: Mutex::new(Instant::now()),
+      time_origin: Instant::now(),
+      last_ns: Mutex::new(1),
     };
     // Safe: initialized with a valid MB-per-second rate; ignore the error.
     let _ = limiter.set_mb_per_sec(mb_per_sec);
@@ -130,55 +132,57 @@ impl RateLimiter for SimpleRateLimiter {
    * Returns the pause time in nanoseconds.
    */
   fn pause(&self, bytes: i64) -> Result<i64> {
-    let start = Instant::now();
+    // Use a signed nanosecond clock so Java long conversion and overflow semantics
+    // also apply to NaN, negative rates and infinite pause lengths. The clock origin
+    // is arbitrary; start at one nanosecond, including on coarse-resolution clocks.
+    let start_ns = (self.time_origin.elapsed().as_nanos() as i64).wrapping_add(1);
 
     let seconds_to_pause = (bytes as f64 / 1024.0 / 1024.0) / self.get_mb_per_sec();
 
-    let target;
+    let target_ns;
 
-    // Sync'd to read + write last_instant:
+    // Sync'd to read + write last_ns:
     {
       let mut last = self
-        .last_instant
+        .last_ns
         .lock()
         .map_err(|_| LuceneError::illegal_state("rate limiter state lock is poisoned"))?;
 
       // Time we should sleep until; this is purely instantaneous
       // rate (just adds seconds onto the last time we had paused to);
       // maybe we should also offer decayed recent history one?
-      target = *last + Duration::from_secs_f64(seconds_to_pause);
+      target_ns = last.wrapping_add((1_000_000_000.0 * seconds_to_pause) as i64);
 
-      if start >= target {
+      if start_ns >= target_ns {
         // OK, current time is already beyond the target sleep time,
         // no pausing to do.
 
         // Set to start, not target, to enforce the instant rate, not
         // the "averaaged over all history" rate:
-        *last = start;
+        *last = start_ns;
         return Ok(0);
       }
 
-      *last = target;
+      *last = target_ns;
     }
 
-    let mut cur = start;
+    let mut cur_ns = start_ns;
 
     // `park_timeout` may return before the deadline when another thread calls
     // `unpark`, so keep checking the remaining duration in a loop.
     loop {
-      match target.checked_duration_since(cur) {
-        Some(pause_dur) if pause_dur > Duration::ZERO => {
-          // The minimum practical sleep duration on a general-purpose runtime
-          // is 1 msec; if you pass just 1 nsec the default impl rounds
-          // this up to 1 msec:
-          thread::park_timeout(pause_dur);
-          cur = Instant::now();
-          continue;
-        },
-        _ => break,
+      let pause_ns = target_ns.wrapping_sub(cur_ns);
+      if pause_ns > 0 {
+        // The minimum practical sleep duration on a general-purpose runtime
+        // is 1 msec; if you pass just 1 nsec the default impl rounds
+        // this up to 1 msec:
+        thread::park_timeout(Duration::from_nanos(pause_ns as u64));
+        cur_ns = (self.time_origin.elapsed().as_nanos() as i64).wrapping_add(1);
+        continue;
       }
+      break;
     }
 
-    Ok((cur - start).as_nanos() as i64)
+    Ok(cur_ns.wrapping_sub(start_ns))
   }
 }

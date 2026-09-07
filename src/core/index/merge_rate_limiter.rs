@@ -114,8 +114,8 @@ impl MergeRateLimiter {
         // Time we should sleep until; this is purely instantaneous
         // rate (just adds seconds onto the last time we had paused to);
         // maybe we should also offer decayed recent history one?
-        let target_ns = last + (1_000_000_000_f64 * seconds_to_pause) as i64;
-        let cur_pause = target_ns - cur_ns;
+        let target_ns = last.wrapping_add((1_000_000_000_f64 * seconds_to_pause) as i64);
+        let cur_pause = target_ns.wrapping_sub(cur_ns);
 
         // We don't bother with thread pausing if the pause is smaller than 2 msec.
         if cur_pause <= MIN_PAUSE_NS {
