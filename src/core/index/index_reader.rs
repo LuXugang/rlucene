@@ -470,7 +470,7 @@ where
   type Context = LeafReaderContext<LR>;
 
   fn create(reader: LR) -> Result<Self::Context> {
-    Ok(LeafReaderContext::from_top_lr(reader))
+    LeafReaderContext::from_top_lr(reader)
   }
 }
 

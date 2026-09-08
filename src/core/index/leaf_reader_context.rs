@@ -53,11 +53,17 @@ impl<LR> LeafReaderContext<LR> {
       top_parent: parent,
     }
   }
-  pub(crate) fn from_top_lr(reader: LR) -> Self {
+  pub(crate) fn from_top_lr(reader: LR) -> Result<Self>
+  where
+    LR: LeafReader,
+  {
+    let max_doc = reader.max_doc()?;
     let mut v = Self::new(reader, 0, 0, 0, 0, TopParentMeta::default());
     // leaf_reader is top
+    v.top_parent.leaves_num = 1;
+    v.top_parent.max_doc = max_doc;
     v.top_parent.id = v.base.id().clone();
-    v
+    Ok(v)
   }
 }
 

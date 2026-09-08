@@ -1519,7 +1519,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         .iter()
         .map(|field| if field.get_reverse() { -1 } else { 1 })
         .collect();
-      let reader_context = LeafReaderContext::from_top_lr(reader);
+      let reader_context = LeafReaderContext::from_top_lr(reader)?;
       let mut comparators = Vec::with_capacity(fields.len());
       let mut leaf_comparators = Vec::with_capacity(fields.len());
       for field in fields {
