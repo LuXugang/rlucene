@@ -281,3 +281,12 @@ impl<'a> IntoIterator for &'a Document {
     self.fields.iter()
   }
 }
+
+impl<'a> IntoIterator for &'a mut Document {
+  type Item = &'a mut Fields;
+  type IntoIter = std::slice::IterMut<'a, Fields>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.fields.iter_mut()
+  }
+}

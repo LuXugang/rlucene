@@ -51,7 +51,7 @@ use crate::core::index::index_reader::{IndexReader, IndexReaderBase, LeafReaderC
 use crate::core::index::index_sorter::DocComparatorEnum2;
 use crate::core::index::index_sorter::{DocComparator, IndexSorter};
 use crate::core::store::IO_CONTEXT_DEFAULT;
-use std::borrow::Cow;
+use std::borrow::{BorrowMut, Cow};
 
 use crate::core::analysis::reader::ReaderEnum;
 use crate::core::codecs::knn_vectors_format::KnnVectorsFormat;
@@ -778,7 +778,7 @@ where
       self.stored_fields_consumer.finish_document()
     )
   }
-  pub(crate) fn process_document<DF, D1, T>(
+  pub(crate) fn process_document<DF, F, D1, T>(
     &mut self,
     doc_id: i32,
     document: DF,
@@ -788,7 +788,8 @@ where
     aborting_exception_consumer: &OnceLock<CaughtResult>,
   ) -> Result<()>
   where
-    DF: IntoIterator<Item = Result<Fields>>,
+    DF: IntoIterator<Item = Result<F>>,
+    F: BorrowMut<Fields>,
     T: LiveIndexWriterConfig,
   {
     // number of unique fields by names (collapses multiple field instances by the same name)
@@ -813,10 +814,11 @@ where
     // build schema for each unique doc field
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      while let Some(field) = document_fields.next().transpose()? {
+      while let Some(field_value) = document_fields.next().transpose()? {
+        let field = field_value.borrow();
         let field_type = field.field_type();
         let is_reserved = field.is_reserved();
-        let pf_idx = self.get_or_add_per_field(&field, is_reserved)?;
+        let pf_idx = self.get_or_add_per_field(field, is_reserved)?;
         {
           let pf = &mut self.per_fields[pf_idx];
           if pf.reserved != is_reserved {
@@ -841,7 +843,7 @@ where
         doc_field_idx += 1;
         let pf = &mut self.per_fields[pf_idx];
         Self::update_doc_field_schema(field.name(), &mut pf.schema, &field_type)?;
-        document.push(field);
+        document.push(field_value);
       }
 
       // For each field, if it's the first time we see this field in this segment,
@@ -869,6 +871,7 @@ where
       doc_field_idx = 0;
 
       for field in &mut document {
+        let field = field.borrow_mut();
         let per_field_idx = self.doc_fields[doc_field_idx];
         if self.process_field(
           doc_id,

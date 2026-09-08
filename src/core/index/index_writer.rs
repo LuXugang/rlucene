@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::document::document::Document;
 use crate::core::index::buffered_updates_stream::{
   ApplyDeletesResult, BufferedUpdatesStream, SegmentState,
 };
@@ -41,6 +42,7 @@ use crate::test_framework::core::util::failure_context::{
   ExecutionMethod, ExecutionOwner, ExecutionScope,
 };
 use parking_lot::{Condvar, Mutex, MutexGuard, ReentrantMutex};
+use std::borrow::BorrowMut;
 use std::cell::{Cell, RefCell};
 use std::sync::{Arc, OnceLock, Weak};
 
@@ -75,6 +77,16 @@ where
     InfallibleIterator(self.into_iter())
   }
 }
+
+/// A document accepted by [`IndexWriter::add_document`].
+///
+/// Owned fallible field iterables and `&mut Document` are supported. Keeping the
+/// owned iterable's item type fixed preserves type inference for `field.into()`.
+pub trait IndexingDocument: IntoFallibleIterator<Item: BorrowMut<Fields>> {}
+
+impl<T> IndexingDocument for T where T: IntoFallibleIterator<Item = Fields> {}
+
+impl IndexingDocument for &mut Document {}
 
 /// An [`IndexWriter`] creates and maintains an index.
 ///
@@ -906,6 +918,13 @@ where
   /// Each term in the document can be no longer than [`MAX_TERM_LENGTH`] bytes; otherwise this
   /// method returns [`LuceneError::IllegalArgument`].
   ///
+  /// Accepts owned fields or mutable field references. Pass `doc` to consume a
+  /// document, or `&mut doc` to retain it for subsequent indexing calls.
+  /// Indexing still resets, consumes and closes each token stream. To reuse an
+  /// explicit stream, it must support another reset after close. Reader values
+  /// are taken from their fields and must be replaced before indexing again.
+  /// Field and stream state is not rolled back if indexing fails.
+  ///
   /// # Returns
   /// The `sequence number` for this operation.
   ///
@@ -914,10 +933,10 @@ where
   /// - Returns an I/O error if a low-level I/O operation fails.
   pub fn add_document<DF>(&self, doc: DF) -> Result<i64>
   where
-    DF: IntoFallibleIterator<Item = Fields>,
+    DF: IndexingDocument,
     D: 'static,
   {
-    self.update_document_with_term(None, doc)
+    self.update_documents(None, [doc])
   }
 
   /// Atomically adds a block of documents with sequentially assigned document IDs, such that an
@@ -1028,7 +1047,8 @@ where
   fn update_documents<DI>(&self, del_node: Option<Arc<Node>>, docs: DI) -> Result<i64>
   where
     DI: IntoFallibleIterator,
-    DI::Item: IntoFallibleIterator<Item = Fields>,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     D: 'static,
   {
     #[cfg(test)]

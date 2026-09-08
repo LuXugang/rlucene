@@ -34,6 +34,7 @@ use crate::core::util::error::lucene_error::{CaughtResult, LuceneError};
 use crate::core::util::info_stream::{InfoStream, InfoStreamMT};
 use crate::core::util::io_utils::IOUtils;
 use parking_lot::{Mutex, MutexGuard};
+use std::borrow::BorrowMut;
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicI64, Ordering};
@@ -499,7 +500,8 @@ where
   ) -> Result<i64>
   where
     DI: IntoFallibleIterator,
-    DI::Item: IntoFallibleIterator<Item = Fields>,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
   {
     let has_events = self.pre_update(writer)?;
 

@@ -72,14 +72,14 @@ fn test() -> Result<()> {
   ft.set_index_options(IndexOptions::Docs)?;
 
   let num_docs = (i32::MAX / 26) + 1;
+  let mut doc = Document::new();
+  doc.add(Field::from_token_stream(
+    "field",
+    FieldTokenStreamEnum::custom(MyTokenStream::new()),
+    ft,
+  )?);
   for _ in 0..num_docs {
-    let mut doc = Document::new();
-    doc.add(Field::from_token_stream(
-      "field",
-      FieldTokenStreamEnum::custom(MyTokenStream::new()),
-      ft.clone(),
-    )?);
-    w.add_document(doc)?;
+    w.add_document(&mut doc)?;
   }
   w.force_merge(1)?;
   w.close()?;

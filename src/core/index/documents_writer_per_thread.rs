@@ -60,6 +60,7 @@ use crate::test_framework::core::util::failure_context::{
   ExecutionMethod, ExecutionOwner, ExecutionScope,
 };
 use parking_lot::{Condvar, Mutex};
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use std::sync::atomic::Ordering::SeqCst;
@@ -68,6 +69,31 @@ use std::sync::{Arc, OnceLock};
 use std::{fmt, thread};
 
 const INFO_VERBOSE: bool = false;
+
+// The document can yield owned fields or mutable references, while the injected
+// parent is borrowed from the current DWPT call. Neither case needs boxing.
+enum IndexingField<'a, F> {
+  Parent(&'a mut Fields),
+  Document(F),
+}
+
+impl<F: BorrowMut<Fields>> Borrow<Fields> for IndexingField<'_, F> {
+  fn borrow(&self) -> &Fields {
+    match self {
+      Self::Parent(field) => field,
+      Self::Document(field) => field.borrow(),
+    }
+  }
+}
+
+impl<F: BorrowMut<Fields>> BorrowMut<Fields> for IndexingField<'_, F> {
+  fn borrow_mut(&mut self) -> &mut Fields {
+    match self {
+      Self::Parent(field) => field,
+      Self::Document(field) => field.borrow_mut(),
+    }
+  }
+}
 
 pub struct DocumentsWriterPerThread<D>
 where
@@ -364,7 +390,8 @@ where
   ) -> Result<i64>
   where
     DI: IntoFallibleIterator,
-    DI::Item: IntoFallibleIterator<Item = Fields>,
+    DI::Item: IntoFallibleIterator,
+    <DI::Item as IntoFallibleIterator>::Item: BorrowMut<Fields>,
     FN: FlushNotifications,
   {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<i64> {
@@ -397,7 +424,7 @@ where
         let mut docs_iter = docs.into_fallible_iter().peekable();
         while let Some(doc) = docs_iter.next() {
           let doc = doc?;
-          let reserved_parent_field: Option<Fields> = if let Some(parent) = &self.parent_field {
+          let mut reserved_parent_field: Option<Fields> = if let Some(parent) = &self.parent_field {
             docs_iter
               .peek()
               .is_none()
@@ -419,9 +446,14 @@ where
           let process_result =
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
               let doc_fields = reserved_parent_field
+                .as_mut()
                 .into_iter()
-                .map(Ok)
-                .chain(doc.into_fallible_iter());
+                .map(|field| Ok(IndexingField::Parent(field)))
+                .chain(
+                  doc
+                    .into_fallible_iter()
+                    .map(|field| field.map(IndexingField::Document)),
+                );
               self.indexing_chain.process_document(
                 doc_id,
                 doc_fields,
