@@ -17,6 +17,7 @@
 use rand::prelude::SmallRng;
 use rand::{RngExt, SeedableRng};
 use rand_chacha::rand_core::Rng;
+use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -492,6 +493,7 @@ impl HnswGraphBuilderDefaults {
      * already-selected neighbors (ie selected in this method,
      * since the node is new and has no prior neighbors).
      */
+    let mut mask_buffer = [false; 128];
     let mask = Self::select_and_link_diverse(
       hnsw,
       scorer_supplier,
@@ -499,6 +501,7 @@ impl HnswGraphBuilderDefaults {
       max_conn_on_level,
       level,
       node,
+      &mut mask_buffer,
     )?;
 
     // Link the selected nodes to the new node, and the new node to the selected
@@ -525,21 +528,28 @@ impl HnswGraphBuilderDefaults {
   }
   ///  This method will select neighbors to add and return a mask telling the
   /// caller which candidates are selected
-  pub(crate) fn select_and_link_diverse<T>(
+  fn select_and_link_diverse<'a, T>(
     hnsw: &Arc<OnHeapHnswGraph>,
     scorer_supplier: &T,
     candidates: &NeighborArray,
     max_conn_on_level: usize,
     level: usize,
     node: usize,
-  ) -> Result<Vec<bool>>
+    mask_buffer: &'a mut [bool; 128],
+  ) -> Result<Cow<'a, [bool]>>
   where
     T: RandomVectorScorerSupplier,
   {
     let max_node_id = hnsw.max_node_id();
     hnsw.with_neighbors_mut(level, node, |neighbors| {
       debug_assert_eq!(neighbors.size(), 0); // new node
-      let mut mask = vec![false; candidates.size()];
+      let mut heap_mask = Vec::new();
+      let mask = if candidates.size() <= mask_buffer.len() {
+        &mut mask_buffer[..candidates.size()]
+      } else {
+        heap_mask = vec![false; candidates.size()];
+        &mut heap_mask
+      };
       let mut i = candidates.size();
       // Select the best maxConnOnLevel neighbors of the new node, applying the
       // diversity heuristic
@@ -565,7 +575,11 @@ impl HnswGraphBuilderDefaults {
           neighbors.add_in_order(c_node, c_score)?;
         }
       }
-      Ok(mask)
+      if candidates.size() <= mask_buffer.len() {
+        Ok(Cow::Borrowed(&mask_buffer[..candidates.size()]))
+      } else {
+        Ok(Cow::Owned(heap_mask))
+      }
     })
   }
   pub(crate) fn pop_to_scratch(
@@ -678,9 +692,7 @@ impl HnswGraphBuilderDefaults {
         // level first we ensure that the entry node we get later will
         // always exist on the curMaxLevel
         match builder.hnsw.entry_node()? {
-          Some(v) => {
-            vec![v]
-          },
+          Some(v) => [v],
           None => {
             return Err(LuceneError::illegal_state(
               "Entry node is not set when trying to add connections",
@@ -705,6 +717,7 @@ impl HnswGraphBuilderDefaults {
       }
 
       // for levels <= nodeLevel search with topk = beamWidth, and add connections
+      let mut eps: Cow<'_, [usize]> = Cow::Borrowed(&eps);
       let candidates = &mut builder.beam_candidates;
       for i in (0..scratch_per_level.len()).rev() {
         let level = i + lowest_unset_level;
@@ -717,7 +730,7 @@ impl HnswGraphBuilderDefaults {
           &mut builder.hnsw,
           None::<&B>,
         )?;
-        eps = candidates.pop_until_nearest_k_nodes()?;
+        eps = Cow::Owned(candidates.pop_until_nearest_k_nodes()?);
         let mut scratch = NeighborArray::new(std::cmp::max(candidates.k(), builder.m + 1), false);
         Self::pop_to_scratch(candidates, &mut scratch)?;
         scratch_per_level[i] = scratch;

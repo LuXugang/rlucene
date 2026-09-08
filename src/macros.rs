@@ -162,3 +162,27 @@ macro_rules! resume_caught_panic {
     }
   }};
 }
+
+/// Declares a mutable slice backed by a local array or, for larger lengths, a vector.
+///
+/// Usage: `stack_or_heap_buffer!(name, element_type, length, stack_capacity, initial_value);`
+/// The element type must be `Copy`; stack capacity is a compile-time element count,
+/// not a byte budget. Length and initial value are each evaluated once.
+///
+/// Expands into declarations in the caller's scope so both backing buffers outlive the
+/// slice. The fixed array can occupy stack space even when the heap branch is selected;
+/// callers must account for nested calls and recursion when choosing its capacity.
+macro_rules! stack_or_heap_buffer {
+  ($name:ident, $element:ty, $length:expr, $capacity:expr, $initial:expr $(,)?) => {
+    let buffer_length: usize = $length;
+    let buffer_initial: $element = $initial;
+    let mut stack_buffer: [$element; $capacity] = [buffer_initial; $capacity];
+    let mut heap_buffer;
+    let $name: &mut [$element] = if buffer_length <= stack_buffer.len() {
+      &mut stack_buffer[..buffer_length]
+    } else {
+      heap_buffer = ::std::vec![buffer_initial; buffer_length];
+      heap_buffer.as_mut_slice()
+    };
+  };
+}

@@ -186,7 +186,7 @@ impl FieldUpdatesBuffer {
   }
   pub(crate) fn add(
     &mut self,
-    field: String,
+    field: &str,
     doc_upto: i32,
     ord: usize,
     has_value: bool,
@@ -206,6 +206,7 @@ impl FieldUpdatesBuffer {
           .bytes_used
           .add_and_get(size_of_string_vec(&self.fields).saturating_sub(old_size));
       }
+      let field = field.to_owned();
       self.bytes_used.add_and_get(Self::size_of_string(&field));
       self.fields[ord] = field;
     }
@@ -256,7 +257,7 @@ impl FieldUpdatesBuffer {
   pub fn add_update_with_long(&mut self, term: &Term, value: i64, doc_upto: i32) -> Result<()> {
     debug_assert!(self.is_numeric);
     let ord = self.append(term)?;
-    let field = term.field.clone();
+    let field = &term.field;
     self.add(field, doc_upto, ord, true)?;
     self.min_numeric = min(self.min_numeric, value);
     self.max_numeric = max(self.max_numeric, value);
@@ -285,7 +286,7 @@ impl FieldUpdatesBuffer {
 
   pub(crate) fn add_no_value(&mut self, term: &Term, doc_upto: i32) -> Result<()> {
     let ord = self.append(term)?;
-    self.add(term.field.clone(), doc_upto, ord, false)
+    self.add(&term.field, doc_upto, ord, false)
   }
   pub(crate) fn add_update_with_bytes_ref(
     &mut self,
@@ -300,7 +301,7 @@ impl FieldUpdatesBuffer {
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("byte_values is None"))?
       .append(value)?;
-    self.add(term.field.clone(), doc_upto, ord, true)?;
+    self.add(&term.field, doc_upto, ord, true)?;
     Ok(())
   }
 

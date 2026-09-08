@@ -373,14 +373,14 @@ impl CodecUtil {
     Self::check_index_header_id(data_in, expected_id)?;
     let suffix_length = data_in.read_byte()?;
     let suffix_len = suffix_length as usize;
-    let mut suffix_bytes: Vec<u8> = vec![0u8; suffix_len];
-    data_in.read_bytes(&mut suffix_bytes, 0, suffix_len)?;
+    let mut suffix_bytes = [0u8; u8::MAX as usize];
+    data_in.read_bytes(&mut suffix_bytes[..suffix_len], 0, suffix_len)?;
     Self::write_be_int(data_out, CodecUtil::CODEC_MAGIC)?;
     data_out.write_string(&codec)?;
     Self::write_be_int(data_out, version)?;
     data_out.write_bytes_range(expected_id, 0, StringHelper::ID_LENGTH)?;
     data_out.write_byte(suffix_length)?;
-    data_out.write_bytes_range(&suffix_bytes, 0, suffix_len)?;
+    data_out.write_bytes_range(&suffix_bytes[..suffix_len], 0, suffix_len)?;
     Ok(())
   }
   /// Retrieves the full index header from the provided [`IndexInput`].
@@ -464,9 +464,9 @@ impl CodecUtil {
     DI: DataInput,
   {
     let suffix_length = data_input.read_byte()? as usize;
-    let mut suffix: Vec<u8> = vec![0u8; suffix_length];
-    data_input.read_bytes(&mut suffix, 0, suffix_length)?;
-    let actual_suffix = String::from_utf8_lossy(&suffix).into_owned();
+    let mut suffix = [0u8; u8::MAX as usize];
+    data_input.read_bytes(&mut suffix[..suffix_length], 0, suffix_length)?;
+    let actual_suffix = String::from_utf8_lossy(&suffix[..suffix_length]);
     if actual_suffix != expected_suffix {
       return Err(LuceneError::corrupt_index(format!(
         "file mismatch, expected suffix={expected_suffix}, got={actual_suffix} (resource={data_input})"

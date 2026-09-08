@@ -538,17 +538,16 @@ where
   V: QuantizedByteVectorValues,
 {
   fn score(&self, vector_ordinal: usize) -> Result<f32> {
-    let mut compressed_vector = vec![0; self.values.get_vector_byte_length()];
-    let compressed_vector_len = compressed_vector.len();
+    let compressed_vector_len = self.values.get_vector_byte_length();
+    stack_or_heap_buffer!(compressed_vector, u8, compressed_vector_len, 128, 0);
     self
       .values
       .seek(vector_ordinal * (self.values.get_vector_byte_length() + BitUtil::FLOAT_BYTES))?;
     self
       .values
-      .read_bytes(&mut compressed_vector, 0, compressed_vector_len)?;
+      .read_bytes(compressed_vector, 0, compressed_vector_len)?;
     let vector_offset = self.values.get_score_correction_constant(vector_ordinal)?;
-    let dot_product =
-      VECTOR_UTIL.int4_dot_product_packed(&self.target_bytes, &compressed_vector)?;
+    let dot_product = VECTOR_UTIL.int4_dot_product_packed(&self.target_bytes, compressed_vector)?;
     debug_assert!(dot_product >= 0);
     let adjusted_distance =
       dot_product as f32 * self.const_multiplier + self.offset_correction + vector_offset;

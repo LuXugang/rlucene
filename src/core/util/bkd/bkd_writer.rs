@@ -18,7 +18,7 @@ use crate::core::codecs::CodecUtil;
 use crate::core::codecs::mutable_point_tree::MutablePointTree;
 use crate::core::index::merge_state::DocMap;
 use crate::core::index::point_values::{
-  IntersectVisitor, PointTree, PointTreeEnum, PointValues, Relation,
+  IntersectVisitor, MAX_NUM_BYTES, PointTree, PointTreeEnum, PointValues, Relation,
 };
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::store::directory::Directory;
@@ -80,6 +80,7 @@ where
   scratch_bytes_ref1: BytesRef<Vec<u8>>,
   scratch_bytes_ref2: BytesRef<Vec<u8>>,
   common_prefix_lengths: Vec<usize>,
+  used_bytes: Vec<Option<FixedBitSet>>,
   docs_seen: FixedBitSet,
   point_writer: Option<PointWriterEnum<<TrackingDirectoryWrapper<D> as Directory>::IndexOutput>>,
   finished: bool,
@@ -154,6 +155,7 @@ where
       scratch_bytes_ref1: BytesRef::default(),
       scratch_bytes_ref2: BytesRef::default(),
       common_prefix_lengths,
+      used_bytes: Vec::new(),
       docs_seen,
       point_writer: None,
       finished: false,
@@ -822,12 +824,13 @@ where
       write_buffer.write_vint(code as i32)?;
 
       let suffix = self.config.bytes_per_dim - prefix;
-      let mut sav_split_value = vec![0u8; suffix];
+      stack_or_heap_buffer!(sav_split_value, u8, suffix, MAX_NUM_BYTES, 0);
 
       if suffix > 1 {
         write_buffer.write_bytes_range(split_bytes, address + prefix + 1, suffix - 1)?;
       }
 
+      #[cfg(debug_assertions)]
       let cmp = last_split_values.to_vec();
       let last_split_values_start = split_dim * self.config.bytes_per_dim + prefix;
       sav_split_value.copy_from(
@@ -893,6 +896,7 @@ where
       let start = split_dim * self.config.bytes_per_dim + prefix;
       last_split_values.copy_from(&sav_split_value[..suffix], start);
 
+      #[cfg(debug_assertions)]
       debug_assert!(last_split_values == &cmp[..]);
 
       Ok(num_bytes + bytes2_len + left_num_bytes + right_num_bytes)
@@ -1510,10 +1514,18 @@ where
 
         // Find the dimension that has the least number of unique bytes
         // at commonPrefixLengths[dim]
-        let mut used_bytes = vec![None; self.config.num_dims];
+        if self.used_bytes.is_empty() {
+          self.used_bytes = vec![None; self.config.num_dims];
+        }
+        let used_bytes = &mut self.used_bytes;
         for (dim, used) in used_bytes.iter_mut().take(self.config.num_dims).enumerate() {
           if self.common_prefix_lengths[dim] < self.config.bytes_per_dim {
-            *used = Some(FixedBitSet::new(256));
+            match used {
+              Some(set) => set.clear()?,
+              None => *used = Some(FixedBitSet::new(256)),
+            }
+          } else {
+            *used = None;
           }
         }
 
@@ -1832,10 +1844,18 @@ where
         PointWriterEnum::Heap(heap_source) => {
           self.compute_common_prefix_length(heap_source, from, to)?;
           let mut sorted_dim_cardinality = i32::MAX;
-          let mut used_bytes = vec![None; self.config.num_dims];
+          if self.used_bytes.is_empty() {
+            self.used_bytes = vec![None; self.config.num_dims];
+          }
+          let used_bytes = &mut self.used_bytes;
           for (dim, used) in used_bytes.iter_mut().take(self.config.num_dims).enumerate() {
             if self.common_prefix_lengths[dim] < self.config.bytes_per_dim {
-              *used = Some(FixedBitSet::new(256));
+              match used {
+                Some(set) => set.clear()?,
+                None => *used = Some(FixedBitSet::new(256)),
+              }
+            } else {
+              *used = None;
             }
           }
 

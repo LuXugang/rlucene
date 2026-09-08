@@ -972,7 +972,9 @@ impl DirectTermsEnum {
       .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
     let start = self.data.term_offsets[term_ord] as usize;
     let end = self.data.term_offsets[term_ord + 1] as usize;
-    self.scratch = BytesRef::from_bytes(self.data.term_bytes[start..end].to_vec());
+    self
+      .scratch
+      .copy_from_slice(&self.data.term_bytes[start..end]);
     Ok(&self.scratch)
   }
 
@@ -1342,7 +1344,9 @@ impl DirectIntersectTermsEnum {
       .ok_or_else(|| LuceneError::illegal_state("terms enum is not positioned"))?;
     let start = self.data.term_offsets[term_ord] as usize;
     let end = self.data.term_offsets[term_ord + 1] as usize;
-    self.scratch = BytesRef::from_bytes(self.data.term_bytes[start..end].to_vec());
+    self
+      .scratch
+      .copy_from_slice(&self.data.term_bytes[start..end]);
     Ok(())
   }
 
@@ -2212,13 +2216,15 @@ impl PostingsEnum for LowFreqPostingsEnum {
       self.upto += 1;
       if self.payload_length > 0 {
         let payloads = self
-          .low_term()
+          .term
           .payloads
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?;
-        self.payload = Some(BytesRef::from_bytes(
-          payloads[self.payload_offset..self.payload_offset + self.payload_length].to_vec(),
-        ));
+        let bytes = &payloads[self.payload_offset..self.payload_offset + self.payload_length];
+        self
+          .payload
+          .get_or_insert_with(BytesRef::new)
+          .copy_from_slice(bytes);
       } else {
         self.payload = None;
       }
@@ -2503,10 +2509,15 @@ impl PostingsEnum for HighFreqPostingsEnum {
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[upto]
       [self.pos_upto as usize];
-    if let Some(payloads) = &self.high_term().payloads {
-      self.payload = payloads[upto][(self.pos_upto / self.pos_jump) as usize]
-        .as_ref()
-        .map(|bytes| BytesRef::from_bytes(bytes.clone()));
+    if let Some(payloads) = &self.term.payloads {
+      if let Some(bytes) = &payloads[upto][(self.pos_upto / self.pos_jump) as usize] {
+        self
+          .payload
+          .get_or_insert_with(BytesRef::new)
+          .copy_from_slice(bytes);
+      } else {
+        self.payload = None;
+      }
     } else {
       self.payload = None;
     }

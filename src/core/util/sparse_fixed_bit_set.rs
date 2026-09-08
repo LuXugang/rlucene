@@ -315,8 +315,7 @@ impl SparseFixedBitSet {
     let mut current_long = 1_u64 << (first_doc % 64);
     // we store at most 64 longs per block so preallocate in order never to
     // have to resize
-    let mut longs = vec![0; 64];
-    longs.resize(64, 0);
+    let mut longs = [0; 64];
     let mut num_longs = 0;
 
     let mut doc = it.next_doc()?.try_convert()?;

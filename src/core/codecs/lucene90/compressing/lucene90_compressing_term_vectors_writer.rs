@@ -453,7 +453,7 @@ where
   fn flush_flags(&mut self, total_fields: i32, field_nums: &[i32]) -> Result<()> {
     // check if fields always have the same flags
     let mut non_changing_flags = true;
-    let mut field_flags = vec![-1; field_nums.len()];
+    stack_or_heap_buffer!(field_flags, i32, field_nums.len(), 16, -1);
 
     'outer: for doc in &self.pending_docs {
       for fd in &doc.fields {
@@ -487,7 +487,7 @@ where
         *FLAGS_BITS,
       )?;
 
-      for &flags in &field_flags {
+      for &flags in field_flags.iter() {
         debug_assert!(flags >= 0);
         writer.add(flags as i64)?;
       }
@@ -625,8 +625,8 @@ where
   }
   fn flush_offsets(&mut self, field_nums: &[i32]) -> Result<()> {
     let mut has_offsets = false;
-    let mut sum_pos = vec![0u64; field_nums.len()];
-    let mut sum_offsets = vec![0u64; field_nums.len()];
+    stack_or_heap_buffer!(sum_pos, u64, field_nums.len(), 16, 0);
+    stack_or_heap_buffer!(sum_offsets, u64, field_nums.len(), 16, 0);
 
     for doc in &self.pending_docs {
       for field in &doc.fields {
@@ -661,7 +661,7 @@ where
       return Ok(());
     }
 
-    let mut chars_per_term = vec![0f32; field_nums.len()];
+    stack_or_heap_buffer!(chars_per_term, f32, field_nums.len(), 16, 0.0);
     for i in 0..field_nums.len() {
       chars_per_term[i] = if sum_pos[i] == 0 || sum_offsets[i] == 0 {
         0.0

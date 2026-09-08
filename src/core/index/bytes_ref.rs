@@ -43,6 +43,18 @@ pub struct BytesRef<AV> {
   pub offset: usize,
   pub length: usize,
 }
+
+impl BytesRef<Vec<u8>> {
+  /// Replaces the contents with a copy of `bytes`, reusing the existing allocation
+  /// when its capacity is sufficient. Resets the offset to zero.
+  pub fn copy_from_slice(&mut self, bytes: &[u8]) {
+    self.bytes.clear();
+    self.bytes.extend_from_slice(bytes);
+    self.offset = 0;
+    self.length = bytes.len();
+  }
+}
+
 impl BytesRef<Arc<Vec<u8>>> {
   /// compare: same bytes reference, same offset, same length
   pub fn equals(a: &BytesRef<Arc<Vec<u8>>>, b: &BytesRef<Arc<Vec<u8>>>) -> bool {

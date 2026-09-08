@@ -545,8 +545,13 @@ where
     } else {
       debug_assert!(ord >= 0);
 
-      let v = self.terms_index.lookup_ord(ord)?.into_owned();
-      comparator.values[slot] = Some(v);
+      let value = self.terms_index.lookup_ord(ord)?;
+      match (value, comparator.values[slot].as_mut()) {
+        (Cow::Borrowed(value), Some(buffer)) => {
+          buffer.copy_from_slice(&value.bytes[value.offset..value.offset + value.length]);
+        },
+        (value, _) => comparator.values[slot] = Some(value.into_owned()),
+      }
     }
 
     comparator.ords[slot] = ord;
@@ -693,7 +698,7 @@ where
     debug_assert!(self.disjunction.is_none());
     let mut disjunction = PriorityQueue::new(size, PostingsEnumAndOrdCmp)?;
     if size > 0 {
-      let min_term = doc_values.lookup_ord(min_ord)?.into_owned();
+      let min_term = doc_values.lookup_ord(min_ord)?;
       if !self.terms.seek_exact(&min_term)? {
         return Err(LuceneError::illegal_state(format!(
           "Term {} exists in doc values but not in the terms index",

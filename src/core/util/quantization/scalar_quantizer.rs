@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::knn_vector_values::DocIndexIterator;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -27,6 +28,7 @@ use crate::core::util::{
   CoreHelper, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, ToInt, TryIntoInt,
 };
 use parking_lot::Mutex;
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 use std::sync::LazyLock;
 
@@ -404,11 +406,11 @@ impl ScalarQuantizer {
         let ord: usize = iterator.index()?.try_convert()?;
         let vector_value = float_vector_values.vector_value(ord)?;
         gather_sample(
-          vector_value.as_floats()?,
+          vector_value,
           &mut quantile_gathering_scratch,
           &mut sampled_docs,
           i,
-        );
+        )?;
         i += 1;
         if i == scratch_size {
           extract_quantiles(
@@ -436,11 +438,11 @@ impl ScalarQuantizer {
         let ord: usize = iterator.index()?.try_convert()?;
         let vector_value = float_vector_values.vector_value(ord)?;
         gather_sample(
-          vector_value.as_floats()?,
+          vector_value,
           &mut quantile_gathering_scratch,
           &mut sampled_docs,
           idx,
-        );
+        )?;
         idx += 1;
         if idx == SCRATCH_SIZE {
           extract_quantiles(
@@ -517,14 +519,21 @@ fn extract_quantiles(
 }
 
 fn gather_sample(
-  vector_value: &[f32],
+  vector_value: Cow<'_, VectorValueEnum>,
   quantile_gathering_scratch: &mut [f32],
   sampled_docs: &mut Vec<Vec<f32>>,
   i: usize,
-) {
-  sampled_docs.push(vector_value.to_vec());
-  let start = i * vector_value.len();
-  quantile_gathering_scratch[start..start + vector_value.len()].copy_from_slice(vector_value);
+) -> Result<()> {
+  let vector_value = match vector_value {
+    Cow::Owned(VectorValueEnum::Float(values)) => values,
+    value => value.as_floats()?.to_vec(),
+  };
+  let len = vector_value.len();
+  sampled_docs.push(vector_value);
+  let start = i * len;
+  quantile_gathering_scratch[start..start + len]
+    .copy_from_slice(&sampled_docs[sampled_docs.len() - 1]);
+  Ok(())
 }
 
 fn candidate_grid_search(

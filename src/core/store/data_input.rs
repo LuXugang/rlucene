@@ -221,9 +221,17 @@ pub trait DataInput: Display + DataInputExt {
   /// [`DataOutput::write_string`](crate::core::store::data_output::DataOutput::write_string)
   fn read_string(&mut self) -> Result<String> {
     let length = self.read_vint()?.try_convert()?;
-    let mut bytes = vec![0u8; length];
-    self.read_bytes(&mut bytes, 0, length)?;
-    Ok(String::from_utf8_lossy(&bytes).into_owned())
+    if length > 64 {
+      let mut bytes = vec![0; length];
+      self.read_bytes(&mut bytes, 0, length)?;
+      return Ok(match String::from_utf8(bytes) {
+        Ok(value) => value,
+        Err(error) => String::from_utf8_lossy(error.as_bytes()).into_owned(),
+      });
+    }
+    stack_or_heap_buffer!(bytes, u8, length, 64, 0);
+    self.read_bytes(bytes, 0, length)?;
+    Ok(String::from_utf8_lossy(bytes).into_owned())
   }
 
   /// Reads a `HashMap<String, String>` previously written with

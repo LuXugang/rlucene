@@ -89,6 +89,16 @@ impl<T> CharArrayMap<T> {
     }
   }
   pub fn contains_key_str(&self, key: &str) -> bool {
+    // UTF-8 byte length bounds the number of characters; longer keys keep the heap path.
+    if key.len() <= 32 {
+      let mut chars = ['\0'; 32];
+      let mut len = 0;
+      for c in key.chars() {
+        chars[len] = c;
+        len += 1;
+      }
+      return self.contains_key(&chars[..len], 0, len);
+    }
     let chars: Vec<char> = key.chars().collect();
     debug_assert!(chars.len() <= i32::MAX as usize);
     self.contains_key(chars.as_slice(), 0, chars.len())
@@ -130,6 +140,16 @@ impl<T> CharArrayMap<T> {
     }
   }
   pub fn get_str(&self, key: &str) -> Option<&T> {
+    // UTF-8 byte length bounds the number of characters; longer keys keep the heap path.
+    if key.len() <= 32 {
+      let mut chars = ['\0'; 32];
+      let mut len = 0;
+      for c in key.chars() {
+        chars[len] = c;
+        len += 1;
+      }
+      return self.get(&chars[..len], 0, len);
+    }
     let chars: Vec<char> = key.chars().collect();
     self.get(chars.as_slice(), 0, chars.len())
   }

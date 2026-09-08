@@ -1036,7 +1036,12 @@ where
   {
     match Self::get_value_for_doc(&mut self.doc_terms, doc)? {
       None => comparator.values[slot] = None,
-      Some(val) => comparator.values[slot] = Some(val.into_owned()),
+      Some(val) => match (val, comparator.values[slot].as_mut()) {
+        (Cow::Borrowed(value), Some(buffer)) => {
+          buffer.copy_from_slice(&value.bytes[value.offset..value.offset + value.length]);
+        },
+        (value, _) => comparator.values[slot] = Some(value.into_owned()),
+      },
     }
     Ok(())
   }

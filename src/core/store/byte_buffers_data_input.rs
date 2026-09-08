@@ -140,7 +140,7 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
       return Ok(());
     }
     // Gather cross-block reads before decoding so an EOF leaves the output unchanged.
-    let mut bytes = vec![0; bytes_read];
+    stack_or_heap_buffer!(bytes, u8, bytes_read, 128, 0);
     let mut bytes_offset = 0;
     while bytes_read > 0 {
       let block_index = self.block_index(pos);
@@ -184,7 +184,7 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
     if type_size == 1 {
       let output_bytes =
         unsafe { std::slice::from_raw_parts_mut(output.as_mut_ptr() as *mut u8, output.len()) };
-      output_bytes.copy_from(&bytes, 0);
+      output_bytes.copy_from(bytes, 0);
     } else {
       output
         .iter_mut()

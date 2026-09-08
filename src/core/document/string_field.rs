@@ -156,8 +156,9 @@ impl FieldBase for StringField {
     let v = value.into();
     self.parent_field.set_string_value(v)?;
     match &self.parent_field.fields_data {
-      FieldDataEnum::String(v) => {
-        self.binary_value = Some(BytesRef::from_string(v));
+      FieldDataEnum::String(v) => match &mut self.binary_value {
+        Some(binary_value) => binary_value.copy_from_slice(v.as_bytes()),
+        None => self.binary_value = Some(BytesRef::from_string(v)),
       },
       _ => return Err(LuceneError::illegal_state("shoudl not be here")),
     }

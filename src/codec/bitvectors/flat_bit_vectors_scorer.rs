@@ -30,6 +30,7 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::{
   RandomVectorScorerSupplier, vector_values_ram_bytes_used,
 };
 use crate::core::util::vector_util::VECTOR_UTIL;
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 /// A bit vector scorer for scoring byte vectors.
@@ -217,14 +218,20 @@ where
         let query = vector_values1.vector_value(ord)?;
         Ok(RandomVectorScorerEnum2::B(BitRandomVectorScorer::new(
           vector_values2,
-          query.as_bytes()?.to_vec(),
+          match query {
+            Cow::Owned(VectorValueEnum::Byte(bytes)) => bytes,
+            value => value.as_bytes()?.to_vec(),
+          },
         )))
       },
       (None, None) => {
         let query = self.vector_values.vector_value(ord)?;
         Ok(RandomVectorScorerEnum2::A(BitRandomVectorScorer::new(
           &self.vector_values,
-          query.as_bytes()?.to_vec(),
+          match query {
+            Cow::Owned(VectorValueEnum::Byte(bytes)) => bytes,
+            value => value.as_bytes()?.to_vec(),
+          },
         )))
       },
       _ => Err(LuceneError::illegal_state(
