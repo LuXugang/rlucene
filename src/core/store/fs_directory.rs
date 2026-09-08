@@ -175,8 +175,7 @@ where
     pending_deletes: &mut HashSet<String>,
   ) -> Result<()> {
     let file_path = directory.join(name);
-    let file_name = file_path.to_string_lossy().to_string();
-    match fs::remove_file(file_path) {
+    match fs::remove_file(&file_path) {
       Ok(_) => {
         pending_deletes.remove(name);
         Ok(())
@@ -193,7 +192,10 @@ where
           // delete it again, with NSFE/FNFE
           Ok(())
         } else {
-          Err(LuceneError::io_with_path(file_name, e))
+          Err(LuceneError::io_with_path(
+            file_path.to_string_lossy().to_string(),
+            e,
+          ))
         }
       },
       Err(_e) => {
@@ -301,8 +303,8 @@ where
     }
 
     let file_path = self.directory.join(name);
-    let file_name = file_path.to_string_lossy().to_string();
-    let metadata = fs::metadata(file_path).map_err(|e| LuceneError::io_with_path(file_name, e))?;
+    let metadata = fs::metadata(&file_path)
+      .map_err(|e| LuceneError::io_with_path(file_path.to_string_lossy().to_string(), e))?;
     let length = metadata.len();
     Ok(length as usize)
   }

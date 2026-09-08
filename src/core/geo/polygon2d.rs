@@ -60,8 +60,8 @@ impl Polygon2D {
     max_x: f64,
     min_y: f64,
     max_y: f64,
-    x: Vec<f64>,
-    y: Vec<f64>,
+    x: &[f64],
+    y: &[f64],
     holes: Option<HolesType>,
   ) -> Result<Self> {
     let holes = holes.map(Box::new);
@@ -71,7 +71,7 @@ impl Polygon2D {
       min_x,
       max_x,
       holes,
-      tree: create_tree(&x, &y)?,
+      tree: create_tree(x, y)?,
     })
   }
 
@@ -81,8 +81,8 @@ impl Polygon2D {
       polygon.max_x as f64,
       polygon.min_y as f64,
       polygon.max_y as f64,
-      XYEncodingUtils::float_array_to_double_array(polygon.get_poly_x()),
-      XYEncodingUtils::float_array_to_double_array(polygon.get_poly_y()),
+      &XYEncodingUtils::float_array_to_double_array(polygon.get_poly_x()),
+      &XYEncodingUtils::float_array_to_double_array(polygon.get_poly_y()),
       holes,
     )
   }
@@ -93,8 +93,8 @@ impl Polygon2D {
       polygon.max_lon,
       polygon.min_lat,
       polygon.max_lat,
-      polygon.get_poly_lons().to_vec(),
-      polygon.get_poly_lats().to_vec(),
+      polygon.get_poly_lons(),
+      polygon.get_poly_lats(),
       holes,
     )
   }

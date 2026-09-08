@@ -313,7 +313,12 @@ impl FilteredTermsEnumBase for SetEnum {
         cmp.is_lt()
       }
     {
-      self.seek_term = self.iterator.next()?.map(|term| term.into_owned());
+      match (self.iterator.next()?, self.seek_term.as_mut()) {
+        (Some(Cow::Borrowed(term)), Some(buffer)) => {
+          buffer.copy_from_slice(&term.bytes[term.offset..term.offset + term.length]);
+        },
+        (term, _) => self.seek_term = term.map(Cow::into_owned),
+      }
     }
 
     match self.seek_term.as_ref() {
@@ -335,7 +340,12 @@ impl FilteredTermsEnumBase for SetEnum {
       .as_ref()
       .is_some_and(|seek_term| seek_term <= current)
     {
-      self.seek_term = self.iterator.next()?.map(|term| term.into_owned());
+      match (self.iterator.next()?, self.seek_term.as_mut()) {
+        (Some(Cow::Borrowed(term)), Some(buffer)) => {
+          buffer.copy_from_slice(&term.bytes[term.offset..term.offset + term.length]);
+        },
+        (term, _) => self.seek_term = term.map(Cow::into_owned),
+      }
     }
     Ok(self.seek_term.as_ref().map(Cow::Borrowed))
   }
