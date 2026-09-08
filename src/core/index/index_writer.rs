@@ -2012,6 +2012,13 @@ where
         // final clause below:
         success = false;
       }
+      // Reapply the hook after CFS updates and before writing .si, as in Java.
+      let sci = merge
+        .info
+        .take()
+        .ok_or_else(|| LuceneError::illegal_state("merge segment info is missing"))?;
+      merge.set_merge_info(sci);
+
       // Have codec write SegmentInfo.  Must do this after
       // creating CFS so that 1) .si isn't slurped into CFS,
       // and 2) .si reflects useCompoundFile=true change
@@ -2968,13 +2975,20 @@ where
     // Rust needs one typed source per CodecReader type, so keep weak references to all live
     // sources and abort each of them while holding the same writer lock used for registration.
     let add_indexes_merge_sources = std::mem::take(&mut inner.add_indexes_merge_sources);
-    IOUtils::close_with(add_indexes_merge_sources, |source| {
-      if let Some(source) = source.upgrade() {
-        source.abort_pending_merges(inner)
-      } else {
-        Ok(())
-      }
-    })?;
+    let abort_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      IOUtils::close_with(&add_indexes_merge_sources, |source| {
+        if let Some(source) = source.upgrade() {
+          source.abort_pending_merges(inner)
+        } else {
+          Ok(())
+        }
+      })
+    }));
+    if !matches!(&abort_result, Ok(Ok(()))) {
+      // Keep failed sources reachable by the next writer-wide abort, as in Java.
+      inner.add_indexes_merge_sources = add_indexes_merge_sources;
+    }
+    unwrap_caught_result!(abort_result)?;
 
     for merge_stat in &inner.running_merges {
       if self.info_stream.is_enabled("IW") {
@@ -8638,20 +8652,27 @@ where
       let mut pending_merges = self.pending_merges.lock();
       std::mem::take(&mut *pending_merges)
     };
-    let result = IOUtils::close_with(pending_merges.make_contiguous().iter_mut(), |merge| {
-      if self.writer().info_stream.is_enabled("IW") {
-        self
-          .writer()
-          .info_stream
-          .message("IW", "now abort pending addIndexes merge")?;
-      }
-      merge.set_aborted()?;
-      merge.close(inner, false, false, |_, _| Ok(()))?;
-      self.on_merge_finished_locked(&merge.stat, inner);
-      Ok(())
-    });
-    self.processed_merges.lock().extend(pending_merges);
-    result
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+      IOUtils::close_with(pending_merges.make_contiguous().iter_mut(), |merge| {
+        if self.writer().info_stream.is_enabled("IW") {
+          self
+            .writer()
+            .info_stream
+            .message("IW", "now abort pending addIndexes merge")?;
+        }
+        merge.set_aborted()?;
+        merge.close(inner, false, false, |_, _| Ok(()))?;
+        self.on_merge_finished_locked(&merge.stat, inner);
+        Ok(())
+      })
+    }));
+    if matches!(&result, Ok(Ok(()))) {
+      self.processed_merges.lock().extend(pending_merges);
+    } else {
+      // Java clears the pending queue only after every abort succeeds.
+      *self.pending_merges.lock() = pending_merges;
+    }
+    unwrap_caught_result!(result)
   }
 }
 
