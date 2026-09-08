@@ -270,7 +270,7 @@ impl PackedInts {
   /// # Returns
   /// The number of bits required to store `bits`.
   pub fn unsigned_bits_required(bits: i64) -> i32 {
-    (64 - bits.leading_zeros() as usize).max(1) as i32
+    (64 - bits.leading_zeros()).max(1) as i32
   }
 
   /// Calculates the maximum unsigned long that can be expressed with the

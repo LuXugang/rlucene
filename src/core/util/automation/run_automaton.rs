@@ -32,7 +32,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 pub struct RunAutomaton {
   pub(crate) automaton: Arc<Automaton>,
   alphabet_size: usize,
-  size: i32,
+  size: usize,
   accept: Arc<FixedBitSet>,
   transitions: Arc<Vec<i32>>, // transitions[state * points.len() + get_char_class(c)]
   points: Arc<Vec<i32>>,
@@ -55,13 +55,13 @@ impl RunAutomaton {
     }
 
     let points = automaton.get_start_points();
-    let size = std::cmp::max(1, automaton.get_num_states());
-    let size_usize = size as usize;
-    let mut accept = FixedBitSet::new(size_usize);
-    let mut transitions = vec![-1; size_usize * points.len()];
+    let state_count = std::cmp::max(1, automaton.get_num_states());
+    let size = state_count as usize;
+    let mut accept = FixedBitSet::new(size);
+    let mut transitions = vec![-1; size * points.len()];
 
     let mut transition = Transition::default();
-    for n in 0..size {
+    for n in 0..state_count {
       let state_index = n as usize;
       if automaton.is_accept(n) {
         accept.set(state_index)?;
@@ -71,7 +71,7 @@ impl RunAutomaton {
 
       for (c_idx, &point) in points.iter().enumerate() {
         let dest = automaton.next(&mut transition, point);
-        debug_assert!(dest == -1 || dest < size);
+        debug_assert!(dest == -1 || dest < state_count);
         transitions[state_index * points.len() + c_idx] = dest;
       }
     }
@@ -96,7 +96,7 @@ impl RunAutomaton {
     })
   }
   /// Returns number of states in automaton.
-  pub fn size(&self) -> i32 {
+  pub fn size(&self) -> usize {
     self.size
   }
 
@@ -154,14 +154,14 @@ impl fmt::Display for RunAutomaton {
     writeln!(f, "initial state: 0")?;
     for i in 0..self.size {
       write!(f, "state {i}")?;
-      match self.accept.get(i as usize) {
+      match self.accept.get(i) {
         Ok(true) => write!(f, " [accept]:")?,
         Ok(false) => write!(f, " [reject]:")?,
         Err(_) => return Err(fmt::Error),
       }
 
       for j in 0..self.points.len() {
-        let k = self.transitions[i as usize * self.points.len() + j];
+        let k = self.transitions[i * self.points.len() + j];
         if k != -1 {
           let min = self.points[j];
           let max = if j + 1 < self.points.len() {

@@ -1281,21 +1281,21 @@ impl<I> Impacts for AssertingImpacts<I>
 where
   I: Impacts,
 {
-  fn num_levels(&self) -> i32 {
+  fn num_levels(&self) -> usize {
     if self.asserting {
       self.assert_still_valid();
     }
     self.in_.num_levels()
   }
 
-  fn get_doc_id_upto(&self, level: i32) -> i32 {
+  fn get_doc_id_upto(&self, level: usize) -> i32 {
     if self.asserting {
       self.assert_still_valid();
     }
     self.in_.get_doc_id_upto(level)
   }
 
-  fn get_impacts(&self, level: i32) -> Result<Vec<crate::core::index::impact::Impact>> {
+  fn get_impacts(&self, level: usize) -> Result<Vec<crate::core::index::impact::Impact>> {
     if self.asserting {
       self.assert_still_valid();
     }

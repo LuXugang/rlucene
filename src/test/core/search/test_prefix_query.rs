@@ -142,7 +142,7 @@ fn test_random_binary_prefix() -> Result<()> {
 
   let iters = at_least(&mut random, 100);
   for _ in 0..iters {
-    let len = (random.next_u32() % 3) as usize;
+    let len = TestUtil::next_usize(&mut random, 0, 2);
     let mut bytes = vec![0u8; len];
     random.fill_bytes(&mut bytes);
     let prefix = BytesRef::from_bytes(bytes);

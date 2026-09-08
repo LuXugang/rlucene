@@ -334,7 +334,7 @@ impl<I> ImpactsImpl<I> {
     }
   }
 }
-fn get_level<I>(impacts: &I, doc_id_up_to: i32) -> Option<i32>
+fn get_level<I>(impacts: &I, doc_id_up_to: i32) -> Option<usize>
 where
   I: Impacts,
 {
@@ -346,17 +346,17 @@ impl<I> Impacts for ImpactsImpl<I>
 where
   I: Impacts,
 {
-  fn num_levels(&self) -> i32 {
+  fn num_levels(&self) -> usize {
     // Delegate to the lead
     self.impacts[self.lead_index].num_levels()
   }
 
-  fn get_doc_id_upto(&self, level: i32) -> i32 {
+  fn get_doc_id_upto(&self, level: usize) -> i32 {
     // Delegate to the lead
     self.impacts[self.lead_index].get_doc_id_upto(level)
   }
 
-  fn get_impacts(&'_ self, level: i32) -> Result<Vec<Impact>> {
+  fn get_impacts(&'_ self, level: usize) -> Result<Vec<Impact>> {
     let doc_id_up_to = self.get_doc_id_upto(level);
     let impact_len = self.impacts.len();
     let mut sub_iterators = Vec::new();

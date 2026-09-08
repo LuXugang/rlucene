@@ -573,14 +573,15 @@ where
         success = true;
 
         let vector_values_input = vector_data_input_ref.try_clone()?;
+        let dimension = field_info.get_vector_dimension() as usize;
         let random_vector_scorer_supplier = match field_info.get_vector_encoding() {
           VectorEncoding::BYTE(_) => self.flat_vectors_scorer.get_random_vector_scorer_supplier(
             *field_info.get_vector_similarity_function(),
             FlatVectorValuesEnum::Byte(off_heap_byte_vector_values::DenseOffHeapVectorValues::new(
-              field_info.get_vector_dimension() as usize,
+              dimension,
               docs_with_field.cardinality() as usize,
               vector_values_input,
-              field_info.get_vector_dimension() as usize * VectorEncoding::BYTE(1).byte_size(),
+              dimension * VectorEncoding::BYTE(1).byte_size(),
               self.flat_vectors_scorer.clone(),
               *field_info.get_vector_similarity_function(),
             )),
@@ -590,11 +591,10 @@ where
               *field_info.get_vector_similarity_function(),
               FlatVectorValuesEnum::Float(
                 off_heap_float_vector_values::DenseOffHeapVectorValues::new(
-                  field_info.get_vector_dimension() as usize,
+                  dimension,
                   docs_with_field.cardinality() as usize,
                   vector_values_input,
-                  field_info.get_vector_dimension() as usize
-                    * VectorEncoding::FLOAT32(4).byte_size(),
+                  dimension * VectorEncoding::FLOAT32(4).byte_size(),
                   self.flat_vectors_scorer.clone(),
                   *field_info.get_vector_similarity_function(),
                 )?,

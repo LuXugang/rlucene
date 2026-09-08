@@ -162,7 +162,8 @@ pub trait TopDocsCollector: Collector {
 
     how_many = std::cmp::min(size - start, how_many);
 
-    let mut results = vec![Default::default(); how_many as usize];
+    let result_len = how_many as usize;
+    let mut results = vec![Default::default(); result_len];
 
     let discard_count = self.pq().size() as i32 - start - how_many;
     let pq = self.pq_mut();
@@ -170,7 +171,7 @@ pub trait TopDocsCollector: Collector {
       pq.pop_unchecked()?;
     }
 
-    self.populate_results(&mut results, how_many as usize)?;
+    self.populate_results(&mut results, result_len)?;
 
     Ok(self.new_top_docs(Some(results), start))
   }

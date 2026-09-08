@@ -373,10 +373,10 @@ fn assert_impacts_equal<I>(impacts: &[Vec<Impact>], doc_id_up_to: &[i32], actual
 where
   I: Impacts,
 {
-  assert_eq!(impacts.len() as i32, actual.num_levels());
+  assert_eq!(impacts.len(), actual.num_levels());
   for level in 0..impacts.len() {
-    assert_eq!(doc_id_up_to[level], actual.get_doc_id_upto(level as i32));
-    assert_eq!(impacts[level], actual.get_impacts(level as i32)?);
+    assert_eq!(doc_id_up_to[level], actual.get_doc_id_upto(level));
+    assert_eq!(impacts[level], actual.get_impacts(level)?);
   }
   Ok(())
 }
@@ -410,16 +410,16 @@ struct DummyImpacts {
 }
 
 impl Impacts for DummyImpacts {
-  fn num_levels(&self) -> i32 {
-    self.impacts.len() as i32
+  fn num_levels(&self) -> usize {
+    self.impacts.len()
   }
 
-  fn get_doc_id_upto(&self, level: i32) -> i32 {
-    self.doc_id_up_to[level as usize]
+  fn get_doc_id_upto(&self, level: usize) -> i32 {
+    self.doc_id_up_to[level]
   }
 
-  fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
-    Ok(self.impacts[level as usize].clone())
+  fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
+    Ok(self.impacts[level].clone())
   }
 }
 

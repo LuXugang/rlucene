@@ -841,15 +841,15 @@ impl ImpactsSource for ImpactsSourceImpl {
 #[derive(Default)]
 pub struct ImpactsImpl;
 impl Impacts for ImpactsImpl {
-  fn num_levels(&self) -> i32 {
+  fn num_levels(&self) -> usize {
     1
   }
 
-  fn get_doc_id_upto(&self, _level: i32) -> i32 {
+  fn get_doc_id_upto(&self, _level: usize) -> i32 {
     NO_MORE_DOCS
   }
 
-  fn get_impacts(&self, _level: i32) -> Result<Vec<Impact>> {
+  fn get_impacts(&self, _level: usize) -> Result<Vec<Impact>> {
     Ok(vec![Impact::new(i32::MAX, 1)])
   }
 }

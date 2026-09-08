@@ -589,7 +589,7 @@ impl AutomatonEnum {
     }
   }
 
-  pub fn get_size(&self) -> Result<i32> {
+  pub fn get_size(&self) -> Result<usize> {
     match self {
       AutomatonEnum::Byte(bra) => Ok(bra.get_size()),
       AutomatonEnum::NFA(nfa) => Ok(nfa.get_size()),

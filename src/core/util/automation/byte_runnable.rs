@@ -46,7 +46,7 @@ pub trait ByteRunnable {
   ///
   /// # Returns
   /// Number of states.
-  fn get_size(&self) -> i32;
+  fn get_size(&self) -> usize;
 
   /// Returns true if the given byte array is accepted by this automaton.
   ///

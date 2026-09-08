@@ -890,20 +890,15 @@ fn write_quantized_vectors<O>(
 where
   O: IndexOutput,
 {
-  let mut vector = vec![0u8; field_data.field_info.get_vector_dimension() as usize];
+  let dimension = field_data.field_info.get_vector_dimension() as usize;
+  let mut vector = vec![0u8; dimension];
   let mut compressed_vector = if field_data.compress {
-    compressed_array(
-      field_data.field_info.get_vector_dimension() as usize,
-      field_data.bits,
-    )
+    compressed_array(dimension, field_data.bits)
   } else {
     None
   };
   let mut copy = if field_data.normalize {
-    Some(vec![
-      0f32;
-      field_data.field_info.get_vector_dimension() as usize
-    ])
+    Some(vec![0f32; dimension])
   } else {
     None
   };
@@ -949,20 +944,15 @@ fn write_sorted_quantized_vectors<O>(
 where
   O: IndexOutput,
 {
-  let mut vector = vec![0u8; field_data.field_info.get_vector_dimension() as usize];
+  let dimension = field_data.field_info.get_vector_dimension() as usize;
+  let mut vector = vec![0u8; dimension];
   let mut compressed_vector = if field_data.compress {
-    compressed_array(
-      field_data.field_info.get_vector_dimension() as usize,
-      field_data.bits,
-    )
+    compressed_array(dimension, field_data.bits)
   } else {
     None
   };
   let mut copy = if field_data.normalize {
-    Some(vec![
-      0f32;
-      field_data.field_info.get_vector_dimension() as usize
-    ])
+    Some(vec![0f32; dimension])
   } else {
     None
   };

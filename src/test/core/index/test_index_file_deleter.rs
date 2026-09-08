@@ -247,13 +247,13 @@ where
   let mut input = dir.open_input(src, &new_io_context(random)?)?;
   let mut output = dir.create_output(dest, &new_io_context(random)?)?;
   let mut buffer = [0u8; 1024];
-  let mut remainder = input.length()? as i64;
+  let mut remainder = input.length()?;
 
   while remainder > 0 {
-    let len = usize::min(buffer.len(), remainder as usize);
+    let len = usize::min(buffer.len(), remainder);
     input.read_bytes(&mut buffer, 0, len)?;
     output.write_bytes_with_len(&buffer, len)?;
-    remainder -= len as i64;
+    remainder -= len;
   }
   output.close()?;
 

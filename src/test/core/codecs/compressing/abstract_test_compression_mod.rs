@@ -51,11 +51,11 @@ pub(crate) trait AbstractTestCompressionMode {
     };
     Self::random_array_impl(random, length, max)
   }
-  fn random_array_impl<R>(random: &mut R, length: i32, max: i32) -> Vec<u8>
+  fn random_array_impl<R>(random: &mut R, length: usize, max: i32) -> Vec<u8>
   where
     R: Rng + ?Sized,
   {
-    let mut arr = vec![0u8; length as usize];
+    let mut arr = vec![0u8; length];
     for byte in &mut arr {
       *byte = random.random_range(0..=max) as u8;
     }
@@ -65,8 +65,8 @@ pub(crate) trait AbstractTestCompressionMode {
   fn compress(
     &self,
     decompressed: &[u8],
-    off: i32,
-    len: i32,
+    off: usize,
+    len: usize,
   ) -> crate::core::util::error::lucene_error::Result<Vec<u8>> {
     let mut compressor = self.get_mode().new_compressor();
     Self::compress_with_compressor(&mut compressor, decompressed, off, len)
@@ -75,16 +75,16 @@ pub(crate) trait AbstractTestCompressionMode {
   fn compress_with_compressor<T>(
     compressor: &mut T,
     decompressed: &[u8],
-    off: i32,
-    len: i32,
+    off: usize,
+    len: usize,
   ) -> crate::core::util::error::lucene_error::Result<Vec<u8>>
   where
     T: Compressor,
   {
     let compressed_len = len * 3 + 16;
-    let compressed = vec![0; compressed_len as usize]; // should be enough
+    let compressed = vec![0; compressed_len]; // should be enough
     let mut input = ByteBuffersDataInput::new(vec![Cursor::new(decompressed)], decompressed.len())?
-      .slice(off as usize, len as usize)?;
+      .slice(off, len)?;
     let mut out = ByteArrayDataOutput::with_bytes(compressed);
 
     compressor.compress(&mut input, &mut out)?;
@@ -96,7 +96,7 @@ pub(crate) trait AbstractTestCompressionMode {
   fn decompress(
     &self,
     compressed: &[u8],
-    original_length: i32,
+    original_length: usize,
   ) -> crate::core::util::error::lucene_error::Result<Vec<u8>> {
     let mut decompressor = self.get_mode().new_decompressor();
     Self::decompress_with_decompressor(&mut decompressor, compressed, original_length)
@@ -105,27 +105,34 @@ pub(crate) trait AbstractTestCompressionMode {
   fn decompress_with_decompressor<T>(
     decompressor: &mut T,
     compressed: &[u8],
-    original_length: i32,
+    original_length: usize,
   ) -> crate::core::util::error::lucene_error::Result<Vec<u8>>
   where
     T: Decompressor,
   {
     let mut bytes = BytesRef::default();
     let mut input = ByteArrayDataInput::with_bytes(compressed);
+    let original_length = original_length as i32;
     decompressor.decompress(&mut input, original_length, 0, original_length, &mut bytes)?;
     Ok(BytesRef::deep_copy_of(&bytes)?.bytes)
   }
   fn decompress_with_range(
     &self,
     compressed: &[u8],
-    original_length: i32,
-    offset: i32,
-    length: i32,
+    original_length: usize,
+    offset: usize,
+    length: usize,
   ) -> crate::core::util::error::lucene_error::Result<Vec<u8>> {
     let mut decompressor = self.get_mode().new_decompressor();
     let mut bytes = BytesRef::default();
     let mut input = ByteArrayDataInput::with_bytes(compressed);
-    decompressor.decompress(&mut input, original_length, offset, length, &mut bytes)?;
+    decompressor.decompress(
+      &mut input,
+      original_length as i32,
+      offset as i32,
+      length as i32,
+      &mut bytes,
+    )?;
     Ok(BytesRef::deep_copy_of(&bytes)?.bytes)
   }
 
@@ -136,21 +143,21 @@ pub(crate) trait AbstractTestCompressionMode {
     let iterations = at_least(random, 3);
     for _ in 0..iterations {
       let decompressed = Self::random_array(random);
-      let decompressed_len = decompressed.len() as i32;
+      let decompressed_len = decompressed.len();
       let off = if random.random_bool(0.5) {
         0
       } else {
-        TestUtil::next_int(random, 0, decompressed_len)
+        TestUtil::next_usize(random, 0, decompressed_len)
       };
       let len = if random.random_bool(0.5) {
         decompressed_len - off
       } else {
-        TestUtil::next_int(random, 0, decompressed_len - off)
+        TestUtil::next_usize(random, 0, decompressed_len - off)
       };
       let compressed = self.compress(decompressed.as_slice(), off, len)?;
       let restored = self.decompress(&compressed, len)?;
       assert_eq!(
-        ArrayUtil::copy_of_sub_array(&decompressed, off as usize, (off + len) as usize),
+        ArrayUtil::copy_of_sub_array(&decompressed, off, off + len),
         restored
       );
     }
@@ -167,7 +174,7 @@ pub(crate) trait AbstractTestCompressionMode {
     let iterations = at_least(random, 3);
     for _ in 0..iterations {
       let decompressed = Self::random_array(random);
-      let decompressed_len = decompressed.len() as i32;
+      let decompressed_len = decompressed.len();
       let compressed = self.compress(&decompressed, 0, decompressed_len)?;
       let (offset, length) = if decompressed_len == 0 {
         (0, 0)
@@ -180,7 +187,7 @@ pub(crate) trait AbstractTestCompressionMode {
       };
       let restored = self.decompress_with_range(&compressed, decompressed_len, offset, length)?;
       assert_eq!(
-        ArrayUtil::copy_of_sub_array(&decompressed, offset as usize, (offset + length) as usize),
+        ArrayUtil::copy_of_sub_array(&decompressed, offset, offset + length),
         restored
       );
     }
@@ -188,18 +195,18 @@ pub(crate) trait AbstractTestCompressionMode {
   }
 
   fn test(&self, decompressed: &[u8]) -> crate::core::util::error::lucene_error::Result<Vec<u8>> {
-    self.test_with_range(decompressed, 0, decompressed.len() as i32)
+    self.test_with_range(decompressed, 0, decompressed.len())
   }
 
   fn test_with_range(
     &self,
     decompressed: &[u8],
-    off: i32,
-    len: i32,
+    off: usize,
+    len: usize,
   ) -> crate::core::util::error::lucene_error::Result<Vec<u8>> {
     let compressed = self.compress(decompressed, off, len)?;
     let restored = self.decompress(&compressed, len)?;
-    assert_eq!(len as usize, restored.len());
+    assert_eq!(len, restored.len());
     Ok(compressed)
   }
 

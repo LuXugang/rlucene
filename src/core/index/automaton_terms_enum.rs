@@ -93,7 +93,7 @@ impl AutomatonTermsEnum {
     let visited = if compiled.finite {
       Vec::new()
     } else {
-      vec![0u16; byte_runnable.get_size()? as usize]
+      vec![0u16; byte_runnable.get_size()?]
     };
     let sub = Self {
       // FilteredTermsEnum parent initialization — you'd handle this separately

@@ -1164,12 +1164,12 @@ fn assert_impacts_eq<T>(impacts: Vec<Vec<Impact>>, doc_id_upto: Vec<i32>, actual
 where
   T: Impacts,
 {
-  assert_eq!(impacts.len(), actual.num_levels() as usize);
+  assert_eq!(impacts.len(), actual.num_levels());
 
   for i in 0..impacts.len() {
-    assert_eq!(doc_id_upto[i], actual.get_doc_id_upto(i as i32));
+    assert_eq!(doc_id_upto[i], actual.get_doc_id_upto(i));
 
-    let actual_impacts = actual.get_impacts(i as i32)?;
+    let actual_impacts = actual.get_impacts(i)?;
     let expect = impacts[i].as_slice();
     assert_eq!(expect, actual_impacts.as_slice());
   }
@@ -1271,16 +1271,16 @@ impl ImpactsImpl {
   }
 }
 impl Impacts for ImpactsImpl {
-  fn num_levels(&self) -> i32 {
-    self.impacts.len() as i32
+  fn num_levels(&self) -> usize {
+    self.impacts.len()
   }
 
-  fn get_doc_id_upto(&self, level: i32) -> i32 {
-    self.doc_id_upto[level as usize]
+  fn get_doc_id_upto(&self, level: usize) -> i32 {
+    self.doc_id_upto[level]
   }
 
-  fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
-    Ok(self.impacts[level as usize].clone())
+  fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
+    Ok(self.impacts[level].clone())
   }
 }
 

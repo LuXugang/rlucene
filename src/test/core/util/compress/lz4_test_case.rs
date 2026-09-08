@@ -170,15 +170,15 @@ pub(crate) trait LZ4TestCase {
 
     // Create a dictionary from substrings of the input to compress
     let mut dict_len = 0;
-    let mut i = TestUtil::next_int(random, 0, data.len() as i32);
-    while i < data.len() as i32 && dict_len < LZ4::MAX_DISTANCE {
-      let l = std::cmp::min(data.len() - i as usize, TestUtil::next_usize(random, 1, 32));
+    let mut i = TestUtil::next_usize(random, 0, data.len());
+    while i < data.len() && dict_len < LZ4::MAX_DISTANCE {
+      let l = std::cmp::min(data.len() - i, TestUtil::next_usize(random, 1, 32));
       let l = std::cmp::min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
       assert!(l <= i32::MAX as usize);
-      copy.write_bytes_range(data, i as usize, l)?;
+      copy.write_bytes_range(data, i, l)?;
       dict_len += l as i32;
-      i += l as i32;
-      i += TestUtil::next_int(random, 1, 32);
+      i += l;
+      i += TestUtil::next_usize(random, 1, 32);
     }
 
     let data_length = data.len();

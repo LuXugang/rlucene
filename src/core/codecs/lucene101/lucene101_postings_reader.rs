@@ -1601,7 +1601,7 @@ impl ImpactsImpl<'_> {
   }
 }
 impl Impacts for ImpactsImpl<'_> {
-  fn num_levels(&self) -> i32 {
+  fn num_levels(&self) -> usize {
     if !self.index_has_freq || self.level1_last_doc_id == NO_MORE_DOCS {
       1
     } else {
@@ -1609,7 +1609,7 @@ impl Impacts for ImpactsImpl<'_> {
     }
   }
 
-  fn get_doc_id_upto(&self, level: i32) -> i32 {
+  fn get_doc_id_upto(&self, level: usize) -> i32 {
     if !self.index_has_freq {
       NO_MORE_DOCS
     } else if level == 0 {
@@ -1621,7 +1621,7 @@ impl Impacts for ImpactsImpl<'_> {
     }
   }
 
-  fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
+  fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
     if self.index_has_freq {
       // We don't reuse level0_impacts and level1_impacts like Java Lucene does.
       if level == 0 && self.level0_last_doc_id != NO_MORE_DOCS {

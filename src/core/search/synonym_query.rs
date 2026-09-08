@@ -686,8 +686,8 @@ impl OwnedImpacts {
   where
     I: Impacts,
   {
-    let mut doc_id_uptos = Vec::with_capacity(impacts.num_levels() as usize);
-    let mut impact_lists = Vec::with_capacity(impacts.num_levels() as usize);
+    let mut doc_id_uptos = Vec::with_capacity(impacts.num_levels());
+    let mut impact_lists = Vec::with_capacity(impacts.num_levels());
     for level in 0..impacts.num_levels() {
       doc_id_uptos.push(impacts.get_doc_id_upto(level));
       impact_lists.push(impacts.get_impacts(level)?);
@@ -700,16 +700,16 @@ impl OwnedImpacts {
 }
 
 impl Impacts for OwnedImpacts {
-  fn num_levels(&self) -> i32 {
-    self.doc_id_uptos.len() as i32
+  fn num_levels(&self) -> usize {
+    self.doc_id_uptos.len()
   }
 
-  fn get_doc_id_upto(&self, level: i32) -> i32 {
-    self.doc_id_uptos[level as usize]
+  fn get_doc_id_upto(&self, level: usize) -> i32 {
+    self.doc_id_uptos[level]
   }
 
-  fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
-    Ok(self.impacts[level as usize].clone())
+  fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
+    Ok(self.impacts[level].clone())
   }
 }
 
@@ -781,7 +781,7 @@ pub(crate) struct SynonymImpacts {
 }
 
 impl SynonymImpacts {
-  fn get_level(impacts: &OwnedImpacts, doc_id_up_to: i32) -> Option<i32> {
+  fn get_level(impacts: &OwnedImpacts, doc_id_up_to: i32) -> Option<usize> {
     (0..impacts.num_levels()).find(|&level| impacts.get_doc_id_upto(level) >= doc_id_up_to)
   }
 
@@ -836,15 +836,15 @@ impl SynonymImpacts {
 }
 
 impl Impacts for SynonymImpacts {
-  fn num_levels(&self) -> i32 {
+  fn num_levels(&self) -> usize {
     self.impacts[self.lead].num_levels()
   }
 
-  fn get_doc_id_upto(&self, level: i32) -> i32 {
+  fn get_doc_id_upto(&self, level: usize) -> i32 {
     self.impacts[self.lead].get_doc_id_upto(level)
   }
 
-  fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
+  fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
     let doc_id_up_to = self.get_doc_id_upto(level);
     let mut to_merge = Vec::new();
 

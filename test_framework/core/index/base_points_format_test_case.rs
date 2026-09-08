@@ -748,7 +748,7 @@ pub trait BasePointsFormatTestCase:
         other_iwc,
       ));
       source_dir = Some(other_dir);
-      add_indexes_at = TestUtil::next_int(random, 1, num_values as i32 - 1) as usize;
+      add_indexes_at = TestUtil::next_usize(random, 1, num_values - 1);
     }
 
     let field_type = {

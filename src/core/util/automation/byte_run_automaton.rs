@@ -80,7 +80,7 @@ impl ByteRunnable for ByteRunAutomaton {
     self.base.is_accept(state)
   }
 
-  fn get_size(&self) -> i32 {
+  fn get_size(&self) -> usize {
     self.base.size()
   }
 }

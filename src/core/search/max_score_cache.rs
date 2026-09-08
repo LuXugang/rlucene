@@ -100,7 +100,7 @@ where
     for level in 0..num_levels {
       let impacts_up_to = impacts.get_doc_id_upto(level);
       if upto <= impacts_up_to {
-        return Ok(Some(level as usize));
+        return Ok(Some(level));
       }
     }
     Ok(None)
@@ -113,9 +113,9 @@ where
   fn get_max_score_with_level(&mut self, level: usize) -> Result<f32> {
     self.ensure_cache_size(level + 1)?;
     let impacts = self.impacts_source.get_impacts()?;
-    let level_up_to = impacts.get_doc_id_upto(level as i32);
+    let level_up_to = impacts.get_doc_id_upto(level);
     if self.max_score_cache_upto[level] < level_up_to {
-      let max_score = self.compute_max_score(impacts.get_impacts(level as i32)?.as_ref());
+      let max_score = self.compute_max_score(impacts.get_impacts(level)?.as_ref());
       self.max_score_cache[level] = max_score;
       self.max_score_cache_upto[level] = level_up_to;
     }
@@ -131,10 +131,10 @@ where
     };
     let mut skip_level = None;
     for level in 0..num_levels {
-      if self.get_max_score_with_level(level as usize)? >= min_score {
+      if self.get_max_score_with_level(level)? >= min_score {
         return Ok(skip_level);
       }
-      skip_level = Some(level as usize);
+      skip_level = Some(level);
     }
     Ok(skip_level)
   }
@@ -145,7 +145,7 @@ where
     match self.get_skip_level(min_score)? {
       Some(level) => {
         let impacts = self.impacts_source.get_impacts()?;
-        Ok(impacts.get_doc_id_upto(level as i32))
+        Ok(impacts.get_doc_id_upto(level))
       },
       None => Ok(-1),
     }

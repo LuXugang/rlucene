@@ -350,7 +350,7 @@ fn zz_unpack_trans() -> Vec<i32> {
   zz_unpack_trans_with_offset(ZZ_TRANS_PACKED_0, 0, &mut result);
   result
 }
-fn zz_unpack_trans_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> i32 {
+fn zz_unpack_trans_with_offset(packed: &str, offset: usize, result: &mut [i32]) -> usize {
   let packed: Vec<char> = packed.chars().collect();
   let mut i = 0;
   let mut j = offset;
@@ -366,7 +366,7 @@ fn zz_unpack_trans_with_offset(packed: &str, offset: usize, result: &mut [i32]) 
       count -= 1;
     }
   }
-  j as i32
+  j
 }
 /// Error code for "Unknown internal scanner error"
 const ZZ_UNKNOWN_ERROR: usize = 0;
@@ -613,8 +613,8 @@ impl StandardTokenizerImpl {
   /// # Returns
   ///
   /// The character at `position`.
-  pub fn yycharat(&self, position: i32) -> char {
-    self.zz_buffer[self.zz_start_read + position as usize]
+  pub fn yycharat(&self, position: usize) -> char {
+    self.zz_buffer[self.zz_start_read + position]
   }
   /// Returns the length of the matched text region.
   pub fn yylength(&self) -> usize {

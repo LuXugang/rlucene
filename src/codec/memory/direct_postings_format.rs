@@ -631,10 +631,11 @@ impl DirectField {
           total_term_freq: total_term_freq as i32,
         })
       } else {
-        let mut docs = vec![0; doc_freq as usize];
-        let mut freqs = has_freq.then(|| vec![0; doc_freq as usize]);
-        let mut positions = has_pos.then(|| vec![Vec::new(); doc_freq as usize]);
-        let mut payloads = has_payloads.then(|| vec![Vec::new(); doc_freq as usize]);
+        let doc_count = doc_freq as usize;
+        let mut docs = vec![0; doc_count];
+        let mut freqs = has_freq.then(|| vec![0; doc_count]);
+        let mut positions = has_pos.then(|| vec![Vec::new(); doc_count]);
+        let mut payloads = has_payloads.then(|| vec![Vec::new(); doc_count]);
 
         let mut upto = 0usize;
         while postings_enum2.next_doc()? != NO_MORE_DOCS {
@@ -649,15 +650,16 @@ impl DirectField {
               let doc_positions = &mut positions
                 .as_mut()
                 .ok_or_else(|| LuceneError::illegal_state("positions are missing"))?[upto];
-              doc_positions.resize(mult * freq as usize, 0);
+              let position_count = freq as usize;
+              doc_positions.resize(mult * position_count, 0);
               if has_payloads {
                 payloads
                   .as_mut()
                   .ok_or_else(|| LuceneError::illegal_state("payloads are missing"))?[upto] =
-                  vec![None; freq as usize];
+                  vec![None; position_count];
               }
               let mut pos_upto = 0usize;
-              for pos in 0..freq as usize {
+              for pos in 0..position_count {
                 doc_positions[pos_upto] = postings_enum2.next_position()?;
                 if has_payloads && let Some(payload) = postings_enum2.get_payload()? {
                   payloads
@@ -678,7 +680,7 @@ impl DirectField {
           }
           upto += 1;
         }
-        debug_assert_eq!(upto, doc_freq as usize);
+        debug_assert_eq!(upto, doc_count);
         PendingTerm::HighFreq(HighFreqTerm {
           skips: Vec::new(),
           total_term_freq,

@@ -556,7 +556,7 @@ where
         1,
       )?;
       let mut field_nums = vec![0; total_distinct_fields as usize];
-      for slot in field_nums.iter_mut().take(total_distinct_fields as usize) {
+      for slot in &mut field_nums {
         *slot = it.next()? as i32;
       }
       field_nums

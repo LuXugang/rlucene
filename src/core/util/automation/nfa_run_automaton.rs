@@ -456,9 +456,9 @@ impl ByteRunnable for NFARunAutomaton {
     Ok(self.dstates[state as usize].is_accept)
   }
 
-  fn get_size(&self) -> i32 {
+  fn get_size(&self) -> usize {
     debug_assert!(self.dstates.len() <= i32::MAX as usize);
-    self.dstates.len() as i32
+    self.dstates.len()
   }
 }
 

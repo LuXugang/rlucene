@@ -24,13 +24,13 @@ pub trait Impacts {
   /// The returned value is always greater than 0 and may not always be the
   /// same, even on a single postings list, depending on the current doc
   /// ID.
-  fn num_levels(&self) -> i32;
+  fn num_levels(&self) -> usize;
 
   /// Return the maximum inclusive doc ID until which the list of impacts
   /// returned by `get_impacts(level)` is valid.
   ///
   /// This is a non-decreasing function of `level`.
-  fn get_doc_id_upto(&self, level: i32) -> i32;
+  fn get_doc_id_upto(&self, level: usize) -> i32;
 
   /// Return impacts on the given level.
   ///
@@ -44,7 +44,7 @@ pub trait Impacts {
   /// NOTE: There is no guarantee that these impacts actually appear in
   /// postings, only that they trigger scores that are greater than or
   /// equal to the impacts that actually appear in postings.
-  fn get_impacts(&self, level: i32) -> Result<Vec<Impact>>;
+  fn get_impacts(&self, level: usize) -> Result<Vec<Impact>>;
 }
 macro_rules! define_impacts_enum {
     (
@@ -59,19 +59,19 @@ macro_rules! define_impacts_enum {
         where
             $($V: Impacts,)+
         {
-            fn num_levels(&self) -> i32 {
+            fn num_levels(&self) -> usize {
                 match self {
                     $(Self::$V(t) => t.num_levels(),)+
                 }
             }
 
-            fn get_doc_id_upto(&self, level: i32) -> i32 {
+            fn get_doc_id_upto(&self, level: usize) -> i32 {
                 match self {
                     $(Self::$V(t) => t.get_doc_id_upto(level),)+
                 }
             }
 
-            fn get_impacts(&self, level: i32) -> Result<Vec<Impact>> {
+            fn get_impacts(&self, level: usize) -> Result<Vec<Impact>> {
                 match self {
                     $(Self::$V(t) => t.get_impacts(level),)+
                 }

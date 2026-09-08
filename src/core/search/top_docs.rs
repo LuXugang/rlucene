@@ -294,7 +294,7 @@ where
     hits = Vec::new();
   } else {
     let len = std::cmp::min(size, avail_hit_count - start);
-    hits = vec![S::default(); len as usize];
+    hits = vec![S::default(); len];
 
     let requested_result_window = start + size;
     let num_iter_on_hits = std::cmp::min(avail_hit_count, requested_result_window);

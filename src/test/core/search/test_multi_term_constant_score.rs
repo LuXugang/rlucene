@@ -403,21 +403,22 @@ fn test_range_query_id() -> Result<()> {
   let num_docs = search.get_index_reader().num_docs()?;
 
   assert_eq!(1 + max_id - min_id, num_docs, "num of docs");
+  let num_hits = num_docs as usize;
 
   for rw in constant_score_rewrites() {
     // test id, bounded on both ends
     let mut result = search
       .search(
         csrq("id", Some(&min_ip), Some(&max_ip), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
-    assert_eq!(num_docs as usize, result.len(), "find all");
+    assert_eq!(num_hits, result.len(), "find all");
 
     result = search
       .search(
         csrq("id", Some(&min_ip), Some(&max_ip), T, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((num_docs - 1) as usize, result.len(), "all but last");
@@ -425,7 +426,7 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&min_ip), Some(&max_ip), F, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((num_docs - 1) as usize, result.len(), "all but first");
@@ -433,7 +434,7 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&min_ip), Some(&max_ip), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((num_docs - 2) as usize, result.len(), "all but ends");
@@ -441,7 +442,7 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&med_ip), Some(&max_ip), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((1 + max_id - med_id) as usize, result.len(), "med and up");
@@ -449,48 +450,36 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&min_ip), Some(&med_ip), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((1 + med_id - min_id) as usize, result.len(), "up to med");
 
     // unbounded id
     result = search
-      .search(
-        csrq("id", Some(&min_ip), None, T, F, rw.clone())?,
-        num_docs as usize,
-      )?
+      .search(csrq("id", Some(&min_ip), None, T, F, rw.clone())?, num_hits)?
       .score_docs;
-    assert_eq!(num_docs as usize, result.len(), "min and up");
+    assert_eq!(num_hits, result.len(), "min and up");
 
     result = search
-      .search(
-        csrq("id", None, Some(&max_ip), F, T, rw.clone())?,
-        num_docs as usize,
-      )?
+      .search(csrq("id", None, Some(&max_ip), F, T, rw.clone())?, num_hits)?
       .score_docs;
-    assert_eq!(num_docs as usize, result.len(), "max and down");
+    assert_eq!(num_hits, result.len(), "max and down");
 
     result = search
-      .search(
-        csrq("id", Some(&min_ip), None, F, F, rw.clone())?,
-        num_docs as usize,
-      )?
+      .search(csrq("id", Some(&min_ip), None, F, F, rw.clone())?, num_hits)?
       .score_docs;
     assert_eq!((num_docs - 1) as usize, result.len(), "not min, but up");
 
     result = search
-      .search(
-        csrq("id", None, Some(&max_ip), F, F, rw.clone())?,
-        num_docs as usize,
-      )?
+      .search(csrq("id", None, Some(&max_ip), F, F, rw.clone())?, num_hits)?
       .score_docs;
     assert_eq!((num_docs - 1) as usize, result.len(), "not max, but down");
 
     result = search
       .search(
         csrq("id", Some(&med_ip), Some(&max_ip), T, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(
@@ -502,7 +491,7 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&min_ip), Some(&med_ip), F, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(
@@ -515,7 +504,7 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&min_ip), Some(&min_ip), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(0, result.len(), "min,min,F,F");
@@ -523,7 +512,7 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&med_ip), Some(&med_ip), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(0, result.len(), "med,med,F,F");
@@ -531,44 +520,38 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(
         csrq("id", Some(&max_ip), Some(&max_ip), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(0, result.len(), "max,max,F,F");
     result = search
       .search(
         csrq("id", Some(&min_ip), Some(&min_ip), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(1, result.len(), "min,min,T,T");
 
     result = search
-      .search(
-        csrq("id", None, Some(&min_ip), F, T, rw.clone())?,
-        num_docs as usize,
-      )?
+      .search(csrq("id", None, Some(&min_ip), F, T, rw.clone())?, num_hits)?
       .score_docs;
     assert_eq!(1, result.len(), "nul,min,F,T");
     result = search
       .search(
         csrq("id", Some(&max_ip), Some(&max_ip), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(1, result.len(), "max,max,T,T");
 
     result = search
-      .search(
-        csrq("id", Some(&max_ip), None, T, F, rw.clone())?,
-        num_docs as usize,
-      )?
+      .search(csrq("id", Some(&max_ip), None, T, F, rw.clone())?, num_hits)?
       .score_docs;
     assert_eq!(1, result.len(), "max,nul,T,T");
     result = search
       .search(
         csrq("id", Some(&med_ip), Some(&med_ip), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(1, result.len(), "med,med,T,T");
@@ -590,21 +573,22 @@ fn test_range_query_rand() -> Result<()> {
   let num_docs = search.get_index_reader().num_docs()?;
 
   assert_eq!(1 + max_id - min_id, num_docs, "num of docs");
+  let num_hits = num_docs as usize;
 
   for rw in constant_score_rewrites() {
     // test extremes, bounded on both ends
     let mut result = search
       .search(
         csrq("rand", Some(&min_rp), Some(&max_rp), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
-    assert_eq!(num_docs as usize, result.len(), "find all");
+    assert_eq!(num_hits, result.len(), "find all");
 
     result = search
       .search(
         csrq("rand", Some(&min_rp), Some(&max_rp), T, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((num_docs - 1) as usize, result.len(), "all but biggest");
@@ -612,7 +596,7 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", Some(&min_rp), Some(&max_rp), F, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((num_docs - 1) as usize, result.len(), "all but smallest");
@@ -620,7 +604,7 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", Some(&min_rp), Some(&max_rp), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!((num_docs - 2) as usize, result.len(), "all but extremes");
@@ -629,23 +613,23 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", Some(&min_rp), None, T, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
-    assert_eq!(num_docs as usize, result.len(), "smallest and up");
+    assert_eq!(num_hits, result.len(), "smallest and up");
 
     result = search
       .search(
         csrq("rand", None, Some(&max_rp), F, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
-    assert_eq!(num_docs as usize, result.len(), "biggest and down");
+    assert_eq!(num_hits, result.len(), "biggest and down");
 
     result = search
       .search(
         csrq("rand", Some(&min_rp), None, F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(
@@ -657,7 +641,7 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", None, Some(&max_rp), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(
@@ -670,7 +654,7 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", Some(&min_rp), Some(&min_rp), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(0, result.len(), "min,min,F,F");
@@ -678,14 +662,14 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", Some(&max_rp), Some(&max_rp), F, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(0, result.len(), "max,max,F,F");
     result = search
       .search(
         csrq("rand", Some(&min_rp), Some(&min_rp), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(1, result.len(), "min,min,T,T");
@@ -693,14 +677,14 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", None, Some(&min_rp), F, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(1, result.len(), "nul,min,F,T");
     result = search
       .search(
         csrq("rand", Some(&max_rp), Some(&max_rp), T, T, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(1, result.len(), "max,max,T,T");
@@ -708,7 +692,7 @@ fn test_range_query_rand() -> Result<()> {
     result = search
       .search(
         csrq("rand", Some(&max_rp), None, T, F, rw.clone())?,
-        num_docs as usize,
+        num_hits,
       )?
       .score_docs;
     assert_eq!(1, result.len(), "max,nul,T,T");

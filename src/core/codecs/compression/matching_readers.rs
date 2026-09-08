@@ -28,7 +28,7 @@ pub struct MatchingReaders {
   pub matching_readers: Vec<bool>,
 
   /// How many `matching_readers` are set.
-  pub count: i32,
+  pub count: usize,
 }
 
 impl MatchingReaders {
@@ -41,7 +41,7 @@ impl MatchingReaders {
     // array will be present at position i:
     let num_readers = merge_state.max_docs.len();
     let mut matching_readers = vec![false; num_readers];
-    let mut matched_count: i32 = 0;
+    let mut matched_count = 0;
 
     'next_reader: for (i, field_infos) in merge_state.field_infos.iter().enumerate() {
       for fi in &**field_infos {
@@ -61,10 +61,10 @@ impl MatchingReaders {
         "SM",
         &format!("merge store matched_count={matched_count} vs {num_readers}"),
       )?;
-      if matched_count as usize != num_readers {
+      if matched_count != num_readers {
         merge_state.info_stream.message(
           "SM",
-          &format!("{} non-bulk merges", num_readers as i32 - matched_count),
+          &format!("{} non-bulk merges", num_readers - matched_count),
         )?;
       }
     }
