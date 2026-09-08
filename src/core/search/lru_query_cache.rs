@@ -133,7 +133,7 @@ pub(crate) struct LRUQueryCacheDefaults;
 
 pub(crate) trait LRUQueryCacheBase<P>
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
 {
   fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
     LRUQueryCacheDefaults::on_hit(cache, reader_core_key, query);
@@ -194,7 +194,7 @@ where
 
 impl<P> LRUQueryCacheBase<P> for LRUQueryCacheHook
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
 {
   fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
     match self {
@@ -314,14 +314,14 @@ where
 impl LRUQueryCacheDefaults {
   pub(crate) fn on_hit<P>(cache: &LRUQueryCache<P>, _reader_core_key: &CacheKey, _query: &Query)
   where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     cache.hit_count.fetch_add(1, Ordering::Relaxed);
   }
 
   pub(crate) fn on_miss<P>(cache: &LRUQueryCache<P>, _reader_core_key: &CacheKey, _query: &Query)
   where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     cache.miss_count.fetch_add(1, Ordering::Relaxed);
   }
@@ -332,7 +332,7 @@ impl LRUQueryCacheDefaults {
     ram_bytes_used: i64,
     _guard: &RwLockWriteGuard<'_, Inner>,
   ) where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     cache
       .ram_bytes_used
@@ -345,7 +345,7 @@ impl LRUQueryCacheDefaults {
     ram_bytes_used: i64,
     _guard: &RwLockWriteGuard<'_, Inner>,
   ) where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     cache
       .ram_bytes_used
@@ -357,7 +357,7 @@ impl LRUQueryCacheDefaults {
     _reader_core_key: &CacheKey,
     ram_bytes_used: i64,
   ) where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     cache.cache_size.fetch_add(1, Ordering::SeqCst);
     cache.cache_count.fetch_add(1, Ordering::SeqCst);
@@ -372,7 +372,7 @@ impl LRUQueryCacheDefaults {
     num_entries: i64,
     sum_ram_bytes_used: i64,
   ) where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     cache
       .ram_bytes_used
@@ -382,7 +382,7 @@ impl LRUQueryCacheDefaults {
 
   pub(crate) fn on_clear<P>(cache: &LRUQueryCache<P>, _guard: &RwLockWriteGuard<'_, Inner>)
   where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     cache.ram_bytes_used.store(0, Ordering::SeqCst);
     cache.cache_size.store(0, Ordering::SeqCst);
@@ -403,6 +403,7 @@ impl LRUQueryCache<MinSegmentSizePredicate> {
 impl<P> LRUQueryCache<P> {
   /// Expert: Create a new instance that will cache at most `max_size` queries with at most
   /// `max_ram_bytes_used` bytes of memory, only on leaves that satisfy `leaves_to_cache`.
+  /// The predicate receives the leaf's `max_doc` and borrowed top-level reader metadata.
   ///
   ///
   /// Also, clauses whose cost is `skip_cache_factor` times more than the cost of the
@@ -445,7 +446,7 @@ impl<P> LRUQueryCache<P> {
 
 impl<P> LRUQueryCache<P>
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
 {
   #[cfg(test)]
   pub(crate) fn with_hook(mut self, hook: LRUQueryCacheHook) -> Self {
@@ -898,7 +899,7 @@ where
 }
 impl<P> Accountable for LRUQueryCache<P>
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
 {
   fn ram_bytes_used(&self) -> Result<i64> {
     Ok(self.ram_bytes_used.load(Ordering::SeqCst))
@@ -906,7 +907,7 @@ where
 }
 impl<P, IRC> QueryCache<IRC> for Arc<LRUQueryCache<P>>
 where
-  P: Predicate<TopParentMeta> + Send + Sync + 'static,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
   IRC: IndexReaderContext,
 {
   fn do_cache(
@@ -945,7 +946,7 @@ impl LeafCache {
   }
   pub(crate) fn on_doc_id_set_cache<P>(&self, ram_bytes_used: i64, parent: &LRUQueryCache<P>)
   where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     self
       .ram_bytes_used
@@ -954,7 +955,7 @@ impl LeafCache {
   }
   pub(crate) fn on_doc_id_set_eviction<P>(&self, ram_bytes_used: i64, parent: &LRUQueryCache<P>)
   where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     self
       .ram_bytes_used
@@ -975,7 +976,7 @@ impl LeafCache {
     parent: &LRUQueryCache<P>,
   ) -> Result<()>
   where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     debug_assert!({ !matches!(query, Query::Boost(_)) });
     debug_assert!({ !matches!(query, Query::ConstantScore(_)) });
@@ -993,7 +994,7 @@ impl LeafCache {
 
   pub(crate) fn remove<P>(&mut self, query: &Query, parent: &LRUQueryCache<P>) -> Result<()>
   where
-    P: Predicate<TopParentMeta>,
+    P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   {
     if let Some(removed) = self.cache.remove(query.identity()) {
       self.on_doc_id_set_eviction(
@@ -1045,14 +1046,17 @@ where
 
 impl<P, IRC> CachingWrapperWeight<P, IRC>
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   IRC: IndexReaderContext,
 {
   fn should_cache(&self, context: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
     let top_context = ReaderUtil::get_top_level_context(context);
     let max_doc = top_context.max_doc;
     let v = self.cache_entry_has_reasonable_worst_case_size(max_doc)
-      && self.lru_cache.leaves_to_cache.test(top_context)?;
+      && self
+        .lru_cache
+        .leaves_to_cache
+        .test(&(context.reader().max_doc()?, top_context))?;
     Ok(v)
   }
   pub(crate) fn cache_entry_has_reasonable_worst_case_size(&self, max_doc: i32) -> bool {
@@ -1070,7 +1074,7 @@ where
 
 impl<P, IRC> SegmentCacheable<IRC> for CachingWrapperWeight<P, IRC>
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
   IRC: IndexReaderContext,
 {
   fn is_cacheable(&self, ctx: &LeafReaderContext<IRCLeafReader<IRC>>) -> Result<bool> {
@@ -1080,7 +1084,7 @@ where
 
 impl<P, IRC> Weight<IRC> for CachingWrapperWeight<P, IRC>
 where
-  P: Predicate<TopParentMeta> + Send + Sync + 'static,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
   IRC: IndexReaderContext,
 {
   fn matches<'a>(
@@ -1274,7 +1278,7 @@ impl<C, P, IRC> ScorerSupplier<IRC> for ScorerSupplierImpl1<C, P, IRC>
 where
   IRC: IndexReaderContext,
   C: CacheHelper,
-  P: Predicate<TopParentMeta> + Send + Sync + 'static,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
 {
   type Scorer = QueryWeightSsScorer;
   type BulkScorer = QueryWeightSsBulkScorer;
@@ -1560,9 +1564,8 @@ impl MinSegmentSizePredicate {
     Self { min_size }
   }
 }
-impl Predicate<TopParentMeta> for MinSegmentSizePredicate {
-  fn test(&self, context: &TopParentMeta) -> Result<bool> {
-    let max_doc = context.max_doc;
+impl Predicate<(i32, &TopParentMeta)> for MinSegmentSizePredicate {
+  fn test(&self, &(max_doc, context): &(i32, &TopParentMeta)) -> Result<bool> {
     if max_doc < self.min_size {
       return Ok(false);
     }

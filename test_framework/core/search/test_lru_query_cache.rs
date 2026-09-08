@@ -50,8 +50,8 @@ impl RandomSegmentSkippingPredicate {
   }
 }
 
-impl Predicate<TopParentMeta> for RandomSegmentSkippingPredicate {
-  fn test(&self, _context: &TopParentMeta) -> Result<bool> {
+impl Predicate<(i32, &TopParentMeta)> for RandomSegmentSkippingPredicate {
+  fn test(&self, _context: &(i32, &TopParentMeta)) -> Result<bool> {
     Ok(self.random.lock().random_bool(0.5))
   }
 }
@@ -63,7 +63,7 @@ pub struct CachingSearcherFactory<P> {
 
 impl<P> CachingSearcherFactory<P>
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
 {
   pub fn new(
     query_cache: Arc<LRUQueryCache<P>>,
@@ -81,7 +81,7 @@ where
   IR: IndexReader + 'static,
   IR::ContextKind: IndexReaderContextKind<Arc<IR>>,
   IndexReaderContextType<Arc<IR>>: Sync + 'static,
-  P: Predicate<TopParentMeta> + Send + Sync + 'static,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)> + Send + Sync + 'static,
 {
   fn new_searcher(
     &self,
@@ -146,7 +146,7 @@ impl FineGrainedStatsLRUQueryCache {
 
 impl<P> LRUQueryCacheBase<P> for FineGrainedStatsLRUQueryCache
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
 {
   fn on_hit(&self, cache: &LRUQueryCache<P>, reader_core_key: &CacheKey, query: &Query) {
     LRUQueryCacheDefaults::on_hit(cache, reader_core_key, query);
@@ -244,7 +244,7 @@ pub struct EvictEmptySegmentCacheLRUQueryCache;
 
 impl<P> LRUQueryCacheBase<P> for EvictEmptySegmentCacheLRUQueryCache
 where
-  P: Predicate<TopParentMeta>,
+  P: for<'a> Predicate<(i32, &'a TopParentMeta)>,
 {
   fn on_doc_id_set_eviction(
     &self,

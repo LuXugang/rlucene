@@ -114,8 +114,8 @@ type TestCache = LRUQueryCache<CacheAllSegments>;
 #[derive(Clone, Copy)]
 struct CacheAllSegments;
 
-impl Predicate<TopParentMeta> for CacheAllSegments {
-  fn test(&self, _context: &TopParentMeta) -> Result<bool> {
+impl Predicate<(i32, &TopParentMeta)> for CacheAllSegments {
+  fn test(&self, _context: &(i32, &TopParentMeta)) -> Result<bool> {
     Ok(true)
   }
 }
@@ -1303,16 +1303,18 @@ fn test_min_segment_size_predicate() -> Result<()> {
   let leaves = searcher.get_leaf_contexts()?;
   for leaf in leaves.iter().take(3) {
     let predicate = MinSegmentSizePredicate::new(random.random_range(1..=i32::MAX));
-    assert!(!predicate.test(leaf.top_parent())?);
+    assert!(!predicate.test(&(leaf.reader().max_doc()?, leaf.top_parent()))?);
   }
   for leaf in leaves.iter().skip(3) {
-    let leaf = leaf.top_parent();
+    let leaf = (leaf.reader().max_doc()?, leaf.top_parent());
     let small = MinSegmentSizePredicate::new(random.random_range(60..=i32::MAX));
-    assert!(!small.test(leaf)?);
+    assert!(!small.test(&leaf)?);
     let big = MinSegmentSizePredicate::new(random.random_range(10..=30));
-    assert!(big.test(leaf)?);
+    assert!(big.test(&leaf)?);
   }
-  writer.close()
+  searcher.get_index_reader().close()?;
+  writer.close()?;
+  dir.as_ref().close()
 }
 
 // a reader whose sole purpose is to not be cacheable

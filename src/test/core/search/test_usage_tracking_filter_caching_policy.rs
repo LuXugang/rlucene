@@ -151,8 +151,8 @@ fn test_boolean_queries() -> Result<()> {
 }
 
 pub struct PredicateImpl;
-impl Predicate<TopParentMeta> for PredicateImpl {
-  fn test(&self, _context: &TopParentMeta) -> Result<bool> {
+impl Predicate<(i32, &TopParentMeta)> for PredicateImpl {
+  fn test(&self, _context: &(i32, &TopParentMeta)) -> Result<bool> {
     Ok(true)
   }
 }
