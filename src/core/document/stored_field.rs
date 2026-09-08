@@ -103,13 +103,18 @@ impl StoredField {
   /// - `value`: Byte array pointing to binary content .
   /// - `offset`: Starting position in the byte array.
   /// - `length`: Valid length of the byte array.
-  pub fn from_binary_with_range<T, V>(name: T, value: V, offset: i32, length: i32) -> Result<Self>
+  pub fn from_binary_with_range<T, V>(
+    name: T,
+    value: V,
+    offset: usize,
+    length: usize,
+  ) -> Result<Self>
   where
     T: Into<String>,
     V: Into<Vec<u8>>,
   {
     let value = value.into();
-    let bytes_ref = BytesRef::from_slice(value, offset as usize, length as usize);
+    let bytes_ref = BytesRef::from_slice(value, offset, length);
     let parent_field = Field::from_bytes_ref(name, bytes_ref, stored_field_type::TYPE.clone())?;
     Ok(Self { parent_field })
   }

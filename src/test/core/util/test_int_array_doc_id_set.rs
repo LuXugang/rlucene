@@ -44,7 +44,7 @@ impl BaseDocIdSetTestCase for TestIntArrayDocIdSet {
     for doc in iter {
       docs.push(doc as i32);
     }
-    let l = docs.len() as i32;
+    let l = docs.len();
     docs.push(NO_MORE_DOCS);
     IntArrayDocIdSet::new(docs, l)
   }

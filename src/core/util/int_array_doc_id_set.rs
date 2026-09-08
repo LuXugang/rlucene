@@ -41,15 +41,12 @@ pub struct IntArrayDocIdSet {
 ///   [`DocIdSetIterator::NO_MORE_DOCS`](NO_MORE_DOCS).
 /// * `len` - The valid docs length in the array.
 impl IntArrayDocIdSet {
-  pub fn new<D>(docs: D, length: i32) -> Result<IntArrayDocIdSet>
+  pub fn new<D>(docs: D, length: usize) -> Result<IntArrayDocIdSet>
   where
     D: Into<Vec<i32>>,
   {
     let docs = docs.into();
-    let length_as_usize = usize::try_from(length).map_err(|_| {
-      LuceneError::array_index_out_of_bounds(format!("length must be non-negative, got {length}"))
-    })?;
-    let sentinel = docs.get(length_as_usize).ok_or_else(|| {
+    let sentinel = docs.get(length).ok_or_else(|| {
       LuceneError::array_index_out_of_bounds(format!(
         "length {length} is out of bounds for docs of length {}",
         docs.len()
@@ -61,9 +58,9 @@ impl IntArrayDocIdSet {
       )));
     }
     debug_assert!(
-      assert_array_sorted(&docs[..length_as_usize]),
+      assert_array_sorted(&docs[..length]),
       "IntArrayDocIdSet need docs to be sorted:{}",
-      docs[..length_as_usize]
+      docs[..length]
         .iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>()
@@ -71,7 +68,7 @@ impl IntArrayDocIdSet {
     );
     Ok(IntArrayDocIdSet {
       docs: Rc::new(docs),
-      length: length_as_usize,
+      length,
     })
   }
 }

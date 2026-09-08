@@ -37,7 +37,6 @@ use crate::core::search::scorer::{Scorer, TwoPhaseState};
 use crate::core::search::simple_collector::SimpleCollector;
 use crate::core::search::term_query::TermQuery;
 use crate::core::search::weight::Weight;
-use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
@@ -276,7 +275,7 @@ fn scorer(mut matches: Vec<i32>) -> Result<ScorerImpl> {
   ArrayUtil::grow_exact(&mut matches, len + 1)?;
   len = matches.len();
   matches[len - 1] = NO_MORE_DOCS;
-  let it = IntArrayDocIdSet::new(matches, (len - 1).try_convert()?)?.iterator()?;
+  let it = IntArrayDocIdSet::new(matches, len - 1)?.iterator()?;
   Ok(ScorerImpl::new(it))
 }
 

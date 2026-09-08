@@ -276,15 +276,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   }
 
   fn build_level(accumulators: &[SkipAccumulator]) -> Vec<SkipAccumulator> {
-    let level_size = 1 << Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT;
+    let level_size = 1usize << Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT;
     let mut collector = Vec::new();
 
-    let end = accumulators.len() as i32 - level_size + 1;
-    let mut i = 0;
-    while i < end {
-      let merged = SkipAccumulator::merge(accumulators, i, level_size);
+    for group in 0..accumulators.len() / level_size {
+      let merged = SkipAccumulator::merge(accumulators, group * level_size, level_size);
       collector.push(merged);
-      i += level_size;
     }
 
     collector
@@ -1296,10 +1293,9 @@ impl SkipAccumulator {
     self.doc_count += 1;
   }
 
-  pub fn merge(list: &[SkipAccumulator], index: i32, length: i32) -> Self {
-    let index = index as usize;
+  pub fn merge(list: &[SkipAccumulator], index: usize, length: usize) -> Self {
     let mut acc = SkipAccumulator::new(list[index].min_doc_id);
-    for i in 0..length as usize {
+    for i in 0..length {
       acc.accumulate_other(&list[index + i]);
     }
     acc

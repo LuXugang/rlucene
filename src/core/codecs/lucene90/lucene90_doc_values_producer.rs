@@ -899,11 +899,10 @@ where
 
       let sub = if entry.min_length == entry.max_length {
         // fixed-length
-        let length = entry.max_length;
         SparseBinaryDocValuesBaseEnum::Sparse(SparseBinaryDocValuesBaseImpl {
           bytes_slice,
           bytes: BytesRef::from_slice(vec![0u8; max_length], 0, max_length),
-          length,
+          length: max_length,
         })
       } else {
         // variable-length
@@ -1974,7 +1973,7 @@ where
 pub struct SparseBinaryDocValuesBaseImpl<R> {
   bytes_slice: R,
   bytes: BytesRef<Vec<u8>>,
-  length: i32,
+  length: usize,
 }
 impl<I> SparseBinaryDocValuesBase<I> for SparseBinaryDocValuesBaseImpl<I::RandomAccessSlice>
 where
@@ -1984,7 +1983,7 @@ where
     &mut self,
     disi: &mut IndexedDISIImpl<I::IndexInput, I::RandomAccessSlice>,
   ) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    let length = self.length as usize;
+    let length = self.length;
     let pos = disi.index_u() * length;
     self
       .bytes_slice
