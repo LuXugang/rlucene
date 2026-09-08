@@ -150,12 +150,15 @@ impl PackedInts {
   /// # Returns
   /// A mutable packed integer array.
   pub(crate) fn get_mutable(
-    value_count: i32,
+    value_count: usize,
     bits_per_value: i32,
     acceptable_overhead_ratio: f32,
   ) -> Result<MutablePacked64Enum> {
-    let format_and_bits =
-      fastest_format_and_bits(value_count, bits_per_value, acceptable_overhead_ratio);
+    let format_and_bits = fastest_format_and_bits(
+      value_count as i32,
+      bits_per_value,
+      acceptable_overhead_ratio,
+    );
     PackedInts::get_mutable_impl(
       value_count,
       format_and_bits.bits_per_value,
@@ -171,11 +174,10 @@ impl PackedInts {
   /// Same as [`get_mutable`](PackedInts::get_mutable) with a pre-computed
   /// number of bits per value and format.
   pub(crate) fn get_mutable_impl(
-    value_count: i32,
+    value_count: usize,
     bits_per_value: i32,
     format: Format,
   ) -> Result<MutablePacked64Enum> {
-    debug_assert!(value_count >= 0);
     match format {
       Format::PackedSingleBlock(_) => create(value_count, bits_per_value),
       Format::Packed(_) => Ok(MutablePacked64Enum::P64(Packed64::new(
@@ -395,10 +397,14 @@ impl PackedInts {
   }
   /// Return the number of blocks required to store `size` values on
   /// `block_size`.
-  pub fn num_blocks(size: usize, block_size: i32) -> Result<usize> {
-    let block_len = block_size as usize;
-    let num_blocks = (size / block_len) + if size.is_multiple_of(block_len) { 0 } else { 1 };
-    let result = num_blocks.checked_mul(block_len);
+  pub fn num_blocks(size: usize, block_size: usize) -> Result<usize> {
+    let num_blocks = (size / block_size)
+      + if size.is_multiple_of(block_size) {
+        0
+      } else {
+        1
+      };
+    let result = num_blocks.checked_mul(block_size);
     match result {
       Some(result) => {
         if result < size || num_blocks > i32::MAX as usize {
@@ -507,19 +513,19 @@ pub fn fastest_format_and_bits(
 pub trait Decoder {
   /// The minimum number of long blocks to encode in a single iteration, when
   /// using `i64` encoding.
-  fn long_block_count(&self) -> i32;
+  fn long_block_count(&self) -> usize;
 
   /// The number of values that can be stored in `long_block_count()` long
   /// blocks.
-  fn long_value_count(&self) -> i32;
+  fn long_value_count(&self) -> usize;
 
   /// The minimum number of byte blocks to encode in a single iteration, when
   /// using byte encoding.
-  fn byte_block_count(&self) -> i32;
+  fn byte_block_count(&self) -> usize;
 
   /// The number of values that can be stored in `byte_block_count()` byte
   /// blocks.
-  fn byte_value_count(&self) -> i32;
+  fn byte_value_count(&self) -> usize;
 
   /// Read `iterations * block_count()` blocks from `blocks`, decode them, and
   /// write `iterations * value_count()` values into `values`.
@@ -537,7 +543,7 @@ pub trait Decoder {
     blocks_offset: usize,
     values: &mut [i64],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   );
 
   /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them,
@@ -556,7 +562,7 @@ pub trait Decoder {
     blocks_offset: usize,
     values: &mut [i64],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   );
 
   /// Read `iterations * block_count()` blocks from `blocks`, decode them, and
@@ -575,7 +581,7 @@ pub trait Decoder {
     blocks_offset: usize,
     values: &mut [i32],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) -> Result<()>;
 
   /// Read `8 * iterations * block_count()` blocks from `blocks`, decode them,
@@ -594,26 +600,26 @@ pub trait Decoder {
     blocks_offset: usize,
     values: &mut [i32],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) -> Result<()>;
 }
 /// An encoder for packed integers.
 pub trait Encoder {
   /// The minimum number of long blocks to encode in a single iteration, when
   /// using `i64` encoding.
-  fn long_block_count(&self) -> i32;
+  fn long_block_count(&self) -> usize;
 
   /// The number of values that can be stored in `long_block_count()` long
   /// blocks.
-  fn long_value_count(&self) -> i32;
+  fn long_value_count(&self) -> usize;
 
   /// The minimum number of byte blocks to encode in a single iteration, when
   /// using byte encoding.
-  fn byte_block_count(&self) -> i32;
+  fn byte_block_count(&self) -> usize;
 
   /// The number of values that can be stored in `byte_block_count()` byte
   /// blocks.
-  fn byte_value_count(&self) -> i32;
+  fn byte_value_count(&self) -> usize;
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
   /// write `iterations * block_count()` blocks into `blocks`.
@@ -631,7 +637,7 @@ pub trait Encoder {
     values_offset: usize,
     blocks: &mut [u64],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   );
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
@@ -650,7 +656,7 @@ pub trait Encoder {
     values_offset: usize,
     blocks: &mut [u8],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   );
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
@@ -669,7 +675,7 @@ pub trait Encoder {
     values_offset: usize,
     blocks: &mut [u64],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   );
 
   /// Read `iterations * value_count()` values from `values`, encode them, and
@@ -688,7 +694,7 @@ pub trait Encoder {
     values_offset: usize,
     blocks: &mut [u8],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   );
 }
 
@@ -749,7 +755,7 @@ pub trait ReaderIterator: Display {
   /// # Errors
   ///
   /// Returns an error if there is an issue decoding the values.
-  fn next_batch(&mut self, count: i32) -> Result<&mut LongsRef>;
+  fn next_batch(&mut self, count: usize) -> Result<&mut LongsRef>;
 
   /// Returns the number of bits per value.
   fn get_bits_per_value(&self) -> Result<i32> {
@@ -800,7 +806,7 @@ where
     Ok(result)
   }
 
-  fn next_batch(&mut self, count: i32) -> Result<&mut LongsRef> {
+  fn next_batch(&mut self, count: usize) -> Result<&mut LongsRef> {
     self.sub_reader.next_batch(count)
   }
 
@@ -915,12 +921,10 @@ pub struct NullReader {
   value_count: usize,
 }
 impl NullReader {
-  pub fn for_count(value_count: i32) -> Self {
-    Self {
-      value_count: value_count as usize,
-    }
+  pub fn for_count(value_count: usize) -> Self {
+    Self { value_count }
   }
-  pub fn new(value_count: i32) -> Self {
+  pub fn new(value_count: usize) -> Self {
     Self::for_count(value_count)
   }
 }

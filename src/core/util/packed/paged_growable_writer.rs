@@ -48,7 +48,7 @@ impl PagedGrowableWriter {
   }
 }
 impl AbstractPagedMutableBase for PagedGrowableWriter {
-  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum> {
+  fn new_mutable(&self, value_count: usize, bits_per_value: i32) -> Result<MutableEnum> {
     Ok(MutableEnum::GrowableW(GrowableWriter::new(
       bits_per_value,
       value_count,

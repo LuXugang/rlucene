@@ -1002,8 +1002,8 @@ pub trait BasePointsFormatTestCase:
         }
 
         if matches {
-          let id = ids.map_or(ord as i32, |values| values[ord]);
-          expected.insert(id as usize);
+          let id = ids.map_or(ord, |values| values[ord] as usize);
+          expected.insert(id);
         }
       }
       let v1 = expected.iter().max().map_or(0, |i| i + 1);
@@ -1249,7 +1249,7 @@ pub trait BasePointsFormatTestCase:
         size as i32
       };
       let doc_count = TestUtil::next_int(random, 1, max_doc);
-      let estimated_point_count = TestUtil::next_long(random, 0, size as i64) as usize;
+      let estimated_point_count = TestUtil::next_usize(random, 0, size);
       let values = get_point_values(size, doc_count, estimated_point_count);
       let docs = values.estimate_doc_count(&AlwaysInsideIntersectVisitor)?;
 

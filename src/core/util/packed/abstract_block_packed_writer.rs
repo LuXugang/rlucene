@@ -178,8 +178,8 @@ where
     PackedInts::VERSION_CURRENT,
     bits_required,
   )?;
-  let iterations = values.len() / Encoder::byte_value_count(encoder) as usize;
-  let block_size = Encoder::byte_block_count(encoder) as usize * iterations;
+  let iterations = values.len() / Encoder::byte_value_count(encoder);
+  let block_size = Encoder::byte_block_count(encoder) * iterations;
   ArrayUtil::grow_no_copy(blocks, block_size)?;
   if off < values.len() {
     for value in values.iter_mut().skip(off) {
@@ -187,10 +187,10 @@ where
     }
   }
   debug_assert!(iterations <= i32::MAX as usize);
-  encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations as i32);
+  encoder.encode_i64_to_u8(values, 0, blocks, 0, iterations);
   let block_count =
-    Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off as i32, bits_required);
-  out.write_bytes_with_len(blocks, block_count as usize)?;
+    Packed(PackedImpl::new(0)).byte_count(PackedInts::VERSION_CURRENT, off, bits_required);
+  out.write_bytes_with_len(blocks, block_count)?;
   Ok(())
 }
 /// Same as DataOutput::writeVLong but accepts negative values.

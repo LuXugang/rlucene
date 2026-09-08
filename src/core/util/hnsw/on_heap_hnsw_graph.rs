@@ -70,7 +70,7 @@ impl OnHeapHnswGraph {
   ///   Passing `-1` means the graph is unbounded, while passing a
   ///   non-negative value locks the graph size,   disallowing any addition of
   ///   nodes with id ≥ `num_nodes`.
-  pub fn new(m: usize, mut num_nodes: i32) -> Self {
+  pub fn new(m: usize, num_nodes: i32) -> Self {
     let entry_node = Arc::new(RwLock::new(EntryNode::new(None, 1)));
     // Neighbours' size on upper levels (nsize) and level 0 (nsize0)
     // We allocate extra space for neighbours, but then prune them to keep allowed
@@ -79,12 +79,14 @@ impl OnHeapHnswGraph {
     let nsize0 = m * 2 + 1;
 
     let no_growth = num_nodes != -1;
-    if !no_growth {
-      num_nodes = Self::INIT_SIZE as i32;
-    }
+    let capacity = if no_growth {
+      num_nodes as usize
+    } else {
+      Self::INIT_SIZE
+    };
 
     let graph = std::iter::repeat_with(OnceLock::new)
-      .take(num_nodes as usize)
+      .take(capacity)
       .collect();
 
     Self {

@@ -38,7 +38,7 @@ pub struct GrowableWriter {
 impl GrowableWriter {
   pub fn new(
     start_bits_per_value: i32,
-    value_count: i32,
+    value_count: usize,
     acceptable_overhead_ratio: f32,
   ) -> Result<GrowableWriter> {
     let current =
@@ -68,11 +68,8 @@ impl GrowableWriter {
     let bits_required = PackedInts::unsigned_bits_required(value);
     debug_assert!(bits_required > self.current.get_bits_per_value());
     let value_count = self.size();
-    let mut next = PackedInts::get_mutable(
-      value_count as i32,
-      bits_required,
-      self.acceptable_overhead_ratio,
-    )?;
+    let mut next =
+      PackedInts::get_mutable(value_count, bits_required, self.acceptable_overhead_ratio)?;
 
     PackedInts::copy(
       &mut self.current,
@@ -88,13 +85,13 @@ impl GrowableWriter {
     Ok(())
   }
 
-  pub fn resize(&mut self, new_size: i32) -> Result<GrowableWriter> {
+  pub fn resize(&mut self, new_size: usize) -> Result<GrowableWriter> {
     let mut next = GrowableWriter::new(
       self.current.get_bits_per_value(),
       new_size,
       self.acceptable_overhead_ratio,
     )?;
-    let limit = std::cmp::min(self.size(), new_size as usize);
+    let limit = std::cmp::min(self.size(), new_size);
     PackedInts::copy(
       &mut self.current,
       0,

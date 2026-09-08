@@ -75,11 +75,11 @@ impl MinimizationOperations {
     let mut refine2 = BitSet::with_capacity(states_len);
 
     let mut transition = Transition::default();
-    for (q, is_accept) in (0..states_len).zip((0..states_len).map(|q| a.is_accept(q as i32))) {
-      let j = if is_accept { 0 } else { 1 };
+    for (q, state) in (0..a.get_num_states()).enumerate() {
+      let j = if a.is_accept(state) { 0 } else { 1 };
       partition[j].insert(q);
       block[q] = j;
-      transition.source = q as i32;
+      transition.source = state;
       transition.transition_upto = None;
       for (x, &sym) in sigma.iter().enumerate().take(sigma_len) {
         let next = a.next(&mut transition, sym);
@@ -100,7 +100,7 @@ impl MinimizationOperations {
             if state_list.size == -1 {
               *state_list = StateList::new();
             }
-            active2[q][x] = Some(state_list.add(q as i32));
+            active2[q][x] = Some(state_list.add(q));
             print!("");
           }
         }
@@ -125,7 +125,7 @@ impl MinimizationOperations {
       // find states that need to be split off their blocks
       let mut m = active[p][x].first.clone();
       while let Some(m_rc) = m {
-        let r = &reverse[m_rc.borrow().q as usize][x];
+        let r = &reverse[m_rc.borrow().q][x];
         if !r.is_empty() {
           for &i in r.iter() {
             if !split.contains(i) {
@@ -160,7 +160,7 @@ impl MinimizationOperations {
                   if active[k][c].size == -1 {
                     active[k][c] = StateList::new();
                   }
-                  active2[s][c] = Some(active[k][c].add(s as i32));
+                  active2[s][c] = Some(active[k][c].add(s));
                 }
               }
             }
@@ -256,7 +256,7 @@ impl StateList {
   }
 
   /// Add a new node with value `q`, return Rc to the created node
-  pub(crate) fn add(&mut self, q: i32) -> Rc<RefCell<StateListNode>> {
+  pub(crate) fn add(&mut self, q: usize) -> Rc<RefCell<StateListNode>> {
     let node = Rc::new(RefCell::new(StateListNode {
       q,
       next: None,
@@ -281,7 +281,7 @@ impl StateList {
 
 #[derive(Debug)]
 pub(crate) struct StateListNode {
-  pub(crate) q: i32,
+  pub(crate) q: usize,
   // TODO: memory leak risk?
   pub(crate) next: Option<Rc<RefCell<StateListNode>>>,
   pub(crate) prev: Option<Rc<RefCell<StateListNode>>>,

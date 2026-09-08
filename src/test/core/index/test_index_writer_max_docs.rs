@@ -373,14 +373,15 @@ fn test_exactly_at_true_limit() -> Result<()> {
       TermQuery::new(Term::from_text("field", "text")),
       &collector_manager,
     )?;
-    assert_eq!(max_docs as usize, hits.total_hits.value);
+    let expected_hits = max_docs as usize;
+    assert_eq!(expected_hits, hits.total_hits.value);
 
     // sort by docID reversed
     let sort = Sort::with_fields(vec![SortField::with_reverse::<String>(None, Doc, true)?])?;
     let hits2 =
       searcher.search_with_sort(TermQuery::new(Term::from_text("field", "text")), 10, sort)?;
 
-    assert_eq!(max_docs as usize, hits2.total_hits().value);
+    assert_eq!(expected_hits, hits2.total_hits().value);
     assert_eq!(10, hits2.score_docs().len());
     assert_eq!(max_docs - 1, hits2.score_docs()[0].doc());
 

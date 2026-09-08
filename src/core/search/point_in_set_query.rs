@@ -45,6 +45,7 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
+#[cfg(test)]
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::array_util::{ArrayUtil, ByteArrayComparator, ByteArrayComparatorEnum};
@@ -627,7 +628,7 @@ impl MergePointVisitor {
 
 impl IntersectVisitor for MergePointVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?)?;
+    self.result.grow(count)?;
     Ok(())
   }
 
@@ -729,7 +730,7 @@ impl SinglePointVisitor {
 
 impl IntersectVisitor for SinglePointVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?)?;
+    self.result.grow(count)?;
     Ok(())
   }
 

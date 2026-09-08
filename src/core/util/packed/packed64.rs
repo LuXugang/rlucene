@@ -69,14 +69,14 @@ impl Packed64 {
   /// # Returns
   ///
   /// A new instance of [`Packed64`].
-  pub fn new(value_count: i32, bits_per_value: i32) -> Self {
+  pub fn new(value_count: usize, bits_per_value: i32) -> Self {
     debug_assert!(
       bits_per_value > 0 && bits_per_value <= 64,
       "bitsPerValue must be > 0 and <= 64"
     );
     let format = Format::Packed(PackedImpl::new(0)); // Corresponds to PackedInts.Format.PACKED in Java
     let long_count = format.long_count(PackedInts::VERSION_CURRENT, value_count, bits_per_value);
-    let blocks = vec![0; long_count as usize];
+    let blocks = vec![0; long_count];
 
     let mask_right =
       (!0u64) << (Self::BLOCK_SIZE - bits_per_value) >> (Self::BLOCK_SIZE - bits_per_value);
@@ -86,7 +86,7 @@ impl Packed64 {
       blocks,
       mask_right,
       bpv_minus_block_size,
-      value_count: value_count as usize,
+      value_count,
       bits_per_value,
     }
   }
@@ -146,7 +146,7 @@ impl Reader for Packed64 {
 
     let original_index = index;
     let decoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value)?;
-    let long_value_count = Decoder::long_value_count(decoder) as usize;
+    let long_value_count = Decoder::long_value_count(decoder);
 
     // Go to the next block where the value does not span across two blocks
     let offset_in_blocks = index % long_value_count;
@@ -175,7 +175,7 @@ impl Reader for Packed64 {
     );
 
     let iterations = len / long_value_count;
-    decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, iterations as i32);
+    decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, iterations);
 
     let got_values = iterations * long_value_count;
     index += got_values;
@@ -264,7 +264,7 @@ impl Mutable for Packed64 {
 
     let original_index = index;
     let encoder = of(Format::Packed(PackedImpl::new(0)), self.bits_per_value)?;
-    let long_value_count = Encoder::long_value_count(encoder) as usize;
+    let long_value_count = Encoder::long_value_count(encoder);
 
     // Go to the next block where the value does not span across two blocks
     let offset_in_blocks = index % long_value_count;
@@ -292,13 +292,7 @@ impl Mutable for Packed64 {
     );
 
     let iterations = len / long_value_count;
-    encoder.encode_i64_to_u64(
-      &arr[off..],
-      0,
-      &mut self.blocks,
-      block_index,
-      iterations as i32,
-    );
+    encoder.encode_i64_to_u64(&arr[off..], 0, &mut self.blocks, block_index, iterations);
 
     let set_values = iterations * long_value_count;
     index += set_values;
@@ -347,7 +341,7 @@ impl Mutable for Packed64 {
     // or shift
     let n_aligned_blocks = (n_aligned_values * self.bits_per_value as usize) >> 6;
     let n_aligned_values_blocks = {
-      let mut values = Packed64::new(n_aligned_values as i32, self.bits_per_value);
+      let mut values = Packed64::new(n_aligned_values, self.bits_per_value);
       for i in 0..n_aligned_values {
         values.set(i, val)?;
       }

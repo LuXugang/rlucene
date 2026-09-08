@@ -60,11 +60,12 @@ pub trait ScoringRewrite: TermCollectingRewrite {
     if size > 0 {
       col.terms.sort(&col.block_pool)?;
       let sort = col.terms.ids.as_slice();
-      for i in 0..(size as usize) {
+      for i in 0..size {
         let pos = sort[i];
         col.terms.get(pos, &mut br, &col.block_pool)?;
         let term = Term::new(query.get_field(), std::mem::take(&mut br));
-        let term_state = std::mem::take(&mut col.terms.bytes_start_array.term_state[pos as usize]);
+        let pos = pos as usize;
+        let term_state = std::mem::take(&mut col.terms.bytes_start_array.term_state[pos]);
 
         debug_assert_eq!(reader.doc_freq(&term)?, term_state.doc_freq()?);
         let doc_freq = term_state.doc_freq()?;
@@ -72,7 +73,7 @@ pub trait ScoringRewrite: TermCollectingRewrite {
           &mut builder,
           term,
           doc_freq,
-          col.terms.bytes_start_array.boost[pos as usize],
+          col.terms.bytes_start_array.boost[pos],
           Some(term_state),
         )?;
       }
@@ -244,7 +245,7 @@ where
         terms_enum.doc_freq()?,
         terms_enum.total_term_freq()?,
       )?;
-      (self.check_max_clause_count)(self.terms.size() as usize)?;
+      (self.check_max_clause_count)(self.terms.size())?;
     }
 
     Ok(true)

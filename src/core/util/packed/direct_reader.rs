@@ -157,7 +157,7 @@ where
       }
     } else if (self.bits_per_value & 0x07) == 0 {
       // bitsPerValue is a multiple of 8
-      let bytes_per_value = self.bits_per_value / u8::BITS as i32;
+      let bytes_per_value = bits_per_value_usize / 8;
       let mask = if self.bits_per_value == 64 {
         !0i64
       } else {
@@ -174,7 +174,7 @@ where
         } else {
           self.buffer[i] = slice.read_byte(offset)? as i64;
         }
-        offset += bytes_per_value as usize;
+        offset += bytes_per_value;
       }
     } else if self.bits_per_value < 8 {
       // bitsPerValue is 1, 2 or 4
@@ -192,7 +192,7 @@ where
       }
     } else {
       // bitsPerValue is 12, 20 or 28; read values 2 by 2
-      let num_bytes_for_2_values = ((self.bits_per_value * 2) / i8::BITS as i32) as usize;
+      let num_bytes_for_2_values = bits_per_value_usize * 2 / 8;
       let mask = (1i64 << self.bits_per_value) - 1;
       let mut offset = self.base_offset + (index * bits_per_value_usize) / 8;
       for i in (0..DirectReader::MERGE_BUFFER_SIZE).step_by(2) {

@@ -36,7 +36,7 @@ use crate::core::util::int_array_doc_id_set::{IntArrayDocIdSet, IntArrayDocIdSet
 /// This is an internal API.
 pub struct DocIdSetBuilder {
   max_doc: i32,
-  threshold: i32,
+  threshold: usize,
   // Crate-visible for testing.
   pub(crate) multi_valued: bool,
   pub(crate) num_values_per_doc: f64,
@@ -91,7 +91,7 @@ impl DocIdSetBuilder {
       max_doc,
       multi_valued,
       num_values_per_doc,
-      threshold: max_doc >> 7,
+      threshold: (max_doc >> 7) as usize,
       buffer: Vec::new(),
       bit_set: None,
       counter: 0,
@@ -102,7 +102,7 @@ impl DocIdSetBuilder {
     I: DocIdSetIterator,
   {
     let cost = std::cmp::min(iter.cost()?, i32::MAX as i64);
-    self.grow(cost as i32)?;
+    self.grow(cost as usize)?;
     if let Some(bit_set) = self.bit_set.as_mut() {
       BitSet::or(bit_set, iter)?;
       return Ok(());
@@ -130,9 +130,9 @@ impl DocIdSetBuilder {
     }
     Ok(())
   }
-  pub fn grow(&mut self, num_docs: i32) -> Result<()> {
+  pub fn grow(&mut self, num_docs: usize) -> Result<()> {
     if self.bit_set.is_none() {
-      if self.buffer.len() as i32 + num_docs > self.threshold {
+      if self.buffer.len() + num_docs > self.threshold {
         self.upgrade_to_bitset()?;
         self.counter += num_docs as i64;
       }

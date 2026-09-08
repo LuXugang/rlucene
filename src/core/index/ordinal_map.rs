@@ -353,12 +353,12 @@ impl OrdinalMap {
           && (packed_bits as f32) <= (monotonic_bits as f32) * (1.0 + acceptable_overhead_ratio)
         {
           // monotonic compression mostly adds overhead, let's keep the mapping in plain packed ints
-          let size = deltas.size() as i32;
+          let size = deltas.size() as usize;
           let mut new_deltas =
             PackedInts::get_mutable(size, bits_required, acceptable_overhead_ratio)?;
 
           let mut it = deltas.iterator()?;
-          for ord in 0..size as usize {
+          for ord in 0..size {
             let v = it.next_value()?;
             new_deltas.set(ord, v)?;
           }

@@ -37,9 +37,9 @@ impl ReaderUtil {
   pub fn sub_index(n: usize, doc_starts: &[usize]) -> i32 {
     debug_assert!(doc_starts.len() <= i32::MAX as usize);
     // find searcher/reader for doc n:
-    let size = doc_starts.len();
+    let size = doc_starts.len() as i32;
     let mut lo: i32 = 0; // search starts array
-    let mut hi: i32 = (size as i32) - 1; // for first element less than n, return its index
+    let mut hi: i32 = size - 1; // for first element less than n, return its index
 
     while hi >= lo {
       let mid = (lo + hi) >> 1;
@@ -51,7 +51,7 @@ impl ReaderUtil {
       } else {
         // found a match
         let mut mid = mid;
-        while (mid + 1) < size as i32 && doc_starts[(mid + 1) as usize] == mid_value {
+        while (mid + 1) < size && doc_starts[(mid + 1) as usize] == mid_value {
           mid += 1; // scan to last match
         }
         return mid;
@@ -65,21 +65,22 @@ impl ReaderUtil {
     LR: LeafReader,
   {
     // find searcher/reader for doc n:
-    let size = leaves.len();
+    let size = leaves.len() as i32;
     let mut lo: i32 = 0; // search starts array
-    let mut hi: i32 = size as i32 - 1; // for first element less than n, return its index
+    let mut hi: i32 = size - 1; // for first element less than n, return its index
 
     while hi >= lo {
       let mid = (lo + hi) >> 1;
       let mid_value = leaves[mid as usize].doc_base;
 
-      if n < mid_value as i32 {
+      let mid_doc = mid_value as i32;
+      if n < mid_doc {
         hi = mid - 1;
-      } else if n > mid_value as i32 {
+      } else if n > mid_doc {
         lo = mid + 1;
       } else {
         let mut mid = mid;
-        while (mid + 1) < size as i32 && leaves[(mid + 1) as usize].doc_base == mid_value {
+        while (mid + 1) < size && leaves[(mid + 1) as usize].doc_base == mid_value {
           mid += 1;
         }
         return mid as usize;

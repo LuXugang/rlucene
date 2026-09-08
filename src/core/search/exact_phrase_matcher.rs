@@ -52,7 +52,7 @@ where
     let mut postings_and_positions = Vec::with_capacity(postings_len);
     for (i, p) in postings.into_iter().enumerate() {
       impacts_enum.push(p.postings);
-      postings_and_positions.push(PostingsAndPosition::new(i, p.position as usize))
+      postings_and_positions.push(PostingsAndPosition::new(i, p.position))
     }
     let wrapped_impacts_enum = ConjunctionDISI::create_conjunction(impacts_enum)?;
     let impacts_source = merge_impacts(wrapped_impacts_enum)?;
@@ -152,9 +152,9 @@ where
     }
 
     'advance_head: loop {
-      let phrase_pos = self.postings[0].pos - self.postings[0].offset as i32;
+      let phrase_pos = self.postings[0].pos - self.postings[0].offset;
       for j in 1..self.postings.len() {
-        let expected_pos = phrase_pos + self.postings[j].offset as i32;
+        let expected_pos = phrase_pos + self.postings[j].offset;
         // advance up to the same position as the lead
         if !self.advance_position(j, expected_pos)? {
           break 'advance_head;
@@ -162,8 +162,7 @@ where
 
         if self.postings[j].pos != expected_pos {
           // we advanced too far
-          let target =
-            self.postings[j].pos - self.postings[j].offset as i32 + self.postings[0].offset as i32;
+          let target = self.postings[j].pos - self.postings[j].offset + self.postings[0].offset;
 
           if self.advance_position(0, target)? {
             continue 'advance_head;
@@ -523,14 +522,14 @@ impl Compare<SubIterator> for SubIteratorCmp {
 }
 struct PostingsAndPosition {
   postings_idx: usize,
-  offset: usize,
+  offset: i32,
   freq: i32,
   upto: i32,
   pos: i32,
 }
 
 impl PostingsAndPosition {
-  fn new(postings_idx: usize, offset: usize) -> Self {
+  fn new(postings_idx: usize, offset: i32) -> Self {
     Self {
       postings_idx,
       offset,

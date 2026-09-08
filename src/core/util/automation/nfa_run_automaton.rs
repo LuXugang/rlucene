@@ -151,8 +151,8 @@ impl NFARunAutomaton {
   pub(crate) fn get_char_class(&self, c: i32) -> usize {
     debug_assert!(c < self.alphabet_size);
 
-    if (c as usize) < self.classmap.len() {
-      return self.classmap[c as usize];
+    if let Some(&class) = self.classmap.get(c as usize) {
+      return class;
     }
 
     // binary search
@@ -387,7 +387,7 @@ impl NFARunAutomaton {
   }
 
   pub fn get_next_transition(&self, t: &mut Transition) -> Result<()> {
-    debug_assert!(t.transition_upto.map_or(-1, |upto| upto as i32) < self.points.len() as i32 - 1);
+    debug_assert!(t.transition_upto.map_or(0, |upto| upto + 1) < self.points.len());
     {
       let transitions = &self.dstates[t.source as usize].transitions;
       let transition_upto = loop {
@@ -406,21 +406,23 @@ impl NFARunAutomaton {
   }
 
   pub fn get_num_transitions_with_state(&mut self, state: i32) -> Result<i32> {
-    self.determinize(state as usize)?;
-    Ok(self.dstates[state as usize].outgoing_transitions)
+    let state_index = state as usize;
+    self.determinize(state_index)?;
+    Ok(self.dstates[state_index].outgoing_transitions)
   }
 
   pub fn get_transition(&mut self, state: i32, index: i32, t: &mut Transition) -> Result<()> {
-    self.determinize(state as usize)?;
+    let state_index = state as usize;
+    self.determinize(state_index)?;
     {
-      let transitions = &self.dstates[state as usize].transitions;
+      let transitions = &self.dstates[state_index].transitions;
 
       let mut outgoing_transitions = -1;
       t.transition_upto = None;
       t.source = state;
 
       while outgoing_transitions < index
-        && t.transition_upto.map_or(-1, |upto| upto as i32) < self.points.len() as i32 - 1
+        && t.transition_upto.map_or(0, |upto| upto + 1) < self.points.len()
       {
         let idx = t.transition_upto.map_or(0, |upto| upto + 1);
         t.transition_upto = Some(idx);
@@ -447,13 +449,15 @@ impl ByteRunnable for NFARunAutomaton {
   /// Returns:
   /// - The next state, or `Self::MISSING` if the transition doesn't exist.
   fn step(&mut self, state: i32, c: i32) -> Result<i32> {
-    debug_assert!(self.dstates.get(state as usize).is_some());
-    self.step_with_dstate_index(state as usize, c)
+    let state_index = state as usize;
+    debug_assert!(self.dstates.get(state_index).is_some());
+    self.step_with_dstate_index(state_index, c)
   }
 
   fn is_accept(&self, state: i32) -> Result<bool> {
-    debug_assert!(self.dstates.get(state as usize).is_some());
-    Ok(self.dstates[state as usize].is_accept)
+    let state_index = state as usize;
+    debug_assert!(self.dstates.get(state_index).is_some());
+    Ok(self.dstates[state_index].is_accept)
   }
 
   fn get_size(&self) -> usize {

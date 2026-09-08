@@ -255,7 +255,8 @@ fn test_boolean_scorer_max() -> Result<()> {
   let leaf = &s.get_top_reader_context().leaves()?[0];
   let mut scorer = w.bulk_scorer(leaf, &s)?.unwrap();
 
-  let mut hits = FixedBitSet::new(doc_count as usize);
+  let expected_hits = doc_count as usize;
+  let mut hits = FixedBitSet::new(expected_hits);
   let mut c = SimpleCollectorImpl::new(&mut hits);
 
   while c.end < doc_count {
@@ -266,7 +267,7 @@ fn test_boolean_scorer_max() -> Result<()> {
     scorer.score(&mut c, None::<&dyn Bits>, min, max)?;
   }
 
-  assert_eq!(doc_count as usize, hits.cardinality());
+  assert_eq!(expected_hits, hits.cardinality());
   Ok(())
 }
 

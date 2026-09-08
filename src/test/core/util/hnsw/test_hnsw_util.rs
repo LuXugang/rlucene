@@ -371,9 +371,10 @@ impl Iterator for NodeIteratorImpl {
     }
     while self.cur_count < self.final_count {
       self.cur += 1;
-      if self.nodes[self.level][self.cur as usize].is_some() {
+      let node = self.cur as usize;
+      if self.nodes[self.level][node].is_some() {
         self.cur_count += 1;
-        return Some(self.cur as usize);
+        return Some(node);
       }
     }
     unreachable!()

@@ -535,7 +535,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
     self.pool = pool;
     self.docs_with_field.finish();
     if !self.is_sorted {
-      let value_count = self.hash.size() as usize;
+      let value_count = self.hash.size();
       self.update_bytes_used()?;
       debug_assert!(self.final_ord_map.is_none() && self.final_ords.is_none());
 
@@ -726,7 +726,7 @@ where
   }
 
   fn get_value_count(&self) -> Result<i32> {
-    Ok(self.hash.size())
+    self.hash.size().try_convert()
   }
 
   type TermsEnum<'a>

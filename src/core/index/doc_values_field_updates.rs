@@ -230,7 +230,7 @@ where
       // use quicksort and record ords of each update to guarantee
       // stability.
       let mut ords = PackedInts::get_mutable(
-        inner.size as i32,
+        inner.size,
         PackedInts::bits_required((inner.size - 1) as i64)?,
         PackedInts::DEFAULT,
       )?;

@@ -67,8 +67,8 @@ impl MonotonicBlockPackedReader {
     II: IndexInput,
   {
     let block_shift = PackedInts::check_block_size(block_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
-    let num_blocks = PackedInts::num_blocks(value_count, block_size)?;
     let block_size = block_size as usize;
+    let num_blocks = PackedInts::num_blocks(value_count, block_size)?;
     let block_mask = block_size - 1;
     let mut min_values = vec![0; num_blocks];
     let mut averages = vec![0.0; num_blocks];
@@ -90,13 +90,10 @@ impl MonotonicBlockPackedReader {
         // sub_readers inited with Zeroes,so no-op here
         continue;
       } else {
-        let size = std::cmp::min(block_size, value_count - i * block_size) as i32;
+        let size = std::cmp::min(block_size, value_count - i * block_size);
         let byte_count =
           Format::Packed(PackedImpl::new(0)).byte_count(packed_ints_version, size, bits_per_value);
-        total_byte_count += byte_count;
-        let byte_count = usize::try_from(byte_count).map_err(|_| {
-          LuceneError::illegal_argument(format!("negative block byte count: {byte_count}"))
-        })?;
+        total_byte_count += byte_count as i64;
         let mut blocks = vec![0u8; byte_count];
         input.read_bytes(&mut blocks, 0, byte_count)?;
         let mask_right = 1u64.wrapping_shl(bits_per_value as u32).wrapping_sub(1);

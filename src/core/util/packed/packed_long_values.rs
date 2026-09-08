@@ -327,7 +327,7 @@ impl Builder {
 
     // Build a new packed reader
     if min_value == 0 && max_value == 0 {
-      let reader = NullReader::new(num_values as i32);
+      let reader = NullReader::new(num_values);
       self.values[block] = PackedIntsReadEnum::NullReader(reader);
       Ok(())
     } else {
@@ -338,7 +338,7 @@ impl Builder {
       };
 
       let mut mutable =
-        PackedInts::get_mutable(num_values as i32, bits_required, acceptable_overhead_ratio)?;
+        PackedInts::get_mutable(num_values, bits_required, acceptable_overhead_ratio)?;
       let mut i = 0;
       while i < num_values {
         i += mutable.set_bulk(i, self.pending.as_slice(), i, num_values - i)?;

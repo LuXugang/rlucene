@@ -49,7 +49,7 @@ where
   pub fn new(size: usize, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
     let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
     let page_mask = (page_size - 1) as usize;
-    let num_pages = PackedInts::num_blocks(size, page_size)?;
+    let num_pages = PackedInts::num_blocks(size, page_size as usize)?;
     let sub_mutables = Vec::with_capacity(num_pages);
     let mut result = AbstractPagedMutable {
       sub_reader,
@@ -82,12 +82,12 @@ where
     self.sub_mutables = sub_mutables;
     Ok(())
   }
-  fn last_page_size(&self, size: usize) -> i32 {
+  fn last_page_size(&self, size: usize) -> usize {
     let sz = self.index_in_page(size);
-    if sz == 0 { self.page_size() } else { sz as i32 }
+    if sz == 0 { self.page_size() } else { sz }
   }
-  fn page_size(&self) -> i32 {
-    (self.page_mask + 1) as i32
+  fn page_size(&self) -> usize {
+    self.page_mask + 1
   }
   pub fn size(&self) -> usize {
     self.size
@@ -134,7 +134,7 @@ where
   /// instance and copying values one by one.
   pub fn resize(&self, new_size: usize) -> Result<AbstractPagedMutable<T>> {
     let sub = self.sub_reader.new_unfilled_copy();
-    let mut copy = AbstractPagedMutable::new(new_size, self.page_size(), sub)?;
+    let mut copy = AbstractPagedMutable::new(new_size, self.page_size() as i32, sub)?;
     let num_pages = PackedInts::num_blocks(new_size, self.page_size())?;
     let num_common_pages = std::cmp::min(num_pages, self.sub_mutables.len());
     let mut copy_buffer = vec![0i64; 1024];
@@ -153,7 +153,7 @@ where
       let mut sub_mutable = self.sub_reader.new_mutable(value_count, bpv)?;
 
       if i < num_common_pages {
-        let copy_length = std::cmp::min(value_count as usize, self.sub_mutables[i].size());
+        let copy_length = std::cmp::min(value_count, self.sub_mutables[i].size());
         PackedInts::copy_with_buffer(
           &self.sub_mutables[i],
           0,
@@ -229,7 +229,7 @@ where
   }
 }
 pub(crate) trait AbstractPagedMutableBase {
-  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum>;
+  fn new_mutable(&self, value_count: usize, bits_per_value: i32) -> Result<MutableEnum>;
   fn new_unfilled_copy(&self) -> Self
   where
     Self: Sized;
@@ -249,7 +249,7 @@ impl Default for AbstractPagedMutableBaseEnum {
   }
 }
 impl AbstractPagedMutableBase for AbstractPagedMutableBaseEnum {
-  fn new_mutable(&self, value_count: i32, bits_per_value: i32) -> Result<MutableEnum> {
+  fn new_mutable(&self, value_count: usize, bits_per_value: i32) -> Result<MutableEnum> {
     match self {
       AbstractPagedMutableBaseEnum::Mutable(m) => m.new_mutable(value_count, bits_per_value),
       AbstractPagedMutableBaseEnum::GrowableWriter(g) => g.new_mutable(value_count, bits_per_value),

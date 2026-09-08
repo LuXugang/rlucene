@@ -39,7 +39,6 @@ use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer_supplier::ScorerSupplier;
 use crate::core::search::segment_cacheable::SegmentCacheable;
 use crate::core::search::weight::Weight;
-use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::array_util::{ByteArrayComparator, ByteArrayComparatorEnum};
 use crate::core::util::core_helper::HasIdentity;
@@ -452,7 +451,7 @@ impl RangeFieldIntersectVisitor {
 
 impl IntersectVisitor for RangeFieldIntersectVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?)?;
+    self.result.grow(count)?;
     Ok(())
   }
 

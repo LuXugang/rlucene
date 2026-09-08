@@ -461,7 +461,7 @@ impl LatLonDistanceIntersectVisitor {
 
 impl IntersectVisitor for LatLonDistanceIntersectVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count as i32)?;
+    self.result.grow(count)?;
     Ok(())
   }
 

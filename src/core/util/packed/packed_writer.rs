@@ -27,7 +27,7 @@ pub(crate) struct PackedWriter<'a, T> {
   encoder: &'static BulkOperationPackedEnum,
   next_blocks: Vec<u8>,
   next_values: Vec<i64>,
-  iterations: i32,
+  iterations: usize,
   off: usize,
   written: i32,
   value_count: i32,
@@ -48,8 +48,9 @@ where
     let encoder = of(format, bits_per_value)?;
     debug_assert!(value_count >= 0);
     let iterations = encoder.compute_iterations(value_count, mem);
-    let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder)) as usize];
-    let next_values = vec![0; (iterations * Encoder::byte_value_count(encoder)) as usize];
+    let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder) as i32) as usize];
+    let next_values = vec![0; (iterations * Encoder::byte_value_count(encoder) as i32) as usize];
+    let iterations = iterations as usize;
 
     Ok(Self {
       finished: false,
@@ -73,14 +74,12 @@ where
       0,
       self.iterations,
     );
-    let block_count = self.format.byte_count(
-      PackedInts::VERSION_CURRENT,
-      self.off as i32,
-      self.bits_per_value,
-    );
+    let block_count =
+      self
+        .format
+        .byte_count(PackedInts::VERSION_CURRENT, self.off, self.bits_per_value);
 
-    debug_assert!(block_count <= i32::MAX as i64);
-    let block_count = block_count as usize;
+    debug_assert!(block_count <= i32::MAX as usize);
     self
       .data_output
       .write_bytes_with_len(&self.next_blocks[0..block_count], block_count)?;

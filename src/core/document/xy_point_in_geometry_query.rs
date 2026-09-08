@@ -337,7 +337,7 @@ impl XYPointInGeometryIntersectVisitor {
 
 impl IntersectVisitor for XYPointInGeometryIntersectVisitor {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.adder.grow(count as i32)?;
+    self.adder.grow(count)?;
     Ok(())
   }
 

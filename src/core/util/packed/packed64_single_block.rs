@@ -36,15 +36,15 @@ where
   T: Packed64SingleBlockBase,
 {
   /// Supported bits per value
-  fn required_capacity(value_count: i32, values_per_block: i32) -> i32 {
+  fn required_capacity(value_count: usize, values_per_block: usize) -> usize {
     value_count / values_per_block
-      + if value_count % values_per_block == 0 {
+      + if value_count.is_multiple_of(values_per_block) {
         0
       } else {
         1
       }
   }
-  pub(crate) fn new(bits_per_value: i32, value_count: i32, sub_reader: T) -> Self {
+  pub(crate) fn new(bits_per_value: i32, value_count: usize, sub_reader: T) -> Self {
     debug_assert!(
       bits_per_value > 0 && bits_per_value <= 64,
       "bitsPerValue must be > 0 and <= 64"
@@ -53,11 +53,11 @@ where
       is_supported(bits_per_value),
       "Unsupported bits_per_value: {bits_per_value}"
     );
-    let values_per_block = 64 / bits_per_value;
+    let values_per_block = (64 / bits_per_value) as usize;
     let required_capacity = Self::required_capacity(value_count, values_per_block);
     Self {
-      blocks: vec![0; required_capacity as usize],
-      value_count: value_count as usize,
+      blocks: vec![0; required_capacity],
+      value_count,
       bits_per_value,
       sub_reader,
     }
@@ -123,13 +123,13 @@ where
       "Decoder longBlockCount mismatch"
     );
     debug_assert_eq!(
-      Decoder::long_value_count(decoder) as usize,
+      Decoder::long_value_count(decoder),
       values_per_block,
       "Decoder longValueCount mismatch"
     );
     let block_index = index / values_per_block;
     let nblocks = (index + len) / values_per_block - block_index;
-    decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, nblocks as i32);
+    decoder.decode_u64_to_i64(&self.blocks, block_index, arr, off, nblocks);
     let diff = nblocks * values_per_block;
     index += diff;
     len -= diff;
@@ -149,7 +149,7 @@ where
     self.value_count
   }
 }
-pub(crate) fn create(value_count: i32, bits_per_value: i32) -> Result<MutablePacked64Enum> {
+pub(crate) fn create(value_count: usize, bits_per_value: i32) -> Result<MutablePacked64Enum> {
   let mutable = match bits_per_value {
     1 => {
       let sub_reader =
@@ -313,7 +313,7 @@ where
     )?;
     debug_assert_eq!(Decoder::long_block_count(op), 1, "longBlockCount mismatch");
     debug_assert_eq!(
-      Decoder::long_value_count(op) as usize,
+      Decoder::long_value_count(op),
       values_per_block,
       "longValueCount mismatch"
     );
@@ -321,13 +321,7 @@ where
     let block_index = index / values_per_block;
     let nblocks = (index + len) / values_per_block - block_index;
 
-    op.encode_i64_to_u64(
-      &arr[off..],
-      0,
-      &mut self.blocks,
-      block_index,
-      nblocks as i32,
-    );
+    op.encode_i64_to_u64(&arr[off..], 0, &mut self.blocks, block_index, nblocks);
 
     let diff = nblocks * values_per_block;
     index += diff;

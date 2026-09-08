@@ -33,6 +33,7 @@ use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::search::random_approximation_query::RandomTwoPhaseView;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use std::fmt::{Display, Formatter};
 
@@ -65,8 +66,9 @@ fn do_test_random(two_phase: bool) -> Result<()> {
   let mut req_builder = DocIdSetBuilder::new(max_doc);
   let mut excl_builder = DocIdSetBuilder::new(max_doc);
 
-  let num_included_docs = random.random_range(1..=max_doc);
-  let num_excluded_docs = random.random_range(1..=max_doc);
+  let capacity = max_doc as usize;
+  let num_included_docs = TestUtil::next_usize(&mut random, 1, capacity);
+  let num_excluded_docs = TestUtil::next_usize(&mut random, 1, capacity);
 
   req_builder.grow(num_included_docs)?;
   for _ in 0..num_included_docs {
@@ -90,7 +92,6 @@ fn do_test_random(two_phase: bool) -> Result<()> {
   };
   let mut req_excl = ReqExclBulkScorer::new(req_bulk_scorer, scorer);
 
-  let capacity = max_doc as usize;
   let mut actual_matches = FixedBitSet::new(capacity);
 
   if random.random_bool(0.5) {

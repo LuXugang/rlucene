@@ -222,7 +222,7 @@ pub(crate) struct FreqProxTermsEnum {
   byte_pool: Rc<ByteBlockPool>,
   terms_pool: BytesRefBlockPool,
   scratch: BytesRef<Vec<u8>>,
-  num_terms: i32,
+  num_terms: usize,
   ord: Option<usize>,
 }
 impl FreqProxTermsEnum {
@@ -256,7 +256,7 @@ impl BytesRefIterator for FreqProxTermsEnum {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     let ord = self.ord.map_or(0, |ord| ord + 1);
     self.ord = Some(ord);
-    if ord >= self.num_terms as usize {
+    if ord >= self.num_terms {
       return Ok(None);
     }
 
@@ -322,7 +322,7 @@ impl TermsEnum for FreqProxTermsEnum {
     let sorted_term_ids = self.terms.base.get_sorted_term_ids();
 
     let mut lo = 0;
-    let mut hi = self.num_terms - 1;
+    let mut hi = self.num_terms as i32 - 1;
 
     while hi >= lo {
       let mid = (lo + hi) >> 1;
@@ -350,7 +350,7 @@ impl TermsEnum for FreqProxTermsEnum {
     // not found
     let lo_index = lo as usize;
     self.ord = Some(lo_index);
-    if lo >= self.num_terms {
+    if lo_index >= self.num_terms {
       Ok(SeekStatus::End)
     } else {
       let term_id = sorted_term_ids[lo_index];

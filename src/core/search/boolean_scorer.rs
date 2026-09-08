@@ -128,12 +128,13 @@ where
       doc
     };
     while doc < max {
+      let doc_index = doc as usize;
       let accepted = match accept_docs {
-        Some(accept_docs) => accept_docs.get(doc as usize)?,
+        Some(accept_docs) => accept_docs.get(doc_index)?,
         None => true,
       };
       if accepted {
-        let i = doc as usize & MASK;
+        let i = doc_index & MASK;
         let idx = i >> 6;
 
         self.matching[idx] |= 1u64 << (i & 0x3f);
@@ -443,7 +444,7 @@ where
 }
 pub struct Bucket {
   score: f64,
-  freq: i32,
+  freq: usize,
 }
 impl Bucket {
   fn new() -> Self {
@@ -488,7 +489,7 @@ where
         match self.scorer.buckets {
           Some(ref mut buckets) => {
             let bucket = &mut buckets[index_in_window];
-            if bucket.freq as usize >= self.scorer.min_should_match {
+            if bucket.freq >= self.scorer.min_should_match {
               consumer
                 .accept_with_score(self.base | index_in_window as i32, bucket.score as f32)?;
             }

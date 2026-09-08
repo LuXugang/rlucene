@@ -251,9 +251,9 @@ fn random_phrase_query(seed: u64) -> Result<MultiPhraseQuery> {
   let mut position = 0;
 
   for _ in 0..length {
-    let depth = TestUtil::next_int(&mut random, 1, 3);
+    let depth = TestUtil::next_usize(&mut random, 1, 3);
 
-    let mut terms = Vec::with_capacity(depth as usize);
+    let mut terms = Vec::with_capacity(depth);
     for _ in 0..depth {
       let ch = TestUtil::next_int(&mut random, 'a' as i32, 'z' as i32) as u8 as char;
       terms.push(Term::from_text("field", ch.to_string()));

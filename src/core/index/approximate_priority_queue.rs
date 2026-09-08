@@ -30,9 +30,11 @@ pub(crate) struct ApproximatePriorityQueue<T> {
   used_slots: i64,
 }
 impl<T> ApproximatePriorityQueue<T> {
+  const SPARSE_SLOTS: usize = i64::BITS as usize;
+
   pub(crate) fn new() -> Self {
-    let mut slots = Vec::with_capacity(i64::BITS as usize);
-    slots.resize_with(i64::BITS as usize, || None);
+    let mut slots = Vec::with_capacity(Self::SPARSE_SLOTS);
+    slots.resize_with(Self::SPARSE_SLOTS, || None);
     ApproximatePriorityQueue {
       slots,
       used_slots: 0,
@@ -59,7 +61,7 @@ where
       .trailing_zeros() as usize;
     let destination_slot = expected_slot + offset;
 
-    if destination_slot < i64::BITS as usize {
+    if destination_slot < Self::SPARSE_SLOTS {
       self.used_slots |= 1 << destination_slot;
       debug_assert!(self.slots[destination_slot].is_none());
       self.slots[destination_slot] = Some(entry);
@@ -77,10 +79,10 @@ where
   {
     // Look at indexes 0..63 first, which are sparsely populated.
     let mut next_slot = 0;
-    while next_slot < i64::BITS as usize {
+    while next_slot < Self::SPARSE_SLOTS {
       let next_used_slot =
         next_slot + (self.used_slots as u64 >> next_slot).trailing_zeros() as usize;
-      if next_used_slot >= i64::BITS as usize {
+      if next_used_slot >= Self::SPARSE_SLOTS {
         break;
       }
       if let Some(ref entry) = self.slots[next_used_slot] {
@@ -97,7 +99,7 @@ where
     // decreases, we keep using the same entry over and over again.
     // Resizing operations are also less costly on lists when items are
     // closer to the end of the list.
-    for i in (i64::BITS as usize..self.slots.len()).rev() {
+    for i in (Self::SPARSE_SLOTS..self.slots.len()).rev() {
       if let Some(ref entry) = self.slots[i]
         && predicate(entry)
       {
@@ -117,7 +119,7 @@ where
 
   #[cfg(test)]
   pub(crate) fn is_empty(&self) -> bool {
-    self.used_slots == 0 && self.slots.len() == i64::BITS as usize
+    self.used_slots == 0 && self.slots.len() == Self::SPARSE_SLOTS
   }
 
   pub(crate) fn remove(&mut self, o: &str) -> Option<T> {
@@ -126,7 +128,7 @@ where
       .iter()
       .position(|slot| slot.as_ref().is_some_and(|v| v.id() == o))?;
 
-    if index < i64::BITS as usize {
+    if index < Self::SPARSE_SLOTS {
       self.used_slots &= !(1i64 << index);
       self.slots[index].take()
     } else {

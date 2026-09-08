@@ -584,7 +584,7 @@ where
   }
 }
 
-const MAX_TERMS: i32 = 1024;
+const MAX_TERMS: usize = 1024;
 pub struct TermOrdValCompetitiveIterator<LR>
 where
   LR: LeafReader,
@@ -634,15 +634,15 @@ where
     min_ord: i32,
     max_ord: i32,
   ) -> Result<()> {
-    let max_terms = std::cmp::min(MAX_TERMS, get_max_clause_count() as i32);
-    let size = std::cmp::max(0, max_ord - min_ord + 1);
+    let max_terms = std::cmp::min(MAX_TERMS, get_max_clause_count());
+    let size: usize = std::cmp::max(0, max_ord - min_ord + 1).try_convert()?;
 
     if size > max_terms {
       // Dense fields do not have a docs-with-field iterator to use for skipping.
       self.using_skip = !self.dense;
     } else if !self.postings_init {
       self.init(doc_values, min_ord, max_ord)?;
-    } else if size < self.postings.len() as i32 {
+    } else if size < self.postings.len() {
       // One or more ords got removed
       debug_assert!(self.postings.front().is_none_or(|ord| *ord <= min_ord));
       while self.postings.front().is_some_and(|ord| *ord < min_ord) {
@@ -687,11 +687,11 @@ where
     max_ord: i32,
   ) -> Result<()> {
     self.postings_init = true;
-    let size = std::cmp::max(0, max_ord - min_ord + 1);
-    self.postings = VecDeque::with_capacity(size as usize);
+    let size: usize = std::cmp::max(0, max_ord - min_ord + 1).try_convert()?;
+    self.postings = VecDeque::with_capacity(size);
 
     debug_assert!(self.disjunction.is_none());
-    let mut disjunction = PriorityQueue::new(size.try_convert()?, PostingsEnumAndOrdCmp)?;
+    let mut disjunction = PriorityQueue::new(size, PostingsEnumAndOrdCmp)?;
     if size > 0 {
       let min_term = doc_values.lookup_ord(min_ord)?.into_owned();
       if !self.terms.seek_exact(&min_term)? {

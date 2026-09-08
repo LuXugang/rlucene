@@ -365,8 +365,7 @@ impl DeletedTerms {
       scratch.field = field.clone();
       terms.bytes_ref_hash.sort(&self.pool)?;
       let indices = &terms.bytes_ref_hash.ids;
-      for i in 0..terms.bytes_ref_hash.count {
-        let index = indices[i as usize];
+      for &index in &indices[..terms.bytes_ref_hash.count] {
         terms
           .bytes_ref_hash
           .get(index, &mut scratch.bytes, &self.pool)?;
@@ -439,7 +438,7 @@ impl BytesRefIntMap {
     let mut set = HashSet::new();
 
     for i in 0..self.bytes_ref_hash.size() {
-      self.bytes_ref_hash.get(i, &mut scratch, pool)?;
+      self.bytes_ref_hash.get(i as i32, &mut scratch, pool)?;
       set.insert(BytesRef::deep_copy_of(&scratch)?);
     }
     Ok(set)

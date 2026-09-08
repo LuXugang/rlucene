@@ -31,7 +31,7 @@ pub struct PackedReaderIterator<'a, D> {
   bulk_operation: &'static BulkOperationPackedEnum,
   next_blocks: Vec<u8>,
   next_values: LongsRef,
-  iterations: i32,
+  iterations: usize,
   position: i32,
   value_count: i32,
   bits_per_value: i32,
@@ -57,8 +57,10 @@ where
       "Value count must be 0 or iterations must be greater than 0."
     );
 
-    let next_blocks = vec![0u8; iterations as usize * bulk_operation.byte_block_count() as usize];
-    let next_values_long_length = (iterations * bulk_operation.byte_value_count()).try_convert()?;
+    let next_blocks = vec![0u8; iterations as usize * bulk_operation.byte_block_count()];
+    let next_values_long_length =
+      (iterations * bulk_operation.byte_value_count() as i32).try_convert()?;
+    let iterations = iterations as usize;
     let next_values = LongsRef::from_slice(
       vec![0i64; next_values_long_length],
       next_values_long_length,
@@ -83,7 +85,7 @@ impl<'a, D> ReaderIterator for PackedReaderIterator<'a, D>
 where
   D: DataInput + 'a,
 {
-  fn next_batch(&mut self, mut count: i32) -> Result<&mut LongsRef> {
+  fn next_batch(&mut self, mut count: usize) -> Result<&mut LongsRef> {
     debug_assert!(count > 0);
     debug_assert!(
       (self.next_values.offset + self.next_values.length) <= self.next_values.longs.len(),
@@ -96,14 +98,15 @@ where
       return Err(LuceneError::eof("No more values to read"));
     }
 
-    count = count.min(remaining);
+    count = count.min(remaining as usize);
 
     if self.next_values.offset == self.next_values.longs.len() {
-      let remaining_blocks =
-        self
-          .format
-          .byte_count(self.packed_ints_version, remaining, self.bits_per_value);
-      let blocks_to_read = remaining_blocks.min(self.next_blocks.len() as i64) as usize;
+      let remaining_blocks = self.format.byte_count(
+        self.packed_ints_version,
+        remaining as usize,
+        self.bits_per_value,
+      );
+      let blocks_to_read = remaining_blocks.min(self.next_blocks.len());
       debug_assert!(blocks_to_read <= i32::MAX as usize);
       self
         .data_input
@@ -124,8 +127,7 @@ where
       self.next_values.offset = 0;
     }
 
-    self.next_values.length =
-      (self.next_values.longs.len() - self.next_values.offset).min(count as usize);
+    self.next_values.length = (self.next_values.longs.len() - self.next_values.offset).min(count);
     let v: i32 = self.next_values.length.try_convert()?;
     self.position += v;
 

@@ -22,10 +22,10 @@ use crate::core::util::packed::{Decoder, Encoder, PackedInts};
 
 pub(crate) struct BulkOperationPacked {
   bits_per_value: i32,
-  long_block_count: i32,
-  long_value_count: i32,
-  byte_block_count: i32,
-  byte_value_count: i32,
+  long_block_count: usize,
+  long_value_count: usize,
+  byte_block_count: usize,
+  byte_value_count: usize,
   mask: u64,
   int_mask: u32,
 }
@@ -64,29 +64,29 @@ impl BulkOperationPacked {
     );
     BulkOperationPacked {
       bits_per_value,
-      long_block_count,
-      long_value_count,
-      byte_block_count,
-      byte_value_count,
+      long_block_count: long_block_count as usize,
+      long_value_count: long_value_count as usize,
+      byte_block_count: byte_block_count as usize,
+      byte_value_count: byte_value_count as usize,
       mask,
       int_mask,
     }
   }
 }
 impl Decoder for BulkOperationPacked {
-  fn long_block_count(&self) -> i32 {
+  fn long_block_count(&self) -> usize {
     self.long_block_count
   }
 
-  fn long_value_count(&self) -> i32 {
+  fn long_value_count(&self) -> usize {
     self.long_value_count
   }
 
-  fn byte_block_count(&self) -> i32 {
+  fn byte_block_count(&self) -> usize {
     self.byte_block_count
   }
 
-  fn byte_value_count(&self) -> i32 {
+  fn byte_value_count(&self) -> usize {
     self.byte_value_count
   }
 
@@ -96,7 +96,7 @@ impl Decoder for BulkOperationPacked {
     mut blocks_offset: usize,
     values: &mut [i64],
     mut values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     let mut bits_left: i32 = 64;
     for _ in 0..(self.long_value_count * iterations) {
@@ -127,7 +127,7 @@ impl Decoder for BulkOperationPacked {
     mut blocks_offset: usize,
     values: &mut [i64],
     mut values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     let mut next_value: i64 = 0;
     let mut bits_left: i32 = self.bits_per_value;
@@ -167,7 +167,7 @@ impl Decoder for BulkOperationPacked {
     mut blocks_offset: usize,
     values: &mut [i32],
     mut values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) -> Result<()> {
     if self.bits_per_value > 32 {
       return Err(LuceneError::unsupported_operation(format!(
@@ -210,7 +210,7 @@ impl Decoder for BulkOperationPacked {
     mut blocks_offset: usize,
     values: &mut [i32],
     mut values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) -> Result<()> {
     let mut next_value: i32 = 0;
     let mut bits_left: i32 = self.bits_per_value;
@@ -247,19 +247,19 @@ impl Decoder for BulkOperationPacked {
   }
 }
 impl Encoder for BulkOperationPacked {
-  fn long_block_count(&self) -> i32 {
+  fn long_block_count(&self) -> usize {
     Decoder::long_block_count(self)
   }
 
-  fn long_value_count(&self) -> i32 {
+  fn long_value_count(&self) -> usize {
     Decoder::long_value_count(self)
   }
 
-  fn byte_block_count(&self) -> i32 {
+  fn byte_block_count(&self) -> usize {
     Decoder::byte_block_count(self)
   }
 
-  fn byte_value_count(&self) -> i32 {
+  fn byte_value_count(&self) -> usize {
     Decoder::byte_value_count(self)
   }
 
@@ -269,7 +269,7 @@ impl Encoder for BulkOperationPacked {
     mut values_offset: usize,
     blocks: &mut [u64],
     mut blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     let mut next_block: u64 = 0;
     let mut bits_left: i32 = 64;
@@ -314,7 +314,7 @@ impl Encoder for BulkOperationPacked {
     mut values_offset: usize,
     blocks: &mut [u8],
     mut blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     let mut next_block: i32 = 0;
     let mut bits_left: i32 = 8;
@@ -360,7 +360,7 @@ impl Encoder for BulkOperationPacked {
     mut values_offset: usize,
     blocks: &mut [u64],
     mut blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     let mut next_block: u64 = 0;
     let mut bits_left: i32 = 64;
@@ -401,7 +401,7 @@ impl Encoder for BulkOperationPacked {
     mut values_offset: usize,
     blocks: &mut [u8],
     mut blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     let mut next_block: i32 = 0;
     let mut bits_left: i32 = 8;
@@ -465,19 +465,19 @@ pub(crate) use define_bulk_operation_packed_specialized;
 
 macro_rules! delegate_bulk_operation_packed_decoder_counts {
   () => {
-    fn long_block_count(&self) -> i32 {
+    fn long_block_count(&self) -> usize {
       crate::core::util::packed::Decoder::long_block_count(&self.base)
     }
 
-    fn long_value_count(&self) -> i32 {
+    fn long_value_count(&self) -> usize {
       crate::core::util::packed::Decoder::long_value_count(&self.base)
     }
 
-    fn byte_block_count(&self) -> i32 {
+    fn byte_block_count(&self) -> usize {
       crate::core::util::packed::Decoder::byte_block_count(&self.base)
     }
 
-    fn byte_value_count(&self) -> i32 {
+    fn byte_value_count(&self) -> usize {
       crate::core::util::packed::Decoder::byte_value_count(&self.base)
     }
   };
@@ -487,19 +487,19 @@ pub(crate) use delegate_bulk_operation_packed_decoder_counts;
 macro_rules! impl_bulk_operation_packed_encoder {
   ($name:ty) => {
     impl crate::core::util::packed::Encoder for $name {
-      fn long_block_count(&self) -> i32 {
+      fn long_block_count(&self) -> usize {
         crate::core::util::packed::Encoder::long_block_count(&self.base)
       }
 
-      fn long_value_count(&self) -> i32 {
+      fn long_value_count(&self) -> usize {
         crate::core::util::packed::Encoder::long_value_count(&self.base)
       }
 
-      fn byte_block_count(&self) -> i32 {
+      fn byte_block_count(&self) -> usize {
         crate::core::util::packed::Encoder::byte_block_count(&self.base)
       }
 
-      fn byte_value_count(&self) -> i32 {
+      fn byte_value_count(&self) -> usize {
         crate::core::util::packed::Encoder::byte_value_count(&self.base)
       }
 
@@ -509,7 +509,7 @@ macro_rules! impl_bulk_operation_packed_encoder {
         values_offset: usize,
         blocks: &mut [u64],
         blocks_offset: usize,
-        iterations: i32,
+        iterations: usize,
       ) {
         crate::core::util::packed::Encoder::encode_i64_to_u64(
           &self.base,
@@ -527,7 +527,7 @@ macro_rules! impl_bulk_operation_packed_encoder {
         values_offset: usize,
         blocks: &mut [u8],
         blocks_offset: usize,
-        iterations: i32,
+        iterations: usize,
       ) {
         crate::core::util::packed::Encoder::encode_i64_to_u8(
           &self.base,
@@ -545,7 +545,7 @@ macro_rules! impl_bulk_operation_packed_encoder {
         values_offset: usize,
         blocks: &mut [u64],
         blocks_offset: usize,
-        iterations: i32,
+        iterations: usize,
       ) {
         crate::core::util::packed::Encoder::encode_i32_to_u64(
           &self.base,
@@ -563,7 +563,7 @@ macro_rules! impl_bulk_operation_packed_encoder {
         values_offset: usize,
         blocks: &mut [u8],
         blocks_offset: usize,
-        iterations: i32,
+        iterations: usize,
       ) {
         crate::core::util::packed::Encoder::encode_i32_to_u8(
           &self.base,

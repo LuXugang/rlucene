@@ -71,7 +71,7 @@ pub struct TopFieldCollector {
   min_competitive_score: f32,
   #[allow(dead_code)]
   // Mirrors Java's retained numComparators field, which is not read after construction.
-  num_comparators: i32,
+  num_comparators: usize,
   queue_full: bool,
   doc_base: usize,
   needs_scores: bool,
@@ -86,7 +86,7 @@ impl TopFieldCollector {
     min_score_acc: Option<Arc<MaxScoreAccumulator>>,
   ) -> Result<Self> {
     let total_hits_threshold = std::cmp::max(total_hits_threshold, num_hits);
-    let num_comparators = pq.get_comparators().len() as i32;
+    let num_comparators = pq.get_comparators().len();
 
     let first_comparator = &pq.get_comparators()[0];
     let reverse_mul = pq.get_reverse_mul()[0];

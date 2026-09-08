@@ -237,7 +237,8 @@ where
       last_value = Some(value.into_owned());
     }
 
-    let mut seen_ords = FixedBitSet::new(value_count as usize);
+    let ordinal_capacity = value_count as usize;
+    let mut seen_ords = FixedBitSet::new(ordinal_capacity);
     let mut last_doc_id = -1;
     loop {
       let doc_id = values.next_doc()?;
@@ -251,7 +252,7 @@ where
       assert!(ord >= 0 && ord < value_count);
       seen_ords.set(ord as usize)?;
     }
-    assert_eq!(seen_ords.cardinality(), value_count as usize);
+    assert_eq!(seen_ords.cardinality(), ordinal_capacity);
     self
       .in_
       .add_sorted_field(write_state, segment_info, field, values_producer)
@@ -317,7 +318,8 @@ where
       last_value = Some(value.into_owned());
     }
 
-    let mut seen_ords = LongBitSet::new(value_count as usize)?;
+    let ordinal_capacity = value_count as usize;
+    let mut seen_ords = LongBitSet::new(ordinal_capacity)?;
     loop {
       let doc_id = values.next_doc()?;
       if doc_id == NO_MORE_DOCS {
@@ -337,7 +339,7 @@ where
         last_ord = ord;
       }
     }
-    assert_eq!(seen_ords.cardinality(), value_count as usize);
+    assert_eq!(seen_ords.cardinality(), ordinal_capacity);
     self
       .in_
       .add_sorted_set_field(write_state, segment_info, field, values_producer)

@@ -615,22 +615,22 @@ impl HashTable for HighCompressionHashTable {
       // reset the hashTable and only reset the relevant parts
       // of the chainTable. This helps avoid slowing down
       // calling compress() many times on short inputs.
-      let start_offset = self.base & Self::MASK;
+      let start_offset = (self.base & Self::MASK) as usize;
       let end_offset = if self.end == 0 {
         0
       } else {
-        ((self.end - 1) & Self::MASK) + 1
+        (((self.end - 1) & Self::MASK) + 1) as usize
       };
 
       if start_offset < end_offset {
-        self.chain_table[start_offset as usize..end_offset as usize]
+        self.chain_table[start_offset..end_offset]
           .iter_mut()
           .for_each(|x| *x = 0xFFFF);
       } else {
-        self.chain_table[0..end_offset as usize]
+        self.chain_table[0..end_offset]
           .iter_mut()
           .for_each(|x| *x = 0xFFFF);
-        self.chain_table[start_offset as usize..]
+        self.chain_table[start_offset..]
           .iter_mut()
           .for_each(|x| *x = 0xFFFF);
       }

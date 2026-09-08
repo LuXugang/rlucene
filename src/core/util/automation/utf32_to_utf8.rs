@@ -274,11 +274,12 @@ impl UTF32ToUTF8 {
         utf32.get_next_transition(&mut scratch)?;
 
         let dest_utf32 = scratch.dest;
-        let mut dest_utf8 = map[dest_utf32 as usize];
+        let dest_index = dest_utf32 as usize;
+        let mut dest_utf8 = map[dest_index];
         if dest_utf8 == -1 {
           dest_utf8 = self.utf8.create_state();
           self.utf8.set_accept(dest_utf8, utf32.is_accept(dest_utf32));
-          map[dest_utf32 as usize] = dest_utf8;
+          map[dest_index] = dest_utf8;
           pending.push(dest_utf32);
         }
 

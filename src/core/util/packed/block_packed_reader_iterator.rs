@@ -144,7 +144,7 @@ impl BlockPackedReaderIterator {
 
       let block_bytes = Format::Packed(PackedImpl::new(0)).byte_count(
         self.packed_ints_version,
-        self.block_size as i32,
+        self.block_size,
         bits_per_value,
       );
       self.skip_bytes(block_bytes, data_input)?;
@@ -163,22 +163,22 @@ impl BlockPackedReaderIterator {
     self.off += count;
     Ok(())
   }
-  fn skip_bytes<DI>(&mut self, count: i64, data_input: &mut DI) -> Result<()>
+  fn skip_bytes<DI>(&mut self, count: usize, data_input: &mut DI) -> Result<()>
   where
     DI: DataInput,
   {
     if data_input.is_index_input() {
-      let new_position = data_input.get_file_pointer_in_data_input()? as i64 + count;
-      data_input.seek_in_data_input(new_position as usize)?;
+      let new_position = data_input.get_file_pointer_in_data_input()? + count;
+      data_input.seek_in_data_input(new_position)?;
     } else {
       // Use a temporary buffer to skip bytes
       ArrayUtil::grow_no_copy(&mut self.blocks, self.block_size)?;
 
       let mut skipped = 0;
       while skipped < count {
-        let to_skip = std::cmp::min(self.blocks.len() as i64, count - skipped);
-        debug_assert!(to_skip <= i32::MAX as i64);
-        data_input.read_bytes(&mut self.blocks, 0, to_skip as usize)?;
+        let to_skip = std::cmp::min(self.blocks.len(), count - skipped);
+        debug_assert!(to_skip <= i32::MAX as usize);
+        data_input.read_bytes(&mut self.blocks, 0, to_skip)?;
         skipped += to_skip;
       }
     }
@@ -277,8 +277,8 @@ impl BlockPackedReaderIterator {
         bits_per_value,
       )?;
 
-      let iterations = self.block_size as i32 / Decoder::byte_value_count(decoder);
-      let blocks_size = (iterations * Decoder::byte_block_count(decoder)) as usize;
+      let iterations = self.block_size / Decoder::byte_value_count(decoder);
+      let blocks_size = iterations * Decoder::byte_block_count(decoder);
 
       ArrayUtil::grow_no_copy(&mut self.blocks, blocks_size)?;
 
@@ -286,10 +286,10 @@ impl BlockPackedReaderIterator {
 
       let blocks_count = Format::Packed(PackedImpl::new(0)).byte_count(
         self.packed_ints_version,
-        value_count as i32,
+        value_count,
         bits_per_value,
       );
-      data_input.read_bytes(&mut self.blocks, 0, blocks_count as usize)?;
+      data_input.read_bytes(&mut self.blocks, 0, blocks_count)?;
 
       decoder.decode_u8_to_i64(&self.blocks, 0, &mut self.values_ref.longs, 0, iterations);
       if min_value != 0 {

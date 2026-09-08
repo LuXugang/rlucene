@@ -119,7 +119,7 @@ fn test_get() -> Result<()> {
         unique_count += 1;
         assert_eq!(hash.size(), count + 1);
       } else {
-        assert!((-key - 1) < count);
+        assert!(((-key - 1) as usize) < count);
         assert_eq!(hash.size(), count);
       }
     }
@@ -170,7 +170,7 @@ fn test_compact() -> Result<()> {
         num_entries += 1;
       }
     }
-    let hash_size = hash.size() as usize;
+    let hash_size = hash.size();
     assert_eq!(hash_size, bits.count());
     assert_eq!(num_entries, bits.count());
     assert_eq!(num_entries, hash_size);
@@ -274,7 +274,7 @@ fn test_add() -> Result<()> {
         unique_count += 1;
       } else {
         assert!(!strings.insert(str_value.clone()));
-        assert!((-key - 1) < count);
+        assert!(((-key - 1) as usize) < count);
         hash.get(-key - 1, &mut scratch, &byte_block_pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
@@ -316,7 +316,7 @@ fn test_find() -> Result<()> {
 
       if key >= 0 {
         assert!(!strings.insert(str_value.clone()));
-        assert!(key < count);
+        assert!((key as usize) < count);
         hash.get(key, &mut scratch, &byte_block_pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
@@ -500,12 +500,12 @@ fn test_add_by_pool_offset() -> Result<()> {
         unique_count += 1;
       } else {
         assert!(!strings.insert(str_value.clone()));
-        assert!((-key - 1) < count);
+        assert!(((-key - 1) as usize) < count);
         hash.get(-key - 1, &mut scratch, &pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
         let offset_key = offset_hash.add_by_pool_offset(hash.byte_start(-key - 1)?, &mut pool)?;
-        assert!((-offset_key - 1) < count);
+        assert!(((-offset_key - 1) as usize) < count);
         hash.get(-offset_key - 1, &mut scratch, &pool)?;
         assert_eq!(str_value, scratch.utf8_to_string()?);
         assert_eq!(count, hash.size());
@@ -561,7 +561,7 @@ fn assert_all_in(
       "Hash size should remain unchanged after duplicate insertion."
     );
     assert!(
-      key < count,
+      key < count as i32,
       "Key {} should be less than count {}, string: {}",
       key,
       count,

@@ -46,8 +46,8 @@ pub struct BytesRefHash<BSA> {
   hash_size: usize,
   hash_half_size: usize,
   hash_mask: i32,
-  pub(crate) count: i32,
-  last_count: i32,
+  pub(crate) count: usize,
+  last_count: Option<usize>,
   pub ids: Vec<i32>,
   pub(crate) bytes_start_array: BSA,
   bytes_used: SharedCounter,
@@ -77,7 +77,7 @@ where
       hash_half_size: capacity >> 1,
       hash_mask: capacity as i32 - 1,
       count: 0,
-      last_count: -1,
+      last_count: None,
       ids,
       bytes_start_array,
       bytes_used,
@@ -87,7 +87,7 @@ where
   ///
   /// # Returns
   /// The number of [`BytesRef`] values in this [`BytesRefHash`].
-  pub fn size(&self) -> i32 {
+  pub fn size(&self) -> usize {
     self.count
   }
   /// Populates and returns a [`BytesRef`] with the bytes for the given
@@ -146,8 +146,8 @@ where
         upto += 1;
       }
     }
-    debug_assert!(upto == self.count as usize);
-    self.last_count = self.count;
+    debug_assert!(upto == self.count);
+    self.last_count = Some(self.count);
 
     Ok(&self.ids)
   }
@@ -156,10 +156,10 @@ where
     let compact = self.compact()?;
     let mut length = compact.len();
     debug_assert!(
-      (self.count * 2) as usize <= length,
+      self.count * 2 <= length,
       "We need load factor <= 0.5f to speed up this sort"
     );
-    let tmp_offset = self.count as usize;
+    let tmp_offset = self.count;
     let sub_sorter = StringSorterImpl::new(
       tmp_offset,
       &mut self.ids,
@@ -200,7 +200,7 @@ where
   }
   /// Clears the [`BytesRef`] which maps to the given [`BytesRef`].
   pub fn clear_with_reset_pool(&mut self, reset_pool: bool, byte_block_pool: &mut ByteBlockPool) {
-    self.last_count = self.count;
+    self.last_count = Some(self.count);
     self.count = 0;
 
     if reset_pool {
@@ -209,7 +209,7 @@ where
 
     self.bytes_start_array.clear();
 
-    if self.last_count != -1 && self.shrink(self.last_count as usize) {
+    if self.last_count.is_some_and(|count| self.shrink(count)) {
       // shrink clears the hash entries
       return;
     }
@@ -257,7 +257,7 @@ where
     if e == -1 {
       {
         let length = self.bytes_start_array.len()?;
-        let index = self.count as usize;
+        let index = self.count;
         // new entry
         if index >= length {
           self.bytes_start_array.grow()?;
@@ -272,13 +272,13 @@ where
 
         let v = self.pool.add_bytes_ref(bytes, byte_block_pool)?;
         self.bytes_start_array.set_value(index, v)?;
-        e = self.count;
+        e = self.count as i32;
         self.count += 1;
         debug_assert_eq!(self.ids[hash_pos], -1);
         self.ids[hash_pos] = e;
       }
 
-      if self.count as usize == self.hash_half_size {
+      if self.count == self.hash_half_size {
         self.rehash(2 * self.hash_size, true, byte_block_pool)?;
       }
 
@@ -362,26 +362,26 @@ where
 
     if e == -1 {
       // New entry
-      let index = self.count as usize;
+      let index = self.count;
       if index >= length {
         self.bytes_start_array.grow()?;
         let grown_length = self.bytes_start_array.len()?;
         debug_assert!(
-          self.count < grown_length as i32 + 1,
+          self.count < grown_length + 1,
           "count: {}, len: {}",
           self.count,
           grown_length
         );
       }
 
-      e = self.count;
+      e = self.count as i32;
       self.count += 1;
       self.bytes_start_array.set_value(index, offset)?;
 
       debug_assert_eq!(self.ids[hash_pos], -1);
       self.ids[hash_pos] = e;
 
-      if self.count as usize == self.hash_half_size {
+      if self.count == self.hash_half_size {
         self.rehash(2 * self.hash_size, false, byte_block_pool)?;
       }
 
@@ -463,8 +463,9 @@ where
       !self.bytes_start_array.need_init(),
       "bytes_start is null - not initialized"
     );
-    debug_assert!(bytes_id >= 0 && bytes_id < self.count);
-    self.bytes_start_array.get_value(bytes_id as usize)
+    let bytes_index = bytes_id as usize;
+    debug_assert!(bytes_id >= 0 && bytes_index < self.count);
+    self.bytes_start_array.get_value(bytes_index)
   }
 
   /// Returns the retained heap used by this hash and the byte pool that stores

@@ -370,9 +370,9 @@ where
     let sorted_dir = new_directory_shared(random)?;
     let writer = IndexWriter::new(dir.clone(), config)?;
     let sorted_writer = IndexWriter::new(sorted_dir.clone(), sorted_config)?;
-    let mut indexed_doc = 0;
+    let mut indexed_doc = 0usize;
     for ord in 0..vectors.size() {
-      while indexed_doc < vectors.ord_to_doc(ord)? as i32 {
+      while indexed_doc < vectors.ord_to_doc(ord)? {
         writer.add_document(Document::new())?;
         indexed_doc += 1;
       }

@@ -94,9 +94,6 @@ impl TermVectorsConsumerPerField {
     }
     self.do_vectors = false;
 
-    let num_postings = self.base.get_num_terms();
-    debug_assert!(num_postings >= 0);
-
     term_vectors_consumer.write_per_field(self, int_pool, byte_pool)
   }
 
@@ -110,8 +107,6 @@ impl TermVectorsConsumerPerField {
     TW: TermVectorsWriter,
   {
     let num_postings = self.base.get_num_terms();
-    debug_assert!(num_postings >= 0);
-    let num_postings = num_postings as usize;
 
     self.base.sort_terms(byte_pool)?;
     let term_ids = self.base.get_sorted_term_ids();

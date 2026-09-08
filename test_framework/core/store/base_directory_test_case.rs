@@ -1850,8 +1850,8 @@ pub trait BaseDirectoryTestCase {
       output.close()?;
     }
 
-    for iter in 0..iters {
-      let mut input = dir.open_input(&names[iter as usize], &io_context)?;
+    for (iter, name) in (0..iters).zip(&names) {
+      let mut input = dir.open_input(name, &io_context)?;
       assert_eq!({ iter }, input.read_vint()?);
       CloseableRef::close(&input)?;
     }

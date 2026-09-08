@@ -246,7 +246,7 @@ impl TermsHashPerField {
     self.field_name.as_str()
   }
 
-  pub(crate) fn get_num_terms(&self) -> i32 {
+  pub(crate) fn get_num_terms(&self) -> usize {
     self.bytes_hash.size()
   }
 

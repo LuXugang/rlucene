@@ -30,7 +30,7 @@ pub(crate) struct DocValuesLongHashSet {
   pub(crate) table: Vec<i64>,
   pub(crate) mask: usize,
   pub(crate) has_missing_value: bool,
-  pub(crate) size: i32,
+  pub(crate) size: usize,
   /// Minimum value in the set, or `i64::MAX` for an empty set.
   pub(crate) min_value: i64,
   /// Maximum value in the set, or `i64::MIN` for an empty set.
@@ -117,13 +117,13 @@ impl DocValuesLongHashSet {
     }
   }
   /// number of elements in the set
-  pub(crate) fn size(&self) -> i32 {
+  pub(crate) fn size(&self) -> usize {
     self.size
   }
   /// returns a stream of all values contained in this set
   #[cfg(test)]
   pub fn stream(&self) -> HashSet<i64> {
-    let mut set = HashSet::with_capacity(self.size as usize);
+    let mut set = HashSet::with_capacity(self.size);
     if self.has_missing_value {
       set.insert(MISSING);
     }

@@ -74,7 +74,7 @@ pub(crate) enum BulkOperationPackedEnum {
 }
 
 impl Decoder for BulkOperationPackedEnum {
-  fn long_block_count(&self) -> i32 {
+  fn long_block_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Decoder::long_block_count(op),
       BulkOperationPackedEnum::Packed2(op) => Decoder::long_block_count(op),
@@ -105,7 +105,7 @@ impl Decoder for BulkOperationPackedEnum {
     }
   }
 
-  fn long_value_count(&self) -> i32 {
+  fn long_value_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Decoder::long_value_count(op),
       BulkOperationPackedEnum::Packed2(op) => Decoder::long_value_count(op),
@@ -136,7 +136,7 @@ impl Decoder for BulkOperationPackedEnum {
     }
   }
 
-  fn byte_block_count(&self) -> i32 {
+  fn byte_block_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Decoder::byte_block_count(op),
       BulkOperationPackedEnum::Packed2(op) => Decoder::byte_block_count(op),
@@ -167,7 +167,7 @@ impl Decoder for BulkOperationPackedEnum {
     }
   }
 
-  fn byte_value_count(&self) -> i32 {
+  fn byte_value_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Decoder::byte_value_count(op),
       BulkOperationPackedEnum::Packed2(op) => Decoder::byte_value_count(op),
@@ -204,7 +204,7 @@ impl Decoder for BulkOperationPackedEnum {
     blocks_offset: usize,
     values: &mut [i64],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
@@ -294,7 +294,7 @@ impl Decoder for BulkOperationPackedEnum {
     blocks_offset: usize,
     values: &mut [i64],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
@@ -385,7 +385,7 @@ impl Decoder for BulkOperationPackedEnum {
     blocks_offset: usize,
     values: &mut [i32],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) -> Result<()> {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
@@ -476,7 +476,7 @@ impl Decoder for BulkOperationPackedEnum {
     blocks_offset: usize,
     values: &mut [i32],
     values_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) -> Result<()> {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
@@ -561,7 +561,7 @@ impl Decoder for BulkOperationPackedEnum {
   }
 }
 impl Encoder for BulkOperationPackedEnum {
-  fn long_block_count(&self) -> i32 {
+  fn long_block_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Encoder::long_block_count(op),
       BulkOperationPackedEnum::Packed2(op) => Encoder::long_block_count(op),
@@ -592,7 +592,7 @@ impl Encoder for BulkOperationPackedEnum {
     }
   }
 
-  fn long_value_count(&self) -> i32 {
+  fn long_value_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Encoder::long_value_count(op),
       BulkOperationPackedEnum::Packed2(op) => Encoder::long_value_count(op),
@@ -623,7 +623,7 @@ impl Encoder for BulkOperationPackedEnum {
     }
   }
 
-  fn byte_block_count(&self) -> i32 {
+  fn byte_block_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Encoder::byte_block_count(op),
       BulkOperationPackedEnum::Packed2(op) => Encoder::byte_block_count(op),
@@ -654,7 +654,7 @@ impl Encoder for BulkOperationPackedEnum {
     }
   }
 
-  fn byte_value_count(&self) -> i32 {
+  fn byte_value_count(&self) -> usize {
     match self {
       BulkOperationPackedEnum::Packed1(op) => Encoder::byte_value_count(op),
       BulkOperationPackedEnum::Packed2(op) => Encoder::byte_value_count(op),
@@ -691,7 +691,7 @@ impl Encoder for BulkOperationPackedEnum {
     values_offset: usize,
     blocks: &mut [u64],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
@@ -781,7 +781,7 @@ impl Encoder for BulkOperationPackedEnum {
     values_offset: usize,
     blocks: &mut [u8],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
@@ -871,7 +871,7 @@ impl Encoder for BulkOperationPackedEnum {
     values_offset: usize,
     blocks: &mut [u64],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {
@@ -961,7 +961,7 @@ impl Encoder for BulkOperationPackedEnum {
     values_offset: usize,
     blocks: &mut [u8],
     blocks_offset: usize,
-    iterations: i32,
+    iterations: usize,
   ) {
     match self {
       BulkOperationPackedEnum::Packed1(op) => {

@@ -577,7 +577,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
         self.final_ord_counts.is_none() && !self.is_sorted && self.final_ord_map.is_none()
       );
       self.finish_current_doc()?;
-      let value_count = self.hash.size() as usize;
+      let value_count = self.hash.size();
       self.final_ords = Some(self.pending.build()?);
       self.final_ord_counts = match std::mem::take(&mut self.pending_counts) {
         Some(mut pc) => Some(pc.build()?),
@@ -989,7 +989,7 @@ impl DocOrds {
     let mut builder =
       PackedLongValues::packed_long_values_builder_default(acceptable_overhead_ratio)?;
     let mut doc_value_counts =
-      GrowableWriter::new(bits_per_value, max_doc, acceptable_overhead_ratio)?;
+      GrowableWriter::new(bits_per_value, max_doc as usize, acceptable_overhead_ratio)?;
     let mut ord_offset = 1;
     loop {
       let doc_id = old_values.next_doc()?;

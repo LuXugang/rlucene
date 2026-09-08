@@ -674,11 +674,12 @@ where
       && self.cost(context, searcher)? > (reader.max_doc()? as i64 / 2)
     {
       let max_doc = reader.max_doc()?;
+      let max_doc_usize = max_doc as usize;
       // If all docs have exactly one value and the cost is greater
       // than half the leaf size then maybe we can make things faster
       // by computing the set of documents that do NOT match the range
-      let mut result = FixedBitSet::new(max_doc as usize);
-      result.set_with_range(0, max_doc as usize);
+      let mut result = FixedBitSet::new(max_doc_usize);
+      result.set_with_range(0, max_doc_usize);
       let mut visitor = get_inverse_intersect_visitor(
         &mut result,
         max_doc as i64,
@@ -883,7 +884,7 @@ impl IntersectVisitorImpl1 {
 
 impl IntersectVisitor for IntersectVisitorImpl1 {
   fn grow(&mut self, count: usize) -> Result<()> {
-    self.result.grow(count.try_convert()?)?;
+    self.result.grow(count)?;
     Ok(())
   }
 

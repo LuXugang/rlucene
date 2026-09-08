@@ -136,18 +136,19 @@ where
   R: Rng + ?Sized,
   D: DocIdSetIterator,
 {
+  let expected_len = expected.len() as i32;
   let mut upto: i32 = -1;
-  while upto < expected.len() as i32 {
-    let doc_id = if random.random_range(0..4) == 1 || upto == expected.len() as i32 - 1 {
+  while upto < expected_len {
+    let doc_id = if random.random_range(0..4) == 1 || upto == expected_len - 1 {
       upto += 1;
       docs.next_doc()?
     } else {
-      let inc = TestUtil::next_int(random, 1, expected.len() as i32 - 1 - upto);
+      let inc = TestUtil::next_int(random, 1, expected_len - 1 - upto);
       upto += inc;
       docs.advance(expected[upto as usize])?
     };
 
-    if upto == expected.len() as i32 {
+    if upto == expected_len {
       assert_eq!(NO_MORE_DOCS, doc_id);
     } else {
       assert_ne!(NO_MORE_DOCS, doc_id);

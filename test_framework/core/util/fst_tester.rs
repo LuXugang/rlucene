@@ -358,27 +358,18 @@ where
           upto = 0;
         }
 
+        let input = &self.pairs[upto as usize].input;
         if self.random.random_bool(0.5) {
           // if false {
           if cfg!(feature = "test_log_verbose") {
-            println!(
-              "  do seekCeil({})",
-              input_to_string(input_mode, &self.pairs[upto as usize].input)?
-            );
+            println!("  do seekCeil({})", input_to_string(input_mode, input)?);
           }
-          is_done = fst_enum
-            .seek_ceil(&self.pairs[upto as usize].input)?
-            .is_none();
+          is_done = fst_enum.seek_ceil(input)?.is_none();
         } else {
           if cfg!(feature = "test_log_verbose") {
-            println!(
-              "  do seekFloor({})",
-              input_to_string(input_mode, &self.pairs[upto as usize].input)?
-            );
+            println!("  do seekFloor({})", input_to_string(input_mode, input)?);
           }
-          is_done = fst_enum
-            .seek_floor(&self.pairs[upto as usize].input)?
-            .is_none();
+          is_done = fst_enum.seek_floor(input)?.is_none();
         }
       }
 
@@ -397,17 +388,18 @@ where
       } else {
         assert!(!is_done);
         let current = fst_enum.current();
+        let expected = &self.pairs[upto as usize];
         assert_eq!(
           &current.input,
-          &self.pairs[upto as usize].input,
+          &expected.input,
           "expected input={} but got {}",
-          input_to_string(input_mode, &self.pairs[upto as usize].input)?,
+          input_to_string(input_mode, &expected.input)?,
           input_to_string(input_mode, &current.input)?
         );
         assert!(
-          self.outputs_equal(&self.pairs[upto as usize].output, &current.output),
+          self.outputs_equal(&expected.output, &current.output),
           "output mismatch at input={}",
-          input_to_string(input_mode, &self.pairs[upto as usize].input)?
+          input_to_string(input_mode, &expected.input)?
         );
       }
     }

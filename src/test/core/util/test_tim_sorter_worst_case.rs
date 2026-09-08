@@ -47,7 +47,7 @@ fn test_worst_case_stack_size() -> Result<()> {
 
 /// Create an array for the given list of runs.
 fn create_array(length: usize, runs: LinkedList<usize>) -> Result<MutablePacked64Enum> {
-  let mut array = PackedInts::get_mutable(length as i32, 1, 0.0)?;
+  let mut array = PackedInts::get_mutable(length, 1, 0.0)?;
   let mut end_run = -1_i32;
   for len in runs {
     end_run += len as i32;

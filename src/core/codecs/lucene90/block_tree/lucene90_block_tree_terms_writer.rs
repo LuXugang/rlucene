@@ -1256,7 +1256,8 @@ where
       prefix_length = 0;
     }
 
-    for i in (prefix_length as usize..last_bytes.length).rev() {
+    let prefix_length = prefix_length as usize;
+    for i in (prefix_length..last_bytes.length).rev() {
       let prefix_top_size = self.pending.len() as i32 - self.prefix_starts[i];
       if prefix_top_size >= self.min_items_in_block {
         self.write_blocks(i + 1, prefix_top_size as usize)?;
@@ -1268,7 +1269,7 @@ where
       ArrayUtil::grow_with_len(&mut self.prefix_starts, text.length)?;
     }
 
-    for i in prefix_length as usize..text.length {
+    for i in prefix_length..text.length {
       self.prefix_starts[i] = self.pending.len() as i32;
     }
 

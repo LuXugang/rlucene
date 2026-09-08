@@ -48,7 +48,7 @@ where
   bottom: f32,
   bottom_term: Option<BytesRef<Vec<u8>>>,
   queued_bottom: Option<BytesRef<Vec<u8>>>,
-  max_edits: i32,
+  max_edits: usize,
 }
 impl<T> FuzzyTermsEnum<T>
 where
@@ -124,7 +124,7 @@ where
 
     let automata = attrs.automaton_att.get_automata();
     let term_length = attrs.automaton_att.get_term_length();
-    let mut max_edits = automata.len() as i32 - 1;
+    let mut max_edits = automata.len() - 1;
 
     let bottom = attrs.get_max_non_competitive_boost()?;
     let bottom_term = attrs.get_competitive_term()?.cloned();
@@ -168,7 +168,7 @@ where
   }
 
   fn update_max_edits(
-    max_edits: &mut i32,
+    max_edits: &mut usize,
     term_length: usize,
     bottom: f32,
     bottom_term: &Option<BytesRef<Vec<u8>>>,
@@ -193,12 +193,12 @@ where
   fn get_automaton_enum(
     terms: &T,
     attrs: &mut FuzzyTermsEnumAttributeSource,
-    edit_distance: i32,
+    edit_distance: usize,
     last_term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<T::IntersectIter> {
     let automata = attrs.get_automata_mut();
-    debug_assert!((edit_distance as usize) < automata.len());
-    let compiled = &mut automata[edit_distance as usize];
+    debug_assert!(edit_distance < automata.len());
+    let compiled = &mut automata[edit_distance];
 
     let initial_seek_term = match last_term {
       // This is the first enum we are pulling:
@@ -210,13 +210,13 @@ where
   }
 
   /// returns true if term is within k edits of the query term
-  fn matches(&mut self, term_in: &BytesRef<Vec<u8>>, k: i32) -> Result<bool> {
+  fn matches(&mut self, term_in: &BytesRef<Vec<u8>>, k: usize) -> Result<bool> {
     if k == 0 {
       return Ok(term_in.bytes_equals(self.term.bytes()));
     }
 
     let automata = self.attrs.get_automata_mut();
-    let runnable = automata[k as usize].run_automaton.as_mut().ok_or_else(|| {
+    let runnable = automata[k].run_automaton.as_mut().ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "FuzzyTermsEnum automaton for edit distance {} is not initialized",
         k

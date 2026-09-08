@@ -414,6 +414,7 @@ fn test_range_query_id() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(num_hits, result.len(), "find all");
+    let hits_without_endpoint = (num_docs - 1) as usize;
 
     result = search
       .search(
@@ -421,7 +422,7 @@ fn test_range_query_id() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!((num_docs - 1) as usize, result.len(), "all but last");
+    assert_eq!(hits_without_endpoint, result.len(), "all but last");
 
     result = search
       .search(
@@ -429,7 +430,7 @@ fn test_range_query_id() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!((num_docs - 1) as usize, result.len(), "all but first");
+    assert_eq!(hits_without_endpoint, result.len(), "all but first");
 
     result = search
       .search(
@@ -469,12 +470,12 @@ fn test_range_query_id() -> Result<()> {
     result = search
       .search(csrq("id", Some(&min_ip), None, F, F, rw.clone())?, num_hits)?
       .score_docs;
-    assert_eq!((num_docs - 1) as usize, result.len(), "not min, but up");
+    assert_eq!(hits_without_endpoint, result.len(), "not min, but up");
 
     result = search
       .search(csrq("id", None, Some(&max_ip), F, F, rw.clone())?, num_hits)?
       .score_docs;
-    assert_eq!((num_docs - 1) as usize, result.len(), "not max, but down");
+    assert_eq!(hits_without_endpoint, result.len(), "not max, but down");
 
     result = search
       .search(
@@ -584,6 +585,7 @@ fn test_range_query_rand() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(num_hits, result.len(), "find all");
+    let hits_without_endpoint = (num_docs - 1) as usize;
 
     result = search
       .search(
@@ -591,7 +593,7 @@ fn test_range_query_rand() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!((num_docs - 1) as usize, result.len(), "all but biggest");
+    assert_eq!(hits_without_endpoint, result.len(), "all but biggest");
 
     result = search
       .search(
@@ -599,7 +601,7 @@ fn test_range_query_rand() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!((num_docs - 1) as usize, result.len(), "all but smallest");
+    assert_eq!(hits_without_endpoint, result.len(), "all but smallest");
 
     result = search
       .search(
@@ -632,11 +634,7 @@ fn test_range_query_rand() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!(
-      (num_docs - 1) as usize,
-      result.len(),
-      "not smallest, but up"
-    );
+    assert_eq!(hits_without_endpoint, result.len(), "not smallest, but up");
 
     result = search
       .search(
@@ -644,11 +642,7 @@ fn test_range_query_rand() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!(
-      (num_docs - 1) as usize,
-      result.len(),
-      "not biggest, but down"
-    );
+    assert_eq!(hits_without_endpoint, result.len(), "not biggest, but down");
 
     // very small sets
     result = search

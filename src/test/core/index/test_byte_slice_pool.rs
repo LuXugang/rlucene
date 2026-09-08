@@ -52,8 +52,9 @@ fn test_alloc_known_size_slice() -> Result<()> {
     let mut offset = 0;
     while offset < size {
       let mut buffer_upto = block_pool.buffer_upto()?;
-      if block_pool.get_buffer(buffer_upto)[upto as usize] & 16 == 0 {
-        block_pool.get_buffer_mut(buffer_upto)[upto as usize] = random_data[offset];
+      let buffer_index = upto as usize;
+      if block_pool.get_buffer(buffer_upto)[buffer_index] & 16 == 0 {
+        block_pool.get_buffer_mut(buffer_upto)[buffer_index] = random_data[offset];
         offset += 1;
         upto += 1;
       } else {
@@ -66,10 +67,11 @@ fn test_alloc_known_size_slice() -> Result<()> {
           0,
           block_pool.get_buffer(buffer_upto)[(upto + slice_length - 1) as usize]
         );
-        assert_eq!(0, block_pool.get_buffer(buffer_upto)[upto as usize]);
+        let buffer_index = upto as usize;
+        assert_eq!(0, block_pool.get_buffer(buffer_upto)[buffer_index]);
         let write_length = std::cmp::min(slice_length as usize - 1, size - offset);
         let buffer = block_pool.get_buffer_mut(buffer_upto);
-        buffer.copy_from(&random_data[offset..offset + write_length], upto as usize);
+        buffer.copy_from(&random_data[offset..offset + write_length], buffer_index);
         offset += write_length;
         assert!(write_length <= i32::MAX as usize);
         upto += write_length as i32;

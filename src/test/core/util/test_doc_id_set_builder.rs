@@ -189,13 +189,13 @@ fn test_random() -> Result<()> {
     let mut builder = DocIdSetBuilder::new(max_doc as i32);
     let mut j = 0;
     while j < array.len() {
-      let l = TestUtil::next_int(&mut random, 1, (array.len() - j) as i32);
+      let l = TestUtil::next_usize(&mut random, 1, array.len() - j);
       let mut k = 0;
       let mut budget = 0;
       while k < l {
         let rarely = rarely(&mut random);
         if budget == 0 || rarely {
-          budget = TestUtil::next_int(&mut random, 1, l - k + 5);
+          budget = TestUtil::next_usize(&mut random, 1, l - k + 5);
           builder.grow(budget)?;
         }
         builder.add_doc(array[j])?;
@@ -216,13 +216,14 @@ fn test_misleading_disi_cost() -> Result<()> {
   let mut random = random();
   let max_doc = TestUtil::next_int(&mut random, 1000, 10000);
   let mut builder = DocIdSetBuilder::new(max_doc);
-  let mut expected = FixedBitSet::new(max_doc as usize);
+  let capacity = max_doc as usize;
+  let mut expected = FixedBitSet::new(capacity);
   for _i in 0..100 {
-    let mut docs = FixedBitSet::new(max_doc as usize);
+    let mut docs = FixedBitSet::new(capacity);
     let num_docs = random.random_range(1..=max_doc / 1000);
     for _ in 0..num_docs {
-      let doc = random.random_range(0..max_doc);
-      docs.set(doc as usize)?;
+      let doc = random.random_range(0..capacity);
+      docs.set(doc)?;
     }
     expected.or(&docs);
     // We provide a cost of 0 here to make sure the builder can deal

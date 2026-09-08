@@ -60,7 +60,7 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_binary_doc_values_updates::{get_value, to_bytes};
 use crate::test_framework::core::util::DefaultCRReader;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
+  at_least, at_least_usize, is_night_mode, new_bytes_ref_from_string, new_directory_shared,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_log_merge_policy, random,
   random_from_seed,
 };
@@ -1617,10 +1617,10 @@ fn test_add_indexes() -> Result<()> {
   let config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
   let writer = IndexWriter::new(dir1.clone(), config)?;
 
-  let num_docs = at_least(&mut random, 50);
-  let num_terms = TestUtil::next_int(&mut random, 1, num_docs / 5);
+  let num_docs = at_least_usize(&mut random, 50);
+  let num_terms = TestUtil::next_usize(&mut random, 1, num_docs / 5);
   let mut random_terms = HashSet::new();
-  while random_terms.len() < num_terms as usize {
+  while random_terms.len() < num_terms {
     random_terms.insert(TestUtil::random_simple_string(&mut random));
   }
   let random_terms: Vec<String> = random_terms.into_iter().collect();

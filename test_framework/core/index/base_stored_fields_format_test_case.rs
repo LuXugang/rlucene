@@ -930,7 +930,7 @@ pub trait BaseStoredFieldsFormatTestCase:
 
     let delete_count = TestUtil::next_usize(random, 5, num_docs);
     for _ in 0..delete_count {
-      let id = TestUtil::next_int(random, 0, (num_docs - 1) as i32);
+      let id = TestUtil::next_usize(random, 0, num_docs - 1);
       writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
     }
 
