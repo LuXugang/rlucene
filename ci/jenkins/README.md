@@ -93,6 +93,15 @@ directly in `Jenkinsfile`. After a schedule change is pushed, the next build
 loads the updated file and applies it without restarting the controller.
 The former `RLUCENE_CRON` environment setting is no longer used.
 
+The controller's idle-only queue gate keeps `rlucene-ci` blocked without
+occupying an executor whenever another Jenkins job is running. Jenkins shows
+the blocking job and build number in the queue, then re-evaluates the build
+automatically after that job finishes. The gate applies only before the
+scheduled build starts; it does not interrupt a running `rlucene-ci` build or
+prevent a newly requested PR, commit, nightly, or monster build from starting.
+Set `RLUCENE_CI_REQUIRE_IDLE=false` and restart the controller to disable it.
+No additional Jenkins plugin is required.
+
 ## Checkout and caching
 
 The generated job uses a single-branch refspec, no tags, a depth-one clone,

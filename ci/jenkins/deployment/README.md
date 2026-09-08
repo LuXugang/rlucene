@@ -42,6 +42,13 @@ The repository and branch configured in `.env` must contain
 `ci/jenkins/Jenkinsfile` before this first build. For an unmerged change, point
 both settings at a published fork/branch containing the change.
 
+`init.groovy.d/rlucene-ci-idle-gate.groovy.override` installs a Jenkins core
+queue gate for the scheduled job. With `RLUCENE_CI_REQUIRE_IDLE=true`, the job
+stays queued without using an executor while any other Jenkins job is running.
+The queue displays the blocking job and build number and is re-evaluated by
+Jenkins after the other build finishes. Rebuild and restart the controller to
+install or change this startup hook; no additional plugin is required.
+
 The `rlucene-pr` job and its exclusive agent are created by the three
 `rlucene-pr-*.groovy.override` hooks. After the setup wizard has configured
 Jenkins' private user database and Project Matrix Authorization Strategy,
@@ -136,6 +143,7 @@ selection, persistent caches, resource requirements and timeout settings.
 | cargo-nextest 0.9.143 | Exact version in `Dockerfile` |
 | 98 Jenkins plugins and dependencies | `plugins.txt`, installed with `--latest=false` |
 | Pipeline job, SCM branch/refspec, shallow clean checkout | `init.groovy.d/rlucene-job.groovy.override` |
+| Scheduled CI idle-only queue gate | `init.groovy.d/rlucene-ci-idle-gate.groovy.override` |
 | Trusted-PR job, service account and exclusive inbound agent | `init.groovy.d/rlucene-pr-*.groovy.override` and `Dockerfile.agent` |
 | Manual nightly/monster jobs and suite selection | `init.groovy.d/rlucene-manual-jobs.groovy.override`, `../manual/`, `.config/nextest.toml`; `jq` in the controller image |
 | Optional public read-only authorization | `init.groovy.d/rlucene-public-read-only.groovy.override` |
