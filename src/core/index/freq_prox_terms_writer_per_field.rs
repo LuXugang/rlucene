@@ -310,7 +310,9 @@ impl FreqProxTermsWriterPerField {
       term_id
     };
 
-    if let Some(ref mut next_per_field) = self.next_per_field {
+    if let Some(ref mut next_per_field) = self.next_per_field
+      && next_per_field.do_vectors
+    {
       let text_start = self
         .base
         .postings_array()
@@ -358,7 +360,9 @@ impl FreqProxTermsWriterPerField {
       term_id
     };
 
-    if let Some(ref mut next_per_field) = self.next_per_field {
+    if let Some(ref mut next_per_field) = self.next_per_field
+      && next_per_field.do_vectors
+    {
       let text_start = self
         .base
         .postings_array()

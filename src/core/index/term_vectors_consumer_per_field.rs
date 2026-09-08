@@ -41,7 +41,7 @@ use std::sync::Arc;
 
 pub(crate) struct TermVectorsConsumerPerField {
   field_info: Arc<FieldInfo>,
-  do_vectors: bool,
+  pub(super) do_vectors: bool,
   do_vector_positions: bool,
   do_vector_offsets: bool,
   do_vector_payloads: bool,
