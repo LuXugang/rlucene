@@ -201,7 +201,9 @@ where
   D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   fn drop(&mut self) {
-    if !self.closed.load(Ordering::SeqCst) {
+    // Clones do not own the input's lifetime. Like Java, dropping an unused clone
+    // must not close it and consume a deterministic failure in an ignored Result.
+    if self.parent.is_none() && !self.closed.load(Ordering::SeqCst) {
       self.slow_closing = false;
       let _ = self.close();
     }
