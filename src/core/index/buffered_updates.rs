@@ -362,7 +362,7 @@ impl DeletedTerms {
 
     let mut scratch = Term::new("", BytesRef::new());
     for (field, terms) in delete_fields {
-      scratch.field = field.clone();
+      scratch.field.clone_from(field);
       terms.bytes_ref_hash.sort(&self.pool)?;
       let indices = &terms.bytes_ref_hash.ids;
       for &index in &indices[..terms.bytes_ref_hash.count] {

@@ -288,7 +288,10 @@ impl PrefixCodedTermsBuilder {
       suffix,
     )?;
     self.last_term_bytes.copy_bytes_from_ref(bytes)?;
-    self.last_term.bytes = self.last_term_bytes.get_bytes_owner();
+    std::mem::swap(
+      &mut self.last_term.bytes,
+      self.last_term_bytes.get_bytes_mut_ref(),
+    );
     self.last_term.field = field;
     self.size += 1;
 

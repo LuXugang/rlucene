@@ -1015,7 +1015,7 @@ impl<D> SegmentInfos<D> {
   pub fn replace(&mut self, other: Self) -> Result<()> {
     self.rollback_segment_infos(other.segments)?;
     self.last_generation = other.last_generation;
-    self.user_data = other.user_data.clone();
+    self.user_data = other.user_data;
     Ok(())
   }
 

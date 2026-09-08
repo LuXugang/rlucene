@@ -65,31 +65,31 @@ pub fn test_basics() -> Result<()> {
     match count {
       0 => {
         assert_eq!(value.term_field, "id");
-        assert_eq!(value.term_value.unwrap().utf8_to_string()?, "1");
+        assert_eq!(value.term_value.as_ref().unwrap().utf8_to_string()?, "1");
         assert_eq!(value.numeric_value, 6);
         assert_eq!(value.doc_upto, 15);
       },
       1 => {
         assert_eq!(value.term_field, "id");
-        assert_eq!(value.term_value.unwrap().utf8_to_string()?, "10");
+        assert_eq!(value.term_value.as_ref().unwrap().utf8_to_string()?, "10");
         assert_eq!(value.numeric_value, 6);
         assert_eq!(value.doc_upto, 15);
       },
       2 => {
         assert_eq!(value.term_field, "id");
-        assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+        assert_eq!(value.term_value.as_ref().unwrap().utf8_to_string()?, "8");
         assert_eq!(value.numeric_value, 12);
         assert_eq!(value.doc_upto, 15);
       },
       3 => {
         assert_eq!(value.term_field, "some_other_field");
-        assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+        assert_eq!(value.term_value.as_ref().unwrap().utf8_to_string()?, "8");
         assert_eq!(value.numeric_value, 13);
         assert_eq!(value.doc_upto, 17);
       },
       4 => {
         assert_eq!(value.term_field, "id");
-        assert_eq!(value.term_value.unwrap().utf8_to_string()?, "8");
+        assert_eq!(value.term_value.as_ref().unwrap().utf8_to_string()?, "8");
         assert_eq!(value.numeric_value, 12);
         assert_eq!(value.doc_upto, 16);
       },
@@ -132,7 +132,7 @@ fn test_update_share_values() -> Result<()> {
     let has_value = count != 3 || value_for_three;
     assert_eq!(
       count.to_string(),
-      value.term_value.unwrap().utf8_to_string()?
+      value.term_value.as_ref().unwrap().utf8_to_string()?
     );
     assert_eq!("id", value.term_field);
     assert_eq!(has_value, value.has_value);
@@ -195,13 +195,16 @@ pub fn test_update_share_values_binary() -> Result<()> {
     let has_value = count != 3 || value_for_three;
     assert_eq!(
       count.to_string(),
-      value.term_value.unwrap().utf8_to_string()?
+      value.term_value.as_ref().unwrap().utf8_to_string()?
     );
     assert_eq!("id", value.term_field);
     assert_eq!(has_value, value.has_value);
 
     if has_value {
-      assert_eq!(BytesRef::from_string(""), value.binary_value.unwrap());
+      assert_eq!(
+        &BytesRef::from_string(""),
+        value.binary_value.as_ref().unwrap()
+      );
     } else {
       assert!(value.binary_value.is_none());
     }
@@ -318,7 +321,7 @@ pub fn test_binary_random() -> Result<()> {
     count += 1;
     assert_eq!(
       random_update.term.bytes.utf8_to_string()?,
-      value.term_value.unwrap().utf8_to_string()?
+      value.term_value.as_ref().unwrap().utf8_to_string()?
     );
     assert_eq!(random_update.term.field, value.term_field);
     assert_eq!(random_update.has_value, value.has_value, "count: {}", count);
@@ -326,7 +329,7 @@ pub fn test_binary_random() -> Result<()> {
     if random_update.has_value {
       assert_eq!(
         random_update.sub_update.get_binary().unwrap().get_value()?,
-        &value.binary_value.unwrap()
+        value.binary_value.as_ref().unwrap()
       );
     } else {
       assert!(value.binary_value.is_none());
@@ -504,7 +507,7 @@ fn assert_buffer_updates(
     count += 1;
     assert_eq!(
       expected_update.term.bytes.utf8_to_string()?,
-      value.term_value.unwrap().utf8_to_string()?
+      value.term_value.as_ref().unwrap().utf8_to_string()?
     );
     assert_eq!(expected_update.term.field, value.term_field);
     assert_eq!(expected_update.has_value, value.has_value);

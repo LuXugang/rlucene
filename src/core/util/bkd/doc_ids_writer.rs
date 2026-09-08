@@ -75,7 +75,7 @@ impl DocIdsWriter {
     }
   }
   pub(crate) fn write_doc_ids<DO>(
-    &self,
+    &mut self,
     doc_ids: &[i32],
     start: usize,
     count: usize,
@@ -119,7 +119,13 @@ impl DocIdsWriter {
     }
     if min2max <= 0xffff {
       out.write_byte(DocIdsWriter::DELTA_BPV_16 as u8)?;
-      let mut scratch = vec![0; count];
+      let mut temporary = Vec::new();
+      let scratch = if count <= self.scratch.len() {
+        &mut self.scratch[..count]
+      } else {
+        temporary.resize(count, 0);
+        &mut temporary[..]
+      };
       for i in 0..count {
         scratch[i] = doc_ids[start + i] - min;
       }

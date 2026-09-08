@@ -487,10 +487,12 @@ impl StandardTokenizerImpl {
   ///  Sets the scanner buffer size in chars
   pub fn set_buffer_size(&mut self, num_chars: usize) {
     self.zz_buffer_size = num_chars;
-    let mut new_buffer = vec!['\0'; num_chars];
-    let length = self.zz_buffer.len().min(num_chars);
-    new_buffer[..length].copy_from_slice(&self.zz_buffer[..length]);
-    self.zz_buffer = new_buffer;
+    if num_chars >= self.zz_buffer.len() {
+      self.zz_buffer.resize(num_chars, '\0');
+    } else {
+      self.zz_buffer.truncate(num_chars);
+      self.zz_buffer.shrink_to_fit();
+    }
   }
   /// Translates raw input code points to DFA table row
   fn zz_cmap(input: i32) -> usize {

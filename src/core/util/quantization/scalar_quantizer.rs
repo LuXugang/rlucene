@@ -302,8 +302,8 @@ impl ScalarQuantizer {
     let mut quantile_gathering_scratch =
       vec![0.0; float_vector_values.dimension() * SCRATCH_SIZE.min(total_vector_count)];
     let mut count = 0usize;
-    let mut upper_sum = vec![0.0];
-    let mut lower_sum = vec![0.0];
+    let mut upper_sum = [0.0];
+    let mut lower_sum = [0.0];
     let confidence_intervals = [confidence_interval];
     if total_vector_count <= quantization_sample_size {
       let scratch_size = SCRATCH_SIZE.min(total_vector_count);
@@ -387,8 +387,8 @@ impl ScalarQuantizer {
     let mut quantile_gathering_scratch =
       vec![0.0; float_vector_values.dimension() * SCRATCH_SIZE.min(total_vector_count)];
     let mut count = 0usize;
-    let mut upper_sum = vec![0.0, 0.0];
-    let mut lower_sum = vec![0.0, 0.0];
+    let mut upper_sum = [0.0, 0.0];
+    let mut lower_sum = [0.0, 0.0];
     let mut sampled_docs = Vec::with_capacity(sample_size);
     let confidence_intervals = [
       1.0

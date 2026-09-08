@@ -79,6 +79,7 @@ pub struct SloppyPhraseMatcher<IE, SS> {
   rpt_groups: Rc<Vec<Vec<usize>>>,
   /// temporary stack for switching colliding repeating pps
   rpt_stack: Vec<usize>,
+  rpt_bits: FixedBitSet,
 
   positioned: bool,
   match_length: i32,
@@ -139,6 +140,7 @@ where
       has_multi_term_rpts: false,
       rpt_groups: Rc::new(Vec::new()),
       rpt_stack: vec![],
+      rpt_bits: FixedBitSet::new(0),
       positioned: false,
       match_length: 0,
       match_cost,
@@ -184,7 +186,8 @@ where
       return Ok(true); // not a repeater
     };
     // for re-queuing after collisions are resolved
-    let mut bits = FixedBitSet::new(self.rpt_groups[g].len());
+    self.rpt_bits.clear()?;
+    FixedBitSet::ensure_capacity(&mut self.rpt_bits, self.rpt_groups[g].len())?;
 
     let k0 = self.pq.compare.phrase_positions[pp_idx].rpt_ind;
     while let Some(k) = self.collide(pp_idx)? {
@@ -195,18 +198,18 @@ where
       }
       // careful: mark only those currently in the queue
       if k != k0 {
-        FixedBitSet::ensure_capacity(&mut bits, k)?;
+        FixedBitSet::ensure_capacity(&mut self.rpt_bits, k)?;
         // mark that pp2 need to be re-queued
-        bits.set(k)?;
+        self.rpt_bits.set(k)?;
       }
     }
 
     // collisions resolved, now re-queue
     // empty (partially) the queue until seeing all pps advanced for resolving collisions
     let mut n: usize = 0;
-    let num_bits = bits.length(); // largest bit we set
+    let num_bits = self.rpt_bits.length(); // largest bit we set
 
-    while bits.cardinality() > 0 {
+    while self.rpt_bits.cardinality() > 0 {
       let pp2_idx = self
         .pq
         .pop()?
@@ -219,8 +222,8 @@ where
         .is_some()
       {
         let ind = self.pq.compare.phrase_positions[pp2_idx].rpt_ind;
-        if (ind) < num_bits && bits.get(ind)? {
-          bits.clear_with_index(ind)?;
+        if (ind) < num_bits && self.rpt_bits.get(ind)? {
+          self.rpt_bits.clear_with_index(ind)?;
         }
       }
     }

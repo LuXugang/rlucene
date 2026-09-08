@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 use crate::core::codecs::hnsw::flat_vectors_scorer::{FlatVectorValuesEnum, FlatVectorsScorer};
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::index::byte_vector_values::ByteVectorValues;
 use crate::core::index::float_vector_values::FloatVectorValues;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
@@ -28,6 +29,7 @@ use crate::core::util::hnsw::random_vector_scorer_supplier::RandomVectorScorerSu
 use crate::core::util::quantization::quantized_byte_vector_values::QuantizedByteVectorValues;
 use crate::core::util::quantization::scalar_quantizer::ScalarQuantizer;
 use crate::core::util::vector_util::{VECTOR_UTIL, VectorUtil};
+use std::borrow::Cow;
 use std::fmt::{Display, Formatter};
 
 /// Optimized scalar quantized implementation of [`FlatVectorsScorer`] for quantized vectors
@@ -692,7 +694,10 @@ where
 
   fn scorer(&self, ord: usize) -> Result<Self::Scorer<'_>> {
     let vector_value = self.values1.vector_value(ord)?;
-    let vector_value = vector_value.as_bytes()?.to_vec();
+    let vector_value = match vector_value {
+      Cow::Owned(VectorValueEnum::Byte(vector)) => vector,
+      value => value.as_bytes()?.to_vec(),
+    };
     let offset_correction = self.values1.get_score_correction_constant(ord)?;
     from_vector_similarity(
       vector_value,

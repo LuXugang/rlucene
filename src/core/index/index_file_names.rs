@@ -146,15 +146,20 @@ impl IndexFileNames {
     debug_assert!(filename.starts_with('_'), "Filename must start with '_'");
 
     let stripped = IndexFileNames::strip_extension(filename);
-    let parts: Vec<&str> = stripped[1..].split('_').collect();
+    let mut parts = stripped[1..].split('_');
+    parts.next();
+    let generation = parts.next();
+    let remaining = parts.count();
     // 4 cases:
     // segment.ext
     // segment_gen.ext
     // segment_codec_suffix.ext
     // segment_gen_codec_suffix.ext
-    if parts.len() == 2 || parts.len() == 4 {
+    if (remaining == 0 || remaining == 2)
+      && let Some(generation) = generation
+    {
       // base-36
-      Ok(i64::from_str_radix(parts[1], 36)?)
+      Ok(i64::from_str_radix(generation, 36)?)
     } else {
       Ok(0)
     }

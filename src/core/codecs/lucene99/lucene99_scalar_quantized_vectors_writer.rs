@@ -2469,7 +2469,10 @@ where
 {
   fn vector_value(&self, ord: usize) -> Result<Cow<'_, VectorValueEnum>> {
     let vector_value = self.values.vector_value(ord)?;
-    let mut normalized_vector = vector_value.as_floats()?.to_vec();
+    let mut normalized_vector = match vector_value {
+      Cow::Owned(VectorValueEnum::Float(vector)) => vector,
+      value => value.as_floats()?.to_vec(),
+    };
     VectorUtil::l2normalize(&mut normalized_vector)?;
     Ok(Cow::Owned(VectorValueEnum::Float(normalized_vector)))
   }

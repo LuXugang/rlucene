@@ -477,23 +477,24 @@ impl<'a> BufferedUpdateIterator<'a> {
   }
   /// Moves to the next BufferedUpdate or return None if all updates are
   /// consumed. The returned instance is a shared instance and must be
-  /// fully consumed before the next call to this method.
-  pub(crate) fn next_value(&mut self) -> Result<Option<BufferedUpdate>> {
-    let mut buffered_update = BufferedUpdate::default();
+  /// fully consumed before the next call to this method. The returned borrow
+  /// prevents advancing the iterator while the update is still in use.
+  pub(crate) fn next_value(&mut self) -> Result<Option<&BufferedUpdate>> {
     let next_term = self.next_term()?;
 
     if let Some(next) = next_term {
       let idx = self.term_values_iterator.ord();
-      self.buffered_update.term_value = Some(next.clone());
+      let buffered_update = &mut self.buffered_update;
       buffered_update.term_value = Some(next);
       buffered_update.has_value = self
         .updates_with_value
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("updates_with_value is missing"))?
         .get(idx)?;
-      buffered_update.term_field = self.field_updates_buffer.fields
-        [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)]
-      .clone();
+      buffered_update.term_field.clone_from(
+        &self.field_updates_buffer.fields
+          [FieldUpdatesBuffer::get_array_index(self.fields_length, idx)],
+      );
       buffered_update.doc_upto = self.field_updates_buffer.docs_upto
         [FieldUpdatesBuffer::get_array_index(self.docs_upto_length, idx)];
 

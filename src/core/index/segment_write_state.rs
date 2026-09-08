@@ -113,12 +113,12 @@ impl<'a, D> SegmentWriteState<'a, D> {
       return true;
     }
 
-    let parts: Vec<&str> = suffix.split('_').collect();
-    if parts.len() == 2 {
-      return true;
-    } else if parts.len() == 1 {
-      return i64::from_str_radix(parts[0], 36).is_ok();
+    let mut parts = suffix.split('_');
+    parts.next();
+    match (parts.next(), parts.next()) {
+      (Some(_), None) => true,
+      (None, None) => i64::from_str_radix(suffix, 36).is_ok(),
+      _ => false,
     }
-    false
   }
 }

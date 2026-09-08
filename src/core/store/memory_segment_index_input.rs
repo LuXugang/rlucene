@@ -281,9 +281,16 @@ impl MemorySegmentIndexInput {
       return Ok(value);
     }
 
-    let mut bytes = vec![0u8; len];
-    self.read_bytes_boundary_current(&mut bytes, 0, len)?;
-    Ok(read(&bytes))
+    let mut small = [0u8; BitUtil::LONG_BYTES];
+    let mut large;
+    let bytes = if len <= small.len() {
+      &mut small[..len]
+    } else {
+      large = vec![0u8; len];
+      &mut large[..]
+    };
+    self.read_bytes_boundary_current(bytes, 0, len)?;
+    Ok(read(bytes))
   }
 
   fn decode_short(bytes: &[u8]) -> Result<i16> {
@@ -384,9 +391,16 @@ impl MemorySegmentIndexInput {
       return Ok(read(bytes));
     }
 
-    let mut bytes = vec![0u8; len];
-    self.read_bytes_boundary(pos, &mut bytes, 0, len)?;
-    Ok(read(&bytes))
+    let mut small = [0u8; BitUtil::LONG_BYTES];
+    let mut large;
+    let bytes = if len <= small.len() {
+      &mut small[..len]
+    } else {
+      large = vec![0u8; len];
+      &mut large[..]
+    };
+    self.read_bytes_boundary(pos, bytes, 0, len)?;
+    Ok(read(bytes))
   }
 
   fn read_bytes_boundary(&self, pos: usize, b: &mut [u8], offset: usize, len: usize) -> Result<()> {
