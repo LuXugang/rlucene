@@ -198,7 +198,7 @@ where
           debug_assert_eq!(
             node_hash
               .primary_table
-              .hash(node_address, hash_slot, &fst_compiler.fst)? as usize,
+              .hash(node_address, hash_slot, &fst_compiler.fst)?,
             hash,
             "Frozen hash mismatch"
           );
@@ -498,7 +498,7 @@ where
     for idx in 0..self.inner.fst_node_address.size() {
       let address = self.inner.fst_node_address.get(idx)?;
       if address != 0 {
-        let mut hash_slot = self.hash(address, idx, fst)? as usize & new_mask;
+        let mut hash_slot = self.hash(address, idx, fst)? & new_mask;
         let mut c = 0;
         loop {
           if new_fst_node_address.get(hash_slot)? == 0 {
@@ -519,7 +519,7 @@ where
 
     Ok(())
   }
-  fn hash<O, F>(&mut self, node_address: i64, hash_slot: usize, fst: &FST<O, F>) -> Result<i64>
+  fn hash<O, F>(&mut self, node_address: i64, hash_slot: usize, fst: &FST<O, F>) -> Result<usize>
   where
     O: Outputs<V = T>,
     F: FstReader,
@@ -550,7 +550,7 @@ where
       }
       fst.read_next_real_arc(&mut self.scratch_arc, reader)?;
     }
-    Ok(h & i64::MAX)
+    Ok((h & i64::MAX) as usize)
   }
 
   /// Compares an unfrozen node (`UnCompiledNode`) with a frozen node at byte

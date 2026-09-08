@@ -60,7 +60,6 @@ use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::{Relation, TotalHits};
 use crate::core::search::weight::Weight;
 use crate::core::store::directory::Directory;
-use crate::core::util::TryIntoInt;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::PriorityQueue;
@@ -76,10 +75,10 @@ use std::sync::atomic::Ordering;
 struct TestTopDocsCollector;
 
 struct MyTopDocsCollectorMananger {
-  num_hits: i32,
+  num_hits: usize,
 }
 impl MyTopDocsCollectorMananger {
-  fn new(num_hits: i32) -> Self {
+  fn new(num_hits: usize) -> Self {
     Self { num_hits }
   }
 }
@@ -88,12 +87,12 @@ impl CollectorManager for MyTopDocsCollectorMananger {
   type T = MyTopDocsCollector;
 
   fn new_collector(&self) -> Result<Self::C> {
-    MyTopDocsCollector::new(self.num_hits.try_convert()?)
+    MyTopDocsCollector::new(self.num_hits)
   }
 
   fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
     let mut total_hits = 0;
-    let mut my_top_docs_collector = MyTopDocsCollector::new(self.num_hits.try_convert()?)?;
+    let mut my_top_docs_collector = MyTopDocsCollector::new(self.num_hits)?;
     for collector in collectors {
       total_hits += collector.base.total_hits;
       for score_doc in collector.base.pq.iter() {
@@ -230,7 +229,7 @@ where
   writer.close(&mut random)?;
   Ok(reader)
 }
-fn do_search<R>(random: &mut R, num_results: i32) -> Result<MyTopDocsCollector>
+fn do_search<R>(random: &mut R, num_results: usize) -> Result<MyTopDocsCollector>
 where
   R: Rng + ?Sized,
 {
@@ -291,7 +290,7 @@ fn test_invalid_arguments() -> Result<()> {
   );
 
   // start == pq.size()
-  let td = tdc.top_docs_with_start(num_results)?;
+  let td = tdc.top_docs_with_start(num_results as i32)?;
   assert_eq!(td.score_docs.len(), 0);
 
   // howMany < 0

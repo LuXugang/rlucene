@@ -86,7 +86,7 @@ where
   /// node in the byte buffer is the target node):
   pub(crate) last_frozen_node: i64,
   /// Reused temporarily while building the FST:
-  pub(crate) num_bytes_per_arc: Vec<i32>,
+  pub(crate) num_bytes_per_arc: Vec<usize>,
   pub(crate) num_label_bytes_per_arc: Vec<i32>,
   pub(crate) fixed_length_arcs_buffer: FixedLengthArcsBuffer,
   pub(crate) arc_count: i64,
@@ -506,9 +506,9 @@ where
           }
 
           if do_fixed_length_arcs {
-            let num_arc_bytes: i32 =
-              (self.scratch_bytes.get_position() - last_arc_start).try_convert()?;
-            self.num_bytes_per_arc[arc_idx] = num_arc_bytes;
+            let arc_length = self.scratch_bytes.get_position() - last_arc_start;
+            let num_arc_bytes: i32 = arc_length.try_convert()?;
+            self.num_bytes_per_arc[arc_idx] = arc_length;
             self.num_label_bytes_per_arc[arc_idx] = num_label_bytes;
             last_arc_start = self.scratch_bytes.get_position();
             max_bytes_per_arc = max_bytes_per_arc.max(num_arc_bytes);
@@ -740,7 +740,7 @@ where
       let max_bytes_per_arc = max_bytes_per_arc as usize;
       for arc_idx in (0..node_in.num_arcs).rev() {
         dest_pos -= max_bytes_per_arc;
-        let arc_len = arc_bytes[arc_idx] as usize;
+        let arc_len = arc_bytes[arc_idx];
         src_pos -= arc_len;
         if src_pos != dest_pos {
           debug_assert!(
@@ -828,7 +828,7 @@ where
     // Copy the arcs to the buffer, dropping all labels except first one.
     for arc_idx in (0..node_in.num_arcs).rev() {
       buffer_offset -= max_bytes_per_arc_without_label as usize;
-      let src_arc_len = self.num_bytes_per_arc[arc_idx] as usize;
+      let src_arc_len = self.num_bytes_per_arc[arc_idx];
       src_pos -= src_arc_len;
       let label_len = self.num_label_bytes_per_arc[arc_idx] as usize;
       self

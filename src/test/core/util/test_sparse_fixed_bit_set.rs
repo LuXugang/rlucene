@@ -75,20 +75,20 @@ impl BaseBitSetTestCase for TestSparseFixedBitSet {
     let sparse_fixed_bit_set = set2.as_sparse_fixed_bit_set().unwrap();
     let length = sparse_fixed_bit_set.get_indices().len();
     for i in 0..length {
-      let n = sparse_fixed_bit_set.get_indices()[i].count_ones();
+      let n = sparse_fixed_bit_set.get_indices()[i].count_ones() as usize;
       if n != 0 {
         non_zero_long_count += n;
         let mut j = n;
-        while j < sparse_fixed_bit_set.get_bits()[i].len() as u32 {
+        while j < sparse_fixed_bit_set.get_bits()[i].len() {
           let array = &sparse_fixed_bit_set.get_bits()[i];
-          assert_eq!(array[j as usize], 0);
+          assert_eq!(array[j], 0);
           j += 1;
         }
       }
     }
     assert_eq!(
       non_zero_long_count,
-      sparse_fixed_bit_set.get_non_zero_long_count() as u32
+      sparse_fixed_bit_set.get_non_zero_long_count()
     );
   }
 }

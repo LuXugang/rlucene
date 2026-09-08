@@ -1438,7 +1438,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         *value = Some(Self::random_normalized_vector(random, dimension)?);
       }
 
-      self.add_float(random, &iw, field_name, i as i32, value.clone(), similarity)?;
+      self.add_float(random, &iw, field_name, i, value.clone(), similarity)?;
 
       if random.random_range(0..10) == 2 {
         iw.delete_documents_with_terms(vec![Term::from_text(
@@ -1521,7 +1521,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         *value = Some(Self::random_vector8(random, dimension)?);
       }
 
-      self.add_byte(random, &iw, field_name, i as i32, value.clone(), similarity)?;
+      self.add_byte(random, &iw, field_name, i, value.clone(), similarity)?;
 
       if random.random_range(0..10) == 2 {
         iw.delete_documents_with_terms(vec![Term::from_text(
@@ -1973,19 +1973,12 @@ pub trait BaseKnnVectorsFormatTestCase:
           random,
           &iw,
           field_name,
-          i as i32,
+          i,
           Some(scratch.clone()),
           similarity,
         )?;
       } else {
-        self.add_float(
-          random,
-          &iw,
-          field_name,
-          i as i32,
-          values[i].clone(),
-          similarity,
-        )?;
+        self.add_float(random, &iw, field_name, i, values[i].clone(), similarity)?;
       }
 
       if random.random_range(0..10) == 2 {
@@ -2095,7 +2088,7 @@ pub trait BaseKnnVectorsFormatTestCase:
           random,
           &iw,
           field_name,
-          i as i32,
+          i,
           Some(scratch.clone()),
           similarity,
         )?;
@@ -2105,7 +2098,7 @@ pub trait BaseKnnVectorsFormatTestCase:
           random,
           &iw,
           field_name,
-          i as i32,
+          i,
           match value {
             Some(v) => Some(v.bytes),
             None => None,
@@ -2283,7 +2276,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         random,
         &iw,
         field_name,
-        id as i32,
+        id,
         value,
         VectorSimilarityFunction::Euclidean,
       )?;
@@ -2367,7 +2360,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     random: &mut R,
     iw: &IndexWriter<D>,
     field: &str,
-    id: i32,
+    id: usize,
     vector: Option<Vec<f32>>,
     similarity_function: VectorSimilarityFunction,
   ) -> Result<()>
@@ -2390,7 +2383,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     random: &mut R,
     iw: &IndexWriter<D>,
     field: &str,
-    id: i32,
+    id: usize,
     vector: Option<Vec<u8>>,
     similarity_function: VectorSimilarityFunction,
   ) -> Result<()>
@@ -2412,7 +2405,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     &self,
     iw: &IndexWriter<D>,
     field: &str,
-    id: i32,
+    id: usize,
     sort_key: i32,
     vector: Option<Vec<u8>>,
   ) -> Result<()>
@@ -2433,7 +2426,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     &self,
     iw: &IndexWriter<D>,
     field: &str,
-    id: i32,
+    id: usize,
     sort_key: i32,
     vector: Option<Vec<u8>>,
     similarity_function: VectorSimilarityFunction,
@@ -2465,7 +2458,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     &self,
     iw: &IndexWriter<D>,
     field: &str,
-    id: i32,
+    id: usize,
     sort_key: i32,
     vector: Option<Vec<f32>>,
   ) -> Result<()>
@@ -2486,7 +2479,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     &self,
     iw: &IndexWriter<D>,
     field: &str,
-    id: i32,
+    id: usize,
     sort_key: i32,
     vector: Option<Vec<f32>>,
     similarity_function: VectorSimilarityFunction,

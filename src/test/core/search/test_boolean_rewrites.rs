@@ -437,7 +437,7 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
   let reader = MultiReader::empty()?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let depth = random.random_range(10..=30);
+  let depth: usize = random.random_range(10..=30);
 
   let expected_rc = Arc::new(AtomicUsize::new(0));
   let rewrite_query_expected = TestRewriteQuery::new(expected_rc.clone());
@@ -484,7 +484,7 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
 
   // the SHOULD clauses cause more rewrites because they incrementally change to `MUST` and then
   // `FILTER`, plus the flattening of required clauses
-  assert_eq!(depth as usize * 2, rc_.load(Ordering::Relaxed));
+  assert_eq!(depth * 2, rc_.load(Ordering::Relaxed));
 
   Ok(())
 }
@@ -495,7 +495,7 @@ fn test_deeply_nested_boolean_rewrite() -> Result<()> {
   // Java: newSearcher(new MultiReader())
   let reader = MultiReader::empty()?;
   let searcher = new_searcher_with_reader(reader)?;
-  let depth = random.random_range(10..=30);
+  let depth: usize = random.random_range(10..=30);
   let expected_rc = Arc::new(AtomicUsize::new(0));
   let rewrite_query_expected = TestRewriteQuery::new(expected_rc.clone());
 
@@ -538,7 +538,7 @@ fn test_deeply_nested_boolean_rewrite() -> Result<()> {
   assert_eq!(expected_query, rewritten);
 
   // `depth` rewrites because of the flattening
-  assert_eq!(depth as usize, rc_.load(Ordering::Relaxed));
+  assert_eq!(depth, rc_.load(Ordering::Relaxed));
 
   Ok(())
 }

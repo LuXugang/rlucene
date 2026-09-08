@@ -44,7 +44,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config_with_analyzer,
+  at_least, at_least_usize, new_directory_shared, new_index_writer_config_with_analyzer,
   new_merge_policy_with_mock_mp, new_searcher_with_reader, new_string_field, new_text_field,
   random,
 };
@@ -972,7 +972,7 @@ where
 
   Ok(())
 }
-fn random_simple_string<R>(random: &mut R, digits: i32) -> String
+fn random_simple_string<R>(random: &mut R, digits: usize) -> String
 where
   R: Rng + ?Sized,
 {
@@ -989,11 +989,11 @@ where
 #[test]
 fn test_random() -> Result<()> {
   let mut random = random();
-  let digits = TestUtil::next_int(&mut random, 2, 3);
+  let digits = TestUtil::next_usize(&mut random, 2, 3);
   let vocabulary_size = digits << 7;
-  let num_terms = std::cmp::min(at_least(&mut random, 100), vocabulary_size);
+  let num_terms = std::cmp::min(at_least_usize(&mut random, 100), vocabulary_size);
   let mut terms = HashSet::new();
-  while terms.len() < num_terms as usize {
+  while terms.len() < num_terms {
     terms.insert(random_simple_string(&mut random, digits));
   }
 

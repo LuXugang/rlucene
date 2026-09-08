@@ -810,16 +810,12 @@ fn test_interval_random() -> Result<()> {
       0
     } else {
       let max_str = max.to_string();
-      TestUtil::next_int(
-        &mut random,
-        max_str.len() as i32,
-        (2 * max_str.len()) as i32,
-      )
+      TestUtil::next_usize(&mut random, max_str.len(), 2 * max_str.len())
     };
 
-    let prefix = "0".repeat(digits as usize);
+    let prefix = "0".repeat(digits);
 
-    let a = Automata::make_decimal_interval(min, max, digits)?;
+    let a = Automata::make_decimal_interval(min, max, digits as i32)?;
     let a = Operations::determinize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?;
     let a = if random.random_bool(0.5) {
       MinimizationOperations::minimize(&a, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)?
@@ -842,7 +838,7 @@ fn test_interval_random() -> Result<()> {
       let expected = x >= min && x <= max;
       let mut sx = x.to_string();
 
-      if sx.len() < digits as usize {
+      if sx.len() < digits {
         sx = format!("{}{}", &prefix[sx.len()..], sx);
       } else if digits == 0 {
         let num_zeros = random.random_range(0..10);

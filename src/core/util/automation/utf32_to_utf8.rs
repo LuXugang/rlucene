@@ -143,7 +143,7 @@ impl UTF32ToUTF8 {
     if upto == (self.start_utf8.len - 1) {
       // Done recursing
       let b = self.start_utf8.byte_at(upto);
-      let mask = MASKS[self.start_utf8.num_bits(upto) as usize] as i32;
+      let mask = MASKS[self.start_utf8.num_bits(upto)] as i32;
       self.utf8.add_transition(start, end, b, b | mask)?; // type=start
     } else {
       let n = self.utf8.create_state();
@@ -153,7 +153,7 @@ impl UTF32ToUTF8 {
       self.start(n, end, upto + 1, true)?;
 
       let start_byte = self.start_utf8.byte_at(upto);
-      let end_code = start_byte | (MASKS[self.start_utf8.num_bits(upto) as usize] as i32);
+      let end_code = start_byte | (MASKS[self.start_utf8.num_bits(upto)] as i32);
       if do_all && start_byte != end_code {
         self.all(
           start,
@@ -170,7 +170,7 @@ impl UTF32ToUTF8 {
     if upto == (self.end_utf8.len - 1) {
       // Done recursing
       let b = self.end_utf8.byte_at(upto);
-      let mask = MASKS[self.end_utf8.num_bits(upto) as usize] as i32;
+      let mask = MASKS[self.end_utf8.num_bits(upto)] as i32;
       self.utf8.add_transition(start, end, b & !mask, b)?;
     } else {
       // GH-ISSUE#12472: UTF-8 special case for different start bytes for lengths
@@ -189,7 +189,7 @@ impl UTF32ToUTF8 {
         0x90
       } else {
         let b = self.end_utf8.byte_at(upto);
-        let mask = MASKS[self.end_utf8.num_bits(upto) as usize] as i32;
+        let mask = MASKS[self.end_utf8.num_bits(upto)] as i32;
         b & !mask
       };
 
@@ -315,8 +315,8 @@ impl UTF8Sequence {
   pub fn byte_at(&self, idx: usize) -> i32 {
     self.bytes[idx].value as i32
   }
-  pub fn num_bits(&self, idx: usize) -> i32 {
-    self.bytes[idx].bits as i32
+  pub fn num_bits(&self, idx: usize) -> usize {
+    self.bytes[idx].bits as usize
   }
   fn set(&mut self, code: i32) {
     if code < 0x80 {

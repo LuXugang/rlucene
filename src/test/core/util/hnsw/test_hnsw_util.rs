@@ -343,21 +343,21 @@ impl std::fmt::Display for MockGraph {
 
 pub struct NodeIteratorImpl {
   cur: i32,
-  cur_count: i32,
-  final_count: i32,
+  cur_count: usize,
+  final_count: usize,
   level: usize,
   nodes: Vec<Vec<Option<Vec<usize>>>>,
   size: usize,
 }
 impl NodeIteratorImpl {
-  pub fn new(nodes: Vec<Vec<Option<Vec<usize>>>>, final_count: i32, level: usize) -> Self {
+  pub fn new(nodes: Vec<Vec<Option<Vec<usize>>>>, final_count: usize, level: usize) -> Self {
     NodeIteratorImpl {
       cur: -1,
       cur_count: 0,
       level,
       final_count,
       nodes,
-      size: final_count as usize,
+      size: final_count,
     }
   }
 }

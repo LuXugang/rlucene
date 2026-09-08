@@ -296,28 +296,25 @@ fn test_sort(use_from: bool) -> Result<()> {
     let num_hits = TestUtil::next_usize(&mut random, 1, num_docs + 5);
     // let num_hits = 5;
 
-    let mut from = -1;
-    let mut size = -1;
+    let mut page = None;
 
     // First search on whole index:
     let top_hits: TopDocs<TopFieldScoreDoc>;
     match sort.as_ref() {
       None => {
         if use_from {
-          from = TestUtil::next_int(&mut random, 0, num_hits as i32 - 1);
-          size = num_hits as i32 - from;
+          let from = TestUtil::next_usize(&mut random, 0, num_hits - 1);
+          let size = num_hits - from;
+          page = Some((from, size));
           let manager = TopScoreDocCollectorManager::new(num_hits, i32::MAX as usize)?;
           let temp_top_hits = searcher.search_with_collector_manager(query.clone(), &manager)?;
-          if (from as usize) < temp_top_hits.score_docs.len() {
+          if from < temp_top_hits.score_docs.len() {
             // Cannot use `TopDocs::top_docs(start, how_many)`, since it behaves differently when
             // start >= hitCount than TopDocs#merge currently has.
-            let end = std::cmp::min(
-              from as usize + size as usize,
-              temp_top_hits.score_docs.len(),
-            );
+            let end = std::cmp::min(from + size, temp_top_hits.score_docs.len());
             top_hits = TopDocs::new(
               temp_top_hits.total_hits,
-              temp_top_hits.score_docs[from as usize..end]
+              temp_top_hits.score_docs[from..end]
                 .iter()
                 .cloned()
                 .map(TopFieldScoreDoc::from),
@@ -337,17 +334,14 @@ fn test_sort(use_from: bool) -> Result<()> {
         let manager = TopFieldCollectorManager::new(sort.clone(), num_hits, i32::MAX as usize)?;
         let mut top_field_docs = searcher.search_with_collector_manager(query.clone(), &manager)?;
         if use_from {
-          from = TestUtil::next_int(&mut random, 0, num_hits as i32 - 1);
-          size = num_hits as i32 - from;
-          if (from as usize) < top_field_docs.base.score_docs.len() {
+          let from = TestUtil::next_usize(&mut random, 0, num_hits - 1);
+          let size = num_hits - from;
+          page = Some((from, size));
+          if from < top_field_docs.base.score_docs.len() {
             // Cannot use `TopDocs::top_docs(start, how_many)`, since it behaves differently when
             // start >= hitCount than TopDocs#merge currently has.
-            let end = std::cmp::min(
-              from as usize + size as usize,
-              top_field_docs.base.score_docs.len(),
-            );
-            top_field_docs.base.score_docs =
-              top_field_docs.base.score_docs[from as usize..end].to_vec();
+            let end = std::cmp::min(from + size, top_field_docs.base.score_docs.len());
+            top_field_docs.base.score_docs = top_field_docs.base.score_docs[from..end].to_vec();
             top_hits = top_field_docs.base;
           } else {
             top_hits = TopDocs::new(top_field_docs.base.total_hits, vec![]);
@@ -384,12 +378,11 @@ fn test_sort(use_from: bool) -> Result<()> {
     }
 
     // Merge:
-    let merged_hits = if use_from {
+    let merged_hits = if let Some((from, size)) = page {
       if let Some(sort) = sort.as_ref() {
-        top_docs::merge_top_field_docs_with_start(sort, from as usize, size as usize, shard_hits)?
-          .base
+        top_docs::merge_top_field_docs_with_start(sort, from, size, shard_hits)?.base
       } else {
-        top_docs::merge_top_docs_with_start(from as usize, size as usize, shard_hits)?
+        top_docs::merge_top_docs_with_start(from, size, shard_hits)?
       }
     } else if let Some(sort) = sort.as_ref() {
       top_docs::merge_top_field_docs(sort, num_hits, shard_hits)?.base

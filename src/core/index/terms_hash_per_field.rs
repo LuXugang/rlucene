@@ -98,7 +98,7 @@ impl TermsHashPerField {
   pub(crate) fn init_reader<P>(
     &self,
     reader: &mut ByteSliceReader<P>,
-    term_id: i32,
+    term_id: usize,
     stream: i32,
     int_pool: &IntBlockPool,
   ) -> Result<()>
@@ -106,7 +106,6 @@ impl TermsHashPerField {
     P: Deref<Target = ByteBlockPool>,
   {
     debug_assert!(stream < self.stream_count);
-    let term_id = term_id as usize;
     let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
     let stream_start_offset = postings_array_wrapper
       .postings_array
@@ -290,7 +289,7 @@ impl TermsHashPerField {
   /// for this term begin.
   pub(crate) fn init_stream_slices(
     &mut self,
-    term_id: i32,
+    term_id: usize,
     _doc_id: i32,
     int_pool: &mut IntBlockPool,
     byte_pool: &mut ByteBlockPool,
@@ -312,7 +311,6 @@ impl TermsHashPerField {
         .ok_or_else(|| LuceneError::illegal_state("term stream has no current int buffer"))?;
       self.stream_address_offset = int_pool.int_upto;
       let stream_address_index = self.stream_address_offset as usize;
-      let term_index = term_id as usize;
       int_pool.int_upto += self.stream_count;
       let postings_array_wrapper = &mut self.bytes_hash.bytes_start_array.per_field;
       debug_assert!(postings_array_wrapper.postings_array.is_some());
@@ -320,7 +318,7 @@ impl TermsHashPerField {
         .postings_array
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
-        .set_address_offset(term_index, self.stream_address_offset + int_pool.int_offset);
+        .set_address_offset(term_id, self.stream_address_offset + int_pool.int_offset);
 
       let term_stream_address_buffer =
         int_pool.get_buffer_mut(self.term_stream_address_buffer_index);
@@ -334,7 +332,7 @@ impl TermsHashPerField {
         .postings_array
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
-        .set_byte_starts(term_index, term_stream_address_buffer[stream_address_index]);
+        .set_byte_starts(term_id, term_stream_address_buffer[stream_address_index]);
     }
     Ok(())
   }
@@ -350,15 +348,16 @@ impl TermsHashPerField {
     true
   }
 
-  pub(crate) fn position_stream_slice(&mut self, term_id: i32, _doc_id: i32) -> Result<i32> {
+  pub(crate) fn position_stream_slice(&mut self, term_id: i32, _doc_id: i32) -> Result<usize> {
     let term_id = (-term_id) - 1;
+    let term_id = term_id as usize;
     let postings_array_wrapper = &self.bytes_hash.bytes_start_array.per_field;
     debug_assert!(postings_array_wrapper.postings_array.is_some());
     let int_start = postings_array_wrapper
       .postings_array
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("postings array is missing"))?
-      .get_address_offset()[term_id as usize];
+      .get_address_offset()[term_id];
     self.term_stream_address_buffer_index = (int_start >> INT_BLOCK_SHIFT) as usize;
     self.stream_address_offset = int_start & INT_BLOCK_MASK;
     Ok(term_id)
@@ -369,7 +368,7 @@ pub(crate) trait TermsHashPerFieldBase {
   /// Called when a term is seen for the first time.
   fn new_term<AS>(
     &mut self,
-    term_id: i32,
+    term_id: usize,
     doc_id: i32,
     state: &mut FieldInvertState,
     attribute_source: &AS,
@@ -381,7 +380,7 @@ pub(crate) trait TermsHashPerFieldBase {
   /// Called when a previously seen term is seen again.
   fn add_term<AS>(
     &mut self,
-    term_id: i32,
+    term_id: usize,
     doc_id: i32,
     state: &mut FieldInvertState,
     attribute_source: &AS,

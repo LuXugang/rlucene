@@ -182,7 +182,7 @@ impl Lucene90DocValuesFormat {
 
   /// Number of intervals represented as a shift to create a new level, this
   /// is 1 << 3 == 8 intervals.
-  pub const SKIP_INDEX_LEVEL_SHIFT: i32 = 3;
+  pub const SKIP_INDEX_LEVEL_SHIFT: usize = 3;
 
   /// Max number of levels
   /// Increasing this number increases how much heap we need at index time.
@@ -299,11 +299,10 @@ pub static SKIP_INDEX_JUMP_LENGTH_PER_LEVEL: LazyLock<
     // Jump from previous level
     arr[level] = arr[level - 1];
     // Nodes added by new level
-    arr[level] += (1 << (level as i32 * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64
+    arr[level] += (1i32 << (level * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64
       * Lucene90DocValuesFormat::SKIP_INDEX_INTERVAL_BYTES;
     // Remove the byte levels added in the previous level
-    arr[level] -=
-      (1 << ((level as i32 - 1) * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64;
+    arr[level] -= (1i32 << ((level - 1) * Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT)) as i64;
   }
   arr
 });

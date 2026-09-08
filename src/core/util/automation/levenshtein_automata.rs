@@ -406,16 +406,16 @@ const MASKS: [i64; 63] = [
   0x3fffffffffffffff,
   0x7fffffffffffffff,
 ];
-pub(crate) fn unpack(data: &[i64], index: i32, bits_per_value: i32) -> i32 {
+pub(crate) fn unpack(data: &[i64], index: i32, bits_per_value: usize) -> i32 {
   let bit_loc = bits_per_value as i64 * index as i64;
   let data_loc = (bit_loc >> 6) as usize;
-  let bit_start = (bit_loc & 63) as i32;
+  let bit_start = (bit_loc & 63) as usize;
 
   if bit_start + bits_per_value <= 64 {
-    ((data[data_loc] >> bit_start) & MASKS[(bits_per_value - 1) as usize]) as i32
+    ((data[data_loc] >> bit_start) & MASKS[bits_per_value - 1]) as i32
   } else {
     let part = 64 - bit_start;
-    (((data[data_loc] >> bit_start) & MASKS[(part - 1) as usize])
-      + ((data[1 + data_loc] & MASKS[(bits_per_value - part - 1) as usize]) << part)) as i32
+    (((data[data_loc] >> bit_start) & MASKS[part - 1])
+      + ((data[1 + data_loc] & MASKS[bits_per_value - part - 1]) << part)) as i32
   }
 }

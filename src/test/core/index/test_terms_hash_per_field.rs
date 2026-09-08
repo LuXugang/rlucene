@@ -423,7 +423,7 @@ fn test_add_and_update_random() -> Result<()> {
   for posting in values {
     base
       .base
-      .init_reader(&mut reader, posting.term_id, 0, &int_pool)?;
+      .init_reader(&mut reader, posting.term_id as usize, 0, &int_pool)?;
 
     let mut eof = false;
     let mut pref_doc = 0;

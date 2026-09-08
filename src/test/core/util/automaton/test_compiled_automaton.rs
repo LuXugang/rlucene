@@ -14,7 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use crate::test_framework::core::util::lucene_test_case::{at_least, random, random_multiplier};
+use crate::test_framework::core::util::lucene_test_case::{
+  at_least_usize, random, random_multiplier,
+};
 use std::collections::HashSet;
 
 use rand::Rng;
@@ -29,7 +31,7 @@ use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::test_util::TestUtil;
 #[allow(dead_code)] // for quick search
 struct TestCompiledAutomaton;
-fn build(_determinize_work_limit: i32, strings: &[&str]) -> Result<CompiledAutomaton> {
+fn build(_determinize_work_limit: usize, strings: &[&str]) -> Result<CompiledAutomaton> {
   let mut terms: Vec<BytesRef<Vec<u8>>> =
     strings.iter().map(|s| BytesRef::from_string(s)).collect();
 
@@ -60,7 +62,7 @@ fn test_floor(c: &mut CompiledAutomaton, input: &str, expected: Option<&str>) ->
 
   Ok(())
 }
-fn test_terms<R>(random: &mut R, determinize_work_limit: i32, terms: &[&str]) -> Result<()>
+fn test_terms<R>(random: &mut R, determinize_work_limit: usize, terms: &[&str]) -> Result<()>
 where
   R: Rng + ?Sized,
 {
@@ -113,10 +115,10 @@ where
 #[test]
 fn test_random() -> Result<()> {
   let mut random = random();
-  let num_terms = at_least(&mut random, 400);
+  let num_terms = at_least_usize(&mut random, 400);
   let mut terms = HashSet::new();
 
-  while terms.len() < num_terms as usize {
+  while terms.len() < num_terms {
     terms.insert(random_string(&mut random));
   }
   let term_vec: Vec<&str> = terms.iter().map(|s| s.as_str()).collect();
@@ -135,7 +137,7 @@ where
 #[test]
 fn test_basic() -> Result<()> {
   let mut compiled = build(
-    Operations::DEFAULT_DETERMINIZE_WORK_LIMIT as i32,
+    Operations::DEFAULT_DETERMINIZE_WORK_LIMIT,
     &["fob", "foo", "goo"],
   )?;
 

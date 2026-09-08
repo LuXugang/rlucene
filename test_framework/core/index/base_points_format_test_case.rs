@@ -893,14 +893,14 @@ pub trait BasePointsFormatTestCase:
     }
 
     let context = (&r).get_context()?;
-    let mut doc_id_to_id = vec![0i32; r.max_doc()? as usize];
+    let mut doc_id_to_id = vec![0usize; r.max_doc()? as usize];
     let mut id_values = MultiDocValues::get_numeric_values(&r, "id")?.unwrap();
     loop {
       let doc_id = id_values.next_doc()?;
       if doc_id == NO_MORE_DOCS {
         break;
       }
-      doc_id_to_id[doc_id as usize] = id_values.long_value()? as i32;
+      doc_id_to_id[doc_id as usize] = id_values.long_value()? as usize;
     }
     let live_docs = get_live_docs(&r)?;
     let mut min_values = vec![0xff; num_index_dims * num_bytes_per_dim];
@@ -1022,7 +1022,10 @@ pub trait BasePointsFormatTestCase:
 
       if fail_count != 0 {
         for doc_id in 0..r.max_doc()? {
-          println!("  docID={} id={}", doc_id, doc_id_to_id[doc_id as usize]);
+          println!(
+            "  docID={} id={}",
+            doc_id, doc_id_to_id[doc_id as usize] as i32
+          );
         }
         return Err(LuceneError::illegal_state(format!(
           "{} docs failed; {} docs succeeded",
@@ -1372,7 +1375,7 @@ struct VerifyIntersectVisitor<'a, B> {
   query_min: &'a [Vec<u8>],
   query_max: &'a [Vec<u8>],
   live_docs: Option<&'a B>,
-  doc_id_to_id: &'a [i32],
+  doc_id_to_id: &'a [usize],
   doc_base: usize,
   num_index_dims: usize,
   num_bytes_per_dim: usize,
@@ -1408,7 +1411,7 @@ where
       .live_docs
       .is_none_or(|bits| bits.get(doc_id).expect(""))
     {
-      self.hits.insert(self.doc_id_to_id[doc_id] as usize);
+      self.hits.insert(self.doc_id_to_id[doc_id]);
     }
     Ok(())
   }
@@ -1430,7 +1433,7 @@ where
       }
     }
 
-    self.hits.insert(self.doc_id_to_id[doc_id] as usize);
+    self.hits.insert(self.doc_id_to_id[doc_id]);
     Ok(())
   }
 }

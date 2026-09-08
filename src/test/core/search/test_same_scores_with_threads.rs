@@ -29,7 +29,8 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::line_file_docs::LineFileDocs;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, is_night_mode, new_directory_shared, new_searcher_with_reader, random, random_from_seed,
+  at_least_usize, is_night_mode, new_directory_shared, new_searcher_with_reader, random,
+  random_from_seed,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
@@ -49,11 +50,11 @@ fn test() -> Result<()> {
   analyzer.set_max_token_length(TestUtil::next_int(&mut random, 1, MAX_TERM_LENGTH));
   let w = RandomIndexWriter::with_analyzer(&mut random, dir.clone(), analyzer)?;
   let mut docs = LineFileDocs::new(&mut random)?;
-  let chars_to_index = at_least(&mut random, 100000);
+  let chars_to_index = at_least_usize(&mut random, 100000);
   let mut chars_indexed = 0;
   while chars_indexed < chars_to_index {
     let doc = docs.next_doc()?;
-    chars_indexed += doc.get("body")?.unwrap().len() as i32;
+    chars_indexed += doc.get("body")?.unwrap().len();
     w.add_document(&mut random, doc)?;
   }
   let r = Arc::new(w.get_reader(&mut random)?);

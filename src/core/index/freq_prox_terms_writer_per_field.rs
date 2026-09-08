@@ -276,11 +276,12 @@ impl FreqProxTermsWriterPerField {
       })?
     };
 
-    let mut term_id = self
+    let term_id = self
       .base
       .bytes_hash
       .add(term_bytes, &mut context.byte_pool)?;
-    if term_id >= 0 {
+    let term_id = if term_id >= 0 {
+      let term_id = term_id as usize;
       self.base.init_stream_slices(
         term_id,
         doc_id,
@@ -295,8 +296,9 @@ impl FreqProxTermsWriterPerField {
         &mut context.freq_prox_term_int_pool,
         &mut context.byte_pool,
       )?;
+      term_id
     } else {
-      term_id = self.base.position_stream_slice(term_id, doc_id)?;
+      let term_id = self.base.position_stream_slice(term_id, doc_id)?;
       self.add_term(
         term_id,
         doc_id,
@@ -305,14 +307,15 @@ impl FreqProxTermsWriterPerField {
         &mut context.freq_prox_term_int_pool,
         &mut context.byte_pool,
       )?;
-    }
+      term_id
+    };
 
     if let Some(ref mut next_per_field) = self.next_per_field {
       let text_start = self
         .base
         .postings_array()
         .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?
-        .get_text_starts()[term_id as usize];
+        .get_text_starts()[term_id];
       next_per_field.add_with_text_start(
         text_start,
         doc_id,
@@ -341,23 +344,26 @@ impl FreqProxTermsWriterPerField {
     // We are first in the chain so we must "intern" the
     // term text into textStart address
     // Get the text & hash of this term.
-    let mut term_id = self.base.bytes_hash.add(term_bytes, byte_pool)?;
-    if term_id >= 0 {
+    let term_id = self.base.bytes_hash.add(term_bytes, byte_pool)?;
+    let term_id = if term_id >= 0 {
+      let term_id = term_id as usize;
       self
         .base
         .init_stream_slices(term_id, doc_id, int_pool, byte_pool)?;
       sub.new_term(term_id, doc_id, &mut self.base)?;
+      term_id
     } else {
-      term_id = self.base.position_stream_slice(term_id, doc_id)?;
+      let term_id = self.base.position_stream_slice(term_id, doc_id)?;
       sub.add_term(term_id, doc_id, &mut self.base, int_pool, byte_pool)?;
-    }
+      term_id
+    };
 
     if let Some(ref mut next_per_field) = self.next_per_field {
       let text_start = self
         .base
         .postings_array()
         .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?
-        .get_text_starts()[term_id as usize];
+        .get_text_starts()[term_id];
       next_per_field.add_with_text_start(
         text_start,
         doc_id,
@@ -388,7 +394,7 @@ impl FreqProxTermsWriterPerField {
 impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
   fn new_term<AS>(
     &mut self,
-    term_id: i32,
+    term_id: usize,
     doc_id: i32,
     field_state: &mut FieldInvertState,
     attribute_source: &AS,
@@ -398,7 +404,6 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
   where
     AS: AttributeSource,
   {
-    let term_id = term_id as usize;
     // First time we're seeing this term since the last
     // flush
     let tf = self.get_term_freq(attribute_source)?;
@@ -460,7 +465,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 
   fn add_term<AS>(
     &mut self,
-    term_id: i32,
+    term_id: usize,
     doc_id: i32,
     field_state: &mut FieldInvertState,
     attribute_source: &AS,
@@ -470,8 +475,6 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
   where
     AS: AttributeSource,
   {
-    let term_id = term_id as usize;
-
     let tf = self.get_term_freq(attribute_source)?;
     let postings_enum = self
       .base

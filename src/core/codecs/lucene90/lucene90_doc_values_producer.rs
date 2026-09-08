@@ -3110,7 +3110,7 @@ where
       let input = &mut self.block_input;
       let token = input.read_byte()? as i32;
       let mut prefix_length = token & 0x0F;
-      let mut suffix_length = 1 + (token as usize >> 4) as i32;
+      let mut suffix_length = 1 + (token >> 4);
 
       if prefix_length == 15 {
         prefix_length += input.read_vint()?;

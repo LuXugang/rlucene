@@ -658,7 +658,7 @@ fn test_bulk_set() -> Result<()> {
         if i >= index && i < index + sets {
           assert_eq!(
             ints.get(i),
-            arr[(off as isize - index as isize + i as isize) as usize],
+            arr[off + (i - index)],
             "{}: value mismatch at index {}",
             m,
             i

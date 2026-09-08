@@ -545,12 +545,12 @@ fn test_all_equal() -> Result<()> {
   let num_index_dims = std::cmp::min(
     TestUtil::next_usize(&mut random, 1, num_data_dims),
     MAX_INDEX_DIMENSIONS,
-  ) as usize;
+  );
 
-  let num_docs = at_least(&mut random, 1000);
-  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
+  let num_docs = at_least_usize(&mut random, 1000);
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
 
-  for doc_id in 0..num_docs as usize {
+  for doc_id in 0..num_docs {
     if doc_id == 0 {
       for values in doc_values[doc_id].iter_mut().take(num_data_dims) {
         random.fill_bytes(values);
@@ -579,28 +579,24 @@ fn test_index_dim_equal_data_dim_different() -> Result<()> {
   let num_index_dims = std::cmp::min(
     TestUtil::next_usize(&mut random, 1, num_data_dims - 1),
     MAX_INDEX_DIMENSIONS,
-  ) as usize;
+  );
 
-  let num_docs = at_least(&mut random, 1000);
-  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
+  let num_docs = at_least_usize(&mut random, 1000);
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
 
   let mut index_dimensions = vec![vec![0u8; num_bytes_per_dim]; num_data_dims];
-  for dim_value in index_dimensions.iter_mut().take(num_index_dims as usize) {
+  for dim_value in index_dimensions.iter_mut().take(num_index_dims) {
     random.fill_bytes(dim_value);
   }
 
-  for doc_value in doc_values.iter_mut().take(num_docs as usize) {
-    for (dim, val) in doc_value
-      .iter_mut()
-      .enumerate()
-      .take(num_index_dims as usize)
-    {
+  for doc_value in doc_values.iter_mut().take(num_docs) {
+    for (dim, val) in doc_value.iter_mut().enumerate().take(num_index_dims) {
       *val = index_dimensions[dim].clone();
     }
     for val in doc_value
       .iter_mut()
-      .skip(num_index_dims as usize)
-      .take(num_data_dims - num_index_dims as usize)
+      .skip(num_index_dims)
+      .take(num_data_dims - num_index_dims)
     {
       random.fill_bytes(val);
     }
@@ -625,13 +621,13 @@ fn test_one_dim_equal() -> Result<()> {
   let num_index_dims = std::cmp::min(
     TestUtil::next_usize(&mut random, 1, num_data_dims),
     MAX_INDEX_DIMENSIONS,
-  ) as usize;
+  );
 
-  let num_docs = at_least(&mut random, 1000);
+  let num_docs = at_least_usize(&mut random, 1000);
   let the_equal_dim = random.random_range(0..num_data_dims);
-  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
 
-  for doc_id in 0..num_docs as usize {
+  for doc_id in 0..num_docs {
     for values in doc_values[doc_id].iter_mut().take(num_data_dims) {
       random.fill_bytes(values);
     }
@@ -663,9 +659,9 @@ fn test_one_dim_low_card() -> Result<()> {
   let num_index_dims = std::cmp::min(
     TestUtil::next_usize(&mut random, 2, num_data_dims),
     MAX_INDEX_DIMENSIONS,
-  ) as usize;
+  );
 
-  let num_docs = at_least(&mut random, 10_000);
+  let num_docs = at_least_usize(&mut random, 10_000);
   let the_low_card_dim = random.random_range(0..num_data_dims);
 
   let mut value1 = vec![0u8; num_bytes_per_dim];
@@ -679,9 +675,9 @@ fn test_one_dim_low_card() -> Result<()> {
     *last = last.wrapping_sub(1);
   }
 
-  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
 
-  for doc_value in doc_values.iter_mut().take(num_docs as usize) {
+  for doc_value in doc_values.iter_mut().take(num_docs) {
     for (dim, val) in doc_value.iter_mut().take(num_data_dims).enumerate() {
       if dim == the_low_card_dim {
         *val = if random.random_bool(0.5) {
@@ -716,9 +712,9 @@ fn test_one_dim_two_values() -> Result<()> {
   let num_index_dims = std::cmp::min(
     TestUtil::next_usize(&mut random, 1, num_data_dims),
     MAX_INDEX_DIMENSIONS,
-  ) as usize;
+  );
 
-  let num_docs = at_least(&mut random, 1000);
+  let num_docs = at_least_usize(&mut random, 1000);
   let the_dim = random.random_range(0..num_data_dims);
 
   let mut value1 = vec![0u8; num_bytes_per_dim];
@@ -726,9 +722,9 @@ fn test_one_dim_two_values() -> Result<()> {
   let mut value2 = vec![0u8; num_bytes_per_dim];
   random.fill_bytes(&mut value2);
 
-  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
 
-  for doc_value in doc_values.iter_mut().take(num_docs as usize) {
+  for doc_value in doc_values.iter_mut().take(num_docs) {
     for (dim, val) in doc_value.iter_mut().take(num_data_dims).enumerate() {
       if dim == the_dim {
         *val = if random.random_bool(0.5) {
@@ -761,9 +757,9 @@ fn test_random_few_different_values() -> Result<()> {
   let num_index_dims = std::cmp::min(
     TestUtil::next_usize(&mut random, 1, num_data_dims),
     MAX_INDEX_DIMENSIONS,
-  ) as usize;
+  );
 
-  let num_docs = at_least(&mut random, 10000);
+  let num_docs = at_least_usize(&mut random, 10000);
   let cardinality = TestUtil::next_usize(&mut random, 2, 100);
 
   let mut values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; cardinality];
@@ -773,8 +769,8 @@ fn test_random_few_different_values() -> Result<()> {
     }
   }
 
-  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs as usize];
-  for (doc_value, _) in doc_values.iter_mut().zip(0..num_docs as usize) {
+  let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
+  for (doc_value, _) in doc_values.iter_mut().zip(0..num_docs) {
     let v = random.random_range(0..cardinality);
     *doc_value = values[v].clone();
   }
@@ -908,7 +904,7 @@ where
     );
   }
 
-  let mut to_merge: Option<Vec<i64>> = None;
+  let mut to_merge: Option<Vec<usize>> = None;
   let mut doc_maps = None;
   let mut seg = 0;
 
@@ -980,10 +976,7 @@ where
 
         let out_ref = out.as_mut().unwrap();
         let finalizer = writer.as_mut().unwrap().finish(out_ref)?.unwrap();
-        to_merge
-          .as_mut()
-          .unwrap()
-          .push(out_ref.get_file_pointer()? as i64);
+        to_merge.as_mut().unwrap().push(out_ref.get_file_pointer()?);
         writer
           .as_mut()
           .unwrap()
@@ -1018,7 +1011,7 @@ where
       if seg_count > 0 {
         let out_ref = out.as_mut().unwrap();
         let finalizer = writer.as_mut().unwrap().finish(out_ref)?.unwrap();
-        to_merge.push(out_ref.get_file_pointer()? as i64);
+        to_merge.push(out_ref.get_file_pointer()?);
         writer
           .as_mut()
           .unwrap()
@@ -1054,7 +1047,7 @@ where
       let mut readers = Vec::new();
       for fp in to_merge {
         let input_ref = input.as_ref().unwrap();
-        input_ref.lock().seek(*fp as usize)?;
+        input_ref.lock().seek(*fp)?;
         readers.push(get_point_values(input_ref.clone())?);
       }
 
@@ -2251,18 +2244,18 @@ fn test_too_many_points_1d() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let num_values = 10;
+  let num_values: usize = 10;
   let num_bytes_per_dim = TestUtil::next_usize(&mut random, 1, 4);
   let mut point_values = vec![vec![0u8; num_bytes_per_dim]; 11];
   let mut doc_ids = vec![0i32; 11];
 
-  for i in 0..=num_values as usize {
+  for i in 0..=num_values {
     random.fill_bytes(&mut point_values[i]);
     doc_ids[i] = i as i32;
   }
 
   let mut reader = MutablePointTreeMock2 {
-    tmp_values: vec![vec![]; num_values as usize],
+    tmp_values: vec![vec![]; num_values],
     tmp_docs: vec![],
     num_bytes_per_dim,
     point_values,
@@ -2271,7 +2264,7 @@ fn test_too_many_points_1d() -> Result<()> {
 
   let config = BKDConfig::new(1, 1, num_bytes_per_dim, 2)?;
   let mut writer = BKDWriter::new(
-    num_values + 1,
+    (num_values + 1) as i32,
     dir.as_ref(),
     "_temp",
     config,

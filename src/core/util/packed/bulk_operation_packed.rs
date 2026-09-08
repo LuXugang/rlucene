@@ -30,7 +30,7 @@ pub(crate) struct BulkOperationPacked {
   int_mask: u32,
 }
 impl BulkOperationPacked {
-  pub const fn new(bits_per_value: i32) -> Self {
+  pub const fn new(bits_per_value: usize) -> Self {
     debug_assert!(
       bits_per_value > 0 && bits_per_value <= 64,
       "bitsPerValue must be > 0 and <= 64"
@@ -63,11 +63,11 @@ impl BulkOperationPacked {
       "longValueCount * bitsPerValue must equal 64 * longBlockCount"
     );
     BulkOperationPacked {
-      bits_per_value,
-      long_block_count: long_block_count as usize,
-      long_value_count: long_value_count as usize,
-      byte_block_count: byte_block_count as usize,
-      byte_value_count: byte_value_count as usize,
+      bits_per_value: bits_per_value as i32,
+      long_block_count,
+      long_value_count,
+      byte_block_count,
+      byte_value_count,
       mask,
       int_mask,
     }

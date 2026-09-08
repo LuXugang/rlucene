@@ -18,7 +18,7 @@ use crate::test_framework::core::index::test_concurrent_merge_scheduler::CountDo
 use crate::test_framework::core::util::lucene_test_case::{random, random_multiplier};
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{thread, vec};
 
 use parking_lot::Mutex;
@@ -217,7 +217,7 @@ fn test_stress_delete_queue() -> Result<()> {
   }
 
   let latch = CountDownLatch::new(1);
-  let index = Arc::new(AtomicI32::new(0));
+  let index = Arc::new(AtomicUsize::new(0));
   let num_threads = 2 + random.random_range(0..5);
 
   let mut threads = Vec::new();
@@ -321,7 +321,7 @@ fn test_close() -> Result<()> {
 
 struct UpdateThread {
   queue: Arc<DocumentsWriterDeleteQueue>,
-  index: Arc<AtomicI32>,
+  index: Arc<AtomicUsize>,
   ids: Vec<i32>,
   slice: DeleteSlice,
   deletes: BufferedUpdatesLock,
@@ -331,7 +331,7 @@ struct UpdateThread {
 impl UpdateThread {
   fn new(
     queue: Arc<DocumentsWriterDeleteQueue>,
-    index: Arc<AtomicI32>,
+    index: Arc<AtomicUsize>,
     ids: Vec<i32>,
     latch: CountDownLatch,
   ) -> Result<Self> {
@@ -350,7 +350,7 @@ impl UpdateThread {
   fn run(&mut self) -> Result<()> {
     self.latch.wait();
     loop {
-      let i = self.index.fetch_add(1, Ordering::SeqCst) as usize;
+      let i = self.index.fetch_add(1, Ordering::SeqCst);
       if i >= self.ids.len() {
         break;
       }

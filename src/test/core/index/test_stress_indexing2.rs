@@ -64,7 +64,7 @@ use std::thread;
 struct TestStressIndexing2;
 
 static MAX_FIELDS: i32 = 4;
-static BIG_FIELD_SIZE: i32 = 10;
+static BIG_FIELD_SIZE: usize = 10;
 static SAME_FIELD_ORDER: bool = false;
 static MERGE_FACTOR: i32 = 3;
 static MAX_BUFFERED_DOCS: i32 = 3;
@@ -778,19 +778,19 @@ impl IndexingThread {
     self.buffer.push(' ');
   }
 
-  fn get_string<R>(&mut self, r: &mut R, mut n_tokens: i32) -> String
+  fn get_string<R>(&mut self, r: &mut R, mut n_tokens: usize) -> String
   where
     R: rand::Rng + ?Sized,
   {
     if n_tokens == 0 {
-      n_tokens = Self::next_int(r, 4) + 1;
+      n_tokens = TestUtil::next_usize(r, 1, 4);
     }
 
     if r.random_bool(0.5) {
       return self.get_utf8_string(r, n_tokens);
     }
 
-    let mut s = String::with_capacity((n_tokens * 2) as usize);
+    let mut s = String::with_capacity(n_tokens * 2);
     for _ in 0..n_tokens {
       s.push((b'A' + Self::next_int(r, 10) as u8) as char);
       s.push(' ');
@@ -798,7 +798,7 @@ impl IndexingThread {
     s
   }
 
-  fn get_utf8_string<R>(&mut self, r: &mut R, n_tokens: i32) -> String
+  fn get_utf8_string<R>(&mut self, r: &mut R, n_tokens: usize) -> String
   where
     R: rand::Rng + ?Sized,
   {
@@ -883,7 +883,7 @@ impl IndexingThread {
           ft
         }
       };
-      let mut n_tokens = Self::next_int(r, 3);
+      let mut n_tokens = TestUtil::next_usize(r, 0, 2);
       n_tokens = if n_tokens < 2 {
         n_tokens
       } else {

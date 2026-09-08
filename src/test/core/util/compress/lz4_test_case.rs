@@ -40,27 +40,23 @@ pub(crate) trait LZ4TestCase {
 
     let mut copy = vec![0; data.len() + offset + random.random_range(0..10)];
     copy.copy_from(data, offset);
-    Self::do_test_with_offset(
-      random,
-      copy.as_slice(),
-      offset as i32,
-      data.len() as i32,
-      hash_table,
-    )
+    Self::do_test_with_offset(random, copy.as_slice(), offset, data.len(), hash_table)
   }
 
   fn do_test_with_offset<R>(
     random: &mut R,
     data: &[u8],
-    offset: i32,
-    length: i32,
+    offset: usize,
+    length: usize,
     hash_table: &mut AssertingHashTable,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let offset_i32 = offset as i32;
+    let length_i32 = length as i32;
     let mut out = ByteBuffersDataOutput::new();
-    LZ4::compress(data, offset, length, &mut out, &mut hash_table.ht)?;
+    LZ4::compress(data, offset_i32, length_i32, &mut out, &mut hash_table.ht)?;
 
     let compressed = out.try_get_array_ownership();
     let mut off = 0;
@@ -85,8 +81,8 @@ pub(crate) trait LZ4TestCase {
       // check that the stream ends with literals and that there are
       // at least 5 of them
       if off == compressed.len() {
-        assert_eq!(length, decompressed_off);
-        assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == length);
+        assert_eq!(length_i32, decompressed_off);
+        assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == length_i32);
         break;
       }
 
@@ -109,11 +105,9 @@ pub(crate) trait LZ4TestCase {
         // if the match ends prematurely, the next sequence should
         // not have literals or this means we
         // are wasting space
-        if decompressed_off + match_len < length - LZ4::LAST_LITERALS {
-          let more_common_bytes = data
-            [offset as usize + decompressed_off as usize + match_len as usize]
-            == data[offset as usize + decompressed_off as usize - match_dec as usize
-              + match_len as usize];
+        if decompressed_off + match_len < length_i32 - LZ4::LAST_LITERALS {
+          let more_common_bytes = data[offset + decompressed_off as usize + match_len as usize]
+            == data[offset + decompressed_off as usize - match_dec as usize + match_len as usize];
           let next_sequence_has_literals = compressed[off] >> 4 != 0;
           assert!(!(more_common_bytes && next_sequence_has_literals));
         }
@@ -122,35 +116,31 @@ pub(crate) trait LZ4TestCase {
       decompressed_off += match_len;
     }
 
-    assert_eq!(length, decompressed_off);
+    assert_eq!(length_i32, decompressed_off);
 
     // Compress once again with the same hash table to test reuse
     let mut out2 = ByteBuffersDataOutput::new();
-    LZ4::compress(data, offset, length, &mut out2, &mut hash_table.ht)?;
+    LZ4::compress(data, offset_i32, length_i32, &mut out2, &mut hash_table.ht)?;
     assert_eq!(compressed, out2.try_get_array_ownership());
 
     // Now restore and compare bytes
-    let mut restored = vec![0; length as usize + random.random_range(0..10)];
+    let mut restored = vec![0; length + random.random_range(0..10)];
     let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
-    LZ4::decompress(&mut input, length, &mut restored, 0)?;
+    LZ4::decompress(&mut input, length_i32, &mut restored, 0)?;
 
     assert!(off <= i32::MAX as usize);
-    let left = ArrayUtil::copy_of_sub_array(data, offset as usize, (offset + length) as usize);
-    let right = ArrayUtil::copy_of_sub_array(&restored, 0, length as usize);
+    let left = ArrayUtil::copy_of_sub_array(data, offset, offset + length);
+    let right = ArrayUtil::copy_of_sub_array(&restored, 0, length);
     assert_eq!(left, right);
 
     // Now restore with an offset
-    let restore_offset = TestUtil::next_int(random, 1, 10);
-    restored = vec![0; restore_offset as usize + length as usize + random.random_range(0..10)];
+    let restore_offset = TestUtil::next_usize(random, 1, 10);
+    restored = vec![0; restore_offset + length + random.random_range(0..10)];
     let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
-    LZ4::decompress(&mut input, length, &mut restored, restore_offset)?;
+    LZ4::decompress(&mut input, length_i32, &mut restored, restore_offset as i32)?;
 
-    let left = ArrayUtil::copy_of_sub_array(data, offset as usize, (offset + length) as usize);
-    let right = ArrayUtil::copy_of_sub_array(
-      &restored,
-      restore_offset as usize,
-      (restore_offset + length) as usize,
-    );
+    let left = ArrayUtil::copy_of_sub_array(data, offset, offset + length);
+    let right = ArrayUtil::copy_of_sub_array(&restored, restore_offset, restore_offset + length);
     assert_eq!(left, right);
 
     Ok(())
@@ -165,18 +155,19 @@ pub(crate) trait LZ4TestCase {
     R: Rng + ?Sized,
   {
     let mut copy = ByteBuffersDataOutput::new();
-    let dict_off = TestUtil::next_int(random, 0, 10);
-    copy.write_bytes(&vec![0u8; dict_off as usize])?;
+    let dict_off = TestUtil::next_usize(random, 0, 10);
+    copy.write_bytes(&vec![0u8; dict_off])?;
 
     // Create a dictionary from substrings of the input to compress
+    let max_distance = LZ4::MAX_DISTANCE as usize;
     let mut dict_len = 0;
     let mut i = TestUtil::next_usize(random, 0, data.len());
-    while i < data.len() && dict_len < LZ4::MAX_DISTANCE {
+    while i < data.len() && dict_len < max_distance {
       let l = std::cmp::min(data.len() - i, TestUtil::next_usize(random, 1, 32));
-      let l = std::cmp::min(l, (LZ4::MAX_DISTANCE - dict_len) as usize);
+      let l = std::cmp::min(l, max_distance - dict_len);
       assert!(l <= i32::MAX as usize);
       copy.write_bytes_range(data, i, l)?;
-      dict_len += l as i32;
+      dict_len += l;
       i += l;
       i += TestUtil::next_usize(random, 1, 32);
     }
@@ -192,7 +183,7 @@ pub(crate) trait LZ4TestCase {
       copy_bytes.as_slice(),
       dict_off,
       dict_len,
-      data_length as i32,
+      data_length,
       hash_table,
     )
   }
@@ -200,20 +191,23 @@ pub(crate) trait LZ4TestCase {
   fn do_test_with_dictionary_inner<R>(
     random: &mut R,
     data: &[u8],
-    dict_off: i32,
-    dict_len: i32,
-    length: i32,
+    dict_off: usize,
+    dict_len: usize,
+    length: usize,
     hash_table: &mut AssertingHashTable,
   ) -> Result<()>
   where
     R: Rng + ?Sized,
   {
+    let dict_off_i32 = dict_off as i32;
+    let dict_len_i32 = dict_len as i32;
+    let length_i32 = length as i32;
     let mut out = ByteBuffersDataOutput::new();
     LZ4::compress_with_dictionary(
       data,
-      dict_off,
-      dict_len,
-      length,
+      dict_off_i32,
+      dict_len_i32,
+      length_i32,
       &mut out,
       &mut hash_table.ht,
     )?;
@@ -223,35 +217,33 @@ pub(crate) trait LZ4TestCase {
     let mut out2 = ByteBuffersDataOutput::new();
     LZ4::compress_with_dictionary(
       data,
-      dict_off,
-      dict_len,
-      length,
+      dict_off_i32,
+      dict_len_i32,
+      length_i32,
       &mut out2,
       &mut hash_table.ht,
     )?;
     assert_eq!(compressed, out2.try_get_array_ownership());
 
     // Now restore and compare bytes
-    let restore_offset = TestUtil::next_int(random, 1, 10);
-    let mut restored =
-      vec![0; (restore_offset + dict_len + length + random.random_range(0..10)) as usize];
-    restored.copy_from(
-      &data[dict_off as usize..(dict_off + dict_len) as usize],
-      restore_offset as usize,
-    );
+    let restore_offset = TestUtil::next_usize(random, 1, 10);
+    let mut restored = vec![0; restore_offset + dict_len + length + random.random_range(0..10)];
+    restored.copy_from(&data[dict_off..dict_off + dict_len], restore_offset);
 
     let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
-    LZ4::decompress(&mut input, length, &mut restored, dict_len + restore_offset)?;
+    LZ4::decompress(
+      &mut input,
+      length_i32,
+      &mut restored,
+      (dict_len + restore_offset) as i32,
+    )?;
 
-    let left = ArrayUtil::copy_of_sub_array(
-      data,
-      (dict_off + dict_len) as usize,
-      (dict_off + dict_len + length) as usize,
-    );
+    let left =
+      ArrayUtil::copy_of_sub_array(data, dict_off + dict_len, dict_off + dict_len + length);
     let right = ArrayUtil::copy_of_sub_array(
       &restored,
-      (dict_len + restore_offset) as usize,
-      (dict_len + restore_offset + length) as usize,
+      dict_len + restore_offset,
+      dict_len + restore_offset + length,
     );
     assert_eq!(left, right);
 
@@ -370,7 +362,7 @@ pub(crate) trait LZ4TestCase {
       5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 72, 13, 72,
       13, 85, 5, 72, 13, 85, 5, 72, 13, 72, 13, 85, 5, 72, 13, 85, 5, 72, 13, -19, -24, -101, -35,
     ];
-    let len = data.len() as i32;
+    let len = data.len();
     let data_u8: Vec<u8> = data.iter().map(|&x| x as u8).collect();
     Self::do_test_with_offset(
       random,
@@ -388,30 +380,30 @@ pub(crate) trait LZ4TestCase {
     let b: Vec<i8> = vec![1, 2, 3, 4, 5, 6, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     let dict_off = 0;
     let dict_len = 6;
-    let len = (b.len() - dict_len) as i32;
+    let len = b.len() - dict_len;
     let byte: Vec<u8> = b.iter().map(|&x| x as u8).collect();
 
     Self::do_test_with_dictionary_inner(
       random,
       byte.as_slice(),
       dict_off,
-      dict_len as i32,
+      dict_len,
       len,
       &mut self.new_hash_table(),
     )?;
     let mut out = ByteBuffersDataOutput::new();
     LZ4::compress_with_dictionary(
       byte.as_slice(),
-      dict_off,
+      dict_off as i32,
       dict_len as i32,
-      len,
+      len as i32,
       &mut out,
       &mut self.new_hash_table().ht,
     )?;
 
     // The compressed output is smaller than the original input despite
     // being incompressible on its own
-    assert!(out.size() < len as usize);
+    assert!(out.size() < len);
     Ok(())
   }
 }

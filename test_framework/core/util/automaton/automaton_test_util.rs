@@ -557,8 +557,8 @@ impl<'a> RandomAcceptedStrings<'a> {
     // reverse map the transitions, so we can quickly look
     // up all arriving transitions to a given state
     let num_states = a.get_num_states();
-    for s in 0..num_states {
-      for t in &transitions[s as usize] {
+    for (s, state_transitions) in (0..num_states).zip(&transitions) {
+      for t in state_transitions {
         let tl = all_arriving.get_mut(&t.dest);
         match tl {
           Some(v) => v.push(ArrivingTransition {

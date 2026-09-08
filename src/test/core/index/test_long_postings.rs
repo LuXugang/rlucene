@@ -39,7 +39,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, create_temp_dir_with_prefix, new_field, new_fs_directory,
+  at_least, at_least_usize, create_temp_dir_with_prefix, new_field, new_fs_directory,
   new_index_writer_config_with_analyzer, new_log_merge_policy, new_text_field, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -101,15 +101,15 @@ fn test_long_postings() -> Result<()> {
     create_temp_dir_with_prefix(format!("longpostings.{dir_suffix}"))?,
   )?;
 
-  let num_docs = at_least(&mut random, 1000);
+  let num_docs = at_least_usize(&mut random, 1000);
 
   let s1 = get_random_term(&mut random, None)?;
   let s2 = get_random_term(&mut random, Some(&s1))?;
 
-  let mut is_s1 = FixedBitSet::new(num_docs as usize);
+  let mut is_s1 = FixedBitSet::new(num_docs);
   for idx in 0..num_docs {
     if random.random_bool(0.5) {
-      is_s1.set(idx as usize)?;
+      is_s1.set(idx)?;
     }
   }
 
@@ -124,7 +124,7 @@ fn test_long_postings() -> Result<()> {
 
   for idx in 0..num_docs {
     let mut doc = Document::new();
-    let s = if is_s1.get(idx as usize)? { &s1 } else { &s2 };
+    let s = if is_s1.get(idx)? { &s1 } else { &s2 };
     let f = new_text_field(&mut random, "field", s, No, &mut field_types)?;
     let count = TestUtil::next_int(&mut random, 1, 4);
     for _ in 0..count {
@@ -136,6 +136,7 @@ fn test_long_postings() -> Result<()> {
   let r = riw.get_reader(&mut random)?;
   riw.close(&mut random)?;
 
+  let num_docs = num_docs as i32;
   assert_eq!(num_docs, r.num_docs()?);
   assert!(r.doc_freq(&Term::from_text("field", &s1))? > 0);
   assert!(r.doc_freq(&Term::from_text("field", &s2))? > 0);
@@ -247,15 +248,15 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
     create_temp_dir_with_prefix(format!("longpostings.{dir_suffix}"))?,
   )?;
 
-  let num_docs = at_least(&mut random, 1000);
+  let num_docs = at_least_usize(&mut random, 1000);
 
   let s1 = get_random_term(&mut random, None)?;
   let s2 = get_random_term(&mut random, Some(&s1))?;
 
-  let mut is_s1 = FixedBitSet::new(num_docs as usize);
+  let mut is_s1 = FixedBitSet::new(num_docs);
   for idx in 0..num_docs {
     if random.random_bool(0.5) {
-      is_s1.set(idx as usize)?;
+      is_s1.set(idx)?;
     }
   }
 
@@ -272,7 +273,7 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
   let mut field_types = HashMap::new();
   for idx in 0..num_docs {
     let mut doc = Document::new();
-    let s = if is_s1.get(idx as usize)? { &s1 } else { &s2 };
+    let s = if is_s1.get(idx)? { &s1 } else { &s2 };
     let f = new_field(&mut random, "field", s.as_str(), &ft, &mut field_types)?;
     let count = TestUtil::next_int(&mut random, 1, 4);
     for _ in 0..count {
@@ -284,6 +285,7 @@ fn do_test_long_postings_no_positions(options: IndexOptions) -> Result<()> {
   let r = riw.get_reader(&mut random)?;
   riw.close(&mut random)?;
 
+  let num_docs = num_docs as i32;
   assert_eq!(num_docs, r.num_docs()?);
   assert!(r.doc_freq(&Term::from_text("field", &s1))? > 0);
   assert!(r.doc_freq(&Term::from_text("field", &s2))? > 0);

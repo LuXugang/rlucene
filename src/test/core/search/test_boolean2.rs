@@ -71,7 +71,7 @@ pub struct TestBoolean2Context {
   pub searcher: DefaultIndexSearchCR,
   pub single_segment_searcher: DefaultIndexSearchCR,
   pub big_searcher: DefaultIndexSearchCR,
-  pub mul_factor: i32,
+  pub mul_factor: usize,
   pub pre_filler_docs: usize,
   pub num_filler_docs: usize,
 }
@@ -299,7 +299,7 @@ where
   CheckHits::check_hits_query(&query, &hits1, &hits2, &exp_doc_nrs)?;
 
   assert_eq!(
-    ctx.mul_factor as usize * top_docs.total_hits.value(),
+    ctx.mul_factor * top_docs.total_hits.value(),
     ctx.big_searcher.count(query.clone())? as usize
   );
 
@@ -508,7 +508,7 @@ fn test_random_queries() -> Result<()> {
         PrefixQuery::new(Term::from_text("field2", "b"))?,
         Occur::Should,
       )?;
-      let mul_factor = ctx.mul_factor as usize;
+      let mul_factor = ctx.mul_factor;
       assert_eq!(
         mul_factor * top_docs.base.total_hits.value() + NUM_EXTRA_DOCS / 2,
         ctx.big_searcher.count(q3.build())? as usize

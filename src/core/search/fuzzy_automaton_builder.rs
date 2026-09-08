@@ -23,7 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// allow transpositions.
 pub(crate) struct FuzzyAutomatonBuilder {
   term: String,
-  max_edits: i32,
+  max_edits: usize,
   lev_builder: LevenshteinAutomata,
   prefix: String,
   term_length: usize,
@@ -60,7 +60,7 @@ impl FuzzyAutomatonBuilder {
 
     Ok(Self {
       term,
-      max_edits,
+      max_edits: max_edits as usize,
       lev_builder,
       prefix,
       term_length,
@@ -68,16 +68,15 @@ impl FuzzyAutomatonBuilder {
   }
 
   pub(crate) fn build_automaton_set(&self) -> Result<Vec<CompiledAutomaton>> {
-    let max_edits = self.max_edits as usize;
-    let mut compiled = Vec::with_capacity(max_edits + 1);
-    for edits in 0..=max_edits {
+    let mut compiled = Vec::with_capacity(self.max_edits + 1);
+    for edits in 0..=self.max_edits {
       compiled.push(self.compile(edits)?);
     }
     Ok(compiled)
   }
 
   pub(crate) fn build_max_edit_automaton(&self) -> Result<CompiledAutomaton> {
-    self.compile(self.max_edits as usize)
+    self.compile(self.max_edits)
   }
 
   pub(crate) fn get_term_length(&self) -> usize {

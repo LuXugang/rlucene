@@ -128,10 +128,11 @@ impl TermVectorsConsumerPerField {
         let mut off_reader = ByteSliceReader::new(byte_pool);
         let mut pos_reader = ByteSliceReader::new(byte_pool);
         for &term_id in &term_ids[..num_postings] {
-          let freq = postings.freqs[term_id as usize];
+          let term_id = term_id as usize;
+          let freq = postings.freqs[term_id];
           self.term_byte_pool.fill_bytes_ref(
             &mut flush_term,
-            postings.parent.text_starts[term_id as usize],
+            postings.parent.text_starts[term_id],
             byte_pool,
           )?;
 
@@ -191,6 +192,7 @@ impl TermVectorsConsumerPerField {
       .bytes_hash
       .add_by_pool_offset(text_start, byte_pool)?;
     if term_id >= 0 {
+      let term_id = term_id as usize;
       // First time we are seeing this token since we last
       // flushed the hash.
       self
@@ -437,7 +439,7 @@ impl TermVectorsConsumerPerField {
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
   fn new_term<AS>(
     &mut self,
-    term_id: i32,
+    term_id: usize,
     _doc_id: i32,
     field_state: &mut FieldInvertState,
     attribute_source: &AS,
@@ -447,7 +449,6 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
   where
     AS: AttributeSource,
   {
-    let term_id = term_id as usize;
     let freq = self.get_term_freq(attribute_source)?;
     let postings_enum = self
       .base
@@ -467,7 +468,7 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
 
   fn add_term<AS>(
     &mut self,
-    term_id: i32,
+    term_id: usize,
     _doc_id: i32,
     state: &mut FieldInvertState,
     attribute_source: &AS,
@@ -477,7 +478,6 @@ impl TermsHashPerFieldBase for TermVectorsConsumerPerField {
   where
     AS: AttributeSource,
   {
-    let term_id = term_id as usize;
     let freq = self.get_term_freq(attribute_source)?;
     let postings_enum = self
       .base

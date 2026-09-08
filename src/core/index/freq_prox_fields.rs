@@ -526,11 +526,12 @@ impl FreqProxDocsEnum {
     }
   }
   pub fn reset(&mut self, term_id: i32) -> Result<()> {
-    self.term_id = (term_id != -1).then_some(term_id as usize);
+    let term_index = term_id as usize;
+    self.term_id = (term_id != -1).then_some(term_index);
     self
       .terms
       .base
-      .init_reader(&mut self.reader, term_id, 0, &self.int_pool)?;
+      .init_reader(&mut self.reader, term_index, 0, &self.int_pool)?;
     self.ended = false;
     self.doc_id = -1;
     Ok(())
@@ -678,15 +679,16 @@ impl FreqProxPostingsEnum {
     }
   }
   pub fn reset(&mut self, term_id: i32) -> Result<()> {
-    self.term_id = term_id as usize;
+    let term_index = term_id as usize;
+    self.term_id = term_index;
     self
       .terms
       .base
-      .init_reader(&mut self.reader, term_id, 0, &self.int_pool)?;
+      .init_reader(&mut self.reader, term_index, 0, &self.int_pool)?;
     self
       .terms
       .base
-      .init_reader(&mut self.pos_reader, term_id, 1, &self.int_pool)?;
+      .init_reader(&mut self.pos_reader, term_index, 1, &self.int_pool)?;
     self.ended = false;
     self.doc_id = -1;
     self.pos_left = 0;

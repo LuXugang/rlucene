@@ -188,10 +188,11 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
     let mut bytes_left = total_bytes;
     let mut allowed_seg_count = 0.0_f64;
 
+    let target_search_concurrency = tmp.get_target_search_concurrency() as usize;
     let mut biggest_segments = &segment_sizes[..];
-    if biggest_segments.len() as i32 > tmp.get_target_search_concurrency() - 1 {
-      biggest_segments = &biggest_segments
-        [(biggest_segments.len() as i32 - tmp.get_target_search_concurrency() + 1) as usize..];
+    if biggest_segments.len() > target_search_concurrency - 1 {
+      biggest_segments =
+        &biggest_segments[biggest_segments.len() - target_search_concurrency + 1..];
     }
 
     for size in biggest_segments {
@@ -231,10 +232,7 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
       allowed_seg_count,
       too_big_count as f64 + tmp.get_segments_per_tier(),
     );
-    allowed_seg_count = CoreHelper::max_f64(
-      allowed_seg_count,
-      tmp.get_target_search_concurrency() as f64,
-    );
+    allowed_seg_count = CoreHelper::max_f64(allowed_seg_count, target_search_concurrency as f64);
 
     let max_docs_per_segment = tmp.get_max_allowed_docs(infos.total_max_doc()?, total_del_count);
     let mut has_legal_merges = false;
@@ -269,7 +267,7 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
       total_bytes,
       del_percentage,
       tmp.get_deletes_pct_allowed(),
-      tmp.get_target_search_concurrency(),
+      target_search_concurrency,
     );
 
     Ok(())

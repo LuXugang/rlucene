@@ -175,7 +175,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     let mut accumulators: Vec<SkipAccumulator> = Vec::new();
     let max_accumulators = 1
       << (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT
-        * (Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL as i32 - 1));
+        * (Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL - 1));
     let mut accumulator: Option<SkipAccumulator> = None;
     let mut doc = values.next_doc()?;
     while doc != NO_MORE_DOCS {
@@ -261,8 +261,8 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       self.data.write_byte(levels as u8)?;
       // write intervals in reverse order. This is done so we don't
       // need to read all of them in case of slipping
-      for level in (0..levels as usize).rev() {
-        let idx = index >> (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT as usize * level);
+      for level in (0..levels).rev() {
+        let idx = index >> (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT * level);
         let acc = &accumulators_levels[level][idx as usize];
         self.data.write_int(acc.max_doc_id)?;
         self.data.write_int(acc.min_doc_id)?;
@@ -287,10 +287,10 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     collector
   }
 
-  fn get_levels(index: i32, size: i32) -> i32 {
+  fn get_levels(index: i32, size: i32) -> usize {
     if index.trailing_zeros() >= Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT as u32 {
       let left = size - index;
-      for level in (1..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL as i32).rev() {
+      for level in (1..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL).rev() {
         let intervals = 1 << (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT * level);
         if left >= intervals && index % intervals == 0 {
           return level + 1;

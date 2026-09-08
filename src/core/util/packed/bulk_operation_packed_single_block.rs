@@ -23,15 +23,15 @@ const BLOCK_COUNT: usize = 1;
 /// `PackedInts.Format::PACKED_SINGLE_BLOCK`.
 #[derive(Default)]
 pub(crate) struct BulkOperationPackedSingleBlock {
-  bits_per_value: i32,
+  bits_per_value: usize,
   value_count: usize,
   mask: u64,
 }
 impl BulkOperationPackedSingleBlock {
-  pub const fn new(bits_per_value: i32) -> Self {
+  pub const fn new(bits_per_value: usize) -> Self {
     Self {
       bits_per_value,
-      value_count: (64 / bits_per_value) as usize,
+      value_count: 64 / bits_per_value,
       mask: (1u64 << bits_per_value) - 1,
     }
   }
@@ -74,7 +74,7 @@ impl BulkOperationPackedSingleBlock {
     let mut block = values[values_offset] as u64;
     values_offset += 1;
     for j in 1..self.value_count {
-      block |= (values[values_offset] as u64) << (j as i32 * self.bits_per_value);
+      block |= (values[values_offset] as u64) << (j * self.bits_per_value);
       values_offset += 1;
     }
     block
@@ -85,7 +85,7 @@ impl BulkOperationPackedSingleBlock {
     let mut block = (values[values_offset] as u64) & 0xFFFFFFFF;
     values_offset += 1;
     for j in 1..self.value_count {
-      block |= ((values[values_offset] as u64) & 0xFFFFFFFF) << (j as i32 * self.bits_per_value);
+      block |= ((values[values_offset] as u64) & 0xFFFFFFFF) << (j * self.bits_per_value);
       values_offset += 1;
     }
     block

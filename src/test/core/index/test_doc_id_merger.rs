@@ -70,11 +70,11 @@ impl SubBase for TestSubUnsorted {
   }
 }
 pub struct DocMapMock1 {
-  doc_base: usize,
+  doc_base: i32,
 }
 impl DocMap for DocMapMock1 {
   fn get(&self, doc_id: i32) -> Result<i32> {
-    Ok(self.doc_base as i32 + doc_id)
+    Ok(self.doc_base + doc_id)
   }
 }
 
@@ -88,9 +88,7 @@ fn test_no_sort() -> Result<()> {
   for _ in 0..sub_count {
     let max_doc = TestUtil::next_int(&mut random, 1, 1000);
     let doc_base = value_start;
-    let doc_map = Rc::new(DocMapMock1 {
-      doc_base: doc_base as usize,
-    });
+    let doc_map = Rc::new(DocMapMock1 { doc_base });
     let sub = Sub::new(TestSubUnsorted::new(doc_map.clone(), max_doc, value_start));
     subs.push(sub);
     value_start += max_doc;

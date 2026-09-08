@@ -667,7 +667,7 @@ fn test_zero_pos_incr_sloppy_parsed_and() -> Result<()> {
 
   Ok(())
 }
-fn do_test_zero_pos_incr_sloppy<T>(query: T, n_expected: i32) -> Result<()>
+fn do_test_zero_pos_incr_sloppy<T>(query: T, n_expected: usize) -> Result<()>
 where
   T: Into<Query>,
 {
@@ -688,7 +688,7 @@ where
   let searcher = new_searcher_with_reader(reader)?;
 
   let hits = searcher.search(query, 1)?;
-  assert_eq!(n_expected as usize, hits.total_hits.value());
+  assert_eq!(n_expected, hits.total_hits.value());
 
   Ok(())
 }
