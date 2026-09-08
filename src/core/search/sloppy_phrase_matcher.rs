@@ -183,14 +183,12 @@ where
     let Some(g) = self.pq.compare.phrase_positions[pp_idx].rpt_group else {
       return Ok(true); // not a repeater
     };
-    let rg = &self.rpt_groups[g].clone();
-
     // for re-queuing after collisions are resolved
-    let mut bits = FixedBitSet::new(rg.len());
+    let mut bits = FixedBitSet::new(self.rpt_groups[g].len());
 
     let k0 = self.pq.compare.phrase_positions[pp_idx].rpt_ind;
     while let Some(k) = self.collide(pp_idx)? {
-      pp_idx = self.lesser(pp_idx, rg[k]); // always advance the lesser of the (only) two colliding pps
+      pp_idx = self.lesser(pp_idx, self.rpt_groups[g][k]); // always advance the lesser of the (only) two colliding pps
 
       if !self.advance_pp(pp_idx)? {
         return Ok(false); // exhausted

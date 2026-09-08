@@ -1629,24 +1629,26 @@ impl Impacts for ImpactsImpl<'_> {
           .level0_serialized_impacts
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("level 0 impacts are missing"))?;
-        let level0_impacts = ImpactsImpl::read_impacts(
+        let mut level0_impacts = ImpactsImpl::read_impacts(
           level0_serialized_impacts_bytes_ref.bytes.as_ref(),
           level0_serialized_impacts_bytes_ref.length,
           self.max_num_impacts_at_level0,
         )?;
-        return Ok(level0_impacts.impacts[..level0_impacts.length].to_vec());
+        level0_impacts.impacts.truncate(level0_impacts.length);
+        return Ok(level0_impacts.impacts);
       }
       if level == 1 {
         let level1_serialized_impacts_bytes_ref = self
           .level1_serialized_impacts
           .as_ref()
           .ok_or_else(|| LuceneError::illegal_state("level 1 impacts are missing"))?;
-        let level1_impacts = ImpactsImpl::read_impacts(
+        let mut level1_impacts = ImpactsImpl::read_impacts(
           level1_serialized_impacts_bytes_ref.bytes.as_ref(),
           level1_serialized_impacts_bytes_ref.length,
           self.max_num_impacts_at_level1,
         )?;
-        return Ok(level1_impacts.impacts[..level1_impacts.length].to_vec());
+        level1_impacts.impacts.truncate(level1_impacts.length);
+        return Ok(level1_impacts.impacts);
       }
     }
     Ok(vec![Impact::new(i32::MAX, 1)])

@@ -179,8 +179,7 @@ impl<D> SegmentInfo<D> {
     &self.dir
   }
 
-  /// Sets the diagnostics map. The given map is cloned to ensure
-  /// immutability.
+  /// Sets the diagnostics map by taking ownership of the given map.
   pub(crate) fn set_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
     self.diagnostics = diagnostics;
   }
@@ -194,9 +193,7 @@ impl<D> SegmentInfo<D> {
   /// # Arguments
   /// * `diagnostics` - The additional diagnostics to be added or modified.
   pub fn add_diagnostics(&mut self, diagnostics: HashMap<String, String>) {
-    let mut copy = self.diagnostics.clone();
-    copy.extend(diagnostics);
-    self.set_diagnostics(copy);
+    self.diagnostics.extend(diagnostics);
   }
 
   /// Can only be called once.

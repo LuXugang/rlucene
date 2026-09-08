@@ -121,7 +121,7 @@ impl TypeAttribute for PackedTokenAttributeImpl {
   }
   /// Set the lexical type.
   fn set_type(&mut self, type_: &str) {
-    self.type_ = type_.to_string();
+    type_.clone_into(&mut self.type_);
   }
 }
 impl PositionIncrementAttribute for PackedTokenAttributeImpl {
@@ -224,7 +224,7 @@ impl AttributeImpl for PackedTokenAttributeImpl {
     self.term_frequency = 1;
     self.start_offset = 0;
     self.end_offset = 0;
-    self.type_ = DEFAULT_TYPE.to_string();
+    DEFAULT_TYPE.clone_into(&mut self.type_);
     #[cfg(test)]
     self.check_clear_attributes.clear();
     #[cfg(test)]
@@ -243,7 +243,7 @@ impl AttributeImpl for PackedTokenAttributeImpl {
     to.position_length = self.position_length;
     to.start_offset = self.start_offset;
     to.end_offset = self.end_offset;
-    to.type_ = self.type_.clone();
+    to.type_.clone_from(&self.type_);
     to.term_frequency = self.term_frequency;
     #[cfg(test)]
     self.token.copy_to(&mut to.token)?;

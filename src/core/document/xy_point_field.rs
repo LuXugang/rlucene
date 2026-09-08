@@ -98,18 +98,21 @@ impl XYPointField {
   /// - `x`: x value.
   /// - `y`: y value.
   pub fn set_location_value(&mut self, x: f32, y: f32) -> Result<()> {
-    let mut bytes = match self.parent_field.fields_data {
-      FieldDataEnum::Binary(ref bytes) => bytes.bytes.clone(),
-      _ => vec![0u8; 2 * BitUtil::INT_BYTES],
-    };
-
     let x_encoded = XYEncodingUtils::encode(x)?;
     let y_encoded = XYEncodingUtils::encode(y)?;
 
-    NumericUtils::int_to_sortable_bytes(x_encoded, &mut bytes, 0);
-    NumericUtils::int_to_sortable_bytes(y_encoded, &mut bytes, BitUtil::INT_BYTES);
+    let mut encoded = [0u8; 2 * BitUtil::INT_BYTES];
+    NumericUtils::int_to_sortable_bytes(x_encoded, &mut encoded, 0);
+    NumericUtils::int_to_sortable_bytes(y_encoded, &mut encoded, BitUtil::INT_BYTES);
 
-    self.parent_field.fields_data = BytesRef::from_bytes(bytes).into();
+    match &mut self.parent_field.fields_data {
+      FieldDataEnum::Binary(bytes) => {
+        bytes.bytes[..encoded.len()].copy_from_slice(&encoded);
+        bytes.offset = 0;
+        bytes.length = bytes.bytes.len();
+      },
+      _ => self.parent_field.fields_data = BytesRef::from_bytes(encoded.to_vec()).into(),
+    }
     Ok(())
   }
 

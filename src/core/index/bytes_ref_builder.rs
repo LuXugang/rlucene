@@ -200,8 +200,8 @@ where
     AV: WritableVec<u8>,
   {
     CoreHelper::check_from_index_size(off, len, s.len())?;
-    let sub_bytes = s.as_bytes()[off..off + len].to_vec();
-    self.copy_chars_from_vec(&sub_bytes, 0, sub_bytes.len())
+    let sub_bytes = &s.as_bytes()[off..off + len];
+    self.copy_chars_from_vec(sub_bytes, 0, sub_bytes.len())
   }
   pub fn copy_chars_from_vec(&mut self, s: &[u8], off: usize, len: usize) -> Result<()>
   where
@@ -222,17 +222,17 @@ where
   where
     AV: WritableVec<u8>,
   {
-    let mut bytes = Vec::with_capacity(len);
     CoreHelper::check_from_index_size(off, len, s.len())?;
     let source = &s[off..off + len];
-    for &c in source {
-      let mut buf = [0u8; 4];
-      let encoded_str = c.encode_utf8(&mut buf);
-      bytes.extend_from_slice(encoded_str.as_bytes());
-    }
-
-    self.bytes_ref.length = bytes.len();
-    self.bytes_ref.bytes = AV::from_vec(bytes);
+    self.bytes_ref.length = self.bytes_ref.bytes.access_mut(|bytes| {
+      bytes.clear();
+      for &c in source {
+        let mut buf = [0u8; 4];
+        let encoded_str = c.encode_utf8(&mut buf);
+        bytes.extend_from_slice(encoded_str.as_bytes());
+      }
+      bytes.len()
+    });
     self.bytes_ref.offset = 0;
     Ok(())
   }

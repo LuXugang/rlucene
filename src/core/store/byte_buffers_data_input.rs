@@ -123,8 +123,23 @@ impl<B: ByteBuffersDataInputBlock> ByteBuffersDataInput<B> {
     C: Fn(&[u8]) -> T,
   {
     let mut bytes_read = len * type_size;
-    // TODO: use This bytes would made additional data copy
-    // TODO: we should convert directly from block
+    if type_size > 1
+      && bytes_read > 0
+      && let Some(block) = self.blocks.get(self.block_index(pos))
+      && pos + bytes_read <= self.length + self.offset
+      && let Some(bytes) = block
+        .get_ref()
+        .as_slice()
+        .get(self.block_offset(pos)..)
+        .and_then(|bytes| bytes.get(..bytes_read))
+    {
+      output
+        .iter_mut()
+        .zip(bytes.chunks_exact(type_size).map(converter))
+        .for_each(|(out, value)| *out = value);
+      return Ok(());
+    }
+    // Gather cross-block reads before decoding so an EOF leaves the output unchanged.
     let mut bytes = vec![0; bytes_read];
     let mut bytes_offset = 0;
     while bytes_read > 0 {

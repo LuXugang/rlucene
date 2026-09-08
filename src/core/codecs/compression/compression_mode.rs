@@ -346,11 +346,13 @@ impl Decompressor for DecompressorEnum {
 
 pub struct LZ4FastCompressor {
   ht: HashTableEnum,
+  bytes: Vec<u8>,
 }
 impl LZ4FastCompressor {
   fn new() -> Self {
     LZ4FastCompressor {
       ht: HashTableEnum::Fast(FastCompressionHashTable::new()),
+      bytes: Vec::new(),
     }
   }
 }
@@ -365,9 +367,9 @@ impl Compressor for LZ4FastCompressor {
     DO: DataOutput,
   {
     let len = buffers_input.length();
-    let mut bytes = vec![0u8; len];
-    DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-    LZ4::compress(bytes.as_slice(), 0, len as i32, out, &mut self.ht)?;
+    self.bytes.resize(len, 0);
+    DataInput::read_bytes(buffers_input, &mut self.bytes, 0, len)?;
+    LZ4::compress(&self.bytes, 0, len as i32, out, &mut self.ht)?;
     Ok(())
   }
 }
@@ -376,11 +378,13 @@ impl Closeable for LZ4FastCompressor {}
 
 pub struct LZ4HighCompressor {
   ht: HashTableEnum,
+  bytes: Vec<u8>,
 }
 impl LZ4HighCompressor {
   fn new(ht: HighCompressionHashTable) -> Self {
     LZ4HighCompressor {
       ht: HashTableEnum::High(ht),
+      bytes: Vec::new(),
     }
   }
 }
@@ -395,9 +399,9 @@ impl Compressor for LZ4HighCompressor {
     DO: DataOutput,
   {
     let len = buffers_input.length();
-    let mut bytes = vec![0u8; len];
-    DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
-    LZ4::compress(bytes.as_slice(), 0, len as i32, out, &mut self.ht)?;
+    self.bytes.resize(len, 0);
+    DataInput::read_bytes(buffers_input, &mut self.bytes, 0, len)?;
+    LZ4::compress(&self.bytes, 0, len as i32, out, &mut self.ht)?;
     Ok(())
   }
 }
@@ -480,6 +484,7 @@ impl Decompressor for DeflateDecompressor {
 pub struct DeflateCompressor {
   level: u32,
   compressed: Vec<u8>,
+  bytes: Vec<u8>,
 }
 
 impl DeflateCompressor {
@@ -487,6 +492,7 @@ impl DeflateCompressor {
     DeflateCompressor {
       level,
       compressed: Vec::with_capacity(64),
+      bytes: Vec::new(),
     }
   }
 }
@@ -501,8 +507,8 @@ impl Compressor for DeflateCompressor {
     DO: DataOutput,
   {
     let len = buffers_input.length();
-    let mut bytes = vec![0; len];
-    DataInput::read_bytes(buffers_input, bytes.as_mut_slice(), 0, len)?;
+    self.bytes.resize(len, 0);
+    DataInput::read_bytes(buffers_input, &mut self.bytes, 0, len)?;
     if len == 0 {
       out.write_vint(0)?;
       return Ok(());
@@ -510,7 +516,7 @@ impl Compressor for DeflateCompressor {
     self.compressed.clear();
     let compressed = std::mem::take(&mut self.compressed);
     let mut compressor = DeflateEncoder::new(compressed, Compression::new(self.level));
-    compressor.write_all(&bytes)?;
+    compressor.write_all(&self.bytes)?;
     self.compressed = compressor.finish()?;
     debug_assert!(self.compressed.len() <= i32::MAX as usize);
     out.write_vint(self.compressed.len() as i32)?;

@@ -2307,13 +2307,13 @@ where
     )?;
 
     self.bkd_writer.scratch_bytes_ref1.length = self.bkd_writer.config.packed_index_bytes_length();
-    self.bkd_writer.scratch_bytes_ref1.bytes = self.leaf_values.clone();
+    self.bkd_writer.scratch_bytes_ref1.bytes = Vec::new();
 
     let length = self.bkd_writer.scratch_bytes_ref1.length;
     let packed_bytes_length = self.bkd_writer.config.packed_bytes_length();
 
     let mut packed_values = PackedValuesImpl1 {
-      scratch_bytes_ref_byte: std::mem::take(&mut self.bkd_writer.scratch_bytes_ref1.bytes),
+      scratch_bytes_ref_byte: &self.leaf_values,
       packed_bytes_length,
       length,
     };
@@ -2812,15 +2812,15 @@ where
 trait PackedValues {
   fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)>;
 }
-struct PackedValuesImpl1 {
-  scratch_bytes_ref_byte: Vec<u8>,
+struct PackedValuesImpl1<'a> {
+  scratch_bytes_ref_byte: &'a [u8],
   packed_bytes_length: usize,
   length: usize,
 }
-impl PackedValues for PackedValuesImpl1 {
+impl PackedValues for PackedValuesImpl1<'_> {
   fn get_value(&mut self, i: usize) -> Result<(&[u8], usize, usize)> {
     Ok((
-      &self.scratch_bytes_ref_byte,
+      self.scratch_bytes_ref_byte,
       self.packed_bytes_length * i,
       self.length,
     ))

@@ -23,6 +23,7 @@ use crate::core::util::packed::PackedInts;
 /// Utility struct to encode sequences of 128 small positive integers.
 pub(crate) struct PForUtil {
   for_util: ForUtil,
+  top: Option<LongHeap>,
 }
 impl PForUtil {
   pub(crate) const MAX_EXCEPTIONS: usize = 7;
@@ -30,6 +31,7 @@ impl PForUtil {
   pub(crate) fn new() -> Self {
     Self {
       for_util: ForUtil::new(),
+      top: None,
     }
   }
 
@@ -41,7 +43,12 @@ impl PForUtil {
   where
     O: DataOutput,
   {
-    let mut top = LongHeap::new(Self::MAX_EXCEPTIONS + 1)?;
+    let top = match &mut self.top {
+      Some(top) => top,
+      slot => slot.insert(LongHeap::new(Self::MAX_EXCEPTIONS + 1)?),
+    };
+    // Also reset after an earlier encode returned an error.
+    top.clear();
     for &v in &ints[..=Self::MAX_EXCEPTIONS] {
       top.push(v as i64)?;
     }
@@ -72,7 +79,7 @@ impl PForUtil {
       }
     }
 
-    let mut exceptions = vec![0u8; num_exceptions * 2];
+    let mut exceptions = [0u8; Self::MAX_EXCEPTIONS * 2];
     if num_exceptions > 0 {
       let mut exception_count = 0;
       for (i, v) in ints.iter_mut().enumerate().take(ForUtil::BLOCK_SIZE) {
@@ -98,7 +105,7 @@ impl PForUtil {
       self.for_util.encode(ints, patched_bits_required, out)?;
     }
 
-    let len = exceptions.len();
+    let len = num_exceptions * 2;
     debug_assert!(len <= i32::MAX as usize);
     out.write_bytes_with_len(&exceptions, len)?;
     Ok(())

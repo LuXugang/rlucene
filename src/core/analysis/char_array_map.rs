@@ -89,7 +89,7 @@ impl<T> CharArrayMap<T> {
     }
   }
   pub fn contains_key_str(&self, key: &str) -> bool {
-    let chars: Vec<char> = key.to_string().chars().collect();
+    let chars: Vec<char> = key.chars().collect();
     debug_assert!(chars.len() <= i32::MAX as usize);
     self.contains_key(chars.as_slice(), 0, chars.len())
   }

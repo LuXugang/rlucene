@@ -137,7 +137,6 @@ where
     // caller may not have fully consumed the queue:
     self.queue.clear();
     self.current = None;
-    let mut to_add = Vec::new();
     if !self.queue.compare.subs.is_empty() {
       // by setting mappedDocID = -1, this entry is guaranteed to be
       // the top of the queue so the first call to
@@ -147,16 +146,15 @@ where
 
       let mut i = 1;
       while i < self.queue.compare.subs.len() {
-        let next_mapped_doc = self.queue.compare.subs[i].next_mapped_doc()?;
-        if next_mapped_doc != NO_MORE_DOCS {
-          to_add.push(i);
-        } // else all docs in this sub were deleted; do not add it to the
-        // queue!
+        self.queue.compare.subs[i].next_mapped_doc()?;
         i += 1;
       }
     }
-    for i in to_add {
-      self.queue.add(i)?;
+    // Keep the queue empty until every sub has advanced successfully.
+    for i in 1..self.queue.compare.subs.len() {
+      if self.queue.compare.subs[i].mapped_doc_id != NO_MORE_DOCS {
+        self.queue.add(i)?;
+      }
     }
 
     self.set_queue_min_doc_id()?;

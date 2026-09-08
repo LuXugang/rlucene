@@ -153,8 +153,18 @@ impl InetAddressPoint {
 
   /// Change the values of this field.
   pub fn set_inet_address_value(&mut self, value: IpAddr) -> Result<()> {
-    self.parent_field.fields_data =
-      FieldDataEnum::Binary(BytesRef::from_bytes(encode_address(value).to_vec()));
+    let encoded = encode_address(value);
+    match &mut self.parent_field.fields_data {
+      FieldDataEnum::Binary(bytes) if bytes.bytes.len() == Self::BYTES => {
+        bytes.bytes.copy_from_slice(&encoded);
+        bytes.offset = 0;
+        bytes.length = Self::BYTES;
+      },
+      _ => {
+        self.parent_field.fields_data =
+          FieldDataEnum::Binary(BytesRef::from_bytes(encoded.to_vec()));
+      },
+    }
     Ok(())
   }
 

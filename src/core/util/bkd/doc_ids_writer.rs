@@ -18,13 +18,13 @@ use crate::core::index::point_values::IntersectVisitor;
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::store::{DataOutput, IndexInput};
+use crate::core::util::TryIntoInt;
 use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::doc_base_bit_set_iterator::DocBaseBitSetIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::longs_ref::LongsRef;
-use crate::core::util::{CoreHelper, TryIntoInt};
 
 pub struct DocIdsWriter {
   scratch: Vec<i32>,
@@ -450,8 +450,11 @@ impl DocIdsWriter {
     V: IntersectVisitor,
   {
     Self::read_delta16(input, count, &mut self.scratch)?;
-    self.scratch_ints_ref.ints =
-      CoreHelper::take_and_reset(&mut self.scratch, |_| vec![0; self.max_points_in_leaf]);
+    self
+      .scratch_ints_ref
+      .ints
+      .resize(self.max_points_in_leaf, 0);
+    std::mem::swap(&mut self.scratch, &mut self.scratch_ints_ref.ints);
 
     self.scratch_ints_ref.length = count;
     visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;
@@ -497,8 +500,8 @@ impl DocIdsWriter {
     V: IntersectVisitor,
   {
     input.read_ints(&mut self.scratch, 0, count)?;
-    self.scratch_ints_ref.ints =
-      CoreHelper::take_and_reset(&mut self.scratch, |old| vec![0; old.len()]);
+    self.scratch_ints_ref.ints.resize(self.scratch.len(), 0);
+    std::mem::swap(&mut self.scratch, &mut self.scratch_ints_ref.ints);
 
     self.scratch_ints_ref.length = count;
     visitor.visit_with_ints_ref(&self.scratch_ints_ref)?;

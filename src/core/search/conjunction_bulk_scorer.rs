@@ -123,15 +123,13 @@ where
           let lead1 = &mut first[0].iterator_mut();
           let (_, other_scorers) = rest.split_at_mut(1);
 
-          let mut others = Vec::with_capacity(other_scorers.len() + 1);
-          for x in other_scorers {
-            others.push(x.iterator_mut());
-          }
-          if let Some(v) = collector.competitive_iterator()? {
-            others.push(v);
-          }
+          let competitive_iterator = collector.competitive_iterator()?;
+          let others = other_scorers
+            .iter_mut()
+            .map(|scorer| scorer.iterator_mut())
+            .chain(competitive_iterator);
 
-          for it in others.iter_mut() {
+          for mut it in others {
             if it.doc_id() < doc {
               let next = it.advance(doc)?;
               if next != doc {
@@ -197,15 +195,13 @@ where
         }
         debug_assert!(lead2.doc_id() == doc);
 
-        let mut others = Vec::with_capacity(other_scorers.len() + 1);
-        for x in other_scorers {
-          others.push(x.iterator_mut());
-        }
-        if let Some(v) = collector.competitive_iterator()? {
-          others.push(v);
-        }
+        let competitive_iterator = collector.competitive_iterator()?;
+        let others = other_scorers
+          .iter_mut()
+          .map(|scorer| scorer.iterator_mut())
+          .chain(competitive_iterator);
 
-        for it in &mut others.iter_mut() {
+        for mut it in others {
           if it.doc_id() < doc {
             let next = it.advance(doc)?;
             if next != doc {

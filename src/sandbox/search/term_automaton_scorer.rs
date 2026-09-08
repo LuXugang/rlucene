@@ -164,8 +164,8 @@ where
       if self.freq > 0 {
         return Ok(self.doc_id);
       }
-      let current = self.subs_on_doc.clone();
-      for index in current {
+      for i in 0..self.subs_on_doc.len() {
+        let index = self.subs_on_doc[i];
         self.subs[index].pos_enum.next_doc()?;
         self.position_sub_on_doc(index)?;
       }
@@ -336,8 +336,8 @@ where
   fn next_doc(&mut self) -> Result<i32> {
     // We only need to advance docs that are positioned since all docs in the
     // pq are guaranteed to be beyond the current doc already.
-    let current = self.subs_on_doc.clone();
-    for index in current {
+    for i in 0..self.subs_on_doc.len() {
+      let index = self.subs_on_doc[i];
       self.subs[index].pos_enum.next_doc()?;
       self.position_sub_on_doc(index)?;
     }
@@ -360,8 +360,8 @@ where
     }
 
     // 2. Advance subsOnDoc
-    let current = self.subs_on_doc.clone();
-    for index in current {
+    for i in 0..self.subs_on_doc.len() {
+      let index = self.subs_on_doc[i];
       self.subs[index].pos_enum.advance(target)?;
       self.position_sub_on_doc(index)?;
     }

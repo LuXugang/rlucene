@@ -280,7 +280,7 @@ pub fn write_group_vints_i64<D>(data_output: &mut D, values: &mut [i64], limit: 
 where
   D: DataOutput,
 {
-  let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
+  let mut group_vint_bytes = [0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
   GroupVIntUtil::write_group_vints_i64(data_output, &mut group_vint_bytes, values, limit)?;
   Ok(())
 }
@@ -299,7 +299,7 @@ pub fn write_group_vints_i32<D>(data_output: &mut D, values: &mut [i32], limit: 
 where
   D: DataOutput,
 {
-  let mut group_vint_bytes: Vec<u8> = vec![0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
+  let mut group_vint_bytes = [0; GroupVIntUtil::MAX_LENGTH_PER_GROUP];
   GroupVIntUtil::write_group_vints_i32(data_output, &mut group_vint_bytes, values, limit)?;
   Ok(())
 }

@@ -477,7 +477,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
       .base
       .postings_array_mut()
       .ok_or_else(|| LuceneError::illegal_state("postings_array not initialized"))?;
-    let mut v = Vec::new();
+    let mut v = [None; 2];
     match postings_enum {
       PostingsArrayEnum::FreqProx(postings) => {
         if self.has_freq {
@@ -502,13 +502,13 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
 
           if doc_id != postings.last_doc_ids[term_id] {
             debug_assert!(doc_id > postings.last_doc_ids[term_id]);
-            v.push(postings.last_doc_codes[term_id]);
+            v[0] = Some(postings.last_doc_codes[term_id]);
             postings.last_doc_codes[term_id] = doc_id - postings.last_doc_ids[term_id];
             postings.last_doc_ids[term_id] = doc_id;
             field_state.unique_term_count += 1;
           }
           // Due to borrow conflict, we add later before handle prox/offset
-          for x in v {
+          for x in v.into_iter().flatten() {
             self.base.write_vint(0, x, int_pool, byte_pool)?
           }
         } else if doc_id != postings.last_doc_ids[term_id] {
@@ -530,10 +530,10 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
           // Now that we know doc freq for previous doc,
           // write it & lastDocCode
           if freq == 1 {
-            v.push(postings.last_doc_codes[term_id] | 1);
+            v[0] = Some(postings.last_doc_codes[term_id] | 1);
           } else {
-            v.push(postings.last_doc_codes[term_id]);
-            v.push(freq);
+            v[0] = Some(postings.last_doc_codes[term_id]);
+            v[1] = Some(freq);
           }
 
           // Init freq for the current document
@@ -555,7 +555,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
               [term_id] = 0;
           }
           // Due to borrow conflict, we add later before handle prox/offset
-          for x in v {
+          for x in v.into_iter().flatten() {
             self.base.write_vint(0, x, int_pool, byte_pool)?
           }
           if self.has_prox {

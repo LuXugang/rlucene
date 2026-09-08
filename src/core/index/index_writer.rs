@@ -977,7 +977,7 @@ where
       .into()
       .map(|t| Arc::new(DocumentsWriterDeleteQueue::new_node_with_term(t)));
 
-    self.update_documents(del_node, vec![docs])
+    self.update_documents(del_node, [docs])
   }
   /// Atomically deletes documents matching the provided delTerm and adds a block of documents with
   /// sequentially assigned document IDs, such that an external reader will see all or none of the

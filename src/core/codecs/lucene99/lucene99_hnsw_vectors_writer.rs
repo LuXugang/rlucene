@@ -411,6 +411,7 @@ where
     let count_on_level0 = graph.size();
     let num_levels = graph.num_levels()?;
     let mut offsets = vec![Vec::new(); num_levels];
+    let mut nnodes = Vec::new();
 
     for (level, level_offsets) in offsets.iter_mut().enumerate().take(num_levels) {
       let mut nodes = graph.get_nodes_on_level(level)?;
@@ -426,8 +427,8 @@ where
 
         vector_index.write_vint(size as i32)?;
 
-        let nnodes = neighbors.nodes();
-        let mut nnodes = nnodes[..size].to_vec();
+        nnodes.clear();
+        nnodes.extend_from_slice(&neighbors.nodes()[..size]);
         nnodes.sort();
 
         for i in (1..size).rev() {
