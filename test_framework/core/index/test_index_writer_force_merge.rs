@@ -97,6 +97,7 @@ pub struct MergePerFieldCodec {
 }
 
 impl MergePerFieldCodec {
+  #[cfg(feature = "awaits_fix")]
   pub(crate) fn new(barrier: Arc<Barrier>) -> Self {
     Self {
       delegate: TestUtil::get_default_codec(),
