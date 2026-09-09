@@ -302,6 +302,7 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
 
   fn parse_array(&mut self, path: &str) -> Result<JsonValue> {
     let mut result = Vec::new();
+    let mut child_path = None;
     self.scan_char('[')?;
     while self.upto < self.input.len() {
       let ch = self.peek()?;
@@ -326,9 +327,9 @@ impl<'a> SimpleGeoJSONPolygonParser<'a> {
 
       let ch = self.peek()?;
       let value = if ch == '[' {
-        self.parse_array(&format!("{}.[]", path))?
+        self.parse_array(child_path.get_or_insert_with(|| format!("{}.[]", path)))?
       } else if ch == '{' {
-        self.parse_object(&format!("{}.[]", path))?;
+        self.parse_object(child_path.get_or_insert_with(|| format!("{}.[]", path)))?;
         JsonValue::Null
       } else if ch == '-' || ch == '.' || ch.is_ascii_digit() {
         JsonValue::Number(self.parse_number()?)

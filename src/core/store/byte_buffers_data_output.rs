@@ -263,6 +263,10 @@ impl ByteBuffersDataOutput {
     self.current_block_index = 0;
   }
 
+  pub(crate) fn buffer_slices(&self) -> impl Iterator<Item = &[u8]> {
+    self.blocks.iter().map(|block| block.get_ref().as_slice())
+  }
+
   /// Returns a list of read-only views of [`Cursor<Vec<u8>>`](Cursor) blocks
   /// over the current content written to the output.
   pub fn to_buffer_list_ref(&self) -> (usize, Vec<Cursor<&[u8]>>) {

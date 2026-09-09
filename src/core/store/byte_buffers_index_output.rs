@@ -228,14 +228,13 @@ where
       let mut checksum = self.checksum.clone();
       self.last_checksum = {
         let delegate = self.delegate()?;
-        let (length, data) = delegate.to_buffer_list_ref();
-        let mut remaining = length;
-        for block in data {
+        let mut remaining = delegate_size;
+        for block in delegate.buffer_slices() {
           if remaining == 0 {
             break;
           }
-          let block_length = remaining.min(block.get_ref().len());
-          checksum.update(&block.get_ref()[..block_length]);
+          let block_length = remaining.min(block.len());
+          checksum.update(&block[..block_length]);
           remaining -= block_length;
         }
         checksum.finalize() as u64

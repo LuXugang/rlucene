@@ -118,10 +118,7 @@ impl<R> LongValuesImpl<R> {
     num_values: usize,
     base_offset: usize,
   ) -> LongValuesImpl<R> {
-    let mut buffer = Vec::with_capacity(DirectReader::MERGE_BUFFER_SIZE);
-    for _ in 0..DirectReader::MERGE_BUFFER_SIZE {
-      buffer.push(-1);
-    }
+    let buffer = vec![-1; DirectReader::MERGE_BUFFER_SIZE];
     LongValuesImpl {
       slice,
       bits_per_value,

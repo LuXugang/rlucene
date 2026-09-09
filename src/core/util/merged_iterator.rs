@@ -129,7 +129,7 @@ where
       }
     }
     let first_idx = self.top[0];
-    self.current = self.queue.compare.sub_iterator[first_idx].current.clone();
+    self.current = self.queue.compare.sub_iterator[first_idx].current.take();
 
     Ok(())
   }
@@ -169,9 +169,9 @@ where
     } else {
       self.current = None;
     }
-    match self.current {
+    match self.current.take() {
       None => Err(LuceneError::no_such_element("no such element")),
-      Some(_) => Ok(self.current.clone()),
+      Some(current) => Ok(Some(current)),
     }
   }
   fn has_next(&self) -> Result<bool> {

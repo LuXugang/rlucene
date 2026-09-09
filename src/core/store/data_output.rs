@@ -163,9 +163,9 @@ pub trait DataOutput {
   /// [`DataInput::read_vlong`]
   fn write_vlong(&mut self, i: i64) -> Result<()> {
     if i < 0 {
-      return Err(LuceneError::illegal_argument(
-        "cannot write negative vLong (got: ".to_string() + &i.to_string() + ")",
-      ));
+      return Err(LuceneError::illegal_argument(format!(
+        "cannot write negative vLong (got: {i})"
+      )));
     }
     self.write_signed_vlong(i)?;
     Ok(())

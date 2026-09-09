@@ -57,7 +57,11 @@ impl Outputs for PositiveIntOutputs {
     } else {
       debug_assert!(**output1 > 0);
       debug_assert!(**output2 > 0);
-      Arc::new(std::cmp::min(**output1, **output2))
+      if **output1 <= **output2 {
+        Arc::clone(output1)
+      } else {
+        Arc::clone(output2)
+      }
     }
   }
 

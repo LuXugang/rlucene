@@ -334,22 +334,31 @@ impl Util {
   where
     T: Write,
   {
-    out.write_all(
-      format!(
-        "  {} [{} {} {} ]\n",
-        name,
-        shape
-          .map(|shape| format!("shape={shape}"))
-          .unwrap_or_default(),
-        color
-          .map(|color| format!("color={color}"))
-          .unwrap_or_default(),
-        label
-          .map(|label| format!("label=\"{label}\""))
-          .unwrap_or_else(|| "label=\"\"".to_string())
-      )
-      .as_bytes(),
-    )?;
+    let mut line = String::with_capacity(
+      name.len()
+        + shape.map_or(0, str::len)
+        + color.map_or(0, str::len)
+        + label.map_or(0, str::len)
+        + 32,
+    );
+    line.push_str("  ");
+    line.push_str(name);
+    line.push_str(" [");
+    if let Some(shape) = shape {
+      line.push_str("shape=");
+      line.push_str(shape);
+    }
+    line.push(' ');
+    if let Some(color) = color {
+      line.push_str("color=");
+      line.push_str(color);
+    }
+    line.push_str(" label=\"");
+    if let Some(label) = label {
+      line.push_str(label);
+    }
+    line.push_str("\" ]\n");
+    out.write_all(line.as_bytes())?;
     Ok(())
   }
 

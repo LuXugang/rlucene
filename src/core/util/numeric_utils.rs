@@ -248,19 +248,20 @@ impl NumericUtils {
         "BigInt {big_int} requires more than {big_int_size} bytes of storage"
       )));
     }
-    let mut full_big_int_bytes = vec![0u8; big_int_size];
-    let padding_size = big_int_size - big_int_bytes.len();
-    full_big_int_bytes.copy_from(&big_int_bytes, padding_size);
-    if big_int.sign() == Sign::Minus {
-      full_big_int_bytes[..padding_size].fill(0xFF);
-    }
-    full_big_int_bytes[0] ^= 0x80;
     if offset + big_int_size > result.len() {
       return Err(LuceneError::illegal_argument(
         "Index out of bounds in result array",
       ));
     }
-    result.copy_from(&full_big_int_bytes, offset);
+    let full_big_int_bytes = &mut result[offset..offset + big_int_size];
+    let padding_size = big_int_size - big_int_bytes.len();
+    full_big_int_bytes[..padding_size].fill(if big_int.sign() == Sign::Minus {
+      0xFF
+    } else {
+      0
+    });
+    full_big_int_bytes.copy_from(&big_int_bytes, padding_size);
+    full_big_int_bytes[0] ^= 0x80;
 
     #[cfg(debug_assertions)]
     {
@@ -285,11 +286,12 @@ impl NumericUtils {
         "Index out of bounds in encoded array",
       ));
     }
-    let mut big_int_bytes = encoded[offset..offset + length].to_vec();
+    stack_or_heap_buffer!(big_int_bytes, u8, length, 64, 0);
+    big_int_bytes.copy_from_slice(&encoded[offset..offset + length]);
     // Flip the sign bit back to restore the original value
     big_int_bytes[0] ^= 0x80;
 
     // Convert the byte array back into a BigInt
-    Ok(BigInt::from_signed_bytes_be(&big_int_bytes))
+    Ok(BigInt::from_signed_bytes_be(big_int_bytes))
   }
 }
