@@ -238,8 +238,9 @@ fn test_tall() -> Result<()> {
 }
 
 /// LUCENE-3821 fixes sloppy phrase scoring, except for this known problem.
+#[cfg(feature = "awaits_fix")]
 #[test]
-#[ignore = "LUCENE-3821 known sloppy phrase scoring problem"]
+#[ignore = "awaits_fix: Java 10.1 @Ignore; LUCENE-3821 known sloppy phrase scoring problem"]
 fn test_multi_sloppy_with_repeats() -> Result<()> {
   let mut random = random();
   let index_store = new_directory_shared(&mut random)?;
