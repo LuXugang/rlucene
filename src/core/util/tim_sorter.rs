@@ -48,7 +48,7 @@ pub struct TimSorter<T> {
   min_run: usize,
   to: usize,
   stack_size: usize,
-  run_ends: Vec<usize>,
+  run_ends: [usize; STACK_SIZE + 1],
   delegate: T,
 }
 pub(crate) fn min_run(length: usize) -> usize {
@@ -71,7 +71,7 @@ impl<T: TimSorterBase> TimSorter<T> {
       min_run: 0,
       to: 0,
       stack_size: 0,
-      run_ends: vec![0; STACK_SIZE + 1],
+      run_ends: [0; STACK_SIZE + 1],
       delegate,
     }
   }

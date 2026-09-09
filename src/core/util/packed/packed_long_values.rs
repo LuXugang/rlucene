@@ -219,7 +219,7 @@ impl Builder {
     let page_size = page_size as usize;
     let page_mask = page_size - 1;
     let pending = vec![0; page_size];
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(INITIAL_PAGE_COUNT);
     // TODO: maybe we should impl `Clone` for `PackedIntsReadEnum`
     for _ in 0..INITIAL_PAGE_COUNT {
       values.push(PackedIntsReadEnum::NullReader(NullReader::new(0)));

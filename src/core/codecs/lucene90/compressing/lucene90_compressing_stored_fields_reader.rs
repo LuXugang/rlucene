@@ -518,7 +518,7 @@ where
               Self::read_field(
                 &mut doc.input,
                 visitor,
-                field_info.clone(),
+                field_info,
                 bits,
                 writer.as_deref_mut(),
               )?;

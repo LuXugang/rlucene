@@ -16,7 +16,7 @@
  */
 
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{Comparator, SliceCopyOps, Sorter, TimSorter, TimSorterBase};
+use crate::core::util::{Comparator, Sorter, TimSorter, TimSorterBase};
 
 /// A [`TimSorter`] for object arrays.
 ///
@@ -27,7 +27,6 @@ pub struct ArrayTimSorter<'a, T, C> {
   tmp: Vec<T>,
   comparator: C,
   pivot_index: usize,
-  max_temp_slots: usize,
 }
 impl<'a, T, C: Comparator<T>> ArrayTimSorter<'a, T, C>
 where
@@ -48,7 +47,6 @@ where
       tmp,
       comparator,
       pivot_index: 0,
-      max_temp_slots,
     };
     TimSorter::new(max_temp_slots, sub)
   }
@@ -85,13 +83,8 @@ where
   }
 
   fn save(&mut self, start: usize, len: usize) -> Result<()> {
-    let tmp_len = self.tmp.len();
-    if tmp_len < self.max_temp_slots {
-      for _ in 0..(self.max_temp_slots - tmp_len) {
-        self.tmp.push(self.arr[start]);
-      }
-    }
-    self.tmp.copy_from(&self.arr[start..start + len], 0);
+    self.tmp.clear();
+    self.tmp.extend_from_slice(&self.arr[start..start + len]);
     Ok(())
   }
 

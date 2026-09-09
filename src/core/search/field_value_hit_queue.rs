@@ -218,7 +218,7 @@ impl PriorityQueue<TopFieldScoreDoc, FieldValueHitQueueComparator> {
         Ok(vec![comp.get_leaf_comparator(context)?])
       },
       CompareEnum2::B(multi_comp) => {
-        let mut v = Vec::new();
+        let mut v = Vec::with_capacity(multi_comp.comparators.len());
         for x in &mut multi_comp.comparators {
           v.push(x.get_leaf_comparator(context)?);
         }

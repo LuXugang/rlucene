@@ -1232,7 +1232,7 @@ where
     if let Some(attrs) = field_type.get_attributes()
       && !attrs.is_empty()
     {
-      schema.update_attributes(attrs.clone());
+      schema.update_attributes(attrs);
     }
 
     Ok(())
@@ -2028,8 +2028,10 @@ impl FieldSchema {
     }
     Ok(())
   }
-  pub(crate) fn update_attributes(&mut self, attrs: HashMap<String, String>) {
-    self.attributes.extend(attrs);
+  pub(crate) fn update_attributes(&mut self, attrs: &HashMap<String, String>) {
+    self
+      .attributes
+      .extend(attrs.iter().map(|(k, v)| (k.clone(), v.clone())));
   }
 
   pub(crate) fn set_index_options(

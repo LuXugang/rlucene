@@ -91,7 +91,7 @@ impl NativeAccess for PosixNativeAccess {
     let aligned_start = start - start % self.page_size;
     let aligned_length = end - aligned_start;
     let page_count = aligned_length.div_ceil(self.page_size);
-    let mut residency = vec![0u8; page_count];
+    stack_or_heap_buffer!(residency, u8, page_count, 64, 0);
 
     // SAFETY: `aligned_start` is page-aligned and covers the mapped range represented by
     // `segment`; `residency` has one initialized byte for every page that `mincore` writes.

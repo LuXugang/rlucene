@@ -107,7 +107,10 @@ where
 
     for entry in dir.read_dir()? {
       let entry = entry?;
-      let name = entry.file_name().to_string_lossy().to_string();
+      let name = entry
+        .file_name()
+        .into_string()
+        .unwrap_or_else(|name| name.to_string_lossy().into_owned());
 
       if let Some(skip) = &skip_names
         && skip.contains(&name)

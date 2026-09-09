@@ -48,7 +48,7 @@ pub struct LevenshteinAutomata {
   /// Upper bounds for ranges outside of alphabet.
   range_upper: Vec<i32>,
   num_ranges: usize,
-  descriptions: Vec<Option<ParametricDescription>>,
+  descriptions: [Option<ParametricDescription>; 3],
 }
 
 impl LevenshteinAutomata {
@@ -104,7 +104,7 @@ impl LevenshteinAutomata {
     }
 
     let w = word.len() as i32;
-    let descriptions = vec![
+    let descriptions = [
       None,
       Some(if with_transpositions {
         lev1t_parametric_description::new(w)

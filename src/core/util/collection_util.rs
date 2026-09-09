@@ -16,7 +16,7 @@
  */
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::intro_sorter::IntroSorter;
-use crate::core::util::{Comparator, NaturalOrder, SliceCopyOps, Sorter, TimSorter, TimSorterBase};
+use crate::core::util::{Comparator, NaturalOrder, Sorter, TimSorter, TimSorterBase};
 use std::collections::HashMap;
 
 ///  Methods for manipulating (sorting) and creating collections. Sort methods work directly on the supplied lists and don't copy to/from arrays before/after. For medium size collections as used in the Lucene indexer that is much more efficient.
@@ -80,7 +80,6 @@ struct ListTimSorter<'a, T, C> {
   tmp: Vec<T>,
   comp: C,
   pivot: usize,
-  max_temp_slots: usize,
 }
 impl<'a, T, C: Comparator<T>> ListTimSorter<'a, T, C>
 where
@@ -101,7 +100,6 @@ where
       tmp,
       comp,
       pivot: 0,
-      max_temp_slots,
     };
     TimSorter::new(max_temp_slots, sub)
   }
@@ -138,13 +136,8 @@ where
   }
 
   fn save(&mut self, start: usize, len: usize) -> Result<()> {
-    let tmp_len = self.tmp.len();
-    if tmp_len < self.max_temp_slots {
-      for _ in 0..(self.max_temp_slots - tmp_len) {
-        self.tmp.push(self.arr[start]);
-      }
-    }
-    self.tmp.copy_from(&self.arr[start..start + len], 0);
+    self.tmp.clear();
+    self.tmp.extend_from_slice(&self.arr[start..start + len]);
     Ok(())
   }
 
