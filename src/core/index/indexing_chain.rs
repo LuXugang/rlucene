@@ -88,9 +88,7 @@ use crate::core::index::sorting_stored_fields_consumer::SortingStoredFieldsConsu
 use crate::core::index::sorting_term_vectors_consumer::SortingTermVectorsConsumer;
 use crate::core::index::stored_fields_consumer::{StoredFieldsConsumer, StoredFieldsConsumerHook};
 use crate::core::index::term::Term;
-use crate::core::index::term_vectors_consumer::{
-  PerFieldMeta, TermVectorsConsumer, TermVectorsConsumerHook,
-};
+use crate::core::index::term_vectors_consumer::{TermVectorsConsumer, TermVectorsConsumerHook};
 use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::index::vector_values_consumer::VectorValuesConsumer;
@@ -810,6 +808,8 @@ where
 
     let mut document_fields = document.into_iter();
     let mut document = Vec::new();
+    // Keep the first field inline while retaining both schema and indexing passes.
+    let mut first_field = None;
     // 1st pass over doc fields – verify that doc schema matches the index schema
     // build schema for each unique doc field
 
@@ -843,7 +843,11 @@ where
         doc_field_idx += 1;
         let pf = &mut self.per_fields[pf_idx];
         Self::update_doc_field_schema(field.name(), &mut pf.schema, &field_type)?;
-        document.push(field_value);
+        if first_field.is_none() {
+          first_field = Some(field_value);
+        } else {
+          document.push(field_value);
+        }
       }
 
       // For each field, if it's the first time we see this field in this segment,
@@ -870,7 +874,7 @@ where
       // also count the number of unique fields indexed with postings
       doc_field_idx = 0;
 
-      for field in &mut document {
+      for field in first_field.iter_mut().chain(document.iter_mut()) {
         let field = field.borrow_mut();
         let per_field_idx = self.doc_fields[doc_field_idx];
         if self.process_field(
@@ -1593,15 +1597,11 @@ impl PerField {
         .ok_or_else(|| LuceneError::illegal_state("norms writer is missing"))?
         .add_value(doc_id, norm_value)?;
     }
-    let meta = PerFieldMeta {
-      idx: self.idx_in_doc_field,
-      field_name: self.field_name.clone(),
-    };
     self
       .terms_hash_per_field
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("terms hash is missing"))?
-      .finish(term_vectors_consumer, meta)
+      .finish(term_vectors_consumer, self.idx_in_doc_field)
   }
   /// Inverts one field for one document; first is true if this is the first time we are seeing
   /// this field name in this document.
@@ -1681,7 +1681,7 @@ impl PerField {
      * but rather a finally that takes note of the problem.
      */
 
-    let field_name = field.name().to_string();
+    let field_name = self.field_name.as_str();
 
     let mut succeeded_in_processing_field = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -1765,10 +1765,7 @@ impl PerField {
                 // use attribute_source's bytes_ref
                 None,
                 doc_id,
-                self
-                  .invert_state
-                  .as_mut()
-                  .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?,
+                invert_state,
                 attribute_source,
                 context,
               )
@@ -1828,18 +1825,17 @@ impl PerField {
     unwrap_caught_result!(result)?;
 
     if analyzed {
-      let field_name = self
+      let field_name = &self
         .field_info
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?
-        .name
-        .clone();
+        .name;
       let invert_state = self
         .invert_state
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("invert state is missing"))?;
-      invert_state.position += analyzer.get_position_increment_gap(&field_name);
-      invert_state.offset += analyzer.get_offset_gap(&field_name);
+      invert_state.position += analyzer.get_position_increment_gap(field_name);
+      invert_state.offset += analyzer.get_offset_gap(field_name);
     }
     Ok(())
   }

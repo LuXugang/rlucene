@@ -425,7 +425,7 @@ impl TermVectorsConsumerPerField {
   pub(crate) fn finish<D>(
     &self,
     term_vectors_consumer: &mut TermVectorsConsumer<D>,
-    meta: PerFieldMeta,
+    field_index: usize,
   ) -> Result<()>
   where
     D: Directory + Clone,
@@ -433,7 +433,10 @@ impl TermVectorsConsumerPerField {
     if !self.do_vectors || self.base.get_num_terms() == 0 {
       return Ok(());
     }
-    term_vectors_consumer.add_field_to_flush(meta)
+    term_vectors_consumer.add_field_to_flush(PerFieldMeta {
+      idx: field_index,
+      field_name: self.field_name.clone(),
+    })
   }
 }
 impl TermsHashPerFieldBase for TermVectorsConsumerPerField {

@@ -107,9 +107,8 @@ impl TokenStream for MyTokenStream {
   fn increment_token(&mut self) -> Result<bool> {
     if self.index <= b'z' {
       self.attrs.clear_attributes()?;
-      self
-        .attrs
-        .append_str(Some(&(self.index as char).to_string()))?;
+      self.attrs.set_length(1)?;
+      self.attrs.buffer_mut()?[0] = self.index as char;
       self.index += 1;
       return Ok(true);
     }

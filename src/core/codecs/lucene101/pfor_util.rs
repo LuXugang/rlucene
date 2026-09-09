@@ -17,6 +17,7 @@
 use crate::core::codecs::lucene101::for_util::ForUtil;
 use crate::core::internal::vectorization::posting_decoding_util::PostingDecodingUtil;
 use crate::core::store::{DataInput, DataOutput, IndexInput};
+use crate::core::util::core_helper::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::long_heap::LongHeap;
 use crate::core::util::packed::PackedInts;
@@ -36,7 +37,8 @@ impl PForUtil {
   }
 
   pub(crate) fn all_equal(arr: &[i32]) -> bool {
-    arr.iter().skip(1).all(|&v| v == arr[0])
+    // Adjacent slices match exactly when every value in the block is equal.
+    arr.is_empty() || CoreHelper::miss_match_i32(&arr[..arr.len() - 1], &arr[1..]) == -1
   }
   /// Encode 128 integers from `ints` into `out`.
   pub(crate) fn encode<O>(&mut self, ints: &mut [i32], out: &mut O) -> Result<()>

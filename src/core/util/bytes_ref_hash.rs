@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::accountable::Accountable;
@@ -58,8 +58,19 @@ impl BytesRefHash<DirectBytesStartArray> {
     BytesRefHash::from_bytes_start_array(16, bytes_start_array)
   }
 }
+// The process-wide hash seed never changes. Cache the same MurmurHash values
+// for every possible one-byte key without adding state to individual hashes.
+static SINGLE_BYTE_HASHES: LazyLock<[i32; 256]> = LazyLock::new(|| {
+  let seed = *GOOD_FAST_HASH_SEED;
+  std::array::from_fn(|byte| StringHelper::murmurhash3_x86_32_with_byte(&[byte as u8], 0, 1, seed))
+});
+
 pub fn do_hash(bytes: &[u8], offset: usize, length: usize) -> i32 {
-  StringHelper::murmurhash3_x86_32_with_byte(bytes, offset, length, *GOOD_FAST_HASH_SEED)
+  if length == 1 {
+    SINGLE_BYTE_HASHES[bytes[offset] as usize]
+  } else {
+    StringHelper::murmurhash3_x86_32_with_byte(bytes, offset, length, *GOOD_FAST_HASH_SEED)
+  }
 }
 impl<BSA> BytesRefHash<BSA>
 where

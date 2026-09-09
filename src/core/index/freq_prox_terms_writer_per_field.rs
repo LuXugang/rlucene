@@ -24,7 +24,7 @@ use crate::core::index::indexing_chain::IndexContext;
 use crate::core::index::parallel_postings_array::{
   ParallelPostingsArray, PostingsArrayBase, PostingsArrayEnum,
 };
-use crate::core::index::term_vectors_consumer::{PerFieldMeta, TermVectorsConsumer};
+use crate::core::index::term_vectors_consumer::TermVectorsConsumer;
 use crate::core::index::term_vectors_consumer_per_field::TermVectorsConsumerPerField;
 use crate::core::index::terms_hash_per_field::{
   PostingsArrayWrapper, TermsHashPerField, TermsHashPerFieldBase, TermsHashPerFieldType,
@@ -229,13 +229,13 @@ impl FreqProxTermsWriterPerField {
   pub(crate) fn finish<D>(
     &mut self,
     term_vectors_consumer: &mut TermVectorsConsumer<D>,
-    meta: PerFieldMeta,
+    field_index: usize,
   ) -> Result<()>
   where
     D: Directory + Clone,
   {
     if let Some(next_per_field) = self.next_per_field.as_mut() {
-      next_per_field.finish(term_vectors_consumer, meta)?;
+      next_per_field.finish(term_vectors_consumer, field_index)?;
     }
 
     if self.saw_payloads {
@@ -500,7 +500,7 @@ impl TermsHashPerFieldBase for FreqProxTermsWriterPerField {
         if !self.has_freq {
           debug_assert!(postings.term_freqs.is_none());
 
-          if attribute_source.get_term_frequency().unwrap_or(1) != 1 {
+          if tf != 1 {
             return Err(LuceneError::illegal_state(format!(
               "field \"{}\": must index term freq while using custom TermFrequencyAttribute",
               self.field_info.name
