@@ -84,9 +84,6 @@ where
       sub: None,
     }
   }
-  // Using the same seed to generate the same type of FST object allows the fst
-  // inside IntsRefFSTEnum to be replaced using std::mem::replace. The purpose
-  // of this is to remain consistent with the behavior in Java Lucene.
   #[allow(clippy::type_complexity)]
   pub fn get_fst(&self, seed: u64) -> Result<(Option<FSTEnums<O, D>>, i64, i64)> {
     let mut random = random_from_seed(seed);
@@ -223,38 +220,25 @@ where
     // }
     //
 
-    match fst_enums {
-      Some(FSTEnums::FST1(reuse)) => {
-        self.run_steps(seed, reuse, |e| match e {
-          FSTEnums::FST1(fst) => fst,
-          _ => unreachable!("Expected FST1"),
-        })?;
-      },
-      Some(FSTEnums::FST2(reuse)) => {
-        self.run_steps(seed, reuse, |e| match e {
-          FSTEnums::FST2(fst) => fst,
-          _ => unreachable!("Expected FST2"),
-        })?;
-      },
-      None => {},
-    }
+    let fst = match fst_enums {
+      Some(FSTEnums::FST1(fst)) => Some(FSTEnums::FST1(self.run_steps(fst)?)),
+      Some(FSTEnums::FST2(fst)) => Some(FSTEnums::FST2(self.run_steps(fst)?)),
+      None => None,
+    };
     self.node_count = node_count;
     self.arc_count = arc_count;
-    let (fst, _, _) = self.get_fst(seed)?;
     Ok(fst)
   }
-  fn run_steps<C, F>(&mut self, seed: u64, mut reuse: FST<O, F>, unwrap_fn: C) -> Result<()>
+  fn run_steps<F>(&mut self, mut reuse: FST<O, F>) -> Result<FST<O, F>>
   where
     O: Outputs,
-    C: Fn(FSTEnums<O, D>) -> FST<O, F>,
     F: FstReader,
     D: Directory,
   {
-    // step 1
-    let mut v = self.step1(self.input_mode, Some(reuse))?;
-    let (fst, _, _) = self.get_fst(seed)?;
-    let padding_fst = unwrap_fn(fst.unwrap());
-    reuse = std::mem::replace(&mut v.base.fst, padding_fst);
+    // Move the FST out of each consumed enumerator so all verification steps
+    // reuse the same FST, as Java's verifyUnPruned does.
+    let v = self.step1(self.input_mode, Some(reuse))?;
+    reuse = v.base.fst;
 
     // init terms_map
     let mut terms_map = HashMap::new();
@@ -263,10 +247,8 @@ where
     }
 
     // step 2
-    let mut v = self.step2(self.input_mode, Some(reuse), &terms_map)?;
-    let (fst, _, _) = self.get_fst(seed)?;
-    let padding_fst = unwrap_fn(fst.unwrap());
-    reuse = std::mem::replace(&mut v.base.fst, padding_fst);
+    let v = self.step2(self.input_mode, Some(reuse), &terms_map)?;
+    reuse = v.base.fst;
 
     // step 3
     let num = at_least(&mut self.random, 100);
@@ -275,13 +257,11 @@ where
         println!("TEST: iter {}", i);
       }
       let fst_enum = IntsRefFSTEnum::new(reuse)?;
-      let mut v = self.step3(self.input_mode, fst_enum, &terms_map)?;
-      let (fst, _, _) = self.get_fst(seed)?;
-      let padding_fst = unwrap_fn(fst.unwrap());
-      reuse = std::mem::replace(&mut v.base.fst, padding_fst);
+      let v = self.step3(self.input_mode, fst_enum, &terms_map)?;
+      reuse = v.base.fst;
     }
 
-    Ok(())
+    Ok(reuse)
   }
   #[allow(clippy::type_complexity)]
   pub fn step3<F>(
@@ -637,12 +617,8 @@ where
     F: FstReader,
     R2: Rng,
   {
-    // Due to Rust's ownership and borrowing rules, once ownership of fst is
-    // transferred to IntsRefFSTEnum, it can no longer be reused.
-    // To make this functionality work and keep consistent with Java Lucene, the
-    // method was split into three separate steps in `run_steps()`, allowing fst to
-    // be reused.
-    // See `self.step1`,`self.step2`,`self.step2`
+    // Verification is implemented by run_steps through step1, step2 and step3.
+    // Each step returns its enumerator so run_steps can recover the same FST.
     Ok(())
   }
   fn outputs_equal(&self, a: &O::V, b: &O::V) -> bool {

@@ -19,7 +19,7 @@ use crate::core::store::IO_CONTEXT_DEFAULT;
 // Similar to Test2BFST but builds and reads the FST off-heap and can be run with a small heap.
 //
 // Run something like this:
-// cargo test test_2b_fst_off_heap::test -- --ignored --nocapture
+// cargo test --features monster test_2b_fst_off_heap::test -- --ignored --nocapture
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -51,8 +51,10 @@ struct Test2BFSTOffHeap;
 
 const LIMIT: i64 = 3 * 1024 * 1024 * 1024;
 
+// Java documents about 4.5 hours for this test.
+#[cfg(feature = "monster")]
 #[test]
-#[ignore = "takes about 4.5 hours"]
+#[ignore = "monster"]
 fn test() -> Result<()> {
   let mut ints = vec![0; 7];
   let mut input = IntsRef::from_slice(ints.clone(), 0, ints.len());

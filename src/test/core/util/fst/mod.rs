@@ -17,7 +17,9 @@
 mod test_fsts;
 mod test_node_hash;
 
+#[cfg(feature = "monster")]
 mod test_2b_fst;
+#[cfg(feature = "monster")]
 mod test_2b_fst_off_heap;
 mod test_bit_table_util;
 mod test_fst_direct_addressing;

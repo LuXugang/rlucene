@@ -17,7 +17,7 @@
 use crate::core::store::IO_CONTEXT_DEFAULT;
 
 // Run something like this:
-// cargo test test_2b_fst::test -- --ignored --nocapture
+// cargo test --features monster test_2b_fst::test -- --ignored --nocapture
 
 use std::sync::Arc;
 use std::time::Instant;
@@ -49,8 +49,10 @@ struct Test2BFST;
 
 const LIMIT: i64 = 3 * 1024 * 1024 * 1024;
 
+// Java documents more than 35 GB of memory and about 4.5 hours for this test.
+#[cfg(feature = "monster")]
 #[test]
-#[ignore = "requires more than 35 GB of memory and about 4.5 hours"]
+#[ignore = "monster"]
 fn test() -> Result<()> {
   let mut ints = vec![0; 7];
   let mut input = IntsRef::from_slice(ints.clone(), 0, ints.len());
