@@ -107,7 +107,6 @@ pub fn from_sub_matches<'a>(
 
 pub struct FieldMatches<'a, F> {
   field: String,
-  fields: Vec<String>,
   supplier: F,
   cached: RefCell<Option<QueryWeightMatchesIterator<'a>>>,
 }
@@ -132,7 +131,7 @@ where
   }
 
   fn field(&self) -> &[String] {
-    &self.fields
+    std::slice::from_ref(&self.field)
   }
 }
 
@@ -147,7 +146,6 @@ where
     return Ok(None);
   };
   Ok(Some(QueryWeightMatches::Matches(Box::new(FieldMatches {
-    fields: vec![field.clone()],
     field,
     supplier,
     cached: RefCell::new(Some(first)),

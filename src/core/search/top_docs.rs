@@ -410,8 +410,8 @@ impl<'a, C> MergeSortQueueCmp<'a, C> {
       }
     }
 
-    let mut comparators = Vec::new();
-    let mut reverse_mul = Vec::new();
+    let mut comparators = Vec::with_capacity(sort.fields.len());
+    let mut reverse_mul = Vec::with_capacity(sort.fields.len());
     for sf in &sort.fields {
       comparators.push(sf.get_comparator(1, Pruning::None)?);
       reverse_mul.push(if sf.get_reverse() { -1 } else { 1 });

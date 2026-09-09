@@ -169,7 +169,7 @@ impl TermStates {
       )));
     }
 
-    let Some(term) = self.term.clone() else {
+    let Some(term) = self.term.as_ref() else {
       return Ok(if self.states[ctx_ord].is_none() {
         None
       } else {
@@ -189,7 +189,7 @@ impl TermStates {
         self.states[ctx_ord] = Some(Arc::new(EmptyTermState.into()));
         return Ok(None);
       }
-      return Ok(Some(PrepareState::Pending(term, ctx_ord, te)));
+      return Ok(Some(PrepareState::Pending(term.clone(), ctx_ord, te)));
     }
     let state = self.states[ctx_ord]
       .as_ref()

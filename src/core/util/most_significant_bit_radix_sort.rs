@@ -29,7 +29,7 @@ pub(crate) const HISTOGRAM_SIZE: usize = 257;
 pub(crate) const LENGTH_THRESHOLD: usize = 100;
 pub struct MSBRadixSorter<T> {
   /// One histogram per recursion level.
-  histograms: Vec<Vec<usize>>,
+  histograms: [Vec<usize>; LEVEL_THRESHOLD],
   /// End offsets for histograms.
   end_offsets: Vec<usize>,
   /// Array to store common prefixes.
@@ -44,7 +44,7 @@ impl<T> MSBRadixSorter<T> {
   /// # Parameters
   /// - `max_length`: The maximum length of keys. Pass `i32::MAX` if unknown.
   pub fn new(max_length: usize, delegate: T) -> Self {
-    let histograms: Vec<Vec<usize>> = (0..LEVEL_THRESHOLD).map(|_| Vec::new()).collect();
+    let histograms = std::array::from_fn(|_| Vec::new());
     Self {
       histograms,
       end_offsets: vec![0; HISTOGRAM_SIZE],

@@ -58,11 +58,11 @@ impl Util {
       if found.is_none() {
         return Ok(None);
       }
-      output = fst.outputs.add(&output, &arc.output());
+      output = fst.outputs.add(&output, &arc.output);
     }
 
     if arc.is_final() {
-      let final_output = fst.outputs.add(&output, &arc.next_final_output());
+      let final_output = fst.outputs.add(&output, &arc.next_final_output);
       Ok(Some(final_output))
     } else {
       Ok(None)
@@ -89,11 +89,11 @@ impl Util {
       if found.is_none() {
         return Ok(None);
       }
-      output = fst.outputs.add(&output, &arc.output());
+      output = fst.outputs.add(&output, &arc.output);
     }
 
     if arc.is_final() {
-      let final_output = fst.outputs.add(&output, &arc.next_final_output());
+      let final_output = fst.outputs.add(&output, &arc.next_final_output);
       Ok(Some(final_output))
     } else {
       Ok(None)
@@ -612,10 +612,8 @@ where
   where
     V: Into<String>,
   {
-    let mut arc = Arc::default();
-    arc.copy_from(other);
     FSTPath {
-      arc,
+      arc: other.clone(),
       output,
       input,
       boost,

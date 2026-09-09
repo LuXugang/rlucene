@@ -16,7 +16,6 @@
  */
 use std::collections::{HashMap, HashSet};
 
-use crate::core::index::BytesRef;
 use crate::core::store::data_input::DataInput;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -199,11 +198,9 @@ pub trait DataOutput {
   /// # See Also
   /// [`DataInput::read_zlong`]
   fn write_string(&mut self, s: &str) -> Result<()> {
-    let utf8_result: BytesRef<Vec<u8>> = BytesRef::from_string(s);
-    let len = utf8_result.length;
-    let offset = utf8_result.offset;
-    self.write_vint(len as i32)?;
-    self.write_bytes_range(&utf8_result.bytes, offset, len)
+    let bytes = s.as_bytes();
+    self.write_vint(bytes.len() as i32)?;
+    self.write_bytes_range(bytes, 0, bytes.len())
   }
 
   /// Copy numBytes bytes from input to ourselves.

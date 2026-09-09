@@ -115,7 +115,7 @@ impl TextField {
     } else {
       (TYPE_NOT_STORED.clone(), false)
     };
-    let parent_field = Field::from_string(name, value, field_type.clone())?;
+    let parent_field = Field::from_string(name, value, field_type)?;
     Ok(Self {
       parent_field,
       has_stored_value,

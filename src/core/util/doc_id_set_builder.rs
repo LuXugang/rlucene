@@ -162,7 +162,7 @@ impl DocIdSetBuilder {
         let result = BitDocIdSet::with_cost(self.bit_set.take(), cost as i64)?;
         Ok(DocIdSetBuilderEnum::BitDoc(result))
       } else {
-        self.buffer.sort();
+        self.buffer.sort_unstable();
         if self.multi_valued {
           self.buffer.dedup();
         } else {

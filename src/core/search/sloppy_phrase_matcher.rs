@@ -545,7 +545,7 @@ where
 
     for pp in &self.pq.compare.phrase_positions {
       for t in &pp.terms {
-        let cnt = tcnt.entry(t.clone()).and_modify(|c| *c += 1).or_insert(1);
+        let cnt = tcnt.entry(t).and_modify(|c| *c += 1).or_insert(1);
 
         if *cnt == 2 {
           let ord = tord.len();

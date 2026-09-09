@@ -233,7 +233,7 @@ where
         self.output[self.upto] = self
           .fst
           .outputs
-          .add(&self.output[self.upto - 1], &arc.output());
+          .add(&self.output[self.upto - 1], &arc.output);
 
         if target_label == END_LABEL {
           return Ok(None);
@@ -282,7 +282,7 @@ where
         self.output[self.upto] = self
           .fst
           .outputs
-          .add(&self.output[self.upto - 1], &arc.output());
+          .add(&self.output[self.upto - 1], &arc.output);
 
         if target_label == END_LABEL {
           return Ok(None);
@@ -332,7 +332,7 @@ where
       self.output[self.upto] = self
         .fst
         .outputs
-        .add(&self.output[self.upto - 1], &arc.output());
+        .add(&self.output[self.upto - 1], &arc.output);
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -397,7 +397,7 @@ where
       self.output[self.upto] = self
         .fst
         .outputs
-        .add(&self.output[self.upto - 1], &arc.output());
+        .add(&self.output[self.upto - 1], &arc.output);
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -545,7 +545,7 @@ where
       self.output[self.upto] = self
         .fst
         .outputs
-        .add(&self.output[self.upto - 1], &arc.output());
+        .add(&self.output[self.upto - 1], &arc.output);
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -597,7 +597,7 @@ where
         self.output[self.upto] = self
           .fst
           .outputs
-          .add(&self.output[self.upto - 1], &arc.output());
+          .add(&self.output[self.upto - 1], &arc.output);
 
         if target_label == END_LABEL {
           return Ok(None);
@@ -842,7 +842,7 @@ where
       self.output[self.upto] = self
         .fst
         .outputs
-        .add(&self.output[self.upto - 1], &arc.output());
+        .add(&self.output[self.upto - 1], &arc.output);
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -891,7 +891,7 @@ where
       self.output[self.upto] = self
         .fst
         .outputs
-        .add(&self.output[self.upto - 1], &arc.output());
+        .add(&self.output[self.upto - 1], &arc.output);
 
       if target_label == END_LABEL {
         return Ok(None);
@@ -978,7 +978,7 @@ where
       self.output[self.upto] = self
         .fst
         .outputs
-        .add(&self.output[self.upto - 1], &next_arc.output());
+        .add(&self.output[self.upto - 1], &next_arc.output);
 
       if target_label == END_LABEL {
         return Ok(true);

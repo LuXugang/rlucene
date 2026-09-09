@@ -16,7 +16,6 @@
  */
 use std::cmp::Ordering;
 
-use crate::core::index::BytesRef;
 use crate::core::store::buffered_checksum_index_input::BufferedChecksumIndexInput;
 use crate::core::store::check_sum_index_input::ChecksumIndexInput;
 use crate::core::store::data_output::DataOutput;
@@ -77,8 +76,7 @@ impl CodecUtil {
   where
     DO: DataOutput,
   {
-    let bytes: BytesRef<Vec<u8>> = BytesRef::from_string(codec);
-    if bytes.length != codec.encode_utf16().count() || bytes.length >= 128 {
+    if codec.len() != codec.encode_utf16().count() || codec.len() >= 128 {
       return Err(LuceneError::illegal_argument(format!(
         "codec must be simple ASCII, less than 128 characters in length [got {codec}]"
       )));
@@ -137,18 +135,14 @@ impl CodecUtil {
   {
     Self::write_header(out, codec, version)?;
     out.write_bytes_range(id, 0, StringHelper::ID_LENGTH)?;
-    let suffix_bytes: BytesRef<Vec<u8>> = BytesRef::from_string(suffix);
-    if suffix_bytes.length != suffix.encode_utf16().count() || suffix_bytes.length >= 256 {
+    let suffix_bytes = suffix.as_bytes();
+    if suffix_bytes.len() != suffix.encode_utf16().count() || suffix_bytes.len() >= 256 {
       return Err(LuceneError::illegal_argument(format!(
         "suffix must be simple ASCII, less than 256 characters in length [got {suffix}]"
       )));
     }
-    out.write_byte(suffix_bytes.length as u8)?;
-    out.write_bytes_range(
-      &suffix_bytes.bytes,
-      suffix_bytes.offset,
-      suffix_bytes.length,
-    )?;
+    out.write_byte(suffix_bytes.len() as u8)?;
+    out.write_bytes_range(suffix_bytes, 0, suffix_bytes.len())?;
     Ok(())
   }
   /// Computes the length of a codec header.

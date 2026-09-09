@@ -538,9 +538,9 @@ where
       let target = self.scratch_arc.target();
       let mixed = (target ^ (target >> 32)) & 0xFFFF_FFFF;
       h = h.wrapping_mul(PRIME).wrapping_add(mixed as i32 as i64);
-      let output_hash = self.scratch_arc.output().hash_code() as i64;
+      let output_hash = self.scratch_arc.output.hash_code() as i64;
       h = h.wrapping_mul(PRIME).wrapping_add(output_hash);
-      let next_output_hash = self.scratch_arc.next_final_output().hash_code() as i64;
+      let next_output_hash = self.scratch_arc.next_final_output.hash_code() as i64;
       h = h.wrapping_mul(PRIME).wrapping_add(next_output_hash);
       if self.scratch_arc.is_final() {
         h = h.wrapping_add(17);
@@ -616,14 +616,14 @@ where
       let arc = &node.arcs[arc_idx];
 
       if arc.label != self.scratch_arc.label()
-        || arc.output != self.scratch_arc.output()
+        || arc.output != self.scratch_arc.output
         || {
           match &arc.target {
             NodeEnum::CompiledNode(compiled) => compiled.node != self.scratch_arc.target(),
             _ => return Err(LuceneError::illegal_state("Node should be compiled")),
           }
         }
-        || arc.next_final_output != self.scratch_arc.next_final_output()
+        || arc.next_final_output != self.scratch_arc.next_final_output
         || arc.is_final != self.scratch_arc.is_final()
       {
         return Ok(None);

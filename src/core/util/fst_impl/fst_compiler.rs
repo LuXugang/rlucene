@@ -1341,7 +1341,13 @@ where
   ///   LUCENE-2934 (node expansion based on conditions other than the fanout
   ///   size).
   pub(crate) fn new(no_output: T, depth: usize) -> Self {
-    let arcs = vec![Arc::default()];
+    let arcs = vec![Arc {
+      label: 0,
+      target: NodeEnum::CompiledNode(CompiledNode::default()),
+      is_final: false,
+      output: no_output.clone(),
+      next_final_output: no_output.clone(),
+    }];
 
     Self {
       num_arcs: 0,

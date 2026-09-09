@@ -43,9 +43,9 @@ where
         "Expected 2 or more clauses, got {num_clauses}"
       )));
     }
-    let mut costs = Vec::new();
+    let mut costs = Vec::with_capacity(num_clauses);
     let mut i = 0usize;
-    let mut tmp_all_scores = vec![];
+    let mut tmp_all_scores = Vec::with_capacity(num_clauses);
     for mut scorer in required_scoring.into_iter() {
       costs.push((scorer.iterator_mut().cost()?, true, i));
       tmp_all_scores.push(Some(scorer));

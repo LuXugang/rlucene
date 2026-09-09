@@ -50,9 +50,11 @@ where
   }
 
   pub fn with_range(bytes: B, offset: usize, length: usize) -> Self {
-    let mut data_input = Self::new();
-    data_input.reset_with_range(bytes, offset, length);
-    data_input
+    Self {
+      bytes,
+      pos: offset,
+      limit: offset + length,
+    }
   }
 }
 
