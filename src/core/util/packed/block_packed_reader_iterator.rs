@@ -75,7 +75,15 @@ impl BlockPackedReaderIterator {
   }
 
   pub fn new(packed_ints_version: i32, block_size: usize, value_count: usize) -> Result<Self> {
-    PackedInts::check_block_size(block_size as i32, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
+    PackedInts::check_block_size(
+      i32::try_from(block_size).map_err(|_| {
+        LuceneError::illegal_argument(format!(
+          "block_size must be >= {MIN_BLOCK_SIZE} and <= {MAX_BLOCK_SIZE}, got {block_size}"
+        ))
+      })?,
+      MIN_BLOCK_SIZE,
+      MAX_BLOCK_SIZE,
+    )?;
     let values = vec![0; block_size];
     let long_ref = LongsRef::from_slice(values, 0, 0);
     Ok(Self {

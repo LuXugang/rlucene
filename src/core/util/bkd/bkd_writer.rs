@@ -519,9 +519,8 @@ where
       num_leaves > 1,
       "get_num_left_leaf_nodes() called with {num_leaves}"
     );
-    let num_leaves: i32 = num_leaves as i32;
     // return the level that can be filled with this number of leaves
-    let last_full_level = 31 - num_leaves.leading_zeros() as i32;
+    let last_full_level = usize::BITS - 1 - num_leaves.leading_zeros();
     // how many leaf nodes are in the full level
     let leaves_full_level = 1 << last_full_level;
     // half of the leaf nodes from the full level goes to the left
@@ -536,7 +535,7 @@ where
         && num_left_leaf_nodes <= 2 * (num_leaves - num_left_leaf_nodes)
     );
 
-    num_left_leaf_nodes as usize
+    num_left_leaf_nodes
   }
 
   fn check_max_leaf_node_count(&self, num_leaves: usize) -> Result<()> {

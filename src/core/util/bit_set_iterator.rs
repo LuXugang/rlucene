@@ -16,6 +16,7 @@
  */
 use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -45,7 +46,7 @@ where
     let length = bits.length();
     Ok(BitSetIterator {
       bits,
-      length: length as i32,
+      length: length.try_convert()?,
       cost,
       doc: -1,
     })

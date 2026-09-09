@@ -252,7 +252,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       accumulators_levels.push(next_level);
     }
 
-    let total = accumulators_len as i32;
+    let total = accumulators_len;
     for index in 0..total {
       // compute how many levels we need to write for the current
       // accumulator
@@ -263,7 +263,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       // need to read all of them in case of slipping
       for level in (0..levels).rev() {
         let idx = index >> (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT * level);
-        let acc = &accumulators_levels[level][idx as usize];
+        let acc = &accumulators_levels[level][idx];
         self.data.write_int(acc.max_doc_id)?;
         self.data.write_int(acc.min_doc_id)?;
         self.data.write_long(acc.max_value)?;
@@ -287,12 +287,12 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     collector
   }
 
-  fn get_levels(index: i32, size: i32) -> usize {
+  fn get_levels(index: usize, size: usize) -> usize {
     if index.trailing_zeros() >= Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT as u32 {
       let left = size - index;
       for level in (1..Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL).rev() {
         let intervals = 1 << (Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT * level);
-        if left >= intervals && index % intervals == 0 {
+        if left >= intervals && index.is_multiple_of(intervals) {
           return level + 1;
         }
       }

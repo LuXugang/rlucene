@@ -101,7 +101,7 @@ where
   dense_rank_table: Option<Vec<u8>>,
   cost: i64,
   block: i32,
-  block_end: i64,
+  block_end: usize,
   // Only used for DENSE blocks
   dense_bitmap_offset: Option<usize>,
   next_block_index: i32,
@@ -281,7 +281,7 @@ where
     }
     // Fallback to iteration of blocks
     loop {
-      self.slice.seek(self.block_end as usize)?;
+      self.slice.seek(self.block_end)?;
       self.read_block_header()?;
       if self.block < target_block {
         continue;
@@ -304,18 +304,18 @@ where
 
       if num_values <= MAX_ARRAY_LENGTH {
         self.method = Method::Sparse;
-        self.block_end = slice.get_file_pointer()? as i64 + (num_values << 1) as i64;
+        self.block_end = slice.get_file_pointer()? + (num_values << 1) as usize;
         self.next_exist_doc_in_block = -1;
       } else if num_values == BLOCK_SIZE {
         self.method = Method::ALL;
-        self.block_end = slice.get_file_pointer()? as i64;
+        self.block_end = slice.get_file_pointer()?;
         self.gap = self.block - self.index - 1;
       } else {
         self.method = Method::Dense;
         let dense_bitmap_offset =
           slice.get_file_pointer()? + self.dense_rank_table.as_ref().map(|v| v.len()).unwrap_or(0);
         self.dense_bitmap_offset = Some(dense_bitmap_offset);
-        self.block_end = dense_bitmap_offset as i64 + (1 << 13);
+        self.block_end = dense_bitmap_offset + (1 << 13);
         // Performance consideration: All rank (default 128 * 16 bits) are
         // loaded up front. This should be fast with the
         // reusable byte buffer, but it is still wasted if the DENSE block

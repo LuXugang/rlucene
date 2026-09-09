@@ -85,8 +85,7 @@ impl Clone for FixedBitSet {
 impl FixedBitSet {
   /// returns the number of 64-bit words it would take to hold numBits
   pub fn bits2words(num_bits: usize) -> usize {
-    let num_bits = num_bits as i32;
-    (((num_bits - 1) >> 6) + 1) as usize
+    num_bits.div_ceil(64)
   }
 
   /// Returns the popcount or cardinality of the intersection of the two sets.

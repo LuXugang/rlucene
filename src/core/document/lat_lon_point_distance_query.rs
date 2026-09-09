@@ -394,9 +394,9 @@ where
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
     let reader = context.reader();
-    let size = self.values.size()? as i32;
+    let size = self.values.size()?;
     if self.values.get_doc_count()? == reader.max_doc()?
-      && self.values.get_doc_count()? == size
+      && self.values.get_doc_count()? as usize == size
       && self.cost(context, searcher)? > reader.max_doc()? as i64 / 2
     {
       let max_doc = reader.max_doc()?;

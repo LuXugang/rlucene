@@ -438,7 +438,10 @@ where
   }
 
   /// Detect repetition groups. Done once - for first doc
-  fn gather_rpt_groups(&mut self, rpt_terms: &LinkedHashMap<Term, i32>) -> Result<Vec<Vec<usize>>> {
+  fn gather_rpt_groups(
+    &mut self,
+    rpt_terms: &LinkedHashMap<Term, usize>,
+  ) -> Result<Vec<Vec<usize>>> {
     let rpp = self.repeating_pps(rpt_terms);
     let mut res: Vec<Vec<usize>> = Vec::new();
 
@@ -536,7 +539,7 @@ where
   }
 
   /// find repeating terms and assign them ordinal values
-  fn repeating_terms(&self) -> LinkedHashMap<Term, i32> {
+  fn repeating_terms(&self) -> LinkedHashMap<Term, usize> {
     let mut tord = LinkedHashMap::new();
     let mut tcnt = HashMap::new();
 
@@ -545,7 +548,7 @@ where
         let cnt = tcnt.entry(t.clone()).and_modify(|c| *c += 1).or_insert(1);
 
         if *cnt == 2 {
-          let ord = tord.len() as i32;
+          let ord = tord.len();
           tord.insert(t.clone(), ord);
         }
       }
@@ -555,7 +558,7 @@ where
   }
 
   /// find repeating pps, and for each, if has multi-terms, update this.has_multi_term_rpts
-  fn repeating_pps(&mut self, rpt_terms: &LinkedHashMap<Term, i32>) -> Vec<usize> {
+  fn repeating_pps(&mut self, rpt_terms: &LinkedHashMap<Term, usize>) -> Vec<usize> {
     let mut rp = Vec::new();
     for (pp_idx, pp) in self.pq.compare.phrase_positions.iter().enumerate() {
       for t in &pp.terms {
@@ -575,7 +578,7 @@ where
   fn pp_terms_bit_sets(
     &self,
     rpp: &[usize],
-    tord: &LinkedHashMap<Term, i32>,
+    tord: &LinkedHashMap<Term, usize>,
   ) -> Result<Vec<FixedBitSet>> {
     let mut bb = Vec::with_capacity(rpp.len());
 
@@ -585,7 +588,7 @@ where
       let pp = &self.pq.compare.phrase_positions[pp_idx];
       for t in &pp.terms {
         if let Some(&ord) = tord.get(t) {
-          b.set(ord as usize)?;
+          b.set(ord)?;
         }
       }
 
@@ -619,7 +622,7 @@ where
   /// map each term to the single group that contains it
   fn term_groups(
     &self,
-    tord: &LinkedHashMap<Term, i32>,
+    tord: &LinkedHashMap<Term, usize>,
     bb: Vec<FixedBitSet>,
   ) -> Result<HashMap<Term, usize>> {
     let mut tg: HashMap<Term, usize> = HashMap::new();

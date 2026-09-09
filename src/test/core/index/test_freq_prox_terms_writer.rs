@@ -23,7 +23,7 @@ use rand::RngExt;
 use rand::prelude::SliceRandom;
 use std::collections::HashMap;
 
-fn generate_doc_offset_data<R>(random: &mut R, len: usize) -> (Vec<i32>, Vec<i64>)
+fn generate_doc_offset_data<R>(random: &mut R, len: usize) -> (Vec<i32>, Vec<usize>)
 where
   R: Rng + ?Sized,
 {
@@ -41,7 +41,7 @@ where
   (docs, offsets)
 }
 
-fn assert_sorted_and_synced(docs: &[i32], offsets: &[i64], original_map: &HashMap<i32, i64>) {
+fn assert_sorted_and_synced(docs: &[i32], offsets: &[usize], original_map: &HashMap<i32, usize>) {
   assert_eq!(docs.len(), offsets.len());
 
   for i in 0..docs.len() {
@@ -78,7 +78,7 @@ fn test_doc_offset_sorter_basic() {
   let (mut docs, mut offsets) = generate_doc_offset_data(&mut random, len);
   assert_eq!(docs.len(), offsets.len());
 
-  let mut original_map: HashMap<i32, i64> = HashMap::with_capacity(len);
+  let mut original_map: HashMap<i32, usize> = HashMap::with_capacity(len);
   for (doc, offset) in docs.iter().cloned().zip(offsets.iter().cloned()) {
     original_map.insert(doc, offset);
   }

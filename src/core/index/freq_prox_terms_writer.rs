@@ -727,16 +727,16 @@ where
 
 pub(crate) struct DocOffsetSorter<'a> {
   docs: &'a mut [i32],
-  offsets: &'a mut [i64],
+  offsets: &'a mut [usize],
   tmp_docs: Vec<i32>,
-  tmp_offsets: Vec<i64>,
+  tmp_offsets: Vec<usize>,
   pivot_index: usize,
 }
 
 impl<'a> DocOffsetSorter<'a> {
   pub(crate) fn new(
     docs: &'a mut [i32],
-    offsets: &'a mut [i64],
+    offsets: &'a mut [usize],
     max_temp_slots: usize,
   ) -> TimSorter<DocOffsetSorter<'a>> {
     let tmp_docs = Vec::new();
@@ -802,7 +802,7 @@ impl TimSorterBase for DocOffsetSorter<'_> {
 }
 pub struct SortingPostingsEnum<P> {
   docs: Vec<i32>,
-  offsets: Vec<i64>,
+  offsets: Vec<usize>,
   upto: usize,
 
   posting_input: Option<ByteBuffersDataInputOwned>,
@@ -873,7 +873,7 @@ impl<P> SortingPostingsEnum<P> {
       }
 
       self.docs[i] = doc_map.old_to_new(doc)?;
-      self.offsets[i] = self.buffer.size() as i64;
+      self.offsets[i] = self.buffer.size();
 
       self.add_positions(&mut postings_enum)?;
       i += 1;
@@ -966,7 +966,7 @@ where
     let Some(posting_input) = self.posting_input.as_mut() else {
       return Err(LuceneError::illegal_state("posting_input not initialized"));
     };
-    posting_input.seek(offset as usize)?;
+    posting_input.seek(offset)?;
 
     self.curr_freq = posting_input.read_vint()?;
 

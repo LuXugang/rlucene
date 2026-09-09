@@ -309,7 +309,7 @@ where
     } else {
       if query_relation != QueryRelation::Intersects
         && query_relation != QueryRelation::Contains
-        && values.get_doc_count()? != values.size()? as i32
+        && values.get_doc_count()? as usize != values.size()?
         && !has_any_hits(&self.spatial_visitor, query_relation, &values)?
       {
         // First we check if we have any hits so we are fast in the adversarial case where
@@ -510,7 +510,7 @@ where
       QueryRelation::Intersects => self.get_sparse_scorer(),
       QueryRelation::Contains => self.get_contains_dense_scorer(),
       QueryRelation::Within | QueryRelation::Disjoint => {
-        if self.values.get_doc_count()? == self.values.size()? as i32 {
+        if self.values.get_doc_count()? as usize == self.values.size()? {
           self.get_sparse_scorer()
         } else {
           self.get_dense_scorer()
@@ -523,7 +523,7 @@ where
     let max_doc = self.max_doc as usize;
     if self.query_relation == QueryRelation::Disjoint
       && self.values.get_doc_count()? == self.max_doc
-      && self.values.get_doc_count()? == self.values.size()? as i32
+      && self.values.get_doc_count()? as usize == self.values.size()?
       && self.cost_value()? > self.max_doc as i64 / 2
     {
       // If all docs have exactly one value and the cost is greater
@@ -547,7 +547,7 @@ where
         self.score_mode,
         iterator,
       )))
-    } else if self.values.get_doc_count()? < (self.values.size()? >> 2) as i32 {
+    } else if (self.values.get_doc_count()? as usize) < (self.values.size()? >> 2) {
       let mut result = FixedBitSet::new(max_doc);
       let cost = {
         let mut visitor =

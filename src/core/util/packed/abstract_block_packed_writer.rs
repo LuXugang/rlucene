@@ -46,7 +46,15 @@ impl<D: AbstractBlockPackedWriterBase> AbstractBlockPackedWriter<D> {
   ///
   /// Returns an error if `block_size` is not valid.
   pub fn new(block_size: usize, sub_writer: D) -> Result<Self> {
-    PackedInts::check_block_size(block_size as i32, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
+    PackedInts::check_block_size(
+      i32::try_from(block_size).map_err(|_| {
+        LuceneError::illegal_argument(format!(
+          "block_size must be >= {MIN_BLOCK_SIZE} and <= {MAX_BLOCK_SIZE}, got {block_size}"
+        ))
+      })?,
+      MIN_BLOCK_SIZE,
+      MAX_BLOCK_SIZE,
+    )?;
 
     Ok(Self {
       values: vec![0; block_size],
