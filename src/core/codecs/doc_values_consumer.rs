@@ -1180,7 +1180,7 @@ where
     let ord = ord as usize;
     let segment_number = self.map.get_first_segment_number(ord)?;
     let segment_ord = self.map.get_first_segment_ord(ord)? as i32;
-    self.doc_id_merger.get_subs_mut()[segment_number as usize]
+    self.doc_id_merger.get_subs_mut()[segment_number]
       .sub
       .values
       .lookup_ord(segment_ord)
@@ -1240,7 +1240,7 @@ where
     let sub_num = self.ordinal_map.get_first_segment_number(ord)?;
     let sub_ord = self.ordinal_map.get_first_segment_ord(ord)?;
 
-    let sub = &mut self.subs[sub_num as usize];
+    let sub = &mut self.subs[sub_num];
     let mut end;
     loop {
       end = sub.next()?.is_none();
@@ -1488,7 +1488,7 @@ where
     let ord = ord as usize;
     let segment_number = self.map.get_first_segment_number(ord)?;
     let segment_ord = self.map.get_first_segment_ord(ord)?;
-    self.to_merge[segment_number as usize].lookup_ord(segment_ord)
+    self.to_merge[segment_number].lookup_ord(segment_ord)
   }
 
   fn get_value_count(&self) -> Result<i64> {

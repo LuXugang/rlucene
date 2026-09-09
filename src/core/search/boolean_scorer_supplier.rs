@@ -86,11 +86,11 @@ where
       )));
     }
 
-    let should_len = subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0) as i32;
-    let must_len = subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0) as i32;
-    let filter_len = subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0) as i32;
+    let should_len = subs.get(&Occur::Should).map(|v| v.len()).unwrap_or(0);
+    let must_len = subs.get(&Occur::Must).map(|v| v.len()).unwrap_or(0);
+    let filter_len = subs.get(&Occur::Filter).map(|v| v.len()).unwrap_or(0);
 
-    if min_should_match != 0 && min_should_match >= should_len {
+    if min_should_match != 0 && min_should_match as usize >= should_len {
       return Err(LuceneError::illegal_argument(
         "minShouldMatch must be strictly less than the number of SHOULD clauses",
       ));

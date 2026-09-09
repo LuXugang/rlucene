@@ -47,12 +47,12 @@ fn test_alloc_known_size_slice() -> Result<()> {
     let mut random_data = vec![0u8; size];
     random.fill(&mut random_data[..]);
 
-    let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)?;
+    let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)? as usize;
 
     let mut offset = 0;
     while offset < size {
       let mut buffer_upto = block_pool.buffer_upto()?;
-      let buffer_index = upto as usize;
+      let buffer_index = upto;
       if block_pool.get_buffer(buffer_upto)[buffer_index] & 16 == 0 {
         block_pool.get_buffer_mut(buffer_upto)[buffer_index] = random_data[offset];
         offset += 1;
@@ -60,21 +60,20 @@ fn test_alloc_known_size_slice() -> Result<()> {
       } else {
         let offset_and_length =
           slice_pool.alloc_known_size_slice(buffer_upto, upto, &mut block_pool)?;
-        let slice_length = offset_and_length & 0xff;
-        upto = offset_and_length >> 8;
+        let slice_length = (offset_and_length & 0xff) as usize;
+        upto = (offset_and_length >> 8) as usize;
         buffer_upto = block_pool.buffer_upto()?;
         assert_ne!(
           0,
-          block_pool.get_buffer(buffer_upto)[(upto + slice_length - 1) as usize]
+          block_pool.get_buffer(buffer_upto)[upto + slice_length - 1]
         );
-        let buffer_index = upto as usize;
+        let buffer_index = upto;
         assert_eq!(0, block_pool.get_buffer(buffer_upto)[buffer_index]);
-        let write_length = std::cmp::min(slice_length as usize - 1, size - offset);
+        let write_length = std::cmp::min(slice_length - 1, size - offset);
         let buffer = block_pool.get_buffer_mut(buffer_upto);
         buffer.copy_from(&random_data[offset..offset + write_length], buffer_index);
         offset += write_length;
-        assert!(write_length <= i32::MAX as usize);
-        upto += write_length as i32;
+        upto += write_length;
       }
     }
   }
@@ -180,7 +179,7 @@ impl SliceWriter {
 
     let offset_and_length = slice_pool.alloc_known_size_slice(
       self.slice,
-      self.slice_offset + self.slice_length - 1,
+      (self.slice_offset + self.slice_length - 1) as usize,
       block_pool,
     )?;
 

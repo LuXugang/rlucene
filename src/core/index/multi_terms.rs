@@ -26,9 +26,9 @@ use crate::core::index::terms_enum::{
   EmptyTermsEnum, TermsEnum, TermsEnumWithUnsupportedSecondAttributes2,
 };
 use crate::core::index::terms_enum_index::TermsEnumIndex;
+use crate::core::util::ToInt;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::{ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::rc::Rc;
 
@@ -366,11 +366,7 @@ where
   for (leaf_idx, ctx) in leaves.iter().enumerate() {
     if let Some(sub_terms) = ctx.reader().terms(field)? {
       terms_per_leaf.push(sub_terms);
-      slice_per_leaf.push(Rc::new(ReaderSlice::new(
-        ctx.doc_base,
-        max_doc,
-        leaf_idx.try_convert()?,
-      )));
+      slice_per_leaf.push(Rc::new(ReaderSlice::new(ctx.doc_base, max_doc, leaf_idx)));
     }
   }
 

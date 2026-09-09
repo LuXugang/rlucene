@@ -101,7 +101,7 @@ pub trait FieldsConsumer: Closeable {
         slices.push(Rc::new(ReaderSlice::new(
           doc_base,
           max_doc as i32,
-          reader_index as i32,
+          reader_index,
         )));
         fields.push(f);
       }

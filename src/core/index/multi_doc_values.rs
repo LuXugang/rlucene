@@ -576,14 +576,9 @@ where
   }
 
   fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    let sub_index: usize = self
-      .mapping
-      .get_first_segment_number(ord as usize)?
-      .try_convert()?;
-    let segment_ord = self
-      .mapping
-      .get_first_segment_ord(ord as usize)?
-      .try_convert()?;
+    let ord = ord as usize;
+    let sub_index = self.mapping.get_first_segment_number(ord)?;
+    let segment_ord = self.mapping.get_first_segment_ord(ord)?.try_convert()?;
     self.values[sub_index].lookup_ord(segment_ord)
   }
 
@@ -802,11 +797,9 @@ where
   }
 
   fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    let sub_index: usize = self
-      .mapping
-      .get_first_segment_number(ord as usize)?
-      .try_convert()?;
-    let segment_ord = self.mapping.get_first_segment_ord(ord as usize)?;
+    let ord = ord as usize;
+    let sub_index = self.mapping.get_first_segment_number(ord)?;
+    let segment_ord = self.mapping.get_first_segment_ord(ord)?;
     self.values[sub_index].lookup_ord(segment_ord)
   }
 

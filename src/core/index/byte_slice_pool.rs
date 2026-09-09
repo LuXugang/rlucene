@@ -87,7 +87,7 @@ impl ByteSlicePool {
     upto: i32,
     pool: &mut ByteBlockPool,
   ) -> Result<i32> {
-    Ok(self.alloc_known_size_slice(slice_index, upto, pool)? >> 8)
+    Ok(self.alloc_known_size_slice(slice_index, upto as usize, pool)? >> 8)
   }
   /// Creates a new byte slice in continuation of the provided slice and
   /// returns its length and offset into the pool.
@@ -103,10 +103,9 @@ impl ByteSlicePool {
   pub fn alloc_known_size_slice(
     &self,
     slice_index: usize,
-    upto: i32,
+    upto: usize,
     pool: &mut ByteBlockPool,
   ) -> Result<i32> {
-    let upto = upto as usize;
     let level;
     {
       let slice = pool.get_buffer(slice_index);

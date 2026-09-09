@@ -100,7 +100,7 @@ where
     for sub in postings_enum.get_subs().iter().take(count) {
       self
         .idxs
-        .push((sub.slice.get_reader_index() as usize, sub.postings_enum_idx));
+        .push((sub.slice.get_reader_index(), sub.postings_enum_idx));
     }
 
     self.doc_id_merger.clear_subs();

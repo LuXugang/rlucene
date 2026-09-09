@@ -19,10 +19,10 @@
 pub struct ReaderSlice {
   pub start: usize,
   pub length: i32,
-  pub reader_index: i32,
+  pub reader_index: usize,
 }
 impl ReaderSlice {
-  pub fn new(start: usize, length: i32, reader_index: i32) -> Self {
+  pub fn new(start: usize, length: i32, reader_index: usize) -> Self {
     Self {
       start,
       length,
@@ -38,7 +38,7 @@ impl ReaderSlice {
     self.length
   }
 
-  pub fn get_reader_index(&self) -> i32 {
+  pub fn get_reader_index(&self) -> usize {
     self.reader_index
   }
 }

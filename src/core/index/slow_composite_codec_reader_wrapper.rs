@@ -1734,7 +1734,7 @@ where
         slices.push(Rc::new(ReaderSlice::new(
           doc_starts[i],
           i as i32,
-          doc_starts[i + 1] as i32,
+          doc_starts[i + 1],
         )));
       }
     }

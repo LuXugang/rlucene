@@ -232,7 +232,7 @@ impl OrdinalMap {
     }
     for i in 0..sub_len {
       let mapped = segment_map.new_to_old(i);
-      let mut sub = TermsEnumIndex::new(subs_with_holes[mapped as usize].take(), i);
+      let mut sub = TermsEnumIndex::new(subs_with_holes[mapped].take(), i);
       if sub.next()?.is_some() {
         terms_enum_indices.push(sub);
       }
@@ -401,7 +401,7 @@ impl OrdinalMap {
   }
 
   /// Given a global ordinal, returns the index of the first segment that contains this term.
-  pub fn get_first_segment_number(&self, global_ord: usize) -> Result<i32> {
+  pub fn get_first_segment_number(&self, global_ord: usize) -> Result<usize> {
     let idx = self.first_segments.get(global_ord)? as usize;
     Ok(self.segment_map.new_to_old(idx))
   }
@@ -486,8 +486,8 @@ impl SegmentMap {
     })
   }
 
-  fn new_to_old(&self, segment: usize) -> i32 {
-    self.new_to_old[segment]
+  fn new_to_old(&self, segment: usize) -> usize {
+    self.new_to_old[segment] as usize
   }
 
   fn old_to_new(&self, segment: usize) -> i32 {

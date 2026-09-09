@@ -342,7 +342,7 @@ impl std::fmt::Display for MockGraph {
 }
 
 pub struct NodeIteratorImpl {
-  cur: i32,
+  next_node: usize,
   cur_count: usize,
   final_count: usize,
   level: usize,
@@ -352,7 +352,7 @@ pub struct NodeIteratorImpl {
 impl NodeIteratorImpl {
   pub fn new(nodes: Vec<Vec<Option<Vec<usize>>>>, final_count: usize, level: usize) -> Self {
     NodeIteratorImpl {
-      cur: -1,
+      next_node: 0,
       cur_count: 0,
       level,
       final_count,
@@ -370,8 +370,8 @@ impl Iterator for NodeIteratorImpl {
       return None;
     }
     while self.cur_count < self.final_count {
-      self.cur += 1;
-      let node = self.cur as usize;
+      let node = self.next_node;
+      self.next_node += 1;
       if self.nodes[self.level][node].is_some() {
         self.cur_count += 1;
         return Some(node);

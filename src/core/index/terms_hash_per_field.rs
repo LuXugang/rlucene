@@ -206,11 +206,10 @@ impl TermsHashPerField {
       }
 
       while offset < end {
-        debug_assert!(slice_offset <= i32::MAX as usize);
         let offset_and_length =
           self
             .slice_pool
-            .alloc_known_size_slice(block_index, slice_offset as i32, byte_pool)?;
+            .alloc_known_size_slice(block_index, slice_offset, byte_pool)?;
         slice_offset = (offset_and_length >> 8) as usize;
         let slice_length = offset_and_length & 0xff;
         let buffer_upto = byte_pool.buffer_upto()?;
