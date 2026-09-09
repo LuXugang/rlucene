@@ -152,6 +152,7 @@ fn test_pre_assigned_shard_index() -> Result<()> {
   let mut num_hits_total = 0usize;
 
   for i in 0..num_top_docs {
+    let shard_index = i as i32;
     let num_hits = 1 + random.random_range(0..10);
     num_hits_total += num_hits;
     let mut score_docs = Vec::with_capacity(num_hits);
@@ -164,12 +165,12 @@ fn test_pre_assigned_shard_index() -> Result<()> {
       score_docs.push(ScoreDoc::with_shard_index(
         (100 * i + j) as i32,
         score,
-        i as i32,
+        shard_index,
       ));
     }
     let shard_top_docs = TopDocs::new(TotalHits::new(num_hits, Relation::EqualTo), score_docs);
     top_docs.push(shard_top_docs.clone());
-    shard_result_mapping.insert(i as i32, shard_top_docs);
+    shard_result_mapping.insert(shard_index, shard_top_docs);
   }
 
   top_docs.shuffle(&mut random);

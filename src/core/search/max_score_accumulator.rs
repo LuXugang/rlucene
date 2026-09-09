@@ -26,14 +26,14 @@ pub struct MaxScoreAccumulator {
   acc: AtomicI64,
 
   // non-final and visible for tests
-  pub(crate) mod_interval: i64,
+  pub(crate) mod_interval: usize,
 }
 
 impl MaxScoreAccumulator {
   pub(crate) fn new() -> Self {
     Self {
       acc: AtomicI64::new(i64::MIN),
-      mod_interval: DEFAULT_INTERVAL.load(Ordering::Relaxed),
+      mod_interval: DEFAULT_INTERVAL.load(Ordering::Relaxed) as usize,
     }
   }
 

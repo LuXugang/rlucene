@@ -139,20 +139,20 @@ pub trait Sorter {
   }
   // faster than lower when val is at the end of [from:to[
   fn lower2(&mut self, from: usize, to: usize, val: usize) -> Result<usize> {
-    let mut f: i32 = to as i32 - 1;
-    let mut t: i32 = to as i32;
-    let from_i32 = from as i32;
+    let mut f = to.saturating_sub(1);
+    let mut t = to;
 
-    while f > from_i32 {
-      if self.compare(f as usize, val)? < 0 {
-        return self.lower(f as usize, t as usize, val);
+    while f > from {
+      if self.compare(f, val)? < 0 {
+        return self.lower(f, t, val);
       }
       let delta = t - f;
       t = f;
-      f -= delta << 1
+      // Probes below zero already terminate the gallop.
+      f = f.saturating_sub(delta << 1);
     }
 
-    self.lower(from, t as usize, val)
+    self.lower(from, t, val)
   }
 
   // faster than upper when val is at the beginning of [from:to[
@@ -223,19 +223,19 @@ pub trait Sorter {
   fn binary_sort_with_start(&mut self, from: usize, to: usize, mut i: usize) -> Result<()> {
     while i < to {
       self.set_pivot(i)?;
-      let mut l: i32 = from as i32;
-      let mut h: i32 = (i - 1) as i32;
-      while l <= h {
-        let mid = (((l + h) as u32) >> 1) as i32;
-        let cmp = self.compare_pivot(mid as usize)?;
+      let mut l = from;
+      let mut h = i;
+      while l < h {
+        let mid = l + ((h - l - 1) >> 1);
+        let cmp = self.compare_pivot(mid)?;
         if cmp < 0 {
-          h = mid - 1;
+          h = mid;
         } else {
           l = mid + 1;
         }
       }
       let mut j = i;
-      while j > l as usize {
+      while j > l {
         self.swap(j - 1, j)?;
         j -= 1;
       }

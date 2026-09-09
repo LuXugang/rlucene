@@ -265,10 +265,8 @@ impl Automaton {
       transitions: &mut self.transitions,
     };
     let mut sort = InPlaceMergeSorter::new(sub);
-    sort.sort(
-      start.try_convert()?,
-      (start + num_transitions).try_convert()?,
-    )?;
+    let start_index: usize = start.try_convert()?;
+    sort.sort(start_index, (start + num_transitions).try_convert()?)?;
 
     // merge adjacent transitions
     let mut upto = 0;
@@ -329,7 +327,6 @@ impl Automaton {
       transitions: &mut self.transitions,
     };
     let mut sort = InPlaceMergeSorter::new(sub);
-    let start_index: usize = start.try_convert()?;
     sort.sort(start_index, start_index + upto)?;
 
     // check determinism

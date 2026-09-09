@@ -6511,7 +6511,7 @@ where
     debug_assert!(updates.any());
     let mut seen_segments: HashSet<String> = HashSet::new();
     let mut iter: i32 = 0;
-    let mut total_segment_count: i32 = 0;
+    let mut total_segment_count: usize = 0;
     let mut total_del_count: i64 = 0;
     let mut finished = false;
 
@@ -6593,7 +6593,7 @@ where
           )?;
         }
 
-        total_segment_count += seg_states.len() as i32;
+        total_segment_count += seg_states.len();
         // Important, else IFD may try to delete our files while we are still using them,
         // if e.g. a merge finishes on some of the segments we are resolving on:
         inner.deleter.inc_ref_files(&del_files)?;

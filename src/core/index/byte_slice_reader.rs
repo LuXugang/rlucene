@@ -83,7 +83,7 @@ where
   }
 
   #[allow(dead_code)]
-  pub(crate) fn write<DO>(&mut self, out: &mut DO) -> Result<i64>
+  pub(crate) fn write<DO>(&mut self, out: &mut DO) -> Result<usize>
   where
     DO: DataOutput,
   {
@@ -96,7 +96,7 @@ where
           self.upto,
           self.limit - self.upto,
         )?;
-        size += (self.limit - self.upto) as i64;
+        size += self.limit - self.upto;
         break;
       } else {
         out.write_bytes_range(
@@ -104,7 +104,7 @@ where
           self.upto,
           self.limit - self.upto,
         )?;
-        size += (self.limit - self.upto) as i64;
+        size += self.limit - self.upto;
         self.next_slice()?;
       }
     }

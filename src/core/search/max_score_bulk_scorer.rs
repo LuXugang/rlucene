@@ -487,8 +487,7 @@ where
         bits ^= 1u64 << ntz;
 
         let index = (word_index << 6) | ntz;
-        let v: i32 = index.try_convert()?;
-        let doc = inner_window_min + v;
+        let doc = inner_window_min + index as i32;
 
         let score = self.window_scores[index];
         self.window_scores[index] = 0.0;

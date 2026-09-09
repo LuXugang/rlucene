@@ -687,8 +687,9 @@ where
   let mut iwc = new_index_writer_config(random)?;
 
   let mbd = iwc.get_max_buffered_docs();
-  if mbd != -1 && mbd < (values.len() / 100) as i32 {
-    iwc.set_max_buffered_docs((values.len() / 100) as i32);
+  let min_buffered_docs = (values.len() / 100) as i32;
+  if mbd != -1 && mbd < min_buffered_docs {
+    iwc.set_max_buffered_docs(min_buffered_docs);
   }
   iwc.set_codec(get_codec());
   // TODO: Use the Java test framework's virus-checking directory variants after the equivalent
@@ -928,8 +929,9 @@ where
   let bytes_per_dim = doc_values[0][0].len();
 
   let mbd = iwc.get_max_buffered_docs();
-  if mbd != -1 && mbd < (doc_values.len() / 100) as i32 {
-    iwc.set_max_buffered_docs((doc_values.len() / 100) as i32);
+  let min_buffered_docs = (doc_values.len() / 100) as i32;
+  if mbd != -1 && mbd < min_buffered_docs {
+    iwc.set_max_buffered_docs(min_buffered_docs);
   }
   iwc.set_codec(get_codec());
   let dir = if doc_values.len() > 100000 {
@@ -1751,7 +1753,7 @@ fn test_random_point_in_set_query() -> Result<()> {
     let gap = random.random_range(0..100);
     let value_min = random.random_range(0..i32::MAX - gap);
     let value_max = value_min + gap;
-    let num_values = TestUtil::next_int(&mut random, 1, gap + 1) as usize;
+    let num_values = TestUtil::next_usize(&mut random, 1, (gap + 1) as usize);
     (Some(value_min), Some(value_max), num_values)
   } else {
     (None, None, TestUtil::next_usize(&mut random, 1, 100))

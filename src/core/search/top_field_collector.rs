@@ -485,7 +485,7 @@ where
     let hit_count_so_far = self.base.increment_total_hits();
 
     if let Some(acc) = &self.base.min_score_acc
-      && (hit_count_so_far & acc.mod_interval as usize) == 0
+      && (hit_count_so_far & acc.mod_interval) == 0
     {
       self.base.update_global_min_competitive_score(scorer)?;
     }

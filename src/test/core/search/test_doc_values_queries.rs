@@ -533,8 +533,9 @@ where
     Arc::new(Sort::get_index_order()?)
   };
 
-  let td1 = searcher.search_with_sort(q1, max_doc.try_convert()?, sort.clone())?;
-  let td2 = searcher.search_with_sort(q2, max_doc.try_convert()?, sort)?;
+  let max_doc: usize = max_doc.try_convert()?;
+  let td1 = searcher.search_with_sort(q1, max_doc, sort.clone())?;
+  let td2 = searcher.search_with_sort(q2, max_doc, sort)?;
   assert_eq!(td1.total_hits().value(), td2.total_hits().value());
 
   for i in 0..td1.score_docs().len() {

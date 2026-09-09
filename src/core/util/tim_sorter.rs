@@ -251,22 +251,23 @@ impl<T: TimSorterBase> TimSorter<T> {
     self.delegate.save(mid, len2)?;
     self.delegate.copy(mid - 1, hi - 1)?;
 
-    let mut i: i32 = mid as i32 - 2;
-    let mut j: i32 = len2 as i32 - 1;
-    let mut dest: i32 = hi as i32 - 2;
+    // Use exclusive cursors so exhaustion never needs -1.
+    let mut i = mid - 1;
+    let mut j = len2;
+    let mut dest = hi - 1;
 
     'outer: loop {
       let mut count = 0;
       while count < MIN_GALLOP {
-        if i < lo as i32 || j < 0 {
+        if i <= lo || j == 0 {
           break 'outer;
-        } else if self.delegate.compare_saved(j as usize, i as usize)? >= 0 {
-          self.delegate.restore(j as usize, dest as usize);
+        } else if self.delegate.compare_saved(j - 1, i - 1)? >= 0 {
+          self.delegate.restore(j - 1, dest - 1);
           j -= 1;
           dest -= 1;
           count = 0;
         } else {
-          self.delegate.copy(i as usize, dest as usize)?;
+          self.delegate.copy(i - 1, dest - 1)?;
           i -= 1;
           dest -= 1;
           count += 1;
@@ -274,19 +275,19 @@ impl<T: TimSorterBase> TimSorter<T> {
       }
 
       // Galloping phase
-      let next = self.upper_saved3(lo, (i + 1) as usize, j as usize)?;
-      while i >= next as i32 {
-        self.delegate.copy(i as usize, dest as usize)?;
+      let next = self.upper_saved3(lo, i, j - 1)?;
+      while i > next {
+        self.delegate.copy(i - 1, dest - 1)?;
         i -= 1;
         dest -= 1;
       }
-      self.delegate.restore(j as usize, dest as usize);
+      self.delegate.restore(j - 1, dest - 1);
       j -= 1;
       dest -= 1;
     }
 
-    while j >= 0 {
-      self.delegate.restore(j as usize, dest as usize);
+    while j > 0 {
+      self.delegate.restore(j - 1, dest - 1);
       j -= 1;
       dest -= 1;
     }
@@ -351,17 +352,17 @@ impl<T: TimSorterBase> TimSorter<T> {
   }
 
   pub fn upper_saved3(&self, from: usize, to: usize, val: usize) -> Result<usize> {
-    let mut f: i32 = to as i32 - 1;
+    let mut f = to.saturating_sub(1);
     let mut t = to;
 
-    while f > from as i32 {
-      let v = f as usize;
-      if self.delegate.compare_saved(val, v)? >= 0 {
-        return self.upper_saved(v, t, val);
+    while f > from {
+      if self.delegate.compare_saved(val, f)? >= 0 {
+        return self.upper_saved(f, t, val);
       }
-      let delta = t - v;
-      t = v;
-      f -= delta as i32 * 2
+      let delta = t - f;
+      t = f;
+      // Probes below zero already terminate the gallop.
+      f = f.saturating_sub(delta * 2);
     }
     self.upper_saved(from, t, val)
   }

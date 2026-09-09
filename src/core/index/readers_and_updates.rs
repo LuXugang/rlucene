@@ -226,11 +226,11 @@ where
     Ok(())
   }
 
-  pub(crate) fn get_num_dv_updates(&self) -> i64 {
+  pub(crate) fn get_num_dv_updates(&self) -> usize {
     let inner = self.inner.lock();
-    let mut count = 0i64;
+    let mut count = 0usize;
     for updates in inner.pending_dv_updates.values() {
-      count += updates.len() as i64;
+      count += updates.len();
     }
     count
   }

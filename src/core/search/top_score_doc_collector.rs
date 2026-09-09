@@ -273,7 +273,7 @@ impl LeafCollector for TopScoreDocLeafCollector<'_> {
     let hit_count_so_far = self.base.base.total_hits;
 
     if let Some(acc) = &self.base.min_score_acc
-      && (hit_count_so_far as i64 & acc.mod_interval) == 0
+      && (hit_count_so_far & acc.mod_interval) == 0
     {
       self.update_global_min_competitive_score(scorer)?;
     }

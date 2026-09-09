@@ -414,7 +414,7 @@ fn test_range_query_id() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(num_hits, result.len(), "find all");
-    let hits_without_endpoint = (num_docs - 1) as usize;
+    let hits_without_endpoint = num_hits - 1;
 
     result = search
       .search(
@@ -438,7 +438,7 @@ fn test_range_query_id() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!((num_docs - 2) as usize, result.len(), "all but ends");
+    assert_eq!(num_hits - 2, result.len(), "all but ends");
 
     result = search
       .search(
@@ -585,7 +585,7 @@ fn test_range_query_rand() -> Result<()> {
       )?
       .score_docs;
     assert_eq!(num_hits, result.len(), "find all");
-    let hits_without_endpoint = (num_docs - 1) as usize;
+    let hits_without_endpoint = num_hits - 1;
 
     result = search
       .search(
@@ -609,7 +609,7 @@ fn test_range_query_rand() -> Result<()> {
         num_hits,
       )?
       .score_docs;
-    assert_eq!((num_docs - 2) as usize, result.len(), "all but extremes");
+    assert_eq!(num_hits - 2, result.len(), "all but extremes");
 
     // unbounded
     result = search

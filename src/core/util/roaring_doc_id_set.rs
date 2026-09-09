@@ -318,23 +318,24 @@ impl DocIdSetIterator for ShortArrayDISI {
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    let mut lo = self.i.map_or(0, |i| i + 1) as i32;
-    let mut hi = self.doc_ids.len() as i32 - 1;
-    while lo <= hi {
-      let mid = (lo + hi) >> 1;
-      let mid_doc = self.doc_id_index(mid as usize);
+    let mut lo = self.i.map_or(0, |i| i + 1);
+    let mut hi = self.doc_ids.len();
+    while lo < hi {
+      // Preserve the inclusive-range midpoint with an exclusive upper bound.
+      let mid = lo + ((hi - lo - 1) >> 1);
+      let mid_doc = self.doc_id_index(mid);
       if mid_doc < target {
         lo = mid + 1;
       } else {
-        hi = mid - 1;
+        hi = mid;
       }
     }
-    if lo == self.doc_ids.len() as i32 {
+    if lo == self.doc_ids.len() {
       self.i = Some(self.doc_ids.len());
       self.doc = NO_MORE_DOCS;
     } else {
-      self.i = Some(lo as usize);
-      self.doc = self.doc_id_index(lo as usize);
+      self.i = Some(lo);
+      self.doc = self.doc_id_index(lo);
     }
     Ok(self.doc)
   }

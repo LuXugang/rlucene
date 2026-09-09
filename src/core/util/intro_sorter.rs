@@ -127,13 +127,12 @@ pub trait IntroSorter: Sorter {
 
       i = j + 1;
 
-      let mut j_signed = j as i32;
+      let mut left_end = j + 1;
       let mut k = from;
       while k < p {
-        debug_assert!(j_signed >= 0);
-        self.swap(k, j_signed as usize)?;
+        self.swap(k, left_end - 1)?;
         k += 1;
-        j_signed -= 1;
+        left_end -= 1;
       }
 
       k = last;
@@ -144,12 +143,12 @@ pub trait IntroSorter: Sorter {
       }
       // Recursion on the smallest partition. Replace the tail recursion
       // by a loop.
-      if (j_signed - from as i32) < (last as i32 - i as i32) {
-        self.sort_in_intro(from, (j_signed + 1) as usize, max_depth)?;
+      if left_end - from < to - i {
+        self.sort_in_intro(from, left_end, max_depth)?;
         from = i;
       } else {
         self.sort_in_intro(i, to, max_depth)?;
-        to = (j_signed + 1) as usize;
+        to = left_end;
       }
     }
 

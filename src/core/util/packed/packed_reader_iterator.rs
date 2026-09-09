@@ -98,14 +98,14 @@ where
       return Err(LuceneError::eof("No more values to read"));
     }
 
-    count = count.min(remaining as usize);
+    let remaining = remaining as usize;
+    count = count.min(remaining);
 
     if self.next_values.offset == self.next_values.longs.len() {
-      let remaining_blocks = self.format.byte_count(
-        self.packed_ints_version,
-        remaining as usize,
-        self.bits_per_value,
-      );
+      let remaining_blocks =
+        self
+          .format
+          .byte_count(self.packed_ints_version, remaining, self.bits_per_value);
       let blocks_to_read = remaining_blocks.min(self.next_blocks.len());
       debug_assert!(blocks_to_read <= i32::MAX as usize);
       self

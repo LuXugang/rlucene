@@ -327,18 +327,18 @@ fn test_next_all_terms() -> Result<()> {
 
   let terms = &terms_list[..];
 
-  for min_nr_should_match in 1..terms.len() {
+  for min_nr_should_match in 1..terms.len() as i32 {
     let mut expected = scorer(
       &mut random,
       terms,
-      min_nr_should_match as i32,
+      min_nr_should_match,
       Mode::DocValues,
       searcher,
     )?;
     let mut actual = scorer(
       &mut random,
       terms,
-      min_nr_should_match as i32,
+      min_nr_should_match,
       Mode::Scorer,
       searcher,
     )?;
@@ -348,14 +348,14 @@ fn test_next_all_terms() -> Result<()> {
     let mut expected = scorer(
       &mut random,
       terms,
-      min_nr_should_match as i32,
+      min_nr_should_match,
       Mode::DocValues,
       searcher,
     )?;
     let mut actual = scorer(
       &mut random,
       terms,
-      min_nr_should_match as i32,
+      min_nr_should_match,
       Mode::BulkScorer,
       searcher,
     )?;
@@ -380,18 +380,18 @@ fn test_advance_all_terms() -> Result<()> {
   let terms = &terms_list[..];
 
   for amount in (25..200).step_by(25) {
-    for min_nr_should_match in 1..terms.len() {
+    for min_nr_should_match in 1..terms.len() as i32 {
       let mut expected = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::DocValues,
         searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::Scorer,
         searcher,
       )?;
@@ -401,14 +401,14 @@ fn test_advance_all_terms() -> Result<()> {
       let mut expected = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::DocValues,
         searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::BulkScorer,
         searcher,
       )?;
@@ -436,18 +436,18 @@ fn test_next_varying_number_of_terms() -> Result<()> {
   for num_terms in 2..=terms_list.len() {
     let terms = &terms_list[0..num_terms];
 
-    for min_nr_should_match in 1..terms.len() {
+    for min_nr_should_match in 1..terms.len() as i32 {
       let mut expected = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::DocValues,
         searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::Scorer,
         searcher,
       )?;
@@ -457,14 +457,14 @@ fn test_next_varying_number_of_terms() -> Result<()> {
       let mut expected = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::DocValues,
         searcher,
       )?;
       let mut actual = scorer(
         &mut random,
         terms,
-        min_nr_should_match as i32,
+        min_nr_should_match,
         Mode::BulkScorer,
         searcher,
       )?;
@@ -493,18 +493,18 @@ fn test_advance_varying_number_of_terms() -> Result<()> {
     for num_terms in 2..=terms_list.len() {
       let terms = &terms_list[0..num_terms];
 
-      for min_nr_should_match in 1..terms.len() {
+      for min_nr_should_match in 1..terms.len() as i32 {
         let mut expected = scorer(
           &mut random,
           terms,
-          min_nr_should_match as i32,
+          min_nr_should_match,
           Mode::DocValues,
           searcher,
         )?;
         let mut actual = scorer(
           &mut random,
           terms,
-          min_nr_should_match as i32,
+          min_nr_should_match,
           Mode::Scorer,
           searcher,
         )?;
@@ -514,14 +514,14 @@ fn test_advance_varying_number_of_terms() -> Result<()> {
         let mut expected = scorer(
           &mut random,
           terms,
-          min_nr_should_match as i32,
+          min_nr_should_match,
           Mode::DocValues,
           searcher,
         )?;
         let mut actual = scorer(
           &mut random,
           terms,
-          min_nr_should_match as i32,
+          min_nr_should_match,
           Mode::Scorer,
           searcher,
         )?;

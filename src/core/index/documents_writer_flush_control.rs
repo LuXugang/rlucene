@@ -966,12 +966,12 @@ where
   /// Returns the number of flushes that are checked out but not yet available for flushing.
   /// This only applies during a full flush if a DWPT needs flushing but must not be flushed
   /// until the full flush has finished.
-  pub(crate) fn num_blocked_flushes(&self, inner: Option<&Inner<D>>) -> i32 {
+  pub(crate) fn num_blocked_flushes(&self, inner: Option<&Inner<D>>) -> usize {
     let inner = match inner {
       Some(inner) => inner,
       None => &*self.inner.lock(),
     };
-    inner.blocked_flushes.len() as i32
+    inner.blocked_flushes.len()
   }
 
   /// This method will block if too many DWPT are currently flushing and no checked out DWPT are available

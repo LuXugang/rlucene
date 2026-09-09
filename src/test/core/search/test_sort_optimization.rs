@@ -775,10 +775,10 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
   )?;
   let num_hits = 10;
   let total_hits_threshold = 10;
-  let search_afters = [3, 10, num_docs as i32 - 10];
+  let search_afters = [3, 10, num_docs - 10];
 
-  for &search_after in &search_afters {
-    let after_index = search_after as usize;
+  for &after_index in &search_afters {
+    let search_after = after_index as i32;
     {
       let sort = Sort::with_fields(vec![SortField::get_field_doc()?])?;
       let after = FieldDoc::with_fields(
