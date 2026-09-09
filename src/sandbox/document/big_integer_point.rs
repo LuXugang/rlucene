@@ -230,7 +230,7 @@ impl BigIntegerPoint {
     T: Into<String>,
     V: AsRef<[BigInt]>,
   {
-    let mut sorted_values = values.as_ref().to_vec();
+    let mut sorted_values: Vec<&BigInt> = values.as_ref().iter().collect();
     sorted_values.sort();
 
     PointInSetQuery::new(
@@ -243,14 +243,14 @@ impl BigIntegerPoint {
   }
 }
 
-struct BigIntegerPointSetBytesRefIterator {
-  sorted_values: Vec<BigInt>,
+struct BigIntegerPointSetBytesRefIterator<'a> {
+  sorted_values: Vec<&'a BigInt>,
   upto: usize,
   encoded: BytesRef<Vec<u8>>,
 }
 
-impl BigIntegerPointSetBytesRefIterator {
-  fn new(sorted_values: Vec<BigInt>) -> Self {
+impl<'a> BigIntegerPointSetBytesRefIterator<'a> {
+  fn new(sorted_values: Vec<&'a BigInt>) -> Self {
     Self {
       sorted_values,
       upto: 0,
@@ -259,16 +259,12 @@ impl BigIntegerPointSetBytesRefIterator {
   }
 }
 
-impl BytesRefIterator for BigIntegerPointSetBytesRefIterator {
+impl BytesRefIterator for BigIntegerPointSetBytesRefIterator<'_> {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if self.upto == self.sorted_values.len() {
       Ok(None)
     } else {
-      BigIntegerPoint::encode_dimension(
-        &self.sorted_values[self.upto],
-        &mut self.encoded.bytes,
-        0,
-      )?;
+      BigIntegerPoint::encode_dimension(self.sorted_values[self.upto], &mut self.encoded.bytes, 0)?;
       self.upto += 1;
       Ok(Some(Cow::Borrowed(&self.encoded)))
     }

@@ -35,8 +35,8 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::number::Number;
 use std::borrow::Cow;
-use std::fmt;
 use std::fmt::Formatter;
+use std::fmt::{self, Write};
 
 /// An indexed binary field for fast range filters. If you also need to store the value, you should
 /// add a separate [`StoredField`](crate::core::document::stored_field::StoredField) instance.
@@ -238,7 +238,7 @@ impl BinaryPoint {
     let upper = upper.into();
     #[cfg(debug_assertions)]
     check_args(&field, lower.as_ref(), upper.as_ref())?;
-    Self::new_range_query_multi_dim(field, &[lower], &[upper])
+    PointRangeQuery::new(field, lower, upper, 1, BinaryPointRangeQuery)
   }
 
   /// Create a range query for n-dimensional binary values.
@@ -322,8 +322,7 @@ impl BinaryPoint {
       return Ok(MatchNoDocsQuery::with_reason("empty BinaryPoint.newSetQuery").into());
     };
 
-    let mut sorted_values: Vec<Vec<u8>> =
-      values.iter().map(|value| value.as_ref().to_vec()).collect();
+    let mut sorted_values: Vec<&[u8]> = values.iter().map(|value| value.as_ref()).collect();
     sorted_values.sort();
 
     Ok(
@@ -339,14 +338,14 @@ impl BinaryPoint {
   }
 }
 
-struct BinaryPointSetBytesRefIterator {
-  sorted_values: Vec<Vec<u8>>,
+struct BinaryPointSetBytesRefIterator<'a> {
+  sorted_values: Vec<&'a [u8]>,
   upto: usize,
   encoded: BytesRef<Vec<u8>>,
 }
 
-impl BinaryPointSetBytesRefIterator {
-  fn new(sorted_values: Vec<Vec<u8>>) -> Self {
+impl<'a> BinaryPointSetBytesRefIterator<'a> {
+  fn new(sorted_values: Vec<&'a [u8]>) -> Self {
     Self {
       sorted_values,
       upto: 0,
@@ -355,17 +354,12 @@ impl BinaryPointSetBytesRefIterator {
   }
 }
 
-impl BytesRefIterator for BinaryPointSetBytesRefIterator {
+impl BytesRefIterator for BinaryPointSetBytesRefIterator<'_> {
   fn next(&mut self) -> Result<Option<Cow<'_, BytesRef<Vec<u8>>>>> {
     if self.upto == self.sorted_values.len() {
       Ok(None)
     } else {
-      self
-        .encoded
-        .bytes
-        .clone_from(&self.sorted_values[self.upto]);
-      self.encoded.offset = 0;
-      self.encoded.length = self.encoded.bytes.len();
+      self.encoded.copy_from_slice(self.sorted_values[self.upto]);
       self.upto += 1;
       Ok(Some(Cow::Borrowed(&self.encoded)))
     }
@@ -463,7 +457,7 @@ impl PointRangeBase for BinaryPointRangeQuery {
       if i > 0 {
         out.push(' ');
       }
-      out.push_str(&format!("{:x}", b));
+      write!(out, "{:x}", b)?;
     }
     out.push(')');
     Ok(out)

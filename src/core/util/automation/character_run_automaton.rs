@@ -42,9 +42,14 @@ impl CharacterRunAutomaton {
 
   /// Returns true if the given string is accepted by this automaton.
   pub fn run_str(&self, s: &str) -> Result<bool> {
-    let utf16_vec: Vec<u16> = s.encode_utf16().collect();
-    let length = utf16_vec.len();
-    self.run_chars(utf16_vec.as_slice(), 0, length)
+    let mut state = 0;
+    for ch in s.chars() {
+      state = self.base.step(state, ch as i32);
+      if state == -1 {
+        return Ok(false);
+      }
+    }
+    self.base.is_accept(state)
   }
 
   /// Returns true if the given UTF-16 code-unit slice is accepted.

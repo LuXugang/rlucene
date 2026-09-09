@@ -19,11 +19,11 @@ use std::sync::Arc;
 use std::sync::LazyLock;
 
 use crate::core::store::{DataInput, DataOutput};
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::ints_ref::IntsRef;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-use crate::core::util::{CoreHelper, SliceCopyOps};
 
 /// Global NO_OUTPUT singleton shared by all threads, matching Java's
 /// `private static final IntsRef NO_OUTPUT = new IntsRef()` semantics.
@@ -64,9 +64,7 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn subtract(&self, output: &Self::V, inc: &Self::V) -> Self::V {
-    let no_output_clone = NO_OUTPUT.clone();
-
-    if IntsRef::equals(inc, &no_output_clone) {
+    if IntsRef::equals(inc, &NO_OUTPUT) {
       return output.clone();
     } else if inc.length == output.length {
       return self.get_no_output();
@@ -82,25 +80,17 @@ impl Outputs for IntSequenceOutputs {
   }
 
   fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
-    let no_output = NO_OUTPUT.clone();
-
-    if IntsRef::equals(prefix, &no_output) {
+    let no_output = &*NO_OUTPUT;
+    if IntsRef::equals(prefix, no_output) {
       return output.clone();
-    } else if IntsRef::equals(output, &no_output) {
+    } else if IntsRef::equals(output, no_output) {
       return prefix.clone();
     }
     debug_assert!(prefix.length > 0);
     debug_assert!(output.length > 0);
-    let mut buf = vec![0; prefix.length + output.length];
-    buf.copy_from(
-      &prefix.ints[prefix.offset..prefix.offset + prefix.length],
-      0,
-    );
-    buf.copy_from(
-      &output.ints[output.offset..output.offset + output.length],
-      prefix.length,
-    );
-
+    let mut buf = Vec::with_capacity(prefix.length + output.length);
+    buf.extend_from_slice(&prefix.ints[prefix.offset..prefix.offset + prefix.length]);
+    buf.extend_from_slice(&output.ints[output.offset..output.offset + output.length]);
     IntsRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
   }
 

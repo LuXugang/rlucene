@@ -112,18 +112,21 @@ impl Sort {
   where
     IRC: IndexReaderContext,
   {
-    let mut changed = false;
-    let mut rewritten_fields = Vec::with_capacity(self.fields.len());
-    for field in &self.fields {
+    let mut rewritten_fields = None;
+    for (i, field) in self.fields.iter().enumerate() {
       if let Some(rewritten_field) = field.rewrite(searcher)? {
-        rewritten_fields.push(rewritten_field);
-        changed = true;
-      } else {
-        rewritten_fields.push(field.clone());
+        let fields = rewritten_fields.get_or_insert_with(|| {
+          let mut fields = Vec::with_capacity(self.fields.len());
+          fields.extend_from_slice(&self.fields[..i]);
+          fields
+        });
+        fields.push(rewritten_field);
+      } else if let Some(fields) = &mut rewritten_fields {
+        fields.push(field.clone());
       }
     }
 
-    if changed {
+    if let Some(rewritten_fields) = rewritten_fields {
       Ok(Some(Self::with_fields(rewritten_fields)?))
     } else {
       Ok(None)

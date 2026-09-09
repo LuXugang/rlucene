@@ -23,7 +23,7 @@ use crate::core::store::{DataInput, DataOutput};
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::outputs::Outputs;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-use crate::core::util::{CoreHelper, SliceCopyOps, StringHelper, TryIntoInt};
+use crate::core::util::{CoreHelper, StringHelper, TryIntoInt};
 
 static NO_OUTPUT: LazyLock<BytesRef<Arc<Vec<u8>>>> = LazyLock::new(BytesRef::default);
 
@@ -100,24 +100,18 @@ impl Outputs for ByteSequenceOutputs {
   }
 
   fn add(&self, prefix: &Self::V, output: &Self::V) -> Self::V {
-    let no_output = NO_OUTPUT.clone();
-    if BytesRef::equals(prefix, &no_output) {
+    let no_output = &*NO_OUTPUT;
+    if BytesRef::equals(prefix, no_output) {
       return output.clone();
     }
-    if BytesRef::equals(output, &no_output) {
+    if BytesRef::equals(output, no_output) {
       return prefix.clone();
     }
     debug_assert!(prefix.length > 0);
     debug_assert!(output.length > 0);
-    let mut buf = vec![0u8; prefix.length + output.length];
-    buf.copy_from(
-      &prefix.bytes[prefix.offset..(prefix.offset + prefix.length)],
-      0,
-    );
-    buf.copy_from(
-      &output.bytes[output.offset..(output.offset + output.length)],
-      prefix.length,
-    );
+    let mut buf = Vec::with_capacity(prefix.length + output.length);
+    buf.extend_from_slice(&prefix.bytes[prefix.offset..prefix.offset + prefix.length]);
+    buf.extend_from_slice(&output.bytes[output.offset..output.offset + output.length]);
     BytesRef::from_slice(Arc::new(buf), 0, prefix.length + output.length)
   }
 

@@ -93,8 +93,7 @@ impl SingleInstanceLock {
 
 impl Display for SingleInstanceLock {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let addr = format!("{:p}", self);
-    f.write_fmt(format_args!("{}: {}", addr, self.lock_name))
+    write!(f, "{:p}: {}", self, self.lock_name)
   }
 }
 

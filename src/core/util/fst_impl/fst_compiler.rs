@@ -135,7 +135,7 @@ where
     let no_output = outputs.get_no_output();
     let fst_meta = FSTMetadata::new(input_type, outputs, None, -1, version, 0);
     let fst = FST::new(fst_meta, NullFSTReader);
-    let mut frontier = vec![];
+    let mut frontier = Vec::with_capacity(10);
     for i in 0..10 {
       frontier.push(UnCompiledNode::new(no_output.clone(), i));
     }
