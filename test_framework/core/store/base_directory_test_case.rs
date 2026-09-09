@@ -2110,8 +2110,8 @@ pub trait BaseDirectoryTestCase {
     dir: &D,
     random: &mut R,
     iterations: usize,
-    min_bpv: usize,
-    max_bpv: usize,
+    min_bpv: i32,
+    max_bpv: i32,
     max_num_values: usize,
   ) -> Result<()>
   where
@@ -2128,7 +2128,7 @@ pub trait BaseDirectoryTestCase {
 
       // Encode
       for num_values in num_values_array.iter_mut().take(iterations) {
-        let bpv = TestUtil::next_int(random, min_bpv as i32, max_bpv as i32);
+        let bpv = TestUtil::next_int(random, min_bpv, max_bpv);
         *num_values = TestUtil::next_usize(random, 1, max_num_values);
 
         for value in values.iter_mut().take(*num_values) {

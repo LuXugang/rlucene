@@ -18,8 +18,8 @@ use crate::core::search::total_hits::Relation::{EqualTo, GreaterThanOrEqualTo};
 use crate::core::search::total_hits::TotalHits;
 use crate::core::util::CoreHelper;
 use crate::test_framework::core::util::lucene_test_case::random;
+use crate::test_framework::core::util::test_util::TestUtil;
 use rand::Rng;
-use rand::RngExt;
 use rand::prelude::IndexedRandom;
 #[allow(dead_code)] // for quick search
 struct TestTotalHits;
@@ -75,7 +75,7 @@ fn random_total_hits<R>(random: &mut R) -> TotalHits
 where
   R: Rng + ?Sized,
 {
-  let value = random.random_range(0..=i64::MAX) as usize;
+  let value = TestUtil::next_usize(random, 0, i64::MAX as usize);
   let relation = *[EqualTo, GreaterThanOrEqualTo].choose(random).unwrap();
 
   TotalHits::new(value, relation)

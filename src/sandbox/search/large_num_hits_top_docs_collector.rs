@@ -141,12 +141,15 @@ impl Collector for LargeNumHitsTopDocsCollector {
 
 pub struct LargeNumHitsTopDocsLeafCollector<'a> {
   base: &'a mut LargeNumHitsTopDocsCollector,
-  doc_base: usize,
+  doc_base: i32,
 }
 
 impl<'a> LargeNumHitsTopDocsLeafCollector<'a> {
   fn new(base: &'a mut LargeNumHitsTopDocsCollector, doc_base: usize) -> Self {
-    Self { base, doc_base }
+    Self {
+      base,
+      doc_base: doc_base as i32,
+    }
   }
 }
 
@@ -169,7 +172,7 @@ impl LeafCollector for LargeNumHitsTopDocsLeafCollector<'_> {
         .hits
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("hits list has already been converted to a PQ"))?
-        .push(ScoreDoc::new(doc + self.doc_base as i32, score));
+        .push(ScoreDoc::new(doc + self.doc_base, score));
       self.base.total_hits += 1;
       return Ok(());
     } else if self.base.total_hits == self.base.requested_hit_count {
@@ -200,7 +203,7 @@ impl LeafCollector for LargeNumHitsTopDocsLeafCollector<'_> {
       let pq_top = pq
         .top_mut()
         .ok_or_else(|| LuceneError::illegal_state("priority queue is empty"))?;
-      pq_top.doc = doc + self.doc_base as i32;
+      pq_top.doc = doc + self.doc_base;
       pq_top.score = score;
       pq.update_top()?;
     }

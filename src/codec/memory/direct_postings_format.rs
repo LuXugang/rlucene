@@ -552,7 +552,7 @@ impl DirectField {
     let mut term_offsets = vec![0; 1 + num_terms];
     let mut term_bytes = Vec::with_capacity(1024);
     let mut same_counts = vec![0; 10];
-    let mut skip_count = 0i32;
+    let mut skip_count = 0usize;
 
     let index_options = *field_info.get_index_options();
     let has_freq = index_options > IndexOptions::Docs;
@@ -714,7 +714,7 @@ impl DirectField {
       &mut skip_count,
     );
 
-    let mut skips = Vec::with_capacity(skip_count as usize);
+    let mut skips = Vec::with_capacity(skip_count);
     let mut skip_offsets = vec![0; 1 + num_terms];
     let mut skip_offset = 0usize;
     for (i, term) in terms.iter_mut().enumerate() {
@@ -727,7 +727,7 @@ impl DirectField {
       skip_offset += term_skips.len();
     }
     skip_offsets[num_terms] = skip_offset as i32;
-    debug_assert_eq!(skip_offset, skip_count as usize);
+    debug_assert_eq!(skip_offset, skip_count);
     term_bytes.shrink_to_fit();
 
     Ok(Self {
@@ -781,7 +781,7 @@ impl DirectField {
     same_counts: &mut Vec<i32>,
     min_skip_count: i32,
     terms: &mut [PendingTerm],
-    skip_count: &mut i32,
+    skip_count: &mut usize,
   ) {
     let term_length = (term_offsets[term_ord + 1] - term_offsets[term_ord]) as usize;
     if same_counts.len() < term_length {
@@ -833,7 +833,7 @@ impl DirectField {
     same_counts: &[i32],
     min_skip_count: i32,
     terms: &mut [PendingTerm],
-    skip_count: &mut i32,
+    skip_count: &mut usize,
   ) {
     debug_assert_eq!(count, terms.len());
     if count == 0 {
@@ -856,7 +856,7 @@ impl DirectField {
     }
   }
 
-  fn save_skip(ord: usize, back_count: i32, terms: &mut [PendingTerm], skip_count: &mut i32) {
+  fn save_skip(ord: usize, back_count: i32, terms: &mut [PendingTerm], skip_count: &mut usize) {
     let term = &mut terms[ord - back_count as usize];
     *skip_count += 1;
     match term {
@@ -1155,7 +1155,7 @@ pub struct DirectIntersectTermsEnum {
 }
 
 struct DirectIntersectState {
-  change_ord: i32,
+  change_ord: usize,
   state: i32,
   transition_upto: i32,
   transition_count: i32,
@@ -1186,7 +1186,7 @@ impl DirectIntersectTermsEnum {
   ) -> Result<Self> {
     let mut automaton = compiled.get_automaton()?;
     let mut first_state = DirectIntersectState::new();
-    first_state.change_ord = data.terms.len() as i32;
+    first_state.change_ord = data.terms.len();
     first_state.state = 0;
     first_state.transition_count =
       automaton.init_transition(first_state.state, &mut first_state.transition)?;
@@ -1248,7 +1248,7 @@ impl DirectIntersectTermsEnum {
           let term_length =
             (self.data.term_offsets[term_ord + 1] - self.data.term_offsets[term_ord]) as usize;
 
-          if self.term_ord == Some(self.states[self.state_upto].change_ord as usize) {
+          if self.term_ord == Some(self.states[self.state_upto].change_ord) {
             self.state_upto -= 1;
             self.term_ord = self.term_ord.and_then(|term_ord| term_ord.checked_sub(1));
             return Ok(());
@@ -1271,7 +1271,7 @@ impl DirectIntersectTermsEnum {
 
               self.state_upto += 1;
               let state = &mut self.states[self.state_upto];
-              state.change_ord = self.data.skips[skip_offset + skip_upto];
+              state.change_ord = self.data.skips[skip_offset + skip_upto] as usize;
               skip_upto += 1;
               state.state = next_state;
               state.transition_count = self
@@ -1378,7 +1378,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
         return Ok(None);
       }
 
-      if self.term_ord == Some(self.states[self.state_upto].change_ord as usize) {
+      if self.term_ord == Some(self.states[self.state_upto].change_ord) {
         // Pop:
         self.state_upto -= 1;
         continue;
@@ -1394,7 +1394,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
       let num_skips =
         (self.data.skip_offsets[term_ord + 1] - self.data.skip_offsets[term_ord]) as usize;
 
-      debug_assert!(term_ord < self.states[self.state_upto].change_ord as usize);
+      debug_assert!(term_ord < self.states[self.state_upto].change_ord);
       debug_assert!(self.state_upto <= term_length);
       let label = self.data.term_bytes[term_offset + self.state_upto] as i32;
 
@@ -1408,8 +1408,8 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
             self.term_ord = Some(self.data.terms.len());
             return Ok(None);
           }
-          debug_assert!(self.states[self.state_upto].change_ord as usize > term_ord);
-          self.term_ord = Some(self.states[self.state_upto].change_ord as usize);
+          debug_assert!(self.states[self.state_upto].change_ord > term_ord);
+          self.term_ord = Some(self.states[self.state_upto].change_ord);
           skip_upto = 0;
           self.state_upto -= 1;
           continue 'next_term;
@@ -1427,7 +1427,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
       let target_label = self.states[self.state_upto].transition_min;
       if label < target_label {
         let mut low = term_ord as i32 + 1;
-        let mut high = self.states[self.state_upto].change_ord - 1;
+        let mut high = self.states[self.state_upto].change_ord as i32 - 1;
         loop {
           if low > high {
             // Label not found.
@@ -1478,7 +1478,7 @@ impl BytesRefIterator for DirectIntersectTermsEnum {
         self.state_upto += 1;
         let state = &mut self.states[self.state_upto];
         state.state = next_state;
-        state.change_ord = self.data.skips[skip_offset + skip_upto];
+        state.change_ord = self.data.skips[skip_offset + skip_upto] as usize;
         skip_upto += 1;
         state.transition_count = self
           .automaton

@@ -16,7 +16,6 @@
  */
 use crate::core::util::INSERTION_SORT_THRESHOLD;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::math_util::MathUtil;
 use crate::core::util::sorter::{Sorter, check_range};
 
 /// Below this size threshold, the partition selection is simplified to a single
@@ -41,11 +40,8 @@ pub const SINGLE_MEDIAN_THRESHOLD: usize = 40;
 pub trait IntroSorter: Sorter {
   fn sort_range(&mut self, from: usize, to: usize) -> Result<()> {
     check_range(from, to)?;
-    self.sort_in_intro(
-      from,
-      to,
-      (2 * MathUtil::log((to - from) as i64, 2)?) as usize,
-    )?;
+    let max_depth = 2 * (to - from).checked_ilog2().unwrap_or(0) as usize;
+    self.sort_in_intro(from, to, max_depth)?;
     Ok(())
   }
   /// Sorts between `from` (inclusive) and `to` (exclusive) with introsort.

@@ -680,7 +680,7 @@ fn test_long_encode() -> Result<()> {
 
   Ok(())
 }
-fn verify_longs<R>(random: &mut R, values: &[i64], ids: Option<&[i32]>) -> Result<()>
+fn verify_longs<R>(random: &mut R, values: &[i64], ids: Option<&[usize]>) -> Result<()>
 where
   R: Rng + ?Sized,
 {
@@ -712,26 +712,25 @@ where
   let mut missing = bit_set::BitSet::new();
   let mut deleted = bit_set::BitSet::new();
   let mut doc: Option<Document> = None;
-  let mut last_id = -1;
+  let mut last_id = None;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   let w = IndexWriter::new(dir.clone(), iwc)?;
   #[allow(clippy::needless_range_loop)]
   for ord in 0..values.len() {
     let id = match ids {
       Some(v) => v[ord],
-      None => ord as i32,
+      None => ord,
     };
-    let id_index = id as usize;
 
-    if id != last_id {
+    if Some(id) != last_id {
       if random.random_range(0..100) < missing_pct {
-        missing.insert(id_index);
+        missing.insert(id);
       }
 
       if let Some(doc) = doc.take() {
         w.add_document(doc)?;
         if random.random_range(0..100) < deleted_pct {
-          let id_to_delete = random.random_range(0..id) as usize;
+          let id_to_delete = random.random_range(0..id);
           w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
           deleted.insert(id_to_delete);
         }
@@ -747,11 +746,11 @@ where
       )?);
       new_doc.add(NumericDocValuesField::new("id", id as i64));
       doc = Some(new_doc);
-      last_id = id;
+      last_id = Some(id);
     }
 
-    if !missing.contains(id_index) {
-      let value = values[id_index];
+    if !missing.contains(id) {
+      let value = values[id];
       doc
         .as_mut()
         .expect("document should be initialized before adding point values")
@@ -917,7 +916,7 @@ where
 fn verify_binary<R>(
   random: &mut R,
   doc_values: &[Vec<Vec<u8>>],
-  ids: &[i32],
+  ids: &[usize],
   num_bytes_per_dim: usize,
 ) -> Result<()>
 where
@@ -951,21 +950,20 @@ where
   let mut deleted = bit_set::BitSet::new();
 
   let mut doc: Option<Document> = None;
-  let mut last_id = -1;
+  let mut last_id = None;
   let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
   for ord in 0..num_values {
     let id = ids[ord];
-    let id_index = id as usize;
 
-    if id != last_id {
+    if Some(id) != last_id {
       if random.random_range(0..100) < missing_pct {
-        missing.insert(id_index);
+        missing.insert(id);
       }
 
       if let Some(doc) = doc.take() {
         w.add_document(doc)?;
         if random.random_range(0..100) < deleted_pct {
-          let id_to_delete = random.random_range(0..id) as usize;
+          let id_to_delete = random.random_range(0..id);
           w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
           deleted.insert(id_to_delete);
         }
@@ -981,10 +979,10 @@ where
       )?);
       new_doc.add(NumericDocValuesField::new("id", id as i64));
       doc = Some(new_doc);
-      last_id = id;
+      last_id = Some(id);
     }
 
-    if !missing.contains(id as usize) {
+    if !missing.contains(id) {
       doc
         .as_mut()
         .expect("document should be initialized before adding point values")
@@ -1047,7 +1045,7 @@ where
 
           let mut expected = bit_set::BitSet::new();
           for ord in 0..num_values {
-            let id = ids[ord] as usize;
+            let id = ids[ord];
             if !missing.contains(id)
               && !deleted.contains(id)
               && matches(num_bytes_per_dim, &lower, &upper, &doc_values[ord])

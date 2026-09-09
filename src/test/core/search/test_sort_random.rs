@@ -112,7 +112,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
   }
 
   let reader = writer.get_reader(&mut random)?;
-  let max_doc = reader.max_doc()?;
+  let max_doc = reader.max_doc()? as usize;
   writer.close(&mut random)?;
 
   let searcher = new_searcher_with_wrap(&mut random, reader, false)?;
@@ -133,7 +133,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
       Sort::with_fields(vec![sf, SortField::get_field_doc()?])?
     };
 
-    let hit_count = TestUtil::next_int(&mut random, 1, max_doc + 20) as usize;
+    let hit_count = TestUtil::next_usize(&mut random, 1, max_doc + 20);
     let seed = random.random();
     let density = random.random::<f32>();
     let filter = RandomQuery::new(seed, density, doc_values.clone());
