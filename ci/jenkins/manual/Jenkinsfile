@@ -11,7 +11,11 @@ pipeline {
     buildDiscarder(logRotator(numToKeepStr: '200'))
   }
 
-  // Deliberately no cron, pollSCM, GitHub webhook or upstream trigger.
+  triggers {
+    // The shared Pipeline must not automatically schedule monster tests.
+    cron(env.JOB_NAME == 'rlucene-nightly' ? 'TZ=Asia/Shanghai\nH */2 * * *' : '')
+  }
+
   stages {
     stage('Exclusive VM build') {
       agent { label 'built-in' }
@@ -35,14 +39,17 @@ pipeline {
       }
 
       stages {
-        stage('Manual request') {
+        stage('Build request') {
           steps {
             script {
-              if (currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause').isEmpty()) {
-                error('This job requires a manual Build Now request.')
-              }
               if (!(env.JOB_NAME in ['rlucene-nightly', 'rlucene-monster'])) {
                 error('This Pipeline belongs to rlucene-nightly or rlucene-monster.')
+              }
+              def manualRequest = !currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause').isEmpty()
+              def scheduledNightly = env.JOB_NAME == 'rlucene-nightly' &&
+                !currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause').isEmpty()
+              if (!manualRequest && !scheduledNightly) {
+                error('This job requires a manual request, or a nightly timer trigger.')
               }
               env.HEAVY_SUITE = env.JOB_NAME.substring('rlucene-'.length())
               if (!env.WORKSPACE_TMP) {
@@ -50,7 +57,7 @@ pipeline {
               }
               env.TMPDIR = "${env.WORKSPACE_TMP}/manual-tests-${env.BUILD_NUMBER}"
               currentBuild.keepLog = true
-              currentBuild.description = "manual release: ordinary + ${env.HEAVY_SUITE}"
+              currentBuild.description = "${manualRequest ? 'manual' : 'scheduled'} release: ordinary + ${env.HEAVY_SUITE}"
             }
           }
         }

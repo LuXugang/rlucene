@@ -142,14 +142,19 @@ cleanup also runs after test failures and timeouts. This is safe because the
 Pipeline disables concurrent builds. Do not clean the controller's global
 `/tmp` from a scheduled build.
 
-## Manual nightly and monster jobs
+## Nightly and monster jobs
 
-`rlucene-nightly` and `rlucene-monster` are **manual only**: click **Build Now**
-while signed in. They have no cron, SCM polling, webhook, or upstream trigger;
-the Pipeline also rejects requests without a Jenkins user cause. GitHub's
+`rlucene-nightly` runs every two hours (`TZ=Asia/Shanghai`, `H */2 * * *`),
+at a stable Jenkins-selected minute in each even-numbered hour. It also accepts
+**Build Now** while signed in. `rlucene-monster` remains **manual only**.
+Neither has SCM polling, webhook, or upstream triggers; the Pipeline accepts
+user causes for both jobs and timer causes only for nightly. GitHub's
 PR/commit service account does not receive build permission on these jobs.
 Both use `main` and `ci/jenkins/manual/Jenkinsfile` from SCM, on the controller
-like `rlucene-ci`. No pause/priority scheduler is installed.
+like `rlucene-ci`. No pause/priority scheduler is installed. Scheduled nightly
+builds wait for the same global lock as all other production jobs; two hours
+is the trigger interval, not a guarantee of the actual start time. Existing
+per-job non-concurrency and the 72-hour execution budget remain unchanged.
 
 - `rlucene-nightly`: ordinary tests plus tests enabled by the `nightly` feature,
   with `tests.nightly=true` and `tests.light=false`.

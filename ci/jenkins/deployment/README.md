@@ -137,11 +137,17 @@ commit SHA and returns the result as a GitHub check.
 
 ## What is reproduced
 
-### Manual heavy-test jobs
+### Heavy-test jobs
 
 `init.groovy.d/rlucene-manual-jobs.groovy.override` creates `rlucene-nightly`
 and `rlucene-monster` from `ci/jenkins/manual/Jenkinsfile`. They are enabled for
-**Build Now**, but never automatically scheduled. On an existing installation,
+**Build Now**. The shared Pipeline schedules nightly every two hours
+(`TZ=Asia/Shanghai`, `H */2 * * *`); monster remains manual-only. After publishing
+the updated Pipeline to the configured SCM branch, run nightly once to install
+the timer, or explicitly apply the matching timer through Jenkins administration.
+Do not enable the timer while SCM still contains the old manual-only guard.
+No controller restart or plugin upgrade is needed for this schedule change.
+On an existing installation,
 both inherit the operational `rlucene-ci` Git SCM (URL, credentials and branch)
 when first created, avoiding stale bootstrap settings such as an HTTPS URL with
 an SSH credential. Without an existing CI Git SCM they use the configured

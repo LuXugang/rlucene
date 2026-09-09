@@ -40,11 +40,13 @@ def credentialsId = System.getenv('RLUCENE_GIT_CREDENTIALS_ID') ?: ''
   def definition = new CpsScmFlowDefinition(scm, 'ci/jenkins/manual/Jenkinsfile')
   definition.setLightweight(true)
   def job = jenkins.createProject(WorkflowJob.class, name)
-  job.setDescription('Manual only: release ordinary tests plus ' + name.substring(8) +
-    '. Definition: ci/jenkins/manual/Jenkinsfile. No automatic triggers.')
+  job.setDescription((name == 'rlucene-nightly' ?
+    'Every two hours and manual: ' : 'Manual only: ') +
+    'release ordinary tests plus ' + name.substring(8) +
+    '. Definition: ci/jenkins/manual/Jenkinsfile. Schedule managed by the Pipeline.')
   job.setDefinition(definition)
   job.addProperty(new DisableConcurrentBuildsJobProperty())
   job.setDisabled(false)
   job.save()
-  println("Created manual-only Jenkins job ${name}; not scheduled")
+  println("Created Jenkins job ${name}; run once to apply Pipeline-managed triggers")
 }
