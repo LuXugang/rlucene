@@ -56,6 +56,7 @@ use crate::test_framework::core::index::mock_random_merge_policy::MockRandomMerg
 use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 use crate::test_framework::core::index::test_index_writer::assert_no_unreferenced_files;
 use crate::test_framework::core::store::mock_directory_wrapper::{Failure, MockDirectoryWrapper};
+#[cfg(feature = "awaits_fix")]
 use crate::test_framework::core::util::failure_context::{ExecutionMethod, FailureContext};
 use crate::test_framework::core::util::lucene_test_case::random_from_seed;
 #[cfg(feature = "nightly")]
@@ -913,8 +914,9 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
   start_dir.as_ref().close()
 }
 
-#[ignore]
+#[cfg(feature = "awaits_fix")]
 #[test]
+#[ignore = "awaits_fix: Java 10.1 @Ignore; failure injection no longer triggers after applying deletes"]
 fn test_error_after_apply_deletes() -> Result<()> {
   // This test tests that buffered deletes are cleared when
   // an error occurs during flush.
@@ -1029,6 +1031,7 @@ fn test_error_after_apply_deletes() -> Result<()> {
   Ok(())
 }
 
+#[cfg(feature = "awaits_fix")]
 struct FailAfterApplyDeletes {
   do_fail: bool,
   saw_maybe: bool,
@@ -1036,6 +1039,7 @@ struct FailAfterApplyDeletes {
   thread: thread::ThreadId,
 }
 
+#[cfg(feature = "awaits_fix")]
 impl<D> Failure<D> for FailAfterApplyDeletes
 where
   D: Directory,
