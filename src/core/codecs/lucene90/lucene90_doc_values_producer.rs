@@ -858,7 +858,7 @@ where
         let vec = vec![0u8; max_length];
         let base = DenseBinaryDocValuesBaseImpl {
           bytes_slice,
-          length: entry.max_length,
+          length: max_length,
           bytes: BytesRef::from_slice(vec, 0, max_length),
         };
         DenseBinaryDocValuesBaseEnum::Dense(base)
@@ -1922,7 +1922,7 @@ pub trait DenseBinaryDocValuesBase {
 
 pub struct DenseBinaryDocValuesBaseImpl<R> {
   bytes_slice: R,
-  length: i32,
+  length: usize,
   bytes: BytesRef<Vec<u8>>,
 }
 impl<R> DenseBinaryDocValuesBase for DenseBinaryDocValuesBaseImpl<R>
@@ -1931,10 +1931,10 @@ where
 {
   fn binary_value(&mut self, doc: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
     self.bytes_slice.read_bytes(
-      (doc * self.length) as usize,
+      doc as usize * self.length,
       &mut self.bytes.bytes,
       0,
-      self.length as usize,
+      self.length,
     )?;
     Ok(Cow::Borrowed(&self.bytes))
   }

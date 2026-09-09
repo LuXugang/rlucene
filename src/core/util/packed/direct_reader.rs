@@ -178,14 +178,14 @@ where
       }
     } else if self.bits_per_value < 8 {
       // bitsPerValue is 1, 2 or 4
-      let values_per_long = u64::BITS as i32 / self.bits_per_value;
+      let values_per_long = u64::BITS as usize / bits_per_value_usize;
       let mask = (1i64 << self.bits_per_value) - 1;
       let mut offset = self.base_offset + (index * bits_per_value_usize) / 8;
       let mut i = 0;
-      for _ in 0..(2 * self.bits_per_value) {
+      for _ in 0..(2 * bits_per_value_usize) {
         let bits = slice.read_long(offset)?;
         for j in 0..values_per_long {
-          self.buffer[i] = (bits as u64 >> (j * self.bits_per_value)) as i64 & mask;
+          self.buffer[i] = (bits as u64 >> (j * bits_per_value_usize)) as i64 & mask;
           i += 1;
         }
         offset += BitUtil::LONG_BYTES;
@@ -258,7 +258,7 @@ where
   R: RandomAccessInput,
 {
   fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let shift = (index & 7) as i32;
+    let shift = index & 7;
     let slice = match slice {
       Some(slice) => slice,
       None => self
@@ -295,7 +295,7 @@ where
   R: RandomAccessInput,
 {
   fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let shift = ((index & 3) as i32) << 1;
+    let shift = (index & 3) << 1;
     let slice = match slice {
       Some(slice) => slice,
       None => self
@@ -333,7 +333,7 @@ where
   R: RandomAccessInput,
 {
   fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
-    let shift = ((index & 1) as i32) << 2;
+    let shift = (index & 1) << 2;
     let slice = match slice {
       Some(slice) => slice,
       None => self
@@ -409,7 +409,7 @@ where
 {
   fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
     let off = (index * 12) >> 3;
-    let shift = ((index & 1) as i32) << 2;
+    let shift = (index & 1) << 2;
     let slice = match slice {
       Some(slice) => slice,
       None => self
@@ -483,7 +483,7 @@ where
 {
   fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
     let off = (index * 20) >> 3;
-    let shift = ((index & 1) as i32) << 2;
+    let shift = (index & 1) << 2;
     let slice = match slice {
       Some(slice) => slice,
       None => self
@@ -559,7 +559,7 @@ where
 {
   fn read_from_slice(&mut self, index: usize, slice: Option<&mut R>) -> Result<i64> {
     let off = (index * 28) >> 3;
-    let shift = ((index & 1) as i32) << 2;
+    let shift = (index & 1) << 2;
     let slice = match slice {
       Some(slice) => slice,
       None => self

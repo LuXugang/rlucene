@@ -113,31 +113,32 @@ where
     Ok(())
   }
   fn encode(next_values: &[i64], upto: usize, next_blocks: &mut [u8], bits_per_value: i32) {
+    let bits_per_value = bits_per_value as usize;
     if bits_per_value & 7 == 0 {
       // bitsPerValue is a multiple of 8: 8, 16, 24, 32, 30, 48, 56, 64
-      let bytes_per_value = bits_per_value / i8::BITS as i32;
+      let bytes_per_value = bits_per_value / u8::BITS as usize;
       let mut o = 0;
       for &l in next_values.iter().take(upto) {
-        if bits_per_value > i32::BITS as i32 {
+        if bits_per_value > i32::BITS as usize {
           BitUtil::set_i64_le(next_blocks, o, l);
-        } else if bits_per_value > i16::BITS as i32 {
+        } else if bits_per_value > i16::BITS as usize {
           BitUtil::set_i32_le(next_blocks, o, l as i32);
-        } else if bits_per_value > i8::BITS as i32 {
+        } else if bits_per_value > i8::BITS as usize {
           BitUtil::set_i16_le(next_blocks, o, l as i16);
         } else {
           next_blocks[o] = l as u8;
         }
-        o += bytes_per_value as usize;
+        o += bytes_per_value;
       }
     } else if bits_per_value < 8 {
       // bitsPerValue is 1, 2 or 4
-      let values_per_long = (u64::BITS as i32 / bits_per_value) as usize;
+      let values_per_long = u64::BITS as usize / bits_per_value;
       let mut i = 0;
       let mut o = 0;
       while i < upto {
         let mut v = 0;
         for j in 0..values_per_long {
-          v |= next_values[i + j] << (bits_per_value as i64 * j as i64);
+          v |= next_values[i + j] << (bits_per_value * j);
         }
         BitUtil::set_i64_le(next_blocks, o, v);
         o += BitUtil::LONG_BYTES;
@@ -146,7 +147,7 @@ where
     } else {
       // bitsPerValue is 12, 20 or 28
       // Write values 2 by 2
-      let num_bytes_for_2_values = ((bits_per_value * 2) as u32 / i8::BITS) as usize;
+      let num_bytes_for_2_values = bits_per_value * 2 / u8::BITS as usize;
       let mut i = 0;
       let mut o = 0;
       while i < upto {

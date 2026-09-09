@@ -247,19 +247,19 @@ impl Display for BytesReaderImpl {
 
 impl BytesReader for BytesReaderImpl {
   fn get_position(&self) -> i64 {
-    ((self
+    self
       .next_buffer
-      .map_or(0, |next_buffer| next_buffer as i32 + 1)
-      * self.block_size)
-      + self.next_read.map_or(-1, |next_read| next_read as i32)) as i64
+      .map_or(0, |next_buffer| next_buffer as i64 + 1)
+      * i64::from(self.block_size)
+      + self.next_read.map_or(-1, |next_read| next_read as i64)
   }
 
   fn set_position(&mut self, pos: i64) {
-    let buffer_index = (pos >> self.block_bits) as i32;
-    let next_buffer = (buffer_index != 0).then(|| (buffer_index - 1) as usize);
+    let buffer_index = (pos >> self.block_bits) as usize;
+    let next_buffer = buffer_index.checked_sub(1);
     if self.next_buffer != next_buffer {
       self.next_buffer = next_buffer;
-      self.current = buffer_index as usize;
+      self.current = buffer_index;
     }
     self.next_read = Some((pos & self.block_mask as i64) as usize);
     debug_assert_eq!(

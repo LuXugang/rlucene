@@ -196,8 +196,8 @@ where
 
     Ok((CompiledNode { node }, node_in_idx))
   }
-  fn freeze_tail(&mut self, prefix_len_plus1: i32) -> Result<()> {
-    let (len, down_to) = { (self.last_input.length(), prefix_len_plus1.max(1) as usize) };
+  fn freeze_tail(&mut self, prefix_len_plus1: usize) -> Result<()> {
+    let (len, down_to) = { (self.last_input.length(), prefix_len_plus1.max(1)) };
 
     for idx in (down_to..=len).rev() {
       let (label, next_final_output, is_final, prev_idx) = {
@@ -277,7 +277,6 @@ where
 
     if self.frontier.len() < (input.length + 1) {
       let old_len = self.frontier.len();
-      debug_assert!(old_len <= i32::MAX as usize);
       let min_size = input.length + 1;
       let available_capacity = self.frontier.capacity().min(ArrayUtil::MAX_ARRAY_LENGTH);
       let new_len = if available_capacity >= min_size {
@@ -285,18 +284,16 @@ where
       } else {
         ArrayUtil::oversize(min_size, std::mem::size_of::<UnCompiledNode<O::V>>())?
       };
-      debug_assert!(new_len <= i32::MAX as usize);
       self.frontier.reserve_exact(new_len - old_len);
       for i in old_len..new_len {
         self
           .frontier
-          .push(UnCompiledNode::new(self.no_output.clone(), i as i32));
+          .push(UnCompiledNode::new(self.no_output.clone(), i));
       }
     }
     // minimize/compile states from previous input's
     // orphan'd suffix
-    debug_assert!(prefix_len_plus1 <= i32::MAX as usize);
-    self.freeze_tail(prefix_len_plus1 as i32)?;
+    self.freeze_tail(prefix_len_plus1)?;
     let no_output = self.no_output.clone();
     // init tail states for current input
     let offset = input.offset;
@@ -1331,7 +1328,7 @@ pub(crate) struct UnCompiledNode<T> {
   pub(crate) is_final: bool,
 
   /// This node's depth, starting from the automaton root.
-  pub depth: i32,
+  pub depth: usize,
 }
 impl<T> UnCompiledNode<T>
 where
@@ -1343,7 +1340,7 @@ where
   /// - `depth`: The node's depth starting from the automaton root. Needed for
   ///   LUCENE-2934 (node expansion based on conditions other than the fanout
   ///   size).
-  pub(crate) fn new(no_output: T, depth: i32) -> Self {
+  pub(crate) fn new(no_output: T, depth: usize) -> Self {
     let arcs = vec![Arc::default()];
 
     Self {
@@ -1525,7 +1522,7 @@ pub(crate) const DIRECT_ADDRESSING_MAX_OVERSIZING_FACTOR: f32 = 1.0;
 /// nodes.
 ///
 /// See [`FSTCompiler::should_expand_node_with_fixed_length_arcs`](FSTCompiler::should_expand_node_with_fixed_length_arcs)..
-pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: i32 = 3;
+pub(crate) const FIXED_LENGTH_ARC_SHALLOW_DEPTH: usize = 3;
 
 /// Minimum number of arcs required to consider fixed-length arcs at shallow
 /// depth.

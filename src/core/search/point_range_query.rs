@@ -558,7 +558,7 @@ where
       // crossing leaves.
       // docCount == size : counting according number of points in leaf node, so must be
       // single-valued.
-      if query.num_dims == 1 && values.get_doc_count()? == values.size()? as i32 {
+      if query.num_dims == 1 && values.get_doc_count()? as usize == values.size()? {
         let mut tree = values.get_point_tree()?;
         return Ok(self.point_count(&mut tree)? as i32);
       }
@@ -668,9 +668,9 @@ where
     searcher: &IndexSearcher<IRC>,
   ) -> Result<Self::Scorer> {
     let reader = context.reader();
-    let v: i32 = self.values.size()?.try_convert()?;
+    let size = self.values.size()?;
     if self.values.get_doc_count()? == reader.max_doc()?
-      && self.values.get_doc_count()? == v
+      && self.values.get_doc_count()? as usize == size
       && self.cost(context, searcher)? > (reader.max_doc()? as i64 / 2)
     {
       let max_doc = reader.max_doc()?;

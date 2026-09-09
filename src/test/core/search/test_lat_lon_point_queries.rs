@@ -321,7 +321,7 @@ fn test_distance_query_with_inverted_intersection() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   {
     let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
-    for _ in 0..num_matching_docs as usize {
+    for _ in 0..num_matching_docs {
       let mut doc = Document::new();
       case.add_point_to_doc("field", &mut doc, 18.313694, -65.227444)?;
       w.add_document(doc)?;

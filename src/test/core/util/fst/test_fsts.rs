@@ -922,7 +922,7 @@ fn test_expanded_close_to_root() -> Result<()> {
   fn verify_state_and_below<F: FstReader>(
     fst: &FST<NoOutputs, F>,
     arc: &mut crate::core::util::fst_impl::fst::Arc<Arc<i64>>,
-    depth: i32,
+    depth: usize,
   ) -> Result<usize> {
     if target_has_arcs(arc) {
       let mut child_count = 0usize;
@@ -960,7 +960,6 @@ fn test_expanded_close_to_root() -> Result<()> {
   // Sanity check.
   const {
     assert!(FIXED_LENGTH_ARC_SHALLOW_NUM_ARCS < FIXED_LENGTH_ARC_DEEP_NUM_ARCS);
-    assert!(FIXED_LENGTH_ARC_SHALLOW_DEPTH >= 0);
   }
 
   let mut out = Vec::new();

@@ -54,7 +54,6 @@ use crate::core::search::top_score_doc_collector_manager::TopScoreDocCollectorMa
 use crate::core::search::total_hit_count_collector_manager::TotalHitCountCollectorManager;
 use crate::core::search::usage_tracking_query_caching_policy::UsageTrackingQueryCachingPolicy;
 use crate::core::search::weight::Weight;
-use crate::core::util::TryIntoInt;
 use crate::core::util::automation::byte_run_automaton::ByteRunAutomaton;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -481,10 +480,10 @@ where
     T: Into<Arc<Sort>>,
     Self: Sync,
   {
-    let limit: usize = std::cmp::max(1, self.reader_context.reader().max_doc()?).try_convert()?;
+    let limit = std::cmp::max(1, self.reader_context.reader().max_doc()?);
 
     if let Some(ref a) = after
-      && a.base.doc >= limit.try_convert()?
+      && a.base.doc >= limit
     {
       return Err(LuceneError::illegal_argument(format!(
         "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",
@@ -492,7 +491,7 @@ where
       )));
     }
 
-    let capped_num_hits = std::cmp::min(num_hits, limit);
+    let capped_num_hits = std::cmp::min(num_hits, limit as usize);
     let sort = sort.into();
     let rewritten_sort = match sort.rewrite(self)? {
       Some(rewritten_sort) => Arc::new(rewritten_sort),
@@ -1869,10 +1868,10 @@ impl IndexSearcherDefaults {
     IRC: IndexReaderContext,
     IndexSearcher<IRC>: Sync,
   {
-    let limit = std::cmp::max(1, searcher.reader_context.reader().max_doc()?).try_convert()?;
+    let limit = std::cmp::max(1, searcher.reader_context.reader().max_doc()?);
 
     if let Some(ref a) = after
-      && a.doc >= limit.try_convert()?
+      && a.doc >= limit
     {
       return Err(LuceneError::illegal_argument(format!(
         "after.doc exceeds the number of documents in the reader: after.doc={} limit={}",
@@ -1880,7 +1879,7 @@ impl IndexSearcherDefaults {
       )));
     }
 
-    let capped_num_hits = std::cmp::min(num_hits, limit);
+    let capped_num_hits = std::cmp::min(num_hits, limit as usize);
     let manager =
       TopScoreDocCollectorManager::with_after(capped_num_hits, after, TOTAL_HITS_THRESHOLD)?;
 

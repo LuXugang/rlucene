@@ -486,19 +486,19 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
       let weight = rewritten.create_weight(&searcher, &ScoreMode::Complete, 1.0)?;
       let mut scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
-      let mut upto: i32 = -1;
-      while (upto as usize) < hits.len() {
-        let next_upto: usize;
-        let next_doc: i32;
-        let left = hits.len() as i32 - upto;
+      // Index expected from the next next_doc() call, including the final sentinel.
+      let mut upto = 0usize;
+      while upto <= hits.len() {
+        let next_upto;
+        let next_doc;
+        let left = hits.len() - upto + 1;
 
         if left == 1 || random.random_bool(0.5) {
-          next_upto = (upto + 1) as usize;
+          next_upto = upto;
           next_doc = scorer.iterator_mut().next_doc()?;
         } else {
-          let inc = random.random_range(1..left) - 1;
-          let inc = inc.max(1);
-          next_upto = (upto + inc) as usize;
+          let inc = TestUtil::next_usize(&mut random, 1, left - 1);
+          next_upto = upto + inc - 1;
           next_doc = scorer.iterator_mut().advance(hits[next_upto].doc)?;
         }
 
@@ -515,7 +515,7 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
           );
         }
 
-        upto = next_upto as i32;
+        upto = next_upto + 1;
       }
     }
   }
@@ -948,7 +948,7 @@ fn test_query_matches_count() -> Result<()> {
   let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
   let mut field_to_type = HashMap::new();
 
-  let random_num_docs = TestUtil::next_int(&mut random, 10, 101) as usize;
+  let random_num_docs = TestUtil::next_usize(&mut random, 10, 101);
   let mut num_matching_docs: i32 = 0;
 
   for _i in 0..random_num_docs {

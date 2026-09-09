@@ -74,16 +74,14 @@ impl AbstractBlockPackedWriterBase for MonotonicBlockPackedWriter {
     let mut min = values[0];
     // adjust min so that all deltas will be positive
     for (i, &actual) in values.iter().enumerate().skip(1).take(*off - 1) {
-      debug_assert!(i <= i32::MAX as usize);
-      let expected = expected(min, avg, i as i32);
+      let expected = expected(min, avg, i);
       if expected > actual {
         min = min.wrapping_sub(expected.wrapping_sub(actual));
       }
     }
     let mut max_delta = 0;
     for (i, value) in values.iter_mut().take(*off).enumerate() {
-      debug_assert!(i <= i32::MAX as usize);
-      *value = value.wrapping_sub(expected(min, avg, i as i32));
+      *value = value.wrapping_sub(expected(min, avg, i));
       max_delta = max_delta.max(*value);
     }
     out.write_zlong(min)?;

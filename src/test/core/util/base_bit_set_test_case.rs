@@ -530,15 +530,9 @@ impl BitSet for RustUtilBitSet {
   }
 
   fn prev_set_bit(&self, index: usize) -> Option<usize> {
-    let mut index = index as i32;
-    while index >= 0 {
-      let bit_index = index as usize;
-      if self.bitset.contains(bit_index) {
-        return Option::from(bit_index);
-      }
-      index -= 1
-    }
-    None
+    (0..=index)
+      .rev()
+      .find(|&bit_index| self.bitset.contains(bit_index))
   }
 
   fn next_set_bit_range(&self, start: usize, end: usize) -> usize {

@@ -38,7 +38,7 @@ pub struct TestSearchWithThreads;
 #[test]
 fn test() -> Result<()> {
   let mut random = random();
-  let num_threads = if is_night_mode() { 5 } else { 4 };
+  let num_threads: usize = if is_night_mode() { 5 } else { 4 };
   let num_searches = if is_night_mode() {
     at_least(&mut random, 2000)
   } else {
@@ -85,7 +85,7 @@ fn test() -> Result<()> {
 
   let failed = Arc::new(AtomicBool::new(false));
   let net_search = Arc::new(AtomicU64::new(0));
-  let mut threads = Vec::with_capacity(num_threads as usize);
+  let mut threads = Vec::with_capacity(num_threads);
 
   let collector_manager = Arc::new(DummyTotalHitCountCollector::create_manager());
 

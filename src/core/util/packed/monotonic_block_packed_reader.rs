@@ -123,7 +123,7 @@ impl MonotonicBlockPackedReader {
     self.value_count
   }
 }
-pub fn expected(origin: i64, average: f32, index: i32) -> i64 {
+pub fn expected(origin: i64, average: f32, index: usize) -> i64 {
   origin.wrapping_add((average * index as f32) as i64)
 }
 
@@ -169,7 +169,7 @@ impl LongValues for MonotonicBlockPackedReader {
     );
     let block = index >> self.block_shift;
     let idx = index & self.block_mask;
-    let expected_value = expected(self.min_values[block], self.averages[block], idx as i32);
+    let expected_value = expected(self.min_values[block], self.averages[block], idx);
     let sub_reader_value = self.sub_readers[block].get(idx)?;
 
     Ok(expected_value.wrapping_add(sub_reader_value))

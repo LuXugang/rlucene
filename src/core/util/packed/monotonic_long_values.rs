@@ -32,14 +32,13 @@ impl MonotonicLongValues {
   pub(crate) fn decode_block(&self, block: usize, dest: &mut [i64], count: usize) -> usize {
     let average = self.averages[block];
     for (i, item) in dest.iter_mut().enumerate().take(count) {
-      debug_assert!(i <= i32::MAX as usize);
-      *item = item.wrapping_add(expected(0, average, i as i32));
+      *item = item.wrapping_add(expected(0, average, i));
     }
     count
   }
 
   pub(crate) fn get_value(&self, block: usize, element: usize, value: u64) -> i64 {
-    expected(value as i64, self.averages[block], element as i32)
+    expected(value as i64, self.averages[block], element)
   }
 }
 
@@ -83,8 +82,7 @@ impl MonotonicLongValuesBuilder {
     };
 
     for (i, value) in values.iter_mut().enumerate().take(num_values) {
-      debug_assert!(i <= i32::MAX as usize);
-      *value = value.wrapping_sub(expected(0, average, i as i32));
+      *value = value.wrapping_sub(expected(0, average, i));
     }
     self.averages[block] = average;
   }

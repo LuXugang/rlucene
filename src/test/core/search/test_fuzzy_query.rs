@@ -1031,7 +1031,7 @@ fn test_random() -> Result<()> {
       let mut ed = get_distance(term, &query_term);
       let score = 1.0 - ed as f32 / std::cmp::min(query_term.len(), term.len()) as f32;
       while ed < 3 {
-        expected[ed as usize].push(TermAndScore::new(term.clone(), score));
+        expected[ed].push(TermAndScore::new(term.clone(), score));
         ed += 1;
       }
     }
@@ -1145,7 +1145,7 @@ impl PartialOrd for TermAndScore {
   }
 }
 
-fn get_distance(target: &str, other: &str) -> i32 {
+fn get_distance(target: &str, other: &str) -> usize {
   let target_points = to_ints_ref(target);
   let other_points = to_ints_ref(other);
   let n = target_points.len();
@@ -1156,16 +1156,16 @@ fn get_distance(target: &str, other: &str) -> i32 {
     if n == m {
       return 0;
     } else {
-      return std::cmp::max(n, m) as i32;
+      return std::cmp::max(n, m);
     }
   }
 
   for (i, row) in d.iter_mut().enumerate().take(n + 1) {
-    row[0] = i as i32;
+    row[0] = i;
   }
   #[allow(clippy::needless_range_loop)]
   for j in 0..=m {
-    d[0][j] = j as i32;
+    d[0][j] = j;
   }
 
   for j in 1..=m {

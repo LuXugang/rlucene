@@ -56,7 +56,7 @@ where
       data_len: 0,
       final_offset: 0,
       max_token_len,
-      io_buffer: CharacterUtils::new_character_buffer(I_BUFFER_SIZE as usize)?,
+      io_buffer: CharacterUtils::new_character_buffer(I_BUFFER_SIZE)?,
       tokenizer_base: TokenizerBase::new(att),
       sub,
     })
@@ -257,7 +257,7 @@ where
 }
 
 pub const DEFAULT_MAX_WORD_LEN: usize = 255;
-const I_BUFFER_SIZE: i32 = 4096;
+const I_BUFFER_SIZE: usize = 4096;
 
 pub struct CharTokenizerImpl<P = fn(i32) -> bool> {
   token_char_predicate: P,

@@ -20,7 +20,6 @@ use crate::core::search::leaf_collector::LeafCollector;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::simple_scorable::SimpleScorable;
 use crate::core::util::CoreHelper;
-use crate::core::util::TryIntoInt;
 use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
@@ -124,15 +123,12 @@ where
 
       collector.set_scorer(&mut self.top_level_scorable)?;
 
-      let mut window_doc: i32 = self.window_matches.next_set_bit(0).try_convert()?;
-      while window_doc != NO_MORE_DOCS {
-        let doc = window_min + window_doc;
-        self.top_level_scorable.score = self.window_scores[window_doc as usize];
+      let mut window_doc = self.window_matches.next_set_bit(0);
+      while window_doc != NO_MORE_DOCS as usize {
+        let doc = window_min + window_doc as i32;
+        self.top_level_scorable.score = self.window_scores[window_doc];
         collector.collect(doc, &mut self.top_level_scorable)?;
-        window_doc = self
-          .window_matches
-          .next_set_bit((window_doc + 1) as usize)
-          .try_convert()?;
+        window_doc = self.window_matches.next_set_bit(window_doc + 1);
       }
 
       self.window_matches.clear()?;
