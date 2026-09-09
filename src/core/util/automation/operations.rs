@@ -154,7 +154,7 @@ impl Operations {
     let mut has_transitions_to_initial = false;
     let mut t = Transition::default();
     'outer: for s in 0..a.get_num_states() {
-      let count = a.init_transition(s, &mut t) as usize;
+      let count = a.init_transition(s, &mut t);
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
         if t.dest == 0 {
@@ -223,7 +223,7 @@ impl Operations {
     let mut t = Transition::default();
     for state in 0..a.get_num_states() {
       let src = state_map[state as usize];
-      let count = a.init_transition(state, &mut t) as usize;
+      let count = a.init_transition(state, &mut t);
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
         let dest = state_map[t.dest as usize];
@@ -232,7 +232,7 @@ impl Operations {
     }
 
     // Copy initial transitions to new initial state (state 0)
-    let count = a.init_transition(0, &mut t) as usize;
+    let count = a.init_transition(0, &mut t);
     for _ in 0..count {
       a.get_next_transition(&mut t)?;
       builder.add_transition(0, state_map[t.dest as usize], t.min, t.max)?;
@@ -242,7 +242,7 @@ impl Operations {
     let accept_set = a.get_accept_states();
     for s in accept_set.iter() {
       if state_map[s] != 0 {
-        let count = a.init_transition(0, &mut t) as usize;
+        let count = a.init_transition(0, &mut t);
         for _ in 0..count {
           a.get_next_transition(&mut t)?;
           builder.add_transition(state_map[s], state_map[t.dest as usize], t.min, t.max)?;
@@ -823,13 +823,13 @@ impl Operations {
 
     let mut t = Transition::default();
     while let Some(s) = work_list.pop_front() {
-      let count = a.init_transition(s, &mut t) as usize;
+      let count = a.init_transition(s, &mut t);
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
         let dest = t.dest as usize;
         if !live.contains(dest) {
           live.insert(dest);
-          work_list.push_back(dest as i32);
+          work_list.push_back(t.dest);
         }
       }
     }
@@ -845,7 +845,7 @@ impl Operations {
     }
     let mut t = Transition::default();
     for s in 0..num_states {
-      let count = a.init_transition(s, &mut t) as usize;
+      let count = a.init_transition(s, &mut t);
       for _ in 0..count {
         a.get_next_transition(&mut t)?;
         builder.add_transition(t.dest, s, t.min, t.max)?;
@@ -865,17 +865,17 @@ impl Operations {
       }
       let su = s as usize;
       live.insert(su);
-      work_list.push_back(su);
+      work_list.push_back(s);
       s += 1;
     }
     while let Some(s) = work_list.pop_front() {
-      let count = a2.init_transition(s as i32, &mut t) as usize;
+      let count = a2.init_transition(s, &mut t);
       for _ in 0..count {
         a2.get_next_transition(&mut t)?;
         let dest = t.dest as usize;
         if !live.contains(dest) {
           live.insert(dest);
-          work_list.push_back(dest);
+          work_list.push_back(t.dest);
         }
       }
     }
@@ -885,27 +885,28 @@ impl Operations {
   /// A state is considered "dead" if it is not reachable from the initial
   /// state or if no accept state is reachable from it.
   pub fn remove_dead_states(a: &'_ Automaton) -> Result<Cow<'_, Automaton>> {
-    let num_states = a.get_num_states() as usize;
+    let num_states = a.get_num_states();
+    let state_count = num_states as usize;
     let live_set = Operations::get_live_states(a)?;
-    if live_set.count() == num_states {
+    if live_set.count() == state_count {
       return Ok(Cow::Borrowed(a));
     }
 
-    let mut map = vec![0; num_states];
+    let mut map = vec![0; state_count];
     let mut result = Automaton::new();
 
-    for (i, is_live) in (0..num_states).zip((0..num_states).map(|i| live_set.contains(i))) {
-      if is_live {
+    for (i, state) in (0..num_states).enumerate() {
+      if live_set.contains(i) {
         let s = result.create_state()?;
         map[i] = s;
-        result.set_accept(s, a.is_accept(i as i32));
+        result.set_accept(s, a.is_accept(state));
       }
     }
 
     let mut t = Transition::default();
-    for i in 0..num_states {
+    for (i, state) in (0..num_states).enumerate() {
       if live_set.contains(i) {
-        let num_transitions = a.init_transition(i as i32, &mut t) as usize;
+        let num_transitions = a.init_transition(state, &mut t);
         for _ in 0..num_transitions {
           a.get_next_transition(&mut t)?;
           let d = t.dest as usize;
@@ -944,10 +945,10 @@ impl Operations {
 
     let mut builder = String::new();
     let mut scratch = Transition::default();
-    let capacity = a.get_num_states();
-    let mut visited = FixedBitSet::new(capacity as usize);
-    let mut current = FixedBitSet::new(capacity as usize);
-    let mut next = FixedBitSet::new(capacity as usize);
+    let capacity = a.get_num_states() as usize;
+    let mut visited = FixedBitSet::new(capacity);
+    let mut current = FixedBitSet::new(capacity);
+    let mut next = FixedBitSet::new(capacity);
     current.set(0)?; // start with initial state
     'algorithm: loop {
       let mut label: i32 = -1;
@@ -956,12 +957,13 @@ impl Operations {
       while state != NO_MORE_DOCS as usize {
         visited.set(state)?;
 
-        if a.is_accept(state as i32) {
+        let state_id = state as i32;
+        if a.is_accept(state_id) {
           break 'algorithm;
         }
 
-        for t_idx in 0..a.get_num_transitions_with_state(state as i32) {
-          a.get_transition(state as i32, t_idx, &mut scratch);
+        for t_idx in 0..a.get_num_transitions_with_state(state_id) {
+          a.get_transition(state_id, t_idx, &mut scratch);
           if label == -1 {
             label = scratch.min;
           }

@@ -126,8 +126,9 @@ pub trait SearchEquivalenceTestBase {
     };
 
     let meta = self.get_meta();
-    let max_doc = meta.s1.get_index_reader().max_doc()? as usize;
-    assert_eq!(max_doc, meta.s2.get_index_reader().max_doc()? as usize);
+    let max_doc = meta.s1.get_index_reader().max_doc()?;
+    assert_eq!(max_doc, meta.s2.get_index_reader().max_doc()?);
+    let max_doc = max_doc as usize;
     for sort in [Sort::get_index_order()?, Sort::get_relevance()?] {
       let td1 = meta
         .s1

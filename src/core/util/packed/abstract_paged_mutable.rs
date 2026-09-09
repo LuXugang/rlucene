@@ -48,8 +48,9 @@ where
 {
   pub fn new(size: usize, page_size: i32, sub_reader: T) -> Result<AbstractPagedMutable<T>> {
     let page_shift = PackedInts::check_block_size(page_size, MIN_BLOCK_SIZE, MAX_BLOCK_SIZE)?;
-    let page_mask = (page_size - 1) as usize;
-    let num_pages = PackedInts::num_blocks(size, page_size as usize)?;
+    let page_size = page_size as usize;
+    let page_mask = page_size - 1;
+    let num_pages = PackedInts::num_blocks(size, page_size)?;
     let sub_mutables = Vec::with_capacity(num_pages);
     let mut result = AbstractPagedMutable {
       sub_reader,

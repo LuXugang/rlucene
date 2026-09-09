@@ -799,10 +799,11 @@ fn test_sorted_numeric_npe() -> Result<()> {
 
   let max_doc = searcher.get_index_reader().max_doc()?;
   let q1 = SortedNumericDocValuesField::new_slow_range_query("dv", lo, hi);
-  searcher.search_with_sort(q1, max_doc.try_convert()?, Sort::get_index_order()?)?;
+  let max_doc: usize = max_doc.try_convert()?;
+  searcher.search_with_sort(q1, max_doc, Sort::get_index_order()?)?;
 
   let q2 = SortedNumericDocValuesField::new_slow_range_query("dv", hi, lo);
-  searcher.search_with_sort(q2, max_doc.try_convert()?, Sort::get_index_order()?)?;
+  searcher.search_with_sort(q2, max_doc, Sort::get_index_order()?)?;
 
   Ok(())
 }

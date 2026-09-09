@@ -1072,8 +1072,8 @@ fn do_test_merged_stats<R>(random: &mut R) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let num_dims = TestUtil::next_int(random, 1, 8);
-  let num_bytes_per_dim = TestUtil::next_int(random, 1, 16);
+  let num_dims = TestUtil::next_usize(random, 1, 8);
+  let num_bytes_per_dim = TestUtil::next_usize(random, 1, 16);
 
   let dir = Arc::new(ByteBuffersDirectory::new());
 
@@ -1087,7 +1087,7 @@ where
     let num_points = random.random_range(0..3);
 
     for _ in 0..num_points {
-      let v = random_binary_value(random, num_dims as usize, num_bytes_per_dim as usize);
+      let v = random_binary_value(random, num_dims, num_bytes_per_dim);
       doc.add(BinaryPoint::new("field", v)?);
     }
 

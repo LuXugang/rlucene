@@ -191,7 +191,7 @@ where
       }
       let info_number = info.number;
       let docs_with_field_offset = meta.read_long()?;
-      let docs_with_field_length = meta.read_long()?;
+      let docs_with_field_length = meta.read_long()? as usize;
       let jump_table_entry_count = meta.read_short()?;
 
       let dense_rank_power = meta.read_byte()? as i8;
@@ -266,7 +266,7 @@ where
     entry: &NormsEntry,
   ) -> Result<Option<RandomAccessSliceEnum<I::RandomAccessSlice>>> {
     let docs_with_field_offset = entry.docs_with_field_offset as usize;
-    let docs_with_field_length = entry.docs_with_field_length as usize;
+    let docs_with_field_length = entry.docs_with_field_length;
     let jump_table_entry_count = entry.jump_table_entry_count as i32;
     if self.merging {
       if let Some(cached) = {
@@ -317,7 +317,7 @@ where
     entry: &NormsEntry,
   ) -> Result<SliceEnum<I::IndexInput>> {
     let docs_with_field_offset = entry.docs_with_field_offset as usize;
-    let docs_with_field_length = entry.docs_with_field_length as usize;
+    let docs_with_field_length = entry.docs_with_field_length;
     let jump_table_entry_count = entry.jump_table_entry_count as i32;
     if self.merging {
       if let Some(existing) = {
@@ -571,7 +571,7 @@ struct NormsEntry {
   pub dense_rank_power: i8,
   pub bytes_per_norm: i8,
   pub docs_with_field_offset: i64,
-  pub docs_with_field_length: i64,
+  pub docs_with_field_length: usize,
   pub jump_table_entry_count: i16,
   pub num_docs_with_field: usize,
   pub norms_offset: i64,

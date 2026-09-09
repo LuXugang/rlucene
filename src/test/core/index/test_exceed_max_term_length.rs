@@ -33,8 +33,8 @@ use std::sync::Arc;
 #[allow(dead_code)] // for quick search
 pub struct TestExceedMaxTermLength;
 
-const MIN_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH + 1;
-const MAX_TEST_TERM_LENGTH: i32 = MAX_TERM_LENGTH * 2;
+const MIN_TEST_TERM_LENGTH: usize = MAX_TERM_LENGTH as usize + 1;
+const MAX_TEST_TERM_LENGTH: usize = MAX_TERM_LENGTH as usize * 2;
 fn create_dir<R>(random: &mut R) -> DirEnum
 where
   R: Rng + ?Sized,
@@ -68,11 +68,8 @@ fn test_token_stream() -> Result<()> {
   }
 
   let name = TestUtil::random_simple_string_range(&mut random, 1, 50);
-  let value = TestUtil::random_simple_string_range(
-    &mut random,
-    MIN_TEST_TERM_LENGTH as usize,
-    MAX_TEST_TERM_LENGTH as usize,
-  );
+  let value =
+    TestUtil::random_simple_string_range(&mut random, MIN_TEST_TERM_LENGTH, MAX_TEST_TERM_LENGTH);
   let f = Field::new(name.clone(), value, ft.clone());
 
   if random.random_bool(0.5) {
@@ -157,11 +154,7 @@ fn test_binary_value() -> Result<()> {
 
   // problematic field
   let name = TestUtil::random_simple_string_range(&mut random, 1, 50);
-  let len = TestUtil::next_usize(
-    &mut random,
-    MIN_TEST_TERM_LENGTH as usize,
-    MAX_TEST_TERM_LENGTH as usize,
-  );
+  let len = TestUtil::next_usize(&mut random, MIN_TEST_TERM_LENGTH, MAX_TEST_TERM_LENGTH);
   let value = TestUtil::random_binary_term_with_len(&mut random, len);
 
   let f = Field::from_bytes_ref(name.clone(), value, ft.clone())?;

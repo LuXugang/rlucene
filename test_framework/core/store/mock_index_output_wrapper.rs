@@ -191,9 +191,8 @@ where
 
     if max_size != 0 && free_space <= len {
       if free_space > 0 {
-        let free_space = free_space as usize;
-        real_usage += free_space as i64;
-        write_free_space(self, free_space)?;
+        real_usage += free_space;
+        write_free_space(self, free_space as usize)?;
       }
       if real_usage > self.dir.state.max_used_size.load(Ordering::SeqCst) {
         self

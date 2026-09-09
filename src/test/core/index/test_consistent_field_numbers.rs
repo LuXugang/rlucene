@@ -35,8 +35,8 @@ use crate::core::util::info_stream::InfoStreamEnum;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::util::fail_on_non_bulk_merges_info_stream::FailOnNonBulkMergesInfoStream;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, new_directory_shared, new_index_writer_config, new_index_writer_config_with_analyzer,
-  random,
+  at_least, at_least_usize, new_directory_shared, new_index_writer_config,
+  new_index_writer_config_with_analyzer, random,
 };
 use rand::RngExt;
 
@@ -285,10 +285,10 @@ fn test_field_number_gaps() -> Result<()> {
 #[test]
 fn test_many_fields() -> Result<()> {
   let mut random = random();
-  let num_docs = at_least(&mut random, 200);
+  let num_docs = at_least_usize(&mut random, 200);
   let max_fields = at_least(&mut random, 50);
 
-  let mut docs = Vec::with_capacity(num_docs as usize);
+  let mut docs = Vec::with_capacity(num_docs);
   for _ in 0..num_docs {
     let mut doc_fields = Vec::with_capacity(4);
     for _ in 0..4 {

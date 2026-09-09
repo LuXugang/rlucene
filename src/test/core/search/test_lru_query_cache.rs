@@ -654,6 +654,7 @@ fn test_stats() -> Result<()> {
   let reader = Arc::new(w.get_reader(&mut random)?);
   let mut searcher = new_searcher_with_reader(reader.clone())?;
   let segment_count = searcher.get_leaf_contexts()?.len() as u64;
+  let cached_segment_count = segment_count as i64;
   let query: Query = TermQuery::new(Term::from_text("color", "red")).into();
   let query2: Query = TermQuery::new(Term::from_text("color", "blue")).into();
 
@@ -678,9 +679,9 @@ fn test_stats() -> Result<()> {
   assert_eq!(20 * segment_count, query_cache.get_total_count());
   assert_eq!(9 * segment_count, query_cache.get_hit_count());
   assert_eq!(11 * segment_count, query_cache.get_miss_count());
-  assert_eq!(segment_count as i64, query_cache.get_cache_count());
+  assert_eq!(cached_segment_count, query_cache.get_cache_count());
   assert_eq!(0, query_cache.get_eviction_count());
-  assert_eq!(segment_count as i64, query_cache.get_cache_size());
+  assert_eq!(cached_segment_count, query_cache.get_cache_size());
 
   // third pass lookups without caching, we only have hits
   searcher.set_query_caching_policy(never_cache());
@@ -690,9 +691,9 @@ fn test_stats() -> Result<()> {
   assert_eq!(30 * segment_count, query_cache.get_total_count());
   assert_eq!(19 * segment_count, query_cache.get_hit_count());
   assert_eq!(11 * segment_count, query_cache.get_miss_count());
-  assert_eq!(segment_count as i64, query_cache.get_cache_count());
+  assert_eq!(cached_segment_count, query_cache.get_cache_count());
   assert_eq!(0, query_cache.get_eviction_count());
-  assert_eq!(segment_count as i64, query_cache.get_cache_size());
+  assert_eq!(cached_segment_count, query_cache.get_cache_size());
 
   // fourth pass with a different filter which will trigger evictions since the size is 1
   searcher.set_query_caching_policy(always_cache());
@@ -702,9 +703,9 @@ fn test_stats() -> Result<()> {
   assert_eq!(40 * segment_count, query_cache.get_total_count());
   assert_eq!(28 * segment_count, query_cache.get_hit_count());
   assert_eq!(12 * segment_count, query_cache.get_miss_count());
-  assert_eq!((2 * segment_count) as i64, query_cache.get_cache_count());
-  assert_eq!(segment_count as i64, query_cache.get_eviction_count());
-  assert_eq!(segment_count as i64, query_cache.get_cache_size());
+  assert_eq!(2 * cached_segment_count, query_cache.get_cache_count());
+  assert_eq!(cached_segment_count, query_cache.get_eviction_count());
+  assert_eq!(cached_segment_count, query_cache.get_cache_size());
 
   // now close, causing evictions due to the closing of segment cores
   reader.close()?;
@@ -712,8 +713,8 @@ fn test_stats() -> Result<()> {
   assert_eq!(40 * segment_count, query_cache.get_total_count());
   assert_eq!(28 * segment_count, query_cache.get_hit_count());
   assert_eq!(12 * segment_count, query_cache.get_miss_count());
-  assert_eq!((2 * segment_count) as i64, query_cache.get_cache_count());
-  assert_eq!((2 * segment_count) as i64, query_cache.get_eviction_count());
+  assert_eq!(2 * cached_segment_count, query_cache.get_cache_count());
+  assert_eq!(2 * cached_segment_count, query_cache.get_eviction_count());
   assert_eq!(0, query_cache.get_cache_size());
 
   dir.close()

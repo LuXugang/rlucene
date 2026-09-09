@@ -44,7 +44,6 @@ use crate::core::search::scorer_util::ScorerUtil;
 use crate::core::search::two_phase_iterator::TwoPhaseIterator;
 use crate::core::search::wand_scorer::WANDScorer;
 use crate::core::search::weight::DefaultBulkScorer;
-use crate::core::util::TryIntoInt;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 #[cfg(test)]
@@ -161,11 +160,7 @@ where
           costs.push(ss.cost(context, searcher)?);
         }
 
-        ScorerUtil::cost_with_min_should_match(
-          costs,
-          v.len(),
-          self.min_should_match.try_convert()?,
-        )?
+        ScorerUtil::cost_with_min_should_match(costs, v.len(), self.min_should_match as usize)?
       },
       None => i64::MAX,
     };

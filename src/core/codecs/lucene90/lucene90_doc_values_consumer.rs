@@ -765,17 +765,17 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     data: &mut O,
   ) -> Result<i32> {
     debug_assert!(buffered_output.get_position() <= i32::MAX as usize);
-    let uncompressed_length = buffered_output.get_position() - dict_length;
-    data.write_vint(uncompressed_length as i32)?;
+    let uncompressed_length = (buffered_output.get_position() - dict_length) as i32;
+    data.write_vint(uncompressed_length)?;
     LZ4::compress_with_dictionary(
       buffered_output.bytes.as_slice(),
       0,
       dict_length as i32,
-      uncompressed_length as i32,
+      uncompressed_length,
       data,
       ht,
     )?;
-    Ok(uncompressed_length as i32)
+    Ok(uncompressed_length)
   }
 
   fn maybe_grow_buffer(

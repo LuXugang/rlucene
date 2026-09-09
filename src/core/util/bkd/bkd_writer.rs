@@ -367,13 +367,14 @@ where
     // Mark that we already finished:
     self.finished = true;
 
-    self.point_count = values.size()?.try_convert()?;
+    let point_count = values.size()?;
+    self.point_count = point_count.try_convert()?;
 
     if self.point_count == 0 {
       return Ok(None);
     }
 
-    let num_leaves = (self.point_count as usize).div_ceil(self.config.max_points_in_leaf_node);
+    let num_leaves = point_count.div_ceil(self.config.max_points_in_leaf_node);
     let num_splits = num_leaves - 1;
 
     self.check_max_leaf_node_count(num_leaves)?;
@@ -382,7 +383,6 @@ where
     let mut split_dimension_values = vec![0u8; num_splits];
     let mut leaf_block_fps = vec![0usize; num_leaves];
 
-    let point_count = self.point_count.try_convert()?;
     let mut min_packed_value = vec![0u8; self.min_packed_value.len()];
     let mut max_packed_value = vec![0u8; self.max_packed_value.len()];
     // Compute the min/max for this slice
@@ -410,7 +410,7 @@ where
       num_leaves,
       values,
       0,
-      self.point_count.try_convert()?,
+      point_count,
       data_out,
       self.min_packed_value.clone(),
       self.max_packed_value.clone(),

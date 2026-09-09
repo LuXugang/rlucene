@@ -1177,8 +1177,9 @@ where
   }
 
   fn lookup_ord(&mut self, ord: i32) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    let segment_number = self.map.get_first_segment_number(ord as usize)?;
-    let segment_ord = self.map.get_first_segment_ord(ord as usize)? as i32;
+    let ord = ord as usize;
+    let segment_number = self.map.get_first_segment_number(ord)?;
+    let segment_ord = self.map.get_first_segment_ord(ord)? as i32;
     self.doc_id_merger.get_subs_mut()[segment_number as usize]
       .sub
       .values
@@ -1484,8 +1485,9 @@ where
   }
 
   fn lookup_ord(&mut self, ord: i64) -> Result<Cow<'_, BytesRef<Vec<u8>>>> {
-    let segment_number = self.map.get_first_segment_number(ord as usize)?;
-    let segment_ord = self.map.get_first_segment_ord(ord as usize)?;
+    let ord = ord as usize;
+    let segment_number = self.map.get_first_segment_number(ord)?;
+    let segment_ord = self.map.get_first_segment_ord(ord)?;
     self.to_merge[segment_number as usize].lookup_ord(segment_ord)
   }
 

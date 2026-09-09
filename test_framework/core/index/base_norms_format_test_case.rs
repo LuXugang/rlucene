@@ -464,7 +464,7 @@ pub trait BaseNormsFormatTestCase:
   {
     let num_docs = at_least_usize(random, 500);
     let mut docs_with_field = FixedBitSet::new(num_docs);
-    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as i32) as usize;
+    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as usize);
     if num_docs_with_field == num_docs {
       docs_with_field.set_with_range(0, num_docs);
     } else {
@@ -626,7 +626,7 @@ pub trait BaseNormsFormatTestCase:
     };
     let num_docs = at_least_usize(random, 500);
     let mut docs_with_field = FixedBitSet::new(num_docs);
-    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as i32) as usize;
+    let num_docs_with_field = std::cmp::max(1, (density * num_docs as f64) as usize);
     if num_docs_with_field == num_docs {
       docs_with_field.set_with_range(0, num_docs);
     } else {

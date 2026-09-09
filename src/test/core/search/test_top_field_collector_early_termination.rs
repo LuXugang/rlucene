@@ -187,7 +187,8 @@ where
         max_slice_size = std::cmp::max(max_slice_size, num_docs_slice);
       }
 
-      let num_hits = TestUtil::next_usize(random, 1, reader.max_doc()? as usize);
+      let max_doc = reader.max_doc()? as usize;
+      let num_hits = TestUtil::next_usize(random, 1, max_doc);
 
       let after = if paging {
         assert!(searcher.get_index_reader().num_docs()? > 0);
@@ -226,7 +227,7 @@ where
 
       if td2.total_hits().relation() == Relation::GreaterThanOrEqualTo {
         assert!(td2.total_hits().value() >= td1.score_docs().len());
-        assert!(td2.total_hits().value() <= reader.max_doc()? as usize);
+        assert!(td2.total_hits().value() <= max_doc);
       } else {
         assert_eq!(td2.total_hits().value(), td1.total_hits().value());
       }

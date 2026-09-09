@@ -167,9 +167,9 @@ fn test_biased_mix_of_random_updates() -> Result<()> {
   let add_cutoff = TestUtil::next_int(&mut random, 1, 98);
   let upd_cutoff = TestUtil::next_int(&mut random, add_cutoff + 1, 99);
 
-  let num_operations = at_least(&mut random, 1000);
+  let num_operations = at_least_usize(&mut random, 1000);
   let mut expected: std::collections::HashMap<i32, i64> =
-    std::collections::HashMap::with_capacity((num_operations / 3) as usize);
+    std::collections::HashMap::with_capacity(num_operations / 3);
 
   // start with at least one doc before any chance of updates
   let num_seed_docs = at_least(&mut random, 1);

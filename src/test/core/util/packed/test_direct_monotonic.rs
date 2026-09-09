@@ -391,9 +391,8 @@ where
             };
             let index = reader.binary_search(0, array.len() as i64, intermediate)?;
             assert!(index < 0);
-            let insertion_point: i32 = (-1 - index).try_convert()?;
+            let insertion_point: usize = (-1 - index).try_convert()?;
             assert!(insertion_point > 0);
-            let insertion_point = insertion_point as usize;
             assert!(insertion_point < array.len());
             assert!(array[insertion_point] > intermediate);
             assert!(array[insertion_point - 1] < intermediate);

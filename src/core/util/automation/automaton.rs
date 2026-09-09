@@ -128,11 +128,11 @@ impl Automaton {
     let num_states = self.get_num_states();
     let mut result = Vec::with_capacity(num_states as usize);
     for s in 0..num_states {
-      let cnt = self.get_num_transitions_with_state(s) as usize;
-      let mut row = Vec::with_capacity(cnt);
+      let cnt = self.get_num_transitions_with_state(s);
+      let mut row = Vec::with_capacity(cnt as usize);
       for i in 0..cnt {
         let mut t = Transition::default();
-        self.get_transition(s, i as i32, &mut t);
+        self.get_transition(s, i, &mut t);
         row.push(t);
       }
       result.push(row);

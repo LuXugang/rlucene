@@ -34,10 +34,10 @@ use crate::core::search::leaf_field_comparator::LeafFieldComparator;
 use crate::core::search::pruning::Pruning;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::sorted_set_selector::SortedDocValuesWrap;
+use crate::core::util::ToInt;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use crate::core::util::{ToInt, TryIntoInt};
 use std::borrow::Cow;
 use std::collections::VecDeque;
 
@@ -640,7 +640,7 @@ where
     max_ord: i32,
   ) -> Result<()> {
     let max_terms = std::cmp::min(MAX_TERMS, get_max_clause_count());
-    let size: usize = std::cmp::max(0, max_ord - min_ord + 1).try_convert()?;
+    let size = std::cmp::max(0, max_ord - min_ord + 1) as usize;
 
     if size > max_terms {
       // Dense fields do not have a docs-with-field iterator to use for skipping.
@@ -692,7 +692,7 @@ where
     max_ord: i32,
   ) -> Result<()> {
     self.postings_init = true;
-    let size: usize = std::cmp::max(0, max_ord - min_ord + 1).try_convert()?;
+    let size = std::cmp::max(0, max_ord - min_ord + 1) as usize;
     self.postings = VecDeque::with_capacity(size);
 
     debug_assert!(self.disjunction.is_none());

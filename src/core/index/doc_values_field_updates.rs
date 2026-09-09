@@ -1107,7 +1107,7 @@ pub(crate) struct SingleValueDocValuesFieldUpdates {
   sub_update: Arc<SingleValueNumericDocValuesFieldUpdates>,
   bit_set: SparseFixedBitSet,
   has_no_value: Option<SparseFixedBitSet>,
-  max_doc: i32,
+  max_doc: usize,
   del_gen: i64,
   has_at_least_one_value: bool,
   lock: Mutex<()>,
@@ -1125,9 +1125,10 @@ impl SingleValueDocValuesFieldUpdates {
     del_gen: i64,
     dov_values_type: DocValuesType,
   ) -> Result<Self> {
+    let max_doc = max_doc as usize;
     Ok(Self {
       sub_update: Arc::new(sub),
-      bit_set: SparseFixedBitSet::new(max_doc as usize)?,
+      bit_set: SparseFixedBitSet::new(max_doc)?,
       has_no_value: None,
       max_doc,
       del_gen,
@@ -1234,7 +1235,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
     self.has_at_least_one_value = true;
     let has_no_value = match &mut self.has_no_value {
       Some(has_no_value) => has_no_value,
-      slot @ None => slot.insert(SparseFixedBitSet::new(self.max_doc as usize)?),
+      slot @ None => slot.insert(SparseFixedBitSet::new(self.max_doc)?),
     };
     has_no_value.set(doc)?;
     drop(_guide);

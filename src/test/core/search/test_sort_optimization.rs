@@ -143,7 +143,7 @@ fn test_long_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
   // paging sort with after
   {
@@ -173,7 +173,7 @@ fn test_long_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
   // test that if there is the secondary sort on _score, scores are filled correctly
   {
@@ -203,7 +203,7 @@ fn test_long_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
   // test that if numeric field is a secondary sort, no optimization is run
   {
@@ -313,7 +313,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
 
   {
@@ -337,7 +337,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
 
   {
@@ -355,7 +355,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
 
   {
@@ -373,7 +373,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
 
   {
@@ -402,8 +402,8 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
 
     let expected_skipped = (7001 - 512 - 1) + (num_docs - 7001);
     assert_non_competitive_hits_are_skipped(
-      top_docs.total_hits().value as i64,
-      num_docs as i64 - expected_skipped as i64 + 1,
+      top_docs.total_hits().value,
+      (num_docs - expected_skipped + 1) as usize,
     )?;
   }
 
@@ -453,7 +453,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     let collector_manager = TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
     top_docs1 =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
-    assert_non_competitive_hits_are_skipped(top_docs1.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs1.total_hits().value, num_docs as usize)?;
   }
 
   {
@@ -556,7 +556,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
       assert_eq!(top_docs.total_hits().value, num_hits + 1);
     }
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
 
   {
@@ -578,7 +578,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
       assert!(fd.doc() > after_doc_id);
     }
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
 
   {
@@ -653,7 +653,7 @@ fn test_float_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
   }
 
   Ok(())
@@ -694,7 +694,7 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
 
   let mut cur_num_hits;
   let mut after: Option<FieldDoc> = None;
-  let mut collected_docs: i64 = 0;
+  let mut collected_docs: usize = 0;
   let mut total_docs = 0;
   let mut num_hits = 0;
 
@@ -721,8 +721,8 @@ fn test_doc_sort_optimization_multiple_indices() -> Result<()> {
       for doc_id in 0..top_docs.base.score_docs.len() {
         top_docs.score_docs_mut()[doc_id].set_shard_index(i as i32)
       }
-      collected_docs += top_docs.total_hits().value as i64;
-      total_docs += num_docs_in_index as i64;
+      collected_docs += top_docs.total_hits().value;
+      total_docs += num_docs_in_index;
       top_docs_vec.push(top_docs.base)
     }
 
@@ -803,7 +803,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         top_docs.total_hits().relation,
         Relation::GreaterThanOrEqualTo
       );
-      assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+      assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
     }
 
     // sort by _doc + _score with search after should trigger optimization
@@ -837,7 +837,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
         top_docs.total_hits().relation,
         Relation::GreaterThanOrEqualTo
       );
-      assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, num_docs as i64)?;
+      assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
     }
 
     // sort by _doc desc should not trigger optimization
@@ -981,7 +981,7 @@ fn test_doc_sort_optimization() -> Result<()> {
       top_docs.total_hits().relation,
       Relation::GreaterThanOrEqualTo
     );
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, 10)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, 10)?;
   }
   // sort by _doc with a bool query should skip all non-competitive documents
   {
@@ -1017,7 +1017,7 @@ fn test_doc_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value as i64, 10)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, 10)?;
   }
   Ok(())
 }
@@ -1392,9 +1392,9 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
   let total_hits_threshold = 3;
 
-  let mut expected_collected_hits: i64 = 0;
-  let mut collected_hits: i64 = 0;
-  let mut collected_hits2: i64 = 0;
+  let mut expected_collected_hits: usize = 0;
+  let mut collected_hits: usize = 0;
+  let mut collected_hits2: usize = 0;
   let mut visited_hits = 0;
   let mut after: Option<FieldDoc> = None;
 
@@ -1437,9 +1437,9 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
       visited_hits += 1;
     }
 
-    expected_collected_hits += num_docs as i64;
-    collected_hits += top_docs.total_hits().value as i64;
-    collected_hits2 += top_docs2.total_hits().value as i64;
+    expected_collected_hits += num_docs;
+    collected_hits += top_docs.total_hits().value;
+    collected_hits2 += top_docs2.total_hits().value;
 
     let last_doc = score_docs[expected_hits - 1].clone();
     match last_doc {
@@ -1454,7 +1454,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
 
   Ok(())
 }
-fn assert_non_competitive_hits_are_skipped(collected_hits: i64, num_docs: i64) -> Result<()> {
+fn assert_non_competitive_hits_are_skipped(collected_hits: usize, num_docs: usize) -> Result<()> {
   if collected_hits >= num_docs {
     return Err(LuceneError::illegal_state(format!(
       "Expected some non-competitive hits are skipped; got collected_hits={} num_docs={}",
@@ -1526,7 +1526,7 @@ where
   R: Rng + ?Sized,
   <DR as CompositeReader>::LeafReader: Send + Sync,
 {
-  let num_docs = reader.num_docs()?;
+  let num_docs = reader.num_docs()? as usize;
   let num_hits = 5;
 
   {
@@ -1535,7 +1535,7 @@ where
     sort_field.set_missing_value(StringLast)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let top_docs = assert_sort(random, reader.clone(), sort, num_hits, None)?;
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value(), num_docs)?;
   }
 
   {
@@ -1544,7 +1544,7 @@ where
     sort_field.set_missing_value(StringFirst)?;
     let sort = Sort::with_fields(vec![sort_field])?;
     let top_docs = assert_sort(random, reader.clone(), sort, num_hits, None)?;
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value(), num_docs)?;
   }
 
   {
@@ -1575,7 +1575,7 @@ where
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
     let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value(), num_docs)?;
   }
 
   {
@@ -1590,7 +1590,7 @@ where
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
     let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value(), num_docs)?;
   }
 
   {
@@ -1605,7 +1605,7 @@ where
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
     let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value(), num_docs)?;
   }
 
   {
@@ -1620,7 +1620,7 @@ where
     });
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
     let top_docs = assert_sort(random, reader.clone(), sort, num_hits, Some(after))?;
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value(), num_docs)?;
   }
 
   {
@@ -1629,7 +1629,7 @@ where
     sort_field.set_missing_value(StringLast)?;
     let sort = Sort::with_fields(vec![sort_field, SortField::get_field_score()?.into()])?;
     let top_docs = assert_sort(random, reader.clone(), sort, num_hits, None)?;
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value() as i64, num_docs as i64)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value(), num_docs)?;
   }
 
   {
@@ -1638,7 +1638,7 @@ where
     sort_field.set_missing_value(StringLast)?;
     let sort = Sort::with_fields(vec![SortField::get_field_score()?.into(), sort_field])?;
     let top_docs = assert_sort(random, reader, sort, num_hits, None)?;
-    assert_eq!(top_docs.total_hits().value() as i64, num_docs as i64);
+    assert_eq!(top_docs.total_hits().value(), num_docs);
   }
 
   Ok(())

@@ -153,7 +153,7 @@ where
   R: Rng + ?Sized,
   IRC: IndexReaderContext + Sync,
 {
-  let mut n_matches = 0i64;
+  let mut n_matches = 0usize;
 
   for _ in 0..iter {
     let o_clauses = random.random_range(2..=max_outer_clauses);
@@ -171,14 +171,14 @@ where
     }
 
     let hc = s.search_with_collector_manager(oq.build(), &CountingHitCollectorManager::new())?;
-    n_matches += hc.get_count() as i64;
+    n_matches += hc.get_count();
 
     if validate {
       assert_eq!(result.unwrap().cardinality(), hc.get_count());
     }
   }
   if cfg!(feature = "test_log_verbose") {
-    println!("Average number of matches={}", n_matches / iter as i64);
+    println!("Average number of matches={}", n_matches / iter);
   }
   Ok(())
 }

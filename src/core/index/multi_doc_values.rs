@@ -835,7 +835,7 @@ where
   reader: IRC,
   doc_id: i32,
   field: String,
-  current_doc_base: usize,
+  current_doc_base: i32,
 }
 impl<IRC> NumericDocValuesImpl<IRC>
 where
@@ -890,7 +890,7 @@ where
         }
 
         let leaf = &leaves[self.next_leaf];
-        self.current_doc_base = leaf.doc_base;
+        self.current_doc_base = leaf.doc_base as i32;
         self.current_values = leaf.reader().get_norm_values(&self.field)?;
 
         self.next_leaf += 1;
@@ -906,7 +906,7 @@ where
       if new_doc_id == NO_MORE_DOCS {
         self.current_values = None;
       } else {
-        self.doc_id = self.current_doc_base as i32 + new_doc_id;
+        self.doc_id = self.current_doc_base + new_doc_id;
         return Ok(self.doc_id);
       }
     }
@@ -931,7 +931,7 @@ where
       }
 
       let leaf = &leaves[reader_index];
-      self.current_doc_base = leaf.doc_base;
+      self.current_doc_base = leaf.doc_base as i32;
       self.current_values = leaf.reader().get_norm_values(&self.field)?;
 
       if self.current_values.is_none() {
@@ -945,13 +945,13 @@ where
       .current_values
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
-      .advance(target_doc_id - self.current_doc_base as i32)?;
+      .advance(target_doc_id - self.current_doc_base)?;
 
     if new_doc_id == NO_MORE_DOCS {
       self.current_values = None;
       self.next_doc()
     } else {
-      self.doc_id = self.current_doc_base as i32 + new_doc_id;
+      self.doc_id = self.current_doc_base + new_doc_id;
       Ok(self.doc_id)
     }
   }
@@ -982,7 +982,7 @@ where
   reader: IRC,
   doc_id: i32,
   field: String,
-  current_doc_base: usize,
+  current_doc_base: i32,
 }
 
 impl<IRC> NumericDocValuesImpl1<IRC>
@@ -1029,7 +1029,7 @@ where
       }
 
       let leaf = &leaves[reader_index];
-      self.current_doc_base = leaf.doc_base;
+      self.current_doc_base = leaf.doc_base as i32;
       self.current_values = leaf.reader().get_numeric_doc_values(&self.field)?;
       self.next_leaf = reader_index + 1;
     }
@@ -1038,7 +1038,7 @@ where
 
     match self.current_values {
       None => Ok(false),
-      Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base as i32),
+      Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base),
     }
   }
 }
@@ -1073,7 +1073,7 @@ where
           return Ok(self.doc_id);
         }
         let leaf = &leaves[self.next_leaf];
-        self.current_doc_base = leaf.doc_base;
+        self.current_doc_base = leaf.doc_base as i32;
         self.current_values = leaf.reader().get_numeric_doc_values(&self.field)?;
         self.next_leaf += 1;
       }
@@ -1087,7 +1087,7 @@ where
       if new_doc_id == NO_MORE_DOCS {
         self.current_values = None;
       } else {
-        self.doc_id = self.current_doc_base as i32 + new_doc_id;
+        self.doc_id = self.current_doc_base + new_doc_id;
         return Ok(self.doc_id);
       }
     }
@@ -1111,7 +1111,7 @@ where
         return Ok(self.doc_id);
       }
       let leaf = &leaves[reader_index];
-      self.current_doc_base = leaf.doc_base;
+      self.current_doc_base = leaf.doc_base as i32;
       self.current_values = leaf.reader().get_numeric_doc_values(&self.field)?;
       self.next_leaf = reader_index + 1;
 
@@ -1124,13 +1124,13 @@ where
       .current_values
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
-      .advance(target_doc_id - self.current_doc_base as i32)?;
+      .advance(target_doc_id - self.current_doc_base)?;
 
     if new_doc_id == NO_MORE_DOCS {
       self.current_values = None;
       self.next_doc()
     } else {
-      self.doc_id = self.current_doc_base as i32 + new_doc_id;
+      self.doc_id = self.current_doc_base + new_doc_id;
       Ok(self.doc_id)
     }
   }
@@ -1161,7 +1161,7 @@ where
   reader: IRC,
   doc_id: i32,
   field: String,
-  current_doc_base: usize,
+  current_doc_base: i32,
 }
 
 impl<IRC> BinaryDocValuesImpl<IRC>
@@ -1207,7 +1207,7 @@ where
       }
 
       let leaf = &leaves[reader_index];
-      self.current_doc_base = leaf.doc_base;
+      self.current_doc_base = leaf.doc_base as i32;
       self.current_values = leaf.reader().get_binary_doc_values(&self.field)?;
       self.next_leaf = reader_index + 1;
     }
@@ -1216,7 +1216,7 @@ where
 
     match self.current_values {
       None => Ok(false),
-      Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base as i32),
+      Some(ref mut v) => v.advance_exact(target_doc_id - self.current_doc_base),
     }
   }
 }
@@ -1251,7 +1251,7 @@ where
         }
 
         let leaf = &leaves[self.next_leaf];
-        self.current_doc_base = leaf.doc_base;
+        self.current_doc_base = leaf.doc_base as i32;
         self.current_values = leaf.reader().get_binary_doc_values(&self.field)?;
         self.next_leaf += 1;
       }
@@ -1265,7 +1265,7 @@ where
       if new_doc_id == NO_MORE_DOCS {
         self.current_values = None;
       } else {
-        self.doc_id = self.current_doc_base as i32 + new_doc_id;
+        self.doc_id = self.current_doc_base + new_doc_id;
         return Ok(self.doc_id);
       }
     }
@@ -1290,7 +1290,7 @@ where
       }
 
       let leaf = &leaves[reader_index];
-      self.current_doc_base = leaf.doc_base;
+      self.current_doc_base = leaf.doc_base as i32;
       self.current_values = leaf.reader().get_binary_doc_values(&self.field)?;
       self.next_leaf = reader_index + 1;
 
@@ -1303,13 +1303,13 @@ where
       .current_values
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?
-      .advance(target_doc_id - self.current_doc_base as i32)?;
+      .advance(target_doc_id - self.current_doc_base)?;
 
     if new_doc_id == NO_MORE_DOCS {
       self.current_values = None;
       self.next_doc()
     } else {
-      self.doc_id = self.current_doc_base as i32 + new_doc_id;
+      self.doc_id = self.current_doc_base + new_doc_id;
       Ok(self.doc_id)
     }
   }
@@ -1343,7 +1343,7 @@ where
   >,
   reader: IRC,
   doc_id: i32,
-  current_doc_base: usize,
+  current_doc_base: i32,
   final_total_cost: i64,
 }
 impl<IRC> SortedNumericDocValuesImpl<IRC>
@@ -1395,7 +1395,7 @@ where
       }
 
       let leaf = &leaves[reader_index];
-      self.current_doc_base = leaf.doc_base;
+      self.current_doc_base = leaf.doc_base as i32;
       self.current_values_index = Some(reader_index);
       self.next_leaf = reader_index + 1;
     }
@@ -1405,7 +1405,7 @@ where
       None => Ok(false),
       Some(current_values) => {
         let current_values = &mut self.values[current_values];
-        current_values.advance_exact(target_doc_id - self.current_doc_base as i32)
+        current_values.advance_exact(target_doc_id - self.current_doc_base)
       },
     }
   }
@@ -1441,7 +1441,7 @@ where
         }
 
         let leaf = &leaves[self.next_leaf];
-        self.current_doc_base = leaf.doc_base;
+        self.current_doc_base = leaf.doc_base as i32;
         self.current_values_index = Some(self.next_leaf);
         self.next_leaf += 1;
       }
@@ -1454,7 +1454,7 @@ where
       if new_doc == NO_MORE_DOCS {
         self.current_values_index = None;
       } else {
-        self.doc_id = self.current_doc_base as i32 + new_doc;
+        self.doc_id = self.current_doc_base + new_doc;
         return Ok(self.doc_id);
       }
     }
@@ -1479,7 +1479,7 @@ where
       }
 
       let leaf = &leaves[reader_index];
-      self.current_doc_base = leaf.doc_base;
+      self.current_doc_base = leaf.doc_base as i32;
       self.current_values_index = Some(reader_index);
       self.next_leaf = reader_index + 1;
     }
@@ -1487,13 +1487,13 @@ where
     let idx = self
       .current_values_index
       .ok_or_else(|| LuceneError::illegal_state("current_values is None"))?;
-    let new_doc = self.values[idx].advance(target_doc_id - self.current_doc_base as i32)?;
+    let new_doc = self.values[idx].advance(target_doc_id - self.current_doc_base)?;
 
     if new_doc == NO_MORE_DOCS {
       self.current_values_index = None;
       self.next_doc()
     } else {
-      self.doc_id = self.current_doc_base as i32 + new_doc;
+      self.doc_id = self.current_doc_base + new_doc;
       Ok(self.doc_id)
     }
   }

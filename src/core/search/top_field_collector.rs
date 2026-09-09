@@ -73,7 +73,7 @@ pub struct TopFieldCollector {
   // Mirrors Java's retained numComparators field, which is not read after construction.
   num_comparators: usize,
   queue_full: bool,
-  doc_base: usize,
+  doc_base: i32,
   needs_scores: bool,
   score_mode: ScoreMode,
 }
@@ -193,14 +193,14 @@ impl TopFieldCollector {
         self.base.total_hits_relation = Relation::GreaterThanOrEqualTo;
 
         if let Some(acc) = &self.min_score_acc {
-          acc.accumulate(self.doc_base as i32, min_score);
+          acc.accumulate(self.doc_base, min_score);
         }
       }
     }
     Ok(())
   }
   pub(crate) fn add(&mut self, slot: usize, doc: i32) -> Result<()> {
-    let global_doc = doc + self.doc_base as i32;
+    let global_doc = doc + self.doc_base;
     self.pq_mut().add(Entry::new(slot, global_doc).into())?;
 
     // The queue is full either when total_hits == num_hits (in SimpleFieldCollector),
@@ -212,7 +212,7 @@ impl TopFieldCollector {
     Ok(())
   }
   pub(crate) fn update_bottom(&mut self, doc: i32) -> Result<()> {
-    let global_doc = doc + self.doc_base as i32;
+    let global_doc = doc + self.doc_base;
     let bottom = self.bottom_mut()?;
     bottom.score_doc_mut().doc = global_doc;
     let pq = self.pq_mut();
@@ -711,7 +711,7 @@ impl Collector for SimpleFieldCollector {
     W: Weight<IRC> + ?Sized,
   {
     self.base.min_competitive_score = 0.0;
-    self.base.doc_base = context.doc_base;
+    self.base.doc_base = context.doc_base as i32;
     let needs_scores = self.base.needs_scores;
     let collector = SimpleFieldLeafCollector::new(&mut self.base, &self.sort, context)?;
     if needs_scores {
@@ -886,8 +886,8 @@ impl Collector for PagingFieldCollector {
     W: Weight<IRC> + ?Sized,
   {
     self.base.min_competitive_score = 0.0;
-    self.base.doc_base = context.doc_base;
-    let after_doc = self.after.doc - self.base.doc_base as i32;
+    self.base.doc_base = context.doc_base as i32;
+    let after_doc = self.after.doc - self.base.doc_base;
 
     let needs_scores = self.base.needs_scores;
     let collector = PagingFieldLeafCollector::new(

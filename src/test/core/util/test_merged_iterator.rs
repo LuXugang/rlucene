@@ -172,8 +172,8 @@ where
   let mut lists: Vec<Vec<i32>> = (0..num_lists).map(|_| Vec::new()).collect();
 
   let start = random.random_range(0..1_000_000);
-  let end =
-    start + (VALS_TO_MERGE / itrs_with_val / specified_vals_on_itr.unsigned_abs() as usize) as i32;
+  let vals_per_iterator = specified_vals_on_itr.unsigned_abs() as usize;
+  let end = start + (VALS_TO_MERGE / itrs_with_val / vals_per_iterator) as i32;
 
   for i in start..end {
     let mut max_list = lists.len();
@@ -184,9 +184,9 @@ where
       let list_idx = random.random_range(0..max_list);
 
       let vals_on_itr = if specified_vals_on_itr < 0 {
-        1 + random.random_range(0..(-specified_vals_on_itr as usize))
+        1 + random.random_range(0..vals_per_iterator)
       } else {
-        specified_vals_on_itr as usize
+        vals_per_iterator
       };
 
       max_vals_on_itr = max_vals_on_itr.max(vals_on_itr);

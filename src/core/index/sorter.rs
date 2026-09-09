@@ -78,8 +78,9 @@ impl Sorter {
     DC: DocComparator,
   {
     // check if the index is sorted
+    let doc_count = max_doc as usize;
     let mut sorted = true;
-    for i in 1..max_doc as usize {
+    for i in 1..doc_count {
       if comparator.compare(i - 1, i) > 0 {
         sorted = false;
         break;
@@ -94,7 +95,7 @@ impl Sorter {
     let mut sorter = DocValueSorter::new(&mut docs, comparator);
     // It can be common to sort a reader, add docs, sort it again, ... and in
     // that case timSort can save a lot of time
-    sorter.sort(0, max_doc as usize)?; // docs is now the newToOld mapping
+    sorter.sort(0, doc_count)?; // docs is now the newToOld mapping
 
     // The reason why we use MonotonicAppendingLongBuffer here is that it
     // wastes very little memory if the index is in random order but can save
@@ -114,8 +115,8 @@ impl Sorter {
 
     let mut old_to_new_builder =
       PackedLongValues::monotonic_long_values_builder_default(PackedInts::COMPACT)?;
-    for i in 0..max_doc {
-      old_to_new_builder.add(docs[i as usize] as i64)?;
+    for &doc in &docs {
+      old_to_new_builder.add(doc as i64)?;
     }
     let old_to_new = old_to_new_builder.build()?;
 
