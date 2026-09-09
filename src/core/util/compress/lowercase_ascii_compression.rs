@@ -157,7 +157,7 @@ impl LowercaseAsciiCompression {
     }
 
     // 4. Restore exceptions
-    let num_exceptions = input.read_vint()? as usize;
+    let num_exceptions = input.read_vint()?;
     let mut i = 0usize;
 
     for _ in 0..num_exceptions {

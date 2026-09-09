@@ -65,49 +65,49 @@ pub(crate) trait LZ4TestCase {
     loop {
       let token = compressed[off];
       off += 1;
-      let mut literal_len = (token >> 4) as i32;
+      let mut literal_len = (token >> 4) as usize;
 
       if literal_len == 0x0F {
         while compressed[off] == 0xFF {
           literal_len += 0xFF;
           off += 1;
         }
-        literal_len += compressed[off] as i32;
+        literal_len += compressed[off] as usize;
         off += 1;
       }
       // skip literals
-      off += literal_len as usize;
+      off += literal_len;
       decompressed_off += literal_len;
       // check that the stream ends with literals and that there are
       // at least 5 of them
       if off == compressed.len() {
-        assert_eq!(length_i32, decompressed_off);
-        assert!(literal_len >= LZ4::LAST_LITERALS || literal_len == length_i32);
+        assert_eq!(length, decompressed_off);
+        assert!(literal_len >= LZ4::LAST_LITERALS as usize || literal_len == length);
         break;
       }
 
-      let match_dec = (compressed[off] as i32) | ((compressed[off + 1] as i32) << 8);
+      let match_dec = (compressed[off] as usize) | ((compressed[off + 1] as usize) << 8);
       off += 2;
 
       assert!(match_dec > 0 && match_dec <= decompressed_off);
 
-      let mut match_len = token as i32 & 0x0F;
+      let mut match_len = token as usize & 0x0F;
       if match_len == 0x0F {
         while compressed[off] == 0xFF {
           match_len += 0xFF;
           off += 1;
         }
-        match_len += compressed[off] as i32;
+        match_len += compressed[off] as usize;
         off += 1;
       }
-      match_len += LZ4::MIN_MATCH;
+      match_len += LZ4::MIN_MATCH as usize;
       {
         // if the match ends prematurely, the next sequence should
         // not have literals or this means we
         // are wasting space
-        if decompressed_off + match_len < length_i32 - LZ4::LAST_LITERALS {
-          let more_common_bytes = data[offset + decompressed_off as usize + match_len as usize]
-            == data[offset + decompressed_off as usize - match_dec as usize + match_len as usize];
+        if decompressed_off + match_len + (LZ4::LAST_LITERALS as usize) < length {
+          let more_common_bytes = data[offset + decompressed_off + match_len]
+            == data[offset + decompressed_off - match_dec + match_len];
           let next_sequence_has_literals = compressed[off] >> 4 != 0;
           assert!(!(more_common_bytes && next_sequence_has_literals));
         }
@@ -116,7 +116,7 @@ pub(crate) trait LZ4TestCase {
       decompressed_off += match_len;
     }
 
-    assert_eq!(length_i32, decompressed_off);
+    assert_eq!(length, decompressed_off);
 
     // Compress once again with the same hash table to test reuse
     let mut out2 = ByteBuffersDataOutput::new();

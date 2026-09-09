@@ -217,7 +217,7 @@ pub struct DocIdSetIteratorImpl<S> {
   /// positioned on 'doc'. This is sometimes called the 'pivot' in
   /// some descriptions of WAND (Weak AND).
   pub(crate) lead: Option<usize>,
-  pub(crate) freq: i32,
+  pub(crate) freq: usize,
   pub(crate) lead_cost: i64,
   /// score of the leads
   pub(crate) lead_score: f64,
@@ -229,7 +229,7 @@ pub struct DocIdSetIteratorImpl<S> {
   pub(crate) tail_size: usize,
   /// scaled min competitive score
   min_competitive_score: i64,
-  pub(crate) min_should_match: i32,
+  pub(crate) min_should_match: usize,
   /// cost from Lucene
   pub(crate) cost: i64,
   /// scalingFactor in Lucene
@@ -290,6 +290,7 @@ where
     let head = DisiPriorityQueue::new(num_scorers);
     let tail = vec![0usize; num_scorers];
 
+    let min_should_match: usize = min_should_match.try_convert()?;
     let mut this = Self {
       all_scorers,
       doc: -1,
@@ -318,8 +319,7 @@ where
       this.add_unpositioned_lead(idx);
     }
 
-    this.cost =
-      ScorerUtil::cost_with_min_should_match(cost, num_scorers, min_should_match.try_convert()?)?;
+    this.cost = ScorerUtil::cost_with_min_should_match(cost, num_scorers, min_should_match)?;
 
     Ok(this)
   }
@@ -580,7 +580,7 @@ where
     let s_score = self.all_scorers[s].scaled_max_score;
 
     if self.tail_max_score + s_score < self.min_competitive_score
-      || self.tail_size as i32 + 1 < self.min_should_match
+      || self.tail_size + 1 < self.min_should_match
     {
       // we have free room for this new entry
       self.add_tail(s);
@@ -729,7 +729,7 @@ where
       debug_assert!(
         self.min_competitive_score == 0
           || self.tail_max_score < self.min_competitive_score
-          || (self.tail_size as i32) < self.min_should_match,
+          || self.tail_size < self.min_should_match,
       );
 
       debug_assert!(self.doc <= self.upto);
@@ -842,7 +842,7 @@ where
       debug_assert!(approx.ensure_consistent()?);
 
       if scaled_lead_score + approx.tail_max_score < approx.min_competitive_score
-        || approx.freq + (approx.tail_size as i32) < approx.min_should_match
+        || approx.freq + approx.tail_size < approx.min_should_match
       {
         return Ok(false);
       } else {

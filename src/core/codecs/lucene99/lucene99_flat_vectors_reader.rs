@@ -438,15 +438,15 @@ impl FieldEntry {
     let vector_data_offset = input.read_vlong()? as usize;
     let vector_data_length = input.read_vlong()? as usize;
     let dimension = input.read_vint()? as usize;
-    let size = input.read_int()? as usize;
-    let ord_to_doc = OrdToDocDISIReaderConfiguration::from_stored_meta(input, size as i32)?;
+    let size = input.read_int()?;
+    let ord_to_doc = OrdToDocDISIReaderConfiguration::from_stored_meta(input, size)?;
 
     let entry = Self {
       similarity_function,
       vector_encoding,
       vector_data_offset,
       vector_data_length,
-      size,
+      size: size as usize,
       dimension,
       ord_to_doc: Arc::new(ord_to_doc),
     };

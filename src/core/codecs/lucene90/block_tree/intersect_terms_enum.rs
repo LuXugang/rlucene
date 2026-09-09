@@ -29,7 +29,7 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fst_impl::fst::Arc;
 use crate::core::util::fst_impl::reverse_random_access_reader::ReverseRandomAccessReader;
-use crate::core::util::{StringHelper, ToInt, TryIntoInt};
+use crate::core::util::{StringHelper, ToInt};
 use std::borrow::Cow;
 
 /// Used to implement efficient [`Terms::intersect`] for the block-tree.
@@ -229,7 +229,7 @@ where
 
     let f = &mut self.stack[new_ord];
     f.arc = arc_idx;
-    f.output_num = (self.output_accumulator.output_count() - init_output_count).try_convert()?;
+    f.output_num = self.output_accumulator.output_count() - init_output_count;
 
     {
       let arc = &self.arcs[f.arc];
@@ -390,7 +390,7 @@ where
         }
         let last_fp = self.stack[frame_idx].fp_orig;
         let output_num = self.stack[frame_idx].output_num;
-        self.output_accumulator.pop_n(output_num.try_convert()?);
+        self.output_accumulator.pop_n(output_num);
 
         self.current_frame = ord - 1;
         self.current_transition = self.current_frame;
@@ -454,7 +454,7 @@ where
               return Ok(None);
             }
             let output_num = frame.output_num;
-            self.output_accumulator.pop_n(output_num as usize);
+            self.output_accumulator.pop_n(output_num);
             let parent_ord = frame.ord - 1;
             self.current_frame = parent_ord;
             self.current_transition = self.current_frame;

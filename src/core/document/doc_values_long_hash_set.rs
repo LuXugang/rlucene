@@ -39,12 +39,12 @@ pub(crate) struct DocValuesLongHashSet {
 impl DocValuesLongHashSet {
   /// Construct a set. Values must be in sorted order.
   pub(crate) fn new(values: &[i64]) -> Result<Self> {
-    let mut table_size: i32 = (values.len() as i64 * 3 / 2).try_convert()?;
+    let table_size: i32 = (values.len() as i64 * 3 / 2).try_convert()?;
     let bits = PackedInts::bits_required(table_size as i64)?; // make it a power of 2
-    table_size = 1i32 << bits;
-    debug_assert!(table_size as usize >= (values.len() * 3 / 2));
-    let mut table = vec![MISSING; table_size as usize];
-    let mask = (table_size - 1) as usize;
+    let table_size = (1i32 << bits) as usize;
+    debug_assert!(table_size >= (values.len() * 3 / 2));
+    let mut table = vec![MISSING; table_size];
+    let mask = table_size - 1;
     let mut has_missing_value = false;
     let mut size = 0;
     let mut previous_value = i64::MIN;

@@ -532,13 +532,13 @@ fn test_cost_estimate() -> Result<()> {
   let rewritten = searcher.rewrite(query)?;
   let weight = rewritten.create_weight(&searcher, &ScoreMode::CompleteNoScores, 1.0)?;
   let mut supplier = weight.scorer_supplier(lrc, &searcher)?.unwrap();
-  assert_eq!(2000, supplier.cost(lrc, &searcher)? as i64);
+  assert_eq!(2000, supplier.cost(lrc, &searcher)?);
 
   let query: Query = WildcardQuery::new(Term::from_text("body", "bar*"))?.into_query();
   let rewritten = searcher.rewrite(query)?;
   let weight = rewritten.create_weight(&searcher, &ScoreMode::CompleteNoScores, 1.0)?;
   let mut supplier = weight.scorer_supplier(lrc, &searcher)?.unwrap();
-  assert_eq!(3000, supplier.cost(lrc, &searcher)? as i64);
+  assert_eq!(3000, supplier.cost(lrc, &searcher)?);
 
   Ok(())
 }

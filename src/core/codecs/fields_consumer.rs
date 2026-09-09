@@ -94,19 +94,15 @@ pub trait FieldsConsumer: Closeable {
 
     for reader_index in 0..merge_state.fields_producers().len() {
       let f = &merge_state.fields_producers()[reader_index];
-      let max_doc = merge_state.max_docs()[reader_index] as usize;
+      let max_doc = merge_state.max_docs()[reader_index];
 
       if let Some(f) = f {
         f.check_integrity()?;
-        slices.push(Rc::new(ReaderSlice::new(
-          doc_base,
-          max_doc as i32,
-          reader_index,
-        )));
+        slices.push(Rc::new(ReaderSlice::new(doc_base, max_doc, reader_index)));
         fields.push(f);
       }
 
-      doc_base += max_doc;
+      doc_base += max_doc as usize;
     }
 
     let field = MultiFields::new(fields, slices);

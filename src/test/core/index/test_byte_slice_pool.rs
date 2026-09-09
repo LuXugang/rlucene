@@ -106,9 +106,9 @@ struct SliceWriter {
 
   slice: usize,
   slice_length: i32,
-  slice_offset: i32,
+  slice_offset: usize,
 
-  first_slice_offset: i32,
+  first_slice_offset: usize,
   first_slice: usize,
 }
 
@@ -156,7 +156,7 @@ impl SliceWriter {
     if !self.has_started {
       self.data_offset = 0;
       self.slice_length = ByteSlicePool::FIRST_LEVEL_SIZE;
-      self.slice_offset = slice_pool.new_slice(self.slice_length, block_pool)?;
+      self.slice_offset = slice_pool.new_slice(self.slice_length, block_pool)? as usize;
       self.first_slice_offset = self.slice_offset;
       self.first_slice = block_pool.buffer_upto()?;
       self.slice = self.first_slice;
@@ -165,7 +165,7 @@ impl SliceWriter {
       let buffer = block_pool.get_buffer_mut(self.first_slice);
       buffer.copy_from(
         &self.random_data[self.data_offset..self.data_offset + write_length],
-        self.slice_offset as usize,
+        self.slice_offset,
       );
       self.data_offset += write_length;
       self.has_started = true;
@@ -179,7 +179,7 @@ impl SliceWriter {
 
     let offset_and_length = slice_pool.alloc_known_size_slice(
       self.slice,
-      (self.slice_offset + self.slice_length - 1) as usize,
+      self.slice_offset + (self.slice_length - 1) as usize,
       block_pool,
     )?;
 
@@ -188,7 +188,7 @@ impl SliceWriter {
     let mut current_pool_buffer = block_pool.get_buffer_mut(self.slice);
     self.slice = block_pool.buffer_upto()?;
     self.slice_length = offset_and_length & 0xff;
-    self.slice_offset = offset_and_length >> 8;
+    self.slice_offset = (offset_and_length >> 8) as usize;
     let write_length = std::cmp::min(
       self.size - self.data_offset,
       (self.slice_length - 1) as usize,
@@ -196,7 +196,7 @@ impl SliceWriter {
     current_pool_buffer = block_pool.get_buffer_mut(self.slice);
     current_pool_buffer.copy_from(
       &self.random_data[self.data_offset..self.data_offset + write_length],
-      self.slice_offset as usize,
+      self.slice_offset,
     );
     self.data_offset += write_length;
     Ok(true)
@@ -209,8 +209,8 @@ struct SliceReader {
   read_data: Vec<u8>,
   data_offset: usize,
 
-  slice_length: i32,
-  slice_offset: i32,
+  slice_length: usize,
+  slice_offset: usize,
 
   slice: usize,
   slice_size_idx: usize,
@@ -218,7 +218,7 @@ struct SliceReader {
 
 impl SliceReader {
   /// Creates a new `SliceReader` instance.
-  pub fn new(size: usize, first_slice_offset: i32, first_slice: usize) -> Self {
+  pub fn new(size: usize, first_slice_offset: usize, first_slice: usize) -> Self {
     SliceReader {
       has_started: false,
       size,
@@ -245,20 +245,18 @@ impl SliceReader {
       self.slice_size_idx = 0;
       // 4 bytes are for the offset to the next slice, we can't use
       // them for data
-      self.slice_length = ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
-      let slice_length = self.slice_length as usize;
-      let read_length = if self.data_offset + slice_length + 3 >= self.size {
+      self.slice_length = (ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4) as usize;
+      let read_length = if self.data_offset + self.slice_length + 3 >= self.size {
         // We are reading the last slice, no more offset, just a
         // byte for the level
         self.size - self.data_offset
       } else {
-        slice_length
+        self.slice_length
       };
 
       let current_buffer = block_pool.get_buffer(self.slice);
-      let slice_offset = self.slice_offset as usize;
       self.read_data.copy_from(
-        &current_buffer[slice_offset..slice_offset + read_length],
+        &current_buffer[self.slice_offset..self.slice_offset + read_length],
         self.data_offset,
       );
       self.data_offset += read_length;
@@ -277,25 +275,21 @@ impl SliceReader {
 
     // No, read more
     let mut slice_buffer = block_pool.get_buffer(self.slice);
-    let global_slice_offset = BitUtil::get_i32_le(
-      slice_buffer,
-      (self.slice_offset + self.slice_length) as usize,
-    );
+    let global_slice_offset =
+      BitUtil::get_i32_le(slice_buffer, self.slice_offset + self.slice_length);
     self.slice = (global_slice_offset / BYTE_BLOCK_SIZE) as usize;
-    self.slice_offset = global_slice_offset % BYTE_BLOCK_SIZE;
-    self.slice_length = ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4;
-    let slice_length = self.slice_length as usize;
-    let read_length = if self.data_offset + slice_length + 3 >= self.size {
+    self.slice_offset = (global_slice_offset % BYTE_BLOCK_SIZE) as usize;
+    self.slice_length = (ByteSlicePool::LEVEL_SIZE_ARRAY[self.slice_size_idx] - 4) as usize;
+    let read_length = if self.data_offset + self.slice_length + 3 >= self.size {
       // Reading the last slice
       self.size - self.data_offset
     } else {
-      slice_length
+      self.slice_length
     };
 
     slice_buffer = block_pool.get_buffer(self.slice);
-    let slice_offset = self.slice_offset as usize;
     self.read_data.copy_from(
-      &slice_buffer[slice_offset..slice_offset + read_length],
+      &slice_buffer[self.slice_offset..self.slice_offset + read_length],
       self.data_offset,
     );
     self.data_offset += read_length;

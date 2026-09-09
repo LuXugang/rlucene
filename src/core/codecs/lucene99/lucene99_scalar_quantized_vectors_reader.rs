@@ -566,7 +566,8 @@ impl FieldEntry {
     let vector_data_offset = input.read_vlong()?.try_convert()?;
     let vector_data_length = input.read_vlong()?.try_convert()?;
     let dimension = input.read_vint()?.try_convert()?;
-    let size = input.read_int()?.try_convert()?;
+    let stored_size = input.read_int()?;
+    let size = stored_size.try_convert()?;
     let scalar_quantizer;
     let bits;
     let compress;
@@ -605,7 +606,7 @@ impl FieldEntry {
       bits = 7;
       compress = false;
     }
-    let ord_to_doc = OrdToDocDISIReaderConfiguration::from_stored_meta(input, size as i32)?;
+    let ord_to_doc = OrdToDocDISIReaderConfiguration::from_stored_meta(input, stored_size)?;
     Ok(Self {
       similarity_function,
       vector_encoding,

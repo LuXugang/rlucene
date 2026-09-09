@@ -16,9 +16,9 @@
  */
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::core_helper::CoreHelper;
-use std::sync::atomic::{AtomicI64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
 /// Maintains the maximum score and its corresponding document id concurrently
-pub(crate) static DEFAULT_INTERVAL: AtomicI64 = AtomicI64::new(0x3ff);
+pub(crate) static DEFAULT_INTERVAL: AtomicUsize = AtomicUsize::new(0x3ff);
 pub struct MaxScoreAccumulator {
   // we use 2^10-1 to check the remainder with a bitwise operation
 
@@ -33,7 +33,7 @@ impl MaxScoreAccumulator {
   pub(crate) fn new() -> Self {
     Self {
       acc: AtomicI64::new(i64::MIN),
-      mod_interval: DEFAULT_INTERVAL.load(Ordering::Relaxed) as usize,
+      mod_interval: DEFAULT_INTERVAL.load(Ordering::Relaxed),
     }
   }
 

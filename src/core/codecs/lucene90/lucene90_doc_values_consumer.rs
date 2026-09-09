@@ -414,7 +414,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
 
     let num_bits_per_value;
     let mut do_blocks = false;
-    let mut encode: Option<HashMap<i64, i32>> = None;
+    let mut encode: Option<HashMap<i64, i64>> = None;
 
     if min >= max {
       // meta[-1]: All values are 0
@@ -438,7 +438,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         }
         let mut value_to_ord = HashMap::with_capacity(sorted.len());
         for (i, &value) in sorted.iter().enumerate() {
-          value_to_ord.insert(value, i as i32);
+          value_to_ord.insert(value, i as i64);
         }
         encode = Some(value_to_ord);
         min = 0;
@@ -503,7 +503,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     num_bits_per_value: i32,
     min: i64,
     gcd: i64,
-    encode: Option<HashMap<i64, i32>>,
+    encode: Option<HashMap<i64, i64>>,
   ) -> Result<()>
   where
     T: SortedNumericDocValues,
@@ -515,7 +515,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       for _ in 0..values.doc_value_count()? {
         let v = values.next_value()?;
         let encoded = if let Some(map) = &encode {
-          *map.get(&v).unwrap_or(&0) as i64
+          *map.get(&v).unwrap_or(&0)
         } else {
           v.wrapping_sub(min) / gcd
         };
@@ -1499,9 +1499,10 @@ where
     let doc = self.value.next_doc()?;
     if doc != NO_MORE_DOCS {
       self.doc_value_count = self.value.doc_value_count()?;
-      ArrayUtil::grow_with_len(&mut self.ords, self.doc_value_count as usize)?;
-      for i in 0..self.doc_value_count {
-        self.ords[i as usize] = self.value.next_ord()?;
+      let count = self.doc_value_count as usize;
+      ArrayUtil::grow_with_len(&mut self.ords, count)?;
+      for ord in &mut self.ords[..count] {
+        *ord = self.value.next_ord()?;
       }
       self.i = 0;
     }

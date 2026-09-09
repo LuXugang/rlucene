@@ -163,18 +163,18 @@ impl TermsHashPerField {
     let mut block_index = (upto >> BYTE_BLOCK_SHIFT) as usize;
     debug_assert!(block_index <= byte_pool.buffer_upto()?);
     let mut bytes = byte_pool.get_buffer_mut(block_index);
-    let mut offset = upto & BYTE_BLOCK_MASK;
-    if bytes[offset as usize] != 0 {
+    let mut offset = (upto & BYTE_BLOCK_MASK) as usize;
+    if bytes[offset] != 0 {
       // End of slice; allocate a new one
       offset = self
         .slice_pool
         .alloc_slice(block_index, offset, byte_pool)?;
-      term_stream_address_buffer[stream_address] = offset + byte_pool.byte_offset;
+      term_stream_address_buffer[stream_address] = offset as i32 + byte_pool.byte_offset;
       // try update bytes
       block_index = byte_pool.buffer_upto()?;
       bytes = byte_pool.get_buffer_mut(block_index);
     }
-    bytes[offset as usize] = b;
+    bytes[offset] = b;
     term_stream_address_buffer[stream_address] += 1;
     Ok(())
   }

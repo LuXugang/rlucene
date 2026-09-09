@@ -162,9 +162,7 @@ where
           b.copy_from(&buffer[self.upto..self.upto + num_left], offset);
         }
         offset += num_left;
-        len = len.checked_sub(num_left).ok_or_else(|| {
-          LuceneError::illegal_state(format!("underflow, len {}, num_left {} ", len, num_left))
-        })?;
+        len -= num_left;
         self.next_slice()?;
       } else {
         let buffer = self.pool.get_buffer(self.buffer_upto);
@@ -190,12 +188,7 @@ where
     while num_bytes > 0 {
       let num_left = self.limit - self.upto;
       if num_left < num_bytes {
-        num_bytes = num_bytes.checked_sub(num_left).ok_or_else(|| {
-          LuceneError::illegal_state(format!(
-            "underflow, num_bytes {}, num_left {} ",
-            num_bytes, num_left
-          ))
-        })?;
+        num_bytes -= num_left;
         self.next_slice()?;
       } else {
         self.upto += num_bytes;

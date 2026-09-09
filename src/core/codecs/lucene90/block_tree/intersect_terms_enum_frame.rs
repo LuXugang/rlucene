@@ -69,7 +69,7 @@ pub(crate) struct IntersectTermsEnumFrame {
   pub(crate) term_state: TermStateEnum,
   /// metadata buffer
   bytes_reader: ByteArrayDataInput<Vec<u8>>,
-  pub(crate) output_num: i32,
+  pub(crate) output_num: usize,
   pub(crate) start_byte_pos: usize,
   pub(crate) suffix: usize,
 }

@@ -76,8 +76,8 @@ pub struct Lucene101PostingsWriter<O> {
   payload_byte_upto: usize,
 
   level0_last_doc_id: i32,
-  level0_last_pos_fp: i64,
-  level0_last_pay_fp: i64,
+  level0_last_pos_fp: usize,
+  level0_last_pay_fp: usize,
 
   level1_last_doc_id: i32,
   level1_last_pos_fp: i64,
@@ -342,20 +342,20 @@ where
           let pos_fp = pos_out.get_file_pointer()?;
           self
             .level0_output
-            .write_vlong((pos_fp - self.level0_last_pos_fp as usize) as i64)?;
+            .write_vlong((pos_fp - self.level0_last_pos_fp) as i64)?;
           self.level0_output.write_byte(self.pos_buffer_upto as u8)?;
-          self.level0_last_pos_fp = pos_fp as i64;
+          self.level0_last_pos_fp = pos_fp;
 
           if options.write_offsets || options.write_payloads {
             let pay_out = self.pay_out()?;
             let pay_fp = pay_out.get_file_pointer()?;
             self
               .level0_output
-              .write_vlong((pay_fp - self.level0_last_pay_fp as usize) as i64)?;
+              .write_vlong((pay_fp - self.level0_last_pay_fp) as i64)?;
             self
               .level0_output
               .write_vint(self.payload_byte_upto as i32)?;
-            self.level0_last_pay_fp = pay_fp as i64;
+            self.level0_last_pay_fp = pay_fp;
           }
         }
       }
@@ -607,14 +607,15 @@ where
     if options.write_positions
       && let Some(ref pos_out) = self.pos_out
     {
-      self.pos_start_fp = pos_out.get_file_pointer()? as i64;
-      self.level0_last_pos_fp = self.pos_start_fp;
+      let pos_fp = pos_out.get_file_pointer()?;
+      self.pos_start_fp = pos_fp as i64;
+      self.level0_last_pos_fp = pos_fp;
       self.level1_last_pos_fp = self.pos_start_fp;
       if options.write_payloads || options.write_offsets {
-        let pay_fp = self.pay_out()?.get_file_pointer()? as i64;
-        self.pay_start_fp = pay_fp;
+        let pay_fp = self.pay_out()?.get_file_pointer()?;
+        self.pay_start_fp = pay_fp as i64;
         self.level0_last_pay_fp = pay_fp;
-        self.level1_last_pay_fp = pay_fp;
+        self.level1_last_pay_fp = self.pay_start_fp;
       }
     }
     self.last_doc_id = -1;

@@ -47,10 +47,9 @@ where
   ) -> Result<Self> {
     let encoder = of(format, bits_per_value)?;
     debug_assert!(value_count >= 0);
-    let iterations = encoder.compute_iterations(value_count, mem);
-    let next_blocks = vec![0; (iterations * Encoder::byte_block_count(encoder) as i32) as usize];
-    let next_values = vec![0; (iterations * Encoder::byte_value_count(encoder) as i32) as usize];
-    let iterations = iterations as usize;
+    let iterations = encoder.compute_iterations(value_count, mem) as usize;
+    let next_blocks = vec![0; iterations * Encoder::byte_block_count(encoder)];
+    let next_values = vec![0; iterations * Encoder::byte_value_count(encoder)];
 
     Ok(Self {
       finished: false,

@@ -230,12 +230,11 @@ impl AutomatonTermsEnum {
         return Ok(true);
       } else {
         /* no more solutions exist from this useful portion, backtrack  */
-        let v = self.backtrack(pos);
-        if v < 0 {
+        let Some(previous_position) = self.backtrack(pos) else {
           /* no more solutions at all  */
           return Ok(false);
-        }
-        pos = v as usize;
+        };
+        pos = previous_position;
 
         let prev_state = self.saved_states.int_at(pos);
         let byte = self.seek_bytes_ref.byte_at(pos) as i32;
@@ -333,16 +332,16 @@ impl AutomatonTermsEnum {
   }
 
   /// Attempts to backtrack through the string after encountering a dead end
-  /// at the given position. Returns `false` if no more possible strings
+  /// at the given position. Returns `None` if no more possible strings
   /// can match.
   ///
   /// Parameters:
   /// - `position`: The current position in the input string.
   ///
   /// Returns:
-  /// - A position `>= 0` if more possible solutions exist for the DFA;
-  ///   otherwise, returns `false`.
-  fn backtrack(&mut self, mut position: usize) -> i32 {
+  /// - A position if more possible solutions exist for the DFA;
+  ///   otherwise, returns `None`.
+  fn backtrack(&mut self, mut position: usize) -> Option<usize> {
     debug_assert!(position < i32::MAX as usize);
     while position > 0 {
       position -= 1;
@@ -352,10 +351,10 @@ impl AutomatonTermsEnum {
       if next_char != 0xFF {
         self.seek_bytes_ref.set_byte_at(position, next_char + 1);
         self.seek_bytes_ref.set_length(position + 1);
-        return position as i32;
+        return Some(position);
       }
     }
-    -1 // all solutions exhausted
+    None // all solutions exhausted
   }
 }
 impl FilteredTermsEnumBase for AutomatonTermsEnum {
