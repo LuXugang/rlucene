@@ -359,17 +359,19 @@ impl FieldInfos {
     let by_number_len = max_field_number.checked_add(1).ok_or_else(|| {
       LuceneError::illegal_argument(format!("field number is too large: {max_field_number}"))
     })? as usize;
-    let mut by_number: Vec<Option<Arc<FieldInfo>>> = Vec::with_capacity(infos.len());
-    let mut values: Vec<Arc<FieldInfo>> = Vec::with_capacity(infos.len());
+    let mut by_number: Vec<Option<Arc<FieldInfo>>>;
+    let mut values: Vec<Arc<FieldInfo>>;
     if field_number_strictly_ascending && by_number_len == infos.len() {
       // The input FieldInfo[] contains all fields numbered from 0 to
       // infos.length - 1, and they are sorted, use it
       // directly. This is an optimization when reading a segment with all
       // fields since the FieldInfo[] is sorted.
+      by_number = Vec::with_capacity(infos.len());
       for x in &infos {
         by_number.push(Some(x.clone()));
       }
-      values = infos.clone();
+      infos.shrink_to_fit();
+      values = infos;
     } else {
       by_number = vec![None; by_number_len];
       for field_info in &infos {
@@ -386,6 +388,7 @@ impl FieldInfos {
         by_number[field_number] = Some(field_info.clone());
       }
       if by_number_len == infos.len() {
+        values = Vec::with_capacity(infos.len());
         for fi in by_number.iter().flatten() {
           values.push(fi.clone())
         }
@@ -393,7 +396,8 @@ impl FieldInfos {
         if !field_number_strictly_ascending {
           infos.sort_by_key(|fi| fi.number);
         }
-        values = infos.clone();
+        infos.shrink_to_fit();
+        values = infos;
       }
     }
 

@@ -254,10 +254,10 @@ impl<D> SegmentCommitInfo<D> {
         .files(self, &mut files)?;
     }
     for update_files in self.dv_updates_files.values() {
-      files.extend(update_files.clone());
+      files.extend(update_files.iter().cloned());
     }
     // must separately add fieldInfos files
-    files.extend(self.field_infos_files.clone());
+    files.extend(self.field_infos_files.iter().cloned());
     Ok(files)
   }
 

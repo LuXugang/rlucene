@@ -285,7 +285,7 @@ where
     boost: f32,
   ) -> Result<Self> {
     let mut weights = Vec::with_capacity(query.get_disjuncts().len());
-    for (query, _) in query.disjuncts.clone() {
+    for query in query.disjuncts.keys().cloned() {
       let weight = query.create_weight(searcher, &score_mode, boost)?;
       weights.push(weight);
     }
@@ -356,13 +356,13 @@ where
       let e = wt.explain(context, doc, searcher)?;
       if e.is_match() {
         matched = true;
-        subs_on_match.push(e.clone());
         let score = e.get_value().to_f64().ok_or_else(|| {
           LuceneError::illegal_state(format!(
             "Explanation value is not a number: {:?}",
             e.get_value()
           ))
         })?;
+        subs_on_match.push(e);
         if score >= max {
           other_sum += max;
           max = score;

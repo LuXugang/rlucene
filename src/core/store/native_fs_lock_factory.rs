@@ -292,7 +292,7 @@ impl Lock for NativeFSLock {
 
     let lock_held = LOCK_HELD.get_or_init(|| Arc::new(Mutex::new(HashSet::new())));
     let lock_held = lock_held.lock();
-    if !lock_held.contains(&self.path.to_string_lossy().to_string()) {
+    if !lock_held.contains(self.path.to_string_lossy().as_ref()) {
       return Err(LuceneError::already_closed(format!(
         "Lock path unexpectedly cleared from map: {:?}",
         self.path

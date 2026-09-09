@@ -144,15 +144,14 @@ impl FstReader for ReadWriteDataOutput {
   fn init_reader(&mut self) {
     self.finish = true;
     if self.byte_buffer.is_none() && self.byte_buffers.is_none() {
-      let (_, byte_buffers_raw) = self.data_output.to_buffer_list_owner(false);
-      let mut data: Vec<Vec<u8>> = byte_buffers_raw
-        .into_iter()
-        .map(|b| b.into_inner())
-        .collect();
-
-      if data.len() == 1 {
-        self.byte_buffer = Some(Rc::new(data.remove(0)));
+      let (_, mut byte_buffers_raw) = self.data_output.to_buffer_list_owner(false);
+      if byte_buffers_raw.len() == 1 {
+        self.byte_buffer = Some(Rc::new(byte_buffers_raw.remove(0).into_inner()));
       } else {
+        let data = byte_buffers_raw
+          .into_iter()
+          .map(|b| b.into_inner())
+          .collect();
         self.byte_buffers = Some(Rc::new(data));
       }
     }

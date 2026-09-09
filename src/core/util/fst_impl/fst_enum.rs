@@ -49,9 +49,7 @@ where
     let fst_reader = fst.get_bytes_reader()?;
     let no_output = fst.outputs.get_no_output();
     let mut arcs = vec![Arc::default(); 10];
-    let mut arc = Arc::default();
-    fst.get_first_arc(&mut arc);
-    arcs[0] = arc;
+    fst.get_first_arc(&mut arcs[0]);
 
     let mut output = vec![O::V::default(); 10];
     output[0] = no_output.clone();

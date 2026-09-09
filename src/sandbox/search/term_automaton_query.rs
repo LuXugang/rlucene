@@ -501,7 +501,7 @@ impl TermAutomatonQueryDefaults {
           .add_terms_with_position(&terms, position)?;
         if let Some(builder) = &mut phrase_builder {
           if terms.len() == 1 {
-            builder.add(terms[0].clone(), position as usize)?;
+            builder.add(terms.remove(0), position as usize)?;
           } else {
             phrase_builder = None;
           }

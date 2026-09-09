@@ -396,7 +396,8 @@ where
   ) -> Result<Self> {
     // stack arrays that keep information at different levels
     let tree_depth = Self::get_tree_depth(num_leaves)? as usize;
-    let split_values_stack = vec![vec![0; config.packed_index_bytes_length()]; tree_depth];
+    let mut split_values_stack = vec![vec![]; tree_depth];
+    split_values_stack[0] = vec![0; config.packed_index_bytes_length()];
     let right_most_leaf_node = (1 << (tree_depth - 1)) - 1;
     let last_leaf_node_point_count = point_count % config.max_points_in_leaf_node;
     let last_leaf_node_point_count = if last_leaf_node_point_count == 0 {
