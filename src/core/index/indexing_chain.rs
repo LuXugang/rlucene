@@ -1090,7 +1090,7 @@ where
         .stored_value()?
         .ok_or_else(|| LuceneError::illegal_argument("Cannot store a null value"))?;
       if let FieldDataEnum::String(s) = &stored_value
-        && s.len() > MAX_STORED_STRING_LENGTH as usize
+        && s.len() > MAX_STORED_STRING_LENGTH
       {
         return Err(LuceneError::illegal_argument(format!(
           "stored field \"{}\" is too large ({} characters) to store",

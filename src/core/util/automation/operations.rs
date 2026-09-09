@@ -464,12 +464,12 @@ impl Operations {
   pub fn has_dead_states(a: &Automaton) -> Result<bool> {
     let live_states = Operations::get_live_states(a)?;
     let num_live = live_states.count();
-    let num_states = a.get_num_states();
+    let num_states = a.get_num_states() as usize;
     debug_assert!(
-      num_live <= num_states as usize,
+      num_live <= num_states,
       "num_live = {num_live}, num_states = {num_states}, live = {live_states:?}"
     );
-    Ok(num_live < num_states as usize)
+    Ok(num_live < num_states)
   }
   ///  Returns true if there are dead states reachable from an initial state.
   pub fn has_dead_states_from_initial(a: &Automaton) -> Result<bool> {

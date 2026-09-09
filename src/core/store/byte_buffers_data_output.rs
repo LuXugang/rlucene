@@ -458,9 +458,7 @@ impl DataOutput for ByteBuffersDataOutput {
         .ok_or_else(|| LuceneError::illegal_state("current write block is missing"))?;
       let chunk = available_space.min(length);
       last_block.write_from(b, offset, chunk)?;
-      length = length.checked_sub(chunk).ok_or_else(|| {
-        LuceneError::illegal_state(format!("underflow, length {}, chunk {} ", length, chunk))
-      })?;
+      length -= chunk;
       offset += chunk;
     }
     Ok(())
@@ -504,12 +502,7 @@ impl DataOutput for ByteBuffersDataOutput {
       let current_block_mut = last_block.get_mut();
       input.read_bytes(current_block_mut, current_pos, bytes_to_copy)?;
       last_block.set_position((current_pos + bytes_to_copy).try_convert()?);
-      num_bytes = num_bytes.checked_sub(bytes_to_copy).ok_or_else(|| {
-        LuceneError::illegal_state(format!(
-          "underflow, num_bytes {}, bytes_to_copy {} ",
-          num_bytes, bytes_to_copy
-        ))
-      })?;
+      num_bytes -= bytes_to_copy;
     }
     Ok(())
   }

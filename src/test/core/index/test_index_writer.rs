@@ -3513,7 +3513,7 @@ fn test_massive_field() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut b = String::new();
-  while b.len() <= MAX_STORED_STRING_LENGTH as usize {
+  while b.len() <= MAX_STORED_STRING_LENGTH {
     b.push_str("x ");
   }
 

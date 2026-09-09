@@ -385,6 +385,8 @@ where
 
     let mut min_packed_value = vec![0u8; self.min_packed_value.len()];
     let mut max_packed_value = vec![0u8; self.max_packed_value.len()];
+    // Java's MutablePointTree accesses are limited to signed int positions.
+    let _: i32 = point_count.try_convert()?;
     // Compute the min/max for this slice
     self.compute_packed_value_bounds_with_tree(
       values,
@@ -396,10 +398,8 @@ where
     self.min_packed_value = min_packed_value;
     self.max_packed_value = max_packed_value;
 
-    for i in 0..self.point_count as i32 {
-      self
-        .docs_seen
-        .set(values.get_doc_id(i as usize)? as usize)?;
+    for i in 0..point_count {
+      self.docs_seen.set(values.get_doc_id(i)? as usize)?;
     }
 
     let data_start_fp = data_out.get_file_pointer()?;
@@ -1540,13 +1540,13 @@ where
             }
           }
         }
-        let mut sorted_dim_cardinality = i32::MAX;
+        let mut sorted_dim_cardinality = i32::MAX as usize;
         for (dim, used) in used_bytes.iter().take(self.config.num_dims).enumerate() {
           if let Some(set) = used {
             let cardinality = set.cardinality();
-            if cardinality < sorted_dim_cardinality as usize {
+            if cardinality < sorted_dim_cardinality {
               sorted_dim = dim;
-              sorted_dim_cardinality = cardinality as i32;
+              sorted_dim_cardinality = cardinality;
             }
           }
         }
@@ -1842,7 +1842,7 @@ where
       match heap_source {
         PointWriterEnum::Heap(heap_source) => {
           self.compute_common_prefix_length(heap_source, from, to)?;
-          let mut sorted_dim_cardinality = i32::MAX;
+          let mut sorted_dim_cardinality = i32::MAX as usize;
           if self.used_bytes.is_empty() {
             self.used_bytes = vec![None; self.config.num_dims];
           }
@@ -1884,9 +1884,9 @@ where
                   ));
                 },
               };
-              if cardinality < sorted_dim_cardinality as usize {
+              if cardinality < sorted_dim_cardinality {
                 sorted_dim = dim;
-                sorted_dim_cardinality = cardinality as i32;
+                sorted_dim_cardinality = cardinality;
               }
             }
           }

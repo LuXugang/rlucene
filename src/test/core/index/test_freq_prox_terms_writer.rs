@@ -83,8 +83,8 @@ fn test_doc_offset_sorter_basic() {
     original_map.insert(doc, offset);
   }
 
-  let max_temp_slots = TestUtil::next_int(&mut random, 0, len as i32);
-  let mut sorter = DocOffsetSorter::new(&mut docs, &mut offsets, max_temp_slots as usize);
+  let max_temp_slots = TestUtil::next_usize(&mut random, 0, len);
+  let mut sorter = DocOffsetSorter::new(&mut docs, &mut offsets, max_temp_slots);
   sorter.sort(0, len).unwrap();
 
   assert_sorted_and_synced(&docs, &offsets, &original_map);

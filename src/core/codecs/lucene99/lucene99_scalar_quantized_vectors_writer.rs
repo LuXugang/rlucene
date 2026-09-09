@@ -272,8 +272,8 @@ where
       quantized_vector_data,
       field_data.field_info.as_ref(),
       max_doc,
-      vector_data_offset as i64,
-      vector_data_length as i64,
+      vector_data_offset,
+      vector_data_length,
       field_data.confidence_interval,
       field_data.bits,
       field_data.compress,
@@ -327,8 +327,8 @@ where
       quantized_vector_data,
       field_data.field_info.as_ref(),
       max_doc,
-      vector_data_offset as i64,
-      quantized_vector_length as i64,
+      vector_data_offset,
+      quantized_vector_length,
       field_data.confidence_interval,
       field_data.bits,
       field_data.compress,
@@ -417,8 +417,8 @@ where
           &mut self.quantized_vector_data,
           field_info,
           merge_state.segment_info.max_doc()?,
-          vector_data_offset as i64,
-          vector_data_length as i64,
+          vector_data_offset,
+          vector_data_length,
           self.confidence_interval,
           self.bits,
           self.compress,
@@ -612,8 +612,8 @@ where
         &mut self.quantized_vector_data,
         field_info.as_ref(),
         merge_state.segment_info.max_doc()?,
-        vector_data_offset as i64,
-        vector_data_length as i64,
+        vector_data_offset,
+        vector_data_length,
         self.confidence_interval,
         self.bits,
         self.compress,
@@ -825,8 +825,8 @@ fn write_meta<O>(
   quantized_vector_data: &mut O,
   field: &FieldInfo,
   max_doc: i32,
-  vector_data_offset: i64,
-  vector_data_length: i64,
+  vector_data_offset: usize,
+  vector_data_length: usize,
   confidence_interval: Option<f32>,
   bits: u8,
   compress: bool,
@@ -841,8 +841,8 @@ where
   meta.write_int(field.number)?;
   meta.write_int(field.get_vector_encoding().ordinal())?;
   meta.write_int(field.get_vector_similarity_function().ordinal())?;
-  meta.write_vlong(vector_data_offset)?;
-  meta.write_vlong(vector_data_length)?;
+  meta.write_vlong(vector_data_offset as i64)?;
+  meta.write_vlong(vector_data_length as i64)?;
   meta.write_vint(field.get_vector_dimension())?;
   let count = docs_with_field.cardinality();
   meta.write_int(count)?;

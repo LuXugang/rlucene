@@ -71,34 +71,22 @@ where
 {
   assert_eq!(a.count(), b.cardinality());
 
-  let mut aa = a.get_ref().len() as i64 + random.random_range(0..100);
-  let mut bb = aa;
+  let mut previous = a.get_ref().len() + random.random_range(0..100);
 
   loop {
     // simulate a.prevSetBit
-    aa -= 1;
-    while aa >= 0 && !a.contains(aa as usize) {
-      aa -= 1;
-    }
-
-    if b.length() == 0 {
-      bb = -1;
-    } else if bb > (b.length() as i64 - 1) {
-      bb = b.prev_set_bit(b.length() - 1).map_or(-1, |v| v as i64);
-    } else if bb < 1 {
-      bb = -1;
+    let expected = (0..previous).rev().find(|&index| a.contains(index));
+    let actual = if b.length() == 0 || previous == 0 {
+      None
     } else {
-      bb = if bb >= 1 {
-        b.prev_set_bit((bb - 1) as usize).map_or(-1, |v| v as i64)
-      } else {
-        -1
-      }
-    }
+      b.prev_set_bit((previous - 1).min(b.length() - 1))
+    };
 
-    assert_eq!(aa, bb);
-    if aa < 0 {
+    assert_eq!(expected, actual);
+    let Some(index) = expected else {
       break;
-    }
+    };
+    previous = index;
   }
 }
 fn do_random_sets<R>(max_size: usize, iter: i32, _mode: i32, random: &mut R) -> Result<()>

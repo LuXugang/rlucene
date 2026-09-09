@@ -1957,7 +1957,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     }
 
     let mut scratch = vec![0.0f32; dimension];
-    let mut num_values = 0i32;
+    let mut num_values = 0usize;
     let similarity = self.random_similarity(random);
     let mut values = vec![None; num_doc];
 
@@ -1995,11 +1995,11 @@ pub trait BaseKnnVectorsFormatTestCase:
       }
     }
 
-    let mut num_deletes = 0i32;
+    let mut num_deletes = 0usize;
     let reader = directory_reader::open_from_writer(&iw)?;
     let reader = reader.get_context()?;
-    let mut value_count = 0i32;
-    let mut total_size = 0i32;
+    let mut value_count = 0usize;
+    let mut total_size = 0usize;
 
     for ctx in reader.leaves()? {
       let vector_values = ctx.reader().get_float_vector_values(field_name)?;
@@ -2007,7 +2007,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         continue;
       };
 
-      total_size += vector_values.size() as i32;
+      total_size += vector_values.size();
       let mut stored_fields = ctx.reader().stored_fields()?;
       let live_docs = ctx.reader().get_live_docs()?;
       let mut iterator = vector_values.iterator()?;
@@ -2070,7 +2070,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     }
 
     let mut scratch = vec![0u8; dimension];
-    let mut num_values = 0i32;
+    let mut num_values = 0usize;
     let similarity = self.random_similarity(random);
     let mut values = vec![None; num_doc];
 
@@ -2121,11 +2121,11 @@ pub trait BaseKnnVectorsFormatTestCase:
       }
     }
 
-    let mut num_deletes = 0i32;
+    let mut num_deletes = 0usize;
     let reader = directory_reader::open_from_writer(&iw)?;
     let reader = reader.get_context()?;
-    let mut value_count = 0i32;
-    let mut total_size = 0i32;
+    let mut value_count = 0usize;
+    let mut total_size = 0usize;
 
     for ctx in reader.leaves()? {
       let vector_values = ctx.reader().get_byte_vector_values(field_name)?;
@@ -2133,7 +2133,7 @@ pub trait BaseKnnVectorsFormatTestCase:
         continue;
       };
 
-      total_size += vector_values.size() as i32;
+      total_size += vector_values.size();
       let mut stored_fields = ctx.reader().stored_fields()?;
       let live_docs = ctx.reader().get_live_docs()?;
       let mut iterator = vector_values.iterator()?;

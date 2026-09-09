@@ -868,7 +868,7 @@ fn test_sparse_points() -> Result<()> {
   let w = RandomIndexWriter::new(&mut random, dir.clone())?;
 
   let mut field_doc_counts = vec![0i32; num_fields];
-  let mut field_sizes = vec![0i32; num_fields];
+  let mut field_sizes = vec![0usize; num_fields];
 
   for _ in 0..num_docs {
     let mut doc = Document::new();
@@ -899,13 +899,13 @@ fn test_sparse_points() -> Result<()> {
 
   for field in 0..num_fields {
     let mut doc_count = 0i32;
-    let mut size = 0i32;
+    let mut size = 0usize;
     let field_name = format!("int{}", field);
 
     for leaf in leaves.iter() {
       if let Some(points) = leaf.reader().get_point_values(&field_name)? {
         doc_count += points.get_doc_count()?;
-        size += points.size()? as i32;
+        size += points.size()?;
       }
     }
 

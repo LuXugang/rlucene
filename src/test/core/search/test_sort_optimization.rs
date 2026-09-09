@@ -102,7 +102,7 @@ fn test_long_sort_optimization() -> Result<()> {
   config.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
-  // let num_docs = at_least(&mut random, 10_000);
+  // let num_docs = at_least_usize(&mut random, 10_000);
   let num_docs = 11112;
   for i in 0..num_docs {
     let mut doc = Document::new();
@@ -143,7 +143,7 @@ fn test_long_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
   // paging sort with after
   {
@@ -173,7 +173,7 @@ fn test_long_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
   // test that if there is the secondary sort on _score, scores are filled correctly
   {
@@ -203,7 +203,7 @@ fn test_long_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
   // test that if numeric field is a secondary sort, no optimization is run
   {
@@ -217,7 +217,7 @@ fn test_long_sort_optimization() -> Result<()> {
 
     assert_eq!(top_docs.score_docs().len(), num_hits);
     // assert that all documents were collected => optimization was not run
-    assert_eq!(top_docs.total_hits().value as i32, num_docs);
+    assert_eq!(top_docs.total_hits().value, num_docs);
   }
 
   Ok(())
@@ -230,7 +230,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
   let dir = new_directory_shared(&mut random)?;
   let writer = IndexWriter::new(dir.clone(), IndexWriterConfig::new()?)?;
 
-  let num_docs = at_least(&mut random, 100);
+  let num_docs = at_least_usize(&mut random, 100);
   // "my_field" is not indexed with points
   for i in 0..num_docs {
     let mut doc = Document::new();
@@ -266,7 +266,7 @@ fn test_long_sort_optimization_on_field_not_indexed_with_points() -> Result<()> 
   }
 
   // assert that all documents were collected => optimization was not run
-  assert_eq!(top_docs.total_hits().value as i32, num_docs);
+  assert_eq!(top_docs.total_hits().value, num_docs);
 
   Ok(())
 }
@@ -279,7 +279,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
   config.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
-  let num_docs = at_least(&mut random, 10_000);
+  let num_docs = at_least_usize(&mut random, 10_000);
   for i in 0..num_docs {
     let mut doc = Document::new();
     // miss values on every 500th document
@@ -313,7 +313,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
 
   {
@@ -326,7 +326,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_eq!(top_docs.total_hits().value as i32, num_docs);
+    assert_eq!(top_docs.total_hits().value, num_docs);
   }
 
   {
@@ -337,7 +337,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
 
   {
@@ -355,7 +355,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
 
   {
@@ -373,7 +373,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
     assert_eq!(top_docs.score_docs().len(), num_hits);
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
 
   {
@@ -403,7 +403,7 @@ fn test_sort_optimization_with_missing_values() -> Result<()> {
     let expected_skipped = (7001 - 512 - 1) + (num_docs - 7001);
     assert_non_competitive_hits_are_skipped(
       top_docs.total_hits().value,
-      (num_docs - expected_skipped + 1) as usize,
+      num_docs - expected_skipped + 1,
     )?;
   }
 
@@ -418,7 +418,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
   config.set_codec(TestUtil::get_default_codec());
   let writer = IndexWriter::new(dir.clone(), config)?;
 
-  let num_docs = at_least(&mut random, 10_000);
+  let num_docs = at_least_usize(&mut random, 10_000);
   let miss_values_num_docs = num_docs / 2;
 
   for i in 0..num_docs {
@@ -453,7 +453,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     let collector_manager = TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
     top_docs1 =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
-    assert_non_competitive_hits_are_skipped(top_docs1.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs1.total_hits().value, num_docs)?;
   }
 
   {
@@ -491,7 +491,7 @@ fn test_numeric_doc_values_optimization_with_missing_values() -> Result<()> {
     let collector_manager = TopFieldCollectorManager::new(sort, num_hits, total_hits_threshold)?;
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
-    assert_eq!(top_docs.total_hits().value as i32, num_docs);
+    assert_eq!(top_docs.total_hits().value, num_docs);
   }
 
   Ok(())
@@ -505,9 +505,9 @@ fn test_sort_optimization_equal_values() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let num_docs = if is_night_mode() {
-    at_least(&mut random, 50_000)
+    at_least_usize(&mut random, 50_000)
   } else {
-    at_least(&mut random, 10_000)
+    at_least_usize(&mut random, 10_000)
   };
 
   for i in 1..=num_docs {
@@ -556,7 +556,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
       assert_eq!(top_docs.total_hits().value, num_hits + 1);
     }
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
 
   {
@@ -578,7 +578,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
       assert!(fd.doc() > after_doc_id);
     }
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
 
   {
@@ -598,7 +598,7 @@ fn test_sort_optimization_equal_values() -> Result<()> {
       assert_eq!(*fields[1].as_i32().unwrap(), i as i32);
     }
 
-    assert_eq!(top_docs.total_hits().value as i32, num_docs);
+    assert_eq!(top_docs.total_hits().value, num_docs);
   }
 
   Ok(())
@@ -610,7 +610,7 @@ fn test_float_sort_optimization() -> Result<()> {
   let config = IndexWriterConfig::new()?;
   let writer = IndexWriter::new(dir.clone(), config)?;
 
-  let num_docs = at_least(&mut random, 10_000);
+  let num_docs = at_least_usize(&mut random, 10_000);
   for i in 0..num_docs {
     let mut doc = Document::new();
     let f = i as f32;
@@ -653,7 +653,7 @@ fn test_float_sort_optimization() -> Result<()> {
       Relation::GreaterThanOrEqualTo
     );
 
-    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs as usize)?;
+    assert_non_competitive_hits_are_skipped(top_docs.total_hits().value, num_docs)?;
   }
 
   Ok(())
@@ -862,7 +862,7 @@ fn test_doc_sort_optimization_with_after() -> Result<()> {
       for (i, sd) in top_docs.score_docs().iter().enumerate() {
         assert_eq!(search_after - 1 - i as i32, sd.doc());
       }
-      assert_eq!(num_docs as i64, top_docs.total_hits().value as i64);
+      assert_eq!(num_docs, top_docs.total_hits().value);
     }
   }
 

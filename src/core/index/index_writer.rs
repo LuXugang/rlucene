@@ -8188,8 +8188,8 @@ pub const SOURCE_MERGE: &str = "merge";
 pub const SOURCE_ADDINDEXES_READERS: &str = "addIndexes(CodecReader...)";
 /// Source of a segment which results from a flush.
 pub const SOURCE_FLUSH: &str = "flush";
-pub const MAX_STORED_STRING_LENGTH: i32 =
-  ArrayUtil::MAX_ARRAY_LENGTH as i32 / UnicodeUtil::MAX_UTF8_BYTES_PER_CHAR;
+pub const MAX_STORED_STRING_LENGTH: usize =
+  ArrayUtil::MAX_ARRAY_LENGTH / UnicodeUtil::MAX_UTF8_BYTES_PER_CHAR as usize;
 pub(crate) fn get_actual_max_docs() -> i32 {
   #[cfg(test)]
   {

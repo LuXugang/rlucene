@@ -228,7 +228,7 @@ where
       None
     } else {
       let rank_index_shift = dense_rank_power - 7;
-      Some(vec![0u8; (DENSE_BLOCK_LONGS >> rank_index_shift) as usize])
+      Some(vec![0u8; DENSE_BLOCK_LONGS >> rank_index_shift])
     };
 
     Ok(Self {
@@ -974,7 +974,7 @@ use crate::core::util::fixed_bit_set::FixedBitSet;
 // represents
 const BLOCK_SIZE: i32 = 65536;
 // One `i64` contains `i64::BITS` bits.
-const DENSE_BLOCK_LONGS: i32 = BLOCK_SIZE / i64::BITS as i32;
+const DENSE_BLOCK_LONGS: usize = BLOCK_SIZE as usize / i64::BITS as usize;
 // Every 512 docIDs / 8 longs
 pub const DEFAULT_DENSE_RANK_POWER: i8 = 9;
 pub(crate) const MAX_ARRAY_LENGTH: i32 = (1 << 12) - 1;
@@ -1254,11 +1254,11 @@ fn create_rank(buffer: &FixedBitSet, dense_rank_power: u8) -> Vec<u8> {
   let rank_mark = longs_per_rank - 1;
   // 6 for the long (2^6) + 1 for 2 bytes/entry
   let rank_index_shift = dense_rank_power - 7;
-  let rank = (DENSE_BLOCK_LONGS >> rank_index_shift) as usize;
+  let rank = DENSE_BLOCK_LONGS >> rank_index_shift;
   let mut rank = vec![0u8; rank];
   let bits = buffer.get_bits();
   let mut bit_count = 0;
-  for (word, b) in bits.iter().take(DENSE_BLOCK_LONGS as usize).enumerate() {
+  for (word, b) in bits.iter().take(DENSE_BLOCK_LONGS).enumerate() {
     // Every longsPerRank longs
     if (word & rank_mark) == 0 {
       let rank_index = word >> rank_index_shift;

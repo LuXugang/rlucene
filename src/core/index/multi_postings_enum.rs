@@ -32,7 +32,7 @@ pub struct MultiPostingsEnum<PE> {
   num_subs: usize,
   upto: Option<usize>,
   current: Option<usize>,
-  current_base: usize,
+  current_base: i32,
   doc: i32,
 }
 impl<PE> MultiPostingsEnum<PE> {
@@ -157,7 +157,7 @@ where
           let idx = self.upto.map_or(0, |upto| upto + 1);
           self.upto = Some(idx);
           self.current = Some(idx);
-          self.current_base = self.subs[idx].slice.get_start();
+          self.current_base = self.subs[idx].slice.get_start() as i32;
           idx
         }
       };
@@ -165,7 +165,7 @@ where
       let idx = self.subs[current].postings_enum_idx;
       let doc = self.postings_enum_mut(idx)?.next_doc()?;
       if doc != NO_MORE_DOCS {
-        self.doc = self.current_base as i32 + doc;
+        self.doc = self.current_base + doc;
         return Ok(self.doc);
       } else {
         self.current = None;
@@ -178,18 +178,18 @@ where
     loop {
       if let Some(idx) = self.current {
         let pe_idx = self.subs[idx].postings_enum_idx;
-        let doc = if target < self.current_base as i32 {
+        let doc = if target < self.current_base {
           // target was in the previous slice but there was no matching doc after it
           self.postings_enum_mut(pe_idx)?.next_doc()?
         } else {
-          let target = target - self.current_base as i32;
+          let target = target - self.current_base;
           self.postings_enum_mut(pe_idx)?.advance(target)?
         };
 
         if doc == NO_MORE_DOCS {
           self.current = None;
         } else {
-          self.doc = doc + self.current_base as i32;
+          self.doc = doc + self.current_base;
           return Ok(self.doc);
         }
       } else if self.upto.map_or(0, |upto| upto + 1) == self.num_subs {
@@ -199,7 +199,7 @@ where
         let idx = self.upto.map_or(0, |upto| upto + 1);
         self.upto = Some(idx);
         self.current = Some(idx);
-        self.current_base = self.subs[idx].slice.get_start();
+        self.current_base = self.subs[idx].slice.get_start() as i32;
       }
     }
   }
