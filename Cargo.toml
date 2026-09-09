@@ -51,6 +51,7 @@ default = []
 test_log_verbose = []
 nightly = []
 monster = []
+awaits_fix = []
 
 [workspace]
 members = [

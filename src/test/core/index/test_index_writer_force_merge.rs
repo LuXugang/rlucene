@@ -16,20 +16,14 @@
  */
 use crate::core::analysis::analyzer::{Analyzer, AnalyzerStoredValue, TokenStreamComponents};
 use crate::core::analysis::token_stream::TokenStream;
-use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
 use crate::core::document::document::Document;
 use crate::core::document::field::Store;
-use crate::core::document::long_point::LongPoint;
 use crate::core::document::string_field::StringField;
-use crate::core::index::BytesRef;
-use crate::core::index::concurrent_merge_scheduler::{
-  ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
-};
+use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeScheduler;
 use crate::core::index::directory_reader;
 use crate::core::index::index_reader::IndexReader;
 use crate::core::index::index_reader_context::IndexReaderContext;
 use crate::core::index::index_writer::IndexWriter;
-use crate::core::index::index_writer_config::IndexWriterConfig;
 use crate::core::index::index_writer_config::OpenMode;
 use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::log_merge_policy::LogMergePolicy;
@@ -38,11 +32,9 @@ use crate::core::index::two_phase_commit::TwoPhaseCommit;
 use crate::core::store::directory::Directory;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
-use crate::core::util::io_utils::IOUtils;
 use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::mock_tokenizer::{MockTokenizer, WHITESPACE};
 use crate::test_framework::core::index::test_index_writer::add_doc_with_index;
-use crate::test_framework::core::index::test_index_writer_force_merge::MergePerFieldCodec;
 use crate::test_framework::core::util::lucene_test_case::{
   is_night_mode, new_directory_shared, new_index_writer_config_with_analyzer, new_log_merge_policy,
   new_log_merge_policy_with_merge_factor, new_mock_directory, random,
@@ -51,7 +43,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 use std::collections::HashMap;
-use std::sync::{Arc, Barrier, Mutex};
+use std::sync::{Arc, Mutex};
 
 #[allow(dead_code)] // for quick search
 struct TestIndexWriterForceMerge;
@@ -306,9 +298,19 @@ fn test_background_force_merge() -> Result<()> {
 
   Ok(())
 }
+#[cfg(feature = "awaits_fix")]
 #[test]
-#[ignore = "Java @AwaitsFix: https://github.com/apache/lucene/issues/13478"]
+#[ignore = "awaits_fix: https://github.com/apache/lucene/issues/13478"]
 fn test_merge_per_field() -> Result<()> {
+  use crate::core::document::binary_doc_values_field::BinaryDocValuesField;
+  use crate::core::document::long_point::LongPoint;
+  use crate::core::index::BytesRef;
+  use crate::core::index::concurrent_merge_scheduler::ConcurrentMergeSchedulerHook;
+  use crate::core::index::index_writer_config::IndexWriterConfig;
+  use crate::core::util::io_utils::IOUtils;
+  use crate::test_framework::core::index::test_index_writer_force_merge::MergePerFieldCodec;
+  use std::sync::Barrier;
+
   let mut random = random();
   let mut config = IndexWriterConfig::new()?;
   let merge_scheduler =
