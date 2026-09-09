@@ -515,7 +515,8 @@ impl PendingTerm {
 }
 impl fmt::Display for PendingTerm {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let s = ToStringUtils::bytes_ref_to_string_from_bytes(self.term_bytes.clone().to_vec());
+    let term = BytesRef::from_slice(Arc::clone(&self.term_bytes), 0, self.term_bytes.len());
+    let s = ToStringUtils::bytes_ref_to_string(&term);
     write!(f, "TERM: {s}")
   }
 }

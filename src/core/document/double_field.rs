@@ -186,7 +186,7 @@ impl DoubleField {
   {
     let values = values.into();
     let field = field.into();
-    let point_query = DoublePoint::new_set_query(field.clone(), values.clone())?;
+    let point_query = DoublePoint::new_set_query(field.clone(), &values)?;
     let dv_query = SortedNumericDocValuesField::new_slow_set_query(
       field,
       values

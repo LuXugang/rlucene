@@ -201,12 +201,9 @@ impl PartialEq for WildcardQuery {
 pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Result<Automaton> {
   let mut automata = Vec::new();
   let wildcard_text = wildcard_query.text()?;
-  let chars: Vec<char> = wildcard_text.chars().collect();
+  let mut chars = wildcard_text.chars();
 
-  let mut i: usize = 0;
-  while i < chars.len() {
-    let c = chars[i];
-
+  while let Some(c) = chars.next() {
     match c {
       WildcardQuery::WILDCARD_STRING => {
         automata.push(Automata::make_any_string()?);
@@ -214,18 +211,15 @@ pub fn to_automaton(wildcard_query: &Term, determinize_work_limit: i32) -> Resul
       WildcardQuery::WILDCARD_CHAR => {
         automata.push(Automata::make_any_char()?);
       },
-      WildcardQuery::WILDCARD_ESCAPE if i + 1 < chars.len() => {
-        let next = chars[i + 1] as i32;
+      WildcardQuery::WILDCARD_ESCAPE => {
+        let next = chars.next().unwrap_or(c) as i32;
         automata.push(Automata::make_char(next)?);
-        i += 1;
       },
       _ => {
         let cp = c as i32;
         automata.push(Automata::make_char(cp)?);
       },
     }
-
-    i += 1;
   }
   let automata = automata.iter().collect::<Vec<_>>();
   let a = Operations::concatenate_with_list(automata.as_ref())?;
