@@ -1,78 +1,12 @@
-import hudson.model.Job
-import hudson.model.Queue
-import hudson.model.Run
-import hudson.model.queue.CauseOfBlockage
 import hudson.model.queue.QueueTaskDispatcher
-import jenkins.model.Jenkins
 
-class RluceneCiIdleQueueDispatcher extends QueueTaskDispatcher {
-  private final String targetJobName
-
-  RluceneCiIdleQueueDispatcher(String targetJobName) {
-    this.targetJobName = targetJobName
-  }
-
-  @Override
-  CauseOfBlockage canRun(Queue.Item item) {
-    // Pipeline agent-allocation placeholders are Queue.Tasks but not Jobs. Match
-    // only the top-level build item so this gate cannot block its own executor.
-    if (!(item.task instanceof Job) || item.task.fullName != targetJobName) {
-      return null
-    }
-
-    Run<?, ?> blockingRun = findBlockingRun()
-    if (blockingRun == null) {
-      return null
-    }
-
-    return new RluceneCiIdleCause(
-      "Waiting for ${blockingRun.parent.fullName} #${blockingRun.number} " +
-        'to finish before starting the idle-only scheduled build.'
-    )
-  }
-
-  private Run<?, ?> findBlockingRun() {
-    for (Job<?, ?> job : Jenkins.get().getAllItems(Job.class)) {
-      if (job.fullName == targetJobName) {
-        continue
-      }
-      Run<?, ?> latest = job.lastBuild
-      if (latest?.isBuilding()) {
-        return latest
-      }
-      Run<?, ?> earlier = latest?.previousBuildInProgress
-      if (earlier != null) {
-        return earlier
-      }
-    }
-    return null
-  }
-}
-
-class RluceneCiIdleCause extends CauseOfBlockage {
-  private final String description
-
-  RluceneCiIdleCause(String description) {
-    this.description = description
-  }
-
-  @Override
-  String getShortDescription() {
-    return description
-  }
-}
-
-def enabled = (System.getenv('RLUCENE_CI_REQUIRE_IDLE') ?: 'true').toBoolean()
-def targetJobName = System.getenv('RLUCENE_JOB_NAME') ?: 'rlucene-ci'
+// Keep this override file to replace the old hook in persistent Jenkins homes.
+// Deleting it from Git would leave the previously copied .groovy file active.
+// A Pipeline waiting for the global lock is already a running Job; the old
+// one-way idle gate must not participate in global-lock scheduling.
 def dispatchers = QueueTaskDispatcher.all()
-def previousDispatchers = dispatchers.findAll {
-  it.class.name == RluceneCiIdleQueueDispatcher.name
+def obsolete = dispatchers.findAll {
+  it.class.name == 'RluceneCiIdleQueueDispatcher'
 }
-dispatchers.removeAll(previousDispatchers)
-
-if (enabled) {
-  dispatchers.add(new RluceneCiIdleQueueDispatcher(targetJobName))
-  println("Installed idle-only queue gate for Jenkins job ${targetJobName}")
-} else {
-  println("Idle-only queue gate is disabled for Jenkins job ${targetJobName}")
-}
+dispatchers.removeAll(obsolete)
+println('Retired the CI-only idle queue gate; Pipelines use rlucene-vm-build.')

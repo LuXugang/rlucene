@@ -1,11 +1,13 @@
 pipeline {
-  agent any
+  agent none
 
   options {
     skipDefaultCheckout(true)
     timestamps()
     disableConcurrentBuilds()
-    timeout(time: 30, unit: 'MINUTES')
+    // One shared lock across CI, commit, PR, nightly and monster jobs.
+    // agent none keeps lock waiters off both VM executors.
+    lock(resource: 'rlucene-vm-build')
     buildDiscarder(logRotator(numToKeepStr: '500'))
   }
 
@@ -13,360 +15,370 @@ pipeline {
     cron('* * * * *')
   }
 
-  environment {
-    RUSTUP_HOME = '/opt/rustup'
-    CARGO_HOME = '/opt/cargo'
-    // Keep release artifacts across builds; release compilation is expensive.
-    CARGO_TARGET_DIR = "${JENKINS_HOME}/cargo-target/${JOB_NAME}"
-    CI_STATE_ROOT = "${JENKINS_HOME}/ci-state/${JOB_NAME}"
-    LAST_SUCCESSFUL_SHA_FILE = "${JENKINS_HOME}/ci-state/${JOB_NAME}/last-successful-sha"
-    CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = 'true'
-    CARGO_TERM_COLOR = 'never'
-    RUST_BACKTRACE = 'full'
-    NO_COLOR = '1'
-    CARGO_NET_RETRY = '10'
-    CARGO_HTTP_TIMEOUT = '120'
-    CARGO_HTTP_MULTIPLEXING = 'false'
-    SLOW_TEST_DIAGNOSTIC_AFTER_SECONDS = '30'
-  }
-
   stages {
-    stage('Initialize') {
-      steps {
-        script {
-          // Failures remain infrastructure unless a test stage classifies them.
-          env.FAILURE_KIND = 'infrastructure'
-          env.FAILED_SHA = ''
-          env.SKIP_PREFLIGHT = 'false'
-          if (!env.WORKSPACE_TMP) {
-            error('WORKSPACE_TMP is unavailable')
-          }
-          env.CI_TMP_ROOT = "${env.WORKSPACE_TMP}/rlucene-ci-build-tmp"
-          env.TMPDIR = "${env.CI_TMP_ROOT}/${env.BUILD_NUMBER}"
-        }
-        sh '''#!/bin/bash
-          set -euo pipefail
-          expected_root="${WORKSPACE_TMP}/rlucene-ci-build-tmp"
-          expected_tmp="${expected_root}/${BUILD_NUMBER}"
-          if [ "$CI_TMP_ROOT" != "$expected_root" ] ||
-             [ "$TMPDIR" != "$expected_tmp" ]; then
-            printf 'Refusing to prepare unexpected temporary path: %s\\n' \
-              "$TMPDIR" >&2
-            exit 1
-          fi
-          rm -rf -- "$CI_TMP_ROOT"
-          mkdir -p -- "$TMPDIR"
-          printf 'Build temporary directory: %s\\n' "$TMPDIR"
-        '''
+    stage('Exclusive VM build') {
+      agent { label 'built-in' }
+      options {
+        // Lock waiting is outside the execution timeout.
+        timeout(time: 30, unit: 'MINUTES')
       }
-    }
 
-    stage('Storage status before build') {
-      steps {
-        sh '''#!/bin/bash
-          set -u
-          mkdir -p "$CARGO_TARGET_DIR"
-          printf 'Jenkins storage before build:\\n'
-          df -h /var/jenkins_home
-          printf 'Temporary storage before build:\\n'
-          df -h /tmp
-          printf 'Build temporary directory before build:\\n'
-          du -sh "$TMPDIR"
-          printf 'Cargo target before build:\\n'
-          du -sh "$CARGO_TARGET_DIR"
-        '''
+      environment {
+        RUSTUP_HOME = '/opt/rustup'
+        CARGO_HOME = '/opt/cargo'
+        // Keep release artifacts across builds; release compilation is expensive.
+        CARGO_TARGET_DIR = "${JENKINS_HOME}/cargo-target/${JOB_NAME}"
+        CI_STATE_ROOT = "${JENKINS_HOME}/ci-state/${JOB_NAME}"
+        LAST_SUCCESSFUL_SHA_FILE = "${JENKINS_HOME}/ci-state/${JOB_NAME}/last-successful-sha"
+        CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS = 'true'
+        CARGO_TERM_COLOR = 'never'
+        RUST_BACKTRACE = 'full'
+        NO_COLOR = '1'
+        CARGO_NET_RETRY = '10'
+        CARGO_HTTP_TIMEOUT = '120'
+        CARGO_HTTP_MULTIPLEXING = 'false'
+        SLOW_TEST_DIAGNOSTIC_AFTER_SECONDS = '30'
       }
-    }
 
-    stage('Checkout') {
-      steps {
-        // Use the same repository, branch, and credentials that supplied this file.
-        // The versioned job initializer configures the shallow, clean checkout.
-        checkout(scm)
-        script {
-          String checkedOutSha = sh(
-            returnStdout: true,
-            script: 'git rev-parse HEAD'
-          ).trim()
-          if (!checkedOutSha) {
-            error('Unable to determine the checked-out commit SHA')
-          }
-          env.FAILED_SHA = checkedOutSha
-          currentBuild.description = checkedOutSha.take(12)
-
-          int alreadyTested = sh(
-            returnStatus: true,
-            script: '''#!/bin/bash
-              set -euo pipefail
-              test -f "$LAST_SUCCESSFUL_SHA_FILE"
-              test "$(cat "$LAST_SUCCESSFUL_SHA_FILE")" = "$FAILED_SHA"
-            '''
-          )
-          if (alreadyTested == 0) {
-            env.SKIP_PREFLIGHT = 'true'
-            currentBuild.description =
-              "${checkedOutSha.take(12)}: unchanged, direct nextest"
-            echo """${checkedOutSha} already passed once.
-Skipping dependency preflight and reusing the persistent release target before
-running cargo nextest directly."""
-          }
-        }
-      }
-    }
-
-    stage('Infrastructure preflight') {
-      when {
-        expression { env.SKIP_PREFLIGHT != 'true' }
-      }
-      steps {
-        sh '''#!/bin/bash
-          set -euo pipefail
-          mkdir -p "$CARGO_TARGET_DIR"
-          df -h . /tmp "$TMPDIR" "$CARGO_TARGET_DIR"
-          git diff --exit-code
-          rustup show
-          cargo fetch
-          cargo nextest --version
-        '''
-      }
-    }
-
-    stage('Cargo nextest') {
-      steps {
-        script {
-          int testStatus = sh(
-            returnStatus: true,
-            script: '''#!/bin/bash
-              set -uo pipefail
-              rm -f \
-                nextest.log \
-                nextest-junit.xml \
-                nextest-diagnostics.log
-              rm -f target/nextest/ci/junit.xml
-              if ! cargo nextest --version > nextest.log 2>&1; then
-                cat nextest.log
-                exit 125
-              fi
-              : > nextest-diagnostics.log
-
-              stop_diagnostics() {
-                if [ -n "${diagnostics_pid:-}" ]; then
-                  kill "$diagnostics_pid" >/dev/null 2>&1 || true
-                  wait "$diagnostics_pid" >/dev/null 2>&1 || true
-                fi
-              }
-              trap stop_diagnostics EXIT
-
-              set +e
-              timeout --kill-after=30s 20m \
-                cargo nextest run --release --profile ci --workspace \
-                >> nextest.log 2>&1 &
-              nextest_launcher_pid=$!
-              bash ci/jenkins/capture-slow-test-diagnostics.sh \
-                "$nextest_launcher_pid" \
-                "$SLOW_TEST_DIAGNOSTIC_AFTER_SECONDS" \
-                nextest-diagnostics.log &
-              diagnostics_pid=$!
-
-              wait "$nextest_launcher_pid"
-              test_status=$?
-              stop_diagnostics
-              diagnostics_pid=''
-              trap - EXIT
-
-              junit_source="target/nextest/ci/junit.xml"
-              if [ -f "$junit_source" ]; then
-                cp "$junit_source" nextest-junit.xml
-              fi
-              cat nextest.log
-              exit "$test_status"
-            '''
-          )
-          String nextestLog = readFile(file: 'nextest.log')
-          String nextestJunit = fileExists('nextest-junit.xml') ?
-            readFile(file: 'nextest-junit.xml') : ''
-          boolean testTimedOut = nextestLog.contains('TIMEOUT [')
-          boolean nextestReportedFailure =
-            nextestLog.contains('FAIL [') ||
-            testTimedOut ||
-            nextestLog.contains('\nerror:') ||
-            nextestLog.startsWith('error:') ||
-            nextestLog.contains('\nerror[') ||
-            nextestLog.startsWith('error[') ||
-            nextestJunit.contains('<failure') ||
-            nextestJunit.contains('<error')
-
-          if (testStatus == 124 || testStatus == 137) {
-            env.FAILURE_KIND = 'suite-timeout'
-            error(
-              "cargo nextest exceeded the suite timeout or was killed " +
-              "(exit ${testStatus})"
-            )
-          }
-
-          if (testStatus == 125) {
-            env.FAILURE_KIND = 'infrastructure'
-            error('cargo-nextest is unavailable in the Jenkins environment.')
-          }
-
-          if (testStatus != 0) {
-            if (nextestReportedFailure) {
-              env.FAILURE_KIND = testTimedOut ? 'test-timeout' : 'code'
-            } else {
+      stages {
+        stage('Initialize') {
+          steps {
+            script {
+              // Failures remain infrastructure unless a test stage classifies them.
               env.FAILURE_KIND = 'infrastructure'
+              env.FAILED_SHA = ''
+              env.SKIP_PREFLIGHT = 'false'
+              if (!env.WORKSPACE_TMP) {
+                error('WORKSPACE_TMP is unavailable')
+              }
+              env.CI_TMP_ROOT = "${env.WORKSPACE_TMP}/rlucene-ci-build-tmp"
+              env.TMPDIR = "${env.CI_TMP_ROOT}/${env.BUILD_NUMBER}"
             }
-            error("cargo nextest failed (exit ${testStatus})")
-          }
-        }
-      }
-    }
-
-    stage('Cargo doctest') {
-      steps {
-        script {
-          int doctestStatus = sh(
-            returnStatus: true,
-            script: '''#!/bin/bash
-              set -uo pipefail
-              set +e
-              timeout --kill-after=30s 4m \
-                cargo test --release --workspace --doc -q \
-                > doctest.log 2>&1
-              test_status=$?
-              cat doctest.log
-              exit "$test_status"
+            sh '''#!/bin/bash
+              set -euo pipefail
+              expected_root="${WORKSPACE_TMP}/rlucene-ci-build-tmp"
+              expected_tmp="${expected_root}/${BUILD_NUMBER}"
+              if [ "$CI_TMP_ROOT" != "$expected_root" ] ||
+                 [ "$TMPDIR" != "$expected_tmp" ]; then
+                printf 'Refusing to prepare unexpected temporary path: %s\\n' \
+                  "$TMPDIR" >&2
+                exit 1
+              fi
+              rm -rf -- "$CI_TMP_ROOT"
+              mkdir -p -- "$TMPDIR"
+              printf 'Build temporary directory: %s\\n' "$TMPDIR"
             '''
-          )
-          String doctestLog = readFile(file: 'doctest.log')
-          boolean doctestReportedFailure =
-            doctestLog.contains('test result: FAILED') ||
-            doctestLog.contains('\nerror:') ||
-            doctestLog.startsWith('error:') ||
-            doctestLog.contains('\nerror[') ||
-            doctestLog.startsWith('error[')
-
-          if (doctestStatus == 124 || doctestStatus == 137) {
-            env.FAILURE_KIND = 'doctest-timeout'
-            error(
-              "cargo test --doc timed out or was killed " +
-              "(exit ${doctestStatus})"
-            )
-          }
-
-          if (doctestStatus != 0 || doctestReportedFailure) {
-            env.FAILURE_KIND = 'code'
-            error("cargo test --doc failed (exit ${doctestStatus})")
           }
         }
-      }
-    }
 
-    stage('Record successful commit') {
-      steps {
-        sh '''#!/bin/bash
-          set -euo pipefail
-          umask 077
-          mkdir -p "$CI_STATE_ROOT"
-          state_tmp="$LAST_SUCCESSFUL_SHA_FILE.tmp.$BUILD_NUMBER"
-          printf '%s\n' "$FAILED_SHA" > "$state_tmp"
-          mv "$state_tmp" "$LAST_SUCCESSFUL_SHA_FILE"
-        '''
-      }
-    }
-  }
-
-  post {
-    always {
-      script {
-        int storageStatus = sh(
-          returnStatus: true,
-          script: '''#!/bin/bash
-            set -u
-            printf 'Jenkins storage after build:\\n'
-            df -h /var/jenkins_home
-            printf 'Temporary storage after build:\\n'
-            df -h /tmp
-            printf 'Build temporary directory after build:\\n'
-            if [ -d "$TMPDIR" ]; then
+        stage('Storage status before build') {
+          steps {
+            sh '''#!/bin/bash
+              set -u
+              mkdir -p "$CARGO_TARGET_DIR"
+              printf 'Jenkins storage before build:\\n'
+              df -h /var/jenkins_home
+              printf 'Temporary storage before build:\\n'
+              df -h /tmp
+              printf 'Build temporary directory before build:\\n'
               du -sh "$TMPDIR"
-            else
-              printf '%s does not exist\\n' "$TMPDIR"
-            fi
-            printf 'Cargo target after build:\\n'
-            if [ -d "$CARGO_TARGET_DIR" ]; then
+              printf 'Cargo target before build:\\n'
               du -sh "$CARGO_TARGET_DIR"
-            else
-              printf '%s does not exist\\n' "$CARGO_TARGET_DIR"
-            fi
-          '''
-        )
-        if (storageStatus != 0) {
-          echo "Unable to report storage status (exit ${storageStatus})."
+            '''
+          }
+        }
+
+        stage('Checkout') {
+          steps {
+            // Use the same repository, branch, and credentials that supplied this file.
+            // The versioned job initializer configures the shallow, clean checkout.
+            checkout(scm)
+            script {
+              String checkedOutSha = sh(
+                returnStdout: true,
+                script: 'git rev-parse HEAD'
+              ).trim()
+              if (!checkedOutSha) {
+                error('Unable to determine the checked-out commit SHA')
+              }
+              env.FAILED_SHA = checkedOutSha
+              currentBuild.description = checkedOutSha.take(12)
+
+              int alreadyTested = sh(
+                returnStatus: true,
+                script: '''#!/bin/bash
+                  set -euo pipefail
+                  test -f "$LAST_SUCCESSFUL_SHA_FILE"
+                  test "$(cat "$LAST_SUCCESSFUL_SHA_FILE")" = "$FAILED_SHA"
+                '''
+              )
+              if (alreadyTested == 0) {
+                env.SKIP_PREFLIGHT = 'true'
+                currentBuild.description =
+                  "${checkedOutSha.take(12)}: unchanged, direct nextest"
+                echo """${checkedOutSha} already passed once.
+    Skipping dependency preflight and reusing the persistent release target before
+    running cargo nextest directly."""
+              }
+            }
+          }
+        }
+
+        stage('Infrastructure preflight') {
+          when {
+            expression { env.SKIP_PREFLIGHT != 'true' }
+          }
+          steps {
+            sh '''#!/bin/bash
+              set -euo pipefail
+              mkdir -p "$CARGO_TARGET_DIR"
+              df -h . /tmp "$TMPDIR" "$CARGO_TARGET_DIR"
+              git diff --exit-code
+              rustup show
+              cargo fetch
+              cargo nextest --version
+            '''
+          }
+        }
+
+        stage('Cargo nextest') {
+          steps {
+            script {
+              int testStatus = sh(
+                returnStatus: true,
+                script: '''#!/bin/bash
+                  set -uo pipefail
+                  rm -f \
+                    nextest.log \
+                    nextest-junit.xml \
+                    nextest-diagnostics.log
+                  rm -f target/nextest/ci/junit.xml
+                  if ! cargo nextest --version > nextest.log 2>&1; then
+                    cat nextest.log
+                    exit 125
+                  fi
+                  : > nextest-diagnostics.log
+
+                  stop_diagnostics() {
+                    if [ -n "${diagnostics_pid:-}" ]; then
+                      kill "$diagnostics_pid" >/dev/null 2>&1 || true
+                      wait "$diagnostics_pid" >/dev/null 2>&1 || true
+                    fi
+                  }
+                  trap stop_diagnostics EXIT
+
+                  set +e
+                  timeout --kill-after=30s 20m \
+                    cargo nextest run --release --profile ci --workspace \
+                    >> nextest.log 2>&1 &
+                  nextest_launcher_pid=$!
+                  bash ci/jenkins/capture-slow-test-diagnostics.sh \
+                    "$nextest_launcher_pid" \
+                    "$SLOW_TEST_DIAGNOSTIC_AFTER_SECONDS" \
+                    nextest-diagnostics.log &
+                  diagnostics_pid=$!
+
+                  wait "$nextest_launcher_pid"
+                  test_status=$?
+                  stop_diagnostics
+                  diagnostics_pid=''
+                  trap - EXIT
+
+                  junit_source="target/nextest/ci/junit.xml"
+                  if [ -f "$junit_source" ]; then
+                    cp "$junit_source" nextest-junit.xml
+                  fi
+                  cat nextest.log
+                  exit "$test_status"
+                '''
+              )
+              String nextestLog = readFile(file: 'nextest.log')
+              String nextestJunit = fileExists('nextest-junit.xml') ?
+                readFile(file: 'nextest-junit.xml') : ''
+              boolean testTimedOut = nextestLog.contains('TIMEOUT [')
+              boolean nextestReportedFailure =
+                nextestLog.contains('FAIL [') ||
+                testTimedOut ||
+                nextestLog.contains('\nerror:') ||
+                nextestLog.startsWith('error:') ||
+                nextestLog.contains('\nerror[') ||
+                nextestLog.startsWith('error[') ||
+                nextestJunit.contains('<failure') ||
+                nextestJunit.contains('<error')
+
+              if (testStatus == 124 || testStatus == 137) {
+                env.FAILURE_KIND = 'suite-timeout'
+                error(
+                  "cargo nextest exceeded the suite timeout or was killed " +
+                  "(exit ${testStatus})"
+                )
+              }
+
+              if (testStatus == 125) {
+                env.FAILURE_KIND = 'infrastructure'
+                error('cargo-nextest is unavailable in the Jenkins environment.')
+              }
+
+              if (testStatus != 0) {
+                if (nextestReportedFailure) {
+                  env.FAILURE_KIND = testTimedOut ? 'test-timeout' : 'code'
+                } else {
+                  env.FAILURE_KIND = 'infrastructure'
+                }
+                error("cargo nextest failed (exit ${testStatus})")
+              }
+            }
+          }
+        }
+
+        stage('Cargo doctest') {
+          steps {
+            script {
+              int doctestStatus = sh(
+                returnStatus: true,
+                script: '''#!/bin/bash
+                  set -uo pipefail
+                  set +e
+                  timeout --kill-after=30s 4m \
+                    cargo test --release --workspace --doc -q \
+                    > doctest.log 2>&1
+                  test_status=$?
+                  cat doctest.log
+                  exit "$test_status"
+                '''
+              )
+              String doctestLog = readFile(file: 'doctest.log')
+              boolean doctestReportedFailure =
+                doctestLog.contains('test result: FAILED') ||
+                doctestLog.contains('\nerror:') ||
+                doctestLog.startsWith('error:') ||
+                doctestLog.contains('\nerror[') ||
+                doctestLog.startsWith('error[')
+
+              if (doctestStatus == 124 || doctestStatus == 137) {
+                env.FAILURE_KIND = 'doctest-timeout'
+                error(
+                  "cargo test --doc timed out or was killed " +
+                  "(exit ${doctestStatus})"
+                )
+              }
+
+              if (doctestStatus != 0 || doctestReportedFailure) {
+                env.FAILURE_KIND = 'code'
+                error("cargo test --doc failed (exit ${doctestStatus})")
+              }
+            }
+          }
+        }
+
+        stage('Record successful commit') {
+          steps {
+            sh '''#!/bin/bash
+              set -euo pipefail
+              umask 077
+              mkdir -p "$CI_STATE_ROOT"
+              state_tmp="$LAST_SUCCESSFUL_SHA_FILE.tmp.$BUILD_NUMBER"
+              printf '%s\n' "$FAILED_SHA" > "$state_tmp"
+              mv "$state_tmp" "$LAST_SUCCESSFUL_SHA_FILE"
+            '''
+          }
         }
       }
-      archiveArtifacts(
-        artifacts:
-          'nextest.log,nextest-junit.xml,nextest-diagnostics.log,doctest.log',
-        allowEmptyArchive: true
-      )
-      script {
-        int temporaryCleanupStatus = sh(
-          returnStatus: true,
-          script: '''#!/bin/bash
-            set -euo pipefail
-            expected_root="${WORKSPACE_TMP}/rlucene-ci-build-tmp"
-            expected_tmp="${expected_root}/${BUILD_NUMBER}"
-            if [ "${CI_TMP_ROOT:-}" != "$expected_root" ] ||
-               [ "${TMPDIR:-}" != "$expected_tmp" ]; then
-              printf 'Refusing to clean unexpected temporary path: %s\\n' \
-                "${TMPDIR:-<unset>}" >&2
-              exit 1
-            fi
-            if [ -d "$TMPDIR" ]; then
-              rm -rf -- "$TMPDIR"
-            fi
-            rmdir -- "$CI_TMP_ROOT" 2>/dev/null || true
-            printf 'Cleaned build temporary directory: %s\\n' "$TMPDIR"
-          '''
-        )
-        if (temporaryCleanupStatus != 0) {
-          error(
-            "Unable to clean the build temporary directory " +
-            "(exit ${temporaryCleanupStatus})"
+
+      post {
+        always {
+          script {
+            int storageStatus = sh(
+              returnStatus: true,
+              script: '''#!/bin/bash
+                set -u
+                printf 'Jenkins storage after build:\\n'
+                df -h /var/jenkins_home
+                printf 'Temporary storage after build:\\n'
+                df -h /tmp
+                printf 'Build temporary directory after build:\\n'
+                if [ -d "$TMPDIR" ]; then
+                  du -sh "$TMPDIR"
+                else
+                  printf '%s does not exist\\n' "$TMPDIR"
+                fi
+                printf 'Cargo target after build:\\n'
+                if [ -d "$CARGO_TARGET_DIR" ]; then
+                  du -sh "$CARGO_TARGET_DIR"
+                else
+                  printf '%s does not exist\\n' "$CARGO_TARGET_DIR"
+                fi
+              '''
+            )
+            if (storageStatus != 0) {
+              echo "Unable to report storage status (exit ${storageStatus})."
+            }
+          }
+          archiveArtifacts(
+            artifacts:
+              'nextest.log,nextest-junit.xml,nextest-diagnostics.log,doctest.log',
+            allowEmptyArchive: true
           )
+          script {
+            int temporaryCleanupStatus = sh(
+              returnStatus: true,
+              script: '''#!/bin/bash
+                set -euo pipefail
+                expected_root="${WORKSPACE_TMP}/rlucene-ci-build-tmp"
+                expected_tmp="${expected_root}/${BUILD_NUMBER}"
+                if [ "${CI_TMP_ROOT:-}" != "$expected_root" ] ||
+                   [ "${TMPDIR:-}" != "$expected_tmp" ]; then
+                  printf 'Refusing to clean unexpected temporary path: %s\\n' \
+                    "${TMPDIR:-<unset>}" >&2
+                  exit 1
+                fi
+                if [ -d "$TMPDIR" ]; then
+                  rm -rf -- "$TMPDIR"
+                fi
+                rmdir -- "$CI_TMP_ROOT" 2>/dev/null || true
+                printf 'Cleaned build temporary directory: %s\\n' "$TMPDIR"
+              '''
+            )
+            if (temporaryCleanupStatus != 0) {
+              error(
+                "Unable to clean the build temporary directory " +
+                "(exit ${temporaryCleanupStatus})"
+              )
+            }
+          }
         }
-      }
-    }
 
-    failure {
-      script {
-        boolean notifyForFailure = [
-          'code',
-          'test-timeout',
-          'suite-timeout',
-          'doctest-timeout'
-        ].contains(env.FAILURE_KIND)
+        failure {
+          script {
+            boolean notifyForFailure = [
+              'code',
+              'test-timeout',
+              'suite-timeout',
+              'doctest-timeout'
+            ].contains(env.FAILURE_KIND)
 
-        if (!notifyForFailure) {
-          echo(
-            "Failure email suppressed for non-test failure " +
-            "(kind: ${env.FAILURE_KIND ?: 'unknown'})."
-          )
-        } else if (env.RLUCENE_FAILURE_EMAIL?.trim()) {
-          emailext(
-            to: env.RLUCENE_FAILURE_EMAIL,
-            subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} failed",
-            body: """Build: ${env.BUILD_URL}
-Commit: ${env.FAILED_SHA}
-Failure kind: ${env.FAILURE_KIND}
-""",
-            attachLog: true,
-            compressLog: true,
-            attachmentsPattern:
-              'nextest.log,nextest-junit.xml,nextest-diagnostics.log,doctest.log'
-          )
-        } else {
-          echo 'Failure email is disabled; see the archived logs and diagnostics.'
+            if (!notifyForFailure) {
+              echo(
+                "Failure email suppressed for non-test failure " +
+                "(kind: ${env.FAILURE_KIND ?: 'unknown'})."
+              )
+            } else if (env.RLUCENE_FAILURE_EMAIL?.trim()) {
+              emailext(
+                to: env.RLUCENE_FAILURE_EMAIL,
+                subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} failed",
+                body: """Build: ${env.BUILD_URL}
+    Commit: ${env.FAILED_SHA}
+    Failure kind: ${env.FAILURE_KIND}
+    """,
+                attachLog: true,
+                compressLog: true,
+                attachmentsPattern:
+                  'nextest.log,nextest-junit.xml,nextest-diagnostics.log,doctest.log'
+              )
+            } else {
+              echo 'Failure email is disabled; see the archived logs and diagnostics.'
+            }
+          }
         }
       }
     }

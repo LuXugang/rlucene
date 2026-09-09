@@ -42,12 +42,44 @@ The repository and branch configured in `.env` must contain
 `ci/jenkins/Jenkinsfile` before this first build. For an unmerged change, point
 both settings at a published fork/branch containing the change.
 
-`init.groovy.d/rlucene-ci-idle-gate.groovy.override` installs a Jenkins core
-queue gate for the scheduled job. With `RLUCENE_CI_REQUIRE_IDLE=true`, the job
-stays queued without using an executor while any other Jenkins job is running.
-The queue displays the blocking job and build number and is re-evaluated by
-Jenkins after the other build finishes. Rebuild and restart the controller to
-install or change this startup hook; no additional plugin is required.
+The pinned Lockable Resources plugin and
+`init.groovy.d/rlucene-global-build-lock.groovy.override` provide the shared
+`rlucene-vm-build` resource. All managed Jenkinsfiles lock it before allocating
+a node and retain it through their cleanup. The initializer creates a missing
+resource without resetting an existing holder or wait queue after restart.
+
+The old `rlucene-ci-idle-gate.groovy.override` filename is intentionally retained
+as a migration hook: the official image replaces the old persistent-home
+script with a version that removes the obsolete CI-only dispatcher. Merely
+deleting the source would leave that old script active. The old
+`RLUCENE_CI_REQUIRE_IDLE` setting is ignored and can be removed from local
+`.env` files.
+
+### Upgrade an existing installation to the global lock
+
+1. Enter Jenkins maintenance (quiet-down) mode and wait for **all** running
+   Pipelines, queued executor allocations and compiler/test subprocesses to
+   finish. Record job enabled states; do not abort unrelated builds.
+2. Back up the deployment files, local `.env`, Jenkins job/configuration files
+   and the old image. Preserve all named volumes. Keep scheduling paused for
+   the entire transition: builds that already loaded an old Jenkinsfile do
+   not acquire the new lock retroactively.
+3. Validate Compose, rebuild the controller with the pinned plugin and both
+   migration/init hooks, then recreate it. A restart can clear quiet-down;
+   keep jobs disabled across the restart until verification is complete.
+4. Verify that the plugin is active, the resource exists, and the old dispatcher
+   is absent. Ensure **all** job SCM definitions load the merged Jenkinsfiles
+   before restoring any automatic triggers. Missing lock support must fail
+   the Pipeline, never fall back to an unlocked build.
+5. Use lightweight concurrent Pipeline checks on both nodes first. Verify only
+   one executor is doing work, post/cleanup remains protected, and failure,
+   cancellation and restart release or restore ownership correctly. Then run
+   one real CI build and restore the recorded enabled states.
+
+Lock waiters may display as running, but use no build executor. Keep all
+resource-consuming steps inside the protected execution stage; any future job
+needs the same resource name. Never manually unlock a resource while its
+compiler or tests are still running.
 
 The `rlucene-pr` job and its exclusive agent are created by the three
 `rlucene-pr-*.groovy.override` hooks. After the setup wizard has configured
@@ -141,9 +173,9 @@ selection, persistent caches, resource requirements and timeout settings.
 | Linux amd64 runtime | Compose `platform`, matching the original build host |
 | Rust toolchain and components | Repository-root `rust-toolchain.toml`, copied during the image build |
 | cargo-nextest 0.9.143 | Exact version in `Dockerfile` |
-| 98 Jenkins plugins and dependencies | `plugins.txt`, installed with `--latest=false` |
+| Jenkins plugins and dependencies, including Lockable Resources | `plugins.txt`, installed with `--latest=false` |
 | Pipeline job, SCM branch/refspec, shallow clean checkout | `init.groovy.d/rlucene-job.groovy.override` |
-| Scheduled CI idle-only queue gate | `init.groovy.d/rlucene-ci-idle-gate.groovy.override` |
+| Global build lock and retired idle-gate migration | `init.groovy.d/rlucene-global-build-lock.groovy.override`, `init.groovy.d/rlucene-ci-idle-gate.groovy.override`, all Jenkinsfiles |
 | Trusted-PR job, service account and exclusive inbound agent | `init.groovy.d/rlucene-pr-*.groovy.override` and `Dockerfile.agent` |
 | Manual nightly/monster jobs and suite selection | `init.groovy.d/rlucene-manual-jobs.groovy.override`, `../manual/`, `.config/nextest.toml`; `jq` in the controller image |
 | Optional public read-only authorization | `init.groovy.d/rlucene-public-read-only.groovy.override` |

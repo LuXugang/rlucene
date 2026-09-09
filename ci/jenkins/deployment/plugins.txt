@@ -51,6 +51,7 @@ junit:1425.v9c7318dca_96d
 ldap:825.v2fca_37dd5b_cb_
 localization-support:1.41.v186a_c1569458
 localization-zh-cn:371.v23851f835d6b_
+lockable-resources:1554.v491fcb_27c716
 mailer:534.v1b_36f5864073
 matrix-auth:3.3
 matrix-project:917.v22eda_817646e

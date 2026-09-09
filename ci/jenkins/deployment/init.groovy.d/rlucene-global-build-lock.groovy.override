@@ -1,0 +1,16 @@
+import org.jenkins.plugins.lockableresources.LockableResourcesManager
+
+// One stable resource shared by every repository-managed Pipeline, even when
+// controller and PR agent executors belong to different Jenkins nodes.
+def manager = LockableResourcesManager.get()
+// createResource(name) creates an ephemeral resource in the pinned plugin;
+// use the configured-resource API so the unlocked resource remains visible.
+if (manager.createResourceWithLabel('rlucene-vm-build', 'rlucene-vm')) {
+  println('Created global build lock rlucene-vm-build.')
+} else {
+  // Never reset an existing lock: a Pipeline may resume with it after restart.
+  println('Keeping global build lock rlucene-vm-build and its existing state.')
+}
+// Promote any earlier ephemeral resource without touching its holder/queue.
+manager.fromName('rlucene-vm-build').setEphemeral(false)
+manager.save()

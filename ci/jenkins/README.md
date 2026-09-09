@@ -93,14 +93,29 @@ directly in `Jenkinsfile`. After a schedule change is pushed, the next build
 loads the updated file and applies it without restarting the controller.
 The former `RLUCENE_CRON` environment setting is no longer used.
 
-The controller's idle-only queue gate keeps `rlucene-ci` blocked without
-occupying an executor whenever another Jenkins job is running. Jenkins shows
-the blocking job and build number in the queue, then re-evaluates the build
-automatically after that job finishes. The gate applies only before the
-scheduled build starts; it does not interrupt a running `rlucene-ci` build or
-prevent a newly requested PR, commit, nightly, or monster build from starting.
-Set `RLUCENE_CI_REQUIRE_IDLE=false` and restart the controller to disable it.
-No additional Jenkins plugin is required.
+All five managed jobs (`rlucene-ci`, `rlucene-commit`, `rlucene-pr`,
+`rlucene-nightly`, `rlucene-monster`) acquire the same Lockable Resources
+resource, `rlucene-vm-build`. The top-level Pipeline has `agent none`; its
+lock surrounds the execution stage, node allocation, environment, checkout,
+tests, and stage `post` actions (including archiving and cleanup).
+Only one job can execute that protected body across the controller and PR
+agent. Existing per-job `disableConcurrentBuilds()` is retained.
+
+Waiting Pipelines can appear as running builds in Jenkins, but do not hold
+an executor or start Cargo. Fetching the trusted Jenkinsfile from SCM happens
+before the Pipeline lock; this lightweight bootstrap is not a test build.
+The execution timeout begins after acquiring the lock and includes waiting
+for the selected node. Existing test subprocess timeouts are unchanged.
+The lock uses FIFO ordering, without interrupting the holder or skipping
+requests; long manual suites therefore delay automatic tests. Trigger policies
+and the CI one-minute schedule are unchanged. New jobs must use the same
+wrapper before they are allowed to run resource-intensive work on this VM.
+
+The former CI-only queue gate is retired, and `RLUCENE_CI_REQUIRE_IDLE` is
+no longer used. Do not combine it with lock waiters, which Jenkins already
+considers running. See the deployment README for the required plugin and
+maintenance-window rollout. Serialization prevents overlapping builds; it
+does not cap a single build's memory or its internal test parallelism.
 
 ## Checkout and caching
 
