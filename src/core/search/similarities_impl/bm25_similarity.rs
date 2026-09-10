@@ -248,7 +248,7 @@ impl BM25Scorer {
     })
   }
   fn explain_tf(&self, freq: Explanation, norm: i64) -> Result<Explanation> {
-    let mut subs = Vec::new();
+    let mut subs = Vec::with_capacity(5);
     let freq_value = freq.get_value().to_f32().ok_or_else(|| {
       LuceneError::illegal_argument(format!("cannot convert to f32: {}", freq.get_value()))
     })?;

@@ -112,7 +112,7 @@ where
 impl<P> ImpactsEnum for SlowImpactsEnum<P> where P: PostingsEnum {}
 
 pub struct DummyImpacts {
-  impacts: Vec<Impact>,
+  impacts: [Impact; 1],
 }
 impl Default for DummyImpacts {
   fn default() -> Self {
@@ -123,7 +123,7 @@ impl Default for DummyImpacts {
 impl DummyImpacts {
   pub fn new() -> Self {
     DummyImpacts {
-      impacts: vec![Impact::new(i32::MAX, 1)],
+      impacts: [Impact::new(i32::MAX, 1)],
     }
   }
 }
@@ -137,6 +137,6 @@ impl Impacts for DummyImpacts {
   }
 
   fn get_impacts(&self, _level: usize) -> Result<Vec<Impact>> {
-    Ok(self.impacts.clone())
+    Ok(self.impacts.to_vec())
   }
 }
