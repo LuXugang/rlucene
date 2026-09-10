@@ -261,12 +261,12 @@ impl LevenshteinAutomata {
 pub(crate) struct ParametricDescription {
   pub(crate) w: i32,
   n: i32,
-  min_errors: Vec<i32>,
+  min_errors: &'static [i32],
   sub: ParametricDescriptionBaseEnum,
 }
 
 impl ParametricDescription {
-  pub(crate) fn new<T>(w: i32, n: i32, min_errors: Vec<i32>, sub: T) -> Self
+  pub(crate) fn new<T>(w: i32, n: i32, min_errors: &'static [i32], sub: T) -> Self
   where
     T: Into<ParametricDescriptionBaseEnum>,
   {

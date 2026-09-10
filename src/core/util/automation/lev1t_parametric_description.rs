@@ -33,7 +33,7 @@ pub(crate) struct Lev1TParametricDescription;
 //   5 -> [t(0, 1), (0, 1), (1, 1), (2, 1)]
 
 pub(crate) fn new(w: i32) -> ParametricDescription {
-  ParametricDescription::new(w, 1, vec![0, 1, 0, -1, -1, -1], Lev1TParametricDescription)
+  ParametricDescription::new(w, 1, &[0, 1, 0, -1, -1, -1], Lev1TParametricDescription)
 }
 
 impl ParametricDescriptionBase for Lev1TParametricDescription {

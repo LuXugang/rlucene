@@ -19,10 +19,13 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::selector::Selector;
 use crate::core::util::{IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, TryIntoInt};
 
+// Size of histograms: 256 + 1 to indicate that the string is finished.
+const HISTOGRAM_SIZE: usize = 257;
+
 pub struct RadixSelector<T> {
   max_length: usize,
   common_prefix: Vec<i32>,
-  histogram: Vec<usize>,
+  histogram: [usize; HISTOGRAM_SIZE],
   pub(crate) sub_selector: T,
 }
 
@@ -35,8 +38,6 @@ where
   // worse when there are long common prefixes (probably because of cache
   // locality)
   const LEVEL_THRESHOLD: usize = 8;
-  // size of histograms: 256 + 1 to indicate that the string is finished
-  const HISTOGRAM_SIZE: usize = 257;
   // buckets below this size will be sorted with introselect
   const LENGTH_THRESHOLD: usize = 100;
 
@@ -44,7 +45,7 @@ where
     RadixSelector {
       max_length,
       common_prefix: vec![0; std::cmp::max(24, max_length)],
-      histogram: vec![0; Self::HISTOGRAM_SIZE],
+      histogram: [0; HISTOGRAM_SIZE],
       sub_selector,
     }
   }
@@ -88,7 +89,7 @@ where
     debug_assert!(self.assert_histogram(common_prefix_length, &self.histogram));
 
     let mut bucket_from = from;
-    for bucket in 0..Self::HISTOGRAM_SIZE {
+    for bucket in 0..HISTOGRAM_SIZE {
       let bucket_to = bucket_from + self.histogram[bucket];
       if bucket_to > k {
         self.partition(from, to, bucket, bucket_from, bucket_to, d)?;

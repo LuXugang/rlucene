@@ -1586,7 +1586,7 @@ impl TVPostingsEnum {
 
     self.base_payload_offset = payloads.offset;
 
-    self.payload.bytes = payloads.bytes.clone();
+    self.payload.bytes = payloads.bytes;
     self.payload.offset = 0;
     self.payload.length = 0;
 

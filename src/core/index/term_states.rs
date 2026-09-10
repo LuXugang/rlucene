@@ -51,8 +51,8 @@ impl TermStates {
     IRC: IndexReaderContext,
   {
     debug_assert!(context.base().is_top_level);
-    let mut states = Vec::new();
     let num_leaves = context.leaves()?.len();
+    let mut states = Vec::with_capacity(num_leaves);
     for _ in 0..num_leaves {
       states.push(None)
     }

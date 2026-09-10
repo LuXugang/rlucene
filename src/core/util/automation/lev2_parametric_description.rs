@@ -62,7 +62,7 @@ pub(crate) fn new(w: i32) -> ParametricDescription {
   ParametricDescription::new(
     w,
     2,
-    vec![
+    &[
       0, 1, 2, 0, 1, -1, 0, -1, 0, -1, 0, -1, -1, -1, -1, -2, -1, -2, -1, -2, -1, -2, -2, -2, -2,
       -2, -2, -2, -2, -2,
     ],
