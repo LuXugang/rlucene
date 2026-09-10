@@ -183,7 +183,7 @@ impl VectorUtil {
   }
 
   pub(crate) fn xor_bit_count_int(&self, a: &[u8], b: &[u8]) -> i32 {
-    let mut distance = 0i32;
+    let mut distance = 0u32;
     let mut i = 0usize;
     let stride = u32::BITS as usize / 8;
     let upper_bound = a.len() & !(stride - 1);
@@ -191,20 +191,20 @@ impl VectorUtil {
     while i < upper_bound {
       let lhs = BitUtil::get_i32_le(a, i);
       let rhs = BitUtil::get_i32_le(b, i);
-      distance = distance.wrapping_add((lhs ^ rhs).count_ones() as i32);
+      distance = distance.wrapping_add((lhs ^ rhs).count_ones());
       i += stride;
     }
 
     while i < a.len() {
-      distance = distance.wrapping_add((a[i] ^ b[i]).count_ones() as i32);
+      distance = distance.wrapping_add((a[i] ^ b[i]).count_ones());
       i += 1;
     }
 
-    distance
+    distance as i32
   }
 
   pub(crate) fn xor_bit_count_long(&self, a: &[u8], b: &[u8]) -> i32 {
-    let mut distance = 0i32;
+    let mut distance = 0u32;
     let mut i = 0usize;
     let stride = BitUtil::LONG_BYTES;
     let upper_bound = a.len() & !(stride - 1);
@@ -212,16 +212,16 @@ impl VectorUtil {
     while i < upper_bound {
       let lhs = BitUtil::get_i64_le(a, i);
       let rhs = BitUtil::get_i64_le(b, i);
-      distance = distance.wrapping_add((lhs ^ rhs).count_ones() as i32);
+      distance = distance.wrapping_add((lhs ^ rhs).count_ones());
       i += stride;
     }
 
     while i < a.len() {
-      distance = distance.wrapping_add((a[i] ^ b[i]).count_ones() as i32);
+      distance = distance.wrapping_add((a[i] ^ b[i]).count_ones());
       i += 1;
     }
 
-    distance
+    distance as i32
   }
 
   pub fn dot_product_score(&self, a: &[u8], b: &[u8]) -> Result<f32> {

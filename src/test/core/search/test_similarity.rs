@@ -114,7 +114,7 @@ trait ScoreAssertingCollector: SimpleCollector {
 }
 
 struct ScoreAssertingCollectorImpl1 {
-  base: usize,
+  base: i32,
 }
 impl ScoreAssertingCollectorImpl1 {
   fn new() -> Self {
@@ -127,7 +127,7 @@ impl SimpleCollector for ScoreAssertingCollectorImpl1 {
   where
     LR: LeafReader,
   {
-    self.base = context.doc_base;
+    self.base = context.doc_base as i32;
     Ok(())
   }
 }
@@ -160,7 +160,7 @@ impl Collector for ScoreAssertingCollectorImpl1 {
 
 impl LeafCollector for ScoreAssertingCollectorImpl1 {
   fn collect(&mut self, doc: i32, scorer: &mut dyn Scorable) -> Result<()> {
-    assert_eq!((doc as usize + self.base + 1) as f32, scorer.score()?);
+    assert_eq!((doc + self.base + 1) as f32, scorer.score()?);
     Ok(())
   }
 }

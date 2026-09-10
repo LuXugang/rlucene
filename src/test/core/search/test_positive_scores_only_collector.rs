@@ -53,6 +53,7 @@ const SCORES: [f32; 13] = [
   -7.285586,
   4.6699767,
 ];
+const SCORES_LEN: i32 = SCORES.len() as i32;
 
 struct SimpleScorer {
   idx: Cell<i32>,
@@ -69,7 +70,7 @@ impl FixedScore for SimpleScorer {}
 impl Scorable for SimpleScorer {
   fn score(&mut self) -> Result<f32> {
     let idx = self.idx.get();
-    if idx == SCORES.len() as i32 {
+    if idx == SCORES_LEN {
       Ok(f32::NAN)
     } else {
       Ok(SCORES[idx as usize])
@@ -134,7 +135,7 @@ impl DocIdSetIterator for SimpleScorerIterator<'_> {
 
   fn next_doc(&mut self) -> Result<i32> {
     let next = self.idx.get() + 1;
-    if next == SCORES.len() as i32 {
+    if next == SCORES_LEN {
       self.idx.set(NO_MORE_DOCS);
       Ok(NO_MORE_DOCS)
     } else {
@@ -145,7 +146,7 @@ impl DocIdSetIterator for SimpleScorerIterator<'_> {
 
   fn advance(&mut self, target: i32) -> Result<i32> {
     self.idx.set(target);
-    if target < SCORES.len() as i32 {
+    if target < SCORES_LEN {
       Ok(target)
     } else {
       Ok(NO_MORE_DOCS)
@@ -174,7 +175,7 @@ impl DocIdSetIterator for OwnedSimpleScorerIterator {
 
   fn next_doc(&mut self) -> Result<i32> {
     let next = self.idx + 1;
-    if next == SCORES.len() as i32 {
+    if next == SCORES_LEN {
       self.idx = NO_MORE_DOCS;
       Ok(NO_MORE_DOCS)
     } else {
@@ -184,7 +185,7 @@ impl DocIdSetIterator for OwnedSimpleScorerIterator {
   }
 
   fn advance(&mut self, target: i32) -> Result<i32> {
-    self.idx = if target < SCORES.len() as i32 {
+    self.idx = if target < SCORES_LEN {
       target
     } else {
       NO_MORE_DOCS

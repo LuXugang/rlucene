@@ -294,7 +294,7 @@ enum IteratorLocation {
 pub struct BitSetConjunctionDISI<D> {
   lead: DocIdSetIteratorEnum2<D, ConjunctionDISI<D>>,
   bit_set_iterators: Vec<D>,
-  min_length: usize,
+  min_length: i32,
   iterator_locations: Vec<IteratorLocation>,
 }
 impl<D> BitSetConjunctionDISI<D>
@@ -333,19 +333,19 @@ where
     }
     let mut min_length = i32::MAX;
     for iter in &bit_set_iterators {
-      min_length = min_length.min(iter.bit_set_length()? as i32);
+      min_length = min_length.min(iter.bit_set_length()?.try_convert()?);
     }
 
     Ok(Self {
       lead,
       bit_set_iterators,
-      min_length: min_length.try_convert()?,
+      min_length,
       iterator_locations,
     })
   }
   fn do_next(&mut self, mut doc: i32) -> Result<i32> {
     'advance_lead: loop {
-      if doc >= self.min_length as i32 {
+      if doc >= self.min_length {
         if doc != NO_MORE_DOCS {
           self.lead.advance(NO_MORE_DOCS)?;
         }

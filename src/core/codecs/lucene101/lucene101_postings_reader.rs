@@ -1151,11 +1151,11 @@ where
     Ok(())
   }
   fn skip_positions(&mut self, freq: i32) -> Result<()> {
-    let mut to_skip = self.pos_pending_count - freq;
-    let left_in_block = ForUtil::BLOCK_SIZE as i32 - self.pos_buffer_upto as i32;
+    let mut to_skip = (self.pos_pending_count - freq) as usize;
+    let left_in_block = ForUtil::BLOCK_SIZE - self.pos_buffer_upto;
 
     if to_skip < left_in_block {
-      let end = (self.pos_buffer_upto as i32 + to_skip) as usize;
+      let end = self.pos_buffer_upto + to_skip;
       if self.needs_payloads {
         self.payload_byte_upto +=
           sum_over_range(&self.payload_length_buffer, self.pos_buffer_upto, end) as usize;
@@ -1169,7 +1169,7 @@ where
           .as_mut()
           .ok_or_else(|| LuceneError::illegal_state("positions input is missing"))?
           .input;
-        while to_skip >= ForUtil::BLOCK_SIZE as i32 {
+        while to_skip >= ForUtil::BLOCK_SIZE {
           debug_assert!(pos_in.get_file_pointer()? as i64 != self.last_pos_block_fp);
           PForUtil::skip(pos_in)?;
 
@@ -1188,17 +1188,16 @@ where
             }
           }
 
-          to_skip -= ForUtil::BLOCK_SIZE as i32;
+          to_skip -= ForUtil::BLOCK_SIZE;
         }
       }
       self.refill_positions()?;
 
       if self.needs_payloads {
-        self.payload_byte_upto =
-          sum_over_range(&self.payload_length_buffer, 0, to_skip as usize) as usize;
+        self.payload_byte_upto = sum_over_range(&self.payload_length_buffer, 0, to_skip) as usize;
       }
 
-      self.pos_buffer_upto = to_skip as usize;
+      self.pos_buffer_upto = to_skip;
     }
 
     Ok(())

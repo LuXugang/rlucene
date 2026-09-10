@@ -87,7 +87,7 @@ use crate::test_framework::core::util::failure_context::{
   ExecutionMethod, ExecutionOwner, FailureContext, FailurePoint,
 };
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least, at_least_usize, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
+  at_least, get_only_leaf_reader, is_night_mode, new_directory_shared, new_field,
   new_index_writer_config, new_index_writer_config_with_analyzer, new_mock_directory, new_searcher,
   new_string_field, new_text_field, random, random_from_seed, random_multiplier,
 };
@@ -1708,8 +1708,8 @@ fn test_documents_writer_exception_fail_one_doc() -> Result<()> {
 #[test]
 fn test_documents_writer_exception_threads() -> Result<()> {
   let mut random = random();
-  const NUM_THREAD: usize = 3;
-  let num_iter = at_least_usize(&mut random, 10);
+  const NUM_THREAD: i32 = 3;
+  let num_iter = at_least(&mut random, 10);
 
   for i in 0..2 {
     let dir = new_directory_shared(&mut random)?;
@@ -1725,7 +1725,7 @@ fn test_documents_writer_exception_threads() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), config)?;
 
     thread::scope(|scope| -> Result<()> {
-      let mut threads = Vec::with_capacity(NUM_THREAD);
+      let mut threads = Vec::with_capacity(NUM_THREAD as usize);
       for _ in 0..NUM_THREAD {
         let writer = writer.clone();
         threads.push(scope.spawn(move || -> Result<()> {
@@ -1778,7 +1778,7 @@ fn test_documents_writer_exception_threads() -> Result<()> {
     writer.close()?;
 
     let reader = directory_reader::open(dir.clone())?;
-    let mut expected = (3 + (1 - i) * 2) * NUM_THREAD as i32 * num_iter as i32;
+    let mut expected = (3 + (1 - i) * 2) * NUM_THREAD * num_iter;
     assert_eq!(
       expected,
       reader.doc_freq(&Term::from_text("contents", "here"))?
@@ -1797,7 +1797,7 @@ fn test_documents_writer_exception_threads() -> Result<()> {
       }
     }
     reader.close()?;
-    assert_eq!(NUM_THREAD as i32 * num_iter as i32, num_del);
+    assert_eq!(NUM_THREAD * num_iter, num_del);
 
     let analyzer = Box::new(CrashingAnalyzer::new(random.random())) as Box<dyn Analyzer>;
     let mut config = new_index_writer_config_with_analyzer(&mut random, analyzer)?;
@@ -1816,7 +1816,7 @@ fn test_documents_writer_exception_threads() -> Result<()> {
     writer.close()?;
 
     let reader = directory_reader::open(dir.clone())?;
-    expected += 17 - NUM_THREAD as i32 * num_iter as i32;
+    expected += 17 - NUM_THREAD * num_iter;
     assert_eq!(
       expected,
       reader.doc_freq(&Term::from_text("contents", "here"))?

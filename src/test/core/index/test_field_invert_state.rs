@@ -32,7 +32,7 @@ use crate::test_framework::core::analysis::mock_analyzer::MockAnalyzer;
 use crate::test_framework::core::analysis::token;
 use crate::test_framework::core::analysis::token::Token;
 use crate::test_framework::core::util::lucene_test_case::{
-  at_least_usize, new_directory_shared, new_index_writer_config_with_analyzer, random,
+  at_least, new_directory_shared, new_index_writer_config_with_analyzer, random,
 };
 use crate::test_framework::core::util::test_util::TestUtil;
 use parking_lot::Mutex;
@@ -130,8 +130,8 @@ fn test_random() -> Result<()> {
   let w = IndexWriter::new(dir, iwc)?;
   let mut doc = Document::new();
 
-  let num_tokens = at_least_usize(&mut random, 10000);
-  let mut tokens: Vec<Token> = Vec::with_capacity(num_tokens);
+  let num_tokens = at_least(&mut random, 10000);
+  let mut tokens: Vec<Token> = Vec::with_capacity(num_tokens as usize);
   let mut counts: HashMap<char, i32> = HashMap::new();
   let mut num_stacked = 0;
   let mut max_term_freq = 0;
@@ -143,11 +143,7 @@ fn test_random() -> Result<()> {
     counts.insert(token_char, new_count);
     max_term_freq = max_term_freq.max(new_count);
 
-    let mut token = token::with_range(
-      Some(&token_char.to_string()),
-      2 * i as i32,
-      2 * i as i32 + 1,
-    )?;
+    let mut token = token::with_range(Some(&token_char.to_string()), 2 * i, 2 * i + 1)?;
     if i > 0 && random.random_range(0..7) == 3 {
       token.sub.set_position_increment(0)?;
       num_stacked += 1;
@@ -169,7 +165,7 @@ fn test_random() -> Result<()> {
   assert_eq!(max_term_freq, fis.get_max_term_frequency());
   assert_eq!(counts.len() as i32, fis.get_unique_term_count());
   assert_eq!(num_stacked, fis.num_overlap());
-  assert_eq!(num_tokens as i32, fis.get_length());
+  assert_eq!(num_tokens, fis.get_length());
   assert_eq!(pos, fis.position());
 
   w.close()?;

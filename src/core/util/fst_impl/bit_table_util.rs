@@ -41,8 +41,8 @@ impl BitTableUtil {
   {
     debug_assert!(bit_index >= 0, "bitIndex={bit_index}");
     reader.skip_bytes((bit_index >> 3) as i64)?;
-    let b = Self::read_byte(reader)?;
-    let mask = 1u64 << (bit_index as u32 & (u8::BITS - 1));
+    let b = reader.read_byte()?;
+    let mask = 1u8 << (bit_index & (i8::BITS - 1) as i32);
     Ok((b & mask) != 0)
   }
   /// Counts all bits set in the bit-table.
@@ -56,16 +56,16 @@ impl BitTableUtil {
     T: BytesReader,
   {
     debug_assert!(bit_table_bytes >= 0, "bitTableBytes={bit_table_bytes}");
-    let mut bit_count = 0;
+    let mut bit_count = 0u32;
     let num_long_blocks = bit_table_bytes >> 3;
     for _ in 0..num_long_blocks {
       bit_count += Self::bit_count_8_bytes(reader)?;
     }
     let num_remaining_bytes = bit_table_bytes & (BitUtil::LONG_BYTES - 1) as i32;
     if num_remaining_bytes != 0 {
-      bit_count += Self::read_upto_8_bytes(num_remaining_bytes, reader)?.count_ones() as i32;
+      bit_count += Self::read_upto_8_bytes(num_remaining_bytes, reader)?.count_ones();
     }
-    Ok(bit_count)
+    Ok(bit_count as i32)
   }
   /// Counts the bits set up to the given bit zero-based index, exclusive.
   ///
@@ -87,7 +87,7 @@ impl BitTableUtil {
     T: BytesReader,
   {
     debug_assert!(bit_index >= 0, "bitIndex={bit_index}");
-    let mut bit_count = 0;
+    let mut bit_count = 0u32;
     let num_long_blocks = bit_index >> 6;
     for _ in 0..num_long_blocks {
       // Count the bits set for all plain longs.
@@ -101,9 +101,9 @@ impl BitTableUtil {
       // Count the bits set only within the mask part, so up to bitIndex
       // exclusive.
       let l = Self::read_upto_8_bytes(num_remaining_bytes, reader)?;
-      bit_count += (l & mask).count_ones() as i32;
+      bit_count += (l & mask).count_ones();
     }
-    Ok(bit_count)
+    Ok(bit_count as i32)
   }
   /// Returns the index of the next set bit following the given zero-based
   /// index.
@@ -135,21 +135,21 @@ impl BitTableUtil {
       "bitIndex={bit_index} bitTableBytes={bit_table_bytes}"
     );
     let mut byte_index = bit_index / i8::BITS as i32;
-    let mask: i32 = -1 << ((bit_index + 1) & (i8::BITS as i32 - 1));
-    let mut i: i32;
-    if mask == -1 && bit_index != -1 {
+    let mask = u8::MAX << ((bit_index + 1) & (i8::BITS as i32 - 1));
+    let mut i: u8;
+    if mask == u8::MAX && bit_index != -1 {
       reader.skip_bytes((byte_index + 1) as i64)?;
       i = 0;
     } else {
       reader.skip_bytes(byte_index as i64)?;
-      i = (reader.read_byte()? as i32 & 0xFF) & mask;
+      i = reader.read_byte()? & mask;
     }
     while i == 0 {
       byte_index += 1;
       if byte_index == bit_table_bytes {
         return Ok(-1);
       }
-      i = reader.read_byte()? as i32 & 0xFF;
+      i = reader.read_byte()?;
     }
     Ok(i.trailing_zeros() as i32 + (byte_index << 3))
   }
@@ -180,8 +180,8 @@ impl BitTableUtil {
     debug_assert!(bit_index >= 0, "bitIndex={bit_index}");
     let mut byte_index = bit_index >> 3;
     reader.skip_bytes(byte_index as i64)?;
-    let mask: i32 = (1 << (bit_index & (i8::BITS - 1) as i32)) - 1;
-    let mut i = reader.read_byte()? as i32 & 0xFF;
+    let mask = (1u8 << (bit_index & (i8::BITS - 1) as i32)).wrapping_sub(1);
+    let mut i = reader.read_byte()?;
     i &= mask;
     while i == 0 {
       if byte_index == 0 {
@@ -190,9 +190,9 @@ impl BitTableUtil {
       byte_index -= 1;
       // FST.BytesReader implementations support negative skip.
       reader.skip_bytes(-2)?;
-      i = reader.read_byte()? as i32 & 0xFF;
+      i = reader.read_byte()?;
     }
-    Ok(((i32::BITS - 1) as i32 - i.leading_zeros() as i32) + (byte_index << 3))
+    Ok((u8::BITS - 1 - i.leading_zeros()) as i32 + (byte_index << 3))
   }
 
   fn read_byte<T>(reader: &mut T) -> Result<u64>
@@ -219,11 +219,11 @@ impl BitTableUtil {
     Ok(l)
   }
 
-  fn bit_count_8_bytes<T>(reader: &mut T) -> Result<i32>
+  fn bit_count_8_bytes<T>(reader: &mut T) -> Result<u32>
   where
     T: BytesReader,
   {
     let l = reader.read_long()?;
-    Ok(l.count_ones() as i32)
+    Ok(l.count_ones())
   }
 }
