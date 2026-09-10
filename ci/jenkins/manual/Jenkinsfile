@@ -57,7 +57,7 @@ pipeline {
               }
               env.TMPDIR = "${env.WORKSPACE_TMP}/manual-tests-${env.BUILD_NUMBER}"
               currentBuild.keepLog = true
-              currentBuild.description = "${manualRequest ? 'manual' : 'scheduled'} release: ordinary + ${env.HEAVY_SUITE}"
+              currentBuild.description = "${manualRequest ? 'manual' : 'scheduled'} release: ${env.HEAVY_SUITE} only"
             }
           }
         }
@@ -67,7 +67,7 @@ pipeline {
             checkout(scm)
             script {
               env.TESTED_SHA = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-              currentBuild.description = "${env.TESTED_SHA.take(12)}: ordinary + ${env.HEAVY_SUITE} (release)"
+              currentBuild.description = "${env.TESTED_SHA.take(12)}: ${env.HEAVY_SUITE} only (release)"
             }
             sh '''#!/bin/bash
               set -euo pipefail
@@ -82,7 +82,7 @@ pipeline {
           }
         }
 
-        stage('Release ordinary and heavy tests') {
+        stage('Release feature-exclusive tests') {
           steps {
             sh '''#!/bin/bash
               set -euo pipefail
@@ -95,7 +95,7 @@ pipeline {
       post {
         always {
           archiveArtifacts(
-            artifacts: 'manual-tests.log,manual-junit.xml,manual-selection.txt,manual-doctest.log',
+            artifacts: 'manual-tests.log,manual-junit.xml,manual-selection.txt',
             allowEmptyArchive: true
           )
           sh '''#!/bin/bash
@@ -114,10 +114,10 @@ pipeline {
               emailext(
                 to: env.RLUCENE_FAILURE_EMAIL,
                 subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} failed",
-                body: "Build: ${env.BUILD_URL}\nCommit: ${env.TESTED_SHA}\nSuite: ordinary + ${env.HEAVY_SUITE} (release)\n",
+                body: "Build: ${env.BUILD_URL}\nCommit: ${env.TESTED_SHA}\nSuite: ${env.HEAVY_SUITE} only (release)\n",
                 attachLog: true,
                 compressLog: true,
-                attachmentsPattern: 'manual-tests.log,manual-selection.txt,manual-doctest.log'
+                attachmentsPattern: 'manual-tests.log,manual-selection.txt'
               )
             }
           }

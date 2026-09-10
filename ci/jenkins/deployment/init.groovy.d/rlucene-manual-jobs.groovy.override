@@ -42,7 +42,7 @@ def credentialsId = System.getenv('RLUCENE_GIT_CREDENTIALS_ID') ?: ''
   def job = jenkins.createProject(WorkflowJob.class, name)
   job.setDescription((name == 'rlucene-nightly' ?
     'Every two hours and manual: ' : 'Manual only: ') +
-    'release ordinary tests plus ' + name.substring(8) +
+    'release feature-exclusive tests: ' + name.substring(8) +
     '. Definition: ci/jenkins/manual/Jenkinsfile. Schedule managed by the Pipeline.')
   job.setDefinition(definition)
   job.addProperty(new DisableConcurrentBuildsJobProperty())

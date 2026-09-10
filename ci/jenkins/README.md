@@ -156,20 +156,22 @@ builds wait for the same global lock as all other production jobs; two hours
 is the trigger interval, not a guarantee of the actual start time. Existing
 per-job non-concurrency and the 72-hour execution budget remain unchanged.
 
-- `rlucene-nightly`: ordinary tests plus tests enabled by the `nightly` feature,
+- `rlucene-nightly`: only tests added by the `nightly` feature,
   with `tests.nightly=true` and `tests.light=false`.
-- `rlucene-monster`: ordinary tests plus tests enabled by the `monster` feature,
+- `rlucene-monster`: only tests added by the `monster` feature,
   with `tests.nightly=false` and `tests.light=false`; it does not enable nightly.
 - Both use `--release` and the same release debug-assertion setting as
   `rlucene-ci`, not the Rust nightly toolchain or a custom Cargo build profile.
 
-The helper first compiles the requested feature's binaries, then inventories
-the default-feature tests. It runs the feature binaries with ignored tests
-enabled **except** tests already ignored in the default inventory. Thus known
-bugs, Java-only placeholders and unrelated deliberately skipped tests remain
-skipped; feature-only heavy tests run even if their ignore reason describes
-their resource requirements rather than saying `nightly`/`monster`. Full binary
-IDs and test names are matched, and workspace doctests run separately.
+The helper compares full test inventories with and without the requested
+feature, then selects **only tests added by that feature**. All baseline tests
+are excluded, whether normally enabled or ignored. Feature-only heavy tests
+run even if their ignore reason describes their resource requirements rather
+than saying `nightly`/`monster`. Full binary IDs and test names are matched.
+An empty feature-only selection fails explicitly; it never falls back to the
+ordinary suite. These jobs do not run doctests; ordinary tests and doctests
+remain covered by `rlucene-ci`. Compiling and listing the baseline tests is
+still needed for selection, but does not execute their test bodies.
 
 The two feature variants must be compiled on the first run. Each job has its
 own persistent `cargo-target/${JOB_NAME}` cache, reused by subsequent builds;
@@ -179,7 +181,7 @@ test after 12 hours (plus 30 seconds grace). The entire Pipeline has a 72-hour
 safety limit. These jobs can use large amounts of RAM and disk; serial execution
 does not guarantee that the server can accommodate every monster test.
 
-Builds that reach the manual-request stage are kept forever, including aborted
+Builds that reach the build-request stage are kept forever, including aborted
 smoke builds. Logs, JUnit when available, and the exact selection filter are
 archived. A new-server deployment smoke check should start each job in turn,
 confirm `rustc` is compiling with `--cfg feature="nightly"` or `monster` and

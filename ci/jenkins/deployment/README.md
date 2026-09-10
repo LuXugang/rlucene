@@ -157,8 +157,10 @@ earlier deployment created them with incorrect SCM settings, explicitly align
 their Pipeline-from-SCM connection with `rlucene-ci`; do not delete the jobs or
 their existing build history.
 
-The controller image includes `jq` for selecting the heavy suites without
-enabling ordinary tests ignored for unrelated reasons. Rebuild the image before
+The controller image includes `jq` for selecting only tests added by the chosen
+feature; ordinary tests and doctests do not run in either heavy job. Selection
+script changes are loaded from SCM and do not require a controller restart.
+When changing the image itself, rebuild the image before
 recreating the controller; copying the initializer alone is not sufficient.
 Use a maintenance window with no running builds, preserve the named Jenkins
 home volume and the local `.env`, and run `docker compose config --quiet` before
