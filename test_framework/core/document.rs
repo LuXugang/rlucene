@@ -209,14 +209,14 @@ impl IndexableField for MockIndexableField {
 
 #[derive(Clone)]
 pub struct MyField {
-  counter: i32,
+  counter: usize,
   name: String,
   field_type: MyFieldType,
 }
 
 #[derive(Clone)]
 pub struct MyFieldType {
-  counter: i32,
+  counter: usize,
 }
 
 impl IndexableFieldType for MyFieldType {
@@ -300,7 +300,7 @@ impl<'a> From<&'a MyFieldType> for IndexableFieldTypeEnum<'a> {
 }
 
 impl MyField {
-  pub fn new(counter: i32) -> Result<Self> {
+  pub fn new(counter: usize) -> Result<Self> {
     Ok(Self {
       counter,
       name: format!("f{counter}"),
@@ -335,7 +335,7 @@ impl IndexableField for MyField {
     if (self.counter % 10) == 3 {
       let mut bytes = vec![0u8; 10];
       for (idx, byte) in bytes.iter_mut().enumerate() {
-        *byte = self.counter.wrapping_add(idx as i32) as u8;
+        *byte = self.counter.wrapping_add(idx) as u8;
       }
       let length = bytes.len();
       Ok(Some(Cow::Owned(BytesRef::from_slice(bytes, 0, length))))

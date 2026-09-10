@@ -51,11 +51,11 @@ pub struct Automaton {
   /// increments by 2 for each added state because we pack a pointer to
   /// the transitions array and a count of how many transitions
   /// leave the state.
-  next_state: i32,
+  next_state: usize,
   /// Index into the `Vec<i32>` transitions array where we next write; this
   /// increments by 3 for each added transition because we pack `min`,
   /// `max`, and `dest` in sequence.
-  next_transition: i32,
+  next_transition: usize,
   /// The current state to which we are adding transitions. The caller must
   /// add all transitions for this state before moving on to another
   /// state.
@@ -104,8 +104,8 @@ impl Automaton {
   }
   pub fn create_state(&mut self) -> Result<i32> {
     self.grow_states()?;
-    let state = self.next_state / 2;
-    self.states[self.next_state as usize] = -1;
+    let state = (self.next_state / 2) as i32;
+    self.states[self.next_state] = -1;
     self.next_state += 2;
     Ok(state)
   }
@@ -155,8 +155,8 @@ impl Automaton {
   /// Add a new transition with the specified `source`, `dest`, `min`, and
   /// `max`.
   pub fn add_transition(&mut self, source: i32, dest: i32, min: i32, max: i32) -> Result<()> {
-    debug_assert!(self.next_transition % 3 == 0);
-    let bounds = self.next_state / 2;
+    debug_assert!(self.next_transition.is_multiple_of(3));
+    let bounds = (self.next_state / 2) as i32;
     debug_assert!((0..bounds).contains(&source));
     debug_assert!((0..bounds).contains(&dest));
 
@@ -174,10 +174,10 @@ impl Automaton {
         )));
       }
       debug_assert!(self.states[2 * source + 1] == 0);
-      self.states[2 * source] = self.next_transition;
+      self.states[2 * source] = self.next_transition as i32;
     }
 
-    let next_transition = self.next_transition as usize;
+    let next_transition = self.next_transition;
     self.transitions[next_transition] = dest;
     self.transitions[next_transition + 1] = min;
     self.transitions[next_transition + 2] = max;
@@ -208,16 +208,15 @@ impl Automaton {
     // Bulk copy and fix up state pointers
     let state_offset = self.get_num_states();
     let total_states = self.next_state + other.next_state;
-    ArrayUtil::grow_with_len(&mut self.states, total_states as usize)?;
-    self.states.copy_from(
-      &other.states[0..other.next_state as usize],
-      self.next_state as usize,
-    );
+    ArrayUtil::grow_with_len(&mut self.states, total_states)?;
+    self
+      .states
+      .copy_from(&other.states[0..other.next_state], self.next_state);
 
-    let next_state = self.next_state as usize;
-    for i in (0..other.next_state as usize).step_by(2) {
+    let next_state = self.next_state;
+    for i in (0..other.next_state).step_by(2) {
       if self.states[next_state + i] != -1 {
-        self.states[next_state + i] += self.next_transition;
+        self.states[next_state + i] += self.next_transition as i32;
       }
     }
     self.next_state += other.next_state;
@@ -236,14 +235,14 @@ impl Automaton {
 
     // Bulk copy and then fixup dest for each transition:
     let len = self.next_transition + other.next_transition;
-    ArrayUtil::grow_with_len(&mut self.transitions, len as usize)?;
+    ArrayUtil::grow_with_len(&mut self.transitions, len)?;
     self.transitions.copy_from(
-      &other.transitions[0..other.next_transition as usize],
-      self.next_transition as usize,
+      &other.transitions[0..other.next_transition],
+      self.next_transition,
     );
 
-    let next_transition = self.next_transition as usize;
-    for i in (0..other.next_transition as usize).step_by(3) {
+    let next_transition = self.next_transition;
+    for i in (0..other.next_transition).step_by(3) {
       self.transitions[next_transition + i] += state_offset;
     }
     self.next_transition += other.next_transition;
@@ -319,7 +318,7 @@ impl Automaton {
 
     // adjust counters
     debug_assert!(upto.to_i32().is_some());
-    self.next_transition -= (num_transitions - upto as i32) * 3;
+    self.next_transition -= (num_transitions - upto as i32) as usize * 3;
     self.states[2 * state + 1] = upto as i32;
 
     // Sort transitions by min/max/dest:
@@ -361,14 +360,14 @@ impl Automaton {
   }
   /// Returns how many states this automaton has.
   pub fn get_num_states(&self) -> i32 {
-    self.next_state / 2
+    (self.next_state / 2) as i32
   }
   /// Returns how many transitions this automaton has.
   pub fn get_num_transitions(&self) -> i32 {
-    self.next_transition / 3
+    (self.next_transition / 3) as i32
   }
   fn grow_states(&mut self) -> Result<()> {
-    let len = (self.next_state + 2) as usize;
+    let len = self.next_state + 2;
     if len > self.states.len() {
       ArrayUtil::grow_with_len(&mut self.states, len)?;
     }
@@ -376,7 +375,7 @@ impl Automaton {
   }
 
   fn grow_transitions(&mut self) -> Result<()> {
-    let len = (self.next_transition + 3) as usize;
+    let len = self.next_transition + 3;
     if len > self.transitions.len() {
       ArrayUtil::grow_with_len(&mut self.transitions, len)?;
     }
@@ -416,7 +415,7 @@ impl Automaton {
     let mut pointset = BTreeSet::new();
     pointset.insert(0);
 
-    for s in (0..self.next_state as usize).step_by(2) {
+    for s in (0..self.next_state).step_by(2) {
       let mut trans = self.states[s] as usize;
       let limit = trans + 3 * self.states[s + 1] as usize;
 
@@ -540,7 +539,7 @@ impl Automaton {
 impl TransitionAccessor for Automaton {
   fn init_transition(&self, state: i32, t: &mut Transition) -> i32 {
     debug_assert!(
-      state < self.next_state / 2,
+      state < (self.next_state / 2) as i32,
       "state {} next_state {}",
       state,
       self.next_state

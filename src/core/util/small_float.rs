@@ -108,7 +108,7 @@ impl SmallFloat {
     } else {
       // normal value
       let shift = num_bits as i32 - 4;
-      let mut encoded = ((i as u64 >> shift) as i64).try_convert()?;
+      let mut encoded = (i >> shift).try_convert()?;
       // only keep the 5 most significant bits
       encoded &= 0x07;
       // encode the shift, adding 1 because 0 is reserved for subnormal

@@ -357,7 +357,7 @@ impl BitUtil {
   }
 
   pub fn zig_zag_encode_i64(l: i64) -> i64 {
-    (((l >> 63) as u64) ^ ((l << 1) as u64)) as i64
+    (l >> 63) ^ (l << 1)
   }
   #[cfg(not(target_endian = "little"))]
   compile_error!("This code can only be compiled on little-endian systems.");

@@ -37,7 +37,7 @@ use thread_local::ThreadLocal;
 
 const PAGE_SHIFT: usize = 12; // 4096 bytes per page
 // Assumed number of pages that are read ahead
-const PAGE_READAHEAD: i64 = 4;
+const PAGE_READAHEAD: usize = 4;
 
 struct SerialIOState {
   counter: AtomicI64,
@@ -210,8 +210,8 @@ pub struct SerializedIOCountingIndexInput<I> {
   slice_offset: usize,
   slice_length: usize,
   read_advice: ReadAdvice,
-  pending_pages: HashSet<i64>,
-  current_page: i64,
+  pending_pages: HashSet<usize>,
+  current_page: Option<usize>,
   state: Arc<SerialIOState>,
 }
 
@@ -237,7 +237,7 @@ where
       slice_length,
       read_advice,
       pending_pages: HashSet::new(),
-      current_page: i64::MIN,
+      current_page: None,
       state,
     }
   }
@@ -246,22 +246,24 @@ where
     if len == 0 {
       return;
     }
-    let first_page = ((self.slice_offset + offset) >> PAGE_SHIFT) as i64;
-    let last_page = ((self.slice_offset + offset + len - 1) >> PAGE_SHIFT) as i64;
+    let first_page = (self.slice_offset + offset) >> PAGE_SHIFT;
+    let last_page = (self.slice_offset + offset + len - 1) >> PAGE_SHIFT;
 
     for page in first_page..=last_page {
-      let read_ahead_upto = if self.read_advice == ReadAdvice::Random {
-        self.current_page
-      } else {
-        // Assume that the next few pages are always free to read thanks to read-ahead.
-        self.current_page + PAGE_READAHEAD
-      };
+      let outside_read_ahead = self.current_page.is_none_or(|current_page| {
+        let read_ahead_upto = if self.read_advice == ReadAdvice::Random {
+          current_page
+        } else {
+          // Assume that the next few pages are always free to read thanks to read-ahead.
+          current_page + PAGE_READAHEAD
+        };
+        page < current_page || page > read_ahead_upto
+      });
 
-      if !self.pending_pages.contains(&page) && (page < self.current_page || page > read_ahead_upto)
-      {
+      if !self.pending_pages.contains(&page) && outside_read_ahead {
         self.state.counter.fetch_add(1, Ordering::Relaxed);
       }
-      self.current_page = page;
+      self.current_page = Some(page);
     }
     self
       .state
@@ -300,7 +302,7 @@ where
       slice_length: self.slice_length,
       read_advice: self.read_advice,
       pending_pages: HashSet::new(),
-      current_page: i64::MIN,
+      current_page: None,
       state: self.state.clone(),
     })
   }
@@ -381,7 +383,7 @@ where
       slice_length: length,
       read_advice: *read_advice,
       pending_pages: HashSet::new(),
-      current_page: i64::MIN,
+      current_page: None,
       state: self.state.clone(),
     })
   }
@@ -397,17 +399,20 @@ where
   }
 
   fn prefetch(&mut self, offset: usize, length: usize) -> Result<()> {
-    let first_page = ((self.slice_offset + offset) >> PAGE_SHIFT) as i64;
-    let last_page = ((self.slice_offset + offset + length - 1) >> PAGE_SHIFT) as i64;
+    let first_page = (self.slice_offset + offset) >> PAGE_SHIFT;
+    let last_page = (self.slice_offset + offset + length - 1) >> PAGE_SHIFT;
 
-    let read_ahead_upto = if self.read_advice == ReadAdvice::Random {
-      self.current_page
-    } else {
-      // Assume that the next few pages are always free to read thanks to read-ahead.
-      self.current_page + PAGE_READAHEAD
-    };
+    let within_read_ahead = self.current_page.is_some_and(|current_page| {
+      let read_ahead_upto = if self.read_advice == ReadAdvice::Random {
+        current_page
+      } else {
+        // Assume that the next few pages are always free to read thanks to read-ahead.
+        current_page + PAGE_READAHEAD
+      };
+      first_page >= current_page && last_page <= read_ahead_upto
+    });
 
-    if first_page >= self.current_page && last_page <= read_ahead_upto {
+    if within_read_ahead {
       // seeking within the current (or next page if ReadAdvice::Normal) doesn't increment the
       // counter
     } else if !self.state.pending_fetch.get_or(|| Cell::new(false)).get() {

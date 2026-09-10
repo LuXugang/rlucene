@@ -570,8 +570,7 @@ impl DataInput for MemorySegmentIndexInput {
         .saturating_sub(IndexInput::get_file_pointer(self)?),
     );
     let pos = self.cur_position;
-    let len =
-      GroupVIntUtil::read_group_vint_i32_with_reader(self, remaining as u64, pos, dst, offset)?;
+    let len = GroupVIntUtil::read_group_vint_i32_with_reader(self, remaining, pos, dst, offset)?;
     self.cur_position += len;
     Ok(())
   }

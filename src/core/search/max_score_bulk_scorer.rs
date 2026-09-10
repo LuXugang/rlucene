@@ -186,7 +186,8 @@ where
     }
 
     let inner_window_min = self.all_scorers[top_index].doc;
-    let inner_window_max = std::cmp::min(max, inner_window_min + INNER_WINDOW_SIZE);
+    let inner_window_max =
+      (max as i64).min(inner_window_min as i64 + INNER_WINDOW_SIZE as i64) as i32;
     while self.all_scorers[top_index].doc < inner_window_max {
       let top_doc = self.all_scorers[top_index].doc;
       debug_assert!(filter.doc <= top_doc);
@@ -450,7 +451,8 @@ where
     let mut top = &mut self.all_scorers[top_index];
 
     let inner_window_min = top.doc;
-    let inner_window_max = std::cmp::min(max, inner_window_min + INNER_WINDOW_SIZE);
+    let inner_window_max =
+      (max as i64).min(inner_window_min as i64 + INNER_WINDOW_SIZE as i64) as i32;
     // Collect matches of essential clauses into a bitset
     loop {
       let mut doc = top.doc;

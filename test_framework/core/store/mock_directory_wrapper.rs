@@ -455,12 +455,12 @@ where
     self.state.use_slow_open_closers.store(v, Ordering::SeqCst);
   }
 
-  pub fn size_in_bytes(&self) -> Result<usize> {
-    let mut size = 0;
+  pub fn size_in_bytes(&self) -> Result<i64> {
+    let mut size = 0i64;
     let base = self.state.base.lock();
     for file in base.get_delegate().list_all()? {
       if !file.starts_with("extra") {
-        size += base.get_delegate().file_length(&file)?;
+        size = size.wrapping_add(base.get_delegate().file_length(&file)? as i64);
       }
     }
     Ok(size)
@@ -822,7 +822,7 @@ where
     self
       .state
       .max_used_size
-      .store(self.size_in_bytes()? as i64, Ordering::SeqCst);
+      .store(self.size_in_bytes()?, Ordering::SeqCst);
     Ok(())
   }
 

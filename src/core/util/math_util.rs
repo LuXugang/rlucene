@@ -68,22 +68,24 @@ impl MathUtil {
   /// - A GCD must be positive, but `2^64` cannot be expressed as an `i64`,
   ///   although it is the GCD of `i64::MIN` and `0`, as well as `i64::MIN`
   ///   and `i64::MIN`. In these two cases, this method returns `i64::MIN`.
-  pub fn gcd(mut a: i64, mut b: i64) -> i64 {
-    a = a.wrapping_abs();
-    b = b.wrapping_abs();
+  pub fn gcd(a: i64, b: i64) -> i64 {
+    let a = a.wrapping_abs();
+    let b = b.wrapping_abs();
     if a == 0 {
       return b;
     } else if b == 0 {
       return a;
     }
 
+    let mut a = a as u64;
+    let mut b = b as u64;
     let common_trailing_zeros = (a | b).trailing_zeros();
-    a = (a as u64 >> a.trailing_zeros()) as i64;
+    a >>= a.trailing_zeros();
     while b != 0 {
-      b = (b as u64 >> b.trailing_zeros()) as i64;
+      b >>= b.trailing_zeros();
       if a == b {
         break;
-      } else if a > b || a == i64::MIN {
+      } else if a > b {
         std::mem::swap(&mut a, &mut b);
       }
       if a == 1 {
@@ -91,7 +93,7 @@ impl MathUtil {
       }
       b = b.wrapping_sub(a);
     }
-    a << common_trailing_zeros
+    (a << common_trailing_zeros) as i64
   }
 
   /// Calculates the inverse hyperbolic sine (`asinh`) of a `f64` value.

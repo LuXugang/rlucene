@@ -401,8 +401,8 @@ impl DocValuesSkipperImpl {
     }
   }
 
-  fn range_log(&self, level: usize) -> i32 {
-    (9 - self.num_levels() + level) as i32
+  fn range_log(&self, level: usize) -> usize {
+    9 - self.num_levels() + level
   }
 }
 

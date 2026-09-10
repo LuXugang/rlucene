@@ -697,7 +697,7 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
   let target_dir = Arc::new(AddIndexesTestDirectory::Target(target.clone()));
   let w = IndexWriter::new(target_dir, IndexWriterConfig::new()?)?;
   w.commit()?; // don't confuse checkindex
-  target.set_max_size_in_bytes(target.size_in_bytes()? as i64 + 65536); // 64KB
+  target.set_max_size_in_bytes(target.size_in_bytes()? + 65536); // 64KB
 
   let dirs_len = 1 + (MAX_DOCS / 100000);
   let mut dirs = Vec::new();
@@ -746,7 +746,7 @@ fn test_add_too_many_indexes_codec_reader() -> Result<()> {
   let target = Arc::new(new_mock_directory(&mut random)?);
   let w = IndexWriter::new(target.clone(), IndexWriterConfig::new()?)?;
   w.commit()?; // don't confuse checkindex
-  target.set_max_size_in_bytes(target.size_in_bytes()? as i64 + 65536); // 64KB
+  target.set_max_size_in_bytes(target.size_in_bytes()? + 65536); // 64KB
   let r = directory_reader::open(source.clone())?;
   let seg_reader = get_only_leaf_reader(&r)?;
 

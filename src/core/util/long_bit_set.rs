@@ -393,11 +393,11 @@ impl LongBitSet {
     let end_word = (end_index - 1) >> 6;
 
     let start_mask = -1_i64 << (start_index % 64);
-    let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
-    let end_mask: u64 = u64::MAX >> shift;
+    let shift = 0usize.wrapping_sub(end_index) & 63;
+    let end_mask = (u64::MAX >> shift) as i64;
 
     if start_word == end_word {
-      self.bits[start_word] ^= start_mask & end_mask as i64;
+      self.bits[start_word] ^= start_mask & end_mask;
       return;
     }
 
@@ -407,7 +407,7 @@ impl LongBitSet {
       self.bits[i] = !self.bits[i];
     }
 
-    self.bits[end_word] ^= end_mask as i64;
+    self.bits[end_word] ^= end_mask;
   }
   /// Flip the bit at the provided index.
   pub fn flip_one(&mut self, index: usize) {
@@ -448,11 +448,11 @@ impl LongBitSet {
     let end_word = (end_index - 1) >> 6;
 
     let start_mask = -1_i64 << (start_index % 64);
-    let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
-    let end_mask: u64 = u64::MAX >> shift;
+    let shift = 0usize.wrapping_sub(end_index) & 63;
+    let end_mask = (u64::MAX >> shift) as i64;
 
     if start_word == end_word {
-      self.bits[start_word] |= start_mask & end_mask as i64;
+      self.bits[start_word] |= start_mask & end_mask;
       return;
     }
 
@@ -460,7 +460,7 @@ impl LongBitSet {
     for i in (start_word + 1)..end_word {
       self.bits[i] = -1;
     }
-    self.bits[end_word] |= end_mask as i64;
+    self.bits[end_word] |= end_mask;
   }
   /// Clears a range of bits in [start_index, end_index)
   ///
@@ -488,15 +488,15 @@ impl LongBitSet {
     let end_word = (end_index - 1) >> 6;
 
     let mut start_mask = -1_i64 << (start_index % 64);
-    let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
-    let mut end_mask: u64 = u64::MAX >> shift;
+    let shift = 0usize.wrapping_sub(end_index) & 63;
+    let mut end_mask = (u64::MAX >> shift) as i64;
 
     // Invert masks since we are clearing
     start_mask = !start_mask;
     end_mask = !end_mask;
 
     if start_word == end_word {
-      self.bits[start_word] &= start_mask | end_mask as i64;
+      self.bits[start_word] &= start_mask | end_mask;
       return;
     }
 
@@ -504,7 +504,7 @@ impl LongBitSet {
     for i in (start_word + 1)..end_word {
       self.bits[i] = 0;
     }
-    self.bits[end_word] &= end_mask as i64;
+    self.bits[end_word] &= end_mask;
   }
 }
 impl Accountable for LongBitSet {

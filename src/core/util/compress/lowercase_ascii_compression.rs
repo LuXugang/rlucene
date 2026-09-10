@@ -67,7 +67,7 @@ impl LowercaseAsciiCompression {
     debug_assert!(compressed_len < len);
     for i in 0..len {
       let b = (input[i] as i32) + 1;
-      tmp[i] = ((b & 0x1F) | ((b as u32 & 0x40) >> 1) as i32) as u8;
+      tmp[i] = ((b & 0x1F) | ((b & 0x40) >> 1)) as u8;
     }
 
     // 3. Pack exception bits into tmp[0..compressed_len]
@@ -145,15 +145,15 @@ impl LowercaseAsciiCompression {
 
     // 2. Restore the leading 2 bits into whole bytes
     for i in 0..saved {
-      let a = (out[i] as u32 & 0xC0) >> 2;
-      let b = (out[saved + i] as u32 & 0xC0) >> 4;
-      let c = (out[(saved << 1) + i] as u32 & 0xC0) >> 6;
-      out[compressed_len + i] = (a | b | c) as u8;
+      let a = (out[i] & 0xC0) >> 2;
+      let b = (out[saved + i] & 0xC0) >> 4;
+      let c = (out[(saved << 1) + i] & 0xC0) >> 6;
+      out[compressed_len + i] = a | b | c;
     }
 
     // 3. Move back to original range
     for b in out.iter_mut().take(len) {
-      *b = (((*b as u32 & 0x1F) | 0x20 | ((*b as u32 & 0x20) << 1)) - 1) as u8;
+      *b = ((*b & 0x1F) | 0x20 | ((*b & 0x20) << 1)) - 1;
     }
 
     // 4. Restore exceptions

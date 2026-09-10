@@ -29,7 +29,7 @@ pub struct TermsEnumIndex<TE> {
   pub(crate) sub_index: usize,
   pub(crate) terms_enum: Option<TE>,
   current_term: Option<BytesRef<Vec<u8>>>,
-  current_term_prefix8: i64,
+  current_term_prefix8: u64,
 }
 impl<TE> TermsEnumIndex<TE> {
   pub fn new(terms_enum: Option<TE>, sub_index: usize) -> Self {
@@ -47,7 +47,7 @@ impl<TE> TermsEnumIndex<TE> {
 
   fn set_term(&mut self, term: Option<BytesRef<Vec<u8>>>) {
     if let Some(ref t) = term {
-      self.current_term_prefix8 = prefix8_to_comparable_unsigned_long(t) as i64;
+      self.current_term_prefix8 = prefix8_to_comparable_unsigned_long(t);
     } else {
       self.current_term_prefix8 = 0;
     }
@@ -105,8 +105,9 @@ where
   }
   pub(crate) fn compare_term_to(&self, that: &Self) -> Result<i32> {
     if self.current_term_prefix8 != that.current_term_prefix8 {
-      let cmp = (self.current_term_prefix8 as u64)
-        .cmp(&(that.current_term_prefix8 as u64))
+      let cmp = self
+        .current_term_prefix8
+        .cmp(&that.current_term_prefix8)
         .to_int();
 
       debug_assert!(
@@ -153,7 +154,7 @@ where
 /// Wrapper around a term that allows for quick equals comparisons.
 pub(crate) struct TermState {
   term: BytesRefBuilder<Vec<u8>>,
-  pub(crate) term_prefix8: i64,
+  pub(crate) term_prefix8: u64,
 }
 impl TermState {
   pub(crate) fn new() -> Self {

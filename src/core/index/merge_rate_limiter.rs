@@ -35,7 +35,7 @@ const MAX_PAUSE_NS: i64 = 250_000_000; // 250 milliseconds in nanoseconds.
 /// @lucene.internal
 pub struct MergeRateLimiter {
   mb_per_sec: AtomicU64,            // f64 bits (volatile double)
-  min_pause_check_bytes: AtomicU64, // i64 bits (volatile long)
+  min_pause_check_bytes: AtomicI64, // volatile long
   last_ns: AtomicI64,
   total_bytes_written: AtomicI64,
   merge_progress: Arc<OneMergeProgress>,
@@ -47,7 +47,7 @@ impl MergeRateLimiter {
     // Initially no IO limit; use setter here so minPauseCheckBytes is set:
     let limiter = Self {
       mb_per_sec: AtomicU64::new(0),
-      min_pause_check_bytes: AtomicU64::new(0),
+      min_pause_check_bytes: AtomicI64::new(0),
       last_ns: AtomicI64::new(0),
       total_bytes_written: AtomicI64::new(0),
       merge_progress,
@@ -173,7 +173,7 @@ impl RateLimiter for MergeRateLimiter {
     let min_check = ((MIN_PAUSE_CHECK_MSEC as f64 / 1000.0) * mb_per_sec * 1024.0 * 1024.0) as i64;
     self
       .min_pause_check_bytes
-      .store(min_check.min(1024 * 1024) as u64, Ordering::SeqCst);
+      .store(min_check.min(1024 * 1024), Ordering::SeqCst);
 
     self.merge_progress.wakeup();
     Ok(())
@@ -207,7 +207,7 @@ impl RateLimiter for MergeRateLimiter {
   }
 
   fn get_min_pause_check_bytes(&self) -> i64 {
-    self.min_pause_check_bytes.load(Ordering::SeqCst) as i64
+    self.min_pause_check_bytes.load(Ordering::SeqCst)
   }
 }
 

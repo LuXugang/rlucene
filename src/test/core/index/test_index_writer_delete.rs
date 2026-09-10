@@ -734,7 +734,7 @@ fn do_test_operations_on_disk_full(updates: bool) -> Result<()> {
   }
   writer.close()?;
 
-  let disk_usage = start_dir.size_in_bytes()? as i64;
+  let disk_usage = start_dir.size_in_bytes()?;
   let mut disk_free = disk_usage + 10;
   let mut err = None;
   let mut done = false;

@@ -609,8 +609,7 @@ where
     let pos = self.buffer.position().try_convert()?;
     let remain = self.buffer.remain_between(pos, self.length);
     debug_assert!(self.buffer.position() <= i64::MAX as u64);
-    let len =
-      GroupVIntUtil::read_group_vint_i32_with_reader(self, remain as u64, pos, dst, offset)?;
+    let len = GroupVIntUtil::read_group_vint_i32_with_reader(self, remain, pos, dst, offset)?;
     self.pos += len;
     Ok(())
   }

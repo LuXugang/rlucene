@@ -96,7 +96,7 @@ fn test_arbitrary_fields() -> Result<()> {
       &mut field_to_type,
     )?);
     for field_upto in 1..field_count {
-      d.add(MyField::new((final_base_count + (field_upto - 1)) as i32)?);
+      d.add(MyField::new(final_base_count + (field_upto - 1))?);
     }
     w.add_document(&mut random, d)?;
   }
@@ -107,7 +107,7 @@ fn test_arbitrary_fields() -> Result<()> {
   let mut term_vectors = r.term_vectors()?;
   let s = new_searcher_with_reader(r)?;
   let mut stored_fields = s.stored_fields()?;
-  let mut counter = 0;
+  let mut counter = 0usize;
   for (id, fields_in_doc) in fields_per_doc.iter().enumerate() {
     if cfg!(feature = "test_log_verbose") {
       println!("TEST: verify doc id={id} ({fields_in_doc} fields) counter={counter}");
@@ -117,7 +117,7 @@ fn test_arbitrary_fields() -> Result<()> {
     assert_eq!(1, hits.total_hits.value());
     let doc_id = hits.score_docs[0].doc;
     let doc = stored_fields.document(doc_id)?;
-    let end_counter = counter + *fields_in_doc as i32;
+    let end_counter = counter + *fields_in_doc;
     while counter < end_counter {
       let name = format!("f{counter}");
       let field_id = counter % 10;
@@ -141,7 +141,7 @@ fn test_arbitrary_fields() -> Result<()> {
           let b = f.binary_value()?.unwrap();
           assert_eq!(10, b.length);
           for idx in 0..10 {
-            assert_eq!((idx as i32 + counter) as u8, b.bytes[b.offset + idx]);
+            assert_eq!((idx + counter) as u8, b.bytes[b.offset + idx]);
           }
         } else {
           let actual = f.string_value()?.unwrap();

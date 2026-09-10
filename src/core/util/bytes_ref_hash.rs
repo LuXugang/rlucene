@@ -45,7 +45,7 @@ pub struct BytesRefHash<BSA> {
   pool: BytesRefBlockPool,
   hash_size: usize,
   hash_half_size: usize,
-  hash_mask: i32,
+  hash_mask: usize,
   pub(crate) count: usize,
   last_count: Option<usize>,
   pub ids: Vec<i32>,
@@ -86,7 +86,7 @@ where
       pool: ref_pool,
       hash_size: capacity,
       hash_half_size: capacity >> 1,
-      hash_mask: capacity as i32 - 1,
+      hash_mask: capacity - 1,
       count: 0,
       last_count: None,
       ids,
@@ -203,7 +203,7 @@ where
         .bytes_used
         .add_and_get(size_of_vec(&self.ids).saturating_sub(old_size));
       self.hash_half_size = new_size / 2;
-      self.hash_mask = (new_size - 1) as i32;
+      self.hash_mask = new_size - 1;
       true
     } else {
       false
@@ -317,7 +317,7 @@ where
     let mut code = do_hash(&bytes.bytes, bytes.offset, bytes.length);
 
     // final position
-    let mut hash_pos = (code & self.hash_mask) as usize;
+    let mut hash_pos = (code as usize) & self.hash_mask;
     let mut e = self.ids[hash_pos];
     if e != -1
       && !self.pool.equals(
@@ -328,7 +328,7 @@ where
     {
       loop {
         code = code.wrapping_add(1);
-        hash_pos = (code & self.hash_mask) as usize;
+        hash_pos = (code as usize) & self.hash_mask;
         e = self.ids[hash_pos];
         if e == -1
           || self.pool.equals(
@@ -361,13 +361,13 @@ where
 
     // Final position
     let mut code = offset;
-    let mut hash_pos = (offset & self.hash_mask) as usize;
+    let mut hash_pos = (offset as usize) & self.hash_mask;
     let mut e = self.ids[hash_pos];
     let length = self.bytes_start_array.len()?;
     // Resolve hash conflicts
     while e != -1 && self.bytes_start_array.get_value(e as usize)? != offset {
       code = code.wrapping_add(1);
-      hash_pos = (code & self.hash_mask) as usize;
+      hash_pos = (code as usize) & self.hash_mask;
       e = self.ids[hash_pos];
     }
 
@@ -409,7 +409,7 @@ where
     hash_on_data: bool,
     byte_block_pool: &mut ByteBlockPool,
   ) -> Result<()> {
-    let new_mask = (new_size - 1) as i32;
+    let new_mask = new_size - 1;
     let old_size = size_of_vec(&self.ids);
     let mut new_hash = vec![-1; new_size];
     for i in 0..self.hash_size {
@@ -424,11 +424,11 @@ where
           self.bytes_start_array.get_value(e0 as usize)?
         };
 
-        let mut hash_pos = (code & new_mask) as usize;
+        let mut hash_pos = (code as usize) & new_mask;
         if new_hash[hash_pos] != -1 {
           loop {
             code = code.wrapping_add(1);
-            hash_pos = (code & new_mask) as usize;
+            hash_pos = (code as usize) & new_mask;
             if new_hash[hash_pos] == -1 {
               break;
             }

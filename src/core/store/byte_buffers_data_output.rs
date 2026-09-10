@@ -525,9 +525,8 @@ fn compute_block_size_bits_for(bytes: i64) -> i32 {
   if power_of_two == 0 {
     return ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK;
   }
-  let mut block_bits = power_of_two.trailing_zeros();
-  block_bits = block_bits.min(ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK as u32);
-  block_bits = block_bits.max(ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK as u32);
-  debug_assert!(block_bits <= i32::MAX as u32);
-  block_bits as i32
+  let mut block_bits = power_of_two.trailing_zeros() as i32;
+  block_bits = block_bits.min(ByteBuffersDataOutput::DEFAULT_MAX_BITS_PER_BLOCK);
+  block_bits = block_bits.max(ByteBuffersDataOutput::DEFAULT_MIN_BITS_PER_BLOCK);
+  block_bits
 }

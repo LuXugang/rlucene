@@ -131,7 +131,7 @@ where
     if dir.state.track_disk_usage.load(Ordering::SeqCst) {
       // Now compute actual disk usage & track the maxUsedSize
       // in the MockDirectoryWrapper:
-      let size = dir.size_in_bytes()? as i64;
+      let size = dir.size_in_bytes()?;
       if size > dir.state.max_used_size.load(Ordering::SeqCst) {
         dir.state.max_used_size.store(size, Ordering::SeqCst);
       }
@@ -177,7 +177,7 @@ where
     let mut free_space = if max_size == 0 {
       0
     } else {
-      max_size - self.dir.size_in_bytes()? as i64
+      max_size - self.dir.size_in_bytes()?
     };
     let mut real_usage = 0;
 
@@ -185,7 +185,7 @@ where
     if max_size != 0 && free_space <= len {
       // Compute the real disk free. This will greatly slow down our test but
       // makes it more accurate:
-      real_usage = self.dir.size_in_bytes()? as i64;
+      real_usage = self.dir.size_in_bytes()?;
       free_space = max_size - real_usage;
     }
 

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -81,7 +81,7 @@ const MIN_PAUSE_CHECK_MSEC: i64 = 5;
 /** Simple rate limiter for I/O. */
 pub struct SimpleRateLimiter {
   mb_per_sec: AtomicU64,
-  min_pause_check_bytes: AtomicU64,
+  min_pause_check_bytes: AtomicI64,
   time_origin: Instant,
   last_ns: Mutex<i64>,
 }
@@ -91,7 +91,7 @@ impl SimpleRateLimiter {
   pub fn new(mb_per_sec: f64) -> Self {
     let limiter = Self {
       mb_per_sec: AtomicU64::new(0),
-      min_pause_check_bytes: AtomicU64::new(0),
+      min_pause_check_bytes: AtomicI64::new(0),
       time_origin: Instant::now(),
       last_ns: Mutex::new(1),
     };
@@ -111,12 +111,12 @@ impl RateLimiter for SimpleRateLimiter {
       ((MIN_PAUSE_CHECK_MSEC as f64 / 1000.0) * mb_per_sec * 1024.0 * 1024.0) as i64;
     self
       .min_pause_check_bytes
-      .store(min_pause_check as u64, Ordering::SeqCst);
+      .store(min_pause_check, Ordering::SeqCst);
     Ok(())
   }
 
   fn get_min_pause_check_bytes(&self) -> i64 {
-    self.min_pause_check_bytes.load(Ordering::SeqCst) as i64
+    self.min_pause_check_bytes.load(Ordering::SeqCst)
   }
 
   /** The current mb per second rate limit. */

@@ -369,10 +369,10 @@ impl FixedBitSet {
     let end_word = (end_index - 1) >> 6;
 
     let start_mask = -1_i64 << (start_index % 64);
-    let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
-    let end_mask: u64 = u64::MAX >> shift;
+    let shift = 0usize.wrapping_sub(end_index) & 63;
+    let end_mask = (u64::MAX >> shift) as i64;
     if start_word == end_word {
-      self.bits[start_word] ^= start_mask & end_mask as i64;
+      self.bits[start_word] ^= start_mask & end_mask;
       return;
     }
 
@@ -382,7 +382,7 @@ impl FixedBitSet {
       self.bits[i] = !self.bits[i];
     }
 
-    self.bits[end_word] ^= end_mask as i64;
+    self.bits[end_word] ^= end_mask;
   }
 
   /// Flip the bit at the provided index.
@@ -419,20 +419,20 @@ impl FixedBitSet {
     let start_word = start_index >> 6;
     let end_word = (end_index - 1) >> 6;
 
-    let start_mask = !0u64 << (start_index % 64);
-    let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
-    let end_mask: u64 = u64::MAX >> shift;
+    let start_mask = -1_i64 << (start_index % 64);
+    let shift = 0usize.wrapping_sub(end_index) & 63;
+    let end_mask = (u64::MAX >> shift) as i64;
 
     if start_word == end_word {
-      self.bits[start_word] |= start_mask as i64 & end_mask as i64;
+      self.bits[start_word] |= start_mask & end_mask;
       return;
     }
 
-    self.bits[start_word] |= start_mask as i64;
+    self.bits[start_word] |= start_mask;
     for i in (start_word + 1)..end_word {
       self.bits[i] = -1_i64;
     }
-    self.bits[end_word] |= end_mask as i64;
+    self.bits[end_word] |= end_mask;
   }
   fn next_set_bit_impl(&self, start: usize, upper_bound: usize) -> usize {
     // Depends on the ghost bits being clear!
@@ -586,22 +586,22 @@ impl BitSet for FixedBitSet {
     let start_word = start_index >> 6;
     let end_word = (end_index - 1) >> 6;
 
-    let mut start_mask = u64::MAX << (start_index % 64);
-    let shift: u32 = ((0usize).wrapping_sub(end_index) & 63) as u32;
-    let mut end_mask: u64 = u64::MAX >> shift;
+    let mut start_mask = -1_i64 << (start_index % 64);
+    let shift = 0usize.wrapping_sub(end_index) & 63;
+    let mut end_mask = (u64::MAX >> shift) as i64;
 
     start_mask = !start_mask;
     end_mask = !end_mask;
     if start_word == end_word {
-      self.bits[start_word] &= start_mask as i64 | end_mask as i64;
+      self.bits[start_word] &= start_mask | end_mask;
       return Ok(());
     }
 
-    self.bits[start_word] &= start_mask as i64;
+    self.bits[start_word] &= start_mask;
     for i in (start_word + 1)..end_word {
       self.bits[i] = 0;
     }
-    self.bits[end_word] &= end_mask as i64;
+    self.bits[end_word] &= end_mask;
     Ok(())
   }
 

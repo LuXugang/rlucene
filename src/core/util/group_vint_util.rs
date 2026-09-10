@@ -32,7 +32,7 @@ impl GroupVIntUtil {
   // Decode into `i64` values so negative `i32` bit patterns can be represented
   // as positive values.
   const LONG_MASKS: [u64; 4] = [0xFF, 0xFFFF, 0xFFFFFF, 0xFFFFFFFF];
-  const INT_MASKS: [u32; 4] = [0xFF, 0xFFFF, 0xFFFFFF, !0];
+  const INT_MASKS: [i32; 4] = [0xFF, 0xFFFF, 0xFFFFFF, !0];
   // the maximum length of a single group-varint is 4 integers + 1 byte flag.
   pub const MAX_LENGTH_PER_GROUP: usize = 17;
   /// Reads all the group varints, including the tail vints. We need a
@@ -235,7 +235,7 @@ impl GroupVIntUtil {
   /// non-negative number less than `MAX_LENGTH_PER_GROUP`.
   pub fn read_group_vint_i32_with_reader<DI>(
     data_input: &mut DI,
-    remaining: u64,
+    remaining: usize,
     mut pos: usize,
     dst: &mut [i32],
     offset: usize,
@@ -243,7 +243,7 @@ impl GroupVIntUtil {
   where
     DI: DataInput + IntReader,
   {
-    if remaining < Self::MAX_LENGTH_PER_GROUP as u64 {
+    if remaining < Self::MAX_LENGTH_PER_GROUP {
       Self::read_group_vint_i32(data_input, dst, offset)?;
       return Ok(0);
     }
@@ -259,19 +259,16 @@ impl GroupVIntUtil {
     // This code path has fewer conditionals and tends to be significantly
     // faster in benchmarks
 
-    dst[offset] = (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n1_minus1]) as i32;
+    dst[offset] = IntReader::read(data_input, pos)? & Self::INT_MASKS[n1_minus1];
     pos += 1 + n1_minus1;
 
-    dst[offset + 1] =
-      (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n2_minus1]) as i32;
+    dst[offset + 1] = IntReader::read(data_input, pos)? & Self::INT_MASKS[n2_minus1];
     pos += 1 + n2_minus1;
 
-    dst[offset + 2] =
-      (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n3_minus1]) as i32;
+    dst[offset + 2] = IntReader::read(data_input, pos)? & Self::INT_MASKS[n3_minus1];
     pos += 1 + n3_minus1;
 
-    dst[offset + 3] =
-      (IntReader::read(data_input, pos)? as u32 & Self::INT_MASKS[n4_minus1]) as i32;
+    dst[offset + 3] = IntReader::read(data_input, pos)? & Self::INT_MASKS[n4_minus1];
     pos += 1 + n4_minus1;
     let result = pos - pos_start;
     Ok(result)

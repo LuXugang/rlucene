@@ -89,7 +89,7 @@ where
         }
 
         let window_min = std::cmp::max(top_next, min);
-        let window_max = std::cmp::min(max, window_min + WINDOW_SIZE as i32);
+        let window_max = (max as i64).min(window_min as i64 + WINDOW_SIZE as i64) as i32;
         (window_min, window_max)
       };
 

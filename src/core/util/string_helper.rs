@@ -210,33 +210,33 @@ impl StringHelper {
   /// Returns the MurmurHash3_x86_32 hash.
   /// Original source/tests at <https://github.com/yonik/java_util>
   pub fn murmurhash3_x86_32_with_byte(data: &[u8], offset: usize, len: usize, seed: i32) -> i32 {
-    let c1: i32 = 0xcc9e2d51u32 as i32;
-    let c2: i32 = 0x1b873593u32 as i32;
+    let c1: u32 = 0xcc9e2d51;
+    let c2: u32 = 0x1b873593;
 
-    let mut h1 = seed;
+    let mut h1 = seed as u32;
     let rounded_end = offset + (len & 0xfffffffc); // round down to 4 byte block
 
     let mut i = offset;
     while i < rounded_end {
-      let k1 = BitUtil::get_i32_le(data, i);
+      let k1 = BitUtil::get_i32_le(data, i) as u32;
       let mut k1 = k1.wrapping_mul(c1);
       k1 = k1.rotate_left(15);
       k1 = k1.wrapping_mul(c2);
 
       h1 ^= k1;
       h1 = h1.rotate_left(13);
-      h1 = h1.wrapping_mul(5).wrapping_add(0xe6546b64u32 as i32);
+      h1 = h1.wrapping_mul(5).wrapping_add(0xe6546b64);
 
       i += 4;
     }
 
     // tail
-    let mut k1 = 0i32;
+    let mut k1 = 0u32;
     match len & 0x03 {
       3 => {
-        k1 = (data[rounded_end + 2] as i32) << 16;
-        k1 |= (data[rounded_end + 1] as i32) << 8;
-        k1 |= data[rounded_end] as i32;
+        k1 = (data[rounded_end + 2] as u32) << 16;
+        k1 |= (data[rounded_end + 1] as u32) << 8;
+        k1 |= data[rounded_end] as u32;
         k1 = k1.wrapping_mul(c1);
         k1 = k1.rotate_left(15);
         k1 = k1.wrapping_mul(c2);
@@ -244,8 +244,8 @@ impl StringHelper {
       },
       // fallthrough
       2 => {
-        k1 |= (data[rounded_end + 1] as i32) << 8;
-        k1 |= data[rounded_end] as i32;
+        k1 |= (data[rounded_end + 1] as u32) << 8;
+        k1 |= data[rounded_end] as u32;
         k1 = k1.wrapping_mul(c1);
         k1 = k1.rotate_left(15);
         k1 = k1.wrapping_mul(c2);
@@ -253,7 +253,7 @@ impl StringHelper {
       },
       // fallthrough
       1 => {
-        k1 |= data[rounded_end] as i32;
+        k1 |= data[rounded_end] as u32;
         k1 = k1.wrapping_mul(c1);
         k1 = k1.rotate_left(15);
         k1 = k1.wrapping_mul(c2);
@@ -264,15 +264,15 @@ impl StringHelper {
 
     // Finalization
     debug_assert!(len <= i32::MAX as usize);
-    h1 ^= len as i32;
+    h1 ^= len as u32;
     // fmix(h1);
-    h1 ^= (h1 as u32 >> 16) as i32;
-    h1 = h1.wrapping_mul(0x85ebca6bu32 as i32);
-    h1 ^= (h1 as u32 >> 13) as i32;
-    h1 = h1.wrapping_mul(0xc2b2ae35u32 as i32);
+    h1 ^= h1 >> 16;
+    h1 = h1.wrapping_mul(0x85ebca6b);
+    h1 ^= h1 >> 13;
+    h1 = h1.wrapping_mul(0xc2b2ae35);
 
     // Return the final hash value as i32
-    h1 ^ ((h1 as u32 >> 16) as i32)
+    (h1 ^ (h1 >> 16)) as i32
   }
   pub fn murmurhash3_x86_32<AV>(bytes: &BytesRef<AV>, seed: i32) -> i32
   where

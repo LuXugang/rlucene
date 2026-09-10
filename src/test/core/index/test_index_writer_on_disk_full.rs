@@ -227,7 +227,7 @@ fn test_add_index_on_disk_full() -> Result<()> {
   // succeed and index should show all documents were
   // added.
 
-  let disk_usage = start_dir.size_in_bytes()? as i64;
+  let disk_usage = start_dir.size_in_bytes()?;
 
   let mut start_disk_usage = 0_i64;
   for file in start_dir.list_all()? {
@@ -587,7 +587,7 @@ fn test_immediate_disk_full() -> Result<()> {
   config.set_commit_on_close(false);
   let writer = IndexWriter::new(dir.clone(), config)?;
   writer.commit()?; // empty commit, to not create confusing situation with first commit
-  dir.set_max_size_in_bytes(std::cmp::max(1, dir.size_in_bytes()? as i64));
+  dir.set_max_size_in_bytes(std::cmp::max(1, dir.size_in_bytes()?));
   let mut doc = Document::new();
   let custom_type = FieldType::from_ref(&*crate::core::document::text_field::TYPE_STORED)?;
   doc.add(Field::new(

@@ -433,8 +433,7 @@ where
     let input_remain = (self.length + self.offset).saturating_sub(self.pos);
     let remain = block_remain.min(input_remain);
     let pos = self.position()?;
-    let len =
-      GroupVIntUtil::read_group_vint_i32_with_reader(self, remain as u64, pos, dst, offset)?;
+    let len = GroupVIntUtil::read_group_vint_i32_with_reader(self, remain, pos, dst, offset)?;
     self.pos += len;
     Ok(())
   }
