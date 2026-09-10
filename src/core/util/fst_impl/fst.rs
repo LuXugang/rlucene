@@ -253,13 +253,13 @@ where
       // Linear scan through variable-length arcs
       while !arc.is_last() {
         self.read_label(input)?;
-        if arc.flag(BIT_ARC_HAS_OUTPUT as i32) {
+        if arc.flag(BIT_ARC_HAS_OUTPUT) {
           self.outputs.skip_output(input)?;
         }
-        if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+        if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT) {
           self.outputs.skip_final_output(input)?;
         }
-        if arc.flag(BIT_STOP_NODE) || arc.flag(BIT_TARGET_NEXT as i32) {
+        if arc.flag(BIT_STOP_NODE) || arc.flag(BIT_TARGET_NEXT) {
           // no-op
         } else {
           self.read_unpacked_node_target(input)?;
@@ -641,29 +641,29 @@ where
       arc.label = self.read_label(reader)?;
     }
 
-    if arc.flag(BIT_ARC_HAS_OUTPUT as i32) {
+    if arc.flag(BIT_ARC_HAS_OUTPUT) {
       arc.output = self.outputs.read(reader)?;
     } else {
       arc.output = self.outputs.get_no_output();
     }
 
-    if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+    if arc.flag(BIT_ARC_HAS_FINAL_OUTPUT) {
       arc.next_final_output = self.outputs.read_final_output(reader)?;
     } else {
       arc.next_final_output = self.outputs.get_no_output();
     }
 
     if arc.flag(BIT_STOP_NODE) {
-      arc.target = if arc.flag(BIT_FINAL_ARC as i32) {
+      arc.target = if arc.flag(BIT_FINAL_ARC) {
         FINAL_END_NODE
       } else {
         NON_FINAL_END_NODE
       };
       arc.next_arc = reader.get_position();
-    } else if arc.flag(BIT_TARGET_NEXT as i32) {
+    } else if arc.flag(BIT_TARGET_NEXT) {
       arc.next_arc = reader.get_position();
 
-      if !arc.flag(BIT_LAST_ARC as i32) {
+      if !arc.flag(BIT_LAST_ARC) {
         if arc.bytes_per_arc() == 0 {
           self.seek_to_next_node(reader)?;
         } else {
@@ -801,14 +801,14 @@ where
       } else if label > label_to_match || arc.is_last() {
         return Ok(None);
       } else {
-        let flag = arc.flags as i32;
-        if flag_mod(flag, BIT_ARC_HAS_OUTPUT as i32) {
+        let flag = arc.flags;
+        if flag_mod(flag, BIT_ARC_HAS_OUTPUT) {
           self.outputs.skip_output(input)?;
         }
-        if flag_mod(flag, BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+        if flag_mod(flag, BIT_ARC_HAS_FINAL_OUTPUT) {
           self.outputs.skip_final_output(input)?;
         }
-        if !flag_mod(flag, BIT_STOP_NODE) && !flag_mod(flag, BIT_TARGET_NEXT as i32) {
+        if !flag_mod(flag, BIT_STOP_NODE) && !flag_mod(flag, BIT_TARGET_NEXT) {
           self.read_unpacked_node_target(input)?;
         }
       }
@@ -832,7 +832,7 @@ where
         self.outputs.skip_final_output(reader)?;
       }
 
-      if flag_mod(flags as i32, BIT_STOP_NODE) && flag_mod(flags as i32, BIT_TARGET_NEXT as i32) {
+      if flag_mod(flags, BIT_STOP_NODE) && flag_mod(flags, BIT_TARGET_NEXT) {
         self.read_unpacked_node_target(reader)?;
       }
 
@@ -902,14 +902,14 @@ pub struct Arc<T> {
   presence_index: i32,
 }
 impl<T> Arc<T> {
-  pub(crate) fn flag(&self, flag: i32) -> bool {
-    flag_mod(self.flags as i32, flag)
+  pub(crate) fn flag(&self, flag: u8) -> bool {
+    flag_mod(self.flags, flag)
   }
   pub fn is_last(&self) -> bool {
-    self.flag(BIT_LAST_ARC as i32)
+    self.flag(BIT_LAST_ARC)
   }
   pub fn is_final(&self) -> bool {
-    self.flag(BIT_FINAL_ARC as i32)
+    self.flag(BIT_FINAL_ARC)
   }
 
   pub fn label(&self) -> i32 {
@@ -1009,22 +1009,22 @@ impl<T: Display + Clone> Display for Arc<T> {
     write!(f, " target={}", self.target)?;
     write!(f, " label=0x{:x}", self.label)?;
 
-    if self.flag(BIT_FINAL_ARC as i32) {
+    if self.flag(BIT_FINAL_ARC) {
       write!(f, " final")?;
     }
-    if self.flag(BIT_LAST_ARC as i32) {
+    if self.flag(BIT_LAST_ARC) {
       write!(f, " last")?;
     }
-    if self.flag(BIT_TARGET_NEXT as i32) {
+    if self.flag(BIT_TARGET_NEXT) {
       write!(f, " targetNext")?;
     }
     if self.flag(BIT_STOP_NODE) {
       write!(f, " stop")?;
     }
-    if self.flag(BIT_ARC_HAS_OUTPUT as i32) {
+    if self.flag(BIT_ARC_HAS_OUTPUT) {
       write!(f, " output={}", self.output.clone())?;
     }
-    if self.flag(BIT_ARC_HAS_FINAL_OUTPUT as i32) {
+    if self.flag(BIT_ARC_HAS_FINAL_OUTPUT) {
       write!(f, " nextFinalOutput={}", self.next_final_output.clone())?;
     }
     if self.bytes_per_arc() != 0 {
@@ -1327,7 +1327,7 @@ pub(crate) const BIT_FINAL_ARC: u8 = 1 << 0;
 pub(crate) const BIT_LAST_ARC: u8 = 1 << 1;
 pub(crate) const BIT_TARGET_NEXT: u8 = 1 << 2;
 
-pub(crate) const BIT_STOP_NODE: i32 = 1 << 3;
+pub(crate) const BIT_STOP_NODE: u8 = 1 << 3;
 
 /// This flag is set if the arc has an output.
 pub const BIT_ARC_HAS_OUTPUT: u8 = 1 << 4;
@@ -1380,7 +1380,7 @@ pub const DEFAULT_MAX_BLOCK_BITS: i32 = 30;
 #[cfg(not(target_pointer_width = "64"))]
 pub const DEFAULT_MAX_BLOCK_BITS: i32 = 28;
 #[inline]
-pub(crate) fn flag_mod(flags: i32, bit: i32) -> bool {
+pub(crate) fn flag_mod(flags: u8, bit: u8) -> bool {
   (flags & bit) != 0
 }
 

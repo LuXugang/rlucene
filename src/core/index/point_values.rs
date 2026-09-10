@@ -92,13 +92,13 @@ pub trait PointValues {
     V: IntersectVisitor,
   {
     let estimated_point_count = self.estimate_point_count(visitor)?;
-    let doc_count = self.get_doc_count()?;
+    let doc_count = self.get_doc_count()? as i64;
     let size: i64 = self.size()?.try_convert()?;
 
     if estimated_point_count >= size {
       // math all docs
-      Ok(doc_count as i64)
-    } else if size == doc_count as i64 || estimated_point_count == 0 {
+      Ok(doc_count)
+    } else if size == doc_count || estimated_point_count == 0 {
       Ok(estimated_point_count)
     } else {
       // in case of multi values estimate the number of docs using the

@@ -289,8 +289,8 @@ impl GeoEncodingUtils {
   }
 }
 struct Grid {
-  lat_shift: i32,
-  lon_shift: i32,
+  lat_shift: u32,
+  lon_shift: u32,
   lat_base: i32,
   lon_base: i32,
   max_lat_delta: i32,
@@ -302,8 +302,8 @@ impl Grid {
   const ARITY: i32 = 64;
 
   fn new(
-    lat_shift: i32,
-    lon_shift: i32,
+    lat_shift: u32,
+    lon_shift: u32,
     lat_base: i32,
     lon_base: i32,
     max_lat_delta: i32,
@@ -342,8 +342,8 @@ pub struct DistancePredicate {
 impl DistancePredicate {
   #[allow(clippy::too_many_arguments)]
   fn new(
-    lat_shift: i32,
-    lon_shift: i32,
+    lat_shift: u32,
+    lon_shift: u32,
     lat_base: i32,
     lon_base: i32,
     max_lat_delta: i32,
@@ -379,7 +379,7 @@ impl DistancePredicate {
 
     let mut lon2 = ((lon.wrapping_sub(i32::MIN)) as u32 >> self.base.lon_shift) as i32;
     if lon2 < self.base.lon_base {
-      lon2 = lon2.wrapping_add(1i32.wrapping_shl((32 - self.base.lon_shift) as u32));
+      lon2 = lon2.wrapping_add(1i32.wrapping_shl(32 - self.base.lon_shift));
     }
 
     debug_assert!((lon2 as u32) >= (self.base.lon_base as u32));
@@ -450,16 +450,14 @@ where
     for j in 0..max_lon_delta {
       let box_min_lat = lat_base
         .wrapping_add(i)
-        .wrapping_shl(lat_shift as u32)
+        .wrapping_shl(lat_shift)
         .wrapping_add(i32::MIN);
       let box_min_lon = lon_base
         .wrapping_add(j)
-        .wrapping_shl(lon_shift as u32)
+        .wrapping_shl(lon_shift)
         .wrapping_add(i32::MIN);
-      let box_max_lat =
-        box_min_lat.wrapping_add(1i32.wrapping_shl(lat_shift as u32).wrapping_sub(1));
-      let box_max_lon =
-        box_min_lon.wrapping_add(1i32.wrapping_shl(lon_shift as u32).wrapping_sub(1));
+      let box_max_lat = box_min_lat.wrapping_add(1i32.wrapping_shl(lat_shift).wrapping_sub(1));
+      let box_max_lon = box_min_lon.wrapping_add(1i32.wrapping_shl(lon_shift).wrapping_sub(1));
       let rect = Rectangle::new(
         GeoEncodingUtils::decode_latitude(box_min_lat),
         GeoEncodingUtils::decode_latitude(box_max_lat),
@@ -481,7 +479,7 @@ where
   )
 }
 
-fn compute_shift(a: i64, b: i64) -> i32 {
+fn compute_shift(a: i64, b: i64) -> u32 {
   debug_assert!(a <= b);
   let mut shift = 1;
   loop {
@@ -501,8 +499,8 @@ pub struct Component2DPredicate<C> {
 impl<C> Component2DPredicate<C> {
   #[allow(clippy::too_many_arguments)]
   fn new(
-    lat_shift: i32,
-    lon_shift: i32,
+    lat_shift: u32,
+    lon_shift: u32,
     lat_base: i32,
     lon_base: i32,
     max_lat_delta: i32,
@@ -542,7 +540,7 @@ where
 
     let mut lon2 = ((lon.wrapping_sub(i32::MIN) as u32) >> base.lon_shift) as i32;
     if lon2 < base.lon_base {
-      lon2 = lon2.wrapping_add(1i32.wrapping_shl((32 - base.lon_shift) as u32));
+      lon2 = lon2.wrapping_add(1i32.wrapping_shl(32 - base.lon_shift));
     }
 
     debug_assert!((lon2 as u32) >= (base.lon_base as u32));

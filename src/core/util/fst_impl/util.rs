@@ -273,7 +273,7 @@ impl Util {
               ));
             }
 
-            let arc_color = if arc.flag(BIT_TARGET_NEXT as i32) {
+            let arc_color = if arc.flag(BIT_TARGET_NEXT) {
               "red"
             } else {
               "black"

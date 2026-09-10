@@ -439,7 +439,7 @@ pub struct BlockPostingsEnum<I> {
   offset_start_delta_buffer: Vec<i32>,
   offset_length_buffer: Vec<i32>,
   payload_byte_upto: usize,
-  payload_length: i32,
+  payload_length: usize,
 
   last_start_offset: i32,
   start_offset: i32,
@@ -1376,16 +1376,16 @@ where
   }
   fn accumulate_payload_and_offsets(&mut self) -> Result<()> {
     if self.needs_payloads {
-      self.payload_length = self.payload_length_buffer[self.pos_buffer_upto];
+      self.payload_length = self.payload_length_buffer[self.pos_buffer_upto] as usize;
       let payload = self
         .payload
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
       payload.offset = self.payload_byte_upto;
-      payload.length = self.payload_length as usize;
+      payload.length = self.payload_length;
       // TODO IMPORTANT could we avoid copying the payload?
       payload.bytes.clone_from(&self.payload_bytes);
-      self.payload_byte_upto += self.payload_length as usize;
+      self.payload_byte_upto += self.payload_length;
     }
 
     if self.needs_offsets {

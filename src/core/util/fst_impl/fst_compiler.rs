@@ -435,17 +435,17 @@ where
           let mut flags = 0;
 
           if arc_idx == last_arc {
-            flags |= BIT_LAST_ARC as i32;
+            flags |= BIT_LAST_ARC;
           }
 
           if self.last_frozen_node == target.node && !do_fixed_length_arcs {
-            flags |= BIT_TARGET_NEXT as i32;
+            flags |= BIT_TARGET_NEXT;
           }
 
           if arc.is_final {
-            flags |= BIT_FINAL_ARC as i32;
+            flags |= BIT_FINAL_ARC;
             if !self.no_output.is_same_reference(&arc.next_final_output) {
-              flags |= BIT_ARC_HAS_FINAL_OUTPUT as i32;
+              flags |= BIT_ARC_HAS_FINAL_OUTPUT;
             }
           } else {
             debug_assert!(self.no_output.is_same_reference(&arc.next_final_output));
@@ -457,10 +457,10 @@ where
           }
 
           if !self.no_output.is_same_reference(&arc.output) {
-            flags |= BIT_ARC_HAS_OUTPUT as i32;
+            flags |= BIT_ARC_HAS_OUTPUT;
           }
 
-          self.scratch_bytes.write_byte(flags as u8)?;
+          self.scratch_bytes.write_byte(flags)?;
 
           let label_start = self.scratch_bytes.get_position();
           // this code should be keep same with `self.write_label`;
@@ -498,7 +498,7 @@ where
               .write_final_output(&arc.next_final_output, &mut self.scratch_bytes)?;
           }
 
-          if target_has_arcs && (flags & BIT_TARGET_NEXT as i32) == 0 {
+          if target_has_arcs && (flags & BIT_TARGET_NEXT) == 0 {
             self.scratch_bytes.write_vlong(target.node)?;
           }
 

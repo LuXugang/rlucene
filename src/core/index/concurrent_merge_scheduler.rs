@@ -93,7 +93,7 @@ const START_MB_PER_SEC: f64 = 20.0;
  * Merges below this size are not counted in the max_thread_count, i.e. they can freely run in their
  * own thread (up until max_merge_count).
  */
-const MIN_BIG_MERGE_MB: f64 = 50.0;
+const MIN_BIG_MERGE_MB: i64 = 50;
 
 /// A [`MergeScheduler`] that runs each merge using a separate thread.
 ///
@@ -982,8 +982,7 @@ impl ConcurrentMergeSchedulerDefaults {
     CR: CodecReader,
   {
     // Don't do multithreaded merges for small merges.
-    if merge.estimated_merge_bytes.load(Ordering::SeqCst) < (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
-    {
+    if merge.estimated_merge_bytes.load(Ordering::SeqCst) < MIN_BIG_MERGE_MB * 1024 * 1024 {
       Ok(Arc::new(TaskExecutor::direct()))
     } else {
       scheduler.get_parallel_merge_executor()
@@ -1026,8 +1025,7 @@ impl ConcurrentMergeSchedulerDefaults {
 
     for thread_idx in (0..active_merge_count).rev() {
       let merge_thread = &inner.merge_threads[active_merges[thread_idx]];
-      if merge_thread.estimated_merge_bytes.load(Ordering::SeqCst)
-        > (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
+      if merge_thread.estimated_merge_bytes.load(Ordering::SeqCst) > MIN_BIG_MERGE_MB * 1024 * 1024
       {
         big_merge_count = 1 + thread_idx;
         break;
@@ -1048,7 +1046,7 @@ impl ConcurrentMergeSchedulerDefaults {
       } else if !inner.do_auto_io_throttle {
         f64::INFINITY
       } else if merge_thread.estimated_merge_bytes.load(Ordering::SeqCst)
-        < (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
+        < MIN_BIG_MERGE_MB * 1024 * 1024
       {
         // Don't rate limit small merges:
         f64::INFINITY
@@ -1692,8 +1690,7 @@ impl ConcurrentMergeScheduler {
     for other in &inner.merge_threads {
       if other.is_alive()
         && !Arc::ptr_eq(other, merge_thread)
-        && other.estimated_merge_bytes.load(Ordering::SeqCst)
-          >= (MIN_BIG_MERGE_MB as i64) * 1024 * 1024
+        && other.estimated_merge_bytes.load(Ordering::SeqCst) >= MIN_BIG_MERGE_MB * 1024 * 1024
         && now
           .saturating_duration_since(*other.merge_start_ns.lock())
           .as_secs_f64()
@@ -1725,7 +1722,7 @@ impl ConcurrentMergeScheduler {
         .estimated_merge_bytes
         .load(Ordering::SeqCst),
     );
-    if merge_mb < MIN_BIG_MERGE_MB {
+    if merge_mb < MIN_BIG_MERGE_MB as f64 {
       // Only watch non-trivial merges for throttling; this is safe because the MP must eventually
       // have to do larger merges:
       return Ok(());

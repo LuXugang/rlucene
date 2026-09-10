@@ -27,7 +27,7 @@ pub(crate) struct ApproximatePriorityQueue<T> {
   pub(crate) slots: Vec<Option<T>>,
   /// A bitset where ones indicate that the corresponding index in `slots` is
   /// taken.
-  used_slots: i64,
+  used_slots: u64,
 }
 impl<T> ApproximatePriorityQueue<T> {
   const SPARSE_SLOTS: usize = i64::BITS as usize;
@@ -51,15 +51,13 @@ where
     // The expected slot of an item is the number of leading zeros of its
     // weight, ie. the larger the weight, the closer an item is to
     // the start of the array.
-    let expected_slot = weight.leading_zeros() as usize;
+    let expected_slot = weight.leading_zeros();
     // If the slot is already taken, we look for the next one that is free.
     // The above bitwise operation is equivalent to looping over slots until
     // finding one that is free.
-    let free_slots = !self.used_slots as u64;
-    let offset = free_slots
-      .wrapping_shr(expected_slot as u32)
-      .trailing_zeros() as usize;
-    let destination_slot = expected_slot + offset;
+    let free_slots = !self.used_slots;
+    let offset = free_slots.wrapping_shr(expected_slot).trailing_zeros();
+    let destination_slot = (expected_slot + offset) as usize;
 
     if destination_slot < Self::SPARSE_SLOTS {
       self.used_slots |= 1 << destination_slot;
@@ -80,8 +78,7 @@ where
     // Look at indexes 0..63 first, which are sparsely populated.
     let mut next_slot = 0;
     while next_slot < Self::SPARSE_SLOTS {
-      let next_used_slot =
-        next_slot + (self.used_slots as u64 >> next_slot).trailing_zeros() as usize;
+      let next_used_slot = next_slot + (self.used_slots >> next_slot).trailing_zeros() as usize;
       if next_used_slot >= Self::SPARSE_SLOTS {
         break;
       }
@@ -129,7 +126,7 @@ where
       .position(|slot| slot.as_ref().is_some_and(|v| v.id() == o))?;
 
     if index < Self::SPARSE_SLOTS {
-      self.used_slots &= !(1i64 << index);
+      self.used_slots &= !(1u64 << index);
       self.slots[index].take()
     } else {
       self.slots.remove(index)

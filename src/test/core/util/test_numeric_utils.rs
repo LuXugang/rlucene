@@ -705,8 +705,8 @@ fn test_ints_compare() -> Result<()> {
     let right_value = random.random::<i32>();
     NumericUtils::int_to_sortable_bytes(left_value, left.bytes.as_mut_slice(), left.offset);
     NumericUtils::int_to_sortable_bytes(right_value, right.bytes.as_mut_slice(), right.offset);
-    let expected_sign = left_value.cmp(&right_value) as i32;
-    let actual_sign = left.cmp(&right) as i32;
+    let expected_sign = left_value.cmp(&right_value);
+    let actual_sign = left.cmp(&right);
     assert_eq!(
       expected_sign, actual_sign,
       "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",
@@ -729,8 +729,8 @@ fn test_longs_compare() -> Result<()> {
     let right_value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
     NumericUtils::long_to_sortable_bytes(left_value, left.bytes.as_mut_slice(), left.offset);
     NumericUtils::long_to_sortable_bytes(right_value, right.bytes.as_mut_slice(), right.offset);
-    let expected_sign = left_value.cmp(&right_value) as i32;
-    let actual_sign = left.cmp(&right) as i32;
+    let expected_sign = left_value.cmp(&right_value);
+    let actual_sign = left.cmp(&right);
     assert_eq!(
       expected_sign, actual_sign,
       "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",
@@ -802,8 +802,8 @@ fn test_doubles_compare() -> Result<()> {
       &mut right.bytes,
       right.offset,
     );
-    let expected_sign = CoreHelper::compare_f64(left_value, right_value) as i32;
-    let actual_sign = left.cmp(&right) as i32;
+    let expected_sign = CoreHelper::compare_f64(left_value, right_value);
+    let actual_sign = left.cmp(&right);
 
     // Assert that the numerical comparison matches the lexicographic
     // comparison
@@ -830,8 +830,8 @@ fn test_big_ints_compare() -> Result<()> {
     NumericUtils::big_int_to_sortable_bytes(&left_value, max_length, &mut left.bytes, 0)?;
     let mut right = BytesRef::from_bytes(vec![0u8; max_length]);
     NumericUtils::big_int_to_sortable_bytes(&right_value, max_length, &mut right.bytes, 0)?;
-    let expected_sign = left_value.cmp(&right_value) as i32;
-    let actual_sign = left.cmp(&right) as i32;
+    let expected_sign = left_value.cmp(&right_value);
+    let actual_sign = left.cmp(&right);
     assert_eq!(
       expected_sign, actual_sign,
       "Mismatch between numerical and lexicographic comparison for left: {}, right: {}",

@@ -5785,7 +5785,7 @@ fn test_pending_num_docs() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let num_docs = random.random_range(0..100);
+  let num_docs = random.random_range(0..100i32) as i64;
 
   {
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
@@ -5793,17 +5793,17 @@ fn test_pending_num_docs() -> Result<()> {
       let mut d = Document::new();
       d.add(StringField::from_string("id", i.to_string(), Store::Yes)?);
       writer.add_document(d)?;
-      assert_eq!(i as i64 + 1, writer.get_pending_num_docs());
+      assert_eq!(i + 1, writer.get_pending_num_docs());
     }
-    assert_eq!(num_docs as i64, writer.get_pending_num_docs());
+    assert_eq!(num_docs, writer.get_pending_num_docs());
     writer.flush()?;
-    assert_eq!(num_docs as i64, writer.get_pending_num_docs());
+    assert_eq!(num_docs, writer.get_pending_num_docs());
     writer.close()?;
   }
 
   {
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
-    assert_eq!(num_docs as i64, writer.get_pending_num_docs());
+    assert_eq!(num_docs, writer.get_pending_num_docs());
     writer.close()?;
   }
   Ok(())

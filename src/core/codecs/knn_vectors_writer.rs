@@ -353,7 +353,7 @@ where
 
   let mut old_doc_id = iterator.next_doc()?;
   while old_doc_id != NO_MORE_DOCS {
-    let new_id = sort_map.old_to_new(old_doc_id)? as usize;
+    let new_id = sort_map.old_to_new(old_doc_id)?;
     new_id_to_old_ord.insert(new_id, old_ord);
     new_doc_ids[old_ord] = new_id;
     old_ord += 1;
@@ -377,7 +377,7 @@ where
     }
 
     if let Some(set) = new_docs_with_field.as_mut() {
-      set.add(new_doc_id as i32)?;
+      set.add(new_doc_id)?;
     }
   }
 

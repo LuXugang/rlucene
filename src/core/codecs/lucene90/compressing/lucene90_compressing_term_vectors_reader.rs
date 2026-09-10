@@ -353,10 +353,7 @@ where
   }
   pub(crate) fn is_loaded(&self, doc_id: i32) -> bool {
     let bs = &self.block_state;
-    let doc_base = match bs.doc_base {
-      Some(v) => v as i32,
-      None => -1,
-    };
+    let doc_base = bs.doc_base.unwrap_or(-1);
     doc_base <= doc_id && doc_id < doc_base + bs.chunk_docs
   }
   fn position_index<T>(
@@ -512,7 +509,7 @@ where
         doc_base, chunk_docs, doc, self.vectors_stream
       )));
     }
-    self.block_state = BlockState::new(Some(start_pointer), Some(doc_base as usize), chunk_docs);
+    self.block_state = BlockState::new(Some(start_pointer), Some(doc_base), chunk_docs);
     let mut reader =
       BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
     let (skip, num_fields, total_fields) = if chunk_docs == 1 {
@@ -1016,15 +1013,11 @@ where
 
 struct BlockState {
   start_pointer: Option<usize>,
-  doc_base: Option<usize>,
+  doc_base: Option<i32>,
   chunk_docs: i32,
 }
 impl BlockState {
-  pub(crate) fn new(
-    start_pointer: Option<usize>,
-    doc_base: Option<usize>,
-    chunk_docs: i32,
-  ) -> Self {
+  pub(crate) fn new(start_pointer: Option<usize>, doc_base: Option<i32>, chunk_docs: i32) -> Self {
     BlockState {
       start_pointer,
       doc_base,

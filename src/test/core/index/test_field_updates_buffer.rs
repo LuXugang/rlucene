@@ -104,10 +104,10 @@ pub fn test_basics() -> Result<()> {
 fn test_update_share_values() -> Result<()> {
   let mut random = random();
   let counter = Arc::new(AtomicCounter::new());
-  let int_value = random.random::<i32>();
+  let int_value = random.random::<i32>() as i64;
   let value_for_three = random.random_bool(0.5);
   let sub_update =
-    DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(int_value as i64)));
+    DocValuesUpdateEnum::Numeric(NumericDocValuesUpdate::new(Option::from(int_value)));
   let update = DocValuesUpdate::new(
     DocValuesType::Numeric,
     Term::from_text("id", "0"),
@@ -116,14 +116,14 @@ fn test_update_share_values() -> Result<()> {
     sub_update,
   );
   let mut buffer = FieldUpdatesBuffer::from_numeric_update(counter.clone(), &update, i32::MAX)?;
-  buffer.add_update_with_long(&Term::from_text("id", "1"), int_value as i64, i32::MAX)?;
-  buffer.add_update_with_long(&Term::from_text("id", "2"), int_value as i64, i32::MAX)?;
+  buffer.add_update_with_long(&Term::from_text("id", "1"), int_value, i32::MAX)?;
+  buffer.add_update_with_long(&Term::from_text("id", "2"), int_value, i32::MAX)?;
   if value_for_three {
-    buffer.add_update_with_long(&Term::from_text("id", "3"), int_value as i64, i32::MAX)?;
+    buffer.add_update_with_long(&Term::from_text("id", "3"), int_value, i32::MAX)?;
   } else {
     buffer.add_no_value(&Term::from_text("id", "3"), i32::MAX)?;
   }
-  buffer.add_update_with_long(&Term::from_text("id", "4"), int_value as i64, i32::MAX)?;
+  buffer.add_update_with_long(&Term::from_text("id", "4"), int_value, i32::MAX)?;
   buffer.finish()?;
 
   let mut iterator = buffer.iterator()?;
@@ -137,7 +137,7 @@ fn test_update_share_values() -> Result<()> {
     assert_eq!("id", value.term_field);
     assert_eq!(has_value, value.has_value);
     if has_value {
-      assert_eq!(int_value as i64, value.numeric_value);
+      assert_eq!(int_value, value.numeric_value);
     } else {
       assert_eq!(0, value.numeric_value);
     }

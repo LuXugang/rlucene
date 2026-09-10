@@ -4442,7 +4442,7 @@ where
   D: DocMap,
 {
   let doc_map_size = doc_map.size() as usize;
-  let mut doc_to_ord = vec![0usize; doc_map_size];
+  let mut doc_to_ord = vec![0i32; doc_map_size];
   let mut doc_bits = FixedBitSet::new(doc_map_size);
   let mut count = 0usize;
 
@@ -4454,7 +4454,7 @@ where
     let new_doc_id = doc_map.old_to_new(doc)?;
     if new_doc_id != -1 {
       let new_doc_id = new_doc_id as usize;
-      doc_to_ord[new_doc_id] = iter.index()? as usize;
+      doc_to_ord[new_doc_id] = iter.index()?;
       doc_bits.set(new_doc_id)?;
       count += 1;
     }
@@ -4465,12 +4465,12 @@ where
 }
 pub struct SortingValuesIterator {
   docs_with_values: BitSetIterator<Arc<FixedBitSet>>,
-  doc_to_ord: Arc<Vec<usize>>,
+  doc_to_ord: Arc<Vec<i32>>,
   doc: i32,
 }
 
 impl SortingValuesIterator {
-  pub fn new(doc_bits: Arc<FixedBitSet>, doc_to_ord: Arc<Vec<usize>>, size: i32) -> Result<Self> {
+  pub fn new(doc_bits: Arc<FixedBitSet>, doc_to_ord: Arc<Vec<i32>>, size: i32) -> Result<Self> {
     let docs_with_values = BitSetIterator::new(doc_bits, size as i64)?;
     Ok(Self {
       docs_with_values,
@@ -4511,17 +4511,17 @@ impl DocIndexIterator for SortingValuesIterator {
   fn index(&self) -> Result<i32> {
     let doc_index = self.doc as usize;
     debug_assert!(self.docs_with_values.bits.get(doc_index)?);
-    Ok(self.doc_to_ord[doc_index] as i32)
+    Ok(self.doc_to_ord[doc_index])
   }
 }
 pub struct SortingIteratorSupplier {
   doc_bits: Arc<FixedBitSet>,
-  doc_to_ord: Arc<Vec<usize>>,
+  doc_to_ord: Arc<Vec<i32>>,
   size: usize,
 }
 
 impl SortingIteratorSupplier {
-  pub fn new(doc_bits: FixedBitSet, doc_to_ord: Vec<usize>, size: usize) -> Self {
+  pub fn new(doc_bits: FixedBitSet, doc_to_ord: Vec<i32>, size: usize) -> Self {
     Self {
       doc_bits: Arc::new(doc_bits),
       doc_to_ord: Arc::new(doc_to_ord),
