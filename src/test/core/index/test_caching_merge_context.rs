@@ -47,7 +47,7 @@ fn test_num_deletes_to_merge() -> Result<()> {
   let v = caching_merge_context.num_deletes_to_merge(&dummy_commit_info)?;
   assert_eq!(v, 1);
   {
-    let cache = caching_merge_context.cached_num_deletes_to_merge.lock();
+    let cache = caching_merge_context.cached_num_deletes_to_merge.borrow();
     assert_eq!(cache.len(), 1);
     let key = id;
     assert_eq!(cache.get(&key), Some(&1));
@@ -72,7 +72,7 @@ fn test_num_deletes_to_merge() -> Result<()> {
   assert_eq!(v2, 1);
 
   {
-    let cache = caching_merge_context.cached_num_deletes_to_merge.lock();
+    let cache = caching_merge_context.cached_num_deletes_to_merge.borrow();
     assert_eq!(cache.len(), 1);
     let key = dummy_commit_info.info.get_id_key();
     assert_eq!(cache.get(key), Some(&1));

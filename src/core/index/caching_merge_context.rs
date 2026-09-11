@@ -20,7 +20,7 @@ use crate::core::index::segment_commit_info::SegmentCommitInfo;
 use crate::core::store::directory::Directory;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::info_stream::InfoStreamMT;
-use parking_lot::Mutex;
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
 /// A wrapper around the IndexWriter [`MergeContext`](crate::core::index::merge_policy::MergeContext).
@@ -32,13 +32,13 @@ use std::collections::{HashMap, HashSet};
 /// [`SegmentCommitInfo`](crate::core::index::segment_commit_info::SegmentCommitInfo).
 pub(crate) struct CachingMergeContext<'a, T> {
   merge_context: &'a T,
-  pub(crate) cached_num_deletes_to_merge: Mutex<HashMap<String, i32>>,
+  pub(crate) cached_num_deletes_to_merge: RefCell<HashMap<String, i32>>,
 }
 impl<'a, T> CachingMergeContext<'a, T> {
   pub fn new(merge_context: &'a T) -> Self {
     CachingMergeContext {
       merge_context,
-      cached_num_deletes_to_merge: Mutex::new(HashMap::new()),
+      cached_num_deletes_to_merge: RefCell::new(HashMap::new()),
     }
   }
 }
@@ -52,13 +52,13 @@ where
     info: &SegmentCommitInfo<D>,
   ) -> crate::core::util::error::lucene_error::Result<i32> {
     let key = info.info.get_id_key();
-    if let Some(v) = self.cached_num_deletes_to_merge.lock().get(key) {
-      return Ok(*v);
+    if let Some(v) = self.cached_num_deletes_to_merge.borrow().get(key).copied() {
+      return Ok(v);
     }
     let v = self.merge_context.num_deletes_to_merge(info)?;
     self
       .cached_num_deletes_to_merge
-      .lock()
+      .borrow_mut()
       .insert(key.to_string(), v);
     Ok(v)
   }

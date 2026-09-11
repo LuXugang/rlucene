@@ -293,8 +293,7 @@ impl HnswGraphSearcherBase for MergeSearcher {
   where
     T: HnswGraph,
   {
-    let hnsw_lock = self.hnsw_lock.clone();
-    let guard = hnsw_lock.read(level, target_node);
+    let guard = self.hnsw_lock.read(level, target_node);
     let result = graph.with_neighbors(level, target_node, |neighbors| {
       self.node_buffer.clear();
       self

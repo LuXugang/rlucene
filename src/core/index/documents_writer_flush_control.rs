@@ -47,6 +47,7 @@ where
   D: Directory,
 {
   flush_deletes: AtomicBool,
+  closed: AtomicBool,
   pub(crate) info_stream: InfoStreamMT,
   pub(crate) inner: Mutex<Inner<D>>,
   pub(crate) stall_control: DocumentsWriterStallControl,
@@ -85,7 +86,6 @@ where
   // future by
   // polling the flushQueue
   flushing_writers: Vec<Arc<DwptWrapper<D>>>,
-  closed: bool,
   stall_start_ns: Instant,
   // only with assert
   peak_active_bytes: i64,
@@ -119,7 +119,6 @@ where
       flush_queue: VecDeque::new(),
       blocked_flushes: VecDeque::new(),
       flushing_writers: Vec::new(),
-      closed: false,
       stall_start_ns: Instant::now(),
       peak_active_bytes: 0,
       peak_flush_bytes: 0,
@@ -130,6 +129,7 @@ where
 
     Ok(DocumentsWriterFlushControl {
       flush_deletes: AtomicBool::new(false),
+      closed: AtomicBool::new(false),
       info_stream: config.get_info_stream(),
       inner: Mutex::new(inner),
       stall_control: DocumentsWriterStallControl::new(),
@@ -414,7 +414,7 @@ where
     let limit = self.stall_limit_bytes(config);
     let active = inner.active_bytes;
     let flush = inner.flush_bytes;
-    let stall = (active + flush) > limit && active < limit && !inner.closed;
+    let stall = (active + flush) > limit && active < limit && !self.closed.load(Ordering::SeqCst);
 
     if self.info_stream.is_enabled("DWFC") && stall != self.stall_control.any_stalled_threads() {
       if stall {
@@ -619,8 +619,8 @@ where
   }
 
   pub(crate) fn close(&self) {
-    let mut inner = self.inner.lock();
-    inner.closed = true;
+    let _inner = self.inner.lock();
+    self.closed.store(true, Ordering::SeqCst);
   }
 
   pub(crate) fn do_on_delete<L>(&self, config: &L) -> Result<()>
@@ -662,11 +662,8 @@ where
 
   pub(crate) fn obtain_and_lock(&self, writer: &IndexWriter<D>) -> Result<Arc<DwptWrapper<D>>> {
     loop {
-      {
-        let inner = self.inner.lock();
-        if inner.closed {
-          return Err(LuceneError::already_closed("flush control is closed"));
-        }
+      if self.closed.load(Ordering::SeqCst) {
+        return Err(LuceneError::already_closed("flush control is closed"));
       }
       let per_thread = self
         .per_thread_pool

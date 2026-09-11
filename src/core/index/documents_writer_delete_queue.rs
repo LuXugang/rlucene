@@ -370,8 +370,15 @@ impl DocumentsWriterDeleteQueue {
     let _queue_lock = self.queue_lock.lock();
     self.ensure_open()?;
     let mut seq_no = self.get_next_sequence_number();
-    let current_tail = self.tail.lock().clone();
-    if !Arc::ptr_eq(&slice.slice_tail, &current_tail) {
+    let current_tail = {
+      let current_tail = self.tail.lock();
+      if Arc::ptr_eq(&slice.slice_tail, &current_tail) {
+        None
+      } else {
+        Some(current_tail.clone())
+      }
+    };
+    if let Some(current_tail) = current_tail {
       // new deletes arrived since we last checked
       slice.slice_tail = current_tail;
       seq_no = -seq_no;
@@ -604,7 +611,9 @@ impl DeleteSlice {
   }
   pub(crate) fn reset(&mut self) {
     // Reset to a 0 length slice
-    self.slice_head = self.slice_tail.clone();
+    if !Arc::ptr_eq(&self.slice_head, &self.slice_tail) {
+      self.slice_head = self.slice_tail.clone();
+    }
   }
   /// Returns `true` if the given node is the slice's tail.
   pub(crate) fn is_tail(&self, node: &Arc<Node>) -> bool {

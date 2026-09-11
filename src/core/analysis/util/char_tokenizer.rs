@@ -112,28 +112,18 @@ where
       let c = self.io_buffer.get_buffer()[self.buffer_index];
       self.buffer_index += 1;
       if self.sub.is_token_char(&c) {
+        let att = &mut self.tokenizer_base.token_stream_base.att;
+        let mut buffer = att.buffer_mut()?;
         if length == 0 {
           // start of token
           debug_assert_eq!(start, -1);
           start = self.offset + self.buffer_index as i32 - 1;
           end = start;
-        } else if length
-          >= self
-            .tokenizer_base
-            .token_stream_base
-            .att
-            .buffer_mut()?
-            .len()
-            - 1
-        {
-          self
-            .tokenizer_base
-            .token_stream_base
-            .att
-            .resize_buffer(2 + length)?;
+        } else if length >= buffer.len() - 1 {
+          buffer = att.resize_buffer(2 + length)?;
         }
 
-        self.tokenizer_base.token_stream_base.att.buffer_mut()?[length] = c;
+        buffer[length] = c;
         length += 1;
         end += 1;
 

@@ -2985,6 +2985,7 @@ impl OneMergeProgress {
   where
     F: Fn() -> bool,
   {
+    #[cfg(debug_assertions)]
     {
       let owner = self.owner.lock();
       let current_id = thread::current().id();
