@@ -271,8 +271,9 @@ impl PackedInts {
   ///
   /// # Returns
   /// The number of bits required to store `bits`.
-  pub fn unsigned_bits_required(bits: i64) -> i32 {
-    (64 - bits.leading_zeros()).max(1) as i32
+  pub const fn unsigned_bits_required(bits: i64) -> i32 {
+    let num_bits = 64 - bits.leading_zeros();
+    if num_bits < 1 { 1 } else { num_bits as i32 }
   }
 
   /// Calculates the maximum unsigned long that can be expressed with the
@@ -285,7 +286,7 @@ impl PackedInts {
   /// # Returns
   ///
   /// The maximum value for the given number of bits.
-  pub fn max_value(bits_per_value: i32) -> i64 {
+  pub const fn max_value(bits_per_value: i32) -> i64 {
     if bits_per_value == 64 {
       i64::MAX
     } else {

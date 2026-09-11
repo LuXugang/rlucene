@@ -53,14 +53,9 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 
 /// [`StoredFieldsWriter`] implementation for
 /// [`Lucene90CompressingStoredFieldsFormat`](crate::core::codecs::lucene90::compressing::lucene90_compressing_stored_fields_format::Lucene90CompressingStoredFieldsFormat).
-pub(crate) static TYPE_BITS: LazyLock<i32> = LazyLock::new(|| {
-  expect_invariant!(
-    PackedInts::bits_required(NUMERIC_DOUBLE as i64),
-    "NUMERIC_DOUBLE is a fixed valid stored-fields type identifier",
-  )
-});
-
-pub(crate) static TYPE_MASK: LazyLock<i64> = LazyLock::new(|| PackedInts::max_value(*TYPE_BITS));
+// NUMERIC_DOUBLE is a fixed non-negative identifier, so use bits_required's shared calculation.
+pub(crate) const TYPE_BITS: i32 = PackedInts::unsigned_bits_required(NUMERIC_DOUBLE as i64);
+pub(crate) const TYPE_MASK: i64 = PackedInts::max_value(TYPE_BITS);
 pub struct Lucene90CompressingStoredFieldsWriter<D>
 where
   D: Directory,
@@ -558,7 +553,7 @@ where
 
   fn write_field_i32(&mut self, info: &FieldInfo, value: i32) -> Result<()> {
     self.num_stored_fields_in_doc += 1;
-    let info_and_bits = ((info.number as i64) << *TYPE_BITS) | NUMERIC_INT as i64;
+    let info_and_bits = ((info.number as i64) << TYPE_BITS) | NUMERIC_INT as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     self.buffered_docs.write_zint(value)?;
     Ok(())
@@ -566,7 +561,7 @@ where
 
   fn write_field_i64(&mut self, info: &FieldInfo, value: i64) -> Result<()> {
     self.num_stored_fields_in_doc += 1;
-    let info_and_bits = ((info.number as i64) << *TYPE_BITS) | NUMERIC_LONG as i64;
+    let info_and_bits = ((info.number as i64) << TYPE_BITS) | NUMERIC_LONG as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     write_tlong(&mut self.buffered_docs, value)?;
     Ok(())
@@ -574,7 +569,7 @@ where
 
   fn write_field_f32(&mut self, info: &FieldInfo, value: f32) -> Result<()> {
     self.num_stored_fields_in_doc += 1;
-    let info_and_bits = ((info.number as i64) << *TYPE_BITS) | NUMERIC_FLOAT as i64;
+    let info_and_bits = ((info.number as i64) << TYPE_BITS) | NUMERIC_FLOAT as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     write_zfloat(&mut self.buffered_docs, value)?;
     Ok(())
@@ -582,7 +577,7 @@ where
 
   fn write_field_f64(&mut self, info: &FieldInfo, value: f64) -> Result<()> {
     self.num_stored_fields_in_doc += 1;
-    let info_and_bits = ((info.number as i64) << *TYPE_BITS) | NUMERIC_DOUBLE as i64;
+    let info_and_bits = ((info.number as i64) << TYPE_BITS) | NUMERIC_DOUBLE as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     write_zdouble(&mut self.buffered_docs, value)?;
     Ok(())
@@ -597,7 +592,7 @@ where
     DI: DataInput,
   {
     self.num_stored_fields_in_doc += 1;
-    let info_and_bits = ((info.number as i64) << *TYPE_BITS) | BYTE_ARR as i64;
+    let info_and_bits = ((info.number as i64) << TYPE_BITS) | BYTE_ARR as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     self.buffered_docs.write_vint(length as i32)?;
     self.buffered_docs.copy_bytes(value, length)?;
@@ -606,7 +601,7 @@ where
 
   fn write_field_bytes(&mut self, info: &FieldInfo, value: &BytesRef<Vec<u8>>) -> Result<()> {
     self.num_stored_fields_in_doc += 1;
-    let info_and_bits = ((info.number as i64) << *TYPE_BITS) | BYTE_ARR as i64;
+    let info_and_bits = ((info.number as i64) << TYPE_BITS) | BYTE_ARR as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     self.buffered_docs.write_vint(value.length as i32)?;
     self
@@ -617,7 +612,7 @@ where
 
   fn write_field_str(&mut self, info: &FieldInfo, value: &str) -> Result<()> {
     self.num_stored_fields_in_doc += 1;
-    let info_and_bits = ((info.number as i64) << *TYPE_BITS) | STRING as i64;
+    let info_and_bits = ((info.number as i64) << TYPE_BITS) | STRING as i64;
     self.buffered_docs.write_vlong(info_and_bits)?;
     self.buffered_docs.write_string(value)?;
     Ok(())

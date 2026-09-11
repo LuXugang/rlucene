@@ -305,7 +305,7 @@ where
     DI: DataInput,
     V: StoredFieldVisitor,
   {
-    match bits & *TYPE_MASK as i32 {
+    match bits & TYPE_MASK as i32 {
       BYTE_ARR => {
         let length = input.read_vint()? as usize;
         visitor.binary_field_with_input(info, input, length, writer)?;
@@ -342,7 +342,7 @@ where
   where
     DI: DataInput,
   {
-    match bits & *TYPE_MASK as i32 {
+    match bits & TYPE_MASK as i32 {
       BYTE_ARR | STRING => {
         let length = input.read_vint()?;
         input.skip_bytes(length as i64)?;
@@ -503,9 +503,9 @@ where
     let mut doc = self.serialized_document(doc_id)?;
     for field_idx in 0..doc.num_stored_fields {
       let info_and_bits = doc.input.read_vlong()?;
-      let field_number = ((info_and_bits as u64 >> *TYPE_BITS) as i64) as i32;
+      let field_number = ((info_and_bits as u64 >> TYPE_BITS) as i64) as i32;
       let field_info = field_infos.field_info_by_number(field_number)?;
-      let bits = (info_and_bits & *TYPE_MASK) as i32;
+      let bits = (info_and_bits & TYPE_MASK) as i32;
 
       debug_assert!(
         bits <= NUMERIC_DOUBLE,
