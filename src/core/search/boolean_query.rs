@@ -33,6 +33,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::sync::Arc;
 
 /// A query that matches documents matching boolean combinations of other queries, e.g.
 /// [`TermQuery`]s, [`PhraseQuery`](crate::core::search::phrase_query::PhraseQuery)s or other [`BooleanQuery`]s.
@@ -239,7 +240,7 @@ impl BooleanQuery {
 
       let term_query = if term_query.get_term_states().is_none() {
         let term_states = build(index_searcher, term_query.get_term(), false)?;
-        TermQuery::with_term_state(term_query.get_term().clone(), Some(term_states))
+        TermQuery::with_term_state(term_query.get_term().clone(), Some(Arc::new(term_states)))
       } else {
         term_query
       };

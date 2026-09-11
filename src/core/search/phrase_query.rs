@@ -44,7 +44,6 @@ use crate::core::search::term_query::TermQuery;
 use crate::core::util::HasIdentity;
 use crate::core::util::error::lucene_error::LuceneError;
 use crate::core::util::error::lucene_error::Result;
-use parking_lot::Mutex;
 use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -503,7 +502,7 @@ where
 }
 pub struct PhraseQueryWeightBase {
   query: Arc<PhraseQuery>,
-  states: Vec<Mutex<TermStates>>,
+  states: Vec<TermStates>,
   boost: f32,
   base: PhraseWeightMeta,
 }
@@ -561,7 +560,7 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
         term_up_to += 1;
       }
 
-      self.states.push(Mutex::new(ts));
+      self.states.push(ts);
     }
 
     let v = if term_up_to > 0 {
@@ -614,10 +613,10 @@ impl PhraseWeightBase for PhraseQueryWeightBase {
     for i in 0..self.query.terms.len() {
       let t = &self.query.terms[i];
 
-      let mut supplier = self.states[i].lock().get(context)?;
+      let mut supplier = self.states[i].get(context)?;
       let state = match supplier {
         None => None,
-        Some(ref mut s) => self.states[i].lock().resolve(s)?,
+        Some(ref mut s) => self.states[i].resolve(s)?,
       };
 
       let state = match state {

@@ -237,7 +237,7 @@ where
     let mut term_states = TermStates::new(searcher.get_top_reader_context())?;
     let term = Term::new(field, t.term.clone());
     term_states.register_with_stats(t.state.clone(), context.ord, t.doc_freq, t.total_term_freq);
-    let tq = TermQuery::with_term_state(term, Some(term_states));
+    let tq = TermQuery::with_term_state(term, Some(Arc::new(term_states)));
     builder.add(tq, Occur::Should)?;
   }
 

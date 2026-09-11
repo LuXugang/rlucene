@@ -42,6 +42,7 @@ use crate::test_framework::core::search::multi_term::DumbPrefixQuery;
 #[cfg(test)]
 use crate::test_framework::core::search::multi_term::DumbRegexpQuery;
 use std::fmt::Debug;
+use std::sync::Arc;
 /// A [`Query`] trait that matches documents containing a subset of terms provided by a
 /// [`FilteredTermsEnum`](crate::core::index::filtered_terms_enum::FilteredTermsEnum) enumeration.
 ///
@@ -264,7 +265,7 @@ impl TermCollectingRewrite for TopTermsScoringBooleanQueryRewrite {
     boost: f32,
     states: Option<TermStates>,
   ) -> Result<()> {
-    let tq = TermQuery::with_term_state(term, states);
+    let tq = TermQuery::with_term_state(term, states.map(Arc::new));
     top_level.add(BoostQuery::new(tq, boost)?, Occur::Should)?;
     Ok(())
   }
@@ -332,7 +333,7 @@ impl TermCollectingRewrite for TopTermsBlendedFreqScoringRewrite {
     boost: f32,
     states: Option<TermStates>,
   ) -> Result<()> {
-    top_level.add_with_term_states(term, boost, states)?;
+    top_level.add_with_term_states(term, boost, states.map(Arc::new))?;
     Ok(())
   }
 }
@@ -395,7 +396,7 @@ impl TermCollectingRewrite for TopTermsBoostOnlyBooleanQueryRewrite {
     boost: f32,
     states: Option<TermStates>,
   ) -> Result<()> {
-    let tq = TermQuery::with_term_state(term, states);
+    let tq = TermQuery::with_term_state(term, states.map(Arc::new));
     let q = ConstantScoreQuery::new(tq);
     top_level.add(BoostQuery::new(q, boost)?, Occur::Should)?;
     Ok(())

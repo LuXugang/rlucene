@@ -30,17 +30,21 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 /// Maintains an [`IndexReader`](crate::core::index::index_reader::IndexReader) [`TermState`] view over [`IndexReader`](crate::core::index::index_reader::IndexReader) instances
 /// containing a single term. The [`TermStates`] doesn't track if the given [`TermState`]
 /// objects are valid, neither if the [`TermState`] instances refer to the same terms in the
 /// associated readers.
-#[derive(Default, Clone)]
+///
+/// Share this object through `Arc<TermStates>` rather than cloning its state directory.
+/// Lazy leaf results are published independently; failed lookups leave the slot uninitialized.
+/// Registration, statistics updates and clearing still require exclusive access.
+#[derive(Default)]
 pub struct TermStates {
   identity: Identity,
   pub(crate) top_reader_context_identity: Identity,
-  states: Vec<Option<Arc<TermStateEnum>>>,
+  states: Vec<OnceLock<Arc<TermStateEnum>>>,
   term: Option<Arc<Term>>,
   doc_freq: i32,
   total_term_freq: i64,
@@ -54,7 +58,7 @@ impl TermStates {
     let num_leaves = context.leaves()?.len();
     let mut states = Vec::with_capacity(num_leaves);
     for _ in 0..num_leaves {
-      states.push(None)
+      states.push(OnceLock::new())
     }
     Ok(TermStates {
       identity: Identity::new(),
@@ -98,7 +102,7 @@ impl TermStates {
     self.doc_freq = 0;
     self.total_term_freq = 0;
     for slot in self.states.iter_mut() {
-      *slot = None;
+      slot.take();
     }
   }
   /// Registers and associates a TermState with an leaf ordinal.
@@ -122,11 +126,10 @@ impl TermStates {
   {
     debug_assert!(ord < self.states.len(), "ord {} out of bounds", ord);
     debug_assert!(
-      self.states[ord].is_none(),
+      self.states[ord].get().is_none(),
       "state for ord: {ord} already registered"
     );
-    // wrap with Arc for clone
-    self.states[ord] = Some(state.into());
+    self.states[ord] = OnceLock::from(state.into());
   }
   /// Expert: Accumulate term statistics.
   pub fn accumulate_statistics(&mut self, doc_freq: i32, total_term_freq: i64) {
@@ -155,7 +158,7 @@ impl TermStates {
   /// # Returns
   /// A [`PrepareState`] for a [`TermState`].
   pub fn get<LR>(
-    &mut self,
+    &self,
     ctx: &LeafReaderContext<LR>,
   ) -> Result<Option<PrepareState<LRTermsEnum<LR>>>>
   where
@@ -170,29 +173,31 @@ impl TermStates {
     }
 
     let Some(term) = self.term.as_ref() else {
-      return Ok(if self.states[ctx_ord].is_none() {
+      return Ok(if self.states[ctx_ord].get().is_none() {
         None
       } else {
         Some(PrepareState::Ready(ctx_ord))
       });
     };
 
-    if self.states[ctx_ord].is_none() {
+    if self.states[ctx_ord].get().is_none() {
       let Some(terms) = ctx.reader().terms(term.field())? else {
-        self.states[ctx_ord] = Some(Arc::new(EmptyTermState.into()));
+        // Another reader may have published the same immutable leaf result.
+        let _ = self.states[ctx_ord].set(Arc::new(EmptyTermState.into()));
         return Ok(None);
       };
 
       let mut te = terms.iterator()?;
       let io_boolean_supplier = te.prepare_seek_exact(term.bytes())?;
       if io_boolean_supplier.is_none() {
-        self.states[ctx_ord] = Some(Arc::new(EmptyTermState.into()));
+        // Another reader may have published the same immutable leaf result.
+        let _ = self.states[ctx_ord].set(Arc::new(EmptyTermState.into()));
         return Ok(None);
       }
       return Ok(Some(PrepareState::Pending(term.clone(), ctx_ord, te)));
     }
     let state = self.states[ctx_ord]
-      .as_ref()
+      .get()
       .ok_or_else(|| LuceneError::illegal_state("term state is missing"))?;
     if matches!(state.as_ref(), TermStateEnum::Empty(_)) {
       Ok(None)
@@ -200,35 +205,41 @@ impl TermStates {
       Ok(Some(PrepareState::Ready(ctx_ord)))
     }
   }
-  pub fn resolve<TE>(&mut self, state: &mut PrepareState<TE>) -> Result<Option<Arc<TermStateEnum>>>
+  pub fn resolve<TE>(&self, state: &mut PrepareState<TE>) -> Result<Option<Arc<TermStateEnum>>>
   where
     TE: TermsEnum,
   {
     match state {
-      PrepareState::Ready(ord) => self.states.get(*ord).cloned().ok_or_else(|| {
-        LuceneError::illegal_argument(format!(
-          "leaf ordinal {ord} is out of bounds for {} states",
-          self.states.len()
-        ))
-      }),
+      PrepareState::Ready(ord) => self
+        .states
+        .get(*ord)
+        .map(|slot| slot.get().cloned())
+        .ok_or_else(|| {
+          LuceneError::illegal_argument(format!(
+            "leaf ordinal {ord} is out of bounds for {} states",
+            self.states.len()
+          ))
+        }),
 
       PrepareState::Pending(term, ord, te) => {
         let state_count = self.states.len();
-        let state_slot = self.states.get_mut(*ord).ok_or_else(|| {
+        let state_slot = self.states.get(*ord).ok_or_else(|| {
           LuceneError::illegal_argument(format!(
             "leaf ordinal {ord} is out of bounds for {state_count} states"
           ))
         })?;
-        if state_slot.is_none() {
-          if te.get_prepare_seek_exact_status(term.bytes())? {
-            let state = te.term_state()?;
-            *state_slot = Some(Arc::new(state))
+        if state_slot.get().is_none() {
+          let state = if te.get_prepare_seek_exact_status(term.bytes())? {
+            te.term_state()?
           } else {
-            *state_slot = Some(Arc::new(EmptyTermState.into()))
-          }
+            EmptyTermState.into()
+          };
+          // Publish only after successful I/O. A competing lookup may finish first;
+          // all callers below use the state retained in this leaf's shared slot.
+          let _ = state_slot.set(Arc::new(state));
         }
         let state = state_slot
-          .as_ref()
+          .get()
           .ok_or_else(|| LuceneError::illegal_state("resolved term state is missing"))?;
         if matches!(state.as_ref(), TermStateEnum::Empty(_)) {
           Ok(None)
@@ -275,7 +286,7 @@ impl Display for TermStates {
       writeln!(
         f,
         "  state={}",
-        match state {
+        match state.get() {
           None => "null".to_string(),
           Some(s) => format!("{}", s),
         }
@@ -301,7 +312,7 @@ impl Hash for TermStates {
 impl Accountable for TermStates {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut size = size_of_vec(&self.states);
-    for state in self.states.iter().flatten() {
+    for state in self.states.iter().filter_map(OnceLock::get) {
       size = size.saturating_add(std::mem::size_of_val(state.as_ref()) as i64);
     }
     if let Some(term) = self.term.as_ref() {

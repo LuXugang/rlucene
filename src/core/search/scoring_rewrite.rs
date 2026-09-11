@@ -38,6 +38,7 @@ use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::bytes_ref_hash::{BytesRefHash, BytesStartArray, DirectBytesStartArray};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{ByteBlockPool, SharedCounter};
+use std::sync::Arc;
 /// Base rewrite method that translates each term into a query, and keeps the scores as computed by
 /// the query.
 pub trait ScoringRewrite: TermCollectingRewrite {
@@ -115,7 +116,7 @@ impl TermCollectingRewrite for ScoringBooleanRewrite {
     boost: f32,
     states: Option<TermStates>,
   ) -> Result<()> {
-    let tq = TermQuery::with_term_state(term, states);
+    let tq = TermQuery::with_term_state(term, states.map(Arc::new));
     top_level.add(BoostQuery::new(tq, boost)?, Occur::Should)?;
     Ok(())
   }
@@ -279,7 +280,7 @@ impl BytesStartArray for TermFreqBoostByteStart {
     self.base.init()?;
     let len = self.base.bytes_start.as_slice().len();
     ArrayUtil::grow_no_copy(&mut self.boost, len)?;
-    ArrayUtil::grow_no_copy(&mut self.term_state, len)?;
+    ArrayUtil::grow_with_len(&mut self.term_state, len)?;
     debug_assert!(self.term_state.len() >= len);
     debug_assert!(self.boost.len() >= len);
     Ok(())
@@ -291,9 +292,7 @@ impl BytesStartArray for TermFreqBoostByteStart {
     let len = ord.len();
     ArrayUtil::grow_with_len(&mut self.boost, len)?;
     if self.term_state.len() < len {
-      self
-        .term_state
-        .resize(len, std::default::Default::default());
+      self.term_state.resize_with(len, TermStates::default);
     }
     Ok(())
   }

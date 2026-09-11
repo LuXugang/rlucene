@@ -53,7 +53,6 @@ use crate::core::search::weight::Weight;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::UncheckedIOError;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use parking_lot::Mutex;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -63,7 +62,7 @@ use std::sync::Arc;
 pub struct TermQuery {
   id: Identity,
   pub(crate) term: Arc<Term>,
-  per_reader_term_state: Option<TermStates>,
+  per_reader_term_state: Option<Arc<TermStates>>,
 }
 impl TermQuery {
   pub fn new<T>(term: T) -> Self
@@ -75,7 +74,7 @@ impl TermQuery {
   pub fn get_term(&self) -> Arc<Term> {
     self.term.clone()
   }
-  pub fn with_term_state<T>(term: T, ts: Option<TermStates>) -> Self
+  pub fn with_term_state<T>(term: T, ts: Option<Arc<TermStates>>) -> Self
   where
     T: Into<Arc<Term>>,
   {
@@ -86,7 +85,7 @@ impl TermQuery {
     }
   }
   pub fn get_term_states(&self) -> Option<&TermStates> {
-    self.per_reader_term_state.as_ref()
+    self.per_reader_term_state.as_deref()
   }
 }
 
@@ -152,7 +151,11 @@ impl QueryBase for TermQuery {
     let context = searcher.get_top_reader_context();
     let ts = match self.per_reader_term_state.take() {
       Some(v) if { v.was_built_for_id(&context.base().identity) } => v,
-      _ => build(searcher, self.term.clone(), score_mode.needs_scores())?,
+      _ => Arc::new(build(
+        searcher,
+        self.term.clone(),
+        score_mode.needs_scores(),
+      )?),
     };
     Ok(Box::new(TermWeight::new(
       searcher,
@@ -176,7 +179,7 @@ impl QueryBase for TermQuery {
 pub struct TermWeight {
   similarity: Arc<SimilarityEnum>,
   sim_scorer: Option<Arc<TermQuerySimScorer>>,
-  term_states: Arc<Mutex<TermStates>>,
+  term_states: Arc<TermStates>,
   score_mode: ScoreMode,
   parent_query: Arc<Query>,
 }
@@ -185,7 +188,7 @@ impl TermWeight {
     searcher: &IndexSearcher<IRC>,
     score_mode: ScoreMode,
     boost: f32,
-    term_states: TermStates,
+    term_states: Arc<TermStates>,
     query: TermQuery,
   ) -> Result<Self>
   where
@@ -237,7 +240,7 @@ impl TermWeight {
     Ok(Self {
       similarity,
       sim_scorer,
-      term_states: Arc::new(Mutex::new(term_states)),
+      term_states,
       score_mode,
       parent_query: Arc::new(query.into()),
     })
@@ -250,11 +253,11 @@ impl TermWeight {
     debug_assert!(
       {
         let v = ReaderUtil::get_top_level_context(context);
-        self.term_states.lock().was_built_for(v)
+        self.term_states.was_built_for(v)
       },
       "The top-reader used to create Weight is not the same as the current reader's top-reader"
     );
-    let mut term_states = self.term_states.lock();
+    let term_states = &self.term_states;
     let mut supplier = term_states.get(context)?;
 
     let state = match supplier {
@@ -407,11 +410,11 @@ where
     debug_assert!(
       {
         let v = ReaderUtil::get_top_level_context(context);
-        self.term_states.lock().was_built_for(v)
+        self.term_states.was_built_for(v)
       },
       "The top-reader used to create Weight is not the same as the current reader's top-reader"
     );
-    let state_supplier = self.term_states.lock().get(context)?;
+    let state_supplier = self.term_states.get(context)?;
     let parent_query = if let Query::Term(v) = self.parent_query.as_ref() {
       v
     } else {
@@ -516,7 +519,7 @@ where
   LR: LeafReader,
 {
   top_level_scoring_clause: bool,
-  term_states: Arc<Mutex<TermStates>>,
+  term_states: Arc<TermStates>,
   prepare_state: PrepareState<LRTermsEnum<LR>>,
   term: Arc<Term>,
   sim_scorer: Arc<TermQuerySimScorer>,
@@ -530,7 +533,7 @@ where
   #[allow(clippy::too_many_arguments)]
   pub fn new(
     top_level_scoring_clause: bool,
-    term_states: Arc<Mutex<TermStates>>,
+    term_states: Arc<TermStates>,
     prepare_state: PrepareState<LRTermsEnum<LR>>,
     term: Arc<Term>,
     sim_scorer: Arc<TermQuerySimScorer>,
@@ -549,7 +552,7 @@ where
 
   pub(crate) fn get_terms_enum(&mut self, context: &LeafReaderContext<LR>) -> Result<Option<()>> {
     if self.terms_enum.is_none() {
-      let state_opt = self.term_states.lock().resolve(&mut self.prepare_state)?;
+      let state_opt = self.term_states.resolve(&mut self.prepare_state)?;
       match state_opt {
         None => return Ok(None),
         Some(s) => {

@@ -71,7 +71,6 @@ use crate::core::util::core_helper::{CoreHelper, HasIdentity};
 use crate::core::util::error::UncheckedIOError;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::fmt::{Debug, Formatter};
@@ -268,7 +267,7 @@ impl Hash for TermAndBoost {
 }
 
 struct SynonymWeight {
-  term_states: Arc<Vec<Mutex<TermStates>>>,
+  term_states: Arc<Vec<TermStates>>,
   similarity: Arc<SimilarityEnum>,
   sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
   score_mode: ScoreMode,
@@ -325,7 +324,7 @@ impl SynonymWeight {
     };
 
     Ok(Self {
-      term_states: Arc::new(term_states.into_iter().map(Mutex::new).collect()),
+      term_states: Arc::new(term_states),
       similarity,
       sim_weight,
       score_mode,
@@ -388,7 +387,7 @@ where
 
     let mut prepare_states = Vec::with_capacity(parent_query.terms.len());
     for term_states in self.term_states.iter() {
-      prepare_states.push(term_states.lock().get(context)?);
+      prepare_states.push(term_states.get(context)?);
     }
     let mut supplier = SynonymScorerSupplier::new(
       -1,
@@ -452,7 +451,7 @@ where
         self
           .term_states
           .iter()
-          .all(|term_states| term_states.lock().was_built_for(v))
+          .all(|term_states| term_states.was_built_for(v))
       },
       "The top-reader used to create Weight is not the same as the current reader's top-reader"
     );
@@ -465,7 +464,7 @@ where
 
     let mut prepare_states = Vec::with_capacity(parent_query.terms.len());
     for term_states in self.term_states.iter() {
-      prepare_states.push(term_states.lock().get(context)?);
+      prepare_states.push(term_states.get(context)?);
     }
 
     Ok(Some(Box::new(SynonymScorerSupplier::new(
@@ -1316,7 +1315,7 @@ where
   LR: LeafReader,
 {
   cost: i64,
-  term_states: Arc<Vec<Mutex<TermStates>>>,
+  term_states: Arc<Vec<TermStates>>,
   prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
   query: SynonymQuery,
   sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
@@ -1333,7 +1332,7 @@ where
 {
   fn new(
     cost: i64,
-    term_states: Arc<Vec<Mutex<TermStates>>>,
+    term_states: Arc<Vec<TermStates>>,
     prepare_states: Vec<Option<PrepareState<LRTermsEnum<LR>>>>,
     query: SynonymQuery,
     sim_weight: Option<Arc<SimilarityEnumSimScorer>>,
@@ -1367,7 +1366,7 @@ where
       let Some(mut prepare_state) = self.prepare_states[i].take() else {
         continue;
       };
-      let state = self.term_states[i].lock().resolve(&mut prepare_state)?;
+      let state = self.term_states[i].resolve(&mut prepare_state)?;
       if let Some(state) = state {
         let mut terms_enum = context
           .reader()

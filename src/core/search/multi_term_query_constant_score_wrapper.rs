@@ -41,6 +41,7 @@ use crate::core::util::doc_id_set_builder::{DocIdSetBuilder, DocIdSetBuilderIter
 use crate::core::util::error::lucene_error::Result;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
+use std::sync::Arc;
 
 /// This struct implements the logic behind [`MultiTermQuery::ConstantScoreRewrite`](crate::core::search::multi_term_query::MultiTermQuery::ConstantScoreRewrite).
 ///
@@ -192,7 +193,7 @@ impl RewritingWeightBase for StandardRewritingWeight {
         );
 
         let term = Term::new(field, terms_enum.term()?.into_owned());
-        let tq = TermQuery::with_term_state(term, Some(term_states));
+        let tq = TermQuery::with_term_state(term, Some(Arc::new(term_states)));
         let q = ConstantScoreQuery::new(tq);
 
         let rewritten = searcher.rewrite(q)?;

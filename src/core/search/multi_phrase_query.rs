@@ -444,8 +444,8 @@ impl PhraseWeightBase for MultiPhraseQueryWeightBase {
       let mut posting_enums: Vec<LRPosting<LR>> = Vec::new();
 
       for term in terms {
-        let mut ts = match self.term_states.get(term) {
-          Some(ts) => ts.clone(),
+        let ts = match self.term_states.get(term) {
+          Some(ts) => ts,
           None => continue,
         };
 

@@ -57,7 +57,6 @@ use crate::core::util::ram_usage_estimator::{size_of_hash_map, size_of_string, s
 use crate::sandbox::search::term_automaton_scorer::{EnumAndScorer, TermAutomatonScorer};
 #[cfg(test)]
 use crate::test_framework::core::search::test_term_automaton_query::CustomTermAutomatonQuery;
-use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -575,7 +574,7 @@ impl QueryBase for TermAutomatonQuery {
 
 struct TermAutomatonWeight {
   automaton: Automaton,
-  term_states: Vec<Option<Mutex<TermStates>>>,
+  term_states: Vec<Option<TermStates>>,
   stats: Option<Arc<SimilarityEnumSimScorer>>,
   #[allow(dead_code)]
   // Mirrors Java's retained similarity field, which is only read during construction.
@@ -619,7 +618,7 @@ impl TermAutomatonWeight {
             states.total_term_freq()?,
           )?);
         }
-        term_states.push(Some(Mutex::new(states)));
+        term_states.push(Some(states));
       } else {
         term_states.push(None);
       }
@@ -678,12 +677,9 @@ impl TermAutomatonWeight {
         continue;
       };
       debug_assert!(
-        states
-          .lock()
-          .was_built_for(ReaderUtil::get_top_level_context(context)),
+        states.was_built_for(ReaderUtil::get_top_level_context(context)),
         "The top-reader used to create Weight is not the same as the current reader's top-reader"
       );
-      let mut states = states.lock();
       let mut supplier = states.get(context)?;
       let state = match supplier {
         Some(ref mut supplier) => states.resolve(supplier)?,

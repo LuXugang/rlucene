@@ -37,6 +37,7 @@ use crate::impl_from_for_enum;
 use std::cmp::PartialEq;
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 /// A [`Query`] that blends index statistics across multiple terms. This is particularly useful
 /// when several terms should produce identical scores, regardless of their index statistics.
@@ -53,7 +54,7 @@ use std::hash::{Hash, Hasher};
 pub struct BlendedTermQuery {
   terms: Vec<Term>,
   boosts: Vec<f32>,
-  contexts: Vec<Option<TermStates>>,
+  contexts: Vec<Option<Arc<TermStates>>>,
   rewrite_method: RewriteMethodEnum,
   id: Identity,
 }
@@ -61,7 +62,7 @@ impl BlendedTermQuery {
   fn new(
     mut terms: Vec<Term>,
     mut boosts: Vec<f32>,
-    mut contexts: Vec<Option<TermStates>>,
+    mut contexts: Vec<Option<Arc<TermStates>>>,
     rewrite_method: RewriteMethodEnum,
   ) -> Result<Self> {
     debug_assert!(terms.len() == boosts.len());
@@ -160,11 +161,11 @@ impl QueryBase for BlendedTermQuery {
     for (i, context) in self.contexts.iter().cloned().enumerate() {
       match context {
         Some(v) => contexts.push(v),
-        None => contexts.push(term_states::build(
+        None => contexts.push(Arc::new(term_states::build(
           index_searcher,
           self.terms[i].clone(),
           true,
-        )?),
+        )?)),
       }
     }
 
@@ -181,7 +182,7 @@ impl QueryBase for BlendedTermQuery {
 
     for ctx in &mut contexts {
       let adjusted = adjust_frequencies(top_reader_context, ctx, df, ttf)?;
-      *ctx = adjusted;
+      *ctx = Arc::new(adjusted);
     }
 
     let mut term_queries = Vec::with_capacity(term_len);
@@ -225,13 +226,13 @@ impl QueryBase for BlendedTermQuery {
 struct InPlaceMergeSorterImpl<'a> {
   terms: &'a mut [Term],
   boosts: &'a mut [f32],
-  contexts: &'a mut [Option<TermStates>],
+  contexts: &'a mut [Option<Arc<TermStates>>],
 }
 impl<'a> InPlaceMergeSorterImpl<'a> {
   fn new(
     terms: &'a mut [Term],
     boosts: &'a mut [f32],
-    contexts: &'a mut [Option<TermStates>],
+    contexts: &'a mut [Option<Arc<TermStates>>],
   ) -> Self {
     Self {
       terms,
@@ -257,7 +258,7 @@ pub struct Builder {
   num_terms: usize,
   terms: Vec<Term>,
   boosts: Vec<f32>,
-  contexts: Vec<Option<TermStates>>,
+  contexts: Vec<Option<Arc<TermStates>>>,
   rewrite_method: RewriteMethodEnum,
 }
 
@@ -320,7 +321,7 @@ impl Builder {
     &mut self,
     term: TermInput,
     boost: f32,
-    context: Option<TermStates>,
+    context: Option<Arc<TermStates>>,
   ) -> Result<&mut Self>
   where
     TermInput: Into<Term>,
@@ -452,7 +453,7 @@ impl RewriteMethod for BooleanRewrite {
 }
 fn adjust_frequencies<IRC>(
   reader_context: &IRC,
-  ctx: &mut TermStates,
+  ctx: &TermStates,
   artificial_df: i32,
   artificial_ttf: i64,
 ) -> Result<TermStates>

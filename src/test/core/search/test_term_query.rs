@@ -93,7 +93,11 @@ fn test_equals() -> Result<()> {
     &TermQuery::new(Term::from_text("foo", "bar")).into(),
     &TermQuery::with_term_state(
       Term::from_text("foo", "bar"),
-      Some(build(&searcher, Term::from_text("foo", "bar"), true)?),
+      Some(Arc::new(build(
+        &searcher,
+        Term::from_text("foo", "bar"),
+        true,
+      )?)),
     )
     .into(),
   );
@@ -160,7 +164,11 @@ fn test_create_weight_does_not_seek_if_scores_are_not_needed() -> Result<()> {
   );
   let query_with_context: Query = TermQuery::with_term_state(
     Term::from_text("foo", "bar"),
-    Some(build(&searcher, Term::from_text("foo", "bar"), true)?),
+    Some(Arc::new(build(
+      &searcher,
+      Term::from_text("foo", "bar"),
+      true,
+    )?)),
   )
   .into();
   assert_eq!(
@@ -246,7 +254,11 @@ fn test_get_term_states() -> Result<()> {
 
   let query_with_context = TermQuery::with_term_state(
     Term::from_text("foo", "bar"),
-    Some(build(&searcher, Term::from_text("foo", "bar"), true)?),
+    Some(Arc::new(build(
+      &searcher,
+      Term::from_text("foo", "bar"),
+      true,
+    )?)),
   );
   assert!(query_with_context.get_term_states().is_some());
 

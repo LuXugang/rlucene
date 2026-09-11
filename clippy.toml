@@ -1,0 +1,4 @@
+# TermStates equality and hashing depend only on its private, immutable identity.
+# Publishing lazy leaf caches does not change its identity or any enclosing query key.
+# Keep the default bytes::Bytes exception and audit this entry if Eq/Hash changes.
+ignore-interior-mutability = ["bytes::Bytes", "rlucene::core::index::term_states::TermStates"]
