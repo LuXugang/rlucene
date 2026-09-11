@@ -51,6 +51,12 @@ use std::sync::Arc;
 
 pub type RetentionQuerySupplier = Arc<dyn Fn() -> Result<Query> + Send + Sync>;
 
+type MatchingDocs<D> = fn(
+  Query,
+  DefaultLeafReader<D>,
+  &mut dyn FnMut(&mut dyn DocIdSetIterator) -> Result<()>,
+) -> Result<bool>;
+
 /// This [`MergePolicy`] allows soft-deleted documents to be carried over across merges. The policy
 /// wraps the merge reader and marks documents as "live" that have a value in the soft-delete field
 /// and match the provided query. This allows, for instance, documents to be kept alive based on
@@ -68,7 +74,7 @@ where
   base: OneMergeWrappingMergePolicy<D>,
   field: String,
   retention_query_supplier: RetentionQuerySupplier,
-  matching_docs: fn(Query, DefaultLeafReader<D>) -> Result<Option<FixedBitSet>>,
+  matching_docs: MatchingDocs<D>,
 }
 
 impl<D> Clone for SoftDeletesRetentionMergePolicy<D>
@@ -253,11 +259,17 @@ where
     let reader = reader_supplier()?;
     let max_doc = reader.max_doc()?;
     let all_docs_reader = new_reader_with_live_docs(reader, None, max_doc, None)?;
-    let matches = (self.matching_docs)((self.retention_query_supplier)()?, all_docs_reader)?;
-    // We only need a single hit to keep it; there is no need for soft deletes to be checked.
-    if let Some(matches) = matches
-      && matches.cardinality() > 0
-    {
+    let mut has_match = false;
+    (self.matching_docs)(
+      (self.retention_query_supplier)()?,
+      all_docs_reader,
+      &mut |iterator| {
+        // We only need a single hit; there is no need to check soft deletes.
+        has_match = iterator.next_doc()? != NO_MORE_DOCS;
+        Ok(())
+      },
+    )?;
+    if has_match {
       return Ok(true);
     }
     self.base.keep_fully_deleted_segment(reader_supplier)
@@ -282,20 +294,18 @@ where
         let num_deleted_docs = reader.num_deleted_docs()?;
         let all_docs_reader = new_reader_with_live_docs(reader, None, max_doc, None)?;
         let query = build_retention_query(&self.field, (self.retention_query_supplier)()?)?;
-        let matches = (self.matching_docs)(query, all_docs_reader)?;
-        if let Some(matches) = matches {
-          let mut num_deleted_docs = num_deleted_docs;
-          let mut doc_id = matches.next_set_bit(0);
-          while doc_id != NO_MORE_DOCS as usize {
-            if !live_docs.get(doc_id)? {
+        let mut num_deleted_docs = num_deleted_docs;
+        let has_scorer = (self.matching_docs)(query, all_docs_reader, &mut |iterator| {
+          let mut doc_id = iterator.next_doc()?;
+          while doc_id != NO_MORE_DOCS {
+            if !live_docs.get(doc_id as usize)? {
               num_deleted_docs -= 1;
             }
-            doc_id = if doc_id + 1 >= max_doc as usize {
-              NO_MORE_DOCS as usize
-            } else {
-              matches.next_set_bit(doc_id + 1)
-            };
+            doc_id = iterator.next_doc()?;
           }
+          Ok(())
+        })?;
+        if has_scorer {
           return Ok(num_deleted_docs);
         }
       }
@@ -522,24 +532,25 @@ where
     reader.get_hard_live_docs()?,
   )?;
   let query = build_retention_query(soft_delete_field, retention_query)?;
-  let Some(retained_docs) = matching_docs(query, deleted_reader)? else {
+  let mut new_live_docs = None;
+  let mut extra_live_docs = 0;
+  matching_docs(query, deleted_reader, &mut |iterator| {
+    let mut retained_docs = live_docs.copy_of()?;
+    let mut doc_id = iterator.next_doc()?;
+    while doc_id != NO_MORE_DOCS {
+      if !retained_docs.get(doc_id as usize)? {
+        retained_docs.set(doc_id as usize)?;
+        // If we bring one back to live, we need to account for it.
+        extra_live_docs += 1;
+      }
+      doc_id = iterator.next_doc()?;
+    }
+    new_live_docs = Some(retained_docs);
+    Ok(())
+  })?;
+  let Some(new_live_docs) = new_live_docs else {
     return Ok(reader);
   };
-  let mut new_live_docs = live_docs.copy_of()?;
-  let mut extra_live_docs = 0;
-  let mut doc_id = retained_docs.next_set_bit(0);
-  while doc_id != NO_MORE_DOCS as usize {
-    if !new_live_docs.get(doc_id)? {
-      new_live_docs.set(doc_id)?;
-      // If we bring one back to live, we need to account for it.
-      extra_live_docs += 1;
-    }
-    doc_id = if doc_id + 1 >= max_doc_usize {
-      NO_MORE_DOCS as usize
-    } else {
-      retained_docs.next_set_bit(doc_id + 1)
-    };
-  }
   debug_assert!(reader.num_docs()? + extra_live_docs <= max_doc);
   let num_docs = reader.num_docs()? + extra_live_docs;
   let hard_live_docs = reader.get_hard_live_docs()?;
@@ -553,33 +564,29 @@ fn build_retention_query(soft_delete_field: &str, retention_query: Query) -> Res
   Ok(builder.build().into())
 }
 
-fn matching_docs<D>(query: Query, reader: DefaultLeafReader<D>) -> Result<Option<FixedBitSet>>
+fn matching_docs<D>(
+  query: Query,
+  reader: DefaultLeafReader<D>,
+  consumer: &mut dyn FnMut(&mut dyn DocIdSetIterator) -> Result<()>,
+) -> Result<bool>
 where
   D: Directory + 'static,
 {
-  let max_doc = reader.max_doc()?;
   let mut searcher = IndexSearcher::new(reader.clone().get_context()?)?;
   searcher.set_query_cache(None);
-  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-    || -> Result<Option<FixedBitSet>> {
-      let query = searcher.rewrite(query)?;
-      let weight = searcher.create_weight(query, ScoreMode::CompleteNoScores, 1.0)?;
-      let context = &searcher.get_leaf_contexts()?[0];
-      let mut matches = FixedBitSet::new(max_doc as usize);
-      if let Some(mut scorer) = weight.scorer(context, &searcher)? {
-        loop {
-          let doc_id = scorer.iterator_mut().next_doc()?;
-          if doc_id == NO_MORE_DOCS {
-            break;
-          }
-          matches.set(doc_id as usize)?;
-        }
-        Ok(Some(matches))
-      } else {
-        Ok(None)
-      }
-    },
-  ));
+  let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<bool> {
+    let query = searcher.rewrite(query)?;
+    let weight = searcher.create_weight(query, ScoreMode::CompleteNoScores, 1.0)?;
+    let context = &searcher.get_leaf_contexts()?[0];
+    if let Some(mut scorer) = weight.scorer(context, &searcher)? {
+      // Consume the borrowed iterator while its scorer and searcher are alive.
+      let mut iterator = scorer.iterator_mut();
+      consumer(iterator.as_mut())?;
+      Ok(true)
+    } else {
+      Ok(false)
+    }
+  }));
   drop(searcher);
   let close_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| reader.dec_ref()));
   IOUtils::use_or_suppress_caught_result(result, close_result)
