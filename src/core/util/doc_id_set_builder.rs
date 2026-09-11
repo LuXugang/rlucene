@@ -17,8 +17,8 @@
 use crate::core::index::point_values::PointValues;
 use crate::core::index::terms::Terms;
 use crate::core::search::doc_id_set::DocIdSet;
-use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
+use crate::core::search::doc_id_set_iterator::{BitSetIteratorAccess, DocIdSetIterator};
 use crate::core::util::TryIntoInt;
 use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_doc_id_set::BitDocIdSet;
@@ -234,7 +234,35 @@ impl crate::core::search::doc_id_set_iterator::DocIdSetIteratorExtensions
   for DocIdSetBuilderIterator
 {
 }
-impl crate::core::search::doc_id_set_iterator::BitSetIteratorAccess for DocIdSetBuilderIterator {}
+impl BitSetIteratorAccess for DocIdSetBuilderIterator {
+  fn is_bit_iter(&self) -> bool {
+    match self {
+      Self::BitSet(iterator) => iterator.is_bit_iter(),
+      Self::IntArray(iterator) => iterator.is_bit_iter(),
+    }
+  }
+
+  fn get(&self, index: usize) -> Result<bool> {
+    match self {
+      Self::BitSet(iterator) => iterator.get(index),
+      Self::IntArray(iterator) => iterator.get(index),
+    }
+  }
+
+  fn set_doc_id(&mut self, doc: i32) -> Result<()> {
+    match self {
+      Self::BitSet(iterator) => BitSetIteratorAccess::set_doc_id(iterator, doc),
+      Self::IntArray(iterator) => iterator.set_doc_id(doc),
+    }
+  }
+
+  fn bit_set_length(&self) -> Result<usize> {
+    match self {
+      Self::BitSet(iterator) => iterator.bit_set_length(),
+      Self::IntArray(iterator) => iterator.bit_set_length(),
+    }
+  }
+}
 
 impl DocIdSetIterator for DocIdSetBuilderIterator {
   fn doc_id(&self) -> i32 {
