@@ -45,27 +45,32 @@ where
 {
   /// Creates a new merge-state view from `in_` that only exposes `fields`.
   pub(crate) fn restrict_fields(in_: &'a MS, fields: &[String]) -> Result<Self> {
+    let fields = Arc::new(fields.to_vec());
+    let filtered_names = Arc::new(fields.iter().cloned().collect::<HashSet<_>>());
     let mut field_infos = Vec::with_capacity(in_.field_infos().len());
     for info in in_.field_infos() {
-      field_infos.push(Self::new_filter(info, fields)?);
+      field_infos.push(Self::new_filter(info, &filtered_names)?);
     }
     let mut fields_producers = Vec::with_capacity(in_.fields_producers().len());
     for producer in in_.fields_producers() {
       fields_producers.push(match producer {
-        Some(producer) => Some(FilterFieldsProducer::new(producer, fields.to_vec())),
+        Some(producer) => Some(FilterFieldsProducer::new(producer, fields.clone())),
         None => None,
       });
     }
 
     Ok(Self {
       in_,
-      merge_field_infos: Self::new_filter(in_.merge_field_infos(), fields)?,
+      merge_field_infos: Self::new_filter(in_.merge_field_infos(), &filtered_names)?,
       field_infos,
       fields_producers,
     })
   }
 
-  fn new_filter(src: &FieldInfos, filter_fields: &[String]) -> Result<Arc<FieldInfos>> {
+  fn new_filter(
+    src: &FieldInfos,
+    filtered_names: &Arc<HashSet<String>>,
+  ) -> Result<Arc<FieldInfos>> {
     // Copy all the input FieldInfo objects since the field numbering must be kept consistent
     let mut field_infos = FieldInfos::new(src.iter().cloned().collect())?;
 
@@ -79,8 +84,7 @@ where
     let mut has_doc_values = false;
     let mut has_point_values = false;
 
-    let filtered_names = filter_fields.iter().cloned().collect::<HashSet<_>>();
-    let mut filtered = Vec::with_capacity(filter_fields.len());
+    let mut filtered = Vec::with_capacity(filtered_names.len());
     for fi in src {
       if filtered_names.contains(&fi.name) {
         filtered.push(fi.clone());
@@ -97,7 +101,7 @@ where
     }
 
     field_infos.hook = FieldInfosHook::Filter(FilterFieldInfosHook {
-      filtered_names,
+      filtered_names: filtered_names.clone(),
       filtered,
       filtered_has_vectors: has_vectors,
       filtered_has_postings: has_postings,
@@ -158,7 +162,7 @@ where
     self.in_.intra_merge_task_executor()
   }
 
-  fn get_meta(&self) -> MergeStateMeta<Self::DocMap> {
+  fn get_meta(&self) -> MergeStateMeta<std::rc::Rc<Self::DocMap>> {
     let mut meta = self.in_.get_meta();
     meta.fields_producers_len = self.fields_producers.len();
     meta.merge_field_infos = self.merge_field_infos.clone();
@@ -169,11 +173,11 @@ where
 
 pub(crate) struct FilterFieldsProducer<'a, P> {
   in_: &'a P,
-  filtered: Vec<String>,
+  filtered: Arc<Vec<String>>,
 }
 
 impl<'a, P> FilterFieldsProducer<'a, P> {
-  fn new(in_: &'a P, filtered: Vec<String>) -> Self {
+  fn new(in_: &'a P, filtered: Arc<Vec<String>>) -> Self {
     Self { in_, filtered }
   }
 }

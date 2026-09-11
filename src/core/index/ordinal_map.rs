@@ -24,7 +24,9 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::in_place_merge_sorter::InPlaceMergeSorter;
 use crate::core::util::long_values::{LongValues, LongValuesEnum2, LongValuesEnum3, Zeroes};
 use crate::core::util::packed::mutable_packed64_enum::MutablePacked64Enum;
-use crate::core::util::packed::packed_long_values::{Builder, PackedLongValues};
+use crate::core::util::packed::packed_long_values::{
+  Builder, PackedLongValues, PackedLongValuesIterator,
+};
 use crate::core::util::packed::{Mutable, PackedInts, Reader};
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::ram_usage_estimator::size_of_vec;
@@ -331,14 +333,18 @@ impl OrdinalMap {
     // ordDeltas is typically the bottleneck, so let's see what we can do to make it faster
     let mut segment_to_global_ords = Vec::with_capacity(sub_len);
     ram_bytes_used += size_of_vec(&segment_to_global_ords);
+    let mut identity: Option<Rc<SegmentToGlobalOrds>> = None;
     for i in 0..ord_deltas.len() {
       let deltas = ord_deltas[i].build()?;
       if ord_delta_bits[i] == 0 {
         // segment ords perfectly match global ordinals
         // likely in case of low cardinalities and large segments
-        let global_ords = Rc::new(LongValuesEnum3::A(crate::core::util::long_values::Identity));
-        ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
-        segment_to_global_ords.push(global_ords);
+        let global_ords = identity.get_or_insert_with(|| {
+          let global_ords = Rc::new(LongValuesEnum3::A(crate::core::util::long_values::Identity));
+          ram_bytes_used += mem::size_of_val(global_ords.as_ref()) as i64;
+          global_ords
+        });
+        segment_to_global_ords.push(Rc::clone(global_ords));
       } else {
         let bits_required = if ord_delta_bits[i] < 0 {
           64
@@ -357,7 +363,7 @@ impl OrdinalMap {
           let mut new_deltas =
             PackedInts::get_mutable(size, bits_required, acceptable_overhead_ratio)?;
 
-          let mut it = deltas.iterator()?;
+          let mut it = PackedLongValuesIterator::new(deltas)?;
           for ord in 0..size {
             let v = it.next_value()?;
             new_deltas.set(ord, v)?;

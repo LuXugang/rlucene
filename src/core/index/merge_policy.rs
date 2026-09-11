@@ -245,7 +245,7 @@ where
         for one_merge in merge_spec.merges.into_iter() {
           let mut below_max_full_flush_size = true;
 
-          for seg_id in &one_merge.stat.segments {
+          for seg_id in one_merge.stat.segments.iter() {
             match segment_infos_by_id.get(seg_id.as_str()).copied() {
               Some(sci) => {
                 if self.size(sci, merge_context)? >= self.max_full_flush_merge_size() {
@@ -1863,7 +1863,7 @@ pub struct MergeStat {
   merge_progress: Arc<OneMergeProgress>,
   /// Segments to be merged.
   /// [`SegmentInfo::name`](crate::core::index::segment_info::SegmentInfo::name) and [`SegmentInfo::id`](crate::core::index::segment_info::SegmentInfo::id).
-  pub(crate) segments: Vec<String>,
+  pub(crate) segments: Arc<Vec<String>>,
   pub(crate) merge_gen: i64,
 }
 impl Default for MergeStat {
@@ -1874,7 +1874,7 @@ impl Default for MergeStat {
       state: Arc::new(Mutex::new(MergeStatState::default())),
       completion: Arc::new(MergeCompletion::new()),
       merge_progress: Arc::new(OneMergeProgress::new()),
-      segments: vec![],
+      segments: Arc::new(Vec::new()),
       merge_gen: 0,
     }
   }
@@ -2121,7 +2121,7 @@ where
         state: Arc::new(Mutex::new(MergeStatState::new())),
         completion: Arc::new(MergeCompletion::new()),
         merge_progress,
-        segments: v,
+        segments: Arc::new(v),
         merge_gen: 0,
       },
       info: None,
@@ -2168,7 +2168,7 @@ where
         state: Arc::new(Mutex::new(MergeStatState::new())),
         completion: Arc::new(MergeCompletion::new()),
         merge_progress,
-        segments: Vec::new(),
+        segments: Arc::new(Vec::new()),
         merge_gen: 0,
       },
       info: None,

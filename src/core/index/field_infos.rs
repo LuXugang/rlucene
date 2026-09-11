@@ -65,7 +65,7 @@ pub(crate) enum FieldInfosHook {
 }
 
 pub(crate) struct FilterFieldInfosHook {
-  pub(crate) filtered_names: HashSet<String>,
+  pub(crate) filtered_names: Arc<HashSet<String>>,
   pub(crate) filtered: Vec<Arc<FieldInfo>>,
 
   // Copy of the private fields from FieldInfos

@@ -35,7 +35,8 @@ use std::sync::Arc;
 #[derive(Default)]
 pub struct PagedBytes {
   blocks: Vec<Vec<u8>>,
-  frozen_blocks: Option<Vec<Arc<Vec<u8>>>>,
+  // Share the directory across readers; fill() can independently retain a single page.
+  frozen_blocks: Option<Arc<Vec<Arc<Vec<u8>>>>>,
   num_blocks: usize,
   block_size: usize,
   block_bits: usize,
@@ -168,11 +169,13 @@ impl PagedBytes {
     self.frozen = true;
     self.current_block = None;
 
-    let mut block = Vec::new();
+    let mut block = Vec::with_capacity(self.num_blocks);
     for i in 0..self.num_blocks {
       block.push(Arc::new(std::mem::take(&mut self.blocks[i])));
     }
-    self.frozen_blocks = Some(block);
+    self.frozen_blocks = Some(Arc::new(block));
+    // Frozen readers own the shared page directory; release the emptied write directory.
+    self.blocks = Vec::new();
 
     Reader::new(self)
   }
@@ -234,7 +237,11 @@ impl Accountable for PagedBytes {
   fn ram_bytes_used(&self) -> Result<i64> {
     let mut bytes = size_of_vec(&self.blocks);
     if let Some(frozen_blocks) = &self.frozen_blocks {
-      bytes = bytes.saturating_add(size_of_vec(frozen_blocks));
+      // The shared directory retains its Vec control value and Arc reference counts.
+      bytes = bytes
+        .saturating_add(size_of_vec(frozen_blocks))
+        .saturating_add(mem::size_of::<Vec<Arc<Vec<u8>>>>() as i64)
+        .saturating_add((2 * mem::size_of::<usize>()) as i64);
       if let Some(last_block) = frozen_blocks.last() {
         bytes = bytes
           .saturating_add(
@@ -261,7 +268,7 @@ impl Accountable for PagedBytes {
 /// Provides methods to read BytesRefs from a frozen PagedBytes.
 #[derive(Clone, Default)]
 pub struct Reader {
-  blocks: Vec<Arc<Vec<u8>>>,
+  blocks: Arc<Vec<Arc<Vec<u8>>>>,
   block_bits: usize,
   block_mask: usize,
   block_size: usize,
@@ -347,7 +354,10 @@ impl Reader {
 }
 impl Accountable for Reader {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut bytes = size_of_vec(&self.blocks);
+    // Report the complete retained shared directory, as for the shared page payloads.
+    let mut bytes = size_of_vec(&self.blocks)
+      .saturating_add(mem::size_of::<Vec<Arc<Vec<u8>>>>() as i64)
+      .saturating_add((2 * mem::size_of::<usize>()) as i64);
     if let Some(last_block) = self.blocks.last() {
       bytes = bytes
         .saturating_add((self.blocks.len() as i64).saturating_mul(mem::size_of::<Vec<u8>>() as i64))
@@ -380,7 +390,7 @@ pub struct PagedBytesDataInput {
   block_size: usize,
   block_bits: usize,
   block_mask: usize,
-  blocks: Vec<Arc<Vec<u8>>>,
+  blocks: Arc<Vec<Arc<Vec<u8>>>>,
 }
 
 impl PagedBytesDataInput {

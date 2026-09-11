@@ -4919,7 +4919,7 @@ where
   where
     CR: CodecReader,
   {
-    for info in &merge.stat.segments {
+    for info in merge.stat.segments.iter() {
       if !inner.segment_infos.contains(info) {
         return Err(LuceneError::merge(format!(
           "MergePolicy selected a segment ({}) that is not in the current index {}",
@@ -5520,7 +5520,7 @@ where
 
     let mut is_external = false;
 
-    for info_id in &merge.stat.segments {
+    for info_id in merge.stat.segments.iter() {
       if inner.merging_segments.contains(info_id) {
         return Ok(false);
       }
@@ -5561,7 +5561,7 @@ where
       self.info_stream.message("IW", &builder)?;
     }
 
-    for info_id in &merge.stat.segments {
+    for info_id in merge.stat.segments.iter() {
       inner.merging_segments.insert(info_id.clone());
     }
 
@@ -5571,7 +5571,7 @@ where
     let mut est_bytes: i64 = 0;
     let mut total_bytes: i64 = 0;
 
-    for info_id in &merge.stat.segments {
+    for info_id in merge.stat.segments.iter() {
       let info = inner
         .segment_infos
         .index_of(info_id)
@@ -5669,7 +5669,7 @@ where
     }
 
     let mut has_blocks = false;
-    for info_id in &merge.stat.segments {
+    for info_id in merge.stat.segments.iter() {
       let info = inner
         .segment_infos
         .index_of(info_id)
@@ -5730,7 +5730,7 @@ where
     // It's possible we are called twice, e.g. if there was an
     // error inside mergeInit
     if merge.register_done.load(Ordering::Acquire) {
-      for seg_id in &merge.segments {
+      for seg_id in merge.segments.iter() {
         inner.merging_segments.remove(seg_id);
       }
       merge.register_done.store(false, Ordering::Release);

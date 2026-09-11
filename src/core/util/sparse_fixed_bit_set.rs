@@ -21,7 +21,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::bit_set::{BitSet, check_unpositioned};
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::ram_usage_estimator::size_of_vec;
+use crate::core::util::ram_usage_estimator::{size_of_slice, size_of_vec};
 use crate::core::util::{HasIdentity, SliceCopyOps, TryIntoInt};
 
 const MASK_4096: usize = (1 << 12) - 1;
@@ -39,7 +39,7 @@ fn block_count(length: usize) -> usize {
 /// way it works is that the space of bits is divided into blocks of 4096 bits,
 /// which is 64 `u64`s. Then for each block, we have:
 ///
-/// - A `Vec<u64>` which stores the non-zero `u64`s for that block.
+/// - A boxed `u64` slice which stores the non-zero `u64`s for that block.
 /// - A `u64` so that bit `i` being set means that the `i-th` `u64` of the block
 ///   is present, and its offset in the array of `u64`s is the number of one
 ///   bits on the right of the `i-th` bit.
@@ -49,7 +49,7 @@ fn block_count(length: usize) -> usize {
 #[derive(Default)]
 pub struct SparseFixedBitSet {
   indices: Vec<u64>,
-  bits: Vec<Vec<u64>>,
+  bits: Vec<Box<[u64]>>,
   length: usize,
   non_zero_long_count: usize,
   ram_bytes_used: i64,
@@ -63,7 +63,7 @@ impl SparseFixedBitSet {
     }
     let block_count = block_count(length);
     let indices = vec![0; block_count];
-    let bits = vec![Vec::new(); block_count];
+    let bits = vec![Box::<[u64]>::default(); block_count];
     let ram_bytes_used = size_of_vec(&indices).saturating_add(size_of_vec(&bits));
     Ok(SparseFixedBitSet {
       indices,
@@ -86,8 +86,8 @@ impl SparseFixedBitSet {
   fn insert_block(&mut self, i4096: usize, i64bit: u64, i: usize) {
     self.indices[i4096] = i64bit;
     debug_assert!(self.bits[i4096].is_empty());
-    let block: Vec<u64> = vec![1_u64 << (i % 64)];
-    self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_vec(&block));
+    let block = vec![1_u64 << (i % 64)].into_boxed_slice();
+    self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_slice(&block));
     self.bits[i4096] = block;
     self.non_zero_long_count += 1;
   }
@@ -105,13 +105,13 @@ impl SparseFixedBitSet {
       bit_array.copy_within(o..big_array_length - 1, o + 1);
       bit_array[o] = 1_u64 << (i % 64);
     } else {
-      let old_bytes = size_of_vec(bit_array);
+      let old_bytes = size_of_slice(bit_array);
       let new_size = oversize(bit_array.len() + 1);
-      let mut new_bit_array = vec![0; new_size];
+      let mut new_bit_array = vec![0; new_size].into_boxed_slice();
       new_bit_array.copy_from(&bit_array[..o], 0);
       new_bit_array[o] = 1_u64 << (i % 64);
       new_bit_array.copy_from(&bit_array[o..], o + 1);
-      let new_bytes = size_of_vec(&new_bit_array);
+      let new_bytes = size_of_slice(&new_bit_array);
       self.bits[i4096] = new_bit_array;
       self.ram_bytes_used = self
         .ram_bytes_used
@@ -139,7 +139,9 @@ impl SparseFixedBitSet {
     self.indices[i4096] = index;
     if index == 0 {
       let bit_array = std::mem::take(&mut self.bits[i4096]);
-      self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
+      self.ram_bytes_used = self
+        .ram_bytes_used
+        .saturating_sub(size_of_slice(&bit_array));
     } else {
       let length = index.count_ones() as usize;
       let bit_array = &mut self.bits[i4096];
@@ -252,8 +254,8 @@ impl SparseFixedBitSet {
       // the data this especially happens all the time if you
       // call OR on an empty set
       self.indices[i4096] = index;
-      let new_bits = bits[0..non_zero_long_count].to_vec();
-      self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_vec(&new_bits));
+      let new_bits = bits[0..non_zero_long_count].to_vec().into_boxed_slice();
+      self.ram_bytes_used = self.ram_bytes_used.saturating_add(size_of_slice(&new_bits));
       self.bits[i4096] = new_bits;
       self.non_zero_long_count += non_zero_long_count;
       return;
@@ -261,15 +263,15 @@ impl SparseFixedBitSet {
     let current_bits = std::mem::take(&mut self.bits[i4096]);
     let new_index = current_index | index;
     let required_capacity = new_index.count_ones() as usize;
-    let current_bytes = size_of_vec(&current_bits);
+    let current_bytes = size_of_slice(&current_bits);
     let (mut new_bits, old_bits) = if current_bits.len() >= required_capacity {
       (current_bits, None)
     } else {
-      let new_bits = vec![0; oversize(required_capacity)];
+      let new_bits = vec![0; oversize(required_capacity)].into_boxed_slice();
       self.ram_bytes_used = self
         .ram_bytes_used
         .saturating_sub(current_bytes)
-        .saturating_add(size_of_vec(&new_bits));
+        .saturating_add(size_of_slice(&new_bits));
       (new_bits, Some(current_bits))
     };
     // we iterate backwards in order to not override data we might need on
@@ -354,7 +356,7 @@ impl SparseFixedBitSet {
     &self.indices
   }
   #[cfg(test)]
-  pub fn get_bits(&self) -> &[Vec<u64>] {
+  pub fn get_bits(&self) -> &[Box<[u64]>] {
     &self.bits
   }
   #[cfg(test)]
@@ -426,7 +428,7 @@ impl Accountable for SparseFixedBitSet {
 impl BitSet for SparseFixedBitSet {
   fn clear(&mut self) -> Result<()> {
     for bit_array in &mut self.bits {
-      *bit_array = Vec::new();
+      *bit_array = Box::default();
     }
     self.indices.fill(0);
     self.non_zero_long_count = 0;
@@ -515,7 +517,9 @@ impl BitSet for SparseFixedBitSet {
         self.non_zero_long_count -= self.indices[i].count_ones() as usize;
         self.indices[i] = 0;
         let bit_array = std::mem::take(&mut self.bits[i]);
-        self.ram_bytes_used = self.ram_bytes_used.saturating_sub(size_of_vec(&bit_array));
+        self.ram_bytes_used = self
+          .ram_bytes_used
+          .saturating_sub(size_of_slice(&bit_array));
       }
       self.clear_within_block(last_block, 0, (to - 1) & MASK_4096);
     }

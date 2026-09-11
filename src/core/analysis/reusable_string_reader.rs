@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::sync::Arc;
+
 use crate::core::analysis::reader::Reader;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 /// Internal reader that allows a string reader to be reused by an analyzer's token stream.
@@ -21,7 +23,7 @@ use crate::core::util::error::lucene_error::{LuceneError, Result};
 pub struct ReusableStringReader {
   pos: usize,
   pub(crate) size: usize,
-  s: Option<Vec<char>>,
+  s: Option<Arc<Vec<char>>>,
 }
 
 impl Default for ReusableStringReader {
@@ -43,7 +45,7 @@ impl ReusableStringReader {
     let vec: Vec<char> = s.chars().collect();
     self.size = vec.len();
     self.pos = 0;
-    self.s = Some(vec);
+    self.s = Some(Arc::new(vec));
   }
 }
 

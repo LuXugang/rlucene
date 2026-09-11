@@ -112,7 +112,7 @@ pub trait MergeStateAccess {
 
   fn intra_merge_task_executor(&self) -> &Arc<TaskExecutor>;
 
-  fn get_meta(&self) -> MergeStateMeta<Self::DocMap>;
+  fn get_meta(&self) -> MergeStateMeta<Rc<Self::DocMap>>;
 }
 
 impl<D, CR> MergeStateAccess for MergeState<'_, D, CR>
@@ -160,7 +160,7 @@ where
     &self.intra_merge_task_executor
   }
 
-  fn get_meta(&self) -> MergeStateMeta<Self::DocMap> {
+  fn get_meta(&self) -> MergeStateMeta<Rc<Self::DocMap>> {
     MergeState::get_meta(self)
   }
 }
@@ -308,10 +308,10 @@ where
     merge_state.build_doc_maps(readers)?;
     Ok(merge_state)
   }
-  pub(crate) fn get_meta(&self) -> MergeStateMeta<MergeStateDocMap<CR>> {
+  pub(crate) fn get_meta(&self) -> MergeStateMeta<Rc<MergeStateDocMap<CR>>> {
     MergeStateMeta {
       fields_producers_len: self.fields_producers.len(),
-      doc_maps: self.doc_maps.clone(),
+      doc_maps: Rc::new(self.doc_maps.clone()),
       needs_index_sort: self.needs_index_sort,
       merge_field_infos: self.merge_field_infos.clone(),
       field_infos: self.field_infos.clone(),
@@ -542,7 +542,7 @@ either_doc_map!(pub DocMapEnum2 { A: A, B: B});
 // for shared
 pub struct MergeStateMeta<DM> {
   pub(crate) fields_producers_len: usize,
-  pub(crate) doc_maps: Vec<Rc<DM>>,
+  pub(crate) doc_maps: Rc<Vec<DM>>,
   pub needs_index_sort: bool,
   pub merge_field_infos: Arc<FieldInfos>,
   pub field_infos: Vec<Arc<FieldInfos>>,

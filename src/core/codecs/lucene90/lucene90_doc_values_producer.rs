@@ -73,12 +73,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 pub struct Lucene90DocValuesProducer<I> {
-  numerics: HashMap<i32, Arc<NumericEntry>>,
-  binaries: HashMap<i32, Arc<BinaryEntry>>,
-  sorted: HashMap<i32, Arc<SortedEntry>>,
-  sorted_sets: HashMap<i32, Arc<SortedSetEntry>>,
-  sorted_numerics: HashMap<i32, Arc<SortedNumericEntry>>,
-  skippers: HashMap<i32, Arc<DocValuesSkipperEntry>>,
+  numerics: Arc<HashMap<i32, Arc<NumericEntry>>>,
+  binaries: Arc<HashMap<i32, Arc<BinaryEntry>>>,
+  sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
+  sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
+  sorted_numerics: Arc<HashMap<i32, Arc<SortedNumericEntry>>>,
+  skippers: Arc<HashMap<i32, Arc<DocValuesSkipperEntry>>>,
   data: Arc<I>,
   max_doc: i32,
   version: i32,
@@ -188,12 +188,12 @@ where
       );
       success = true;
       Ok(Self {
-        numerics,
-        binaries,
-        sorted,
-        sorted_sets,
-        sorted_numerics,
-        skippers,
+        numerics: Arc::new(numerics),
+        binaries: Arc::new(binaries),
+        sorted: Arc::new(sorted),
+        sorted_sets: Arc::new(sorted_sets),
+        sorted_numerics: Arc::new(sorted_numerics),
+        skippers: Arc::new(skippers),
         data,
         max_doc,
         version,
@@ -207,12 +207,12 @@ where
   }
   #[allow(clippy::too_many_arguments)]
   fn with_merging(
-    numerics: HashMap<i32, Arc<NumericEntry>>,
-    binaries: HashMap<i32, Arc<BinaryEntry>>,
-    sorted: HashMap<i32, Arc<SortedEntry>>,
-    sorted_sets: HashMap<i32, Arc<SortedSetEntry>>,
-    sorted_numerics: HashMap<i32, Arc<SortedNumericEntry>>,
-    skippers: HashMap<i32, Arc<DocValuesSkipperEntry>>,
+    numerics: Arc<HashMap<i32, Arc<NumericEntry>>>,
+    binaries: Arc<HashMap<i32, Arc<BinaryEntry>>>,
+    sorted: Arc<HashMap<i32, Arc<SortedEntry>>>,
+    sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
+    sorted_numerics: Arc<HashMap<i32, Arc<SortedNumericEntry>>>,
+    skippers: Arc<HashMap<i32, Arc<DocValuesSkipperEntry>>>,
     data: Arc<I>,
     max_doc: i32,
     version: i32,

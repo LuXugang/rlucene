@@ -88,7 +88,7 @@ pub trait PointsWriter: Closeable {
       point_values.push(values);
       doc_maps.push(merge_state.doc_maps[i].clone())
     }
-    let mut points_reader: PointsReaderImpl<_, MergeStateDocMap<CR>> =
+    let mut points_reader: PointsReaderImpl<_, Rc<MergeStateDocMap<CR>>> =
       PointsReaderImpl::new(field_info.clone(), max_point_count, point_values, doc_maps);
     self.write_field(
       field_info,
@@ -211,7 +211,7 @@ struct PointsReaderImpl<P, DM> {
   field_info: Arc<FieldInfo>,
   final_max_point_count: usize,
   point_value: Rc<Vec<P>>,
-  doc_map: Vec<Rc<DM>>,
+  doc_map: Rc<Vec<DM>>,
 }
 
 impl<P, DM> CloseableRef for PointsReaderImpl<P, DM> {}
@@ -221,13 +221,13 @@ impl<P, DM> PointsReaderImpl<P, DM> {
     field_info: Arc<FieldInfo>,
     final_max_point_count: usize,
     point_value: Vec<P>,
-    doc_map: Vec<Rc<DM>>,
+    doc_map: Vec<DM>,
   ) -> Self {
     Self {
       field_info,
       final_max_point_count,
       point_value: Rc::new(point_value),
-      doc_map,
+      doc_map: Rc::new(doc_map),
     }
   }
 }
@@ -260,10 +260,10 @@ where
 struct PointValuesImpl<P, DM> {
   final_max_point_count: usize,
   point_value: Rc<Vec<P>>,
-  doc_map: Vec<Rc<DM>>,
+  doc_map: Rc<Vec<DM>>,
 }
 impl<P, DM> PointValuesImpl<P, DM> {
-  fn new(final_max_point_count: usize, point_value: Rc<Vec<P>>, doc_map: Vec<Rc<DM>>) -> Self {
+  fn new(final_max_point_count: usize, point_value: Rc<Vec<P>>, doc_map: Rc<Vec<DM>>) -> Self {
     Self {
       final_max_point_count,
       point_value,
@@ -319,11 +319,11 @@ where
 
 struct PointTreeImpl<P, DM> {
   final_max_point_count: usize,
-  doc_map: Vec<Rc<DM>>,
+  doc_map: Rc<Vec<DM>>,
   point_value: Rc<Vec<P>>,
 }
 impl<P, DM> PointTreeImpl<P, DM> {
-  fn new(final_max_point_count: usize, doc_map: Vec<Rc<DM>>, point_value: Rc<Vec<P>>) -> Self {
+  fn new(final_max_point_count: usize, doc_map: Rc<Vec<DM>>, point_value: Rc<Vec<P>>) -> Self {
     Self {
       final_max_point_count,
       doc_map,
@@ -387,7 +387,7 @@ where
   {
     for (i, values) in self.point_value.iter().enumerate() {
       let mut v: IntersectVisitorImpl<'_, _, DM> =
-        IntersectVisitorImpl::new(self.doc_map[i].as_ref(), visitor);
+        IntersectVisitorImpl::new(&self.doc_map[i], visitor);
       values.get_point_tree()?.visit_doc_values(&mut v)?;
     }
     Ok(())

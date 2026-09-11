@@ -683,7 +683,7 @@ where
 
   for merge in &specification.merges {
     let mut merge_total_size_in_bytes = 0i64;
-    for segment_id in &merge.stat.segments {
+    for segment_id in merge.stat.segments.iter() {
       let segment = infos.index_of(segment_id).unwrap();
       merge_total_size_in_bytes += segment.size_in_bytes()?;
     }

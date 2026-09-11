@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::sync::Arc;
+
 #[cfg(test)]
 use crate::core::analysis::char_filter::CharFilter;
 #[cfg(test)]
@@ -186,7 +188,7 @@ impl From<StringReader> for ReaderEnum {
 /// A character stream whose source is a string.
 #[derive(Debug, Clone)]
 pub struct StringReader {
-  chars: Option<Vec<char>>,
+  chars: Option<Arc<Vec<char>>>,
   next: usize,
 }
 
@@ -196,7 +198,7 @@ impl StringReader {
     T: Into<String>,
   {
     Self {
-      chars: Some(s.into().chars().collect()),
+      chars: Some(Arc::new(s.into().chars().collect())),
       next: 0,
     }
   }
@@ -204,7 +206,8 @@ impl StringReader {
   fn ensure_open(&self) -> Result<&[char]> {
     self
       .chars
-      .as_deref()
+      .as_ref()
+      .map(|chars| chars.as_slice())
       .ok_or_else(|| LuceneError::illegal_state("Stream closed"))
   }
 }

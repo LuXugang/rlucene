@@ -22,6 +22,8 @@ use crate::core::store::directory::Directory;
 use crate::core::store::{IOContext, IndexInput, ReadAdvice};
 use crate::core::util::close::CloseableRef;
 use crate::core::util::error::lucene_error::Result;
+use std::sync::Arc;
+
 use crate::core::util::long_values::LongValues;
 use crate::core::util::packed::direct_monotonic_reader::Meta;
 use crate::core::util::packed::direct_monotonic_reader::{DirectMonotonicReader, load_meta};
@@ -34,8 +36,8 @@ where
   max_doc: i32,
   block_shift: i32,
   num_chunks: i32,
-  docs_meta: Meta,
-  start_pointers_meta: Meta,
+  docs_meta: Arc<Meta>,
+  start_pointers_meta: Arc<Meta>,
   index_input: I,
   docs_start_pointer: usize,
   docs_end_pointer: usize,
@@ -117,8 +119,8 @@ where
       max_doc,
       block_shift,
       num_chunks,
-      docs_meta,
-      start_pointers_meta,
+      docs_meta: Arc::new(docs_meta),
+      start_pointers_meta: Arc::new(start_pointers_meta),
       index_input,
       docs_start_pointer,
       docs_end_pointer,
