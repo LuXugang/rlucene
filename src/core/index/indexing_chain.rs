@@ -301,7 +301,7 @@ where
         self.index_created_version_major
       )));
     }
-    let mut comparators = Vec::new();
+    let mut comparators = Vec::with_capacity(index_sort.fields.len());
     for sort_field in &index_sort.fields {
       let sorter = sort_field.get_index_sorter()?.ok_or_else(|| {
         LuceneError::unsupported_operation(format!(

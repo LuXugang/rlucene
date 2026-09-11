@@ -88,10 +88,17 @@ impl IntSet for StateSet {
       return &self.array_cache;
     }
 
-    let mut array: Vec<i32> = self.inner.keys().copied().collect();
-    array.sort();
-
-    self.array_cache = Arc::new(array);
+    if let Some(array) =
+      Arc::get_mut(&mut self.array_cache).filter(|array| array.capacity() == self.inner.len())
+    {
+      array.clear();
+      array.extend(self.inner.keys().copied());
+      array.sort();
+    } else {
+      let mut array: Vec<i32> = self.inner.keys().copied().collect();
+      array.sort();
+      self.array_cache = Arc::new(array);
+    }
     self.array_updated = true;
     &self.array_cache
   }

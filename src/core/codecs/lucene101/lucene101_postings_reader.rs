@@ -486,16 +486,12 @@ pub struct BlockPostingsEnum<I> {
   level0_pay_end_fp: i64,
   level0_block_pay_upto: i32,
   level0_serialized_impacts: Option<BytesRef<Vec<u8>>>,
-  #[allow(dead_code)]
-  level0_impacts: Option<MutableImpactList>,
   /// level 1 skip data
   level1_pos_end_fp: i64,
   level1_block_pos_upto: i32,
   level1_pay_end_fp: i64,
   level1_block_pay_upto: i32,
   level1_serialized_impacts: Option<BytesRef<Vec<u8>>>,
-  #[allow(dead_code)]
-  level1_impacts: Option<MutableImpactList>,
   // true if we shallow-advanced to a new block that we have not decoded yet
   needs_refilling: bool,
 
@@ -533,26 +529,20 @@ where
       [1; ForUtil::BLOCK_SIZE]
     };
 
-    let (level0_serialized_impacts, level1_serialized_impacts, level0_impacts, level1_impacts) =
-      if needs_freq && needs_impacts {
-        (
-          Some(BytesRef::with_capacity(
-            reader.max_impact_num_bytes_at_level0 as usize,
-          )?),
-          Some(BytesRef::with_capacity(
-            reader.max_impact_num_bytes_at_level1 as usize,
-          )?),
-          MutableImpactList::with_capacity(reader.max_num_impacts_at_level0.try_convert()?),
-          MutableImpactList::with_capacity(reader.max_num_impacts_at_level1.try_convert()?),
-        )
-      } else {
-        (
-          None,
-          None,
-          MutableImpactList::default(),
-          MutableImpactList::default(),
-        )
-      };
+    let (level0_serialized_impacts, level1_serialized_impacts) = if needs_freq && needs_impacts {
+      let level0_serialized_impacts = Some(BytesRef::with_capacity(
+        reader.max_impact_num_bytes_at_level0 as usize,
+      )?);
+      let level1_serialized_impacts = Some(BytesRef::with_capacity(
+        reader.max_impact_num_bytes_at_level1 as usize,
+      )?);
+      // Keep the existing length conversion failures without allocating unused impact lists.
+      let _: usize = reader.max_num_impacts_at_level0.try_convert()?;
+      let _: usize = reader.max_num_impacts_at_level1.try_convert()?;
+      (level0_serialized_impacts, level1_serialized_impacts)
+    } else {
+      (None, None)
+    };
 
     let (pos_in_util, pos_delta_buffer) = if needs_pos {
       let pi = reader
@@ -665,14 +655,12 @@ where
       level0_pay_end_fp: 0,
       level0_block_pay_upto: 0,
       level0_serialized_impacts,
-      level0_impacts: Some(level0_impacts),
 
       level1_pos_end_fp: 0,
       level1_block_pos_upto: 0,
       level1_pay_end_fp: 0,
       level1_block_pay_upto: 0,
       level1_serialized_impacts,
-      level1_impacts: Some(level1_impacts),
 
       needs_refilling: false,
       max_num_impacts_at_level0: reader.max_num_impacts_at_level0,

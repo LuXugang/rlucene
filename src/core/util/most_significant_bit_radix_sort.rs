@@ -33,7 +33,7 @@ pub struct MSBRadixSorter<T> {
   /// End offsets for histograms.
   end_offsets: Vec<usize>,
   /// Array to store common prefixes.
-  common_prefix: Vec<i32>,
+  common_prefix: [i32; 24],
   /// Maximum length of strings to sort.
   max_length: usize,
   delegate: T,
@@ -49,7 +49,7 @@ impl<T> MSBRadixSorter<T> {
       histograms,
       end_offsets: vec![0; HISTOGRAM_SIZE],
       max_length,
-      common_prefix: vec![0; 24.min(max_length)],
+      common_prefix: [0; 24],
       delegate,
     }
   }
@@ -73,7 +73,7 @@ where
   ///
   /// This method has been split to avoid platform-specific issues.
   fn compute_initial_common_prefix_length(&mut self, from: usize, k: usize) -> Result<usize> {
-    let common_prefix = &mut self.common_prefix;
+    let common_prefix = &mut self.common_prefix[..24.min(self.max_length)];
     let mut common_prefix_length = std::cmp::min(common_prefix.len(), self.max_length - k);
 
     for (j, slot) in common_prefix
@@ -102,7 +102,7 @@ where
     if i < to {
       debug_assert!(common_prefix_length == 0);
       self.build_histogram(
-        (self.common_prefix[0] + 1).try_convert()?,
+        (self.common_prefix[..24.min(self.max_length)][0] + 1).try_convert()?,
         i - from,
         i,
         to,
@@ -111,7 +111,8 @@ where
       )?;
     } else {
       debug_assert!(common_prefix_length > 0);
-      self.histograms[l][(self.common_prefix[0] + 1).try_convert()?] = to - from;
+      self.histograms[l][(self.common_prefix[..24.min(self.max_length)][0] + 1).try_convert()?] =
+        to - from;
     }
 
     Ok(common_prefix_length)

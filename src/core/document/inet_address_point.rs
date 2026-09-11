@@ -219,9 +219,17 @@ impl InetAddressPoint {
   where
     T: Into<String>,
   {
-    let address_bytes = match value {
-      IpAddr::V4(address) => address.octets().to_vec(),
-      IpAddr::V6(address) => address.octets().to_vec(),
+    let ipv4_bytes;
+    let ipv6_bytes;
+    let address_bytes: &[u8] = match value {
+      IpAddr::V4(address) => {
+        ipv4_bytes = address.octets();
+        &ipv4_bytes
+      },
+      IpAddr::V6(address) => {
+        ipv6_bytes = address.octets();
+        &ipv6_bytes
+      },
     };
     if prefix_length > 8 * address_bytes.len() {
       return Err(LuceneError::illegal_argument(format!(
@@ -230,8 +238,12 @@ impl InetAddressPoint {
       )));
     }
 
-    let mut lower = address_bytes.clone();
-    let mut upper = address_bytes;
+    let mut lower_buffer = [0u8; Self::BYTES];
+    let mut upper_buffer = [0u8; Self::BYTES];
+    let lower = &mut lower_buffer[..address_bytes.len()];
+    let upper = &mut upper_buffer[..address_bytes.len()];
+    lower.copy_from_slice(address_bytes);
+    upper.copy_from_slice(address_bytes);
     for i in prefix_length..(8 * lower.len()) {
       let mask = 1u8 << (7 - (i & 7));
       lower[i >> 3] &= !mask;
@@ -240,20 +252,20 @@ impl InetAddressPoint {
 
     let lower_value = if lower.len() == 4 {
       let mut bytes = [0u8; 4];
-      bytes.copy_from_slice(&lower);
+      bytes.copy_from_slice(lower);
       IpAddr::V4(bytes.into())
     } else {
       let mut bytes = [0u8; Self::BYTES];
-      bytes.copy_from_slice(&lower);
+      bytes.copy_from_slice(lower);
       IpAddr::V6(bytes.into())
     };
     let upper_value = if upper.len() == 4 {
       let mut bytes = [0u8; 4];
-      bytes.copy_from_slice(&upper);
+      bytes.copy_from_slice(upper);
       IpAddr::V4(bytes.into())
     } else {
       let mut bytes = [0u8; Self::BYTES];
-      bytes.copy_from_slice(&upper);
+      bytes.copy_from_slice(upper);
       IpAddr::V6(bytes.into())
     };
 

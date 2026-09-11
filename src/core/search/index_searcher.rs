@@ -934,10 +934,10 @@ where
     grouped_leaves.push(g);
   }
 
-  let mut slices = Vec::new();
+  let mut slices = Vec::with_capacity(grouped_leaves.len());
 
   for ords in grouped_leaves {
-    let mut partitions = Vec::new();
+    let mut partitions = Vec::with_capacity(ords.len());
     for ord in ords {
       let ctx_idx = ctx_map[&ord];
       let partition = LeafReaderContextPartition::create_for_entire_segment(&leaves[ctx_idx])?;

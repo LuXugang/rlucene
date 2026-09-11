@@ -742,7 +742,7 @@ where
   }
 
   type Impacts<'a>
-    = SynonymImpacts
+    = SynonymImpacts<'a>
   where
     Self: 'a;
 
@@ -767,20 +767,20 @@ where
     Ok(SynonymImpacts {
       impacts,
       doc_ids,
-      boosts: self.boosts.clone(),
+      boosts: &self.boosts,
       lead,
     })
   }
 }
 
-pub(crate) struct SynonymImpacts {
+pub(crate) struct SynonymImpacts<'a> {
   impacts: Vec<OwnedImpacts>,
   doc_ids: Vec<i32>,
-  boosts: Vec<f32>,
+  boosts: &'a [f32],
   lead: usize,
 }
 
-impl SynonymImpacts {
+impl SynonymImpacts<'_> {
   fn get_level(impacts: &OwnedImpacts, doc_id_up_to: i32) -> Option<usize> {
     (0..impacts.num_levels()).find(|&level| impacts.get_doc_id_upto(level) >= doc_id_up_to)
   }
@@ -835,7 +835,7 @@ impl SynonymImpacts {
   }
 }
 
-impl Impacts for SynonymImpacts {
+impl Impacts for SynonymImpacts<'_> {
   fn num_levels(&self) -> usize {
     self.impacts[self.lead].num_levels()
   }

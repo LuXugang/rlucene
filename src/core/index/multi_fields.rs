@@ -65,7 +65,7 @@ where
     Self: 'a;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    let mut sub_iterators = Vec::new();
+    let mut sub_iterators = Vec::with_capacity(self.subs.len());
     for sub in &self.subs {
       sub_iterators.push(sub.iterator()?);
     }

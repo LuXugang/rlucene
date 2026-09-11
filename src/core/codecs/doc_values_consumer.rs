@@ -1566,7 +1566,7 @@ where
     }
 
     // We must make new iterators + DocIDMerger for each iterator:
-    let mut subs = Vec::new();
+    let mut subs = Vec::with_capacity(self.merge_state.doc_values_producers().len());
     let mut to_merge = Vec::with_capacity(self.merge_state.doc_values_producers().len());
     let mut cost = 0;
     let mut all_singletons = true;
@@ -1616,7 +1616,7 @@ where
       // All subs are single-valued.
       // We specialize for that case since it makes it easier for codecs to optimize
       // for single-valued fields.
-      let mut single_valued_subs = Vec::new();
+      let mut single_valued_subs = Vec::with_capacity(subs.len());
       for mut sub in subs {
         let single = sub.sub.values.get_sorted_doc_values()?;
         single_valued_subs.push(Sub::new(SortedDocValuesSub::new(
