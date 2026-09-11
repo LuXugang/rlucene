@@ -22,6 +22,7 @@ use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::bytes_ref_block_pool::BytesRefBlockPool;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::most_significant_bit_radix_sort::LENGTH_THRESHOLD;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use crate::core::util::{
   AtomicCounter, ByteBlockPool, BytesRefComparator, Comparator, Counter, GOOD_FAST_HASH_SEED,
@@ -612,7 +613,7 @@ where
   fn should_fallback(&self, from: usize, to: usize, l: usize) -> bool {
     // We lower the fallback threshold because the bucket cache speeds up
     // the reorder
-    to - from <= ((LEVEL_THRESHOLD) / 2) || l >= LEVEL_THRESHOLD
+    to - from <= (LENGTH_THRESHOLD / 2) || l >= LEVEL_THRESHOLD
   }
 }
 impl<BSA> Sorter for StringSorterImpl<'_, BSA>
