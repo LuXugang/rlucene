@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -40,7 +39,6 @@ use std::mem::size_of_val;
 pub(crate) struct NumericDocValuesFieldUpdates {
   values: AbstractPagedMutable<AbstractPagedMutableBaseEnum>,
   min_value: i64,
-  lock: Mutex<()>,
 
   values_iter: Option<Arc<AbstractPagedMutable<AbstractPagedMutableBaseEnum>>>,
 }
@@ -53,7 +51,6 @@ impl NumericDocValuesFieldUpdates {
     Ok(NumericDocValuesFieldUpdates {
       values,
       min_value: 0,
-      lock: Mutex::new(()),
       values_iter: None,
     })
   }
@@ -68,7 +65,6 @@ impl NumericDocValuesFieldUpdates {
     Ok(NumericDocValuesFieldUpdates {
       values,
       min_value,
-      lock: Mutex::new(()),
       values_iter: None,
     })
   }
@@ -80,7 +76,6 @@ impl DocValuesFieldUpdatesBase for NumericDocValuesFieldUpdates {
   }
 
   fn add_value(&mut self, _doc: i32, value: i64, index: usize) -> Result<()> {
-    let _guard = self.lock.lock();
     self.values.set(index, value.wrapping_sub(self.min_value))?;
     Ok(())
   }

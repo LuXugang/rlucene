@@ -273,7 +273,7 @@ where
     self.add_internal(doc, HAS_VALUE_MASK)
   }
   fn add_internal(&mut self, doc: i32, has_value_mask: i64) -> Result<usize> {
-    let mut inner = self.inner.lock();
+    let inner = self.inner.get_mut();
     if inner.finished {
       return Err(LuceneError::illegal_argument("already finished"));
     }

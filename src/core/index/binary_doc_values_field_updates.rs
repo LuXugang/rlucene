@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use parking_lot::Mutex;
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -41,7 +40,6 @@ pub(crate) struct BinaryDocValuesFieldUpdates {
   offsets: AbstractPagedMutable<PagedGrowableWriter>,
   lengths: AbstractPagedMutable<PagedGrowableWriter>,
   values: BytesRefBuilder<Vec<u8>>,
-  lock: Mutex<()>,
 
   offsets_iter: Option<Arc<AbstractPagedMutable<PagedGrowableWriter>>>,
   lengths_iter: Option<Arc<AbstractPagedMutable<PagedGrowableWriter>>>,
@@ -56,7 +54,6 @@ impl BinaryDocValuesFieldUpdates {
       offsets,
       lengths,
       values: BytesRefBuilder::new(),
-      lock: Mutex::new(()),
       offsets_iter: None,
       lengths_iter: None,
     })
@@ -96,7 +93,6 @@ impl DocValuesFieldUpdatesBase for BinaryDocValuesFieldUpdates {
   }
 
   fn add_byte_ref(&mut self, _doc: i32, value: &BytesRef<Vec<u8>>, index: usize) -> Result<()> {
-    let _guard = self.lock.lock();
     self.offsets.set(index, self.values.length() as i64)?;
     self.lengths.set(index, value.length as i64)?;
     self.values.append(value)?;

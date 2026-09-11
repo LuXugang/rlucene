@@ -95,9 +95,10 @@ impl NumericDocValuesWriter {
 
   fn update_bytes_used(&mut self) -> Result<()> {
     let new_bytes_used = self.pending.ram_bytes_used()? + self.docs_with_field.ram_bytes_used()?;
-    self
-      .iw_bytes_used
-      .add_and_get(new_bytes_used - self.bytes_used);
+    let delta = new_bytes_used - self.bytes_used;
+    if delta != 0 {
+      self.iw_bytes_used.add_and_get(delta);
+    }
     self.bytes_used = new_bytes_used;
     Ok(())
   }

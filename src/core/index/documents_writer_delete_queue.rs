@@ -590,13 +590,12 @@ impl DeleteSlice {
           )
         })?;
 
-        next_node.apply(del, doc_id_upto)?;
-        if Arc::ptr_eq(next_node, &self.slice_tail) {
-          break;
-        }
-
         let next_node = next_node.clone();
         drop(next_node_guard);
+        next_node.apply(del, doc_id_upto)?;
+        if Arc::ptr_eq(&next_node, &self.slice_tail) {
+          break;
+        }
         current = next_node;
       }
     }

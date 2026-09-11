@@ -416,7 +416,10 @@ impl SortedSetDocValuesWriter {
       + pc_used
       + self.docs_with_field.ram_bytes_used()?
       + size_of_vec(&self.current_values);
-    self.iw_bytes_used.add_and_get(new_used - self.bytes_used);
+    let delta = new_used - self.bytes_used;
+    if delta != 0 {
+      self.iw_bytes_used.add_and_get(delta);
+    }
     self.bytes_used = new_used;
     Ok(())
   }

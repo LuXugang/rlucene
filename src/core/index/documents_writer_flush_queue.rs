@@ -129,39 +129,33 @@ where
   {
     debug_assert!(self.purge_lock.is_owned_by_current_thread());
     loop {
-      let can_publish = {
-        let inner = self.inner.lock();
+      let publishable = {
+        let mut inner = self.inner.lock();
         match inner.queue.front() {
-          None => false,
-          Some(id) => match inner.value.get(id) {
-            None => {
-              return Err(LuceneError::illegal_state(
-                "id in inner.queue but not in inner.value",
-              ));
-            },
-            Some(ticket) => ticket.can_publish(),
+          None => None,
+          Some(id) => {
+            let ticket = inner.value.get(id).ok_or_else(|| {
+              LuceneError::illegal_state("id in inner.queue but not in inner.value")
+            })?;
+            if ticket.can_publish() {
+              let id = id.clone();
+              let head = inner.value.remove(&id).ok_or_else(|| {
+                LuceneError::illegal_state("flush ticket is missing from the value map")
+              })?;
+              Some((id, head))
+            } else {
+              None
+            }
           },
         }
       };
-      if can_publish {
+      if let Some((id, head)) = publishable {
         /*
          * if we block on publish -> lock IW -> lock BufferedDeletes we don't block
          * concurrent segment flushes just because they want to append to the queue.
          * the downside is that we need to force a purge on fullFlush since there could
          * be a ticket still in the queue.
          */
-        let (id, head) = {
-          let mut inner = self.inner.lock();
-          let id = inner
-            .queue
-            .front()
-            .ok_or_else(|| LuceneError::illegal_state("publishable flush queue is empty"))?
-            .clone();
-          let head = inner.value.remove(&id).ok_or_else(|| {
-            LuceneError::illegal_state("flush ticket is missing from the value map")
-          })?;
-          (id, head)
-        };
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| consumer(head)));
         {
           let mut inner = self.inner.lock();

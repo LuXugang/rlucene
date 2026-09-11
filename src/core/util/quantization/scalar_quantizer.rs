@@ -236,6 +236,7 @@ fn reservoir_sample_indices(num_float_vecs: usize, sample_size: usize) -> Vec<us
       vectors_to_take[j] = i;
     }
   }
+  drop(random);
   vectors_to_take.sort();
   vectors_to_take
 }
