@@ -47,7 +47,6 @@ pub(crate) struct TermVectorsConsumerPerField {
   do_vector_payloads: bool,
   term_byte_pool: BytesRefBlockPool,
   has_payloads: bool,
-  field_name: String,
   base: TermsHashPerField,
 }
 impl TermVectorsConsumerPerField {
@@ -66,7 +65,6 @@ impl TermVectorsConsumerPerField {
       field_info.name.clone(),
       field_info.index_options,
     )?;
-    let field_name = field_info.name.clone();
     Ok(Self {
       field_info,
       do_vectors: false,
@@ -75,7 +73,6 @@ impl TermVectorsConsumerPerField {
       do_vector_payloads: false,
       term_byte_pool: BytesRefBlockPool::new(),
       has_payloads: false,
-      field_name,
       base,
     })
   }
@@ -102,6 +99,7 @@ impl TermVectorsConsumerPerField {
     tv: &mut TW,
     int_pool: &mut IntBlockPool,
     byte_pool: &ByteBlockPool,
+    flush_term: &mut BytesRef<Vec<u8>>,
   ) -> Result<()>
   where
     TW: TermVectorsWriter,
@@ -118,7 +116,6 @@ impl TermVectorsConsumerPerField {
       self.do_vector_offsets,
       self.has_payloads,
     )?;
-    let mut flush_term = BytesRef::new();
     let postings_array_enum = self
       .base
       .postings_array()
@@ -131,12 +128,12 @@ impl TermVectorsConsumerPerField {
           let term_id = term_id as usize;
           let freq = postings.freqs[term_id];
           self.term_byte_pool.fill_bytes_ref(
-            &mut flush_term,
+            flush_term,
             postings.parent.text_starts[term_id],
             byte_pool,
           )?;
 
-          tv.start_term(&flush_term, freq)?;
+          tv.start_term(flush_term, freq)?;
 
           if self.do_vector_positions || self.do_vector_offsets {
             let positions = if self.do_vector_positions {
@@ -409,13 +406,13 @@ impl TermVectorsConsumerPerField {
       if self.do_vector_positions {
         return Err(LuceneError::illegal_argument(format!(
           "field \"{}\": cannot index term vector positions while using custom TermFrequencyAttribute",
-          self.field_name
+          self.field_info.name
         )));
       }
       if self.do_vector_offsets {
         return Err(LuceneError::illegal_argument(format!(
           "field \"{}\": cannot index term vector offsets while using custom TermFrequencyAttribute",
-          self.field_name
+          self.field_info.name
         )));
       }
     }
@@ -435,7 +432,7 @@ impl TermVectorsConsumerPerField {
     }
     term_vectors_consumer.add_field_to_flush(PerFieldMeta {
       idx: field_index,
-      field_name: self.field_name.clone(),
+      field_name: self.field_info.name.clone(),
     })
   }
 }

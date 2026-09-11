@@ -21,6 +21,7 @@ use crate::core::document::inet_address_point::InetAddressPointInSetQuery;
 use crate::core::document::int_point::IntPointInSetQuery;
 use crate::core::document::long_point::LongPointInSetQuery;
 use crate::core::index::BytesRef;
+use crate::core::index::bytes_ref_builder::BytesRefBuilder;
 use crate::core::index::index_reader::{Identity, IndexReader};
 use crate::core::index::index_reader_context::{IRCLeafReader, IndexReaderContext};
 use crate::core::index::leaf_reader::LeafReader;
@@ -109,7 +110,7 @@ impl PointInSetQuery {
     }
 
     let mut builder = PrefixCodedTermsBuilder::new();
-    let mut previous: Option<BytesRef<Vec<u8>>> = None;
+    let mut previous: Option<BytesRefBuilder<Vec<u8>>> = None;
 
     while let Some(current) = packed_points.next()? {
       let current = current.as_ref();
@@ -122,6 +123,7 @@ impl PointInSetQuery {
       }
 
       if let Some(prev) = previous.as_ref() {
+        let prev = prev.bytes();
         match prev.cmp(current) {
           std::cmp::Ordering::Equal => continue,
           std::cmp::Ordering::Greater => {
@@ -135,7 +137,9 @@ impl PointInSetQuery {
       }
 
       builder.add(field.clone(), current)?;
-      previous = Some(BytesRef::deep_copy_of(current)?);
+      let previous_buffer = previous.get_or_insert_with(BytesRefBuilder::new);
+      previous_buffer.copy_bytes_from_ref(current)?;
+      previous_buffer.bytes_mut().bytes.truncate(packed_length);
     }
 
     let sorted_packed_points: PrefixCodedTermsArc = builder.finish().into();

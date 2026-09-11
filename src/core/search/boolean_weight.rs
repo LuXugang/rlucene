@@ -336,7 +336,7 @@ where
       should.clear();
     }
     let max_doc = context.reader().max_doc()?;
-    let mut scores = HashMap::new();
+    let mut scores = HashMap::with_capacity(4);
     scores.insert(Occur::Must, must);
     scores.insert(Occur::Should, should);
     scores.insert(Occur::Filter, filter);

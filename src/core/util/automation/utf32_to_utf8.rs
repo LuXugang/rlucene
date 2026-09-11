@@ -44,7 +44,7 @@ impl UTF32ToUTF8 {
       end_utf8: UTF8Sequence::new(),
       tmp_utf8a: UTF8Sequence::new(),
       tmp_utf8b: UTF8Sequence::new(),
-      utf8: Builder::new(),
+      utf8: Builder::with_capacity(0, 0),
     }
   }
   /// Builds necessary UTF-8 edges between start and end code points.
