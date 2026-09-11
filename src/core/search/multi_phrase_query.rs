@@ -741,7 +741,7 @@ impl PositionsQueue {
   }
 
   fn sort(&mut self) {
-    self.array[self.index..self.size].sort();
+    self.array[self.index..self.size].sort_unstable();
   }
 
   fn clear(&mut self) {

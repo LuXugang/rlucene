@@ -615,7 +615,7 @@ pub trait TFIDFSimilarityBase {
     term_stats: &[TermStatistics],
   ) -> Explanation {
     let mut idf = 0f64;
-    let mut subs = Vec::new();
+    let mut subs = Vec::with_capacity(term_stats.len());
 
     for stat in term_stats {
       let idf_explain = self.idf_explain(collection_stats, stat);

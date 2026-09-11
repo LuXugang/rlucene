@@ -605,9 +605,10 @@ where
         // clone FieldInfos so that we can update their dvGen separately from
         // the reader's infos and write them to a new fieldInfos_gen file.
         let mut max_field_number: i32 = -1;
-        let mut by_name = HashMap::new();
+        let reader_field_infos = reader.get_field_infos()?;
+        let mut by_name = HashMap::with_capacity(reader_field_infos.size());
 
-        for fi in reader.get_field_infos()?.iter() {
+        for fi in reader_field_infos.iter() {
           // cannot use builder.add(fi) because it does not preserve
           // the local field number. Field numbers can be different from
           // the global ones if the segment was created externally (and added to

@@ -814,6 +814,10 @@ where
     // build schema for each unique doc field
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
+      // Reserve for the remaining fields using the iterator's lower bound.
+      // The first field stays in first_field, so empty/single-field documents
+      // need no Vec allocation. This does not consume any iterator items.
+      document.reserve(document_fields.size_hint().0.saturating_sub(1));
       while let Some(field_value) = document_fields.next().transpose()? {
         let field = field_value.borrow();
         let field_type = field.field_type();

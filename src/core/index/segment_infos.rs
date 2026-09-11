@@ -655,8 +655,7 @@ impl<D> SegmentInfos<D> {
         .ok_or_else(|| LuceneError::illegal_state("pending segments output is missing"))?;
       self.write(segn_output)?;
       segn_output.close()?;
-      let segment_files = vec![segment_file_name.clone()];
-      directory.sync(&segment_files)?;
+      directory.sync(std::slice::from_ref(&segment_file_name))?;
       success = true;
       Ok(())
     }));

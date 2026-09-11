@@ -189,7 +189,7 @@ where
         Some(Arc::new(index_in.take().ok_or_else(|| {
           LuceneError::illegal_state("points index input is missing")
         })?));
-      let mut readers = HashMap::new();
+      let mut readers = HashMap::with_capacity(tmp_readers.len());
       for mut value in tmp_readers.drain() {
         value.1.init_index_in(
           shared_index_in

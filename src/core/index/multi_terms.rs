@@ -90,7 +90,7 @@ where
   type TermsEnum = IteratorType<T>;
 
   fn iterator(&self) -> Result<Self::TermsEnum> {
-    let mut terms_enums = Vec::new();
+    let mut terms_enums = Vec::with_capacity(self.subs.len());
 
     let mut i = 0;
     while i < self.subs.len() {
@@ -115,7 +115,7 @@ where
     compiled: &CompiledAutomaton,
     start_term: Option<&BytesRef<Vec<u8>>>,
   ) -> Result<Self::IntersectIter> {
-    let mut terms_enums = Vec::new();
+    let mut terms_enums = Vec::with_capacity(self.subs.len());
 
     let mut i = 0;
     while i < self.subs.len() {

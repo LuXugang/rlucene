@@ -186,7 +186,7 @@ where
     // remove segments that the inner policy decided to merge
     if let Some(ref spec_inner) = spec {
       for om in &spec_inner.merges {
-        for seg_key in &om.stat.segments {
+        for seg_key in om.stat.segments.iter() {
           old_segments.remove(seg_key);
         }
       }

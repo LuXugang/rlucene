@@ -261,7 +261,8 @@ impl Hash for BooleanQuery {
     H: Hasher,
   {
     self.minimum_number_should_match.hash(state);
-    let mut hs = Vec::new();
+    // FILTER and MUST_NOT clauses may have been deduplicated in clause_sets.
+    let mut hs = Vec::with_capacity(self.clause_sets.values().map(Vec::len).sum());
     for (&occur, indices) in &self.clause_sets {
       for &idx in indices {
         let mut h = DefaultHasher::new();

@@ -64,6 +64,10 @@ where
   fn next(&mut self) -> Option<Self::Item> {
     self.0.next().map(Ok)
   }
+
+  fn size_hint(&self) -> (usize, Option<usize>) {
+    self.0.size_hint()
+  }
 }
 
 impl<T> IntoFallibleIterator for T
@@ -1298,7 +1302,7 @@ where
 
     let updates = self.build_doc_values_update(Some(term), soft_deletes)?;
     let node = DocumentsWriterDeleteQueue::new_node_with_doc_values(updates);
-    self.update_documents(Some(Arc::new(node)), vec![docs])
+    self.update_documents(Some(Arc::new(node)), [docs])
   }
 
   /// Updates a document's [`NumericDocValues`](crate::core::index::numeric_doc_values::NumericDocValues)
@@ -1694,6 +1698,7 @@ where
       let soft_delete_count = new_counter(false);
       {
         let merge_reader = merge.get_merge_reader();
+        merge_readers.reserve(merge_reader.len());
         for merge_reader in merge_reader.iter() {
           let reader = &merge_reader.reader;
           #[cfg(test)]

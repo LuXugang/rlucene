@@ -278,7 +278,7 @@ impl TieredMergePolicy {
     D: Directory,
     MC: MergeContext<D>,
   {
-    let mut sorted_by_size = Vec::new();
+    let mut sorted_by_size = Vec::with_capacity(infos.size());
 
     for info in infos.iter() {
       sorted_by_size.push(SegmentSizeAndDocs::new(
@@ -318,7 +318,7 @@ impl TieredMergePolicy {
   {
     let mut sorted_eligible: Vec<SegmentSizeAndDocs<'_, D>> = sorted_eligible_infos.to_vec();
 
-    let mut seg_infos_sizes = HashMap::new();
+    let mut seg_infos_sizes = HashMap::with_capacity(sorted_eligible.len());
     for seg in &sorted_eligible {
       seg_infos_sizes.insert(seg.seg_info.info.get_id_key(), *seg);
     }

@@ -174,7 +174,7 @@ pub trait AbstractKnnVectorQuery: QueryBase + Sync {
     let filter = self.base().filter.clone();
     let filter_weight = if let Some(filter) = filter {
       let mut builder = Builder::new();
-      builder.add(*filter.clone(), Occur::Filter)?;
+      builder.add(*filter, Occur::Filter)?;
       builder.add(FieldExistsQuery::new(&self.base().field), Occur::Filter)?;
       let rewritten = index_searcher.rewrite(builder.build())?;
       Some(index_searcher.create_weight(rewritten, ScoreMode::CompleteNoScores, 1.0)?)

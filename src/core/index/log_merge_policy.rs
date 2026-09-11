@@ -379,8 +379,9 @@ impl<T> LogMergePolicy<T> {
     end: usize,
     sci: &[SegmentCommitInfo<D>],
   ) -> Result<Vec<SegmentDocAndID>> {
-    let mut meta = Vec::new();
-    for seg in sci.iter().take(end).skip(start) {
+    let segments = sci.iter().take(end).skip(start);
+    let mut meta = Vec::with_capacity(segments.len());
+    for seg in segments {
       meta.push(SegmentDocAndID::new(
         seg.info.get_id_key().to_string(),
         seg.info.max_doc()?,
@@ -626,8 +627,9 @@ where
         } else {
           let v = spec.get_or_insert_with(MergeSpecification::new);
 
-          let mut meta = Vec::new();
-          for level in levels.iter().take(end).skip(start) {
+          let selected_levels = levels.iter().take(end).skip(start);
+          let mut meta = Vec::with_capacity(selected_levels.len());
+          for level in selected_levels {
             let info = level.info;
             let idx = info.info.get_id_key();
             debug_assert!(infos.contains(idx));
