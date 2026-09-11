@@ -280,7 +280,7 @@ where
 {
   fn select(&mut self, from: usize, to: usize, k: usize) -> Result<()> {
     self.check_args(from, to, k)?;
-    let max_depth = 2 * (f64::log2((to - from) as f64) as i32);
+    let max_depth = 2 * ((to - from).ilog2() as i32);
     self.select(from, to, k, max_depth)?;
     Ok(())
   }
