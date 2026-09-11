@@ -1359,17 +1359,12 @@ impl PointTransitionSet {
   }
   pub fn find(&mut self, point: i32) -> Result<&mut PointTransitions> {
     if self.use_hash {
-      if !self.map.contains_key(&point) {
-        let p = self.next(point)?;
-        self.map.insert(point, p);
-        return Ok(&mut self.points[p]);
+      if let Some(index) = self.map.get(&point).copied() {
+        return Ok(&mut self.points[index]);
       }
-      let index = self
-        .map
-        .get(&point)
-        .copied()
-        .ok_or_else(|| LuceneError::illegal_state("transition point is missing from its map"))?;
-      Ok(&mut self.points[index])
+      let p = self.next(point)?;
+      self.map.insert(point, p);
+      Ok(&mut self.points[p])
     } else {
       for i in 0..self.count {
         if self.points[i].point == point {

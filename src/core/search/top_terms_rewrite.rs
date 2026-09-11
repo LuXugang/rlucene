@@ -55,12 +55,12 @@ pub trait TopTermsRewrite: TermCollectingRewrite {
       &mut collector,
     )?;
     let mut keys = collector.st_queue.take_heap_array();
-    keys.sort();
+    keys.sort_by(|a, b| a.0.cmp(&b.0));
 
     let mut visited_terms = collector.st_queue.compare.visited_terms;
 
     let mut score_terms = Vec::with_capacity(keys.len());
-    for key in keys {
+    for (key, _) in keys {
       let st = visited_terms
         .remove(&key)
         .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
@@ -104,20 +104,12 @@ impl ScoreTermCmp {
     }
   }
 }
-impl Compare<BytesRef<Vec<u8>>> for ScoreTermCmp {
-  fn less_than(&self, a: &BytesRef<Vec<u8>>, b: &BytesRef<Vec<u8>>) -> Result<bool> {
-    let l = self
-      .visited_terms
-      .get(a)
-      .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
-    let r = self
-      .visited_terms
-      .get(b)
-      .ok_or_else(|| LuceneError::illegal_state("term not found in visited_terms"))?;
-    if l.boost == r.boost {
-      Ok(b < a)
+impl Compare<(BytesRef<Vec<u8>>, f32)> for ScoreTermCmp {
+  fn less_than(&self, a: &(BytesRef<Vec<u8>>, f32), b: &(BytesRef<Vec<u8>>, f32)) -> Result<bool> {
+    if a.1 == b.1 {
+      Ok(b.0 < a.0)
     } else {
-      Ok(CoreHelper::compare_f32(l.boost, r.boost).is_lt())
+      Ok(CoreHelper::compare_f32(a.1, b.1).is_lt())
     }
   }
 }
@@ -125,7 +117,7 @@ impl Compare<BytesRef<Vec<u8>>> for ScoreTermCmp {
 pub(crate) struct TermCollectorImpl {
   #[cfg(debug_assertions)]
   last_term: Option<BytesRefBuilder<Vec<u8>>>,
-  st_queue: PriorityQueue<BytesRef<Vec<u8>>, ScoreTermCmp>,
+  st_queue: PriorityQueue<(BytesRef<Vec<u8>>, f32), ScoreTermCmp>,
   max_size: usize,
   ord: usize,
 }
@@ -196,7 +188,7 @@ impl TermCollector for TermCollectorImpl {
     debug_assert!(self.compare_to_last_term(Some(&bytes))?);
 
     if self.st_queue.size() == self.max_size {
-      let key = self
+      let (key, _) = self
         .st_queue
         .top()
         .ok_or_else(|| LuceneError::illegal_state("PriorityQueue is empty"))?;
@@ -238,20 +230,20 @@ impl TermCollector for TermCollectorImpl {
         .compare
         .visited_terms
         .insert(bytes.clone(), st);
-      self.st_queue.add(bytes)?;
+      self.st_queue.add((bytes, boost))?;
 
       if self.st_queue.size() > self.max_size {
         let dropped = self
           .st_queue
           .pop()?
           .ok_or_else(|| LuceneError::illegal_state("PriorityQueue is empty"))?;
-        self.st_queue.compare.visited_terms.remove(&dropped);
+        self.st_queue.compare.visited_terms.remove(&dropped.0);
       }
 
       debug_assert!(self.st_queue.size() <= self.max_size);
 
       if self.st_queue.size() == self.max_size {
-        let key = self
+        let (key, _) = self
           .st_queue
           .top()
           .ok_or_else(|| LuceneError::illegal_state("PriorityQueue is empty"))?;

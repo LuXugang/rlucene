@@ -18,7 +18,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::packed::PackedInts;
 use crate::core::util::ram_usage_estimator::size_of_vec;
-use crate::core::util::{CoreHelper, TryIntoInt};
+use crate::core::util::{HashCode, TryIntoInt};
 #[cfg(test)]
 use std::collections::HashSet;
 use std::fmt;
@@ -82,7 +82,7 @@ impl DocValuesLongHashSet {
   }
   fn add(table: &mut [i64], mask: usize, l: i64) -> bool {
     debug_assert!(l != MISSING);
-    let hash = CoreHelper::calculate_hash(&l) as usize & mask;
+    let hash = l.hash_code() as usize & mask;
     let mut i = hash;
 
     loop {
@@ -103,7 +103,7 @@ impl DocValuesLongHashSet {
       return self.has_missing_value;
     }
 
-    let hash = CoreHelper::calculate_hash(&l) as usize & self.mask;
+    let hash = l.hash_code() as usize & self.mask;
     let mut i = hash;
 
     loop {
