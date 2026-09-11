@@ -1023,23 +1023,26 @@ where
     self.meta.write_int(field.number)?;
     self.meta.write_byte(Lucene90DocValuesFormat::BINARY)?;
 
-    let mut values = values_producer.get_binary(field)?;
-    let start = self.data.get_file_pointer()?;
-    self.meta.write_long(start as i64)?; // dataOffset
-    let mut num_docs_with_field = 0;
-    let mut min_length = i32::MAX as usize;
-    let mut max_length = 0;
-    let mut doc = values.next_doc()?;
-    while doc != NO_MORE_DOCS {
-      num_docs_with_field += 1;
-      let value = values.binary_value()?;
-      let v = value.as_ref();
-      let length = v.length;
-      self.data.write_bytes_range(&v.bytes, v.offset, length)?;
-      min_length = min_length.min(length);
-      max_length = max_length.max(length);
-      doc = values.next_doc()?;
-    }
+    let (start, num_docs_with_field, min_length, max_length) = {
+      let mut values = values_producer.get_binary(field)?;
+      let start = self.data.get_file_pointer()?;
+      self.meta.write_long(start as i64)?; // dataOffset
+      let mut num_docs_with_field = 0;
+      let mut min_length = i32::MAX as usize;
+      let mut max_length = 0;
+      let mut doc = values.next_doc()?;
+      while doc != NO_MORE_DOCS {
+        num_docs_with_field += 1;
+        let value = values.binary_value()?;
+        let v = value.as_ref();
+        let length = v.length;
+        self.data.write_bytes_range(&v.bytes, v.offset, length)?;
+        min_length = min_length.min(length);
+        max_length = max_length.max(length);
+        doc = values.next_doc()?;
+      }
+      (start, num_docs_with_field, min_length, max_length)
+    };
 
     debug_assert!(num_docs_with_field <= self.max_doc);
     self

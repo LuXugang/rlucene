@@ -40,10 +40,6 @@ where
   config: BKDConfig,
   points_in_buffer: usize,
   max_point_on_heap: usize,
-  // File name we are reading
-  #[allow(dead_code)]
-  // Mirrors Java's diagnostic name field, whose only read is in commented tracing code.
-  name: String,
   pub(crate) point_value: PointValueEnum,
 }
 
@@ -85,7 +81,6 @@ where
 
     debug_assert!(reusable_buffer_len <= i32::MAX as usize);
     let max_point_on_heap = reusable_buffer_len / config.bytes_per_doc();
-    let name = temp_file_name.to_string();
     let seek_fp = start * bytes_per_doc;
     let (check_sum_input, input) =
       if start == 0 && (length * bytes_per_doc == file_length - footer_length) {
@@ -111,7 +106,6 @@ where
       config,
       points_in_buffer: 0,
       max_point_on_heap,
-      name,
       point_value,
     })
   }

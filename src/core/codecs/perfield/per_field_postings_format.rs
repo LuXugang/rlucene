@@ -139,7 +139,7 @@ impl<'a, D> FieldsGroupBuilder<'a, D> {
 
   fn build(self) -> FieldsGroup<'a, D> {
     let mut fields: Vec<String> = self.fields.into_iter().collect();
-    fields.sort();
+    fields.sort_unstable();
     FieldsGroup {
       fields,
       suffix: self.suffix,
@@ -158,10 +158,10 @@ where
 fn get_full_segment_suffix(
   field_name: &str,
   outer_segment_suffix: &str,
-  segment_suffix: &str,
+  segment_suffix: String,
 ) -> Result<String> {
   if outer_segment_suffix.is_empty() {
-    Ok(segment_suffix.to_string())
+    Ok(segment_suffix)
   } else {
     // return outerSegmentSuffix + "_" + segmentSuffix;
     Err(LuceneError::illegal_state(format!(
@@ -247,7 +247,7 @@ where
           let segment_suffix = get_full_segment_suffix(
             field,
             &write_state.segment_suffix,
-            &get_suffix(format_name, *suffix),
+            get_suffix(format_name, *suffix),
           )?;
           &mut entry
             .insert((

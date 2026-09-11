@@ -133,14 +133,13 @@ impl InetAddressPoint {
   where
     T: Into<String>,
   {
-    let mut field = Self {
+    let field = Self {
       parent_field: Field::from_bytes_ref(
         name,
         BytesRef::from_bytes(encode_address(point).to_vec()),
         Self::get_type()?,
       )?,
     };
-    field.set_inet_address_value(point)?;
     Ok(field)
   }
 

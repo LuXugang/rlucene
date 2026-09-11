@@ -572,14 +572,12 @@ where
       Ok(())
     }));
     if success {
-      let mut outputs = vec![&mut self.meta_out, &mut self.doc_out];
-      if let Some(ref mut pos_out) = self.pos_out {
-        outputs.push(pos_out);
-      }
-      if let Some(ref mut pay_out) = self.pay_out {
-        outputs.push(pay_out);
-      }
-      IOUtils::close(outputs)?;
+      IOUtils::close((
+        &mut self.meta_out,
+        &mut self.doc_out,
+        self.pos_out.as_mut(),
+        self.pay_out.as_mut(),
+      ))?;
     } else {
       IOUtils::close_while_handling_exception((
         &mut self.meta_out,

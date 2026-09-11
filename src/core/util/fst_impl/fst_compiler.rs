@@ -307,28 +307,28 @@ where
     let last_node = &mut self.frontier[input.length];
     if last_input_len != input.length || prefix_len_plus1 != input.length + 1 {
       last_node.is_final = true;
-      last_node.output = no_output.clone();
+      last_node.output = no_output;
     }
     // push conflicting outputs forward, only as far as
     // needed
     for idx in 1..prefix_len_plus1 {
       let (last_output, label) = {
-        let parent = &mut self.frontier[idx - 1];
+        let parent = &self.frontier[idx - 1];
         let label = ints[offset + idx - 1];
         (parent.get_last_output(label), label)
       };
 
-      debug_assert!(self.valid_output(&last_output));
+      debug_assert!(self.valid_output(last_output));
 
       let common_output_prefix;
-      if !self.no_output.is_same_reference(&last_output) {
-        common_output_prefix = self.fst.outputs.common(&output, &last_output);
+      if !self.no_output.is_same_reference(last_output) {
+        common_output_prefix = self.fst.outputs.common(&output, last_output);
         debug_assert!(self.valid_output(&common_output_prefix));
 
         let word_suffix = self
           .fst
           .outputs
-          .subtract(&last_output, &common_output_prefix);
+          .subtract(last_output, &common_output_prefix);
         debug_assert!(self.valid_output(&word_suffix));
 
         UnCompiledNode::set_last_output(label, common_output_prefix.clone(), self, idx - 1)?;
@@ -343,9 +343,9 @@ where
     if self.last_input.length() == input.length && prefix_len_plus1 == input.length + 1 {
       // same input more than 1 time in a row,
       // mapping to multiple outputs
-      let output = self.frontier[input.offset].output.clone();
+      let output = &self.frontier[input.offset].output;
       let last_node = &self.frontier[input.length];
-      let v = self.fst.outputs.merge(&last_node.output, &output)?;
+      let v = self.fst.outputs.merge(&last_node.output, output)?;
       self.frontier[input.length].output = v;
     } else {
       // this new arc is private to this new input; set its
@@ -936,7 +936,7 @@ where
   }
   pub(crate) fn set_empty_output(&mut self, v: O::V) -> Result<()> {
     if let Some(existing) = &mut self.fst.metadata.empty_output {
-      self.fst.metadata.empty_output = Some(self.fst.outputs.merge(&existing.clone(), &v)?);
+      self.fst.metadata.empty_output = Some(self.fst.outputs.merge(existing, &v)?);
     } else {
       self.fst.metadata.empty_output = Some(v);
     }
@@ -1365,10 +1365,10 @@ where
     // for nodes on the frontier (even when reused).
   }
 
-  pub(crate) fn get_last_output(&self, label_to_match: i32) -> T {
+  pub(crate) fn get_last_output(&self, label_to_match: i32) -> &T {
     debug_assert!(self.num_arcs > 0);
     debug_assert!(self.arcs[self.num_arcs - 1].label == label_to_match);
-    self.arcs[self.num_arcs - 1].output.clone()
+    &self.arcs[self.num_arcs - 1].output
   }
 
   pub(crate) fn add_arc(&mut self, label: i32, target: NodeEnum, no_outputs: T) -> Result<()> {

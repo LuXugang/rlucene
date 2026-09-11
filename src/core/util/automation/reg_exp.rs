@@ -177,7 +177,7 @@ impl RegExp {
       }
       e
     };
-    e.original_string = s.to_string();
+    e.original_string = std::mem::take(&mut parser.original_string);
     e.flags = flags;
     e.pos = parser.pos;
 
@@ -1254,8 +1254,8 @@ impl RegExp {
           self.pos
         )));
       }
-      let s = self.original_string[start..(self.pos - 1)].to_string();
-      Ok(RegExp::make_string(self.flags, &s))
+      let s = &self.original_string[start..(self.pos - 1)];
+      Ok(RegExp::make_string(self.flags, s))
     } else if self.match_char('(') {
       if self.match_char(')') {
         return Ok(RegExp::make_string(self.flags, ""));
@@ -1281,7 +1281,7 @@ impl RegExp {
           self.pos
         )));
       }
-      let s = self.original_string[start..(self.pos - 1)].to_string();
+      let s = &self.original_string[start..(self.pos - 1)];
       if let Some(i) = s.find('-') {
         if !self.check(RegExp::INTERVAL) {
           return Err(LuceneError::illegal_argument(format!(
@@ -1328,7 +1328,7 @@ impl RegExp {
             self.pos - 1
           )));
         }
-        Ok(RegExp::make_automaton(self.flags, &s))
+        Ok(RegExp::make_automaton(self.flags, s))
       }
     } else {
       if let Some(predefined) = self.match_predefined_character_class()? {

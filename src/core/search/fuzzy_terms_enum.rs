@@ -24,13 +24,13 @@ use crate::core::search::boost_attribute_impl::BoostAttributeImpl;
 use crate::core::search::fuzzy_automaton_builder::FuzzyAutomatonBuilder;
 use crate::core::search::max_non_competitive_boost_attribute::MaxNonCompetitiveBoostAttribute;
 use crate::core::search::max_non_competitive_boost_attribute_impl::MaxNonCompetitiveBoostAttributeImpl;
-use crate::core::util::ToInt;
 use crate::core::util::attribute::Attribute;
 use crate::core::util::attribute_source::AttributeSource;
 use crate::core::util::automation::byte_runnable::ByteRunnable;
 use crate::core::util::automation::compiled_automaton::CompiledAutomaton;
 use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
+use crate::core::util::{CoreHelper, ToInt};
 use std::borrow::Cow;
 /// [`TermsEnum`] implementation that enumerates terms similar to the specified filter term.
 ///
@@ -252,7 +252,12 @@ where
     if ed == 0 {
       self.attrs.set_boost(1.0)?;
     } else {
-      let code_point_count = term.utf8_to_string()?.chars().count();
+      CoreHelper::check_from_index_size(term.offset, term.length, term.bytes.len())?;
+      let code_point_count =
+        std::str::from_utf8(&term.bytes[term.offset..term.offset + term.length])
+          .map_err(LuceneError::from)?
+          .chars()
+          .count();
       let min_term_length = code_point_count.min(self.term_length);
       let similarity = 1.0 - (ed as f32 / min_term_length as f32);
       self.attrs.set_boost(similarity)?;

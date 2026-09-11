@@ -1787,7 +1787,7 @@ where
         any_block && any_parent_missing
       };
 
-      let mut reorder_doc_maps = Vec::with_capacity(merge_readers.len());
+      let mut reorder_doc_maps = Vec::new();
       let new_merge_readers;
       if !has_index_sort && !has_blocks_but_no_parent_field {
         // Create a merged view of the input segments. This effectively does the merge.
@@ -1799,6 +1799,7 @@ where
         let doc_map_opt = merge.reorder(&merged_view, self.directory.as_ref())?;
 
         if let Some(doc_map) = doc_map_opt {
+          reorder_doc_maps.reserve(merge_readers.len());
           let mut doc_base = 0;
           for reader in &merge_readers {
             let current_doc_base = doc_base;
@@ -5319,10 +5320,10 @@ where
         .as_ref()
         .ok_or_else(|| LuceneError::illegal_state("merge info is none"))?;
       debug_assert!(!inner.segment_infos.contains(merge_sci.info.get_id_key()));
-      let merge_info_id = merge_sci.info.get_id_key().to_string();
+      let merge_info_id = merge_sci.info.get_id_key();
       self
         .reader_pool
-        .drop(&merge_info_id, &mut inner.segment_infos)?;
+        .drop(merge_info_id, &mut inner.segment_infos)?;
       // Safe: these files must exist
       self.delete_new_files(merge_sci.files()?.iter(), Some(&inner))?;
     }
@@ -8865,19 +8866,28 @@ impl DocModifier for DocModifierImpl2 {
       > = HashMap::new();
 
       for update in &self.dv_updates {
-        let sub: DocValuesFieldUpdatesBaseEnum = match update.doc_values_type {
-          DocValuesType::Numeric => NumericDocValuesFieldUpdates::new()?.into(),
-          DocValuesType::Binary => BinaryDocValuesFieldUpdates::new()?.into(),
+        match update.doc_values_type {
+          DocValuesType::Numeric | DocValuesType::Binary => {},
           _ => {
             return Err(LuceneError::unsupported_operation(format!(
               "typ: {} is not supported",
               update.doc_values_type
             )));
           },
-        };
+        }
         let doc_values_field_updates = match field_updates_map.entry(update.field.clone()) {
           std::collections::hash_map::Entry::Occupied(entry) => entry.into_mut(),
           std::collections::hash_map::Entry::Vacant(entry) => {
+            let sub: DocValuesFieldUpdatesBaseEnum = match update.doc_values_type {
+              DocValuesType::Numeric => NumericDocValuesFieldUpdates::new()?.into(),
+              DocValuesType::Binary => BinaryDocValuesFieldUpdates::new()?.into(),
+              _ => {
+                return Err(LuceneError::unsupported_operation(format!(
+                  "typ: {} is not supported",
+                  update.doc_values_type
+                )));
+              },
+            };
             entry.insert(DocValuesFieldUpdates::new(
               max_doc,
               next_gen,
@@ -9101,7 +9111,7 @@ where
         inner.deleter.inc_ref_files(orig_info.files()?)?;
       }
 
-      let merged_segment_ids: HashSet<String> = stat.segments.iter().cloned().collect();
+      let merged_segment_ids: HashSet<&str> = stat.segments.iter().map(String::as_str).collect();
       let mut to_commit_merged_away_segments = Vec::new();
       {
         let mut merging_segment_infos = self.merging_segment_infos.lock();
@@ -9119,8 +9129,13 @@ where
         }
 
         let mut applicable_merge = OneMerge::<D, CR>::new(to_commit_merged_away_segments)?;
-        applicable_merge.info = Some(orig_info.clone());
-        let segment_counter = i64::from_str_radix(orig_info.info.name.trim_start_matches('_'), 36)?;
+        applicable_merge.info = Some(orig_info);
+        let merged_info = applicable_merge
+          .info
+          .as_ref()
+          .ok_or_else(|| LuceneError::illegal_state("point-in-time merge output info is none"))?;
+        let segment_counter =
+          i64::from_str_radix(merged_info.info.name.trim_start_matches('_'), 36)?;
         merging_segment_infos.counter =
           std::cmp::max(merging_segment_infos.counter, segment_counter + 1);
         merging_segment_infos.apply_merge_changes(&mut applicable_merge, false)?;

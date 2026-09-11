@@ -626,13 +626,13 @@ where
     bb: Vec<FixedBitSet>,
   ) -> Result<HashMap<Term, usize>> {
     let mut tg: HashMap<Term, usize> = HashMap::new();
-    let terms: Vec<Term> = tord.keys().cloned().collect();
+    let terms: Vec<&Term> = tord.keys().collect();
 
     for (i, bits) in bb.iter().enumerate() {
       let mut ord = bits.next_set_bit(0);
 
       while ord != NO_MORE_DOCS as usize {
-        tg.insert(terms[ord].clone(), i);
+        tg.insert((*terms[ord]).clone(), i);
 
         let next = ord + 1;
         if next >= bits.length() {

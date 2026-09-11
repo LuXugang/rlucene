@@ -301,14 +301,17 @@ where
     }));
 
     let delete_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-      let mut file_names = Vec::new();
-      if docs_out_pending_delete {
-        file_names.push(docs_out.get_name().to_string());
-      }
-      if file_pointers_out_pending_delete && let Some(out) = file_pointers_out.as_ref() {
-        file_names.push(out.get_name().to_string());
-      }
-      IOUtils::delete_files(dir, file_names.iter().map(Some))
+      let docs_file_name = if docs_out_pending_delete {
+        Some(docs_out.get_name())
+      } else {
+        None
+      };
+      let file_pointers_file_name = if file_pointers_out_pending_delete {
+        file_pointers_out.as_ref().map(|out| out.get_name())
+      } else {
+        None
+      };
+      IOUtils::delete_files(dir, [docs_file_name, file_pointers_file_name])
     }));
     IOUtils::finally_caught_result(close_result, delete_result)
   }

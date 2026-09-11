@@ -324,7 +324,7 @@ where
       flush_pending: OnceLock::new(),
       last_committed_bytes_used: AtomicI64::new(0),
       num_docs_in_ram: AtomicI32::new(0),
-      id: id.clone(),
+      id,
       delete_queue,
       has_flushed: OnceLock::new(),
       aborted: Arc::new(AtomicBool::new(false)),

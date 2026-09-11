@@ -59,7 +59,7 @@ impl Outputs for IntSequenceOutputs {
     } else if mismatch == output2.length {
       output2.clone()
     } else {
-      IntsRef::from_slice(Arc::new(a[..mismatch].to_vec()), 0, mismatch)
+      IntsRef::from_slice(output1.ints.clone(), output1.offset, mismatch)
     }
   }
 

@@ -58,12 +58,19 @@ impl<LR> LeafReaderContext<LR> {
     LR: LeafReader,
   {
     let max_doc = reader.max_doc()?;
-    let mut v = Self::new(reader, 0, 0, 0, 0, TopParentMeta::default());
-    // leaf_reader is top
-    v.top_parent.leaves_num = 1;
-    v.top_parent.max_doc = max_doc;
-    v.top_parent.id = v.base.id().clone();
-    Ok(v)
+    let base = IndexReaderContextBase::new(true, 0, 0);
+    let top_parent = TopParentMeta {
+      leaves_num: 1,
+      max_doc,
+      id: base.id().clone(),
+    };
+    Ok(Self {
+      ord: 0,
+      doc_base: 0,
+      reader,
+      base,
+      top_parent,
+    })
   }
 }
 

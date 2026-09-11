@@ -109,6 +109,7 @@ where
     let reader_cache_helper = CacheHelperImpl::new();
     let core = Arc::new(SegmentCoreReaders::new(si.info.dir.as_ref(), &si, context)?);
     let seg_doc_values = Arc::new(SegmentDocValues::new());
+    let field_infos = Arc::clone(&core.core_field_infos);
     let mut segment_reader = Self {
       si,
       original_si_id,
@@ -119,7 +120,7 @@ where
       hard_live_docs: None,
       live_docs: None,
       num_docs: 0,
-      field_infos: Arc::new(FieldInfos::default()),
+      field_infos,
       doc_values_producer: None,
       index_base,
       reader_cache_helper,
@@ -218,7 +219,7 @@ where
       hard_live_docs,
       live_docs,
       num_docs,
-      field_infos: Arc::new(FieldInfos::default()),
+      field_infos: Arc::clone(&core.core_field_infos),
       doc_values_producer: None,
       index_base,
       reader_cache_helper,

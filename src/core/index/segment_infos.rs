@@ -804,7 +804,7 @@ impl<D> SegmentInfos<D> {
       generation: self.generation,
       last_generation: self.last_generation,
       user_data: self.user_data.clone(),
-      segments: Vec::new(),
+      segments: Vec::with_capacity(self.segments.len()),
       dropped_segment_commit_infos: self.dropped_segment_commit_infos.clone(),
       id: self.id,
       lucene_version: self.lucene_version.clone(),
@@ -1068,15 +1068,17 @@ impl<D> SegmentInfos<D> {
         "All segments must record the minVersion for indices created on or after Lucene 7",
       ));
     }
-    let merged_away: HashSet<String> = merge.stat.segments.iter().cloned().collect();
+    let merged_away: HashSet<&str> = merge.stat.segments.iter().map(String::as_str).collect();
 
     let mut inserted = false;
     let mut new_segments: Vec<SegmentCommitInfo<D>> = Vec::with_capacity(self.segments.len());
 
     for info in self.segments.drain(..) {
-      let info_id = info.info.get_id_key().to_string();
-      if merged_away.contains(&info_id) {
-        self.dropped_segment_commit_infos.insert(info_id, info);
+      let info_id = info.info.get_id_key();
+      if merged_away.contains(info_id) {
+        self
+          .dropped_segment_commit_infos
+          .insert(info_id.to_string(), info);
         if !inserted && !drop_segment {
           let merged_info = merge
             .info
