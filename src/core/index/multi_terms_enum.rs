@@ -126,7 +126,13 @@ where
 
     let top0_idx = self.top[0];
     let top0 = self.queue.entry(top0_idx);
-    self.current = top0.base.term().cloned();
+    match top0.base.term() {
+      Some(term) => self
+        .current
+        .get_or_insert_with(BytesRef::new)
+        .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
+      None => self.current = None,
+    }
 
     Ok(())
   }
@@ -264,7 +270,13 @@ where
           let entry = self.queue.entry_mut(entry_idx);
           entry.base.term()
         };
-        self.current = cur.cloned();
+        match cur {
+          Some(term) => self
+            .current
+            .get_or_insert_with(BytesRef::new)
+            .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
+          None => self.current = None,
+        }
 
         debug_assert!({
           let t = {
@@ -345,7 +357,13 @@ where
           let entry = self.queue.entry_mut(entry_idx);
           entry.base.term()
         };
-        self.current = cur.cloned();
+        match cur {
+          Some(term) => self
+            .current
+            .get_or_insert_with(BytesRef::new)
+            .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
+          None => self.current = None,
+        }
 
         self.queue.q.add(entry_idx)?;
       } else if status == SeekStatus::NotFound {

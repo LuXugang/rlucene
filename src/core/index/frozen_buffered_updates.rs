@@ -692,7 +692,14 @@ where
             {
               self.last_term = None;
             }
-            self.reader_term = terms_enum.next()?.map(Cow::into_owned);
+            match terms_enum.next()? {
+              Some(Cow::Owned(term)) => self.reader_term = Some(term),
+              Some(Cow::Borrowed(term)) => self
+                .reader_term
+                .get_or_insert_with(BytesRef::default)
+                .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
+              None => self.reader_term = None,
+            }
             if self.reader_term.is_none() {
               self.terms_enum = None;
               return Ok(());
@@ -738,7 +745,13 @@ where
           match terms_enum.seek_ceil(term)? {
             SeekStatus::Found => self.get_docs().map(Some),
             SeekStatus::NotFound => {
-              self.reader_term = Some(terms_enum.term()?.into_owned());
+              match terms_enum.term()? {
+                Cow::Owned(term) => self.reader_term = Some(term),
+                Cow::Borrowed(term) => self
+                  .reader_term
+                  .get_or_insert_with(BytesRef::default)
+                  .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
+              }
               Ok(None)
             },
             SeekStatus::End => {

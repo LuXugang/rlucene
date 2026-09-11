@@ -144,7 +144,7 @@ where
   O: IndexOutput,
   R: Rng + ?Sized,
 {
-  let radix_selector = BKDRadixSelector::new(config.clone(), 1000, "test");
+  let mut radix_selector = BKDRadixSelector::new(config.clone(), 1000, "test");
   // we check for each dimension
   for split_dim in 0..config.num_dims {
     let common_prefix_length;

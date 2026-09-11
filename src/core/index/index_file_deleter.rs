@@ -482,10 +482,12 @@ where
       self.delete_commits()?;
     } else {
       // DecRef old files from the last checkpoint, if any:
-      let files = std::mem::take(&mut self.last_files);
+      let mut files = std::mem::take(&mut self.last_files);
       self.dec_ref(files.iter())?;
+      files.clear();
       // Save files so we can decr on next checkpoint/commit:
-      self.last_files = segment_infos.files(false)?.into_iter().collect();
+      files.extend(segment_infos.files(false)?);
+      self.last_files = files;
     }
 
     {

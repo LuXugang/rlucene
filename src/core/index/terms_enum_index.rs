@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use crate::core::index::terms_enum::{SeekStatus, TermsEnum};
 use crate::core::index::{BytesRef, BytesRefBuilder};
 use crate::core::util::ToInt;
@@ -45,13 +47,23 @@ impl<TE> TermsEnumIndex<TE> {
     self.current_term.as_ref()
   }
 
-  fn set_term(&mut self, term: Option<BytesRef<Vec<u8>>>) {
-    if let Some(ref t) = term {
-      self.current_term_prefix8 = prefix8_to_comparable_unsigned_long(t);
-    } else {
-      self.current_term_prefix8 = 0;
+  fn set_term(
+    current_term: &mut Option<BytesRef<Vec<u8>>>,
+    current_term_prefix8: &mut u64,
+    term: Option<Cow<'_, BytesRef<Vec<u8>>>>,
+  ) {
+    *current_term_prefix8 = term
+      .as_ref()
+      .map_or(0, |t| prefix8_to_comparable_unsigned_long(t));
+    match term {
+      Some(Cow::Borrowed(term)) => {
+        current_term
+          .get_or_insert_with(BytesRef::new)
+          .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]);
+      },
+      Some(Cow::Owned(term)) => *current_term = Some(term),
+      None => *current_term = None,
     }
-    self.current_term = term;
   }
 }
 
@@ -64,8 +76,7 @@ where
       return Err(LuceneError::illegal_state("terms_enum is None"));
     };
     let term = terms_enum.next()?;
-    let v = term.map(|t| t.into_owned());
-    self.set_term(v);
+    Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, term);
     Ok(self.current_term.as_ref())
   }
   pub(crate) fn seek_ceil(&mut self, term: &BytesRef<Vec<u8>>) -> Result<SeekStatus> {
@@ -75,10 +86,10 @@ where
     let status = terms_enum.seek_ceil(term)?;
 
     if status == SeekStatus::End {
-      self.set_term(None);
+      Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, None);
     } else {
-      let v = Some(terms_enum.term()?.into_owned());
-      self.set_term(v);
+      let term = Some(terms_enum.term()?);
+      Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, term);
     }
 
     Ok(status)
@@ -90,10 +101,10 @@ where
     let found = terms_enum.seek_exact(term)?;
 
     if found {
-      let v = Some(terms_enum.term()?.into_owned());
-      self.set_term(v);
+      let term = Some(terms_enum.term()?);
+      Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, term);
     } else {
-      self.set_term(None);
+      Self::set_term(&mut self.current_term, &mut self.current_term_prefix8, None);
     }
 
     Ok(found)

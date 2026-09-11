@@ -516,6 +516,7 @@ pub(crate) struct StringSorterImpl<'a, BSA> {
   bytes_start_array: &'a BSA,
   k: usize,
   cmp: Natural,
+  scratch_bytes: BytesRef<Vec<u8>>,
 }
 impl<'a, BSA> StringSorterImpl<'a, BSA>
 where
@@ -536,6 +537,7 @@ where
       bytes_start_array,
       k: 0,
       cmp: Natural::default(),
+      scratch_bytes: BytesRef::new(),
     }
   }
   fn swap_bucket_cache(&mut self, i: usize, j: usize) -> Result<()> {
@@ -550,9 +552,11 @@ where
 {
   fn byte_at(&mut self, i: usize, k: usize) -> Result<i32> {
     let mut scratch = BytesRefBuilder::new();
-    let mut scratch_bytes = BytesRef::new();
+    let mut scratch_bytes = std::mem::take(&mut self.scratch_bytes);
     self.get(&mut scratch, &mut scratch_bytes, i)?;
-    self.cmp.byte_at(&scratch_bytes, k)
+    let byte = self.cmp.byte_at(&scratch_bytes, k)?;
+    self.scratch_bytes = scratch_bytes;
+    Ok(byte)
   }
 
   fn reorder(

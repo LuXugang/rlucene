@@ -252,8 +252,8 @@ where
     self
       .hook
       .start_document(self.num_vector_fields.try_convert()?)?;
-    let idxs = std::mem::take(&mut self.per_fields_idxs);
-    for per_field_idx in idxs.into_iter().take(self.num_vector_fields) {
+    let mut idxs = std::mem::take(&mut self.per_fields_idxs);
+    for per_field_idx in idxs.drain(..).take(self.num_vector_fields) {
       let v = &mut per_fields[per_field_idx.idx];
       let terms_hash_per_field = v
         .terms_hash_per_field
@@ -277,6 +277,7 @@ where
     self.last_doc_id += 1;
     int_pool.reset(false, false);
     self.reset_fields();
+    self.per_fields_idxs = idxs;
     Ok(())
   }
   pub(crate) fn start_document(&mut self) -> Result<()> {

@@ -553,7 +553,7 @@ impl PendingBlock {
     scratch_bytes: &mut ByteBuffersDataOutput,
     scratch_ints_ref: &mut IntsRefBuilder<Vec<i32>>,
     version: i32,
-  ) -> Result<PendingBlock> {
+  ) -> Result<(PendingBlock, Vec<PendingBlock>)> {
     debug_assert!(
       (blocks.len() > 1 && blocks[0].is_floor) || (!blocks[0].is_floor && blocks.len() == 1),
       "is_floor={}, blocks.len()={}",
@@ -642,7 +642,13 @@ impl PendingBlock {
     );
 
     debug_assert!(first_block.sub_indices.is_empty());
-    Ok(blocks.remove(0))
+    // The remaining blocks are discarded; draining avoids shifting them first
+    // and keeps this Vec's allocation available to the caller.
+    let first_block = blocks
+      .drain(..)
+      .next()
+      .ok_or_else(|| LuceneError::illegal_state("compiled block list is empty"))?;
+    Ok((first_block, blocks))
   }
   fn append(
     &self,
@@ -894,12 +900,13 @@ where
 
     debug_assert!(self.new_blocks[0].is_floor || self.new_blocks.len() == 1);
 
-    let first_block = PendingBlock::compile_index(
+    let (first_block, blocks) = PendingBlock::compile_index(
       std::mem::take(&mut self.new_blocks),
       &mut self.scratch_bytes,
       &mut self.scratch_ints_ref,
       self.version,
     )?;
+    self.new_blocks = blocks;
 
     let remove_start = self.pending.len() - count;
     self.pending.drain(remove_start..);

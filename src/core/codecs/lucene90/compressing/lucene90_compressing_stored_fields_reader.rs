@@ -714,6 +714,11 @@ where
 
     if self.merging {
       let total_length = self.offsets[chunk_docs].try_convert()?;
+      // A returned document may still own the old bytes. Only recycle an
+      // exclusively owned buffer, so retained document views stay unchanged.
+      if let Some(bytes) = Arc::get_mut(&mut self.bytes.bytes) {
+        std::mem::swap(bytes, &mut self.spare2.bytes);
+      }
       // decompress eagerly
       if self.sliced {
         self.spare2.offset = 0;

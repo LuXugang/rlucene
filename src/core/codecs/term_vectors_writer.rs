@@ -179,7 +179,9 @@ pub trait TermVectorsWriter: Accountable + Closeable {
 
     self.start_document(num_fields)?;
 
+    #[cfg(debug_assertions)]
     let mut last_field_name: Option<String> = None;
+    let mut docs_and_positions_reuse = None;
 
     let mut field_count = 0;
 
@@ -192,15 +194,18 @@ pub trait TermVectorsWriter: Accountable + Closeable {
         .field_info_by_name(field_name)?
         .ok_or_else(|| LuceneError::illegal_state("missing FieldInfo"))?;
 
-      if let Some(ref last) = last_field_name {
-        debug_assert!(
-          field_name > last,
-          "lastFieldName={} fieldName={}",
-          last,
-          field_name
-        );
+      #[cfg(debug_assertions)]
+      {
+        if let Some(ref last) = last_field_name {
+          debug_assert!(
+            field_name > last,
+            "lastFieldName={} fieldName={}",
+            last,
+            field_name
+          );
+        }
+        last_field_name = Some(field_name.clone());
       }
-      last_field_name = Some(field_name.clone());
 
       let Some(terms) = vectors.terms(field_name)? else {
         // Fields iterator should not lie
@@ -241,8 +246,8 @@ pub trait TermVectorsWriter: Accountable + Closeable {
         self.start_term(terms_enum.term()?.as_ref(), freq)?;
 
         if has_positions || has_offsets {
-          let mut docs_and_positions_enum =
-            terms_enum.postings_with_flags(None, (OFFSETS | PAYLOADS) as i32)?;
+          let mut docs_and_positions_enum = terms_enum
+            .postings_with_flags(docs_and_positions_reuse.take(), (OFFSETS | PAYLOADS) as i32)?;
 
           let doc_id = docs_and_positions_enum.next_doc()?;
           debug_assert!(doc_id != NO_MORE_DOCS);
@@ -257,6 +262,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
             debug_assert!(!has_positions || pos >= 0);
             self.add_position(pos, start_offset, end_offset, payload.as_deref())?;
           }
+          docs_and_positions_reuse = Some(docs_and_positions_enum);
         }
 
         self.finish_term()?;

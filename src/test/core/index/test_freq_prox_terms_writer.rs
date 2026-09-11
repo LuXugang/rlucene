@@ -84,7 +84,15 @@ fn test_doc_offset_sorter_basic() {
   }
 
   let max_temp_slots = TestUtil::next_usize(&mut random, 0, len);
-  let mut sorter = DocOffsetSorter::new(&mut docs, &mut offsets, max_temp_slots);
+  let mut tmp_docs = Vec::new();
+  let mut tmp_offsets = Vec::new();
+  let mut sorter = DocOffsetSorter::new(
+    &mut docs,
+    &mut offsets,
+    max_temp_slots,
+    &mut tmp_docs,
+    &mut tmp_offsets,
+  );
   sorter.sort(0, len).unwrap();
 
   assert_sorted_and_synced(&docs, &offsets, &original_map);

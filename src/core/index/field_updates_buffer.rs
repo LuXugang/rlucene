@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
 use std::cmp::{Ordering, max, min};
 use std::sync::Arc;
 
@@ -512,8 +513,16 @@ impl<'a> BufferedUpdateIterator<'a> {
           debug_assert!(self.numeric_values_length == 0);
           match &mut self.byte_values_iterator {
             Some(iterator) => match iterator.next()? {
-              Some(bytes_ref) => {
-                buffered_update.binary_value = Some(bytes_ref.into_owned());
+              Some(Cow::Owned(bytes_ref)) => {
+                buffered_update.binary_value = Some(bytes_ref);
+              },
+              Some(Cow::Borrowed(bytes_ref)) => {
+                buffered_update
+                  .binary_value
+                  .get_or_insert_with(BytesRef::default)
+                  .copy_from_slice(
+                    &bytes_ref.bytes[bytes_ref.offset..bytes_ref.offset + bytes_ref.length],
+                  );
               },
               None => {
                 buffered_update.binary_value = None;
@@ -539,13 +548,18 @@ impl<'a> BufferedUpdateIterator<'a> {
       if self.buffered_update.term_value.is_none() {
         look_ahead_term_iterator.next()?;
       }
-      let mut last_term;
+      let mut last_term: Option<BytesRef<Vec<u8>>> = None;
       let mut ahead_term;
       loop {
         ahead_term = look_ahead_term_iterator.next()?;
         match self.term_values_iterator.next()? {
-          Some(term) => {
-            last_term = Some(term.into_owned());
+          Some(Cow::Owned(term)) => {
+            last_term = Some(term);
+          },
+          Some(Cow::Borrowed(term)) => {
+            last_term
+              .get_or_insert_with(BytesRef::default)
+              .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]);
           },
           None => {
             last_term = None;

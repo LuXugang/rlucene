@@ -1380,10 +1380,9 @@ where
         .payload
         .as_mut()
         .ok_or_else(|| LuceneError::illegal_state("payload value is missing"))?;
-      payload.offset = self.payload_byte_upto;
-      payload.length = self.payload_length;
-      // TODO IMPORTANT could we avoid copying the payload?
-      payload.bytes.clone_from(&self.payload_bytes);
+      payload.copy_from_slice(
+        &self.payload_bytes[self.payload_byte_upto..self.payload_byte_upto + self.payload_length],
+      );
       self.payload_byte_upto += self.payload_length;
     }
 

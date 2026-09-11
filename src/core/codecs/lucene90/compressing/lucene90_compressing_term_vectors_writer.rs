@@ -1252,6 +1252,7 @@ where
     let mut doc_count = 0;
 
     let mut doc_id_merger = of(subs, merge_state.needs_index_sort)?;
+    let merge_state_meta = merge_state.get_meta();
 
     let mut sub_opt = doc_id_merger.next()?;
     while let Some(sub_idx) = sub_opt {
@@ -1298,7 +1299,7 @@ where
           None => None,
         };
 
-        self.add_all_doc_vectors(vectors.as_ref(), &merge_state.get_meta())?;
+        self.add_all_doc_vectors(vectors.as_ref(), &merge_state_meta)?;
         doc_count += 1;
         sub_opt = doc_id_merger.next()?;
       }

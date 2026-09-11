@@ -47,6 +47,7 @@ pub struct BooleanScorer<S> {
   pub(crate) matching: Vec<u64>,
   pub(crate) head: PriorityQueue<DisiWrapper<S>, HeadPriorityQueueCmp>,
   pub(crate) tail: PriorityQueue<DisiWrapper<S>, TailPriorityQueueCmp>,
+  leads: Vec<DisiWrapper<S>>,
   pub(crate) score: Score,
   pub(crate) min_should_match: usize,
   pub(crate) cost: i64,
@@ -106,6 +107,7 @@ where
       matching,
       head,
       tail,
+      leads: Vec::new(),
       score: Score::new(0.0),
       min_should_match,
       cost,
@@ -237,7 +239,7 @@ where
     window_min: i32,
     window_max: i32,
     mut max_freq: usize,
-    mut leads: Vec<DisiWrapper<S>>,
+    leads: &mut Vec<DisiWrapper<S>>,
   ) -> Result<()> {
     while max_freq < self.min_should_match && max_freq + self.tail.size() >= self.min_should_match {
       // a match is still possible
@@ -278,7 +280,7 @@ where
       )?;
     }
 
-    for v in leads.into_iter() {
+    for v in leads.drain(..) {
       let evicted = self.head.insert_with_overflow(v)?;
       if let Some(e) = evicted {
         self.tail.add(e)?;
@@ -340,7 +342,7 @@ where
     let window_base = top_doc & !(MASK as i32);
     let window_min = std::cmp::max(min, window_base);
     let window_max = std::cmp::min(max, window_base + SIZE as i32);
-    let mut leads = Vec::new();
+    let mut leads = std::mem::take(&mut self.leads);
     let head_top = self
       .head
       .pop()?
@@ -378,7 +380,9 @@ where
         window_max,
         max,
       )?;
-      return self.head.add(bulk_scorer);
+      let top = self.head.add(bulk_scorer)?;
+      self.leads = leads;
+      return Ok(top);
     }
     // general case, collect through a bit set first and then replay
     self.score_window_multiple_scorers(
@@ -388,13 +392,14 @@ where
       window_min,
       window_max,
       max_freq,
-      leads,
+      &mut leads,
     )?;
-
-    self
+    let top = self
       .head
       .top()
-      .ok_or_else(|| LuceneError::illegal_state("head's top() returned None"))
+      .ok_or_else(|| LuceneError::illegal_state("head's top() returned None"))?;
+    self.leads = leads;
+    Ok(top)
   }
 }
 

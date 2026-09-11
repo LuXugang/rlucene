@@ -83,6 +83,7 @@ where
   packed_ints_version: i32,
   compression_mode: CompressionModeEnum,
   decompressor: DecompressorEnum,
+  reader: BlockPackedReaderIterator,
   chunk_size: i32,
   num_docs: i32,
   closed: AtomicBool,
@@ -227,6 +228,7 @@ where
         num_dirty_chunks,
         num_dirty_docs,
         decompressor,
+        reader: BlockPackedReaderIterator::new(packed_ints_version, PACKED_BLOCK_SIZE, 0)?,
         prefetched_block_id_cache,
         prefetched_block_id_cache_index: 0,
         closed: AtomicBool::new(false),
@@ -269,6 +271,7 @@ where
       packed_ints_version: reader.packed_ints_version,
       compression_mode: reader.compression_mode.clone(),
       decompressor: reader.decompressor.clone(),
+      reader: BlockPackedReaderIterator::new(reader.packed_ints_version, PACKED_BLOCK_SIZE, 0)?,
       chunk_size: reader.chunk_size,
       num_docs: reader.num_docs,
       version: reader.version,
@@ -403,9 +406,7 @@ where
   {
     let mut positions = vec![Vec::new(); num_fields];
     // reset reader
-    let mut reader =
-      BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
-    reader.reset(total_positions);
+    self.reader.reset(total_positions);
 
     // skip
     let mut to_skip = 0;
@@ -420,7 +421,7 @@ where
       }
       term_index += term_count;
     }
-    reader.skip(to_skip, &mut self.vectors_stream)?;
+    self.reader.skip(to_skip, &mut self.vectors_stream)?;
     // read doc positions
     for i in 0..num_fields {
       let f = flags.get_mut(skip + i)? as i32;
@@ -431,7 +432,9 @@ where
         let mut field_positions = vec![0; total_freq];
         let mut j = 0;
         while j < total_freq {
-          let next_positions = reader.next_batch(total_freq - j, &mut self.vectors_stream)?;
+          let next_positions = self
+            .reader
+            .next_batch(total_freq - j, &mut self.vectors_stream)?;
           let slice = &next_positions.longs
             [next_positions.offset..next_positions.offset + next_positions.length];
           for &val in slice {
@@ -442,8 +445,10 @@ where
         positions[i] = field_positions;
       }
     }
-    let read = reader.ord();
-    reader.skip(total_positions - read, &mut self.vectors_stream)?;
+    let read = self.reader.ord();
+    self
+      .reader
+      .skip(total_positions - read, &mut self.vectors_stream)?;
     Ok(positions)
   }
 }
@@ -510,22 +515,20 @@ where
       )));
     }
     self.block_state = BlockState::new(Some(start_pointer), Some(doc_base), chunk_docs);
-    let mut reader =
-      BlockPackedReaderIterator::new(self.packed_ints_version, PACKED_BLOCK_SIZE, 0)?;
     let (skip, num_fields, total_fields) = if chunk_docs == 1 {
       let nf = self.vectors_stream.read_vint()? as usize;
       (0, nf, nf)
     } else {
-      reader.reset(chunk_docs as usize);
+      self.reader.reset(chunk_docs as usize);
       let mut sum = 0;
       for _ in doc_base..doc {
-        sum += reader.next_value(&mut self.vectors_stream)? as usize;
+        sum += self.reader.next_value(&mut self.vectors_stream)? as usize;
       }
       let skip = sum;
-      let num_fields = reader.next_value(&mut self.vectors_stream)? as usize;
+      let num_fields = self.reader.next_value(&mut self.vectors_stream)? as usize;
       sum += num_fields;
       for _ in (doc + 1)..(doc_base + chunk_docs) {
-        sum += reader.next_value(&mut self.vectors_stream)? as usize;
+        sum += self.reader.next_value(&mut self.vectors_stream)? as usize;
       }
       (skip, num_fields, sum)
     };
@@ -614,14 +617,14 @@ where
     let mut prefix_lengths = vec![Vec::new(); num_fields];
     let mut suffix_lengths = vec![Vec::new(); num_fields];
     {
-      reader.reset(total_terms);
+      self.reader.reset(total_terms);
 
       // skip
       let mut to_skip = 0;
       for i in 0..skip {
         to_skip += num_terms.get_mut(i)? as usize;
       }
-      reader.skip(to_skip, &mut self.vectors_stream)?;
+      self.reader.skip(to_skip, &mut self.vectors_stream)?;
 
       // read prefix lengths
       for (i, slot) in prefix_lengths.iter_mut().enumerate().take(num_fields) {
@@ -630,7 +633,9 @@ where
         let mut j = 0;
 
         while j < term_count {
-          let next = reader.next_batch(term_count - j, &mut self.vectors_stream)?;
+          let next = self
+            .reader
+            .next_batch(term_count - j, &mut self.vectors_stream)?;
           let src = &next.longs[next.offset..][..next.length];
           for (k, &val) in src.iter().enumerate() {
             field_prefix_lengths[j + k] = val as usize;
@@ -641,14 +646,16 @@ where
         *slot = field_prefix_lengths;
       }
 
-      reader.skip(total_terms - reader.ord(), &mut self.vectors_stream)?;
+      self
+        .reader
+        .skip(total_terms - self.reader.ord(), &mut self.vectors_stream)?;
 
-      reader.reset(total_terms);
+      self.reader.reset(total_terms);
 
       for i in 0..skip {
         let term_count = num_terms.get_mut(i)? as usize;
         for _ in 0..term_count {
-          doc_off += reader.next_value(&mut self.vectors_stream)? as usize;
+          doc_off += self.reader.next_value(&mut self.vectors_stream)? as usize;
         }
       }
 
@@ -657,14 +664,16 @@ where
         let mut field_suffix_lengths = vec![0; term_count];
         let mut j = 0;
         while j < term_count {
-          let next = reader.next_batch(term_count - j, &mut self.vectors_stream)?;
+          let next = self
+            .reader
+            .next_batch(term_count - j, &mut self.vectors_stream)?;
           for k in 0..next.length {
             field_suffix_lengths[j] = next.longs[next.offset + k] as usize;
             j += 1;
           }
         }
-        doc_len += sum(&field_suffix_lengths);
         field_lengths[i] = sum(&field_suffix_lengths);
+        doc_len += field_lengths[i];
         suffix_lengths[i] = field_suffix_lengths;
       }
 
@@ -672,7 +681,7 @@ where
       for i in (skip + num_fields)..total_fields {
         let term_count = num_terms.get_mut(i)? as usize;
         for _ in 0..term_count {
-          total_len += reader.next_value(&mut self.vectors_stream)? as usize;
+          total_len += self.reader.next_value(&mut self.vectors_stream)? as usize;
         }
       }
     }
@@ -680,11 +689,13 @@ where
     // term freqs
     let term_freqs = {
       let mut term_freqs = vec![0; total_terms];
-      reader.reset(total_terms);
+      self.reader.reset(total_terms);
       let mut i = 0;
       debug_assert!((total_terms - i) <= i32::MAX as usize);
       while i < total_terms {
-        let next = reader.next_batch(total_terms - i, &mut self.vectors_stream)?;
+        let next = self
+          .reader
+          .next_batch(total_terms - i, &mut self.vectors_stream)?;
         for k in 0..next.length {
           term_freqs[i] = 1 + next.longs[next.offset + k] as usize;
           i += 1;
@@ -821,7 +832,7 @@ where
     let mut payload_len = 0;
 
     if total_payloads > 0 {
-      reader.reset(total_payloads);
+      self.reader.reset(total_payloads);
       // skip
       let mut term_index = 0;
       for i in 0..skip {
@@ -831,7 +842,7 @@ where
           for j in 0..term_count {
             let freq = term_freqs[term_index + j];
             for _ in 0..freq {
-              let l = reader.next_value(&mut self.vectors_stream)? as usize;
+              let l = self.reader.next_value(&mut self.vectors_stream)? as usize;
               payload_off += l;
             }
           }
@@ -852,7 +863,7 @@ where
           for j in 0..term_count {
             let freq = term_freqs[term_index + j];
             for _ in 0..freq {
-              let payload_length = reader.next_value(&mut self.vectors_stream)? as usize;
+              let payload_length = self.reader.next_value(&mut self.vectors_stream)? as usize;
               payload_len += payload_length;
               pos_idx += 1;
               field_payload_index[pos_idx] = payload_len;
@@ -871,7 +882,7 @@ where
           for j in 0..term_count {
             let freq = term_freqs[term_index + j];
             for _ in 0..freq {
-              total_payload_length += reader.next_value(&mut self.vectors_stream)? as usize;
+              total_payload_length += self.reader.next_value(&mut self.vectors_stream)? as usize;
             }
           }
         }
@@ -933,6 +944,33 @@ where
 
     debug_assert_eq!(sum(&field_lengths), doc_len);
 
+    // Missing optional data uses empty Vecs. While an empty Vec has no element
+    // allocation, wrapping each one in Rc would still allocate an Rc object.
+    // Share one lazily created empty Rc across this document's positions,
+    // start offsets and lengths. These arrays are read-only after construction;
+    // non-empty Vecs keep their own Rc and are moved without copying elements.
+    let mut empty_positions = None;
+    let mut share_positions = |values: Vec<i32>| {
+      if values.is_empty() {
+        empty_positions
+          .get_or_insert_with(|| Rc::new(values))
+          .clone()
+      } else {
+        Rc::new(values)
+      }
+    };
+    // Payload indices use usize rather than i32, so they need a separate empty Rc.
+    let mut empty_payload_index = None;
+    let mut share_payload_index = |values: Vec<usize>| {
+      if values.is_empty() {
+        empty_payload_index
+          .get_or_insert_with(|| Rc::new(values))
+          .clone()
+      } else {
+        Rc::new(values)
+      }
+    };
+
     Ok(Some(TVFields::new(
       field_nums,
       field_flags,
@@ -943,11 +981,17 @@ where
       suffix_lengths.into_iter().map(Rc::new).collect(),
       field_term_freqs.into_iter().map(Rc::new).collect(),
       position_index.into_iter().map(Rc::new).collect(),
-      positions.into_iter().map(Rc::new).collect(),
-      start_offsets.into_iter().map(Rc::new).collect(),
-      lengths.into_iter().map(Rc::new).collect(),
+      positions.into_iter().map(&mut share_positions).collect(),
+      start_offsets
+        .into_iter()
+        .map(&mut share_positions)
+        .collect(),
+      lengths.into_iter().map(share_positions).collect(),
       payload_bytes,
-      payload_index.into_iter().map(Rc::new).collect(),
+      payload_index
+        .into_iter()
+        .map(&mut share_payload_index)
+        .collect(),
       suffix_bytes,
       self.field_infos.clone(),
     )?))
@@ -1068,7 +1112,7 @@ impl TVFields {
     suffix_bytes: BytesRef<Rc<Vec<u8>>>,
     field_infos: Arc<FieldInfos>,
   ) -> Result<Self> {
-    let mut names = Vec::new();
+    let mut names = Vec::with_capacity(field_num_offs.len());
     for i in 0..field_num_offs.len() {
       let field_num = field_nums[field_num_offs[i]];
       let field_info = field_infos.field_info_by_number(field_num)?;
@@ -1548,13 +1592,14 @@ impl Default for TVPostingsEnum {
 
 impl TVPostingsEnum {
   pub fn new() -> Self {
+    let empty_positions = Rc::new(Vec::new());
     TVPostingsEnum {
       doc: -1,
       term_freq: 0,
       position_index: 0,
-      positions: Rc::new(Vec::new()),
-      start_offsets: Rc::new(Vec::new()),
-      lengths: Rc::new(Vec::new()),
+      positions: Rc::clone(&empty_positions),
+      start_offsets: Rc::clone(&empty_positions),
+      lengths: empty_positions,
       payload: BytesRef {
         bytes: Rc::new(Vec::new()),
         offset: 0,

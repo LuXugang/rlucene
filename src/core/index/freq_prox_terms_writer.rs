@@ -728,8 +728,8 @@ where
 pub(crate) struct DocOffsetSorter<'a> {
   docs: &'a mut [i32],
   offsets: &'a mut [usize],
-  tmp_docs: Vec<i32>,
-  tmp_offsets: Vec<usize>,
+  tmp_docs: &'a mut Vec<i32>,
+  tmp_offsets: &'a mut Vec<usize>,
   pivot_index: usize,
 }
 
@@ -738,9 +738,9 @@ impl<'a> DocOffsetSorter<'a> {
     docs: &'a mut [i32],
     offsets: &'a mut [usize],
     max_temp_slots: usize,
+    tmp_docs: &'a mut Vec<i32>,
+    tmp_offsets: &'a mut Vec<usize>,
   ) -> TimSorter<DocOffsetSorter<'a>> {
-    let tmp_docs = Vec::new();
-    let tmp_offsets = Vec::new();
     let sorter = DocOffsetSorter {
       docs,
       offsets,
@@ -782,8 +782,8 @@ impl TimSorterBase for DocOffsetSorter<'_> {
 
   fn save(&mut self, i: usize, len: usize) -> Result<()> {
     if self.tmp_docs.len() < len {
-      ArrayUtil::grow_no_copy(&mut self.tmp_docs, len)?;
-      ArrayUtil::grow_no_copy(&mut self.tmp_offsets, self.tmp_docs.len())?;
+      ArrayUtil::grow_no_copy(self.tmp_docs, len)?;
+      ArrayUtil::grow_no_copy(self.tmp_offsets, self.tmp_docs.len())?;
     }
 
     self.tmp_docs.copy_from(&self.docs[i..i + len], 0);
@@ -803,6 +803,8 @@ impl TimSorterBase for DocOffsetSorter<'_> {
 pub struct SortingPostingsEnum<P> {
   docs: Vec<i32>,
   offsets: Vec<usize>,
+  tmp_docs: Vec<i32>,
+  tmp_offsets: Vec<usize>,
   upto: usize,
 
   posting_input: Option<ByteBuffersDataInputOwned>,
@@ -826,6 +828,8 @@ impl<P> SortingPostingsEnum<P> {
     Self {
       docs: Vec::new(),
       offsets: Vec::new(),
+      tmp_docs: Vec::new(),
+      tmp_offsets: Vec::new(),
       upto: 0,
       posting_input: None,
       postings_enum: None,
@@ -883,8 +887,13 @@ impl<P> SortingPostingsEnum<P> {
     self.upto = i;
 
     let num_temp_slots = doc_map.size() / 8;
-    let mut sorter =
-      DocOffsetSorter::new(&mut self.docs, &mut self.offsets, num_temp_slots as usize);
+    let mut sorter = DocOffsetSorter::new(
+      &mut self.docs,
+      &mut self.offsets,
+      num_temp_slots as usize,
+      &mut self.tmp_docs,
+      &mut self.tmp_offsets,
+    );
     sorter.sort(0, self.upto)?;
 
     self.posting_input = Some(self.buffer.get_data_input_owner(true)?);

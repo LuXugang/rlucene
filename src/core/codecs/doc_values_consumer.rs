@@ -1249,7 +1249,14 @@ where
         return if end {
           Ok(None)
         } else {
-          self.term = sub.term()?.into_owned();
+          match sub.term()? {
+            Cow::Borrowed(term) => {
+              self.term.bytes.clone_from(&term.bytes);
+              self.term.offset = term.offset;
+              self.term.length = term.length;
+            },
+            Cow::Owned(term) => self.term = term,
+          }
           Ok(Some(Cow::Borrowed(&self.term)))
         };
       }

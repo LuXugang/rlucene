@@ -73,6 +73,7 @@ where
   max_doc: i32,
   skip_index_interval_size: i32,
   closed: bool,
+  terms_dict_buffer: ByteArrayDataOutput<Vec<u8>>,
 }
 impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
   /// expert: Creates a new writer
@@ -158,6 +159,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       max_doc,
       skip_index_interval_size,
       closed: false,
+      terms_dict_buffer: ByteArrayDataOutput::default(),
     })
   }
   fn write_skip_index<T>(&mut self, field: &Arc<FieldInfo>, values_producer: &T) -> Result<()>
@@ -201,7 +203,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         max_doc_id = acc.max_doc_id;
         accumulators.push(acc);
         if accumulators.len() == max_accumulators {
-          self.write_levels(std::mem::take(&mut accumulators))?;
+          accumulators = self.write_levels(std::mem::take(&mut accumulators))?;
         }
       }
 
@@ -242,7 +244,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
     Ok(())
   }
 
-  fn write_levels(&mut self, accumulators: Vec<SkipAccumulator>) -> Result<()> {
+  fn write_levels(&mut self, accumulators: Vec<SkipAccumulator>) -> Result<Vec<SkipAccumulator>> {
     let mut accumulators_levels = Vec::with_capacity(Lucene90DocValuesFormat::SKIP_INDEX_MAX_LEVEL);
     let accumulators_len = accumulators.len();
     accumulators_levels.push(accumulators);
@@ -272,12 +274,14 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       }
     }
 
-    Ok(())
+    let mut accumulators = std::mem::take(&mut accumulators_levels[0]);
+    accumulators.clear();
+    Ok(accumulators)
   }
 
   fn build_level(accumulators: &[SkipAccumulator]) -> Vec<SkipAccumulator> {
     let level_size = 1usize << Lucene90DocValuesFormat::SKIP_INDEX_LEVEL_SHIFT;
-    let mut collector = Vec::new();
+    let mut collector = Vec::with_capacity(accumulators.len() / level_size);
 
     for group in 0..accumulators.len() / level_size {
       let merged = SkipAccumulator::merge(accumulators, group * level_size, level_size);
@@ -674,8 +678,11 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       let mut iterator = values.terms_enum()?;
 
       let mut ht = HashTableEnum::Fast(FastCompressionHashTable::default());
-      let terms_dict_buffer = vec![0u8; 1 << 14];
-      let mut buffered_output = ByteArrayDataOutput::with_bytes(terms_dict_buffer);
+      let buffered_output = &mut self.terms_dict_buffer;
+      if buffered_output.bytes.is_empty() {
+        buffered_output.bytes.resize(1 << 14, 0);
+      }
+      buffered_output.reset()?;
       let mut dict_length: usize = 0;
       while let Some(term) = iterator.next()? {
         let length = term.length;
@@ -683,7 +690,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
         if (ord & block_mask) == 0 {
           if ord != 0 {
             let uncompressed_length = Self::compress_and_get_terms_dict_block_length(
-              &mut buffered_output,
+              buffered_output,
               dict_length,
               &mut ht,
               data,
@@ -699,7 +706,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
           data.write_vint(length as i32)?;
           term.bytes.access(|bytes| {
             data.write_bytes_range(bytes, offset, length)?;
-            Self::maybe_grow_buffer(&mut buffered_output, length)?;
+            Self::maybe_grow_buffer(buffered_output, length)?;
             buffered_output.write_bytes_range(bytes, offset, length)?;
             // Help the compiler infer types.
             Ok::<(), LuceneError>(())
@@ -711,7 +718,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
           let suffix_length = length - prefix_length;
           // Will write (suffixLength + 1 byte + 2 vint) bytes. Grow
           // the buffer in need.
-          Self::maybe_grow_buffer(&mut buffered_output, suffix_length + 11)?;
+          Self::maybe_grow_buffer(buffered_output, suffix_length + 11)?;
           buffered_output
             .write_byte(((prefix_length.min(15)) | ((suffix_length - 1).min(15) << 4)) as u8)?;
           if prefix_length >= 15 {
@@ -734,7 +741,7 @@ impl<O: IndexOutput> Lucene90DocValuesConsumer<O> {
       // Compress and write out the last block
       if buffered_output.get_position() > dict_length {
         let uncompressed_length = Self::compress_and_get_terms_dict_block_length(
-          &mut buffered_output,
+          buffered_output,
           dict_length,
           &mut ht,
           data,

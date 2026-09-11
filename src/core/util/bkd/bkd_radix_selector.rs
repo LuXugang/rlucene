@@ -585,7 +585,7 @@ impl BKDRadixSelector {
 
   #[allow(clippy::too_many_arguments)]
   fn heap_partition<O>(
-    &self,
+    &mut self,
     mut points: PointWriterEnum<O>,
     left: &mut PointWriterEnum<O>,
     right: &mut PointWriterEnum<O>,
@@ -621,7 +621,7 @@ impl BKDRadixSelector {
   /// Sort the heap writer by the specified dim. It is used to sort the leaves
   /// of the tree/`.
   pub fn heap_radix_select<O>(
-    &self,
+    &mut self,
     points: &mut PointWriterEnum<O>,
     dim: usize,
     from: usize,
@@ -654,7 +654,7 @@ impl BKDRadixSelector {
       data_offset,
       dim,
       bytes_per_dim,
-      bytes_sorted: self.bytes_sorted,
+      scratch: &mut self.scratch,
     };
 
     debug_assert!(self.bytes_sorted >= common_prefix_length);
@@ -683,7 +683,7 @@ impl BKDRadixSelector {
   /// Sort the heap writer by the specified dim. It is used to sort the leaves
   /// of the tree.
   pub fn heap_radix_sort<O>(
-    &self,
+    &mut self,
     points: &mut PointWriterEnum<O>,
     from: usize,
     to: usize,
@@ -715,7 +715,7 @@ impl BKDRadixSelector {
       common_prefix_length,
       dim,
       bytes_per_dim,
-      bytes_sorted: self.bytes_sorted,
+      scratch: &mut self.scratch,
     };
     let mut msb_radix_sorter = MSBRadixSorter::new(max_length, delegate);
     msb_radix_sorter.sort(from, to)
@@ -832,7 +832,7 @@ where
   common_prefix_length: usize,
   dim: usize,
   bytes_per_dim: usize,
-  bytes_sorted: usize,
+  scratch: &'a mut [u8],
 }
 
 impl<O> Sorter for MSBRadixSorterImpl<'_, O>
@@ -873,7 +873,7 @@ where
       points: self.points,
       skyped_bytes,
       dim_start,
-      scratch: vec![0u8; self.bytes_sorted],
+      scratch: self.scratch,
       bytes_per_dim: self.bytes_per_dim,
     }
   }
@@ -886,7 +886,7 @@ where
   points: &'a mut PointWriterEnum<O>,
   skyped_bytes: usize,
   dim_start: usize,
-  scratch: Vec<u8>,
+  scratch: &'a mut [u8],
   bytes_per_dim: usize,
 }
 
@@ -920,9 +920,9 @@ where
     match self.points {
       PointWriterEnum::Heap(heap_writer) => {
         if self.skyped_bytes < self.bytes_per_dim {
-          heap_writer.copy_dim(i, self.dim_start, &mut self.scratch, 0)?;
+          heap_writer.copy_dim(i, self.dim_start, self.scratch, 0)?;
         }
-        heap_writer.copy_data_dims_and_doc(i, &mut self.scratch, self.bytes_per_dim)
+        heap_writer.copy_data_dims_and_doc(i, self.scratch, self.bytes_per_dim)
       },
       _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
     }
@@ -932,12 +932,12 @@ where
     match self.points {
       PointWriterEnum::Heap(heap_writer) => {
         if self.skyped_bytes < self.bytes_per_dim {
-          let cmp = heap_writer.compare_dim_with_scratch(j, &self.scratch, 0, self.dim_start)?;
+          let cmp = heap_writer.compare_dim_with_scratch(j, self.scratch, 0, self.dim_start)?;
           if cmp != 0 {
             return Ok(cmp);
           }
         }
-        heap_writer.compare_data_dims_and_doc_with(j, &self.scratch, self.bytes_per_dim)
+        heap_writer.compare_data_dims_and_doc_with(j, self.scratch, self.bytes_per_dim)
       },
       _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
     }
@@ -961,7 +961,7 @@ where
   dim_offset: usize,
   data_offset: usize,
   dim: usize,
-  bytes_sorted: usize,
+  scratch: &'a mut [u8],
 }
 
 impl<O> Selector for RadixSelectorImpl<'_, O>
@@ -1003,7 +1003,7 @@ where
       skyped_bytes,
       bytes_per_dim: self.bytes_per_dim,
       dim_start,
-      scratch: vec![0u8; self.bytes_sorted],
+      scratch: self.scratch,
     };
     IntroSelector::new(sub_selector)
   }
@@ -1017,7 +1017,7 @@ where
   skyped_bytes: usize,
   bytes_per_dim: usize,
   dim_start: usize,
-  scratch: Vec<u8>,
+  scratch: &'a mut [u8],
 }
 
 impl<O> IntroSelectorBaseDefault for IntroSelectorImpl<'_, O>
@@ -1028,9 +1028,9 @@ where
     match self.points {
       PointWriterEnum::Heap(heap_writer) => {
         if self.skyped_bytes < self.bytes_per_dim {
-          heap_writer.copy_dim(i, self.dim_start, &mut self.scratch, 0)?;
+          heap_writer.copy_dim(i, self.dim_start, self.scratch, 0)?;
         }
-        heap_writer.copy_data_dims_and_doc(i, &mut self.scratch, self.bytes_per_dim)
+        heap_writer.copy_data_dims_and_doc(i, self.scratch, self.bytes_per_dim)
       },
       _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
     }
@@ -1040,12 +1040,12 @@ where
     match self.points {
       PointWriterEnum::Heap(heap_writer) => {
         if self.skyped_bytes < self.bytes_per_dim {
-          let cmp = heap_writer.compare_dim_with_scratch(j, &self.scratch, 0, self.dim_start)?;
+          let cmp = heap_writer.compare_dim_with_scratch(j, self.scratch, 0, self.dim_start)?;
           if cmp != 0 {
             return Ok(cmp);
           }
         }
-        heap_writer.compare_data_dims_and_doc_with(j, &self.scratch, self.bytes_per_dim)
+        heap_writer.compare_data_dims_and_doc_with(j, self.scratch, self.bytes_per_dim)
       },
       _ => Err(LuceneError::illegal_state("points is not HeapPointWriter")),
     }

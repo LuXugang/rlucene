@@ -130,13 +130,20 @@ where
         if self.tenum.seek_ceil(&t)? == SeekStatus::End {
           return Ok(None);
         }
-        // TODO: avoid copy here?
-        self.actual_term = Option::from(self.tenum.term()?.into_owned());
+        match self.tenum.term()? {
+          Cow::Borrowed(term) => self
+            .actual_term
+            .get_or_insert_with(BytesRef::default)
+            .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
+          Cow::Owned(term) => self.actual_term = Some(term),
+        }
       } else {
         match self.tenum.next()? {
-          Some(term) => {
-            self.actual_term = Option::from(term.into_owned());
-          },
+          Some(Cow::Borrowed(term)) => self
+            .actual_term
+            .get_or_insert_with(BytesRef::default)
+            .copy_from_slice(&term.bytes[term.offset..term.offset + term.length]),
+          Some(Cow::Owned(term)) => self.actual_term = Some(term),
           None => {
             self.actual_term = None;
             return Ok(None);
