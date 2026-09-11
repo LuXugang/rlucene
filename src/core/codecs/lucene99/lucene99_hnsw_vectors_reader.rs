@@ -292,16 +292,11 @@ where
     let scorer = scorer_supplier()?;
 
     let k = knn_collector.k();
-    let mut ord_to_doc = Vec::with_capacity(scorer.max_ord());
-    for ord in 0..scorer.max_ord() {
-      ord_to_doc.push(scorer.ord_to_doc(ord)?);
-    }
-    let mut collector =
-      OrdinalTranslatedKnnCollector::new(knn_collector, |ord| Ok(ord_to_doc[ord]));
-
     let accepted_ords = scorer.get_accept_ords(accept_docs)?;
 
     if k < scorer.max_ord() {
+      let mut collector =
+        OrdinalTranslatedKnnCollector::new(knn_collector, |ord| scorer.ord_to_doc(ord));
       search(
         &scorer,
         &mut collector,

@@ -138,18 +138,24 @@ pub trait Analyzer: Closeable + Send + Sync {
       reuse_strategy.set_reusable_components(field_name, v)?;
     }
 
-    reuse_strategy
-      .get_reusable_components(field_name)?
-      .ok_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))?
-      .set_reader(reader)?;
-
-    RefMut::filter_map(reuse_strategy, |reuse_strategy| {
-      match reuse_strategy.get_reusable_components(field_name) {
-        Ok(Some(components)) => Some(components.get_token_stream()),
-        _ => None,
-      }
+    let mut component_error = None;
+    let mut components = RefMut::filter_map(reuse_strategy, |reuse_strategy| match reuse_strategy
+      .get_reusable_components(field_name)
+    {
+      Ok(components) => components,
+      Err(error) => {
+        component_error = Some(error);
+        None
+      },
     })
-    .map_err(|_| LuceneError::illegal_state("Analyzer token_stream is not initialized"))
+    .map_err(|_| {
+      component_error
+        .unwrap_or_else(|| LuceneError::illegal_state("Analyzer token_stream is not initialized"))
+    })?;
+    components.set_reader(reader)?;
+    Ok(RefMut::map(components, |components| {
+      components.get_token_stream()
+    }))
   }
 
   fn normalize(&self, field_name: &str, text: &str) -> Result<BytesRef<Vec<u8>>> {

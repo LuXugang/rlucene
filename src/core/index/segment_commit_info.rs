@@ -455,9 +455,7 @@ impl<D> Clone for SegmentCommitInfo<D> {
       other.dv_updates_files.insert(*key, value.clone());
     }
 
-    other
-      .field_infos_files
-      .extend(self.field_infos_files.clone());
+    other.field_infos_files = self.field_infos_files.clone();
 
     other
   }

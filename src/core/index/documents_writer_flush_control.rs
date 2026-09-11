@@ -596,10 +596,10 @@ where
     }
     if num_pending > 0 && !full_flush {
       let dwpts = self.per_thread_pool.iterator();
-      for (id, next) in &dwpts {
+      for next in &dwpts {
         if next.state.is_flush_pending() && next.try_lock() {
           let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            if self.per_thread_pool.is_registered(id) {
+            if self.per_thread_pool.is_registered(&next.state.id) {
               let mut inner = self.inner.lock();
               return Ok(Some(self.check_out_for_flush(
                 &next.dwpt.lock(),
@@ -794,7 +794,7 @@ where
   pub(crate) fn assert_active_delete_queue(&self) -> bool {
     let queue = self.delete_queue.lock().clone();
     let dwpts = self.per_thread_pool.iterator();
-    for next in dwpts.values() {
+    for next in &dwpts {
       debug_assert!(
         Arc::ptr_eq(&next.state.delete_queue, &queue),
         "{}",
@@ -997,7 +997,7 @@ where
     let mut max_ram_so_far: i64 = -1;
     let mut count = 0;
 
-    for (_id, next) in self.per_thread_pool.iterator() {
+    for next in self.per_thread_pool.iterator() {
       if !next.state.is_flush_pending() && next.state.get_num_docs_in_ram() > 0 {
         let next_ram = next.state.get_last_committed_bytes_used();
 

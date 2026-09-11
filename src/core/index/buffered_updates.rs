@@ -80,19 +80,23 @@ impl BufferedUpdates {
   ) -> Result<()> {
     let old_map_size = size_of_hash_map(&self.field_updates);
     let result = catch_unwind(AssertUnwindSafe(|| {
-      let buffer = match self.field_updates.entry(update.field.clone()) {
-        Occupied(entry) => entry.into_mut(),
-        Vacant(entry) => {
-          let new_buffer = FieldUpdatesBuffer::from_binary_update(
-            self.field_updates_bytes_used.clone(),
-            update,
-            doc_id_upto,
-          )?;
-          self
-            .field_updates_bytes_used
-            .add_and_get(size_of_string(entry.key()));
-          entry.insert(new_buffer)
-        },
+      let buffer = if let Some(buffer) = self.field_updates.get_mut(&update.field) {
+        buffer
+      } else {
+        match self.field_updates.entry(update.field.clone()) {
+          Occupied(entry) => entry.into_mut(),
+          Vacant(entry) => {
+            let new_buffer = FieldUpdatesBuffer::from_binary_update(
+              self.field_updates_bytes_used.clone(),
+              update,
+              doc_id_upto,
+            )?;
+            self
+              .field_updates_bytes_used
+              .add_and_get(size_of_string(entry.key()));
+            entry.insert(new_buffer)
+          },
+        }
       };
 
       if update.has_value {
@@ -125,19 +129,23 @@ impl BufferedUpdates {
   ) -> Result<()> {
     let old_map_size = size_of_hash_map(&self.field_updates);
     let result = catch_unwind(AssertUnwindSafe(|| {
-      let buffer = match self.field_updates.entry(update.field.clone()) {
-        Occupied(entry) => entry.into_mut(),
-        Vacant(entry) => {
-          let new_buffer = FieldUpdatesBuffer::from_numeric_update(
-            self.field_updates_bytes_used.clone(),
-            update,
-            doc_id_upto,
-          )?;
-          self
-            .field_updates_bytes_used
-            .add_and_get(size_of_string(entry.key()));
-          entry.insert(new_buffer)
-        },
+      let buffer = if let Some(buffer) = self.field_updates.get_mut(&update.field) {
+        buffer
+      } else {
+        match self.field_updates.entry(update.field.clone()) {
+          Occupied(entry) => entry.into_mut(),
+          Vacant(entry) => {
+            let new_buffer = FieldUpdatesBuffer::from_numeric_update(
+              self.field_updates_bytes_used.clone(),
+              update,
+              doc_id_upto,
+            )?;
+            self
+              .field_updates_bytes_used
+              .add_and_get(size_of_string(entry.key()));
+            entry.insert(new_buffer)
+          },
+        }
       };
 
       if update.has_value {
@@ -288,13 +296,17 @@ impl DeletedTerms {
     Self::new_impl(pool, bytes_used)
   }
   pub(crate) fn put(&mut self, term: &Term, value: i32) -> Result<()> {
-    let hash = match self.delete_terms.entry(term.field.clone()) {
-      Vacant(vacant) => {
-        self.bytes_used.add_and_get(size_of_string(vacant.key()));
-        let new_map = BytesRefIntMap::new(self.bytes_used.clone())?;
-        vacant.insert(new_map)
-      },
-      Occupied(occupied) => occupied.into_mut(),
+    let hash = if let Some(hash) = self.delete_terms.get_mut(&term.field) {
+      hash
+    } else {
+      match self.delete_terms.entry(term.field.clone()) {
+        Vacant(vacant) => {
+          self.bytes_used.add_and_get(size_of_string(vacant.key()));
+          let new_map = BytesRefIntMap::new(self.bytes_used.clone())?;
+          vacant.insert(new_map)
+        },
+        Occupied(occupied) => occupied.into_mut(),
+      }
     };
     if hash.put(&term.bytes, value, &mut self.pool)? {
       self.terms_size += 1;

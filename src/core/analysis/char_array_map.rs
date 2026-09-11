@@ -192,7 +192,12 @@ where
   }
 }
 fn norm(ignore: bool, s: &[char]) -> Cow<'_, [char]> {
-  if ignore {
+  if ignore
+    && !s
+      .iter()
+      .copied()
+      .eq(s.iter().flat_map(|c| c.to_lowercase()))
+  {
     Cow::Owned(s.iter().flat_map(|c| c.to_lowercase()).collect())
   } else {
     Cow::Borrowed(s)

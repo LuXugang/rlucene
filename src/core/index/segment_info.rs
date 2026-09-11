@@ -406,7 +406,14 @@ impl<D> SegmentInfo<D> {
     F: Into<String>,
   {
     let file = file.into();
-    self.add_files(HashSet::from([file]))
+    self.check_file_names(std::iter::once(&file))?;
+    match self.set_files {
+      Some(ref mut set_files) => {
+        set_files.insert(named_for_this_segment(&self.name, file));
+      },
+      None => return Err(LuceneError::illegal_state("set_files was not initialized")),
+    }
+    Ok(())
   }
 
   fn check_file_names<'a, I>(&self, files: I) -> Result<()>

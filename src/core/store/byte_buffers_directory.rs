@@ -506,19 +506,13 @@ impl FileEntry {
 
 pub struct ByteBuffersDirectoryOutputOnClose {
   entry: Arc<Mutex<FileEntry>>,
-  file_name: String,
   output_to_input: BBOutputToInput,
 }
 
 impl ByteBuffersDirectoryOutputOnClose {
-  fn new(
-    entry: Arc<Mutex<FileEntry>>,
-    file_name: String,
-    output_to_input: BBOutputToInput,
-  ) -> Self {
+  fn new(entry: Arc<Mutex<FileEntry>>, output_to_input: BBOutputToInput) -> Self {
     Self {
       entry,
-      file_name,
       output_to_input,
     }
   }
@@ -540,7 +534,7 @@ impl ByteBuffersIndexOutputOnClose for ByteBuffersDirectoryOutputOnClose {
       return Ok(());
     }
     let cached_length = output.size();
-    let content = self.output_to_input.to_input(&self.file_name, output)?;
+    let content = self.output_to_input.to_input(&entry.file_name, output)?;
     entry.content = Some(content);
     entry.cached_length = cached_length;
     Ok(())
@@ -567,7 +561,7 @@ fn create_output(
   };
   let output_name = format!("ByteBuffersDirectory output (file={file_name})");
   let output = bb_output_supplier.new_output();
-  let on_close = ByteBuffersDirectoryOutputOnClose::new(entry, file_name.clone(), output_to_input);
+  let on_close = ByteBuffersDirectoryOutputOnClose::new(entry, output_to_input);
 
   Ok(ByteBuffersIndexOutput::with_checksum_and_on_close(
     output,

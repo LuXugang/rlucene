@@ -340,13 +340,13 @@ where
     let mut out = first.create_temp_output(prefix, suffix, context)?;
     let body_result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       loop {
-        let name = out.get_name().to_string();
-        to_delete.insert(name.clone());
-        if Self::slow_file_exists(&second, &name)? {
+        let name = out.get_name();
+        to_delete.insert(name.to_string());
+        if Self::slow_file_exists(&second, name)? {
           out.close()?;
           out = first.create_temp_output(prefix, suffix, context)?;
         } else {
-          to_delete.remove(&name);
+          to_delete.remove(name);
           success = true;
           break;
         }

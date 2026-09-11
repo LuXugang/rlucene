@@ -4019,7 +4019,7 @@ where
   loop {
     let mut num_states_with_docs = 0;
     let per_thread_pool = &w.doc_writer.flush_control.per_thread_pool;
-    for (_id, dwpt) in per_thread_pool.iterator() {
+    for dwpt in per_thread_pool.iterator() {
       dwpt.lock();
       let num_docs_in_ram = dwpt.dwpt.lock().get_num_docs_in_ram();
       dwpt.unlock()?;

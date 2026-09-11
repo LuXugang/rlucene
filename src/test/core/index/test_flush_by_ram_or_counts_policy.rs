@@ -389,7 +389,7 @@ where
   D: Directory,
 {
   let mut bytes_used = 0;
-  for (_id, next) in flush_control.per_thread_pool.iterator() {
+  for next in flush_control.per_thread_pool.iterator() {
     if !next.state.is_flush_pending() {
       bytes_used += next.dwpt.lock().ram_bytes_used()?;
     }

@@ -186,70 +186,62 @@ where
     field.put_attribute(PER_FIELD_FORMAT_KEY.to_string(), format_name.clone());
     let mut suffix = None;
 
-    if !self.formats.contains_key(&identity) {
-      // First time we are seeing this format; create a new instance.
+    match self.formats.get(&identity) {
+      None => {
+        // First time we are seeing this format; create a new instance.
 
-      if field.get_doc_values_gen() != -1 {
-        let mut suffix_attribute = None;
-        if !ignore_current_format {
-          suffix_attribute = field.get_attribute(PER_FIELD_SUFFIX_KEY);
+        if field.get_doc_values_gen() != -1 {
+          let mut suffix_attribute = None;
+          if !ignore_current_format {
+            suffix_attribute = field.get_attribute(PER_FIELD_SUFFIX_KEY);
+          }
+          // Even when dvGen is != -1, it can still be a new field that never
+          // existed in the segment and therefore doesn't have the recorded
+          // attributes yet.
+          if let Some(suffix_attribute) = suffix_attribute {
+            suffix = Some(suffix_attribute.parse::<i32>().map_err(|_| {
+              LuceneError::number_format(format!(
+                "invalid attribute: {PER_FIELD_SUFFIX_KEY}={suffix_attribute} for field: {}",
+                field.name
+              ))
+            })?);
+          }
         }
-        // Even when dvGen is != -1, it can still be a new field that never
-        // existed in the segment and therefore doesn't have the recorded
-        // attributes yet.
-        if let Some(suffix_attribute) = suffix_attribute {
-          suffix = Some(suffix_attribute.parse::<i32>().map_err(|_| {
-            LuceneError::number_format(format!(
-              "invalid attribute: {PER_FIELD_SUFFIX_KEY}={suffix_attribute} for field: {}",
-              field.name
-            ))
-          })?);
-        }
-      }
 
-      if suffix.is_none() {
-        // Bump the suffix.
-        suffix = Some(
-          *self
-            .suffixes
-            .entry(format_name.clone())
-            .and_modify(|suffix| *suffix += 1)
-            .or_insert(0),
+        if suffix.is_none() {
+          // Bump the suffix.
+          suffix = Some(
+            *self
+              .suffixes
+              .entry(format_name.clone())
+              .and_modify(|suffix| *suffix += 1)
+              .or_insert(0),
+          );
+        }
+        let suffix = suffix.ok_or_else(|| {
+          LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
+        })?;
+        self.suffixes.insert(format_name.clone(), suffix);
+
+        let segment_suffix = get_full_segment_suffix(
+          &write_state.segment_suffix,
+          &get_suffix(&format_name, suffix),
         );
-      }
-      let suffix = suffix.ok_or_else(|| {
-        LuceneError::illegal_state(format!("missing suffix for field: {}", field.name))
-      })?;
-      self.suffixes.insert(format_name.clone(), suffix);
-
-      let segment_suffix = get_full_segment_suffix(
-        &write_state.segment_suffix,
-        &get_suffix(&format_name, suffix),
-      );
-      let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
-      let consumer = format.fields_consumer(&state, segment_info)?;
-      self
-        .formats
-        .insert(identity.clone(), ConsumerAndSuffix { consumer, suffix });
-    } else {
-      // We've already seen this format, so just grab its suffix.
-      if !self.suffixes.contains_key(&format_name) {
-        return Err(LuceneError::illegal_state(format!(
-          "no suffix for format name: {format_name}"
-        )));
-      }
-      suffix = Some(
+        let state = SegmentWriteState::copy_with_suffix(write_state, segment_suffix);
+        let consumer = format.fields_consumer(&state, segment_info)?;
         self
           .formats
-          .get(&identity)
-          .ok_or_else(|| {
-            LuceneError::illegal_state(format!(
-              "missing doc values consumer for field: {}",
-              field.name
-            ))
-          })?
-          .suffix,
-      );
+          .insert(identity.clone(), ConsumerAndSuffix { consumer, suffix });
+      },
+      Some(consumer) => {
+        // We've already seen this format, so just grab its suffix.
+        if !self.suffixes.contains_key(&format_name) {
+          return Err(LuceneError::illegal_state(format!(
+            "no suffix for format name: {format_name}"
+          )));
+        }
+        suffix = Some(consumer.suffix);
+      },
     }
 
     let suffix = suffix.ok_or_else(|| {

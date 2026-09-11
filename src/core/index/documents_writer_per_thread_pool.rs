@@ -209,9 +209,9 @@ where
     );
     self.free_list.add_and_unlock(wrap_dwpt, ram_bytes_used)
   }
-  pub(crate) fn iterator(&self) -> HashMap<String, Arc<DwptWrapper<D>>> {
+  pub(crate) fn iterator(&self) -> Vec<Arc<DwptWrapper<D>>> {
     let inner = self.inner.lock();
-    inner.dwpts.clone()
+    inner.dwpts.values().cloned().collect()
   }
 
   /// Filters all `DocumentsWriterPerThread`s that the given predicate applies to and that can be checked out of the pool via [`checkout`](Self::checkout).
@@ -222,10 +222,10 @@ where
   {
     let mut list = Vec::new();
     let cloned_dwpt = self.iterator();
-    for (id, state) in cloned_dwpt.iter() {
+    for state in &cloned_dwpt {
       if predicate(state) {
         state.lock();
-        if self.is_registered_with_state(id, None) {
+        if self.is_registered_with_state(&state.state.id, None) {
           list.push(state.clone());
         } else {
           state.state.unlock()?;

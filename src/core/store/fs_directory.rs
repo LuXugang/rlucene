@@ -161,8 +161,8 @@ where
     pending_deletes: &mut HashSet<String>,
   ) -> Result<()> {
     if !pending_deletes.is_empty() {
-      // Clone the set since we mutate it in privateDeleteFile:
-      let files_to_delete: Vec<String> = pending_deletes.clone().into_iter().collect();
+      // Snapshot the names since private_delete_file mutates the set.
+      let files_to_delete: Vec<String> = pending_deletes.iter().cloned().collect();
 
       for name in files_to_delete {
         Self::private_delete_file(directory, &name, true, pending_deletes)?;

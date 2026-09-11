@@ -87,7 +87,6 @@ impl BufferedUpdatesStream {
 
     let bytes_used = packet.bytes_used;
     let del_gen = packet.del_gen();
-    let packet_msg = packet.to_string();
     let v = Arc::new(packet);
     inner.updates.insert(v.id.clone(), v.clone());
     self
@@ -95,6 +94,7 @@ impl BufferedUpdatesStream {
       .fetch_add(bytes_used as i64, Ordering::SeqCst);
     {
       if self.info_stream.is_enabled("BD") {
+        let packet_msg = v.to_string();
         let count = inner.updates.len();
         let used_mb = self.bytes_used.load(Ordering::SeqCst) as f64 / 1024.0 / 1024.0;
         self.info_stream.message(

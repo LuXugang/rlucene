@@ -65,7 +65,8 @@ where
   }
 
   pub fn inc_ref_single(&mut self, file_name: &str) -> Result<()> {
-    let count = self.get_ref_count_internal(file_name).count;
+    let rc = Self::get_ref_count_internal(&mut self.ref_counts, file_name)?;
+    let count = rc.count;
 
     if let Some(messenger) = &self.messenger {
       messenger.accept(
@@ -73,7 +74,7 @@ where
         &format!("IncRef \"{file_name}\": pre-incr count is {count}"),
       )?;
     }
-    self.get_ref_count_internal(file_name).inc_ref();
+    rc.inc_ref();
     Ok(())
   }
 
@@ -101,25 +102,33 @@ where
   }
   /// Returns true if the file should be deleted
   fn dec_ref_single(&mut self, file_name: &str) -> Result<bool> {
-    let count = self.get_ref_count_internal(file_name).count;
+    let rc = Self::get_ref_count_internal(&mut self.ref_counts, file_name)?;
+    let count = rc.count;
     if let Some(ref mut messenger) = self.messenger {
       messenger.accept(
         MsgType::Ref,
         &format!("DecRef \"{file_name}\": pre-decr count is {count}"),
       )?;
     }
-    if self.get_ref_count_internal(file_name).dec_ref() == 0 {
+    if rc.dec_ref() == 0 {
       self.ref_counts.remove(file_name);
       Ok(true)
     } else {
       Ok(false)
     }
   }
-  fn get_ref_count_internal(&mut self, file_name: &str) -> &mut RefCount {
-    self
-      .ref_counts
-      .entry(file_name.to_string())
-      .or_insert_with(|| RefCount::new(file_name))
+  fn get_ref_count_internal<'a>(
+    ref_counts: &'a mut HashMap<String, RefCount>,
+    file_name: &str,
+  ) -> Result<&'a mut RefCount> {
+    if !ref_counts.contains_key(file_name) {
+      ref_counts.insert(file_name.to_string(), RefCount::new(file_name));
+    }
+    ref_counts.get_mut(file_name).ok_or_else(|| {
+      LuceneError::illegal_state(format!(
+        "reference count is missing for file \"{file_name}\""
+      ))
+    })
   }
   /// If the file is not yet recorded, this method will create a new RefCount object with count 0
   pub fn init_ref_count(&mut self, file_name: &str) {

@@ -1308,12 +1308,11 @@ where
   where
     T: IndexableField,
   {
-    let field_name = fp
+    let field_name = &fp
       .field_info
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("field info is missing"))?
-      .name
-      .clone();
+      .name;
     match fp.doc_values_writer.as_mut() {
       Some(DocValuesWriterEnum::Numeric(writer)) => {
         debug_assert_eq!(dv_type, DocValuesType::Numeric);
@@ -1398,7 +1397,7 @@ where
   }
 
   fn get_per_field(&self, name: &str) -> Option<usize> {
-    let hash_pos = CoreHelper::calculate_hash(&name.to_string()) as usize & self.hash_mask;
+    let hash_pos = CoreHelper::calculate_hash(name) as usize & self.hash_mask;
     let mut per_field_index = self.field_hash[hash_pos];
     while let Some(index) = per_field_index {
       let pf = &self.per_fields[index];
@@ -2033,9 +2032,13 @@ impl FieldSchema {
     Ok(())
   }
   pub(crate) fn update_attributes(&mut self, attrs: &HashMap<String, String>) {
-    self
-      .attributes
-      .extend(attrs.iter().map(|(k, v)| (k.clone(), v.clone())));
+    for (key, value) in attrs {
+      if let Some(current) = self.attributes.get_mut(key) {
+        current.clone_from(value);
+      } else {
+        self.attributes.insert(key.clone(), value.clone());
+      }
+    }
   }
 
   pub(crate) fn set_index_options(
