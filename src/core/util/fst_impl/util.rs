@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::fmt;
 use std::fmt::Display;
 use std::io::Write;
@@ -699,7 +699,7 @@ where
   comparator: C,
   path_comparator: PC,
   base: Box<dyn TopNSearcherBase<O::V> + 'a>,
-  queue: Option<Vec<FSTPath<O::V>>>,
+  queue: Option<VecDeque<FSTPath<O::V>>>,
 }
 
 pub trait TopNSearcherBase<T>
@@ -770,7 +770,7 @@ where
       comparator,
       path_comparator,
       base: Box::new(DefaultTopNSearcherBase),
-      queue: Some(Vec::new()),
+      queue: Some(VecDeque::new()),
     })
   }
 
@@ -797,7 +797,7 @@ where
       }
     }
 
-    queue.push(path);
+    queue.push_back(path);
     Ok(())
   }
 
@@ -812,7 +812,7 @@ where
       && self.max_queue_depth > 0
     {
       let bottom = queue
-        .last()
+        .back()
         .ok_or_else(|| LuceneError::illegal_state("queue must have a bottom path"))?;
       let comp = self.path_comparator.compare(path, bottom)?;
       if comp > 0 {
@@ -840,7 +840,7 @@ where
       if let Some(queue) = self.queue.as_mut()
         && queue.len() == self.max_queue_depth + 1
       {
-        queue.pop();
+        queue.pop_back();
       }
     }
 
@@ -912,7 +912,10 @@ where
         break;
       }
 
-      let mut path = queue.remove(0);
+      let mut path = expect_invariant!(
+        queue.pop_front(),
+        "the queue was checked to be non-empty immediately above"
+      );
 
       if !self.base.accept_partial_path(&path) {
         continue;

@@ -111,16 +111,16 @@ impl CompetitiveImpactAccumulator {
       return;
     }
     freq_norm_pairs.insert(new_entry.clone());
-    let mut to_remove = Vec::new();
+    let mut first_to_remove = None;
     for e in freq_norm_pairs.range(..&new_entry).rev() {
       if (e.norm as u64) >= (new_entry.norm as u64) {
-        to_remove.push(e.clone());
+        first_to_remove = Some(e.clone());
       } else {
         break;
       }
     }
-    for e in to_remove {
-      freq_norm_pairs.remove(&e);
+    if let Some(first) = first_to_remove {
+      for _ in freq_norm_pairs.extract_if(first..new_entry, |_| true) {}
     }
   }
 

@@ -48,15 +48,20 @@ impl MultiSorter {
         LuceneError::illegal_argument(format!("Cannot use sort field {} for index sorting", field))
       })?;
 
-      let mut providers = sorter.get_comparable_providers(readers)?;
+      let providers = sorter.get_comparable_providers(readers)?;
       let mut new_providers = Vec::with_capacity(providers.len());
+      let mut providers = providers.into_iter();
       #[allow(clippy::needless_range_loop)]
       for j in 0..readers.len() {
         let reader = &readers[j];
         let field_infos = reader.get_field_infos()?;
         let meta = reader.get_metadata()?;
 
-        let inner = providers.remove(0);
+        let inner = providers.next().ok_or_else(|| {
+          LuceneError::illegal_state(format!(
+            "index sorter did not return a comparable provider for reader {j}"
+          ))
+        })?;
         let parents = if meta.get_has_blocks() {
           match field_infos.get_parent_field() {
             Some(parent_field) => {

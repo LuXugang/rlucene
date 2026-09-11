@@ -492,7 +492,7 @@ where
       let doc_map = doc_maps.as_ref().map(|doc_maps| doc_maps[i].clone());
       let mut reader = MergeReader::new(&mut point_values, doc_map)?;
       if reader.next()? {
-        queue.add(reader)?;
+        queue.add(Box::new(reader))?;
       }
     }
 
@@ -650,11 +650,6 @@ where
     }
     unwrap_caught_result!(result)?;
 
-    self
-      .scratch_bytes_ref1
-      .bytes
-      .clone_from(&split_packed_values);
-    self.scratch_bytes_ref1.length = self.config.bytes_per_dim;
     let split_packed_values = BytesRef::from_bytes(split_packed_values);
 
     self.make_writer(
@@ -2668,12 +2663,12 @@ impl MergeReaderCmp {
     }
   }
 }
-impl<S, DM> Compare<MergeReader<S, DM>> for MergeReaderCmp
+impl<S, DM> Compare<Box<MergeReader<S, DM>>> for MergeReaderCmp
 where
   S: PointValues,
   DM: DocMap,
 {
-  fn less_than(&self, a: &MergeReader<S, DM>, b: &MergeReader<S, DM>) -> Result<bool> {
+  fn less_than(&self, a: &Box<MergeReader<S, DM>>, b: &Box<MergeReader<S, DM>>) -> Result<bool> {
     debug_assert!(!std::ptr::eq(a, b));
     let cmp = self
       .comparator

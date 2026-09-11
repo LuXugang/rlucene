@@ -339,7 +339,7 @@ impl HnswGraph for OnHeapHnswGraph {
   fn next_neighbor(&mut self) -> Result<usize> {
     let upto = self.upto.map_or(0, |upto| upto + 1);
     self.upto = Some(upto);
-    let cur = self.get_neighbors(self.cur_level, self.cur_node)?;
+    let cur = self.get_neighbors_mut(self.cur_level, self.cur_node)?;
     if upto < cur.size() {
       Ok(cur.nodes()[upto])
     } else {

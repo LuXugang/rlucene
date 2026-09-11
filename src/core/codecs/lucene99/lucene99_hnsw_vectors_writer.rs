@@ -341,7 +341,7 @@ where
         n += 1;
       }
 
-      new_nodes.sort();
+      new_nodes.sort_unstable();
 
       *level_offsets = vec![0i32; new_nodes.len()];
 
@@ -376,7 +376,7 @@ where
       *node = old_to_new_map[*node];
     }
 
-    nnodes[..size].sort();
+    nnodes[..size].sort_unstable();
 
     for i in (1..size).rev() {
       debug_assert!(
@@ -411,7 +411,6 @@ where
     let count_on_level0 = graph.size();
     let num_levels = graph.num_levels()?;
     let mut offsets = vec![Vec::new(); num_levels];
-    let mut nnodes = Vec::new();
 
     for (level, level_offsets) in offsets.iter_mut().enumerate().take(num_levels) {
       let mut nodes = graph.get_nodes_on_level(level)?;
@@ -427,9 +426,9 @@ where
 
         vector_index.write_vint(size as i32)?;
 
-        nnodes.clear();
-        nnodes.extend_from_slice(&neighbors.nodes()[..size]);
-        nnodes.sort();
+        // This is the final graph write: neighbors are discarded after encoding.
+        let nnodes = &mut neighbors.nodes_mut()[..size];
+        nnodes.sort_unstable();
 
         for i in (1..size).rev() {
           debug_assert!(
@@ -441,7 +440,7 @@ where
           nnodes[i] -= nnodes[i - 1];
         }
 
-        for &n in &nnodes {
+        for &n in nnodes.iter() {
           vector_index.write_vint(n as i32)?;
         }
 
@@ -494,7 +493,7 @@ where
       if level > 0 {
         let mut nol = vec![0usize; nodes_on_level.size()];
         let number_consumed = nodes_on_level.consume(nol.as_mut())?;
-        nol.sort();
+        nol.sort_unstable();
 
         debug_assert_eq!(number_consumed, nodes_on_level.size());
 

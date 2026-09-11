@@ -344,7 +344,7 @@ where
     }
   });
 
-  let mut new_id_to_old_ord = HashMap::new();
+  let mut new_id_to_old_ord = HashMap::with_capacity(value_count);
 
   let mut iterator = old_doc_ids.iterator()?;
   let mut new_doc_ids = vec![0; value_count];
@@ -361,7 +361,7 @@ where
     old_doc_id = iterator.next_doc()?;
   }
 
-  new_doc_ids.sort();
+  new_doc_ids.sort_unstable();
 
   for (new_ord, &new_doc_id) in new_doc_ids.iter().enumerate() {
     let curr_old_ord = *new_id_to_old_ord

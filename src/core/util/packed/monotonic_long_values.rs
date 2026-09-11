@@ -66,7 +66,7 @@ impl MonotonicLongValuesBuilder {
   }
 
   pub(crate) fn build(mut self, values_off: usize) -> Result<MonotonicLongValues> {
-    let _ = self.averages.split_off(values_off);
+    self.averages.drain(values_off..);
 
     Ok(MonotonicLongValues::new(std::mem::take(&mut self.averages)))
   }

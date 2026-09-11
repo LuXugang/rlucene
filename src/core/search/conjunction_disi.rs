@@ -166,16 +166,14 @@ where
     }
     let cmp = DisiCmp::new(iterators.as_ref());
     CollectionUtil::tim_sort_with_comparator(&mut cost, cmp)?;
-    let mut iters = Vec::with_capacity(iterators.len());
-    for idx in cost {
-      iters.push(idx);
-    }
-    let lead1 = iters.remove(0);
-    let lead2 = iters.remove(0);
+    let lead1 = cost[0];
+    let lead2 = cost[1];
+    // Reuse the sorted indices and shift the remaining indices only once.
+    cost.drain(..2);
     let v = Self {
       lead1,
       lead2,
-      others: iters,
+      others: cost,
       all_disi: iterators,
     };
     Ok(v)

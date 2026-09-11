@@ -251,6 +251,7 @@ impl Builder {
   pub fn build(&mut self) -> Result<PackedLongValues> {
     self.finish()?;
     self.finished = true;
+    self.pending = Vec::new();
 
     let mut values = std::mem::take(&mut self.values);
     values.truncate(self.values_off);
