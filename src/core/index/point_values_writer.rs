@@ -382,7 +382,7 @@ where
 struct MutablePointTreeImpl {
   num_points: usize,
   ords: Vec<usize>,
-  temp: Vec<usize>,
+  temp: Option<Vec<usize>>,
   doc_ids: Vec<i32>,
   packed_bytes_length: usize,
   bytes_reader: Reader,
@@ -398,11 +398,10 @@ impl MutablePointTreeImpl {
     for (i, ord) in ords.iter_mut().take(num_points).enumerate() {
       *ord = i;
     }
-    let temp = vec![0; num_points];
     Self {
       num_points,
       ords,
-      temp,
+      temp: None,
       doc_ids,
       packed_bytes_length,
       bytes_reader,
@@ -482,10 +481,13 @@ impl MutablePointTree for MutablePointTreeImpl {
   }
 
   fn save(&mut self, i: usize, j: usize) {
-    self.temp[j] = self.ords[i];
+    let temp = self.temp.get_or_insert_with(|| vec![0; self.ords.len()]);
+    temp[j] = self.ords[i];
   }
 
   fn restore(&mut self, i: usize, j: usize) {
-    self.ords.copy_from(&self.temp[i..j], i);
+    if let Some(temp) = &self.temp {
+      self.ords.copy_from(&temp[i..j], i);
+    }
   }
 }

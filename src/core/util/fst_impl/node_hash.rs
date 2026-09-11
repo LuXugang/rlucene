@@ -47,7 +47,6 @@ pub struct NodeHash<T> {
   fallback_table: Option<PagedGrowableHash<T>>,
   // Store the last fallback table hash slot and node byte length in getFallback().
   last_fallback_node: Option<(usize, usize)>,
-  pub(crate) enable: bool,
 }
 impl<T> NodeHash<T>
 where
@@ -59,7 +58,7 @@ where
   /// If this limit is hit, least recently used suffixes are discarded and the
   /// FST is no longer minimal. A larger `ram_limit_mb` makes the FST
   /// smaller (closer to minimal).
-  pub fn new(ram_limit_mb: f64, enable: bool) -> Result<Self> {
+  pub fn new(ram_limit_mb: f64) -> Result<Self> {
     if ram_limit_mb <= 0.0 {
       return Err(LuceneError::illegal_argument(format!(
         "ram_limit_mb must be > 0; got: {ram_limit_mb}"
@@ -78,7 +77,6 @@ where
       fallback_table: None, // Empty initially
       ram_limit_bytes,
       last_fallback_node: None,
-      enable,
     })
   }
   fn get_fallback<O, DO>(
@@ -91,7 +89,9 @@ where
     DO: IndexOutput,
   {
     let fallback_table = {
-      let node_hash = &mut fst_compiler.dedup_hash;
+      let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+        LuceneError::illegal_state("FST node deduplication hash is not initialized")
+      })?;
       node_hash.last_fallback_node = None;
       &mut node_hash.fallback_table
     };
@@ -110,7 +110,9 @@ where
             let node = &fst_compiler.frontier[node_in_index];
             let fst = &fst_compiler.fst;
             if let Some(length) = fallback_table.nodes_equal(node_address, hash_slot, fst, node)? {
-              let node_hash = &mut fst_compiler.dedup_hash;
+              let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+                LuceneError::illegal_state("FST node deduplication hash is not initialized")
+              })?;
               // store the node length for further use
               node_hash.last_fallback_node = Some((hash_slot, length));
               // frozen version of this node is already here
@@ -135,9 +137,10 @@ where
     O: Outputs<V = T>,
     DO: IndexOutput,
   {
-    debug_assert!(fst_compiler.dedup_hash.enable);
     let (mut hash_slot, mut c, hash) = {
-      let node_hash = &mut fst_compiler.dedup_hash;
+      let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+        LuceneError::illegal_state("FST node deduplication hash is not initialized")
+      })?;
       let hash: usize = {
         let node_in = &fst_compiler.frontier[node_in_index];
         node_hash.hash(node_in)?.try_convert()?
@@ -147,14 +150,18 @@ where
 
     loop {
       let mut node_address = {
-        let node_hash = &mut fst_compiler.dedup_hash;
+        let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+          LuceneError::illegal_state("FST node deduplication hash is not initialized")
+        })?;
         node_hash.primary_table.get_node_address(hash_slot)?
       };
       if node_address == 0 {
         // not in primary, check fallback
         node_address = NodeHash::get_fallback(node_in_index, hash, fst_compiler)?;
         if node_address != 0 {
-          let node_hash = &mut fst_compiler.dedup_hash;
+          let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+            LuceneError::illegal_state("FST node deduplication hash is not initialized")
+          })?;
           debug_assert!(node_hash.last_fallback_node.is_some());
           // it was already in fallback -- promote to primary
           node_hash
@@ -181,7 +188,9 @@ where
           // we use 0 as empty marker in hash table, so it better be
           // impossible to get a frozen node at 0:
           debug_assert!(node_address != FINAL_END_NODE && node_address != NON_FINAL_END_NODE);
-          let node_hash = &mut fst_compiler.dedup_hash;
+          let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+            LuceneError::illegal_state("FST node deduplication hash is not initialized")
+          })?;
           node_hash
             .primary_table
             .set_node_address(hash_slot, node_address)?;
@@ -212,7 +221,9 @@ where
         // between 33.3% and 66.6% note that some of the
         // copiedNodes are shared between fallback and primary tables so
         // this computation is pessimistic
-        let node_hash = &mut fst_compiler.dedup_hash;
+        let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+          LuceneError::illegal_state("FST node deduplication hash is not initialized")
+        })?;
         let copied_bytes = node_hash.primary_table.inner.bytes_reader.get_position();
         let ram_bytes_used =
           node_hash.primary_table.count * 2 * PackedInts::bits_required(node_address)? as i64 / 8
@@ -252,8 +263,10 @@ where
         return Ok(node_address);
       } else {
         let node = &fst_compiler.frontier[node_in_index];
-        if fst_compiler
-          .dedup_hash
+        let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+          LuceneError::illegal_state("FST node deduplication hash is not initialized")
+        })?;
+        if node_hash
           .primary_table
           .nodes_equal(node_address, hash_slot, &fst_compiler.fst, node)?
           .is_some()
@@ -265,7 +278,10 @@ where
 
       c += 1;
       // quadratic probe (but is it, really?)
-      hash_slot = (hash_slot + c) & fst_compiler.dedup_hash.primary_table.mask;
+      let node_hash = fst_compiler.dedup_hash.as_mut().ok_or_else(|| {
+        LuceneError::illegal_state("FST node deduplication hash is not initialized")
+      })?;
+      hash_slot = (hash_slot + c) & node_hash.primary_table.mask;
     }
   }
   fn hash(&self, node: &UnCompiledNode<T>) -> Result<i64> {

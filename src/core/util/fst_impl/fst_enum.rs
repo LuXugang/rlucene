@@ -140,7 +140,7 @@ where
     self.rewind_prefix(sub, target)?;
     let mut upto = self.upto;
 
-    let mut fst_reader = self.fst.get_bytes_reader()?;
+    let mut fst_reader = None;
     // Now scan forward, matching the new suffix of the target
     loop {
       let target_label = sub.get_target_label(self, target)?;
@@ -148,14 +148,13 @@ where
 
       if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
         let node_flags = arc.node_flags();
+        let fst_reader = match &mut fst_reader {
+          Some(reader) => reader,
+          slot @ None => slot.insert(self.fst.get_bytes_reader()?),
+        };
         let result = match node_flags {
           ARCS_FOR_DIRECT_ADDRESSING => {
-            match self.do_seek_ceil_array_direct_addressing(
-              upto,
-              target_label,
-              &mut fst_reader,
-              sub,
-            )? {
+            match self.do_seek_ceil_array_direct_addressing(upto, target_label, fst_reader, sub)? {
               Some(index) => {
                 upto = index;
                 Some(())
@@ -164,7 +163,7 @@ where
             }
           },
           ARCS_FOR_BINARY_SEARCH => {
-            match self.do_seek_ceil_array_packed(upto, target_label, &mut fst_reader, sub)? {
+            match self.do_seek_ceil_array_packed(upto, target_label, fst_reader, sub)? {
               Some(index) => {
                 upto = index;
                 Some(())
@@ -173,7 +172,7 @@ where
             }
           },
           ARCS_FOR_CONTINUOUS => {
-            match self.do_seek_ceil_array_continuous(upto, target_label, &mut fst_reader, sub)? {
+            match self.do_seek_ceil_array_continuous(upto, target_label, fst_reader, sub)? {
               Some(index) => {
                 upto = index;
                 Some(())
@@ -443,7 +442,7 @@ where
     self.rewind_prefix(sub, target)?;
     let mut upto = self.upto;
 
-    let mut fst_reader = self.fst.get_bytes_reader()?;
+    let mut fst_reader = None;
 
     loop {
       let target_label = sub.get_target_label(self, target)?;
@@ -451,12 +450,16 @@ where
 
       if arc.bytes_per_arc() != 0 && arc.label() != END_LABEL {
         let node_flags = arc.node_flags();
+        let fst_reader = match &mut fst_reader {
+          Some(reader) => reader,
+          slot @ None => slot.insert(self.fst.get_bytes_reader()?),
+        };
         let result = match node_flags {
           ARCS_FOR_DIRECT_ADDRESSING => {
             match self.do_seek_floor_array_direct_addressing(
               upto,
               target_label,
-              &mut fst_reader,
+              fst_reader,
               sub,
               target,
             )? {
@@ -468,13 +471,7 @@ where
             }
           },
           ARCS_FOR_BINARY_SEARCH => {
-            match self.do_seek_floor_array_packed(
-              upto,
-              target_label,
-              &mut fst_reader,
-              sub,
-              target,
-            )? {
+            match self.do_seek_floor_array_packed(upto, target_label, fst_reader, sub, target)? {
               Some(index) => {
                 upto = index;
                 Some(())
@@ -483,7 +480,7 @@ where
             }
           },
           ARCS_FOR_CONTINUOUS => {
-            match self.do_seek_floor_continuous(upto, target_label, &mut fst_reader, sub, target)? {
+            match self.do_seek_floor_continuous(upto, target_label, fst_reader, sub, target)? {
               Some(index) => {
                 upto = index;
                 Some(())
@@ -1013,12 +1010,12 @@ where
     FB: FSTEnumBase<O, F>,
   {
     let mut upto = self.upto;
-    let (mut output, mut label) = {
-      let arc = &mut self.arcs[upto];
-      (arc.output(), arc.label())
-    };
+    let mut label = self.arcs[upto].label();
     loop {
-      self.output[self.upto] = self.fst.outputs.add(&self.output[self.upto - 1], &output);
+      self.output[self.upto] = self
+        .fst
+        .outputs
+        .add(&self.output[self.upto - 1], &self.arcs[self.upto].output);
 
       if label == END_LABEL {
         break;
@@ -1032,7 +1029,6 @@ where
       self
         .fst
         .read_first_target_arc(arc, next_arc, &mut self.fst_reader)?;
-      output = next_arc.output();
       label = next_arc.label();
     }
     Ok(())
@@ -1044,13 +1040,13 @@ where
     FB: FSTEnumBase<O, F>,
   {
     let mut upto = self.upto;
-    let (mut output, mut label) = {
-      let arc = &mut self.arcs[upto];
-      (arc.output(), arc.label())
-    };
+    let mut label = self.arcs[upto].label();
     loop {
       sub.set_current_label(label, self)?;
-      self.output[self.upto] = self.fst.outputs.add(&self.output[self.upto - 1], &output);
+      self.output[self.upto] = self
+        .fst
+        .outputs
+        .add(&self.output[self.upto - 1], &self.arcs[self.upto].output);
 
       if label == END_LABEL {
         break;
@@ -1064,7 +1060,6 @@ where
       self
         .fst
         .read_last_target_arc(arc, next_arc, &mut self.fst_reader)?;
-      output = next_arc.output();
       label = next_arc.label();
     }
 

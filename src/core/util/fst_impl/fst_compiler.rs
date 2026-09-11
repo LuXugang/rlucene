@@ -70,7 +70,7 @@ where
   O: Outputs,
   DO: IndexOutput,
 {
-  pub(crate) dedup_hash: NodeHash<O::V>,
+  pub(crate) dedup_hash: Option<NodeHash<O::V>>,
   /// A temporary FST used during building for NodeHash cache.
   pub(crate) fst: FST<O, NullFSTReader>,
   pub(crate) no_output: O::V,
@@ -123,10 +123,9 @@ where
         "ramLimitMB must be >= 0; got: {suffix_ram_limit_mb}"
       )));
     } else if suffix_ram_limit_mb > 0f64 {
-      NodeHash::new(suffix_ram_limit_mb, true)?
+      Some(NodeHash::new(suffix_ram_limit_mb)?)
     } else {
-      // 1f64 is padding value
-      NodeHash::new(1f64, false)?
+      None
     };
 
     let num_bytes_written = 1; // pad 1 byte, written lazily
@@ -169,7 +168,7 @@ where
 
     let bytes_pos_start = self.num_bytes_written;
 
-    let node = match self.dedup_hash.enable {
+    let node = match self.dedup_hash.is_some() {
       true => {
         if num_arcs == 0 {
           let node = self.add_node(node_in_idx)?;
