@@ -260,7 +260,7 @@ where
     let max_doc = reader.max_doc()?;
     let all_docs_reader = new_reader_with_live_docs(reader, None, max_doc, None)?;
     let mut has_match = false;
-    (self.matching_docs)(
+    let has_scorer = (self.matching_docs)(
       (self.retention_query_supplier)()?,
       all_docs_reader,
       &mut |iterator| {
@@ -269,8 +269,9 @@ where
         Ok(())
       },
     )?;
-    if has_match {
-      return Ok(true);
+    // A scorer with no hits must return false; only a missing scorer delegates.
+    if has_scorer {
+      return Ok(has_match);
     }
     self.base.keep_fully_deleted_segment(reader_supplier)
   }
