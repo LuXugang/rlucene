@@ -302,7 +302,7 @@ impl SortedSetDocValuesWriter {
     let bytes_start_array =
       DirectBytesStartArray::with_counter(DEFAULT_CAPACITY, iw_bytes_used.clone());
     let hash = BytesRefHash::from_bytes_start_array(DEFAULT_CAPACITY, bytes_start_array)?;
-    let pending = PackedLongValues::delta_packed_long_values_builder_default(PackedInts::COMPACT)?;
+    let pending = PackedLongValues::packed_long_values_builder_default(PackedInts::COMPACT)?;
     let docs_with_field = DocsWithFieldSet::new();
     let current_values = vec![0i32; 8];
     let bytes_used =
