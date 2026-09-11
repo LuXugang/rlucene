@@ -213,7 +213,12 @@ impl ByteBuffersDataOutput {
   where
     DA: DataOutput,
   {
-    for (index, block) in self.blocks.iter().enumerate() {
+    for (index, block) in self
+      .blocks
+      .iter()
+      .take(self.current_block_index + 1)
+      .enumerate()
+    {
       if index == self.current_block_index {
         let end = block.position() as usize;
         output.write_bytes_range(block.get_ref(), 0, end)?;
@@ -254,7 +259,7 @@ impl ByteBuffersDataOutput {
   /// hard-to-debug issues. Use with great caution.
   pub fn reset(&mut self) {
     if self.reuse {
-      for block in &mut self.blocks {
+      for block in self.blocks.iter_mut().take(self.current_block_index + 1) {
         block.set_position(0);
       }
     } else {

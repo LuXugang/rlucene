@@ -43,7 +43,7 @@ use crate::core::util::group_vint_util::{GroupVIntUtil, IntReader};
 use crate::core::util::{CoreHelper, TryIntoInt};
 
 pub struct MemorySegmentIndexInput {
-  resource_desc: String,
+  resource_desc: Arc<str>,
   shared: Arc<MemorySegmentIndexInputShared>,
   offset: usize,
   length: usize,
@@ -99,7 +99,8 @@ impl MemorySegmentIndexInput {
     let native_access = PosixNativeAccess::new()?;
     #[cfg(not(unix))]
     let _ = read_advice;
-    let mut segments = Vec::new();
+    // Only non-empty chunks are mapped; a partial final chunk needs one slot.
+    let mut segments = Vec::with_capacity(length.div_ceil(chunk_size));
     let mut start_offset = 0usize;
     while start_offset < length {
       let seg_size = chunk_size.min(length - start_offset);
@@ -136,7 +137,7 @@ impl MemorySegmentIndexInput {
     }
 
     Ok(Self {
-      resource_desc,
+      resource_desc: Arc::from(resource_desc),
       shared: Arc::new(MemorySegmentIndexInputShared {
         segments,
         closed: AtomicBool::new(false),
@@ -177,7 +178,7 @@ impl MemorySegmentIndexInput {
       slice_offset,
     )?;
     Ok(Self {
-      resource_desc: format!("{self} [slice={slice_description}]"),
+      resource_desc: Arc::from(format!("{self} [slice={slice_description}]")),
       shared: self.shared.clone(),
       offset: slice_offset,
       length,

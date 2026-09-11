@@ -18,6 +18,7 @@
 use crate::core::store::data_input_ext::DataInputExt;
 use std::fmt::{Display, Formatter};
 use std::io::Cursor;
+use std::sync::Arc;
 
 use byteorder::{ByteOrder, LE};
 
@@ -31,7 +32,7 @@ use crate::core::util::{ReadableCursorExt, SliceCopyOps, TryIntoInt};
 /// Base implementation struct for buffered [`IndexInput`].  */
 pub struct BufferedIndexInput<T> {
   buffer_size: usize,
-  resource_desc: String,
+  resource_desc: Arc<str>,
   buffer: Cursor<Vec<u8>>,
   sub_index_input: T,
   buffer_start: usize,
@@ -51,7 +52,7 @@ impl<T> BufferedIndexInput<T> {
     check_buffer_size(buffer_size)?;
     Ok(BufferedIndexInput {
       buffer_size,
-      resource_desc: resource_desc.to_string(),
+      resource_desc: Arc::from(resource_desc),
       buffer,
       sub_index_input,
       buffer_start: 0,
@@ -148,6 +149,9 @@ where
       return Err(LuceneError::eof(format!("read past EOF: {self}")));
     }
 
+    if self.buffer.get_ref().is_empty() {
+      self.buffer.get_mut().resize(self.buffer_size, 0);
+    }
     // valid data length in buffer
     self.length = new_length + remain_unaligned_bytes;
     // Set the buffer position to the remaining unaligned bytes
@@ -666,7 +670,7 @@ where
     Ok(Self {
       buffer_size: self.buffer_size,
       resource_desc: self.resource_desc.clone(),
-      buffer: Cursor::new(vec![0u8; self.buffer_size]),
+      buffer: Cursor::new(Vec::new()),
       sub_index_input: self.sub_index_input.try_clone()?,
       buffer_start: file_pointer,
       pos: file_pointer,

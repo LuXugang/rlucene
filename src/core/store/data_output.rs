@@ -209,7 +209,8 @@ pub trait DataOutput {
     Self: Sized,
     I: DataInput + ?Sized,
   {
-    copy_bytes_impl(self, input, num_bytes)
+    let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
+    copy_bytes_impl(self, input, num_bytes, &mut buffer)
   }
 
   /// Writes a `HashMap<String, String>`.
@@ -245,22 +246,26 @@ pub trait DataOutput {
     Ok(())
   }
 }
-fn copy_bytes_impl<O, I>(out: &mut O, input: &mut I, num_bytes: usize) -> Result<()>
+pub(crate) fn copy_bytes_impl<O, I>(
+  out: &mut O,
+  input: &mut I,
+  num_bytes: usize,
+  buffer: &mut [u8],
+) -> Result<()>
 where
   O: DataOutput + ?Sized,
   I: DataInput + ?Sized,
 {
-  let mut buffer = vec![0u8; COPY_BUFFER_SIZE];
   let mut left = num_bytes;
   while left > 0 {
     let to_copy = left.min(COPY_BUFFER_SIZE);
-    input.read_bytes(&mut buffer, 0, to_copy)?;
-    out.write_bytes_with_len(&buffer, to_copy)?;
+    input.read_bytes(buffer, 0, to_copy)?;
+    out.write_bytes_with_len(buffer, to_copy)?;
     left -= to_copy;
   }
   Ok(())
 }
-const COPY_BUFFER_SIZE: usize = 16384;
+pub(crate) const COPY_BUFFER_SIZE: usize = 16384;
 
 /// Encodes integers using group-varint encoding. Tail values that do not fit
 /// into a group are encoded using [`DataOutput::write_vint`]. An `i64` slice is
