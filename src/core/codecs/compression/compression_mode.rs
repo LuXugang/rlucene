@@ -15,10 +15,8 @@
  * limitations under the License.
  */
 use std::fmt::{Display, Formatter};
-use std::io::Write;
 
-use flate2::write::DeflateEncoder;
-use flate2::{Compression, Decompress, FlushDecompress, Status};
+use flate2::{Compress, Compression, Decompress, FlushCompress, FlushDecompress, Status};
 
 use crate::core::codecs::compression::compressor::Compressor;
 use crate::core::codecs::compression::decompressor::Decompressor;
@@ -483,6 +481,7 @@ impl Decompressor for DeflateDecompressor {
 
 pub struct DeflateCompressor {
   level: u32,
+  compressor: Option<Compress>,
   compressed: Vec<u8>,
   bytes: Vec<u8>,
 }
@@ -491,7 +490,8 @@ impl DeflateCompressor {
   fn new(level: u32) -> Self {
     DeflateCompressor {
       level,
-      compressed: Vec::with_capacity(64),
+      compressor: None,
+      compressed: vec![0; 64],
       bytes: Vec::new(),
     }
   }
@@ -513,19 +513,40 @@ impl Compressor for DeflateCompressor {
       out.write_vint(0)?;
       return Ok(());
     }
-    self.compressed.clear();
-    let compressed = std::mem::take(&mut self.compressed);
-    let mut compressor = DeflateEncoder::new(compressed, Compression::new(self.level));
-    compressor.write_all(&self.bytes)?;
-    self.compressed = compressor.finish()?;
-    debug_assert!(self.compressed.len() <= i32::MAX as usize);
-    out.write_vint(self.compressed.len() as i32)?;
-    out.write_bytes_with_len(&self.compressed, self.compressed.len())?;
+    let compressor = self
+      .compressor
+      .get_or_insert_with(|| Compress::new(Compression::new(self.level), false));
+    compressor.reset();
+    let total_count = loop {
+      let consumed = compressor.total_in() as usize;
+      let total_count = compressor.total_out() as usize;
+      let status = compressor
+        .compress(
+          &self.bytes[consumed..],
+          &mut self.compressed[total_count..],
+          FlushCompress::Finish,
+        )
+        .map_err(|error| LuceneError::from(std::io::Error::other(error)))?;
+      let total_count = compressor.total_out() as usize;
+      debug_assert!(total_count <= self.compressed.len());
+      if status == Status::StreamEnd {
+        break total_count;
+      }
+      ArrayUtil::grow(&mut self.compressed)?;
+    };
+    debug_assert!(total_count <= i32::MAX as usize);
+    out.write_vint(total_count as i32)?;
+    out.write_bytes_with_len(&self.compressed, total_count)?;
     Ok(())
   }
 }
 
-impl Closeable for DeflateCompressor {}
+impl Closeable for DeflateCompressor {
+  fn close(&mut self) -> Result<()> {
+    self.compressor = None;
+    Ok(())
+  }
+}
 
 pub enum CompressorEnum {
   LZ4Fast(LZ4FastCompressor),
