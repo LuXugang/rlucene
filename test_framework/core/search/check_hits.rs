@@ -277,8 +277,8 @@ impl CheckHits {
   where
     IRC: IndexReaderContext + Sync + 'static,
   {
-    let manager = MatchesAsserterManager::new(query.clone(), searcher);
-    searcher.search_with_collector_manager(query, &manager)
+    let manager = MatchesAsserterManager::new(&query, searcher);
+    searcher.search_with_collector_manager(query.clone(), &manager)
   }
 
   pub fn verify_explanation(
@@ -702,7 +702,7 @@ struct MatchesAsserterManager<'a, IRC>
 where
   IRC: 'static,
 {
-  query: Query,
+  query: &'a Query,
   searcher: &'a IndexSearcher<IRC>,
 }
 
@@ -710,7 +710,7 @@ impl<'a, IRC> MatchesAsserterManager<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: Query, searcher: &'a IndexSearcher<IRC>) -> Self {
+  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Self {
     Self { query, searcher }
   }
 }
@@ -724,7 +724,7 @@ where
   type T = ();
 
   fn new_collector(&self) -> Result<Self::C> {
-    MatchesAsserter::new(self.query.clone(), self.searcher)
+    MatchesAsserter::new(self.query, self.searcher)
   }
 
   fn reduce(&self, _collectors: Vec<Self::C>) -> Result<Self::T> {
@@ -852,7 +852,7 @@ struct MatchesAsserter<'a, IRC>
 where
   IRC: 'static,
 {
-  query: Query,
+  query: &'a Query,
   searcher: &'a IndexSearcher<IRC>,
   query_string: String,
   context_ord: usize,
@@ -867,7 +867,7 @@ impl<'a, IRC> MatchesAsserter<'a, IRC>
 where
   IRC: IndexReaderContext + 'static,
 {
-  fn new(query: Query, searcher: &'a IndexSearcher<IRC>) -> Result<Self> {
+  fn new(query: &'a Query, searcher: &'a IndexSearcher<IRC>) -> Result<Self> {
     let query_string = query.to_string("")?;
     Ok(Self {
       query,

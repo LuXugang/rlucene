@@ -82,9 +82,9 @@ where
 
   for _ in 0..(100 * random_multiplier() as usize) {
     let s = if random.random_range(0..10) == 1 {
-      terms[random.random_range(0..terms.len())].to_string()
+      Cow::Borrowed(terms[random.random_range(0..terms.len())])
     } else {
-      random_string(random)
+      Cow::Owned(random_string(random))
     };
 
     if cfg!(feature = "test_log_verbose") {

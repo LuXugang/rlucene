@@ -92,7 +92,7 @@ fn test_upgrade_field_to_points() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
-  let v = BinaryPoint::new("dim", vec![vec![0u8; 4]])?;
+  let v = BinaryPoint::new("dim", [[0u8; 4]])?;
   doc.add(v);
   w.close()?;
 
@@ -109,8 +109,8 @@ fn test_illegal_dim_change_one_doc() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
   let err = w.add_document(doc).unwrap_err();
   match err {
@@ -137,11 +137,11 @@ fn test_illegal_dim_change_two_docs() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
 
   let mut doc2 = Document::new();
-  doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+  doc2.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
   let err = w.add_document(doc2).unwrap_err();
   match err {
@@ -170,13 +170,13 @@ fn test_illegal_dim_change_two_segments() -> Result<()> {
 
   {
     let mut doc = Document::new();
-    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+    doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
     w.add_document(doc)?;
     w.commit()?;
   }
 
   let mut doc2 = Document::new();
-  doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+  doc2.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
   let err = w.add_document(doc2).unwrap_err();
   match err {
@@ -206,7 +206,7 @@ fn test_illegal_dim_change_two_writers() -> Result<()> {
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+    doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
     w.add_document(doc)?;
     w.close()?;
   }
@@ -217,7 +217,7 @@ fn test_illegal_dim_change_two_writers() -> Result<()> {
     let w2 = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc2 = Document::new();
-    doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+    doc2.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
 
     let err = w2.add_document(doc2).unwrap_err();
     match err {
@@ -245,7 +245,7 @@ fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
   w.close()?;
   drop(w);
@@ -255,7 +255,7 @@ fn test_illegal_dim_change_via_add_indexes_directory() -> Result<()> {
   let iwc2 = IndexWriterConfig::with_analyzer(a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
   w2.add_document(doc)?;
 
   let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
@@ -278,7 +278,7 @@ fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
   w.close()?;
   drop(w);
@@ -288,7 +288,7 @@ fn test_illegal_dim_change_via_add_indexes_codec_reader() -> Result<()> {
   let iwc2 = IndexWriterConfig::with_analyzer(a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
   w2.add_document(doc)?;
   let reader = directory_reader::open(dir.clone())?;
   let leaf = get_only_leaf_reader(&reader)?;
@@ -315,7 +315,7 @@ fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
   w.close()?;
   drop(w);
@@ -325,7 +325,7 @@ fn test_illegal_dim_change_via_add_indexes_slow_codec_reader() -> Result<()> {
   let iwc2 = IndexWriterConfig::with_analyzer(a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc2)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4], vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]; 2])?);
   w2.add_document(doc)?;
   let reader = directory_reader::open(dir.clone())?;
   let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
@@ -352,8 +352,8 @@ fn test_illegal_num_bytes_change_one_doc() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
   let err = w.add_document(doc).unwrap_err();
   match err {
@@ -382,11 +382,11 @@ fn test_illegal_num_bytes_change_two_docs() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
 
   let mut doc2 = Document::new();
-  doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+  doc2.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
   let err = w.add_document(doc2).unwrap_err();
   match err {
@@ -415,13 +415,13 @@ fn test_illegal_num_bytes_change_two_segments() -> Result<()> {
 
   {
     let mut doc = Document::new();
-    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+    doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
     w.add_document(doc)?;
     w.commit()?;
   }
 
   let mut doc2 = Document::new();
-  doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+  doc2.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
   let err = w.add_document(doc2).unwrap_err();
   match err {
@@ -452,7 +452,7 @@ fn test_illegal_num_bytes_change_two_writers() -> Result<()> {
     let w = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc = Document::new();
-    doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+    doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
     w.add_document(doc)?;
     w.close()?;
   }
@@ -463,7 +463,7 @@ fn test_illegal_num_bytes_change_two_writers() -> Result<()> {
     let w2 = IndexWriter::new(dir.clone(), iwc)?;
 
     let mut doc2 = Document::new();
-    doc2.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+    doc2.add(BinaryPoint::new("dim", [[0u8; 6]])?);
 
     let err = w2.add_document(doc2).unwrap_err();
     match err {
@@ -492,7 +492,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
   w.close()?;
   drop(w);
@@ -502,7 +502,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_directory() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 6]])?);
   w2.add_document(doc)?;
 
   let err = w2.add_indexes_from_directory(std::slice::from_ref(&dir));
@@ -525,7 +525,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_codec_reader() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
   w.close()?;
   drop(w);
@@ -535,7 +535,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_codec_reader() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 6]])?);
   w2.add_document(doc)?;
   let reader = directory_reader::open(dir.clone())?;
   let leaf = get_only_leaf_reader(&reader)?;
@@ -562,7 +562,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_slow_codec_reader() -> Result<(
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 4]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 4]])?);
   w.add_document(doc)?;
   w.close()?;
   drop(w);
@@ -572,7 +572,7 @@ fn test_illegal_num_bytes_change_via_add_indexes_slow_codec_reader() -> Result<(
   let iwc = IndexWriterConfig::with_analyzer(a)?;
   let w2 = IndexWriter::new(dir2.clone(), iwc)?;
   let mut doc = Document::new();
-  doc.add(BinaryPoint::new("dim", vec![vec![0u8; 6]])?);
+  doc.add(BinaryPoint::new("dim", [[0u8; 6]])?);
   w2.add_document(doc)?;
   let reader = directory_reader::open(dir.clone())?;
   let err = TestUtil::add_indexes_slowly(&w2, &[&reader]);
@@ -598,7 +598,7 @@ fn test_illegal_too_many_bytes() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let err = BinaryPoint::new("dim", vec![vec![0u8; MAX_NUM_BYTES + 1]]);
+  let err = BinaryPoint::new("dim", [[0u8; MAX_NUM_BYTES + 1]]);
   match err {
     Err(LuceneError::IllegalArgument(_)) => {},
     _ => unreachable!(""),
@@ -622,9 +622,9 @@ fn test_illegal_too_many_dimensions() -> Result<()> {
   let iwc = IndexWriterConfig::with_analyzer(mock)?;
   let w = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut values: Vec<Vec<u8>> = Vec::with_capacity(MAX_INDEX_DIMENSIONS + 1);
+  let mut values: Vec<[u8; 4]> = Vec::with_capacity(MAX_INDEX_DIMENSIONS + 1);
   for _ in 0..(MAX_INDEX_DIMENSIONS + 1) {
-    values.push(vec![0u8; 4]);
+    values.push([0u8; 4]);
   }
 
   let bp = BinaryPoint::new("dim", values);
@@ -989,9 +989,15 @@ fn test_merged_stats_one_segment_without_points() -> Result<()> {
 
   let reader = directory_reader::open_from_writer(&w)?;
 
-  assert_eq!(get_min_packed_value(&reader, "field")?, Some(vec![0u8; 4]));
+  assert_eq!(
+    get_min_packed_value(&reader, "field")?.as_deref(),
+    Some([0u8; 4].as_slice())
+  );
 
-  assert_eq!(get_max_packed_value(&reader, "field")?, Some(vec![0u8; 4]));
+  assert_eq!(
+    get_max_packed_value(&reader, "field")?.as_deref(),
+    Some([0u8; 4].as_slice())
+  );
 
   assert_eq!(get_doc_count(&reader, "field")?, 1);
 

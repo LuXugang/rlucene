@@ -53,11 +53,8 @@ fn test_stress_advance() -> Result<()> {
 
     let mut a_docs: HashSet<i32> = HashSet::new();
     let mut field_to_type: HashMap<String, FieldType> = HashMap::new();
-    let mut doc = Document::new();
     let mut f = new_string_field(&mut random, "field", "", Store::No, &mut field_to_type)?;
     let mut id_field = new_string_field(&mut random, "id", "", Store::Yes, &mut field_to_type)?;
-    doc.add(f.clone());
-    doc.add(id_field.clone());
 
     let num_docs = at_least(&mut random, 4097);
     if cfg!(feature = "test_log_verbose") {

@@ -140,7 +140,7 @@ fn vector_non_zero_scoring_test(bits: i32, compress: bool) -> Result<()> {
       input: Arc::clone(&input),
     };
     let scorer = Lucene99ScalarQuantizedVectorScorer::new(DefaultFlatVectorScorer);
-    let query_vector = (0..32).map(|i| i as f32 * 0.1).collect::<Vec<_>>();
+    let query_vector: [f32; 32] = std::array::from_fn(|i| i as f32 * 0.1);
     for function in [
       VectorSimilarityFunction::Euclidean,
       VectorSimilarityFunction::DotProduct,

@@ -62,12 +62,8 @@ fn test_increasing_sloppiness() -> Result<()> {
   let t1 = case.random_term(&mut random);
   let t2 = case.random_term(&mut random);
   for i in 0..10 {
-    let q1 = PhraseQuery::from_bytes(i, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
-    let q2 = PhraseQuery::from_bytes(
-      i + 1,
-      t1.field(),
-      vec![t1.bytes().clone(), t2.bytes().clone()],
-    )?;
+    let q1 = PhraseQuery::from_bytes(i, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
+    let q2 = PhraseQuery::from_bytes(i + 1, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
     case.assert_subset_of(&mut random, &q1.into(), &q2.into())?;
   }
   Ok(())
@@ -103,13 +99,13 @@ fn test_increasing_sloppiness3() -> Result<()> {
     let q1 = PhraseQuery::from_bytes(
       i,
       t1.field(),
-      vec![t1.bytes().clone(), t2.bytes().clone(), t3.bytes().clone()],
+      [t1.bytes().clone(), t2.bytes().clone(), t3.bytes().clone()],
     )?
     .into();
     let q2 = PhraseQuery::from_bytes(
       i + 1,
       t1.field(),
-      vec![t1.bytes().clone(), t2.bytes().clone(), t3.bytes().clone()],
+      [t1.bytes().clone(), t2.bytes().clone(), t3.bytes().clone()],
     )?
     .into();
     case.assert_subset_of(&mut random, &q1, &q2)?;
@@ -147,10 +143,9 @@ fn test_repetitive_increasing_sloppiness() -> Result<()> {
   let case = TestSloppyPhraseQuery2::new(&mut random);
   let t = case.random_term(&mut random);
   for i in 0..10 {
-    let q1 =
-      PhraseQuery::from_bytes(i, t.field(), vec![t.bytes().clone(), t.bytes().clone()])?.into();
+    let q1 = PhraseQuery::from_bytes(i, t.field(), [t.bytes().clone(), t.bytes().clone()])?.into();
     let q2 =
-      PhraseQuery::from_bytes(i + 1, t.field(), vec![t.bytes().clone(), t.bytes().clone()])?.into();
+      PhraseQuery::from_bytes(i + 1, t.field(), [t.bytes().clone(), t.bytes().clone()])?.into();
     case.assert_subset_of(&mut random, &q1, &q2)?;
   }
   Ok(())
@@ -183,13 +178,13 @@ fn test_repetitive_increasing_sloppiness3() -> Result<()> {
     let q1 = PhraseQuery::from_bytes(
       i,
       t.field(),
-      vec![t.bytes().clone(), t.bytes().clone(), t.bytes().clone()],
+      [t.bytes().clone(), t.bytes().clone(), t.bytes().clone()],
     )?
     .into();
     let q2 = PhraseQuery::from_bytes(
       i + 1,
       t.field(),
-      vec![t.bytes().clone(), t.bytes().clone(), t.bytes().clone()],
+      [t.bytes().clone(), t.bytes().clone(), t.bytes().clone()],
     )?
     .into();
     case.assert_subset_of(&mut random, &q1, &q2)?;
@@ -261,7 +256,7 @@ fn random_phrase_query(seed: u64) -> Result<MultiPhraseQuery> {
       terms.push(Term::from_text("field", ch.to_string()));
     }
 
-    pqb.add_terms_with_position(&terms, position)?;
+    pqb.add_terms_with_position(terms, position)?;
     position += TestUtil::next_int(&mut random, 1, 3);
   }
 

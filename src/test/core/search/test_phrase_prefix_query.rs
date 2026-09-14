@@ -132,7 +132,7 @@ fn test_phrase_prefix() -> Result<()> {
   let terms: Vec<_> = terms_with_prefix.into_iter().collect();
 
   query1builder.add_terms(&terms)?;
-  query2builder.add_terms(&terms)?;
+  query2builder.add_terms(terms)?;
 
   let result = searcher.search(query1builder.build(), 1000)?.score_docs;
   assert_eq!(2, result.len());

@@ -609,7 +609,7 @@ fn test_index_binary_value_without_token_stream() -> Result<()> {
     writer.close()?;
   }
 
-  let mut legal_field_types = Vec::new();
+  let mut legal_field_types = Vec::with_capacity(6);
   {
     let mut ft = FieldType::new();
     ft.set_tokenized(false)?;

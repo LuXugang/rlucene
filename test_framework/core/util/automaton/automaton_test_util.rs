@@ -181,7 +181,10 @@ impl AutomatonTestUtil {
       1 => Ok(Cow::Owned(Operations::union(&a1, &a2)?)),
       2 => Ok(Cow::Owned(Operations::intersection(&a1, &a2)?.into_owned())),
       _ => Ok(Cow::Owned(
-        Operations::minus(&a1, &a2, Self::DEFAULT_MAX_DETERMINIZED_STATES)?.into_owned(),
+        match Operations::minus(&a1, &a2, Self::DEFAULT_MAX_DETERMINIZED_STATES)? {
+          Cow::Borrowed(_) => a1,
+          Cow::Owned(automaton) => automaton,
+        },
       )),
     }
   }
@@ -222,7 +225,7 @@ impl AutomatonTestUtil {
   pub fn minimize_simple(a: &Automaton) -> Result<Cow<'_, Automaton>> {
     let mut initial_set = BTreeSet::new();
     let v = Operations::reverse_with_initial_states(a, Option::from(&mut initial_set))?;
-    let a = Self::determinize_simple_with_set(&v, Rc::new(initial_set.clone()))?;
+    let a = Self::determinize_simple_with_set(&v, Rc::new(std::mem::take(&mut initial_set)))?;
 
     initial_set.clear();
     let v = Operations::reverse_with_initial_states(&a, Option::from(&mut initial_set))?;
@@ -248,16 +251,16 @@ impl AutomatonTestUtil {
     }
 
     let points = a.get_start_points();
-    let mut sets: HashMap<Rc<BTreeSet<i32>>, Rc<BTreeSet<i32>>> = HashMap::new();
+    let mut sets: HashSet<Rc<BTreeSet<i32>>> = HashSet::new();
     let mut worklist: VecDeque<Rc<BTreeSet<i32>>> = VecDeque::new();
     let mut newstate: HashMap<Rc<BTreeSet<i32>>, i32> = HashMap::new();
 
-    sets.insert(initial_set.clone(), initial_set.clone());
+    sets.insert(initial_set.clone());
     worklist.push_back(initial_set.clone());
 
     let mut result = Builder::default();
     result.create_state();
-    newstate.insert(initial_set.clone(), 0);
+    newstate.insert(initial_set, 0);
 
     let mut t = Transition::default();
 
@@ -280,8 +283,8 @@ impl AutomatonTestUtil {
         }
         let p = Rc::new(p);
 
-        if !sets.contains_key(&p) {
-          sets.insert(p.clone(), p.clone());
+        if !sets.contains(&p) {
+          sets.insert(p.clone());
           worklist.push_back(p.clone());
           let new_state = result.create_state();
           newstate.insert(p.clone(), new_state);
@@ -515,8 +518,11 @@ impl AutomatonTestUtil {
             max1 = char::MIN as i32;
           }
 
-          let q = Rc::new(StatePair::new(t1n.dest, t2n.dest));
-          if visited.insert(q.clone()) {
+          let q = StatePair::new(t1n.dest, t2n.dest);
+          visited.reserve(1);
+          if !visited.contains(&q) {
+            let q = Rc::new(q);
+            visited.insert(q.clone());
             worklist.push_back(q);
           }
         }

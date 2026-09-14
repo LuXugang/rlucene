@@ -167,7 +167,7 @@ fn test() -> Result<()> {
       Err(payload) => {
         let message = LuceneError::panic_payload_message(payload.as_ref());
         if message == "index does not exist" || message.starts_with("before=") {
-          Err(LuceneError::illegal_state(message))
+          Err(LuceneError::illegal_state(message.into_owned()))
         } else {
           resume_unwind(payload)
         }

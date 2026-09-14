@@ -90,14 +90,14 @@ where
 struct TimedThread {
   failed: Arc<AtomicBool>,
   max_iterations: i32,
-  all_threads: Arc<Vec<Arc<AtomicBool>>>,
+  all_threads: Arc<[Arc<AtomicBool>; 3]>,
 }
 
 impl TimedThread {
   fn new(
     failed: Arc<AtomicBool>,
     max_iterations: i32,
-    all_threads: Arc<Vec<Arc<AtomicBool>>>,
+    all_threads: Arc<[Arc<AtomicBool>; 3]>,
   ) -> Self {
     Self {
       failed,
@@ -371,7 +371,7 @@ fn test_transactions() -> Result<()> {
   init_index(&mut random, dir2.clone(), &mut field_to_type)?;
 
   let max_iterations = at_least(&mut random, 100);
-  let failed = Arc::new(vec![
+  let failed = Arc::new([
     Arc::new(AtomicBool::new(false)),
     Arc::new(AtomicBool::new(false)),
     Arc::new(AtomicBool::new(false)),

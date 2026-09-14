@@ -41,17 +41,17 @@ use rand::RngExt;
 #[allow(dead_code)] // for quick search
 pub struct TestSimilarity2;
 
-fn set_up() -> Result<Vec<SimilarityEnum>> {
+fn set_up() -> Result<[SimilarityEnum; 2]> {
   // TODO: Add the Java test's Boolean, Axiomatic, DFR, IB, LM and DFI similarities after their
   // Rust implementations are available.
-  Ok(vec![
+  Ok([
     classic_similarity::new().into(),
     BM25Similarity::new()?.into(),
   ])
 }
 
-fn sims() -> Result<Vec<Arc<SimilarityEnum>>> {
-  Ok(set_up()?.into_iter().map(Arc::new).collect())
+fn sims() -> Result<[Arc<SimilarityEnum>; 2]> {
+  Ok(set_up()?.map(Arc::new))
 }
 
 /**

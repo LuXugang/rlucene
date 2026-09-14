@@ -97,7 +97,7 @@ where
 {
   fn corrupt_file(&mut self) -> Result<()> {
     // Now corrupt the specified byte:
-    let name = self.out.get_name().to_string();
+    let name = self.out.get_name();
     let new_temp_name;
     {
       let mut tmp_out = self.dir.create_temp_output(
@@ -109,7 +109,7 @@ where
       let input_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         self
           .dir
-          .open_input(&name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)
+          .open_input(name, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)
       }));
       let mut input = match input_result {
         Ok(Ok(input)) => input,
@@ -146,11 +146,11 @@ where
     }
 
     // Delete original and copy corrupt version back:
-    self.dir.delete_file(&name)?;
+    self.dir.delete_file(name)?;
     self.dir.copy_from(
       self.dir,
       &new_temp_name,
-      &name,
+      name,
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?;
     self.dir.delete_file(&new_temp_name)?;

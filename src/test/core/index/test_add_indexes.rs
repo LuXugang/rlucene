@@ -805,8 +805,8 @@ where
       Store::Yes,
       field_to_type,
     )?);
-    doc.add(IntPoint::new("doc", vec![i])?);
-    doc.add(IntPoint::new("doc2d", vec![i, i])?);
+    doc.add(IntPoint::new("doc", [i])?);
+    doc.add(IntPoint::new("doc2d", [i, i])?);
     doc.add(NumericDocValuesField::new("dv", i as i64));
     writer.add_document(doc)?;
   }
@@ -2482,12 +2482,16 @@ fn test_set_diagnostics() -> Result<()> {
   assert_ne!(0, segment_infos.size());
   for info in segment_infos.iter() {
     assert_eq!(
-      Some(&SOURCE_ADDINDEXES_READERS.to_string()),
-      info.info.get_diagnostics().get(SOURCE)
+      Some(SOURCE_ADDINDEXES_READERS),
+      info.info.get_diagnostics().get(SOURCE).map(String::as_str)
     );
     assert_eq!(
-      Some(&"my_merge_policy".to_string()),
-      info.info.get_diagnostics().get("merge_policy")
+      Some("my_merge_policy"),
+      info
+        .info
+        .get_diagnostics()
+        .get("merge_policy")
+        .map(String::as_str)
     );
   }
   reader.close()?;

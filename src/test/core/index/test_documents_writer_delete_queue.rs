@@ -211,8 +211,11 @@ fn test_stress_delete_queue() -> Result<()> {
   let queue = Arc::new(DocumentsWriterDeleteQueue::new(get_default_info_stream()));
   let mut unique_values = HashSet::new();
   let size = 10000 + random.random_range(0..500) * random_multiplier();
-  let ids: Vec<i32> = (0..size).map(|_| random.random()).collect();
-  for id in &ids {
+  let ids: Arc<[i32]> = (0..size)
+    .map(|_| random.random())
+    .collect::<Vec<_>>()
+    .into();
+  for id in ids.iter() {
     unique_values.insert(Term::from_text("id", id.to_string()));
   }
 
@@ -322,7 +325,7 @@ fn test_close() -> Result<()> {
 struct UpdateThread {
   queue: Arc<DocumentsWriterDeleteQueue>,
   index: Arc<AtomicUsize>,
-  ids: Vec<i32>,
+  ids: Arc<[i32]>,
   slice: DeleteSlice,
   deletes: BufferedUpdatesLock,
   latch: CountDownLatch,
@@ -332,7 +335,7 @@ impl UpdateThread {
   fn new(
     queue: Arc<DocumentsWriterDeleteQueue>,
     index: Arc<AtomicUsize>,
-    ids: Vec<i32>,
+    ids: Arc<[i32]>,
     latch: CountDownLatch,
   ) -> Result<Self> {
     let slice = queue.new_slice();

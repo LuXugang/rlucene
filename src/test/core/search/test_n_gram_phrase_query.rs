@@ -58,15 +58,15 @@ fn test_rewrite() -> Result<()> {
   let q = pq1
     .rewrite(searcher)?
     .expect("NGramPhraseQuery rewrites to its phrase query");
-  assert_eq!(q.rewrite(searcher)?.unwrap_or_else(|| q.clone()), q);
+  assert_eq!(q.rewrite(searcher)?.as_ref().unwrap_or(&q), &q);
   let Query::Phrase(rewritten1) = q else {
     panic!("expected PhraseQuery");
   };
   assert_eq!(
-    &vec![Term::from_text("f", "AB"), Term::from_text("f", "BC")],
+    &[Term::from_text("f", "AB"), Term::from_text("f", "BC")],
     rewritten1.get_terms()
   );
-  assert_eq!(&vec![0, 1], rewritten1.get_positions());
+  assert_eq!(&[0, 1], rewritten1.get_positions());
 
   // bi-gram test ABCD => AB/BC/CD => AB//CD
   let pq2 = NGramPhraseQuery::new(2, PhraseQuery::from_terms_no_slop("f", ["AB", "BC", "CD"])?);
@@ -79,10 +79,10 @@ fn test_rewrite() -> Result<()> {
     panic!("expected PhraseQuery");
   };
   assert_eq!(
-    &vec![Term::from_text("f", "AB"), Term::from_text("f", "CD")],
+    &[Term::from_text("f", "AB"), Term::from_text("f", "CD")],
     rewritten2.get_terms()
   );
-  assert_eq!(&vec![0, 2], rewritten2.get_positions());
+  assert_eq!(&[0, 2], rewritten2.get_positions());
 
   // tri-gram test ABCDEFGH => ABC/BCD/CDE/DEF/EFG/FGH => ABC///DEF//FGH
   let pq3 = NGramPhraseQuery::new(
@@ -98,14 +98,14 @@ fn test_rewrite() -> Result<()> {
     panic!("expected PhraseQuery");
   };
   assert_eq!(
-    &vec![
+    &[
       Term::from_text("f", "ABC"),
       Term::from_text("f", "DEF"),
       Term::from_text("f", "FGH"),
     ],
     rewritten3.get_terms()
   );
-  assert_eq!(&vec![0, 3, 5], rewritten3.get_positions());
+  assert_eq!(&[0, 3, 5], rewritten3.get_positions());
 
   Ok(())
 }

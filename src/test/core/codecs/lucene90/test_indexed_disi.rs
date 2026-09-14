@@ -496,20 +496,14 @@ fn create_and_open_disi(write_power: i8, read_power: i8) -> Result<()> {
   let mut random = random();
   let dir = new_directory(&mut random)?;
   let mut out = dir.create_output("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
-  let mut v = BitSetIterator::new(set.clone(), set.cardinality() as i64)?;
+  let cardinality = set.cardinality() as i64;
+  let mut v = BitSetIterator::new(set, cardinality)?;
   let jump_count = write_bitset_with_dense_rank_power(&mut v, &mut out, write_power)? as i32;
   let length = out.get_file_pointer()?;
   drop(out);
 
   let input = dir.open_input("foo", IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
-  let _ = IndexedDISIImpl::new(
-    &input,
-    0,
-    length,
-    jump_count,
-    read_power,
-    set.cardinality() as i64,
-  )?;
+  let _ = IndexedDISIImpl::new(&input, 0, length, jump_count, read_power, cardinality)?;
   Ok(())
 }
 

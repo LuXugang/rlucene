@@ -34,13 +34,13 @@ fn test_empty() {
 }
 #[test]
 fn test_from_bytes() -> Result<()> {
-  let mut bytes: Vec<u8> = "abcd".as_bytes().to_vec();
-  let b = BytesRef::from_bytes(bytes.clone());
-  assert_eq!(bytes, b.bytes);
+  let bytes: Vec<u8> = "abcd".as_bytes().to_vec();
+  let b = BytesRef::from_bytes(bytes);
+  assert_eq!(b"abcd", b.bytes.as_slice());
   assert_eq!(b.length, 4);
   assert_eq!(b.offset, 0);
 
-  bytes = "abcd".as_bytes().to_vec();
+  let bytes = "abcd".as_bytes().to_vec();
   let b2 = BytesRef::from_slice(bytes, 1, 3);
   let b2_value = b2.utf8_to_string()?;
   assert_eq!("bcd", b2_value);

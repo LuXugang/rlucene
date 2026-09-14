@@ -499,7 +499,7 @@ fn inflate_gens_test<D>(
 where
   D: Directory,
 {
-  let mut filtered = Vec::new();
+  let mut filtered = Vec::with_capacity(files.len());
   for file in files {
     if CODEC_FILE_PATTERN.is_match(&file)
       || file.starts_with(IndexFileNames::SEGMENTS)

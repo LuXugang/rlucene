@@ -32,7 +32,7 @@ fn test_result_collection() -> Result<()> {
   let nodes = [1, 5, 10, 4, 8, 3, 2, 6, 7, 9];
   let scores = [0.1, 0.2, 0.3, 0.5, 0.2, 0.6, 0.9, 0.3, 0.7, 0.8];
 
-  let mut min_competitive_similarities = vec![];
+  let mut min_competitive_similarities = Vec::with_capacity(nodes.len());
 
   for (&node, &score) in nodes.iter().zip(scores.iter()) {
     collector.collect(node, score)?;

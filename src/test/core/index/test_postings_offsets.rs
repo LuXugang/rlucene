@@ -272,6 +272,7 @@ fn test_random() -> Result<()> {
     doc.add(NumericDocValuesField::new("id", doc_count as i64));
     let mut tokens = Vec::new();
     let num_tokens = at_least(&mut random, 100);
+    tokens.reserve(num_tokens as usize);
     let mut pos = -1;
     let mut offset = 0;
 

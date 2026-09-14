@@ -259,13 +259,8 @@ where
   let mut tps = Vec::new();
   for term in &terms {
     tps.push(
-      get_term_postings_enum_with_flag(
-        &reader,
-        &term.field,
-        &BytesRef::from_string(&term.text()?),
-        PAYLOADS as i32,
-      )?
-      .unwrap(),
+      get_term_postings_enum_with_flag(&reader, &term.field, term.bytes(), PAYLOADS as i32)?
+        .unwrap(),
     );
   }
 
@@ -290,13 +285,9 @@ where
   }
   assert_byte_array_equals(payload_data.as_ref(), verify_payload_data.as_ref());
 
-  let mut tp = get_term_postings_enum_with_flag(
-    &reader,
-    terms[0].field(),
-    &BytesRef::from_string(&terms[0].text()?),
-    PAYLOADS as i32,
-  )?
-  .ok_or_else(|| LuceneError::illegal_state("term postings not found"))?;
+  let mut tp =
+    get_term_postings_enum_with_flag(&reader, terms[0].field(), terms[0].bytes(), PAYLOADS as i32)?
+      .ok_or_else(|| LuceneError::illegal_state("term postings not found"))?;
   tp.next_doc()?;
   tp.next_position()?;
   tp.next_doc()?;
@@ -319,13 +310,9 @@ where
   assert_eq!(1, payload.length);
   assert_eq!(payload.bytes[payload.offset], payload_data[5 * num_terms]);
 
-  let mut tp = get_term_postings_enum_with_flag(
-    &reader,
-    terms[1].field(),
-    &BytesRef::from_string(&terms[1].text()?),
-    PAYLOADS as i32,
-  )?
-  .ok_or_else(|| LuceneError::illegal_state("term postings not found"))?;
+  let mut tp =
+    get_term_postings_enum_with_flag(&reader, terms[1].field(), terms[1].bytes(), PAYLOADS as i32)?
+      .ok_or_else(|| LuceneError::illegal_state("term postings not found"))?;
   tp.next_doc()?;
   tp.next_position()?;
   assert_eq!(1, tp.get_payload()?.unwrap().as_bytes_ref().length);
@@ -372,9 +359,8 @@ where
     .get_payload()?
     .ok_or_else(|| LuceneError::illegal_state("payload missing"))?;
   let br = br.as_bytes_ref();
-  let mut portion = vec![0; 1500];
-  portion.copy_from_slice(&payload_data[100..1600]);
-  assert_byte_array_equals_range(portion.as_ref(), br.bytes, br.offset, br.length);
+  let portion = &payload_data[100..1600];
+  assert_byte_array_equals_range(portion, br.bytes, br.offset, br.length);
   Ok(())
 }
 
@@ -652,7 +638,7 @@ fn test_thread_safety() -> Result<()> {
     let mut ingesters = Vec::new();
     for _ in 0..num_threads {
       let writer = &writer;
-      let pool = pool.clone();
+      let pool = &pool;
       let random = &random;
       ingesters.push(scope.spawn(move || -> Result<()> {
         for _ in 0..num_docs {

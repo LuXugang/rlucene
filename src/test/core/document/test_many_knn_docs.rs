@@ -65,15 +65,12 @@ mod monster {
     let iw = IndexWriter::new(dir.clone(), iwc)?;
 
     let num_vectors = 2_088_992;
-    let mut vector = vec![0.0f32; 1];
-    let mut field = KnnFloatVectorField::with_similarity_function(
-      field_name,
-      vector.clone(),
-      similarity_function,
-    )?;
+    let mut vector = [0.0f32; 1];
+    let mut field =
+      KnnFloatVectorField::with_similarity_function(field_name, vector, similarity_function)?;
     for i in 0..num_vectors {
       vector[0] = (i % 256) as f32;
-      field.set_vector_value(vector.clone())?;
+      field.set_vector_value(vector)?;
       let mut doc = Document::new();
       doc.add(field.clone());
       iw.add_document(doc)?;

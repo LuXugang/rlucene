@@ -37,6 +37,7 @@ fn test_alloc_known_size_slice() -> Result<()> {
   block_pool.next_buffer()?;
   let mut slice_pool = ByteSlicePool;
 
+  let mut random_data = Vec::new();
   for _ in 0..100 {
     let size: usize = if random.random_bool(0.5) {
       TestUtil::next_usize(&mut random, 100, 1000)
@@ -44,7 +45,8 @@ fn test_alloc_known_size_slice() -> Result<()> {
       TestUtil::next_usize(&mut random, 50000, 100000)
     };
 
-    let mut random_data = vec![0u8; size];
+    random_data.clear();
+    random_data.resize(size, 0u8);
     random.fill(&mut random_data[..]);
 
     let mut upto = slice_pool.new_slice(ByteSlicePool::FIRST_LEVEL_SIZE, &mut block_pool)? as usize;
@@ -87,8 +89,8 @@ fn test_alloc_large_slice() -> Result<()> {
   assert_eq!(0, slice_pool.new_slice(BYTE_BLOCK_SIZE, &mut block_pool)?);
   {
     let buffer_upto = block_pool.buffer_upto()?;
-    let buffer = block_pool.get_buffer_mut(buffer_upto).clone();
-    let buffer_0 = block_pool.get_buffer_mut(0).clone();
+    let buffer = block_pool.get_buffer(buffer_upto);
+    let buffer_0 = block_pool.get_buffer(0);
     assert_eq!(buffer, buffer_0);
     block_pool.next_buffer()?;
   }

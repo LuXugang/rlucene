@@ -191,7 +191,7 @@ fn test_direct_instantiation() -> Result<()> {
     .collect();
   let mut large_read_buffer = vec![0u8; large_buffer.len()];
 
-  let mut dirs = vec![
+  let mut dirs = [
     TestFSDirectory::Nio(NIOFSDirectory::new(path.path().to_path_buf())?),
     TestFSDirectory::MMap(MMapDirectory::new(path.path().to_path_buf())?),
   ];

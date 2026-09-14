@@ -80,8 +80,7 @@ impl SearcherExpiredException {
   }
 
   pub fn is_instance(error: &LuceneError) -> bool {
-    matches!(error, LuceneError::IllegalState(_))
-      && error.to_string().starts_with(SEARCHER_EXPIRED_PREFIX)
+    matches!(error, LuceneError::IllegalState(error) if error.message.starts_with(SEARCHER_EXPIRED_PREFIX))
   }
 }
 
@@ -234,16 +233,13 @@ impl ShardSearchingState {
     let body_result = catch_unwind(AssertUnwindSafe(|| -> Result<_> {
       let mut stats = HashMap::new();
       for term in terms {
+        let term = Arc::new(term.clone());
         let term_states = term_states::build(searcher.as_ref(), term.clone(), true)?;
         let doc_freq = term_states.doc_freq()?;
         if doc_freq > 0 {
           stats.insert(
-            term.clone(),
-            Arc::new(searcher.term_statistics(
-              term.clone(),
-              doc_freq,
-              term_states.total_term_freq()?,
-            )?),
+            term.as_ref().clone(),
+            Arc::new(searcher.term_statistics(term, doc_freq, term_states.total_term_freq()?)?),
           );
         }
       }
@@ -792,23 +788,21 @@ impl ChangeIndices {
       while Instant::now() < self.end_time {
         let nodes = self.state.nodes();
         let what = random.random_range(0..3);
-        let node = nodes[random.random_range(0..nodes.len())].clone();
+        let node = &nodes[random.random_range(0..nodes.len())];
         if num_docs == 0 || what == 0 {
           node.writer.add_document(docs.next_doc()?)?;
           num_docs += 1;
         } else if what == 1 {
           node.writer.update_document_with_term(
-            Term::from_text("docid", random.random_range(0..num_docs).to_string()),
+            Term::new("docid", random.random_range(0..num_docs).to_string()),
             docs.next_doc()?,
           )?;
           num_docs += 1;
         } else {
-          node
-            .writer
-            .delete_documents_with_terms(vec![Term::from_text(
-              "docid",
-              random.random_range(0..num_docs).to_string(),
-            )])?;
+          node.writer.delete_documents_with_terms(vec![Term::new(
+            "docid",
+            random.random_range(0..num_docs).to_string(),
+          )])?;
         }
 
         if random.random_range(0..17) == 12 {

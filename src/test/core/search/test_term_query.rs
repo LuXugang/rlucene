@@ -284,6 +284,7 @@ fn test_with_with_different_score_modes() -> Result<()> {
   let reader = writer.get_reader(&mut random)?;
   let mut searcher = new_searcher_with_reader(reader)?;
   let existing_similarity = searcher.get_similarity();
+  let term = Arc::new(Term::from_text("foo", "bar"));
 
   for score_mode in ScoreMode::values() {
     let scorer_called = Arc::new(AtomicBool::new(false));
@@ -292,7 +293,7 @@ fn test_with_with_different_score_modes() -> Result<()> {
       scorer_called.clone(),
     ));
     searcher.set_similarity(s);
-    let term_query = TermQuery::new(Term::from_text("foo", "bar"));
+    let term_query = TermQuery::new(term.clone());
     term_query.create_weight(&searcher, score_mode, 1f32)?;
     assert_eq!(
       score_mode.needs_scores(),

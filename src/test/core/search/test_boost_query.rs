@@ -37,7 +37,7 @@ fn test_validation() -> Result<()> {
   let err = BoostQuery::new(MatchAllDocsQuery::new(), -3.0).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
-      assert_eq!("boost must be a positive float, got -3.0", msg.to_string())
+      assert_eq!("boost must be a positive float, got -3.0", msg.message)
     },
     _ => unreachable!("expected LuceneError::IllegalArgument"),
   }
@@ -45,7 +45,7 @@ fn test_validation() -> Result<()> {
   let err = BoostQuery::new(MatchAllDocsQuery::new(), -0.0).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
-      assert_eq!("boost must be a positive float, got -0.0", msg.to_string())
+      assert_eq!("boost must be a positive float, got -0.0", msg.message)
     },
     _ => unreachable!("expected LuceneError::IllegalArgument"),
   }
@@ -53,7 +53,7 @@ fn test_validation() -> Result<()> {
   let err = BoostQuery::new(MatchAllDocsQuery::new(), f32::NAN).unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
-      assert_eq!("boost must be a positive float, got NaN", msg.to_string())
+      assert_eq!("boost must be a positive float, got NaN", msg.message)
     },
     _ => unreachable!("expected LuceneError::IllegalArgument"),
   }

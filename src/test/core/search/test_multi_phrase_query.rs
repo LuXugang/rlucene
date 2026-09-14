@@ -185,7 +185,7 @@ fn test_phrase_prefix() -> Result<()> {
   let mut slop_builder = MultiPhraseQuery::builder();
   slop_builder.set_slop(1)?;
   slop_builder
-    .add_terms(&terms_with_prefix)?
+    .add_terms(terms_with_prefix)?
     .add_term(Term::from_text("body", "pizza"))?;
   let query3 = slop_builder.build();
   let result = searcher.search(query3, 1000)?;
@@ -229,7 +229,7 @@ fn test_tall() -> Result<()> {
   let mut qb = MultiPhraseQuery::builder();
   qb.add_term(Term::from_text("body", "blueberry"))?
     .add_term(Term::from_text("body", "chocolate"))?
-    .add_terms(&[
+    .add_terms([
       Term::from_text("body", "pie"),
       Term::from_text("body", "tart"),
     ])?;
@@ -264,8 +264,8 @@ fn test_multi_sloppy_with_repeats() -> Result<()> {
   let mut qb = MultiPhraseQuery::builder();
   qb.set_slop(6)?;
   // this will fail, when the scorer would propagate [a] rather than [a,b],
-  qb.add_terms(&[Term::from_text("body", "a"), Term::from_text("body", "b")])?
-    .add_terms(&[Term::from_text("body", "a")])?;
+  qb.add_terms([Term::from_text("body", "a"), Term::from_text("body", "b")])?
+    .add_terms([Term::from_text("body", "a")])?;
   assert_eq!(1, searcher.count(qb.build())?); // should match on "a b"
   searcher.get_index_reader().close()?;
   index_store.close()?;
@@ -295,11 +295,11 @@ fn test_multi_exact_with_repeats() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
   let mut qb = MultiPhraseQuery::builder();
   qb.add_terms_with_position(
-    &[Term::from_text("body", "a"), Term::from_text("body", "d")],
+    [Term::from_text("body", "a"), Term::from_text("body", "d")],
     0,
   )?
   .add_terms_with_position(
-    &[Term::from_text("body", "a"), Term::from_text("body", "f")],
+    [Term::from_text("body", "a"), Term::from_text("body", "f")],
     2,
   )?;
   assert_eq!(1, searcher.count(qb.build())?); // should match on "a b"
@@ -363,7 +363,7 @@ fn test_boolean_query_containing_single_term_prefix_query() -> Result<()> {
   q.add(TermQuery::new(Term::from_text("body", "pie")), Occur::Must)?;
 
   let mut trouble_builder = MultiPhraseQuery::builder();
-  trouble_builder.add_terms(&[
+  trouble_builder.add_terms([
     Term::from_text("body", "blueberry"),
     Term::from_text("body", "blue"),
   ])?;
@@ -411,7 +411,7 @@ fn test_phrase_prefix_with_boolean_query() -> Result<()> {
 
   let mut trouble_builder = MultiPhraseQuery::builder();
   trouble_builder.add_term(Term::from_text("body", "a"))?;
-  trouble_builder.add_terms(&[
+  trouble_builder.add_terms([
     Term::from_text("body", "test"),
     Term::from_text("body", "this"),
   ])?;
@@ -441,7 +441,7 @@ fn test_no_docs() -> Result<()> {
 
   let mut qb = MultiPhraseQuery::builder();
   qb.add_term(Term::from_text("body", "a"))?;
-  qb.add_terms(&[
+  qb.add_terms([
     Term::from_text("body", "nope"),
     Term::from_text("body", "nope"),
   ])?;
@@ -579,10 +579,10 @@ fn test_zero_pos_incr() -> Result<()> {
   let mut mpqb = MultiPhraseQuery::builder();
 
   mpqb.add_terms_with_position(
-    &[Term::from_text("field", "b"), Term::from_text("field", "c")],
+    [Term::from_text("field", "b"), Term::from_text("field", "c")],
     0,
   )?;
-  mpqb.add_terms_with_position(&[Term::from_text("field", "a")], 0)?;
+  mpqb.add_terms_with_position([Term::from_text("field", "a")], 0)?;
 
   let hits = searcher.search(mpqb.build(), 2)?.score_docs;
 
@@ -621,8 +621,8 @@ fn incr_0_query_tokens_and() -> Result<Vec<Token>> {
   ])
 }
 
-fn incr_0_query_tokens_and_or_match() -> Result<Vec<Vec<Token>>> {
-  Ok(vec![
+fn incr_0_query_tokens_and_or_match() -> Result<[Vec<Token>; 5]> {
+  Ok([
     vec![make_token("a", 1)?],
     vec![make_token("x", 1)?, make_token("1", 0)?],
     vec![make_token("b", 2)?],
@@ -631,8 +631,8 @@ fn incr_0_query_tokens_and_or_match() -> Result<Vec<Vec<Token>>> {
   ])
 }
 
-fn incr_0_query_tokens_and_or_no_match() -> Result<Vec<Vec<Token>>> {
-  Ok(vec![
+fn incr_0_query_tokens_and_or_no_match() -> Result<[Vec<Token>; 5]> {
+  Ok([
     vec![make_token("x", 1)?],
     vec![make_token("a", 1)?, make_token("1", 0)?],
     vec![make_token("x", 2)?],
@@ -647,16 +647,16 @@ fn test_zero_pos_incr_sloppy_parsed_and() -> Result<()> {
   let mut qb = MultiPhraseQuery::builder();
 
   qb.add_terms_with_position(
-    &[Term::from_text("field", "a"), Term::from_text("field", "1")],
+    [Term::from_text("field", "a"), Term::from_text("field", "1")],
     -1,
   )?;
 
   qb.add_terms_with_position(
-    &[Term::from_text("field", "b"), Term::from_text("field", "1")],
+    [Term::from_text("field", "b"), Term::from_text("field", "1")],
     0,
   )?;
 
-  qb.add_terms_with_position(&[Term::from_text("field", "c")], 1)?;
+  qb.add_terms_with_position([Term::from_text("field", "c")], 1)?;
 
   do_test_zero_pos_incr_sloppy(qb.clone().build(), 0)?;
 
@@ -701,7 +701,7 @@ fn test_zero_pos_incr_sloppy_pq_and() -> Result<()> {
   let mut pos: i32 = -1;
   for tap in incr_0_query_tokens_and()? {
     pos += tap.get_position_increment()?;
-    builder.add(Term::from_text("field", tap.to_string()), pos as usize)?;
+    builder.add(Term::new("field", tap.to_string()), pos as usize)?;
   }
   builder.set_slop(0);
   do_test_zero_pos_incr_sloppy(builder.clone().build()?, 0)?;
@@ -720,7 +720,7 @@ fn test_zero_pos_incr_sloppy_mpq_and() -> Result<()> {
   let mut pos: i32 = -1;
   for tap in incr_0_query_tokens_and()? {
     pos += tap.get_position_increment()?;
-    let terms = vec![Term::from_text("field", tap.to_string())];
+    let terms = vec![Term::new("field", tap.to_string())];
     mpqb.add_terms_with_position(terms, pos)?; // AND logic
   }
 
@@ -777,7 +777,7 @@ fn test_zero_pos_incr_sloppy_mpq_and_or_no_match() -> Result<()> {
 fn tap_terms(tap: &[Token]) -> Vec<Term> {
   tap
     .iter()
-    .map(|token| Term::from_text("field", token.to_string()))
+    .map(|token| Term::new("field", token.to_string()))
     .collect()
 }
 #[test]

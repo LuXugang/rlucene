@@ -1522,7 +1522,7 @@ fn test_stress_multi_threading() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for i in 0..num_threads {
-      let writer = writer.clone();
+      let writer = &writer;
       let num_updates = &num_updates;
       let seed = random.random();
       handles.push(
@@ -1574,7 +1574,7 @@ fn test_stress_multi_threading() -> Result<()> {
                     reader = Some(old_reader);
                   }
                 } else {
-                  reader = Some(directory_reader::open_from_writer(&writer)?);
+                  reader = Some(directory_reader::open_from_writer(writer)?);
                 }
               }
             }

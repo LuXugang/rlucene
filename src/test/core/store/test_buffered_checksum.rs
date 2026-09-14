@@ -40,12 +40,14 @@ fn test_random() {
 
   let mut rng = random();
   let iterations = at_least_usize(&mut rng, 10000);
+  let mut bytes = Vec::new();
 
   for _ in 0..iterations {
     match rng.random_range(0..4) {
       0 => {
         let length = rng.random_range(0..1024);
-        let mut bytes = vec![0; length];
+        bytes.clear();
+        bytes.resize(length, 0);
         rng.fill(bytes.as_mut_slice());
         raw_crc.update(&bytes);
         buffered.update_bytes(&bytes, 0, length);

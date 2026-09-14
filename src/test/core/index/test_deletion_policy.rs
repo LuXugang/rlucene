@@ -373,7 +373,7 @@ fn test_open_prior_snapshot() -> Result<()> {
   let writer = IndexWriter::with_index_commit(
     dir.clone(),
     conf,
-    IndexCommitWrapper::new(Some(last_commit.clone()), None)?,
+    IndexCommitWrapper::new(Some(last_commit), None)?,
   )?;
   assert_eq!(10, writer.get_doc_stats()?.num_docs);
 

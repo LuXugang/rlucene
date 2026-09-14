@@ -211,7 +211,7 @@ pub trait BaseKnnVectorQueryTestCase {
   fn test_get_filter(&self) -> Result<()> {
     let q1 = self.get_knn_vector_query_no_filter("f1", vec![0.0, 1.0], 6)?;
     let filter1 = TermQuery::new(Term::from_text("id", "id1"));
-    let filter1_query: Query = filter1.clone().into();
+    let filter1_query: Query = filter1.into();
     let q2 = self.get_knn_vector_query("f2", vec![0.0, 1.0], 7, Some(filter1_query.clone()))?;
 
     assert!(q1.base().filter.is_none());
@@ -438,7 +438,7 @@ pub trait BaseKnnVectorQueryTestCase {
   where
     R: Rng + ?Sized,
   {
-    let vectors = vec![
+    let vectors = [
       vec![0.0, 0.0],
       vec![1.0, 1.0],
       vec![2.0, 2.0],
@@ -944,7 +944,7 @@ pub trait BaseKnnVectorQueryTestCase {
       self.get_knn_vector_query_no_filter("vector", self.random_vector(random, dim), hits)?;
     let top_docs = searcher.search(query, num_docs)?;
     let mut stored_fields = searcher.get_index_reader().stored_fields()?;
-    let mut all_ids = HashSet::new();
+    let mut all_ids = HashSet::with_capacity(top_docs.score_docs.len());
     for score_doc in top_docs.score_docs {
       let doc = stored_fields.document(score_doc.doc)?;
       let index = doc
@@ -1011,10 +1011,7 @@ pub trait BaseKnnVectorQueryTestCase {
 
     let reader = directory_reader::open(directory.into())?;
     let leaf_reader = get_only_leaf_reader(&reader)?;
-    let field_info = leaf_reader
-      .get_field_infos()?
-      .field_info_by_name("field")?
-      .clone();
+    let field_info = leaf_reader.get_field_infos()?.field_info_by_name("field")?;
     assert!(field_info.is_some());
     let field_info = field_info.unwrap();
 

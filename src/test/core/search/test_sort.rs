@@ -84,41 +84,24 @@ fn test_equals() -> Result<()> {
   let sort_field1 = SortField::new("foo".into(), SortFieldType::String)?;
 
   let mut sort_field2 = SortField::new("foo".into(), SortFieldType::String)?;
-  assert_equals_sort(
-    &Sort::with_fields(vec![sort_field1.clone()])?,
-    &Sort::with_fields(vec![sort_field2])?,
-  );
+  let sort1 = Sort::with_fields(vec![sort_field1])?;
+  assert_equals_sort(&sort1, &Sort::with_fields(vec![sort_field2])?);
 
   sort_field2 = SortField::new("bar".into(), SortFieldType::String)?;
-  assert_different_sort(
-    &Sort::with_fields(vec![sort_field1.clone()])?,
-    &Sort::with_fields(vec![sort_field2])?,
-  );
+  assert_different_sort(&sort1, &Sort::with_fields(vec![sort_field2])?);
 
   sort_field2 = SortField::new("foo".into(), SortFieldType::Long)?;
-  assert_different_sort(
-    &Sort::with_fields(vec![sort_field1.clone()])?,
-    &Sort::with_fields(vec![sort_field2])?,
-  );
+  assert_different_sort(&sort1, &Sort::with_fields(vec![sort_field2])?);
 
   sort_field2 = SortField::new("foo".into(), SortFieldType::String)?;
   sort_field2.set_missing_value(StringFirst)?;
-  assert_different_sort(
-    &Sort::with_fields(vec![sort_field1.clone()])?,
-    &Sort::with_fields(vec![sort_field2])?,
-  );
+  assert_different_sort(&sort1, &Sort::with_fields(vec![sort_field2])?);
 
   sort_field2 = SortField::with_reverse("foo".into(), SortFieldType::String, false)?;
-  assert_equals_sort(
-    &Sort::with_fields(vec![sort_field1.clone()])?,
-    &Sort::with_fields(vec![sort_field2])?,
-  );
+  assert_equals_sort(&sort1, &Sort::with_fields(vec![sort_field2])?);
 
   sort_field2 = SortField::with_reverse("foo".into(), SortFieldType::String, true)?;
-  assert_different_sort(
-    &Sort::with_fields(vec![sort_field1])?,
-    &Sort::with_fields(vec![sort_field2])?,
-  );
+  assert_different_sort(&sort1, &Sort::with_fields(vec![sort_field2])?);
 
   Ok(())
 }

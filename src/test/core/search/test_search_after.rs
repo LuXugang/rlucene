@@ -100,6 +100,8 @@ where
     SortField::get_field_doc()?,
   ];
 
+  all_sort_fields.reserve(24);
+
   for field in ["bytes", "sortedbytesdocvalues"] {
     for rev in 0..2 {
       let reversed = rev == 0;
@@ -158,7 +160,7 @@ where
 
   let num_docs = at_least(random, 200);
   for i in 0..num_docs {
-    let mut fields: Vec<Fields> = Vec::new();
+    let mut fields: Vec<Fields> = Vec::with_capacity(10);
     fields.push(
       new_text_field(
         random,
@@ -187,11 +189,10 @@ where
     fields.push(DoubleDocValuesField::new("double", random.random::<f64>()).into());
 
     let bytes_value = TestUtil::random_realistic_unicode_string(random);
-    fields.push(SortedDocValuesField::new("bytes", BytesRef::from_string(&bytes_value)).into());
+    fields.push(SortedDocValuesField::new("bytes", BytesRef::from(bytes_value)).into());
 
     let bytesval_value = TestUtil::random_realistic_unicode_string(random);
-    fields
-      .push(BinaryDocValuesField::new("bytesval", BytesRef::from_string(&bytesval_value)).into());
+    fields.push(BinaryDocValuesField::new("bytesval", BytesRef::from(bytesval_value)).into());
 
     let mut document = Document::new();
     document.add(StoredField::from_string("id", i.to_string())?);

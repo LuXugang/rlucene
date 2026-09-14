@@ -518,7 +518,7 @@ pub trait BaseTermVectorsFormatTestCase:
       thread::scope(|scope| -> Result<()> {
         let mut threads = Vec::with_capacity(thread_seeds.len());
         for seed in thread_seeds {
-          let reader = reader.clone();
+          let reader = &reader;
           let docs = &docs;
           threads.push(scope.spawn(move || -> Result<()> {
             let mut thread_random = random_from_seed(seed);
@@ -2217,15 +2217,15 @@ where
   let mut sorted_terms = tk
     .freqs
     .keys()
-    .map(|term| BytesRef::from_string(term))
+    .map(|term| term.as_bytes())
     .collect::<Vec<_>>();
   sorted_terms.sort();
   let mut terms_enum = terms.iterator()?;
   for sorted_term in &sorted_terms {
     let next_term = terms_enum.next()?;
     assert!(next_term.is_some());
-    assert_eq!(sorted_term, next_term.unwrap().as_ref());
-    assert_eq!(sorted_term, terms_enum.term()?.as_ref());
+    assert_eq!(*sorted_term, next_term.unwrap().as_bytes());
+    assert_eq!(*sorted_term, terms_enum.term()?.as_bytes());
     assert_eq!(1, terms_enum.doc_freq()?);
 
     let mut postings_enum = terms_enum.postings(None)?;
@@ -2341,7 +2341,6 @@ where
   F: IndexFields,
 {
   assert_eq!(doc.field_names.len() as i32, fields.size()?);
-  let fields1 = doc.field_names.iter().collect::<HashSet<_>>();
   let mut fields2 = HashSet::new();
   let mut field_iter = fields.iterator()?;
   while field_iter.has_next()? {
@@ -2350,7 +2349,17 @@ where
       .ok_or_else(|| LuceneError::illegal_state("Fields.iterator().has_next returned true"))?;
     fields2.insert(field);
   }
-  assert_eq!(fields1, fields2);
+  assert_eq!(
+    doc.field_names.len(),
+    fields2.len(),
+    "expected={:?}, actual={fields2:?}",
+    doc.field_names
+  );
+  assert!(
+    doc.field_names.iter().all(|field| fields2.contains(field)),
+    "expected={:?}, actual={fields2:?}",
+    doc.field_names
+  );
 
   for i in 0..doc.field_names.len() {
     let terms = fields

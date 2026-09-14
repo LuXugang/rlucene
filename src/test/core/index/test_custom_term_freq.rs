@@ -50,13 +50,13 @@ use std::sync::Arc;
 pub struct TestCustomTermFreq;
 
 struct CannedTermFreqs {
-  terms: Vec<String>,
+  terms: Vec<&'static str>,
   term_freqs: Vec<i32>,
   attrs: Attributes,
   upto: usize,
 }
 impl CannedTermFreqs {
-  fn new(terms: Vec<String>, term_freqs: Vec<i32>) -> Self {
+  fn new(terms: Vec<&'static str>, term_freqs: Vec<i32>) -> Self {
     Self {
       terms,
       term_freqs,
@@ -76,7 +76,7 @@ impl TokenStream for CannedTermFreqs {
 
     self.attrs.clear_attributes()?;
 
-    self.attrs.append_str(Some(&self.terms[self.upto]))?;
+    self.attrs.append_str(Some(self.terms[self.upto]))?;
 
     self.attrs.set_term_frequency(self.term_freqs[self.upto])?;
 
@@ -119,10 +119,7 @@ fn test_singleton_terms_one_doc() -> Result<()> {
 
   let field = Field::from_token_stream(
     "field",
-    FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec!["foo".to_string(), "bar".to_string()],
-      vec![42, 128],
-    )),
+    FieldTokenStreamEnum::custom(CannedTermFreqs::new(vec!["foo", "bar"], vec![42, 128])),
     field_type,
   )?;
   doc.add(field);
@@ -174,10 +171,7 @@ fn test_singleton_terms_two_docs() -> Result<()> {
 
   let field = Field::from_token_stream(
     "field",
-    FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec!["foo".to_string(), "bar".to_string()],
-      vec![42, 128],
-    )),
+    FieldTokenStreamEnum::custom(CannedTermFreqs::new(vec!["foo", "bar"], vec![42, 128])),
     field_type.clone(),
   )?;
   doc.add(field);
@@ -186,10 +180,7 @@ fn test_singleton_terms_two_docs() -> Result<()> {
   let mut doc = Document::new();
   let field = Field::from_token_stream(
     "field",
-    FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec!["foo".to_string(), "bar".to_string()],
-      vec![50, 50],
-    )),
+    FieldTokenStreamEnum::custom(CannedTermFreqs::new(vec!["foo", "bar"], vec![50, 50])),
     field_type,
   )?;
   doc.add(field);
@@ -245,12 +236,7 @@ fn test_repeat_terms_one_doc() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type,
@@ -304,12 +290,7 @@ fn test_repeat_terms_two_docs() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type.clone(),
@@ -322,12 +303,7 @@ fn test_repeat_terms_two_docs() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![50, 60, 70, 80],
     )),
     field_type,
@@ -385,12 +361,7 @@ fn test_total_term_freq() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type.clone(),
@@ -403,12 +374,7 @@ fn test_total_term_freq() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![50, 60, 70, 80],
     )),
     field_type,
@@ -444,12 +410,7 @@ fn test_invalid_prox() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type,
@@ -484,12 +445,7 @@ fn test_invalid_docs_only() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type,
@@ -531,10 +487,7 @@ fn test_overflow_int() -> Result<()> {
   let mut doc2 = Document::new();
   let field = Field::from_token_stream(
     "field",
-    FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec!["foo".to_string(), "bar".to_string()],
-      vec![3, i32::MAX],
-    )),
+    FieldTokenStreamEnum::custom(CannedTermFreqs::new(vec!["foo", "bar"], vec![3, i32::MAX])),
     field_type,
   )?;
   doc2.add(field);
@@ -568,12 +521,7 @@ fn test_invalid_term_vector_positions() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type,
@@ -610,12 +558,7 @@ fn test_invalid_term_vector_offsets() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type,
@@ -652,12 +595,7 @@ fn test_term_vectors() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type.clone(),
@@ -670,12 +608,7 @@ fn test_term_vectors() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![50, 60, 70, 80],
     )),
     field_type,
@@ -777,12 +710,7 @@ fn test_field_invert_state() -> Result<()> {
   let field = Field::from_token_stream(
     "field",
     FieldTokenStreamEnum::custom(CannedTermFreqs::new(
-      vec![
-        "foo".to_string(),
-        "bar".to_string(),
-        "foo".to_string(),
-        "bar".to_string(),
-      ],
+      vec!["foo", "bar", "foo", "bar"],
       vec![42, 128, 17, 100],
     )),
     field_type,

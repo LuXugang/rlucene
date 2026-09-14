@@ -39,10 +39,12 @@ fn test_utf8_code_point_at() -> Result<()> {
   let mut random = random();
   let num = at_least(&mut random, 50_000);
   let mut reuse = UTF8CodePoint::default();
+  let mut expected = Vec::new();
   for _ in 0..num {
     let s = TestUtil::random_unicode_string(&mut random);
     let utf8 = s.as_bytes();
-    let expected: Vec<i32> = s.chars().map(|ch| ch as i32).collect();
+    expected.clear();
+    expected.extend(s.chars().map(|ch| ch as i32));
     let mut pos = 0;
     let mut expected_upto = 0;
     while pos < utf8.len() {

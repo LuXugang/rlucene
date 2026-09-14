@@ -153,7 +153,7 @@ where
     automaton1.get_next_transition(&mut t1)?;
     automaton2.get_transition(state, i, &mut t2)?;
 
-    assert_eq!(format!("{:?}", t1), format!("{:?}", t2));
+    assert_eq!(t1, t2);
 
     assert_random_access_transition(random, automaton1, automaton2, t1.dest, visited)?;
   }

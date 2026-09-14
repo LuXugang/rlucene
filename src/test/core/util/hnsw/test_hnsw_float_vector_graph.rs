@@ -29,7 +29,6 @@ use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::knn_float_vector_query::KnnFloatVectorQuery;
 use crate::core::search::query::Query;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fixed_bit_set::FixedBitSet;
@@ -45,6 +44,7 @@ use crate::test_framework::core::util::hnsw::mock_vector_values::MockVectorValue
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -239,7 +239,16 @@ impl HnswGraphTestCase<Vec<f32>> for TestHnswFloatVectorGraph {
       let ord = vector_values.ord_to_doc(i)?;
       let value = vector_values.vector_value(i)?;
       let floats = value.as_ref().as_floats()?;
-      vectors[ord] = ArrayUtil::copy_of_sub_array(floats, 0, vector_values.dimension());
+      let dimension = vector_values.dimension();
+      debug_assert!(dimension <= floats.len());
+      let _ = &floats[..dimension];
+      vectors[ord] = match value {
+        Cow::Owned(VectorValueEnum::Float(mut vector)) => {
+          vector.truncate(dimension);
+          vector
+        },
+        value => value.as_ref().as_floats()?[..dimension].to_vec(),
+      };
     }
     Ok(TestsKnnVectorValues::B(MockVectorValues::from_values(
       vectors,

@@ -81,7 +81,7 @@ fn test_exclusive() -> Result<()> {
   )?;
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
-  let hits = searcher.search(query.clone(), 1000)?.score_docs;
+  let hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(1, hits.len(), "C added, still only B in range");
 
   Ok(())
@@ -120,7 +120,7 @@ fn test_inclusive() -> Result<()> {
   )?;
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
-  let hits = searcher.search(query.clone(), 1000)?.score_docs;
+  let hits = searcher.search(query, 1000)?.score_docs;
   assert_eq!(3, hits.len(), "C added - A, B, C in range");
 
   Ok(())
@@ -192,7 +192,7 @@ fn test_top_terms_rewrite() -> Result<()> {
 
   let saved_clause_count = get_max_clause_count();
   set_max_clause_count(3)?;
-  check_boolean_terms(&searcher, query.clone(), &["B", "C", "D"])?;
+  check_boolean_terms(&searcher, query, &["B", "C", "D"])?;
   set_max_clause_count(saved_clause_count)?;
   Ok(())
 }

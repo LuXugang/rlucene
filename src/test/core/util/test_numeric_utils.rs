@@ -134,7 +134,7 @@ fn test_big_int_conversion_and_ordering() -> Result<()> {
 /// (round-trip conversion).
 #[test]
 fn test_long_special_values() -> Result<()> {
-  let values: Vec<i64> = vec![
+  let values = [
     i64::MIN,
     i64::MIN + 1,
     i64::MIN + 2,
@@ -189,7 +189,7 @@ fn test_long_special_values() -> Result<()> {
 /// (round-trip conversion).
 #[test]
 fn test_int_special_values() -> Result<()> {
-  let values: Vec<i32> = vec![
+  let values = [
     i32::MIN,
     i32::MIN + 1,
     i32::MIN + 2,
@@ -301,7 +301,7 @@ fn test_big_int_special_values() -> Result<()> {
 /// can be correctly encoded and decoded (round-trip conversion).
 #[test]
 fn test_doubles() -> Result<()> {
-  let values: Vec<f64> = vec![
+  let values = [
     f64::NEG_INFINITY,
     -2.3E25,
     -1.0E15,
@@ -351,7 +351,7 @@ fn test_doubles() -> Result<()> {
 /// positive infinity.
 #[test]
 fn test_sortable_double_nan() -> Result<()> {
-  let double_nans: Vec<f64> = vec![
+  let double_nans = [
     f64::NAN,
     // f64::from_bits(0x7ff0000000000001),
     f64::from_bits(0x7fffffffffffffff),
@@ -377,7 +377,7 @@ fn test_sortable_double_nan() -> Result<()> {
 /// can be correctly encoded and decoded (round-trip conversion).
 #[test]
 fn test_floats() -> Result<()> {
-  let values: Vec<f32> = vec![
+  let values = [
     f32::NEG_INFINITY,
     -2.3E25_f32,
     -1.0E15_f32,
@@ -424,7 +424,7 @@ fn test_floats() -> Result<()> {
 }
 #[test]
 fn test_sortable_float_nan() -> Result<()> {
-  let float_nans: Vec<f32> = vec![
+  let float_nans = [
     f32::NAN,
     f32::from_bits(0x7f800001),
     f32::from_bits(0x7fffffff),
@@ -456,29 +456,39 @@ fn test_add() -> Result<()> {
   let iters = at_least(&mut random, 1000);
   let num_bytes = TestUtil::next_usize(&mut random, 1, 100);
 
+  let mut v1_bytes_random = Vec::new();
+  let mut v2_bytes_random = Vec::new();
+  let mut v1_bytes = Vec::new();
+  let mut v2_bytes = Vec::new();
+  let mut result = Vec::new();
   for _ in 0..iters {
-    let mut v1_bytes_random = vec![0u8; num_bytes];
+    v1_bytes_random.clear();
+    v1_bytes_random.resize(num_bytes, 0);
     random.fill_bytes(&mut v1_bytes_random);
     v1_bytes_random[0] &= 0x7f;
     let v1 = BigInt::from_bytes_be(Sign::Plus, &v1_bytes_random);
-    let mut v2_bytes_random = vec![0u8; num_bytes];
+    v2_bytes_random.clear();
+    v2_bytes_random.resize(num_bytes, 0);
     random.fill_bytes(&mut v2_bytes_random);
     v2_bytes_random[0] &= 0x7f;
     let v2 = BigInt::from_bytes_be(Sign::Plus, &v2_bytes_random);
 
-    let mut v1_bytes = vec![0u8; num_bytes];
+    v1_bytes.clear();
+    v1_bytes.resize(num_bytes, 0);
     let v1_raw_bytes = v1.to_signed_bytes_be();
     assert!(v1_raw_bytes.len() <= num_bytes);
     let start_pos = num_bytes.saturating_sub(v1_raw_bytes.len());
     v1_bytes.copy_from(&v1_raw_bytes, start_pos);
 
-    let mut v2_bytes = vec![0u8; num_bytes];
+    v2_bytes.clear();
+    v2_bytes.resize(num_bytes, 0);
     let v2_raw_bytes = v2.to_signed_bytes_be();
     assert!(v2_raw_bytes.len() <= num_bytes);
     let start_pos = num_bytes.saturating_sub(v2_raw_bytes.len());
     v2_bytes.copy_from(&v2_raw_bytes, start_pos);
 
-    let mut result = vec![0u8; num_bytes];
+    result.clear();
+    result.resize(num_bytes, 0);
 
     NumericUtils::add(num_bytes, 0, &v1_bytes, &v2_bytes, &mut result)?;
 
@@ -496,8 +506,8 @@ fn test_add() -> Result<()> {
 }
 #[test]
 fn test_illegal_add() {
-  let bytes = vec![0xFF; 4];
-  let mut one = vec![0x00; 4];
+  let bytes = [0xFF; 4];
+  let mut one = [0x00; 4];
   one[3] = 1;
   let result = NumericUtils::add(4, 0, &bytes, &one, &mut [0u8; 4]);
   assert!(
@@ -520,12 +530,19 @@ fn test_subtract() -> Result<()> {
   let iters = at_least(&mut random, 1000);
   let num_bytes = TestUtil::next_usize(&mut random, 1, 100);
 
+  let mut v1_bytes_random = Vec::new();
+  let mut v2_bytes_random = Vec::new();
+  let mut v1_bytes = Vec::new();
+  let mut v2_bytes = Vec::new();
+  let mut result = Vec::new();
   for _ in 0..iters {
-    let mut v1_bytes_random = vec![0u8; num_bytes];
+    v1_bytes_random.clear();
+    v1_bytes_random.resize(num_bytes, 0);
     random.fill_bytes(&mut v1_bytes_random);
     v1_bytes_random[0] &= 0x7f;
     let mut v1 = BigInt::from_bytes_be(Sign::Plus, &v1_bytes_random);
-    let mut v2_bytes_random = vec![0u8; num_bytes];
+    v2_bytes_random.clear();
+    v2_bytes_random.resize(num_bytes, 0);
     random.fill_bytes(&mut v2_bytes_random);
     v2_bytes_random[0] &= 0x7f;
     let mut v2 = BigInt::from_bytes_be(Sign::Plus, &v2_bytes_random);
@@ -534,17 +551,20 @@ fn test_subtract() -> Result<()> {
       std::mem::swap(&mut v1, &mut v2);
     }
 
-    let mut v1_bytes = vec![0u8; num_bytes];
+    v1_bytes.clear();
+    v1_bytes.resize(num_bytes, 0);
     let v1_raw_bytes = v1.to_signed_bytes_be();
     let start_pos = num_bytes.saturating_sub(v1_raw_bytes.len());
     v1_bytes.copy_from(&v1_raw_bytes, start_pos);
 
-    let mut v2_bytes = vec![0u8; num_bytes];
+    v2_bytes.clear();
+    v2_bytes.resize(num_bytes, 0);
     let v2_raw_bytes = v2.to_signed_bytes_be();
     let start_pos = num_bytes.saturating_sub(v2_raw_bytes.len());
     v2_bytes.copy_from(&v2_raw_bytes, start_pos);
 
-    let mut result = vec![0u8; num_bytes];
+    result.clear();
+    result.resize(num_bytes, 0);
 
     NumericUtils::subtract(num_bytes, 0, &v1_bytes, &v2_bytes, &mut result)?;
 
@@ -562,9 +582,9 @@ fn test_subtract() -> Result<()> {
 }
 #[test]
 fn test_illegal_subtract() {
-  let mut v1 = vec![0x00; 4];
+  let mut v1 = [0x00; 4];
   v1[3] = 0xF0;
-  let mut v2 = vec![0x00; 4];
+  let mut v2 = [0x00; 4];
   v2[3] = 0xF1; // Represents a larger value
   let result = NumericUtils::subtract(4, 0, &v1, &v2, &mut [0u8; 4]);
   assert!(
@@ -584,7 +604,7 @@ fn test_illegal_subtract() {
 #[test]
 fn test_ints_round_trip() -> Result<()> {
   let mut random = random();
-  let mut encoded = vec![0u8; BitUtil::INT_BYTES];
+  let mut encoded = [0u8; BitUtil::INT_BYTES];
   for _ in 0..10_000 {
     let value = random.random::<i32>();
     NumericUtils::int_to_sortable_bytes(value, &mut encoded, 0);
@@ -601,7 +621,7 @@ fn test_ints_round_trip() -> Result<()> {
 #[test]
 fn test_longs_round_trip() -> Result<()> {
   let mut random = random();
-  let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
+  let mut encoded = [0u8; BitUtil::LONG_BYTES];
   for _ in 0..10_000 {
     let value = TestUtil::next_long(&mut random, i64::MIN, i64::MAX);
     NumericUtils::long_to_sortable_bytes(value, &mut encoded, 0);
@@ -619,7 +639,7 @@ fn test_longs_round_trip() -> Result<()> {
 #[test]
 fn test_floats_round_trip() -> Result<()> {
   let mut random = random();
-  let mut encoded = vec![0u8; BitUtil::INT_BYTES];
+  let mut encoded = [0u8; BitUtil::INT_BYTES];
   for _ in 0..10_000 {
     let value = f32::from_bits(random.random::<i32>() as u32);
     let sortable_int = NumericUtils::float_to_sortable_int(value);
@@ -649,7 +669,7 @@ fn test_floats_round_trip() -> Result<()> {
 #[test]
 fn test_doubles_round_trip() -> Result<()> {
   let mut random = random();
-  let mut encoded = vec![0u8; BitUtil::LONG_BYTES];
+  let mut encoded = [0u8; BitUtil::LONG_BYTES];
 
   for _ in 0..10_000 {
     let value = f64::from_bits(TestUtil::next_long(&mut random, i64::MIN, i64::MAX) as u64);

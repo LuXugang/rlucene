@@ -67,7 +67,7 @@ fn test_byte_count() {
     ] {
       for bpv in 1..=64 {
         let byte_count = format.byte_count(PackedInts::VERSION_CURRENT, value_count, bpv);
-        let msg = format!(
+        let msg = format_args!(
           "format={:?}, byteCount={}, valueCount={}, bpv={}",
           format, byte_count, value_count, bpv
         );
@@ -111,6 +111,7 @@ fn test_packed_ints() -> Result<()> {
   let mut random = random();
   let num = at_least(&mut random, 3);
   let io_context = new_io_context(&mut random)?;
+  let mut values = Vec::new();
   for _ in 0..num {
     for nbits in 1..=64 {
       let max_value = PackedInts::max_value(nbits);
@@ -121,7 +122,8 @@ fn test_packed_ints() -> Result<()> {
         TestUtil::next_int(&mut random, 0, 4096)
       };
       let directory = new_directory_shared(&mut random)?;
-      let mut values = vec![0i64; value_count];
+      values.clear();
+      values.resize(value_count, 0i64);
       let fp: usize;
       {
         let mut out = directory.create_output("out.bin", &io_context)?;
@@ -255,7 +257,7 @@ fn test_end_pointer() -> Result<()> {
 
         let byte_count = format.byte_count(version, value_count, bpv);
 
-        let msg = format!(
+        let msg = format_args!(
           "format={:?}, version={}, value_count={}, bpv={}",
           format, version, value_count, bpv
         );
@@ -582,6 +584,7 @@ fn test_bulk_get() -> Result<()> {
   let len = TestUtil::next_usize(&mut random, 1, value_count * 2);
   let off = random.random_range(0..77);
 
+  let mut arr = Vec::new();
   for bpv in 1..=64 {
     let mask = PackedInts::max_value(bpv);
     let mut packed_ints = create_packed_ints(value_count, bpv)?;
@@ -589,7 +592,8 @@ fn test_bulk_get() -> Result<()> {
       for i in 0..ints.size() {
         ints.set(i, (31 * i as i64 - 1099) & mask)?;
       }
-      let mut arr = vec![0i64; off + len];
+      arr.clear();
+      arr.resize(off + len, 0i64);
       let msg = format!(
         "{} valueCount={}, index={}, len={}, off={}",
         ints, value_count, index, len, off
@@ -637,10 +641,12 @@ fn test_bulk_set() -> Result<()> {
   let len = random.random_range(1..=(value_count * 2));
   let off = random.random_range(0..77);
 
+  let mut arr = Vec::new();
   for bpv in 1..=64 {
     let mask = PackedInts::max_value(bpv);
     let mut packed_ints = create_packed_ints(value_count, bpv)?;
-    let mut arr = vec![0i64; off + len];
+    arr.clear();
+    arr.resize(off + len, 0i64);
     let length = arr.len();
     for (i, item) in arr.iter_mut().enumerate().take(length) {
       *item = (31 * i as i64 + 19) & mask;
@@ -955,6 +961,7 @@ fn test_paged_growable_writer_overflow() -> Result<()> {
 #[test]
 fn test_encode_decode() -> Result<()> {
   let mut random = random();
+  let mut blocks = Vec::new();
 
   for format in &[
     Packed(PackedImpl::new(0)),
@@ -966,7 +973,7 @@ fn test_encode_decode() -> Result<()> {
       }
 
       // let msg = format!("{} {}", format, bpv);
-      let msg = format!("{}", bpv);
+      let msg = format_args!("{}", bpv);
 
       let encoder = PackedInts::get_encoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
       let decoder = PackedInts::get_decoder(*format, PackedInts::VERSION_CURRENT, bpv)?;
@@ -994,7 +1001,8 @@ fn test_encode_decode() -> Result<()> {
       let blocks_len = long_iterations * long_block_count;
 
       // 1. generate random inputs
-      let mut blocks: Vec<u64> = vec![0; blocks_offset + blocks_len];
+      blocks.clear();
+      blocks.resize(blocks_offset + blocks_len, 0u64);
       for block in blocks.iter_mut() {
         *block = random.random::<u64>();
 
@@ -1313,6 +1321,8 @@ fn test_packed_input_output() {
 fn test_block_packed_reader_writer() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 2);
+  let mut values = Vec::new();
+  let mut buf = Vec::new();
   for _ in 0..iters {
     let block_size = 1 << TestUtil::next_int(&mut random, 6, 18);
     let value_count: usize = if is_night_mode() {
@@ -1321,7 +1331,8 @@ fn test_block_packed_reader_writer() -> Result<()> {
       random.random_range(0..(1 << 15))
     };
 
-    let mut values = vec![0i64; value_count];
+    values.clear();
+    values.resize(value_count, 0i64);
     let mut min_value = 0;
     let mut bpv = 0;
     #[allow(clippy::needless_range_loop)]
@@ -1367,7 +1378,8 @@ fn test_block_packed_reader_writer() -> Result<()> {
       out.close()?;
     }
 
-    let mut buf = vec![0u8; fp];
+    buf.clear();
+    buf.resize(fp, 0u8);
     // test in1
     {
       let mut in1 = dir.open_input(
@@ -1470,10 +1482,12 @@ fn test_block_packed_reader_writer() -> Result<()> {
 fn test_monotonic_block_packed_reader_writer() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 2);
+  let mut values = Vec::new();
   for _ in 0..iters {
     let block_size = 1 << TestUtil::next_int(&mut random, 6, 18);
     let value_count = random.random_range(0..(1 << 18));
-    let mut values = vec![0i64; value_count];
+    values.clear();
+    values.resize(value_count, 0i64);
 
     if value_count > 0 {
       values[0] = if random.random_bool(0.5) {

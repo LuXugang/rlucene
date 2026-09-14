@@ -179,6 +179,6 @@ fn test_apply_to_all() -> Result<()> {
     .expect("the second failure must be suppressed");
   assert_eq!("2", suppressed.to_string());
   assert!(suppressed.get_suppressed()?.is_none());
-  assert_eq!(vec![1, 2], closed);
+  assert_eq!(&[1, 2][..], closed.as_slice());
   Ok(())
 }

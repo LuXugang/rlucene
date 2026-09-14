@@ -63,29 +63,42 @@ fn test_collection() -> Result<()> {
   for _ in 0..100 {
     let docs = TestUtil::next_int(&mut random, 1000, 10000);
     let expected = generate_doc_ids(docs, &mut random);
-    let expected_even: Vec<i32> = expected
+    let expected_even = expected
       .iter()
       .copied()
-      .filter(|doc| even_predicate.test(*doc))
-      .collect();
-    let expected_odd: Vec<i32> = expected
+      .filter(|doc| even_predicate.test(*doc));
+    let expected_odd = expected
       .iter()
       .copied()
-      .filter(|doc| odd_predicate.test(*doc))
-      .collect();
+      .filter(|doc| odd_predicate.test(*doc));
 
     // Test only wrapping one of the collector managers:
     let mcm = MultiCollectorManager::new(vec![&cm1])?;
     let results = collect_all(&leaves[0], &expected, &mcm)?;
     assert_eq!(1, results.len());
-    assert_eq!(expected_even, results[0]);
+    assert!(
+      expected_even.clone().eq(results[0].iter().copied()),
+      "expected: {:?}, actual: {:?}",
+      expected_even.clone().collect::<Vec<_>>(),
+      results[0]
+    );
 
     // Test wrapping both collector managers:
     let mcm = MultiCollectorManager::new(vec![&cm1, &cm2])?;
     let results = collect_all(&leaves[0], &expected, &mcm)?;
     assert_eq!(2, results.len());
-    assert_eq!(expected_even, results[0]);
-    assert_eq!(expected_odd, results[1]);
+    assert!(
+      expected_even.clone().eq(results[0].iter().copied()),
+      "expected: {:?}, actual: {:?}",
+      expected_even.clone().collect::<Vec<_>>(),
+      results[0]
+    );
+    assert!(
+      expected_odd.clone().eq(results[1].iter().copied()),
+      "expected: {:?}, actual: {:?}",
+      expected_odd.clone().collect::<Vec<_>>(),
+      results[1]
+    );
   }
   reader.close()?;
   Ok(())
@@ -336,7 +349,11 @@ impl CollectorManager for SimpleCollectorManager {
   fn reduce(&self, collectors: Vec<Self::C>) -> Result<Self::T> {
     let mut all = Vec::new();
     for mut collector in collectors {
-      all.append(&mut collector.collected);
+      if all.is_empty() {
+        all = collector.collected;
+      } else {
+        all.append(&mut collector.collected);
+      }
     }
     Ok(all)
   }

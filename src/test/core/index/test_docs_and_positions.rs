@@ -334,7 +334,7 @@ fn test_random_docs() -> Result<()> {
     let top_reader_context = (&reader).get_context()?;
     for context in top_reader_context.leaves()? {
       let max_doc = context.reader().max_doc()? as usize;
-      let reader = SingleLeafCompositeReader::new(context.reader().clone());
+      let reader = SingleLeafCompositeReader::new(context.reader());
       let mut postings_enum = TestUtil::docs_with_reader(
         &mut random,
         &reader,
@@ -500,7 +500,7 @@ fn test_docs_enum_start() -> Result<()> {
 
   let reader = writer.get_reader(&mut random)?;
   let r = get_only_leaf_reader(&reader)?;
-  let cr = SingleLeafCompositeReader::new(r.clone());
+  let cr = SingleLeafCompositeReader::new(&r);
   let mut disi = TestUtil::docs_with_reader(
     &mut random,
     &cr,

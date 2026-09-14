@@ -457,7 +457,11 @@ impl TestUtil {
     R: Rng + ?Sized,
     D: Directory,
   {
-    let mut default_output = Vec::with_capacity(1024);
+    let mut default_output = if output.is_none() {
+      Vec::with_capacity(1024)
+    } else {
+      Vec::new()
+    };
     let output = output.unwrap_or(&mut default_output);
 
     let mut checker = CheckIndex::with_lock(dir, NoLock);
@@ -829,9 +833,9 @@ impl TestUtil {
       return "".to_string();
     }
 
-    let mut buffer: Vec<u16> = vec![0u16; end];
-    Self::random_fixed_length_unicode_string(random, &mut buffer, 0, end);
-    String::from_utf16_lossy(&buffer)
+    stack_or_heap_buffer!(buffer, u16, end, 20, 0);
+    Self::random_fixed_length_unicode_string(random, buffer, 0, end);
+    String::from_utf16_lossy(buffer)
   }
   pub fn random_fixed_length_unicode_string<R>(
     random: &mut R,

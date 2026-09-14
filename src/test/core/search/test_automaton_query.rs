@@ -353,8 +353,9 @@ fn test_empty_optimization() -> Result<()> {
 fn test_hash_code_with_threads() -> Result<()> {
   let mut random = random();
   let _searcher = set_up(&mut random)?;
-  let mut queries = Vec::new();
-  for _ in 0..at_least(&mut random, 100) {
+  let num_queries = at_least(&mut random, 100);
+  let mut queries = Vec::with_capacity(num_queries as usize);
+  for _ in 0..num_queries {
     let automaton = AutomatonTestUtil::random_automaton(&mut random)?;
     let automaton =
       match Operations::determinize(&automaton, Operations::DEFAULT_DETERMINIZE_WORK_LIMIT)? {
@@ -370,7 +371,7 @@ fn test_hash_code_with_threads() -> Result<()> {
   let queries = std::sync::Arc::new(queries);
   let num_threads = random.random_range(2..=5);
   let starting_gun = std::sync::Arc::new(std::sync::Barrier::new(num_threads));
-  let mut threads = Vec::new();
+  let mut threads = Vec::with_capacity(num_threads);
 
   for _ in 0..num_threads {
     let queries = std::sync::Arc::clone(&queries);
@@ -395,10 +396,10 @@ fn test_biggish_automaton() -> Result<()> {
 
   let num_terms: usize = if is_night_mode() { 3000 } else { 500 };
 
-  let mut terms = Vec::new();
+  let mut terms = Vec::with_capacity(num_terms);
   while terms.len() < num_terms {
     let s = TestUtil::random_unicode_string(&mut random);
-    terms.push(BytesRef::from_string(&s));
+    terms.push(BytesRef::from(s));
   }
 
   terms.sort();

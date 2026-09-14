@@ -440,7 +440,7 @@ fn test_deeply_nested_boolean_rewrite_should_clauses() -> Result<()> {
   let depth: usize = random.random_range(10..=30);
 
   let expected_rc = Arc::new(AtomicUsize::new(0));
-  let rewrite_query_expected = TestRewriteQuery::new(expected_rc.clone());
+  let rewrite_query_expected = TestRewriteQuery::new(expected_rc);
 
   let rc_ = Arc::new(AtomicUsize::new(0));
   let rewrite_query = TestRewriteQuery::new(rc_.clone());
@@ -497,7 +497,7 @@ fn test_deeply_nested_boolean_rewrite() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
   let depth: usize = random.random_range(10..=30);
   let expected_rc = Arc::new(AtomicUsize::new(0));
-  let rewrite_query_expected = TestRewriteQuery::new(expected_rc.clone());
+  let rewrite_query_expected = TestRewriteQuery::new(expected_rc);
 
   let rc_ = Arc::new(AtomicUsize::new(0));
   let rewrite_query = TestRewriteQuery::new(rc_.clone());
@@ -775,7 +775,12 @@ fn assert_equals(td1: &TopDocs<ScoreDoc>, td2: &TopDocs<ScoreDoc>) {
     .map(|score_doc| score_doc.doc)
     .collect();
 
-  assert_eq!(
+  assert!(
+    expected_scores.len() == actual_result_set.len()
+      && expected_scores
+        .keys()
+        .all(|doc| actual_result_set.contains(doc)),
+    "expected result set: {:?}, actual result set: {:?}",
     expected_scores.keys().copied().collect::<HashSet<_>>(),
     actual_result_set,
   );
@@ -798,7 +803,7 @@ fn test_deduplicate_should_clauses() -> Result<()> {
   let query: Query = query.build().into();
 
   let expected: Query = BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?.into();
-  assert_eq!(expected, searcher.rewrite(query.clone())?);
+  assert_eq!(expected, searcher.rewrite(query)?);
 
   let mut query = Builder::new();
   query
@@ -825,7 +830,7 @@ fn test_deduplicate_should_clauses() -> Result<()> {
     )?;
   let expected: Query = expected.build().into();
 
-  assert_eq!(expected, searcher.rewrite(query.clone())?);
+  assert_eq!(expected, searcher.rewrite(query)?);
 
   let mut query = Builder::new();
   query
@@ -855,7 +860,7 @@ fn test_deduplicate_must_clauses() -> Result<()> {
   let query: Query = query.build().into();
 
   let expected: Query = BoostQuery::new(TermQuery::new(Term::from_text("foo", "bar")), 2.0)?.into();
-  assert_eq!(expected, searcher.rewrite(query.clone())?);
+  assert_eq!(expected, searcher.rewrite(query)?);
 
   let mut query = Builder::new();
   query
@@ -981,7 +986,7 @@ fn test_flatten_inner_disjunctions() -> Result<()> {
   let query: Query = query.build().into();
   let query_id = query.identity().clone();
   let v = searcher.rewrite(query)?;
-  assert_eq!(query_id, v.identity().clone());
+  assert_eq!(&query_id, v.identity());
 
   Ok(())
 }
@@ -1237,7 +1242,7 @@ fn test_discard_should_clauses() -> Result<()> {
   let query3: Query = ConstantScoreQuery::new(inner).into();
   let query3_id = query3.identity().clone();
   let v = searcher.rewrite(query3)?;
-  assert_eq!(query3_id, v.identity().clone());
+  assert_eq!(&query3_id, v.identity());
 
   let mut inner = Builder::new();
   inner
@@ -1251,7 +1256,7 @@ fn test_discard_should_clauses() -> Result<()> {
   let query4: Query = ConstantScoreQuery::new(inner).into();
   let query4_id = query4.identity().clone();
   let v = searcher.rewrite(query4)?;
-  assert_eq!(query4_id, v.identity().clone());
+  assert_eq!(&query4_id, v.identity());
 
   let mut inner = Builder::new();
   inner
@@ -1264,7 +1269,7 @@ fn test_discard_should_clauses() -> Result<()> {
   let query5: Query = ConstantScoreQuery::new(inner).into();
   let query5_id = query5.identity().clone();
   let v = searcher.rewrite(query5)?;
-  assert_eq!(query5_id, v.identity().clone());
+  assert_eq!(&query5_id, v.identity());
 
   Ok(())
 }

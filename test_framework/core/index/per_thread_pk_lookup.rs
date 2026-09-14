@@ -74,10 +74,10 @@ where
     // Larger segments are more likely to have the id, so sort largest to smallest by numDocs.
     leaves.sort_by(|(num_docs1, _), (num_docs2, _)| num_docs2.cmp(num_docs1));
 
-    let mut terms_enums = Vec::new();
-    let mut postings_enums = Vec::new();
-    let mut live_docs = Vec::new();
-    let mut doc_bases = Vec::new();
+    let mut terms_enums = Vec::with_capacity(leaves.len());
+    let mut postings_enums = Vec::with_capacity(leaves.len());
+    let mut live_docs = Vec::with_capacity(leaves.len());
+    let mut doc_bases = Vec::with_capacity(leaves.len());
     let mut enum_indexes = HashMap::new();
     let mut has_deletions = false;
 

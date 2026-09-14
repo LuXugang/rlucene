@@ -115,10 +115,10 @@ fn test_stress_update_same_id() -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut handles = Vec::new();
       for thread_id in 0..num_threads {
-        let w = w.clone();
-        let starting_gun = starting_gun.clone();
+        let w = &w;
+        let starting_gun = &starting_gun;
         let seed = random.random();
-        let seq_nos = seq_nos.clone();
+        let seq_nos = &seq_nos;
         let id = id.clone();
         handles.push(scope.spawn(move || -> Result<()> {
           let mut doc = Document::new();
@@ -258,7 +258,7 @@ fn test_stress_concurrent_commit() -> Result<()> {
   }
 
   let index_commits = list_commits(dir.clone())?;
-  let commits = commits.lock().unwrap().clone();
+  let commits = std::mem::take(&mut *commits.lock().unwrap());
   assert_eq!(commits.len(), index_commits.len());
 
   let mut expected_thread_ids = vec![-1; id_count];
@@ -391,7 +391,7 @@ fn test_stress_concurrent_doc_values_updates_commit() -> Result<()> {
   }
 
   let index_commits = list_commits(dir.clone())?;
-  let commits = commits.lock().unwrap().clone();
+  let commits = std::mem::take(&mut *commits.lock().unwrap());
   assert_eq!(commits.len(), index_commits.len());
 
   let mut expected_thread_ids = vec![-1; id_count];
@@ -527,7 +527,7 @@ fn test_stress_concurrent_add_and_delete_and_commit() -> Result<()> {
   }
 
   let index_commits = list_commits(dir.clone())?;
-  let commits = commits.lock().unwrap().clone();
+  let commits = std::mem::take(&mut *commits.lock().unwrap());
   assert_eq!(commits.len(), index_commits.len());
 
   let mut expected_counts = vec![0; id_count];

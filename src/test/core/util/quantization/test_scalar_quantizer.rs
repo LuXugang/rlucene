@@ -122,16 +122,17 @@ fn test_nan_and_inf_value_failure() {
 #[test]
 fn test_quantize_and_de_quantize_7_bit() -> Result<()> {
   let mut random = random();
-  let dims = 128;
+  const DIMS: usize = 128;
+  let dims = DIMS;
   let num_vecs = 100;
   let similarity_function = VectorSimilarityFunction::DotProduct;
 
   let floats = random_floats(&mut random, num_vecs, dims);
   let float_vector_values = from_floats(&floats);
   let scalar_quantizer = ScalarQuantizer::from_vectors(&float_vector_values, 1.0, num_vecs, 7)?;
-  let mut dequantized = vec![0.0; dims];
-  let mut quantized = vec![0; dims];
-  let mut requantized = vec![0; dims];
+  let mut dequantized = [0.0; DIMS];
+  let mut quantized = [0; DIMS];
+  let mut requantized = [0; DIMS];
   let mut max_dim_value = i32::MIN;
   let mut min_dim_value = i32::MAX;
   for vector in floats.iter().take(num_vecs) {
@@ -241,7 +242,8 @@ fn test_scalar_with_sampling() -> Result<()> {
 #[test]
 fn test_from_vectors_auto_interval_4_bit() -> Result<()> {
   let mut random = random();
-  let dims = 128;
+  const DIMS: usize = 128;
+  let dims = DIMS;
   let num_vecs = 100;
   let similarity_function = VectorSimilarityFunction::DotProduct;
 
@@ -256,9 +258,9 @@ fn test_from_vectors_auto_interval_4_bit() -> Result<()> {
     num_vecs,
     4,
   )?;
-  let mut dequantized = vec![0.0; dims];
-  let mut quantized = vec![0; dims];
-  let mut requantized = vec![0; dims];
+  let mut dequantized = [0.0; DIMS];
+  let mut quantized = [0; DIMS];
+  let mut requantized = [0; DIMS];
   let mut max_dim_value = i32::MIN;
   let mut min_dim_value = i32::MAX;
   for vector in floats.iter().take(num_vecs) {

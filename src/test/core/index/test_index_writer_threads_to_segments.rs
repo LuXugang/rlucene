@@ -69,11 +69,11 @@ fn test_segment_count_on_flush_basic() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::new();
     for thread_id in 0..2 {
-      let w = w.clone();
-      let starting_gun = starting_gun.clone();
-      let start_done = start_done.clone();
-      let middle_gun = middle_gun.clone();
-      let final_gun = final_gun.clone();
+      let w = &w;
+      let starting_gun = &starting_gun;
+      let start_done = &start_done;
+      let middle_gun = &middle_gun;
+      let final_gun = &final_gun;
       threads.push(scope.spawn(move || -> Result<()> {
         starting_gun.wait();
         let mut doc = Document::new();
@@ -228,12 +228,12 @@ fn test_segment_count_on_flush_random() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::new();
     for _ in 0..MAX_THREADS_AT_ONCE {
-      let w = w.clone();
-      let indexing_count = indexing_count.clone();
-      let max_thread_count = max_thread_count.clone();
-      let barrier = barrier.clone();
-      let checker = checker.clone();
-      let random = random.clone();
+      let w = &w;
+      let indexing_count = &indexing_count;
+      let max_thread_count = &max_thread_count;
+      let barrier = &barrier;
+      let checker = &checker;
+      let random = &random;
       threads.push(scope.spawn(move || -> Result<()> {
         for _ in 0..iter {
           if indexing_count.fetch_add(1, Ordering::SeqCst) < max_thread_count.load(Ordering::SeqCst)
@@ -284,8 +284,8 @@ fn test_many_threads_close() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::new();
     for _ in 0..num_threads {
-      let w = w.clone();
-      let starting_gun = starting_gun.clone();
+      let w = &w;
+      let starting_gun = &starting_gun;
       let seed = random.random();
       threads.push(scope.spawn(move || -> Result<()> {
         let mut thread_random = random_from_seed(seed);
@@ -339,8 +339,8 @@ fn test_docs_stuck_in_ram_forever() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::new();
     for thread_id in 0..2 {
-      let w = w.clone();
-      let starting_gun = starting_gun.clone();
+      let w = &w;
+      let starting_gun = &starting_gun;
       threads.push(scope.spawn(move || -> Result<()> {
         starting_gun.wait();
         for _ in 0..10 {

@@ -59,7 +59,7 @@ where
     let mut bq = Builder::new();
     bq.add(query, Occur::Must)?;
     bq.add(
-      TermQuery::new(Term::from_text("mandant", self.switcher.to_string())),
+      TermQuery::new(Term::new("mandant", self.switcher.to_string())),
       Occur::Must,
     )?;
     IndexSearcherDefaults::search(searcher, bq.build().into(), n_docs)
@@ -78,7 +78,7 @@ where
     let mut bq = Builder::new();
     bq.add(query, Occur::Must)?;
     bq.add(
-      TermQuery::new(Term::from_text("mandant", self.switcher.to_string())),
+      TermQuery::new(Term::new("mandant", self.switcher.to_string())),
       Occur::Must,
     )?;
     IndexSearcherDefaults::search_with_sort(searcher, bq.build().into(), n_docs, sort)

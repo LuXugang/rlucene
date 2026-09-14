@@ -41,13 +41,15 @@ fn test_conversions() -> Result<()> {
   let orig: Vec<char> = TestUtil::random_unicode_string(&mut random)
     .chars()
     .collect();
-  let mut buf = vec![0i32; orig.len()];
-  let mut restored = vec!['\0'; buf.len()];
+  let mut buf = [0i32; 20];
+  let buf = &mut buf[..orig.len()];
+  let mut restored = ['\0'; 20];
+  let restored = &mut restored[..buf.len()];
   let o1 = TestUtil::next_usize(&mut random, 0, orig.len().min(5));
   let o2 = TestUtil::next_usize(&mut random, 0, o1);
   let o3 = TestUtil::next_usize(&mut random, 0, o1);
-  let code_point_count = CharacterUtils::get_code_points(&orig, o1, orig.len() - o1, &mut buf, o2)?;
-  let char_count = CharacterUtils::get_chars(&buf, o2, code_point_count, &mut restored, o3)?;
+  let code_point_count = CharacterUtils::get_code_points(&orig, o1, orig.len() - o1, buf, o2)?;
+  let char_count = CharacterUtils::get_chars(buf, o2, code_point_count, restored, o3)?;
   assert_eq!(orig.len() - o1, char_count);
   let orig_sub = &orig[o1..o1 + char_count];
   let restored_sub = &restored[o3..o3 + char_count];

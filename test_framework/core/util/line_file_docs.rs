@@ -235,7 +235,7 @@ impl LineFileDocs {
       }
     }
 
-    Ok(doc_state.doc.clone())
+    Ok(std::mem::take(&mut doc_state.doc))
   }
 }
 

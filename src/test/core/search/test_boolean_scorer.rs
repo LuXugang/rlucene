@@ -377,7 +377,7 @@ fn test_filter_constant_score() -> Result<()> {
     };
   }
 
-  let queries = vec![
+  let queries = [
     {
       let mut query = Builder::new();
       query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;
@@ -416,7 +416,7 @@ fn test_filter_constant_score() -> Result<()> {
     }
   }
 
-  let queries = vec![
+  let queries = [
     {
       let mut query = Builder::new();
       query.add(TermQuery::new(Term::from_text("foo", "bar")), Occur::Filter)?;

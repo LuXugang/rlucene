@@ -481,7 +481,7 @@ fn test_rewrite_fallback_query() -> Result<()> {
 
   let fallback_query = Query::Boolean(Builder::new().build());
   let query = Query::IndexSortSortedNumericDocValuesRange(
-    IndexSortSortedNumericDocValuesRangeQuery::new("field", 1, 42, fallback_query.clone()),
+    IndexSortSortedNumericDocValuesRangeQuery::new("field", 1, 42, fallback_query),
   );
 
   let searcher = new_searcher_with_reader(reader)?;

@@ -243,10 +243,11 @@ fn test_invoke_all_catches_multiple_exceptions() -> Result<()> {
   let suppressed = error
     .get_suppressed()?
     .expect("the second error must be suppressed");
-  if error.to_string().contains("error A") {
+  let message = error.to_string();
+  if message.contains("error A") {
     assert!(suppressed.to_string().contains("error B"));
   } else {
-    assert!(error.to_string().contains("error B"));
+    assert!(message.contains("error B"));
     assert!(suppressed.to_string().contains("error A"));
   }
   Ok(())
@@ -303,7 +304,7 @@ fn test_results_keep_callable_order() -> Result<()> {
     }
   });
   assert_eq!(
-    (0..10).collect::<Vec<_>>(),
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].as_slice(),
     task_executor.invoke_all(tasks)?
   );
   Ok(())

@@ -214,7 +214,7 @@ pub fn test_update_share_values_binary() -> Result<()> {
   assert!(!buffer.is_numeric());
   Ok(())
 }
-pub fn random_from<T, R>(random: &mut R, items: Vec<T>) -> T
+pub fn random_from<T, R>(random: &mut R, items: &[T]) -> T
 where
   T: Clone,
   R: Rng + ?Sized,
@@ -226,7 +226,7 @@ pub fn get_random_binary_update<R>(random: &mut R, doc_id_upto: i32) -> DocValue
 where
   R: Rng + ?Sized,
 {
-  let term_field = random_from(random, vec!["id", "_id", "some_other_field"]);
+  let term_field = random_from(random, &["id", "_id", "some_other_field"]);
   let doc_id = random.random_range(0..10).to_string();
 
   let value = if rarely(random) {
@@ -256,7 +256,7 @@ pub fn get_random_numeric_update<R>(random: &mut R, doc_id_upto: i32) -> DocValu
 where
   R: Rng + ?Sized,
 {
-  let term_field = random_from(random, vec!["id", "_id", "some_other_field"]);
+  let term_field = random_from(random, &["id", "_id", "some_other_field"]);
   let doc_id = random.random_range(0..10).to_string();
 
   let value = if rarely(random) {
@@ -421,7 +421,7 @@ pub fn test_sort_and_dedup_numeric_updates_by_terms() -> Result<()> {
   let num_updates = 1 + random.random_range(0..1000);
   let counter = Arc::new(AtomicCounter::new());
 
-  let term_field = random_from(&mut random, vec!["id", "_id", "some_other_field"]);
+  let term_field = random_from(&mut random, &["id", "_id", "some_other_field"]);
   let doc_value = 1 + random.random_range(0..1000);
 
   let mut random_update = DocValuesUpdate::new(

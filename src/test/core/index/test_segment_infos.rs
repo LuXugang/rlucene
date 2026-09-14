@@ -217,8 +217,7 @@ fn test_to_string() -> Result<()> {
     ("key1".to_string(), "value1".to_string()),
     ("key2".to_string(), "value2".to_string()),
   ]
-  .iter()
-  .cloned()
+  .into_iter()
   .collect();
 
   // Attributes map
@@ -226,8 +225,7 @@ fn test_to_string() -> Result<()> {
     ("akey1".to_string(), "value1".to_string()),
     ("akey2".to_string(), "value2".to_string()),
   ]
-  .iter()
-  .cloned()
+  .into_iter()
   .collect();
 
   // diagnostics X, attributes X
@@ -519,8 +517,7 @@ fn test_add_diagnostics() -> Result<()> {
     ("key1".to_string(), "value1".to_string()),
     ("key2".to_string(), "value2".to_string()),
   ]
-  .iter()
-  .cloned()
+  .into_iter()
   .collect();
 
   // Test adding a new key-value pair
@@ -540,8 +537,7 @@ fn test_add_diagnostics() -> Result<()> {
   )?;
   si.add_diagnostics(
     [("key3".to_string(), "value3".to_string())]
-      .iter()
-      .cloned()
+      .into_iter()
       .collect(),
   );
   let expected_diagnostics: HashMap<String, String> = [
@@ -549,8 +545,7 @@ fn test_add_diagnostics() -> Result<()> {
     ("key2".to_string(), "value2".to_string()),
     ("key3".to_string(), "value3".to_string()),
   ]
-  .iter()
-  .cloned()
+  .into_iter()
   .collect();
   assert_eq!(si.get_diagnostics(), &expected_diagnostics);
 
@@ -571,16 +566,14 @@ fn test_add_diagnostics() -> Result<()> {
   )?;
   si.add_diagnostics(
     [("key2".to_string(), "foo".to_string())]
-      .iter()
-      .cloned()
+      .into_iter()
       .collect(),
   );
   let expected_diagnostics: HashMap<String, String> = [
     ("key1".to_string(), "value1".to_string()),
     ("key2".to_string(), "foo".to_string()),
   ]
-  .iter()
-  .cloned()
+  .into_iter()
   .collect();
   assert_eq!(si.get_diagnostics(), &expected_diagnostics);
   Ok(())

@@ -145,6 +145,7 @@ fn test_duel() -> Result<()> {
     let mut all_terms = Vec::new();
     let max_terms_power = TestUtil::next_int(&mut random, 1, 10);
     let num_terms = TestUtil::next_int(&mut random, 1, 1 << max_terms_power);
+    all_terms.reserve(num_terms as usize);
     for _ in 0..num_terms {
       let value = TestUtil::random_analysis_string(&mut random, 10, true);
       all_terms.push(new_bytes_ref_from_string(&mut random, &value)?);
@@ -180,7 +181,7 @@ fn test_duel() -> Result<()> {
       let boost = random.random::<f32>() * 10.0;
       let max_query_terms_power = TestUtil::next_int(&mut random, 1, 8);
       let num_query_terms = TestUtil::next_int(&mut random, 1, 1 << max_query_terms_power);
-      let mut query_terms = Vec::new();
+      let mut query_terms = Vec::with_capacity(num_query_terms as usize);
       for _ in 0..num_query_terms {
         query_terms.push(all_terms[random.random_range(0..all_terms.len())].clone());
       }
@@ -232,7 +233,7 @@ fn test_returns_null_score_supplier() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
   writer.close(&mut random)?;
 
-  let mut terms = Vec::new();
+  let mut terms = Vec::with_capacity(26);
   for ch in 'a'..='z' {
     terms.push(new_bytes_ref_from_string(&mut random, &ch.to_string())?);
   }
@@ -373,7 +374,7 @@ where
 fn test_hash_code_and_equals() -> Result<()> {
   let mut random = random();
   let num = at_least(&mut random, 100);
-  let mut terms = Vec::new();
+  let mut terms = Vec::with_capacity(num as usize);
   let mut unique_terms = HashSet::new();
   for _ in 0..num {
     let string = TestUtil::random_realistic_unicode_string(&mut random);
@@ -1220,7 +1221,7 @@ fn test_visitor() -> Result<()> {
   singleton.visit(&mut SingletonVisitor)?;
 
   let terms: Vec<_> = (0..100)
-    .map(|i| BytesRef::from_string(&format!("term{i}")))
+    .map(|i| BytesRef::from(format!("term{i}")))
     .collect();
   let query = TermInSetQuery::new("field", terms.clone())?;
   query.visit(&mut MultipleTermsVisitor { terms: &terms })?;

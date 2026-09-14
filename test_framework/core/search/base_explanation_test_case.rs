@@ -109,7 +109,7 @@ pub trait BaseExplanationTestCase {
     let mut query = BooleanQueryBuilder::new();
     for term in terms {
       query.add(
-        TermQuery::new(Term::from_text(KEY, term.to_string())),
+        TermQuery::new(Term::new(KEY, term.to_string())),
         Occur::Should,
       )?;
     }

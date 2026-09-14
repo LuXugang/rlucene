@@ -145,14 +145,14 @@ fn test_huge_n() -> Result<()> {
     MatchAllDocsQuery::new().into(),
     TermQuery::new(Term::from_text("field", "1")).into(),
   ];
-  let sorts = vec![
+  let sorts = [
     None,
     Some(Sort::with_fields(vec![SortField::new(
       Some("field2"),
       SortFieldType::String,
     )?])?),
   ];
-  let afters: Vec<Option<FieldDoc>> = vec![
+  let afters: [Option<FieldDoc>; 2] = [
     None,
     Some(FieldDoc::with_fields(
       0,

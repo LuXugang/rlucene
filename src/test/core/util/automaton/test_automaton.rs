@@ -26,6 +26,7 @@ use rand::RngExt;
 use rand::prelude::SliceRandom;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::CoreHelper;
 use crate::core::util::ToInt;
 use crate::core::util::automation::automata::Automata;
 use crate::core::util::automation::automaton::{Automaton, Builder};
@@ -607,10 +608,10 @@ fn test_reverse_random2() -> Result<()> {
     for _ in 0..20 {
       let mut random1 = random_from_seed(seed);
       // Find string accepted by original automaton
-      let s = ras.get_random_accepted_string(&mut random1)?;
-      let reversed: Vec<i32> = s.iter().copied().rev().collect();
-      let len = reversed.len();
-      let ints_ref = IntsRef::from_slice(reversed, 0, len);
+      let mut s = ras.get_random_accepted_string(&mut random1)?;
+      s.reverse();
+      let len = s.len();
+      let ints_ref = IntsRef::from_slice(s, 0, len);
       assert!(Operations::run_ints_ref(&rda, &ints_ref));
     }
   }
@@ -663,7 +664,7 @@ fn test_builder_random() -> Result<()> {
     let mut random1 = random_from_seed(seed);
     let a = AutomatonTestUtil::random_automaton(&mut random)?;
 
-    let mut all_trans = vec![];
+    let mut all_trans = Vec::with_capacity(a.get_num_transitions() as usize);
     let num_states = a.get_num_states();
     for s in 0..num_states {
       let count = a.get_num_transitions_with_state(s);
@@ -1127,7 +1128,8 @@ fn test_random_finite() -> Result<()> {
           let s = get_random_string(&mut random);
           new_terms.insert(new_bytes_ref_from_string(&mut random, &s)?);
         }
-        let mut combined = terms.clone();
+        debug_assert!(terms.iter().all(|term| term.is_valid().is_ok()));
+        let mut combined = terms;
         combined.extend(new_terms.iter().cloned());
         let a2 = union_terms(&new_terms, &mut random)?;
         terms = combined;
@@ -1174,7 +1176,7 @@ fn test_random_finite() -> Result<()> {
           println!("  op=minus infinite prefixes={:?}", prefixes);
         }
 
-        let mut as_ = vec![];
+        let mut as_ = Vec::with_capacity(prefixes.len());
 
         for &prefix in &prefixes {
           let mut a2 = Automaton::new();
@@ -1219,7 +1221,7 @@ fn test_random_finite() -> Result<()> {
           println!("  prefixes={:?}", prefixes);
         }
 
-        let mut as_ = vec![];
+        let mut as_ = Vec::with_capacity(prefixes.len());
 
         for &prefix in &prefixes {
           let mut a2 = Automaton::new();
@@ -1635,7 +1637,7 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
 
   for _ in 0..iters {
     let s = TestUtil::random_realistic_unicode_string(&mut random);
-    let prefix = new_bytes_ref_from_string(&mut random, &s)?;
+    let prefix: BytesRef<Vec<u8>> = new_bytes_ref_from_string(&mut random, &s)?;
 
     let mut b = BytesRefBuilder::new();
     b.append(&prefix)?;
@@ -1643,7 +1645,9 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     for _ in 0..num_zeros {
       b.append_byte(0)?;
     }
-    let min_term = b.get_bytes_ref_copy()?;
+    CoreHelper::check_from_index_size(0, b.length(), b.bytes().bytes.len())?;
+    let mut min_term: BytesRef<Vec<u8>> = b.get_bytes_owner();
+    min_term.bytes.truncate(min_term.length);
 
     let mut b = BytesRefBuilder::new();
     b.append(&min_term)?;
@@ -1651,7 +1655,9 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     for _ in 0..num_zeros {
       b.append_byte(0)?;
     }
-    let max_term = b.get_bytes_ref_copy()?;
+    CoreHelper::check_from_index_size(0, b.length(), b.bytes().bytes.len())?;
+    let mut max_term: BytesRef<Vec<u8>> = b.get_bytes_owner();
+    max_term.bytes.truncate(max_term.length);
 
     let min_inclusive = random.random_bool(0.5);
     let max_inclusive = random.random_bool(0.5);
@@ -1691,7 +1697,8 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
     b.append(&min_term)?;
 
     if !min_inclusive {
-      assert!(!accepts(&a, &b.get_bytes_ref_copy()?)?);
+      CoreHelper::check_from_index_size(0, b.length(), b.bytes().bytes.len())?;
+      assert!(!accepts(&a, b.get_bytes_ref())?);
       b.append_byte(0)?;
     }
 
@@ -1704,7 +1711,8 @@ fn test_make_binary_interval_finite_cases_random() -> Result<()> {
         true
       };
 
-      assert_eq!(expected, accepts(&a, &b.get_bytes_ref_copy()?)?);
+      CoreHelper::check_from_index_size(0, b.length(), b.bytes().bytes.len())?;
+      assert_eq!(expected, accepts(&a, b.get_bytes_ref())?);
     }
   }
   Ok(())

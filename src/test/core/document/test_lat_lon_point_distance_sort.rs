@@ -318,7 +318,7 @@ where
 
     let sort = Sort::with_fields(sort_field)?;
 
-    let top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), top_n, sort.clone())?;
+    let mut top_docs = searcher.search_with_sort(MatchAllDocsQuery::new(), top_n, sort.clone())?;
     #[allow(clippy::needless_range_loop)]
     for result_number in 0..top_n {
       let field_doc = top_docs.score_docs()[result_number].as_field().unwrap();
@@ -332,7 +332,12 @@ where
     // get page2 with searchAfter()
     if top_n < doc_count {
       let page2 = TestUtil::next_usize(random, 1, doc_count - top_n);
-      let v = top_docs.score_docs()[top_n - 1].as_field().unwrap().clone();
+      let v = top_docs
+        .base
+        .score_docs
+        .remove(top_n - 1)
+        .into_field()
+        .unwrap();
       let top_docs2 = searcher.search_after(Some(v), MatchAllDocsQuery::new(), page2, sort)?;
 
       for result_number in 0..page2 {

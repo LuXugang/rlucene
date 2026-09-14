@@ -145,7 +145,7 @@ fn test_multi_valued_doc_values_field() -> Result<()> {
 
   w.add_document(&mut random, doc.clone())?;
 
-  doc.add(f.clone());
+  doc.add(f);
   // Index doc values are single-valued so we should not
   // be able to add same field more than once:
   let res = w.add_document(&mut random, doc);
@@ -520,7 +520,7 @@ fn test_too_large_sorted_bytes() -> Result<()> {
     "dv",
     new_bytes_ref_from_string(&mut random, "just fine")?,
   ));
-  iwriter.add_document(doc.clone())?;
+  iwriter.add_document(doc)?;
 
   // huge doc: SortedDocValues too large
   let mut huge_doc = Document::new();
@@ -558,7 +558,7 @@ fn test_too_large_term_sorted_set_bytes() -> Result<()> {
     "dv",
     new_bytes_ref_from_string(&mut random, "just fine")?,
   ));
-  iwriter.add_document(doc.clone())?;
+  iwriter.add_document(doc)?;
 
   // Huge doc containing SortedSetDV with very large BytesRef
   let mut huge_doc = Document::new();
@@ -822,8 +822,8 @@ fn test_mixed_types_different_threads() -> Result<()> {
   let thread_results = thread::scope(|scope| {
     let mut handles = Vec::new();
     for doc in docs {
-      let starting_gun = starting_gun.clone();
-      let hit_exc = hit_exc.clone();
+      let starting_gun = &starting_gun;
+      let hit_exc = &hit_exc;
       let writer = &w;
       handles.push(scope.spawn(move || -> Result<()> {
         starting_gun.wait();

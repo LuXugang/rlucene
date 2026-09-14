@@ -335,7 +335,7 @@ fn test_update() -> Result<()> {
         assert!(!readers_and_updates.is_merging());
       } else {
         written_to_disk = pool.write_doc_values_updates_for_merge(
-          vec![seg_id.clone()].as_ref(),
+          std::slice::from_ref(seg_id),
           segment_infos,
           &field_numbers,
         )?;
@@ -359,7 +359,7 @@ fn test_update() -> Result<()> {
       assert!(!readers_and_updates.is_merging());
     } else {
       written_to_disk = pool.write_doc_values_updates_for_merge(
-        vec![seg_id.clone()].as_ref(),
+        std::slice::from_ref(seg_id),
         segment_infos,
         &field_numbers,
       )?;

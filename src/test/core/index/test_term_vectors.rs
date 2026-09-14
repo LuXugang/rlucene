@@ -120,7 +120,7 @@ fn test_full_merge_add_docs() -> Result<()> {
 fn test_full_merge_add_indexes_dir() -> Result<()> {
   let mut random = random();
 
-  let input = vec![
+  let input = [
     new_directory_shared(&mut random)?,
     new_directory_shared(&mut random)?,
   ];
@@ -142,7 +142,7 @@ fn test_full_merge_add_indexes_dir() -> Result<()> {
 fn test_full_merge_add_indexes_reader() -> Result<()> {
   let mut random = random();
 
-  let input = vec![
+  let input = [
     new_directory_shared(&mut random)?,
     new_directory_shared(&mut random)?,
   ];

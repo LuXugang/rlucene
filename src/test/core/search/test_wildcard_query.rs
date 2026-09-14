@@ -69,7 +69,7 @@ fn test_equals() -> Result<()> {
 
   let fq: Query = FuzzyQuery::new(Term::from_text("field", "b*a"))?.into_query();
   let wq1: Query = wq1.into_query();
-  assert_ne!(wq1.clone(), fq.clone());
+  assert_ne!(wq1, fq);
   assert_ne!(fq, wq1);
 
   Ok(())
@@ -148,7 +148,7 @@ fn test_prefix_term() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   let mut wq: Query = WildcardQuery::new(Term::from_text("field", "prefix*"))?.into_query();
-  assert_matches(&searcher, wq.clone(), 2)?;
+  assert_matches(&searcher, wq, 2)?;
 
   wq = WildcardQuery::new(Term::from_text("field", "*"))?.into_query();
   assert_matches(&searcher, wq.clone(), 2)?;
@@ -431,18 +431,18 @@ fn test_parsing_and_searching() -> Result<()> {
   }
 
   // test the prefix queries find only one doc
-  for (i, qs) in match_one_doc_prefix.iter().enumerate() {
+  for (i, qs) in match_one_doc_prefix.into_iter().enumerate() {
     for q in qs {
-      let hits = searcher.search(q.clone(), 1000)?.score_docs;
+      let hits = searcher.search(q, 1000)?.score_docs;
       assert_eq!(1, hits.len());
       assert_eq!(i as i32, hits[0].doc);
     }
   }
 
   // test the wildcard queries find only one doc
-  for (i, qs) in match_one_doc_wild.iter().enumerate() {
+  for (i, qs) in match_one_doc_wild.into_iter().enumerate() {
     for q in qs {
-      let hits = searcher.search(q.clone(), 1000)?.score_docs;
+      let hits = searcher.search(q, 1000)?.score_docs;
       assert_eq!(1, hits.len());
       assert_eq!(i as i32, hits[0].doc);
     }
@@ -475,7 +475,7 @@ fn test_large() -> Result<()> {
   let reader = directory_reader::open(dir.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
 
-  let query: Query = WildcardQuery::new(Term::from_text("body", format!("{}*", big)))?.into_query();
+  let query: Query = WildcardQuery::new(Term::new("body", format!("{}*", big)))?.into_query();
   assert_matches(&searcher, query, 1)?;
 
   Ok(())

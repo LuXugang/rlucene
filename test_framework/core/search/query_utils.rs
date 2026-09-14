@@ -153,7 +153,7 @@ impl QueryUtils {
       let max_diff: f32 = 1e-5f32;
 
       let mut collector =
-        SimpleCollectorImpl2::new(q.clone(), s, max_diff, order, skip_op, reader_context_array);
+        SimpleCollectorImpl2::new(&q, s, max_diff, order, skip_op, reader_context_array);
 
       s.search_with_collector(q.clone(), &mut collector)?;
 
@@ -161,7 +161,7 @@ impl QueryUtils {
         let previous_reader = reader_context_array[last_reader_idx].reader().clone();
 
         let mut index_searcher = new_searcher_with_reader(previous_reader)?;
-        index_searcher.set_similarity(s.get_similarity().clone());
+        index_searcher.set_similarity(s.get_similarity());
 
         let rewritten = index_searcher.rewrite(q.clone())?;
         let weight = index_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
@@ -219,8 +219,8 @@ impl QueryUtils {
     if let Some(last_reader_idx) = collector.last_reader_idx {
       let previous_reader = s.get_leaf_contexts()?[last_reader_idx].reader().clone();
       let mut index_searcher = new_searcher_with_reader(previous_reader)?;
-      index_searcher.set_similarity(s.get_similarity().clone());
-      let weight = index_searcher.create_weight(rewritten.clone(), ScoreMode::Complete, 1.0)?;
+      index_searcher.set_similarity(s.get_similarity());
+      let weight = index_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
       let top = index_searcher.get_top_reader_context();
       let scorer_opt = weight.scorer(top, &index_searcher)?;
       if let Some(mut scorer) = scorer_opt {
@@ -638,7 +638,7 @@ where
         .reader()
         .clone();
       let mut index_searcher = new_searcher_with_reader(lr)?;
-      index_searcher.set_similarity(self.s.get_similarity().clone());
+      index_searcher.set_similarity(self.s.get_similarity());
 
       let weight =
         index_searcher.create_weight(self.rewritten.clone(), ScoreMode::Complete, 1.0)?;
@@ -696,7 +696,7 @@ where
   scorer: Option<Box<dyn Scorer>>,
   leaf_ptr: usize,
 
-  q: Query,
+  q: &'a Query,
   s: &'a IndexSearcher<IRC>,
   max_diff: f32,
 
@@ -716,7 +716,7 @@ where
   IRC::LeafReader: Clone,
 {
   fn new(
-    q: Query,
+    q: &'a Query,
     s: &'a IndexSearcher<IRC>,
     max_diff: f32,
     order: &'a [i32],
@@ -848,7 +848,7 @@ where
         .clone();
 
       let mut index_searcher = new_searcher_with_reader(lr)?;
-      index_searcher.set_similarity(self.s.get_similarity().clone());
+      index_searcher.set_similarity(self.s.get_similarity());
 
       let rewritten = index_searcher.rewrite(self.q.clone())?;
       let weight = index_searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;

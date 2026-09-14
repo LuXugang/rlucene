@@ -103,7 +103,7 @@ fn test_random() -> Result<()> {
       builder.add(
         maybe_wrap(
           &mut random,
-          TermQuery::new(Term::from_text("foo", (start + i).to_string())).into(),
+          TermQuery::new(Term::new("foo", (start + i).to_string())).into(),
         )?,
         Occur::Must,
       )?;
@@ -116,7 +116,7 @@ fn test_random() -> Result<()> {
     let mut filtered_builder = Builder::new();
     filtered_builder.add(query.clone(), Occur::Must)?;
     filtered_builder.add(
-      TermQuery::new(Term::from_text("foo", filter_term.to_string())),
+      TermQuery::new(Term::new("foo", filter_term.to_string())),
       Occur::Filter,
     )?;
     let filtered_query: Query = filtered_builder.build().into();
@@ -128,7 +128,7 @@ fn test_random() -> Result<()> {
       builder.add(
         maybe_wrap_two_phase(
           &mut random,
-          TermQuery::new(Term::from_text("foo", (start + i).to_string())).into(),
+          TermQuery::new(Term::new("foo", (start + i).to_string())).into(),
         )?,
         Occur::Must,
       )?;
@@ -139,7 +139,7 @@ fn test_random() -> Result<()> {
     let mut two_phase_builder = Builder::new();
     two_phase_builder.add(query, Occur::Must)?;
     two_phase_builder.add(
-      TermQuery::new(Term::from_text("foo", filter_term.to_string())),
+      TermQuery::new(Term::new("foo", filter_term.to_string())),
       Occur::Filter,
     )?;
     let two_phase_query: Query = two_phase_builder.build().into();

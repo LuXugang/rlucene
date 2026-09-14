@@ -102,7 +102,7 @@ fn test_reverse_date_sort() -> Result<()> {
   let v = searcher.search_with_sort(query, 1000, sort)?;
   let hits = v.score_docs();
 
-  let mut actual_order = Vec::new();
+  let mut actual_order = Vec::with_capacity(hits.len());
   let mut stored_fields = searcher.stored_fields()?;
 
   for hit in hits {
@@ -152,7 +152,7 @@ where
 
   document.add(SortedDocValuesField::new(
     DATE_TIME_FIELD,
-    BytesRef::from_string(&date_time_string),
+    BytesRef::from(date_time_string),
   ));
   Ok(document)
 }

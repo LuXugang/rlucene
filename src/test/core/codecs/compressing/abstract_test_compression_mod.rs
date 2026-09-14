@@ -22,7 +22,7 @@ use crate::core::codecs::compression::decompressor::Decompressor;
 use crate::core::index::BytesRef;
 use crate::core::store::byte_buffers_data_input::ByteBuffersDataInput;
 use crate::core::store::{ByteArrayDataInput, ByteArrayDataOutput};
-use crate::core::util::array_util::ArrayUtil;
+use crate::core::util::CoreHelper;
 use crate::test_framework::core::util::lucene_test_case::{at_least, is_night_mode};
 use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
@@ -89,8 +89,10 @@ pub(crate) trait AbstractTestCompressionMode {
 
     compressor.compress(&mut input, &mut out)?;
     let compressed_len = out.get_position();
-    let result = ArrayUtil::copy_of_sub_array(&out.bytes, 0, compressed_len);
-    Ok(result)
+    debug_assert!(compressed_len <= out.bytes.len());
+    let _ = &out.bytes[..compressed_len];
+    out.bytes.truncate(compressed_len);
+    Ok(out.bytes)
   }
 
   fn decompress(
@@ -114,7 +116,14 @@ pub(crate) trait AbstractTestCompressionMode {
     let mut input = ByteArrayDataInput::with_bytes(compressed);
     let original_length = original_length as i32;
     decompressor.decompress(&mut input, original_length, 0, original_length, &mut bytes)?;
-    Ok(BytesRef::deep_copy_of(&bytes)?.bytes)
+    CoreHelper::check_from_index_size(bytes.offset, bytes.length, bytes.bytes.len())?;
+    if bytes.offset != 0 {
+      bytes
+        .bytes
+        .copy_within(bytes.offset..bytes.offset + bytes.length, 0);
+    }
+    bytes.bytes.truncate(bytes.length);
+    Ok(bytes.bytes)
   }
   fn decompress_with_range(
     &self,
@@ -133,7 +142,14 @@ pub(crate) trait AbstractTestCompressionMode {
       length as i32,
       &mut bytes,
     )?;
-    Ok(BytesRef::deep_copy_of(&bytes)?.bytes)
+    CoreHelper::check_from_index_size(bytes.offset, bytes.length, bytes.bytes.len())?;
+    if bytes.offset != 0 {
+      bytes
+        .bytes
+        .copy_within(bytes.offset..bytes.offset + bytes.length, 0);
+    }
+    bytes.bytes.truncate(bytes.length);
+    Ok(bytes.bytes)
   }
 
   fn test_decompress<R>(&self, random: &mut R) -> crate::core::util::error::lucene_error::Result<()>
@@ -156,10 +172,8 @@ pub(crate) trait AbstractTestCompressionMode {
       };
       let compressed = self.compress(decompressed.as_slice(), off, len)?;
       let restored = self.decompress(&compressed, len)?;
-      assert_eq!(
-        ArrayUtil::copy_of_sub_array(&decompressed, off, off + len),
-        restored
-      );
+      debug_assert!(off + len >= off && off + len <= decompressed.len());
+      assert_eq!(&decompressed[off..off + len], restored.as_slice());
     }
     Ok(())
   }
@@ -186,10 +200,8 @@ pub(crate) trait AbstractTestCompressionMode {
         )
       };
       let restored = self.decompress_with_range(&compressed, decompressed_len, offset, length)?;
-      assert_eq!(
-        ArrayUtil::copy_of_sub_array(&decompressed, offset, offset + length),
-        restored
-      );
+      debug_assert!(offset + length >= offset && offset + length <= decompressed.len());
+      assert_eq!(&decompressed[offset..offset + length], restored.as_slice());
     }
     Ok(())
   }

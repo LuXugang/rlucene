@@ -42,8 +42,8 @@ struct TestSegmentCacheables;
 
 enum TestCacheable {
   Fixed(bool),
-  DocValues(Vec<String>),
-  All(Vec<Rc<TestCacheable>>),
+  DocValues(&'static [&'static str]),
+  All([Rc<TestCacheable>; 2]),
 }
 
 impl TestCacheable {
@@ -51,11 +51,11 @@ impl TestCacheable {
     Rc::new(Self::Fixed(cacheable))
   }
 
-  fn doc_values(names: &[&str]) -> Rc<Self> {
-    Rc::new(Self::DocValues(fields(names)))
+  fn doc_values(names: &'static [&'static str]) -> Rc<Self> {
+    Rc::new(Self::DocValues(names))
   }
 
-  fn all(children: Vec<Rc<Self>>) -> Rc<Self> {
+  fn all(children: [Rc<Self>; 2]) -> Rc<Self> {
     Rc::new(Self::All(children))
   }
 
@@ -65,7 +65,7 @@ impl TestCacheable {
   {
     match self {
       Self::Fixed(cacheable) => Ok(*cacheable),
-      Self::DocValues(fields) => DocValues::is_cacheable(ctx, fields),
+      Self::DocValues(fields) => DocValues::is_cacheable(ctx, *fields),
       Self::All(children) => {
         for child in children {
           if !child.is_cacheable(ctx)? {
@@ -90,10 +90,6 @@ where
   }
 }
 
-fn fields(names: &[&str]) -> Vec<String> {
-  names.iter().map(|name| name.to_string()).collect()
-}
-
 fn is_cacheable<LR>(cacheable: &Rc<TestCacheable>, ctx: &LeafReaderContext<LR>) -> Result<bool>
 where
   LR: LeafReader,
@@ -111,14 +107,14 @@ fn test_multiple_doc_values_delegates() -> Result<()> {
   let dv34 = TestCacheable::doc_values(&["field3", "field4"]);
   let dv12 = TestCacheable::doc_values(&["field1", "field2"]);
 
-  let seg_dv1 = TestCacheable::all(vec![seg, dv1.clone()]);
-  let dv2_dv34 = TestCacheable::all(vec![dv2.clone(), dv34.clone()]);
-  let dv2_non = TestCacheable::all(vec![dv2, non]);
+  let seg_dv1 = TestCacheable::all([seg, dv1.clone()]);
+  let dv2_dv34 = TestCacheable::all([dv2.clone(), dv34.clone()]);
+  let dv2_non = TestCacheable::all([dv2, non]);
 
-  let seg_dv1_dv2_dv34 = TestCacheable::all(vec![seg_dv1.clone(), dv2_dv34.clone()]);
+  let seg_dv1_dv2_dv34 = TestCacheable::all([seg_dv1.clone(), dv2_dv34.clone()]);
 
-  let dv1_dv3 = TestCacheable::all(vec![dv1, dv3]);
-  let dv12_dv1_dv3 = TestCacheable::all(vec![dv12, dv1_dv3.clone()]);
+  let dv1_dv3 = TestCacheable::all([dv1, dv3]);
+  let dv12_dv1_dv3 = TestCacheable::all([dv12, dv1_dv3.clone()]);
 
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;

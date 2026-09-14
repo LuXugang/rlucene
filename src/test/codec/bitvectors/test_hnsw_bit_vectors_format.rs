@@ -131,11 +131,11 @@ fn test_float_vector_fails() -> Result<()> {
 #[test]
 fn test_index_and_search_bit_vectors() -> Result<()> {
   let vectors = [
-    vec![0b1010_1110, 0b0101_0111],
-    vec![0b1111_1000, 0b0000_1111],
-    vec![0b1100_1100, 0b0011_0011],
-    vec![0b1111_1111, 0b0000_0000],
-    vec![0b0000_0000, 0b0000_0000],
+    [0b1010_1110, 0b0101_0111],
+    [0b1111_1000, 0b0000_1111],
+    [0b1100_1100, 0b0011_0011],
+    [0b1111_1111, 0b0000_0000],
+    [0b0000_0000, 0b0000_0000],
   ];
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
@@ -148,7 +148,7 @@ fn test_index_and_search_bit_vectors() -> Result<()> {
     let mut doc = Document::new();
     doc.add(KnnByteVectorField::with_similarity_function(
       "v1",
-      vector.clone(),
+      *vector,
       VectorSimilarityFunction::DotProduct,
     )?);
     doc.add(StringField::from_string("id", id.to_string(), Store::Yes)?);
@@ -161,12 +161,7 @@ fn test_index_and_search_bit_vectors() -> Result<()> {
     let reader = directory_reader::open_from_writer(&writer)?;
     let leaf = get_only_leaf_reader(reader)?;
     let mut collector = TopKnnCollector::new(3, i32::MAX as usize)?;
-    leaf.search_nearest_vectors_u8(
-      "v1",
-      vectors[0].clone(),
-      &mut collector,
-      leaf.get_live_docs()?,
-    )?;
+    leaf.search_nearest_vectors_u8("v1", vectors[0], &mut collector, leaf.get_live_docs()?)?;
     let top_docs = collector.top_docs()?;
     assert_eq!(3, top_docs.score_docs.len());
 

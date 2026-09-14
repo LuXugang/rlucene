@@ -24,6 +24,7 @@ use rand::Rng;
 use rand::RngExt;
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
 use crate::test::core::util::common_method::assert_vecs_equal;
@@ -69,7 +70,7 @@ fn test_one_value() -> Result<()> {
   let mut random = random();
 
   let bytes = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-  let mut refs = vec![bytes];
+  let mut refs = [bytes];
   test(&mut refs, 1, &mut random)
 }
 #[test]
@@ -78,7 +79,7 @@ fn test_two_values() -> Result<()> {
 
   let bytes1 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
   let bytes2 = BytesRef::from_string(&TestUtil::random_simple_string(&mut random));
-  let mut refs = vec![bytes1, bytes2];
+  let mut refs = [bytes1, bytes2];
 
   test(&mut refs, 2, &mut random)
 }
@@ -87,15 +88,15 @@ fn test_random_impl<R>(common_prefix_len: usize, max_len: usize, random: &mut R)
 where
   R: Rng + ?Sized,
 {
-  let mut common_prefix = vec![0u8; common_prefix_len];
-  random.fill_bytes(&mut common_prefix);
+  stack_or_heap_buffer!(common_prefix, u8, common_prefix_len, 30, 0);
+  random.fill_bytes(common_prefix);
   let len = random.random_range(0..100_000);
   let mut bytes: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(len + random.random_range(0..50));
   for _ in 0..len {
     let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
     random.fill_bytes(&mut b);
 
-    b.copy_from(&common_prefix, 0);
+    b.copy_from(common_prefix, 0);
 
     bytes.push(BytesRef::from_bytes(b));
   }
@@ -164,10 +165,11 @@ fn test_random2() -> Result<()> {
   }
 
   let substrings: Vec<BytesRef<Vec<u8>>> = Vec::from_iter(substrings_set);
-  let mut chance = vec![0.0; substrings.len()];
+  let mut chance = [0.0; 10];
+  let chance = &mut chance[..substrings.len()];
   let mut sum = 0.0;
 
-  for chance_value in &mut chance {
+  for chance_value in chance.iter_mut() {
     *chance_value = random.random::<f64>();
     sum += *chance_value;
   }
@@ -196,7 +198,9 @@ fn test_random2() -> Result<()> {
         }
       }
     }
-    let br = builder.get_bytes_ref_copy()?;
+    CoreHelper::check_from_index_size(0, builder.length(), builder.bytes().bytes.len())?;
+    let mut br = builder.get_bytes_owner();
+    br.bytes.truncate(br.length);
     strings_set.insert(br);
     iters += 1;
   }

@@ -425,7 +425,7 @@ fn test_add_documents() -> Result<()> {
       w.add_document(Document::new())?;
     }
 
-    let err = w.add_documents(vec![Document::new()]);
+    let err = w.add_documents([Document::new()]);
     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
     w.close()?;
@@ -469,7 +469,7 @@ fn test_update_documents() -> Result<()> {
       w.add_document(Document::new())?;
     }
 
-    let err = w.update_documents_with_term(Term::from_text("field", "foo"), vec![Document::new()]);
+    let err = w.update_documents_with_term(Term::from_text("field", "foo"), [Document::new()]);
     assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
 
     w.close()?;
@@ -700,7 +700,7 @@ fn test_add_too_many_indexes_dir() -> Result<()> {
   target.set_max_size_in_bytes(target.size_in_bytes()? + 65536); // 64KB
 
   let dirs_len = 1 + (MAX_DOCS / 100000);
-  let mut dirs = Vec::new();
+  let mut dirs = Vec::with_capacity(dirs_len as usize);
   for _ in 0..dirs_len {
     // bypass iw check for duplicate dirs
     dirs.push(Arc::new(AddIndexesTestDirectory::Filter(
@@ -884,7 +884,7 @@ fn test_delete_all_multiple_threads() -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::new();
       for _ in 0..limit {
-        let starting_gun = starting_gun.clone();
+        let starting_gun = &starting_gun;
         let w = &w;
         threads.push(scope.spawn(move || -> Result<()> {
           set_max_docs(limit)?;

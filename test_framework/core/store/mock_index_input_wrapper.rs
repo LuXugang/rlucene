@@ -44,7 +44,7 @@ where
   D::IndexInput: IndexInput<IndexInput = D::IndexInput>,
 {
   dir: MockDirectoryWrapper<D>,
-  pub(crate) name: String,
+  pub(crate) name: Arc<str>,
   in_: D::IndexInput,
   closed: Arc<AtomicBool>,
 
@@ -72,7 +72,7 @@ where
     slow_closing: bool,
   ) -> Self
   where
-    T: Into<String>,
+    T: Into<Arc<str>>,
   {
     Self {
       dir,

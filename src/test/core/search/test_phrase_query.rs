@@ -678,7 +678,7 @@ fn test_palyndrome3() -> Result<()> {
   QueryUtils::check_from_searcher(&mut random, query.clone(), searcher)?;
 
   // just make sure no exc:
-  searcher.explain(query.clone(), 0)?;
+  searcher.explain(query, 0)?;
 
   // search on non palyndrome, find phrase with slop 3, though no slop required here.
   // slop=4 to use sloppy scorer
@@ -793,6 +793,7 @@ fn test_random_phrases() -> Result<()> {
   let mut field_to_type = HashMap::new();
 
   let num_docs = at_least_usize(&mut random, 10);
+  docs.reserve(num_docs);
   for _ in 0..num_docs {
     // at night, must be > 4096 so it spans multiple chunks
     let term_count = if is_night_mode() {
@@ -801,7 +802,7 @@ fn test_random_phrases() -> Result<()> {
       at_least_usize(&mut random, 200)
     };
 
-    let mut doc_terms = Vec::new();
+    let mut doc_terms = Vec::with_capacity(term_count);
     let mut text = String::new();
     while doc_terms.len() < term_count {
       if random.random_range(0..5) == 1 || docs.is_empty() {
@@ -826,8 +827,8 @@ fn test_random_phrases() -> Result<()> {
               .get_bytes_ref()?
               .ok_or_else(|| LuceneError::illegal_state("term bytes are missing"))?;
             let token = term_bytes.utf8_to_string()?;
-            doc_terms.push(token.clone());
-            text.push_str(&token);
+            doc_terms.push(token);
+            text.push_str(&doc_terms[doc_terms.len() - 1]);
             text.push(' ');
           }
           ts.end()
@@ -1003,16 +1004,16 @@ fn test_merge_impacts() -> Result<()> {
     .iterator_at_mut(1)
     .reset(vec![], vec![]);
   assert_impacts_eq(
-    vec![
-      vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
-      vec![
+    &[
+      &[Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+      &[
         Impact::new(3, 10),
         Impact::new(5, 11),
         Impact::new(8, 13),
         Impact::new(12, 14),
       ],
     ],
-    vec![110, 945],
+    &[110, 945],
     &merged_impacts.get_impacts()?,
   )?;
 
@@ -1022,16 +1023,16 @@ fn test_merge_impacts() -> Result<()> {
     .iterator_at_mut(1)
     .reset(vec![vec![Impact::new(i32::MAX, 1)]], vec![5000]);
   assert_impacts_eq(
-    vec![
-      vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
-      vec![
+    &[
+      &[Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+      &[
         Impact::new(3, 10),
         Impact::new(5, 11),
         Impact::new(8, 13),
         Impact::new(12, 14),
       ],
     ],
-    vec![110, 945],
+    &[110, 945],
     &merged_impacts.get_impacts()?,
   )?;
 
@@ -1041,16 +1042,16 @@ fn test_merge_impacts() -> Result<()> {
     .iterator_at_mut(1)
     .reset(vec![vec![Impact::new(i32::MAX, 2)]], vec![5000]);
   assert_impacts_eq(
-    vec![
-      vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
-      vec![
+    &[
+      &[Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+      &[
         Impact::new(3, 10),
         Impact::new(5, 11),
         Impact::new(8, 13),
         Impact::new(12, 14),
       ],
     ],
-    vec![110, 945],
+    &[110, 945],
     &merged_impacts.get_impacts()?,
   )?;
 
@@ -1063,11 +1064,11 @@ fn test_merge_impacts() -> Result<()> {
     vec![90, 1000],
   );
   assert_impacts_eq(
-    vec![
-      vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(7, 13)],
-      vec![Impact::new(3, 10), Impact::new(5, 11), Impact::new(7, 13)],
+    &[
+      &[Impact::new(3, 10), Impact::new(5, 12), Impact::new(7, 13)],
+      &[Impact::new(3, 10), Impact::new(5, 11), Impact::new(7, 13)],
     ],
-    vec![110, 945],
+    &[110, 945],
     &merged_impacts.get_impacts()?,
   )?;
 
@@ -1080,21 +1081,21 @@ fn test_merge_impacts() -> Result<()> {
     vec![150, 900],
   );
   assert_impacts_eq(
-    vec![
-      vec![
+    &[
+      &[
         Impact::new(2, 10),
         Impact::new(3, 11),
         Impact::new(5, 12),
         Impact::new(6, 13),
       ],
-      vec![
+      &[
         Impact::new(3, 10),
         Impact::new(5, 11),
         Impact::new(8, 13),
         Impact::new(12, 14),
       ],
     ],
-    vec![110, 945],
+    &[110, 945],
     &merged_impacts.get_impacts()?,
   )?;
 
@@ -1113,16 +1114,16 @@ fn test_merge_impacts() -> Result<()> {
     vec![113, 950],
   );
   assert_impacts_eq(
-    vec![
-      vec![Impact::new(3, 10), Impact::new(4, 12), Impact::new(8, 13)],
-      vec![
+    &[
+      &[Impact::new(3, 10), Impact::new(4, 12), Impact::new(8, 13)],
+      &[
         Impact::new(3, 10),
         Impact::new(5, 11),
         Impact::new(8, 13),
         Impact::new(12, 14),
       ],
     ],
-    vec![110, 945],
+    &[110, 945],
     &merged_impacts.get_impacts()?,
   )?;
 
@@ -1149,17 +1150,17 @@ fn test_merge_impacts() -> Result<()> {
   );
 
   assert_impacts_eq(
-    vec![
-      vec![Impact::new(2, 10), Impact::new(8, -4)],
-      vec![Impact::new(3, 10), Impact::new(8, -4), Impact::new(12, -3)],
+    &[
+      &[Impact::new(2, 10), Impact::new(8, -4)],
+      &[Impact::new(3, 10), Impact::new(8, -4), Impact::new(12, -3)],
     ],
-    vec![110, 945],
+    &[110, 945],
     &merged_impacts.get_impacts()?,
   )?;
 
   Ok(())
 }
-fn assert_impacts_eq<T>(impacts: Vec<Vec<Impact>>, doc_id_upto: Vec<i32>, actual: &T) -> Result<()>
+fn assert_impacts_eq<T>(impacts: &[&[Impact]], doc_id_upto: &[i32], actual: &T) -> Result<()>
 where
   T: Impacts,
 {
@@ -1169,7 +1170,7 @@ where
     assert_eq!(doc_id_upto[i], actual.get_doc_id_upto(i));
 
     let actual_impacts = actual.get_impacts(i)?;
-    let expect = impacts[i].as_slice();
+    let expect = impacts[i];
     assert_eq!(expect, actual_impacts.as_slice());
   }
   Ok(())
@@ -1312,7 +1313,7 @@ fn test_random_top_docs() -> Result<()> {
         text.push('c');
       }
     }
-    doc.add(TextField::from_string("foo", &text, Store::No)?);
+    doc.add(TextField::from_string("foo", text, Store::No)?);
     writer.add_document(&mut random, doc)?;
   }
 
@@ -1343,7 +1344,7 @@ fn test_random_top_docs() -> Result<()> {
       let complete =
         searcher.search_with_collector_manager(filtered_query.clone(), &complete_manager)?;
       let top_scores =
-        searcher.search_with_collector_manager(filtered_query.clone(), &top_scores_manager)?;
+        searcher.search_with_collector_manager(filtered_query, &top_scores_manager)?;
       CheckHits::check_equal(&query, complete.score_docs(), top_scores.score_docs())?;
     }
   }

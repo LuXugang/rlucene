@@ -31,10 +31,12 @@ fn test<R>(random: &mut R, sorter: &mut LSBRadixSorter, max_len: usize) -> Resul
 where
   R: Rng + ?Sized,
 {
+  let mut arr = Vec::new();
   for _ in 0..10 {
     let len = TestUtil::next_usize(random, 0, max_len);
     let tail = random.random_range(0..10);
-    let mut arr = vec![0i32; len + tail];
+    arr.clear();
+    arr.resize(len + tail, 0i32);
 
     let num_bits = random.random_range(0..31);
     let max_value = (1 << num_bits) - 1;
@@ -108,8 +110,10 @@ fn test_sorted() -> Result<()> {
   let mut random = random();
   let mut sorter = LSBRadixSorter::new();
 
+  let mut arr = Vec::new();
   for _ in 0..10 {
-    let mut arr = vec![0i32; 10_000];
+    arr.clear();
+    arr.resize(10_000, 0i32);
     let mut a = 0;
     for val in arr.iter_mut() {
       a += random.random_range(0..10);

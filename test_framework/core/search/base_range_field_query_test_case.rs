@@ -248,7 +248,7 @@ pub(crate) trait BaseRangeFieldQueryTestCase {
       w.add_document(doc)?;
       if id > 0 && random.random_range(0..100) == 1 {
         let id_to_delete = random.random_range(0..id);
-        w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+        w.delete_documents_with_terms(vec![Term::new("id", id_to_delete.to_string())])?;
         deleted.insert(id_to_delete);
       }
     }

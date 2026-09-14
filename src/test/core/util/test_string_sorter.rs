@@ -32,24 +32,34 @@ use crate::test_framework::core::util::test_util::TestUtil;
 struct TestStringSorter;
 
 fn test(refs: Vec<BytesRef<Vec<u8>>>, len: usize) -> Result<()> {
-  test_impl(refs[..len].to_vec(), len, Natural::default())?;
-  test_impl(refs[..len].to_vec(), len, NaturalOrder)?;
+  test_impl(&refs[..len], len, Natural::default())?;
+  test_impl(&refs[..len], len, NaturalOrder)?;
   test_stable(&refs[..len], len, Natural::default())?;
   test_stable(&refs[..len], len, NaturalOrder)?;
   Ok(())
 }
 
-fn test_impl<C>(refs: Vec<BytesRef<Vec<u8>>>, len: usize, comparator: C) -> Result<()>
+fn test_impl<C>(refs: &[BytesRef<Vec<u8>>], len: usize, comparator: C) -> Result<()>
 where
   C: BytesRefComparator,
 {
-  let mut expected: Vec<BytesRef<Vec<u8>>> = refs.clone();
+  let actual = refs.to_vec();
+  let mut expected: Vec<&BytesRef<Vec<u8>>> = refs
+    .iter()
+    .inspect(|value| {
+      debug_assert!(value.is_valid().is_ok());
+    })
+    .collect();
   expected.sort();
-  let delegate = StringSorterTestImpl::new(refs);
+  let delegate = StringSorterTestImpl::new(actual);
   let mut string_sorter = StringSorter::new(delegate, comparator);
   string_sorter.sort(0, len)?;
 
-  assert_vecs_equal(&expected, &string_sorter.get_delegate().refs);
+  let actual = &string_sorter.get_delegate().refs;
+  assert_eq!(expected.len(), actual.len());
+  for (expected, actual) in expected.iter().zip(actual) {
+    assert_eq!(*expected, actual);
+  }
   Ok(())
 }
 
@@ -57,7 +67,12 @@ fn test_stable<C>(refs: &[BytesRef<Vec<u8>>], len: usize, comparator: C) -> Resu
 where
   C: BytesRefComparator,
 {
-  let mut expected: Vec<BytesRef<Vec<u8>>> = refs[..len].to_vec();
+  let mut expected: Vec<&BytesRef<Vec<u8>>> = refs[..len]
+    .iter()
+    .inspect(|value| {
+      debug_assert!(value.is_valid().is_ok());
+    })
+    .collect();
   let mut actual = refs[..len].to_vec();
   expected.sort();
 
@@ -76,7 +91,7 @@ where
   assert_vecs_equal(actual_before_sorted, &actual);
   for i in 0..len {
     assert_eq!(
-      &expected[i], &refs[ord[i]],
+      expected[i], &refs[ord[i]],
       "Mismatch at index {}: expected {:?}, found {:?}",
       i, expected[i], refs[ord[i]]
     );
@@ -121,15 +136,15 @@ fn test_random_impl<R>(common_prefix_len: usize, max_len: usize, random: &mut R)
 where
   R: Rng + ?Sized,
 {
-  let mut common_prefix = vec![0u8; common_prefix_len];
-  random.fill_bytes(&mut common_prefix);
+  stack_or_heap_buffer!(common_prefix, u8, common_prefix_len, 30, 0);
+  random.fill_bytes(common_prefix);
   let len = random.random_range(0..100000);
 
   let mut bytes: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(len + random.random_range(0..50));
   for _ in 0..len {
     let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
     random.fill_bytes(&mut b[common_prefix_len..]);
-    b.copy_from(&common_prefix, 0);
+    b.copy_from(common_prefix, 0);
     bytes.push(BytesRef::from_bytes(b));
   }
 

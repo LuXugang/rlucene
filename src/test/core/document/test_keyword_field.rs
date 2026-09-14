@@ -42,7 +42,7 @@ struct TestKeywordField;
 #[test]
 fn test_set_bytes_value() -> Result<()> {
   let mut random = random();
-  let fields: Vec<KeywordField> = vec![
+  let fields: [KeywordField; 2] = [
     KeywordField::from_bytes_ref(
       "name",
       new_bytes_ref_from_string(&mut random, "value")?,
@@ -100,7 +100,7 @@ fn test_set_bytes_value() -> Result<()> {
 #[test]
 fn test_set_string_value() -> Result<()> {
   let mut random = random();
-  let fields: Vec<KeywordField> = vec![
+  let fields: [KeywordField; 2] = [
     KeywordField::from_string("name", "value", Store::No)?,
     KeywordField::from_string("name", "value", Store::Yes)?,
   ];
@@ -156,14 +156,12 @@ fn test_index_bytes_value() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
-  w.add_document(vec![
-    KeywordField::from_bytes_ref(
-      "field",
-      new_bytes_ref_from_string(&mut random, "value")?,
-      Store::Yes,
-    )?
-    .into(),
-  ])?;
+  w.add_document([KeywordField::from_bytes_ref(
+    "field",
+    new_bytes_ref_from_string(&mut random, "value")?,
+    Store::Yes,
+  )?
+  .into()])?;
 
   let reader = directory_reader::open_from_writer(&w)?;
   w.close()?;
@@ -200,9 +198,7 @@ fn test_index_string_value() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let w = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
 
-  w.add_document(vec![
-    KeywordField::from_string("field", "value", Store::Yes)?.into(),
-  ])?;
+  w.add_document([KeywordField::from_string("field", "value", Store::Yes)?.into()])?;
 
   let reader = directory_reader::open_from_writer(&w)?;
   w.close()?;

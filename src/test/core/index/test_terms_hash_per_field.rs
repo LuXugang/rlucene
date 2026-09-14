@@ -409,9 +409,8 @@ fn test_add_and_update_random() -> Result<()> {
   }
 
   let mut values: Vec<_> = posting_map
-    .values()
+    .into_values()
     .filter(|x| x.term_id != -1)
-    .cloned()
     .collect();
   values.shuffle(&mut random);
   let mut reader = ByteSliceReader::new(&byte_pool);

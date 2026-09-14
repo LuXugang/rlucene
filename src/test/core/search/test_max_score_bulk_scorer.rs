@@ -64,7 +64,7 @@ where
   let mut iwc = new_index_writer_config(random)?;
   iwc.set_merge_policy(new_log_merge_policy(random)?);
 
-  let writer = IndexWriter::new(dir.clone(), iwc)?;
+  let writer = IndexWriter::new(dir, iwc)?;
 
   let docs: [&[&str]; 6] = [
     &["A", "B"],      // 0
@@ -419,19 +419,19 @@ fn test_deletes() -> Result<()> {
 #[test]
 fn test_partition() -> Result<()> {
   let mut random = random();
-  let mut the = FakeScorer::new("the".to_string());
+  let mut the = FakeScorer::new("the");
   the.cost = 9000;
   the.max_score = 0.1;
   the.doc_id = 4;
   the.max_score_up_to = 130;
 
-  let mut quick = FakeScorer::new("quick".to_string());
+  let mut quick = FakeScorer::new("quick");
   quick.cost = 1000;
   quick.max_score = 1.0;
   quick.doc_id = 4;
   quick.max_score_up_to = 999;
 
-  let mut fox = FakeScorer::new("fox".to_string());
+  let mut fox = FakeScorer::new("fox");
   fox.cost = 900;
   fox.max_score = 1.1;
   fox.doc_id = 10;
@@ -554,7 +554,7 @@ fn test_partition() -> Result<()> {
 }
 
 struct FakeScorer {
-  to_string: String,
+  to_string: &'static str,
   doc_id: i32,
   max_score_up_to: i32,
   max_score: f32,
@@ -568,7 +568,7 @@ impl Display for FakeScorer {
   }
 }
 impl FakeScorer {
-  fn new(to_string: String) -> Self {
+  fn new(to_string: &'static str) -> Self {
     let cost = 10;
     let disi = AllDISI::new(cost);
     Self {

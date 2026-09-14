@@ -340,8 +340,8 @@ fn test_vector_encoding_mismatch() -> Result<()> {
 
 #[test]
 fn test_get_target() -> Result<()> {
-  let query_vector = vec![0.0, 1.0];
-  let query = KnnFloatVectorQuery::new("f1", query_vector.clone(), 10)?;
+  let query_vector = [0.0, 1.0];
+  let query = KnnFloatVectorQuery::new("f1", query_vector, 10)?;
   let copy = query.get_target_copy();
   assert!(array_equals_f32(&query_vector, &copy, 0.0));
   assert_ne!(query_vector.as_ptr(), copy.as_ptr());
@@ -472,7 +472,7 @@ fn test_doc_and_score_query_basics() -> Result<()> {
     };
 
     let searcher = new_searcher_with_reader(reader)?;
-    let mut score_docs = Vec::new();
+    let mut score_docs = Vec::with_capacity(6);
     let mut doc = 0i32;
     while doc < 30 {
       score_docs.push(ScoreDoc::new(doc, random.random::<f32>()));

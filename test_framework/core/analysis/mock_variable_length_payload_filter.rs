@@ -33,7 +33,6 @@ where
   R: Rng,
 {
   random: Arc<Mutex<R>>,
-  bytes: Vec<u8>,
   token_filter_base: TokenFilterBase<TS>,
 }
 
@@ -45,7 +44,6 @@ where
   pub fn new(random: Arc<Mutex<R>>, input: TS) -> Self {
     Self {
       random,
-      bytes: vec![0; MAX_LENGTH],
       token_filter_base: TokenFilterBase::new(input),
     }
   }
@@ -68,11 +66,12 @@ where
 {
   fn increment_token(&mut self) -> Result<bool> {
     if self.token_filter_base.input.increment_token()? {
+      let mut bytes = vec![0; MAX_LENGTH];
       let mut random = self.random.lock();
-      random.fill_bytes(&mut self.bytes);
+      random.fill_bytes(&mut bytes);
       let length = random.random_range(0..MAX_LENGTH);
       drop(random);
-      let payload = BytesRef::from_slice(self.bytes.clone(), 0, length);
+      let payload = BytesRef::from_slice(bytes, 0, length);
       self.get_attribute_source_mut().set_payload(Some(payload))?;
       Ok(true)
     } else {

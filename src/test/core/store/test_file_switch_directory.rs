@@ -74,7 +74,7 @@ impl TestFileSwitchDirectory {
     secondary_dir.set_check_index_on_close(false); // only part of an index
 
     let fsd = Arc::new(FileSwitchDirectory::new(
-      file_extensions.clone(),
+      &file_extensions,
       primary_dir,
       secondary_dir,
       true,

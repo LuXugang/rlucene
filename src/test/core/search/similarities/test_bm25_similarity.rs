@@ -60,20 +60,23 @@ fn test_random_scoring() -> Result<()> {
 fn test_illegal_k1() -> Result<()> {
   {
     let err = BM25Similarity::with_k1_b(f32::INFINITY, 0.75);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    assert!(err.unwrap_err().to_string().contains("illegal k1 value"));
+    assert!(
+      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
+    );
   }
 
   {
     let err = BM25Similarity::with_k1_b(-1.0, 0.75);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    assert!(err.unwrap_err().to_string().contains("illegal k1 value"));
+    assert!(
+      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
+    );
   }
 
   {
     let err = BM25Similarity::with_k1_b(f32::NAN, 0.75);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    assert!(err.unwrap_err().to_string().contains("illegal k1 value"));
+    assert!(
+      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal k1 value"))
+    );
   }
 
   Ok(())
@@ -82,26 +85,30 @@ fn test_illegal_k1() -> Result<()> {
 fn test_illegal_b() -> Result<()> {
   {
     let err = BM25Similarity::with_k1_b(1.2, 2.0);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    assert!(err.unwrap_err().to_string().contains("illegal b value"));
+    assert!(
+      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+    );
   }
 
   {
     let err = BM25Similarity::with_k1_b(1.2, -1.0);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    assert!(err.unwrap_err().to_string().contains("illegal b value"));
+    assert!(
+      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+    );
   }
 
   {
     let err = BM25Similarity::with_k1_b(1.2, f32::INFINITY);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    assert!(err.unwrap_err().to_string().contains("illegal b value"));
+    assert!(
+      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+    );
   }
 
   {
     let err = BM25Similarity::with_k1_b(1.2, f32::NAN);
-    assert!(matches!(err, Err(LuceneError::IllegalArgument(_))));
-    assert!(err.unwrap_err().to_string().contains("illegal b value"));
+    assert!(
+      matches!(err, Err(LuceneError::IllegalArgument(error)) if error.message.contains("illegal b value"))
+    );
   }
 
   Ok(())

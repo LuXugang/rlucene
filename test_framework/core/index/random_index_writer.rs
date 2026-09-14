@@ -255,7 +255,7 @@ where
     maybe_change_live_index_writer_config(r, self.w.get_config_mut())?;
     let doc: Vec<Fields> = doc.into_iter().collect();
     let seq_no = if r.random_range(0..5) == 3 {
-      self.w.add_documents(vec![doc])
+      self.w.add_documents([doc])
     } else {
       self.w.add_document(doc)
     }?;
@@ -424,7 +424,7 @@ where
       if r.random_range(0..5) == 3 {
         self.w.soft_update_documents(
           del_term,
-          vec![doc],
+          [doc],
           vec![NumericDocValuesField::new(soft_deletes_field, 1).into()],
         )
       } else {
@@ -435,7 +435,7 @@ where
         )
       }
     } else if r.random_range(0..5) == 3 {
-      self.w.update_documents_with_term(Some(del_term), vec![doc])
+      self.w.update_documents_with_term(Some(del_term), [doc])
     } else {
       self.w.update_document_with_term(Some(del_term), doc)
     }?;

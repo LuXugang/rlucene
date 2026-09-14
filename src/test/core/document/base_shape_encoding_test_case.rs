@@ -67,7 +67,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -101,7 +101,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -135,7 +135,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -169,7 +169,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -202,7 +202,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -236,7 +236,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -270,7 +270,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -303,7 +303,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -337,7 +337,7 @@ pub trait BaseShapeEncodingTestCase {
 
     self.verify_encoding_permutations(ay_enc, ax_enc, by_enc, bx_enc, cy_enc, cx_enc)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -369,7 +369,7 @@ pub trait BaseShapeEncodingTestCase {
     let cy_enc = self.encode_y(cy)?;
     let cx_enc = self.encode_x(cx)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;
@@ -406,7 +406,7 @@ pub trait BaseShapeEncodingTestCase {
       0
     );
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
 
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, false,
@@ -458,7 +458,7 @@ pub trait BaseShapeEncodingTestCase {
     let lat_enc = self.encode_y(lat)?;
     let lon_enc = self.encode_x(lon)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, lat_enc, lon_enc, true, lat_enc, lon_enc, true, lat_enc, lon_enc, true,
     )?;
@@ -483,7 +483,7 @@ pub trait BaseShapeEncodingTestCase {
     let ax_enc = self.encode_x(ax)?;
     let bx_enc = self.encode_x(bx)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     let mut encoded = DecodedTriangle::default();
 
     encode_triangle(
@@ -530,7 +530,7 @@ pub trait BaseShapeEncodingTestCase {
     let by_enc = self.encode_y(by)?;
     let lon_enc = self.encode_x(lon)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     let mut encoded = DecodedTriangle::default();
 
     encode_triangle(
@@ -580,7 +580,7 @@ pub trait BaseShapeEncodingTestCase {
     let ax_enc = self.encode_x(ax)?;
     let bx_enc = self.encode_x(bx)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     let mut encoded = DecodedTriangle::default();
 
     encode_triangle(
@@ -672,7 +672,7 @@ pub trait BaseShapeEncodingTestCase {
       self.encode_y(cy)?,
     ];
 
-    let mut bytes = vec![0u8; 7 * ShapeField::BYTES];
+    let mut bytes = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut bytes,
       original[1],
@@ -877,7 +877,7 @@ pub trait BaseShapeEncodingTestCase {
     let cy_enc = self.encode_y(cy)?;
     let cx_enc = self.encode_x(cx)?;
 
-    let mut b = vec![0u8; 7 * ShapeField::BYTES];
+    let mut b = [0u8; 7 * ShapeField::BYTES];
     encode_triangle(
       &mut b, ay_enc, ax_enc, true, by_enc, bx_enc, true, cy_enc, cx_enc, true,
     )?;

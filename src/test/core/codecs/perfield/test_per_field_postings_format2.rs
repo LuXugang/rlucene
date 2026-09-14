@@ -393,12 +393,15 @@ fn test_merge_called_on_two_formats() -> Result<()> {
   iwriter.close()?;
 
   assert_eq!(1, pf1.nb_merge_calls());
-  assert_eq!(
-    HashSet::from(["f1".to_string(), "f2".to_string()]),
-    pf1.field_names().into_iter().collect()
-  );
+  {
+    let names = pf1.field_names();
+    assert_eq!(
+      HashSet::from(["f1", "f2"]),
+      names.iter().map(String::as_str).collect()
+    );
+  }
   assert_eq!(1, pf2.nb_merge_calls());
-  assert_eq!(vec!["f4".to_string()], pf2.field_names());
+  assert_eq!(&["f4"][..], pf2.field_names());
 
   directory.close()
 }

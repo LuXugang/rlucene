@@ -79,18 +79,21 @@ fn test_random_reads() -> Result<()> {
 fn test_random_reads_on_slices() -> Result<()> {
   let mut random = random();
   let reps = random.random_range(1..=20);
+  let mut padding = Vec::new();
   for _i in 1..reps {
     let mut dst = ByteBuffersDataOutput::new();
-    let prefix = vec![0; random.random_range(0..=1024 * 8)];
-    let prefix_len = prefix.len();
-    dst.write_bytes(prefix.as_slice())?;
+    padding.clear();
+    padding.resize(random.random_range(0..=1024 * 8), 0);
+    let prefix_len = padding.len();
+    dst.write_bytes(&padding)?;
     let seed: u64 = random.random();
     let max = 10000;
     let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
     let reply = add_random_data(&mut dst, &mut random1, max)?;
-    let suffix = vec![0; random.random_range(0..=1024 * 8)];
-    let suffix_len = suffix.len();
-    dst.write_bytes(suffix.as_slice())?;
+    padding.clear();
+    padding.resize(random.random_range(0..=1024 * 8), 0);
+    let suffix_len = padding.len();
+    dst.write_bytes(&padding)?;
     let size = dst.size();
     let mut src = dst
       .get_data_input_ref()?
@@ -124,13 +127,14 @@ fn test_seek_empty() -> Result<()> {
 fn test_seek_and_skip() -> Result<()> {
   let mut random = random();
   let reps = random.random_range(1..=200);
+  let mut prefix = Vec::new();
   for _i in 1..reps {
     let mut dst = ByteBuffersDataOutput::new();
-    let prefix;
     let mut prefix_len = 0;
     if random.random_bool(0.5) {
       let len = random.random_range(1..=1024 * 8);
-      prefix = vec![0; len];
+      prefix.clear();
+      prefix.resize(len, 0);
       prefix_len = prefix.len();
       dst.write_bytes(prefix.as_slice())?;
     }
@@ -139,8 +143,8 @@ fn test_seek_and_skip() -> Result<()> {
     let mut random1 = Xoroshiro128Plus::seed_from_u64(seed);
     let reply = add_random_data(&mut dst, &mut random1, max)?;
     let size = dst.size();
-    let mut array = dst.get_array_copy();
-    array = Vec::from(&array[prefix_len..array.len()]);
+    let array = dst.get_array_copy();
+    let array = &array[prefix_len..array.len()];
     let mut data_input = dst
       .get_data_input_ref()?
       .slice(prefix_len, size - prefix_len)?;
@@ -204,10 +208,10 @@ fn test_slicing_window() -> Result<()> {
 #[test]
 fn test_eof_on_array_read_past_buffer_size() -> Result<()> {
   let mut dst = ByteBuffersDataOutput::new();
-  let bytes = vec![0; 10];
+  let bytes = [0; 10];
   dst.write_bytes(bytes.as_slice())?;
   let mut data_input = dst.get_data_input_ref()?;
-  let mut output: Vec<u8> = vec![0; 100];
+  let mut output = [0; 100];
   let result = DataInput::read_bytes(&mut data_input, &mut output, 0, 100);
   assert!(result.is_err());
   Ok(())

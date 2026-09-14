@@ -25,7 +25,7 @@ use std::borrow::Cow;
 
 use crate::core::util::allocator_byte::{DirectAllocatorByte, DirectTrackingAllocatorByte};
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool, SliceCopyOps};
+use crate::core::util::{AtomicCounter, BYTE_BLOCK_SIZE, ByteBlockPool};
 use crate::test_framework::core::util::test_util::TestUtil;
 
 #[allow(dead_code)] // for quick search
@@ -100,6 +100,7 @@ fn test_read_and_write() -> Result<()> {
             0,
             bytes_ref_builder_length,
           )?;
+          assert!(bytes_ref_builder.get_bytes_mut_ref().bytes_equals(expected));
         },
         1 => {
           let mut scratch = BytesRef::<std::borrow::Cow<'_, Vec<u8>>>::new();
@@ -109,16 +110,15 @@ fn test_read_and_write() -> Result<()> {
             position,
             bytes_ref_builder.length(),
           )?;
-          bytes_ref_builder.get_bytes_mut_ref().bytes.copy_from(
-            &scratch.bytes[scratch.offset..(scratch.offset + bytes_ref_builder_length)],
-            0,
+          assert!(
+            scratch.bytes[scratch.offset..scratch.offset + bytes_ref_builder_length]
+              == expected.bytes[expected.offset..expected.offset + expected.length]
           );
         },
         _ => {
           unreachable!()
         },
       }
-      assert!(bytes_ref_builder.get_bytes_mut_ref().bytes_equals(expected));
       position += bytes_ref_builder.length() as i64;
     }
     pool.reset(random.random_bool(0.5), reuse_first);
@@ -162,8 +162,10 @@ fn test_large_random_blocks() -> Result<()> {
   }
 
   let mut position = 0;
+  let mut actual = Vec::new();
   for expected in iterms {
-    let mut actual: Vec<u8> = vec![0; expected.len()];
+    actual.clear();
+    actual.resize(expected.len(), 0);
     let actual_len = actual.len();
     pool.read_bytes(position, &mut actual, 0, actual_len)?;
     assert_eq!(expected, actual);

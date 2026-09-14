@@ -158,30 +158,30 @@ fn test_get_field_name_variations() -> Result<()> {
 
   let field_infos = reader.get_field_infos()?;
   for field_info in field_infos.iter() {
-    let name = field_info.name.to_string();
-    all_field_names.insert(name.clone());
+    let name = field_info.name.as_str();
+    all_field_names.insert(name);
 
     if *field_info.get_index_options() != IndexOptions::None {
-      indexed_field_names.insert(name.clone());
+      indexed_field_names.insert(name);
     } else {
-      not_indexed_field_names.insert(name.clone());
+      not_indexed_field_names.insert(name);
     }
 
     if field_info.has_term_vectors() {
-      tv_field_names.insert(name.clone());
+      tv_field_names.insert(name);
     } else if *field_info.get_index_options() != IndexOptions::None {
-      no_tv_field_names.insert(name.clone());
+      no_tv_field_names.insert(name);
     }
   }
 
   assert_eq!(all_field_names.len(), DATA.all.len());
   for s in &all_field_names {
-    assert!(NAME_VALUES.contains_key(s) || s.is_empty());
+    assert!(NAME_VALUES.contains_key(*s) || s.is_empty());
   }
 
   assert_eq!(indexed_field_names.len(), DATA.indexed.len());
   for s in &indexed_field_names {
-    assert!(DATA.indexed.contains_key(s) || s.is_empty());
+    assert!(DATA.indexed.contains_key(*s) || s.is_empty());
   }
 
   assert_eq!(not_indexed_field_names.len(), DATA.unindexed.len());
@@ -206,8 +206,8 @@ fn test_terms() -> Result<()> {
       let term = terms_enum.term()?;
 
       let field_value = match NAME_VALUES.get(&field).unwrap() {
-        String(v) => v.clone(),
-        Str(v) => v.to_string(),
+        String(v) => v.as_str(),
+        Str(v) => *v,
         _ => unreachable!(),
       };
       assert!(field_value.contains(&term.utf8_to_string()?));

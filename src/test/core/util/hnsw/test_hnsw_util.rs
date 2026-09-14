@@ -44,7 +44,7 @@ fn test_tree_with_cycle() -> Result<()> {
   let mut graph = MockGraph::new(&nodes);
 
   assert!(HnswUtil::is_rooted(&mut graph)?);
-  assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![7]);
+  assert_eq!(HnswUtil::component_sizes(&mut graph)?, [7]);
 
   Ok(())
 }
@@ -63,7 +63,7 @@ fn test_back_linking() -> Result<()> {
   let mut graph = MockGraph::new(&nodes);
 
   assert!(!HnswUtil::is_rooted(&mut graph)?);
-  assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![5, 1, 1]);
+  assert_eq!(HnswUtil::component_sizes(&mut graph)?, [5, 1, 1]);
 
   Ok(())
 }
@@ -79,7 +79,7 @@ fn test_chain() -> Result<()> {
   let mut graph = MockGraph::new(&nodes);
 
   assert!(HnswUtil::is_rooted(&mut graph)?);
-  assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![4]);
+  assert_eq!(HnswUtil::component_sizes(&mut graph)?, [4]);
 
   Ok(())
 }
@@ -95,7 +95,7 @@ fn test_two_chains() -> Result<()> {
   let mut graph = MockGraph::new(&nodes);
 
   assert!(!HnswUtil::is_rooted(&mut graph)?);
-  assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![2, 2]);
+  assert_eq!(HnswUtil::component_sizes(&mut graph)?, [2, 2]);
 
   Ok(())
 }
@@ -115,7 +115,7 @@ fn test_levels() -> Result<()> {
   let mut graph = MockGraph::new(&nodes);
 
   assert!(HnswUtil::is_rooted(&mut graph)?);
-  assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![4]);
+  assert_eq!(HnswUtil::component_sizes(&mut graph)?, [4]);
 
   Ok(())
 }
@@ -128,7 +128,7 @@ fn test_levels_not_rooted() -> Result<()> {
   let mut graph = MockGraph::new(&nodes);
 
   assert!(!HnswUtil::is_rooted(&mut graph)?);
-  assert_eq!(HnswUtil::component_sizes(&mut graph)?, vec![2, 1]);
+  assert_eq!(HnswUtil::component_sizes(&mut graph)?, [2, 1]);
 
   Ok(())
 }
@@ -191,20 +191,22 @@ fn is_rooted(nodes: &[Vec<Option<Vec<usize>>>]) -> Result<bool> {
 }
 
 fn is_rooted_with_level(nodes: &[Vec<Option<Vec<usize>>>], level: usize) -> Result<bool> {
-  let entry_points: Vec<usize> = if level == nodes.len() - 1 {
-    vec![0]
+  let entry_points: std::borrow::Cow<'_, [usize]> = if level == nodes.len() - 1 {
+    std::borrow::Cow::Borrowed(&[0])
   } else {
-    nodes[level + 1]
-      .iter()
-      .enumerate()
-      .filter_map(|(i, node)| node.as_ref().map(|_| i))
-      .collect()
+    std::borrow::Cow::Owned(
+      nodes[level + 1]
+        .iter()
+        .enumerate()
+        .filter_map(|(i, node)| node.as_ref().map(|_| i))
+        .collect(),
+    )
   };
 
   let mut connected = FixedBitSet::new(nodes[level].len());
   let mut count = 0;
 
-  for &entry_point in &entry_points {
+  for &entry_point in entry_points.iter() {
     if nodes[level]
       .get(entry_point)
       .and_then(|n| n.as_ref())

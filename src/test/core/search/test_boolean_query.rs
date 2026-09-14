@@ -177,8 +177,8 @@ fn test_equality_does_not_depend_on_order() -> Result<()> {
 
     let mut bq2_builder = Builder::new();
     bq2_builder.set_minimum_number_should_match(min_should_match);
-    for clause in &clauses {
-      bq2_builder.add_clause(clause.clone())?;
+    for clause in clauses {
+      bq2_builder.add_clause(clause)?;
     }
     let bq2 = bq2_builder.build();
 
@@ -296,7 +296,7 @@ fn test_too_many_clauses() -> Result<()> {
 
   for i in 0..max {
     bq.add(
-      TermQuery::new(Term::from_text("foo", format!("bar-{}", i))),
+      TermQuery::new(Term::new("foo", format!("bar-{}", i))),
       Occur::Should,
     )?;
   }
@@ -336,7 +336,7 @@ fn test_null_or_sub_scorer() -> Result<()> {
   q.add(TermQuery::new(Term::from_text("field", "a")), Occur::Should)?;
 
   let pq = PhraseQuery::from_terms_no_slop("field", Vec::<&str>::new().as_slice())?;
-  q.add(pq.clone(), Occur::Should)?;
+  q.add(pq, Occur::Should)?;
   assert_eq!(1, s.search(q.build(), 10)?.total_hits.value());
 
   let mut q = Builder::new();
@@ -448,8 +448,11 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
   writer.close(&mut random)?;
 
+  let mut terms = Vec::new();
+  let mut hits = Vec::new();
   for _ in 0..(10 * random_multiplier()) {
-    let mut terms: Vec<&'static str> = vec!["a", "b", "c", "d", "e", "f"];
+    terms.clear();
+    terms.extend_from_slice(&["a", "b", "c", "d", "e", "f"]);
     let num_terms = random.random_range(1..(terms.len() + 1));
     while terms.len() > num_terms {
       let idx = random.random_range(0..terms.len());
@@ -472,7 +475,7 @@ fn test_bs2_disjunction_next_vs_advance() -> Result<()> {
     let mut scorer = weight.scorer(ctx, &searcher)?.unwrap();
 
     // First pass: just use next_doc() to gather all hits
-    let mut hits = Vec::new();
+    hits.clear();
     loop {
       let doc_id = scorer.iterator_mut().next_doc()?;
       if doc_id == NO_MORE_DOCS {
@@ -584,12 +587,12 @@ fn test_filter_clause_behaves_like_must() -> Result<()> {
     &mut field_to_type,
   )?;
   doc.add(f.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   f.set_string_value("b d")?;
   let mut doc = Document::new();
   doc.add(f.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   f.set_string_value("d")?;
   let mut doc = Document::new();
@@ -665,12 +668,12 @@ fn test_filter_clause_does_not_impact_score() -> Result<()> {
     &mut field_to_type,
   )?;
   doc.add(f.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   f.set_string_value("b d")?;
   let mut doc = Document::new();
   doc.add(f.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   f.set_string_value("a d")?;
   let mut doc = Document::new();
@@ -688,23 +691,23 @@ fn test_filter_clause_does_not_impact_score() -> Result<()> {
 
   q_builder.add(TermQuery::new(Term::from_text("field", "b")), Occur::Filter)?;
   let mut q = q_builder.clone().build();
-  assert_same_scores_without_filters(&searcher, q.clone())?;
+  assert_same_scores_without_filters(&searcher, q)?;
 
   q_builder.add(TermQuery::new(Term::from_text("field", "c")), Occur::Should)?;
   q = q_builder.build();
-  assert_same_scores_without_filters(&searcher, q.clone())?;
+  assert_same_scores_without_filters(&searcher, q)?;
 
   let mut q_builder = Builder::new();
   q_builder.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
   q_builder.add(TermQuery::new(Term::from_text("field", "e")), Occur::Should)?;
   q = q_builder.build();
-  assert_same_scores_without_filters(&searcher, q.clone())?;
+  assert_same_scores_without_filters(&searcher, q)?;
 
   let mut q_builder = Builder::new();
   q_builder.add(TermQuery::new(Term::from_text("field", "a")), Occur::Filter)?;
   q_builder.add(TermQuery::new(Term::from_text("field", "d")), Occur::Must)?;
   q = q_builder.build();
-  assert_same_scores_without_filters(&searcher, q.clone())?;
+  assert_same_scores_without_filters(&searcher, q)?;
 
   let mut q_builder = Builder::new();
   q_builder.add(TermQuery::new(Term::from_text("field", "b")), Occur::Filter)?;
@@ -1266,11 +1269,11 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
   let mut doc_content = Vec::with_capacity((larger_term_count + smaller_term_count) as usize);
 
   for _ in 0..larger_term_count {
-    doc_content.push(vec!["large".to_string()]);
+    doc_content.push(&["large"][..]);
   }
 
   for _ in 0..smaller_term_count {
-    doc_content.push(vec!["small".to_string(), "also small".to_string()]);
+    doc_content.push(&["small", "also small"][..]);
   }
 
   let dir = new_directory_shared(&mut random)?;
@@ -1285,7 +1288,7 @@ fn test_two_clause_term_disjunction_count_optimization() -> Result<()> {
       doc.add(new_string_field(
         &mut random,
         "foo",
-        &value,
+        *value,
         Store::No,
         &mut field_types,
       )?);
@@ -1546,7 +1549,7 @@ fn test_disjunction_random_clauses_matches_count() -> Result<()> {
   for (i, &num_docs) in num_docs_per_field_value.iter().enumerate() {
     if random.random_bool(0.5) {
       matched_docs_count += num_docs;
-      let q = TermQuery::new(Term::from_text("field", i.to_string()));
+      let q = TermQuery::new(Term::new("field", i.to_string()));
       builder.add(q, Occur::Should)?;
     }
   }

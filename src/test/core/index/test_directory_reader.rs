@@ -525,7 +525,7 @@ fn test_binary_fields() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let mut field_to_type = HashMap::new();
 
-  let bin = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  let bin = [0u8, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
   let mock = MockAnalyzer::new(&mut random);
   let mut config = new_index_writer_config_with_analyzer(&mut random, mock)?;
@@ -555,7 +555,7 @@ fn test_binary_fields() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), config)?;
 
   let mut doc = Document::new();
-  doc.add(StoredField::from_binary("bin1", bin.clone())?);
+  doc.add(StoredField::from_binary("bin1", bin.to_vec())?);
   doc.add(TextField::from_string("junk", "junk text", Store::No)?);
   writer.add_document(doc)?;
   writer.close()?;
@@ -1308,7 +1308,7 @@ fn test_stress_try_inc_ref() -> Result<()> {
   let num_threads = at_least(&mut random, 5);
 
   thread::scope(|s| -> Result<()> {
-    let mut threads = Vec::new();
+    let mut threads = Vec::with_capacity(num_threads as usize);
     for _ in 0..num_threads {
       threads.push(s.spawn(|| -> Result<()> {
         while r.try_inc_ref() {

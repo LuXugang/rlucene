@@ -258,7 +258,7 @@ fn create_leaf_reader_contexts(max_docs: &[i32]) -> Vec<LeafReaderContext<DummyI
     max_doc: max_docs.iter().sum(),
     ..Default::default()
   };
-  let mut leaf_reader_contexts = Vec::new();
+  let mut leaf_reader_contexts = Vec::with_capacity(max_docs.len());
   let mut doc_base = 0;
 
   for (ord, max_doc) in max_docs.iter().copied().enumerate() {

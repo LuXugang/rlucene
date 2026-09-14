@@ -228,14 +228,26 @@ fn test_random_ints_n_dims() -> Result<()> {
     }
 
     let iters = at_least(&mut random, 100);
+    let mut query_min: Vec<i32> = Vec::new();
+    let mut query_min_bytes: Vec<Vec<u8>> = Vec::new();
+    let mut query_max: Vec<i32> = Vec::new();
+    let mut query_max_bytes: Vec<Vec<u8>> = Vec::new();
     for iter in 0..iters {
       if cfg!(feature = "test_log_verbose") {
         println!("TEST: iter={}", iter);
       }
-      let mut query_min = vec![0; num_dims];
-      let mut query_min_bytes = vec![vec![0u8; 4]; num_dims];
-      let mut query_max = vec![0; num_dims];
-      let mut query_max_bytes = vec![vec![0u8; 4]; num_dims];
+      query_min.clear();
+      query_min.resize(num_dims, 0);
+      query_min_bytes.resize_with(num_dims, || vec![0u8; 4]);
+      for bytes in &mut query_min_bytes {
+        bytes.fill(0);
+      }
+      query_max.clear();
+      query_max.resize(num_dims, 0);
+      query_max_bytes.resize_with(num_dims, || vec![0u8; 4]);
+      for bytes in &mut query_max_bytes {
+        bytes.fill(0);
+      }
 
       for dim in 0..num_index_dims {
         query_min[dim] = random.random();
@@ -343,14 +355,26 @@ fn test_big_int_n_dims() -> Result<()> {
     let point_values = sub_point_values;
 
     let iters = at_least(&mut random, 100);
+    let mut query_min: Vec<BigInt> = Vec::new();
+    let mut query_min_bytes: Vec<Vec<u8>> = Vec::new();
+    let mut query_max: Vec<BigInt> = Vec::new();
+    let mut query_max_bytes: Vec<Vec<u8>> = Vec::new();
     for iter in 0..iters {
       if cfg!(feature = "test_log_verbose") {
         println!("TEST: iter={}", iter);
       }
-      let mut query_min = vec![BigInt::zero(); num_dims];
-      let mut query_min_bytes = vec![vec![0u8; num_bytes_per_dim]; num_dims];
-      let mut query_max = vec![BigInt::zero(); num_dims];
-      let mut query_max_bytes = vec![vec![0u8; num_bytes_per_dim]; num_dims];
+      query_min.clear();
+      query_min.resize(num_dims, BigInt::zero());
+      query_min_bytes.resize_with(num_dims, || vec![0u8; num_bytes_per_dim]);
+      for bytes in &mut query_min_bytes {
+        bytes.fill(0);
+      }
+      query_max.clear();
+      query_max.resize(num_dims, BigInt::zero());
+      query_max_bytes.resize_with(num_dims, || vec![0u8; num_bytes_per_dim]);
+      for bytes in &mut query_max_bytes {
+        bytes.fill(0);
+      }
 
       for dim in 0..num_dims {
         query_min[dim] = random_big_int(num_bytes_per_dim, &mut random);
@@ -556,7 +580,8 @@ fn test_all_equal() -> Result<()> {
         random.fill_bytes(values);
       }
     } else {
-      doc_values[doc_id] = doc_values[0].clone();
+      let (previous, current) = doc_values.split_at_mut(doc_id);
+      current[0].clone_from(&previous[0]);
     }
   }
 
@@ -591,7 +616,7 @@ fn test_index_dim_equal_data_dim_different() -> Result<()> {
 
   for doc_value in doc_values.iter_mut().take(num_docs) {
     for (dim, val) in doc_value.iter_mut().enumerate().take(num_index_dims) {
-      *val = index_dimensions[dim].clone();
+      val.clone_from(&index_dimensions[dim]);
     }
     for val in doc_value
       .iter_mut()
@@ -633,7 +658,8 @@ fn test_one_dim_equal() -> Result<()> {
     }
 
     if doc_id > 0 {
-      doc_values[doc_id][the_equal_dim] = doc_values[0][the_equal_dim].clone();
+      let (previous, current) = doc_values.split_at_mut(doc_id);
+      current[0][the_equal_dim].clone_from(&previous[0][the_equal_dim]);
     }
   }
 
@@ -772,7 +798,7 @@ fn test_random_few_different_values() -> Result<()> {
   let mut doc_values = vec![vec![vec![0u8; num_bytes_per_dim]; num_data_dims]; num_docs];
   for (doc_value, _) in doc_values.iter_mut().zip(0..num_docs) {
     let v = random.random_range(0..cardinality);
-    *doc_value = values[v].clone();
+    doc_value.clone_from(&values[v]);
   }
 
   verify(
@@ -1199,8 +1225,8 @@ where
   // Rarely continue with the clone tree
   // let tree = if rarely(random) { &mut clone } else { tree };
 
-  let mut visit_doc_id_size = vec![0; 1];
-  let mut visit_doc_values_size = vec![0; 1];
+  let mut visit_doc_id_size = [0; 1];
+  let mut visit_doc_values_size = [0; 1];
 
   let mut visitor = IntersectVisitorMock1 {
     visit_doc_id_size: &mut visit_doc_id_size,
@@ -1760,7 +1786,7 @@ fn test_2d_long_ords_offline() -> Result<()> {
     num_docs as i64,
   )?;
 
-  let mut buffer = vec![0u8; 2 * 4];
+  let mut buffer = [0u8; 2 * 4];
   for doc_id in 0..num_docs {
     random.fill_bytes(&mut buffer);
     writer.add(&buffer, doc_id)?;

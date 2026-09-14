@@ -31,7 +31,6 @@ use crate::core::index::live_index_writer_config::LiveIndexWriterConfig;
 use crate::core::index::serial_merge_scheduler::SerialMergeScheduler;
 use crate::core::index::stored_fields::StoredFields;
 use crate::core::index::term::Term;
-use crate::core::search::field_doc::FieldDoc;
 use crate::core::search::match_all_docs_query::MatchAllDocsQuery;
 use crate::core::search::score_doc::ScoreDocLike;
 use crate::core::search::sort::Sort;
@@ -311,20 +310,17 @@ fn test_nearest_neighbor_random() -> Result<()> {
     let mut expected_hits = Vec::with_capacity(lats.len());
     for id in 0..lats.len() {
       let distance = SloppyMath::haversin_meters(point_lat, point_lon, lats[id], lons[id]);
-      expected_hits.push(FieldDoc::with_fields(id as i32, 0.0, vec![distance.into()]));
+      expected_hits.push((id as i32, distance));
     }
 
     expected_hits.sort_by(|a, b| {
-      let cmp = CoreHelper::compare_f64(
-        *a.fields[0].as_f64().unwrap(),
-        *b.fields[0].as_f64().unwrap(),
-      );
+      let cmp = CoreHelper::compare_f64(a.1, b.1);
       if cmp != Ordering::Equal {
         return cmp;
       }
 
       // tie break by smaller docID:
-      a.doc().cmp(&b.doc())
+      a.0.cmp(&b.0)
     });
 
     let top_n = TestUtil::next_usize(&mut random, 1, lats.len());
@@ -347,11 +343,8 @@ fn test_nearest_neighbor_random() -> Result<()> {
       let actual = hits.score_docs()[i].as_field().unwrap();
       let _actual_doc = stored_fields.document(actual.doc())?;
 
-      assert_eq!(expected.doc(), actual.doc());
-      assert_eq!(
-        *expected.fields[0].as_f64().unwrap(),
-        *actual.fields[0].as_f64().unwrap()
-      );
+      assert_eq!(expected.0, actual.doc());
+      assert_eq!(expected.1, *actual.fields[0].as_f64().unwrap());
 
       assert_eq!(expected2.doc(), actual.doc());
       assert_eq!(

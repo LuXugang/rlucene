@@ -119,7 +119,7 @@ fn test_force_merge_fully_deleted() -> Result<()> {
       let context = (&reader).get_context()?;
       let leaves = context.leaves()?;
       assert_eq!(2, leaves.len());
-      let segment_reader = leaves[0].reader().clone();
+      let segment_reader = leaves[0].reader();
       assert!(policy.keep_fully_deleted_segment(|| Ok(segment_reader.clone()))?);
       assert_eq!(
         0,
@@ -131,7 +131,7 @@ fn test_force_merge_fully_deleted() -> Result<()> {
     {
       let context = (&reader).get_context()?;
       let leaves = context.leaves()?;
-      let segment_reader = leaves[1].reader().clone();
+      let segment_reader = leaves[1].reader();
       assert!(policy.keep_fully_deleted_segment(|| Ok(segment_reader.clone()))?);
       assert_eq!(
         0,
@@ -147,7 +147,7 @@ fn test_force_merge_fully_deleted() -> Result<()> {
       let context = (&reader).get_context()?;
       let leaves = context.leaves()?;
       assert_eq!(1, leaves.len());
-      let segment_reader = leaves[0].reader().clone();
+      let segment_reader = leaves[0].reader();
       assert_eq!(2, reader.max_doc()?);
       assert!(policy.keep_fully_deleted_segment(|| Ok(segment_reader.clone()))?);
       assert_eq!(
@@ -197,7 +197,7 @@ fn test_keep_fully_deleted_segments() -> Result<()> {
       || Ok(FieldExistsQuery::new("keep_around").into()),
       NoMergePolicy::default(),
     );
-    let segment_reader = context.leaves()?[0].reader().clone();
+    let segment_reader = context.leaves()?[0].reader();
     assert!(!policy.keep_fully_deleted_segment(|| Ok(segment_reader.clone()))?);
     reader.close()?;
 
@@ -211,9 +211,9 @@ fn test_keep_fully_deleted_segments() -> Result<()> {
     let context = (&reader).get_context()?;
     let leaves = context.leaves()?;
     assert_eq!(2, leaves.len());
-    let segment_reader = leaves[0].reader().clone();
+    let segment_reader = leaves[0].reader();
     assert!(!policy.keep_fully_deleted_segment(|| Ok(segment_reader.clone()))?);
-    let segment_reader = leaves[1].reader().clone();
+    let segment_reader = leaves[1].reader();
     assert!(policy.keep_fully_deleted_segment(|| Ok(segment_reader.clone()))?);
     reader.close()
   })();
@@ -427,11 +427,11 @@ fn test_soft_delete_with_retention() -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::with_capacity(num_threads);
       for seed in seeds {
-        let writer = writer.clone();
-        let seq_ids = seq_ids.clone();
-        let ids = ids.clone();
-        let start_latch = start_latch.clone();
-        let started = started.clone();
+        let writer = &writer;
+        let seq_ids = &seq_ids;
+        let ids = &ids;
+        let start_latch = &start_latch;
+        let started = &started;
         threads.push(scope.spawn(move || -> Result<()> {
           let mut random = random_from_seed(seed);
           started.count_down();

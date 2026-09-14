@@ -2375,7 +2375,7 @@ fn test_multi_valued_random1() -> Result<()> {
     "foo",
     SortFieldType::Long,
   )?])?);
-  iwc.set_index_sort(index_sort.clone())?;
+  iwc.set_index_sort(index_sort)?;
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
   let num_docs = at_least_usize(&mut random, 200);
@@ -2458,9 +2458,9 @@ fn test_concurrent_updates() -> Result<()> {
     for _ in 0..2 {
       let seed = random.random();
       let mut thread_random = random_from_seed(seed);
-      let latch = latch.clone();
-      let writer = writer.clone();
-      let values = values.clone();
+      let latch = &latch;
+      let writer = &writer;
+      let values = &values;
       let update_count = &update_count;
       handles.push(scope.spawn(move || -> Result<()> {
         latch.wait();
@@ -2479,7 +2479,7 @@ fn test_concurrent_updates() -> Result<()> {
 
           match thread_random.random_range(0..10) {
             0 | 1 => {
-              directory_reader::open_from_writer(&writer)?.close()?;
+              directory_reader::open_from_writer(writer)?.close()?;
             },
             2 => {
               writer.force_merge(3)?;
@@ -2556,7 +2556,7 @@ fn test_bad_dv_update() -> Result<()> {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
         "cannot update docvalues field involved in the index sort, field=foo, sort=<long: \"foo\">",
-        msg.to_string()
+        msg.message.as_str()
       );
     },
     _ => unreachable!("expected IllegalArgument"),
@@ -2569,7 +2569,7 @@ fn test_bad_dv_update() -> Result<()> {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
         "cannot update docvalues field involved in the index sort, field=foo, sort=<long: \"foo\">",
-        msg.to_string()
+        msg.message.as_str()
       );
     },
     _ => unreachable!("expected IllegalArgument"),
@@ -2613,9 +2613,9 @@ fn test_concurrent_dv_updates() -> Result<()> {
     for _ in 0..2 {
       let seed = random.random();
       let mut thread_random = random_from_seed(seed);
-      let latch = latch.clone();
-      let writer = writer.clone();
-      let values = values.clone();
+      let latch = &latch;
+      let writer = &writer;
+      let values = &values;
       let update_count = &update_count;
       handles.push(scope.spawn(move || -> Result<()> {
         latch.wait();
@@ -2634,7 +2634,7 @@ fn test_concurrent_dv_updates() -> Result<()> {
 
           match thread_random.random_range(0..10) {
             0 | 1 => {
-              directory_reader::open_from_writer(&writer)?.close()?;
+              directory_reader::open_from_writer(writer)?.close()?;
             },
             2 => {
               writer.force_merge(3)?;
@@ -2686,7 +2686,7 @@ fn test_bad_add_indexes() -> Result<()> {
   let w = IndexWriter::new(dir.clone(), iwc1)?;
   w.add_document(Document::new())?;
 
-  let index_sorts = vec![
+  let index_sorts = [
     None,
     Some(Sort::with_fields(vec![SortField::new(
       Some("bar"),
@@ -2879,7 +2879,10 @@ fn test_bad_sort() -> Result<()> {
   let err = iwc.set_index_sort(Sort::get_relevance()?).err().unwrap();
   match err {
     LuceneError::IllegalArgument(msg) => {
-      assert_eq!("Cannot sort index with sort field <score>", msg.to_string());
+      assert_eq!(
+        "Cannot sort index with sort field <score>",
+        msg.message.as_str()
+      );
     },
     _ => unreachable!("expected IllegalArgument"),
   }
@@ -2912,7 +2915,7 @@ fn test_illegal_change_sort() -> Result<()> {
   let err = IndexWriter::new(dir.clone(), iwc2).err().unwrap();
   match err {
     LuceneError::IllegalArgument(msg) => {
-      let message = msg.to_string();
+      let message = msg.message.as_str();
       assert!(message.contains("cannot change previous indexSort=<long: \"foo\">"));
       assert!(message.contains("to new indexSort=<long: \"bar\">"));
     },
@@ -3132,9 +3135,9 @@ fn test_random2() -> Result<()> {
       id.to_string(),
       term_vectors_type.clone(),
     ));
-    let mut bytes = vec![0u8; 4];
+    let mut bytes = [0u8; 4];
     NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
-    doc.add(BinaryPoint::new("points", vec![bytes])?);
+    doc.add(BinaryPoint::new("points", [bytes])?);
     w1.add_document(&mut random1, doc)?;
   }
 
@@ -3209,9 +3212,9 @@ fn test_random2() -> Result<()> {
       id.to_string(),
       term_vectors_type.clone(),
     ));
-    let mut bytes = vec![0u8; 4];
+    let mut bytes = [0u8; 4];
     NumericUtils::int_to_sortable_bytes(*id, &mut bytes, 0);
-    doc.add(BinaryPoint::new("points", vec![bytes])?);
+    doc.add(BinaryPoint::new("points", [bytes])?);
     w2.add_document(&mut random2, doc)?;
   }
   w2.force_merge(&mut random2, 1)?;
@@ -3710,14 +3713,14 @@ fn test_wrong_sort_field_type() -> Result<()> {
   let mut random = random();
   let dir = new_directory_shared(&mut random)?;
 
-  let dvs: Vec<Fields> = vec![
+  let dvs: [Fields; 4] = [
     SortedDocValuesField::new("field", new_bytes_ref_from_string(&mut random, "")?).into(),
     SortedSetDocValuesField::new("field", new_bytes_ref_from_string(&mut random, "")?).into(),
     NumericDocValuesField::new("field", 42).into(),
     SortedNumericDocValuesField::new("field", 42).into(),
   ];
 
-  let sort_fields: Vec<SortFieldEnum> = vec![
+  let sort_fields: [SortFieldEnum; 4] = [
     SortField::new(Some("field"), SortFieldType::String)?.into(),
     SortedSetSortField::new("field", false)?.into(),
     SortField::new(Some("field"), SortFieldType::Int)?.into(),
@@ -3741,7 +3744,12 @@ fn test_wrong_sort_field_type() -> Result<()> {
       let err = writer.add_document(doc.clone()).unwrap_err();
       match err {
         LuceneError::IllegalArgument(msg) => {
-          assert!(msg.to_string().contains("expected field [field] to be "));
+          assert!(
+            msg
+              .message
+              .as_str()
+              .contains("expected field [field] to be ")
+          );
         },
         _ => unreachable!("expected IllegalArgument"),
       }
@@ -3759,7 +3767,7 @@ fn test_wrong_sort_field_type() -> Result<()> {
               dvs[i].field_type().doc_values_type(),
               dv.field_type().doc_values_type()
             ),
-            msg.to_string()
+            msg.message.as_str()
           );
         },
         _ => unreachable!("expected IllegalArgument"),
@@ -4230,7 +4238,7 @@ fn test_parent_field_not_configured() -> Result<()> {
     LuceneError::IllegalArgument(msg) => {
       assert_eq!(
         "a parent field must be set in order to use document blocks with index sorting; see IndexWriterConfig#setParentField",
-        msg.to_string()
+        msg.message.as_str()
       );
     },
     _ => unreachable!("expected IllegalArgument"),
@@ -4254,7 +4262,7 @@ fn test_block_contains_parent_field() -> Result<()> {
 
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  let mut cases = vec![0, 1];
+  let mut cases = [0, 1];
   cases.shuffle(&mut random);
   for case in cases {
     let err = if case == 0 {
@@ -4275,7 +4283,7 @@ fn test_block_contains_parent_field() -> Result<()> {
       LuceneError::IllegalArgument(msg) => {
         assert_eq!(
           "\"parent\" is a reserved field and should not be added to any document",
-          msg.to_string()
+          msg.message.as_str()
         );
       },
       _ => unreachable!("expected IllegalArgument"),

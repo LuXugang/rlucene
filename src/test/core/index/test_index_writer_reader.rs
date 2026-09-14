@@ -856,7 +856,7 @@ fn test_during_add_indexes() -> Result<()> {
   create_index_no_close(false, "test", writer.as_ref())?;
   writer.commit()?;
 
-  let mut dirs = Vec::new();
+  let mut dirs = Vec::with_capacity(10);
   for _ in 0..10 {
     let copy = TestUtil::ram_copy_of(&mut random, dir1.as_ref())?;
     dirs.push(Arc::new(MockDirectoryWrapper::new(&mut random, copy)));
@@ -1484,7 +1484,7 @@ fn test_index_reader_writer_with_leaf_sorter() -> Result<()> {
     let reader = StandardDirectoryReader::open(
       latest_commit.get_directory(),
       Some(latest_commit),
-      leaf_sorter.clone(),
+      leaf_sorter,
     )?;
     assert_leaves_sorted(&reader, &point_sorter)?;
 
@@ -1516,12 +1516,11 @@ where
 {
   let context = reader.get_context()?;
   let leaves = context.leaves()?;
-  let lrs: Vec<_> = leaves.iter().map(|l| l.reader()).collect();
-  let mut expected = lrs.clone();
+  let mut expected: Vec<_> = leaves.iter().map(|l| l.reader()).collect();
   expected.sort_by(|a, b| sorter.compare(a, b).unwrap().cmp(&0));
-  for (i, lr) in lrs.iter().enumerate() {
+  for (i, leaf) in leaves.iter().enumerate() {
     assert!(
-      std::ptr::eq(*lr, expected[i]),
+      std::ptr::eq(leaf.reader(), expected[i]),
       "leaf readers not sorted at index {}",
       i
     );

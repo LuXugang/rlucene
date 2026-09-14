@@ -228,7 +228,10 @@ where
           .as_ref()
           .is_none_or(|last_field| last_field < field)
       );
-      last_field = Some(field.clone());
+      match &mut last_field {
+        Some(last_field) => field.clone_into(last_field),
+        None => last_field = Some(field.clone()),
+      }
 
       let Some(terms) = fields.terms(field)? else {
         continue;

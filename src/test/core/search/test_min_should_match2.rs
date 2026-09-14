@@ -320,7 +320,8 @@ fn test_next_all_terms() -> Result<()> {
   let mut random = random();
   let searcher = &*CONTEXT;
 
-  let mut terms_list = Vec::new();
+  let mut terms_list =
+    Vec::with_capacity(COMMON_TERMS.len() + MEDIUM_TERMS.len() + RARE_TERMS.len());
   terms_list.extend(COMMON_TERMS.iter().cloned());
   terms_list.extend(MEDIUM_TERMS.iter().cloned());
   terms_list.extend(RARE_TERMS.iter().cloned());
@@ -372,7 +373,8 @@ fn test_advance_all_terms() -> Result<()> {
   let mut random = random();
   let searcher = &*CONTEXT;
 
-  let mut terms_list = Vec::new();
+  let mut terms_list =
+    Vec::with_capacity(COMMON_TERMS.len() + MEDIUM_TERMS.len() + RARE_TERMS.len());
   terms_list.extend(COMMON_TERMS.iter().cloned());
   terms_list.extend(MEDIUM_TERMS.iter().cloned());
   terms_list.extend(RARE_TERMS.iter().cloned());
@@ -426,7 +428,8 @@ fn test_next_varying_number_of_terms() -> Result<()> {
   let mut random = random();
   let searcher = &*CONTEXT;
 
-  let mut terms_list = Vec::new();
+  let mut terms_list =
+    Vec::with_capacity(COMMON_TERMS.len() + MEDIUM_TERMS.len() + RARE_TERMS.len());
   terms_list.extend(COMMON_TERMS.iter().cloned());
   terms_list.extend(MEDIUM_TERMS.iter().cloned());
   terms_list.extend(RARE_TERMS.iter().cloned());
@@ -482,7 +485,8 @@ fn test_next_varying_number_of_terms() -> Result<()> {
 fn test_advance_varying_number_of_terms() -> Result<()> {
   let mut random = random();
   let searcher = &*CONTEXT;
-  let mut terms_list = Vec::new();
+  let mut terms_list =
+    Vec::with_capacity(COMMON_TERMS.len() + MEDIUM_TERMS.len() + RARE_TERMS.len());
   terms_list.extend(COMMON_TERMS.iter().cloned());
   terms_list.extend(MEDIUM_TERMS.iter().cloned());
   terms_list.extend(RARE_TERMS.iter().cloned());

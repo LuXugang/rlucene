@@ -164,9 +164,9 @@ fn test_check_index_all_valid() -> Result<()> {
         ));
 
         // point value
-        let mut point = vec![0_u8; 4];
+        let mut point = [0_u8; 4];
         NumericUtils::int_to_sortable_bytes(random.random(), &mut point, 0);
-        doc.add(BinaryPoint::new("point", vec![point])?);
+        doc.add(BinaryPoint::new("point", [point])?);
 
         // term vector
         let mut token1 = token::with_range(Some("bar"), 0, 3)?;

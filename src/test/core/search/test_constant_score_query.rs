@@ -122,10 +122,13 @@ fn test_wrapped_2_times() -> Result<()> {
 
   let csqbq = BoostQuery::new(ConstantScoreQuery::new(bq.build()), 17.0)?;
 
-  check_hits(&searcher, csq1.clone().into(), csq1.get_boost())?;
-  check_hits(&searcher, csq2.clone().into(), csq2.get_boost())?;
+  let boost = csq1.get_boost();
+  check_hits(&searcher, csq1.into(), boost)?;
+  let boost = csq2.get_boost();
+  check_hits(&searcher, csq2.into(), boost)?;
 
-  check_hits(&searcher, csqbq.clone().into(), csqbq.get_boost())?;
+  let boost = csqbq.get_boost();
+  check_hits(&searcher, csqbq.into(), boost)?;
 
   Ok(())
 }

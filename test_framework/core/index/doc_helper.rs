@@ -432,7 +432,7 @@ impl DocHelper {
     for i in 1..num_fields {
       let field_name = format!("field{}", i + 1);
       doc.add(Field::new(
-        &field_name,
+        field_name,
         sb.clone(),
         TEXT_TYPE_STORED_WITH_TVS.clone(),
       ));

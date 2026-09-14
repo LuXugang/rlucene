@@ -153,17 +153,17 @@ fn test_sanity() -> Result<()> {
   o.write_byte(1)?;
   assert_eq!(o.size(), 1);
   assert_eq!(initial_ram_bytes_used, o.ram_bytes_used()?);
-  assert_eq!(o.get_array_copy(), vec![1]);
+  assert_eq!(o.get_array_copy(), [1]);
 
   o.write_bytes_with_len(&[2, 3, 4], 3)?;
   assert_eq!(o.size(), 4);
 
   match random.random_bool(0.5) {
     true => {
-      assert_eq!(o.get_array_copy(), vec![1, 2, 3, 4]);
+      assert_eq!(o.get_array_copy(), [1, 2, 3, 4]);
     },
     false => {
-      assert_eq!(o.try_get_array_ownership(), vec![1, 2, 3, 4]);
+      assert_eq!(o.try_get_array_ownership(), [1, 2, 3, 4]);
     },
   }
   Ok(())

@@ -586,15 +586,14 @@ where
   let mut reader = path_slice
     .writer
     .get_reader(path_slice.start, path_slice.count, dir)?;
-  let mut value = vec![0u8; size];
   while reader.next()? {
     let point_value = reader.point_value()?;
     let (value_ref, packed_value_offset, _) = point_value.packed_value();
     let start_idx = packed_value_offset + dimension * config.bytes_per_dim;
     let end_idx = start_idx + size;
-    value.copy_from(&value_ref[start_idx..end_idx], 0);
-    if min.cmp(&value) == Greater {
-      min.copy_from(&value, 0);
+    let value = &value_ref[start_idx..end_idx];
+    if min.as_slice().cmp(value) == Greater {
+      min.copy_from(value, 0);
     }
   }
   reader.close()?;
@@ -662,7 +661,6 @@ where
   let mut min = vec![0xffu8; size];
   let offset = split_dim * config.bytes_per_dim;
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
-  let mut value = vec![0u8; size];
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
     let (value_vec, packed_value_offset, _) = point_value_ref.packed_value();
@@ -673,9 +671,9 @@ where
     if min_dim_slice == dim_slice {
       let copy_start = packed_value_offset + config.num_index_dims * config.bytes_per_dim;
       let copy_end = copy_start + size;
-      value.copy_from(&value_vec[copy_start..copy_end], 0);
-      if min.cmp(&value) == Greater {
-        min.copy_from(&value, 0);
+      let value = &value_vec[copy_start..copy_end];
+      if min.as_slice().cmp(value) == Greater {
+        min.copy_from(value, 0);
       }
     }
   }
@@ -696,15 +694,14 @@ where
   let size = config.bytes_per_dim;
   let mut max = vec![0u8; size];
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
-  let mut value = vec![0u8; size];
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
     let (bytes_ref, packed_value_offset, _) = point_value_ref.packed_value();
     let start_idx = packed_value_offset + dimension * config.bytes_per_dim;
     let end_idx = start_idx + size;
-    value.copy_from(&bytes_ref[start_idx..end_idx], 0);
-    if max.cmp(&value) == Less {
-      max.copy_from(&value, 0);
+    let value = &bytes_ref[start_idx..end_idx];
+    if max.as_slice().cmp(value) == Less {
+      max.copy_from(value, 0);
     }
   }
   reader.close()?;
@@ -727,7 +724,6 @@ where
   let mut max = vec![0u8; size];
   let offset = split_dim * config.bytes_per_dim;
   let mut reader = p.writer.get_reader(p.start, p.count, dir)?;
-  let mut value = vec![0u8; size];
   while reader.next()? {
     let point_value_ref = reader.point_value()?;
     let (value_vec, packed_value_offset, _) = point_value_ref.packed_value();
@@ -739,9 +735,9 @@ where
     if max_dim_slice == dim_slice {
       let copy_start = packed_value_offset + config.packed_index_bytes_length();
       let copy_end = copy_start + size;
-      value.copy_from(&value_vec[copy_start..copy_end], 0);
-      if max.cmp(&value) == Less {
-        max.copy_from(&value, 0);
+      let value = &value_vec[copy_start..copy_end];
+      if max.as_slice().cmp(value) == Less {
+        max.copy_from(value, 0);
       }
     }
   }

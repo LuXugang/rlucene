@@ -760,7 +760,7 @@ fn test_copy_of() -> Result<()> {
   let mutable_copy = fixed_bit_set.copy_of()?;
   assert_eq!(fixed_bit_set, mutable_copy);
 
-  let read_only = fixed_bit_set.clone().to_read_only_bits();
+  let read_only = mutable_copy.to_read_only_bits();
   let mutable_copy = read_only.copy_of()?;
   assert_eq!(fixed_bit_set, mutable_copy);
 

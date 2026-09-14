@@ -556,7 +556,7 @@ fn test_compute_scores_only_once() -> Result<()> {
 
   doc.remove_field("text");
   doc.add(StringField::from_string("text", "baz", Store::No)?);
-  writer.add_document(&mut random, doc.clone())?;
+  writer.add_document(&mut random, doc)?;
 
   let reader = writer.get_reader(&mut random)?;
   let searcher = new_searcher_with_reader(reader)?;
@@ -601,7 +601,7 @@ fn test_populate_scores() -> Result<()> {
   doc.add(field.clone());
   let mut sort_field = NumericDocValuesField::new("sort", 0);
   doc.add(sort_field.clone());
-  w.add_document(&mut random, doc.clone())?;
+  w.add_document(&mut random, doc)?;
 
   field.set_string_value("")?;
   sort_field.set_long_value(3)?;
@@ -895,7 +895,7 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
 
   writer.add_documents(vec![doc.clone(); 5])?;
   writer.flush()?;
-  writer.add_documents(vec![doc.clone(); 5])?;
+  writer.add_documents(vec![doc; 5])?;
   writer.flush()?;
 
   let reader = writer.get_reader(false, false)?;
@@ -913,7 +913,7 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
   assert!(10 >= top_docs.total_hits().value());
   assert_eq!(GreaterThanOrEqualTo, top_docs.total_hits().relation());
 
-  let manager = TopFieldCollectorManager::with_after(sort.clone(), 10, None, 2)?;
+  let manager = TopFieldCollectorManager::with_after(sort, 10, None, 2)?;
   let top_docs = searcher
     .search_with_collector_manager(TermQuery::new(Term::from_text("f", "foo")), &manager)?;
   assert_eq!(10, top_docs.total_hits().value());

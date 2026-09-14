@@ -89,7 +89,7 @@ fn test_no_sort() -> Result<()> {
     let max_doc = TestUtil::next_int(&mut random, 1, 1000);
     let doc_base = value_start;
     let doc_map = Rc::new(DocMapMock1 { doc_base });
-    let sub = Sub::new(TestSubUnsorted::new(doc_map.clone(), max_doc, value_start));
+    let sub = Sub::new(TestSubUnsorted::new(doc_map, max_doc, value_start));
     subs.push(sub);
     value_start += max_doc;
   }

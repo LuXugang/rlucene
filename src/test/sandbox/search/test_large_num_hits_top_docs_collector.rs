@@ -114,8 +114,7 @@ fn test_illegal_arguments() -> Result<()> {
   let regular_collector_manager = TopScoreDocCollectorManager::new(15, i32::MAX as usize)?;
 
   searcher.search_with_collector(test_query.clone(), &mut large_collector)?;
-  let top_docs =
-    searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
+  let top_docs = searcher.search_with_collector_manager(test_query, &regular_collector_manager)?;
 
   assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 
@@ -142,8 +141,7 @@ fn test_no_pq_build() -> Result<()> {
     TopScoreDocCollectorManager::new(reader.num_docs()? as usize, i32::MAX as usize)?;
 
   searcher.search_with_collector(test_query.clone(), &mut large_collector)?;
-  let top_docs =
-    searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
+  let top_docs = searcher.search_with_collector_manager(test_query, &regular_collector_manager)?;
 
   assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 
@@ -167,8 +165,7 @@ fn test_pq_build() -> Result<()> {
   let regular_collector_manager = TopScoreDocCollectorManager::new(50, i32::MAX as usize)?;
 
   searcher.search_with_collector(test_query.clone(), &mut large_collector)?;
-  let top_docs =
-    searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
+  let top_docs = searcher.search_with_collector_manager(test_query, &regular_collector_manager)?;
 
   assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 
@@ -194,7 +191,7 @@ fn test_no_pq_hits_order() -> Result<()> {
 
   searcher.search_with_collector(test_query.clone(), &mut large_collector)?;
   let mut top_docs =
-    searcher.search_with_collector_manager(test_query.clone(), &regular_collector_manager)?;
+    searcher.search_with_collector_manager(test_query, &regular_collector_manager)?;
 
   assert_eq!(large_collector.total_hits, top_docs.total_hits.value());
 

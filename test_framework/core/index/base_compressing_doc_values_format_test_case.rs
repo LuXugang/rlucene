@@ -54,7 +54,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     let iwriter = IndexWriter::new(dir.clone(), iwc)?;
 
     let unique_value_count = TestUtil::next_usize(random, 1, 256);
-    let mut values = Vec::new();
+    let mut values = Vec::with_capacity(unique_value_count);
 
     let mut doc = Document::new();
     let mut dvf = NumericDocValuesField::new("dv", 0);
@@ -142,7 +142,7 @@ pub trait BaseCompressingDocValuesFormatTestCase: BaseDocValuesFormatTestCase {
     iwriter.force_merge(1)?;
     let size1 = self.dir_size(dir.as_ref())?;
     dvf.set_long_value(i64::MAX)?;
-    iwriter.add_document(doc.clone())?;
+    iwriter.add_document(doc)?;
     iwriter.force_merge(1)?;
     let size2 = self.dir_size(dir.as_ref())?;
     assert!(size2 < size1 + (20000 * (63 - 10)) / 8);

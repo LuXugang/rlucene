@@ -23,6 +23,7 @@ use std::hash::{BuildHasherDefault, DefaultHasher};
 use rand::{Rng, RngExt};
 
 use crate::core::index::{BytesRef, BytesRefBuilder};
+use crate::core::util::CoreHelper;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::stable_msb_radix_sorter::{StableMSBRadixSorter, StableMSBRadixSorterBase};
 use crate::core::util::{MSBRadixSorter, MSBRadixSorterBase, SliceCopyOps, Sorter};
@@ -91,14 +92,14 @@ fn test_random_impl<R>(common_prefix_len: usize, max_len: usize, random: &mut R)
 where
   R: Rng + ?Sized,
 {
-  let mut common_prefix = vec![0u8; common_prefix_len];
-  random.fill_bytes(&mut common_prefix);
+  stack_or_heap_buffer!(common_prefix, u8, common_prefix_len, 30, 0);
+  random.fill_bytes(common_prefix);
   let len = random.random_range(0..100_000);
   let mut bytes: Vec<BytesRef<Vec<u8>>> = Vec::with_capacity(len + random.random_range(0..50));
   for _ in 0..len {
     let mut b = vec![0u8; common_prefix_len + random.random_range(0..max_len)];
     random.fill_bytes(&mut b);
-    b.copy_from(&common_prefix, 0);
+    b.copy_from(common_prefix, 0);
     bytes.push(BytesRef::from_bytes(b));
   }
   test(&bytes, len, random)
@@ -166,19 +167,20 @@ fn test_random2() -> Result<()> {
   }
 
   let substrings: Vec<BytesRef<Vec<u8>>> = substrings_set.into_iter().collect();
-  let mut chance: Vec<f64> = Vec::with_capacity(substrings.len());
+  let mut chance = [0.0; 10];
+  let chance = &mut chance[..substrings.len()];
   let mut sum = 0.0;
 
   // Generate random chances
-  for _ in &substrings {
+  for probability in chance.iter_mut() {
     let value = random.random::<f64>();
-    chance.push(value);
+    *probability = value;
     sum += value;
   }
 
   // give each substring a random chance of occurring:
   let mut accum = 0.0;
-  for value in &mut chance {
+  for value in chance.iter_mut() {
     accum += *value / sum;
     *value = accum;
   }
@@ -202,7 +204,9 @@ fn test_random2() -> Result<()> {
       }
     }
 
-    let br = builder.get_bytes_ref_copy()?;
+    CoreHelper::check_from_index_size(0, builder.length(), builder.bytes().bytes.len())?;
+    let mut br = builder.get_bytes_owner();
+    br.bytes.truncate(br.length);
     strings_set.insert(br);
     iters += 1;
   }

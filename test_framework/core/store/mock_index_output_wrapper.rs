@@ -41,7 +41,7 @@ struct MockIndexOutputState<O> {
 
 pub(crate) struct MockIndexOutputHandle<O> {
   state: Arc<Mutex<MockIndexOutputState<O>>>,
-  name: String,
+  name: Arc<str>,
 }
 
 impl<O> Clone for MockIndexOutputHandle<O>
@@ -78,7 +78,7 @@ where
   /// Construct an empty output buffer.
   pub(crate) fn new<T>(dir: MockDirectoryWrapper<D>, out: D::IndexOutput, name: T) -> Self
   where
-    T: Into<String>,
+    T: Into<Arc<str>>,
   {
     let name = name.into();
     Self {
@@ -153,7 +153,7 @@ where
     // If crashed since we were opened, then don't write anything
     if self.dir.state.crashed.load(Ordering::SeqCst) {
       return Err(LuceneError::io_with_path(
-        &self.handle.name,
+        self.handle.name.as_ref(),
         Error::other(format!(
           "{} has crashed; cannot write to {}",
           std::any::type_name::<MockDirectoryWrapper<D>>()
@@ -215,7 +215,7 @@ where
         eprintln!("MDW: returning a fake disk-full error");
       }
       return Err(LuceneError::io_with_path(
-        &self.handle.name,
+        self.handle.name.as_ref(),
         Error::other(message),
       ));
     }

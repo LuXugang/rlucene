@@ -1010,10 +1010,11 @@ where
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
     let bits = self.random_query.bitset_for_context(context)?;
+    let cost = bits.approximate_cardinality() as i64;
     let scorer = ConstantScoreScorer::from_disi(
       self.base.score(),
       self.score_mode,
-      BitSetIterator::new(bits.clone(), bits.approximate_cardinality() as i64)?,
+      BitSetIterator::new(bits, cost)?,
     );
     Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
   }
@@ -1276,7 +1277,6 @@ impl QueryBase for TestLRUQuery {
     IRC: IndexReaderContext,
     Self: Sized,
   {
-    let query = Arc::new(self.clone().into());
     let cacheable = !matches!(&self, Self::NoCache { .. });
     let kind = match &self {
       Self::Dummy { .. } | Self::AccountableDummy { .. } => TestLRUWeightKind::NoScorer,
@@ -1286,6 +1286,7 @@ impl QueryBase for TestLRUQuery {
         scorer_created: Some(scorer_created.clone()),
       },
     };
+    let query = Arc::new(self.into());
     Ok(Box::new(TestLRUWeight {
       query,
       base: ConstantScoreWeight::new(boost),

@@ -101,9 +101,11 @@ fn test_far_away_exceptions() -> Result<()> {
 #[test]
 fn test_random_ascii() -> Result<()> {
   let mut random = random();
+  let mut bytes = Vec::new();
   for _ in 0..1000 {
     let len = random.random_range(0..1000);
-    let mut bytes = vec![0u8; len + random.random_range(0..10)];
+    bytes.clear();
+    bytes.resize(len + random.random_range(0..10), 0u8);
     for b in &mut bytes {
       *b = TestUtil::next_int(&mut random, b' ' as i32, b'~' as i32) as u8;
     }
@@ -114,9 +116,11 @@ fn test_random_ascii() -> Result<()> {
 #[test]
 fn test_random_compressible_ascii() -> Result<()> {
   let mut random = random();
+  let mut bytes = Vec::new();
   for _ in 0..1000 {
     let len = TestUtil::next_usize(&mut random, 8, 1000);
-    let mut bytes = vec![0u8; len + random.random_range(0..10)];
+    bytes.clear();
+    bytes.resize(len + random.random_range(0..10), 0u8);
     for b in &mut bytes {
       let mut x = random.random_range(0..32);
       x |= 0x20 | ((x & 0x20) << 1);
@@ -130,11 +134,13 @@ fn test_random_compressible_ascii() -> Result<()> {
 #[test]
 fn test_random_compressible_ascii_with_exceptions() -> Result<()> {
   let mut random = random();
+  let mut bytes = Vec::new();
   for _ in 0..1000 {
     let len = TestUtil::next_usize(&mut random, 8, 1000);
     let mut exceptions = 0;
     let max_exceptions = len >> 5;
-    let mut bytes = vec![0u8; len + random.random_range(0..10)];
+    bytes.clear();
+    bytes.resize(len + random.random_range(0..10), 0u8);
     for b in &mut bytes {
       if exceptions == max_exceptions || random.random_range(0..100) != 0 {
         let mut x = random.random_range(0..32);
@@ -153,9 +159,11 @@ fn test_random_compressible_ascii_with_exceptions() -> Result<()> {
 #[test]
 fn test_random() -> Result<()> {
   let mut random = random();
+  let mut bytes = Vec::new();
   for _ in 0..1000 {
     let len = random.random_range(0..1000);
-    let mut bytes = vec![0u8; len + random.random_range(0..10)];
+    bytes.clear();
+    bytes.resize(len + random.random_range(0..10), 0u8);
     random.fill(&mut bytes[..]);
     do_test_compress_with_len(&mut random, &bytes, len)?;
   }

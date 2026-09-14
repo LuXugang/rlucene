@@ -18,6 +18,7 @@ use crate::core::codecs::doc_values_consumer::DocValuesConsumer;
 use crate::core::codecs::doc_values_format::DocValuesFormat;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::index::binary_doc_values::BinaryDocValues;
+use crate::core::index::bytes_ref::BytesRefValueEnum;
 use crate::core::index::doc_values_skip_index_type::DocValuesSkipIndexType;
 use crate::core::index::doc_values_type::DocValuesType;
 use crate::core::index::field_info::FieldInfo;
@@ -235,7 +236,18 @@ where
           .as_ref()
           .is_none_or(|last_value| value.as_bytes() > last_value.as_bytes())
       );
-      last_value = Some(value.into_owned());
+      last_value = Some(match value.into_value() {
+        BytesRefValueEnum::Slice(value) => {
+          let bytes = value.as_bytes();
+          let mut last = last_value.take().unwrap_or_default();
+          last.bytes.clear();
+          last.bytes.extend_from_slice(bytes);
+          last.offset = 0;
+          last.length = bytes.len();
+          last
+        },
+        value => value.into_owned(),
+      });
     }
 
     let ordinal_capacity = value_count as usize;
@@ -316,7 +328,18 @@ where
           .as_ref()
           .is_none_or(|last_value| value.as_bytes() > last_value.as_bytes())
       );
-      last_value = Some(value.into_owned());
+      last_value = Some(match value.into_value() {
+        BytesRefValueEnum::Slice(value) => {
+          let bytes = value.as_bytes();
+          let mut last = last_value.take().unwrap_or_default();
+          last.bytes.clear();
+          last.bytes.extend_from_slice(bytes);
+          last.offset = 0;
+          last.length = bytes.len();
+          last
+        },
+        value => value.into_owned(),
+      });
     }
 
     let ordinal_capacity = value_count as usize;

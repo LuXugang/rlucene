@@ -55,6 +55,7 @@ use parking_lot::Mutex;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt, SeedableRng};
 use std::any::Any;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::panic::{AssertUnwindSafe, catch_unwind, resume_unwind};
@@ -375,7 +376,7 @@ where
   D: Directory + 'static,
 {
   let message = match &disaster {
-    Disaster::Error(error) => error.to_string(),
+    Disaster::Error(error) => Cow::Owned(error.to_string()),
     Disaster::Panic(payload) => LuceneError::panic_payload_message(payload.as_ref()),
   };
 

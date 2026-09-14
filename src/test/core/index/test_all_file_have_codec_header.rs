@@ -73,10 +73,10 @@ fn test() -> Result<()> {
 
   riw.close(&mut random)?;
 
-  check_headers(dir.clone(), &mut HashMap::<String, String>::new())?;
+  check_headers(&dir, &mut HashMap::<String, String>::new())?;
   Ok(())
 }
-fn check_headers<D>(dir: Arc<D>, names_to_extensions: &mut HashMap<String, String>) -> Result<()>
+fn check_headers<D>(dir: &Arc<D>, names_to_extensions: &mut HashMap<String, String>) -> Result<()>
 where
   D: Directory,
 {

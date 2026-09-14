@@ -174,7 +174,9 @@ fn test_stable_sort() -> Result<()> {
 
     let mut values = Vec::new();
     for _ in 0..20 {
-      values.push(TestUtil::random_realistic_unicode_string(&mut random));
+      values.push(std::rc::Rc::new(TestUtil::random_realistic_unicode_string(
+        &mut random,
+      )));
     }
 
     let mut spare = BytesRefBuilder::new();
@@ -201,7 +203,7 @@ fn test_stable_sort() -> Result<()> {
     while let Some((ord, next)) = iter.next()? {
       let next = next.into_owned();
       assert_eq!(
-        string_list[i],
+        string_list[i].as_str(),
         next.utf8_to_string()?,
         "entry {} doesn't match",
         i

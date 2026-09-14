@@ -573,7 +573,7 @@ fn test_random() -> Result<()> {
     )?);
     doc.add(StoredField::from_string("id", i.to_string())?);
     doc.add(NumericDocValuesField::new("id", i as i64));
-    doc_values.push(Some(BytesRef::from(i.to_string().as_str())));
+    doc_values.push(Some(BytesRef::from(i.to_string())));
     if cfg!(feature = "test_log_verbose") {
       println!("  doc {i} -> {contents}");
     }
@@ -614,7 +614,7 @@ fn test_random() -> Result<()> {
         if character == '*' {
           multi_phrase_query.add_terms(&all_terms)?;
         } else {
-          multi_phrase_query.add_term(Term::from_text("field", character.to_string()))?;
+          multi_phrase_query.add_term(Term::new("field", character.to_string()))?;
         }
       }
       boolean_query.add(multi_phrase_query.build(), Occur::Should)?;

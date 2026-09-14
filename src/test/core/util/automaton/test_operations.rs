@@ -289,16 +289,17 @@ where
   let max_level = random.random_range(4..10);
   last_level_states.push(initial_state);
 
+  let mut next_level_states = Vec::new();
   for _level in 1..max_level {
     let num_states = random.random_range(3..10);
-    let mut next_level_states = vec![];
+    next_level_states.clear();
 
     for _ in 0..num_states {
       let next_state = a.create_state()?;
       next_level_states.push(next_state);
     }
 
-    for last_state in last_level_states {
+    for &last_state in &last_level_states {
       for &next_state in &next_level_states {
         // if hasCycle is enabled, we will always add a transition, so we could make
         // sure the generated Automaton has a cycle.
@@ -308,7 +309,7 @@ where
       }
     }
 
-    last_level_states = next_level_states;
+    std::mem::swap(&mut last_level_states, &mut next_level_states);
   }
 
   if has_cycle {

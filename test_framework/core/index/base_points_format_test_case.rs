@@ -933,13 +933,16 @@ pub trait BasePointsFormatTestCase:
       }
     }
 
-    let mut scratch = vec![0u8; num_bytes_per_dim];
     for dim in 0..num_index_dims {
       let offset = dim * num_bytes_per_dim;
-      scratch.copy_from_slice(&min_values[offset..offset + num_bytes_per_dim]);
-      assert_eq!(expected_min_values[dim].as_slice(), scratch.as_slice());
-      scratch.copy_from_slice(&max_values[offset..offset + num_bytes_per_dim]);
-      assert_eq!(expected_max_values[dim].as_slice(), scratch.as_slice());
+      assert_eq!(
+        expected_min_values[dim].as_slice(),
+        &min_values[offset..offset + num_bytes_per_dim]
+      );
+      assert_eq!(
+        expected_max_values[dim].as_slice(),
+        &max_values[offset..offset + num_bytes_per_dim]
+      );
     }
 
     let iters = at_least(random, 100);

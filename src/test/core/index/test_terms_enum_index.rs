@@ -22,71 +22,49 @@ struct TestTermsEnumIndex;
 
 #[test]
 fn test_prefix8_to_comparable_unsigned_long() {
-  let b = vec![1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  let mut b = BytesRef {
+    bytes: vec![1u8, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    offset: 1,
+    length: 0,
+  };
 
-  assert_eq!(
-    0u64,
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 1,
-      length: 0,
-    })
-  );
+  assert_eq!(0u64, prefix8_to_comparable_unsigned_long(&b));
 
-  assert_eq!(
-    4u64 << 56,
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 1,
-    })
-  );
+  b.offset = 3;
+  b.length = 1;
+  assert_eq!(4u64 << 56, prefix8_to_comparable_unsigned_long(&b));
 
+  b.length = 2;
   assert_eq!(
     (4u64 << 56) | (5u64 << 48),
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 2,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 
+  b.length = 3;
   assert_eq!(
     (4u64 << 56) | (5u64 << 48) | (6u64 << 40),
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 3,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 
+  b.length = 4;
   assert_eq!(
     (4u64 << 56) | (5u64 << 48) | (6u64 << 40) | (7u64 << 32),
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 4,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 
+  b.length = 5;
   assert_eq!(
     (4u64 << 56) | (5u64 << 48) | (6u64 << 40) | (7u64 << 32) | (8u64 << 24),
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 5,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 
+  b.length = 6;
   assert_eq!(
     (4u64 << 56) | (5u64 << 48) | (6u64 << 40) | (7u64 << 32) | (8u64 << 24) | (9u64 << 16),
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 6,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 
+  b.length = 7;
   assert_eq!(
     (4u64 << 56)
       | (5u64 << 48)
@@ -95,13 +73,10 @@ fn test_prefix8_to_comparable_unsigned_long() {
       | (8u64 << 24)
       | (9u64 << 16)
       | (10u64 << 8),
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 7,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 
+  b.length = 8;
   assert_eq!(
     (4u64 << 56)
       | (5u64 << 48)
@@ -111,13 +86,10 @@ fn test_prefix8_to_comparable_unsigned_long() {
       | (9u64 << 16)
       | (10u64 << 8)
       | 11u64,
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b.clone(),
-      offset: 3,
-      length: 8,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 
+  b.length = 9;
   assert_eq!(
     (4u64 << 56)
       | (5u64 << 48)
@@ -127,10 +99,6 @@ fn test_prefix8_to_comparable_unsigned_long() {
       | (9u64 << 16)
       | (10u64 << 8)
       | 11u64,
-    prefix8_to_comparable_unsigned_long(&BytesRef {
-      bytes: b,
-      offset: 3,
-      length: 9,
-    })
+    prefix8_to_comparable_unsigned_long(&b)
   );
 }

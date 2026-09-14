@@ -213,7 +213,7 @@ fn test_basic() -> Result<()> {
     let mut d = Document::new();
     sb.push_str(term);
     sb.push(' ');
-    let content = sb.clone();
+    let content = &sb;
 
     let no_tf = new_field(
       &mut random,
@@ -249,9 +249,9 @@ fn test_basic() -> Result<()> {
   let d = Term::from_text("tf", "tf");
 
   let q1 = TermQuery::new(a.clone());
-  let q2 = TermQuery::new(b.clone());
+  let q2 = TermQuery::new(b);
   let q3 = TermQuery::new(c.clone());
-  let q4 = TermQuery::new(d.clone());
+  let q4 = TermQuery::new(d);
 
   let pq = PhraseQuery::from_bytes_no_slop(a.field(), vec![a.bytes().clone(), c.bytes().clone()])?;
   let error = match searcher.search(pq, 10) {

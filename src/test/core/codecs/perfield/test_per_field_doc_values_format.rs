@@ -206,12 +206,15 @@ fn test_merge_called_on_two_formats() -> Result<()> {
   writer.close()?;
 
   assert_eq!(1, format1.nb_merge_calls());
-  assert_eq!(
-    HashSet::from(["dv1".to_string(), "dv2".to_string()]),
-    format1.field_names().into_iter().collect()
-  );
+  {
+    let names = format1.field_names();
+    assert_eq!(
+      HashSet::from(["dv1", "dv2"]),
+      names.iter().map(String::as_str).collect()
+    );
+  }
   assert_eq!(1, format2.nb_merge_calls());
-  assert_eq!(vec!["dv3".to_string()], format2.field_names());
+  assert_eq!(&["dv3"][..], format2.field_names());
   directory.close()
 }
 
@@ -259,7 +262,7 @@ fn test_doc_values_merge_with_indexed_fields() -> Result<()> {
 
   // "normalField" and "anotherField" are ignored when merging doc values.
   assert_eq!(1, format.nb_merge_calls());
-  assert_eq!(vec!["dv1".to_string()], format.field_names());
+  assert_eq!(&["dv1"][..], format.field_names());
   directory.close()
 }
 

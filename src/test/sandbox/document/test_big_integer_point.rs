@@ -40,7 +40,7 @@ fn test_basics() -> Result<()> {
   // add a doc with a large biginteger value
   let mut document = Document::new();
   let large = BigInt::from(i64::MAX) * BigInt::from(64);
-  document.add(BigIntegerPoint::new("field", [large.clone()])?);
+  document.add(BigIntegerPoint::new("field", std::slice::from_ref(&large))?);
   writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
@@ -48,7 +48,7 @@ fn test_basics() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
-    searcher.count(BigIntegerPoint::new_exact_query("field", large.clone())?)?
+    searcher.count(BigIntegerPoint::new_exact_query("field", &large)?)?
   );
   assert_eq!(
     1,
@@ -60,7 +60,10 @@ fn test_basics() -> Result<()> {
   );
   assert_eq!(
     1,
-    searcher.count(BigIntegerPoint::new_set_query("field", [large.clone()])?)?
+    searcher.count(BigIntegerPoint::new_set_query(
+      "field",
+      std::slice::from_ref(&large)
+    )?)?
   );
   assert_eq!(
     0,
@@ -93,7 +96,10 @@ fn test_negative() -> Result<()> {
   // add a doc with a large biginteger value
   let mut document = Document::new();
   let negative = -(BigInt::from(i64::MAX) * BigInt::from(64));
-  document.add(BigIntegerPoint::new("field", [negative.clone()])?);
+  document.add(BigIntegerPoint::new(
+    "field",
+    std::slice::from_ref(&negative),
+  )?);
   writer.add_document(&mut random, document)?;
 
   // search and verify we found our doc
@@ -101,7 +107,7 @@ fn test_negative() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
   assert_eq!(
     1,
-    searcher.count(BigIntegerPoint::new_exact_query("field", negative.clone())?)?
+    searcher.count(BigIntegerPoint::new_exact_query("field", &negative)?)?
   );
   assert_eq!(
     1,

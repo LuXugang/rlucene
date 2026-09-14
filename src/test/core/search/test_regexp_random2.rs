@@ -115,20 +115,14 @@ pub(crate) trait TestRegexpRandom2 {
     let num = at_least(random, 200);
     for _ in 0..num {
       let regexp = AutomatonTestUtil::random_regexp(random)?;
-      self.assert_same(
-        &searcher1,
-        &searcher2,
-        &searcher3,
-        field_name.as_str(),
-        regexp,
-      )?;
+      self.assert_same(&searcher1, &searcher2, &searcher3, field_name, regexp)?;
     }
 
     Ok(())
   }
 }
 
-type TestContext = (DefaultCRReaderShared, String);
+type TestContext = (DefaultCRReaderShared, &'static str);
 
 static LIGHT_CONTEXT: std::sync::LazyLock<TestContext> = std::sync::LazyLock::new(|| {
   let mut random = random();
@@ -141,14 +135,14 @@ fn set_up<R>(
   DefaultIndexSearchCRShared,
   DefaultIndexSearchCRShared,
   DefaultIndexSearchCRShared,
-  String,
+  &'static str,
 )>
 where
   R: Rng + ?Sized,
 {
   let (reader, field_name) = if is_light_mode() {
     let (reader, field_name) = &*LIGHT_CONTEXT;
-    (reader.clone(), field_name.clone())
+    (reader.clone(), *field_name)
   } else {
     build_context(random)?
   };
@@ -166,11 +160,7 @@ where
   R: Rng + ?Sized,
 {
   let dir = new_directory_shared(random)?;
-  let field_name = if random.random_bool(0.5) {
-    "field".to_string()
-  } else {
-    "".to_string()
-  };
+  let field_name = if random.random_bool(0.5) { "field" } else { "" };
   let a = MockAnalyzer::with_automaton(random, mock_tokenizer::KEYWORD.clone(), false);
   let mut config = new_index_writer_config_with_analyzer(random, a)?;
   config.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
@@ -184,13 +174,13 @@ where
     let value = TestUtil::random_unicode_string(random);
     doc.add(new_string_field(
       random,
-      field_name.as_str(),
+      field_name,
       &value,
       crate::core::document::field::Store::No,
       &mut field_to_type,
     )?);
     doc.add(SortedDocValuesField::new(
-      field_name.as_str(),
+      field_name,
       new_bytes_ref_from_string(random, &value)?,
     ));
     writer.add_document(random, doc)?;

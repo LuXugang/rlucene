@@ -37,7 +37,7 @@ struct TestScalarQuantizedVectorSimilarity;
 #[test]
 fn test_non_zero_scores() -> Result<()> {
   let mut random = random();
-  let quantized = [vec![0; 32], vec![0; 32]];
+  let quantized = [[0; 32], [0; 32]];
   for similarity_function_ord in 0..VectorSimilarityFunction::COUNT {
     let similarity_function =
       VectorSimilarityFunction::from_repr(similarity_function_ord as u8).unwrap();

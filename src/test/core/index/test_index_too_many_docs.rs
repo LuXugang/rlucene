@@ -62,8 +62,8 @@ fn test_index_too_many_docs() -> Result<()> {
       for i in 0..num_threads {
         let seed = random.random();
         if i >= 2 {
-          let latch = latch.clone();
-          let indexing_done = indexing_done.clone();
+          let latch = &latch;
+          let indexing_done = &indexing_done;
           let writer = &writer;
           threads.push(scope.spawn(move || -> Result<()> {
             set_max_docs(num_max_doc)?;
@@ -93,15 +93,15 @@ fn test_index_too_many_docs() -> Result<()> {
               }
               Ok(())
             })();
-            let (lock, cvar) = &*indexing_done;
+            let (lock, cvar) = indexing_done.as_ref();
             let mut count = lock.lock().expect("indexingDone mutex poisoned");
             *count -= 1;
             cvar.notify_all();
             result
           }));
         } else {
-          let latch = latch.clone();
-          let done = done.clone();
+          let latch = &latch;
+          let done = &done;
           let writer = &writer;
           threads.push(scope.spawn(move || -> Result<()> {
             set_max_docs(num_max_doc)?;
@@ -119,7 +119,7 @@ fn test_index_too_many_docs() -> Result<()> {
         }
       }
 
-      let (lock, cvar) = &*indexing_done;
+      let (lock, cvar) = indexing_done.as_ref();
       let mut count = lock.lock().expect("indexingDone mutex poisoned");
       while *count > 0 {
         count = cvar.wait(count).expect("indexingDone mutex poisoned");

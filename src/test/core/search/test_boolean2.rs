@@ -453,10 +453,7 @@ fn test_queries09() -> Result<()> {
 fn test_random_queries() -> Result<()> {
   let mut random = random();
   let mut ctx = CONTEXT.write();
-  let vals: Vec<String> = ["w1", "w2", "w3", "w4", "w5", "xx", "yy", "zzz"]
-    .into_iter()
-    .map(str::to_string)
-    .collect();
+  let vals = ["w1", "w2", "w3", "w4", "w5", "xx", "yy", "zzz"];
   let mut q1: Option<Query> = None;
 
   let result = (|| -> Result<()> {
@@ -518,7 +515,7 @@ fn test_random_queries() -> Result<()> {
       let hits1 = ctx
         .big_searcher
         .search_with_collector_manager(query.clone(), &cm)?;
-      let cm = TopFieldCollectorManager::new(sort.clone(), mul_factor, 1)?;
+      let cm = TopFieldCollectorManager::new(sort, mul_factor, 1)?;
       let hits2 = ctx
         .big_searcher
         .search_with_collector_manager(query.clone(), &cm)?;

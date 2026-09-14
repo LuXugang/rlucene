@@ -85,10 +85,10 @@ fn do_test_search(use_compound_file: bool) -> Result<String> {
 
   let reader = directory_reader::open(directory.clone())?;
   let searcher = new_searcher_with_reader(reader)?;
-  let sort = Sort::with_fields(vec![
+  let sort = std::sync::Arc::new(Sort::with_fields(vec![
     SortField::get_field_score()?,
     SortField::new(Some("id"), SortFieldType::Int)?,
-  ])?;
+  ])?);
 
   let mut output = String::new();
   for query in build_queries()? {

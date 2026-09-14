@@ -34,10 +34,12 @@ fn test_random() -> Result<()> {
   let num_iters = at_least(&mut random, 100);
   let dir = new_directory(&mut random)?;
 
+  let mut values = Vec::new();
   for _ in 0..num_iters {
     let len = random.random_range(1..=5000);
     let bpv = TestUtil::next_int(&mut random, 1, 31);
-    let mut values = vec![0; len];
+    values.clear();
+    values.resize(len, 0);
     for v in values.iter_mut().take(len) {
       *v = TestUtil::next_int(
         &mut random,
@@ -88,12 +90,17 @@ where
     let mut read = vec![0i64; ints.len() + offset];
     StoredFieldsInts::read_ints(&mut input, ints.len(), &mut read, offset)?;
 
-    let read_ints: Vec<i32> = read[offset..offset + ints.len()]
-      .iter()
-      .map(|&v| v as i32)
-      .collect();
-
-    assert_eq!(ints, read_ints.as_slice());
+    assert!(
+      ints
+        .iter()
+        .copied()
+        .eq(read[offset..offset + ints.len()].iter().map(|&v| v as i32)),
+      "expected: {ints:?}, actual: {:?}",
+      read[offset..offset + ints.len()]
+        .iter()
+        .map(|&v| v as i32)
+        .collect::<Vec<_>>()
+    );
     assert_eq!(len, input.get_file_pointer()?);
   }
 

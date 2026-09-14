@@ -86,7 +86,7 @@ fn test_binary_field() -> Result<()> {
   }
   match doc.get("string")? {
     Some(sf) => {
-      assert_eq!(sf, binary_val.to_string().into());
+      assert_eq!(sf.as_str(), binary_val);
     },
     None => {
       unreachable!()

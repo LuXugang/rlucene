@@ -264,9 +264,11 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
       let actual_len = actual.len();
       DataInput::read_bytes(&mut ii, &mut actual, 0, actual_len)?;
       assert_eq!(bytes, actual);
+      let mut slice = Vec::new();
       for slice_start in 0..bytes.len() {
         for slice_length in 0..(bytes.len() - slice_start) {
-          let mut slice = vec![0_u8; slice_length];
+          slice.clear();
+          slice.resize(slice_length, 0_u8);
           ii.seek(slice_start)?;
           DataInput::read_bytes(&mut ii, &mut slice, 0, slice_length)?;
           assert_eq!(&bytes[slice_start..slice_start + slice_length], &slice[..]);
@@ -525,9 +527,9 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let mut input = dir.open_input("littleEndianLongs", &new_io_context(random)?)?;
     assert_eq!(25, IndexInput::length(&input)?);
     assert_eq!(2_u8, DataInput::read_byte(&mut input)?);
-    let mut l = vec![0_i64; 4];
+    let mut l = [0_i64; 4];
     input.read_longs(&mut l, 1, 3)?;
-    assert_eq!(vec![0, 3, i64::MAX, -3], l);
+    assert_eq!([0, 3, i64::MAX, -3], l);
     assert_eq!(25, input.get_file_pointer()?);
     CloseableRef::close(&input)?;
     dir.close()?;
@@ -552,7 +554,7 @@ pub trait BaseChunkedDirectoryTestCase: BaseDirectoryTestCase {
     let mut input = dir.open_input("Floats", &new_io_context(random)?)?;
     assert_eq!(13, IndexInput::length(&input)?);
     assert_eq!(2_u8, DataInput::read_byte(&mut input)?);
-    let mut ff = vec![0.0_f32; 4];
+    let mut ff = [0.0_f32; 4];
     input.read_floats(&mut ff, 1, 3)?;
     assert!(array_equals_f32(&[0.0, 3.0, f32::MAX, -3.0], &ff, 0.0));
     assert_eq!(13, input.get_file_pointer()?);

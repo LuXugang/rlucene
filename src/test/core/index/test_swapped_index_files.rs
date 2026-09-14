@@ -60,7 +60,7 @@ fn test() -> Result<()> {
   index_one_doc(seed, dir1.clone(), doc.clone(), use_cfs)?;
   index_one_doc(seed, dir2.clone(), doc, use_cfs)?;
 
-  swap_files(&mut random, dir1.clone(), dir2.clone())?;
+  swap_files(&mut random, &dir1, &dir2)?;
   dir1.as_ref().close()?;
   dir2.as_ref().close()
 }
@@ -90,7 +90,7 @@ fn index_one_doc(seed: u64, dir: Arc<DirEnum>, doc: Document, use_cfs: bool) -> 
   w.close(&mut random)
 }
 
-fn swap_files<R>(random: &mut R, dir1: Arc<DirEnum>, dir2: Arc<DirEnum>) -> Result<()>
+fn swap_files<R>(random: &mut R, dir1: &Arc<DirEnum>, dir2: &Arc<DirEnum>) -> Result<()>
 where
   R: Rng + ?Sized,
 {
@@ -98,15 +98,15 @@ where
     if name == WRITE_LOCK_NAME {
       continue;
     }
-    swap_one_file(random, dir1.clone(), dir2.clone(), &name)?;
+    swap_one_file(random, dir1, dir2, &name)?;
   }
   Ok(())
 }
 
 fn swap_one_file<R>(
   random: &mut R,
-  dir1: Arc<DirEnum>,
-  dir2: Arc<DirEnum>,
+  dir1: &Arc<DirEnum>,
+  dir2: &Arc<DirEnum>,
   victim: &str,
 ) -> Result<()>
 where

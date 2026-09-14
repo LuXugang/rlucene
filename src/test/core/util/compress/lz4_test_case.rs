@@ -19,7 +19,6 @@ use rand::RngExt;
 
 use crate::core::store::{ByteArrayDataInput, ByteBuffersDataOutput, DataOutput};
 use crate::core::util::SliceCopyOps;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::compress::lz4::LZ4;
 use crate::core::util::compress::lz4::{HashTable, HashTableEnum};
 use crate::core::util::error::lucene_error::Result;
@@ -129,18 +128,25 @@ pub(crate) trait LZ4TestCase {
     LZ4::decompress(&mut input, length_i32, &mut restored, 0)?;
 
     assert!(off <= i32::MAX as usize);
-    let left = ArrayUtil::copy_of_sub_array(data, offset, offset + length);
-    let right = ArrayUtil::copy_of_sub_array(&restored, 0, length);
+    debug_assert!(offset + length >= offset && offset + length <= data.len());
+    let left = &data[offset..offset + length];
+    debug_assert!(length <= restored.len());
+    let right = &restored[..length];
     assert_eq!(left, right);
 
     // Now restore with an offset
     let restore_offset = TestUtil::next_usize(random, 1, 10);
-    restored = vec![0; restore_offset + length + random.random_range(0..10)];
+    restored.clear();
+    restored.resize(restore_offset + length + random.random_range(0..10), 0);
     let mut input = ByteArrayDataInput::with_bytes(compressed.as_slice());
     LZ4::decompress(&mut input, length_i32, &mut restored, restore_offset as i32)?;
 
-    let left = ArrayUtil::copy_of_sub_array(data, offset, offset + length);
-    let right = ArrayUtil::copy_of_sub_array(&restored, restore_offset, restore_offset + length);
+    debug_assert!(offset + length >= offset && offset + length <= data.len());
+    let left = &data[offset..offset + length];
+    debug_assert!(
+      restore_offset + length >= restore_offset && restore_offset + length <= restored.len()
+    );
+    let right = &restored[restore_offset..restore_offset + length];
     assert_eq!(left, right);
 
     Ok(())
@@ -156,7 +162,8 @@ pub(crate) trait LZ4TestCase {
   {
     let mut copy = ByteBuffersDataOutput::new();
     let dict_off = TestUtil::next_usize(random, 0, 10);
-    copy.write_bytes(&vec![0u8; dict_off])?;
+    let padding = [0u8; 10];
+    copy.write_bytes(&padding[..dict_off])?;
 
     // Create a dictionary from substrings of the input to compress
     let max_distance = LZ4::MAX_DISTANCE as usize;
@@ -175,7 +182,7 @@ pub(crate) trait LZ4TestCase {
     let data_length = data.len();
     assert!(data_length <= i32::MAX as usize);
     copy.write_bytes(data)?;
-    copy.write_bytes(&vec![0u8; random.random_range(0..10)])?;
+    copy.write_bytes(&padding[..random.random_range(0..10)])?;
 
     let copy_bytes = copy.try_get_array_ownership();
     Self::do_test_with_dictionary_inner(
@@ -238,13 +245,16 @@ pub(crate) trait LZ4TestCase {
       (dict_len + restore_offset) as i32,
     )?;
 
-    let left =
-      ArrayUtil::copy_of_sub_array(data, dict_off + dict_len, dict_off + dict_len + length);
-    let right = ArrayUtil::copy_of_sub_array(
-      &restored,
-      dict_len + restore_offset,
-      dict_len + restore_offset + length,
+    debug_assert!(
+      dict_off + dict_len + length >= dict_off + dict_len
+        && dict_off + dict_len + length <= data.len()
     );
+    let left = &data[dict_off + dict_len..dict_off + dict_len + length];
+    debug_assert!(
+      dict_len + restore_offset + length >= dict_len + restore_offset
+        && dict_len + restore_offset + length <= restored.len()
+    );
+    let right = &restored[dict_len + restore_offset..dict_len + restore_offset + length];
     assert_eq!(left, right);
 
     Ok(())
@@ -302,7 +312,7 @@ pub(crate) trait LZ4TestCase {
   where
     R: Rng + ?Sized,
   {
-    let data = vec![1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5];
+    let data = [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 5];
     Self::do_test(random, data.as_slice(), &mut self.new_hash_table())?;
     Ok(())
   }

@@ -149,12 +149,8 @@ fn test_long_sort_optimization() -> Result<()> {
   {
     let after_value: i64 = 2;
     let after = FieldDoc::with_fields(2, f32::NAN, vec![after_value.into()]);
-    let collector_manager = TopFieldCollectorManager::with_after(
-      sort.clone(),
-      num_hits,
-      Some(after),
-      total_hits_threshold,
-    )?;
+    let collector_manager =
+      TopFieldCollectorManager::with_after(sort, num_hits, Some(after), total_hits_threshold)?;
 
     let top_docs =
       searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &collector_manager)?;
@@ -1233,6 +1229,7 @@ fn test_random_long() -> Result<()> {
 
   let limit = if is_night_mode() { 10000 } else { 1000 };
   let iterations = limit + random.random_range(0..limit);
+  seq_nos.reserve(iterations * 2);
   let mut seq_no_generator = random.random_range(0..1000) as i64;
 
   for _ in 0..iterations {
@@ -1406,7 +1403,8 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
       after.clone(),
       total_hits_threshold,
     )?;
-    let top_docs = searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?;
+    let mut top_docs =
+      searcher.search_with_collector_manager(MatchAllDocsQuery::new(), &manager)?;
     let score_docs = top_docs.score_docs();
 
     let manager2 = TopFieldCollectorManager::with_after(
@@ -1439,7 +1437,7 @@ fn test_sort_optimization_on_sorted_numeric_field() -> Result<()> {
     collected_hits += top_docs.total_hits().value;
     collected_hits2 += top_docs2.total_hits().value;
 
-    let last_doc = score_docs[expected_hits - 1].clone();
+    let last_doc = top_docs.base.score_docs.remove(expected_hits - 1);
     match last_doc {
       TopFieldScoreDoc::Field(fd) => after = Some(fd),
       _ => return Err(LuceneError::illegal_state("Expected FieldDoc type")),
@@ -1471,7 +1469,7 @@ fn test_string_sort_optimization() -> Result<()> {
 
   for i in 0..num_docs {
     let mut doc = Document::new();
-    let value = BytesRef::from_string(&random.random_range(0..1000).to_string());
+    let value = BytesRef::from(random.random_range(0..1000).to_string());
     doc.add(KeywordField::from_bytes_ref("my_field", value, Store::No)?);
     writer.add_document(doc)?;
     if i % 2000 == 0 {
@@ -1504,7 +1502,7 @@ fn test_string_sort_optimization_with_missing_values() -> Result<()> {
     }
     let mut doc = Document::new();
     if random.random_range(0..2) == 0 {
-      let value = BytesRef::from_string(&random.random_range(0..1000).to_string());
+      let value = BytesRef::from(random.random_range(0..1000).to_string());
       doc.add(KeywordField::from_bytes_ref("my_field", value, Store::No)?);
     }
     writer.add_document(doc)?;

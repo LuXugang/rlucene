@@ -346,7 +346,7 @@ fn test_sub_scorer_next_is_not_match() -> Result<()> {
   let needs_scores = rand::random::<bool>();
   let mut bs = BooleanScorer::new(optional_scorers, 1, needs_scores)?;
 
-  let matches = Vec::new();
+  let matches = Vec::with_capacity(7);
   let mut collector = LeafCollectorImpl::new(matches);
 
   bs.score(&mut collector, None::<&dyn Bits>, 0, NO_MORE_DOCS)?;

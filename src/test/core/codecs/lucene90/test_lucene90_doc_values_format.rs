@@ -67,6 +67,7 @@ use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::fmt::Write;
 
 #[allow(dead_code)] // for quick search
 pub struct TestLucene90DocValuesFormat;
@@ -1486,6 +1487,8 @@ pub(super) trait TestLucene90DocValuesFormatTests:
       let r = leaf.reader();
       let mut doc_values = DocValues::get_sorted_numeric(r, "dv")?;
       let mut stored_fields = r.stored_fields()?;
+      let mut read_value_array = Vec::new();
+      let mut actual_doc_value = Vec::new();
       for i in 0..r.max_doc()? {
         if i > doc_values.doc_id() {
           doc_values.next_doc()?;
@@ -1496,12 +1499,13 @@ pub(super) trait TestLucene90DocValuesFormatTests:
           assert_eq!(0, expected_stored.len());
         } else {
           let count = doc_values.doc_value_count()? as usize;
-          let mut read_value_array = vec![0_i64; count];
-          let mut actual_doc_value = vec![String::new(); count];
+          read_value_array.resize(count, 0_i64);
+          actual_doc_value.resize_with(count, String::new);
           for j in 0..count {
             let actual_dv = doc_values.next_value()?;
             read_value_array[j] = actual_dv;
-            actual_doc_value[j] = actual_dv.to_string();
+            actual_doc_value[j].clear();
+            write!(actual_doc_value[j], "{actual_dv}")?;
           }
           let write_value_array = &write_doc_values[i as usize];
           assert_eq!(read_value_array, *write_value_array);
@@ -1936,13 +1940,13 @@ pub(super) trait TestLucene90DocValuesFormatTests:
     );
     assert_eq!(0, terms_enum.ord()?);
     assert_eq!(
-      &BytesRef::from_string(&string_supplier(0)),
+      &BytesRef::from(string_supplier(0)),
       terms_enum.term()?.as_ref()
     );
 
     for i in 1..num_terms {
       assert_eq!(
-        &BytesRef::from_string(&string_supplier(i)),
+        &BytesRef::from(string_supplier(i)),
         terms_enum
           .next()?
           .expect("next term should exist while iterating blocks")

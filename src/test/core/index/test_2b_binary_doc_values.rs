@@ -162,7 +162,8 @@ fn test_variable_binary() -> Result<()> {
     "dv",
     BytesRef::from_bytes(vec![0u8; 4]),
   ));
-  let mut encoder = ByteArrayDataOutput::with_bytes(vec![0u8; 4]);
+  let mut encoder_bytes = [0u8; 4];
+  let mut encoder = ByteArrayDataOutput::with_bytes(encoder_bytes.as_mut_slice());
 
   for i in 0..MAX_DOCS {
     encoder.reset()?;
@@ -171,7 +172,7 @@ fn test_variable_binary() -> Result<()> {
     let Some(Fields::BinaryDocValues(field)) = doc.get_field_mut("dv") else {
       unreachable!("dv must be a BinaryDocValuesField");
     };
-    field.set_bytes_value(BytesRef::from_slice(encoder.bytes.clone(), 0, length))?;
+    field.set_bytes_value(BytesRef::from_slice(encoder.bytes.to_vec(), 0, length))?;
     writer.add_document(doc.clone())?;
     if i % 100_000 == 0 {
       println!("indexed: {i}");

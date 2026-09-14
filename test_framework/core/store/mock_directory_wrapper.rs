@@ -867,10 +867,10 @@ where
   pub fn maybe_throw_io_exception(&self, message: Option<&str>) -> Result<()> {
     if self.state.random_state.lock().random::<f64>() < *self.state.random_io_exception_rate.lock()
     {
-      let message = format!(
-        "a random I/O error{}",
-        message.map(|m| format!(" ({m})")).unwrap_or_default()
-      );
+      let message = match message {
+        Some(message) => format!("a random I/O error ({message})"),
+        None => "a random I/O error".to_string(),
+      };
       if cfg!(feature = "test_log_verbose") {
         eprintln!("MockDirectoryWrapper: returning a random error");
       }
@@ -951,8 +951,12 @@ where
 
   fn add_file_handle(&self, handle_id: usize, name: &str, handle: Handle) {
     let mut open_files = self.state.open_files.lock();
-    let value = open_files.entry(name.to_string()).or_insert(0);
-    *value += 1;
+    if let Some(value) = open_files.get_mut(name) {
+      *value += 1;
+    } else {
+      let value = open_files.entry(name.to_string()).or_insert(0);
+      *value += 1;
+    }
     drop(open_files);
 
     self.state.open_file_handles.lock().insert(
@@ -1403,7 +1407,7 @@ where
 
     self.state.unsynced_files.lock().insert(name.clone());
     self.state.created_files.lock().insert(name.clone());
-    let io = MockIndexOutputWrapper::new(self.clone(), delegate_output, &name);
+    let io = MockIndexOutputWrapper::new(self.clone(), delegate_output, name.as_str());
     let handle_id = io.handle_id;
     self
       .state

@@ -178,11 +178,19 @@ impl CollectorManager for CompositeCollectorManager {
     for collector in collectors {
       match collector {
         OneOrMultiCollector::One(mut collector) => {
-          all.append(&mut collector.collected);
+          if all.is_empty() {
+            all = collector.collected;
+          } else {
+            all.append(&mut collector.collected);
+          }
         },
         OneOrMultiCollector::Multi(collector) => {
           for mut collector in collector.into_collectors() {
-            all.append(&mut collector.collected);
+            if all.is_empty() {
+              all = collector.collected;
+            } else {
+              all.append(&mut collector.collected);
+            }
           }
         },
       }

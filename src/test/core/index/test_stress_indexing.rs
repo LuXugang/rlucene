@@ -84,7 +84,7 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
 
     for thread_id in 0..2 {
       let modifier = &modifier;
-      let all_threads = threads.clone();
+      let all_threads = &threads;
       handles.push(scope.spawn(move || {
         let mut next_id = 0;
         let mut random = new_random();
@@ -140,8 +140,8 @@ fn run_stress_test(directory: Arc<DirEnum>, merge_scheduler: MergeSchedulerEnum)
     }
 
     for thread_id in 2..4 {
-      let directory = directory.clone();
-      let all_threads = threads.clone();
+      let directory = &directory;
+      let all_threads = &threads;
       handles.push(scope.spawn(move || {
         let thread_state = &all_threads[thread_id];
         let mut iterations = 0;

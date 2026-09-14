@@ -23,7 +23,6 @@ use rand::{Rng, RngExt};
 use crate::core::store::directory::Directory;
 use crate::core::store::output_stream_data_output::OutputStreamDataOutput;
 use crate::core::store::{ByteArrayDataInput, DataOutput};
-use crate::core::util::SliceCopyOps;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::fst_impl::growable_byte_array_data_output::GrowableByteArrayDataOutput;
 use crate::test_framework::core::util::test_util::TestUtil;
@@ -64,13 +63,12 @@ fn test_random() -> Result<()> {
           // write byte array
           let max_len = std::cmp::min(num_bytes - pos, 100);
           let len = TestUtil::next_usize(&mut random, 0, max_len - 1);
-          let mut temp = vec![0u8; len];
-          random.fill_bytes(&mut temp);
+          let temp = &mut expected[pos..pos + len];
+          random.fill_bytes(temp);
           if cfg!(feature = "test_log_verbose") {
             println!("    write_bytes len={}, bytes={:?}", len, temp);
           }
-          expected.copy_from(&temp[0..temp.len()], pos);
-          bytes.write_bytes_range(&temp, 0, len)?;
+          bytes.write_bytes_range(temp, 0, len)?;
           pos += len;
         },
         _ => unreachable!(),

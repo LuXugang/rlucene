@@ -65,10 +65,10 @@ fn set_up() -> StandardTokenizerAnalyzer {
 #[test]
 fn test_large_partially_matching_token() -> Result<()> {
   // http://www.unicode.org/Public/6.3.0/ucd/auxiliary/WordBreakProperty.txt
-  let word_break_extend_num_let_chars: Vec<char> =
-    "_\u{203f}\u{2040}\u{2054}\u{fe33}\u{fe34}\u{fe4d}\u{fe4e}\u{fe4f}\u{ff3f}"
-      .chars()
-      .collect();
+  let word_break_extend_num_let_chars = [
+    '_', '\u{203f}', '\u{2040}', '\u{2054}', '\u{fe33}', '\u{fe34}', '\u{fe4d}', '\u{fe4e}',
+    '\u{fe4f}', '\u{ff3f}',
+  ];
 
   // http://www.unicode.org/Public/6.3.0/ucd/auxiliary/WordBreakProperty.txt
   let word_break_format_chars = [

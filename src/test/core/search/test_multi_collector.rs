@@ -600,7 +600,7 @@ impl LeafCollector for TerminatingDummyCollector {
 fn test_null_collectors() -> Result<()> {
   // Tests that the collector rejects all None collectors.
   assert!(matches!(
-    wrap::<DummyCollector, _>(vec![None, None]),
+    wrap::<DummyCollector, _>([None, None]),
     Err(LuceneError::IllegalArgument(_))
   ));
 
@@ -753,6 +753,7 @@ fn test_cache_scores_if_necessary() -> Result<()> {
 fn test_collection_terminated_exception_handling() -> Result<()> {
   let mut random = random();
   let iters = at_least(&mut random, 3);
+  let mut expected_counts = Vec::new();
   for _ in 0..iters {
     let dir = new_directory_shared(&mut random)?;
     let writer = RandomIndexWriter::new(&mut random, dir.clone())?;
@@ -763,7 +764,7 @@ fn test_collection_terminated_exception_handling() -> Result<()> {
     let reader = writer.get_reader(&mut random)?;
     writer.close(&mut random)?;
     let searcher = new_searcher_with_reader(reader)?;
-    let mut expected_counts = Vec::new();
+    expected_counts.clear();
     let mut collectors = Vec::new();
     let num_collectors = TestUtil::next_int(&mut random, 1, 5);
     for _ in 0..num_collectors {
@@ -786,7 +787,11 @@ fn test_collection_terminated_exception_handling() -> Result<()> {
         assert_eq!(expected_counts[0], collector.in_.get_total_hits());
       },
       OneOrMultiCollector::Multi(collector) => {
-        for (collector, expected_count) in collector.get_collectors().iter().zip(expected_counts) {
+        for (collector, expected_count) in collector
+          .get_collectors()
+          .iter()
+          .zip(expected_counts.drain(..))
+        {
           assert_eq!(expected_count, collector.in_.get_total_hits());
         }
       },

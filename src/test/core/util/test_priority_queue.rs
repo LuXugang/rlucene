@@ -99,7 +99,7 @@ fn test_no_extra_work_on_equal_elements() -> Result<()> {
     for e in iter {
       indexes.push(e.index)
     }
-    assert_eq!(indexes, vec![0, 1, 2, 3, 4]);
+    assert_eq!(indexes, [0, 1, 2, 3, 4]);
   }
   // ownership
   {
@@ -108,7 +108,7 @@ fn test_no_extra_work_on_equal_elements() -> Result<()> {
     for e in into_iter {
       indexes.push(e.index)
     }
-    assert_eq!(indexes, vec![0, 1, 2, 3, 4]);
+    assert_eq!(indexes, [0, 1, 2, 3, 4]);
   }
 
   Ok(())

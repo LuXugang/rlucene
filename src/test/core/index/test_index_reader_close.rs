@@ -128,7 +128,7 @@ fn test_core_listener_on_wrapper_with_different_cache_key() -> Result<()> {
   let leaf_reader = AssertingLeafReader::new(get_only_leaf_reader(&reader)?)?;
 
   let num_listeners = TestUtil::next_int(&mut random, 1, 10);
-  let mut listeners = Vec::new();
+  let mut listeners = Vec::with_capacity(num_listeners as usize);
   let counter = Arc::new(AtomicI32::new(num_listeners));
 
   for _ in 0..num_listeners {
@@ -196,8 +196,8 @@ fn test_register_listener_on_closed_reader() -> Result<()> {
   let r = Arc::new(directory_reader::open_from_writer(&w)?);
   w.close()?;
 
-  let context = r.clone().get_context()?;
-  let leaf = context.leaves()?[0].reader().clone();
+  let context = (&r).get_context()?;
+  let leaf = context.leaves()?[0].reader();
 
   // The reader is open, everything should work
   r.get_reader_cache_helper()?

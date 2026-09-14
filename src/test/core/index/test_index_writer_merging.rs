@@ -455,8 +455,8 @@ fn test_no_wait_close() -> Result<()> {
       let failure = Arc::new(Mutex::new(None));
       thread::scope(|scope| {
         let writer_ref = &writer;
-        let custom_type = custom_type.clone();
-        let failure_ref = failure.clone();
+        let custom_type = &custom_type;
+        let failure_ref = &failure;
         let handle = scope.spawn(move || {
           let mut done = false;
           while !done {

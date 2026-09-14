@@ -267,12 +267,9 @@ pub trait BaseCompoundFormatTestCase:
     // riw should sometimes create docvalues fields, etc
     let riw = RandomIndexWriter::new(random, dir.clone())?;
 
-    let mut doc = Document::new();
     // these fields should sometimes get term vectors, etc
     let mut id_field = StringField::from_string("id", "", Store::No)?;
     let mut body_field = TextField::from_string("body", "", Store::No)?;
-    doc.add(id_field.clone());
-    doc.add(body_field.clone());
 
     for i in 0..100 {
       id_field.set_string_value(i.to_string())?;
@@ -406,7 +403,7 @@ pub trait BaseCompoundFormatTestCase:
       .get_codec()?
       .compound_format()
       .get_compound_reader(dir.as_ref(), &si)?;
-    let sync_files = vec![testfile.to_string()];
+    let sync_files = [testfile.to_string()];
     let result = cfs.sync(&sync_files);
     assert!(matches!(result, Err(LuceneError::UnsupportedOperation(_))));
     Ok(())
@@ -564,8 +561,9 @@ pub trait BaseCompoundFormatTestCase:
     let mut si = new_segment_info(random, dir.clone(), "_123")?;
     for file_idx in 0..file_count {
       let file = format!("_123.{}", file_idx);
-      files.push(file.clone());
-      let mut out = dir.create_output(&file, &new_io_context(random)?)?;
+      files.push(file);
+      let file = &files[files.len() - 1];
+      let mut out = dir.create_output(file, &new_io_context(random)?)?;
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         CodecUtil::write_index_header(&mut out, "Foo", 0, si.get_id(), "suffix")?;
         out.write_byte(file_idx as u8)?;
@@ -963,7 +961,17 @@ pub trait BaseCompoundFormatTestCase:
       .get_compound_reader(read_tracking_dir.as_ref(), &si)?;
     compound_dir.check_integrity()?;
     let read_bytes = read_tracking_dir.get_read_bytes();
-    assert_eq!(created_files, read_bytes.keys().cloned().collect());
+    assert_eq!(
+      created_files.len(),
+      read_bytes.len(),
+      "created={created_files:?}, read={read_bytes:?}"
+    );
+    assert!(
+      created_files
+        .iter()
+        .all(|file| read_bytes.contains_key(file)),
+      "created={created_files:?}, read={read_bytes:?}"
+    );
     for (file, read) in read_bytes {
       let mut unread_bytes = read;
       unread_bytes.flip_range(0, unread_bytes.length());

@@ -443,14 +443,14 @@ fn test_set_min_competitive_score() -> Result<()> {
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  writer.add_documents(vec![
+  writer.add_documents([
     Document::new(),
     Document::new(),
     Document::new(),
     Document::new(),
   ])?;
   writer.flush()?;
-  writer.add_documents(vec![Document::new(), Document::new()])?;
+  writer.add_documents([Document::new(), Document::new()])?;
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
@@ -515,14 +515,14 @@ fn test_shared_count_collector_manager() -> Result<()> {
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  writer.add_documents(vec![
+  writer.add_documents([
     Document::new(),
     Document::new(),
     Document::new(),
     Document::new(),
   ])?;
   writer.flush()?;
-  writer.add_documents(vec![Document::new(), Document::new()])?;
+  writer.add_documents([Document::new(), Document::new()])?;
   writer.flush()?;
 
   let reader = directory_reader::open_from_writer(&writer)?;
@@ -548,14 +548,14 @@ fn test_total_hits() -> Result<()> {
   iwc.set_merge_policy(NoMergePolicy::default());
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-  writer.add_documents(vec![
+  writer.add_documents([
     Document::new(),
     Document::new(),
     Document::new(),
     Document::new(),
   ])?;
   writer.flush()?;
-  writer.add_documents(vec![
+  writer.add_documents([
     Document::new(),
     Document::new(),
     Document::new(),
@@ -626,7 +626,7 @@ fn test_relation_vs_top_docs_count() -> Result<()> {
 
   writer.add_documents(vec![doc.clone(); 5])?;
   writer.flush()?;
-  writer.add_documents(vec![doc.clone(); 5])?;
+  writer.add_documents(vec![doc; 5])?;
   writer.flush()?;
 
   let reader = writer.get_reader(false, false)?;

@@ -78,7 +78,7 @@ fn test_random_minimized() -> Result<()> {
     let size = random.random_range(2..50);
 
     let mut terms = HashSet::with_capacity(size);
-    let mut automaton_list = vec![];
+    let mut automaton_list = Vec::with_capacity(size);
 
     for _ in 0..size {
       if build_binary {
@@ -120,11 +120,11 @@ fn test_random_binary() -> Result<()> {
 #[test]
 fn test_large_terms() -> Result<()> {
   let mut random = random();
-  let b10k = vec![b'a'; 10_000];
+  let b10k = BytesRef::from_bytes(vec![b'a'; 10_000]);
 
   let result = build(
     &mut random,
-    Cow::Owned(vec![BytesRef::from_bytes(b10k.clone())]),
+    Cow::Borrowed(std::slice::from_ref(&b10k)),
     false,
   );
   assert!(
@@ -136,7 +136,7 @@ fn test_large_terms() -> Result<()> {
     ))
   );
 
-  let b1k = ArrayUtil::copy_of_sub_array(&b10k, 0, 1000);
+  let b1k = ArrayUtil::copy_of_sub_array(&b10k.bytes, 0, 1000);
   build(
     &mut random,
     Cow::Owned(vec![BytesRef::from_bytes(b1k)]),

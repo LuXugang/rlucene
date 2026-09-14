@@ -77,7 +77,7 @@ impl BaseLatLonPointTestCaseDefaults {
     LatLonPoint::new_geometry_query(
       field,
       query_relation,
-      vec![Rectangle::new(min_lat, max_lat, min_lon, max_lon)?],
+      [Rectangle::new(min_lat, max_lat, min_lon, max_lon)?],
     )
   }
 
@@ -102,7 +102,7 @@ impl BaseLatLonPointTestCaseDefaults {
     query_relation: QueryRelation,
     circle: Circle,
   ) -> Result<Query> {
-    LatLonPoint::new_geometry_query(field, query_relation, vec![circle])
+    LatLonPoint::new_geometry_query(field, query_relation, [circle])
   }
 
   pub fn new_points_query(

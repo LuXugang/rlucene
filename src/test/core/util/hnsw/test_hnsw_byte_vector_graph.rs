@@ -27,7 +27,6 @@ use crate::core::index::vector_encoding::VectorEncoding;
 use crate::core::index::vector_similarity_function::VectorSimilarityFunction;
 use crate::core::search::knn_byte_vector_query::KnnByteVectorQuery;
 use crate::core::search::query::Query;
-use crate::core::util::array_util::ArrayUtil;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::hnsw::random_vector_scorer::RandomVectorScorerEnum2;
 use crate::test_framework::core::util::hnsw::hnsw_graph_test_case::{
@@ -38,6 +37,7 @@ use crate::test_framework::core::util::hnsw::mock_byte_vector_values::MockByteVe
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::prelude::StdRng;
 use rand::{Rng, RngExt};
+use std::borrow::Cow;
 use std::sync::Arc;
 
 #[allow(dead_code)] // for quick search
@@ -147,7 +147,16 @@ impl HnswGraphTestCase<Vec<u8>> for TestHnswByteVectorGraph {
       let ord = vector_values.ord_to_doc(i)?;
       let value = vector_values.vector_value(i)?;
       let bytes = value.as_ref().as_bytes()?;
-      vectors[ord] = ArrayUtil::copy_of_sub_array(bytes, 0, vector_values.dimension());
+      let dimension = vector_values.dimension();
+      debug_assert!(dimension <= bytes.len());
+      let _ = &bytes[..dimension];
+      vectors[ord] = match value {
+        Cow::Owned(VectorValueEnum::Byte(mut vector)) => {
+          vector.truncate(dimension);
+          vector
+        },
+        value => value.as_ref().as_bytes()?[..dimension].to_vec(),
+      };
     }
     Ok(TestsKnnVectorValues::A(MockByteVectorValues::from_values(
       vectors,

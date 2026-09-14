@@ -120,7 +120,7 @@ fn test_commit_on_close() -> Result<()> {
   {
     let r = directory_reader::open(dir.clone())?;
     let searcher = new_searcher_with_reader(r)?;
-    let hits = searcher.search(TermQuery::new(search_term.clone()), 1000)?;
+    let hits = searcher.search(TermQuery::new(search_term), 1000)?;
     assert_eq!(
       47,
       hits.score_docs.len(),
@@ -800,7 +800,7 @@ fn test_commit_data_is_live() -> Result<()> {
   commit_data.insert("foo".to_string(), "bar".to_string());
 
   // make sure "foo" / "bar" doesn't take
-  writer.set_live_commit_data(commit_data.clone());
+  writer.set_live_commit_data(commit_data);
   {
     let mut inner = writer.inner.lock();
     let commit_data = inner.commit_user_data.as_mut().unwrap();

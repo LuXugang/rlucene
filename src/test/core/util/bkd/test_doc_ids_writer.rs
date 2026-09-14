@@ -47,9 +47,11 @@ fn test_random() -> Result<()> {
   let mut random = random();
   let num_iters = at_least(&mut random, 100);
   let dir = new_directory(&mut random)?;
+  let mut doc_ids = Vec::new();
   for _ in 0..num_iters {
     let len = 1 + random.random_range(0..5000);
-    let mut doc_ids = vec![0; len];
+    doc_ids.clear();
+    doc_ids.resize(len, 0);
     let bpv = TestUtil::next_int(&mut random, 1, 32);
     for doc_id in doc_ids.iter_mut().take(len) {
       *doc_id = TestUtil::next_int(
@@ -68,9 +70,11 @@ fn test_sorted() -> Result<()> {
   let mut random = random();
   let num_iters = at_least(&mut random, 100);
   let dir = new_directory(&mut random)?;
+  let mut doc_ids = Vec::new();
   for _ in 0..num_iters {
     let len = 1 + random.random_range(0..5000);
-    let mut doc_ids = vec![0; len];
+    doc_ids.clear();
+    doc_ids.resize(len, 0);
     let bpv = TestUtil::next_int(&mut random, 1, 32);
     for doc_id in doc_ids.iter_mut().take(len) {
       *doc_id = TestUtil::next_int(
@@ -90,9 +94,11 @@ fn test_cluster() -> Result<()> {
   let mut random = random();
   let num_iters = at_least(&mut random, 100);
   let dir = new_directory(&mut random)?;
+  let mut doc_ids = Vec::new();
   for _ in 0..num_iters {
     let len = 1 + random.random_range(0..5000);
-    let mut doc_ids = vec![0; len];
+    doc_ids.clear();
+    doc_ids.resize(len, 0);
     let min = random.random_range(0..1000);
     let bpv = TestUtil::next_int(&mut random, 1, 16);
     for doc_id in doc_ids.iter_mut().take(len) {
@@ -126,9 +132,11 @@ fn test_continuous_ids() -> Result<()> {
   let mut random = random();
   let num_iters = at_least(&mut random, 100);
   let dir = new_directory(&mut random)?;
+  let mut doc_ids = Vec::new();
   for _ in 0..num_iters {
     let size = 1 + random.random_range(0..5000);
-    let mut doc_ids = vec![0; size];
+    doc_ids.clear();
+    doc_ids.resize(size, 0);
     let start = random.random_range(0..1000000);
     for (i, doc_id) in doc_ids.iter_mut().take(size).enumerate() {
       *doc_id = start + i as i32;
@@ -153,16 +161,17 @@ where
       out.write_long(0)?;
     }
   }
-  {
+  let mut read = {
     let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
     let mut read = vec![0; ints.len()];
     doc_ids_writer.read_ints(&mut input, ints.len(), &mut read)?;
     assert_eq!(ints, &read[..]);
     assert_eq!(len, input.get_file_pointer()?);
-  }
+    read
+  };
   {
     let mut input = dir.open_input("tmp", &IOContext::read_once_io_context()?)?;
-    let mut read = vec![0; ints.len()];
+    read.fill(0);
     let mut visitor = IntersectVisitorMock {
       i: 0,
       read: &mut read,

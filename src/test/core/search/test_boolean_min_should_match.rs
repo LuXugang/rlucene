@@ -136,7 +136,7 @@ fn test_all_optional() -> Result<()> {
   let mut q = Builder::new();
   for i in 1..=4 {
     q.add(
-      TermQuery::new(Term::from_text("data", i.to_string())),
+      TermQuery::new(Term::new("data", i.to_string())),
       Occur::Should,
     )?;
   }
@@ -394,25 +394,13 @@ fn test_random_queries() -> Result<()> {
   let mut random = random();
   let s = &*CONTEXT;
 
-  let field = "data".to_string();
-  let vals = vec![
-    "1".to_string(),
-    "2".to_string(),
-    "3".to_string(),
-    "4".to_string(),
-    "5".to_string(),
-    "6".to_string(),
-    "A".to_string(),
-    "Z".to_string(),
-    "B".to_string(),
-    "Y".to_string(),
-    "Z".to_string(),
-    "X".to_string(),
-    "foo".to_string(),
+  let field = "data";
+  let vals = [
+    "1", "2", "3", "4", "5", "6", "A", "Z", "B", "Y", "Z", "X", "foo",
   ];
   let max_lev = 4;
 
-  let min_nr_cb = CallbackImpl::new(&field, &vals);
+  let min_nr_cb = CallbackImpl::new(field, &vals);
 
   let num = at_least(&mut random, 20);
   for i in 0..num {
@@ -424,7 +412,7 @@ fn test_random_queries() -> Result<()> {
       &mut q1_random,
       true,
       lev,
-      &field,
+      field,
       &vals,
       None::<&CallbackImpl>,
     )?;
@@ -434,7 +422,7 @@ fn test_random_queries() -> Result<()> {
       &mut q2_random,
       true,
       lev,
-      &field,
+      field,
       &vals,
       None::<&CallbackImpl>,
     )?;
@@ -563,10 +551,10 @@ where
 }
 pub(crate) struct CallbackImpl<'a> {
   field: &'a str,
-  vals: &'a [String],
+  vals: &'a [&'a str],
 }
 impl<'a> CallbackImpl<'a> {
-  fn new(field: &'a str, vals: &'a [String]) -> Self {
+  fn new(field: &'a str, vals: &'a [&'a str]) -> Self {
     Self { field, vals }
   }
 }
@@ -587,7 +575,7 @@ impl Callback for CallbackImpl<'_> {
     if random.random_bool(0.5) {
       let random_term = Term::from_text(
         self.field,
-        &self.vals[random.random_range(0..self.vals.len())],
+        self.vals[random.random_range(0..self.vals.len())],
       );
       q.add(TermQuery::new(random_term), Occur::MustNot)?;
     }

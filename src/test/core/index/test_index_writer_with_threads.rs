@@ -592,7 +592,7 @@ fn test_open_two_index_writers_on_different_threads() -> Result<()> {
     for thread_id in 0..2 {
       let seed = random.random();
       let dir = dir.clone();
-      let sync_start = sync_start.clone();
+      let sync_start = &sync_start;
       handles.push(scope.spawn(move || -> Result<()> {
         let mut random = random_from_seed(seed);
         let mut doc = Document::new();
@@ -661,11 +661,11 @@ fn test_rollback_and_commit_with_threads() -> Result<()> {
     for _ in 0..thread_count {
       let seed = rng.random();
       let dir = dir.clone();
-      let writer_ref = writer_ref.clone();
-      let failed = failed.clone();
-      let rollback_lock = rollback_lock.clone();
-      let commit_lock = commit_lock.clone();
-      let docs = docs.clone();
+      let writer_ref = &writer_ref;
+      let failed = &failed;
+      let rollback_lock = &rollback_lock;
+      let commit_lock = &commit_lock;
+      let docs = &docs;
       handles.push(scope.spawn(move || -> Result<()> {
         let mut random = random_from_seed(seed);
 
@@ -783,9 +783,9 @@ where
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for _ in 0..num_threads {
-      let writer = writer.clone();
-      let done = done.clone();
-      let barrier = barrier.clone();
+      let writer = &writer;
+      let done = &done;
+      let barrier = &barrier;
       let seed = random.random();
       handles.push(scope.spawn(move || -> Result<()> {
         let mut thread_random = random_from_seed(seed);

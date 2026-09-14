@@ -119,7 +119,7 @@ fn test_sort_on_add_indices_ord() -> Result<()> {
   let body_result = catch_unwind(AssertUnwindSafe(|| {
     let context = (&reader).get_context()?;
     for ctx in context.leaves()? {
-      let leaf_reader = ctx.reader().clone();
+      let leaf_reader = ctx.reader();
       let slow = SlowCodecReaderWrapper::wrap_leaf_reader(leaf_reader);
       let wrap = wrap(slow, index_sort.clone())?;
 

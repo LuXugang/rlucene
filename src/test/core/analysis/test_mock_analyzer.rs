@@ -438,11 +438,8 @@ fn test_change_gaps() -> Result<()> {
   let terms = fields.terms("f")?.expect("field f should have terms");
   let mut terms_enum = terms.iterator()?;
   assert_eq!(
-    BytesRef::from_string("a"),
-    terms_enum
-      .next()?
-      .expect("term a should exist")
-      .into_owned()
+    &BytesRef::from_string("a"),
+    terms_enum.next()?.expect("term a should exist").as_ref()
   );
   let mut postings = terms_enum.postings_with_flags(None, ALL as i32)?;
   assert_eq!(0, postings.next_doc()?);

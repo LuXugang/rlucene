@@ -222,7 +222,7 @@ fn test_sort(use_from: bool) -> Result<()> {
     let content_idx = random.random_range(0..content.len());
     doc.add(SortedDocValuesField::new(
       "string",
-      BytesRef::from_string(&TestUtil::random_realistic_unicode_string(&mut random)),
+      BytesRef::from(TestUtil::random_realistic_unicode_string(&mut random)),
     ));
     doc.add(new_text_field(
       &mut random,
@@ -262,7 +262,7 @@ fn test_sort(use_from: bool) -> Result<()> {
     doc_base += leaf.reader().max_doc()? as usize;
   }
 
-  let sort_fields = vec![
+  let sort_fields = [
     SortField::with_reverse(Some("string"), SortFieldType::String, true)?,
     SortField::with_reverse(Some("string"), SortFieldType::String, false)?,
     SortField::with_reverse(Some("int"), SortFieldType::Int, true)?,
@@ -355,7 +355,7 @@ fn test_sort(use_from: bool) -> Result<()> {
     }
 
     // ... then all shards:
-    let rewritten = searcher.rewrite(query.clone())?;
+    let rewritten = searcher.rewrite(query)?;
     let weight = searcher.create_weight(rewritten, ScoreMode::Complete, 1.0)?;
 
     let mut shard_hits = Vec::with_capacity(sub_searchers.len());

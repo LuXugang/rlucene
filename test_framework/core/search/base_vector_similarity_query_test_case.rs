@@ -624,7 +624,7 @@ pub trait BaseVectorSimilarityQueryTestCase {
 
     let query = self.get_throwing_vector_query(
       vector_field,
-      query_vector.clone(),
+      query_vector,
       result_similarity,
       result_similarity,
       Some(filter),

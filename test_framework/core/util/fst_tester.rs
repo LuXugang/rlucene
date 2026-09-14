@@ -20,6 +20,7 @@ use crate::test_framework::core::util::lucene_test_case::{
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::rc::Rc;
 
 use rand::Rng;
@@ -720,11 +721,14 @@ where
   } else if input_mode == 0 {
     // utf8
     let br = get_bytes_ref(term);
-    Ok(format!("{} {}", br.utf8_to_string()?, term))
+    let mut s = br.utf8_to_string()?;
+    write!(s, " {term}")?;
+    Ok(s)
   } else {
     term.ints.access(|ints| {
-      let s = UnicodeUtil::new_string(ints, term.offset, term.length)?;
-      Ok(format!("{} {}", s, term))
+      let mut s = UnicodeUtil::new_string(ints, term.offset, term.length)?;
+      write!(s, " {term}")?;
+      Ok(s)
     })
   }
 }

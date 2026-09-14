@@ -301,7 +301,7 @@ fn test_small_bitsets() -> Result<()> {
   }
   Ok(())
 }
-fn make_long_bitset<R>(random: &mut R, a: &Vec<usize>, num_bits: usize) -> Result<LongBitSet>
+fn make_long_bitset<R>(random: &mut R, a: &[usize], num_bits: usize) -> Result<LongBitSet>
 where
   R: Rng + ?Sized,
 {
@@ -320,7 +320,7 @@ where
   Ok(bs)
 }
 
-fn make_bitset(a: &Vec<usize>) -> BitSet {
+fn make_bitset(a: &[usize]) -> BitSet {
   let mut bs = BitSet::with_capacity(a.len());
   for x in a {
     bs.insert(*x);
@@ -328,12 +328,12 @@ fn make_bitset(a: &Vec<usize>) -> BitSet {
   bs
 }
 
-fn check_prev_set_bit_array<R>(random: &mut R, a: Vec<usize>, num_bits: usize) -> Result<()>
+fn check_prev_set_bit_array<R>(random: &mut R, a: &[usize], num_bits: usize) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let obs = make_long_bitset(random, &a, num_bits)?;
-  let bs = make_bitset(&a);
+  let obs = make_long_bitset(random, a, num_bits)?;
+  let bs = make_bitset(a);
   do_prev_set_bit(random, &bs, &obs);
   Ok(())
 }
@@ -341,19 +341,19 @@ where
 fn test_prev_set_bit() -> Result<()> {
   let mut random = random();
 
-  check_prev_set_bit_array(&mut random, vec![], 0)?;
-  check_prev_set_bit_array(&mut random, vec![0], 1)?;
-  check_prev_set_bit_array(&mut random, vec![0, 2], 3)?;
+  check_prev_set_bit_array(&mut random, &[], 0)?;
+  check_prev_set_bit_array(&mut random, &[0], 1)?;
+  check_prev_set_bit_array(&mut random, &[0, 2], 3)?;
 
   Ok(())
 }
 
-fn check_next_set_bit_array<R>(random: &mut R, a: Vec<usize>, num_bits: usize) -> Result<()>
+fn check_next_set_bit_array<R>(random: &mut R, a: &[usize], num_bits: usize) -> Result<()>
 where
   R: Rng + ?Sized,
 {
-  let obs = make_long_bitset(random, &a, num_bits)?;
-  let bs = make_bitset(&a);
+  let obs = make_long_bitset(random, a, num_bits)?;
+  let bs = make_bitset(a);
   do_next_set_bit(&bs, &obs);
   Ok(())
 }
@@ -366,9 +366,9 @@ fn test_next_bit_set() -> Result<()> {
     set_bits.push(random.random_range(0..len));
   }
   let mut num_bits = len + random.random_range(0..10);
-  check_next_set_bit_array(&mut random, set_bits, num_bits)?;
+  check_next_set_bit_array(&mut random, &set_bits, num_bits)?;
   num_bits = len + random.random_range(0..10);
-  check_next_set_bit_array(&mut random, vec![], num_bits)?;
+  check_next_set_bit_array(&mut random, &[], num_bits)?;
 
   Ok(())
 }

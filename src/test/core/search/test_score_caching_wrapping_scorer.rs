@@ -152,14 +152,14 @@ impl DocIdSetIterator for SimpleDocIdSetIterator {
 
 struct ScoreCachingCollector {
   idx: usize,
-  mscores: Vec<f32>,
+  mscores: [f32; SCORES.len()],
 }
 
 impl ScoreCachingCollector {
-  fn new(num_to_collect: usize) -> Self {
+  fn new() -> Self {
     Self {
       idx: 0,
-      mscores: vec![0.0; num_to_collect],
+      mscores: [0.0; SCORES.len()],
     }
   }
 }
@@ -230,7 +230,7 @@ const SCORES: [f32; 13] = [
 #[test]
 fn test_get_scores() -> Result<()> {
   let mut s = SimpleScorer::new();
-  let mut scc = ScoreCachingCollector::new(SCORES.len());
+  let mut scc = ScoreCachingCollector::new();
 
   {
     let mut lc = ScoreCachingWrappingLeafCollector::new(&mut scc);

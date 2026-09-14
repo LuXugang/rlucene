@@ -34,6 +34,7 @@ use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::search::index_searcher::IndexSearcher;
 use crate::core::search::knn_collector::KnnCollector;
 use crate::core::search::leaf_collector::LeafCollector;
+use crate::core::search::query::Query;
 use crate::core::search::scorable::Scorable;
 use crate::core::search::score_mode::ScoreMode;
 use crate::core::search::scorer::Scorer;
@@ -281,24 +282,20 @@ fn test_random_top_docs() -> Result<()> {
   let searcher = new_searcher_with_reader(reader)?;
 
   for iter in 0..15 {
-    let query = TermQuery::new(Term::from_text("foo", iter.to_string()));
+    let query: Query = TermQuery::new(Term::new("foo", iter.to_string())).into();
 
     let complete_manager = TopScoreDocCollectorManager::new(10, i32::MAX as usize)?;
     let top_scores_manager = TopScoreDocCollectorManager::new(10, 1)?;
 
     let complete = searcher.search_with_collector_manager(query.clone(), &complete_manager)?;
     let top_scores = searcher.search_with_collector_manager(query.clone(), &top_scores_manager)?;
-    CheckHits::check_equal(
-      &query.clone().into(),
-      &complete.score_docs,
-      &top_scores.score_docs,
-    )?;
+    CheckHits::check_equal(&query, &complete.score_docs, &top_scores.score_docs)?;
 
     let filter_term = random.random_range(0..15);
     let mut builder = Builder::new();
     builder.add(query.clone(), Occur::Must)?;
     builder.add(
-      TermQuery::new(Term::from_text("foo", filter_term.to_string())),
+      TermQuery::new(Term::new("foo", filter_term.to_string())),
       Occur::Filter,
     )?;
     let filtered_query = builder.build();
@@ -309,7 +306,7 @@ fn test_random_top_docs() -> Result<()> {
     let complete =
       searcher.search_with_collector_manager(filtered_query.clone(), &complete_manager)?;
     let top_scores = searcher.search_with_collector_manager(filtered_query, &top_scores_manager)?;
-    CheckHits::check_equal(&query.into(), &complete.score_docs, &top_scores.score_docs)?;
+    CheckHits::check_equal(&query, &complete.score_docs, &top_scores.score_docs)?;
   }
   Ok(())
 }

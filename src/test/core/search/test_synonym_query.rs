@@ -312,8 +312,8 @@ fn test_merge_impacts() -> Result<()> {
     SynonymQuery::merge_impacts(vec![impacts1.clone(), impacts2.clone()], vec![1.0, 1.0]);
   assert_impacts_equal(
     &[
-      vec![Impact::new(5, 10), Impact::new(7, 12), Impact::new(14, 13)],
-      vec![Impact::new(i32::MAX, 1)],
+      &[Impact::new(5, 10), Impact::new(7, 12), Impact::new(14, 13)],
+      &[Impact::new(i32::MAX, 1)],
     ],
     &[90, 1000],
     &merged_impacts.get_impacts()?,
@@ -323,8 +323,8 @@ fn test_merge_impacts() -> Result<()> {
     SynonymQuery::merge_impacts(vec![impacts1.clone(), impacts2.clone()], vec![0.3, 0.9]);
   assert_impacts_equal(
     &[
-      vec![Impact::new(3, 10), Impact::new(4, 12), Impact::new(9, 13)],
-      vec![Impact::new(i32::MAX, 1)],
+      &[Impact::new(3, 10), Impact::new(4, 12), Impact::new(9, 13)],
+      &[Impact::new(i32::MAX, 1)],
     ],
     &[90, 1000],
     &merged_boosted_impacts.get_impacts()?,
@@ -341,8 +341,8 @@ fn test_merge_impacts() -> Result<()> {
   );
   assert_impacts_equal(
     &[
-      vec![Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
-      vec![
+      &[Impact::new(3, 10), Impact::new(5, 12), Impact::new(8, 13)],
+      &[
         Impact::new(3, 9),
         Impact::new(10, 11),
         Impact::new(15, 13),
@@ -355,8 +355,8 @@ fn test_merge_impacts() -> Result<()> {
 
   assert_impacts_equal(
     &[
-      vec![Impact::new(1, 10), Impact::new(2, 12), Impact::new(3, 13)],
-      vec![
+      &[Impact::new(1, 10), Impact::new(2, 12), Impact::new(3, 13)],
+      &[
         Impact::new(3, 9),
         Impact::new(7, 11),
         Impact::new(10, 13),
@@ -368,14 +368,14 @@ fn test_merge_impacts() -> Result<()> {
   )
 }
 
-fn assert_impacts_equal<I>(impacts: &[Vec<Impact>], doc_id_up_to: &[i32], actual: &I) -> Result<()>
+fn assert_impacts_equal<I>(impacts: &[&[Impact]], doc_id_up_to: &[i32], actual: &I) -> Result<()>
 where
   I: Impacts,
 {
   assert_eq!(impacts.len(), actual.num_levels());
   for level in 0..impacts.len() {
     assert_eq!(doc_id_up_to[level], actual.get_doc_id_upto(level));
-    assert_eq!(impacts[level], actual.get_impacts(level)?);
+    assert_eq!(impacts[level], actual.get_impacts(level)?.as_slice());
   }
   Ok(())
 }
@@ -529,8 +529,8 @@ fn test_random_top_docs() -> Result<()> {
       1.0
     };
     let mut builder = Builder::new("foo");
-    builder.add_term_with_boost(Term::from_text("foo", term1.to_string()), boost1)?;
-    builder.add_term_with_boost(Term::from_text("foo", term2.to_string()), boost2)?;
+    builder.add_term_with_boost(Term::new("foo", term1.to_string()), boost1)?;
+    builder.add_term_with_boost(Term::new("foo", term2.to_string()), boost2)?;
     let query: Query = builder.build().into();
 
     let complete_manager = TopScoreDocCollectorManager::new(10, i32::MAX as usize)?;
@@ -543,7 +543,7 @@ fn test_random_top_docs() -> Result<()> {
     let mut filtered_query = BooleanQueryBuilder::new();
     filtered_query.add(query.clone(), Occur::Must)?;
     filtered_query.add(
-      TermQuery::new(Term::from_text("foo", filter_term.to_string())),
+      TermQuery::new(Term::new("foo", filter_term.to_string())),
       Occur::Filter,
     )?;
     let filtered_query: Query = filtered_query.build().into();

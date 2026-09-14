@@ -70,6 +70,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::RngExt;
 use rand_chacha::rand_core::Rng;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write as _;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -943,7 +944,7 @@ fn create_document(n: i32, num_fields: i32) -> Result<Document> {
   doc.add(TextField::from_string("field1", value.clone(), Store::Yes)?);
   doc.add(Field::from_string("fielda", value.clone(), custom_type2)?);
   doc.add(Field::from_string("fieldb", value.clone(), custom_type3)?);
-  value.push_str(&format!(" b{n}"));
+  write!(value, " b{n}")?;
   for i in 1..num_fields {
     doc.add(TextField::from_string(
       format!("field{}", i + 1),

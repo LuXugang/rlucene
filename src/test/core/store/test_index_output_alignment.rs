@@ -85,8 +85,9 @@ pub fn run_test_output_alignment(alignment: usize) -> Result<()> {
 
   for _ in 0..(10 * random_multiplier()) {
     let length = random.random_range(0..32);
-    let data = vec![0; length];
-    out.write_bytes_with_len(&data, length)?;
+    let data = [0; 31];
+    let data = &data[..length];
+    out.write_bytes_with_len(data, length)?;
 
     let orig_pos = out.get_file_pointer()?;
     // align to next boundary

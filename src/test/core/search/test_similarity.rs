@@ -90,11 +90,10 @@ fn test_similarity() -> Result<()> {
   let manager = CollectorManagerImpl1;
   searcher.search_with_collector_manager(bq.build(), &manager)?;
 
-  let mut pq =
-    PhraseQuery::from_bytes_no_slop(a.field(), vec![a.bytes().clone(), c.bytes().clone()])?;
+  let mut pq = PhraseQuery::from_bytes_no_slop(a.field(), [a.bytes().clone(), c.bytes().clone()])?;
   assert_score(&searcher, pq.into(), 1.0)?;
 
-  pq = PhraseQuery::from_bytes(2, a.field(), vec![a.bytes().clone(), b.bytes().clone()])?;
+  pq = PhraseQuery::from_bytes(2, a.field(), [a.bytes().clone(), b.bytes().clone()])?;
   assert_score(&searcher, pq.into(), 0.5)?;
   Ok(())
 }

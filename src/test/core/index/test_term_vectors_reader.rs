@@ -60,8 +60,8 @@ struct TestTermVectorsReader;
 const TERM_FREQ: usize = 3;
 
 struct TestTermVectorsReaderSetup {
-  test_fields: Vec<&'static str>,
-  test_terms: Vec<&'static str>,
+  test_fields: [&'static str; 4],
+  test_terms: [&'static str; 4],
   positions: Vec<Vec<i32>>,
   dir: Arc<DirEnum>,
   seg: SegmentCommitInfo<DirEnum>,
@@ -78,10 +78,10 @@ impl TestTermVectorsReader {
   }
 
   fn build_setup() -> Result<TestTermVectorsReaderSetup> {
-    let mut test_fields = vec!["f1", "f2", "f3", "f4"];
+    let mut test_fields = ["f1", "f2", "f3", "f4"];
     let test_fields_store_pos = [true, false, true, false];
     let test_fields_store_off = [true, false, false, true];
-    let mut test_terms = vec!["this", "is", "a", "test"];
+    let mut test_terms = ["this", "is", "a", "test"];
     let mut positions = vec![Vec::new(); test_terms.len()];
     let mut tokens = Vec::with_capacity(test_terms.len() * TERM_FREQ);
 
@@ -94,7 +94,7 @@ impl TestTermVectorsReader {
         let position = (j as i32 * 10) + (random.random::<f64>() * 10.0) as i32;
         positions[i].push(position);
         tokens.push(TestToken {
-          text: (*term).to_string(),
+          text: term,
           pos: position,
           start_offset: j as i32 * 10,
           end_offset: j as i32 * 10 + term.len() as i32,
@@ -609,7 +609,7 @@ crate::impl_analyzer_close!(MyAnalyzer);
 
 #[derive(Clone, Eq, PartialEq)]
 struct TestToken {
-  text: String,
+  text: &'static str,
   start_offset: i32,
   end_offset: i32,
   pos: i32,
@@ -668,7 +668,7 @@ impl TokenStream for MyTokenizer {
       .tokenizer_base
       .token_stream_base
       .att
-      .append_str(Some(&test_token.text))?;
+      .append_str(Some(test_token.text))?;
     self
       .tokenizer_base
       .token_stream_base

@@ -82,7 +82,7 @@ fn test_multiple_threads() -> Result<()> {
     .collect::<Vec<_>>();
   let heap = Arc::new(BlockingFloatHeap::new(1));
   let barrier = Arc::new(Barrier::new(thread_count + 1));
-  let mut handles = vec![];
+  let mut handles = Vec::with_capacity(thread_count);
 
   for seed in seeds {
     let heap = heap.clone();

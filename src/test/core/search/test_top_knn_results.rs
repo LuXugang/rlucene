@@ -36,7 +36,7 @@ fn test_collect_and_provide_results() -> Result<()> {
   let sorted_nodes: Vec<i32> = top_docs.score_docs.iter().map(|doc| doc.doc).collect();
   let sorted_scores: Vec<f32> = top_docs.score_docs.iter().map(|doc| doc.score).collect();
 
-  assert_eq!(sorted_nodes, vec![2, 7, 8, 10, 4]);
+  assert_eq!(sorted_nodes, [2, 7, 8, 10, 4]);
   assert!(array_equals_f32(
     &[4.0, 2.0, 2.0, 1.2, 1.0],
     &sorted_scores,

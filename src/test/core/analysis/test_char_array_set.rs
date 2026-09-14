@@ -40,7 +40,7 @@ fn test_rehash() -> Result<()> {
 #[test]
 fn test_non_zero_offset() -> Result<()> {
   let words = ["Hello", "World", "this", "is", "a", "test"];
-  let findme: Vec<char> = "xthisy".chars().collect();
+  let findme = ['x', 't', 'h', 'i', 's', 'y'];
   let mut set = CharArraySet::new(true);
   set.add_all(words);
   assert!(set.contains_key(&findme, 1, 4));
@@ -58,7 +58,7 @@ fn test_object_contains() -> Result<()> {
   set.add_any(&val);
   assert!(set.contains_key_any(&val));
   assert!(set.contains_key_str("1"));
-  let chars: Vec<char> = vec!['1'];
+  let chars = ['1'];
   assert!(set.contains_key(chars.as_slice(), 0, 1));
 
   // TODO: Retest these lookups through an unmodifiable view after CharArraySet::unmodifiable_set
@@ -308,7 +308,7 @@ fn test_empty_set() {
   }
   assert!(!empty_set.contains_key_str("foo"));
   assert!(!empty_set.contains_key_any(&"foo"));
-  let foo: Vec<char> = "foo".chars().collect();
+  let foo = ['f', 'o', 'o'];
   assert!(!empty_set.contains_key(&foo, 0, 3));
 }
 

@@ -57,6 +57,7 @@ pub use crate::test_framework::core::search::similarity::{TestSimilarity, new_te
 use crate::test_framework::core::util::DefaultIndexSearchLR;
 use rand::{Rng, RngExt};
 use std::collections::HashMap;
+use std::fmt::Write;
 use std::sync::{Arc, LazyLock};
 
 #[allow(dead_code)] //for quick search
@@ -718,7 +719,7 @@ fn test_rewrite_boolean() -> Result<()> {
 
   let q = DisjunctionMaxQuery::new(vec![sub1.clone(), sub2.clone()], 1.0)?;
 
-  let rewritten = s.rewrite(q.clone())?;
+  let rewritten = s.rewrite(q)?;
 
   let mut builder = Builder::new();
   builder.add(sub1, Occur::Should)?;
@@ -919,7 +920,7 @@ where
         if !builder.is_empty() {
           builder.push(' ');
         }
-        builder.push_str(&random.random::<i32>().to_string());
+        write!(builder, "{}", random.random::<i32>())?;
       }
       doc.add(TextField::from_reader(
         j.to_string(),

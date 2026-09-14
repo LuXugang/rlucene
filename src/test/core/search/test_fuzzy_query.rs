@@ -52,6 +52,7 @@ use crate::test_framework::core::util::test_util::TestUtil;
 use rand::{Rng, RngExt};
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Write;
 
 #[allow(dead_code)] // for quick search
 struct TestFuzzyQuery;
@@ -977,14 +978,14 @@ where
   R: Rng + ?Sized,
 {
   let term_length = TestUtil::next_usize(random, 1, 8);
-  let mut chars = Vec::with_capacity(term_length);
+  let mut chars = String::with_capacity(term_length);
 
   for _ in 0..term_length {
     let ch = (b'a' + random.random_range(0..digits) as u8) as char;
     chars.push(ch);
   }
 
-  chars.into_iter().collect()
+  chars
 }
 #[test]
 fn test_random() -> Result<()> {
@@ -1020,10 +1021,7 @@ fn test_random() -> Result<()> {
     let prefix_length = random.random_range(0..query_term.len());
     let query_prefix = &query_term[0..prefix_length];
 
-    let mut expected: Vec<Vec<TermAndScore<'_>>> = Vec::with_capacity(3);
-    for _ed in 0..3 {
-      expected.push(Vec::new());
-    }
+    let mut expected: [Vec<TermAndScore<'_>>; 3] = [Vec::new(), Vec::new(), Vec::new()];
     for term in &terms {
       if !term.starts_with(query_prefix) {
         continue;
@@ -1066,38 +1064,43 @@ fn test_random() -> Result<()> {
       let limit = std::cmp::min(queue_size, expected[ed].len());
       #[allow(clippy::needless_range_loop)]
       for i in 0..limit {
-        expected_top.insert(expected[ed][i].term.to_string());
+        expected_top.insert(expected[ed][i].term);
       }
 
-      if actual != expected_top {
+      if actual.len() != expected_top.len()
+        || !actual
+          .iter()
+          .all(|term| expected_top.contains(term.as_str()))
+      {
         let mut sb = String::new();
-        sb.push_str(&format!(
-          "FAILED: query={} ed={} queueSize={} vs expected match size={} prefixLength={}\n",
+        writeln!(
+          sb,
+          "FAILED: query={} ed={} queueSize={} vs expected match size={} prefixLength={}",
           query_term,
           ed,
           queue_size,
           expected[ed].len(),
           prefix_length
-        ));
+        )?;
 
         let mut first = true;
         for term in &actual {
-          if !expected_top.contains(term) {
+          if !expected_top.contains(term.as_str()) {
             if first {
               sb.push_str("  these matched but shouldn't:\n");
               first = false;
             }
-            sb.push_str(&format!("    {term}\n"));
+            writeln!(sb, "    {term}")?;
           }
         }
         first = true;
         for term in &expected_top {
-          if !actual.contains(term) {
+          if !actual.contains(*term) {
             if first {
               sb.push_str("  these did not match but should:\n");
               first = false;
             }
-            sb.push_str(&format!("    {term}\n"));
+            writeln!(sb, "    {term}")?;
           }
         }
         panic!("{sb}");

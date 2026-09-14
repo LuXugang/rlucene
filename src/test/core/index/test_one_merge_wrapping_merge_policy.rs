@@ -180,7 +180,7 @@ where
       dir.clone(),
       Some((*LATEST).clone()),
       Some((*LATEST).clone()),
-      &TestUtil::random_simple_string(random),
+      TestUtil::random_simple_string(random),
       max_doc,
       random.random_bool(0.5),
       false,
@@ -190,7 +190,7 @@ where
       HashMap::new(),
       None,
     )?;
-    let segments = vec![SegmentCommitInfo::new(
+    let segments = [SegmentCommitInfo::new(
       si,
       0,
       0,

@@ -70,12 +70,12 @@ fn test() -> Result<()> {
   }
 
   riw.close(&mut random)?;
-  check_footers(dir.clone())?;
+  check_footers(&dir)?;
 
   Ok(())
 }
 
-fn check_footers<D>(dir: Arc<D>) -> Result<()>
+fn check_footers<D>(dir: &Arc<D>) -> Result<()>
 where
   D: Directory,
 {

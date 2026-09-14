@@ -1271,7 +1271,7 @@ fn test_concurrent_index_close_search_and_refresh() -> Result<()> {
 
   let close_manager_ref = manager_ref.clone();
   let close_writer_ref = writer_ref.clone();
-  let close_stop = stop.clone();
+  let close_stop = stop;
   let close_thread = thread::spawn(move || -> Result<()> {
     let mut close_count = 0;
     let mut already_closed_count = 0;

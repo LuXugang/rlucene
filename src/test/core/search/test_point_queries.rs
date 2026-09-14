@@ -732,7 +732,7 @@ where
         w.add_document(doc)?;
         if random.random_range(0..100) < deleted_pct {
           let id_to_delete = random.random_range(0..id);
-          w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+          w.delete_documents_with_terms(vec![Term::new("id", id_to_delete.to_string())])?;
           deleted.insert(id_to_delete);
         }
       }
@@ -757,7 +757,7 @@ where
         .expect("document should be initialized before adding point values")
         .add(LongPoint::new("sn_value", [value])?);
 
-      let mut bytes = vec![0u8; 8];
+      let mut bytes = [0u8; 8];
       NumericUtils::long_to_sortable_bytes(value, &mut bytes, 0);
       doc
         .as_mut()
@@ -783,7 +783,7 @@ where
   let failed = AtomicBool::new(false);
 
   thread::scope(|scope| -> Result<()> {
-    let mut handles = Vec::new();
+    let mut handles = Vec::with_capacity(num_threads as usize);
 
     for _ in 0..num_threads {
       let dir = dir.clone();
@@ -966,7 +966,7 @@ where
         w.add_document(doc)?;
         if random.random_range(0..100) < deleted_pct {
           let id_to_delete = random.random_range(0..id);
-          w.delete_documents_with_terms(vec![Term::from_text("id", id_to_delete.to_string())])?;
+          w.delete_documents_with_terms(vec![Term::new("id", id_to_delete.to_string())])?;
           deleted.insert(id_to_delete);
         }
       }
@@ -988,7 +988,7 @@ where
       doc
         .as_mut()
         .expect("document should be initialized before adding point values")
-        .add(BinaryPoint::new("value", doc_values[ord].clone())?);
+        .add(BinaryPoint::new("value", &doc_values[ord])?);
     }
   }
 
@@ -1010,7 +1010,7 @@ where
   let failed = AtomicBool::new(false);
 
   thread::scope(|scope| -> Result<()> {
-    let mut handles = Vec::new();
+    let mut handles = Vec::with_capacity(num_threads as usize);
 
     for _ in 0..num_threads {
       let dir = dir.clone();
@@ -1158,8 +1158,8 @@ fn test_min_max_long() -> Result<()> {
   );
   Ok(())
 }
-fn to_utf8(s: &str) -> Vec<u8> {
-  s.as_bytes().to_vec()
+fn to_utf8(s: &str) -> &[u8] {
+  s.as_bytes()
 }
 // Right zero pads
 fn to_utf8_padded(s: &str, length: usize) -> Result<Vec<u8>> {
@@ -1501,7 +1501,7 @@ fn test_wrong_num_dims() -> Result<()> {
   // no wrapping, else the exc might happen in executor thread:
   let searcher = index_searcher::from_reader(r)?;
 
-  let point = [vec![0u8; 8], vec![0u8; 8]];
+  let point = [[0u8; 8], [0u8; 8]];
 
   let err = searcher.count(BinaryPoint::new_range_query_multi_dim(
     "value",
@@ -1513,7 +1513,7 @@ fn test_wrong_num_dims() -> Result<()> {
   if let Err(LuceneError::IllegalArgument(msg)) = err {
     assert_eq!(
       "field=\"value\" was indexed with numIndexDimensions=1 but this query has numDims=2",
-      msg.to_string()
+      msg.message
     );
   }
   w.close(&mut random)?;
@@ -1540,7 +1540,7 @@ fn test_wrong_num_bytes() -> Result<()> {
   // no wrapping, else the exc might happen in executor thread:
   let searcher = index_searcher::from_reader(r)?;
 
-  let point = [vec![0u8; 10]];
+  let point = [[0u8; 10]];
 
   let err = searcher.count(BinaryPoint::new_range_query_multi_dim(
     "value",
@@ -1552,7 +1552,7 @@ fn test_wrong_num_bytes() -> Result<()> {
   if let Err(LuceneError::IllegalArgument(msg)) = err {
     assert_eq!(
       "field=\"value\" was indexed with bytesPerDim=8 but this query has bytesPerDim=10",
-      msg.to_string()
+      msg.message
     );
   }
   w.close(&mut random)?;
@@ -1801,7 +1801,7 @@ fn test_random_point_in_set_query() -> Result<()> {
   let starting_gun = Arc::new(Barrier::new(num_threads + 1));
 
   thread::scope(|scope| -> Result<()> {
-    let mut handles = Vec::new();
+    let mut handles = Vec::with_capacity(num_threads);
 
     for _ in 0..num_threads {
       let failed = &failed;
@@ -2041,7 +2041,7 @@ fn test_basic_point_in_set_query() -> Result<()> {
   doc.add(LongPoint::new("long", [17i64])?);
   doc.add(FloatPoint::new("float", [17.0f32])?);
   doc.add(DoublePoint::new("double", [17.0f64])?);
-  doc.add(BinaryPoint::new("bytes", [vec![0, 17]])?);
+  doc.add(BinaryPoint::new("bytes", [[0, 17]])?);
   w.add_document(doc)?;
 
   let mut doc = Document::new();
@@ -2049,7 +2049,7 @@ fn test_basic_point_in_set_query() -> Result<()> {
   doc.add(LongPoint::new("long", [42i64])?);
   doc.add(FloatPoint::new("float", [42.0f32])?);
   doc.add(DoublePoint::new("double", [42.0f64])?);
-  doc.add(BinaryPoint::new("bytes", [vec![0, 42]])?);
+  doc.add(BinaryPoint::new("bytes", [[0, 42]])?);
   w.add_document(doc)?;
 
   let mut doc = Document::new();
@@ -2057,7 +2057,7 @@ fn test_basic_point_in_set_query() -> Result<()> {
   doc.add(LongPoint::new("long", [97i64])?);
   doc.add(FloatPoint::new("float", [97.0f32])?);
   doc.add(DoublePoint::new("double", [97.0f64])?);
-  doc.add(BinaryPoint::new("bytes", [vec![0, 97]])?);
+  doc.add(BinaryPoint::new("bytes", [[0, 97]])?);
   w.add_document(doc)?;
 
   let r = directory_reader::open_from_writer(&w)?;
@@ -2177,38 +2177,38 @@ fn test_basic_point_in_set_query() -> Result<()> {
 
   assert_eq!(
     0,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 16]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0, 16]])?)?
   );
   assert_eq!(
     1,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 17]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0, 17]])?)?
   );
   assert_eq!(
     3,
     searcher.count(BinaryPoint::new_set_query(
       "bytes",
-      [vec![0, 17], vec![0, 97], vec![0, 42]]
+      [[0, 17], [0, 97], [0, 42]]
     )?)?
   );
   assert_eq!(
     3,
     searcher.count(BinaryPoint::new_set_query(
       "bytes",
-      [vec![0, (-7i8) as u8], vec![0, 17], vec![0, 42], vec![0, 97]]
+      [[0, (-7i8) as u8], [0, 17], [0, 42], [0, 97]]
     )?)?
   );
   assert_eq!(
     3,
     searcher.count(BinaryPoint::new_set_query(
       "bytes",
-      [vec![0, 17], vec![0, 20], vec![0, 42], vec![0, 97]]
+      [[0, 17], [0, 20], [0, 42], [0, 97]]
     )?)?
   );
   assert_eq!(
     3,
     searcher.count(BinaryPoint::new_set_query(
       "bytes",
-      [vec![0, 17], vec![0, 105], vec![0, 42], vec![0, 97]]
+      [[0, 17], [0, 105], [0, 42], [0, 97]]
     )?)?
   );
 
@@ -2254,8 +2254,8 @@ fn test_basic_multi_valued_point_in_set_query() -> Result<()> {
   doc.add(FloatPoint::new("float", [42.0f32])?);
   doc.add(DoublePoint::new("double", [17.0f64])?);
   doc.add(DoublePoint::new("double", [42.0f64])?);
-  doc.add(BinaryPoint::new("bytes", [vec![0, 17]])?);
-  doc.add(BinaryPoint::new("bytes", [vec![0, 42]])?);
+  doc.add(BinaryPoint::new("bytes", [[0, 17]])?);
+  doc.add(BinaryPoint::new("bytes", [[0, 42]])?);
   w.add_document(doc)?;
 
   let r = directory_reader::open_from_writer(&w)?;
@@ -2352,31 +2352,31 @@ fn test_basic_multi_valued_point_in_set_query() -> Result<()> {
 
   assert_eq!(
     0,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 16]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0, 16]])?)?
   );
   assert_eq!(
     1,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0, 17]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0, 17]])?)?
   );
   assert_eq!(
     1,
     searcher.count(BinaryPoint::new_set_query(
       "bytes",
-      [vec![0, 17], vec![0, 97], vec![0, 42]]
+      [[0, 17], [0, 97], [0, 42]]
     )?)?
   );
   assert_eq!(
     1,
     searcher.count(BinaryPoint::new_set_query(
       "bytes",
-      [vec![0, (-7i8) as u8], vec![0, 17], vec![0, 42], vec![0, 97]]
+      [[0, (-7i8) as u8], [0, 17], [0, 42], [0, 97]]
     )?)?
   );
   assert_eq!(
     0,
     searcher.count(BinaryPoint::new_set_query(
       "bytes",
-      [vec![0, 16], vec![0, 20], vec![0, 41], vec![0, 97]]
+      [[0, 16], [0, 20], [0, 41], [0, 97]]
     )?)?
   );
 
@@ -2397,7 +2397,7 @@ fn test_empty_point_in_set_query() -> Result<()> {
   doc.add(LongPoint::new("long", [17i64])?);
   doc.add(FloatPoint::new("float", [17.0f32])?);
   doc.add(DoublePoint::new("double", [17.0f64])?);
-  doc.add(BinaryPoint::new("bytes", [vec![0, 17]])?);
+  doc.add(BinaryPoint::new("bytes", [[0, 17]])?);
   w.add_document(doc)?;
 
   let r = directory_reader::open_from_writer(&w)?;
@@ -2446,7 +2446,7 @@ fn test_point_in_set_query_many_equal_values() -> Result<()> {
     doc.add(LongPoint::new("long", [x as i64])?);
     doc.add(FloatPoint::new("float", [x as f32])?);
     doc.add(DoublePoint::new("double", [x as f64])?);
-    doc.add(BinaryPoint::new("bytes", [vec![x as u8]])?);
+    doc.add(BinaryPoint::new("bytes", [[x as u8]])?);
     w.add_document(doc)?;
   }
 
@@ -2535,26 +2535,23 @@ fn test_point_in_set_query_many_equal_values() -> Result<()> {
 
   assert_eq!(
     zero_count,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0]])?)?
   );
   assert_eq!(
     zero_count,
-    searcher.count(BinaryPoint::new_set_query(
-      "bytes",
-      [vec![0], vec![(-7i8) as u8]]
-    )?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0], [(-7i8) as u8]])?)?
   );
   assert_eq!(
     zero_count,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![7], vec![0]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[7], [0]])?)?
   );
   assert_eq!(
     10_000 - zero_count,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![1]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[1]])?)?
   );
   assert_eq!(
     0,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![2]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[2]])?)?
   );
 
   w.close()?;
@@ -2587,7 +2584,7 @@ fn test_point_range_query_many_equal_values() -> Result<()> {
     doc.add(LongPoint::new("long", [x as i64])?);
     doc.add(FloatPoint::new("float", [x as f32])?);
     doc.add(DoublePoint::new("double", [x as f64])?);
-    doc.add(BinaryPoint::new("bytes", [vec![x as u8]])?);
+    doc.add(BinaryPoint::new("bytes", [[x as u8]])?);
     w.add_document(doc)?;
   }
 
@@ -2718,7 +2715,7 @@ fn test_point_in_set_query_many_equal_values_with_big_gap() -> Result<()> {
     doc.add(LongPoint::new("long", [x as i64])?);
     doc.add(FloatPoint::new("float", [x as f32])?);
     doc.add(DoublePoint::new("double", [x as f64])?);
-    doc.add(BinaryPoint::new("bytes", [vec![x as u8]])?);
+    doc.add(BinaryPoint::new("bytes", [[x as u8]])?);
     w.add_document(doc)?;
   }
 
@@ -2807,26 +2804,23 @@ fn test_point_in_set_query_many_equal_values_with_big_gap() -> Result<()> {
 
   assert_eq!(
     zero_count,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![0]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0]])?)?
   );
   assert_eq!(
     zero_count,
-    searcher.count(BinaryPoint::new_set_query(
-      "bytes",
-      [vec![0], vec![(-7i8) as u8]]
-    )?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[0], [(-7i8) as u8]])?)?
   );
   assert_eq!(
     zero_count,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![7], vec![0]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[7], [0]])?)?
   );
   assert_eq!(
     10_000 - zero_count,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![200]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[200]])?)?
   );
   assert_eq!(
     0,
-    searcher.count(BinaryPoint::new_set_query("bytes", [vec![2]])?)?
+    searcher.count(BinaryPoint::new_set_query("bytes", [[2]])?)?
   );
 
   w.close()?;
@@ -2847,7 +2841,7 @@ fn test_invalid_point_in_set_query() -> Result<()> {
   if let LuceneError::IllegalArgument(msg) = err {
     assert_eq!(
       "packed point length should be 12 but got 3; field=\"foo\" numDims=3 bytesPerDim=4",
-      msg.to_string()
+      msg.message
     );
   }
   Ok(())
@@ -2861,7 +2855,7 @@ fn test_invalid_point_in_set_binary_query() -> Result<()> {
   if let LuceneError::IllegalArgument(msg) = err {
     assert_eq!(
       "all byte slices must be the same length, but saw 1 and 0",
-      msg.to_string()
+      msg.message
     );
   }
   Ok(())
@@ -2892,7 +2886,7 @@ fn test_point_in_set_query_to_string() -> Result<()> {
   // binary
   assert_eq!(
     "bytes:{[12] [2a]}",
-    BinaryPoint::new_set_query("bytes", [vec![42u8], vec![18u8]])?.to_string("")?
+    BinaryPoint::new_set_query("bytes", [[42u8], [18u8]])?.to_string("")?
   );
   Ok(())
 }
@@ -2906,7 +2900,7 @@ fn test_point_in_set_query_get_packed_points() -> Result<()> {
     values.push(vec![i as u8]);
   }
 
-  let query = match BinaryPoint::new_set_query("field", values.clone())? {
+  let query = match BinaryPoint::new_set_query("field", &values)? {
     Query::PointInSet(q) => q,
     _ => panic!("expected PointInSetQuery"),
   };
@@ -3073,8 +3067,8 @@ fn test_point_range_equals() -> Result<()> {
   );
   assert_ne!(q1, DoublePoint::new_range_query("a", 1.0f64, 1000.0f64)?);
 
-  let zeros = vec![0u8; 5];
-  let ones = vec![0xffu8; 5];
+  let zeros = [0u8; 5];
+  let ones = [0xffu8; 5];
 
   let q1 = BinaryPoint::new_range_query_multi_dim(
     "a",
@@ -3096,7 +3090,7 @@ fn test_point_range_equals() -> Result<()> {
   other[2] = 5;
   assert_ne!(
     q1,
-    BinaryPoint::new_range_query_multi_dim("a", &[zeros], &[other],)?
+    BinaryPoint::new_range_query_multi_dim("a", [zeros], [other],)?
   );
 
   Ok(())
@@ -3212,8 +3206,8 @@ fn test_point_in_set_equals() -> Result<()> {
   // binary
   let zeros = vec![0u8; 5];
   let ones = vec![0xffu8; 5];
-  let q1 = BinaryPoint::new_set_query("a", [zeros.clone(), ones.clone()])?;
-  let q2 = BinaryPoint::new_set_query("a", [zeros.clone(), ones.clone()])?;
+  let q1 = BinaryPoint::new_set_query("a", [&zeros, &ones])?;
+  let q2 = BinaryPoint::new_set_query("a", [&zeros, &ones])?;
   assert_eq!(q1, q2);
   assert_eq!(
     CoreHelper::calculate_hash(&q1),
@@ -3243,7 +3237,7 @@ fn test_invalid_point_length() -> Result<()> {
   if let LuceneError::IllegalArgument(msg) = err {
     assert_eq!(
       "lower_point has length=4 but upper_point has different length=8",
-      msg.to_string()
+      msg.message
     );
   }
 

@@ -1506,9 +1506,10 @@ fn test_illegally_modify_root_arc() -> Result<()> {
   let mut fst_compiler = Builder::new(InputType::Byte1, outputs.clone()).build()?;
 
   let mut input = IntsRefBuilder::new();
-  for term in &terms_list {
-    Util::to_ints_ref(term, &mut input)?;
-    fst_compiler.add(input.get(), term.clone())?;
+  for term in terms_list {
+    Util::to_ints_ref(&term, &mut input)?;
+    debug_assert!(term.is_valid().is_ok());
+    fst_compiler.add(input.get(), term)?;
   }
 
   let metadata = fst_compiler.compile()?.unwrap();

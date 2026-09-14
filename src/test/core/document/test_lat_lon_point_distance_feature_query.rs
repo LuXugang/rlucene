@@ -240,8 +240,8 @@ fn test_crosses_date_line() -> Result<()> {
   let mut doc = Document::new();
   point.set_location_value(0.0, 140.0)?;
   doc_value.set_location_value(1.0, 140.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
+  doc.add(point);
+  doc.add(doc_value);
   w.add_document(&mut random, doc)?;
 
   let reader = w.get_reader(&mut random)?;
@@ -320,8 +320,8 @@ fn test_missing_value() -> Result<()> {
   let mut doc = Document::new();
   point.set_location_value(7.0, 7.0)?;
   doc_value.set_location_value(7.0, 7.0)?;
-  doc.add(point.clone());
-  doc.add(doc_value.clone());
+  doc.add(point);
+  doc.add(doc_value);
   w.add_document(&mut random, doc)?;
 
   let reader = w.get_reader(&mut random)?;

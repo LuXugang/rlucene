@@ -65,7 +65,7 @@ where
     bytes_per_dim,
     BKDConfig::DEFAULT_MAX_POINTS_IN_LEAF_NODE,
   )?;
-  let mut common_prefix_lengths = vec![0; 1];
+  let mut common_prefix_lengths = [0; 1];
   let points = create_random_points(
     random,
     &config,
@@ -296,8 +296,10 @@ where
       .iter_mut()
       .for_each(|prefix| *prefix = TestUtil::next_usize(random, 0, config.bytes_per_dim));
 
-    let first_value = points[0].packed_value.clone();
-    for point in points.iter_mut().skip(1) {
+    let (first, rest) = points.split_at_mut(1);
+    let first_value = &first[0].packed_value;
+    debug_assert!(first_value.is_valid().is_ok());
+    for point in rest.iter_mut() {
       for (dim, &prefix_len) in common_prefix_lengths
         .iter()
         .take(config.num_dims)
@@ -342,8 +344,10 @@ where
       .iter_mut()
       .for_each(|prefix| *prefix = TestUtil::next_usize(random, 0, config.bytes_per_dim));
 
-    let first_value = points[0].packed_value.clone();
-    for point in points.iter_mut().skip(1) {
+    let (first, rest) = points.split_at_mut(1);
+    let first_value = &first[0].packed_value;
+    debug_assert!(first_value.is_valid().is_ok());
+    for point in rest.iter_mut() {
       for (dim, &prefix_len) in common_prefix_lengths
         .iter()
         .enumerate()

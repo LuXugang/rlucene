@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Write as _;
 
 use crate::core::codecs::codec::{self, Codec};
 use crate::core::codecs::compound_format::CompoundFormat;
@@ -223,7 +224,7 @@ fn print_segment(si: &SegmentCommitInfo<DirEnum>) -> Result<String> {
     let mut tis = terms.unwrap().iterator()?;
     while BytesRefIterator::next(&mut tis)?.is_some() {
       out.push_str(&format!("  term={}:{}\n", field_info.name, tis.term()?));
-      out.push_str(&format!("    DF={}\n", tis.doc_freq()?));
+      writeln!(out, "    DF={}", tis.doc_freq()?)?;
 
       let mut positions = tis.postings_with_flags(None, POSITIONS as i32)?;
       let live_docs = reader.get_live_docs()?;
@@ -235,13 +236,13 @@ fn print_segment(si: &SegmentCommitInfo<DirEnum>) -> Result<String> {
             continue;
           }
         }
-        out.push_str(&format!(" doc={}\n", positions.doc_id()));
+        writeln!(out, " doc={}", positions.doc_id())?;
         let freq = positions.freq()?;
-        out.push_str(&format!(" TF={}\n", freq));
+        writeln!(out, " TF={}", freq)?;
         out.push_str(" pos=");
-        out.push_str(&format!("{}", positions.next_position()?));
+        write!(out, "{}", positions.next_position()?)?;
         for _j in 1..freq {
-          out.push_str(&format!(",{}", positions.next_position()?));
+          write!(out, ",{}", positions.next_position()?)?;
         }
         out.push('\n');
       }

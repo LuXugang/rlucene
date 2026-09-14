@@ -91,7 +91,7 @@ fn test() -> Result<()> {
     };
     let starting_gun = Barrier::new(num_threads + 1);
     thread::scope(|scope| {
-      let mut threads = Vec::new();
+      let mut threads = Vec::with_capacity(num_threads);
       for _ in 0..num_threads {
         let seed = random.random();
         let starting_gun = &starting_gun;
@@ -100,10 +100,11 @@ fn test() -> Result<()> {
         threads.push(scope.spawn(move || -> Result<()> {
           let mut random = random_from_seed(seed);
           starting_gun.wait();
+          let mut shuffled = Vec::new();
           for _ in 0..20 {
-            let mut shuffled = answers.iter().collect::<Vec<_>>();
+            shuffled.extend(answers.iter());
             shuffled.shuffle(&mut random);
-            for (term, expected) in shuffled {
+            for (term, expected) in shuffled.drain(..) {
               let actual = s.search(TermQuery::new(Term::new("body", term.clone())), 100)?;
               assert_eq!(expected.total_hits.value(), actual.total_hits.value());
               assert_eq!(

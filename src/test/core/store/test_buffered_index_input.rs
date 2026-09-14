@@ -61,11 +61,13 @@ fn test_read_bytes() -> Result<()> {
     BufferedIndexInput::with_buffer_size(sub_index_input, &resource_description, BUFFER_SIZE)?;
 
   let mut pos = 0;
+  let mut buffer = Vec::new();
 
   // Gradually increasing size
   let mut size = 1;
   while size < BUFFER_SIZE * 10 {
-    let mut buffer: Vec<u8> = vec![0; 10];
+    buffer.clear();
+    buffer.resize(10, 0);
     check_read_bytes(&mut input, size, pos, &mut buffer)?;
     pos += size;
     if pos >= TEST_FILE_LENGTH {
@@ -79,7 +81,8 @@ fn test_read_bytes() -> Result<()> {
   // Wildly fluctuating size
   for _ in 0..100 {
     let size = random.random_range(1..=10000);
-    let mut buffer: Vec<u8> = vec![0; 10];
+    buffer.clear();
+    buffer.resize(10, 0);
     check_read_bytes(&mut input, size, pos, &mut buffer)?;
     pos += size;
     if pos >= TEST_FILE_LENGTH {
@@ -91,7 +94,8 @@ fn test_read_bytes() -> Result<()> {
 
   // Constant small size (7 bytes)
   for _ in 0..BUFFER_SIZE {
-    let mut buffer: Vec<u8> = vec![0; 10];
+    buffer.clear();
+    buffer.resize(10, 0);
     check_read_bytes(&mut input, 7, pos, &mut buffer)?;
     pos += 7;
     if pos >= TEST_FILE_LENGTH {
@@ -261,13 +265,13 @@ fn test_backwards_int_reads() -> Result<()> {
 
   let mut i = 2048;
   while i > 0 {
-    let mut bb = vec![0u8; 4];
+    let mut bb = [0u8; 4];
     bb[0] = byten(i);
     bb[1] = byten(i + 1);
     bb[2] = byten(i + 2);
     bb[3] = byten(i + 3);
 
-    let expected_value = i32::from_le_bytes(bb.try_into().unwrap());
+    let expected_value = i32::from_le_bytes(bb);
     assert_eq!(expected_value, RandomAccessInput::read_int(&mut input, i)?);
     let v = TestUtil::next_usize(&mut random, 3, 18);
     let next = i.saturating_sub(v);
@@ -297,7 +301,7 @@ fn test_backwards_long_reads() -> Result<()> {
 
   let mut i = 2048;
   while i > 0 {
-    let mut bb = vec![0u8; 8];
+    let mut bb = [0u8; 8];
     bb[0] = byten(i);
     bb[1] = byten(i + 1);
     bb[2] = byten(i + 2);
@@ -307,7 +311,7 @@ fn test_backwards_long_reads() -> Result<()> {
     bb[6] = byten(i + 6);
     bb[7] = byten(i + 7);
 
-    let expected_value = i64::from_le_bytes(bb.try_into().unwrap());
+    let expected_value = i64::from_le_bytes(bb);
     assert_eq!(expected_value, RandomAccessInput::read_long(&mut input, i)?);
 
     let v = TestUtil::next_usize(&mut random, 7, 22);
@@ -461,7 +465,7 @@ fn test_read_longs() -> Result<()> {
     &resource_description,
     BUFFER_SIZE,
   )?;
-  let mut bb = vec![0u8; BitUtil::LONG_BYTES];
+  let mut bb = [0u8; BitUtil::LONG_BYTES];
   let mut long_buffer = vec![0i64; buffer_length];
 
   for alignment in 0..BitUtil::LONG_BYTES {

@@ -20,7 +20,6 @@ use crate::core::util::error::lucene_error::Result;
 use crate::core::util::frequency_tracking_ring_buffer::*;
 use crate::test_framework::core::util::lucene_test_case::random;
 use rand::RngExt;
-use std::borrow::Cow;
 use std::collections::HashMap;
 #[allow(dead_code)] // for quick search
 struct TestFrequencyTrackingRingBuffer;
@@ -30,16 +29,14 @@ fn assert_buffer(
   sentinel: i32,
   items: &[i32],
 ) {
-  let recent_items = if items.len() <= max_size {
-    let mut v = vec![sentinel; max_size - items.len()];
-    v.extend_from_slice(items);
-    Cow::Owned(v)
-  } else {
-    Cow::Borrowed(&items[items.len() - max_size..])
-  };
+  let recent_items = std::iter::repeat_n(sentinel, max_size.saturating_sub(items.len())).chain(
+    items[items.len().saturating_sub(max_size)..]
+      .iter()
+      .copied(),
+  );
 
   let mut expected_frequencies: HashMap<i32, i32> = HashMap::new();
-  for &item in recent_items.as_ref() {
+  for item in recent_items {
     *expected_frequencies.entry(item).or_insert(0) += 1;
   }
 

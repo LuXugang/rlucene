@@ -34,7 +34,7 @@ fn test_from_ints() {
   let ints_ptr = ints.as_ptr();
   let i = IntsRef::from_slice(ints, 0, 4);
   assert_eq!(ints_ptr, i.ints.as_ptr());
-  assert_eq!(vec![1, 2, 3, 4], i.ints);
+  assert_eq!(&[1, 2, 3, 4][..], i.ints.as_slice());
   assert_eq!(0, i.offset);
   assert_eq!(4, i.length);
 

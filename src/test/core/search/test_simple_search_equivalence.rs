@@ -131,7 +131,7 @@ fn test_exact_phrase_versus_boolean_and() -> Result<()> {
   let case = TestSimpleSearchEquivalence::new(&mut random);
   let t1 = case.random_term(&mut random);
   let t2 = case.random_term(&mut random);
-  let q1 = PhraseQuery::from_bytes(0, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+  let q1 = PhraseQuery::from_bytes(0, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
   let mut q2 = BooleanQueryBuilder::new();
   q2.add(TermQuery::new(t1), Occur::Must)?;
   q2.add(TermQuery::new(t2), Occur::Must)?;
@@ -158,8 +158,8 @@ fn test_phrase_versus_sloppy_phrase() -> Result<()> {
   let case = TestSimpleSearchEquivalence::new(&mut random);
   let t1 = case.random_term(&mut random);
   let t2 = case.random_term(&mut random);
-  let q1 = PhraseQuery::from_bytes(0, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
-  let q2 = PhraseQuery::from_bytes(1, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+  let q1 = PhraseQuery::from_bytes(0, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
+  let q2 = PhraseQuery::from_bytes(1, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
   case.assert_subset_of(&mut random, &q1.into(), &q2.into())
 }
 #[test]
@@ -183,11 +183,11 @@ fn test_exact_phrase_versus_multi_phrase() -> Result<()> {
 
   let t1 = case.random_term(&mut random);
   let t2 = case.random_term(&mut random);
-  let q1 = PhraseQuery::from_bytes(0, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+  let q1 = PhraseQuery::from_bytes(0, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
   let t3 = case.random_term(&mut random);
   let mut q2b = MultiPhraseQuery::builder();
   q2b.add_term(t1)?;
-  q2b.add_terms(&[t2, t3])?;
+  q2b.add_terms([t2, t3])?;
 
   case.assert_subset_of(&mut random, &q1.into(), &q2b.build().into())
 }
@@ -209,7 +209,7 @@ fn test_exact_phrase_versus_multi_phrase_with_holes() -> Result<()> {
 
   let mut q2b = MultiPhraseQuery::builder();
   q2b.add_term(t1)?;
-  q2b.add_terms_with_position(&[t2, t3], 2)?;
+  q2b.add_terms_with_position([t2, t3], 2)?;
 
   case.assert_subset_of(&mut random, &q1.into(), &q2b.build().into())
 }
@@ -232,7 +232,7 @@ fn test_sloppy_phrase_versus_boolean_and() -> Result<()> {
   let q1 = PhraseQuery::from_bytes(
     i32::MAX as usize,
     t1.field(),
-    vec![t1.bytes().clone(), t2.bytes().clone()],
+    [t1.bytes().clone(), t2.bytes().clone()],
   )?;
 
   let mut q2 = BooleanQueryBuilder::new();
@@ -250,7 +250,7 @@ fn test_phrase_relative_positions() -> Result<()> {
   let t1 = case.random_term(&mut random);
   let t2 = case.random_term(&mut random);
 
-  let q1 = PhraseQuery::from_bytes(0, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+  let q1 = PhraseQuery::from_bytes(0, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
 
   let mut builder = PhraseQueryBuilder::new();
   builder.add(t1, 10000)?;
@@ -269,7 +269,7 @@ fn test_sloppy_phrase_relative_positions() -> Result<()> {
   let t1 = case.random_term(&mut random);
   let t2 = case.random_term(&mut random);
 
-  let q1 = PhraseQuery::from_bytes(2, t1.field(), vec![t1.bytes().clone(), t2.bytes().clone()])?;
+  let q1 = PhraseQuery::from_bytes(2, t1.field(), [t1.bytes().clone(), t2.bytes().clone()])?;
 
   let mut builder = PhraseQueryBuilder::new();
   builder.add(t1, 10000)?;

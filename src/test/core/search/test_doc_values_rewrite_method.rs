@@ -47,7 +47,7 @@ use std::sync::{Arc, LazyLock};
 #[allow(dead_code)] // for quick search
 struct TestDocValuesRewriteMethod;
 
-type TestContext = (String, DefaultIndexSearchCR);
+type TestContext = (&'static str, DefaultIndexSearchCR);
 
 static LIGHT_CONTEXT: LazyLock<Arc<TestContext>> = LazyLock::new(|| {
   let mut random = random();
@@ -71,11 +71,7 @@ where
 {
   let dir = new_directory_shared(random)?;
 
-  let field_name = if random.random_bool(0.5) {
-    "field".to_string()
-  } else {
-    "".to_string()
-  };
+  let field_name = if random.random_bool(0.5) { "field" } else { "" };
 
   let analyzer = MockAnalyzer::with_automaton(random, mock_tokenizer::KEYWORD.clone(), false);
 
@@ -83,8 +79,6 @@ where
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
 
   let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
-
-  let mut terms: Vec<String> = Vec::new();
 
   let num = at_least(random, 200);
 
@@ -98,19 +92,17 @@ where
     for _ in 0..num_terms {
       let s = TestUtil::random_unicode_string(random);
 
-      doc.add(StringField::from_string(&field_name, s.clone(), Store::No)?);
+      doc.add(StringField::from_string(field_name, s.clone(), Store::No)?);
 
       doc.add(SortedSetDocValuesField::new(
-        &field_name,
+        field_name,
         BytesRef::from_string(&s),
       ));
 
       doc.add(SortedSetDocValuesField::indexed_field(
-        field_name.clone() + "_with-skip",
-        BytesRef::from_string(&s),
+        field_name.to_string() + "_with-skip",
+        BytesRef::from(s),
       ));
-
-      terms.push(s);
     }
 
     writer.add_document(random, doc)?;
@@ -120,7 +112,7 @@ where
 
   for _ in 0..num_deletions {
     let id = random.random_range(0..num);
-    writer.delete_documents_with_terms(random, vec![Term::from_text("id", id.to_string())])?;
+    writer.delete_documents_with_terms(random, vec![Term::new("id", id.to_string())])?;
   }
 
   let reader = writer.get_reader(random)?;
@@ -144,7 +136,7 @@ where
     DocValuesRewriteMethod,
   )?;
   let doc_values_with_skip = RegexpQuery::with_all(
-    Term::from_text(&(field_name.to_string() + "_with-skip"), &regexp),
+    Term::from_text(field_name.to_string() + "_with-skip", &regexp),
     RegExp::NONE,
     0,
     &DefaultProvider,
@@ -178,7 +170,7 @@ fn test_regexps() -> Result<()> {
   let num = at_least(&mut random, 1000);
   for _ in 0..num {
     let reg = AutomatonTestUtil::random_regexp(&mut random)?;
-    assert_same(&context.1, &context.0, reg)?;
+    assert_same(&context.1, context.0, reg)?;
   }
   Ok(())
 }
@@ -187,7 +179,7 @@ fn test_regexps() -> Result<()> {
 fn test_equals() -> Result<()> {
   let mut random = random();
   let context = set_up(&mut random)?;
-  let field_name = &context.0;
+  let field_name = context.0;
 
   {
     let a1 = RegexpQuery::with_flags(Term::from_text(field_name, "[aA]"), RegExp::NONE)?;

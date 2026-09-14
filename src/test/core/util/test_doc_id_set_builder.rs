@@ -147,6 +147,7 @@ fn test_random() -> Result<()> {
     TestUtil::next_usize(&mut random, 1, 100000)
   };
   let mut i = 1;
+  let mut array = Vec::new();
   while i < (max_doc / 2) {
     let num_docs = TestUtil::next_usize(&mut random, 1, i);
     let mut docs = FixedBitSet::new(max_doc);
@@ -158,7 +159,8 @@ fn test_random() -> Result<()> {
         c += 1
       }
     }
-    let mut array = vec![0; num_docs + random.random_range(0..100)];
+    array.clear();
+    array.resize(num_docs + random.random_range(0..100), 0);
     let (mut j, v) = {
       let mut it = BitSetIterator::new(docs, 0)?;
       let mut j = 0;

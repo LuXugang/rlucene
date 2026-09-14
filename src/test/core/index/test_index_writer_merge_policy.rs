@@ -583,8 +583,8 @@ fn test_carry_over_new_deletes_on_commit() -> Result<()> {
   };
 
   let thread_writer = writer.clone();
-  let thread_wait_for_merge = wait_for_merge.clone();
-  let thread_wait_for_update = wait_for_update.clone();
+  let thread_wait_for_merge = wait_for_merge;
+  let thread_wait_for_update = wait_for_update;
   let handle = thread::spawn(move || -> Result<()> {
     let update_result = (|| -> Result<()> {
       await_latch(&thread_wait_for_merge, "commit merge did not start")?;

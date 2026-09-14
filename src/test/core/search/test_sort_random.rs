@@ -94,7 +94,7 @@ fn test_random_string_sort_for_type(type_: SortFieldType) -> Result<()> {
         continue;
       }
 
-      let br = BytesRef::from_string(&s);
+      let br = BytesRef::from(s);
       doc.add(SortedDocValuesField::new("stringdv", br.clone()));
       Some(br)
     } else {

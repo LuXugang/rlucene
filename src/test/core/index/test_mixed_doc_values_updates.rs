@@ -237,7 +237,7 @@ fn test_stress_multi_threading() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for i in 0..num_threads {
-      let writer = writer.clone();
+      let writer = &writer;
       let num_updates = &num_updates;
       let seed = random.random();
       handles.push(
@@ -288,7 +288,7 @@ fn test_stress_multi_threading() -> Result<()> {
                     reader = Some(old_reader);
                   }
                 } else {
-                  reader = Some(directory_reader::open_from_writer(&writer)?);
+                  reader = Some(directory_reader::open_from_writer(writer)?);
                 }
               }
             }
@@ -538,8 +538,8 @@ fn test_try_update_doc_values() -> Result<()> {
 
   assert_eq!(Some((doc + 1) as i64), numeric_id_values);
   assert_eq!(
-    Some(BytesRef::from_bytes(vec![(doc + 1) as u8])),
-    binary_id_values
+    Some([(doc + 1) as u8].as_slice()),
+    binary_id_values.as_ref().map(BytesRefValue::as_bytes)
   );
   reader.close()?;
   writer.close()?;
@@ -575,9 +575,9 @@ fn test_try_update_multi_threaded() -> Result<()> {
   thread::scope(|scope| -> Result<()> {
     let mut handles = Vec::new();
     for _ in 0..num_threads {
-      let writer = writer.clone();
-      let barrier = barrier.clone();
-      let values = values.clone();
+      let writer = &writer;
+      let barrier = &barrier;
+      let values = &values;
       let seed = random.random();
       handles.push(scope.spawn(move || -> Result<()> {
         let mut random = random_from_seed(seed);
@@ -605,7 +605,7 @@ fn test_try_update_multi_threaded() -> Result<()> {
           } else {
             do_update(
               Term::from_text("id", doc_id.to_string()),
-              &writer,
+              writer,
               vec![if let Some(value) = value {
                 NumericDocValuesField::new("value", value).into()
               } else {

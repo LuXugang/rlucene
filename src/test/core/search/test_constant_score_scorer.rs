@@ -60,17 +60,15 @@ use crate::test_framework::core::index::random_index_writer::RandomIndexWriter;
 struct TestConstantScoreScorer;
 pub static FIELD: &str = "f";
 
-pub static VALUES: LazyLock<Vec<String>> = LazyLock::new(|| {
-  vec![
-    "foo".to_string(),
-    "bar".to_string(),
-    "foo bar".to_string(),
-    "bar foo".to_string(),
-    "foo not bar".to_string(),
-    "bar foo bar".to_string(),
-    "azerty".to_string(),
-  ]
-});
+pub static VALUES: &[&str] = &[
+  "foo",
+  "bar",
+  "foo bar",
+  "bar foo",
+  "foo not bar",
+  "bar foo bar",
+  "azerty",
+];
 
 pub static TERM_QUERY: LazyLock<BooleanQuery> = LazyLock::new(|| {
   let mut builder = Builder::new();
@@ -252,7 +250,7 @@ impl TestConstantScoreScorerIndex {
       doc.add(new_text_field(
         random,
         FIELD,
-        value,
+        *value,
         Store::Yes,
         &mut field_to_type,
       )?);

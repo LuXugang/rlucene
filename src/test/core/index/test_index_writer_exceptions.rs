@@ -203,23 +203,23 @@ thread_local! {
   static DO_FAIL: Cell<bool> = const { Cell::new(false) };
 }
 
-struct IndexerThread<D>
+struct IndexerThread<'a, D>
 where
   D: Directory + 'static,
 {
-  writer: DefaultIndexWriter<D>,
+  writer: &'a DefaultIndexWriter<D>,
   r: StdRng,
-  field_types: Arc<Mutex<HashMap<String, FieldType>>>,
+  field_types: &'a Mutex<HashMap<String, FieldType>>,
 }
 
-impl<D> IndexerThread<D>
+impl<'a, D> IndexerThread<'a, D>
 where
   D: Directory + 'static,
 {
   fn new(
-    writer: DefaultIndexWriter<D>,
+    writer: &'a DefaultIndexWriter<D>,
     seed: u64,
-    field_types: Arc<Mutex<HashMap<String, FieldType>>>,
+    field_types: &'a Mutex<HashMap<String, FieldType>>,
   ) -> Self {
     Self {
       writer,
@@ -1243,8 +1243,8 @@ fn test_random_exceptions() -> Result<()> {
   )?;
   writer.commit()?;
 
-  let field_types = Arc::new(Mutex::new(HashMap::new()));
-  IndexerThread::new(writer.clone(), random.random(), field_types).run()?;
+  let field_types = Mutex::new(HashMap::new());
+  IndexerThread::new(&writer, random.random(), &field_types).run()?;
 
   writer.commit()?;
   if writer.close().is_err() {
@@ -1283,13 +1283,13 @@ fn test_random_exceptions_threads() -> Result<()> {
   writer.commit()?;
 
   const NUM_THREADS: usize = 4;
-  let field_types = Arc::new(Mutex::new(HashMap::new()));
+  let field_types = Mutex::new(HashMap::new());
   let seeds: Vec<u64> = (0..NUM_THREADS).map(|_| random.random()).collect();
   thread::scope(|scope| -> Result<()> {
     let mut threads = Vec::with_capacity(NUM_THREADS);
     for seed in seeds {
-      let writer = writer.clone();
-      let field_types = field_types.clone();
+      let writer = &writer;
+      let field_types = &field_types;
       threads.push(scope.spawn(move || IndexerThread::new(writer, seed, field_types).run()));
     }
     for thread in threads {
@@ -1727,7 +1727,7 @@ fn test_documents_writer_exception_threads() -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::with_capacity(NUM_THREAD as usize);
       for _ in 0..NUM_THREAD {
-        let writer = writer.clone();
+        let writer = &writer;
         threads.push(scope.spawn(move || -> Result<()> {
           for _ in 0..num_iter {
             let mut doc = Document::new();
@@ -2308,7 +2308,7 @@ fn test_add_docs_non_aborting_exception() -> Result<()> {
     writer.add_document(&mut random, doc)?;
   }
 
-  let mut docs = Vec::new();
+  let mut docs = Vec::with_capacity(7);
   for doc_count in 0..7 {
     let mut doc = Document::new();
     doc.add(StringField::from_string(
@@ -2388,6 +2388,7 @@ fn test_update_docs_non_aborting_exception() -> Result<()> {
   // Use addDocs (no error) to get docs in the index:
   let mut docs = Vec::new();
   let num_docs2 = random.random_range(0..25);
+  docs.reserve(num_docs2 as usize);
   for doc_count in 0..num_docs2 {
     let mut doc = Document::new();
     doc.add(StringField::from_string("subid", "subs", Store::No)?);
@@ -2419,6 +2420,7 @@ fn test_update_docs_non_aborting_exception() -> Result<()> {
   let mut docs = Vec::new();
   let limit = TestUtil::next_int(&mut random, 2, 25);
   let crash_at = random.random_range(0..limit);
+  docs.reserve(limit as usize);
   for doc_count in 0..limit {
     let mut doc = Document::new();
     doc.add(StringField::from_string(

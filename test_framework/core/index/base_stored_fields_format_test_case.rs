@@ -336,7 +336,7 @@ pub trait BaseStoredFieldsFormatTestCase:
     assert_eq!(num_docs as i32, reader.num_docs()?);
 
     for leaf in reader.get_context()?.leaves()? {
-      let sub = leaf.reader().clone();
+      let sub = leaf.reader();
       let mut ids = sub.get_numeric_doc_values("id")?.unwrap();
       let mut stored_fields = sub.stored_fields()?;
       for doc_id in 0..sub.num_docs()? {
@@ -540,14 +540,13 @@ pub trait BaseStoredFieldsFormatTestCase:
     thread::scope(|scope| -> Result<()> {
       let mut handles = Vec::new();
       for queries in read_queries {
-        let rd = reader.clone();
-        let searcher = searcher.clone();
+        let rd = &reader;
+        let searcher = &searcher;
         handles.push(scope.spawn(move || -> Result<()> {
           for q in queries {
             let mut stored_fields = rd.stored_fields()?;
-            let top_docs = searcher
-              .clone()
-              .search(TermQuery::new(Term::from_text("fld", q.to_string())), 1)?;
+            let top_docs =
+              searcher.search(TermQuery::new(Term::from_text("fld", q.to_string())), 1)?;
             if top_docs.total_hits.value() != 1 {
               return Err(
                 crate::core::util::error::lucene_error::LuceneError::illegal_state(format!(

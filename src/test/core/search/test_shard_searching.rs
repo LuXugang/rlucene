@@ -221,7 +221,7 @@ fn test_simple() -> Result<()> {
                 .take(TestUtil::next_usize(&mut random, 1, 2))
                 .collect()
             };
-            PrefixQuery::new(Term::from_text("body", prefix))?.into_query()
+            PrefixQuery::new(Term::new("body", prefix))?.into_query()
           };
 
           let sort = if random.random_bool(0.5) {

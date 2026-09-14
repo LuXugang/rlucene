@@ -353,7 +353,7 @@ fn test_multi_threaded_snapshotting() -> Result<()> {
   let sdp = get_deletion_policy();
   let writer = IndexWriter::new(dir.clone(), get_config(&mut random, Some(sdp.clone()))?)?;
 
-  let snapshots = Arc::new(Mutex::new(vec![None; NUM_THREADS]));
+  let snapshots = Arc::new(Mutex::new([const { None }; NUM_THREADS]));
   let starting_gun = Arc::new(Barrier::new(1 + NUM_THREADS));
   let mut handles = Vec::new();
   for i in 0..NUM_THREADS {

@@ -119,7 +119,7 @@ pub trait BaseTestCheckIndex {
     assert!(diagnostics.get("lucene.version").is_some());
 
     assert!(!diagnostics.is_empty());
-    let only_segments = vec!["_0".to_string()];
+    let only_segments = ["_0".to_string()];
     assert!(
       checker
         .check_index_with_segments(Some(&only_segments))?

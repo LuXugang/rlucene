@@ -248,7 +248,7 @@ fn test_concurrency() -> Result<()> {
   let indexing = AtomicBool::new(true);
   let error = parking_lot::Mutex::new(None);
   let num_docs = at_least(&mut random, 1000);
-  let seeds: Vec<u64> = (0..3).map(|_| random.random()).collect();
+  let seeds: [u64; 3] = std::array::from_fn(|_| random.random());
 
   let body_result = std::thread::scope(|scope| -> Result<()> {
     let indexer = scope.spawn(|| {
@@ -479,10 +479,7 @@ fn test_clear_filter() -> Result<()> {
 
   let boot = random.random();
   searcher.search(
-    crate::core::search::boost_query::BoostQuery::new(
-      ConstantScoreQuery::new(query1.clone()),
-      boot,
-    )?,
+    crate::core::search::boost_query::BoostQuery::new(ConstantScoreQuery::new(query1), boot)?,
     1,
   )?;
   assert_eq!(1, cached_queries(&query_cache).len());
@@ -625,7 +622,11 @@ fn test_on_use() -> Result<()> {
   impl QueryCachingPolicy for CountingPolicy {
     fn on_use(&self, query: &Query) {
       let mut counts = self.counts.lock();
-      *counts.entry(query.clone()).or_insert(0) += 1;
+      if let Some(count) = counts.get_mut(query) {
+        *count += 1;
+      } else {
+        *counts.entry(query.clone()).or_insert(0) += 1;
+      }
     }
 
     fn should_cache(&self, _query: &Query) -> Result<bool> {
@@ -1012,7 +1013,7 @@ where
         PhraseQuery::from_bytes(
           random.random_range(0..2),
           t1.field(),
-          vec![t1.bytes().clone(), t2.bytes().clone()],
+          [t1.bytes().clone(), t2.bytes().clone()],
         )?
         .into(),
       )
@@ -1299,7 +1300,10 @@ fn test_evict_empty_segment_cache() -> Result<()> {
 
   let query: Query = TestLRUQuery::dummy().into();
   searcher.count(query.clone())?;
-  assert_eq!(vec![query.clone()], cached_queries(&query_cache));
+  assert_eq!(
+    std::slice::from_ref(&query),
+    cached_queries(&query_cache).as_slice()
+  );
   query_cache.clear_query(&query)?;
 
   reader.close()?; // make sure this does not trigger eviction of segment caches with no entries
@@ -2195,7 +2199,7 @@ fn test_skip_caching_for_range_query() -> Result<()> {
   )?);
   set_cache(&mut searcher, part_cache.clone());
   searcher.search(query.clone(), 1)?;
-  cache_set.insert(sub_query1.clone());
+  cache_set.insert(sub_query1);
   assert_eq!(cache_set, cached_query_set(&part_cache));
 
   // both queries are cached
@@ -2345,7 +2349,10 @@ fn test_cache_has_fast_count() -> Result<()> {
     assert_eq!(-1, weight.count(context, &searcher)?);
     // Fetch the scorer to populate the cache
     weight.scorer(context, &searcher)?;
-    assert_eq!(vec![query.clone()], cached_queries(&all_cache));
+    assert_eq!(
+      std::slice::from_ref(&query),
+      cached_queries(&all_cache).as_slice()
+    );
     // Now we *do* have a fast count
     assert_eq!(2, weight.count(context, &searcher)?);
   }

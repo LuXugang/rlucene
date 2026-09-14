@@ -48,7 +48,7 @@ fn test_ram_bytes_used() -> Result<()> {
     };
     let value = format!("{}", random.random_range(0..100));
     let term = Term::new("id", BytesRef::from_string(&value));
-    bu.add_query(TermQuery::new(term.clone()).into(), doc_id_upto)?;
+    bu.add_query(TermQuery::new(term).into(), doc_id_upto)?;
   }
 
   let terms = at_least(&mut random, 1);
@@ -120,11 +120,8 @@ fn test_deleted_terms() -> Result<()> {
       assert_eq!(*expected_value, actual.get(term)?);
     }
 
-    let mut expected_sorted: Vec<(Term, i32)> = expected
-      .iter()
-      .map(|(term, doc_id)| (Term::new(term.field.clone(), term.bytes.clone()), *doc_id))
-      .collect();
-    expected_sorted.sort_by_key(|entry| entry.0.clone());
+    let mut expected_sorted: Vec<(Term, i32)> = expected.into_iter().collect();
+    expected_sorted.sort_by(|left, right| left.0.cmp(&right.0));
 
     let mut actual_sorted: Vec<_> = Vec::new();
     actual.for_each_ordered(|term, doc_id| {

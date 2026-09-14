@@ -90,7 +90,7 @@ pub fn test_simple() -> Result<()> {
   let dir = new_directory_shared(&mut random)?;
   let block_shift = 2;
 
-  let actual_values = vec![1, 2, 5, 7, 8, 100];
+  let actual_values = [1, 2, 5, 7, 8, 100];
   let num_values = actual_values.len();
 
   let data_length;
@@ -306,10 +306,12 @@ pub fn test_monotonic_binary_search_random() -> Result<()> {
   let mut random = random();
   let dir = new_directory(&mut random)?;
   let iters = at_least(&mut random, 100);
+  let mut array = Vec::new();
   for _ in 0..iters {
     let upper = 1 << random.random_range(0..14);
     let array_length = random.random_range(0..upper);
-    let mut array = vec![0; array_length];
+    array.clear();
+    array.resize(array_length, 0);
     let base: i64 = random.random();
     let bpv = TestUtil::next_int(&mut random, 4, 61);
     for value in array.iter_mut() {

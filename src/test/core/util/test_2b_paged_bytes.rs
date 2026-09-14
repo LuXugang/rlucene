@@ -47,9 +47,11 @@ fn test() -> Result<()> {
   let seed = random.random::<u64>();
   let mut last_file_pointer = 0usize;
   let mut random_2 = StdRng::seed_from_u64(seed);
+  let mut bytes = Vec::new();
   while (net_bytes as f64) < 1.1 * (i32::MAX as f64) {
     let num_bytes = TestUtil::next_usize(&mut random_2, 1, 32768);
-    let mut bytes = vec![0u8; num_bytes];
+    bytes.clear();
+    bytes.resize(num_bytes, 0u8);
     random_2.fill(&mut bytes[..]);
     data_output.write_bytes_range(&bytes, 0, bytes.len())?;
     let file_pointer = data_output.get_file_pointer()?;

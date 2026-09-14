@@ -65,7 +65,7 @@ fn test_1d() -> Result<()> {
     26_i64 * i64::from(num_docs),
   )?;
   let mut counter = 0_i32;
-  let mut packed_bytes = vec![0; BitUtil::LONG_BYTES];
+  let mut packed_bytes = [0; BitUtil::LONG_BYTES];
   for doc_id in 0..num_docs {
     for _ in 0..26 {
       // first a random int:
@@ -133,7 +133,7 @@ fn test_2d() -> Result<()> {
     26_i64 * i64::from(num_docs),
   )?;
   let mut counter = 0_i32;
-  let mut packed_bytes = vec![0; 2 * BitUtil::LONG_BYTES];
+  let mut packed_bytes = [0; 2 * BitUtil::LONG_BYTES];
   for doc_id in 0..num_docs {
     for _ in 0..26 {
       // first a random int:

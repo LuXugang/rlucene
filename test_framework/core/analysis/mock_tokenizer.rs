@@ -176,19 +176,19 @@ where
     match self.random.random_range(0..10) {
       0 => {
         // Read into the full character buffer.
-        let mut c = vec!['\0'; 1];
+        let mut c = ['\0'; 1];
         let ret = self.tokenizer_base.input.read_buf(&mut c)?;
         Ok(if ret < 0 { ret } else { c[0] as i32 })
       },
       1 => {
         // Read into a character-buffer range.
-        let mut c = vec!['\0'; 2];
+        let mut c = ['\0'; 2];
         let ret = self.tokenizer_base.input.read_range(&mut c, 1, 1)?;
         Ok(if ret < 0 { ret } else { c[1] as i32 })
       },
       2 => {
         // Read through the character-buffer adapter.
-        let mut c = vec!['\0'; 1];
+        let mut c = ['\0'; 1];
         let ret = self.tokenizer_base.input.read_buf(&mut c)?;
         Ok(if ret < 0 { ret } else { c[0] as i32 })
       },

@@ -300,7 +300,7 @@ fn test_apply_updates() -> Result<()> {
     true,
     false,
   )?;
-  let docs_deleted = vec![1, 3, 7, 8, NO_MORE_DOCS];
+  let docs_deleted = [1, 3, 7, 8, NO_MORE_DOCS];
   let updates = vec![single_update(&docs_deleted, 10, true)?];
   for update in updates {
     deletes.on_doc_values_update(&field_info, update, &mut commit_info)?;
@@ -319,7 +319,7 @@ fn test_apply_updates() -> Result<()> {
   assert!(!live_docs.get(8)?);
   assert!(live_docs.get(9)?);
 
-  let docs_deleted = vec![1, 2, NO_MORE_DOCS];
+  let docs_deleted = [1, 2, NO_MORE_DOCS];
   let updates = vec![single_update(&docs_deleted, 10, true)?];
   let field_info = FieldInfo::new(
     "_soft_deletes",
@@ -422,7 +422,7 @@ fn test_update_applied_only_once() -> Result<()> {
     true,
     false,
   )?;
-  let docs_deleted = vec![1, NO_MORE_DOCS];
+  let docs_deleted = [1, NO_MORE_DOCS];
   let updates = vec![single_update(&docs_deleted, 3, true)?];
   for update in updates {
     deletes.on_doc_values_update(&field_info, update, segment_reader.get_segment_info_mut())?;

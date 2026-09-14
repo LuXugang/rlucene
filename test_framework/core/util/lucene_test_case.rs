@@ -178,15 +178,20 @@ pub enum EnvConfig {
   TestSeed,
 }
 
-impl fmt::Display for EnvConfig {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let key = match self {
+impl AsRef<str> for EnvConfig {
+  fn as_ref(&self) -> &str {
+    match self {
       LightMode => "tests.light",
       NightMode => "tests.nightly",
       Multiplier => "tests.multiplier",
       TestSeed => "tests.seed",
-    };
-    write!(f, "{}", key)
+    }
+  }
+}
+
+impl fmt::Display for EnvConfig {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}", self.as_ref())
   }
 }
 
@@ -220,15 +225,15 @@ const CORE_DIRECTORIES: [DirectoryImpl; 3] = [
 ];
 
 pub fn is_night_mode() -> bool {
-  std::env::var(NightMode.to_string()).is_ok_and(|v| v == "true")
+  std::env::var(NightMode.as_ref()).is_ok_and(|v| v == "true")
 }
 
 pub fn is_light_mode() -> bool {
-  std::env::var(LightMode.to_string()).is_ok_and(|v| v == "true")
+  std::env::var(LightMode.as_ref()).is_ok_and(|v| v == "true")
 }
 
 pub(crate) fn random_multiplier() -> i32 {
-  let multiplier = std::env::var(Multiplier.to_string()).ok();
+  let multiplier = std::env::var(Multiplier.as_ref()).ok();
 
   multiplier
     .and_then(|v| v.parse::<i32>().ok())
@@ -272,7 +277,7 @@ pub(crate) fn get_seed_from_env() -> u64 {
   fn current_seed() -> u64 {
     if let Some(seed) = GLOBAL_SEED.get() {
       *seed
-    } else if let Ok(seed_str) = std::env::var(TestSeed.to_string()) {
+    } else if let Ok(seed_str) = std::env::var(TestSeed.as_ref()) {
       if let Ok(seed) = seed_str.parse::<u64>() {
         println!("Using Global Seed from environment: '{}'", seed);
         seed
@@ -915,7 +920,7 @@ fn new_file_switch_directory<R>(
 where
   R: Rng + ?Sized,
 {
-  let mut file_extensions = vec![
+  let mut file_extensions = [
     "fdt", "fdx", "tim", "tip", "si", "fnm", "pos", "dii", "dim", "nvm", "nvd", "dvm", "dvd",
   ];
   file_extensions.shuffle(random);
@@ -1061,7 +1066,7 @@ where
 
   let map = field_to_type;
   if let Some(prev_type) = map.get(&name) {
-    return create_field(&name, value, prev_type.clone());
+    return create_field(name, value, prev_type.clone());
   }
   let mut new_type = FieldType::from_ref(field_type)?;
   if !new_type.stored() && random.random_bool(0.5) {
@@ -1096,10 +1101,10 @@ where
   }
   new_type.freeze();
   map.insert(name.clone(), new_type.clone());
-  create_field(&name, value, new_type)
+  create_field(name, value, new_type)
 }
 pub(crate) fn create_field(
-  name: &str,
+  name: String,
   value: FieldDataEnum,
   field_type: FieldType,
 ) -> Result<Field> {

@@ -1744,7 +1744,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let writer = RandomIndexWriter::with_config(random, dir.clone(), cfg);
     let num_docs = at_least(random, 100);
     let mut doc_to_string = HashMap::new();
-    let mut all_values = Vec::new();
+    let mut all_values = Vec::with_capacity(num_docs as usize);
     let max_length = TestUtil::next_usize(random, 1, 50);
     let mut field_to_type = HashMap::new();
 
@@ -3881,10 +3881,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let leaf = context.leaves()?[0].reader();
     let mut dv = leaf.get_binary_doc_values("dv1")?.unwrap();
     assert_eq!(0, dv.next_doc()?);
-    assert_eq!(
-      BytesRef::from_slice(vec![], 0, 0),
-      dv.binary_value()?.into_owned()
-    );
+    assert_eq!(b"".as_slice(), dv.binary_value()?.as_bytes());
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
     Ok(())
   }
@@ -3933,10 +3930,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let leaf = context.leaves()?[0].reader();
     let mut dv = leaf.get_binary_doc_values("dv1")?.unwrap();
     assert_eq!(0, dv.next_doc()?);
-    assert_eq!(
-      BytesRef::from_slice(vec![], 0, 0),
-      dv.binary_value()?.into_owned()
-    );
+    assert_eq!(b"".as_slice(), dv.binary_value()?.as_bytes());
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
     Ok(())
   }
@@ -3999,14 +3993,11 @@ pub trait LegacyBaseDocValuesFormatTestCase:
     let leaf = context.leaves()?[0].reader();
     let mut dv = leaf.get_binary_doc_values("dv1")?.unwrap();
     assert_eq!(0, dv.next_doc()?);
-    assert_eq!(
-      BytesRef::from_slice(vec![], 0, 0),
-      dv.binary_value()?.into_owned()
-    );
+    assert_eq!(b"".as_slice(), dv.binary_value()?.as_bytes());
     assert_eq!(2, dv.next_doc()?);
     assert_eq!(
-      new_bytes_ref_from_string(random, "boo")?,
-      dv.binary_value()?.into_owned()
+      new_bytes_ref_from_string::<_, Vec<u8>>(random, "boo")?.as_bytes(),
+      dv.binary_value()?.as_bytes()
     );
     assert_eq!(NO_MORE_DOCS, dv.next_doc()?);
     Ok(())
@@ -4069,7 +4060,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let starting_gun = starting_gun.clone();
         handles.push(scope.spawn(move || -> Result<()> {
           starting_gun.wait();
-          let context = reader.clone().get_context()?;
+          let context = (&reader).get_context()?;
           for leaf in context.leaves()? {
             let leaf_reader = leaf.reader();
             let mut stored_fields = leaf_reader.stored_fields()?;
@@ -4082,10 +4073,9 @@ pub trait LegacyBaseDocValuesFormatTestCase:
               let stored_doc = stored_fields.document(j)?;
               let binary_value = stored_doc
                 .get_binary_value("storedBin")?
-                .expect("storedBin should exist")
-                .into_owned();
+                .expect("storedBin should exist");
               assert_eq!(j, binaries.next_doc()?);
-              assert_eq!(&binary_value, binaries.binary_value()?.as_ref());
+              assert_eq!(binary_value.as_bytes(), binaries.binary_value()?.as_bytes());
 
               assert_eq!(j, sorted.next_doc()?);
               let ord = sorted.ord_value()?;
@@ -4093,8 +4083,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
 
               let expected = stored_doc
                 .get("storedNum")?
-                .expect("storedNum should exist")
-                .into_owned();
+                .expect("storedNum should exist");
               assert_eq!(j, numerics.next_doc()?);
               assert_eq!(expected.parse::<i64>().unwrap(), numerics.long_value()?);
             }
@@ -4206,7 +4195,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
         let starting_gun = starting_gun.clone();
         handles.push(scope.spawn(move || -> Result<()> {
           starting_gun.wait();
-          let context = reader.clone().get_context()?;
+          let context = (&reader).get_context()?;
           for leaf in context.leaves()? {
             let leaf_reader = leaf.reader();
             let mut stored_fields = leaf_reader.stored_fields()?;
@@ -4348,7 +4337,7 @@ pub trait LegacyBaseDocValuesFormatTestCase:
           let starting_gun = starting_gun.clone();
           handles.push(scope.spawn(move || -> Result<()> {
             starting_gun.wait();
-            let context = reader.clone().get_context()?;
+            let context = (&reader).get_context()?;
             let mut output = Vec::with_capacity(1024);
             for leaf in context.leaves()? {
               let status = CheckIndex::test_doc_values(leaf.reader(), Some(&mut output), true)?;

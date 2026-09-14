@@ -31,6 +31,7 @@ use crate::core::document::sorted_set_doc_values_field::SortedSetDocValuesField;
 use crate::core::document::stored_field::StoredField;
 use crate::core::document::string_field::StringField;
 use crate::core::document::text_field::TextField;
+use crate::core::index::BytesRefValue;
 use crate::core::index::check_index::{CheckIndex, Level};
 use crate::core::index::concurrent_merge_scheduler::{
   ConcurrentMergeScheduler, ConcurrentMergeSchedulerHook,
@@ -807,9 +808,9 @@ fn test_empty_field_name_terms() -> Result<()> {
   let terms = LeafReader::terms(&subreader, "")?.unwrap();
   let mut te = terms.iterator()?;
 
-  assert_eq!(&BytesRef::from_string("a"), te.next()?.unwrap().as_ref());
-  assert_eq!(&BytesRef::from_string("b"), te.next()?.unwrap().as_ref());
-  assert_eq!(&BytesRef::from_string("c"), te.next()?.unwrap().as_ref());
+  assert_eq!(b"a".as_slice(), te.next()?.unwrap().as_bytes());
+  assert_eq!(b"b".as_slice(), te.next()?.unwrap().as_bytes());
+  assert_eq!(b"c".as_slice(), te.next()?.unwrap().as_bytes());
   assert_eq!(None, te.next()?);
 
   Ok(())
@@ -865,10 +866,10 @@ fn test_empty_field_name_with_empty_term() -> Result<()> {
   let terms = LeafReader::terms(&subreader, "")?.unwrap();
   let mut te = terms.iterator()?;
 
-  assert_eq!(&BytesRef::from_string(""), te.next()?.unwrap().as_ref());
-  assert_eq!(&BytesRef::from_string("a"), te.next()?.unwrap().as_ref());
-  assert_eq!(&BytesRef::from_string("b"), te.next()?.unwrap().as_ref());
-  assert_eq!(&BytesRef::from_string("c"), te.next()?.unwrap().as_ref());
+  assert_eq!(b"".as_slice(), te.next()?.unwrap().as_bytes());
+  assert_eq!(b"a".as_slice(), te.next()?.unwrap().as_bytes());
+  assert_eq!(b"b".as_slice(), te.next()?.unwrap().as_bytes());
+  assert_eq!(b"c".as_slice(), te.next()?.unwrap().as_bytes());
   assert_eq!(None, te.next()?);
 
   Ok(())
@@ -1143,12 +1144,7 @@ fn test_index_store_combos() -> Result<()> {
   let mut field2 = MockTokenizer::with_default_max_token_length(r, WHITESPACE.clone(), false);
   field2.set_reader(StringReader::new("doc3field2").into())?;
   let mut doc = Document::new();
-  doc.add(StoredField::from_binary_with_range(
-    "binary",
-    b.clone(),
-    10,
-    17,
-  )?);
+  doc.add(StoredField::from_binary_with_range("binary", b, 10, 17)?);
   doc.add(Field::from_token_stream(
     "binary",
     FieldTokenStreamEnum::custom(field1),
@@ -1803,7 +1799,7 @@ fn test_nrt_reader_version() -> Result<()> {
   let version = r.get_version()?;
   drop(r);
 
-  w.add_document(doc.clone())?;
+  w.add_document(doc)?;
 
   let r = directory_reader::open_from_writer(&w)?;
   let version2 = r.get_version()?;
@@ -1863,7 +1859,7 @@ fn test_has_blocks_merge_fully_del_segments() -> Result<()> {
     Ok(doc)
   };
 
-  let docs = vec![new_doc()?, new_doc()?];
+  let docs = [new_doc()?, new_doc()?];
   writer.update_documents_with_term(Term::from_text("foo", "bar"), docs.clone())?;
   writer.commit()?;
 
@@ -1914,7 +1910,7 @@ fn test_single_docs_do_not_trigger_has_blocks() -> Result<()> {
   for i in 0..docs {
     let mut doc = Document::new();
     doc.add(StringField::from_string("id", i.to_string(), Store::No)?);
-    w.add_documents(vec![doc])?;
+    w.add_documents([doc])?;
   }
 
   w.commit()?;
@@ -1926,7 +1922,7 @@ fn test_single_docs_do_not_trigger_has_blocks() -> Result<()> {
   let mut doc = Document::new();
   doc.add(StringField::from_string("id", "XXX", Store::No)?);
 
-  w.add_documents(vec![doc.clone(), doc])?;
+  w.add_documents([doc.clone(), doc])?;
   w.commit()?;
 
   let si = w.clone_segment_infos()?;
@@ -2286,8 +2282,11 @@ fn test_commit_with_user_data_only() -> Result<()> {
 
   let r = directory_reader::open(dir.clone())?;
   assert_eq!(
-    Some(&"value".to_string()),
-    r.get_index_commit()?.get_user_data().get("key")
+    Some("value"),
+    r.get_index_commit()?
+      .get_user_data()
+      .get("key")
+      .map(String::as_str)
   );
 
   // Now check setCommitData and prepareCommit/commit sequence.
@@ -2306,8 +2305,11 @@ fn test_commit_with_user_data_only() -> Result<()> {
 
   let r = directory_reader::open(dir.clone())?;
   assert_eq!(
-    Some(&"value1".to_string()),
-    r.get_index_commit()?.get_user_data().get("key")
+    Some("value1"),
+    r.get_index_commit()?
+      .get_user_data()
+      .get("key")
+      .map(String::as_str)
   );
 
   // Now should commit the second commitData - there was a bug where
@@ -2316,8 +2318,11 @@ fn test_commit_with_user_data_only() -> Result<()> {
 
   let r = directory_reader::open(dir.clone())?;
   assert_eq!(
-    Some(&"value2".to_string()),
-    r.get_index_commit()?.get_user_data().get("key"),
+    Some("value2"),
+    r.get_index_commit()?
+      .get_user_data()
+      .get("key")
+      .map(String::as_str),
     "IndexWriter.finishCommit may have overridden the second commitData"
   );
 
@@ -2334,7 +2339,7 @@ where
 
   if let Some(iter) = writer.get_live_commit_data() {
     for ent in iter {
-      data.insert(ent.0.clone(), ent.1.clone());
+      data.insert(ent.0, ent.1);
     }
   }
 
@@ -2467,7 +2472,7 @@ fn test_iterable_field_throws_exception() -> Result<()> {
     for _ in 0..num_docs {
       let id = doc_id.to_string();
       doc_id += 1;
-      let fields = vec![
+      let fields: [crate::core::document::fields::Fields; 2] = [
         StringField::from_string("id", id.clone(), Store::Yes)?.into(),
         StringField::from_string(
           "foo",
@@ -2536,7 +2541,7 @@ fn test_iterable_throws_exception() -> Result<()> {
     for _ in 0..num_docs {
       let id = doc_id.to_string();
       doc_id += 1;
-      let fields = vec![
+      let fields: [crate::core::document::fields::Fields; 2] = [
         StringField::from_string("id", id.clone(), Store::Yes)?.into(),
         StringField::from_string(
           "foo",
@@ -2626,12 +2631,12 @@ impl Iterator for FailingDocumentsIterator {
 }
 
 struct RandomFailingIterable<T> {
-  list: Vec<T>,
+  list: [T; 2],
   fail_on: usize,
 }
 
 impl<T> RandomFailingIterable<T> {
-  fn new<R>(list: Vec<T>, random: &mut R) -> Self
+  fn new<R>(list: [T; 2], random: &mut R) -> Self
   where
     R: Rng + ?Sized,
   {
@@ -2643,7 +2648,7 @@ impl<T> RandomFailingIterable<T> {
 }
 
 struct RandomFailingIterator<T> {
-  iterator: std::vec::IntoIter<T>,
+  iterator: std::array::IntoIter<T, 2>,
   fail_on: usize,
   count: usize,
 }
@@ -3164,7 +3169,7 @@ fn test_many_separate_threads() -> Result<()> {
   let writer = IndexWriter::new(dir.clone(), iwc)?;
 
   for _ in 0..100 {
-    let writer = writer.clone();
+    let writer = &writer;
     thread::scope(|scope| -> Result<()> {
       let handle = scope.spawn(move || -> Result<()> {
         let mut doc = Document::new();
@@ -3380,7 +3385,7 @@ fn test_pending_delete_dv_generation() -> Result<()> {
 
   let files: HashSet<String> = dir.list_all()?.into_iter().collect();
   let num_iters = 10 + random.random_range(0..50);
-  let mut to_close = Vec::new();
+  let mut to_close = Vec::with_capacity(num_iters as usize);
   for _ in 0..num_iters {
     if random.random_bool(0.5) {
       let mut d = Document::new();
@@ -3395,9 +3400,9 @@ fn test_pending_delete_dv_generation() -> Result<()> {
     w.prepare_commit()?;
     let mut new_files = dir.list_all()?;
     new_files.retain(|file| !files.contains(file));
-    let random_file = new_files[random.random_range(0..new_files.len())].clone();
+    let random_file = &new_files[random.random_range(0..new_files.len())];
     to_close.push(dir.open_input(
-      &random_file,
+      random_file,
       IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
     )?);
     w.rollback()?;
@@ -3410,7 +3415,7 @@ fn test_pending_delete_dv_generation() -> Result<()> {
     iwc.set_max_buffered_docs(2);
     iwc.set_ram_buffer_size_mb(-1.0);
     w = IndexWriter::new(dir.clone(), iwc)?;
-    assert!(dir.delete_file(&random_file).is_err());
+    assert!(dir.delete_file(random_file).is_err());
   }
 
   drop(to_close);
@@ -3609,7 +3614,7 @@ where
     let mut threads = Vec::new();
 
     for _ in 0..num_threads {
-      let latch = latch.clone();
+      let latch = &latch;
 
       threads.push(scope.spawn(move || -> Result<()> {
         latch.wait();
@@ -3834,9 +3839,9 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
 
   thread::scope(|scope| -> Result<()> {
     let lock_thread = {
-      let largest_non_pending_writer = Arc::clone(&largest_non_pending_writer);
-      let locked = Arc::clone(&locked);
-      let wait = Arc::clone(&wait);
+      let largest_non_pending_writer = &largest_non_pending_writer;
+      let locked = &locked;
+      let wait = &wait;
       scope.spawn(move || {
         largest_non_pending_writer.lock();
         locked.wait();
@@ -3846,7 +3851,7 @@ fn test_hold_lock_on_largest_writer() -> Result<()> {
     };
 
     let flush_thread = {
-      let locked = Arc::clone(&locked);
+      let locked = &locked;
       let writer = &w;
       scope.spawn(move || -> Result<()> {
         locked.wait();
@@ -4192,10 +4197,10 @@ fn soft_updates_concurrently(mix_deletes: bool) -> Result<()> {
     thread::scope(|scope| -> Result<()> {
       let mut threads = Vec::with_capacity(num_threads);
       for seed in seeds {
-        let writer = writer.clone();
-        let start_latch = start_latch.clone();
-        let started = started.clone();
-        let ids = ids.clone();
+        let writer = &writer;
+        let start_latch = &start_latch;
+        let started = &started;
+        let ids = &ids;
         threads.push(scope.spawn(move || -> Result<()> {
           let mut random = random_from_seed(seed);
           started.count_down();
@@ -5113,7 +5118,7 @@ fn test_closeable_queue() -> Result<()> {
   queue.add(Event::IncrementCounter(executed.clone()))?;
 
   thread::scope(|scope| -> Result<()> {
-    let thread_queue = queue.clone();
+    let thread_queue = &queue;
     let writer = &writer;
     let t = scope.spawn(move || -> Result<()> {
       match thread_queue.process_events(writer) {
@@ -5172,12 +5177,12 @@ fn test_random_operations() -> Result<()> {
         latch.wait();
         while num_operations.try_acquire() {
           let id = if single_doc {
-            "1".to_string()
+            std::borrow::Cow::Borrowed("1")
           } else {
-            random.random_range(0..10).to_string()
+            std::borrow::Cow::Owned(random.random_range(0..10).to_string())
           };
           let mut doc = Document::new();
-          doc.add(StringField::from_string("id", id.clone(), Store::Yes)?);
+          doc.add(StringField::from_string("id", id.as_ref(), Store::Yes)?);
           if random.random_range(0..10) <= 2 {
             writer.update_document_with_term(Term::from_text("id", id), doc)?;
           } else if random.random_range(0..10) <= 2 {
@@ -5260,12 +5265,12 @@ fn test_random_operations_with_soft_deletes() -> Result<()> {
         latch.wait();
         while num_operations.try_acquire() {
           let id = if single_doc {
-            "1".to_string()
+            std::borrow::Cow::Borrowed("1")
           } else {
-            random.random_range(0..10).to_string()
+            std::borrow::Cow::Owned(random.random_range(0..10).to_string())
           };
           let mut doc = Document::new();
-          doc.add(StringField::from_string("id", id.clone(), Store::Yes)?);
+          doc.add(StringField::from_string("id", id.as_ref(), Store::Yes)?);
           doc.add(LongPoint::new(
             "seq_no",
             [i64::from(seq_no.fetch_add(1, SeqCst))],
@@ -5868,32 +5873,46 @@ fn test_get_field_names() -> Result<()> {
     let writer = IndexWriter::new(dir.clone(), new_index_writer_config(&mut random)?)?;
     let mut field_types = HashMap::new();
 
-    assert_eq!(HashSet::<String>::new(), writer.get_field_names());
+    let actual_fields = writer.get_field_names();
+    assert!(
+      actual_fields.is_empty(),
+      "expected empty fields, actual: {actual_fields:?}"
+    );
 
     add_doc_with_field(&mut random, &writer, "f1", &mut field_types)?;
-    assert_eq!(HashSet::from(["f1".to_string()]), writer.get_field_names());
+    let actual_fields = writer.get_field_names();
+    assert!(
+      actual_fields.len() == 1 && actual_fields.contains("f1"),
+      "expected [\"f1\"], actual: {actual_fields:?}"
+    );
 
     let field_set = writer.get_field_names();
 
     add_doc_with_field(&mut random, &writer, "f2", &mut field_types)?;
-    assert_eq!(
-      HashSet::from(["f1".to_string(), "f2".to_string()]),
-      writer.get_field_names()
+    let actual_fields = writer.get_field_names();
+    assert!(
+      actual_fields.len() == 2 && actual_fields.contains("f1") && actual_fields.contains("f2"),
+      "expected [\"f1\", \"f2\"], actual: {actual_fields:?}"
     );
-    assert_eq!(HashSet::from(["f1".to_string()]), field_set);
+    assert!(
+      field_set.len() == 1 && field_set.contains("f1"),
+      "expected [\"f1\"], actual: {field_set:?}"
+    );
 
     // flush should not change field names
     writer.flush()?;
-    assert_eq!(
-      HashSet::from(["f1".to_string(), "f2".to_string()]),
-      writer.get_field_names()
+    let actual_fields = writer.get_field_names();
+    assert!(
+      actual_fields.len() == 2 && actual_fields.contains("f1") && actual_fields.contains("f2"),
+      "expected [\"f1\", \"f2\"], actual: {actual_fields:?}"
     );
 
     // commit should not change field names
     writer.commit()?;
-    assert_eq!(
-      HashSet::from(["f1".to_string(), "f2".to_string()]),
-      writer.get_field_names()
+    let actual_fields = writer.get_field_names();
+    assert!(
+      actual_fields.len() == 2 && actual_fields.contains("f1") && actual_fields.contains("f2"),
+      "expected [\"f1\", \"f2\"], actual: {actual_fields:?}"
     );
 
     writer.close()?;
@@ -5903,13 +5922,18 @@ fn test_get_field_names() -> Result<()> {
   let mock = MockAnalyzer::new(&mut random);
   let config = new_index_writer_config_with_analyzer(&mut random, mock)?;
   let writer = IndexWriter::new(dir.clone(), config)?;
-  assert_eq!(
-    HashSet::from(["f1".to_string(), "f2".to_string()]),
-    writer.get_field_names()
+  let actual_fields = writer.get_field_names();
+  assert!(
+    actual_fields.len() == 2 && actual_fields.contains("f1") && actual_fields.contains("f2"),
+    "expected [\"f1\", \"f2\"], actual: {actual_fields:?}"
   );
 
   writer.delete_all()?;
-  assert_eq!(HashSet::<String>::new(), writer.get_field_names());
+  let actual_fields = writer.get_field_names();
+  assert!(
+    actual_fields.is_empty(),
+    "expected empty fields, actual: {actual_fields:?}"
+  );
 
   writer.close()?;
   Ok(())
@@ -6035,10 +6059,10 @@ fn test_index_with_parent_field_is_congruent() -> Result<()> {
       child2.add(StringField::from_string("id", 1.to_string(), Store::Yes)?);
       let mut parent = Document::new();
       parent.add(StringField::from_string("id", 1.to_string(), Store::Yes)?);
-      writer.add_documents(vec![child1.clone(), child2.clone(), parent.clone()])?;
+      writer.add_documents([child1.clone(), child2.clone(), parent.clone()])?;
       writer.flush()?;
       if random.random_bool(0.5) {
-        writer.add_documents(vec![child1, child2, parent])?;
+        writer.add_documents([child1, child2, parent])?;
       }
     } else {
       writer.add_document(Document::new())?;

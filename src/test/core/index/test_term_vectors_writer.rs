@@ -597,7 +597,7 @@ fn test_term_vector_corruption() -> Result<()> {
     iwc.set_merge_policy(LogMergePolicy::log_doc());
     let writer = IndexWriter::new(dir.clone(), iwc)?;
 
-    let index_dirs = vec![TestUtil::ram_copy_of(&mut random, dir.as_ref())?];
+    let index_dirs = [TestUtil::ram_copy_of(&mut random, dir.as_ref())?];
     writer.add_indexes_from_directory(&index_dirs)?;
     writer.force_merge(1)?;
     writer.close()?;
@@ -699,7 +699,7 @@ fn test_term_vector_corruption3() -> Result<()> {
       &custom_type,
       &mut field_types,
     )?;
-    document.add(stored_field.clone());
+    document.add(stored_field);
 
     let mut custom_type2 =
       FieldType::from_ref(&*crate::core::document::string_field::TYPE_NOT_STORED)?;
@@ -713,7 +713,7 @@ fn test_term_vector_corruption3() -> Result<()> {
       &custom_type2,
       &mut field_types,
     )?;
-    document.add(term_vector_field.clone());
+    document.add(term_vector_field);
 
     for _ in 0..10 {
       writer.add_document(document.clone())?;
@@ -941,10 +941,11 @@ where
   match err {
     LuceneError::IllegalArgument(msg) => {
       assert!(
-        msg.to_string().starts_with(
+        msg.message.as_str().starts_with(
           "all instances of a given field name must have the same term vectors settings"
         ) || msg
-          .to_string()
+          .message
+          .as_str()
           .starts_with("Inconsistency of field data structures across documents for field [field]")
       );
     },
@@ -975,7 +976,7 @@ fn test_no_abort_on_bad_tv_settings() -> Result<()> {
 
   doc.add(Field::from_string("field", "value", ft)?);
 
-  let err = iw.add_document(doc.clone()).unwrap_err();
+  let err = iw.add_document(doc).unwrap_err();
   match err {
     LuceneError::IllegalArgument(_) => {},
     _ => unreachable!("unexpected error: {:?}", err),

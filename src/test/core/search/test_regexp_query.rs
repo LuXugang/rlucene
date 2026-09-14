@@ -181,7 +181,7 @@ fn test_character_classes() -> Result<()> {
   let err = regex_query_nr_hits(&searcher, "\\p").unwrap_err();
   match err {
     LuceneError::IllegalArgument(msg) => {
-      assert!(msg.to_string().contains("invalid character class"));
+      assert!(msg.message.contains("invalid character class"));
     },
     _ => unreachable!(),
   }

@@ -154,7 +154,7 @@ impl BaseMergePolicyTestCase for TestTieredMergePolicy {
     let mut total_del_count = 0i32;
     let mut total_max_doc = 0i32;
     let mut total_bytes = 0i64;
-    let mut segment_sizes = Vec::new();
+    let mut segment_sizes = Vec::with_capacity(infos.size());
 
     for i in 0..infos.size() {
       let sci = infos.info(i).unwrap();

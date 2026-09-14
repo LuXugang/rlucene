@@ -189,7 +189,8 @@ fn generate_test_set_with_stopwords_and_stopword_positions<R>(
   R: Rng + ?Sized,
 {
   for i in 0..number_of_tokens {
-    let token = English::int_to_english(i as i32).trim().to_string();
+    let mut token = English::int_to_english(i as i32);
+    token.truncate(token.trim().len());
     text.push_str(&token);
     text.push(' ');
     if i == 0 || random.random_bool(0.5) {

@@ -214,7 +214,7 @@ impl ConcurrentMergeSchedulerBase for MaxMergeCountConcurrentMergeScheduler {
         self.failed.store(true, Ordering::SeqCst);
         merge_source.on_merge_finished(&merge_stat, None);
         Err(LuceneError::illegal_state(
-          LuceneError::panic_payload_message(payload.as_ref()),
+          LuceneError::panic_payload_message(payload.as_ref()).into_owned(),
         ))
       },
     }

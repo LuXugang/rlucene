@@ -196,7 +196,7 @@ impl TestLucene90CompoundFormat {
     let mut si = new_segment_info(random, dir.clone(), segment)?;
 
     let seg_id = si.get_id();
-    let mut ordered_files = Vec::new();
+    let mut ordered_files = Vec::with_capacity(10);
     let mut random_file_size = random.random_range(0..chunk);
 
     for i in 0..10 {

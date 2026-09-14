@@ -1264,7 +1264,7 @@ pub trait BaseIndexFileFormatTestCase: Sized {
 
     let mut messages = Vec::new();
     for (name, read) in read_bytes {
-      let mut unread_bytes = read.clone();
+      let mut unread_bytes = read;
       unread_bytes.flip_range(0, unread_bytes.length());
       let unread = unread_bytes.next_set_bit(0);
       if unread != i32::MAX as usize {

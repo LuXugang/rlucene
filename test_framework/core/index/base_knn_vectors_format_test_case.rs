@@ -608,7 +608,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     {
       let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
-      w.add_document(doc.clone())?;
+      w.add_document(doc)?;
       w.close()?;
     }
 
@@ -702,7 +702,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     {
       let iwc = new_index_writer_config(random)?;
       let w = IndexWriter::new(dir.clone(), iwc)?;
-      w.add_document(doc.clone())?;
+      w.add_document(doc)?;
       w.close()?;
     }
 
@@ -1880,7 +1880,7 @@ pub trait BaseKnnVectorsFormatTestCase:
     let mut doc = Document::new();
     doc.add(KnnFloatVectorField::with_similarity_function(
       "field1",
-      v.clone(),
+      v,
       VectorSimilarityFunction::Euclidean,
     )?);
     doc.add(KnnFloatVectorField::with_similarity_function(

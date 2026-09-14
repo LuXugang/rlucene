@@ -35,7 +35,7 @@ pub(crate) fn rand_bool_query<R, C>(
   allow_must: bool,
   level: i32,
   field: &str,
-  vals: &[String],
+  vals: &[&str],
   cb: Option<&C>,
 ) -> Result<Builder>
 where
@@ -53,13 +53,13 @@ where
     let q: Query = if q_type < 3 {
       TermQuery::new(Term::from_text(
         field,
-        &vals[rnd.random_range(0..vals.len())],
+        vals[rnd.random_range(0..vals.len())],
       ))
       .into()
     } else if q_type < 4 {
-      let t1 = &vals[rnd.random_range(0..vals.len())];
-      let t2 = &vals[rnd.random_range(0..vals.len())];
-      PhraseQuery::from_terms(10, field, [t1.as_str(), t2.as_str()])?.into()
+      let t1 = vals[rnd.random_range(0..vals.len())];
+      let t2 = vals[rnd.random_range(0..vals.len())];
+      PhraseQuery::from_terms(10, field, [t1, t2])?.into()
     } else if q_type < 7 {
       WildcardQuery::new(Term::from_text(field, "w*"))?.into_query()
     } else {

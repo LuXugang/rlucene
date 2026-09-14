@@ -117,9 +117,7 @@ where
   iwc.set_max_buffered_docs(TestUtil::next_int(random, 50, 1000));
   let writer = RandomIndexWriter::with_config(random, dir.clone(), iwc);
 
-  let mut doc = Document::new();
   let mut field = new_string_field(random, "field", "", Yes, &mut HashMap::new())?;
-  doc.add(field.clone());
 
   let mut terms: BTreeSet<BytesRef<Vec<u8>>> = BTreeSet::new();
 
@@ -153,7 +151,7 @@ fn test_finite_versus_infinite() -> Result<()> {
     let mut matched_terms = Vec::new();
     for t in &terms {
       if Operations::run_str(&automaton, &t.utf8_to_string()?) {
-        matched_terms.push(t.clone());
+        matched_terms.push(t);
       }
     }
     let v = match automaton {
@@ -166,7 +164,7 @@ fn test_finite_versus_infinite() -> Result<()> {
     let a2 = AutomatonQuery::from_automaton(Term::from_text("field", ""), alternate)?;
 
     let orig_hits = searcher.search(a1.clone(), 25)?.score_docs;
-    let new_hits = searcher.search(a2.clone(), 25)?.score_docs;
+    let new_hits = searcher.search(a2, 25)?.score_docs;
     CheckHits::check_equal(&a1.into_query(), &orig_hits, &new_hits)?;
   }
 

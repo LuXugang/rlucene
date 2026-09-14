@@ -453,14 +453,11 @@ where
 
     q = {
       let mut b = Builder::new();
-      b.add(
-        RandomApproximationQuery::new(must_term.clone(), random),
-        req_occur,
-      )?
-      .add(
-        RandomApproximationQuery::new(should_term.clone(), random),
-        Occur::Should,
-      )?;
+      b.add(RandomApproximationQuery::new(must_term, random), req_occur)?
+        .add(
+          RandomApproximationQuery::new(should_term, random),
+          Occur::Should,
+        )?;
       b.build().into()
     };
 

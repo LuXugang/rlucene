@@ -52,7 +52,7 @@ fn test_flatten_inner_disjunctions_with_more_than_1024_terms() -> Result<()> {
   let mut builder1024 = Builder::new();
   for i in 0..1024 {
     builder1024.add(
-      TermQuery::new(Term::from_text("foo", format!("bar-{}", i))),
+      TermQuery::new(Term::new("foo", format!("bar-{}", i))),
       Occur::Should,
     )?;
   }
@@ -79,7 +79,7 @@ fn test_large_terms_nested_first() -> Result<()> {
 
   for i in 0..600 {
     nested_builder.add(
-      TermQuery::new(Term::from_text("foo", format!("bar-{}", i))),
+      TermQuery::new(Term::new("foo", format!("bar-{}", i))),
       Occur::Should,
     )?;
   }
@@ -110,7 +110,7 @@ fn test_large_terms_nested_last() -> Result<()> {
 
   for i in 0..600 {
     nested_builder.add(
-      TermQuery::new(Term::from_text("foo", format!("bar-{}", i))),
+      TermQuery::new(Term::new("foo", format!("bar-{}", i))),
       Occur::Should,
     )?;
   }
@@ -163,8 +163,8 @@ fn test_multi_exact_with_repeats() -> Result<()> {
   for i in 0..1050 {
     qb.add_terms_with_position(
       &[
-        Term::from_text("foo", format!("bar-{}", i)),
-        Term::from_text("foo", format!("bar+{}", i)),
+        Term::new("foo", format!("bar-{}", i)),
+        Term::new("foo", format!("bar+{}", i)),
       ],
       0,
     )?;

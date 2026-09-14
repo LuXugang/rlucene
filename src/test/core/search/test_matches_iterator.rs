@@ -506,7 +506,7 @@ impl TestMatchesIterator {
     let iterations = Term::from_text(FIELD_WITH_OFFSETS, "iterations");
     let mut builder = MultiPhraseQueryBuilder::new();
     builder.add_term(phrase)?;
-    builder.add_terms(&[sentence, iterations])?;
+    builder.add_terms([sentence, iterations])?;
     builder.set_slop(4)?;
     let query = builder.build();
     self.check_matches(
@@ -526,7 +526,7 @@ impl TestMatchesIterator {
   fn test_exact_multi_phrase_query(&self) -> Result<()> {
     let mut builder = MultiPhraseQueryBuilder::new();
     builder.add_term(Term::from_text(FIELD_WITH_OFFSETS, "sentence"))?;
-    builder.add_terms(&[
+    builder.add_terms([
       Term::from_text(FIELD_WITH_OFFSETS, "with"),
       Term::from_text(FIELD_WITH_OFFSETS, "iterations"),
     ])?;
@@ -537,7 +537,7 @@ impl TestMatchesIterator {
       &[&[0], &[1], &[2], &[3], &[4, 2, 3, 9, 22, 6, 7, 35, 54]],
     )?;
     let mut builder = MultiPhraseQueryBuilder::new();
-    builder.add_terms(&[
+    builder.add_terms([
       Term::from_text(FIELD_WITH_OFFSETS, "a"),
       Term::from_text(FIELD_WITH_OFFSETS, "many"),
     ])?;
@@ -566,7 +566,7 @@ impl TestMatchesIterator {
     let mut query = BooleanQueryBuilder::new();
     query.add(TermQuery::new(term.clone()), Occur::Must)?;
     query.add(point_query.clone(), Occur::Must)?;
-    self.check_matches(point_query.clone().into(), FIELD_WITH_OFFSETS, &[])?;
+    self.check_matches(point_query.into(), FIELD_WITH_OFFSETS, &[])?;
     self.check_matches(
       query.build().into(),
       FIELD_WITH_OFFSETS,

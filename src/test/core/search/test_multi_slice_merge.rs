@@ -77,7 +77,7 @@ where
     )?);
     doc.add(SortedDocValuesField::new(
       "field2",
-      BytesRef::from_string(&(i % 2 == 0).to_string()),
+      BytesRef::from((i % 2 == 0).to_string()),
     ));
 
     iw1.add_document(random, doc)?;
@@ -104,7 +104,7 @@ where
     )?);
     doc.add(SortedDocValuesField::new(
       "field2",
-      BytesRef::from_string(&(i % 2 == 0).to_string()),
+      BytesRef::from((i % 2 == 0).to_string()),
     ));
 
     iw2.add_document(random, doc)?;

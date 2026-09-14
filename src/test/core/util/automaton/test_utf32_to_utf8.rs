@@ -48,9 +48,10 @@ fn matches(a: &mut ByteRunAutomaton, code: i32) -> Result<bool> {
   let ch = std::char::from_u32(code as u32)
     .ok_or_else(|| LuceneError::illegal_argument("Invalid Unicode code point"))?;
   let len = UnicodeUtil::max_utf8_length(code)?;
-  let mut buf = vec![0; len];
-  let _ = ch.encode_utf8(&mut buf);
-  a.run(buf.as_slice(), 0, len)
+  let mut buf = [0; 4];
+  let buf = &mut buf[..len];
+  let _ = ch.encode_utf8(buf);
+  a.run(buf, 0, len)
 }
 fn test_one<R>(
   random: &mut R,

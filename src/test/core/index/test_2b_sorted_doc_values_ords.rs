@@ -109,11 +109,11 @@ fn test_2b_ords() -> Result<()> {
       bytes[1] = (counter >> 16) as u8;
       bytes[2] = (counter >> 8) as u8;
       bytes[3] = counter as u8;
-      let expected: BytesRef<Vec<u8>> = BytesRef::from_bytes(bytes.clone());
+      let expected = bytes.as_slice();
       counter += 1;
       let ord = values.ord_value()?;
       let term = values.lookup_ord(ord)?;
-      assert_eq!(expected.as_bytes(), term.as_bytes());
+      assert_eq!(expected, term.as_bytes());
     }
   }
 

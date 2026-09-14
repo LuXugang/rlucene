@@ -57,7 +57,7 @@ pub trait SearchEquivalenceTestBase {
   where
     R: Rng + ?Sized,
   {
-    Term::from_text("field", random_char(random).to_string())
+    Term::new("field", random_char(random).to_string())
   }
   /// Asserts that the documents returned by q1 are the same as of those returned by q2
   fn assert_same_set<R>(&self, random: &mut R, q1: &Query, q2: &Query) -> Result<()>
@@ -107,22 +107,22 @@ pub trait SearchEquivalenceTestBase {
     QueryUtils::check_from_query(q1);
     QueryUtils::check_from_query(q2);
 
-    let q1 = if let Some(filter) = filter.clone() {
+    let q1: std::borrow::Cow<'_, Query> = if let Some(filter) = filter.clone() {
       let mut builder = Builder::new();
       builder.add(q1.clone(), Occur::Must)?;
       builder.add(filter, Occur::Filter)?;
-      builder.build().into()
+      std::borrow::Cow::Owned(builder.build().into())
     } else {
-      q1.clone()
+      std::borrow::Cow::Borrowed(q1)
     };
 
-    let q2 = if let Some(filter) = filter {
+    let q2: std::borrow::Cow<'_, Query> = if let Some(filter) = filter {
       let mut builder = Builder::new();
       builder.add(q2.clone(), Occur::Must)?;
       builder.add(filter, Occur::Filter)?;
-      builder.build().into()
+      std::borrow::Cow::Owned(builder.build().into())
     } else {
-      q2.clone()
+      std::borrow::Cow::Borrowed(q2)
     };
 
     let meta = self.get_meta();
@@ -132,8 +132,10 @@ pub trait SearchEquivalenceTestBase {
     for sort in [Sort::get_index_order()?, Sort::get_relevance()?] {
       let td1 = meta
         .s1
-        .search_with_sort(q1.clone(), max_doc, sort.clone())?;
-      let td2 = meta.s2.search_with_sort(q2.clone(), max_doc, sort)?;
+        .search_with_sort(q1.as_ref().clone(), max_doc, sort.clone())?;
+      let td2 = meta
+        .s2
+        .search_with_sort(q2.as_ref().clone(), max_doc, sort)?;
 
       assert!(
         td1.total_hits().value() <= td2.total_hits().value(),
@@ -254,7 +256,7 @@ impl SearchEquivalenceTestBaseMeta {
 
     let num_deletes = num_docs / 20;
     for _ in 0..num_deletes {
-      let to_delete = Term::from_text("id", random.random_range(0..num_docs).to_string());
+      let to_delete = Term::new("id", random.random_range(0..num_docs).to_string());
       if random.random_bool(0.5) {
         iw.delete_documents_with_terms(random, vec![to_delete])?;
       } else {
@@ -310,7 +312,7 @@ where
     TermRangeQuery::new(
       "field",
       Some(BytesRef::from_string("a")),
-      Some(BytesRef::from_string(&random_char(random).to_string())),
+      Some(BytesRef::from(random_char(random).to_string())),
       true,
       true,
     )?
@@ -320,8 +322,8 @@ where
       100,
       "field",
       vec![
-        BytesRef::from_string(&random_char(random).to_string()),
-        BytesRef::from_string(&random_char(random).to_string()),
+        BytesRef::from(random_char(random).to_string()),
+        BytesRef::from(random_char(random).to_string()),
       ],
     )?
     .into()

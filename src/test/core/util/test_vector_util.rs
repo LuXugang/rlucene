@@ -313,10 +313,14 @@ fn test_basic_xor_bit_count() {
 fn test_xor_bit_count() {
   let mut rng = random();
   let iterations = at_least_usize(&mut rng, 100);
+  let mut a = Vec::new();
+  let mut b = Vec::new();
   for _ in 0..iterations {
     let size = rng.random_range(0..1024);
-    let mut a = vec![0u8; size];
-    let mut b = vec![0u8; size];
+    a.clear();
+    a.resize(size, 0);
+    b.clear();
+    b.resize(size, 0);
     rng.fill(&mut a[..]);
     rng.fill(&mut b[..]);
 
@@ -331,7 +335,8 @@ fn test_xor_bit_count() {
 fn test_find_next_geq() {
   let mut rng = random();
   let padding = rng.random_range(0..=5);
-  let mut values = vec![0i32; 128 + padding];
+  let mut values = [0i32; 133];
+  let values = &mut values[..128 + padding];
   let mut v = 0i32;
   for value in values.iter_mut().take(128) {
     v += rng.random_range(1..=1000);
@@ -342,8 +347,8 @@ fn test_find_next_geq() {
     let from = rng.random_range(0..128);
     let target = rng.random_range(values[from]..=values[127]) + rng.random_range(-5..=4);
     assert_eq!(
-      slow_find_next_geq(&values, 128, target, from),
-      VECTOR_UTIL.find_next_geq(&values, target, from, 128),
+      slow_find_next_geq(values, 128, target, from),
+      VECTOR_UTIL.find_next_geq(values, target, from, 128),
     );
   }
 }

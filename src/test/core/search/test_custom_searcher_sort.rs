@@ -74,7 +74,7 @@ fn build_context<R: Rng + ?Sized>(random: &mut R) -> Result<TestContext> {
     if i % 5 != 0 {
       doc.add(SortedDocValuesField::new(
         "publicationDate_",
-        BytesRef::from_string(&random_gen.get_lucene_date()?),
+        BytesRef::from(random_gen.get_lucene_date()?),
       ));
     }
 
@@ -106,7 +106,7 @@ fn test_field_sort_custom_searcher() -> Result<()> {
   ])?;
   let searcher = IndexSearcher::new(reader.clone().get_context()?)?
     .with_hook(IndexSearcherHook::CustomSearcher(CustomSearcher::new(2)));
-  match_hits(&searcher, &query, cust_sort)
+  match_hits(&searcher, query, cust_sort)
 }
 
 #[test]
@@ -119,11 +119,11 @@ fn test_field_sort_single_searcher() -> Result<()> {
   ])?;
   let searcher = IndexSearcher::new(reader.clone().get_context()?)?
     .with_hook(IndexSearcherHook::CustomSearcher(CustomSearcher::new(2)));
-  match_hits(&searcher, &query, cust_sort)
+  match_hits(&searcher, query, cust_sort)
 }
 fn match_hits(
   searcher: &IndexSearcher<IndexReaderContextType<DefaultCRReaderShared>>,
-  query: &Query,
+  query: Query,
   sort: Sort,
 ) -> Result<()> {
   let hits_by_rank = searcher.search(query.clone(), usize::MAX)?.score_docs;
@@ -134,7 +134,7 @@ fn match_hits(
     result_map.insert(hit.doc, hit_id);
   }
 
-  let result_sort = searcher.search_with_sort(query.clone(), usize::MAX, sort)?;
+  let result_sort = searcher.search_with_sort(query, usize::MAX, sort)?;
   let v = result_sort.base.score_docs();
   check_hits(v, "Sort by custom criteria: ");
 

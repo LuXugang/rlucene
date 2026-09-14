@@ -841,6 +841,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
     let mut all_numbers = Vec::new();
     let end = 1 << TestUtil::next_int(&mut random, 1, 10);
     let num_numbers = TestUtil::next_int(&mut random, 1, end);
+    all_numbers.reserve(num_numbers as usize);
     for _ in 0..num_numbers {
       all_numbers.push(random.random::<i64>());
     }
@@ -870,7 +871,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
     if num_numbers > 1 && random.random_bool(0.5) {
       iw.delete_documents_with_queries(
         &mut random,
-        vec![TermQuery::new(Term::from_text("text", all_numbers[0].to_string())).into()],
+        vec![TermQuery::new(Term::new("text", all_numbers[0].to_string())).into()],
       )?;
     }
 
@@ -903,7 +904,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
       let mut bq = Builder::new();
       for number in &query_numbers {
         bq.add(
-          TermQuery::new(Term::from_text("text", number.to_string())),
+          TermQuery::new(Term::new("text", number.to_string())),
           Occur::Should,
         )?;
       }
@@ -929,7 +930,7 @@ fn test_duel_set_vs_terms_query() -> Result<()> {
         SortedNumericDocValuesField::new_slow_set_query("twolongs", query_numbers_x2_array)?,
         boost,
       )?;
-      assert_same_matches(&searcher, q1.clone(), q4, true)?;
+      assert_same_matches(&searcher, q1, q4, true)?;
     }
   }
 

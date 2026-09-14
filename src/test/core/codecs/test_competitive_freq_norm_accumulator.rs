@@ -23,24 +23,21 @@ fn test_basics() {
   let mut acc = CompetitiveImpactAccumulator::new();
 
   acc.add(3, 5);
-  assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
-    vec![Impact::new(3, 5)]
-  );
+  assert_eq!(acc.get_competitive_freq_norm_pairs(), [Impact::new(3, 5)]);
   acc.add(6, 11);
   assert_eq!(
     acc.get_competitive_freq_norm_pairs(),
-    vec![Impact::new(3, 5), Impact::new(6, 11)]
+    [Impact::new(3, 5), Impact::new(6, 11)]
   );
   acc.add(10, 13);
   assert_eq!(
     acc.get_competitive_freq_norm_pairs(),
-    vec![Impact::new(3, 5), Impact::new(6, 11), Impact::new(10, 13)]
+    [Impact::new(3, 5), Impact::new(6, 11), Impact::new(10, 13)]
   );
   acc.add(1, 2);
   assert_eq!(
     acc.get_competitive_freq_norm_pairs(),
-    vec![
+    [
       Impact::new(1, 2),
       Impact::new(3, 5),
       Impact::new(6, 11),
@@ -51,7 +48,7 @@ fn test_basics() {
   acc.add(7, 9);
   assert_eq!(
     acc.get_competitive_freq_norm_pairs(),
-    vec![
+    [
       Impact::new(1, 2),
       Impact::new(3, 5),
       Impact::new(7, 9),
@@ -62,13 +59,13 @@ fn test_basics() {
   acc.add(8, 2);
   assert_eq!(
     acc.get_competitive_freq_norm_pairs(),
-    vec![Impact::new(8, 2), Impact::new(10, 13)]
+    [Impact::new(8, 2), Impact::new(10, 13)]
   );
 }
 #[test]
 fn test_extreme_norms() {
   let mut acc = CompetitiveImpactAccumulator::new();
-  let mut expected = Vec::new();
+  let mut expected = Vec::with_capacity(5);
 
   acc.add(3, 5);
   expected.push(Impact::new(3, 5));
@@ -173,10 +170,7 @@ fn test_omit_freqs() {
   acc.add(1, 5);
   acc.add(1, 7);
   acc.add(1, 4);
-  assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
-    vec![Impact::new(1, 4)]
-  );
+  assert_eq!(acc.get_competitive_freq_norm_pairs(), [Impact::new(1, 4)]);
 }
 
 #[test]
@@ -185,8 +179,5 @@ fn test_omit_norms() {
   acc.add(5, 1);
   acc.add(7, 1);
   acc.add(4, 1);
-  assert_eq!(
-    acc.get_competitive_freq_norm_pairs(),
-    vec![Impact::new(7, 1)]
-  );
+  assert_eq!(acc.get_competitive_freq_norm_pairs(), [Impact::new(7, 1)]);
 }

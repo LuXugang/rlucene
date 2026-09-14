@@ -82,17 +82,13 @@ impl DataInputAction {
         assert_eq!(src.read_byte()?, *value, "Condition failed for DI");
       },
       DataInputAction::ReadBytes(bytes) => {
-        let mut buffer = vec![0u8; bytes.len()];
-        src.read_bytes(&mut buffer, 0, bytes.len())?;
-        assert_eq!(
-          buffer.as_slice(),
-          bytes.as_slice(),
-          "Condition failed for DI"
-        );
+        stack_or_heap_buffer!(buffer, u8, bytes.len(), 100, 0);
+        src.read_bytes(buffer, 0, bytes.len())?;
+        assert_eq!(buffer, bytes.as_slice(), "Condition failed for DI");
       },
       DataInputAction::ReadBytesRange { bytes, off, length } => {
-        let mut read: Vec<u8> = vec![0u8; bytes.len() + *off];
-        src.read_bytes(&mut read, *off, *length)?;
+        stack_or_heap_buffer!(read, u8, bytes.len() + *off, 200, 0);
+        src.read_bytes(read, *off, *length)?;
         assert_eq!(
           read[*off..*off + *length],
           bytes[*off..*off + *length],
@@ -140,6 +136,7 @@ where
   R: Rng,
 {
   let mut vec: Vec<DataInputAction> = Vec::new();
+  let mut chars = Vec::new();
   for _i in 0..max_add_calls {
     let action = match rnd.random_range(0..GENERATOR_COUNT) {
       //0 writeByte / readByte
@@ -221,7 +218,8 @@ where
         } else {
           rnd.random_range(0..=10)
         };
-        let mut chars = vec![0; length];
+        chars.clear();
+        chars.resize(length, 0);
         TestUtil::random_fixed_length_unicode_string(rnd, &mut chars, 0, length);
         let value = String::from_utf16_lossy(&chars);
         dst.write_string(&value)?;

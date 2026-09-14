@@ -359,8 +359,9 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
 
     for _ in 0..num_strings {
       let str_value = TestUtil::random_realistic_unicode_string_range(&mut random, 1, 1000);
-      hash.add(&BytesRef::from_string(&str_value), &mut byte_block_pool)?;
-      strings.push(str_value);
+      let bytes = BytesRef::from_bytes(str_value.into_bytes());
+      hash.add(&bytes, &mut byte_block_pool)?;
+      strings.push(bytes);
     }
 
     let hash_size = hash.size();
@@ -372,7 +373,7 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
     let num_threads = at_least_usize(&mut random, 3);
     let latch = CountDownLatch::new(num_threads);
     thread::scope(|scope| -> Result<()> {
-      let mut handles = vec![];
+      let mut handles = Vec::with_capacity(num_threads);
       for _ in 0..num_threads {
         let hash = &hash;
         let strings = &strings;
@@ -388,8 +389,8 @@ fn test_concurrent_access_to_bytes_ref_hash() -> Result<()> {
           latch.wait();
 
           for k in 0..loops {
-            let find = BytesRef::from_string(&strings[k % strings.len()]);
-            let id = hash.find(&find, byte_block_pool)?;
+            let find = &strings[k % strings.len()];
+            let id = hash.find(find, byte_block_pool)?;
 
             if id < 0 {
               not_found.fetch_add(1, Ordering::SeqCst);

@@ -23,6 +23,7 @@ use crate::core::util::automation::operations::Operations;
 use crate::core::util::error::lucene_error::Result;
 use crate::test_framework::core::util::automaton::automaton_test_util::AutomatonTestUtil;
 use crate::test_framework::core::util::automaton::minimization_operation::MinimizationOperations;
+use std::fmt::Write as _;
 struct TestLevenshteinAutomata;
 
 #[test]
@@ -259,8 +260,10 @@ impl TestLevenshteinAutomata {
     let max_len = input.len() + distance + 1;
     let max_num = 2_i32.pow(max_len as u32);
 
+    let mut encoded = String::new();
     for i in 0..max_num {
-      let encoded = format!("{:b}", i);
+      encoded.clear();
+      write!(encoded, "{:b}", i)?;
       let accepts = ra.run_str(&encoded)?;
 
       if accepts {
@@ -278,8 +281,10 @@ impl TestLevenshteinAutomata {
     let max_len = input.len() + distance + 1;
     let max_num = 2_i32.pow(max_len as u32);
 
+    let mut encoded = String::new();
     for i in 0..max_num {
-      let encoded = format!("{:b}", i);
+      encoded.clear();
+      write!(encoded, "{:b}", i)?;
       let accepts = ra.run_str(&encoded)?;
 
       if accepts {

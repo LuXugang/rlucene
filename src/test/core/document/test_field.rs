@@ -559,7 +559,7 @@ fn test_int_point_2d() -> Result<()> {
 
 #[test]
 fn test_int_field() -> Result<()> {
-  let fields = vec![
+  let fields = [
     IntField::new("foo", 12, Store::No)?,
     IntField::new("foo", 12, Store::Yes)?,
   ];
@@ -642,7 +642,7 @@ fn test_int_field() -> Result<()> {
 
 #[test]
 fn test_long_field() -> Result<()> {
-  let fields = vec![
+  let fields = [
     LongField::new("foo", 12, Store::No)?,
     LongField::new("foo", 12, Store::Yes)?,
   ];
@@ -719,7 +719,7 @@ fn test_long_field() -> Result<()> {
 
 #[test]
 fn test_float_field() -> Result<()> {
-  let fields = vec![
+  let fields = [
     FloatField::new("foo", 12.6, Store::No)?,
     FloatField::new("foo", 12.6, Store::Yes)?,
   ];
@@ -821,7 +821,7 @@ fn test_float_field() -> Result<()> {
 
 #[test]
 fn test_double_field() -> Result<()> {
-  let fields = vec![
+  let fields = [
     DoubleField::new("foo", 12.7, Store::No)?,
     DoubleField::new("foo", 12.7, Store::Yes)?,
   ];
@@ -1195,7 +1195,7 @@ fn test_binary_doc_values_field() -> Result<()> {
 }
 #[test]
 fn test_string_field() -> Result<()> {
-  let fields = vec![
+  let fields = [
     StringField::from_string("foo", "bar", Store::No)?,
     StringField::from_string("foo", "bar", Store::Yes)?,
   ];
@@ -1260,7 +1260,7 @@ fn test_string_field() -> Result<()> {
 
 #[test]
 fn test_binary_string_field() -> Result<()> {
-  let fields = vec![
+  let fields = [
     StringField::from_bytes_ref("foo", "bar", Store::No)?,
     StringField::from_bytes_ref("foo", "bar", Store::Yes)?,
   ];
@@ -1329,7 +1329,7 @@ fn test_binary_string_field() -> Result<()> {
 
 #[test]
 fn test_text_field_string() -> Result<()> {
-  let fields = vec![
+  let fields = [
     TextField::from_string("foo", "bar", Store::No)?,
     TextField::from_string("foo", "bar", Store::Yes)?,
   ];
@@ -1450,7 +1450,7 @@ fn test_text_field_reader() -> Result<()> {
 #[test]
 fn test_stored_field_bytes() -> Result<()> {
   let mut random = random();
-  let fields = vec![
+  let fields = [
     StoredField::from_binary("foo", b"bar".to_vec())?,
     StoredField::from_binary_with_range("foo", b"bar".to_vec(), 0, 3)?,
     StoredField::from_bytes_ref("foo", new_bytes_ref_from_string(&mut random, "bar")?)?,

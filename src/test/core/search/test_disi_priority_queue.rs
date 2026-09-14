@@ -62,7 +62,7 @@ fn test_random() -> Result<()> {
     }
   } else if random.random_range(0..10) < 2 && size > 1 {
     let len = random.random_range(1..size);
-    let mut v = vec![];
+    let mut v = Vec::with_capacity(size);
     for i in 0..len {
       pq.add(i, &all);
       v.push(i)
@@ -72,7 +72,7 @@ fn test_random() -> Result<()> {
     }
     pq.add_all(v.as_slice(), len, size - len, &all)?;
   } else {
-    let mut v = vec![];
+    let mut v = Vec::with_capacity(size);
     for idx in 0..size {
       v.push(idx)
     }

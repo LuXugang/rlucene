@@ -105,10 +105,10 @@ fn test_fixed_sorted() -> Result<()> {
       assert_eq!(i, values.next_doc()?);
       bytes[0] = (expected_value >> 8) as u8;
       bytes[1] = expected_value as u8;
-      let expected: BytesRef<Vec<u8>> = BytesRef::from_bytes(bytes.clone());
+      let expected = bytes.as_slice();
       let ord = values.ord_value()?;
       let term = values.lookup_ord(ord)?;
-      assert_eq!(expected.as_bytes(), term.as_bytes());
+      assert_eq!(expected, term.as_bytes());
       expected_value += 1;
     }
   }

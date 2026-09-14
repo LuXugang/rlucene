@@ -28,7 +28,7 @@ use crate::core::util::array_util::{
 };
 use crate::core::util::bit_util::BitUtil;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::{NaturalOrder, ReverseOrder, SliceCopyOps, ToInt};
+use crate::core::util::{NaturalOrder, ReverseOrder, ToInt};
 use crate::test_framework::core::util::test_util::TestUtil;
 use crate::test_framework::{array_equals_f32, array_equals_f64};
 
@@ -107,8 +107,9 @@ where
   let start = random.random_range(0..5);
   let extra_length = random.random_range(0..4);
   let mut chars: Vec<char> = vec![' '; s.len() + start + extra_length];
-  let s_chars: Vec<char> = s.chars().collect();
-  chars.copy_from(&s_chars, start);
+  for (target, ch) in chars[start..].iter_mut().zip(s.chars()) {
+    *target = ch;
+  }
   ArrayUtil::parse_int_default(&chars, start, s.len())
 }
 #[test]
@@ -421,30 +422,30 @@ fn test_grow_exact() -> Result<()> {
   let mut random = random();
   let mut arr: Vec<i16> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert_eq!(arr, vec![1, 2, 3, 0]);
+  assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i16> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert_eq!(arr, vec![1, 2, 3, 0, 0]);
+  assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i16> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<i32> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert_eq!(arr, vec![1, 2, 3, 0]);
+  assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i32> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert_eq!(arr, vec![1, 2, 3, 0, 0]);
+  assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i32> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<i64> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert_eq!(arr, vec![1, 2, 3, 0]);
+  assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i64> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert_eq!(arr, vec![1, 2, 3, 0, 0]);
+  assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i64> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
@@ -471,20 +472,20 @@ fn test_grow_exact() -> Result<()> {
 
   let mut arr: Vec<i8> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert_eq!(arr, vec![1, 2, 3, 0]);
+  assert_eq!(arr, [1, 2, 3, 0]);
   let mut arr: Vec<i8> = vec![1, 2, 3];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert_eq!(arr, vec![1, 2, 3, 0, 0]);
+  assert_eq!(arr, [1, 2, 3, 0, 0]);
   let mut arr: Vec<i8> = vec![1, 2, 3];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
 
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert_eq!(arr, vec!['a', 'b', 'c', '\0']);
+  assert_eq!(arr, ['a', 'b', 'c', '\0']);
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert_eq!(arr, vec!['a', 'b', 'c', '\0', '\0']);
+  assert_eq!(arr, ['a', 'b', 'c', '\0', '\0']);
   let mut arr: Vec<char> = vec!['a', 'b', 'c'];
   let result = ArrayUtil::grow_exact(&mut arr, random.random_range(0..3));
   assert!(matches!(result, Err(LuceneError::ArrayIndexOutOfBounds(_))));
@@ -495,14 +496,12 @@ fn test_grow_exact() -> Result<()> {
     Some("c3".to_string()),
   ];
   ArrayUtil::grow_exact(&mut arr, 4)?;
-  assert_eq!(
-    arr,
-    vec![
-      Some("a1".to_string()),
-      Some("b2".to_string()),
-      Some("c3".to_string()),
-      None
-    ]
+  assert!(
+    arr
+      .iter()
+      .map(|value| value.as_deref())
+      .eq([Some("a1"), Some("b2"), Some("c3"), None]),
+    "unexpected grown array: {arr:?}"
   );
   let mut arr: Vec<Option<String>> = vec![
     Some("a1".to_string()),
@@ -510,15 +509,12 @@ fn test_grow_exact() -> Result<()> {
     Some("c3".to_string()),
   ];
   ArrayUtil::grow_exact(&mut arr, 5)?;
-  assert_eq!(
-    arr,
-    vec![
-      Some("a1".to_string()),
-      Some("b2".to_string()),
-      Some("c3".to_string()),
-      None,
-      None
-    ]
+  assert!(
+    arr
+      .iter()
+      .map(|value| value.as_deref())
+      .eq([Some("a1"), Some("b2"), Some("c3"), None, None]),
+    "unexpected grown array: {arr:?}"
   );
   let mut arr: Vec<Option<String>> = vec![
     Some("a".to_string()),
@@ -544,11 +540,11 @@ fn test_grow_in_range() -> Result<()> {
 
   // If minLength is sufficient, we return the array
   ArrayUtil::grow_in_range(&mut array, 1, 4)?;
-  assert_eq!(array, vec![1, 2, 3]);
+  assert_eq!(array, [1, 2, 3]);
   ArrayUtil::grow_in_range(&mut array, 1, 2)?;
-  assert_eq!(array, vec![1, 2, 3]);
+  assert_eq!(array, [1, 2, 3]);
   ArrayUtil::grow_in_range(&mut array, 1, 1)?;
-  assert_eq!(array, vec![1, 2, 3]);
+  assert_eq!(array, [1, 2, 3]);
 
   let min_length = 4;
   let max_length = i32::MAX as usize;
@@ -688,9 +684,11 @@ fn test_copy_of_sub_array() {
 fn test_compare_unsigned4() {
   let mut random = random();
   let a_offset = TestUtil::next_usize(&mut random, 0, 3);
-  let mut a = vec![0u8; BitUtil::INT_BYTES + a_offset];
+  let mut a = [0u8; 7];
+  let a = &mut a[..BitUtil::INT_BYTES + a_offset];
   let b_offset = TestUtil::next_usize(&mut random, 0, 3);
-  let mut b = vec![0u8; BitUtil::INT_BYTES + b_offset];
+  let mut b = [0u8; 7];
+  let b = &mut b[..BitUtil::INT_BYTES + b_offset];
   for i in 0..BitUtil::INT_BYTES {
     a[a_offset + i] = random.random::<u8>();
     loop {
@@ -706,23 +704,25 @@ fn test_compare_unsigned4() {
       .cmp(&b[b_offset..b_offset + BitUtil::INT_BYTES])
       .to_int();
     let cmp = U32byteArrayComparator;
-    let actual = cmp.compare(&a, a_offset, &b, b_offset);
+    let actual = cmp.compare(a, a_offset, b, b_offset);
     assert_eq!(expected.signum(), actual.signum());
 
     b[b_offset + i] = a[a_offset + i];
   }
 
   let cmp = U32byteArrayComparator;
-  assert_eq!(cmp.compare(&a, a_offset, &b, b_offset), 0);
+  assert_eq!(cmp.compare(a, a_offset, b, b_offset), 0);
 }
 
 #[test]
 fn test_compare_unsigned8() {
   let mut random = random();
   let a_offset = TestUtil::next_usize(&mut random, 0, 7);
-  let mut a = vec![0u8; BitUtil::LONG_BYTES + a_offset];
+  let mut a = [0u8; 15];
+  let a = &mut a[..BitUtil::LONG_BYTES + a_offset];
   let b_offset = TestUtil::next_usize(&mut random, 0, 7);
-  let mut b = vec![0u8; BitUtil::LONG_BYTES + b_offset];
+  let mut b = [0u8; 15];
+  let b = &mut b[..BitUtil::LONG_BYTES + b_offset];
   for i in 0..BitUtil::LONG_BYTES {
     a[a_offset + i] = random.random::<u8>();
     loop {
@@ -737,10 +737,10 @@ fn test_compare_unsigned8() {
       .cmp(&b[b_offset..b_offset + BitUtil::LONG_BYTES])
       .to_int();
     let cmp = U64byteArrayComparator;
-    let actual = cmp.compare(&a, a_offset, &b, b_offset);
+    let actual = cmp.compare(a, a_offset, b, b_offset);
     assert_eq!(expected.signum(), actual.signum());
     b[b_offset + i] = a[a_offset + i];
   }
   let cmp = U64byteArrayComparator;
-  assert_eq!(cmp.compare(&a, a_offset, &b, b_offset), 0);
+  assert_eq!(cmp.compare(a, a_offset, b, b_offset), 0);
 }

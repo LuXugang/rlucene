@@ -34,7 +34,7 @@ struct TestFSTDirectAddressing;
 #[test]
 fn test_dense_with_gap() -> Result<()> {
   let words = ["ah", "bi", "cj", "dk", "fl", "gm"];
-  let entries: Vec<BytesRef<Vec<u8>>> = words.iter().map(|w| BytesRef::from_string(w)).collect();
+  let entries: [BytesRef<Vec<u8>>; 6] = words.map(BytesRef::from_string);
 
   let fst = build_fst(&entries)?;
   let mut fst_enum = BytesRefFSTEnum::new(fst)?;
@@ -50,7 +50,7 @@ fn test_dense_with_gap() -> Result<()> {
 
 #[test]
 fn test_de_dup_tails() -> Result<()> {
-  let mut entries = Vec::new();
+  let mut entries = Vec::with_capacity(250_000);
   let mut i = 0;
   while i < 1000000 {
     let mut b = vec![0u8; 3];

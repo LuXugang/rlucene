@@ -86,23 +86,23 @@ fn test() -> Result<()> {
     riw.force_merge(&mut random, 1)?;
   }
   riw.close(&mut random)?;
-  check_index_header(&mut random, dir.clone())?;
+  check_index_header(&mut random, &dir)?;
   dir.close()
 }
 
-fn check_index_header<R>(random: &mut R, dir: Arc<DirEnum>) -> Result<()>
+fn check_index_header<R>(random: &mut R, dir: &Arc<DirEnum>) -> Result<()>
 where
   R: Rng + ?Sized,
 {
   for name in dir.list_all()? {
     if name != WRITE_LOCK_NAME {
-      check_one_file(random, dir.clone(), &name)?;
+      check_one_file(random, dir, &name)?;
     }
   }
   Ok(())
 }
 
-fn check_one_file<R>(random: &mut R, dir: Arc<DirEnum>, victim: &str) -> Result<()>
+fn check_one_file<R>(random: &mut R, dir: &Arc<DirEnum>, victim: &str) -> Result<()>
 where
   R: Rng + ?Sized,
 {

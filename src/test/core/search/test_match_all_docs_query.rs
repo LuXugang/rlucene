@@ -175,7 +175,7 @@ fn test_early_termination() -> Result<()> {
     Relation::GreaterThanOrEqualTo
   );
 
-  let searcher = new_searcher_with_reader(ir_arc.clone())?;
+  let searcher = new_searcher_with_reader(ir_arc)?;
   let collector_mgr = TopScoreDocCollectorManager::new(10, num_docs)?;
 
   let top_docs =

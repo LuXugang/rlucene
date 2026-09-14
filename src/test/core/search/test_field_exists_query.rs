@@ -112,7 +112,7 @@ fn test_doc_values_rewrite_with_point_values_present() -> Result<()> {
 
   for _ in 0..num_docs {
     let mut doc = Document::new();
-    doc.add(BinaryPoint::new("dim", [vec![0u8; 4], vec![0u8; 4]])?);
+    doc.add(BinaryPoint::new("dim", [[0u8; 4], [0u8; 4]])?);
     doc.add(DoubleDocValuesField::new("dim", 2.0));
     iw.add_document(&mut random, doc)?;
   }
@@ -141,7 +141,7 @@ fn test_doc_values_no_rewrite() -> Result<()> {
   for _ in 0..num_docs {
     let mut doc = Document::new();
     doc.add(DoubleDocValuesField::new("dim", 2.0));
-    doc.add(BinaryPoint::new("dim", [vec![0u8; 4], vec![0u8; 4]])?);
+    doc.add(BinaryPoint::new("dim", [[0u8; 4], [0u8; 4]])?);
     iw.add_document(&mut random, doc)?;
   }
 
@@ -934,7 +934,7 @@ fn test_knn_vector_all_docs_have_field() -> Result<()> {
   iw.close(&mut random)?;
 
   let query = FieldExistsQuery::new("vector");
-  let rewritten = query.clone().rewrite(&searcher)?;
+  let rewritten = query.rewrite(&searcher)?;
   assert!(matches!(rewritten, Some(Query::MatchAllDocs(_))));
   assert_eq!(100, searcher.count(query)?);
 
@@ -966,7 +966,7 @@ fn test_delete_knn_vector() -> Result<()> {
   if random.random_bool(0.5) {
     let num_deleted = random.random_range(1..=num_docs);
     for i in 0..num_deleted {
-      iw.delete_documents_with_terms(&mut random, vec![Term::from_text("id", i.to_string())])?;
+      iw.delete_documents_with_terms(&mut random, vec![Term::new("id", i.to_string())])?;
       docs_with_vector.clear_with_index(i)?;
     }
   }
