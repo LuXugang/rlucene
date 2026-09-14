@@ -16,6 +16,7 @@
  */
 
 use std::{
+  borrow::Cow,
   env, fs,
   io::IsTerminal,
   path::{Path, PathBuf},
@@ -63,7 +64,7 @@ fn read_commands(config_file: &Path) -> Result<Vec<CommandInfo>, String> {
     if let Some(comment) = line.strip_prefix('#') {
       let comment = comment.trim();
       if !comment.is_empty() {
-        purpose = Some(comment.to_string());
+        purpose = Some(comment);
       }
       continue;
     }
@@ -76,13 +77,11 @@ fn read_commands(config_file: &Path) -> Result<Vec<CommandInfo>, String> {
       continue;
     };
     let name = name.trim();
-    let command_purpose = purpose
-      .take()
-      .unwrap_or_else(|| "No description provided.".to_string());
+    let command_purpose = purpose.take().unwrap_or("No description provided.");
     if name != "xtask" {
       commands.push(CommandInfo {
         name: name.to_string(),
-        purpose: command_purpose,
+        purpose: command_purpose.to_string(),
       });
     }
   }
@@ -91,11 +90,11 @@ fn read_commands(config_file: &Path) -> Result<Vec<CommandInfo>, String> {
   Ok(commands)
 }
 
-fn style(text: &str, code: &str, color_enabled: bool) -> String {
+fn style<'a>(text: &'a str, code: &str, color_enabled: bool) -> Cow<'a, str> {
   if color_enabled {
-    format!("\x1b[{code}m{text}\x1b[0m")
+    Cow::Owned(format!("\x1b[{code}m{text}\x1b[0m"))
   } else {
-    text.to_string()
+    Cow::Borrowed(text)
   }
 }
 

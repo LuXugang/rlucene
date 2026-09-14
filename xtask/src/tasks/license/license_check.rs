@@ -28,7 +28,6 @@ pub(crate) fn run() {
     log("LICENSE_HEADER file not found: LICENSE_HEADER");
     process::exit(1);
   };
-  let license_header_path = license_path.display().to_string();
 
   let license_text = load_license_text(&license_path);
 
@@ -46,7 +45,7 @@ pub(crate) fn run() {
   } else {
     log(&format!(
       "❌ ❌ ❌ License check failed: you should copy the correct license header from {}",
-      colorize(&license_header_path, LogColor::Red, false)
+      colorize(&license_path.display().to_string(), LogColor::Red, false)
     ));
     process::exit(1);
   }
