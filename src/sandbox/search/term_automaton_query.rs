@@ -130,7 +130,8 @@ impl TermAutomatonQuery {
 
   /// Adds a transition to the automaton.
   pub fn add_transition(&mut self, source: i32, dest: i32, term: &str) -> Result<()> {
-    self.add_transition_bytes(source, dest, BytesRef::from(term))
+    let term_id = self.get_term_id(Some(term.as_bytes()))?;
+    self.builder.add_transition_label(source, dest, term_id)
   }
 
   /// Adds a transition to the automaton.
@@ -138,7 +139,9 @@ impl TermAutomatonQuery {
   where
     T: std::borrow::Borrow<BytesRef<Vec<u8>>>,
   {
-    let term_id = self.get_term_id(Some(term.borrow()))?;
+    let term = term.borrow();
+    let bytes = &term.bytes[term.offset..term.offset + term.length];
+    let term_id = self.get_term_id(Some(bytes))?;
     self.builder.add_transition_label(source, dest, term_id)
   }
 
@@ -238,8 +241,8 @@ impl TermAutomatonQuery {
     Ok(())
   }
 
-  fn get_term_id(&mut self, term: Option<&BytesRef<Vec<u8>>>) -> Result<i32> {
-    let Some(term) = term else {
+  fn get_term_id(&mut self, term: Option<&[u8]>) -> Result<i32> {
+    let Some(bytes) = term else {
       if self.any_term_id == -1 {
         self.any_term_id = self.id_to_term.len() as i32;
         self.id_to_term.push(None);
@@ -247,14 +250,13 @@ impl TermAutomatonQuery {
       return Ok(self.any_term_id);
     };
 
-    let bytes = &term.bytes[term.offset..term.offset + term.length];
     if let Some(id) = self.term_to_id.get(bytes) {
       return Ok(*id);
     }
 
     let id = self.id_to_term.len() as i32;
     self.term_to_id.insert(bytes.to_vec(), id);
-    self.id_to_term.push(Some(BytesRef::deep_copy_of(term)?));
+    self.id_to_term.push(Some(BytesRef::from(bytes)));
     Ok(id)
   }
 
@@ -464,6 +466,8 @@ impl TermAutomatonQueryDefaults {
     let mut transition = Transition::default();
     let mut state = 0;
     let mut position = 0;
+    let mut ranges = Vec::new();
+    let mut terms = Vec::new();
     'query: loop {
       let count = det.init_transition(state, &mut transition);
       if count == 0 {
@@ -478,7 +482,7 @@ impl TermAutomatonQueryDefaults {
         break;
       }
       let mut dest = -1;
-      let mut ranges = Vec::new();
+      ranges.clear();
       let mut matches_any = false;
       for transition_index in 0..count {
         det.get_next_transition(&mut transition)?;
@@ -494,8 +498,7 @@ impl TermAutomatonQueryDefaults {
         ranges.push((transition.min, transition.max));
       }
       if !matches_any {
-        let mut terms = Vec::new();
-        for (min, max) in ranges {
+        for (min, max) in ranges.drain(..) {
           for term_id in min..=max {
             let bytes = query.id_to_term[term_id as usize]
               .as_ref()
@@ -514,6 +517,7 @@ impl TermAutomatonQueryDefaults {
             phrase_builder = None;
           }
         }
+        terms.clear();
       }
       state = dest;
       position += 1;
@@ -582,7 +586,6 @@ impl QueryBase for TermAutomatonQuery {
 }
 
 struct TermAutomatonWeight {
-  automaton: Automaton,
   term_states: Vec<Option<TermStates>>,
   stats: Option<Arc<SimilarityEnumSimScorer>>,
   #[allow(dead_code)]
@@ -610,12 +613,12 @@ impl TermAutomatonWeight {
   where
     IRC: IndexReaderContext,
   {
-    let automaton = query
+    query
       .det
-      .clone()
+      .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("Call finish first"))?;
     let mut term_states = Vec::with_capacity(query.id_to_term.len());
-    let mut all_term_stats = Vec::<TermStatistics>::new();
+    let mut all_term_stats = Vec::<TermStatistics>::with_capacity(query.id_to_term.len());
     for term in &query.id_to_term {
       if let Some(term) = term {
         let index_term = Arc::new(Term::new(query.field.clone(), term.clone()));
@@ -648,7 +651,6 @@ impl TermAutomatonWeight {
     };
 
     Ok(Self {
-      automaton,
       term_states,
       stats,
       similarity,
@@ -718,7 +720,11 @@ impl TermAutomatonWeight {
       .ok_or_else(|| LuceneError::illegal_state("similarity scorer is missing"))?
       .clone();
     Ok(Some(TermAutomatonScorer::new(
-      self.automaton.clone(),
+      query
+        .det
+        .as_ref()
+        .ok_or_else(|| LuceneError::illegal_state("Call finish first"))?
+        .clone(),
       subs,
       query.id_to_term.len(),
       query.any_term_id,
@@ -775,8 +781,9 @@ where
       .stats
       .as_ref()
       .ok_or_else(|| LuceneError::illegal_state("similarity scorer is missing"))?;
-    let mut term_explanations = Vec::new();
-    for sub in scorer.original_subs_on_doc() {
+    let original_subs_on_doc = scorer.original_subs_on_doc();
+    let mut term_explanations = Vec::with_capacity(original_subs_on_doc.len());
+    for sub in original_subs_on_doc {
       if sub.pos_enum.doc_id() == doc {
         let frequency = sub.pos_enum.freq()?;
         let term_score = stats.score(frequency as f32, norm);

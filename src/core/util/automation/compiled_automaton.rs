@@ -204,11 +204,14 @@ impl CompiledAutomaton {
         let term = if is_binary {
           Some(StringHelper::ints_ref_to_bytes_ref(&singleton)?)
         } else {
-          Some(BytesRef::from_string(&UnicodeUtil::new_string(
-            singleton.ints.as_slice(),
-            singleton.offset,
-            singleton.length,
-          )?))
+          Some(BytesRef::from_bytes(
+            UnicodeUtil::new_string(
+              singleton.ints.as_slice(),
+              singleton.offset,
+              singleton.length,
+            )?
+            .into_bytes(),
+          ))
         };
 
         return Ok(Self {
@@ -383,7 +386,6 @@ impl CompiledAutomaton {
       .run_automaton
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("normal compiled automaton is missing its DFA"))?;
-    let automaton = run_automaton.base.automaton.clone();
     let mut state = 0;
 
     // Special case: empty string
@@ -417,13 +419,19 @@ impl CompiledAutomaton {
       if next_state == -1 {
         // Pop back to a state that has a transition <= our label:
         loop {
-          let num_transitions = automaton.get_num_transitions_with_state(state);
+          let num_transitions = run_automaton
+            .base
+            .automaton
+            .get_num_transitions_with_state(state);
           if num_transitions == 0 {
             debug_assert!(run_automaton.is_accept(state)?);
             output.set_length(idx);
             return Ok(Some(output.get_bytes_owner()));
           } else {
-            automaton.get_transition(state, 0, &mut self.transition);
+            run_automaton
+              .base
+              .automaton
+              .get_transition(state, 0, &mut self.transition);
             if label - 1 < self.transition.min {
               if run_automaton.is_accept(state)? {
                 output.set_length(idx);

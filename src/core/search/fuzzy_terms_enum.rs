@@ -210,12 +210,17 @@ where
   }
 
   /// returns true if term is within k edits of the query term
-  fn matches(&mut self, term_in: &BytesRef<Vec<u8>>, k: usize) -> Result<bool> {
+  fn matches(
+    attrs: &mut FuzzyTermsEnumAttributeSource,
+    query_term: &Term,
+    term_in: &BytesRef<Vec<u8>>,
+    k: usize,
+  ) -> Result<bool> {
     if k == 0 {
-      return Ok(term_in.bytes_equals(self.term.bytes()));
+      return Ok(term_in.bytes_equals(query_term.bytes()));
     }
 
-    let automata = self.attrs.get_automata_mut();
+    let automata = attrs.get_automata_mut();
     let runnable = automata[k].run_automaton.as_mut().ok_or_else(|| {
       LuceneError::illegal_state(format!(
         "FuzzyTermsEnum automaton for edit distance {} is not initialized",
@@ -236,13 +241,19 @@ where
     }
 
     let term = match self.actual_enum.next()? {
-      Some(term) => term.into_owned(),
+      Some(term) => {
+        #[cfg(debug_assertions)]
+        if let Cow::Borrowed(bytes_ref) = &term {
+          debug_assert!(bytes_ref.is_valid().is_ok());
+        }
+        term
+      },
       None => return Ok(None),
     };
 
     let mut ed = self.max_edits;
     while ed > 0 {
-      if self.matches(&term, ed - 1)? {
+      if Self::matches(&mut self.attrs, &self.term, &term, ed - 1)? {
         ed -= 1;
       } else {
         break;
@@ -264,10 +275,14 @@ where
     }
 
     let bottom = self.attrs.get_max_non_competitive_boost()?;
-    let bottom_term = self.attrs.get_competitive_term()?.cloned();
-    if bottom != self.bottom || bottom_term != self.bottom_term {
+    let bottom_term = self.attrs.get_competitive_term()?;
+    #[cfg(debug_assertions)]
+    if let Some(bytes_ref) = bottom_term {
+      debug_assert!(bytes_ref.is_valid().is_ok());
+    }
+    if bottom != self.bottom || bottom_term != self.bottom_term.as_ref() {
       self.bottom = bottom;
-      self.bottom_term = bottom_term;
+      self.bottom_term = bottom_term.cloned();
       // clone the term before potentially doing something with it
       // this is a rare but wonderful occurrence anyway
 
@@ -276,7 +291,7 @@ where
       self.queued_bottom = Some(BytesRef::deep_copy_of(&term)?);
     }
 
-    Ok(Some(Cow::Owned(term)))
+    Ok(Some(term))
   }
 }
 

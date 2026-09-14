@@ -528,11 +528,11 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
 
     if ord_counts.is_none() {
       let single_value_producer = get_doc_values_producer(
-        self.field_info.clone(),
+        &self.field_info,
         frozen_hash,
         self.pool.clone(),
         ords,
-        ord_map.clone(),
+        ord_map,
         &self.docs_with_field,
         sort_map,
       )?;
@@ -565,7 +565,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
       None
     };
     let producer = DocValuesProducerImpl1::new(
-      self.field_info.clone(),
+      &self.field_info,
       ord_map,
       frozen_hash,
       self.pool.clone(),
@@ -635,7 +635,7 @@ impl DocValuesWriter for SortedSetDocValuesWriter {
   }
 }
 pub(crate) struct DocValuesProducerImpl1<'a> {
-  field_info: Arc<FieldInfo>,
+  field_info: &'a Arc<FieldInfo>,
   ord_map: Arc<Vec<i32>>,
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
@@ -655,7 +655,7 @@ impl CloseableRef for DocValuesProducerImpl1<'_> {
 impl<'a> DocValuesProducerImpl1<'a> {
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new(
-    field_info: Arc<FieldInfo>,
+    field_info: &'a Arc<FieldInfo>,
     ord_map: Arc<Vec<i32>>,
     hash: Arc<DirectBytesRefHash>,
     pool: Arc<ByteBlockPool>,
@@ -686,7 +686,7 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl1<'a> {
   type SortedSetDocValues = SortedSetDocValuesWriterValues<&'a PackedLongValues, &'a DocOrds>;
 
   fn get_sorted_set(&self, field_info: &Arc<FieldInfo>) -> Result<Self::SortedSetDocValues> {
-    if !Arc::ptr_eq(&self.field_info, field_info) {
+    if !Arc::ptr_eq(self.field_info, field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     let docs_iter = self.docs_with_field.iterator()?;

@@ -99,7 +99,7 @@ where
     let meta_data = LeafMetaData::new(
       created_version_major,
       si.info.get_min_version(),
-      si.info.get_index_sort().clone(),
+      si.info.get_index_sort(),
       si.info.get_has_blocks(),
     )?;
 
@@ -145,11 +145,11 @@ where
       segment_reader.live_docs = live_docs;
       segment_reader.num_docs = si.info.max_doc()? - si.get_del_count();
 
-      let field_infos = Self::init_field_infos(si, segment_reader.core.core_field_infos.clone())?;
+      let field_infos = Self::init_field_infos(si, &segment_reader.core.core_field_infos)?;
       segment_reader.field_infos = field_infos;
       segment_reader.doc_values_producer = Self::init_doc_values_producer(
         si,
-        segment_reader.field_infos.clone(),
+        &segment_reader.field_infos,
         &segment_reader.seg_doc_values,
         &segment_reader.core,
       )?;
@@ -198,8 +198,8 @@ where
     }
 
     let meta_data = sr.meta_data.clone();
-    let core = sr.core.clone();
-    let seg_doc_values = sr.seg_doc_values.clone();
+    let core = &sr.core;
+    let seg_doc_values = &sr.seg_doc_values;
     debug_assert!(Self::assert_live_docs(
       is_nrt,
       hard_live_docs.as_ref(),
@@ -227,14 +227,10 @@ where
     let mut success = false;
     let result = catch_unwind(AssertUnwindSafe(|| -> Result<()> {
       let si = &segment_reader.si;
-      let field_infos = Self::init_field_infos(si, core.core_field_infos.clone())?;
+      let field_infos = Self::init_field_infos(si, &core.core_field_infos)?;
       segment_reader.field_infos = field_infos;
-      segment_reader.doc_values_producer = Self::init_doc_values_producer(
-        si,
-        segment_reader.field_infos.clone(),
-        &seg_doc_values,
-        &core,
-      )?;
+      segment_reader.doc_values_producer =
+        Self::init_doc_values_producer(si, &segment_reader.field_infos, seg_doc_values, core)?;
       success = true;
       Ok(())
     }));
@@ -268,7 +264,7 @@ where
   /// init most recent DocValues for the current commit
   fn init_doc_values_producer(
     si: &SegmentCommitInfo<D>,
-    field_infos: Arc<FieldInfos>,
+    field_infos: &Arc<FieldInfos>,
     seg_doc_values: &SegmentDocValues<D::IndexInput>,
     core: &SegmentCoreReaders<D::IndexInput>,
   ) -> Result<Option<Arc<DocValuesProducers<D::IndexInput>>>> {
@@ -281,8 +277,8 @@ where
       true => DocValuesProducers::A(SegmentDocValuesProducer::new(
         si,
         dir.as_ref(),
-        Arc::clone(&core.core_field_infos),
-        &field_infos,
+        &core.core_field_infos,
+        field_infos,
         seg_doc_values,
       )?),
       // simple case, no DocValues updates
@@ -290,7 +286,7 @@ where
         -1,
         si,
         dir.as_ref(),
-        field_infos,
+        field_infos.clone(),
       )?),
     };
 
@@ -299,10 +295,10 @@ where
   /// init most recent FieldInfos for the current commit
   fn init_field_infos(
     si: &SegmentCommitInfo<D>,
-    core_field_infos: Arc<FieldInfos>,
+    core_field_infos: &Arc<FieldInfos>,
   ) -> Result<Arc<FieldInfos>> {
     if !si.has_field_updates() {
-      return Ok(core_field_infos);
+      return Ok(core_field_infos.clone());
     }
 
     // updates always outside of CFS

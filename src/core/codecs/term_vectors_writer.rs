@@ -181,7 +181,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
     self.start_document(num_fields)?;
 
     #[cfg(debug_assertions)]
-    let mut last_field_name: Option<String> = None;
+    let mut last_field_name: Option<&String> = None;
     let mut docs_and_positions_reuse = None;
 
     let mut field_count = 0;
@@ -197,7 +197,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
 
       #[cfg(debug_assertions)]
       {
-        if let Some(ref last) = last_field_name {
+        if let Some(last) = last_field_name {
           debug_assert!(
             field_name > last,
             "lastFieldName={} fieldName={}",
@@ -205,7 +205,7 @@ pub trait TermVectorsWriter: Accountable + Closeable {
             field_name
           );
         }
-        last_field_name = Some(field_name.clone());
+        last_field_name = Some(field_name);
       }
 
       let Some(terms) = vectors.terms(field_name)? else {

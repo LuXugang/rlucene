@@ -240,7 +240,7 @@ where
       .get_sorted_numeric_doc_values(&self.query.field)?
     {
       Some(values) => {
-        let iterator = LatLonDocValuesBoxTwoPhaseIterator::new(values, self.query.clone());
+        let iterator = LatLonDocValuesBoxTwoPhaseIterator::new(values, &self.query);
         let scorer = ConstantScoreScorer::from_tpi(self.base.score(), self.score_mode, iterator);
         Ok(Some(Box::new(DefaultScorerSupplier::new(scorer))))
       },
@@ -251,12 +251,23 @@ where
 
 struct LatLonDocValuesBoxTwoPhaseIterator<S> {
   values: S,
-  query: LatLonDocValuesBoxQuery,
+  min_latitude: i32,
+  max_latitude: i32,
+  min_longitude: i32,
+  max_longitude: i32,
+  crosses_dateline: bool,
 }
 
 impl<S> LatLonDocValuesBoxTwoPhaseIterator<S> {
-  fn new(values: S, query: LatLonDocValuesBoxQuery) -> Self {
-    Self { values, query }
+  fn new(values: S, query: &LatLonDocValuesBoxQuery) -> Self {
+    Self {
+      values,
+      min_latitude: query.min_latitude,
+      max_latitude: query.max_latitude,
+      min_longitude: query.min_longitude,
+      max_longitude: query.max_longitude,
+      crosses_dateline: query.crosses_dateline,
+    }
   }
 }
 
@@ -281,16 +292,16 @@ where
     for _ in 0..count {
       let value = self.values.next_value()? as u64;
       let lat = (value >> 32) as i32;
-      if lat < self.query.min_latitude || lat > self.query.max_latitude {
+      if lat < self.min_latitude || lat > self.max_latitude {
         continue;
       }
 
       let lon = value as u32 as i32;
-      if self.query.crosses_dateline {
-        if lon > self.query.max_longitude && lon < self.query.min_longitude {
+      if self.crosses_dateline {
+        if lon > self.max_longitude && lon < self.min_longitude {
           continue;
         }
-      } else if lon < self.query.min_longitude || lon > self.query.max_longitude {
+      } else if lon < self.min_longitude || lon > self.max_longitude {
         continue;
       }
 

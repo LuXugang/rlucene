@@ -288,7 +288,7 @@ where
         .filter_and_lock(|_| true)?;
       for per_thread in &finalizer.writers {
         debug_assert!(per_thread.state.is_held_by_current_thread());
-        self.abort_documents_writer_per_thread(per_thread.clone(), config)?;
+        self.abort_documents_writer_per_thread(per_thread, config)?;
       }
       self.flush_control.delete_queue.lock().clear();
 
@@ -331,7 +331,7 @@ where
   /// Returns how many documents were aborted.
   fn abort_documents_writer_per_thread<L>(
     &self,
-    per_thread: Arc<DwptWrapper<D>>,
+    per_thread: &Arc<DwptWrapper<D>>,
     config: &L,
   ) -> Result<()>
   where
@@ -343,7 +343,7 @@ where
       per_thread.dwpt.lock().abort()?;
       Ok(())
     }));
-    self.flush_control.do_on_abort(&per_thread, config)?;
+    self.flush_control.do_on_abort(per_thread, config)?;
     unwrap_caught_result!(result)
   }
   /// returns the maximum sequence number for all previously completed operations
@@ -414,7 +414,7 @@ where
         .filter_and_lock(|_| true)?
       {
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-          self.abort_documents_writer_per_thread(per_thread.clone(), config)
+          self.abort_documents_writer_per_thread(&per_thread, config)
         }));
         per_thread.unlock()?;
         unwrap_caught_result!(result)?;

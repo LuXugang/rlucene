@@ -48,10 +48,14 @@ impl FuzzyAutomatonBuilder {
     }
 
     let term = term.into();
-    let code_points = string_to_utf32(&term);
+    let mut code_points = string_to_utf32(&term);
     let term_length = code_points.len();
     let prefix_length = prefix_length.min(term_length);
-    let suffix = code_points[prefix_length..].to_vec();
+    let suffix = if prefix_length == 0 {
+      std::mem::take(&mut code_points)
+    } else {
+      code_points[prefix_length..].to_vec()
+    };
     let lev_builder = LevenshteinAutomata::from_word(suffix, char::MAX as i32, transpositions)?;
     let prefix = code_points[..prefix_length]
       .iter()

@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Borrow;
+
 use crate::core::index::approximate_priority_queue::IdentityId;
 use crate::core::index::documents_writer::{DocumentsWriter, FlushNotifications};
 use crate::core::index::documents_writer_delete_queue::DocumentsWriterDeleteQueue;
@@ -372,21 +374,23 @@ where
     }
     true
   }
-  pub(crate) fn do_after_flush<L>(
+  pub(crate) fn do_after_flush<L, W>(
     &self,
     inner: Option<&mut Inner<D>>,
-    dwpt: Arc<DwptWrapper<D>>,
+    dwpt: W,
     config: &L,
   ) -> Result<()>
   where
     L: LiveIndexWriterConfig,
+    W: Borrow<Arc<DwptWrapper<D>>>,
   {
+    let dwpt = dwpt.borrow();
     let inner = match inner {
       Some(inner) => inner,
       None => &mut *self.inner.lock(),
     };
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      debug_assert!(inner.flushing_writers.contains(&dwpt));
+      debug_assert!(inner.flushing_writers.contains(dwpt));
       if let Some(pos) = inner
         .flushing_writers
         .iter()
@@ -743,6 +747,8 @@ where
         .filter_and_lock(|v| Arc::ptr_eq(&v.state.delete_queue, &flushing_queue))?
     };
 
+    full_flush_buffer.reserve(dwpts.len());
+
     for dwpt in dwpts {
       let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         let next = dwpt.dwpt.lock();
@@ -914,7 +920,7 @@ where
             Ok(())
           }));
 
-        self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config)?;
+        self.do_after_flush(Some(inner), &dwpt_wrapper, config)?;
         resume_caught_panic!(abort_result);
       }
 
@@ -933,7 +939,7 @@ where
             dwpt_wrapper.dwpt.lock().abort()?;
             Ok(())
           }));
-        self.do_after_flush(Some(inner), dwpt_wrapper.clone(), config)?;
+        self.do_after_flush(Some(inner), &dwpt_wrapper, config)?;
         resume_caught_panic!(abort_result);
       }
 
@@ -1012,7 +1018,7 @@ where
         count += 1;
         if next_ram > max_ram_so_far {
           max_ram_so_far = next_ram;
-          max_ram_using_writer = Some(Arc::clone(&next));
+          max_ram_using_writer = Some(next);
         }
       }
     }

@@ -447,7 +447,7 @@ where
         if update.del_gen <= max_del_gen {
           // safe to apply this one
           bytes += update.ram_bytes_used()?;
-          updates_to_apply.push(update.clone());
+          updates_to_apply.push(update);
         }
       }
 
@@ -487,7 +487,7 @@ where
         &tracking_dir,
         field_infos,
         &updates_context,
-        &segment_suffix,
+        segment_suffix,
       );
 
       {
@@ -495,7 +495,7 @@ where
 
         let write_result =
           std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-            let update_supplier = FunctionImpl::new(field_info.clone(), updates_to_apply);
+            let update_supplier = FunctionImpl::new(&field_info, updates_to_apply);
 
             inner.pending_deletes.on_doc_values_update(
               &field_info,
@@ -503,12 +503,10 @@ where
               info,
             )?;
             if ty == DocValuesType::Binary {
-              let v =
-                DocValuesProducerBinary::new(update_supplier, field, reader, field_info.clone());
+              let v = DocValuesProducerBinary::new(update_supplier, field, reader, &field_info);
               fields_consumer.add_binary_field(&state, &info.info, &field_info, &v)?
             } else {
-              let v =
-                DocValuesProducerNumeric::new(update_supplier, field, reader, field_info.clone());
+              let v = DocValuesProducerNumeric::new(update_supplier, field, reader, &field_info);
               fields_consumer.add_numeric_field(&state, &info.info, &field_info, &v)?;
             }
             Ok(())
@@ -594,7 +592,7 @@ where
 
     // Do this so we can delete any created files on
     // error; this saves all codecs from having to do it:
-    let tracking_dir = Arc::new(TrackingDirectoryWrapper::new(&dir));
+    let tracking_dir = TrackingDirectoryWrapper::new(&dir);
 
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -624,7 +622,7 @@ where
           // the local field number. Field numbers can be different from
           // the global ones if the segment was created externally (and added to
           // this index with `IndexWriter::add_indexes(Directory)`.)
-          by_name.insert(fi.name.to_string(), clone_field_info(fi, fi.number)?);
+          by_name.insert(fi.name.as_str(), clone_field_info(fi, fi.number)?);
           max_field_number = max_field_number.max(fi.number);
         }
 
@@ -632,7 +630,7 @@ where
         for updates in inner.pending_dv_updates.values() {
           if let Some(update) = updates.first() {
             let field = &update.field;
-            if let Some(fi) = by_name.get(field) {
+            if let Some(fi) = by_name.get(field.as_str()) {
               // the field already exists in this segment
               debug_assert_eq!(*fi.get_doc_values_type(), update.type_);
             } else {
@@ -645,7 +643,7 @@ where
               )?;
               if let Some(fi) = fi {
                 max_field_number += 1;
-                by_name.insert(fi.name.to_string(), fi);
+                by_name.insert(field.as_str(), fi);
               } else {
                 debug_assert!(false);
               }
@@ -659,7 +657,7 @@ where
 
         self.handle_dv_updates(
           &field_infos,
-          tracking_dir.clone(),
+          &tracking_dir,
           &dv_format,
           &mut inner,
           &reader,
@@ -671,7 +669,7 @@ where
 
         let files = self.write_field_infos_gen(
           &field_infos,
-          tracking_dir.clone(),
+          &tracking_dir,
           &codec.field_infos_format(),
           info,
         )?;
@@ -1295,10 +1293,10 @@ struct DocValuesProducerBinary<'a, D>
 where
   D: Directory,
 {
-  update_supplier: FunctionImpl,
+  update_supplier: FunctionImpl<'a>,
   field: &'a str,
   reader: &'a SegmentReader<D>,
-  field_info: Arc<FieldInfo>,
+  field_info: &'a Arc<FieldInfo>,
 }
 
 impl<D> CloseableRef for DocValuesProducerBinary<'_, D> where D: Directory {}
@@ -1308,10 +1306,10 @@ where
   D: Directory,
 {
   pub fn new(
-    update_supplier: FunctionImpl,
+    update_supplier: FunctionImpl<'a>,
     field: &'a str,
     reader: &'a SegmentReader<D>,
-    field_info: Arc<FieldInfo>,
+    field_info: &'a Arc<FieldInfo>,
   ) -> Self {
     Self {
       update_supplier,
@@ -1330,7 +1328,7 @@ where
   type BinaryDocValues = BinaryDocValuesImpl<<SegmentReader<D> as LeafReader>::BinaryDocValues>;
 
   fn get_binary(&self, _field: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    let iterator = match self.update_supplier.apply(&self.field_info)? {
+    let iterator = match self.update_supplier.apply(self.field_info)? {
       Some(it) => it,
       None => {
         return Err(LuceneError::illegal_argument(
@@ -1354,10 +1352,10 @@ struct DocValuesProducerNumeric<'a, D>
 where
   D: Directory,
 {
-  update_supplier: FunctionImpl,
+  update_supplier: FunctionImpl<'a>,
   field: &'a str,
   reader: &'a SegmentReader<D>,
-  field_info: Arc<FieldInfo>,
+  field_info: &'a Arc<FieldInfo>,
 }
 
 impl<D> CloseableRef for DocValuesProducerNumeric<'_, D> where D: Directory {}
@@ -1367,10 +1365,10 @@ where
   D: Directory,
 {
   pub fn new(
-    update_supplier: FunctionImpl,
+    update_supplier: FunctionImpl<'a>,
     field: &'a str,
     reader: &'a SegmentReader<D>,
-    field_info: Arc<FieldInfo>,
+    field_info: &'a Arc<FieldInfo>,
   ) -> Self {
     Self {
       update_supplier,
@@ -1386,7 +1384,7 @@ where
 {
   type NumericDocValues = NumericDocValuesImpl<<SegmentReader<D> as LeafReader>::NumericDocValues>;
   fn get_numeric(&self, _field: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    let iterator = match self.update_supplier.apply(&self.field_info)? {
+    let iterator = match self.update_supplier.apply(self.field_info)? {
       Some(it) => it,
       None => {
         return Err(LuceneError::illegal_argument(
@@ -1410,14 +1408,14 @@ where
   type DocValuesSkipper = DummyDocValuesSkipper;
 }
 
-struct FunctionImpl {
-  field_info: Arc<FieldInfo>,
-  updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
+struct FunctionImpl<'a> {
+  field_info: &'a Arc<FieldInfo>,
+  updates_to_apply: Vec<&'a Arc<DocValuesFieldUpdatesEnum>>,
 }
-impl FunctionImpl {
+impl<'a> FunctionImpl<'a> {
   fn new(
-    field_info: Arc<FieldInfo>,
-    updates_to_apply: Vec<Arc<DocValuesFieldUpdatesEnum>>,
+    field_info: &'a Arc<FieldInfo>,
+    updates_to_apply: Vec<&'a Arc<DocValuesFieldUpdatesEnum>>,
   ) -> Self {
     Self {
       field_info,
@@ -1425,19 +1423,21 @@ impl FunctionImpl {
     }
   }
 }
-impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>> for FunctionImpl {
+impl Function<Arc<FieldInfo>, Option<MergedIterator<DocValuesFieldIteratorEnum>>>
+  for FunctionImpl<'_>
+{
   fn apply(
     &self,
     info: &Arc<FieldInfo>,
   ) -> Result<Option<MergedIterator<DocValuesFieldIteratorEnum>>> {
-    if !Arc::ptr_eq(info, &self.field_info) {
+    if !Arc::ptr_eq(info, self.field_info) {
       return Err(LuceneError::illegal_argument(format!(
         "expected field info for field: {} but got: {}",
         self.field_info.name, info.name
       )));
     }
 
-    let mut subs = vec![];
+    let mut subs = Vec::with_capacity(self.updates_to_apply.len());
     for v in &self.updates_to_apply {
       subs.push(v.iterator()?)
     }

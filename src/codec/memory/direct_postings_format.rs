@@ -47,10 +47,11 @@ use crate::core::util::bytes_ref_iterator::BytesRefIterator;
 use crate::core::util::close::CloseableRef;
 use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
-use crate::core::util::iterator::{IteratorExt, VecIter, VecIteratorExt};
+use crate::core::util::iterator::IteratorExt;
 use crate::core::util::ram_usage_estimator::size_of_vec;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
+use std::collections::btree_map::Keys;
 use std::fmt::{Display, Formatter};
 use std::mem::size_of_val;
 use std::sync::{Arc, OnceLock};
@@ -336,7 +337,6 @@ impl PostingsFormat for DirectPostingsFormat {
 
 pub struct DirectFields {
   fields: BTreeMap<String, DirectField>,
-  field_names: Vec<String>,
 }
 
 impl DirectFields {
@@ -361,24 +361,34 @@ impl DirectFields {
         DirectField::new(state, field, &terms, min_skip_count, low_freq_cutoff)?,
       );
     }
-    let field_names = direct_fields.keys().cloned().collect();
     Ok(Self {
       fields: direct_fields,
-      field_names,
     })
+  }
+}
+
+impl<'a> IteratorExt for Keys<'a, String, DirectField> {
+  type Item = &'a String;
+
+  fn next(&mut self) -> Result<Option<Self::Item>> {
+    Ok(Iterator::next(self))
+  }
+
+  fn has_next(&self) -> Result<bool> {
+    Ok(self.len() != 0)
   }
 }
 
 impl Fields for DirectFields {
   type FieldIter<'a>
-    = VecIter<'a, String>
+    = Keys<'a, String, DirectField>
   where
     Self: 'a;
 
   type Terms = DirectField;
 
   fn iterator(&self) -> Result<Self::FieldIter<'_>> {
-    Ok(self.field_names.iter_ext())
+    Ok(self.fields.keys())
   }
 
   fn terms(&self, field: &str) -> Result<Option<Self::Terms>> {
@@ -423,7 +433,6 @@ struct DirectFieldData {
   sum_total_term_freq: i64,
   doc_count: i32,
   sum_doc_freq: i64,
-  same_counts: Vec<i32>,
   min_skip_count: i32,
 }
 
@@ -753,7 +762,6 @@ impl DirectField {
         sum_total_term_freq,
         doc_count,
         sum_doc_freq,
-        same_counts,
         min_skip_count,
       }),
     })
@@ -877,7 +885,6 @@ impl Accountable for DirectField {
       + size_of_vec(&data.term_offsets)
       + size_of_vec(&data.skips)
       + size_of_vec(&data.skip_offsets)
-      + size_of_vec(&data.same_counts)
       + size_of_vec(&data.terms);
     for term in &data.terms {
       size += term.ram_bytes_used()?;

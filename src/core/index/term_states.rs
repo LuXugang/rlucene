@@ -355,14 +355,10 @@ where
 {
   let term = term.into();
   let context = index_searcher.get_top_reader_context();
-  let mut per_reader_term_state = TermStates::with_term(
-    if needs_stats {
-      None
-    } else {
-      Some(term.clone())
-    },
-    context,
-  )?;
+  if !needs_stats {
+    return TermStates::with_term(Some(term), context);
+  }
+  let mut per_reader_term_state = TermStates::with_term(None, context)?;
 
   if needs_stats {
     let mut pending_term_lookups = Vec::new();

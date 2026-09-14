@@ -493,9 +493,7 @@ pub(crate) fn host_address(address: IpAddr) -> String {
     IpAddr::V4(address) => address.to_string(),
     IpAddr::V6(address) => address
       .segments()
-      .iter()
       .map(|segment| format!("{segment:x}"))
-      .collect::<Vec<_>>()
       .join(":"),
   }
 }

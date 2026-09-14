@@ -412,7 +412,7 @@ impl Operations {
 
     let p = Rc::new(StatePair::with_s(0, 0, 0));
     worklist.push_back(p.clone());
-    newstates.insert(p.clone(), p.clone());
+    newstates.insert(p.clone(), p.s);
 
     while let Some(p) = worklist.pop_front() {
       c.set_accept(p.s, a1.is_accept(p.s1) && a2.is_accept(p.s2));
@@ -432,20 +432,20 @@ impl Operations {
           if t2[n2].max >= t1[n1].min {
             let mut q = StatePair::new(t1[n1].dest, t2[n2].dest);
             let r = match newstates.get(&q) {
-              Some(r) => r.clone(),
+              Some(&r) => r,
               None => {
                 q.s = c.create_state()?;
                 let q = Rc::new(q);
                 worklist.push_back(q.clone());
-                newstates.insert(q.clone(), q.clone());
-                q
+                newstates.insert(q.clone(), q.s);
+                q.s
               },
             };
 
             let min = t1[n1].min.max(t2[n2].min);
             let max = t1[n1].max.min(t2[n2].max);
 
-            c.add_transition(p.s, r.s, min, max)?;
+            c.add_transition(p.s, r, min, max)?;
           }
           n2 += 1;
         }
@@ -622,8 +622,7 @@ impl Operations {
             },
             None => {
               let q = b.create_state();
-              let mut p = states_set.freeze(q);
-              let key = StateSetHashKey::new(p.hash_code, p.get_array().clone());
+              let p = states_set.freeze(q);
               worklist.push_back(p);
               b.set_accept(q, acc_count > 0);
               newstate.insert(key, q);
@@ -1377,6 +1376,7 @@ impl PointTransitionSet {
       let p = self.next(point)?;
       if self.count == HASHMAP_CUTOVER {
         debug_assert!(self.map.is_empty());
+        self.map.reserve(self.count);
         for i in 0..self.count {
           self.map.insert(self.points[i].point, i);
         }

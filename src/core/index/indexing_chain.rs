@@ -125,7 +125,6 @@ use crate::test_framework::core::util::failure_context::{
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 use std::vec;
@@ -220,7 +219,7 @@ where
     let doc_values_byte_pool = ByteBlockPool::new(DirectTrackingAllocatorByte::allocator_enum(
       bytes_used.clone(),
     ));
-    let info_stream = index_writer_config.get_info_stream().clone();
+    let info_stream = index_writer_config.get_info_stream();
     let term_vectors_int_pool =
       IntBlockPool::with_allocator(IntBlockAllocator::allocator_enum(bytes_used.clone()));
     let freq_prox_term_int_pool =
@@ -280,7 +279,7 @@ where
     let parent_bit_set = if has_blocks {
       if let Some(parent_field) = parent_field {
         match doc_values_reader.get_numeric_doc_values(parent_field)? {
-          Some(ref mut reader_values) => Some(Rc::new(of(reader_values, max_doc.try_convert()?)?)),
+          Some(ref mut reader_values) => Some(of(reader_values, max_doc.try_convert()?)?),
           None => {
             return Err(LuceneError::corrupt_index(format!(
               "missing doc values for parent field {parent_field} IndexingChain"
@@ -309,10 +308,9 @@ where
       })?;
       let doc_comparator = sorter.get_doc_comparator(&doc_values_reader, max_doc)?;
       let v = match &parent_bit_set {
-        Some(parent_bit_set) => DocComparatorEnum2::A(DocComparatorImpl::new(
-          parent_bit_set.clone(),
-          doc_comparator,
-        )),
+        Some(parent_bit_set) => {
+          DocComparatorEnum2::A(DocComparatorImpl::new(parent_bit_set, doc_comparator))
+        },
         None => DocComparatorEnum2::B(doc_comparator),
       };
       comparators.push(v);
@@ -737,7 +735,7 @@ where
         let fp0 = &mut self.per_fields[index];
         let next_fp0 = fp0.next;
         let hash_pos2 =
-          (CoreHelper::calculate_hash(&fp0.field_name) & new_hash_mask as u64) as usize;
+          (CoreHelper::calculate_hash(&fp0.schema.name) & new_hash_mask as u64) as usize;
         let idx = new_hash_array[hash_pos2];
         fp0.next = idx;
         new_hash_array[hash_pos2] = Some(index);
@@ -953,19 +951,19 @@ where
     if let Some(index_sort) = &index_writer_config.get_index_sort()
       && s.doc_values_type != DocValuesType::None
     {
-      Self::validate_index_sort_dv_type(index_sort, &pf.field_name, &s.doc_values_type)?;
+      Self::validate_index_sort_dv_type(index_sort, &s.name, &s.doc_values_type)?;
     }
     if s.vector_dimension != 0 {
       let max_dim = index_writer_config
         .get_codec()
         .knn_vectors_format()?
-        .get_max_dimensions(&pf.field_name)?;
-      Self::validate_max_vector_dimension(&pf.field_name, s.vector_dimension, max_dim)?;
+        .get_max_dimensions(&s.name)?;
+      Self::validate_max_vector_dimension(&s.name, s.vector_dimension, max_dim)?;
     }
-    let soft_deletes_field = field_infos.is_soft_deletes_field_name(&pf.field_name);
-    let is_parent_field = field_infos.is_parent_field_name(&pf.field_name);
+    let soft_deletes_field = field_infos.is_soft_deletes_field_name(&s.name);
+    let is_parent_field = field_infos.is_parent_field_name(&s.name);
     let field_info = FieldInfo::new(
-      pf.field_name.clone(),
+      s.name.clone(),
       -1,
       s.store_term_vector,
       s.omit_norms,
@@ -1151,7 +1149,7 @@ where
       conflict = true;
       debug_assert!(self.per_fields.get(index).is_some());
       let pf = &mut self.per_fields[index];
-      if pf.field_name != field_name {
+      if pf.schema.name != field_name {
         per_field_index = pf.next;
       } else {
         return Ok(index);
@@ -1160,13 +1158,7 @@ where
 
     let index = self.per_fields.len();
     let schema = FieldSchema::new(field_name);
-    let mut pf = PerField::new(
-      field,
-      self.index_created_version_major,
-      schema,
-      reserved,
-      index,
-    );
+    let mut pf = PerField::new(self.index_created_version_major, schema, reserved, index);
     // filed_name's hash conflict happened, and could not find existing PerField with the same name in next chain
     if conflict {
       let old_pos = self.field_hash[hash_pos];
@@ -1401,7 +1393,7 @@ where
     let mut per_field_index = self.field_hash[hash_pos];
     while let Some(index) = per_field_index {
       let pf = &self.per_fields[index];
-      if pf.field_name == name {
+      if pf.schema.name == name {
         return Some(index);
       }
       per_field_index = pf.next;
@@ -1463,7 +1455,6 @@ where
 }
 
 pub(crate) struct PerField {
-  pub(crate) field_name: String,
   pub(crate) index_created_version_major: i32,
   pub(crate) schema: FieldSchema,
   pub(crate) reserved: bool,
@@ -1492,14 +1483,12 @@ impl PerField {
   }
 
   pub(crate) fn new(
-    field: &Fields,
     index_created_version_major: i32,
     schema: FieldSchema,
     reserved: bool,
     idx_in_doc_field: usize,
   ) -> Self {
     PerField {
-      field_name: field.name().to_string(),
       index_created_version_major,
       schema,
       reserved,
@@ -1683,7 +1672,7 @@ impl PerField {
      * but rather a finally that takes note of the problem.
      */
 
-    let field_name = self.field_name.as_str();
+    let field_name = self.schema.name.as_str();
 
     let mut succeeded_in_processing_field = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -1906,7 +1895,7 @@ impl PerField {
         prefix.copy_from_slice(&binary_value.bytes[binary_value.offset..binary_value.offset + 30]);
         let msg = format!(
           "Document contains at least one immense term in field=\"{}\" (whose length is longer than the max length {}), all of which were skipped. The prefix of the first immense term is: '{:?}...'",
-          self.field_name, MAX_TERM_LENGTH, prefix
+          self.schema.name, MAX_TERM_LENGTH, prefix
         );
         let mut ia = LuceneError::illegal_argument(msg);
         ia.add_suppressed(e.into());
@@ -1920,7 +1909,7 @@ impl PerField {
 
 impl PartialEq for PerField {
   fn eq(&self, other: &Self) -> bool {
-    self.field_name == other.field_name
+    self.schema.name == other.schema.name
   }
 }
 impl Eq for PerField {}
@@ -1932,7 +1921,7 @@ impl PartialOrd for PerField {
 }
 impl Ord for PerField {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.field_name.cmp(&other.field_name)
+    self.schema.name.cmp(&other.schema.name)
   }
 }
 
@@ -2336,7 +2325,7 @@ where
       Some(DocValuesWriterEnum::Numeric(writer)) => Ok(Option::from(writer.get_doc_values()?)),
       _ => Err(LuceneError::illegal_state(format!(
         "field=\"{}\": expected Numeric DocValuesWriter",
-        pf.field_name
+        pf.schema.name
       ))),
     }
   }
@@ -2358,7 +2347,7 @@ where
       Some(DocValuesWriterEnum::Binary(writer)) => Ok(Option::from(writer.get_doc_values()?)),
       _ => Err(LuceneError::illegal_state(format!(
         "field=\"{}\": expected Binary DocValuesWriter",
-        pf.field_name
+        pf.schema.name
       ))),
     }
   }
@@ -2380,7 +2369,7 @@ where
       Some(DocValuesWriterEnum::Sorted(writer)) => Ok(Option::from(writer.get_doc_values()?)),
       _ => Err(LuceneError::illegal_state(format!(
         "field=\"{}\": expected Sorted DocValuesWriter",
-        pf.field_name
+        pf.schema.name
       ))),
     }
   }
@@ -2407,7 +2396,7 @@ where
       },
       _ => Err(LuceneError::illegal_state(format!(
         "field=\"{}\": expected SortedNumeric DocValuesWriter",
-        pf.field_name
+        pf.schema.name
       ))),
     }
   }
@@ -2465,7 +2454,7 @@ where
       Some(DocValuesWriterEnum::SortedSet(writer)) => Ok(Option::from(writer.get_doc_values()?)),
       _ => Err(LuceneError::illegal_state(format!(
         "field=\"{}\": expected SortedSet DocValuesWriter",
-        pf.field_name
+        pf.schema.name
       ))),
     }
   }
@@ -2774,19 +2763,19 @@ where
   }
 }
 
-struct DocComparatorImpl<DC> {
-  parents: Rc<SparseFixedBitSetBitSet>,
+struct DocComparatorImpl<'a, DC> {
+  parents: &'a SparseFixedBitSetBitSet,
   doc_comparator: DC,
 }
-impl<DC> DocComparatorImpl<DC> {
-  fn new(parents: Rc<SparseFixedBitSetBitSet>, doc_comparator: DC) -> Self {
+impl<'a, DC> DocComparatorImpl<'a, DC> {
+  fn new(parents: &'a SparseFixedBitSetBitSet, doc_comparator: DC) -> Self {
     DocComparatorImpl {
       parents,
       doc_comparator,
     }
   }
 }
-impl<DC> DocComparator for DocComparatorImpl<DC>
+impl<DC> DocComparator for DocComparatorImpl<'_, DC>
 where
   DC: DocComparator,
 {

@@ -44,6 +44,7 @@ use crate::core::util::numeric_utils::NumericUtils;
 use crate::core::util::priority_queue::{Compare, PriorityQueue};
 use crate::core::util::{IOUtils, SliceCopyOps, ToInt, TryIntoInt};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Recursively builds a block KD-tree to assign all incoming points in N-dim
 /// space to smaller and smaller N-dim rectangles (cells) until the number of
@@ -70,7 +71,7 @@ where
   comparator: ByteArrayComparatorEnum,
   common_prefix_comparator: ByteArrayComparatorEnum,
   temp_dir: TrackingDirectoryWrapper<D>,
-  temp_file_name_prefix: String,
+  temp_file_name_prefix: Arc<str>,
 
   #[allow(dead_code)]
   // Mirrors Java's retained constructor setting; derived limits are used afterward.
@@ -148,7 +149,7 @@ where
       equals_predicate,
       common_prefix_comparator,
       temp_dir,
-      temp_file_name_prefix: temp_file_name_prefix.to_string(),
+      temp_file_name_prefix: Arc::from(temp_file_name_prefix),
       max_mb_sort_in_heap,
       scratch_diff,
       scratch,
@@ -401,7 +402,13 @@ where
     }
 
     let data_start_fp = data_out.get_file_pointer()?;
-    let mut parent_splits = vec![0i32; self.config.num_index_dims];
+    stack_or_heap_buffer!(
+      parent_splits,
+      i32,
+      self.config.num_index_dims,
+      BKDConfig::MAX_INDEX_DIMS,
+      0
+    );
 
     self.build_with_reader(
       0,
@@ -412,7 +419,7 @@ where
       data_out,
       self.min_packed_value.clone(),
       self.max_packed_value.clone(),
-      &mut parent_splits,
+      parent_splits,
       &mut split_packed_values,
       &mut split_dimension_values,
       &mut leaf_block_fps,
@@ -487,7 +494,7 @@ where
         point_values.get_num_index_dimensions()?,
         self.config.num_index_dims
       );
-      let doc_map = doc_maps.as_ref().map(|doc_maps| doc_maps[i].clone());
+      let doc_map = doc_maps.as_ref().map(|doc_maps| doc_maps[i].as_ref());
       let mut reader = MergeReader::new(&mut point_values, doc_map)?;
       if reader.next()? {
         queue.add(Box::new(reader))?;
@@ -612,23 +619,45 @@ where
     let mut radix_selector = BKDRadixSelector::new(
       self.config.clone(),
       self.max_points_sort_in_heap,
-      &self.temp_file_name_prefix,
+      Arc::clone(&self.temp_file_name_prefix),
     );
 
     let data_start_fp = data_out.get_file_pointer()?;
 
     let mut success = false;
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
-      let mut parent_splits = vec![0i32; self.config.num_index_dims];
+      stack_or_heap_buffer!(
+        parent_splits,
+        i32,
+        self.config.num_index_dims,
+        BKDConfig::MAX_INDEX_DIMS,
+        0
+      );
+      stack_or_heap_buffer!(
+        min_packed_value,
+        u8,
+        self.min_packed_value.len(),
+        MAX_NUM_BYTES * BKDConfig::MAX_INDEX_DIMS,
+        0
+      );
+      min_packed_value.copy_from_slice(&self.min_packed_value);
+      stack_or_heap_buffer!(
+        max_packed_value,
+        u8,
+        self.max_packed_value.len(),
+        MAX_NUM_BYTES * BKDConfig::MAX_INDEX_DIMS,
+        0
+      );
+      max_packed_value.copy_from_slice(&self.max_packed_value);
       self.build(
         0,
         num_leaves,
         &mut points,
         data_out,
         &mut radix_selector,
-        &mut self.min_packed_value.clone(),
-        &mut self.max_packed_value.clone(),
-        &mut parent_splits,
+        min_packed_value,
+        max_packed_value,
+        parent_splits,
         &mut split_packed_values,
         &mut split_dimension_values,
         &mut leaf_block_fps,
@@ -689,21 +718,37 @@ where
     let mut write_buffer = ByteBuffersDataOutput::new_resettable_instance();
 
     // This is the "file" to which the bytes are appended.
-    let mut blocks: Vec<Option<Vec<u8>>> = Vec::new();
+    let mut blocks: Vec<Option<Vec<u8>>> = Vec::with_capacity(leaf_nodes.num_leaves());
     let mut last_split_values = vec![0u8; self.config.bytes_per_dim * self.config.num_index_dims];
 
-    let mut negative_deltas = vec![false; self.config.num_index_dims];
+    stack_or_heap_buffer!(
+      negative_deltas,
+      bool,
+      self.config.num_index_dims,
+      BKDConfig::MAX_INDEX_DIMS,
+      false
+    );
     let total_size = self.recurse_pack_index(
       &mut write_buffer,
       leaf_nodes,
       0,
       &mut blocks,
       &mut last_split_values,
-      &mut negative_deltas,
+      negative_deltas,
       false,
       0,
       leaf_nodes.num_leaves(),
     )?;
+
+    // A single block already is the complete index.
+    if blocks.len() == 1 {
+      let block = blocks
+        .pop()
+        .flatten()
+        .ok_or_else(|| LuceneError::illegal_state("block should not be None"))?;
+      debug_assert!(block.len() == total_size);
+      return Ok(block);
+    }
 
     // Compact the byte blocks into a single byte index.
     let mut index = vec![0u8; total_size];
@@ -2148,7 +2193,9 @@ where
   leaf_count: usize,
   leaf_cardinality: usize,
   // for asserts
+  #[cfg(debug_assertions)]
   last_packed_value: Vec<u8>,
+  #[cfg(debug_assertions)]
   last_doc_id: i32,
   bkd_writer: &'a mut BKDWriter<D>,
 }
@@ -2184,6 +2231,7 @@ where
         * bkd_writer.config.packed_bytes_length()
     ];
     let leaf_docs = vec![0i32; bkd_writer.config.max_points_in_leaf_node];
+    #[cfg(debug_assertions)]
     let last_packed_value = vec![0u8; bkd_writer.config.packed_bytes_length()];
 
     Ok(OneDimensionBKDWriter {
@@ -2196,12 +2244,15 @@ where
       value_count: 0,
       leaf_count: 0,
       leaf_cardinality: 0,
+      #[cfg(debug_assertions)]
       last_packed_value,
+      #[cfg(debug_assertions)]
       last_doc_id: 0,
       bkd_writer,
     })
   }
   pub fn add(&mut self, packed_value: &[u8], doc_id: i32) -> Result<()> {
+    #[cfg(debug_assertions)]
     debug_assert!(value_in_order(
       self.bkd_writer.config.clone(),
       self.value_count + self.leaf_count as i64,
@@ -2247,7 +2298,10 @@ where
     }
 
     debug_assert!(doc_id >= 0);
-    self.last_doc_id = doc_id;
+    #[cfg(debug_assertions)]
+    {
+      self.last_doc_id = doc_id;
+    }
 
     Ok(())
   }
@@ -2501,26 +2555,26 @@ fn value_in_bounds(
   }
   true
 }
-struct MergeReader<S, DM>
+struct MergeReader<'a, S, DM>
 where
   S: PointValues,
   DM: DocMap,
 {
   point_tree: Option<PointTreeEnum<S::MutablePointTree, S::PointTree>>,
   packed_bytes_length: usize,
-  doc_map: Option<Rc<DM>>,
+  doc_map: Option<&'a DM>,
   merge_intersects_visitor: MergeIntersectsVisitor,
   doc_block_upto: usize,
   doc_id: i32,
   packed_value_offset: usize,
 }
 
-impl<S, DM> MergeReader<S, DM>
+impl<'a, S, DM> MergeReader<'a, S, DM>
 where
   S: PointValues,
   DM: DocMap,
 {
-  fn new(point_values: &mut S, doc_map: Option<Rc<DM>>) -> Result<Self> {
+  fn new(point_values: &mut S, doc_map: Option<&'a DM>) -> Result<Self> {
     let packed_bytes_length =
       point_values.get_bytes_per_dimension()? * point_values.get_num_dimensions()?;
     let mut point_tree = point_values.get_point_tree()?;
@@ -2669,12 +2723,16 @@ impl MergeReaderCmp {
     }
   }
 }
-impl<S, DM> Compare<Box<MergeReader<S, DM>>> for MergeReaderCmp
+impl<S, DM> Compare<Box<MergeReader<'_, S, DM>>> for MergeReaderCmp
 where
   S: PointValues,
   DM: DocMap,
 {
-  fn less_than(&self, a: &Box<MergeReader<S, DM>>, b: &Box<MergeReader<S, DM>>) -> Result<bool> {
+  fn less_than(
+    &self,
+    a: &Box<MergeReader<'_, S, DM>>,
+    b: &Box<MergeReader<'_, S, DM>>,
+  ) -> Result<bool> {
     debug_assert!(!std::ptr::eq(a, b));
     let cmp = self.comparator.compare(
       &a.merge_intersects_visitor.packed_values,

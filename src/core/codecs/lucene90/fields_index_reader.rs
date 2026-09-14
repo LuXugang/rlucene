@@ -36,8 +36,7 @@ where
   max_doc: i32,
   block_shift: i32,
   num_chunks: i32,
-  docs_meta: Arc<Meta>,
-  start_pointers_meta: Arc<Meta>,
+  meta: Arc<FieldsIndexReaderMeta>,
   index_input: I,
   docs_start_pointer: usize,
   docs_end_pointer: usize,
@@ -47,6 +46,11 @@ where
   start_pointers: DirectMonotonicReader<I::RandomAccessSlice>,
   max_pointer: usize,
 }
+struct FieldsIndexReaderMeta {
+  docs: Meta,
+  start_pointers: Meta,
+}
+
 impl<I> FieldsIndexReader<I>
 where
   I: IndexInput,
@@ -54,7 +58,7 @@ where
   #[allow(clippy::too_many_arguments)]
   pub(crate) fn new<D, II>(
     dir: &D,
-    name: String,
+    name: &str,
     suffix: &str,
     extension: &str,
     codec_name: &str,
@@ -80,7 +84,7 @@ where
     let max_pointer = meta_in.read_long()? as usize;
 
     let mut index_input = dir.open_input(
-      &IndexFileNames::segment_file_name(&name, suffix, extension),
+      &IndexFileNames::segment_file_name(name, suffix, extension),
       &context.with_read_advice_self(ReadAdvice::RandomPreload)?,
     )?;
 
@@ -119,8 +123,10 @@ where
       max_doc,
       block_shift,
       num_chunks,
-      docs_meta: Arc::new(docs_meta),
-      start_pointers_meta: Arc::new(start_pointers_meta),
+      meta: Arc::new(FieldsIndexReaderMeta {
+        docs: docs_meta,
+        start_pointers: start_pointers_meta,
+      }),
       index_input,
       docs_start_pointer,
       docs_end_pointer,
@@ -132,8 +138,7 @@ where
     })
   }
   fn with_other(other: &FieldsIndexReader<I>) -> Result<Self> {
-    let docs_meta = other.docs_meta.clone();
-    let start_pointers_meta = other.start_pointers_meta.clone();
+    let meta = Arc::clone(&other.meta);
     let docs_slice = other.index_input.random_access_slice(
       other.docs_start_pointer,
       other.docs_end_pointer - other.docs_start_pointer,
@@ -142,15 +147,14 @@ where
       other.start_pointers_start_pointer,
       other.start_pointers_end_pointer - other.start_pointers_start_pointer,
     )?;
-    let docs = DirectMonotonicReader::get_instance(&docs_meta, docs_slice)?;
+    let docs = DirectMonotonicReader::get_instance(&meta.docs, docs_slice)?;
     let start_pointers =
-      DirectMonotonicReader::get_instance(&start_pointers_meta, start_pointers_slice)?;
+      DirectMonotonicReader::get_instance(&meta.start_pointers, start_pointers_slice)?;
     Ok(FieldsIndexReader {
       max_doc: other.max_doc,
       block_shift: other.block_shift,
       num_chunks: other.num_chunks,
-      docs_meta,
-      start_pointers_meta,
+      meta,
       index_input: other.index_input.try_clone()?,
       docs_start_pointer: other.docs_start_pointer,
       docs_end_pointer: other.docs_end_pointer,

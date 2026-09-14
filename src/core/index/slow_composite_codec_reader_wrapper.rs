@@ -1169,7 +1169,7 @@ where
     V: StoredFieldVisitor,
   {
     let reader_id = doc_id_to_reader_id(doc_id, self.doc_starts.as_slice())?;
-    let mut sf_visitor = StoredFieldVisitorImpl::new(visitor, self.field_infos.clone());
+    let mut sf_visitor = StoredFieldVisitorImpl::new(visitor, &self.field_infos);
     let reader = &mut self.readers[reader_id]
       .as_mut()
       .ok_or_else(|| LuceneError::illegal_state("StoredFieldsReader is None"))?;
@@ -1234,13 +1234,13 @@ where
 
 pub struct StoredFieldVisitorImpl<'a, SFV> {
   visitor: &'a mut SFV,
-  field_infos: Arc<FieldInfos>,
+  field_infos: &'a FieldInfos,
 }
 impl<'a, SFV> StoredFieldVisitorImpl<'a, SFV>
 where
   SFV: StoredFieldVisitor,
 {
-  fn new(visitor: &'a mut SFV, field_infos: Arc<FieldInfos>) -> Self {
+  fn new(visitor: &'a mut SFV, field_infos: &'a FieldInfos) -> Self {
     Self {
       visitor,
       field_infos,
@@ -1726,7 +1726,7 @@ where
 {
   pub fn new(producers: Vec<Option<FP>>, doc_starts: &[usize]) -> Result<Self> {
     let mut subs = Vec::new();
-    let mut slices = Vec::new();
+    let mut slices = Vec::with_capacity(producers.len());
 
     for (i, producer) in producers.into_iter().enumerate() {
       if let Some(p) = producer {
@@ -2455,7 +2455,6 @@ where
   fn get_min_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
     let pt = self.get_point_tree()?;
     let v = pt.get_min_packed_value()?;
-    debug_assert!(matches!(v, Cow::Owned(_)));
 
     Ok(Some(Cow::Owned(v.into_owned())))
   }
@@ -2463,7 +2462,6 @@ where
   fn get_max_packed_value(&self) -> Result<Option<Cow<'_, [u8]>>> {
     let pt = self.get_point_tree()?;
     let v = pt.get_max_packed_value()?;
-    debug_assert!(matches!(v, Cow::Owned(_)));
     Ok(Some(Cow::Owned(v.into_owned())))
   }
 
@@ -2547,7 +2545,7 @@ where
   }
 
   fn get_min_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-    let mut min_packed_value_opt: Option<Vec<u8>> = None;
+    let mut min_packed_value_opt: Option<Cow<'_, [u8]>> = None;
 
     for sub in self.values.iter() {
       let leaf_min_packed_value = sub
@@ -2557,7 +2555,7 @@ where
 
       match &mut min_packed_value_opt {
         None => {
-          min_packed_value_opt = Some(leaf_min_packed_value.into_owned());
+          min_packed_value_opt = Some(leaf_min_packed_value);
         },
         Some(min_packed_value) => {
           let num_index_dims = sub.sub.get_num_index_dimensions()?;
@@ -2568,25 +2566,25 @@ where
             let v = comparator.compare(
               leaf_min_packed_value.as_ref(),
               off,
-              min_packed_value.as_slice(),
+              min_packed_value.as_ref(),
               off,
             );
             // unsigned byte-wise compare (lexicographic)
             if v < 0 {
-              min_packed_value.copy_from(leaf_min_packed_value.as_ref(), off);
+              min_packed_value
+                .to_mut()
+                .copy_from(leaf_min_packed_value.as_ref(), off);
             }
           }
         },
       }
     }
 
-    Ok(Cow::Owned(min_packed_value_opt.ok_or_else(|| {
-      LuceneError::illegal_state("min_packed_value_opt is None")
-    })?))
+    min_packed_value_opt.ok_or_else(|| LuceneError::illegal_state("min_packed_value_opt is None"))
   }
 
   fn get_max_packed_value(&self) -> Result<Cow<'_, [u8]>> {
-    let mut max_packed_value_opt: Option<Vec<u8>> = None;
+    let mut max_packed_value_opt: Option<Cow<'_, [u8]>> = None;
 
     for sub in self.values.iter() {
       let leaf_max_packed_value = sub
@@ -2596,7 +2594,7 @@ where
 
       match &mut max_packed_value_opt {
         None => {
-          max_packed_value_opt = Some(leaf_max_packed_value.into_owned());
+          max_packed_value_opt = Some(leaf_max_packed_value);
         },
         Some(max_packed_value) => {
           let num_index_dims = sub.sub.get_num_index_dimensions()?;
@@ -2608,21 +2606,21 @@ where
             let v = comparator.compare(
               leaf_max_packed_value.as_ref(),
               off,
-              max_packed_value.as_slice(),
+              max_packed_value.as_ref(),
               off,
             );
             // unsigned byte-wise compare (lexicographic)
             if v > 0 {
-              max_packed_value.copy_from(leaf_max_packed_value.as_ref(), off);
+              max_packed_value
+                .to_mut()
+                .copy_from(leaf_max_packed_value.as_ref(), off);
             }
           }
         },
       }
     }
 
-    Ok(Cow::Owned(max_packed_value_opt.ok_or_else(|| {
-      LuceneError::illegal_state("max_packed_value_opt is None")
-    })?))
+    max_packed_value_opt.ok_or_else(|| LuceneError::illegal_state("max_packed_value_opt is None"))
   }
 
   fn size(&self) -> Result<usize> {

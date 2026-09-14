@@ -96,7 +96,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.iterator().cost()
+    self.disi.cost()
   }
   #[cfg(test)]
   fn as_any(&mut self) -> &mut dyn Any {

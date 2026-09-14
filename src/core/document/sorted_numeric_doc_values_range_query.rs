@@ -344,13 +344,13 @@ where
             ));
             return Ok(Some(Box::new(v)));
           } else {
-            TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, self.query.clone()))
+            TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, &self.query))
           }
         },
-        None => TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, self.query.clone())),
+        None => TwoPhaseIteratorEnum2::A(TwoPhaseIterator3::new(singleton, &self.query)),
       }
     } else {
-      TwoPhaseIteratorEnum2::B(TwoPhaseIterator4::new(values, self.query.clone()))
+      TwoPhaseIteratorEnum2::B(TwoPhaseIterator4::new(values, &self.query))
     };
     match skipper_opt {
       Some(skipper) => {
@@ -376,11 +376,16 @@ where
 pub type DISI = DocIdSetIteratorEnum2<EmptyDISI, RangeDISI>;
 pub struct TwoPhaseIterator3<N> {
   singleton: N,
-  query: SortedNumericDocValuesRangeQuery,
+  lower_value: i64,
+  upper_value: i64,
 }
 impl<N> TwoPhaseIterator3<N> {
-  pub fn new(singleton: N, query: SortedNumericDocValuesRangeQuery) -> Self {
-    TwoPhaseIterator3 { singleton, query }
+  pub fn new(singleton: N, query: &SortedNumericDocValuesRangeQuery) -> Self {
+    TwoPhaseIterator3 {
+      singleton,
+      lower_value: query.lower_value,
+      upper_value: query.upper_value,
+    }
   }
 }
 impl<N> TwoPhaseIterator for TwoPhaseIterator3<N>
@@ -397,7 +402,7 @@ where
 
   fn matches(&mut self) -> Result<bool> {
     let value = self.singleton.long_value()?;
-    Ok(value >= self.query.lower_value && value <= self.query.upper_value)
+    Ok(value >= self.lower_value && value <= self.upper_value)
   }
 
   fn match_cost(&self) -> f32 {
@@ -406,12 +411,17 @@ where
 }
 pub struct TwoPhaseIterator4<S> {
   value: S,
-  query: SortedNumericDocValuesRangeQuery,
+  lower_value: i64,
+  upper_value: i64,
 }
 
 impl<S> TwoPhaseIterator4<S> {
-  pub fn new(value: S, query: SortedNumericDocValuesRangeQuery) -> Self {
-    TwoPhaseIterator4 { value, query }
+  pub fn new(value: S, query: &SortedNumericDocValuesRangeQuery) -> Self {
+    TwoPhaseIterator4 {
+      value,
+      lower_value: query.lower_value,
+      upper_value: query.upper_value,
+    }
   }
 }
 
@@ -428,8 +438,8 @@ where
   }
 
   fn matches(&mut self) -> Result<bool> {
-    let lower = self.query.lower_value;
-    let upper = self.query.upper_value;
+    let lower = self.lower_value;
+    let upper = self.upper_value;
     let count = self.value.doc_value_count()?;
     for _ in 0..count {
       let value = self.value.next_value()?;

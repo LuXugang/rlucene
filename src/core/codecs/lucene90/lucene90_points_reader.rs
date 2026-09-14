@@ -201,13 +201,11 @@ where
       }
       let reader = Self {
         index_in: shared_index_in
-          .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?
-          .clone(),
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("points index input is missing"))?,
         data_in: data_in
-          .as_ref()
-          .ok_or_else(|| LuceneError::illegal_state("points data input is missing"))?
-          .clone(),
+          .take()
+          .ok_or_else(|| LuceneError::illegal_state("points data input is missing"))?,
         readers: RwLock::new(readers),
         field_infos: read_state.field_infos.clone(),
       };

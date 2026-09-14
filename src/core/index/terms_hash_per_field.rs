@@ -62,7 +62,6 @@ pub struct TermsHashPerField {
   #[cfg(debug_assertions)]
   is_sorted: bool,
   last_doc_id: i32, // only used with debug/asserts
-  pub(crate) field_name: String,
   pub(crate) index_options: IndexOptions,
 }
 impl TermsHashPerField {
@@ -72,7 +71,6 @@ impl TermsHashPerField {
     stream_count: i32,
     bytes_used: SharedCounter,
     postings_array_wrapper: PostingsArrayWrapper,
-    field_name: String,
     index_options: IndexOptions,
   ) -> Result<Self> {
     // In the original Java code, we assert that indexOptions !=
@@ -91,7 +89,6 @@ impl TermsHashPerField {
       #[cfg(debug_assertions)]
       is_sorted: false,
       last_doc_id: 0,
-      field_name,
       index_options,
     })
   }
@@ -238,10 +235,6 @@ impl TermsHashPerField {
       i = ((i as u32) >> 7) as i32;
     }
     self.write_byte(stream, i as u8, int_pool, byte_pool)
-  }
-
-  pub(crate) fn get_field_name(&self) -> &str {
-    self.field_name.as_str()
   }
 
   pub(crate) fn get_num_terms(&self) -> usize {

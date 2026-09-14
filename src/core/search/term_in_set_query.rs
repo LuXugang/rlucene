@@ -267,7 +267,7 @@ impl MultiTermQuery for TermInSetQuery {
   where
     T: Terms + Clone,
   {
-    SetEnum::new(terms.iterator()?, self.term_data.clone())
+    SetEnum::new(terms.iterator()?, &self.term_data)
   }
 
   fn get_terms_count(&self) -> i64 {
@@ -287,7 +287,7 @@ pub struct SetEnum {
 impl SetEnum {
   pub fn new<TE>(
     terms_enum: TE,
-    term_data: PrefixCodedTermsArc,
+    term_data: &PrefixCodedTermsArc,
   ) -> Result<FilteredTermsEnum<TE, Self>>
   where
     TE: TermsEnum,

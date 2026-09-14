@@ -33,6 +33,7 @@ use crate::core::util::accountable::Accountable;
 use crate::core::util::core_helper::HasIdentity;
 use crate::core::util::error::lucene_error::Result;
 use crate::core::util::ram_usage_estimator::QUERY_DEFAULT_RAM_BYTES_USED;
+use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -44,14 +45,14 @@ use std::sync::Arc;
 /// value by calling [`NamedMatches::find_named_matches`].
 pub struct NamedMatches<'a> {
   in_: QueryWeightMatches<'a>,
-  name: String,
+  name: Cow<'a, str>,
 }
 
 impl<'a> NamedMatches<'a> {
   /// Wraps a [`Matches`] value and associates a name with it.
   pub fn new<FName>(name: FName, in_: QueryWeightMatches<'a>) -> Self
   where
-    FName: Into<String>,
+    FName: Into<Cow<'a, str>>,
   {
     let name = name.into();
     Self { in_, name }
@@ -233,7 +234,7 @@ where
       return Ok(None);
     };
     Ok(Some(QueryWeightMatches::NamedMatches(Box::new(
-      NamedMatches::new(self.name.clone(), matches),
+      NamedMatches::new(self.name.as_str(), matches),
     ))))
   }
 

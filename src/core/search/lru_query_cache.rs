@@ -638,10 +638,10 @@ where
     }
 
     let key = cache_helper.get_key();
-    let leaf_cache = match inner.cache.entry(key.clone()) {
+    let leaf_cache = match inner.cache.entry(key) {
       Entry::Occupied(e) => e.into_mut(),
       Entry::Vacant(cache) => {
-        let leaf_cache = LeafCache::new(key);
+        let leaf_cache = LeafCache::new(cache.key().clone());
         let lc_ref = cache.insert(leaf_cache);
         self.ram_bytes_used.fetch_add(
           HASHTABLE_RAM_BYTES_PER_ENTRY,
@@ -980,14 +980,12 @@ impl LeafCache {
   {
     debug_assert!({ !matches!(query, Query::Boost(_)) });
     debug_assert!({ !matches!(query, Query::ConstantScore(_)) });
-    match self.cache.entry(query.identity().clone()) {
-      Entry::Vacant(e) => {
-        let cached = Arc::new(cached);
-        let ram_bytes_used = Self::ram_bytes_used_for_cache_entry(cached.as_ref())?;
-        e.insert(cached);
-        self.on_doc_id_set_cache(ram_bytes_used, parent);
-      },
-      Entry::Occupied(_) => {},
+    if !self.cache.contains_key(query.identity()) {
+      let key = query.identity().clone();
+      let cached = Arc::new(cached);
+      let ram_bytes_used = Self::ram_bytes_used_for_cache_entry(cached.as_ref())?;
+      self.cache.insert(key, cached);
+      self.on_doc_id_set_cache(ram_bytes_used, parent);
     }
     Ok(())
   }

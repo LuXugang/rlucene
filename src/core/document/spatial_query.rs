@@ -201,7 +201,7 @@ where
   C: SpatialQueryBase,
   G: Geometry,
 {
-  parent_query: Arc<SpatialQuery<G, C>>,
+  parent_query: SpatialQuery<G, C>,
   base: ConstantScoreWeight,
   spatial_visitor: Arc<C::SpatialVisitor>,
   score_mode: ScoreMode,
@@ -219,7 +219,7 @@ where
     score_mode: ScoreMode,
     query_s: Arc<Query>,
   ) -> Self {
-    let parent_query = Arc::new(query);
+    let parent_query = query;
     let base = ConstantScoreWeight::new(boost);
     Self {
       parent_query,
@@ -272,13 +272,13 @@ where
     _searcher: &IndexSearcher<IRC>,
   ) -> Result<Option<Self::ScorerSupplier>> {
     let reader = context.reader();
-    let field = self.parent_query.field.clone();
-    let values = match reader.get_point_values(&field)? {
+    let field = self.parent_query.field.as_str();
+    let values = match reader.get_point_values(field)? {
       Some(values) => values,
       None => return Ok(None),
     };
     let field_infos = reader.get_field_infos()?;
-    if field_infos.field_info_by_name(&field)?.is_none() {
+    if field_infos.field_info_by_name(field)?.is_none() {
       return Ok(None);
     }
     let query_relation = self.parent_query.get_query_relation();
@@ -321,7 +321,7 @@ where
         values,
         self.spatial_visitor.clone(),
         query_relation,
-        field,
+        field.to_string(),
         score,
         self.score_mode,
         max_doc,

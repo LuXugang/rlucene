@@ -787,7 +787,7 @@ where
           }
         },
       }
-      max_per_segment_gen.insert(segment_name.to_string(), cur_gen);
+      max_per_segment_gen.insert(segment_name, cur_gen);
     }
   }
 
@@ -809,12 +809,14 @@ where
     infos.counter = desired;
   }
   for info in infos.iter_mut() {
-    let gen_long = *max_per_segment_gen.get(&info.info.name).ok_or_else(|| {
-      LuceneError::illegal_state(format!(
-        "missing maximum generation for segment {}",
-        info.info.name
-      ))
-    })?;
+    let gen_long = *max_per_segment_gen
+      .get(info.info.name.as_str())
+      .ok_or_else(|| {
+        LuceneError::illegal_state(format!(
+          "missing maximum generation for segment {}",
+          info.info.name
+        ))
+      })?;
 
     let next_del = info.get_next_write_del_gen();
     if next_del < gen_long + 1 {

@@ -40,17 +40,20 @@ impl<'a, D> SegmentReadState<'a, D> {
   }
 
   /// Creates a SegmentReadState with a custom segment suffix.
-  pub fn with_suffix(
+  pub fn with_suffix<S>(
     directory: &'a D,
     field_infos: Arc<FieldInfos>,
     context: &'a IOContext,
-    segment_suffix: &str,
-  ) -> Self {
+    segment_suffix: S,
+  ) -> Self
+  where
+    S: Into<String>,
+  {
     Self {
       directory,
       field_infos,
       context,
-      segment_suffix: segment_suffix.to_string(),
+      segment_suffix: segment_suffix.into(),
     }
   }
 

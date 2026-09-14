@@ -159,7 +159,7 @@ impl QueryBase for LatLonPointDistanceQuery {
 pub struct LatLonPointDistanceWeight {
   base: ConstantScoreWeight,
   parent_query: Arc<Query>,
-  query: Arc<LatLonPointDistanceQuery>,
+  query: LatLonPointDistanceQuery,
   score_mode: ScoreMode,
   min_lat: i32,
   max_lat: i32,
@@ -197,10 +197,9 @@ impl LatLonPointDistanceWeight {
       query.longitude,
       query.radius_meters,
     )?;
-    let query = Arc::new(query);
     Ok(Self {
       base: ConstantScoreWeight::new(boost),
-      parent_query: Arc::new(query.as_ref().clone().into()),
+      parent_query: Arc::new(query.clone().into()),
       query,
       score_mode,
       min_lat,

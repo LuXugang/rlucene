@@ -55,14 +55,19 @@ impl<TE> MultiTermsEnum<TE>
 where
   TE: TermsEnum,
 {
-  pub fn new(slices: Vec<Rc<ReaderSlice>>) -> Result<Self> {
+  pub fn new<I>(slices: I) -> Result<Self>
+  where
+    I: IntoIterator<Item = Rc<ReaderSlice>>,
+    I::IntoIter: ExactSizeIterator,
+  {
+    let slices = slices.into_iter();
     let len = slices.len();
     let mut subs = vec![0usize; len];
     let current_subs = vec![0usize; len];
     let top = vec![0usize; len];
     let mut sub_docs = Vec::with_capacity(len);
     let mut all_terms_enum_with_slice = Vec::with_capacity(len);
-    for (i, slice) in slices.into_iter().enumerate() {
+    for (i, slice) in slices.enumerate() {
       all_terms_enum_with_slice.push(TermsEnumWithSlice::new(i, slice.clone()));
       sub_docs.push(EnumWithSlice::with_slice(slice));
       subs[i] = i;
@@ -718,7 +723,8 @@ where
 }
 
 struct TermMergeQueue<TE> {
-  stack: Vec<usize>,
+  // PriorityQueue limits size below i32::MAX; binary DFS needs at most 31 pending nodes.
+  stack: [usize; 32],
   q: PriorityQueue<usize, TermMergeQueueCmp<TE>>,
 }
 impl<TE> TermMergeQueue<TE>
@@ -729,7 +735,7 @@ where
     let cmp = TermMergeQueueCmp::new(all_terms_enum_with_slice);
     let queue = PriorityQueue::new(size, cmp)?;
     Ok(Self {
-      stack: vec![0; size],
+      stack: [0; 32],
       q: queue,
     })
   }

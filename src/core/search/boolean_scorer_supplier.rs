@@ -707,9 +707,8 @@ where
         }
       }
     } else {
-      let mut required = Vec::with_capacity(required_scoring.len() + required_no_scoring.len());
-      let scoring_scorers_idx = (0..required_scoring.len()).collect();
-      required.extend(required_scoring);
+      let mut required = required_scoring;
+      let scoring_scorers_idx = (0..required.len()).collect();
       required.extend(required_no_scoring);
       ScorerEnum3::C(ConjunctionScorer::new(required, scoring_scorers_idx)?)
     };

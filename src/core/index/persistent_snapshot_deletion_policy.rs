@@ -284,11 +284,12 @@ where
       if let Some(gen_part) = file.strip_prefix(SNAPSHOTS_PREFIX) {
         let gen_: i64 = gen_part.parse()?;
         if gen_loaded == -1 || gen_ > gen_loaded {
-          snapshot_files.push(file.clone());
+          snapshot_files.push(file);
+          let file = &snapshot_files[snapshot_files.len() - 1];
           let mut ref_counts = HashMap::new();
           let mut input = self
             .dir
-            .open_input(&file, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
+            .open_input(file, IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?)?;
           let read_result =
             std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
               let result = (|| -> Result<()> {

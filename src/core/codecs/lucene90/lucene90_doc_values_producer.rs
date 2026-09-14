@@ -213,7 +213,7 @@ where
     sorted_sets: Arc<HashMap<i32, Arc<SortedSetEntry>>>,
     sorted_numerics: Arc<HashMap<i32, Arc<SortedNumericEntry>>>,
     skippers: Arc<HashMap<i32, Arc<DocValuesSkipperEntry>>>,
-    data: Arc<I>,
+    data: &I,
     max_doc: i32,
     version: i32,
   ) -> Result<Self> {
@@ -224,7 +224,7 @@ where
       sorted_sets,
       sorted_numerics,
       skippers,
-      data: Arc::new((*data).try_clone()?),
+      data: Arc::new(data.try_clone()?),
       max_doc,
       version,
       merging: true,
@@ -488,7 +488,11 @@ where
     debug_assert!(*entry.base == NumericEntry::default());
     let mut numeric_entry = NumericEntry::default();
     Self::read_numeric_with_entry(meta, &mut numeric_entry)?;
-    entry.base = Arc::new(numeric_entry);
+    if let Some(base) = Arc::get_mut(&mut entry.base) {
+      *base = numeric_entry;
+    } else {
+      entry.base = Arc::new(numeric_entry);
+    }
     entry.num_docs_with_field = meta.read_int()?;
 
     if entry.num_docs_with_field as usize != entry.base.num_values {
@@ -524,8 +528,7 @@ where
           slice.prefetch(0, 1)?
         }
         if entry.block_shift >= 0 {
-          let vbpv_reader =
-            VaryingBPVReader::new(entry.clone(), slice, self.data.as_ref(), self.merging)?;
+          let vbpv_reader = VaryingBPVReader::new(entry, slice, self.data.as_ref(), self.merging)?;
           DenseNumericDocValuesSubEnum::Dense1(DenseNumericDocValuesBaseImpl1 { vbpv_reader })
         } else {
           let values = get_direct_reader_instance(
@@ -584,12 +587,7 @@ where
         }
         if entry.block_shift >= 0 {
           SparseNumericDocValuesSubEnum::Sparse1(SparseNumericDocValuesBaseImpl1 {
-            vbpv_reader: VaryingBPVReader::new(
-              entry.clone(),
-              slice,
-              self.data.as_ref(),
-              self.merging,
-            )?,
+            vbpv_reader: VaryingBPVReader::new(entry, slice, self.data.as_ref(), self.merging)?,
           })
         } else {
           let values = get_direct_reader_instance(
@@ -1069,7 +1067,7 @@ where
       self.sorted_sets.clone(),
       self.sorted_numerics.clone(),
       self.skippers.clone(),
-      self.data.clone(),
+      self.data.as_ref(),
       self.max_doc,
       self.version,
     )?))
@@ -2912,7 +2910,11 @@ where
     let buffer_size =
       (entry.max_block_length + entry.max_term_length + Self::LZ4_DECOMPRESSOR_PADDING) as usize;
 
-    let block_buffer = vec![0u8; buffer_size];
+    let block_buffer = if entry.terms_dict_size == 0 {
+      Vec::new()
+    } else {
+      vec![0u8; buffer_size]
+    };
     let block_input = ByteArrayDataInput::with_bytes(block_buffer);
 
     let sub = Self {

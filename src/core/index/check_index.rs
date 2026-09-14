@@ -18,6 +18,7 @@ use crate::core::codecs::codec::Codecs;
 use crate::core::codecs::doc_values_producer::DocValuesProducer;
 use crate::core::codecs::dummy::stored_fields_writer::DummyStoredFieldsWriter;
 use crate::core::codecs::fields_producer::FieldsProducer;
+use crate::core::codecs::knn_field_vectors_writer::VectorValueEnum;
 use crate::core::codecs::knn_vectors_reader::KnnVectorsReader;
 use crate::core::codecs::norms_producer::NormsProducer;
 use crate::core::codecs::points_reader::PointsReader;
@@ -638,7 +639,7 @@ where
       if file_name.starts_with(IndexFileNames::SEGMENTS) && file_name != OLD_SEGMENTS_GEN {
         all_segments_files.push((
           generation_from_segments_file_name(file_name)?,
-          file_name.clone(),
+          file_name.as_str(),
         ));
       }
     }
@@ -651,7 +652,7 @@ where
     for (_, file_name) in all_segments_files {
       let is_last_commit = file_name == last_segments_file;
       let read_result = panic::catch_unwind(AssertUnwindSafe(|| {
-        SegmentInfos::read_commit_with_file_min_version(Arc::clone(&self.dir), &file_name, 0)
+        SegmentInfos::read_commit_with_file_min_version(Arc::clone(&self.dir), file_name, 0)
       }));
       let read_result = match read_result {
         result @ (Ok(Err(_)) | Err(_)) if self.fail_fast => {
@@ -872,7 +873,7 @@ where
         return Err(error);
       }
 
-      let mut jobs = Vec::new();
+      let mut jobs = Vec::with_capacity(segment_commit_infos.len());
       // start larger segments earlier
       for index in (0..segment_commit_infos.len()).rev() {
         let info = segment_commit_infos[index];
@@ -3038,7 +3039,7 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
             }
 
             let mut visitor =
-              VerifyPointsVisitor::new(field_info.name.clone(), reader.max_doc()?, &values)?;
+              VerifyPointsVisitor::new(field_info.name.as_str(), reader.max_doc()?, &values)?;
             values.intersect(&mut visitor)?;
 
             if visitor.get_point_count_seen() != size {
@@ -3219,11 +3220,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
         let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         if Self::vectors_reader_supports_search(codec_reader, &field_info.name)? {
           let vector = values.vector_value(count)?;
-          let vector = match vector.as_ref() {
-            crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Float(vector) => {
-              vector.clone()
-            },
-            crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Byte(_) => {
+          let vector = match vector {
+            Cow::Owned(VectorValueEnum::Float(vector)) => vector,
+            Cow::Borrowed(VectorValueEnum::Float(vector)) => vector.clone(),
+            Cow::Owned(VectorValueEnum::Byte(_)) | Cow::Borrowed(VectorValueEnum::Byte(_)) => {
               return Err(LuceneError::corrupt_index(format!(
                 "Field \"{}\" has FLOAT32 vector encoding but returned a byte vector",
                 field_info.name
@@ -3287,11 +3287,10 @@ impl CheckIndex<DirectoryEnum, LockEnum, Sink> {
       if supports_search && values.ord_to_doc(count)? % every_n_doc == 0 {
         let mut collector = TopKnnCollector::new(10, i32::MAX as usize)?;
         let vector = values.vector_value(count)?;
-        let vector = match vector.as_ref() {
-          crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Byte(vector) => {
-            vector.clone()
-          },
-          crate::core::codecs::knn_field_vectors_writer::VectorValueEnum::Float(_) => {
+        let vector = match vector {
+          Cow::Owned(VectorValueEnum::Byte(vector)) => vector,
+          Cow::Borrowed(VectorValueEnum::Byte(vector)) => vector.clone(),
+          Cow::Owned(VectorValueEnum::Float(_)) | Cow::Borrowed(VectorValueEnum::Float(_)) => {
             return Err(LuceneError::corrupt_index(format!(
               "Field \"{}\" has BYTE vector encoding but returned a float vector",
               field_info.name
@@ -3356,7 +3355,7 @@ pub struct VerifyPointsVisitor<'a> {
   num_index_dims: usize,
   bytes_per_dim: usize,
   comparator: ByteArrayComparatorEnum,
-  field_name: String,
+  field_name: Cow<'a, str>,
 }
 
 impl<'a> VerifyPointsVisitor<'a> {
@@ -3364,7 +3363,7 @@ impl<'a> VerifyPointsVisitor<'a> {
   pub fn new<P, FName>(field_name: FName, max_doc: i32, values: &'a P) -> Result<Self>
   where
     P: PointValues,
-    FName: Into<String>,
+    FName: Into<Cow<'a, str>>,
   {
     let field_name = field_name.into();
     let num_data_dims = values.get_num_dimensions()?;
@@ -4751,8 +4750,7 @@ where
     let dir = result
       .dir
       .as_ref()
-      .ok_or_else(|| LuceneError::illegal_state("check index status has no directory"))?
-      .clone();
+      .ok_or_else(|| LuceneError::illegal_state("check index status has no directory"))?;
     let new_segments = result
       .new_segments
       .as_mut()

@@ -106,13 +106,17 @@ impl Collector for TotalHitCountCollector {
     if let Some(early_terminated_map) = &self.early_terminated_map {
       let (early_terminated, first) = {
         let mut early_terminated_map = early_terminated_map.lock();
-        match early_terminated_map.entry(context.base().id().clone()) {
-          Entry::Occupied(entry) => (entry.get().clone(), false),
-          Entry::Vacant(entry) => {
-            let first_early_terminated = Arc::new(OnceLock::new());
-            entry.insert(first_early_terminated.clone());
-            (first_early_terminated, true)
-          },
+        if let Some(early_terminated) = early_terminated_map.get(context.base().id()) {
+          (early_terminated.clone(), false)
+        } else {
+          match early_terminated_map.entry(context.base().id().clone()) {
+            Entry::Occupied(entry) => (entry.get().clone(), false),
+            Entry::Vacant(entry) => {
+              let first_early_terminated = Arc::new(OnceLock::new());
+              entry.insert(first_early_terminated.clone());
+              (first_early_terminated, true)
+            },
+          }
         }
       };
 

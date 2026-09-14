@@ -62,7 +62,6 @@ impl TermVectorsConsumerPerField {
       2,
       terms_hash.base.bytes_used.clone(),
       postings_array_wrapper,
-      field_info.name.clone(),
       field_info.index_options,
     )?;
     Ok(Self {

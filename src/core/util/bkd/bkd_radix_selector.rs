@@ -33,11 +33,12 @@ use crate::core::util::{
   CoreHelper, IOUtils, IntroSelector, IntroSelectorBase, IntroSelectorBaseDefault, MSBRadixSorter,
   MSBRadixSorterBase, SliceCopyOps, Sorter,
 };
+use std::sync::Arc;
 
 /// Offline Radix selector for BKD tree.
 pub struct BKDRadixSelector {
   // histogram array
-  histogram: Vec<usize>,
+  histogram: [usize; Self::HISTOGRAM_SIZE],
   // Number of bytes to sort: `config.bytes_per_dim() + INT_BYTES`.
   bytes_sorted: usize,
   // flag to when we are moving to sort on heap
@@ -49,7 +50,7 @@ pub struct BKDRadixSelector {
   // scratch array to hold temporary data
   scratch: Vec<u8>,
   // prefix for temp files
-  temp_file_name_prefix: String,
+  temp_file_name_prefix: Arc<str>,
   // BKD tree configuration
   config: BKDConfig,
 }
@@ -98,10 +99,10 @@ impl BKDRadixSelector {
   // size of the online buffer: 8 KB
   const MAX_SIZE_OFFLINE_BUFFER: usize = 1024 * 8;
   /// Creates a new instance.
-  pub fn new(
+  pub fn new<N: Into<Arc<str>>>(
     config: BKDConfig,
     max_points_sort_in_heap: usize,
-    temp_file_name_prefix: &str,
+    temp_file_name_prefix: N,
   ) -> Self {
     // Selection and sorting is done in a given dimension. In case the value
     // of the dimension are equal
@@ -115,12 +116,12 @@ impl BKDRadixSelector {
     let number_of_points_offline = Self::MAX_SIZE_OFFLINE_BUFFER / config.bytes_per_doc();
     let offline_buffer = vec![0u8; number_of_points_offline * config.bytes_per_doc()];
     let partition_bucket = vec![0; bytes_sorted];
-    let histogram = vec![0; Self::HISTOGRAM_SIZE];
+    let histogram = [0; Self::HISTOGRAM_SIZE];
     let scratch = vec![0u8; bytes_sorted];
     BKDRadixSelector {
       config,
       max_points_sort_in_heap,
-      temp_file_name_prefix: temp_file_name_prefix.to_string(),
+      temp_file_name_prefix: temp_file_name_prefix.into(),
       bytes_sorted,
       offline_buffer,
       partition_bucket,
@@ -178,9 +179,9 @@ impl BKDRadixSelector {
       ))
     } else {
       let mut left_writer =
-        self.get_point_writer(partition_point - from, &format!("left{dim}"), temp_dir)?;
+        self.get_point_writer(partition_point - from, format_args!("left{dim}"), temp_dir)?;
       let mut right_writer = match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        self.get_point_writer(to - partition_point, &format!("right{dim}"), temp_dir)
+        self.get_point_writer(to - partition_point, format_args!("right{dim}"), temp_dir)
       })) {
         Ok(Ok(right_writer)) => right_writer,
         right_result => {
@@ -745,7 +746,7 @@ impl BKDRadixSelector {
         self.config.clone(),
         temp_dir,
         &self.temp_file_name_prefix,
-        &format!("delta{iteration}"),
+        format_args!("delta{iteration}"),
         delta,
       )?))
     }
@@ -773,7 +774,7 @@ impl BKDRadixSelector {
   fn get_point_writer<D>(
     &self,
     count: usize,
-    desc: &str,
+    desc: std::fmt::Arguments<'_>,
     temp_dir: &D,
   ) -> Result<PointWriterEnum<D::IndexOutput>>
   where

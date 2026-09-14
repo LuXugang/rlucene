@@ -353,9 +353,9 @@ impl HalfFloatPoint {
   pub fn new_set_query<T, V>(field: T, values: V) -> Result<PointInSetQuery>
   where
     T: Into<String>,
-    V: AsRef<[f32]>,
+    V: Into<Vec<f32>>,
   {
-    let mut sorted_values = values.as_ref().to_vec();
+    let mut sorted_values = values.into();
     sorted_values.sort_by(|a, b| CoreHelper::compare_f32(*a, *b));
 
     PointInSetQuery::new(

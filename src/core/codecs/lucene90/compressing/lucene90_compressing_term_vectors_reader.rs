@@ -19,8 +19,8 @@ use crate::core::codecs::block_term_state::TermStateEnum;
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::FLAGS_BITS;
 use crate::core::codecs::compressing::lucene90_compressing_term_vectors_writer::{
   META_VERSION_START, OFFSETS, PACKED_BLOCK_SIZE, PAYLOADS, POSITIONS, VECTORS_EXTENSION,
-  VECTORS_INDEX_CODEC_NAME, VECTORS_INDEX_EXTENSION, VECTORS_META_EXTENSION, VERSION_CURRENT,
-  VERSION_START,
+  VECTORS_INDEX_CODEC_NAME, VECTORS_INDEX_EXTENSION, VECTORS_META_CODEC_NAME,
+  VECTORS_META_EXTENSION, VERSION_CURRENT, VERSION_START,
 };
 use crate::core::codecs::compression::compression_mode::{
   CompressionModeBase, CompressionModeEnum, DecompressorEnum,
@@ -157,7 +157,7 @@ where
 
       CodecUtil::check_index_header(
         meta,
-        &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
+        VECTORS_META_CODEC_NAME,
         META_VERSION_START,
         version,
         si.get_id(),
@@ -174,7 +174,7 @@ where
 
       fields_index_reader = Some(FieldsIndexReader::new(
         dir,
-        si.name.clone(),
+        &si.name,
         segment_suffix,
         VECTORS_INDEX_EXTENSION,
         VECTORS_INDEX_CODEC_NAME,
@@ -749,7 +749,7 @@ where
     };
     let (start_offsets, lengths) = if total_offsets > 0 {
       // average number of chars per term
-      let mut chars_per_term = vec![0f32; field_nums.len()];
+      stack_or_heap_buffer!(chars_per_term, f32, field_nums.len(), 16, 0.0);
       for v in chars_per_term.iter_mut() {
         *v = f32::from_bits(self.vectors_stream.read_int()? as u32);
       }
@@ -980,10 +980,22 @@ where
       field_num_offs,
       field_num_terms,
       field_lengths,
-      prefix_lengths.into_iter().map(Rc::new).collect(),
-      suffix_lengths.into_iter().map(Rc::new).collect(),
-      field_term_freqs.into_iter().map(Rc::new).collect(),
-      position_index.into_iter().map(Rc::new).collect(),
+      prefix_lengths
+        .into_iter()
+        .zip(suffix_lengths)
+        .zip(field_term_freqs)
+        .zip(position_index)
+        .map(
+          |(((prefix_lengths, suffix_lengths), term_freqs), position_index)| {
+            Rc::new(TVTermData {
+              prefix_lengths,
+              suffix_lengths,
+              term_freqs,
+              position_index,
+            })
+          },
+        )
+        .collect(),
       positions.into_iter().map(&mut share_positions).collect(),
       start_offsets
         .into_iter()
@@ -1073,6 +1085,13 @@ impl BlockState {
   }
 }
 
+pub(crate) struct TVTermData {
+  prefix_lengths: Vec<usize>,
+  suffix_lengths: Vec<usize>,
+  term_freqs: Vec<usize>,
+  position_index: Vec<usize>,
+}
+
 pub struct TVFields {
   field_nums: Vec<i32>,
   field_flags: Vec<i32>,
@@ -1080,10 +1099,7 @@ pub struct TVFields {
   num_terms: Vec<usize>,
   field_lengths: Vec<usize>,
 
-  prefix_lengths: Vec<Rc<Vec<usize>>>,
-  suffix_lengths: Vec<Rc<Vec<usize>>>,
-  term_freqs: Vec<Rc<Vec<usize>>>,
-  position_index: Vec<Rc<Vec<usize>>>,
+  term_data: Vec<Rc<TVTermData>>,
   positions: Vec<Rc<Vec<i32>>>,
   start_offsets: Vec<Rc<Vec<i32>>>,
   lengths: Vec<Rc<Vec<i32>>>,
@@ -1103,10 +1119,7 @@ impl TVFields {
     field_num_offs: Vec<usize>,
     num_terms: Vec<usize>,
     field_lengths: Vec<usize>,
-    prefix_lengths: Vec<Rc<Vec<usize>>>,
-    suffix_lengths: Vec<Rc<Vec<usize>>>,
-    term_freqs: Vec<Rc<Vec<usize>>>,
-    position_index: Vec<Rc<Vec<usize>>>,
+    term_data: Vec<Rc<TVTermData>>,
     positions: Vec<Rc<Vec<i32>>>,
     start_offsets: Vec<Rc<Vec<i32>>>,
     lengths: Vec<Rc<Vec<i32>>>,
@@ -1138,10 +1151,7 @@ impl TVFields {
       num_terms,
       field_lengths,
 
-      prefix_lengths,
-      suffix_lengths,
-      term_freqs,
-      position_index,
+      term_data,
       positions,
       start_offsets,
       lengths,
@@ -1201,10 +1211,7 @@ impl Fields for TVFields {
     let tv_terms = TVTerms::new(
       self.num_terms[idx],
       self.field_flags[idx],
-      self.prefix_lengths[idx].clone(),
-      self.suffix_lengths[idx].clone(),
-      self.term_freqs[idx].clone(),
-      self.position_index[idx].clone(),
+      self.term_data[idx].clone(),
       self.positions[idx].clone(),
       self.start_offsets[idx].clone(),
       self.lengths[idx].clone(),
@@ -1226,10 +1233,7 @@ pub struct TVTerms {
   flags: i32,
   total_term_freq: i64,
 
-  prefix_lengths: Rc<Vec<usize>>,
-  suffix_lengths: Rc<Vec<usize>>,
-  term_freqs: Rc<Vec<usize>>,
-  position_index: Rc<Vec<usize>>,
+  term_data: Rc<TVTermData>,
   positions: Rc<Vec<i32>>,
   start_offsets: Rc<Vec<i32>>,
   lengths: Rc<Vec<i32>>,
@@ -1243,10 +1247,7 @@ impl TVTerms {
   pub(crate) fn new(
     num_terms: usize,
     flags: i32,
-    prefix_lengths: Rc<Vec<usize>>,
-    suffix_lengths: Rc<Vec<usize>>,
-    term_freqs: Rc<Vec<usize>>,
-    position_index: Rc<Vec<usize>>,
+    term_data: Rc<TVTermData>,
     positions: Rc<Vec<i32>>,
     start_offsets: Rc<Vec<i32>>,
     lengths: Rc<Vec<i32>>,
@@ -1254,15 +1255,12 @@ impl TVTerms {
     payload_bytes: BytesRef<Rc<Vec<u8>>>,
     term_bytes: BytesRef<Rc<Vec<u8>>>,
   ) -> Self {
-    let total_term_freq = term_freqs.iter().map(|&x| x as i64).sum();
+    let total_term_freq = term_data.term_freqs.iter().map(|&x| x as i64).sum();
 
     TVTerms {
       num_terms,
       flags,
-      prefix_lengths,
-      suffix_lengths,
-      term_freqs,
-      position_index,
+      term_data,
       positions,
       start_offsets,
       lengths,
@@ -1280,10 +1278,7 @@ impl Terms for TVTerms {
     let terms_enum = TVTermsEnum::new(
       self.num_terms,
       self.flags,
-      self.prefix_lengths.clone(),
-      self.suffix_lengths.clone(),
-      self.term_freqs.clone(),
-      self.position_index.clone(),
+      self.term_data.clone(),
       self.positions.clone(),
       self.start_offsets.clone(),
       self.lengths.clone(),
@@ -1349,10 +1344,7 @@ pub struct TVTermsEnum {
   start_pos: usize,
   ord: Option<usize>,
 
-  prefix_lengths: Rc<Vec<usize>>,
-  suffix_lengths: Rc<Vec<usize>>,
-  term_freqs: Rc<Vec<usize>>,
-  position_index: Rc<Vec<usize>>,
+  term_data: Rc<TVTermData>,
   positions: Rc<Vec<i32>>,
   start_offsets: Rc<Vec<i32>>,
   lengths: Rc<Vec<i32>>,
@@ -1367,10 +1359,7 @@ impl TVTermsEnum {
   pub(crate) fn new(
     num_terms: usize,
     _flags: i32,
-    prefix_lengths: Rc<Vec<usize>>,
-    suffix_lengths: Rc<Vec<usize>>,
-    term_freqs: Rc<Vec<usize>>,
-    position_index: Rc<Vec<usize>>,
+    term_data: Rc<TVTermData>,
     positions: Rc<Vec<i32>>,
     start_offsets: Rc<Vec<i32>>,
     lengths: Rc<Vec<i32>>,
@@ -1383,10 +1372,7 @@ impl TVTermsEnum {
 
     let mut term_enum = TVTermsEnum {
       num_terms,
-      prefix_lengths,
-      suffix_lengths,
-      term_freqs,
-      position_index,
+      term_data,
       positions,
       start_offsets,
       lengths,
@@ -1421,8 +1407,8 @@ impl BytesRefIterator for TVTermsEnum {
 
     debug_assert!(ord < self.num_terms + 1);
 
-    let prefix_len = self.prefix_lengths[ord];
-    let suffix_len = self.suffix_lengths[ord];
+    let prefix_len = self.term_data.prefix_lengths[ord];
+    let suffix_len = self.term_data.suffix_lengths[ord];
     let total_len = prefix_len + suffix_len;
 
     self.term.offset = 0;
@@ -1533,7 +1519,7 @@ impl TermsEnum for TVTermsEnum {
     let ord = self
       .ord
       .ok_or_else(|| LuceneError::illegal_state("ord is None"))?;
-    Ok(self.term_freqs[ord] as i64)
+    Ok(self.term_data.term_freqs[ord] as i64)
   }
 
   type PostingsEnum = TVPostingsEnum;
@@ -1548,8 +1534,8 @@ impl TermsEnum for TVTermsEnum {
       .ord
       .ok_or_else(|| LuceneError::illegal_state("ord is None"))?;
     docs_enum.reset(
-      self.term_freqs[ord],
-      self.position_index[ord],
+      self.term_data.term_freqs[ord],
+      self.term_data.position_index[ord],
       self.positions.clone(),
       self.start_offsets.clone(),
       self.lengths.clone(),

@@ -1104,7 +1104,7 @@ pub trait AbstractIteratorBase {
 }
 
 pub(crate) struct SingleValueDocValuesFieldUpdates {
-  sub_update: Arc<SingleValueNumericDocValuesFieldUpdates>,
+  sub_update: SingleValueNumericDocValuesFieldUpdates,
   bit_set: SparseFixedBitSet,
   has_no_value: Option<SparseFixedBitSet>,
   max_doc: usize,
@@ -1127,7 +1127,7 @@ impl SingleValueDocValuesFieldUpdates {
   ) -> Result<Self> {
     let max_doc = max_doc as usize;
     Ok(Self {
-      sub_update: Arc::new(sub),
+      sub_update: sub,
       bit_set: SparseFixedBitSet::new(max_doc)?,
       has_no_value: None,
       max_doc,
@@ -1149,7 +1149,7 @@ impl SingleValueDocValuesFieldUpdates {
 
 impl Accountable for SingleValueDocValuesFieldUpdates {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = size_of_val(self.sub_update.as_ref()) as i64;
+    let mut size = 0i64;
     if let Some(bit_set) = &self.bit_set_iter {
       size = size
         .saturating_add(size_of_val(bit_set.as_ref()) as i64)
@@ -1223,7 +1223,7 @@ impl DocValuesFieldUpdatesBase for SingleValueDocValuesFieldUpdates {
         iterator,
         self.del_gen,
         self.has_no_value_iter.clone(),
-        self.sub_update.clone(),
+        self.sub_update,
       )?,
     ))
   }
@@ -1275,7 +1275,7 @@ pub struct SingleValueDocValuesFieldUpdatesIterator {
   del_gen: i64,
   has_no_value: Option<Arc<SparseFixedBitSet>>,
   iterator: BitSetIterator<Arc<SparseFixedBitSet>>,
-  single: Arc<SingleValueNumericDocValuesFieldUpdates>,
+  single: SingleValueNumericDocValuesFieldUpdates,
 }
 impl SingleValueDocValuesFieldUpdatesIterator {
   /// Creates a new instance of `SingleValueDocValuesFieldUpdatesIterator`.
@@ -1287,7 +1287,7 @@ impl SingleValueDocValuesFieldUpdatesIterator {
     iterator: BitSetIterator<Arc<SparseFixedBitSet>>,
     del_gen: i64,
     has_no_value: Option<Arc<SparseFixedBitSet>>,
-    single: Arc<SingleValueNumericDocValuesFieldUpdates>,
+    single: SingleValueNumericDocValuesFieldUpdates,
   ) -> Result<Self> {
     Ok(Self {
       del_gen,

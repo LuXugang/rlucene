@@ -182,7 +182,7 @@ impl DocValuesWriter for BinaryDocValuesWriter {
     };
 
     let producer = DocValuesProducerImpl::new(
-      self.field_info.clone(),
+      &self.field_info,
       final_lengths,
       self.max_length,
       &self.bytes_out.paged_bytes,
@@ -218,12 +218,12 @@ impl DocValuesWriter for BinaryDocValuesWriter {
 }
 
 pub(crate) struct DocValuesProducerImpl<'a> {
-  field_info: Arc<FieldInfo>,
+  field_info: &'a Arc<FieldInfo>,
   final_lengths: &'a PackedLongValues,
   max_length: usize,
   paged_bytes: &'a PagedBytes,
   docs_with_field: &'a DocsWithFieldSet,
-  sorted: Option<BinaryDVs>,
+  sorted: Option<Arc<BinaryDVs>>,
 }
 
 impl CloseableRef for DocValuesProducerImpl<'_> {
@@ -234,12 +234,12 @@ impl CloseableRef for DocValuesProducerImpl<'_> {
 
 impl<'a> DocValuesProducerImpl<'a> {
   pub(crate) fn new(
-    field_info: Arc<FieldInfo>,
+    field_info: &'a Arc<FieldInfo>,
     final_lengths: &'a PackedLongValues,
     max_length: usize,
     paged_bytes: &'a PagedBytes,
     docs_with_field: &'a DocsWithFieldSet,
-    sorted: Option<BinaryDVs>,
+    sorted: Option<Arc<BinaryDVs>>,
   ) -> Result<Self> {
     Ok(Self {
       field_info,
@@ -320,7 +320,7 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
   type BinaryDocValues = BufferedSortingBinaryDocValues<&'a PackedLongValues>;
 
   fn get_binary(&self, field_info: &Arc<FieldInfo>) -> Result<Self::BinaryDocValues> {
-    if !Arc::ptr_eq(field_info, &self.field_info) {
+    if !Arc::ptr_eq(field_info, self.field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     match &self.sorted {
@@ -439,13 +439,13 @@ where
 }
 
 pub struct SortingBinaryDocValues {
-  dvs: BinaryDVs,
+  dvs: Arc<BinaryDVs>,
   spare: BytesRefBuilder<Vec<u8>>,
   doc_id: i32,
 }
 
 impl SortingBinaryDocValues {
-  pub(crate) fn new(dvs: BinaryDVs) -> Self {
+  pub(crate) fn new(dvs: Arc<BinaryDVs>) -> Self {
     Self {
       dvs,
       spare: BytesRefBuilder::new(),
@@ -503,14 +503,13 @@ impl BinaryDocValues for SortingBinaryDocValues {
   }
 }
 
-#[derive(Clone)]
 pub struct BinaryDVs {
-  pub(crate) offsets: Arc<Vec<usize>>,
-  pub(crate) values: Arc<BytesRefArray>,
+  pub(crate) offsets: Vec<usize>,
+  pub(crate) values: BytesRefArray,
 }
 
 impl BinaryDVs {
-  pub(crate) fn new<DM, T>(max_doc: usize, sort_map: &DM, old_values: &mut T) -> Result<Self>
+  pub(crate) fn new<DM, T>(max_doc: usize, sort_map: &DM, old_values: &mut T) -> Result<Arc<Self>>
   where
     DM: DocMap,
     T: BinaryDocValues,
@@ -531,10 +530,7 @@ impl BinaryDVs {
       offsets[new_doc] = offset;
       offset += 1;
     }
-    Ok(BinaryDVs {
-      offsets: Arc::new(offsets),
-      values: Arc::new(values),
-    })
+    Ok(Arc::new(BinaryDVs { offsets, values }))
   }
 }
 

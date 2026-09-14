@@ -331,35 +331,41 @@ where
     )
   }
 }
-pub(crate) fn create<T>(mut components: Vec<T>) -> Result<ComponentTree<T>>
+pub(crate) fn create<T, C>(mut components: C) -> Result<ComponentTree<T>>
 where
   T: Component2D,
+  C: AsMut<[T]> + IntoIterator<Item = T>,
+  C::IntoIter: ExactSizeIterator,
 {
-  if components.is_empty() {
+  if components.as_mut().is_empty() {
     return Err(LuceneError::illegal_argument(
       "components must not be empty",
     ));
   }
 
-  if components.len() == 1 {
-    return Ok(ComponentTree::new(components.remove(0), false));
+  if components.as_mut().len() == 1 {
+    let mut components = components.into_iter();
+    let component = components
+      .next()
+      .ok_or_else(|| LuceneError::illegal_state("component missing during tree construction"))?;
+    return Ok(ComponentTree::new(component, false));
   }
 
   let mut min_y = f64::INFINITY;
   let mut min_x = f64::INFINITY;
-  for component in &components {
+  for component in components.as_mut().iter() {
     min_y = CoreHelper::min_f64(min_y, component.get_min_y());
     min_x = CoreHelper::min_f64(min_x, component.get_min_x());
   }
 
-  let component_count = components.len();
-  partition_components(&mut components, 0, component_count - 1, false);
+  let component_count = components.as_mut().len();
+  partition_components(components.as_mut(), 0, component_count - 1, false);
 
   let mut components = components.into_iter();
   let mut root = create_tree(&mut components, component_count, false)?.ok_or_else(|| {
     LuceneError::illegal_state("failed to build component tree from non-empty components")
   })?;
-  if !components.as_slice().is_empty() {
+  if components.len() != 0 {
     return Err(LuceneError::illegal_state(
       "not all components were consumed during tree construction",
     ));
@@ -391,13 +397,14 @@ where
   }
 }
 
-fn create_tree<T>(
-  components: &mut std::vec::IntoIter<T>,
+fn create_tree<T, I>(
+  components: &mut I,
   component_count: usize,
   split_x: bool,
 ) -> Result<Option<ComponentTree<T>>>
 where
   T: Component2D,
+  I: Iterator<Item = T>,
 {
   if component_count == 0 {
     return Ok(None);

@@ -16,7 +16,6 @@
  */
 use std::env;
 use std::mem::discriminant;
-use std::rc::Rc;
 
 use std::sync::LazyLock;
 
@@ -32,7 +31,7 @@ use crate::core::codecs::lucene90::fields_index::FieldsIndex;
 use crate::core::codecs::lucene90::fields_index_writer::FieldsIndexWriter;
 use crate::core::codecs::stored_fields_reader::StoredFieldsReader;
 use crate::core::codecs::stored_fields_writer::{MergeVisitor, StoredFieldsWriter};
-use crate::core::index::codec_reader::CodecReader;
+use crate::core::index::codec_reader::{CRBits, CRStoredFieldsReader, CodecReader};
 use crate::core::index::field_info::FieldInfo;
 use crate::core::index::merge_state::{DocMap, MergeState, MergeStateDocMap};
 use crate::core::index::segment_info::SegmentInfo;
@@ -116,13 +115,13 @@ where
         .ok_or_else(|| LuceneError::illegal_state("metadata output is missing"))?;
       CodecUtil::write_index_header(
         meta,
-        &format!("{}Meta", INDEX_CODEC_NAME),
+        META_CODEC_NAME,
         VERSION_CURRENT,
         si.get_id(),
         segment_suffix,
       )?;
       debug_assert_eq!(
-        CodecUtil::index_header_length(&format!("{}Meta", INDEX_CODEC_NAME), segment_suffix),
+        CodecUtil::index_header_length(META_CODEC_NAME, segment_suffix),
         meta.get_file_pointer()?
       );
 
@@ -311,17 +310,18 @@ where
 
     Ok(())
   }
-  fn copy_chunks<MD, CR>(
+  fn copy_chunks<CR>(
     &mut self,
-    merge_state: &mut MergeState<MD, CR>,
-    sub: &CompressingStoredFieldsMergeSub<MergeStateDocMap<CR>>,
+    stored_fields_readers: &mut [Option<CRStoredFieldsReader<CR>>],
+    live_docs: &[Option<CRBits<CR>>],
+    sub: &CompressingStoredFieldsMergeSub<'_, MergeStateDocMap<CR>>,
     from_doc_id: i32,
     to_doc_id: i32,
   ) -> Result<()>
   where
     CR: CodecReader,
   {
-    let reader_wrap = match merge_state.stored_fields_readers[sub.reader_index] {
+    let reader_wrap = match stored_fields_readers[sub.reader_index] {
       Some(ref mut r) => r,
       _ => {
         return Err(LuceneError::illegal_state(
@@ -336,7 +336,7 @@ where
       discriminant(reader.get_compression_mode()) == discriminant(&self.compression_mode)
     );
     debug_assert!(!self.too_dirty(reader)?);
-    debug_assert!(merge_state.live_docs[sub.reader_index].is_none());
+    debug_assert!(live_docs[sub.reader_index].is_none());
 
     let mut doc_id = from_doc_id;
     let max_pointer = reader.get_max_pointer();
@@ -670,7 +670,7 @@ where
         visitors[i] = Some(MergeVisitor::new(merge_state, i)?);
       }
       subs.push(Sub::new(CompressingStoredFieldsMergeSub::new(
-        merge_state.doc_maps[i].clone(),
+        merge_state.doc_maps[i].as_ref(),
         merge_state.max_docs[i],
         strategy,
         i,
@@ -701,8 +701,9 @@ where
             debug_assert!(doc_id_merger.get_subs()[sub_idx].sub.doc_id == to_doc_id)
           }
           to_doc_id += 1; // exclusive bound
-          self.copy_chunks(
-            merge_state,
+          self.copy_chunks::<CR>(
+            &mut merge_state.stored_fields_readers,
+            &merge_state.live_docs,
             &doc_id_merger.get_subs()[current].sub,
             from_doc,
             to_doc_id,
@@ -782,17 +783,17 @@ enum MergeStrategy {
   /// Copy field by field of decompressed documents.
   Visitor,
 }
-struct CompressingStoredFieldsMergeSub<DM> {
+struct CompressingStoredFieldsMergeSub<'a, DM> {
   pub reader_index: usize,
   pub max_doc: i32,
   pub merge_strategy: MergeStrategy,
   pub doc_id: i32,
-  pub doc_map: Rc<DM>,
+  pub doc_map: &'a DM,
 }
 
-impl<DM> CompressingStoredFieldsMergeSub<DM> {
+impl<'a, DM> CompressingStoredFieldsMergeSub<'a, DM> {
   fn new(
-    doc_map: Rc<DM>,
+    doc_map: &'a DM,
     max_doc: i32,
     merge_strategy: MergeStrategy,
     reader_index: usize,
@@ -807,7 +808,7 @@ impl<DM> CompressingStoredFieldsMergeSub<DM> {
   }
 }
 
-impl<DM> SubBase for CompressingStoredFieldsMergeSub<DM>
+impl<DM> SubBase for CompressingStoredFieldsMergeSub<'_, DM>
 where
   DM: DocMap,
 {
@@ -823,7 +824,7 @@ where
   type DocMap = DM;
 
   fn get_doc_map(&self) -> Result<&Self::DocMap> {
-    Ok(&self.doc_map)
+    Ok(self.doc_map)
   }
 }
 
@@ -838,6 +839,7 @@ pub(crate) const INDEX_EXTENSION: &str = "fdx";
 pub(crate) const META_EXTENSION: &str = "fdm";
 /// Codec name for the index
 pub(crate) const INDEX_CODEC_NAME: &str = "Lucene90FieldsIndex";
+pub(crate) const META_CODEC_NAME: &str = "Lucene90FieldsIndexMeta";
 pub(crate) const STRING: i32 = 0x00;
 pub(crate) const BYTE_ARR: i32 = 0x01;
 pub(crate) const NUMERIC_INT: i32 = 0x02;

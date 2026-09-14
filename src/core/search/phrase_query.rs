@@ -58,7 +58,6 @@ pub struct PhraseQuery {
   slop: usize,
   terms: Arc<Vec<Term>>,
   positions: Arc<Vec<usize>>,
-  field: Option<String>,
 }
 impl PhraseQuery {
   /// Create a phrase query which will match documents that contain the given
@@ -152,7 +151,7 @@ impl PhraseQuery {
   /// If the query contains no terms, this returns `None`. Otherwise, it
   /// returns the field shared by all terms in this phrase query.
   pub fn get_field(&self) -> Option<&str> {
-    self.field.as_deref()
+    self.terms.first().map(Term::field)
   }
 
   /// Returns the list of terms in this phrase.
@@ -205,14 +204,11 @@ impl PhraseQuery {
       }
     }
 
-    let field = terms_ref.first().map(|t| t.field().to_string());
-
     Ok(Self {
       id: Identity::new(),
       slop,
       terms: terms.into(),
       positions: Arc::new(positions),
-      field,
     })
   }
 }
@@ -244,7 +240,7 @@ impl QueryBase for PhraseQuery {
   fn to_string(&self, f: &str) -> Result<String> {
     let mut buffer = String::new();
 
-    if let Some(field) = &self.field
+    if let Some(field) = self.get_field()
       && field != f
     {
       buffer.push_str(field);
@@ -306,8 +302,8 @@ impl QueryBase for PhraseQuery {
     let similarity = searcher.get_similarity();
     let query = self.clone();
     let field = self
-      .field
-      .clone()
+      .get_field()
+      .map(str::to_owned)
       .ok_or_else(|| LuceneError::illegal_state("field is None"))?;
     let base = PhraseWeightMeta::new(field, *score_mode, similarity, query.into());
     let sub = PhraseQueryWeightBase::new(self, boost, base);
@@ -348,7 +344,7 @@ impl QueryBase for PhraseQuery {
   where
     QV: QueryVisitor,
   {
-    let Some(field) = self.field.as_deref() else {
+    let Some(field) = self.get_field() else {
       return Ok(());
     };
     if !visitor.accept_field(field) {

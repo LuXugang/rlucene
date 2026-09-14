@@ -101,7 +101,7 @@ where
     }
 
     if !terms_enums.is_empty() {
-      let v = MultiTermsEnum::new(self.sub_slices.clone())?;
+      let v = MultiTermsEnum::new(self.sub_slices.iter().cloned())?;
       v.reset(terms_enums)
     } else {
       Ok(MultiTermsEnumType::B(EmptyTermsEnum))
@@ -125,7 +125,7 @@ where
       i += 1;
     }
     if !terms_enums.is_empty() {
-      let v = MultiTermsEnum::new(self.sub_slices.clone())?;
+      let v = MultiTermsEnum::new(self.sub_slices.iter().cloned())?;
       v.reset(terms_enums)
     } else {
       Ok(MultiTermsEnumType::B(EmptyTermsEnum))

@@ -112,7 +112,7 @@ where
   }
 
   fn cost(&self) -> Result<i64> {
-    self.iterator().cost()
+    self.disi.cost()
   }
 }
 

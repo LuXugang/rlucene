@@ -116,11 +116,11 @@ impl<D> SegmentInfo<D> {
   /// * `attributes` - Additional attributes for the segment.
   /// * `index_sort` - The sort order of the index, if any.
   #[allow(clippy::too_many_arguments)]
-  pub fn new(
+  pub fn new<N: Into<String>>(
     dir: Arc<D>,
     version: Option<Version>,
     min_version: Option<Version>,
-    name: &str,
+    name: N,
     max_doc: i32,
     is_compound_file: bool,
     has_blocks: bool,
@@ -152,7 +152,7 @@ impl<D> SegmentInfo<D> {
       dir,
       version,
       min_version,
-      name: name.to_string(),
+      name: name.into(),
       max_doc,
       is_compound_file,
       has_blocks,

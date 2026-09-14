@@ -22,6 +22,7 @@ use crate::core::util::bits::Bits;
 use crate::core::util::clone::TryClone;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::{CoreHelper, SloppyMath};
+use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt::{Display, Formatter};
@@ -309,7 +310,7 @@ where
   B: Bits,
 {
   // Holds all cells, sorted by closest to the point:
-  let mut cell_queue = BinaryHeap::new();
+  let mut cell_queue = BinaryHeap::with_capacity(readers.len());
 
   let mut hit_queue = BinaryHeap::new();
   let mut visitor = NearestVisitor::new(&mut hit_queue, n, point_lat, point_lon);
@@ -370,8 +371,16 @@ where
 
       let move_to_sibling = cell.index.move_to_sibling()?;
       if move_to_sibling {
-        let min_pv = cell.index.get_min_packed_value()?.into_owned();
-        let max_pv = cell.index.get_max_packed_value()?.into_owned();
+        match cell.index.get_min_packed_value()? {
+          Cow::Borrowed(value) => value.clone_into(&mut cell.min_packed),
+          Cow::Owned(value) => cell.min_packed = value,
+        }
+        match cell.index.get_max_packed_value()? {
+          Cow::Borrowed(value) => value.clone_into(&mut cell.max_packed),
+          Cow::Owned(value) => cell.max_packed = value,
+        }
+        let min_pv = cell.min_packed;
+        let max_pv = cell.max_packed;
         let distance_sort_key =
           approx_best_distance_from_packed(min_pv.as_ref(), max_pv.as_ref(), point_lat, point_lon);
         cell_queue.push(Cell::new(

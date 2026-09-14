@@ -26,7 +26,7 @@ use crate::core::util::packed::packed_long_values::PackedLongValues;
 use crate::core::util::sorter::Sorter as ASorter;
 use crate::core::util::{LUCENE_10_0_0, SliceCopyOps, TimSorter, TimSorterBase, ToInt, TryIntoInt};
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
+use std::ops::Deref;
 use std::sync::Arc;
 
 /// Sorts documents of a given index by returning a permutation on the document IDs.
@@ -148,7 +148,7 @@ impl Sorter {
           let mut dv = reader
             .get_numeric_doc_values(parent_field)?
             .ok_or_else(|| LuceneError::illegal_state("numeric doc values is None"))?;
-          Some(Rc::new(of(&mut dv, reader.max_doc()? as usize)?))
+          Some(of(&mut dv, reader.max_doc()? as usize)?)
         },
       }
     } else {
@@ -174,8 +174,7 @@ impl Sorter {
 
       match parents_opt {
         Some(ref parents) => comparators.push(DocComparatorEnum::BS(DocComparatorWrapper::new(
-          comparator,
-          parents.clone(),
+          comparator, parents,
         ))),
         None => comparators.push(DocComparatorEnum::Plain(comparator)),
       }
@@ -368,7 +367,8 @@ impl<DC, B> DocComparatorWrapper<DC, B> {
 impl<DC, B> DocComparator for DocComparatorWrapper<DC, B>
 where
   DC: DocComparator,
-  B: BitSet,
+  B: Deref,
+  B::Target: BitSet,
 {
   fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
     self.in_.compare(
@@ -385,7 +385,8 @@ pub enum DocComparatorEnum<DC, B> {
 impl<DC, B> DocComparator for DocComparatorEnum<DC, B>
 where
   DC: DocComparator,
-  B: BitSet,
+  B: Deref,
+  B::Target: BitSet,
 {
   fn compare(&self, doc_id1: usize, doc_id2: usize) -> i32 {
     match self {

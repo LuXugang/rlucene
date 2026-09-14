@@ -240,7 +240,7 @@ impl RegexpQuery {
     TermInput: Into<Term>,
   {
     let term = term.into();
-    let re = RegExp::parse(&term.text()?, syntax_flags, match_flags)?;
+    let re = RegExp::parse(term.text()?, syntax_flags, match_flags)?;
     let automaton = to_automaton(&re, determinize_work_limit, provider, do_determinization)?;
     let base = AutomatonQuery::new(term, automaton, false, rewrite_method)?;
 

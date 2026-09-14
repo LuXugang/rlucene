@@ -178,7 +178,7 @@ impl AbstractIteratorBase for AbstractIteratorNumeric {
   }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct SingleValueNumericDocValuesFieldUpdates {
   value: i64,
 }

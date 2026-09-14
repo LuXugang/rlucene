@@ -85,7 +85,7 @@ where
 
     let io_context = IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?;
     // set SegmentReadState to list only the fields that are relevant to that gen
-    let srs = SegmentReadState::with_suffix(&dv_dir, infos, io_context, &segment_suffix);
+    let srs = SegmentReadState::with_suffix(&dv_dir, infos, io_context, segment_suffix);
 
     let dv_format = si.info.get_codec()?.doc_values_format();
 

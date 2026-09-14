@@ -154,8 +154,8 @@ impl TermRangeQuery {
   ) -> Result<Self>
   where
     F: Into<String>,
-    T: AsRef<str>,
-    T2: AsRef<str>,
+    T: Into<String>,
+    T2: Into<String>,
   {
     Self::new_string_range_with_rewrite(
       field,
@@ -180,11 +180,11 @@ impl TermRangeQuery {
   where
     F: Into<String>,
     R: Into<RewriteMethodEnum>,
-    T: AsRef<str>,
-    T2: AsRef<str>,
+    T: Into<String>,
+    T2: Into<String>,
   {
-    let lower = lower_term.map(|s| BytesRef::from_string(s.as_ref()));
-    let upper = upper_term.map(|s| BytesRef::from_string(s.as_ref()));
+    let lower = lower_term.map(|s| BytesRef::from(s.into()));
+    let upper = upper_term.map(|s| BytesRef::from(s.into()));
 
     Self::with_rewrite(
       field,

@@ -131,15 +131,15 @@ where
     loop {
       let publishable = {
         let mut inner = self.inner.lock();
-        match inner.queue.front() {
+        let Inner { queue, value } = &mut *inner;
+        match queue.front() {
           None => None,
           Some(id) => {
-            let ticket = inner.value.get(id).ok_or_else(|| {
+            let ticket = value.get(id).ok_or_else(|| {
               LuceneError::illegal_state("id in inner.queue but not in inner.value")
             })?;
             if ticket.can_publish() {
-              let id = id.clone();
-              let head = inner.value.remove(&id).ok_or_else(|| {
+              let (id, head) = value.remove_entry(id).ok_or_else(|| {
                 LuceneError::illegal_state("flush ticket is missing from the value map")
               })?;
               Some((id, head))

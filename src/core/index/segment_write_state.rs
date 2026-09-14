@@ -69,20 +69,23 @@ impl<'a, D> SegmentWriteState<'a, D> {
   }
 
   /// Creates an instance with a segment suffix.
-  pub(crate) fn with_suffix(
+  pub(crate) fn with_suffix<S>(
     info_stream: InfoStreamMT,
     directory: &'a D,
     field_infos: Arc<FieldInfos>,
     context: &'a IOContext,
-    segment_suffix: &str,
-  ) -> Self {
-    debug_assert!(Self::assert_segment_suffix(segment_suffix));
+    segment_suffix: S,
+  ) -> Self
+  where
+    S: AsRef<str> + Into<String>,
+  {
+    debug_assert!(Self::assert_segment_suffix(segment_suffix.as_ref()));
     Self {
       info_stream,
       directory,
       field_infos,
       context,
-      segment_suffix: segment_suffix.to_string(),
+      segment_suffix: segment_suffix.into(),
       del_count_on_flush: 0,
       soft_del_count_on_flush: 0,
       live_docs: None,

@@ -67,7 +67,7 @@ impl FreqProxFields {
     let mut fields = HashMap::with_capacity(len);
     let mut keys = Vec::with_capacity(len);
     for field in field_list {
-      let field_name = field.base.get_field_name().to_string();
+      let field_name = field.field_info.name.to_string();
       keys.push(field_name.clone());
       fields.insert(field_name, field);
     }

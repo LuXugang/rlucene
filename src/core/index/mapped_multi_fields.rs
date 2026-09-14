@@ -32,6 +32,7 @@ use crate::core::util::dummy::dummy_attribute_source::DummyAttributeSource;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::borrow::Cow;
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// A [`Fields`] implementation that merges multiple
 /// [`Fields`](crate::core::index::fields::Fields) instances into one,
@@ -77,7 +78,7 @@ where
     let terms = self.inner.terms(field)?;
     match terms {
       Some(v) => Ok(Some(MappedMultiTerms::new(
-        field.to_string(),
+        field,
         self.merge_state_meta.clone(),
         v,
       ))),
@@ -92,7 +93,7 @@ where
 
 pub struct MappedMultiTerms<T, DM> {
   merge_state: MergeStateMeta<Rc<DM>>,
-  field: String,
+  field: Arc<str>,
   inner: MultiFieldsTerms<T>,
 }
 impl<T, DM> MappedMultiTerms<T, DM> {
@@ -102,7 +103,7 @@ impl<T, DM> MappedMultiTerms<T, DM> {
     multi_terms: MultiFieldsTerms<T>,
   ) -> Self
   where
-    FName: Into<String>,
+    FName: Into<Arc<str>>,
   {
     let field = field.into();
     MappedMultiTerms {
@@ -354,7 +355,7 @@ where
 }
 
 pub struct MappedMultiTermsEnum<TE, DM> {
-  field: String,
+  field: Arc<str>,
   merge_state_meta: MergeStateMeta<Rc<DM>>,
   in_: MultiTermsEnum<TE>,
 }
@@ -365,7 +366,7 @@ impl<TE, DM> MappedMultiTermsEnum<TE, DM> {
     multi_terms_enum: MultiTermsEnum<TE>,
   ) -> Self
   where
-    FName: Into<String>,
+    FName: Into<Arc<str>>,
   {
     let field = field.into();
     Self {

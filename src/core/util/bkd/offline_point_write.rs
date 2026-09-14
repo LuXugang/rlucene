@@ -14,6 +14,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::{Display, Write as _};
+
 use crate::core::store::IO_CONTEXT_DEFAULT;
 
 use crate::core::codecs::CodecUtil;
@@ -46,21 +48,25 @@ where
   O: IndexOutput,
 {
   /// Create a new writer with an unknown number of incoming points
-  pub fn new<D>(
+  pub fn new<D, Desc: Display>(
     config: BKDConfig,
     temp_dir: &D,
     temp_file_name_prefix: &str,
-    desc: &str,
+    desc: Desc,
     expected_count: usize,
   ) -> Result<Self>
   where
     D: Directory<IndexOutput = O>,
   {
-    let out = temp_dir.create_temp_output(
-      temp_file_name_prefix,
-      &format!("bkd_{desc}"),
-      IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
-    )?;
+    let out = {
+      let mut suffix = String::new();
+      write!(suffix, "bkd_{desc}")?;
+      temp_dir.create_temp_output(
+        temp_file_name_prefix,
+        &suffix,
+        IO_CONTEXT_DEFAULT.as_ref().map_err(Clone::clone)?,
+      )?
+    };
     let name = out.get_name().to_string();
     Ok(OfflinePointWriter {
       out: Option::from(out),

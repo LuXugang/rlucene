@@ -18,9 +18,9 @@
 use crate::core::codecs::CodecUtil;
 use crate::core::codecs::compressing::lucene90_compressing_stored_fields_writer::{
   BYTE_ARR, DAY, DAY_ENCODING, FIELDS_EXTENSION, HOUR, HOUR_ENCODING, INDEX_CODEC_NAME,
-  INDEX_EXTENSION, META_EXTENSION, META_VERSION_START, NUMERIC_DOUBLE, NUMERIC_FLOAT, NUMERIC_INT,
-  NUMERIC_LONG, SECOND, SECOND_ENCODING, STRING, TYPE_BITS, TYPE_MASK, VERSION_CURRENT,
-  VERSION_START,
+  INDEX_EXTENSION, META_CODEC_NAME, META_EXTENSION, META_VERSION_START, NUMERIC_DOUBLE,
+  NUMERIC_FLOAT, NUMERIC_INT, NUMERIC_LONG, SECOND, SECOND_ENCODING, STRING, TYPE_BITS, TYPE_MASK,
+  VERSION_CURRENT, VERSION_START,
 };
 use crate::core::codecs::compressing::stored_fields_ints::StoredFieldsInts;
 use crate::core::codecs::compression::compression_mode::{
@@ -141,7 +141,7 @@ where
 
       CodecUtil::check_index_header(
         meta,
-        &format!("{}Meta", INDEX_CODEC_NAME),
+        META_CODEC_NAME,
         META_VERSION_START,
         version,
         si.get_id(),
@@ -162,7 +162,7 @@ where
       CodecUtil::retrieve_checksum(fields_stream_ref)?;
       fields_index_reader = Some(FieldsIndexReader::new(
         dir,
-        si.name.to_string(),
+        &si.name,
         segment_suffix,
         INDEX_EXTENSION,
         INDEX_CODEC_NAME,
@@ -608,7 +608,7 @@ where
   start_pointer: usize,
   spare: BytesRef<Vec<u8>>,
   spare2: BytesRef<Vec<u8>>,
-  bytes: BytesRef<Arc<Vec<u8>>>,
+  bytes: BytesRef<Vec<u8>>,
   merging: bool,
   fields_stream: I,
   decompressor: DecompressorEnum,
@@ -716,11 +716,7 @@ where
 
     if self.merging {
       let total_length = self.offsets[chunk_docs].try_convert()?;
-      // A returned document may still own the old bytes. Only recycle an
-      // exclusively owned buffer, so retained document views stay unchanged.
-      if let Some(bytes) = Arc::get_mut(&mut self.bytes.bytes) {
-        std::mem::swap(bytes, &mut self.spare2.bytes);
-      }
+      std::mem::swap(&mut self.bytes.bytes, &mut self.spare2.bytes);
       // decompress eagerly
       if self.sliced {
         self.spare2.offset = 0;
@@ -755,7 +751,7 @@ where
         )?;
       }
       let bytes = std::mem::take(&mut self.spare2.bytes);
-      self.bytes = BytesRef::from_slice(Arc::new(bytes), self.spare2.offset, self.spare2.length);
+      self.bytes = BytesRef::from_slice(bytes, self.spare2.offset, self.spare2.length);
       if self.bytes.length != total_length as usize {
         return Err(LuceneError::corrupt_index(format!(
           "Corrupted: expected chunk size = {}, got {} (resource={})",
@@ -782,7 +778,7 @@ where
       DataInputEnum3::A(ByteArrayDataInput::new())
     } else if self.merging {
       DataInputEnum3::C(ByteArrayDataInput::with_range(
-        self.bytes.bytes.clone(),
+        self.bytes.bytes.as_slice(),
         self.bytes.offset + offset as usize,
         length,
       ))
@@ -830,11 +826,8 @@ where
   }
 }
 
-type DataInputs<'a, I> = DataInputEnum3<
-  ByteArrayDataInput<Vec<u8>>,
-  DataInputImpl<'a, I>,
-  ByteArrayDataInput<Arc<Vec<u8>>>,
->;
+type DataInputs<'a, I> =
+  DataInputEnum3<ByteArrayDataInput<Vec<u8>>, DataInputImpl<'a, I>, ByteArrayDataInput<&'a [u8]>>;
 /// A serialized document. You need to decode its input to get an actual
 /// [`Document`](crate::core::document::document::Document).
 pub struct SerializedDocument<'a, I> {

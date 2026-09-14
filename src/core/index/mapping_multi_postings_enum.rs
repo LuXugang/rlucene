@@ -24,12 +24,13 @@ use crate::core::search::doc_id_set_iterator::DocIdSetIterator;
 use crate::core::search::doc_id_set_iterator::NO_MORE_DOCS;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Exposes flex API, merged from flex API of sub-segments, remapping docIDs (this is used for segment merging).
 pub struct MappingMultiPostingsEnum<PE, DM> {
   // for easy taken
   multi_docs_and_positions_enum: Option<MultiPostingsEnum<PE>>,
-  pub(crate) field: String,
+  pub(crate) field: Arc<str>,
   doc_id_merger: DocIDMergerEnum<MappingPostingsSub<PE, DM>>,
   current: Option<usize>,
   all_subs: Vec<MappingPostingsSub<PE, DM>>,
@@ -71,7 +72,7 @@ where
   }
 
   pub(crate) fn new(
-    field: String,
+    field: Arc<str>,
     doc_maps: &[Rc<DM>],
     fields_producers_len: usize,
     needs_index_sort: bool,
@@ -97,6 +98,7 @@ where
   pub(crate) fn reset(&mut self, mut postings_enum: MultiPostingsEnum<PE>) -> Result<&mut Self> {
     let count = postings_enum.get_num_subs();
     self.idxs.clear();
+    self.idxs.reserve(count);
     for sub in postings_enum.get_subs().iter().take(count) {
       self
         .idxs

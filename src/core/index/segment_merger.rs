@@ -66,7 +66,7 @@ where
   context: &'a IOContext,
   pub(crate) merge_state: MergeState<'a, D1, CR>,
   field_infos_builder: Builder,
-  pub(crate) id: String,
+  pub(crate) id: [u8; StringHelper::ID_LENGTH],
 }
 
 impl<'a, D1, D2, CR> SegmentMerger<'a, D1, D2, CR>
@@ -130,7 +130,7 @@ where
         .info_stream
         .message("SM", &format!("index sort during merge: {}", sort))?;
     }
-    let id = StringHelper::id_to_string(Option::from(&StringHelper::random_id()));
+    let id = StringHelper::random_id();
     Ok(Self {
       directory,
       context,

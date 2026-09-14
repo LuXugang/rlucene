@@ -29,9 +29,8 @@ use crate::core::util::bit_set::BitSet;
 use crate::core::util::bits::Bits;
 use crate::core::util::error::lucene_error::{LuceneError, Result};
 use crate::core::util::fixed_bit_set::FixedBitSet;
-use crate::core::util::hnsw::hnsw_graph::{ArrayNodesIterator, HnswGraph, NodesIterator};
+use crate::core::util::hnsw::hnsw_graph::{HnswGraph, NodesIterator};
 use std::collections::VecDeque;
-use std::sync::Arc;
 
 /// Utilities for use in tests involving HNSW graphs
 pub struct HnswUtil;
@@ -92,7 +91,7 @@ impl HnswUtil {
     max_conn: usize,
   ) -> Result<usize>
   where
-    N: NodesIterator,
+    N: Iterator<Item = usize>,
     G: HnswGraph,
   {
     let mut total = 0;
@@ -134,8 +133,9 @@ impl HnswUtil {
     }
 
     let mut total = if level == hnsw.num_levels()? - 1 {
-      let v = hnsw.entry_node()?.map(|ep| Arc::new(vec![ep; 1]));
-      let iter = ArrayNodesIterator::from_nodes(v, 1);
+      let entry_point = hnsw.entry_node()?;
+      debug_assert!(entry_point.is_some());
+      let iter = std::iter::once(entry_point.unwrap_or(0));
       Self::get_total(
         iter,
         hnsw,

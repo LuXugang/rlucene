@@ -925,7 +925,9 @@ where
 
       if path.arc.label() == END_LABEL {
         path.input.set_length(path.input.length() - 1);
-        results.push(TopResult::new(path.input.to_ints_ref(), path.output));
+        let mut input = path.input.get_owner();
+        input.ints.truncate(input.length);
+        results.push(TopResult::new(input, path.output));
         continue;
       }
 
@@ -974,7 +976,9 @@ where
         if path.arc.label() == END_LABEL {
           path.output = self.fst.outputs.add(&path.output, &path.arc.output());
           if self.base.accept_result_path(&path) {
-            results.push(TopResult::new(path.input.to_ints_ref(), path.output));
+            let mut input = path.input.get_owner();
+            input.ints.truncate(input.length);
+            results.push(TopResult::new(input, path.output));
           } else {
             reject_count += 1;
           }

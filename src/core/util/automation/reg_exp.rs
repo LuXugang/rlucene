@@ -140,7 +140,7 @@ impl RegExp {
   pub fn from_str_with_flags(s: &str, syntax_flags: i32) -> Result<Self> {
     Self::parse(s, syntax_flags, 0)
   }
-  pub fn parse(s: &str, syntax_flags: i32, match_flags: i32) -> Result<Self> {
+  pub fn parse<S: Into<String>>(s: S, syntax_flags: i32, match_flags: i32) -> Result<Self> {
     if (syntax_flags & !Self::DEPRECATED_COMPLEMENT) > Self::ALL {
       return Err(LuceneError::illegal_argument("Illegal syntax flag"));
     }
@@ -161,12 +161,12 @@ impl RegExp {
       digits: 0,
       from: 0,
       to: 0,
-      original_string: s.to_string(),
+      original_string: s.into(),
       flags,
       pos: 0,
     };
 
-    let mut e = if s.is_empty() {
+    let mut e = if parser.original_string.is_empty() {
       RegExp::make_string(flags, "")
     } else {
       let e = parser.parse_union_exp()?;
@@ -258,10 +258,10 @@ impl RegExp {
   }
   // Simplified construction of leaf nodes
   #[allow(clippy::too_many_arguments)]
-  fn new_leaf_node(
+  fn new_leaf_node<S: Into<String>>(
     flags: i32,
     kind: RegExpKind,
-    s: &str,
+    s: S,
     c: i32,
     min: i32,
     max: i32,
@@ -273,7 +273,7 @@ impl RegExp {
       kind,
       exp1: None,
       exp2: None,
-      s: s.to_string(),
+      s: s.into(),
       c,
       min,
       max,
@@ -679,11 +679,11 @@ impl RegExp {
     use RegExpKind::*;
 
     let newline = "\n";
-    let indent_more = format!("{indent}  ");
 
     match self.kind {
       // binary
       Union | Concatenation | Intersection => {
+        let indent_more = format!("{indent}  ");
         b.push_str(indent);
         write!(b, "{:?}{}", self.kind, newline)?;
         if let Some(e1) = &self.exp1 {
@@ -696,6 +696,7 @@ impl RegExp {
 
       // unary
       Optional | Repeat | Complement | DeprecatedComplement => {
+        let indent_more = format!("{indent}  ");
         b.push_str(indent);
         write!(b, "{:?}{}", self.kind, newline)?;
         if let Some(e1) = &self.exp1 {
@@ -704,6 +705,7 @@ impl RegExp {
       },
 
       RepeatMin => {
+        let indent_more = format!("{indent}  ");
         b.push_str(indent);
         write!(b, "{:?} min={}{}", self.kind, self.min, newline)?;
         if let Some(e1) = &self.exp1 {
@@ -712,6 +714,7 @@ impl RegExp {
       },
 
       RepeatMinMax => {
+        let indent_more = format!("{indent}  ");
         b.push_str(indent);
         write!(
           b,
@@ -809,7 +812,10 @@ impl RegExp {
         }
       },
       Automaton => {
-        set.insert(self.s.clone());
+        set.reserve(1);
+        if !set.contains(self.s.as_str()) {
+          set.insert(self.s.clone());
+        }
       },
       AnyChar | AnyString | Char | CharRange | Empty | Interval | PreClass | String => {
         // No-op
@@ -906,7 +912,7 @@ impl RegExp {
       },
       _ => {},
     }
-    RegExp::make_string(flags, &b)
+    RegExp::make_string(flags, b)
   }
   fn make_intersection(flags: i32, exp1: RegExp, exp2: RegExp) -> Self {
     RegExp::new_container_node(flags, RegExpKind::Intersection, Some(exp1), Some(exp2))
@@ -971,7 +977,7 @@ impl RegExp {
     RegExp::new_container_node(flags, RegExpKind::Empty, None, None)
   }
 
-  fn make_string(flags: i32, s: &str) -> Self {
+  fn make_string<S: Into<String>>(flags: i32, s: S) -> Self {
     RegExp::new_leaf_node(flags, RegExpKind::String, s, 0, 0, 0, 0, 0, 0)
   }
 

@@ -108,7 +108,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub enum CachedObject {
   Numeric(NumericDVs<FixedBitSet>),
-  Binary(BinaryDVs),
+  Binary(Arc<BinaryDVs>),
   Sorted(Arc<Vec<i32>>),
   SortedNumeric(Arc<LongValues>),
   SortedSet(Arc<DocOrds>),
@@ -1992,7 +1992,10 @@ where
   if inner.cached_field.as_deref() != Some(field) || inner.cache_is_norms != norms {
     debug_assert!(assert_created_only_once(field, norms, &mut inner));
     let new_object = supplier()?;
-    inner.cached_field = Some(field.to_string());
+    match inner.cached_field.as_mut() {
+      Some(cached_field) => field.clone_into(cached_field),
+      None => inner.cached_field = Some(field.to_string()),
+    }
     inner.cache_is_norms = norms;
     inner.cached_object = Some(new_object.clone());
     return Ok(new_object);

@@ -426,11 +426,10 @@ where
     }
 
     let mut leaf_comparators = base.pq_mut().get_leaf_comparator(context)?;
-    let reverse_muls = base.pq().get_reverse_mul_shared();
 
     let (reverse_mul, comparator) = if leaf_comparators.len() == 1 {
       (
-        reverse_muls[0],
+        base.pq().get_reverse_mul()[0],
         TopFieldLeafComparatorEnum::Single(leaf_comparators.remove(0)),
       )
     } else {
@@ -438,7 +437,7 @@ where
         1,
         TopFieldLeafComparatorEnum::Multi(MultiLeafFieldComparator::new(
           leaf_comparators,
-          reverse_muls,
+          base.pq().get_reverse_mul_shared(),
         )?),
       )
     };

@@ -131,7 +131,7 @@ impl DocValuesWriter for NumericDocValuesWriter {
       slot @ None => slot.insert(std::mem::take(&mut self.pending).build()?),
     };
     let producer = get_doc_values_producer(
-      self.field_info.clone(),
+      &self.field_info,
       final_values,
       &self.docs_with_field,
       sort_map,
@@ -165,7 +165,7 @@ pub(crate) struct DocValuesProducerImpl<'a> {
   sorted: Option<NumericDVs<FixedBitSet>>,
   docs_with_field: &'a DocsWithFieldSet,
   values: &'a PackedLongValues,
-  writer_field_info: Arc<FieldInfo>,
+  writer_field_info: &'a Arc<FieldInfo>,
 }
 
 impl CloseableRef for DocValuesProducerImpl<'_> {
@@ -179,7 +179,7 @@ impl<'a> DocValuesProducerImpl<'a> {
     sorted: Option<NumericDVs<FixedBitSet>>,
     docs_with_field: &'a DocsWithFieldSet,
     values: &'a PackedLongValues,
-    writer_field_info: Arc<FieldInfo>,
+    writer_field_info: &'a Arc<FieldInfo>,
   ) -> Self {
     Self {
       sorted,
@@ -193,7 +193,7 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
   type NumericDocValues = BufferedSortingNumericDocValues<&'a PackedLongValues>;
 
   fn get_numeric(&self, field_info: &Arc<FieldInfo>) -> Result<Self::NumericDocValues> {
-    if !Arc::ptr_eq(field_info, &self.writer_field_info) {
+    if !Arc::ptr_eq(field_info, self.writer_field_info) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     match self.sorted {
@@ -507,7 +507,7 @@ where
 }
 
 pub(crate) fn get_doc_values_producer<'a, DM>(
-  writer_field_info: Arc<FieldInfo>,
+  writer_field_info: &'a Arc<FieldInfo>,
   values: &'a PackedLongValues,
   docs_with_field: &'a DocsWithFieldSet,
   sort_map: Option<&DM>,

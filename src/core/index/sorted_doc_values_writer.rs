@@ -504,7 +504,7 @@ impl DocValuesWriter for SortedDocValuesWriter {
       segment_info,
       &self.field_info,
       &get_doc_values_producer(
-        self.field_info.clone(),
+        &self.field_info,
         frozen_hash,
         self.pool.clone(),
         final_ords,
@@ -580,7 +580,7 @@ pub(crate) struct DocValuesProducerImpl<'a> {
   ords: &'a PackedLongValues,
   ord_map: Arc<Vec<i32>>,
   docs_with_field: &'a DocsWithFieldSet,
-  writer_field_info: Arc<FieldInfo>,
+  writer_field_info: &'a Arc<FieldInfo>,
   sorted: Option<Arc<Vec<i32>>>,
 }
 
@@ -597,7 +597,7 @@ impl<'a> DocValuesProducerImpl<'a> {
     ords: &'a PackedLongValues,
     ord_map: Arc<Vec<i32>>,
     docs_with_field: &'a DocsWithFieldSet,
-    writer_field_info: Arc<FieldInfo>,
+    writer_field_info: &'a Arc<FieldInfo>,
     sorted: Option<Arc<Vec<i32>>>,
   ) -> Result<Self> {
     Ok(Self {
@@ -618,7 +618,7 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl<'a> {
   type SortedDocValues = SortedDocValuesWriterValues<&'a PackedLongValues>;
 
   fn get_sorted(&self, field_info_in: &Arc<FieldInfo>) -> Result<Self::SortedDocValues> {
-    if !Arc::ptr_eq(&self.writer_field_info, field_info_in) {
+    if !Arc::ptr_eq(self.writer_field_info, field_info_in) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     let buf = BufferedSortedDocValues::new(
@@ -867,7 +867,7 @@ where
 }
 
 pub(crate) fn get_doc_values_producer<'a, DM>(
-  writer_field_info: Arc<FieldInfo>,
+  writer_field_info: &'a Arc<FieldInfo>,
   hash: Arc<DirectBytesRefHash>,
   pool: Arc<ByteBlockPool>,
   ords: &'a PackedLongValues,
@@ -898,7 +898,7 @@ where
 
   DocValuesProducerImpl::new(
     hash,
-    pool.clone(),
+    pool,
     ords,
     ord_map,
     docs_with_field,

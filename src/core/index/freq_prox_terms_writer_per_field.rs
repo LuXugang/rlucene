@@ -42,7 +42,7 @@ use std::cmp::Ordering;
 use std::sync::Arc;
 
 pub(crate) struct FreqProxTermsWriterPerField {
-  field_info: Arc<FieldInfo>,
+  pub(super) field_info: Arc<FieldInfo>,
   pub(crate) has_freq: bool,
   pub(crate) has_prox: bool,
   pub(crate) has_offsets: bool,
@@ -79,7 +79,6 @@ impl FreqProxTermsWriterPerField {
     } else {
       1
     };
-    let name = field_info.get_name().to_string();
     let postings_array_wrapper = PostingsArrayWrapper::new(TermsHashPerFieldType::FreqProx(
       FreqProx::new(index_options),
     ));
@@ -87,7 +86,6 @@ impl FreqProxTermsWriterPerField {
       stream_count,
       terms_hash.base.bytes_used.clone(),
       postings_array_wrapper,
-      name,
       index_options,
     )?;
     Ok(FreqProxTermsWriterPerField {
@@ -651,7 +649,7 @@ impl PartialOrd<Self> for FreqProxTermsWriterPerField {
 
 impl Ord for FreqProxTermsWriterPerField {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.base.field_name.cmp(&other.base.field_name)
+    self.field_info.name.cmp(&other.field_info.name)
   }
 }
 

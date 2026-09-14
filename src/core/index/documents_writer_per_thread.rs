@@ -263,9 +263,9 @@ where
     unwrap_caught_result!(abort_result)
   }
   #[allow(clippy::too_many_arguments)]
-  pub(crate) fn new<L>(
+  pub(crate) fn new<L, N: Into<String>>(
     index_major_version_created: i32,
-    segment_name: &str,
+    segment_name: N,
     directory_orig: Arc<D>,
     directory: Arc<IndexWriterDir<D>>,
     index_writer_config: &L,
@@ -305,7 +305,7 @@ where
         &format!(
           "{} init seg={} delQueue={}",
           std::thread::current().name().unwrap_or(""),
-          segment_name,
+          segment_info.name,
           delete_queue
         ),
       )?;
@@ -802,7 +802,7 @@ where
         let mut fs = FlushedSegment::new(
           self.info_stream.clone(),
           segment_info_per_commit,
-          flush_state.field_infos.clone(),
+          flush_state.field_infos,
           segment_deletes,
           flush_state.live_docs.take(),
           flush_state.del_count_on_flush,

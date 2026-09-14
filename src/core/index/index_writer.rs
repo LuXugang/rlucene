@@ -255,7 +255,7 @@ where
   merges: Merges,
   merging_segments: HashSet<String>,
   merge_max_num_segments: i32,
-  running_add_indexes_merges: HashSet<String>,
+  running_add_indexes_merges: HashSet<[u8; StringHelper::ID_LENGTH]>,
   add_indexes_merge_sources: Vec<Weak<dyn AddIndexesMergeAbort<D>>>,
 }
 
@@ -687,13 +687,13 @@ where
     config: &IndexWriterConfig<D>,
     segment_infos: &SegmentInfos<D>,
   ) -> Result<()> {
-    if let Some(index_sort) = config.get_index_sort() {
+    if let Some(index_sort) = config.base.index_sort.as_ref() {
       for info in segment_infos.iter() {
-        let segment_index_sort = info.info.get_index_sort();
+        let segment_index_sort = info.info.index_sort.as_ref();
 
         if segment_index_sort
           .as_ref()
-          .is_none_or(|segment_sort| !is_congruent_sort(&index_sort, segment_sort))
+          .is_none_or(|segment_sort| !is_congruent_sort(index_sort, segment_sort))
         {
           let segment_index_sort = match segment_index_sort {
             Some(segment_sort) => segment_sort.to_string(),
@@ -1203,8 +1203,7 @@ where
     debug_assert!(leaf_doc_id >= 0);
     debug_assert!(leaf_doc_id < leaf_reader.max_doc()?);
 
-    let info_id_owned = leaf_reader.get_original_segment_info_id().to_string();
-    let info_id = info_id_owned.as_str();
+    let info_id = leaf_reader.get_original_segment_info_id();
     if let Some(info) = inner.segment_infos.index_of_live(info_id) {
       let rld_opt = self.get_pooled_instance(info, false)?;
       if let Some(rld) = rld_opt {
@@ -2597,7 +2596,7 @@ where
 
     match spec_opt {
       Some(spec) => {
-        let mut registered_merges = Vec::new();
+        let mut registered_merges = Vec::with_capacity(spec.merges.len());
         let mut rejected_merges = Vec::new();
         for m in spec.merges.into_iter() {
           match self.register_merge(m, inner)? {
@@ -3371,6 +3370,7 @@ where
       let mut success = false;
       let copy_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
         for sis in &commits {
+          infos.reserve(sis.size());
           for info in sis.iter() {
             debug_assert!(
               !infos.iter().any(|new_info| std::ptr::eq(
@@ -3795,7 +3795,7 @@ where
       self.directory_orig.clone(),
       Some((*LATEST).clone()),
       None,
-      &merged_name,
+      merged_name,
       -1,
       false,
       has_blocks,
@@ -3879,7 +3879,7 @@ where
     merge.check_aborted()?;
     {
       let mut inner = self.inner.lock();
-      inner.running_add_indexes_merges.insert(merger.id.clone());
+      inner.running_add_indexes_merges.insert(merger.id);
     }
     merge.set_merge_start_time(Instant::now());
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> Result<()> {
@@ -5687,7 +5687,7 @@ where
       self.directory_orig.clone(),
       Some((*LATEST).clone()),
       None,
-      merge_segment_name.as_ref(),
+      merge_segment_name,
       -1,
       false,
       has_blocks,
@@ -7024,7 +7024,7 @@ where
     let stop_collecting_merged_readers = Arc::new(AtomicBool::new(false));
     let merged_readers = Arc::new(Mutex::new(HashMap::new()));
     let opened_read_only_clones = Arc::new(Mutex::new(HashMap::new()));
-    let mut reader_factory = IOFunctionImpl::new(
+    let reader_factory = IOFunctionImpl::new(
       Arc::downgrade(self),
       Arc::clone(&opened_read_only_clones),
       max_full_flush_merge_wait_millis,
@@ -7081,7 +7081,7 @@ where
                     // just like we do when loading segments_N
                     reader = Some(open_with_reader_function(
                       self,
-                      &mut reader_factory,
+                      &mut &reader_factory,
                       None,
                       &mut inner,
                       apply_all_deletes,
@@ -7808,7 +7808,7 @@ where
     }
   }
 }
-impl<D> IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>> for IOFunctionImpl<D>
+impl<D> IOFunction<SegmentCommitInfo<D>, Inner<D>, DefaultLeafReader<D>> for &IOFunctionImpl<D>
 where
   D: Directory,
 {
@@ -8997,8 +8997,7 @@ where
       !self.stop_collecting_merged_readers.load(Ordering::SeqCst),
       "illegal state  merge reader must be not pulled since we already stopped waiting for merges"
     );
-    let mut reader_factory = self.reader_factory.clone();
-    let apply = reader_factory.apply(sci, inner)?;
+    let apply = (&self.reader_factory).apply(sci, inner)?;
     self
       .merged_readers
       .lock()

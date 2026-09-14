@@ -336,12 +336,8 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
       },
     };
     let Some(value_counts) = value_counts else {
-      let single_value_producer = get_doc_values_producer(
-        self.field_info.clone(),
-        values,
-        &self.docs_with_field,
-        sort_map,
-      )?;
+      let single_value_producer =
+        get_doc_values_producer(&self.field_info, values, &self.docs_with_field, sort_map)?;
       let producer = DocValuesProducerImpl1::new(single_value_producer)?;
       dv_consumer.add_sorted_numeric_field(
         write_state,
@@ -368,7 +364,7 @@ impl DocValuesWriter for SortedNumericDocValuesWriter {
     };
 
     let producer = DocValuesProducerImpl2::new(
-      self.field_info.clone(),
+      &self.field_info,
       &self.docs_with_field,
       values,
       sorted.as_ref(),
@@ -444,7 +440,7 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl1<'a> {
 }
 
 pub(crate) struct DocValuesProducerImpl2<'a> {
-  field_info: Arc<FieldInfo>,
+  field_info: &'a Arc<FieldInfo>,
   docs_with_field: &'a DocsWithFieldSet,
   values: &'a PackedLongValues,
   sorted: Option<&'a LongValues>,
@@ -459,7 +455,7 @@ impl CloseableRef for DocValuesProducerImpl2<'_> {
 
 impl<'a> DocValuesProducerImpl2<'a> {
   fn new(
-    field_info: Arc<FieldInfo>,
+    field_info: &'a Arc<FieldInfo>,
     docs_with_field: &'a DocsWithFieldSet,
     values: &'a PackedLongValues,
     sorted: Option<&'a LongValues>,
@@ -486,7 +482,7 @@ impl<'a> DocValuesProducer for DocValuesProducerImpl2<'a> {
     &self,
     field_info_in: &Arc<FieldInfo>,
   ) -> Result<Self::SortedNumericDocValues> {
-    if !Arc::ptr_eq(&self.field_info, field_info_in) {
+    if !Arc::ptr_eq(self.field_info, field_info_in) {
       return Err(LuceneError::illegal_argument("wrong fieldInfo"));
     }
     let buf = BufferedSortedNumericDocValues::new(

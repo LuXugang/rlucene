@@ -353,7 +353,7 @@ pub(crate) fn create_from_rectangle(rectangle: &Rectangle) -> Result<Rectangle2D
     GeoEncodingUtils::decode_longitude(GeoEncodingUtils::encode_longitude(rectangle.max_lon)?);
 
   if crosses_dateline {
-    let components = vec![
+    let components = [
       Rectangle2D::new(*MIN_LON_INCL_QUANTIZE, q_max_lon, q_min_lat, q_max_lat),
       Rectangle2D::new(q_min_lon, *MAX_LON_INCL_QUANTIZE, q_min_lat, q_max_lat),
     ];

@@ -144,16 +144,13 @@ where
         .ok_or_else(|| LuceneError::illegal_state("metadata output is missing"))?;
       CodecUtil::write_index_header(
         meta,
-        &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
+        VECTORS_META_CODEC_NAME,
         VERSION_CURRENT,
         si.get_id(),
         segment_suffix,
       )?;
       debug_assert_eq!(
-        CodecUtil::index_header_length(
-          &format!("{}Meta", VECTORS_INDEX_CODEC_NAME),
-          segment_suffix
-        ),
+        CodecUtil::index_header_length(VECTORS_META_CODEC_NAME, segment_suffix),
         meta.get_file_pointer()?
       );
 
@@ -199,10 +196,10 @@ where
         .write_vint(chunk_size)?;
 
       let writer = AbstractBlockPackedWriter::new(PACKED_BLOCK_SIZE, BlockPackedWriter)?;
-      let positions_buf = vec![0; 1024];
-      let start_offsets_buf = vec![0; 1024];
-      let lengths_buf = vec![0; 1024];
-      let payload_lengths_buf = vec![0; 1024];
+      let positions_buf = Vec::new();
+      let start_offsets_buf = Vec::new();
+      let lengths_buf = Vec::new();
+      let payload_lengths_buf = Vec::new();
       success = true;
       Ok((
         writer,
@@ -376,7 +373,8 @@ where
   /// Returns a sorted array containing unique field numbers
   pub(crate) fn flush_field_nums(&mut self) -> Result<Vec<i32>> {
     // 1. Collect unique field numbers
-    let mut field_nums_set = HashSet::new();
+    let mut field_nums_set =
+      HashSet::with_capacity(self.pending_docs.front().map_or(0, |doc| doc.fields.len()));
     for doc in &self.pending_docs {
       for field in &doc.fields {
         field_nums_set.insert(field.field_num);
@@ -1007,6 +1005,16 @@ where
       offsets,
       payloads,
     );
+    if positions && self.positions_buf.is_empty() {
+      self.positions_buf.resize(1024, 0);
+    }
+    if offsets && self.start_offsets_buf.is_empty() {
+      self.start_offsets_buf.resize(1024, 0);
+      self.lengths_buf.resize(1024, 0);
+    }
+    if payloads && self.payload_lengths_buf.is_empty() {
+      self.payload_lengths_buf.resize(1024, 0);
+    }
     self.last_term.length = 0;
     Ok(())
   }
@@ -1497,6 +1505,7 @@ pub(crate) const VECTORS_EXTENSION: &str = "tvd";
 pub(crate) const VECTORS_INDEX_EXTENSION: &str = "tvx";
 pub(crate) const VECTORS_META_EXTENSION: &str = "tvm";
 pub(crate) const VECTORS_INDEX_CODEC_NAME: &str = "Lucene90TermVectorsIndex";
+pub(crate) const VECTORS_META_CODEC_NAME: &str = "Lucene90TermVectorsIndexMeta";
 
 pub(crate) const VERSION_START: i32 = 0;
 pub(crate) const VERSION_CURRENT: i32 = VERSION_START;

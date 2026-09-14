@@ -303,11 +303,11 @@ where
       // find SegmentReader for this segment
       let old_reader = segment_readers
         .get(commit_info.info.name.as_str())
-        .map(|old_reader_index| old_readers[*old_reader_index].clone());
+        .map(|old_reader_index| &old_readers[*old_reader_index]);
 
       // Make a best effort to detect when the app illegally "rm -rf" their
       // index while a reader was open, and then called openIfChanged:
-      if let Some(old_reader) = &old_reader
+      if let Some(old_reader) = old_reader
         && commit_info.info.get_id() != old_reader.get_segment_info().info.get_id()
       {
         return Err(LuceneError::illegal_state(format!(
@@ -353,7 +353,7 @@ where
             };
             Arc::new(SegmentReader::new_from_reader(
               commit_info,
-              &old_reader,
+              old_reader,
               live_docs,
               hard_live_docs,
               commit_info.info.max_doc()? - commit_info.get_del_count(),
@@ -367,12 +367,12 @@ where
             // the old and the new one, so we must incRef
             // it:
             old_reader.inc_ref()?;
-            old_reader
+            old_reader.clone()
           } else if old_reader.get_segment_info().get_del_gen() == commit_info.get_del_gen() {
             // only DV updates
             Arc::new(SegmentReader::new_from_reader(
               commit_info,
-              &old_reader,
+              old_reader,
               old_reader.get_live_docs()?,
               old_reader.get_hard_live_docs()?,
               old_reader.num_docs()?,
@@ -398,7 +398,7 @@ where
             };
             Arc::new(SegmentReader::new_from_reader(
               commit_info,
-              &old_reader,
+              old_reader,
               live_docs,
               hard_live_docs,
               commit_info.info.max_doc()? - commit_info.get_del_count(),
