@@ -32,7 +32,7 @@ use crate::core::util::ram_usage_estimator::size_of_vec;
 /// This struct is used to construct the HNSW graph before it's written to the
 /// index.
 pub struct OnHeapHnswGraph {
-  entry_node: Arc<RwLock<EntryNode>>,
+  entry_node: RwLock<EntryNode>,
   // the internal graph representation where the first dimension is node id and second dimension
   // is level
   // e.g. graph[1][2] is all the neighbours of node 1 at level 2
@@ -71,7 +71,7 @@ impl OnHeapHnswGraph {
   ///   non-negative value locks the graph size,   disallowing any addition of
   ///   nodes with id ≥ `num_nodes`.
   pub fn new(m: usize, num_nodes: i32) -> Self {
-    let entry_node = Arc::new(RwLock::new(EntryNode::new(None, 1)));
+    let entry_node = RwLock::new(EntryNode::new(None, 1));
     // Neighbours' size on upper levels (nsize) and level 0 (nsize0)
     // We allocate extra space for neighbours, but then prune them to keep allowed
     // maximum
@@ -486,8 +486,7 @@ impl fmt::Display for OnHeapHnswGraph {
 
 impl Accountable for OnHeapHnswGraph {
   fn ram_bytes_used(&self) -> Result<i64> {
-    let mut size = (std::mem::size_of_val(self.entry_node.as_ref()) as i64)
-      .saturating_add(size_of_vec(&self.graph));
+    let mut size = size_of_vec(&self.graph);
     for levels in &self.graph {
       let Some(levels) = levels.get() else {
         continue;
